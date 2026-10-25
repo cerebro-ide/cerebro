@@ -8,7 +8,12 @@ import {
   EnvironmentTabs,
   ShellLayout,
 } from '@cerebro-ide/ui-layout';
-import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
+import {
+  MenuBar,
+  openContextMenu,
+  syncNativeMenu,
+  type NativeMenuBridge,
+} from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
@@ -27,7 +32,7 @@ import './playground.css';
 /** Set by the desktop app's preload script. */
 declare global {
   interface Window {
-    cerebro?: { app: boolean; platform: string };
+    cerebro?: { app: boolean; platform: string; menu: NativeMenuBridge };
   }
 }
 
@@ -152,11 +157,17 @@ function shortcutOf(command: string): string | undefined {
   return key === undefined ? undefined : formatSequence(key, services.keymap?.platform ?? 'other');
 }
 
+/** On macOS the desktop app shows the menu in the system menu bar, not in the window. */
+const nativeMenu = window.cerebro?.platform === 'darwin' ? window.cerebro.menu : undefined;
+if (nativeMenu) syncNativeMenu(services, nativeMenu, { context: activeTab });
+
 function Header() {
   return (
     <MainToolbar
       left={() => [
-        <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />,
+        nativeMenu ? null : (
+          <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
+        ),
         <ToolbarDropdown
           services={services}
           menu="toolbar/environments"

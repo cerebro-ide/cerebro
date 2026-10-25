@@ -354,9 +354,11 @@ Built for Ido's requirements in `features.md` ("The window's parts").
   than sitting beside the toolbar's other items (Ido).
 - **On macOS, the menu belongs in the system menu bar** (Ido's preference): hidden at the top of the
   screen until the pointer goes there.
-  - Planned for the Electron step: build the native application menu from the same registry.
-  - Claim, to verify then: Electron supports this through `Menu.setApplicationMenu`, and full-screen
-    reveal-on-hover is the OS's own behaviour.
+  - Built in the desktop app from the same registry (see "The Electron app"). Electron's docs:
+    `Menu.setApplicationMenu` sets the macOS application menu, whose first submenu always has the
+    app's name.
+  - Claim, still to check on a Mac: in full screen the system menu bar hides until the pointer
+    goes to the top, as the OS's own behaviour.
   - Windows and Linux keep the ☰ behaviour.
 - **Menu items as in IntelliJ, matched by measurement** (Ido's screenshot), in units of the
   height of a capital letter, since the screenshot's display scale is unknown:
@@ -458,8 +460,25 @@ new UI.
     page is built with relative URLs.
 - **Tests:** the window's options and the main process, with Electron mocked; the preload and the
   real window by a smoke run with Playwright's Electron support, not yet in CI.
-- **Still to do:** the native macOS menu from the menu registry (see the menu bar above), checked on
-  a Mac; packaging is milestone 3.
+- **The macOS application menu** shows the page's `main` menu (ui-menu's `syncNativeMenu`):
+  - the page turns its menus into a plain tree (labels without mnemonics, `…` for dialogs, enabled
+    and checked states, shortcuts as accelerators) and sends it over IPC whenever it changes; the
+    main process rebuilds the menu each time, since Electron's docs say a set menu's items can't be
+    added or removed;
+  - the main process takes only known fields from the tree, never roles, and frames it with the
+    system's app menu (named from `productName`, "Cerebro") and Window menu;
+  - a click sends the command back to the page, which runs it with the menu bar's context;
+  - **shortcuts stay the page's**: the menu shows them, but clicks an accelerator triggers are
+    ignored (Electron reports `triggeredByAccelerator`), so the keymap is the only thing that runs
+    them, with its chords and user bindings. Sequences of several chords show no accelerator.
+  - The in-window menu bar isn't shown there.
+
+  Measured on Linux: the IPC both ways, and Electron building the template (roles, checkboxes,
+  accelerators such as `Command+Plus`). Claims, still to check on a Mac:
+  - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
+    those commands would do nothing);
+  - copy and paste in text fields work without an Edit menu of Electron's roles.
+- **Still to do:** packaging is milestone 3.
 
 ## Desktop conventions in the UI (2026-10-25)
 

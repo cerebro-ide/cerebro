@@ -4,6 +4,7 @@
 
 import { app, BrowserWindow, type WebContents } from 'electron';
 import { fileURLToPath } from 'node:url';
+import { installMenu } from './menu.js';
 import { windowOptions } from './window.js';
 
 /** The built UI, relative to this file once compiled to dist/. */
@@ -39,8 +40,12 @@ export async function createWindow(
   return window;
 }
 
-/** Starts the app: a window when ready, another when re-activated without one (macOS). */
+/**
+ * Starts the app: a window when ready, another when re-activated without one (macOS), and on macOS
+ * the application menu from the page.
+ */
 export function start(): void {
+  installMenu();
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
   });

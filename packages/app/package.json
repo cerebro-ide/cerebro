@@ -1,5 +1,6 @@
 {
   "name": "@cerebro-ide/app",
+  "productName": "Cerebro",
   "version": "0.0.0",
   "private": true,
   "description": "The Electron app: a window around Cerebro's UI.",
