@@ -343,6 +343,13 @@ Built for Ido's requirements in `features.md` ("The window's parts").
     as on Windows).
   - Keys an open menu handles don't reach the app's shortcuts.
   - It stays inside the window, and gives focus back when it closes.
+- **The hidden menu bar expands in place, as in IntelliJ** (Ido's screenshot):
+  - clicking ☰ shows the bar where the button was, with File open below its name;
+  - Alt plus a letter, or Alt alone, expands it the same way;
+  - it collapses back to ☰ when the menu closes.
+
+  Mnemonics in the bar are underlined while a menu is open or Alt is held. Claude first opened a
+  separate vertical menu from ☰; Ido pointed to IntelliJ's behaviour instead.
 - **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
   app opens the menu.
 

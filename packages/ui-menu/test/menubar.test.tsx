@@ -98,40 +98,61 @@ const move = (element: Element, movementX = 2) =>
   element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, movementX }));
 
 describe('hidden, behind a button', () => {
-  it('opens all menus from the button, and closes on a second press', () => {
-    const { button } = mount(false);
+  const names = (bar: HTMLElement) =>
+    [...bar.querySelectorAll('.cerebro-menubar__item')].map((i) => i.textContent);
+
+  it('expands into the bar with its first menu open, and collapses when it closes', () => {
+    const { button, bar, item } = mount(false);
+    expect(names(bar())).toEqual([]);
     expect(button().getAttribute('aria-expanded')).toBe('false');
     press(button());
-    expect(menus()).toEqual(['main']);
-    expect(button().getAttribute('aria-expanded')).toBe('true');
-    press(button());
-    expect(menus()).toEqual([]);
-    press(button());
+    expect(names(bar())).toEqual(['File', 'Edit', 'View']);
+    expect(menus()).toEqual(['main/file']);
+    expect(bar().querySelector('.cerebro-menubar__button')).toBeNull();
+    // Opened below its name, in the expanded bar.
+    const popup = (document.querySelector('.cerebro-menu') as HTMLElement).getBoundingClientRect();
+    expect(popup.left).toBe(item(0).getBoundingClientRect().left);
+    move(item(1));
+    expect(menus()).toEqual(['main/edit']);
     key('Escape');
     expect(menus()).toEqual([]);
-    expect(button().getAttribute('aria-expanded')).toBe('false');
+    expect(names(bar())).toEqual([]);
+    expect(button()).not.toBeNull();
   });
 
-  it('opens a menu with Alt and its letter', () => {
-    const { button } = mount(false);
+  it('collapses on a press outside, or when its name is pressed again', () => {
+    const { button, bar, item } = mount(false);
     press(button());
-    expect(alt('F').defaultPrevented).toBe(true);
-    expect(menus()).toEqual(['main', 'main/file']);
-    expect(highlighted()).toBe('New');
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(names(bar())).toEqual([]);
+    press(button());
+    press(item(0));
+    expect(menus()).toEqual([]);
+    expect(names(bar())).toEqual([]);
+  });
+
+  it('expands with Alt and a letter', () => {
+    const { bar } = mount(false);
+    expect(alt('E').defaultPrevented).toBe(true);
+    expect(names(bar())).toEqual(['File', 'Edit', 'View']);
+    expect(menus()).toEqual(['main/edit']);
+    expect(highlighted()).toBe('Undo');
+    key('ArrowRight');
+    expect(menus()).toEqual(['main/view']);
     expect(alt('Z').defaultPrevented).toBe(false);
   });
 
-  it('opens with Alt alone, and closes with it', () => {
-    mount(false);
+  it('expands with Alt alone, the keyboard on its first menu, and collapses with it', () => {
+    const { bar, item } = mount(false);
     altAlone();
-    expect(menus()).toEqual(['main']);
-    expect(highlighted()).toBe('File');
+    expect(names(bar())).toEqual(['File', 'Edit', 'View']);
+    expect(item(0).classList.contains('cerebro-menubar__item--active')).toBe(true);
     altAlone();
-    expect(menus()).toEqual([]);
+    expect(names(bar())).toEqual([]);
   });
 
   it('treats Alt with another key or modifier as not alone', () => {
-    mount(false);
+    const { bar } = mount(false);
     key('Alt', { altKey: true, ctrlKey: true });
     key('Alt', {}, 'keyup');
     key('Alt', { altKey: true });
@@ -142,6 +163,7 @@ describe('hidden, behind a button', () => {
     key('Alt', {}, 'keyup');
     key('Shift', {}, 'keyup');
     expect(menus()).toEqual([]);
+    expect(names(bar())).toEqual([]);
   });
 });
 
@@ -160,8 +182,9 @@ describe('visible, as a bar', () => {
   });
 
   it('opens a menu below its name on press, and closes on a second press', () => {
-    const { item } = mount(true);
+    const { item, bar } = mount(true);
     press(item(1));
+    expect(bar().classList.contains('cerebro-menubar--mnemonics')).toBe(true);
     expect(menus()).toEqual(['main/edit']);
     expect(item(1).getAttribute('aria-expanded')).toBe('true');
     const name = item(1).getBoundingClientRect();

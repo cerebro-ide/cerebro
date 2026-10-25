@@ -101,7 +101,7 @@
   background: var(--cerebro-hover);
 }
 
-/* Mnemonics show in the bar only while Alt is held or the bar has the keyboard, as in Windows. */
+/* Mnemonics show in the bar only while Alt is held, the bar has the keyboard or a menu is open. */
 .cerebro-menubar:not(.cerebro-menubar--mnemonics) .cerebro-menubar__item .cerebro-mnemonic {
   text-decoration: none;
 }
@@ -118,8 +118,7 @@
   color: var(--cerebro-text);
 }
 
-.cerebro-menubar__button:hover,
-.cerebro-menubar__button--active {
+.cerebro-menubar__button:hover {
   background: var(--cerebro-hover);
 }
 

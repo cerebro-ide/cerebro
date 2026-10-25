@@ -1,12 +1,14 @@
 // The menu bar: the submenus of one menu (`main`), as a bar or, hidden as IntelliJ's new UI does it,
-// collapsed into a button that opens them as one menu.
+// collapsed into a button. Using the hidden bar expands it in place, as IntelliJ does: clicking the
+// button shows the bar with its first menu open, and it collapses again when the menu closes.
 //
 // Keyboard, as in desktop OSes:
-// - Alt plus a mnemonic letter opens that menu, in either mode.
-// - Alt pressed alone highlights the bar's first menu (arrows, Enter and letters then work, Escape or
-//   Alt leaves); with the bar hidden it opens the button's menu.
+// - Alt plus a mnemonic letter opens that menu, expanding a hidden bar.
+// - Alt pressed alone highlights the bar's first menu, expanding a hidden bar (arrows, Enter and
+//   letters then work, Escape or Alt leaves).
 // - While a menu is open, Left and Right move to the neighbouring menu.
-// Mnemonics in the bar are underlined while Alt is held or the bar has the keyboard.
+// Mnemonics in the bar are underlined while Alt is held, the bar has the keyboard or a menu is open,
+// as in IntelliJ.
 
 import { parseLabel } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
@@ -33,6 +35,8 @@ class BarState {
   alt = false;
   /** A menu is open. */
   open = false;
+  /** A hidden bar shows while it's in use. */
+  expanded = false;
 
   constructor() {
     makeObservable(this);
@@ -61,7 +65,6 @@ export function MenuBar(props: MenuBarProps): Node {
     visibleEntries(services, menu).flatMap((e) => ('submenu' in e ? [e] : []));
   let handle: MenuHandle | undefined;
   let bar: HTMLElement | undefined;
-  let button: HTMLElement | undefined;
   /** Set when Alt goes down alone; cleared by any other key or a press. */
   let altAlone = false;
 
@@ -72,70 +75,42 @@ export function MenuBar(props: MenuBarProps): Node {
     state.open = false;
     state.active = -1;
     state.keyboard = false;
+    state.expanded = false;
   };
 
-  /** Opens one of the bar's menus, below it in the bar or from the button when hidden. */
+  /** Opens one of the bar's menus below its name, expanding a hidden bar first. */
   const openRoot = (index: number, fromKeyboard: boolean) => {
     const list = roots();
     const root = list[index] as Root;
     const previous = handle;
     handle = undefined;
     previous?.close();
+    // Showing the bar renders it right away, so its names are there to anchor to.
+    state.expanded = !props.visible();
     state.keyboard = false;
     state.active = index;
     state.open = true;
-    const onClose = () => {
-      // Only the menu that is current ends the bar's state; a replaced one doesn't.
-      if (handle === opened) {
-        handle = undefined;
-        state.open = false;
-        state.active = -1;
-      }
-    };
-    const context = props.context?.();
-    const opened = props.visible()
-      ? openMenu(
-          services,
-          root.submenu,
-          {
-            anchor: bar?.querySelector(`[data-index="${String(index)}"]`) as Element,
-            placement: 'below',
-          },
-          {
-            context,
-            onClose,
-            owner: bar as Element,
-            focusFirst: fromKeyboard,
-            onNavigate: (direction) => {
-              openRoot((index + direction + list.length) % list.length, true);
-            },
-          },
-        )
-      : openMenu(
-          services,
-          menu,
-          { anchor: button as Element, placement: 'below' },
-          { context, onClose, owner: button as Element, submenu: root.submenu },
-        );
-    handle = opened;
-  };
-
-  /** Opens the hidden bar's button menu. */
-  const openAll = (fromKeyboard: boolean) => {
-    close();
-    state.open = true;
     const opened = openMenu(
       services,
-      menu,
-      { anchor: button as Element, placement: 'below' },
+      root.submenu,
+      {
+        anchor: bar?.querySelector(`[data-index="${String(index)}"]`) as Element,
+        placement: 'below',
+      },
       {
         context: props.context?.(),
-        owner: button as Element,
+        owner: bar as Element,
         focusFirst: fromKeyboard,
+        onNavigate: (direction) => {
+          openRoot((index + direction + list.length) % list.length, true);
+        },
         onClose: () => {
+          // Only the menu that is current ends the bar's state; a replaced one doesn't.
           if (handle === opened) {
             handle = undefined;
             state.open = false;
+            state.active = -1;
+            state.expanded = false;
           }
         },
       },
@@ -191,10 +166,11 @@ export function MenuBar(props: MenuBarProps): Node {
     altAlone = false;
     event.preventDefault();
     if (state.open || state.keyboard) close();
-    else if (props.visible()) {
+    else {
+      state.expanded = !props.visible();
       state.keyboard = true;
       state.active = 0;
-    } else openAll(true);
+    }
   };
 
   const onPointerDown = () => {
@@ -215,12 +191,15 @@ export function MenuBar(props: MenuBarProps): Node {
   return (
     <div
       class={() =>
-        cls('cerebro-menubar', (state.alt || state.keyboard) && 'cerebro-menubar--mnemonics')
+        cls(
+          'cerebro-menubar',
+          (state.alt || state.keyboard || state.open) && 'cerebro-menubar--mnemonics',
+        )
       }
       role="menubar"
     >
       {() =>
-        props.visible() ? (
+        props.visible() || state.expanded ? (
           <div
             class="cerebro-menubar__items"
             ref={(element) => {
@@ -268,19 +247,13 @@ export function MenuBar(props: MenuBarProps): Node {
         ) : (
           <button
             type="button"
-            class={() =>
-              cls('cerebro-menubar__button', state.open && 'cerebro-menubar__button--active')
-            }
+            class="cerebro-menubar__button"
             aria-label="Main Menu"
             aria-haspopup="menu"
-            aria-expanded={() => String(state.open)}
-            ref={(element) => {
-              button = element;
-              tooltip({ text: () => 'Main Menu' })(element);
-            }}
+            aria-expanded="false"
+            ref={tooltip({ text: () => 'Main Menu' })}
             on:pointerdown={() => {
-              if (state.open) close();
-              else openAll(false);
+              openRoot(0, false);
             }}
           >
             <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
