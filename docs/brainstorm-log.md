@@ -400,3 +400,12 @@ folding the dev server into that step.
 
 > I want to note that I also expect to have a "file menu" at the top, as well as something similar to intellij top menu with the branch/worktree selection, 2 layers to tabs to manage both different envs and files, and that everything need to support keyboard navigation/shortcuts that can be configured.
 > oh, and to be clear about the file menu, it includes letter shortcuts, just like in existing OS, where i can use something like alt+o to open specific menus. menus that have dialogs/modals end with ... otherwise they don't and it could support nesting. these menus should also be the base for context-menus which should offer the same set of features. it could be hidden by default, as intellij does it, which is a very nice feature. also I expect some sort of a statusbar at the bottom which we'll later discuss what can go on, but similar to intellij it'll probably be indication of running backroung tasks, services, and base data about active env/session/file
+
+**Ido** (on where settings files live: global in the user's config directory; repo committed in
+the repo, in its git directory, or in Cerebro's own data):
+
+> 2 is a bit problematic, not just because it's lost if you delete the clone but also because there's no way to share it, or clone it to another machine. i think that as a first step 1 makes the most sense, while we can consider in the future a combination of 1 and 3.
+
+> another alternative is to make it configurable as well in the settings...
+
+> local data should be saved in the local db. it can be recreated on different machines. settings can be configured locally in the repo or globally in the app dir

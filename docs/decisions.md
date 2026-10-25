@@ -584,7 +584,14 @@ global → repo → worktree".
     clone elsewhere. Later, maybe: a combination with Cerebro's own data directory, for settings
     that shouldn't be committed.
   - Since each worktree is its own checkout, each reads the committed file from its own branch.
-  - Still open: the worktree layer's file, the exact path and the format. Saving needs the host.
+  - **Settings files live in two places only:** in the repo or in the app's directory (Ido). The
+    location could later be configurable, through a global setting (the global file is the one
+    at a fixed path).
+  - **Local data goes in the local database** (Ido): the host's database, beside the session
+    database. It isn't shared, since it can be recreated on another machine. Read as covering the
+    worktree layer: a worktree's settings are local data, not a file.
+  - Still open: the repo file's exact path (`.cerebro/settings.json` proposed) and the format.
+    Saving needs the host.
 - Keybindings aren't settings pages yet.
 
 ## Desktop conventions in the UI (2026-10-25)
