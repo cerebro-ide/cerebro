@@ -503,32 +503,40 @@
   background: var(--cerebro-separator);
 }
 
-/* Environment tabs: the outer tab layer, under the main toolbar. */
+/*
+ * Environment tabs: the outer tab layer, under the main toolbar, as IntelliJ's window tabs: equal
+ * widths filling the row, the label centred, the active tab a rounded pill on the editor colour.
+ */
 
 .cerebro-env-tabs {
   display: flex;
   align-items: stretch;
+  gap: 4px;
   height: var(--cerebro-env-tab-height);
-  overflow-x: auto;
-  border-top: 1px solid var(--cerebro-border);
+  padding: 4px 6px;
+  box-sizing: border-box;
   background: var(--cerebro-panel);
   color: var(--cerebro-text-muted);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);
   cursor: default;
-  scrollbar-width: none;
   user-select: none;
+}
+
+.cerebro-env-tabs[hidden] {
+  display: none;
 }
 
 .cerebro-env-tab {
   position: relative;
   display: flex;
-  flex: none;
+  flex: 1 1 0;
+  justify-content: center;
   align-items: center;
   gap: 6px;
-  max-width: 360px;
-  padding: 0 4px 0 10px;
-  border-right: 1px solid var(--cerebro-border);
+  min-width: 0;
+  padding: 0 26px;
+  border-radius: var(--cerebro-radius);
   touch-action: none;
   white-space: nowrap;
 }
@@ -538,21 +546,10 @@
   color: var(--cerebro-text);
 }
 
-/* The active environment's tab joins the window below it, with an accent line on top. */
 .cerebro-env-tab--active,
 .cerebro-env-tab--active:hover {
   background: var(--cerebro-background);
   color: var(--cerebro-text);
-}
-
-.cerebro-env-tab--active::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 2px;
-  background: var(--cerebro-accent);
 }
 
 .cerebro-env-tab:focus-visible {
@@ -566,21 +563,25 @@
 
 .cerebro-env-tab__badge {
   display: grid;
+  flex: none;
   place-items: center;
 }
 
-/* The name stays whole; the branch is what gets cut short. */
-.cerebro-env-tab__name {
-  flex: none;
-  font-weight: 600;
-}
-
-.cerebro-env-tab__branch {
-  flex: 0 1 auto;
+.cerebro-env-tab__label {
   min-width: 0;
   overflow: hidden;
-  color: var(--cerebro-text-muted);
   text-overflow: ellipsis;
+}
+
+/* The close button sits at the tab's right edge and shows on hover, leaving the label centred. */
+.cerebro-env-tab__close {
+  position: absolute;
+  right: 4px;
+  visibility: hidden;
+}
+
+.cerebro-env-tab:hover .cerebro-env-tab__close {
+  visibility: visible;
 }
 
 .cerebro-env-tab__close,
@@ -597,18 +598,8 @@
   color: var(--cerebro-text-muted);
 }
 
-.cerebro-env-tab__close {
-  visibility: hidden;
-}
-
-.cerebro-env-tab:hover .cerebro-env-tab__close,
-.cerebro-env-tab--active .cerebro-env-tab__close {
-  visibility: visible;
-}
-
 .cerebro-env-tabs__add {
   align-self: center;
-  margin: 0 6px;
 }
 
 .cerebro-env-tab__close:hover,

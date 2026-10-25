@@ -68,18 +68,45 @@ function pointer(
 const tick = () => new Promise((resolve) => setTimeout(resolve));
 
 describe('EnvironmentTabs', () => {
-  it('shows a tab per environment, with badge, name and branch, the active one marked', () => {
+  it('shows a tab per environment, named by default, the active one marked', () => {
     const envs = workspace('a', 'b');
-    const container = mount(() => (
-      <EnvironmentTabs environments={envs} badge={(env) => <i class="test-badge">{env.name}</i>} />
-    ));
+    const container = mount(() => <EnvironmentTabs environments={envs} />);
     const { ids, tab } = tabs(container);
     expect(ids()).toEqual(['a', 'b']);
-    expect(tab('a').querySelector('.test-badge')?.textContent).toBe('a');
-    expect(tab('b').querySelector('.cerebro-env-tab__branch')?.textContent).toBe('feat/b');
+    expect(tab('a').querySelector('.cerebro-env-tab__label')?.textContent).toBe('a');
     expect(tab('b').getAttribute('aria-selected')).toBe('true');
     expect(tab('a').classList.contains('cerebro-env-tab--active')).toBe(false);
+    expect(tab('a').querySelector('.cerebro-env-tab__badge')).toBeNull();
     expect(container.querySelector('.cerebro-env-tabs__add')).toBeNull();
+  });
+
+  it('takes a label and a badge from the app', () => {
+    const envs = workspace('a', 'b');
+    const { tab } = tabs(
+      mount(() => (
+        <EnvironmentTabs
+          environments={envs}
+          label={(env) => `${env.name} – main.ts`}
+          badge={(env) => <i class="test-badge">{env.name}</i>}
+        />
+      )),
+    );
+    expect(tab('a').querySelector('.cerebro-env-tab__label')?.textContent).toBe('a – main.ts');
+    expect(tab('a').querySelector('.test-badge')?.textContent).toBe('a');
+  });
+
+  it('splits the row equally, and shows only with two or more', () => {
+    const envs = workspace('a');
+    const container = mount(() => <EnvironmentTabs environments={envs} />);
+    const row = container.querySelector('.cerebro-env-tabs') as HTMLElement;
+    expect(row.hidden).toBe(true);
+    envs.openOrActivate({ id: 'b', name: 'b', branch: 'main' });
+    expect(row.hidden).toBe(false);
+    const { tab } = tabs(container);
+    expect(tab('a').getBoundingClientRect().width).toBeCloseTo(
+      tab('b').getBoundingClientRect().width,
+      0,
+    );
   });
 
   it('switches on click and from the keyboard', () => {

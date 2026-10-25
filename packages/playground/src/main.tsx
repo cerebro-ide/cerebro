@@ -13,13 +13,7 @@ import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
-import {
-  badgeColour,
-  initials,
-  MainToolbar,
-  ToolbarButton,
-  ToolbarDropdown,
-} from '@cerebro-ide/ui-toolbar';
+import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
@@ -221,15 +215,6 @@ function Content(props: { id: string }) {
   );
 }
 
-/** An environment's badge: its initials on its colour, as in the toolbar. */
-function Badge(props: { name: string }) {
-  return (
-    <span class="playground-badge" style={{ background: badgeColour(props.name) }}>
-      {initials(props.name)}
-    </span>
-  );
-}
-
 /** Pretend file contents: numbered lines of code-like text. */
 function Code(props: { path: string }) {
   const lines = Array.from({ length: 60 }, (_, i) =>
@@ -299,7 +284,10 @@ render(
         <Header />,
         <EnvironmentTabs
           environments={workspace}
-          badge={(env) => <Badge name={env.name} />}
+          label={(env) => () => {
+            const file = env.editor.activeGroup.activeTab?.title;
+            return file === undefined ? env.name : `${env.name} – ${file}`;
+          }}
           onAdd={(button) => {
             openMenu(
               services,

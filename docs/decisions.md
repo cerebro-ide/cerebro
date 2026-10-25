@@ -350,6 +350,14 @@ Built for Ido's requirements in `features.md` ("The window's parts").
 
   Mnemonics in the bar are underlined while a menu is open or Alt is held. Claude first opened a
   separate vertical menu from ☰; Ido pointed to IntelliJ's behaviour instead.
+- **Expanded, the hidden bar takes over the whole toolbar row**, as IntelliJ does on Windows, rather
+  than sitting beside the toolbar's other items (Ido).
+- **On macOS, the menu belongs in the system menu bar** (Ido's preference): hidden at the top of the
+  screen until the pointer goes there.
+  - Planned for the Electron step: build the native application menu from the same registry.
+  - Claim, to verify then: Electron supports this through `Menu.setApplicationMenu`, and full-screen
+    reveal-on-hover is the OS's own behaviour.
+  - Windows and Linux keep the ☰ behaviour.
 - **Menu items as in IntelliJ, matched by measurement** (Ido's screenshot), in units of the
   height of a capital letter, since the screenshot's display scale is unknown:
   - item spacing was already IntelliJ's (2.8× there, 2.9× here), so the height stayed;
@@ -370,9 +378,17 @@ it gives each project its own window, so the design is Claude's.
     confirmed.
   - Opening a worktree that's already open switches to its tab.
   - Closing a tab activates the next one, or the previous for the last.
-- **Tabs** (`EnvironmentTabs`): badge, name (kept whole) and branch (truncated first).
-  - Click or Enter to switch; × or middle-click to close; drag to reorder.
-  - A **+** opens another environment, and tabs have a context menu.
+- **Tabs** (`EnvironmentTabs`), styled as IntelliJ's window tabs (Ido's screenshot):
+  - equal widths filling the row, the label centred;
+  - labelled by the app: the playground shows "environment – active file", as IntelliJ shows
+    "project – file";
+  - the active tab is a rounded pill on the editor colour;
+  - the row shows only with two or more environments open;
+  - click or Enter to switch, × (on hover) or middle-click to close, drag to reorder;
+  - a **+** opens another environment, and tabs have a context menu.
+
+  Claude's first version had a badge, name and branch per tab and was always shown; Ido pointed to
+  IntelliJ's instead.
 - **Editor areas** (`EnvironmentEditors`): each open environment's is rendered once and kept, hidden,
   while inactive, so switching back finds its splits, tabs and content exactly as they were.
 - **The toolbar's environment selector** shows the active environment and opens worktrees as

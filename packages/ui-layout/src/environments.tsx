@@ -1,6 +1,8 @@
 // Environment tabs, the outer of the two tab layers: one tab per open environment (a worktree with
-// its session), under the main toolbar. And the editor area of each open environment, kept alive
-// while it's hidden so switching back finds it as it was.
+// its session), under the main toolbar, styled as IntelliJ's window tabs: equal widths filling the
+// row, the label centred, the active tab a rounded pill, shown only with two or more open. And the
+// editor area of each open environment, kept alive while it's hidden so switching back finds it as
+// it was.
 
 import { render, onCleanup, type Child } from '@cerebro-ide/jsx';
 import type { Environment, Environments } from '@cerebro-ide/layout';
@@ -10,7 +12,9 @@ import { dragFrom } from './drag.js';
 
 export interface EnvironmentTabsProps {
   environments: Environments;
-  /** Leads each tab: the environment's badge, for example. */
+  /** A tab's label; IntelliJ shows the environment and its active file. Default: the name. */
+  label?: (env: Environment) => Child;
+  /** Leads each tab's label: the environment's badge, for example. */
   badge?: (env: Environment) => Child;
   /** The + button: open another environment, typically from a menu anchored to the button. */
   onAdd?: (button: HTMLElement) => void;
@@ -107,8 +111,9 @@ export function EnvironmentTabs(props: EnvironmentTabsProps): Node {
         }}
       >
         {props.badge ? <span class="cerebro-env-tab__badge">{props.badge(env)}</span> : null}
-        <span class="cerebro-env-tab__name">{() => env.name}</span>
-        <span class="cerebro-env-tab__branch">{() => env.branch}</span>
+        <span class="cerebro-env-tab__label">
+          {props.label ? props.label(env) : () => env.name}
+        </span>
         <button
           type="button"
           class="cerebro-env-tab__close"
@@ -140,6 +145,8 @@ export function EnvironmentTabs(props: EnvironmentTabsProps): Node {
       class={() => cls('cerebro-env-tabs', drag.id !== undefined && 'cerebro-env-tabs--dragging')}
       role="tablist"
       aria-label="Environments"
+      // As IntelliJ's window tabs, only with two or more to choose between.
+      hidden={() => environments.open.length < 2}
       ref={(element) => {
         strip = element;
       }}
