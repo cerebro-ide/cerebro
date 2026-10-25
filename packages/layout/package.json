@@ -1,0 +1,24 @@
+{
+  "name": "@cerebro-ide/layout",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The IDE layout model: tool windows in fixed areas and an editor area of tabbed splits.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}

@@ -6,6 +6,9 @@
     },
     {
       "path": "packages/jsx/tsconfig.build.json"
+    },
+    {
+      "path": "packages/layout/tsconfig.build.json"
     }
   ]
 }
