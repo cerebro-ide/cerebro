@@ -9,8 +9,9 @@
 - **Web components and shadow DOM**: whether Cerebro's components and plugins use custom elements
   and shadow roots (for example to isolate plugins' styles), or plain elements. The JSX runtime
   works with either.
-- **Observable nested objects**: the exact API (Ido's requirement: a type for nested objects, as
-  well as observable collections, without implicit proxies).
+- **The MobX-style API**: how observable models are declared (decorators, or explicit calls such as
+  MobX's `makeObservable`), and the exact API for observable nested objects (Ido's requirement: a
+  type for nested objects, as well as observable collections, without implicit proxies).
 - **3-way merge UI**: Cerebro's own view on CodeMirror; design not started.
 - **Host ↔ UI protocol**: JSON-RPC over stdio is proposed. Open: message format details,
   versioning between app and host, and how the host is installed on a remote machine.
@@ -22,8 +23,12 @@
 - **Kanban board**: how tasks map to agents, worktrees and sessions.
 - **Config layering**: global → repo → worktree; what lives where.
 - **Other agent CLIs**: which ones, and how much of hooks/resume/skills maps onto them.
-- **Build and repo tooling**: package manager, bundler, test runner and coverage tool, chosen with
-  minimal dependencies in mind.
+- **Undeclared dependencies**: npm workspaces hoist packages, so a package can import something it
+  doesn't declare. That breaks "usable in isolation" silently. How to catch it: a lint rule, a
+  check script, or per-package test installs.
+- **TypeScript 7**: when to move Cerebro's own build to it (after typescript-eslint supports it).
+  Separately, the language-server pool has to serve repos on TS 5–6 (tsserver) and on TS 7, which
+  has its own LSP-based server.
 - **Native tree-sitter or WASM**: WASM worked without a compiler and is fast enough (spike); native
   is faster but needs per-OS builds.
 - **Name before publishing**: other projects already use "Cerebro" on GitHub, including

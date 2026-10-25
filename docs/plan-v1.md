@@ -8,7 +8,7 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
 
 - **The base libraries:**
   - the reactive core: signal, computed, effect, batch;
-  - the MobX-style decorators;
+  - the MobX-style layer;
   - observable collections and observable nested objects;
   - the JSX runtime.
 - **The protocol:** JSON-RPC over stdio, with the host started as a local child process.
@@ -16,6 +16,8 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
 - **The IntelliJ-style window:** menu bar, docked tool windows (own docking), editor tabs, status
   bar.
 - **Settings** layered global → repo → worktree.
+- **The build tooling** (`decisions.md`): npm workspaces, TypeScript 6, Vite, Vitest, ESLint and
+  Prettier.
 - **CI on macOS, Windows and Linux** from the start.
 
 ## 2. Worktrees and files

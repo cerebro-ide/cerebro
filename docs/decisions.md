@@ -136,8 +136,9 @@ React; he asked for Claude's opinion and agreed with it. Why:
 Shape of the reactive layer:
 
 - **Core:** signal, computed, effect and batch, with automatic dependency tracking.
-- **On top, a MobX-style layer:** model classes with standard TypeScript decorators
-  (`@observable accessor`, `@computed`, `@action`).
+- **On top, a MobX-style layer:** observable model objects with computed values and actions. How
+  they are declared is open (`open-questions.md`); decorators were Claude's suggestion, not a
+  decision.
 - **No implicit deep observability through proxies**, as in MobX. It's slow and surprising for
   IDE-sized data.
 - **Instead, two explicit types:**
@@ -184,6 +185,40 @@ Monaco is overkill for Cerebro. Why:
 CodeMirror's official packages cover the editor-side pieces: `@codemirror/lint` for diagnostics,
 `@codemirror/autocomplete`, and `@codemirror/merge` for 2-way diffs. These were checked on npm on
 2026-10-25: all three are from CodeMirror's author.
+
+## Build tooling: the minimal, mainstream set (2026-10-25)
+
+Ido's approach is minimal: no new tools or exotic libraries without a good reason. The
+minimal-dependencies rule applies to **runtime** dependencies; development tools are chosen for
+productivity, but still from the mainstream.
+
+| need | choice |
+|---|---|
+| package manager | npm workspaces (built into Node) |
+| type checking, library output | TypeScript 6.0.3, `tsc -b` with project references |
+| bundling the app | Vite (already required by Vitest, as its peer dependency) |
+| unit tests | Vitest: in Node for host packages, browser mode on Playwright's Chromium for DOM packages; coverage thresholds at 100% per file |
+| lint and format | ESLint + typescript-eslint + Prettier |
+| task running | npm scripts and `tsc -b`; no Nx or Turborepo for now |
+| packaging Electron | decided in milestone 3 |
+
+Why:
+
+- **TypeScript 6, not 7.** TypeScript 7.0 (the native Go compiler) has no API ([announcement](https://devblogs.microsoft.com/typescript/announcing-typescript-7-0/)).
+  - typescript-eslint needs that API: every release line on npm declares TypeScript
+    `>=4.8.4 <6.1.0` as its peer dependency (checked 2026-10-25).
+  - Microsoft's own workaround is TS 6 and TS 7 side by side through npm aliases. That's two
+    compilers, which is against the minimal approach.
+  - Move to 7 once typescript-eslint supports it; the 7.1 beta with an API came out on 2026-10-20.
+- **Vitest over `node:test`.** DOM packages need tests in a real browser with layout, which
+  `node:test` can't run. Vitest runs both environments with one runner and enforces per-file
+  coverage ([coverage config](https://vitest.dev/config/coverage)).
+- **Rejected:**
+  - **pnpm:** its stricter `node_modules` and shared store weren't worth a non-default tool. How
+    to catch a package importing something it doesn't declare is open (`open-questions.md`).
+  - **Biome:** newer, and its type-aware rules use its own inference rather than TypeScript.
+  - **Nx and Turborepo:** they don't pay for themselves at this size; can be added later.
+  - **esbuild:** Vite covers bundling, so it would be a separate tool for nothing.
 
 ## Name: Cerebro
 

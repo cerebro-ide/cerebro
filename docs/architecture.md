@@ -27,7 +27,7 @@ One TypeScript monorepo. Each package is a library with its own tests:
 
 | package | what it is |
 |---|---|
-| `reactive` | signal, computed, effect, batch; MobX-style decorators; observable collections and nested objects |
+| `reactive` | signal, computed, effect, batch; a MobX-style layer; observable collections and nested objects |
 | `jsx` | the JSX runtime: builds DOM directly, binds reactive functions |
 | `ui-*` | components: docking, menus, tree, list, tabs, dialogs, diff and merge views |
 | `protocol` | message types and the JSON-RPC transport between UI and host |
