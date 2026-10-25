@@ -1,7 +1,7 @@
 # Brainstorm log — 2026-10-25
 
 The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
-`brainstorm` Claude session on the NAS; sections 8–13 in a session on Ido's development machine
+`brainstorm` Claude session on the NAS; sections 8–14 in a session on Ido's development machine
 (iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
 points where Ido corrected Claude.
 
@@ -332,3 +332,26 @@ collections without proxies, and when effects run. Ido picked Claude's recommend
 **Ido** (after merging PR #1):
 
 > yes, add the paths-ignore - also, pr is merged, so take care of all open issues
+
+## 14. The JSX runtime
+
+**Ido:**
+
+> merged, let's start the JSX runtime
+
+**Claude (summary):**
+
+- Found a blocker: Playwright 1.64 doesn't support Ubuntu 20.04, so DOM tests can't run on this
+  machine. Offered three fixes:
+  - a new Ubuntu 24.04 distro (recommended);
+  - an in-place upgrade;
+  - Docker.
+- Asked three API questions: event syntax, how components receive reactive values, and whether
+  to add list and conditional helpers now.
+
+**Ido** (answers):
+
+- the environment: upgrade this distro;
+- events: `on:click`;
+- props: functions, explicitly;
+- helpers: later, with the UI components.

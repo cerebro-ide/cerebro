@@ -233,6 +233,27 @@ Ido likes JSX, so the UI uses it. TypeScript compiles JSX to calls into Cerebro'
 - "No templating" means no string templates and no compiler step beyond TypeScript's own JSX
   transform.
 
+**The runtime's API (2026-10-25)**, chosen by Ido from options Claude laid out:
+
+- **Events are written `on:<event>`**, with the DOM event name exactly as dispatched:
+  `on:click`, and `on:dock-change` for a custom element's event. Rejected: React's `onClick`,
+  which mangles custom event names.
+- **Components run once and receive reactive values as functions**, the same rule as in JSX
+  itself: `<Label text={() => wt.label} />` updates, while a plain value is static. Rejected:
+  passing models for components to read.
+- **No list or conditional helpers yet.** `<For>` (keyed lists) and `<Show>` are added with the UI
+  components that need them, designed against `ObservableArray`'s bulk changes. Until then,
+  function children cover dynamic content.
+
+Also needed, without a choice to make:
+
+- effects created while rendering belong to an owner, and are disposed when their part of the DOM
+  is replaced or removed; `render()` returns a disposer;
+- `ref` callbacks;
+- `style` as a string or an object;
+- SVG: known SVG tag names are created in the SVG namespace, because JSX creates children before
+  their parents.
+
 ## CodeMirror 6, not Monaco (2026-10-25)
 
 Monaco is overkill for Cerebro. Why:
@@ -301,6 +322,12 @@ The name Ido used for his earlier tool. Fine while private; check before publish
   `electron/electron`).
 
 ## Where it lives and where it's developed
+
+**Development distro (2026-10-25):** Ido's WSL distro is upgraded from Ubuntu 20.04 to a release
+Playwright supports. Playwright 1.64 refused to install Chromium on 20.04 ("Playwright does not
+support chromium on ubuntu20.04-x64"); its [requirements](https://playwright.dev/docs/intro) list
+Ubuntu 22.04 / 24.04 / 26.04. Ido chose an in-place upgrade over a new distro just for Cerebro or
+running browser tests in Docker.
 
 - Private GitHub repo `cerebro-ide/cerebro` (moved from `iMoses/cerebro` on 2026-10-25; old links
   redirect); a copy on the NAS so a session there can work on it any time (the NAS is always on).
