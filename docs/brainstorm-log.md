@@ -374,3 +374,16 @@ in each:
 **Ido** (while Claude wrote the layout model with left, right and bottom areas):
 
 > it can also anchor at the top
+
+**Ido** (while Claude built the layout view):
+
+> at what stage can we open a dev server so i can start playing with what you created?
+
+**Claude (summary):** the layout view (step 2) is the first point with something to see. Proposed
+folding the dev server into that step.
+
+**Ido:**
+
+> okay, the first thing I want to play with is the layout istelf, specifically the menus. I wanna see drag and drop of them between anchors and primary/secondary views, i wanna see them open and close properly, and I wanna see that the design CSS is implemented properly.
+
+> also, until we actually start reviewing the code, i don't want a PR per commit. I think we can put a few commits into each PR
