@@ -1,7 +1,32 @@
-/* The layout view. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+/*
+ * The layout view. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme).
+ * As in desktop apps, nothing is selectable and the cursor is the arrow, except in content marked
+ * .cerebro-selectable; never the pointing hand.
+ */
+
+.cerebro-shell,
+.cerebro-editor-area {
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-shell .cerebro-selectable,
+.cerebro-editor-area .cerebro-selectable {
+  cursor: text;
+  user-select: text;
+}
+
+/* Nothing is selected while dragging or resizing, not even selectable content. */
+.cerebro-shell--dragging *,
+.cerebro-shell--resizing *,
+.cerebro-editor-area--dragging *,
+.cerebro-editor-area--resizing * {
+  user-select: none !important;
+}
 
 .cerebro-shell {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -14,6 +39,17 @@
 /* Flex containers would otherwise override the hidden attribute. */
 .cerebro-shell [hidden] {
   display: none !important;
+}
+
+.cerebro-shell__header {
+  flex: none;
+  border-bottom: 1px solid var(--cerebro-border);
+}
+
+.cerebro-shell__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 /* A column: the row of left area, editor and right area, then the full-width bottom area. */
@@ -47,11 +83,11 @@
   flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--cerebro-stripe-gap);
+  box-sizing: border-box;
   width: var(--cerebro-stripe-size);
-  padding: 5px;
+  padding: 4px 0;
   background: var(--cerebro-stripe);
-  user-select: none;
 }
 
 .cerebro-stripe--left {
@@ -67,14 +103,14 @@
   flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--cerebro-stripe-gap);
   border-radius: var(--cerebro-radius);
 }
 
 /* Separates the side's secondary group from its primary group. */
 .cerebro-stripe__group--left-secondary:not(:empty),
 .cerebro-stripe__group--right-secondary:not(:empty) {
-  padding-top: 5px;
+  padding-top: var(--cerebro-stripe-gap);
   border-top: 1px solid var(--cerebro-separator);
 }
 
@@ -103,7 +139,6 @@
   border-radius: var(--cerebro-radius);
   background: transparent;
   color: var(--cerebro-text-muted);
-  cursor: pointer;
   touch-action: none;
 }
 
@@ -127,8 +162,15 @@
   opacity: 0.35;
 }
 
+/* Icons fill most of the button, as in IntelliJ's new UI; the theme sets their size. */
+.cerebro-stripe-button > svg,
+.cerebro-stripe-button > img {
+  width: var(--cerebro-stripe-icon);
+  height: var(--cerebro-stripe-icon);
+}
+
 .cerebro-stripe-button__letter {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -185,7 +227,6 @@
   height: var(--cerebro-header-height);
   padding: 0 4px 0 10px;
   font-weight: 600;
-  user-select: none;
 }
 
 .cerebro-tool-window__title {
@@ -205,7 +246,6 @@
   border-radius: 4px;
   background: transparent;
   color: var(--cerebro-text-muted);
-  cursor: pointer;
 }
 
 .cerebro-tool-window__hide:hover {
@@ -261,10 +301,6 @@
   background: var(--cerebro-hover);
 }
 
-.cerebro-shell--resizing {
-  user-select: none;
-}
-
 /* The label that follows the pointer while dragging a tool window. */
 .cerebro-drag-ghost {
   position: fixed;
@@ -297,11 +333,6 @@
 
 .cerebro-editor-area [hidden] {
   display: none !important;
-}
-
-.cerebro-editor-area--resizing,
-.cerebro-editor-area--dragging {
-  user-select: none;
 }
 
 .cerebro-editor-split {
@@ -342,7 +373,6 @@
   overflow-x: auto;
   border-bottom: 1px solid var(--cerebro-border);
   scrollbar-width: none;
-  user-select: none;
 }
 
 .cerebro-editor-tab {
@@ -353,7 +383,6 @@
   gap: 4px;
   padding: 0 4px 0 12px;
   color: var(--cerebro-text-muted);
-  cursor: pointer;
   touch-action: none;
   white-space: nowrap;
 }
@@ -401,7 +430,6 @@
   border-radius: 4px;
   background: transparent;
   color: var(--cerebro-text-muted);
-  cursor: pointer;
   visibility: hidden;
 }
 

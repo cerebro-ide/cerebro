@@ -1,7 +1,13 @@
 import { render } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
+import '@cerebro-ide/theme/base.css';
 import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
+import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
+import '@cerebro-ide/ui-menu/styles.css';
+import '@cerebro-ide/ui-tooltip/styles.css';
+import { formatSequence } from '@cerebro-ide/commands';
+import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import './playground.css';
@@ -42,9 +48,25 @@ for (const path of ['README.md', 'src/main.ts', 'src/shell.tsx', 'src/styles.css
 }
 editor.moveToSplit('src/styles.css', editor.activeGroupId, editor.activeGroupId, 'right');
 
+const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+
+/** What tab commands from the main menu act on: the active tab. */
+function activeTab(): TabContext | undefined {
+  const group = editor.activeGroup;
+  return group.active === undefined ? undefined : { group: group.id, tab: group.active };
+}
+
+function Header() {
+  return (
+    <div class="playground-header">
+      <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
+      <span class="playground-title">Cerebro playground</span>
+    </div>
+  );
+}
+
 function toggleTheme() {
-  const root = document.documentElement;
-  root.dataset['cerebroTheme'] = root.dataset['cerebroTheme'] === 'light' ? 'dark' : 'light';
+  setDark(!dark.get());
 }
 
 function Files() {
@@ -91,7 +113,10 @@ function Code(props: { path: string }) {
       : `const value${String(i)} = compute(${String(i)}, '${props.path}');`,
   );
   return (
-    <pre class="playground-code">
+    <pre
+      class="playground-code cerebro-selectable"
+      on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
+    >
       {lines.map((line, i) => (
         <div>
           <span class="playground-line">{i + 1}</span>
@@ -124,9 +149,19 @@ render(
           area={editor}
           content={(tab) => <Code path={tab.id} />}
           empty={() => <Empty />}
+          onTabContextMenu={(event, group, tab) =>
+            openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
+          }
         />
       )}
       icon={icon}
+      header={() => <Header />}
+      shortcut={(id) => {
+        const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
+        return key === undefined
+          ? undefined
+          : formatSequence(key, services.keymap?.platform ?? 'other');
+      }}
     />
   ),
   document.getElementById('app') as HTMLElement,

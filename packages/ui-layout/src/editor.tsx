@@ -15,6 +15,7 @@ import type {
   Tab,
 } from '@cerebro-ide/layout';
 import { effect, makeObservable } from '@cerebro-ide/reactive';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { dragFrom } from './drag.js';
 import { Splitter } from './splitter.js';
 
@@ -24,6 +25,8 @@ export interface EditorAreaViewProps {
   content: (tab: Tab) => Child;
   /** Shown in a group without tabs; only the last group can be empty. */
   empty?: () => Child;
+  /** A tab was right-clicked (or the context-menu key pressed on it): open its context menu. */
+  onTabContextMenu?: (event: MouseEvent, group: EditorGroup, tab: Tab) => void;
 }
 
 /** Where a dragged tab would land. */
@@ -244,7 +247,7 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
       role="tab"
       tabIndex={0}
       aria-selected={() => String(group.active === tab.id)}
-      title={tab.title}
+      ref={tooltip({ text: () => tab.id })}
       data-tab={tab.id}
       on:pointerdown={(event) => {
         startTabDrag(ctx, group, tab, event);
@@ -255,12 +258,16 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
       on:auxclick={(event) => {
         if (event.button === 1) area.close(group.id, tab.id);
       }}
+      on:contextmenu={(event) => {
+        ctx.props.onTabContextMenu?.(event, group, tab);
+      }}
     >
       <span class="cerebro-editor-tab__title">{tab.title}</span>
       <button
         type="button"
         class="cerebro-editor-tab__close"
         aria-label={`Close ${tab.title}`}
+        ref={tooltip({ text: () => 'Close' })}
         on:pointerdown={(event) => {
           event.stopPropagation();
         }}

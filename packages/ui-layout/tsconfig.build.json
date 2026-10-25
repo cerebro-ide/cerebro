@@ -10,8 +10,17 @@
   },
   "include": ["src"],
   "references": [
-    { "path": "../reactive/tsconfig.build.json" },
-    { "path": "../jsx/tsconfig.build.json" },
-    { "path": "../layout/tsconfig.build.json" }
+    {
+      "path": "../reactive/tsconfig.build.json"
+    },
+    {
+      "path": "../jsx/tsconfig.build.json"
+    },
+    {
+      "path": "../layout/tsconfig.build.json"
+    },
+    {
+      "path": "../ui-tooltip/tsconfig.build.json"
+    }
   ]
 }

@@ -320,6 +320,67 @@ Build order:
 
 Until code review starts, a PR may bundle several of these commits (`CLAUDE.md`).
 
+## Commands, menus and shortcuts (2026-10-25)
+
+Built for Ido's requirements in `features.md` ("The window's parts").
+
+- **One registry behind everything.** Menus, context menus, toolbars and shortcuts all trigger
+  commands (`@cerebro-ide/commands`), as IntelliJ's actions do.
+  - A command has an id, a label with `&` before its mnemonic, a handler, and optionally an
+    enabled check, a checked state (for toggles) and `dialog` (shown with `…`).
+- **Menus are built from contributions.**
+  - Each contribution names a menu id (`main`, `main/file`, `editor/tab`), a group and an order.
+  - Groups are separated automatically; submenus refer to other menus.
+  - Hidden items and stranded separators are removed.
+- **The keymap:**
+  - **Keys:** shortcuts are read from the physical key, so they work on any keyboard layout; `Mod`
+    is Cmd on macOS and Ctrl elsewhere.
+  - **Sequences:** multi-chord shortcuts such as `Ctrl+K Ctrl+S` work, as in IntelliJ.
+  - **Layers:** the user's bindings come first, and can remove defaults.
+- **The menu component** (`@cerebro-ide/ui-menu`) is the menu bar's dropdowns and every context
+  menu.
+  - Full keyboard navigation, including mnemonic letters (several items sharing a letter cycle,
+    as on Windows).
+  - Keys an open menu handles don't reach the app's shortcuts.
+  - It stays inside the window, and gives focus back when it closes.
+- **The hidden menu bar expands in place, as in IntelliJ** (Ido's screenshot):
+  - clicking ☰ shows the bar where the button was, with File open below its name;
+  - Alt plus a letter, or Alt alone, expands it the same way;
+  - it collapses back to ☰ when the menu closes.
+
+  Mnemonics in the bar are underlined while a menu is open or Alt is held. Claude first opened a
+  separate vertical menu from ☰; Ido pointed to IntelliJ's behaviour instead.
+- **Menu items as in IntelliJ, matched by measurement** (Ido's screenshot), in units of the
+  height of a capital letter, since the screenshot's display scale is unknown:
+  - item spacing was already IntelliJ's (2.8× there, 2.9× here), so the height stayed;
+  - separators shrank to IntelliJ's ~0.4×, from 1×;
+  - commands may have an icon, drawn at ~1.4× in the check mark's column, through an `icon`
+    callback in the menu services.
+- **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
+  app opens the menu.
+
+## Desktop conventions in the UI (2026-10-25)
+
+Ido: the UI behaves like an application, not a website.
+
+- **No text selection by default.** It's enabled only where it makes sense: text inputs, and
+  content marked `.cerebro-selectable`, such as editors, logs and terminals. Nothing is selected
+  while dragging or resizing.
+- **App cursors, never the pointing hand:**
+  - the arrow on buttons, tabs, stripe icons and menu items;
+  - resize cursors on splitters;
+  - the text cursor only where text is selectable.
+- **Cerebro's own tooltips, never the browser's** (`@cerebro-ide/ui-tooltip`), at Ido's request:
+  - styled like IntelliJ's;
+  - the shortcut after the text, muted, when the command has one (for example, "Services Alt+8");
+  - they appear after a short pause, and at once when moving from one control to the next;
+  - views get shortcuts from the app through a callback, so they don't depend on the commands
+    package.
+- **Where it's set:**
+  - `@cerebro-ide/theme/base.css` sets it for the whole page;
+  - the view roots (`.cerebro-shell`, `.cerebro-editor-area`) set it too, so the views behave the
+    same without it.
+
 ## CodeMirror 6, not Monaco (2026-10-25)
 
 Monaco is overkill for Cerebro. Why:

@@ -21,7 +21,6 @@
   background: var(--cerebro-panel);
   color: var(--cerebro-text);
   font: inherit;
-  cursor: pointer;
 }
 
 .playground-button:hover {
@@ -52,7 +51,6 @@
 }
 
 .playground-file {
-  cursor: pointer;
 }
 
 .playground-code {
@@ -69,4 +67,17 @@
   margin-right: 16px;
   color: var(--cerebro-text-muted);
   text-align: right;
+}
+
+.playground-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 6px;
+  background: var(--cerebro-panel);
+}
+
+.playground-title {
+  color: var(--cerebro-text-muted);
 }

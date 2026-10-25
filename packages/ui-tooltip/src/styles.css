@@ -1,0 +1,24 @@
+/* Tooltips. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-tooltip {
+  position: fixed;
+  z-index: 1100;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 9px;
+  border: 1px solid var(--cerebro-tooltip-border);
+  border-radius: 4px;
+  background: var(--cerebro-tooltip);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
+.cerebro-tooltip__shortcut {
+  color: var(--cerebro-text-muted);
+}

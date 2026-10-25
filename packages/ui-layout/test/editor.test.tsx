@@ -3,6 +3,7 @@ import '../src/styles.css';
 import { onCleanup, render } from '@cerebro-ide/jsx';
 import { EditorArea, EditorGroup, type EditorNode } from '@cerebro-ide/layout';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import { DRAG_THRESHOLD, EditorAreaView, findTabTarget, SPLIT_EDGE } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
@@ -359,5 +360,77 @@ describe('resizing', () => {
     pointer('pointerup', h.x, h.y - height * 0.2);
     const nested = (area.root as { children: readonly { sizes: readonly number[] }[] }).children[1];
     expect(nested?.sizes[0]).toBeCloseTo(0.3, 1);
+  });
+});
+
+describe('desktop conventions', () => {
+  it('uses the arrow cursor on tabs, and no text selection', () => {
+    const { tabEl } = mount();
+    for (const element of [
+      tabEl('a'),
+      tabEl('a').querySelector('.cerebro-editor-tab__close') as Element,
+    ]) {
+      expect(getComputedStyle(element).cursor).toBe('default');
+      expect(getComputedStyle(element).userSelect).toBe('none');
+    }
+  });
+});
+
+describe('tab context menus', () => {
+  it('reports a right-click on a tab, with its group', () => {
+    const area = new EditorArea();
+    area.open(tab('a'));
+    const onTabContextMenu = vi.fn();
+    const container = document.createElement('div');
+    document.body.append(container);
+    const handle = render(
+      () => <EditorAreaView area={area} content={() => null} onTabContextMenu={onTabContextMenu} />,
+      container,
+    );
+    const element = container.querySelector('[data-tab="a"]') as HTMLElement;
+    element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(onTabContextMenu).toHaveBeenCalledTimes(1);
+    const [event, group, reported] = onTabContextMenu.mock.calls[0] as [
+      MouseEvent,
+      EditorGroup,
+      { id: string },
+    ];
+    expect(event.type).toBe('contextmenu');
+    expect(group).toBe(area.activeGroup);
+    expect(reported.id).toBe('a');
+    handle.dispose();
+    container.remove();
+  });
+
+  it('does nothing without a handler', () => {
+    const { tabEl } = mount();
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    tabEl('a').dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+describe('tooltips', () => {
+  it('shows a tab’s full path, and Close on its button', () => {
+    vi.useFakeTimers();
+    const area = new EditorArea();
+    area.open({ id: 'src/main.ts', title: 'main.ts' });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; inset: 0;';
+    document.body.append(container);
+    const handle = render(() => <EditorAreaView area={area} content={() => null} />, container);
+    const tabElement = container.querySelector('[data-tab="src/main.ts"]') as HTMLElement;
+    tabElement.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('src/main.ts');
+    tabElement.dispatchEvent(new PointerEvent('pointerleave'));
+    const close = tabElement.querySelector('.cerebro-editor-tab__close') as HTMLElement;
+    close.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Close');
+    close.dispatchEvent(new PointerEvent('pointerleave'));
+    handle.dispose();
+    container.remove();
+    vi.useRealTimers();
   });
 });

@@ -2,11 +2,13 @@
   "name": "@cerebro-ide/theme",
   "version": "0.0.0",
   "private": true,
-  "description": "Cerebro's theme variables (--cerebro-*): dark by default, light with data-cerebro-theme=\"light\".",
+  "description": "Cerebro's theme variables (--cerebro-*, dark by default, light with data-cerebro-theme=\"light\") and the app's base conventions.",
   "exports": {
-    "./themes.css": "./themes.css"
+    "./themes.css": "./themes.css",
+    "./base.css": "./base.css"
   },
   "files": [
-    "themes.css"
+    "themes.css",
+    "base.css"
   ]
 }

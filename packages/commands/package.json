@@ -1,0 +1,24 @@
+{
+  "name": "@cerebro-ide/commands",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Commands, menus and the keymap: what menus, toolbars and shortcuts trigger.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}

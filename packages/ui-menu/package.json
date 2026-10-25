@@ -1,0 +1,29 @@
+{
+  "name": "@cerebro-ide/ui-menu",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Menus and context menus: nested, with mnemonics, shortcuts and full keyboard navigation.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/commands": "0.0.0",
+    "@cerebro-ide/jsx": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0",
+    "@cerebro-ide/ui-tooltip": "0.0.0"
+  }
+}

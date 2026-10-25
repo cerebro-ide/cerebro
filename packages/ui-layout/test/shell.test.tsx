@@ -1,8 +1,10 @@
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
+import '@cerebro-ide/ui-tooltip/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { QUICK_WINDOW, SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import { DRAG_THRESHOLD, findTarget, MIN_EDITOR, ShellLayout, stripeGroups } from '../src/index.js';
 
 const WINDOWS: ToolWindowSpec[] = [
@@ -21,7 +23,7 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean } = {}) {
+function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean; shortcuts?: boolean } = {}) {
   const layout = new Layout();
   for (const spec of options.windows ?? WINDOWS) layout.toolWindows.register(spec);
   const container = document.createElement('div');
@@ -36,6 +38,9 @@ function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean } = {}) {
         {...(options.icons === false
           ? {}
           : { icon: (name: string) => <i class="test-icon">{name}</i> })}
+        {...(options.shortcuts === false
+          ? {}
+          : { shortcut: (id: string) => (id === 'project' ? 'Alt+1' : undefined) })}
       />
     ),
     container,
@@ -108,8 +113,12 @@ describe('stripes', () => {
     // The bottom group sits at the bottom of the stripe.
     const stripe = group('bottom', 'primary').parentElement as HTMLElement;
     expect(group('bottom', 'primary').getBoundingClientRect().bottom).toBeCloseTo(
-      stripe.getBoundingClientRect().bottom - 5,
+      stripe.getBoundingClientRect().bottom - 4,
     );
+    // The stripe is exactly as wide as the theme says, its buttons and icons too.
+    expect(stripe.getBoundingClientRect().width).toBe(36);
+    const project = group('left', 'primary').querySelector('.cerebro-stripe-button') as HTMLElement;
+    expect(project.getBoundingClientRect().width).toBe(28);
   });
 
   it('draws icons through the icon prop, else the title’s first letter', () => {
@@ -420,5 +429,115 @@ describe('resizing', () => {
     expect(container.querySelector('.cerebro-shell--resizing')).not.toBeNull();
     pointer('pointerup', from.x, from.y);
     expect(container.querySelector('.cerebro-shell--resizing')).toBeNull();
+  });
+});
+
+describe('desktop conventions', () => {
+  it('uses the arrow cursor and no text selection, except in selectable content', () => {
+    const { tools, button, $ } = mount();
+    tools.show('project');
+    for (const element of [
+      button('project'),
+      $('.cerebro-tool-window__hide'),
+      $('.cerebro-tool-window__title'),
+    ]) {
+      const style = getComputedStyle(element);
+      expect(style.cursor).toBe('default');
+      expect(style.userSelect).toBe('none');
+    }
+    const content = $('.test-content');
+    content.classList.add('cerebro-selectable');
+    expect(getComputedStyle(content).userSelect).toBe('text');
+    expect(getComputedStyle(content).cursor).toBe('text');
+  });
+
+  it('selects nothing while dragging', () => {
+    const { tools, button, $ } = mount();
+    tools.show('project');
+    const content = $('.test-content');
+    content.classList.add('cerebro-selectable');
+    const from = centre(button('commit'));
+    drag(button('commit'), [{ x: from.x + 20, y: from.y + 20 }], false);
+    expect(getComputedStyle(content).userSelect).toBe('none');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(getComputedStyle(content).userSelect).toBe('text');
+  });
+});
+
+describe('header', () => {
+  it('puts the header above everything, full width', () => {
+    const layout = new Layout();
+    layout.toolWindows.register({ id: 'project', title: 'Project', anchor: 'left' });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; inset: 0;';
+    document.body.append(container);
+    const handle = render(
+      () => (
+        <ShellLayout
+          layout={layout}
+          content={() => null}
+          editor={() => null}
+          header={() => <div class="test-header">menu</div>}
+        />
+      ),
+      container,
+    );
+    const header = (
+      container.querySelector('.cerebro-shell__header') as HTMLElement
+    ).getBoundingClientRect();
+    const stripe = (
+      container.querySelector('.cerebro-stripe--left') as HTMLElement
+    ).getBoundingClientRect();
+    expect(container.querySelector('.test-header')?.textContent).toBe('menu');
+    expect(header.top).toBe(0);
+    expect(header.width).toBe(container.clientWidth);
+    expect(stripe.top).toBeGreaterThanOrEqual(header.bottom);
+    handle.dispose();
+    container.remove();
+  });
+
+  it('has no header area without one', () => {
+    const { container } = mount();
+    expect(container.querySelector('.cerebro-shell__header')).toBeNull();
+  });
+});
+
+describe('tooltips', () => {
+  const hover = (element: Element) => {
+    element.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    const tip = document.querySelector('.cerebro-tooltip') as HTMLElement;
+    const text = tip.textContent;
+    const rect = tip.getBoundingClientRect();
+    element.dispatchEvent(new PointerEvent('pointerleave'));
+    vi.advanceTimersByTime(QUICK_WINDOW + 1);
+    return { text, rect };
+  };
+
+  it('shows each stripe button’s title and shortcut, beside it, away from the edge', () => {
+    vi.useFakeTimers();
+    const { button } = mount();
+    const project = hover(button('project'));
+    expect(project.text).toBe('ProjectAlt+1');
+    expect(project.rect.left).toBeGreaterThan(button('project').getBoundingClientRect().right);
+    const notifications = hover(button('notifications'));
+    expect(notifications.text).toBe('Notifications');
+    expect(notifications.rect.right).toBeLessThan(
+      button('notifications').getBoundingClientRect().left,
+    );
+    const services = hover(button('services'));
+    expect(services.rect.right).toBeLessThan(button('services').getBoundingClientRect().left);
+    const terminal = hover(button('terminal'));
+    expect(terminal.rect.left).toBeGreaterThan(button('terminal').getBoundingClientRect().right);
+    vi.useRealTimers();
+  });
+
+  it('works without a shortcut callback, and on the hide button', () => {
+    vi.useFakeTimers();
+    const { button, tools, $ } = mount({ shortcuts: false });
+    expect(hover(button('project')).text).toBe('Project');
+    tools.show('project');
+    expect(hover($('.cerebro-tool-window__hide')).text).toBe('Hide');
+    vi.useRealTimers();
   });
 });

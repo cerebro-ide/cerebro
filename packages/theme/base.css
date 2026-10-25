@@ -1,0 +1,18 @@
+/*
+ * Application conventions, as in desktop apps rather than websites: no text selection and the arrow
+ * cursor by default. Text is selectable only where it makes sense: text inputs, and anything marked
+ * .cerebro-selectable (editors, logs, terminals).
+ */
+
+html {
+  cursor: default;
+  user-select: none;
+}
+
+input,
+textarea,
+[contenteditable='true'],
+.cerebro-selectable {
+  cursor: text;
+  user-select: text;
+}
