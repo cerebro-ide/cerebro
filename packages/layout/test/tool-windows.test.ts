@@ -67,9 +67,42 @@ describe('ToolWindows', () => {
     tools.move('project', 'right', 'secondary');
     expect(tools.areas.left.open).toBe(false);
     expect(tools.areas.right.secondary).toBe('project');
-    tools.move('terminal', 'top');
+    tools.move('terminal', 'right');
     expect(tools.isVisible('terminal')).toBe(false);
-    expect(tools.stripe('top').map((w) => w.id)).toEqual(['terminal']);
+    expect(tools.group('right', 'primary').map((w) => w.id)).toEqual(['terminal']);
+  });
+
+  it('moves to a position within a group, and reorders within one', () => {
+    const tools = setup();
+    tools.move('terminal', 'left', 'primary', 1);
+    expect(tools.group('left', 'primary').map((w) => w.id)).toEqual([
+      'project',
+      'terminal',
+      'commit',
+    ]);
+    tools.move('commit', 'left', 'primary', 0);
+    expect(tools.group('left', 'primary').map((w) => w.id)).toEqual([
+      'commit',
+      'project',
+      'terminal',
+    ]);
+    tools.move('project', 'left', 'primary', 99);
+    tools.move('terminal', 'left', 'primary', -5);
+    expect(tools.stripe('left').map((w) => w.id)).toEqual([
+      'terminal',
+      'commit',
+      'project',
+      'structure',
+    ]);
+  });
+
+  it('replaces the window open in the target slot when moving a visible one', () => {
+    const tools = setup();
+    tools.show('terminal');
+    tools.show('project');
+    tools.move('terminal', 'left');
+    expect(tools.areas.left.primary).toBe('terminal');
+    expect(tools.isVisible('project')).toBe(false);
   });
 
   it('unregisters, hiding first', () => {
@@ -94,8 +127,8 @@ describe('ToolWindows', () => {
     expect(left.split).toBe(0.3);
   });
 
-  it('has four areas', () => {
-    expect(Object.keys(new Layout().toolWindows.areas)).toEqual(['left', 'right', 'top', 'bottom']);
+  it('has three areas', () => {
+    expect(Object.keys(new Layout().toolWindows.areas)).toEqual(['left', 'right', 'bottom']);
   });
 
   it('is reactive: queries update in effects', () => {
