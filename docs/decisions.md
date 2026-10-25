@@ -265,9 +265,15 @@ Also needed, without a choice to make:
 Ido chose each of these from options Claude laid out.
 
 - **IntelliJ's fixed docking areas, not free docking.**
-  - Tool windows live in left, right, top and bottom areas, opened from stripes of icons. Each
-    side shows at most a primary and a secondary window. (Top added by Ido; IntelliJ's API has it
-    too, as `ToolWindowAnchor.TOP`.)
+  - Tool windows live in left, right and bottom areas, each showing at most a primary and a
+    secondary window. Left and right stack them (primary on top); bottom puts them side by side
+    (primary on the left).
+  - As in IntelliJ's new UI, the icons sit only on the sides, in a stripe on the left and one on
+    the right. Each stripe's top part holds its side's area, split into primary and secondary.
+    Its bottom part holds the bottom area: the left stripe its primary (left) part, the right
+    stripe its secondary (right) part.
+  - **Corrected 2026-10-25:** Ido first added a top area, then withdrew it. The new UI has no top
+    stripe.
   - The editor area sits in the centre, with tabbed splits.
   - Why: it matches "same GUI", and it's much simpler than letting any panel dock anywhere.
   - Rejected: free docking, as in dockview or VS Code's editor groups everywhere.
@@ -285,13 +291,16 @@ Ido chose each of these from options Claude laid out.
   - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
   - Electron wraps the same page as the last step.
 
-Build order, each step its own PR:
+Build order:
 
 1. the layout model (pure TypeScript, tested in Node);
-2. the layout view;
+2. the layout view, with a dev page (`npm run dev`, `packages/playground`), brought forward so Ido
+   can try the UI as it grows. First focus, at Ido's request: tool windows (drag and drop between
+   groups, opening and closing) and the theme CSS;
 3. the menu bar and status bar;
-4. the dev page;
-5. the Electron wrapper.
+4. the Electron wrapper.
+
+Until code review starts, a PR may bundle several of these commits (`CLAUDE.md`).
 
 ## CodeMirror 6, not Monaco (2026-10-25)
 
