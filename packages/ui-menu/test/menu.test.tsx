@@ -291,6 +291,15 @@ describe('mouse', () => {
     expect(popups()).toHaveLength(1);
   });
 
+  it('keeps an open submenu open when its item is clicked again', () => {
+    const { services } = setup();
+    open(services, 'test', { x: 10, y: 10 });
+    (items()[2] as HTMLElement).click();
+    const sub = popups()[1];
+    (items(popups()[0])[2] as HTMLElement).click();
+    expect(popups()[1]).toBe(sub);
+  });
+
   it('runs commands and opens submenus on click', () => {
     const { services, ran } = setup();
     open(services, 'test', { x: 10, y: 10 });
