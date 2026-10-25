@@ -300,6 +300,16 @@ Why:
 - **Vitest over `node:test`.** DOM packages need tests in a real browser with layout, which
   `node:test` can't run. Vitest runs both environments with one runner and enforces per-file
   coverage ([coverage config](https://vitest.dev/config/coverage)).
+- **Packages use each other's source inside the repo.**
+  - Each package's `exports` has a `cerebro-source` condition pointing at `src/`.
+  - The type-check configs (`customConditions`) and Vite turn that condition on; the build
+    configs don't.
+  - So tests and type-checks need no build first, while builds and published packages use
+    `dist/`.
+  - It's a standard export condition that Node, TypeScript and Vite all understand, so no tool is
+    added.
+- **Browser tests:** DOM packages run in Vitest's browser mode on Playwright's Chromium, headless.
+  V8 coverage works there: measured, with every source file at 100%.
 - **Rejected:**
   - **pnpm:** its stricter `node_modules` and shared store weren't worth a non-default tool. How
     to catch a package importing something it doesn't declare is open (`open-questions.md`).

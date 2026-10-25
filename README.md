@@ -2,7 +2,7 @@
 
 An IDE that is not built around *writing* code but around **inspecting code and managing the
 work of AI agents**. Status: milestone 1 of the first version (`docs/plan-v1.md`) in progress; the
-reactive core (`packages/reactive`) is done.
+reactive core (`packages/reactive`) and the JSX runtime (`packages/jsx`) are done.
 
 Most coding is now done by agents. What the human still needs is fast access to both high-level
 and low-level inspection of that work: which agent is doing what in which worktree, what it

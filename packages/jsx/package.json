@@ -1,0 +1,34 @@
+{
+  "name": "@cerebro-ide/jsx",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A JSX runtime that builds real DOM, with reactive bindings from @cerebro-ide/reactive.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./jsx-runtime": {
+      "cerebro-source": "./src/jsx-runtime.ts",
+      "types": "./dist/jsx-runtime.d.ts",
+      "default": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "cerebro-source": "./src/jsx-dev-runtime.ts",
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "default": "./dist/jsx-dev-runtime.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}
