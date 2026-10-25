@@ -464,8 +464,8 @@ describe('desktop conventions', () => {
   });
 });
 
-describe('header', () => {
-  it('puts the header above everything, full width', () => {
+describe('header and footer', () => {
+  it('puts the header above everything and the footer below, full width', () => {
     const layout = new Layout();
     layout.toolWindows.register({ id: 'project', title: 'Project', anchor: 'left' });
     const container = document.createElement('div');
@@ -478,6 +478,7 @@ describe('header', () => {
           content={() => null}
           editor={() => null}
           header={() => <div class="test-header">menu</div>}
+          footer={() => <div class="test-footer">status</div>}
         />
       ),
       container,
@@ -492,13 +493,21 @@ describe('header', () => {
     expect(header.top).toBe(0);
     expect(header.width).toBe(container.clientWidth);
     expect(stripe.top).toBeGreaterThanOrEqual(header.bottom);
+    const footer = (
+      container.querySelector('.cerebro-shell__footer') as HTMLElement
+    ).getBoundingClientRect();
+    expect(container.querySelector('.test-footer')?.textContent).toBe('status');
+    expect(footer.bottom).toBe(container.clientHeight);
+    expect(footer.width).toBe(container.clientWidth);
+    expect(stripe.bottom).toBeLessThanOrEqual(footer.top);
     handle.dispose();
     container.remove();
   });
 
-  it('has no header area without one', () => {
+  it('has no header or footer area without them', () => {
     const { container } = mount();
     expect(container.querySelector('.cerebro-shell__header')).toBeNull();
+    expect(container.querySelector('.cerebro-shell__footer')).toBeNull();
   });
 });
 

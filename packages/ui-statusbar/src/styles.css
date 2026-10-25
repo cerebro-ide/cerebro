@@ -1,0 +1,98 @@
+/* The status bar. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-statusbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--cerebro-statusbar-height);
+  padding: 0 6px;
+  border-top: 1px solid var(--cerebro-border);
+  background: var(--cerebro-panel);
+  color: var(--cerebro-text-muted);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-statusbar [hidden] {
+  display: none !important;
+}
+
+.cerebro-statusbar__side {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cerebro-statusbar__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(var(--cerebro-statusbar-height) - 6px);
+  padding: 0 6px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  white-space: nowrap;
+}
+
+.cerebro-statusbar__item--action:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-statusbar__item--action:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+.cerebro-statusbar__icon {
+  display: grid;
+  place-items: center;
+}
+
+.cerebro-statusbar__icon > svg {
+  width: 14px;
+  height: 14px;
+}
+
+.cerebro-statusbar__progress {
+  position: relative;
+  width: 80px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--cerebro-separator);
+}
+
+.cerebro-statusbar__progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--cerebro-accent);
+}
+
+.cerebro-statusbar__progress--indeterminate .cerebro-statusbar__progress-fill {
+  width: 30%;
+  animation: cerebro-statusbar-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes cerebro-statusbar-indeterminate {
+  from {
+    left: -30%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cerebro-statusbar__progress--indeterminate .cerebro-statusbar__progress-fill {
+    left: 35%;
+    animation: none;
+  }
+}

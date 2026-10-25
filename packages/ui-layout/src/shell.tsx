@@ -22,6 +22,8 @@ export interface ShellLayoutProps {
   editor: () => Child;
   /** Above everything, full width: the main toolbar and menu bar. */
   header?: () => Child;
+  /** Below everything, full width: the status bar. */
+  footer?: () => Child;
   /** Draws a tool window's icon. Without it, or without an icon name, the title's first letter shows. */
   icon?: (name: string) => Child;
   /** The shortcut that toggles a tool window, for its button's tooltip, if it has one. */
@@ -113,6 +115,7 @@ export function ShellLayout(props: ShellLayoutProps): Node {
         </div>
         <Stripe ctx={ctx} side="right" />
       </div>
+      {props.footer && <div class="cerebro-shell__footer">{props.footer()}</div>}
     </div>
   );
 }
