@@ -1,0 +1,71 @@
+/* Menus. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-menu-layer {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cerebro-menu {
+  position: absolute;
+  min-width: 200px;
+  max-height: 100vh;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.cerebro-menu-item {
+  display: grid;
+  grid-template-columns: 18px 1fr auto 14px;
+  align-items: center;
+  gap: 4px;
+  height: var(--cerebro-menu-item-height);
+  padding: 0 6px 0 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.cerebro-menu-item--highlighted {
+  background: var(--cerebro-menu-highlight);
+}
+
+.cerebro-menu-item--disabled {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-menu-item__check,
+.cerebro-menu-item__arrow {
+  display: grid;
+  place-items: center;
+}
+
+.cerebro-menu-item__arrow {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-menu-item__shortcut {
+  padding-left: 24px;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-mnemonic {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cerebro-menu-separator {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--cerebro-separator);
+}

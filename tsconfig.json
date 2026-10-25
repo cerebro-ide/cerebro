@@ -15,6 +15,9 @@
     },
     {
       "path": "packages/commands/tsconfig.build.json"
+    },
+    {
+      "path": "packages/ui-menu/tsconfig.build.json"
     }
   ]
 }
