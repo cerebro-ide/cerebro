@@ -294,6 +294,21 @@ Ido chose each of these from options Claude laid out.
   - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
   - Electron wraps the same page as the last step.
 
+**The editor area's view** (built 2026-10-25, while Ido tried the tool windows):
+
+- Each group has a tab strip and shows its active tab's content.
+- Tabs activate on click and close with their button or a middle-click.
+- Dragging a tab:
+  - reorders it within its strip;
+  - moves it into another group's strip at a position, or into a group by dropping on its content;
+  - splits a group when dropped near one of its edges, within 25% of the width or height. An
+    overlay shows the half the new group will take.
+- Each group's view is rendered once and moved when the tree changes, so its content isn't
+  recreated by splits and moves elsewhere. A known limit: moving a node out of the page and back
+  resets scroll positions inside it.
+- Switching tabs re-renders the content. Keeping each tab's content alive comes with the real
+  editor.
+
 Build order:
 
 1. the layout model (pure TypeScript, tested in Node);
