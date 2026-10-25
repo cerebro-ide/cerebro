@@ -104,6 +104,10 @@ runs (macOS, Windows) are only needed for the end-to-end browser tests, so they 
 (Ido's call). Unit tests don't depend on the OS. This replaced the plan's "CI on all three OSes
 from the start".
 
+CI skips changes that touch only Markdown files (`paths-ignore: ['**.md']`), since no check covers
+them (Prettier ignores `*.md`). If checks are ever made required for merging, this needs revisiting:
+a skipped workflow's checks stay "Pending" and block the PR ([workflow syntax docs](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax)).
+
 ## Pull requests (2026-10-25)
 
 Changes go through pull requests, so `main` stays green: commit on a branch, push, open a PR, CI
