@@ -1,0 +1,18 @@
+{
+  "name": "@cerebro-ide/playground",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A dev page for trying Cerebro's UI in a browser: npm run dev from the repo root.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/jsx": "0.0.0",
+    "@cerebro-ide/layout": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0",
+    "@cerebro-ide/theme": "0.0.0",
+    "@cerebro-ide/ui-layout": "0.0.0"
+  }
+}

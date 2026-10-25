@@ -1,12 +1,14 @@
-// Tool windows in IntelliJ's fixed areas: left, right, top and bottom. Each area shows at most one window
-// in its primary slot and one in its secondary slot; showing a window replaces the one in its slot.
+// Tool windows in IntelliJ's fixed areas: left, right and bottom (as in its new UI, which has no top
+// area). Each area shows at most one window in its primary slot and one in its secondary slot; showing
+// a window replaces the one in its slot. Left and right stack their slots (primary on top); bottom
+// puts them side by side (primary on the left).
 
 import { makeObservable, ObservableMap } from '@cerebro-ide/reactive';
 
-export type Anchor = 'left' | 'right' | 'top' | 'bottom';
+export type Anchor = 'left' | 'right' | 'bottom';
 export type Slot = 'primary' | 'secondary';
 
-export const ANCHORS: readonly Anchor[] = ['left', 'right', 'top', 'bottom'];
+export const ANCHORS: readonly Anchor[] = ['left', 'right', 'bottom'];
 
 /** The smallest size an area can be resized to, in pixels. */
 export const MIN_AREA_SIZE = 80;
@@ -29,20 +31,23 @@ export class ToolWindow {
   icon: string | undefined;
   anchor: Anchor;
   slot: Slot;
+  /** Position within its anchor and slot; lower comes first. */
+  order: number;
 
-  constructor(spec: ToolWindowSpec) {
+  constructor(spec: ToolWindowSpec, order: number) {
     this.id = spec.id;
     this.title = spec.title;
     this.icon = spec.icon;
     this.anchor = spec.anchor;
     this.slot = spec.slot ?? 'primary';
+    this.order = order;
     makeObservable(this);
   }
 }
 
 export class Area {
   readonly anchor: Anchor;
-  /** Width for left and right, height for top and bottom, in pixels. */
+  /** Width for left and right, height for bottom, in pixels. */
   size: number;
   /** The primary slot's share when both slots are open. */
   split = 0.5;
@@ -73,9 +78,10 @@ export class ToolWindows {
   readonly areas: Readonly<Record<Anchor, Area>> = {
     left: new Area('left', 280),
     right: new Area('right', 280),
-    top: new Area('top', 220),
     bottom: new Area('bottom', 220),
   };
+
+  #nextOrder = 0;
 
   constructor() {
     makeObservable(this);
@@ -84,7 +90,7 @@ export class ToolWindows {
   register(spec: ToolWindowSpec): ToolWindow {
     if (this.windows.has(spec.id))
       throw new Error(`Tool window "${spec.id}" is already registered`);
-    const window = new ToolWindow(spec);
+    const window = new ToolWindow(spec, this.#nextOrder++);
     this.windows.set(spec.id, window);
     return window;
   }
@@ -94,13 +100,16 @@ export class ToolWindows {
     this.windows.delete(id);
   }
 
-  /** The windows on an area's stripe, in registration order: primary slot first, then secondary. */
+  /** The windows on an area's stripe, in order: primary slot first, then secondary. */
   stripe(anchor: Anchor): ToolWindow[] {
-    const windows = [...this.windows.values()].filter((w) => w.anchor === anchor);
-    return [
-      ...windows.filter((w) => w.slot === 'primary'),
-      ...windows.filter((w) => w.slot === 'secondary'),
-    ];
+    return [...this.group(anchor, 'primary'), ...this.group(anchor, 'secondary')];
+  }
+
+  /** The windows in one anchor and slot, in order. */
+  group(anchor: Anchor, slot: Slot): ToolWindow[] {
+    return [...this.windows.values()]
+      .filter((w) => w.anchor === anchor && w.slot === slot)
+      .sort((a, b) => a.order - b.order);
   }
 
   isVisible(id: string): boolean {
@@ -124,11 +133,18 @@ export class ToolWindows {
     else this.show(id);
   }
 
-  /** Moves a window to another area or slot; a visible window stays visible there. */
-  move(id: string, anchor: Anchor, slot: Slot = 'primary'): void {
+  /**
+   * Moves a window to an anchor and slot, at `index` in that group (default: the end). A visible
+   * window stays visible there, replacing the window open in that slot.
+   */
+  move(id: string, anchor: Anchor, slot: Slot = 'primary', index?: number): void {
     const window = this.get(id);
     const visible = this.isVisible(id);
     this.hide(id);
+    const others = this.group(anchor, slot).filter((w) => w !== window);
+    const at = Math.min(Math.max(index ?? others.length, 0), others.length);
+    others.splice(at, 0, window);
+    others.forEach((w, i) => (w.order = i));
     window.anchor = anchor;
     window.slot = slot;
     if (visible) this.show(id);

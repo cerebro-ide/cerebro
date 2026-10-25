@@ -265,9 +265,18 @@ Also needed, without a choice to make:
 Ido chose each of these from options Claude laid out.
 
 - **IntelliJ's fixed docking areas, not free docking.**
-  - Tool windows live in left, right, top and bottom areas, opened from stripes of icons. Each
-    side shows at most a primary and a secondary window. (Top added by Ido; IntelliJ's API has it
-    too, as `ToolWindowAnchor.TOP`.)
+  - Tool windows live in left, right and bottom areas, each showing at most a primary and a
+    secondary window. Left and right stack them (primary on top); bottom puts them side by side
+    (primary on the left).
+  - As in IntelliJ's new UI, the icons sit only on the sides, in a stripe on the left and one on
+    the right. Each stripe's top part holds its side's area, split into primary and secondary.
+    Its bottom part holds the bottom area: the left stripe its primary (left) part, the right
+    stripe its secondary (right) part.
+  - **Corrected 2026-10-25:** Ido first added a top area, then withdrew it. The new UI has no top
+    stripe.
+  - The bottom area spans the full width between the stripes; the left and right areas stop above
+    it, as in IntelliJ (Ido, correcting Claude's first version, where the side areas took the full
+    height).
   - The editor area sits in the centre, with tabbed splits.
   - Why: it matches "same GUI", and it's much simpler than letting any panel dock anywhere.
   - Rejected: free docking, as in dockview or VS Code's editor groups everywhere.
@@ -285,13 +294,31 @@ Ido chose each of these from options Claude laid out.
   - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
   - Electron wraps the same page as the last step.
 
-Build order, each step its own PR:
+**The editor area's view** (built 2026-10-25, while Ido tried the tool windows):
+
+- Each group has a tab strip and shows its active tab's content.
+- Tabs activate on click and close with their button or a middle-click.
+- Dragging a tab:
+  - reorders it within its strip;
+  - moves it into another group's strip at a position, or into a group by dropping on its content;
+  - splits a group when dropped near one of its edges, within 25% of the width or height. An
+    overlay shows the half the new group will take.
+- Each group's view is rendered once and moved when the tree changes, so its content isn't
+  recreated by splits and moves elsewhere. A known limit: moving a node out of the page and back
+  resets scroll positions inside it.
+- Switching tabs re-renders the content. Keeping each tab's content alive comes with the real
+  editor.
+
+Build order:
 
 1. the layout model (pure TypeScript, tested in Node);
-2. the layout view;
+2. the layout view, with a dev page (`npm run dev`, `packages/playground`), brought forward so Ido
+   can try the UI as it grows. First focus, at Ido's request: tool windows (drag and drop between
+   groups, opening and closing) and the theme CSS;
 3. the menu bar and status bar;
-4. the dev page;
-5. the Electron wrapper.
+4. the Electron wrapper.
+
+Until code review starts, a PR may bundle several of these commits (`CLAUDE.md`).
 
 ## CodeMirror 6, not Monaco (2026-10-25)
 

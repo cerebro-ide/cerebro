@@ -1,0 +1,28 @@
+{
+  "name": "@cerebro-ide/ui-layout",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The IDE window's layout view: tool window stripes and areas around the editor, with drag and drop and resizing.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/jsx": "0.0.0",
+    "@cerebro-ide/layout": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}

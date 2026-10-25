@@ -8,9 +8,10 @@ export interface Tab {
   title: string;
 }
 
-/** `horizontal`: children side by side (split right). `vertical`: stacked (split down). */
+/** `horizontal`: children side by side. `vertical`: stacked. */
 export type Orientation = 'horizontal' | 'vertical';
-export type Direction = 'right' | 'down';
+/** Where a new group goes, relative to the one being split. */
+export type Direction = 'left' | 'right' | 'up' | 'down';
 
 /** The smallest share of a split one child can be resized to. */
 export const MIN_PANE = 0.05;
@@ -118,22 +119,39 @@ export class EditorArea {
       created.tabs = [tab];
       created.active = tab.id;
     }
-    const orientation: Orientation = direction === 'right' ? 'horizontal' : 'vertical';
+    const orientation: Orientation =
+      direction === 'left' || direction === 'right' ? 'horizontal' : 'vertical';
+    const before = direction === 'left' || direction === 'up';
     const parent = this.parentOf(group);
     if (parent?.orientation === orientation) {
       // Same direction: a new sibling that shares the group's space.
       const index = parent.children.indexOf(group);
+      const at = before ? index : index + 1;
       const half = (parent.sizes[index] as number) / 2;
-      parent.children = insertAt(parent.children, index + 1, created);
-      parent.sizes = insertAt(parent.sizes, index + 1, half).map((s, i) =>
-        i === index ? half : s,
+      parent.children = insertAt(parent.children, at, created);
+      parent.sizes = insertAt(
+        parent.sizes.map((s, i) => (i === index ? half : s)),
+        at,
+        half,
       );
     } else {
-      const split = new EditorSplit(this.newId('s'), orientation, [group, created], [0.5, 0.5]);
+      const children = before ? [created, group] : [group, created];
+      const split = new EditorSplit(this.newId('s'), orientation, children, [0.5, 0.5]);
       this.replace(group, split, parent);
     }
     this.activeGroupId = created.id;
     return created;
+  }
+
+  /**
+   * Moves a tab into a new group split off `toId` in `direction`. Splitting a group's only tab off
+   * itself would leave it where it is, so that does nothing.
+   */
+  moveToSplit(tabId: string, fromId: string, toId: string, direction: Direction): void {
+    const from = this.group(fromId);
+    if (fromId === toId && from.tabs.length === 1) return;
+    const created = this.split(toId, direction);
+    this.move(tabId, fromId, created.id);
   }
 
   /** Moves a tab within a group or to another group, at `index` (default: the end). */

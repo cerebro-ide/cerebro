@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "lib": ["es2023", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "@cerebro-ide/jsx"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../reactive/tsconfig.build.json" },
+    { "path": "../jsx/tsconfig.build.json" },
+    { "path": "../layout/tsconfig.build.json" }
+  ]
+}

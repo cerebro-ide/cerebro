@@ -1,0 +1,12 @@
+{
+  "name": "@cerebro-ide/theme",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Cerebro's theme variables (--cerebro-*): dark by default, light with data-cerebro-theme=\"light\".",
+  "exports": {
+    "./themes.css": "./themes.css"
+  },
+  "files": [
+    "themes.css"
+  ]
+}
