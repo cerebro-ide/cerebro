@@ -11,6 +11,7 @@
 import { parseLabel } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { openMenu, visibleEntries, type MenuHandle, type MenuServices } from './menu.js';
 
 export interface MenuBarProps {
@@ -270,12 +271,12 @@ export function MenuBar(props: MenuBarProps): Node {
             class={() =>
               cls('cerebro-menubar__button', state.open && 'cerebro-menubar__button--active')
             }
-            title="Main Menu"
             aria-label="Main Menu"
             aria-haspopup="menu"
             aria-expanded={() => String(state.open)}
             ref={(element) => {
               button = element;
+              tooltip({ text: () => 'Main Menu' })(element);
             }}
             on:pointerdown={() => {
               if (state.open) close();

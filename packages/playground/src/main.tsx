@@ -5,6 +5,8 @@ import '@cerebro-ide/theme/base.css';
 import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
 import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
+import '@cerebro-ide/ui-tooltip/styles.css';
+import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
@@ -154,6 +156,12 @@ render(
       )}
       icon={icon}
       header={() => <Header />}
+      shortcut={(id) => {
+        const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
+        return key === undefined
+          ? undefined
+          : formatSequence(key, services.keymap?.platform ?? 'other');
+      }}
     />
   ),
   document.getElementById('app') as HTMLElement,

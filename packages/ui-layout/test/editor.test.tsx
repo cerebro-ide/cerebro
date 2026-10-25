@@ -3,6 +3,7 @@ import '../src/styles.css';
 import { onCleanup, render } from '@cerebro-ide/jsx';
 import { EditorArea, EditorGroup, type EditorNode } from '@cerebro-ide/layout';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import { DRAG_THRESHOLD, EditorAreaView, findTabTarget, SPLIT_EDGE } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
@@ -406,5 +407,30 @@ describe('tab context menus', () => {
     const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
     tabEl('a').dispatchEvent(event);
     expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+describe('tooltips', () => {
+  it('shows a tab’s full path, and Close on its button', () => {
+    vi.useFakeTimers();
+    const area = new EditorArea();
+    area.open({ id: 'src/main.ts', title: 'main.ts' });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; inset: 0;';
+    document.body.append(container);
+    const handle = render(() => <EditorAreaView area={area} content={() => null} />, container);
+    const tabElement = container.querySelector('[data-tab="src/main.ts"]') as HTMLElement;
+    tabElement.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('src/main.ts');
+    tabElement.dispatchEvent(new PointerEvent('pointerleave'));
+    const close = tabElement.querySelector('.cerebro-editor-tab__close') as HTMLElement;
+    close.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Close');
+    close.dispatchEvent(new PointerEvent('pointerleave'));
+    handle.dispose();
+    container.remove();
+    vi.useRealTimers();
   });
 });

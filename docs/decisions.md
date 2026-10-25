@@ -357,6 +357,12 @@ Ido: the UI behaves like an application, not a website.
   - the arrow on buttons, tabs, stripe icons and menu items;
   - resize cursors on splitters;
   - the text cursor only where text is selectable.
+- **Cerebro's own tooltips, never the browser's** (`@cerebro-ide/ui-tooltip`), at Ido's request:
+  - styled like IntelliJ's;
+  - the shortcut after the text, muted, when the command has one (for example, "Services Alt+8");
+  - they appear after a short pause, and at once when moving from one control to the next;
+  - views get shortcuts from the app through a callback, so they don't depend on the commands
+    package.
 - **Where it's set:**
   - `@cerebro-ide/theme/base.css` sets it for the whole page;
   - the view roots (`.cerebro-shell`, `.cerebro-editor-area`) set it too, so the views behave the

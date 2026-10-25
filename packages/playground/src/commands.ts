@@ -20,6 +20,18 @@ export interface TabContext {
 
 export const dark = signal(true);
 
+/** IntelliJ's shortcuts for its tool windows. */
+const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
+  project: 'Alt+1',
+  bookmarks: 'Alt+2',
+  problems: 'Alt+6',
+  structure: 'Alt+7',
+  services: 'Alt+8',
+  git: 'Alt+9',
+  commit: 'Alt+0',
+  terminal: 'Alt+F12',
+};
+
 /** The menu bar is hidden by default, as in IntelliJ's new UI. */
 export const menuVisible = signal(false);
 
@@ -181,6 +193,8 @@ export function setupCommands(
       },
     });
     menus.contribute({ menu: 'main/view/tools', item: { command: `view.tool.${tool.id}` } });
+    const key = TOOL_SHORTCUTS[tool.id];
+    if (key) keymap.bindDefault(key, `view.tool.${tool.id}`);
   }
   commands.register({
     id: 'help.about',

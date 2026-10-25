@@ -10,6 +10,7 @@
 import type { Child } from '@cerebro-ide/jsx';
 import type { Anchor, Area, Layout, Slot, ToolWindow, ToolWindows } from '@cerebro-ide/layout';
 import { makeObservable } from '@cerebro-ide/reactive';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { dragFrom } from './drag.js';
 import { Splitter } from './splitter.js';
 
@@ -23,6 +24,8 @@ export interface ShellLayoutProps {
   header?: () => Child;
   /** Draws a tool window's icon. Without it, or without an icon name, the title's first letter shows. */
   icon?: (name: string) => Child;
+  /** The shortcut that toggles a tool window, for its button's tooltip, if it has one. */
+  shortcut?: (id: string) => string | undefined;
 }
 
 /** The editor keeps at least this much room when an area is resized, in pixels. */
@@ -186,7 +189,15 @@ function StripeButton(props: { ctx: Context; tool: ToolWindow }): Node {
           dropBefore() && 'cerebro-stripe-button--drop-before',
         )
       }
-      title={() => tool.title}
+      ref={tooltip({
+        text: () => tool.title,
+        shortcut: () => ctx.props.shortcut?.(tool.id),
+        // Beside the button, away from the window's edge.
+        placement: () =>
+          tool.anchor === 'right' || (tool.anchor === 'bottom' && tool.slot === 'secondary')
+            ? 'left'
+            : 'right',
+      })}
       aria-label={() => tool.title}
       aria-pressed={() => String(visible())}
       data-id={tool.id}
@@ -297,7 +308,7 @@ function Pane(props: { ctx: Context; area: Area; id: string; slot: Slot }): Node
         <button
           type="button"
           class="cerebro-tool-window__hide"
-          title="Hide"
+          ref={tooltip({ text: () => 'Hide' })}
           aria-label={() => `Hide ${tool.title}`}
           on:click={() => {
             ctx.tools.hide(id);

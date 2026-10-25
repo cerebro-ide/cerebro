@@ -15,6 +15,7 @@ import type {
   Tab,
 } from '@cerebro-ide/layout';
 import { effect, makeObservable } from '@cerebro-ide/reactive';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { dragFrom } from './drag.js';
 import { Splitter } from './splitter.js';
 
@@ -246,7 +247,7 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
       role="tab"
       tabIndex={0}
       aria-selected={() => String(group.active === tab.id)}
-      title={tab.title}
+      ref={tooltip({ text: () => tab.id })}
       data-tab={tab.id}
       on:pointerdown={(event) => {
         startTabDrag(ctx, group, tab, event);
@@ -266,6 +267,7 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
         type="button"
         class="cerebro-editor-tab__close"
         aria-label={`Close ${tab.title}`}
+        ref={tooltip({ text: () => 'Close' })}
         on:pointerdown={(event) => {
           event.stopPropagation();
         }}

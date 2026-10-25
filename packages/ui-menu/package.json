@@ -23,6 +23,7 @@
   "dependencies": {
     "@cerebro-ide/commands": "0.0.0",
     "@cerebro-ide/jsx": "0.0.0",
-    "@cerebro-ide/reactive": "0.0.0"
+    "@cerebro-ide/reactive": "0.0.0",
+    "@cerebro-ide/ui-tooltip": "0.0.0"
   }
 }

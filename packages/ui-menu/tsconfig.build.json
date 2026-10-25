@@ -18,6 +18,9 @@
     },
     {
       "path": "../commands/tsconfig.build.json"
+    },
+    {
+      "path": "../ui-tooltip/tsconfig.build.json"
     }
   ]
 }

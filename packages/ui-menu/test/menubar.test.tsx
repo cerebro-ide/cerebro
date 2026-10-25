@@ -3,7 +3,8 @@ import '../src/styles.css';
 import { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { afterEach, describe, expect, it } from 'vitest';
+import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MenuBar } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
@@ -286,5 +287,17 @@ describe('names without a mnemonic', () => {
     expect(alt('W').defaultPrevented).toBe(false);
     handle.dispose();
     container.remove();
+  });
+});
+
+describe('tooltip', () => {
+  it('names the button', () => {
+    vi.useFakeTimers();
+    const { button } = mount(false);
+    button().dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Main Menu');
+    button().dispatchEvent(new PointerEvent('pointerleave'));
+    vi.useRealTimers();
   });
 });
