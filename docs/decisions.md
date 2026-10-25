@@ -259,8 +259,9 @@ Also needed, without a choice to make:
 Ido chose each of these from options Claude laid out.
 
 - **IntelliJ's fixed docking areas, not free docking.**
-  - Tool windows live in left, right and bottom areas, opened from stripes of icons. Each side
-    shows at most a primary and a secondary window.
+  - Tool windows live in left, right, top and bottom areas, opened from stripes of icons. Each
+    side shows at most a primary and a secondary window. (Top added by Ido; IntelliJ's API has it
+    too, as `ToolWindowAnchor.TOP`.)
   - The editor area sits in the centre, with tabbed splits.
   - Why: it matches "same GUI", and it's much simpler than letting any panel dock anywhere.
   - Rejected: free docking, as in dockview or VS Code's editor groups everywhere.

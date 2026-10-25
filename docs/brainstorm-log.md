@@ -370,3 +370,7 @@ in each:
 - plain elements with prefixed CSS;
 - CSS custom properties for themes;
 - browser first, Electron later.
+
+**Ido** (while Claude wrote the layout model with left, right and bottom areas):
+
+> it can also anchor at the top
