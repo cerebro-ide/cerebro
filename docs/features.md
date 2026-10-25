@@ -20,6 +20,10 @@ the diff views are Cerebro's own, on top of it (see `decisions.md`).
 - **A main toolbar** at the top, like IntelliJ's, with branch and worktree selection.
 - **Two layers of tabs:** one for environments (a worktree with its session), and inside each, the
   file tabs.
+  - Switching environment tabs switches the editor area and the tool windows' contents (project
+    tree, terminal, changes): each environment has its own. The tool-window layout (which windows
+    sit where) is IDE-wide, so the window doesn't rearrange on a switch. (Claude's proposal, which
+    Ido confirmed: "that's what i had in mind".)
 - **Keyboard navigation and shortcuts everywhere**, and the shortcuts are configurable.
 - **A status bar** at the bottom. Its contents are to be discussed; like IntelliJ's, it will
   probably show running background tasks, services, and basic information about the active
