@@ -6,6 +6,7 @@
   "type": "module",
   "exports": {
     ".": {
+      "cerebro-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }

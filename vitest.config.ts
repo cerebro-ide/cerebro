@@ -5,7 +5,7 @@ export default defineConfig({
     projects: ['packages/*'],
     coverage: {
       provider: 'v8',
-      include: ['packages/*/src/**/*.ts'],
+      include: ['packages/*/src/**/*.{ts,tsx}'],
       thresholds: { 100: true, perFile: true },
     },
   },
