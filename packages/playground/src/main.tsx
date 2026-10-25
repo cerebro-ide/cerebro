@@ -8,6 +8,9 @@ import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
+import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import '@cerebro-ide/ui-toolbar/styles.css';
+import { current } from './environments.js';
 import { signal } from '@cerebro-ide/reactive';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
@@ -82,7 +85,7 @@ status.add({
   id: 'env',
   side: 'left',
   icon: 'git',
-  text: () => 'cerebro · feat/status-bar',
+  text: () => `${current().name} · ${current().branch}`,
   tooltip: () => 'Environment: worktree and branch (sample)',
 });
 status.add({
@@ -117,12 +120,47 @@ status.add({
   tooltip: () => 'File Type',
 });
 
+/** The shortcut bound to a command, formatted for this platform. */
+function shortcutOf(command: string): string | undefined {
+  const key = services.keymap?.shortcutsFor(command)[0];
+  return key === undefined ? undefined : formatSequence(key, services.keymap?.platform ?? 'other');
+}
+
 function Header() {
   return (
-    <div class="playground-header">
-      <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
-      <span class="playground-title">Cerebro playground</span>
-    </div>
+    <MainToolbar
+      left={() => [
+        <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />,
+        <ToolbarDropdown
+          services={services}
+          menu="toolbar/environments"
+          label="Environment"
+          badge={() => current().name}
+          text={() => current().name}
+        />,
+        <ToolbarDropdown
+          services={services}
+          menu="toolbar/branches"
+          label="Branch"
+          icon={icon('git')}
+          text={() => current().branch}
+        />,
+      ]}
+      right={() => [
+        <ToolbarButton
+          commands={services.commands}
+          command="search.everywhere"
+          icon={icon('search')}
+          shortcut={() => shortcutOf('search.everywhere')}
+        />,
+        <ToolbarButton
+          commands={services.commands}
+          command="file.settings"
+          icon={icon('services')}
+          shortcut={() => shortcutOf('file.settings')}
+        />,
+      ]}
+    />
   );
 }
 

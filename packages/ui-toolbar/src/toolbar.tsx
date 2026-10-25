@@ -76,12 +76,13 @@ export interface ToolbarDropdownProps {
 }
 
 export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
+  const { badge } = props;
   const state = new DropdownState();
   let handle: MenuHandle | undefined;
   let element: HTMLElement | undefined;
   const open = (fromKeyboard: boolean) => {
     state.open = true;
-    const opened = openMenu(
+    handle = openMenu(
       props.services,
       props.menu,
       { anchor: element as Element, placement: 'below' },
@@ -89,15 +90,13 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
         context: props.context?.(),
         owner: element as Element,
         focusFirst: fromKeyboard,
+        // One menu at a time: a new one only opens once this one is gone.
         onClose: () => {
-          if (handle === opened) {
-            handle = undefined;
-            state.open = false;
-          }
+          handle = undefined;
+          state.open = false;
         },
       },
     );
-    handle = opened;
   };
   const toggle = (fromKeyboard: boolean) => {
     if (handle) handle.close();
@@ -129,12 +128,12 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
         }
       }}
     >
-      {props.badge ? (
+      {badge ? (
         <span
           class="cerebro-toolbar-dropdown__badge"
-          style={{ background: () => badgeColour(props.badge?.() ?? '') }}
+          style={{ background: () => badgeColour(badge()) }}
         >
-          {() => initials(props.badge?.() ?? '')}
+          {() => initials(badge())}
         </span>
       ) : null}
       {props.icon ? <span class="cerebro-toolbar-dropdown__icon">{props.icon}</span> : null}
@@ -164,7 +163,7 @@ export function initials(name: string): string {
   const words = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   const letters =
     words.length >= 2
-      ? `${words[0]?.[0] ?? ''}${words[1]?.[0] ?? ''}`
+      ? (words[0] as string).charAt(0) + (words[1] as string).charAt(0)
       : (words[0] ?? '').slice(0, 2);
   return letters.toUpperCase();
 }
