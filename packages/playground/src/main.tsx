@@ -6,6 +6,12 @@ import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
 import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
+import '@cerebro-ide/ui-statusbar/styles.css';
+import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import '@cerebro-ide/ui-toolbar/styles.css';
+import { current } from './environments.js';
+import { signal } from '@cerebro-ide/reactive';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -56,12 +62,105 @@ function activeTab(): TabContext | undefined {
   return group.active === undefined ? undefined : { group: group.id, tab: group.active };
 }
 
+/** A sample status bar: what really goes on it is still to be decided. */
+const status = new StatusBar();
+const indexing = signal<Progress>(0);
+const timer = setInterval(() => {
+  const value = indexing.get();
+  if (typeof value === 'number' && value < 1) indexing.set(Math.min(1, value + 0.025));
+  else {
+    indexing.set(undefined);
+    clearInterval(timer);
+  }
+}, 200);
+const fileTypes: Record<string, string> = {
+  ts: 'TypeScript',
+  tsx: 'TypeScript JSX',
+  css: 'CSS',
+  md: 'Markdown',
+  json: 'JSON',
+};
+const activePath = () => editor.activeGroup.active;
+status.add({
+  id: 'env',
+  side: 'left',
+  icon: 'git',
+  text: () => `${current().name} · ${current().branch}`,
+  tooltip: () => 'Environment: worktree and branch (sample)',
+});
+status.add({
+  id: 'file',
+  side: 'left',
+  order: 1,
+  text: () => activePath() ?? 'No file open',
+  tooltip: () => 'The active file',
+});
+status.add({
+  id: 'indexing',
+  side: 'left',
+  order: 2,
+  text: () => (indexing.get() === undefined ? 'Indexed' : 'Indexing…'),
+  tooltip: () => 'A background task (sample)',
+  progress: () => indexing.get(),
+});
+status.add({
+  id: 'position',
+  order: 1,
+  text: () => '1:1',
+  tooltip: () => 'Go to File',
+  command: 'file.goTo',
+});
+status.add({ id: 'separator', order: 2, text: () => 'LF', tooltip: () => 'Line Separator' });
+status.add({ id: 'encoding', order: 3, text: () => 'UTF-8', tooltip: () => 'File Encoding' });
+status.add({ id: 'indent', order: 4, text: () => '2 spaces', tooltip: () => 'Indent' });
+status.add({
+  id: 'type',
+  order: 5,
+  text: () => fileTypes[activePath()?.split('.').at(-1) ?? ''] ?? 'Plain Text',
+  tooltip: () => 'File Type',
+});
+
+/** The shortcut bound to a command, formatted for this platform. */
+function shortcutOf(command: string): string | undefined {
+  const key = services.keymap?.shortcutsFor(command)[0];
+  return key === undefined ? undefined : formatSequence(key, services.keymap?.platform ?? 'other');
+}
+
 function Header() {
   return (
-    <div class="playground-header">
-      <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
-      <span class="playground-title">Cerebro playground</span>
-    </div>
+    <MainToolbar
+      left={() => [
+        <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />,
+        <ToolbarDropdown
+          services={services}
+          menu="toolbar/environments"
+          label="Environment"
+          badge={() => current().name}
+          text={() => current().name}
+        />,
+        <ToolbarDropdown
+          services={services}
+          menu="toolbar/branches"
+          label="Branch"
+          icon={icon('git')}
+          text={() => current().branch}
+        />,
+      ]}
+      right={() => [
+        <ToolbarButton
+          commands={services.commands}
+          command="search.everywhere"
+          icon={icon('search')}
+          shortcut={() => shortcutOf('search.everywhere')}
+        />,
+        <ToolbarButton
+          commands={services.commands}
+          command="file.settings"
+          icon={icon('services')}
+          shortcut={() => shortcutOf('file.settings')}
+        />,
+      ]}
+    />
   );
 }
 
@@ -156,6 +255,19 @@ render(
       )}
       icon={icon}
       header={() => <Header />}
+      footer={() => (
+        <StatusBarView
+          bar={status}
+          commands={services.commands}
+          icon={icon}
+          shortcut={(id) => {
+            const key = services.keymap?.shortcutsFor(id)[0];
+            return key === undefined
+              ? undefined
+              : formatSequence(key, services.keymap?.platform ?? 'other');
+          }}
+        />
+      )}
       shortcut={(id) => {
         const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
         return key === undefined

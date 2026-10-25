@@ -11,6 +11,7 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { setupEnvironments } from './environments.js';
 import { icon } from './icons.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
@@ -201,6 +202,14 @@ export function setupCommands(
     if (key) keymap.bindDefault(key, `view.tool.${tool.id}`);
   }
   commands.register({
+    id: 'search.everywhere',
+    label: '&Search Everywhere',
+    dialog: true,
+    icon: 'search',
+    run: () => commands.execute('file.goTo'),
+  });
+  setupEnvironments(commands, menus);
+  commands.register({
     id: 'help.about',
     label: '&About Cerebro',
     dialog: true,
@@ -255,6 +264,7 @@ export function setupCommands(
   keymap.bindDefault('Ctrl+F4', 'editor.close');
   keymap.bindDefault('Mod+Alt+N', 'file.new');
   keymap.bindDefault('Mod+Alt+S', 'file.settings');
+  keymap.bindDefault('Mod+Shift+A', 'search.everywhere');
   keymap.bindDefault('Mod+Z', 'edit.undo');
   keymap.bindDefault('Mod+Shift+Z', 'edit.redo');
   keymap.bindDefault('Mod+X', 'edit.cut');

@@ -46,6 +46,10 @@
   border-bottom: 1px solid var(--cerebro-border);
 }
 
+.cerebro-shell__footer {
+  flex: none;
+}
+
 .cerebro-shell__body {
   display: flex;
   flex: 1;

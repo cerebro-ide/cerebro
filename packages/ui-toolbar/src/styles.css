@@ -1,0 +1,99 @@
+/* The main toolbar. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: var(--cerebro-toolbar-height);
+  padding: 0 6px;
+  background: var(--cerebro-panel);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-toolbar__side {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cerebro-toolbar-button,
+.cerebro-toolbar-dropdown {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border: none;
+  border-radius: var(--cerebro-radius);
+  background: transparent;
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.cerebro-toolbar-button {
+  justify-content: center;
+  width: 30px;
+  padding: 0;
+}
+
+.cerebro-toolbar-button > svg {
+  width: 20px;
+  height: 20px;
+}
+
+.cerebro-toolbar-button:disabled {
+  color: var(--cerebro-text-muted);
+  opacity: 0.5;
+}
+
+.cerebro-toolbar-dropdown {
+  gap: 6px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+
+.cerebro-toolbar-button:not(:disabled):hover,
+.cerebro-toolbar-dropdown:hover,
+.cerebro-toolbar-dropdown--open {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-toolbar-button:focus-visible,
+.cerebro-toolbar-dropdown:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+/* A name's initials on its colour, as IntelliJ's project widget. */
+.cerebro-toolbar-dropdown__badge {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.cerebro-toolbar-dropdown__icon {
+  display: grid;
+  place-items: center;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-toolbar-dropdown__icon > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.cerebro-toolbar-dropdown__text {
+  font-weight: 600;
+}
+
+.cerebro-toolbar-dropdown__chevron {
+  color: var(--cerebro-text-muted);
+}
