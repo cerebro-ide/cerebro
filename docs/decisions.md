@@ -329,6 +329,21 @@ support chromium on ubuntu20.04-x64"); its [requirements](https://playwright.dev
 Ubuntu 22.04 / 24.04 / 26.04. Ido chose an in-place upgrade over a new distro just for Cerebro or
 running browser tests in Docker.
 
+Result: **Ubuntu 24.04.5**, two upgrades (20.04 → 22.04 → 24.04). Setting up a development machine:
+
+- **systemd on in WSL** (`/etc/wsl.conf`: `[boot]` `systemd=true`). Without it, the
+  22.04 → 24.04 upgrade hung on `snap list`, because `snapd` can't run.
+- **Chromium's system packages installed with `apt`, not `sudo npx playwright install-deps`**
+  (Ido: no npm code run as root for a package list). `npx playwright install-deps --dry-run
+  chromium` lists what's missing, without sudo; re-check after each Playwright upgrade. For
+  Playwright 1.64 on 24.04:
+
+  ```
+  sudo apt-get install -y fonts-freefont-ttf fonts-ipafont-gothic fonts-liberation fonts-noto-color-emoji fonts-tlwg-loma-otf fonts-unifont fonts-wqy-zenhei libasound2-data libasound2t64 libxfont2 x11-xkb-utils xfonts-cyrillic xfonts-encodings xfonts-scalable xfonts-utils xserver-common xvfb
+  ```
+
+- CI uses Playwright's own `npx playwright install --with-deps chromium` on its throwaway runner.
+
 - Private GitHub repo `cerebro-ide/cerebro` (moved from `iMoses/cerebro` on 2026-10-25; old links
   redirect); a copy on the NAS so a session there can work on it any time (the NAS is always on).
 - **No tooling for this project is installed on the NAS**; it isn't a proper development
