@@ -409,3 +409,5 @@ the repo, in its git directory, or in Cerebro's own data):
 > another alternative is to make it configurable as well in the settings...
 
 > local data should be saved in the local db. it can be recreated on different machines. settings can be configured locally in the repo or globally in the app dir
+
+> json with comments, json5, is a good choise - i agree with your proposed path. commit this data so we can move on to the next step.

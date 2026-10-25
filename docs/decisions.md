@@ -590,8 +590,11 @@ global → repo → worktree".
   - **Local data goes in the local database** (Ido): the host's database, beside the session
     database. It isn't shared, since it can be recreated on another machine. Read as covering the
     worktree layer: a worktree's settings are local data, not a file.
-  - Still open: the repo file's exact path (`.cerebro/settings.json` proposed) and the format.
-    Saving needs the host.
+  - **The repo file is `.cerebro/settings.json5`, in JSON5** (Ido): JSON with comments, trailing
+    commas and unquoted keys, so people can annotate shared settings. The global file takes the same
+    format, `settings.json5` in the app's directory. The extension is `.json5` rather than the
+    proposed `.json`, so editors don't flag the comments. Reading it needs a JSON5 parser in the
+    host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
 ## Desktop conventions in the UI (2026-10-25)
