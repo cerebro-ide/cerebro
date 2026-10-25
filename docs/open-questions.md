@@ -1,8 +1,10 @@
 # Open questions
 
-- **Name-based fallback quality**: is tree-sitter navigation good enough while tsserver warms up?
-  (spike measurement 4)
-- **Language server memory**: how many warm servers fit on a laptop? (spike measurement 2)
+- **Name-based fallback quality**: measured in the spike (measurement 4). Recall is near 100%;
+  precision is noisy for common member names. Open: how the UI marks name-based results and swaps
+  in tsserver's answer.
+- **Language server memory**: measured in the spike (measurement 2), about 1 GB per warm
+  whole-repo tsserver on ag-charts. Open: the pool size and idle timeout.
 - **Docking library**: dockview, FlexLayout, or own implementation?
 - **Editor/diff component**: Monaco or CodeMirror. Claim, to verify: Monaco ships a 2-way diff
   editor, but VS Code's 3-way merge editor is part of the VS Code workbench, not standalone Monaco.

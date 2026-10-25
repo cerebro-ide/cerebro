@@ -1,0 +1,11 @@
+{
+  "name": "cerebro-spike",
+  "private": true,
+  "type": "module",
+  "description": "Spike: is running many worktrees solvable? See docs/spike-multi-worktree.md",
+  "dependencies": {
+    "tree-sitter-javascript": "0.23.1",
+    "tree-sitter-typescript": "0.23.2",
+    "web-tree-sitter": "0.25.10"
+  }
+}
