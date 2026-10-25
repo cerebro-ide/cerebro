@@ -1,0 +1,283 @@
+/* The layout view. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-shell {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--cerebro-panel);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+}
+
+/* Flex containers would otherwise override the hidden attribute. */
+.cerebro-shell [hidden] {
+  display: none !important;
+}
+
+.cerebro-shell__main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-shell__center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-shell__editor {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--cerebro-background);
+}
+
+/* Stripes: the tool window buttons, on the left and on the right. */
+
+.cerebro-stripe {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: var(--cerebro-stripe-size);
+  padding: 5px;
+  background: var(--cerebro-stripe);
+  user-select: none;
+}
+
+.cerebro-stripe--left {
+  border-right: 1px solid var(--cerebro-border);
+}
+
+.cerebro-stripe--right {
+  border-left: 1px solid var(--cerebro-border);
+}
+
+.cerebro-stripe__group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--cerebro-radius);
+}
+
+/* Separates the side's secondary group from its primary group. */
+.cerebro-stripe__group--left-secondary:not(:empty),
+.cerebro-stripe__group--right-secondary:not(:empty) {
+  padding-top: 5px;
+  border-top: 1px solid var(--cerebro-separator);
+}
+
+/* Pushes the bottom area's group to the bottom of the stripe. */
+.cerebro-stripe__spacer {
+  flex: 1;
+}
+
+/* While dragging, every group is a visible drop zone, even when empty. */
+.cerebro-shell--dragging .cerebro-stripe__group {
+  min-width: var(--cerebro-stripe-button);
+  min-height: var(--cerebro-stripe-button);
+  outline: 1px dashed var(--cerebro-separator);
+  outline-offset: 1px;
+}
+
+.cerebro-stripe-button {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--cerebro-stripe-button);
+  height: var(--cerebro-stripe-button);
+  padding: 0;
+  border: none;
+  border-radius: var(--cerebro-radius);
+  background: transparent;
+  color: var(--cerebro-text-muted);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.cerebro-stripe-button:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-stripe-button--active,
+.cerebro-stripe-button--active:hover {
+  background: var(--cerebro-selected);
+  color: var(--cerebro-text);
+}
+
+.cerebro-stripe-button:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+.cerebro-stripe-button--dragged {
+  opacity: 0.35;
+}
+
+.cerebro-stripe-button__letter {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* The drop indicator: a line before a button, or after the last one. */
+.cerebro-stripe-button--drop-before::before,
+.cerebro-stripe__group--drop-end::after {
+  content: '';
+  flex: none;
+  width: calc(var(--cerebro-stripe-button) - 6px);
+  height: 2px;
+  border-radius: 1px;
+  background: var(--cerebro-drop);
+}
+
+.cerebro-stripe-button--drop-before::before {
+  position: absolute;
+  top: -3px;
+  left: 3px;
+}
+
+/* Areas and tool windows. */
+
+.cerebro-area {
+  display: flex;
+  flex: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--cerebro-panel);
+}
+
+.cerebro-area--left,
+.cerebro-area--right {
+  flex-direction: column;
+}
+
+.cerebro-area--bottom {
+  flex-direction: row;
+}
+
+.cerebro-tool-window {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-tool-window__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  height: var(--cerebro-header-height);
+  padding: 0 4px 0 10px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.cerebro-tool-window__title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cerebro-tool-window__hide {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-text-muted);
+  cursor: pointer;
+}
+
+.cerebro-tool-window__hide:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-tool-window__hide:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+.cerebro-tool-window__body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Splitters: a 1px line with a wider invisible handle. */
+
+.cerebro-splitter {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  background: var(--cerebro-border);
+  touch-action: none;
+}
+
+.cerebro-splitter::before {
+  content: '';
+  position: absolute;
+}
+
+.cerebro-splitter--vertical {
+  width: 1px;
+  cursor: col-resize;
+}
+
+.cerebro-splitter--vertical::before {
+  inset: 0 calc((var(--cerebro-splitter) - 1px) / -2);
+}
+
+.cerebro-splitter--horizontal {
+  height: 1px;
+  cursor: row-resize;
+}
+
+.cerebro-splitter--horizontal::before {
+  inset: calc((var(--cerebro-splitter) - 1px) / -2) 0;
+}
+
+.cerebro-splitter:hover::before {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-shell--resizing {
+  user-select: none;
+}
+
+/* The label that follows the pointer while dragging a tool window. */
+.cerebro-drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  padding: 4px 10px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  pointer-events: none;
+  white-space: nowrap;
+}

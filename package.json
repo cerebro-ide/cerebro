@@ -16,7 +16,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run coverage"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run coverage",
+    "dev": "npm run dev -w @cerebro-ide/playground"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

@@ -1,0 +1,44 @@
+.playground-editor {
+  max-width: 560px;
+  padding: 24px 32px;
+  line-height: 1.5;
+}
+
+.playground-editor h1 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.playground-editor p {
+  color: var(--cerebro-text-muted);
+}
+
+.playground-button {
+  padding: 5px 12px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-panel);
+  color: var(--cerebro-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.playground-button:hover {
+  background: var(--cerebro-hover);
+}
+
+.playground-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+}
+
+.playground-list li {
+  padding: 3px 12px;
+  white-space: nowrap;
+}
+
+.playground-list li:hover {
+  background: var(--cerebro-hover);
+}

@@ -9,6 +9,9 @@
     },
     {
       "path": "packages/layout/tsconfig.build.json"
+    },
+    {
+      "path": "packages/ui-layout/tsconfig.build.json"
     }
   ]
 }

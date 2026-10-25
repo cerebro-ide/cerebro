@@ -1,0 +1,50 @@
+/*
+ * Theme variables. Every Cerebro component and plugin styles itself with these, so a theme is only a
+ * set of values. Dark is the default; set data-cerebro-theme="light" on an ancestor for light.
+ * Colours approximate IntelliJ's new UI.
+ */
+
+:root,
+[data-cerebro-theme='dark'] {
+  color-scheme: dark;
+
+  --cerebro-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cerebro-font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --cerebro-font-size: 13px;
+
+  --cerebro-background: #1e1f22;
+  --cerebro-panel: #2b2d30;
+  --cerebro-stripe: #2b2d30;
+  --cerebro-border: #1e1f22;
+  --cerebro-separator: #393b40;
+  --cerebro-text: #dfe1e5;
+  --cerebro-text-muted: #868a91;
+  --cerebro-hover: rgb(255 255 255 / 0.07);
+  --cerebro-selected: #43454a;
+  --cerebro-accent: #3574f0;
+  --cerebro-drop: #3574f0;
+  --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+
+  --cerebro-stripe-size: 40px;
+  --cerebro-stripe-button: 30px;
+  --cerebro-header-height: 32px;
+  --cerebro-splitter: 5px;
+  --cerebro-radius: 6px;
+}
+
+[data-cerebro-theme='light'] {
+  color-scheme: light;
+
+  --cerebro-background: #ffffff;
+  --cerebro-panel: #f7f8fa;
+  --cerebro-stripe: #f7f8fa;
+  --cerebro-border: #ebecf0;
+  --cerebro-separator: #dfe1e5;
+  --cerebro-text: #1e1f22;
+  --cerebro-text-muted: #6c707e;
+  --cerebro-hover: rgb(0 0 0 / 0.05);
+  --cerebro-selected: #dfe1e5;
+  --cerebro-accent: #3574f0;
+  --cerebro-drop: #3574f0;
+  --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+}
