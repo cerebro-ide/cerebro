@@ -391,3 +391,7 @@ folding the dev server into that step.
 **Ido** (after a WSL update shut WSL down mid-session; the work survived uncommitted on disk):
 
 > start the dev server, and commit to the branch as you go
+
+**Ido** (asked to open the layout view's PR):
+
+> just to be clear about my process, i'm gonna be leaner until we'll actually have a good fundation running, then we'll drill down into actual improvements and writing skills and instructions for future work. for now, open the pr - even if it isn't exactly what i hoped for it's fine for now...

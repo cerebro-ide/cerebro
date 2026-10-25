@@ -403,3 +403,9 @@ Result: **Ubuntu 24.04.5**, two upgrades (20.04 → 22.04 → 24.04). Setting up
 
 Primarily a tool for Ido, ideally published so others find it useful. Ido is willing to spend time
 on it and has spare Claude subscription capacity to put into it.
+
+## Process: lean until the foundation runs (2026-10-25)
+
+Ido works lean until there's a good foundation running: pieces land even when they aren't exactly
+what he hoped for. After that comes drilling into improvements, and writing skills and
+instructions for future work.
