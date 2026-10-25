@@ -16,6 +16,10 @@ Ido's project: a free, standalone IDE for inspecting code and managing AI agents
 
 - Do exactly what Ido asked; if unclear, ask. Don't fill in what he didn't say.
 - Commit only when asked; a commit is always pushed in the same step.
+- Changes go through a pull request: commit on a branch, push it, open a PR with `gh`. CI runs on
+  it, and Ido merges; Claude never merges.
+- Exception: a change that touches only Markdown files may be committed and pushed straight to
+  `main`. PRs are mostly for CI, and Markdown files don't go through CI.
 - No "Generated with Claude" footers or `Co-Authored-By` trailers in commits, PRs or issues.
 - Proof is a measurement or official documentation; anything else is labelled as a claim.
 - When a decision changes, update `docs/decisions.md` and say why.
