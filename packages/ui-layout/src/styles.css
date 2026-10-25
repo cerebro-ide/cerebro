@@ -526,7 +526,7 @@
   flex: none;
   align-items: center;
   gap: 6px;
-  max-width: 280px;
+  max-width: 360px;
   padding: 0 4px 0 10px;
   border-right: 1px solid var(--cerebro-border);
   touch-action: none;
@@ -569,13 +569,15 @@
   place-items: center;
 }
 
+/* The name stays whole; the branch is what gets cut short. */
 .cerebro-env-tab__name {
-  overflow: hidden;
+  flex: none;
   font-weight: 600;
-  text-overflow: ellipsis;
 }
 
 .cerebro-env-tab__branch {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   color: var(--cerebro-text-muted);
   text-overflow: ellipsis;

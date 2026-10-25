@@ -1,43 +1,56 @@
-// Sample environments (worktrees, each on a branch) for the toolbar's selectors, until the host can
-// list real ones.
+// Sample worktrees and branches for the toolbar's selectors and the environment tabs, until the host
+// can list real ones. Opening a worktree makes it an environment tab, with its own editor area.
 
 import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
+import {
+  Environments,
+  type Environment,
+  type EnvironmentSpec,
+  type Tab,
+} from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 
-export interface Environment {
-  id: string;
-  name: string;
-  branch: string;
-}
-
-const environments = signal<Environment[]>([
+const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro', name: 'cerebro', branch: 'main' },
   { id: 'cerebro-status-bar', name: 'cerebro-status-bar', branch: 'feat/status-bar' },
   { id: 'cerebro-agent-1', name: 'cerebro-agent-1', branch: 'feat/agent-sessions' },
 ]);
 const branches = signal(['main', 'feat/status-bar', 'feat/agent-sessions', 'fix/auto-actions']);
-const currentId = signal('cerebro-status-bar');
 
-export function current(): Environment {
-  return environments.get().find((e) => e.id === currentId.get()) as Environment;
+/** The open environments, as tabs. */
+export const workspace = new Environments();
+
+export function active(): Environment | undefined {
+  return workspace.active;
 }
 
 /** Menu labels mark mnemonics with &, so a literal & is doubled. */
 const literal = (text: string) => text.replaceAll('&', '&&');
 
-export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry): void {
-  const addEnvironment = (env: Environment) => {
+export function setupEnvironments(
+  commands: CommandRegistry,
+  menus: MenuRegistry,
+  /** Called for a worktree's first opening, to put some files in its editor. */
+  seed: (env: Environment) => void,
+): { open: (id: string) => void } {
+  const open = (id: string) => {
+    const spec = worktrees.get().find((w) => w.id === id) as EnvironmentSpec;
+    const isNew = !workspace.open.some((e) => e.id === id);
+    const env = workspace.openOrActivate(spec);
+    if (isNew) seed(env);
+  };
+  const addWorktree = (spec: EnvironmentSpec) => {
     commands.register({
-      id: `env.switch.${env.id}`,
-      label: literal(env.name),
-      checked: () => currentId.get() === env.id,
+      id: `env.open.${spec.id}`,
+      label: literal(spec.name),
+      checked: () => workspace.activeId === spec.id,
       run: () => {
-        currentId.set(env.id);
+        open(spec.id);
       },
     });
     menus.contribute({
       menu: 'toolbar/environments',
-      item: { command: `env.switch.${env.id}` },
+      item: { command: `env.open.${spec.id}` },
       group: 'a',
     });
   };
@@ -45,11 +58,11 @@ export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry
     commands.register({
       id: `branch.checkout.${branch}`,
       label: literal(branch),
-      checked: () => current().branch === branch,
+      enabled: () => workspace.active !== undefined,
+      checked: () => workspace.active?.branch === branch,
       run: () => {
-        environments.set(
-          environments.get().map((e) => (e.id === currentId.get() ? { ...e, branch } : e)),
-        );
+        const env = workspace.active as Environment;
+        env.branch = branch;
       },
     });
     menus.contribute({
@@ -58,7 +71,7 @@ export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry
       group: 'a',
     });
   };
-  for (const env of environments.get()) addEnvironment(env);
+  for (const spec of worktrees.get()) addWorktree(spec);
   for (const branch of branches.get()) addBranch(branch);
 
   commands.register({
@@ -67,11 +80,11 @@ export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry
     dialog: true,
     run: () => {
       const name = window.prompt('New worktree name');
-      if (!name || environments.get().some((e) => e.id === name)) return;
-      const env = { id: name, name, branch: current().branch };
-      environments.set([...environments.get(), env]);
-      addEnvironment(env);
-      currentId.set(env.id);
+      if (!name || worktrees.get().some((w) => w.id === name)) return;
+      const spec = { id: name, name, branch: workspace.active?.branch ?? 'main' };
+      worktrees.set([...worktrees.get(), spec]);
+      addWorktree(spec);
+      open(spec.id);
     },
   });
   menus.contribute({ menu: 'toolbar/environments', item: { command: 'env.new' }, group: 'b' });
@@ -80,6 +93,7 @@ export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry
     id: 'branch.new',
     label: 'New &Branch',
     dialog: true,
+    enabled: () => workspace.active !== undefined,
     run: () => {
       const name = window.prompt('New branch name');
       if (!name || branches.get().includes(name)) return;
@@ -89,4 +103,38 @@ export function setupEnvironments(commands: CommandRegistry, menus: MenuRegistry
     },
   });
   menus.contribute({ menu: 'toolbar/branches', item: { command: 'branch.new' }, group: 'b' });
+
+  // Environment tab context menu.
+  commands.register<Environment>({
+    id: 'env.close',
+    label: '&Close',
+    run: (env) => {
+      workspace.close(env.id);
+    },
+  });
+  commands.register<Environment>({
+    id: 'env.closeOthers',
+    label: 'Close &Others',
+    enabled: () => workspace.open.length > 1,
+    run: (env) => {
+      for (const other of workspace.open) if (other.id !== env.id) workspace.close(other.id);
+    },
+  });
+  menus.contribute({ menu: 'env/tab', item: { command: 'env.close' } });
+  menus.contribute({ menu: 'env/tab', item: { command: 'env.closeOthers' } });
+
+  return { open };
+}
+
+/** Files for a sample environment's first opening. */
+export function seedFiles(env: Environment, tabOf: (path: string) => Tab): void {
+  const files =
+    env.id === 'cerebro-status-bar'
+      ? ['README.md', 'src/main.ts', 'src/shell.tsx', 'src/styles.css']
+      : ['README.md', 'package.json'];
+  for (const path of files) env.editor.open(tabOf(path));
+  if (env.id === 'cerebro-status-bar') {
+    const group = env.editor.activeGroupId;
+    env.editor.moveToSplit('src/styles.css', group, group, 'right');
+  }
 }

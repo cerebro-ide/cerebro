@@ -11,7 +11,6 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { setupEnvironments } from './environments.js';
 import { icon } from './icons.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
@@ -43,7 +42,7 @@ export function setDark(value: boolean): void {
 }
 
 export function setupCommands(
-  editor: EditorArea,
+  activeEditor: () => EditorArea | undefined,
   tools: ToolWindows,
   files: readonly string[],
   tabOf: (path: string) => Tab,
@@ -52,28 +51,31 @@ export function setupCommands(
   const commands = new CommandRegistry();
   const menus = new MenuRegistry();
   const keymap = new Keymap(platform);
-  const group = (c: TabContext) => editor.group(c.group);
+  const ed = activeEditor;
+  const group = (c: TabContext) => (ed() as EditorArea).group(c.group);
 
   commands.register<TabContext>({
     id: 'editor.close',
     label: '&Close',
+    enabled: (c) => c !== undefined,
     run: (c) => {
-      editor.close(c.group, c.tab);
+      ed()?.close(c.group, c.tab);
     },
   });
   commands.register<TabContext>({
     id: 'editor.closeOthers',
     label: 'Close &Others',
-    enabled: (c) => group(c).tabs.length > 1,
+    enabled: (c) => c !== undefined && group(c).tabs.length > 1,
     run: (c) => {
-      for (const t of group(c).tabs) if (t.id !== c.tab) editor.close(c.group, t.id);
+      for (const t of group(c).tabs) if (t.id !== c.tab) ed()?.close(c.group, t.id);
     },
   });
   commands.register<TabContext>({
     id: 'editor.closeAll',
     label: 'Close &All Tabs',
+    enabled: (c) => c !== undefined,
     run: (c) => {
-      for (const t of group(c).tabs) editor.close(c.group, t.id);
+      for (const t of group(c).tabs) ed()?.close(c.group, t.id);
     },
   });
   for (const [direction, label] of [
@@ -85,8 +87,9 @@ export function setupCommands(
     commands.register<TabContext>({
       id: `editor.split.${direction}`,
       label,
+      enabled: (c) => c !== undefined,
       run: (c) => {
-        editor.split(c.group, direction, c.tab);
+        ed()?.split(c.group, direction, c.tab);
       },
     });
     menus.contribute({ menu: 'editor/tab/split', item: { command: `editor.split.${direction}` } });
@@ -94,6 +97,7 @@ export function setupCommands(
   commands.register<TabContext>({
     id: 'editor.copyPath',
     label: 'Copy &Path',
+    enabled: (c) => c !== undefined,
     run: (c) => navigator.clipboard.writeText(c.tab),
   });
   commands.register({
@@ -103,7 +107,7 @@ export function setupCommands(
     run: () => {
       const name = window.prompt(`Go to file (${files.join(', ')})`);
       const path = files.find((f) => name && f.endsWith(name));
-      if (path) editor.open(tabOf(path));
+      if (path) ed()?.open(tabOf(path));
     },
   });
   commands.register({
@@ -122,7 +126,7 @@ export function setupCommands(
     label: '&New File',
     run: () => {
       untitled++;
-      editor.open({ id: `untitled-${String(untitled)}`, title: `untitled-${String(untitled)}` });
+      ed()?.open({ id: `untitled-${String(untitled)}`, title: `untitled-${String(untitled)}` });
     },
   });
   commands.register({
@@ -137,7 +141,7 @@ export function setupCommands(
       id: `file.recent.${String(i)}`,
       label: `&${String(i + 1)} ${path}`,
       run: () => {
-        editor.open(tabOf(path));
+        ed()?.open(tabOf(path));
       },
     });
     menus.contribute({ menu: 'main/file/recent', item: { command: `file.recent.${String(i)}` } });
@@ -147,7 +151,7 @@ export function setupCommands(
     label: '&Close Tab',
     enabled: (c) => c !== undefined,
     run: (c) => {
-      if (c) editor.close(c.group, c.tab);
+      if (c) ed()?.close(c.group, c.tab);
     },
   });
   commands.register({
@@ -208,7 +212,6 @@ export function setupCommands(
     icon: 'search',
     run: () => commands.execute('file.goTo'),
   });
-  setupEnvironments(commands, menus);
   commands.register({
     id: 'help.about',
     label: '&About Cerebro',
@@ -279,9 +282,9 @@ export function setupCommands(
   window.addEventListener('keydown', (event) => {
     const chord = chordFromEvent(event);
     if (chord === undefined) return;
-    const active = editor.activeGroup;
+    const active = ed()?.activeGroup;
     const context: TabContext | undefined =
-      active.active === undefined ? undefined : { group: active.id, tab: active.active };
+      active?.active === undefined ? undefined : { group: active.id, tab: active.active };
     if (dispatcher.press(chord, context) !== 'unhandled') event.preventDefault();
   });
 
