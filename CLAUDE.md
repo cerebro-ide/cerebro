@@ -16,6 +16,8 @@ Ido's project: a free, standalone IDE for inspecting code and managing AI agents
 
 - Do exactly what Ido asked; if unclear, ask. Don't fill in what he didn't say.
 - Commit only when asked; a commit is always pushed in the same step.
+- On a feature branch, Claude commits and pushes as it goes, without asking each time (Ido,
+  2026-10-25, after a WSL update ended a session with uncommitted work on disk).
 - Changes go through a pull request: commit on a branch, push it, open a PR with `gh`. CI runs on
   it, and Ido merges; Claude never merges.
 - Until code review starts, a PR may bundle several commits: no need for a PR per commit.

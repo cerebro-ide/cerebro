@@ -387,3 +387,7 @@ folding the dev server into that step.
 > okay, the first thing I want to play with is the layout istelf, specifically the menus. I wanna see drag and drop of them between anchors and primary/secondary views, i wanna see them open and close properly, and I wanna see that the design CSS is implemented properly.
 
 > also, until we actually start reviewing the code, i don't want a PR per commit. I think we can put a few commits into each PR
+
+**Ido** (after a WSL update shut WSL down mid-session; the work survived uncommitted on disk):
+
+> start the dev server, and commit to the branch as you go
