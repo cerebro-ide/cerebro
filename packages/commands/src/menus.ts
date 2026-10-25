@@ -38,26 +38,20 @@ export class MenuRegistry {
   entries(menu: string): MenuEntry[] {
     const items = this.contributions
       .toArray()
-      .map((c, position) => ({ c, position }))
-      .filter(({ c }) => c.menu === menu)
-      .sort(
-        (a, b) =>
-          compare(a.c.group ?? '', b.c.group ?? '') ||
-          (a.c.order ?? 0) - (b.c.order ?? 0) ||
-          a.position - b.position,
-      );
+      .filter((c) => c.menu === menu)
+      .map((c, position) => ({ item: c.item, group: c.group ?? '', order: c.order ?? 0, position }))
+      .sort((a, b) => compare(a.group, b.group) || a.order - b.order || a.position - b.position);
     const entries: MenuEntry[] = [];
     let group: string | undefined;
-    for (const { c } of items) {
-      const name = c.group ?? '';
+    for (const { item, group: name } of items) {
       if (group !== undefined && name !== group) entries.push({ separator: true });
       group = name;
-      entries.push(c.item);
+      entries.push(item);
     }
     return entries;
   }
 }
 
 function compare(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
+  return Number(a > b) - Number(a < b);
 }
