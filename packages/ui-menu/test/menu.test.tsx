@@ -270,7 +270,8 @@ describe('keyboard', () => {
 });
 
 describe('mouse', () => {
-  const enter = (element: Element) => element.dispatchEvent(new PointerEvent('pointerenter'));
+  const enter = (element: Element, movementX = 1) =>
+    element.dispatchEvent(new PointerEvent('pointermove', { movementX }));
 
   it('highlights on hover, opens submenus, and closes them on another item', () => {
     const { services } = setup();
@@ -283,6 +284,9 @@ describe('mouse', () => {
     const sub = popups()[1];
     enter(recent as HTMLElement);
     expect(popups()[1]).toBe(sub);
+    // A pointer that hasn't moved (the menu appeared under it) changes nothing.
+    enter(first as HTMLElement, 0);
+    expect(popups()).toHaveLength(2);
     enter(first as HTMLElement);
     expect(popups()).toHaveLength(1);
   });

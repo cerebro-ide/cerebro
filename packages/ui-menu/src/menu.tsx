@@ -300,7 +300,11 @@ class MenuSession implements MenuHandle {
             aria-disabled={() => String(!enabled())}
             aria-haspopup={isCommand ? undefined : 'menu'}
             data-index={index}
-            on:pointerenter={() => {
+            on:pointermove={(event) => {
+              // Only a pointer that really moves takes over from the keyboard, not one the menu
+              // opened under.
+              if (event.movementX === 0 && event.movementY === 0) return;
+              if (level.highlight === index) return;
               level.highlight = index;
               if (isCommand) this.truncate(depth + 1);
               else this.activate(depth, index, false);

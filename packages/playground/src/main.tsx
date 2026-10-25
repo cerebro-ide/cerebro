@@ -3,9 +3,9 @@ import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
 import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
-import { openContextMenu } from '@cerebro-ide/ui-menu';
+import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
-import { dark, setDark, setupCommands } from './commands.js';
+import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import './playground.css';
@@ -46,7 +46,22 @@ for (const path of ['README.md', 'src/main.ts', 'src/shell.tsx', 'src/styles.css
 }
 editor.moveToSplit('src/styles.css', editor.activeGroupId, editor.activeGroupId, 'right');
 
-const services = setupCommands(editor, FILES, tabOf);
+const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+
+/** What tab commands from the main menu act on: the active tab. */
+function activeTab(): TabContext | undefined {
+  const group = editor.activeGroup;
+  return group.active === undefined ? undefined : { group: group.id, tab: group.active };
+}
+
+function Header() {
+  return (
+    <div class="playground-header">
+      <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
+      <span class="playground-title">Cerebro playground</span>
+    </div>
+  );
+}
 
 function toggleTheme() {
   setDark(!dark.get());
@@ -138,6 +153,7 @@ render(
         />
       )}
       icon={icon}
+      header={() => <Header />}
     />
   ),
   document.getElementById('app') as HTMLElement,

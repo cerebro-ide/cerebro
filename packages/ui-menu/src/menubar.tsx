@@ -245,7 +245,10 @@ export function MenuBar(props: MenuBarProps): Node {
                       if (state.open && state.active === index) close();
                       else openRoot(index, false);
                     }}
-                    on:pointerenter={() => {
+                    on:pointermove={(event) => {
+                      // Only a pointer that really moves switches menus, not one that a menu
+                      // appeared under.
+                      if (event.movementX === 0 && event.movementY === 0) return;
                       if (state.open && state.active !== index) openRoot(index, false);
                     }}
                   >
