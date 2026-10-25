@@ -21,3 +21,4 @@ export {
   type Orientation,
   type Tab,
 } from './editor-area.js';
+export { Environment, Environments, type EnvironmentSpec } from './environments.js';

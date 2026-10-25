@@ -36,6 +36,12 @@ npm run dev
 Then open the address it prints (`http://localhost:5173`) in a browser. The playground shows the
 window layout with sample tool windows, and an editor area with tabs and splits.
 
+Or run the same page in the desktop app, reloading as the code changes:
+
+```
+npm run app
+```
+
 ## Docs
 
 | file | what's in it |

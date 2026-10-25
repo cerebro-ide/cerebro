@@ -1,0 +1,18 @@
+{
+  "name": "@cerebro-ide/app",
+  "productName": "Cerebro",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Electron app: a window around Cerebro's UI.",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "node scripts/dev.mjs",
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.9.3"
+  }
+}

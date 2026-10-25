@@ -90,6 +90,15 @@
   user-select: none;
 }
 
+/* A hidden bar in use covers its row: its nearest positioned ancestor, such as the toolbar. */
+.cerebro-menubar--takeover {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  padding: 0 6px;
+  background: var(--cerebro-panel);
+}
+
 .cerebro-menubar__items {
   display: flex;
   align-items: center;

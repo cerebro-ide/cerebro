@@ -2,21 +2,48 @@ import { render } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
-import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
-import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
+import {
+  EditorAreaView,
+  EnvironmentEditors,
+  EnvironmentTabs,
+  ShellLayout,
+} from '@cerebro-ide/ui-layout';
+import {
+  MenuBar,
+  openContextMenu,
+  syncNativeMenu,
+  type NativeMenuBridge,
+} from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
-import { current } from './environments.js';
+import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
+import { openMenu } from '@cerebro-ide/ui-menu';
 import { signal } from '@cerebro-ide/reactive';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import './playground.css';
+
+/** Set by the desktop app's preload script. */
+declare global {
+  interface Window {
+    cerebro?: { app: boolean; platform: string; menu: NativeMenuBridge };
+  }
+}
+
+// In the desktop app the toolbar is the title bar: tag the page so its CSS leaves room for the
+// window controls.
+if (window.cerebro?.app) {
+  document.documentElement.classList.add(
+    'cerebro-app',
+    `cerebro-platform-${window.cerebro.platform}`,
+  );
+}
 
 const layout = new Layout();
 
@@ -48,18 +75,19 @@ const FILES = [
 
 const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as string });
 
-const editor = layout.editor;
-for (const path of ['README.md', 'src/main.ts', 'src/shell.tsx', 'src/styles.css']) {
-  editor.open(tabOf(path));
-}
-editor.moveToSplit('src/styles.css', editor.activeGroupId, editor.activeGroupId, 'right');
+/** The active environment's editor area, if an environment is open. */
+const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+const environments = setupEnvironments(services.commands, services.menus, (env) => {
+  seedFiles(env, tabOf);
+});
+environments.open('cerebro-status-bar');
 
 /** What tab commands from the main menu act on: the active tab. */
 function activeTab(): TabContext | undefined {
-  const group = editor.activeGroup;
-  return group.active === undefined ? undefined : { group: group.id, tab: group.active };
+  const group = editor()?.activeGroup;
+  return group?.active === undefined ? undefined : { group: group.id, tab: group.active };
 }
 
 /** A sample status bar: what really goes on it is still to be decided. */
@@ -80,12 +108,15 @@ const fileTypes: Record<string, string> = {
   md: 'Markdown',
   json: 'JSON',
 };
-const activePath = () => editor.activeGroup.active;
+const activePath = () => editor()?.activeGroup.active;
 status.add({
   id: 'env',
   side: 'left',
   icon: 'git',
-  text: () => `${current().name} · ${current().branch}`,
+  text: () => {
+    const env = active();
+    return env ? `${env.name} · ${env.branch}` : 'No environment';
+  },
   tooltip: () => 'Environment: worktree and branch (sample)',
 });
 status.add({
@@ -126,24 +157,30 @@ function shortcutOf(command: string): string | undefined {
   return key === undefined ? undefined : formatSequence(key, services.keymap?.platform ?? 'other');
 }
 
+/** On macOS the desktop app shows the menu in the system menu bar, not in the window. */
+const nativeMenu = window.cerebro?.platform === 'darwin' ? window.cerebro.menu : undefined;
+if (nativeMenu) syncNativeMenu(services, nativeMenu, { context: activeTab });
+
 function Header() {
   return (
     <MainToolbar
       left={() => [
-        <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />,
+        nativeMenu ? null : (
+          <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
+        ),
         <ToolbarDropdown
           services={services}
           menu="toolbar/environments"
           label="Environment"
-          badge={() => current().name}
-          text={() => current().name}
+          badge={() => active()?.name ?? ''}
+          text={() => active()?.name ?? 'No environment'}
         />,
         <ToolbarDropdown
           services={services}
           menu="toolbar/branches"
           label="Branch"
           icon={icon('git')}
-          text={() => current().branch}
+          text={() => active()?.branch ?? '—'}
         />,
       ]}
       right={() => [
@@ -179,7 +216,7 @@ function Files() {
           <li
             class="playground-file"
             on:click={() => {
-              editor.open(tabOf(path));
+              editor()?.open(tabOf(path));
             }}
           >
             {path}
@@ -190,14 +227,15 @@ function Files() {
   );
 }
 
+/** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
   const title = layout.toolWindows.windows.get(props.id)?.title ?? props.id;
-  return (
+  return () => (
     <ul class="playground-list">
       {Array.from({ length: 12 }, (_, i) => (
         <li>
-          {title} item {i + 1}
+          {active()?.name ?? 'none'} · {title} item {i + 1}
         </li>
       ))}
     </ul>
@@ -226,6 +264,15 @@ function Code(props: { path: string }) {
   );
 }
 
+function NoEnvironment() {
+  return (
+    <div class="playground-editor">
+      <h1>No environment open</h1>
+      <p>Open a worktree with the + after the environment tabs, or from the toolbar.</p>
+    </div>
+  );
+}
+
 function Empty() {
   return (
     <div class="playground-editor">
@@ -244,17 +291,41 @@ render(
       layout={layout}
       content={(id) => <Content id={id} />}
       editor={() => (
-        <EditorAreaView
-          area={editor}
-          content={(tab) => <Code path={tab.id} />}
-          empty={() => <Empty />}
-          onTabContextMenu={(event, group, tab) =>
-            openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
-          }
+        <EnvironmentEditors
+          environments={workspace}
+          editor={(env) => (
+            <EditorAreaView
+              area={env.editor}
+              content={(tab) => <Code path={tab.id} />}
+              empty={() => <Empty />}
+              onTabContextMenu={(event, group, tab) =>
+                openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
+              }
+            />
+          )}
+          empty={() => <NoEnvironment />}
         />
       )}
       icon={icon}
-      header={() => <Header />}
+      header={() => [
+        <Header />,
+        <EnvironmentTabs
+          environments={workspace}
+          label={(env) => () => {
+            const file = env.editor.activeGroup.activeTab?.title;
+            return file === undefined ? env.name : `${env.name} – ${file}`;
+          }}
+          onAdd={(button) => {
+            openMenu(
+              services,
+              'toolbar/environments',
+              { anchor: button, placement: 'below' },
+              { owner: button },
+            );
+          }}
+          onContextMenu={(event, env) => openContextMenu(services, 'env/tab', event, env)}
+        />,
+      ]}
       footer={() => (
         <StatusBarView
           bar={status}

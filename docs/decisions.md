@@ -292,7 +292,7 @@ Ido chose each of these from options Claude laid out.
   - Plugins use the same variables.
 - **Browser first, Electron later.**
   - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
-  - Electron wraps the same page as the last step.
+  - Electron wraps the same page as the last step (done; see "The Electron app").
 
 **The editor area's view** (built 2026-10-25, while Ido tried the tool windows):
 
@@ -350,6 +350,16 @@ Built for Ido's requirements in `features.md` ("The window's parts").
 
   Mnemonics in the bar are underlined while a menu is open or Alt is held. Claude first opened a
   separate vertical menu from ☰; Ido pointed to IntelliJ's behaviour instead.
+- **Expanded, the hidden bar takes over the whole toolbar row**, as IntelliJ does on Windows, rather
+  than sitting beside the toolbar's other items (Ido).
+- **On macOS, the menu belongs in the system menu bar** (Ido's preference): hidden at the top of the
+  screen until the pointer goes there.
+  - Built in the desktop app from the same registry (see "The Electron app"). Electron's docs:
+    `Menu.setApplicationMenu` sets the macOS application menu, whose first submenu always has the
+    app's name.
+  - Claim, still to check on a Mac: in full screen the system menu bar hides until the pointer
+    goes to the top, as the OS's own behaviour.
+  - Windows and Linux keep the ☰ behaviour.
 - **Menu items as in IntelliJ, matched by measurement** (Ido's screenshot), in units of the
   height of a capital letter, since the screenshot's display scale is unknown:
   - item spacing was already IntelliJ's (2.8× there, 2.9× here), so the height stayed;
@@ -358,6 +368,36 @@ Built for Ido's requirements in `features.md` ("The window's parts").
     callback in the menu services.
 - **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
   app opens the menu.
+
+## Environment tabs (2026-10-25)
+
+The outer of the two tab layers (`features.md`): one tab per open environment (a worktree with its
+session), in a row under the main toolbar across the full width. IntelliJ has no equivalent, since
+it gives each project its own window, so the design is Claude's.
+
+- **Model:** `Environments` in `@cerebro-ide/layout`.
+  - Each `Environment` has its own `EditorArea`; the tool-window layout stays shared, as Ido
+    confirmed.
+  - Opening a worktree that's already open switches to its tab.
+  - Closing a tab activates the next one, or the previous for the last.
+- **Tabs** (`EnvironmentTabs`), styled as IntelliJ's window tabs (Ido's screenshot):
+  - equal widths filling the row, the label centred;
+  - labelled by the app: the playground shows "environment – active file", as IntelliJ shows
+    "project – file";
+  - the active tab is a rounded pill on the editor colour;
+  - the row shows only with two or more environments open;
+  - click or Enter to switch, × (on hover) or middle-click to close, drag to reorder;
+  - a **+** opens another environment, and tabs have a context menu.
+
+  Claude's first version had a badge, name and branch per tab and was always shown; Ido pointed to
+  IntelliJ's instead.
+- **Editor areas** (`EnvironmentEditors`): each open environment's is rendered once and kept, hidden,
+  while inactive, so switching back finds its splits, tabs and content exactly as they were.
+- **The toolbar's environment selector** shows the active environment and opens worktrees as
+  tabs; the branch selector acts on the active one.
+- **For later:**
+  - tool-window contents are re-rendered on a switch rather than kept alive;
+  - agent-session status on the tabs comes with agent sessions (milestone 6).
 
 ## The main toolbar (2026-10-25)
 
@@ -393,6 +433,52 @@ new UI.
     animating when the user prefers reduced motion.
 - **The playground's items are samples only:** environment, active file, a fake indexing task,
   position, separator, encoding, indent and file type.
+
+## The Electron app (2026-10-25)
+
+`packages/app`: the main process and a preload script, around the same page `npm run dev` serves.
+
+- **Electron 44.9.3**, pinned; 45.0.0 was out for under two weeks.
+- **The toolbar is the title bar**, as in IntelliJ's new UI. From Electron's docs:
+  - `titleBarStyle: 'hidden'` removes the title bar; on Windows and Linux `titleBarOverlay` draws
+    the window controls over the page, coloured as the toolbar; macOS keeps its traffic lights,
+    placed with `trafficLightPosition`;
+  - the toolbar has `app-region: drag`, and its buttons and menus `no-drag`;
+  - CSS `env(titlebar-area-x)` and `env(titlebar-area-width)` give the room the controls leave. The
+    toolbar pads its right side by what they take, and its left by 80px on macOS.
+
+  Measured on Linux (WSLg) at 1440px: the controls take 113px and the toolbar pads 119px.
+- **The page is locked down**: context isolation, the sandbox, no Node. The preload script only
+  tells the page it's in the app and on which platform (`window.cerebro`); the page tags `<html>`
+  with `cerebro-app` and `cerebro-platform-<platform>` for its CSS. The window opens no other
+  windows and navigates only within its own origin (files, for the built page).
+- **Sandboxed preloads must be CommonJS** (Electron's docs), so the preload is a `.cts` file.
+- **Two ways to run it:**
+  - `npm run app` builds the main process, starts Vite on the playground and opens Electron on it,
+    so the page reloads as the code changes; stopping either stops both.
+  - Otherwise it loads the built page (`npm run build:web -w @cerebro-ide/playground`), so the
+    page is built with relative URLs.
+- **Tests:** the window's options and the main process, with Electron mocked; the preload and the
+  real window by a smoke run with Playwright's Electron support, not yet in CI.
+- **The macOS application menu** shows the page's `main` menu (ui-menu's `syncNativeMenu`):
+  - the page turns its menus into a plain tree (labels without mnemonics, `…` for dialogs, enabled
+    and checked states, shortcuts as accelerators) and sends it over IPC whenever it changes; the
+    main process rebuilds the menu each time, since Electron's docs say a set menu's items can't be
+    added or removed;
+  - the main process takes only known fields from the tree, never roles, and frames it with the
+    system's app menu (named from `productName`, "Cerebro") and Window menu;
+  - a click sends the command back to the page, which runs it with the menu bar's context;
+  - **shortcuts stay the page's**: the menu shows them, but clicks an accelerator triggers are
+    ignored (Electron reports `triggeredByAccelerator`), so the keymap is the only thing that runs
+    them, with its chords and user bindings. Sequences of several chords show no accelerator.
+  - The in-window menu bar isn't shown there.
+
+  Measured on Linux: the IPC both ways, and Electron building the template (roles, checkboxes,
+  accelerators such as `Command+Plus`). Claims, still to check on a Mac:
+  - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
+    those commands would do nothing);
+  - copy and paste in text fields work without an Edit menu of Electron's roles.
+- **Still to do:** packaging is milestone 3.
 
 ## Desktop conventions in the UI (2026-10-25)
 

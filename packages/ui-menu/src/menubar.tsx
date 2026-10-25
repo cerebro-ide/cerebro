@@ -1,6 +1,7 @@
 // The menu bar: the submenus of one menu (`main`), as a bar or, hidden as IntelliJ's new UI does it,
-// collapsed into a button. Using the hidden bar expands it in place, as IntelliJ does: clicking the
-// button shows the bar with its first menu open, and it collapses again when the menu closes.
+// collapsed into a button. Using the hidden bar expands it over the whole row it's in (its nearest
+// positioned ancestor, such as the main toolbar), as IntelliJ does on Windows: clicking the button
+// shows the bar with its first menu open, and it collapses again when the menu closes.
 //
 // Keyboard, as in desktop OSes:
 // - Alt plus a mnemonic letter opens that menu, expanding a hidden bar.
@@ -194,6 +195,8 @@ export function MenuBar(props: MenuBarProps): Node {
         cls(
           'cerebro-menubar',
           (state.alt || state.keyboard || state.open) && 'cerebro-menubar--mnemonics',
+          // A hidden bar, while in use, takes over the row it's in, as IntelliJ does on Windows.
+          state.expanded && 'cerebro-menubar--takeover',
         )
       }
       role="menubar"

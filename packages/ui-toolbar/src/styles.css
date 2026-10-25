@@ -1,17 +1,36 @@
 /* The main toolbar. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
 
+/*
+ * Positioned, so a hidden menu bar in use can take over the whole row. In the desktop app it is the
+ * title bar: it drags the window, and leaves room for the window controls drawn over it (the
+ * titlebar-area variables are only set there; elsewhere the padding falls back to 6px).
+ */
 .cerebro-toolbar {
+  position: relative;
   display: flex;
+  app-region: drag;
   justify-content: space-between;
   align-items: center;
   height: var(--cerebro-toolbar-height);
-  padding: 0 6px;
+  padding: 0 calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%) + 6px) 0 6px;
   background: var(--cerebro-panel);
   color: var(--cerebro-text);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);
   cursor: default;
   user-select: none;
+}
+
+/* Controls in the title bar stay clickable. */
+.cerebro-toolbar button,
+.cerebro-toolbar [role='menuitem'],
+.cerebro-toolbar [role='menubar'] {
+  app-region: no-drag;
+}
+
+/* macOS keeps its traffic lights at the toolbar's left. */
+.cerebro-platform-darwin .cerebro-toolbar {
+  padding-left: 80px;
 }
 
 .cerebro-toolbar__side {

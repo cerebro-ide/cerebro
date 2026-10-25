@@ -502,3 +502,158 @@
 .cerebro-editor-split > .cerebro-splitter {
   background: var(--cerebro-separator);
 }
+
+/*
+ * Environment tabs: the outer tab layer, under the main toolbar, as IntelliJ's window tabs: equal
+ * widths filling the row, the label centred, the active tab a rounded pill on the editor colour.
+ */
+
+.cerebro-env-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  height: var(--cerebro-env-tab-height);
+  padding: 4px 6px;
+  box-sizing: border-box;
+  background: var(--cerebro-panel);
+  color: var(--cerebro-text-muted);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-env-tabs[hidden] {
+  display: none;
+}
+
+.cerebro-env-tab {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0 26px;
+  border-radius: var(--cerebro-radius);
+  touch-action: none;
+  white-space: nowrap;
+}
+
+.cerebro-env-tab:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-env-tab--active,
+.cerebro-env-tab--active:hover {
+  background: var(--cerebro-background);
+  color: var(--cerebro-text);
+}
+
+.cerebro-env-tab:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+.cerebro-env-tab--dragged {
+  opacity: 0.35;
+}
+
+.cerebro-env-tab__badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+}
+
+.cerebro-env-tab__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The close button sits at the tab's right edge and shows on hover, leaving the label centred. */
+.cerebro-env-tab__close {
+  position: absolute;
+  right: 4px;
+  visibility: hidden;
+}
+
+.cerebro-env-tab:hover .cerebro-env-tab__close {
+  visibility: visible;
+}
+
+.cerebro-env-tab__close,
+.cerebro-env-tabs__add {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-env-tabs__add {
+  align-self: center;
+}
+
+.cerebro-env-tab__close:hover,
+.cerebro-env-tabs__add:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+/* The drop indicator: a line before a tab, or after the last one. */
+.cerebro-env-tab--drop-before::after,
+.cerebro-env-tabs__end--drop::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--cerebro-drop);
+}
+
+.cerebro-env-tab--drop-before::after {
+  left: -1px;
+}
+
+.cerebro-env-tabs__end {
+  position: relative;
+  flex: none;
+  width: 0;
+}
+
+.cerebro-env-tabs__end--drop::after {
+  left: -1px;
+}
+
+/* The open environments' editor areas: only the active one shows. */
+
+.cerebro-env-area,
+.cerebro-env-editors {
+  display: flex;
+  width: 100%;
+  height: 100%;
+}
+
+.cerebro-env-editor {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-env-editor[hidden] {
+  display: none;
+}
+
+.cerebro-env-empty {
+  flex: 1;
+}
