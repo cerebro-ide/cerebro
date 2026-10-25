@@ -1,6 +1,7 @@
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
+import { signal } from '@cerebro-ide/reactive';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { attachTooltip, QUICK_WINDOW, SHOW_DELAY, tooltip } from '../src/index.js';
 
@@ -132,6 +133,66 @@ describe('showing and hiding', () => {
     attach(element, { text: () => 'A' }).dispose();
     expect(tip()?.textContent).toBe('B');
     second.dispose();
+  });
+});
+
+describe('controls that go away', () => {
+  it('never shows for a control replaced by its own press (the menu button bug)', () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const pressed = signal(false);
+    const handle = render(
+      () => () =>
+        pressed.get() ? (
+          <span>menu</span>
+        ) : (
+          <button
+            ref={tooltip({ text: () => 'Main Menu' })}
+            on:pointerdown={() => {
+              pressed.set(true);
+            }}
+          >
+            ☰
+          </button>
+        ),
+      container,
+    );
+    const button = container.querySelector('button') as HTMLElement;
+    enter(button);
+    button.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    vi.advanceTimersByTime(SHOW_DELAY * 2);
+    expect(tip()).toBeNull();
+    handle.dispose();
+    container.remove();
+  });
+
+  it('cancels a waiting tooltip when disposed', () => {
+    const element = control();
+    const handle = attach(element, { text: () => 'A' });
+    enter(element);
+    handle.dispose();
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(tip()).toBeNull();
+  });
+
+  it('never shows for an element no longer on the page', () => {
+    const element = control();
+    attach(element, { text: () => 'A' });
+    // Past the quick window a previous test may have opened, so the tooltip waits.
+    vi.advanceTimersByTime(QUICK_WINDOW + 1);
+    enter(element);
+    element.remove();
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(tip()).toBeNull();
+  });
+
+  it('hides on a press anywhere', () => {
+    const element = control();
+    attach(element, { text: () => 'A' });
+    enter(element);
+    vi.advanceTimersByTime(SHOW_DELAY);
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(tip()).toBeNull();
   });
 });
 
