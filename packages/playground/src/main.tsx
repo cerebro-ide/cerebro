@@ -1,6 +1,7 @@
 import { render } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
+import '@cerebro-ide/theme/base.css';
 import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
@@ -91,7 +92,7 @@ function Code(props: { path: string }) {
       : `const value${String(i)} = compute(${String(i)}, '${props.path}');`,
   );
   return (
-    <pre class="playground-code">
+    <pre class="playground-code cerebro-selectable">
       {lines.map((line, i) => (
         <div>
           <span class="playground-line">{i + 1}</span>

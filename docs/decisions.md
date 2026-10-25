@@ -320,6 +320,22 @@ Build order:
 
 Until code review starts, a PR may bundle several of these commits (`CLAUDE.md`).
 
+## Desktop conventions in the UI (2026-10-25)
+
+Ido: the UI behaves like an application, not a website.
+
+- **No text selection by default.** It's enabled only where it makes sense: text inputs, and
+  content marked `.cerebro-selectable`, such as editors, logs and terminals. Nothing is selected
+  while dragging or resizing.
+- **App cursors, never the pointing hand:**
+  - the arrow on buttons, tabs, stripe icons and menu items;
+  - resize cursors on splitters;
+  - the text cursor only where text is selectable.
+- **Where it's set:**
+  - `@cerebro-ide/theme/base.css` sets it for the whole page;
+  - the view roots (`.cerebro-shell`, `.cerebro-editor-area`) set it too, so the views behave the
+    same without it.
+
 ## CodeMirror 6, not Monaco (2026-10-25)
 
 Monaco is overkill for Cerebro. Why:

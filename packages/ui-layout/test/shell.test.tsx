@@ -422,3 +422,35 @@ describe('resizing', () => {
     expect(container.querySelector('.cerebro-shell--resizing')).toBeNull();
   });
 });
+
+describe('desktop conventions', () => {
+  it('uses the arrow cursor and no text selection, except in selectable content', () => {
+    const { tools, button, $ } = mount();
+    tools.show('project');
+    for (const element of [
+      button('project'),
+      $('.cerebro-tool-window__hide'),
+      $('.cerebro-tool-window__title'),
+    ]) {
+      const style = getComputedStyle(element);
+      expect(style.cursor).toBe('default');
+      expect(style.userSelect).toBe('none');
+    }
+    const content = $('.test-content');
+    content.classList.add('cerebro-selectable');
+    expect(getComputedStyle(content).userSelect).toBe('text');
+    expect(getComputedStyle(content).cursor).toBe('text');
+  });
+
+  it('selects nothing while dragging', () => {
+    const { tools, button, $ } = mount();
+    tools.show('project');
+    const content = $('.test-content');
+    content.classList.add('cerebro-selectable');
+    const from = centre(button('commit'));
+    drag(button('commit'), [{ x: from.x + 20, y: from.y + 20 }], false);
+    expect(getComputedStyle(content).userSelect).toBe('none');
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(getComputedStyle(content).userSelect).toBe('text');
+  });
+});

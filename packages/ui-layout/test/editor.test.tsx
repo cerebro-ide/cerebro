@@ -361,3 +361,16 @@ describe('resizing', () => {
     expect(nested?.sizes[0]).toBeCloseTo(0.3, 1);
   });
 });
+
+describe('desktop conventions', () => {
+  it('uses the arrow cursor on tabs, and no text selection', () => {
+    const { tabEl } = mount();
+    for (const element of [
+      tabEl('a'),
+      tabEl('a').querySelector('.cerebro-editor-tab__close') as Element,
+    ]) {
+      expect(getComputedStyle(element).cursor).toBe('default');
+      expect(getComputedStyle(element).userSelect).toBe('none');
+    }
+  });
+});
