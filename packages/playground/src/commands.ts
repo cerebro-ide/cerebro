@@ -57,7 +57,7 @@ export function setupCommands(
   commands.register<TabContext>({
     id: 'editor.close',
     label: '&Close',
-    enabled: (c) => c !== undefined,
+    enabled: (c?: TabContext) => c !== undefined,
     run: (c) => {
       ed()?.close(c.group, c.tab);
     },
@@ -65,7 +65,7 @@ export function setupCommands(
   commands.register<TabContext>({
     id: 'editor.closeOthers',
     label: 'Close &Others',
-    enabled: (c) => c !== undefined && group(c).tabs.length > 1,
+    enabled: (c?: TabContext) => c !== undefined && group(c).tabs.length > 1,
     run: (c) => {
       for (const t of group(c).tabs) if (t.id !== c.tab) ed()?.close(c.group, t.id);
     },
@@ -73,7 +73,7 @@ export function setupCommands(
   commands.register<TabContext>({
     id: 'editor.closeAll',
     label: 'Close &All Tabs',
-    enabled: (c) => c !== undefined,
+    enabled: (c?: TabContext) => c !== undefined,
     run: (c) => {
       for (const t of group(c).tabs) ed()?.close(c.group, t.id);
     },
@@ -87,7 +87,7 @@ export function setupCommands(
     commands.register<TabContext>({
       id: `editor.split.${direction}`,
       label,
-      enabled: (c) => c !== undefined,
+      enabled: (c?: TabContext) => c !== undefined,
       run: (c) => {
         ed()?.split(c.group, direction, c.tab);
       },
@@ -97,7 +97,7 @@ export function setupCommands(
   commands.register<TabContext>({
     id: 'editor.copyPath',
     label: 'Copy &Path',
-    enabled: (c) => c !== undefined,
+    enabled: (c?: TabContext) => c !== undefined,
     run: (c) => navigator.clipboard.writeText(c.tab),
   });
   commands.register({
@@ -149,7 +149,7 @@ export function setupCommands(
   commands.register<TabContext | undefined>({
     id: 'file.closeTab',
     label: '&Close Tab',
-    enabled: (c) => c !== undefined,
+    enabled: (c?: TabContext) => c !== undefined,
     run: (c) => {
       if (c) ed()?.close(c.group, c.tab);
     },
