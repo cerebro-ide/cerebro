@@ -359,6 +359,24 @@ Built for Ido's requirements in `features.md` ("The window's parts").
 - **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
   app opens the menu.
 
+## The status bar (2026-10-25)
+
+`@cerebro-ide/ui-statusbar`, at the bottom of the window across its full width (the shell's
+`footer`), as in IntelliJ.
+
+- **It only lays items out.** What goes on it is still to be discussed; Ido expects it to show
+  running background tasks, services, and basic information about the active environment, session
+  and file.
+- **Apps and plugins add items:**
+  - left or right (right by default, where IntelliJ keeps most widgets), ordered;
+  - reactive text and an optional icon;
+  - a tooltip with the command's shortcut;
+  - a command run on click;
+  - an optional progress bar, determinate or indeterminate, for background tasks. It stops
+    animating when the user prefers reduced motion.
+- **The playground's items are samples only:** environment, active file, a fake indexing task,
+  position, separator, encoding, indent and file type.
+
 ## Desktop conventions in the UI (2026-10-25)
 
 Ido: the UI behaves like an application, not a website.

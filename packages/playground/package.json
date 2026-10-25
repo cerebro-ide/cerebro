@@ -16,6 +16,7 @@
     "@cerebro-ide/theme": "0.0.0",
     "@cerebro-ide/ui-layout": "0.0.0",
     "@cerebro-ide/ui-menu": "0.0.0",
+    "@cerebro-ide/ui-statusbar": "0.0.0",
     "@cerebro-ide/ui-tooltip": "0.0.0"
   }
 }

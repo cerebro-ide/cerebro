@@ -6,6 +6,9 @@ import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
 import { MenuBar, openContextMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
+import '@cerebro-ide/ui-statusbar/styles.css';
+import { signal } from '@cerebro-ide/reactive';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -55,6 +58,64 @@ function activeTab(): TabContext | undefined {
   const group = editor.activeGroup;
   return group.active === undefined ? undefined : { group: group.id, tab: group.active };
 }
+
+/** A sample status bar: what really goes on it is still to be decided. */
+const status = new StatusBar();
+const indexing = signal<Progress>(0);
+const timer = setInterval(() => {
+  const value = indexing.get();
+  if (typeof value === 'number' && value < 1) indexing.set(Math.min(1, value + 0.025));
+  else {
+    indexing.set(undefined);
+    clearInterval(timer);
+  }
+}, 200);
+const fileTypes: Record<string, string> = {
+  ts: 'TypeScript',
+  tsx: 'TypeScript JSX',
+  css: 'CSS',
+  md: 'Markdown',
+  json: 'JSON',
+};
+const activePath = () => editor.activeGroup.active;
+status.add({
+  id: 'env',
+  side: 'left',
+  icon: 'git',
+  text: () => 'cerebro · feat/status-bar',
+  tooltip: () => 'Environment: worktree and branch (sample)',
+});
+status.add({
+  id: 'file',
+  side: 'left',
+  order: 1,
+  text: () => activePath() ?? 'No file open',
+  tooltip: () => 'The active file',
+});
+status.add({
+  id: 'indexing',
+  side: 'left',
+  order: 2,
+  text: () => (indexing.get() === undefined ? 'Indexed' : 'Indexing…'),
+  tooltip: () => 'A background task (sample)',
+  progress: () => indexing.get(),
+});
+status.add({
+  id: 'position',
+  order: 1,
+  text: () => '1:1',
+  tooltip: () => 'Go to File',
+  command: 'file.goTo',
+});
+status.add({ id: 'separator', order: 2, text: () => 'LF', tooltip: () => 'Line Separator' });
+status.add({ id: 'encoding', order: 3, text: () => 'UTF-8', tooltip: () => 'File Encoding' });
+status.add({ id: 'indent', order: 4, text: () => '2 spaces', tooltip: () => 'Indent' });
+status.add({
+  id: 'type',
+  order: 5,
+  text: () => fileTypes[activePath()?.split('.').at(-1) ?? ''] ?? 'Plain Text',
+  tooltip: () => 'File Type',
+});
 
 function Header() {
   return (
@@ -156,6 +217,19 @@ render(
       )}
       icon={icon}
       header={() => <Header />}
+      footer={() => (
+        <StatusBarView
+          bar={status}
+          commands={services.commands}
+          icon={icon}
+          shortcut={(id) => {
+            const key = services.keymap?.shortcutsFor(id)[0];
+            return key === undefined
+              ? undefined
+              : formatSequence(key, services.keymap?.platform ?? 'other');
+          }}
+        />
+      )}
       shortcut={(id) => {
         const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
         return key === undefined
