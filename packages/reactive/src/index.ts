@@ -1,6 +1,7 @@
 export {
   action,
   Atom,
+  autoAction,
   batch,
   computed,
   Computed,

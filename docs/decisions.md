@@ -183,7 +183,13 @@ Ido chose each of these from options Claude laid out.
 - **Models are inferred.** A class calls `makeObservable(this)` once in its constructor:
   - fields become observable;
   - getters become computed values;
-  - methods become actions.
+  - methods become auto-actions.
+
+  **Changed 2026-10-25:** methods were plain actions, which are untracked, so a query method such as
+  `toolWindows.isVisible(id)` called from a binding never updated. Found while writing the layout
+  model. Methods are now auto-actions, as in MobX's `makeAutoObservable`: a plain, tracked call from
+  inside an effect or computed value, a batched and untracked action anywhere else. Explicit
+  `action()` stays untracked.
 
   Reads and writes are plain property access (`wt.branch = 'feature'`), and JSX binds them as
   `{() => wt.label}`. It works with `Object.defineProperty` on the instance, after class fields are

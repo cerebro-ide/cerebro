@@ -395,3 +395,17 @@ export function action<This, Args extends unknown[], R>(
     return batch(() => untracked(() => fn.apply(this, args)));
   };
 }
+
+/**
+ * Like `action`, except when called while a computed value or effect is running: then it's a plain,
+ * tracked call, so a method that only reads can be used in a binding. MobX's `autoAction`, which
+ * `makeObservable` uses for methods.
+ */
+export function autoAction<This, Args extends unknown[], R>(
+  fn: (this: This, ...args: Args) => R,
+): (this: This, ...args: Args) => R {
+  const asAction = action(fn);
+  return function (this: This, ...args: Args): R {
+    return activeTracker ? fn.apply(this, args) : asAction.apply(this, args);
+  };
+}

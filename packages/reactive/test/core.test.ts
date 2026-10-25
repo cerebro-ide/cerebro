@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { action, Atom, batch, computed, effect, signal, untracked } from '../src/index.js';
+import {
+  action,
+  Atom,
+  autoAction,
+  batch,
+  computed,
+  effect,
+  signal,
+  untracked,
+} from '../src/index.js';
 
 /** Runs `fn` in an effect and returns how many times it ran, plus its disposer. */
 function track(fn: () => unknown) {
@@ -419,6 +428,29 @@ describe('action', () => {
     const { runs } = track(() => read());
     s.set(2);
     expect(runs.count).toBe(1);
+  });
+});
+
+describe('autoAction', () => {
+  it('is an action outside effects and computed values', () => {
+    const a = signal(1);
+    const b = signal(1);
+    const update = autoAction((x: number) => {
+      a.set(x);
+      b.set(x);
+    });
+    const { runs } = track(() => a.get() + b.get());
+    update(2);
+    expect(runs.count).toBe(2);
+  });
+
+  it('is a plain, tracked call inside them', () => {
+    const s = signal(1);
+    const read = autoAction(() => s.get());
+    const { runs } = track(() => read());
+    expect(computed(() => read() * 2).get()).toBe(2);
+    s.set(2);
+    expect(runs.count).toBe(2);
   });
 });
 
