@@ -93,6 +93,40 @@ describe('EditorArea: splits', () => {
     expect(shape(area.root)).toBe('h([a] v([a] []))');
   });
 
+  it('splits left and up, putting the new group first', () => {
+    const area = new EditorArea();
+    area.open(tab('a'));
+    const first = area.activeGroupId;
+    const left = area.split(first, 'left');
+    expect(shape(area.root)).toBe('h([] [a])');
+    expect(area.groups[0]).toBe(left);
+    area.split(left.id, 'left');
+    expect(shape(area.root)).toBe('h([] [] [a])');
+    expect(split(area).sizes).toEqual([0.25, 0.25, 0.5]);
+    area.split(first, 'up');
+    expect(shape(area.root)).toBe('h([] [] v([] [a]))');
+  });
+
+  it('moves a tab into a new split', () => {
+    const area = new EditorArea();
+    area.open(tab('a'));
+    area.open(tab('b'));
+    const first = area.activeGroupId;
+    area.moveToSplit('b', first, first, 'right');
+    expect(shape(area.root)).toBe('h([a] [b])');
+    expect(area.activeGroup.active).toBe('b');
+    const right = area.activeGroupId;
+    area.moveToSplit('a', first, right, 'down');
+    expect(shape(area.root)).toBe('v([b] [a])');
+  });
+
+  it('does not split a group’s only tab off itself', () => {
+    const area = new EditorArea();
+    area.open(tab('a'));
+    area.moveToSplit('a', area.activeGroupId, area.activeGroupId, 'left');
+    expect(shape(area.root)).toBe('[a]');
+  });
+
   it('adds a sibling for a split in the same direction, sharing its space', () => {
     const area = new EditorArea();
     const first = area.activeGroupId;
