@@ -26,6 +26,7 @@
 
 .cerebro-shell {
   display: flex;
+  flex-direction: column;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -38,6 +39,17 @@
 /* Flex containers would otherwise override the hidden attribute. */
 .cerebro-shell [hidden] {
   display: none !important;
+}
+
+.cerebro-shell__header {
+  flex: none;
+  border-bottom: 1px solid var(--cerebro-border);
+}
+
+.cerebro-shell__body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
 }
 
 /* A column: the row of left area, editor and right area, then the full-width bottom area. */

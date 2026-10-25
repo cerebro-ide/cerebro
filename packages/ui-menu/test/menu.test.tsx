@@ -399,3 +399,25 @@ describe('context menus', () => {
     expect(ran).toEqual([['new', { tab: 'a' }]]);
   });
 });
+
+describe('opening options', () => {
+  it('highlights the first item', () => {
+    const { services } = setup();
+    open(services, 'test', { x: 10, y: 10 }, { focusFirst: true });
+    expect(highlighted()).toBe('New');
+  });
+
+  it('opens with a submenu open', () => {
+    const { services } = setup();
+    open(services, 'test', { x: 10, y: 10 }, { submenu: 'test/recent' });
+    expect(popups()).toHaveLength(2);
+    expect(highlighted()).toBe('Recent One');
+  });
+
+  it('ignores a submenu it doesn’t have', () => {
+    const { services } = setup();
+    open(services, 'test', { x: 10, y: 10 }, { submenu: 'nope' });
+    expect(popups()).toHaveLength(1);
+    expect(highlighted()).toBeUndefined();
+  });
+});

@@ -69,3 +69,61 @@
   margin: 4px 6px;
   background: var(--cerebro-separator);
 }
+
+/* The menu bar, and the button it collapses into. */
+
+.cerebro-menubar {
+  display: flex;
+  align-items: center;
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-menubar__items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.cerebro-menubar__item {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 4px;
+}
+
+.cerebro-menubar__item:hover,
+.cerebro-menubar__item--active {
+  background: var(--cerebro-hover);
+}
+
+/* Mnemonics show in the bar only while Alt is held or the bar has the keyboard, as in Windows. */
+.cerebro-menubar:not(.cerebro-menubar--mnemonics) .cerebro-menubar__item .cerebro-mnemonic {
+  text-decoration: none;
+}
+
+.cerebro-menubar__button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cerebro-radius);
+  background: transparent;
+  color: var(--cerebro-text);
+}
+
+.cerebro-menubar__button:hover,
+.cerebro-menubar__button--active {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-menubar__button:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}

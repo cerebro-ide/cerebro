@@ -454,3 +454,41 @@ describe('desktop conventions', () => {
     expect(getComputedStyle(content).userSelect).toBe('text');
   });
 });
+
+describe('header', () => {
+  it('puts the header above everything, full width', () => {
+    const layout = new Layout();
+    layout.toolWindows.register({ id: 'project', title: 'Project', anchor: 'left' });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; inset: 0;';
+    document.body.append(container);
+    const handle = render(
+      () => (
+        <ShellLayout
+          layout={layout}
+          content={() => null}
+          editor={() => null}
+          header={() => <div class="test-header">menu</div>}
+        />
+      ),
+      container,
+    );
+    const header = (
+      container.querySelector('.cerebro-shell__header') as HTMLElement
+    ).getBoundingClientRect();
+    const stripe = (
+      container.querySelector('.cerebro-stripe--left') as HTMLElement
+    ).getBoundingClientRect();
+    expect(container.querySelector('.test-header')?.textContent).toBe('menu');
+    expect(header.top).toBe(0);
+    expect(header.width).toBe(container.clientWidth);
+    expect(stripe.top).toBeGreaterThanOrEqual(header.bottom);
+    handle.dispose();
+    container.remove();
+  });
+
+  it('has no header area without one', () => {
+    const { container } = mount();
+    expect(container.querySelector('.cerebro-shell__header')).toBeNull();
+  });
+});

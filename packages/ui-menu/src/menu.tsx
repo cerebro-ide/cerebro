@@ -39,6 +39,12 @@ export interface MenuOptions {
    * the neighbouring menu. Without it, those keys do nothing there.
    */
   onNavigate?: (direction: -1 | 1) => void;
+  /** Highlight the first item, as when a menu is opened from the keyboard. */
+  focusFirst?: boolean;
+  /** Open with this submenu (a menu id among the items) already open, its first item highlighted. */
+  submenu?: string;
+  /** Presses inside this element don't close the menu; it handles them (a menu bar, a button). */
+  owner?: Element;
 }
 
 export interface MenuHandle {
@@ -131,7 +137,11 @@ class MenuSession implements MenuHandle {
     window.addEventListener('pointerdown', this.onPointerDown, true);
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('resize', this.onBlur);
-    this.push(menu, position);
+    const level = this.push(menu, position);
+    const entries = visibleEntries(services, menu);
+    const submenu = entries.findIndex((e) => 'submenu' in e && e.submenu === options.submenu);
+    if (submenu >= 0) this.activate(0, submenu, true);
+    else if (options.focusFirst) level.highlight = step(entries, -1, 1);
   }
 
   close(): void {
@@ -152,7 +162,8 @@ class MenuSession implements MenuHandle {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
-    if (!this.layer.contains(event.target as Node)) this.close();
+    const target = event.target as Node;
+    if (!this.layer.contains(target) && !this.options.owner?.contains(target)) this.close();
   };
 
   private readonly onKey = (event: KeyboardEvent) => {

@@ -19,6 +19,8 @@ export interface ShellLayoutProps {
   content: (id: string) => Child;
   /** The editor area. */
   editor: () => Child;
+  /** Above everything, full width: the main toolbar and menu bar. */
+  header?: () => Child;
   /** Draws a tool window's icon. Without it, or without an icon name, the title's first letter shows. */
   icon?: (name: string) => Child;
 }
@@ -95,16 +97,19 @@ export function ShellLayout(props: ShellLayoutProps): Node {
         )
       }
     >
-      <Stripe ctx={ctx} side="left" />
-      <div class="cerebro-shell__main">
-        <div class="cerebro-shell__row">
-          <AreaView ctx={ctx} anchor="left" />
-          <div class="cerebro-shell__editor">{props.editor()}</div>
-          <AreaView ctx={ctx} anchor="right" />
+      {props.header && <div class="cerebro-shell__header">{props.header()}</div>}
+      <div class="cerebro-shell__body">
+        <Stripe ctx={ctx} side="left" />
+        <div class="cerebro-shell__main">
+          <div class="cerebro-shell__row">
+            <AreaView ctx={ctx} anchor="left" />
+            <div class="cerebro-shell__editor">{props.editor()}</div>
+            <AreaView ctx={ctx} anchor="right" />
+          </div>
+          <AreaView ctx={ctx} anchor="bottom" />
         </div>
-        <AreaView ctx={ctx} anchor="bottom" />
+        <Stripe ctx={ctx} side="right" />
       </div>
-      <Stripe ctx={ctx} side="right" />
     </div>
   );
 }
