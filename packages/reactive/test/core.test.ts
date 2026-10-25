@@ -187,20 +187,20 @@ describe('computed', () => {
 
   it('must not write even from an untracked part or an action, and may after', () => {
     const s = signal(0);
-    expect(() =>
+    expect(() => {
       computed(() => {
         untracked(() => {
           s.set(1);
         });
-      }).get(),
-    ).toThrow('must not write');
-    expect(() =>
+      }).get();
+    }).toThrow('must not write');
+    expect(() => {
       computed(() => {
         action(() => {
           s.set(2);
         })();
-      }).get(),
-    ).toThrow('must not write');
+      }).get();
+    }).toThrow('must not write');
     s.set(3);
     expect(s.peek()).toBe(3);
   });
