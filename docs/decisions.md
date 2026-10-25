@@ -213,6 +213,19 @@ Ido chose each of these from options Claude laid out.
   - Each collection reports changes in bulk (for example, a splice of 40 items at index 120) for
     virtualised views.
 - **Effects run synchronously**, right after the outermost action or batch ends, as in MobX.
+- **Settled after the test review (2026-10-25),** choices of Claude's, open to change, each
+  pinned by a test:
+  - **A run that throws keeps what it read before:** an effect or computed value that throws partway
+    through still depends on what its previous run read, so a change to any of it runs it again
+    and it can recover. Before, it lost what the failed run didn't reach and stopped reacting to it
+    (as MobX does).
+  - **Computed values never write,** not even from an `untracked` part or an action; before, those
+    got past the check.
+  - **Effects don't own effects created inside them:** they live until disposed. Ownership is the
+    JSX runtime's (regions own what they render); owning them in the core would dispose the views
+    `EnvironmentEditors` renders inside its effect.
+  - **Plain arrays and objects in a model aren't observed** (as decided above; the test covers
+    `push` on a plain array).
   - Rejected: running on a microtask, which coalesces more but makes tests wait and ordering
     harder to follow.
 

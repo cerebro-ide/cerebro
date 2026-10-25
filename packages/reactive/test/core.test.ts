@@ -185,6 +185,52 @@ describe('computed', () => {
     }).toThrow('must not write');
   });
 
+  it('must not write even from an untracked part or an action, and may after', () => {
+    const s = signal(0);
+    expect(() =>
+      computed(() => {
+        untracked(() => {
+          s.set(1);
+        });
+      }).get(),
+    ).toThrow('must not write');
+    expect(() =>
+      computed(() => {
+        action(() => {
+          s.set(2);
+        })();
+      }).get(),
+    ).toThrow('must not write');
+    s.set(3);
+    expect(s.peek()).toBe(3);
+  });
+
+  it('gives an effect over a diamond one consistent run per change', () => {
+    const a = signal(1);
+    const b = computed(() => a.get() * 2);
+    const c = computed(() => a.get() * 3);
+    const sum = computed(() => b.get() + c.get());
+    const seen: number[] = [];
+    const watch = track(() => seen.push(sum.get()));
+    a.set(2);
+    watch.dispose();
+    expect(seen).toEqual([5, 10]);
+  });
+
+  it('is current when read in a batch, after a write', () => {
+    const a = signal(1);
+    const next = computed(() => a.get() + 1);
+    const watch = track(() => next.get());
+    batch(() => {
+      a.set(5);
+      expect(next.get()).toBe(6);
+      a.set(7);
+      expect(next.get()).toBe(8);
+    });
+    expect(watch.runs.count).toBe(2);
+    watch.dispose();
+  });
+
   it('peek does not create a dependency', () => {
     const s = signal(1);
     const c = computed(() => s.get());
@@ -349,6 +395,68 @@ describe('effect', () => {
     late.set(2);
     s.set(3);
     expect(fn).toHaveBeenCalledTimes(2);
+  });
+
+  it('follows the branch it took, dropping the other', () => {
+    const left = signal(true);
+    const x = signal(1);
+    const y = signal(2);
+    const watch = track(() => (left.get() ? x.get() : y.get()));
+    left.set(false);
+    x.set(10);
+    expect(watch.runs.count).toBe(2);
+    y.set(20);
+    expect(watch.runs.count).toBe(3);
+    watch.dispose();
+  });
+
+  it('keeps what it read before when a rerun throws, so it can recover', () => {
+    const failing = signal(false);
+    const later = signal(0);
+    const seen: number[] = [];
+    const handle = effect(() => {
+      if (failing.get()) throw new Error('failed');
+      seen.push(later.get());
+      return undefined;
+    });
+    expect(() => {
+      failing.set(true);
+    }).toThrow('failed');
+    // It didn't reach `later` this time, but still depends on it.
+    expect(() => {
+      later.set(1);
+    }).toThrow('failed');
+    failing.set(false);
+    expect(seen).toEqual([0, 1]);
+    later.set(2);
+    expect(seen).toEqual([0, 1, 2]);
+    handle.dispose();
+  });
+
+  it('doesn’t own effects created inside it: they live until disposed', () => {
+    const outer = signal(0);
+    const inner = signal(0);
+    const inners: { dispose(): void }[] = [];
+    let innerRuns = 0;
+    const handle = effect(() => {
+      outer.get();
+      // Ownership is the caller's: the JSX runtime's regions own what they create.
+      inners.push(
+        effect(() => {
+          innerRuns++;
+          inner.get();
+          return undefined;
+        }),
+      );
+      return undefined;
+    });
+    outer.set(1);
+    handle.dispose();
+    inner.set(1);
+    expect(innerRuns).toBe(4);
+    for (const i of inners) i.dispose();
+    inner.set(2);
+    expect(innerRuns).toBe(4);
   });
 
   it('does not run when disposed while scheduled', () => {
