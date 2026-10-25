@@ -1,8 +1,9 @@
 // The MobX-style layer: `makeObservable(this)` turns a class instance into an observable model.
-// Fields become observable, getters become computed values and methods become actions. Values are
+// Fields become observable, getters become computed values and methods become auto-actions: tracked
+// when called from an effect or computed value, batched and untracked otherwise. Values are
 // stored as-is: a plain object in a field is not made observable; wrap it with `observableObject`.
 
-import { action, Computed, Signal } from './core.js';
+import { action, autoAction, Computed, Signal } from './core.js';
 
 /** Accessors and actions this module defined, so a second call leaves them alone. */
 const defined = new WeakSet<object>();
@@ -66,7 +67,7 @@ function convert(target: object, descriptor: PropertyDescriptor): PropertyDescri
     return result;
   }
   if (typeof descriptor.value === 'function') {
-    const method = action(descriptor.value as (...args: unknown[]) => unknown);
+    const method = autoAction(descriptor.value as (...args: unknown[]) => unknown);
     defined.add(method);
     return { value: method, enumerable, writable: true, configurable: true };
   }

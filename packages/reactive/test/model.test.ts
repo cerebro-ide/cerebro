@@ -85,6 +85,26 @@ describe('makeObservable', () => {
     expect(counter.count).toBe(2);
   });
 
+  it('tracks methods called from an effect, so query methods work in bindings', () => {
+    class Store {
+      items = ['a'];
+      constructor() {
+        makeObservable(this);
+      }
+      has(item: string) {
+        return this.items.includes(item);
+      }
+    }
+    const store = new Store();
+    const seen: boolean[] = [];
+    effect(() => {
+      seen.push(store.has('b'));
+      return undefined;
+    });
+    store.items = ['a', 'b'];
+    expect(seen).toEqual([false, true]);
+  });
+
   it('makes function fields actions', () => {
     const wt = new Worktree();
     const counter = runs(() => `${wt.name}/${wt.branch}`);
