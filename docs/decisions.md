@@ -136,9 +136,8 @@ React; he asked for Claude's opinion and agreed with it. Why:
 Shape of the reactive layer:
 
 - **Core:** signal, computed, effect and batch, with automatic dependency tracking.
-- **On top, a MobX-style layer:** observable model objects with computed values and actions. How
-  they are declared is open (`open-questions.md`); decorators were Claude's suggestion, not a
-  decision.
+- **On top, a MobX-style layer:** observable model objects with computed values and actions.
+  Its API is in the next entry; decorators were Claude's suggestion, not a decision.
 - **No implicit deep observability through proxies**, as in MobX. It's slow and surprising for
   IDE-sized data.
 - **Instead, two explicit types:**
@@ -151,6 +150,48 @@ Rejected:
 
 - **React:** ties plugins to a framework.
 - **Solid:** offered as a middle ground with one dependency; not needed.
+
+## The MobX-style API (2026-10-25)
+
+Ido chose each of these from options Claude laid out.
+
+- **Models are inferred.** A class calls `makeObservable(this)` once in its constructor:
+  - fields become observable;
+  - getters become computed values;
+  - methods become actions.
+
+  Reads and writes are plain property access (`wt.branch = 'feature'`), and JSX binds them as
+  `{() => wt.label}`. It works with `Object.defineProperty` on the instance, after class fields are
+  initialised. A subclass calls it again for its own fields.
+  - Rejected: an annotation map (MobX's `makeObservable(this, {...})`, each name written twice)
+    and signal fields (`wt.branch()`, `wt.branch.set(x)`, noisy at every use).
+- **Nested objects are stored as-is.** Assigning a plain object to an observable field makes the
+  field observable, not the object's contents. Nested data is observable only when wrapped
+  explicitly:
+  - in `observableObject({...})`, which has a fixed shape: its keys are made observable when it's
+    created;
+  - or in a nested model.
+
+  Adding keys later needs an observable map.
+  - Rejected: deep conversion on assignment, which is implicit and costs time proportional to the
+    object's size.
+- **Collections have explicit methods.**
+  - `ObservableArray` has `get(i)`, `set(i, x)`, `push`, `splice` and iteration; without proxies,
+    `arr[i] = x` can't be tracked.
+  - `ObservableMap` and `ObservableSet` follow the built-in `Map` and `Set` API.
+  - Each collection reports changes in bulk (for example, a splice of 40 items at index 120) for
+    virtualised views.
+- **Effects run synchronously**, right after the outermost action or batch ends, as in MobX.
+  - Rejected: running on a microtask, which coalesces more but makes tests wait and ordering
+    harder to follow.
+
+Smaller defaults, proposed by Claude; Ido didn't comment on them:
+
+- Writes are allowed anywhere, and actions only batch them. A development-time warning for writes
+  outside actions (MobX's strict mode) can come later.
+- A computed value notifies only when its value changes (`Object.is`), with an optional custom
+  comparison.
+- Every effect returns a disposer that fits the `Disposable` pattern.
 
 ## JSX that builds DOM directly (2026-10-25)
 

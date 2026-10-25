@@ -1,7 +1,7 @@
 # Brainstorm log — 2026-10-25
 
 The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
-`brainstorm` Claude session on the NAS; sections 8–9 in a session on Ido's development machine
+`brainstorm` Claude session on the NAS; sections 8–11 in a session on Ido's development machine
 (iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
 points where Ido corrected Claude.
 
@@ -232,3 +232,68 @@ set it up: keep everything inside the repo, gitignored; worktrees spread like ag
   in as properties, and events crossing a shadow root need `composed: true`. Whether Cerebro uses
   web components at all is left open.
 - Wrote the decisions, the architecture and `plan-v1.md`.
+
+## 10. Build tooling
+
+**Claude (summary):**
+
+- Recommended pnpm, TypeScript 7, esbuild, Vitest (in Node and in browser mode), Biome, and no Nx
+  or Turborepo.
+- Asked whether "minimal dependencies" covers development tools. Ido: runtime only.
+
+**Ido:**
+
+> I'm not against pnpm but I'm also not that big of a fan - so I need you to convince me.
+> I know that Node has it's own builtin test library, what benifits do we get from using Vitest?
+> I'm unfamiliar with Biome - any risks going with it?
+> Why are you against Nx pr Turborepo? I need to understand your reasoning.
+
+**Claude (summary):**
+
+- pnpm: its strictness can be had from a lint rule. The stronger argument is its shared store
+  across many worktrees.
+- Vitest: runs tests in a real browser, compiles JSX itself, and enforces coverage per file.
+- Biome: weaker type-aware linting, a smaller ecosystem, and the project's history as a fork of
+  Rome.
+- Nx and Turborepo: not against them, but they don't pay for themselves at this size.
+
+**Ido:**
+
+> To be clear, my approach is the minimal approach. I don't wanna go on adventures with new tools and exotic libraries unless there's a good reason to do so. You also assume we're using decorators and I'm not sure where this is coming from.
+> I generally prefer: No pnpm, yes vitest, no biome, no nx/turorepo (for now)
+
+**Claude (summary):**
+
+- Admitted that decorators had been recorded as decided without Ido choosing them, and corrected
+  the docs.
+- Proposed npm workspaces, Vite (already required by Vitest) instead of esbuild, TypeScript 6.0.3,
+  and ESLint + typescript-eslint + Prettier.
+
+**Ido** (answers):
+
+> ESLint + typescript-eslint + Prettier
+>
+> If you're sure tooling doesn't work well with v7 then go v6, but I need you to validate this claim because it doesn't sound correct to me
+
+**Claude (summary):** validated the claim and corrected its scope. TypeScript 7 itself works; only
+typescript-eslint doesn't:
+
+- every release line on npm declares TypeScript `<6.1.0`;
+- Microsoft's 7.0 announcement says there's no API and recommends TS 6 and 7 side by side through
+  npm aliases.
+
+So the choice is TypeScript 6.0.3, moving to 7 once typescript-eslint supports it.
+
+## 11. The MobX-style API
+
+**Ido:**
+
+> let's settle the MobX-style API
+
+**Claude (summary):** laid out four decisions with code: how models are declared, nested objects,
+collections without proxies, and when effects run. Ido picked Claude's recommendation in each:
+
+- inferred `makeObservable(this)`;
+- nested objects stored as-is, wrapped explicitly with `observableObject`;
+- collections with explicit methods and bulk change events;
+- synchronous effects.

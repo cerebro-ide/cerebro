@@ -9,9 +9,6 @@
 - **Web components and shadow DOM**: whether Cerebro's components and plugins use custom elements
   and shadow roots (for example to isolate plugins' styles), or plain elements. The JSX runtime
   works with either.
-- **The MobX-style API**: how observable models are declared (decorators, or explicit calls such as
-  MobX's `makeObservable`), and the exact API for observable nested objects (Ido's requirement: a
-  type for nested objects, as well as observable collections, without implicit proxies).
 - **3-way merge UI**: Cerebro's own view on CodeMirror; design not started.
 - **Host ↔ UI protocol**: JSON-RPC over stdio is proposed. Open: message format details,
   versioning between app and host, and how the host is installed on a remote machine.

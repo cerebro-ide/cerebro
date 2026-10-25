@@ -69,7 +69,8 @@ There are no ports or tunnels to manage, and one transport covers all three mode
 - **No framework.** Plain TypeScript and DOM, with Cerebro's own reactive layer and JSX runtime
   (see `decisions.md`).
 - **State:** MobX-style model classes on signals, such as `Worktree`, `Session` and
-  `Diagnostics`. Views react to them.
+  `Diagnostics`, declared with `makeObservable(this)`. Views react to them. Nested data is
+  observable only when wrapped explicitly (see `decisions.md`).
 - **Large data:** goes in observable collections that report changes in bulk, which virtualised
   trees and lists consume directly.
 - **Editor:** CodeMirror 6. It shows what the host sends: diagnostics through `@codemirror/lint`,
