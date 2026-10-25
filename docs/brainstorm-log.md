@@ -1,7 +1,7 @@
 # Brainstorm log — 2026-10-25
 
 The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
-`brainstorm` Claude session on the NAS; sections 8–12 in a session on Ido's development machine
+`brainstorm` Claude session on the NAS; sections 8–13 in a session on Ido's development machine
 (iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
 points where Ido corrected Claude.
 
@@ -308,3 +308,27 @@ collections without proxies, and when effects run. Ido picked Claude's recommend
 
 - Set up one Linux GitHub Actions job: `npm ci`, `npm run check`, build.
 - Updated the plan: macOS and Windows runs come with the end-to-end tests.
+
+## 13. Pull requests
+
+**Ido:**
+
+> should we run tests on every commit or should we start utilising PRs for CI?
+
+**Claude (summary):**
+
+- Recommended PRs now: `main` stays green, and it mirrors how Cerebro is meant to be used.
+- What it needs: `gh` on the development machine and an update to the working rules.
+- Who merges: Claude suggested Ido.
+- It can't be enforced while the repo is private in a free org.
+- Local hooks for every commit aren't worth a dependency.
+
+**Ido:** "yes". Claude installed `gh` (checksum verified), Ido logged in, and PR #1 (CI) ran green.
+
+**Ido:**
+
+> for updating only the md file I give you permission to do it without a PR. PRs are mostly needed for CI, and these file don't go through CI anyhow
+
+**Ido** (after merging PR #1):
+
+> yes, add the paths-ignore - also, pr is merged, so take care of all open issues

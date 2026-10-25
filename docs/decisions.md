@@ -104,6 +104,22 @@ runs (macOS, Windows) are only needed for the end-to-end browser tests, so they 
 (Ido's call). Unit tests don't depend on the OS. This replaced the plan's "CI on all three OSes
 from the start".
 
+## Pull requests (2026-10-25)
+
+Changes go through pull requests, so `main` stays green: commit on a branch, push, open a PR, CI
+runs on it, and **Ido merges; Claude never merges**. Why now: it keeps broken code off `main`, and
+it's how Cerebro itself is meant to be used (agents work on branches, a human inspects before the
+work lands).
+
+- **Exception (Ido):** changes that touch only Markdown files may go straight to `main`. PRs are
+  mostly for CI, and Markdown files don't go through CI.
+- **Not enforced yet.** The repo is private in a free GitHub organization, which doesn't get
+  protected branches ([transfer docs](https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository)),
+  so this is a working rule (`CLAUDE.md`), not a lock. It can be enforced once the repo is public
+  or the org is on a paid plan.
+- **Tooling:** Claude opens PRs and reads CI results with the `gh` CLI, installed in
+  `~/.local/bin` on Ido's development machine (no sudo), logged in as Ido.
+
 ## Minimal dependencies: Cerebro writes its own components (2026-10-25)
 
 Ido plans to implement all components and keep dependencies to a minimum; the ecosystem around a UI
