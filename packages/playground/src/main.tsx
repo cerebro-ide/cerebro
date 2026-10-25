@@ -16,6 +16,7 @@ import {
 } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-dialog/styles.css';
+import '@cerebro-ide/ui-popup/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
@@ -171,14 +172,14 @@ function Header() {
         ),
         <ToolbarDropdown
           services={services}
-          menu="toolbar/environments"
+          popup={environments.pickWorktree}
           label="Environment"
           badge={() => active()?.name ?? ''}
           text={() => active()?.name ?? 'No environment'}
         />,
         <ToolbarDropdown
           services={services}
-          menu="toolbar/branches"
+          popup={environments.pickBranch}
           label="Branch"
           icon={icon('git')}
           text={() => active()?.branch ?? '—'}

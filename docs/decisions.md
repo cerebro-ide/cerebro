@@ -514,6 +514,37 @@ new UI.
 - **Not yet:** while a dialog is open, the macOS native menu's commands still run, and button
   mnemonics aren't supported.
 
+## Popups (2026-10-25)
+
+`ui-popup`: a search field over a list, as IntelliJ's Search Everywhere, Go to File and branch
+popup; the second of the dialogs and popups added to milestone 1.
+
+- **Not modal:** a press outside, leaving the window, or resizing it closes the popup. Presses in
+  its owner (the button it opened from) are left to the owner, which toggles it.
+- **Keyboard:** the search field keeps the focus (clicks on items don't take it). Up and Down move,
+  wrapping; Page Up and Page Down jump 10; Enter chooses; Escape closes. Keys typed into it don't
+  reach the app's shortcuts. Closing gives the focus back.
+- **Placement:** at the top centre (15% down, 600px wide) for Search Everywhere and Go to File;
+  below an element (360px) for pickers, kept inside the window.
+- **The caller searches:** `openPicker({ items: (query) => … })`, read reactively, so a list in
+  hand uses `fuzzyFilter` and the host's search can come later without changing the popup. Items
+  have a label, a muted detail and shortcut, an icon, and a group, shown with a header over each.
+- **Matching** (`match`, `fuzzyFilter`): the query's characters in order, ignoring case. Scores
+  favour adjacent runs and word starts (after a separator, or a camelCase capital), then shorter
+  names. Each character's placement is searched among its likely spots (right after the previous
+  match, a word start, or its first occurrence), since taking the first occurrence greedily ranked
+  `st` higher in `pasta` than in `src/styles.css` (found by a test). Matched letters show in the
+  accent colour, bold. IntelliJ's matching is richer; this is the start.
+- **Toolbar dropdowns** can open a popup instead of a menu (`popup` instead of `menu`). The
+  environment and branch dropdowns now open searchable pickers: an action (New Worktree…, New
+  Branch…), then the list, the current one checked.
+- **In the playground:** Go to File (Ctrl+Shift+N) and Search Everywhere (Ctrl+Shift+A; files, then
+  enabled actions with their shortcuts) use it; Go to File no longer uses `window.prompt`. Actions
+  run from there without a context, so tab commands don't show; a proper action context comes with
+  the real Search Everywhere.
+- **Not yet:** the list isn't virtualised (all matches render); that comes with the lists of
+  milestone 2.
+
 ## Desktop conventions in the UI (2026-10-25)
 
 Ido: the UI behaves like an application, not a website.

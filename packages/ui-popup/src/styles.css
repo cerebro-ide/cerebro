@@ -1,0 +1,99 @@
+/* Popups. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-popup {
+  position: fixed;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: calc(100vw - 8px);
+  overflow: hidden;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 8px;
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+  app-region: no-drag;
+}
+
+/* The search field: borderless, across the top, as IntelliJ's. */
+.cerebro-popup__search {
+  flex: none;
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  border-bottom: 1px solid var(--cerebro-separator);
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+  outline: none;
+  user-select: text;
+}
+
+.cerebro-popup__search::placeholder {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-popup__list {
+  flex: auto;
+  min-height: 0;
+  max-height: 400px;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+.cerebro-popup__group {
+  padding: 6px 8px 2px;
+  color: var(--cerebro-text-muted);
+  font-size: 0.92em;
+}
+
+.cerebro-popup__group:not(:first-child) {
+  margin-top: 4px;
+  border-top: 1px solid var(--cerebro-separator);
+}
+
+.cerebro-popup__empty {
+  padding: 8px;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-popup-item {
+  display: grid;
+  grid-template-columns: 18px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  height: var(--cerebro-menu-item-height);
+  padding: 0 8px 0 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.cerebro-popup-item--highlighted {
+  background: var(--cerebro-menu-highlight);
+}
+
+.cerebro-popup-item__icon {
+  display: grid;
+  place-items: center;
+}
+
+.cerebro-popup-item__match {
+  color: var(--cerebro-accent);
+  font-weight: 600;
+}
+
+.cerebro-popup-item__detail,
+.cerebro-popup-item__shortcut {
+  overflow: hidden;
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+}
+
+.cerebro-popup-item__shortcut {
+  padding-left: 16px;
+}

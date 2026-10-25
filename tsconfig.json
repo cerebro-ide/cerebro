@@ -26,6 +26,9 @@
       "path": "packages/ui-dialog/tsconfig.build.json"
     },
     {
+      "path": "packages/ui-popup/tsconfig.build.json"
+    },
+    {
       "path": "packages/ui-statusbar/tsconfig.build.json"
     },
     {

@@ -2,6 +2,8 @@
 
 import {
   chordFromEvent,
+  displayText,
+  formatSequence,
   CommandRegistry,
   KeyDispatcher,
   Keymap,
@@ -11,6 +13,7 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { icon } from './icons.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
@@ -53,6 +56,32 @@ export function setupCommands(
   const keymap = new Keymap(platform);
   const ed = activeEditor;
   const group = (c: TabContext) => (ed() as EditorArea).group(c.group);
+
+  /** The sample files as popup items: the name, with its directory after it. */
+  const fileItems = files.map((path): PickerItem & { run: () => void } => {
+    const slash = path.lastIndexOf('/');
+    return {
+      label: path.slice(slash + 1),
+      ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
+      group: 'Files',
+      icon: () => icon('file'),
+      run: () => ed()?.open(tabOf(path)),
+    };
+  });
+  /** Enabled commands as popup items, with their shortcuts. */
+  const actionItems = () =>
+    [...commands.commands.values()]
+      .filter((c) => c.id !== 'search.everywhere' && commands.isEnabled(c.id))
+      .map((c): PickerItem & { run: () => void } => {
+        const key = keymap.shortcutsFor(c.id)[0];
+        return {
+          label: displayText(c.label, c.dialog),
+          group: 'Actions',
+          ...(key === undefined ? {} : { shortcut: formatSequence(key, platform) }),
+          ...(c.icon === undefined ? {} : { icon: () => icon(c.icon as string) }),
+          run: () => commands.execute(c.id),
+        };
+      });
 
   commands.register<TabContext>({
     id: 'editor.close',
@@ -104,10 +133,14 @@ export function setupCommands(
     id: 'file.goTo',
     label: '&Go to File',
     dialog: true,
-    run: () => {
-      const name = window.prompt(`Go to file (${files.join(', ')})`);
-      const path = files.find((f) => name && f.endsWith(name));
-      if (path) ed()?.open(tabOf(path));
+    run: async () => {
+      const file = await openPicker({
+        label: 'Go to File',
+        placeholder: 'Type a file name',
+        position: 'top',
+        items: (query) => fuzzyFilter(fileItems, query),
+      }).result;
+      file?.run();
     },
   });
   commands.register({
@@ -210,7 +243,16 @@ export function setupCommands(
     label: '&Search Everywhere',
     dialog: true,
     icon: 'search',
-    run: () => commands.execute('file.goTo'),
+    // A sample of IntelliJ's: files, then actions, filtered together.
+    run: async () => {
+      const item = await openPicker({
+        label: 'Search Everywhere',
+        placeholder: 'Type a file or action name',
+        position: 'top',
+        items: (query) => [...fuzzyFilter(fileItems, query), ...fuzzyFilter(actionItems(), query)],
+      }).result;
+      item?.run();
+    },
   });
   commands.register({
     id: 'help.about',
