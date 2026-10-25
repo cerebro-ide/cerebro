@@ -4,3 +4,5 @@ export { EditorAreaView, findTabTarget, SPLIT_EDGE } from './editor.js';
 export type { EditorAreaViewProps, TabDropTarget } from './editor.js';
 export { DRAG_THRESHOLD, dragFrom, trackPointer, type DragHandlers } from './drag.js';
 export { Splitter, type SplitterProps } from './splitter.js';
+export { EnvironmentEditors, EnvironmentTabs } from './environments.js';
+export type { EnvironmentEditorsProps, EnvironmentTabsProps } from './environments.js';
