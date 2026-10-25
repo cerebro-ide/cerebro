@@ -266,10 +266,19 @@ Why:
 The name Ido used for his earlier tool. Fine while private; check before publishing (see
 `open-questions.md`).
 
+**GitHub org and npm scope (2026-10-25):** `cerebro-ide` on both. Packages are named
+`@cerebro-ide/<package>`.
+
+- The npm scope `@cerebro` was taken: an npm user named `cerebro` owns a package. Checked via
+  `registry.npmjs.org/-/org/<name>/package`, which answers "Scope not found" for a free name.
+- Ido created the `cerebro-ide` GitHub org and npm organization.
+- The repo keeps the name `cerebro` inside the org, as the product's main repo (like
+  `electron/electron`).
+
 ## Where it lives and where it's developed
 
-- Private GitHub repo `iMoses/cerebro`; a copy on the NAS so a session there can work on it any
-  time (the NAS is always on).
+- Private GitHub repo `cerebro-ide/cerebro` (moved from `iMoses/cerebro` on 2026-10-25; old links
+  redirect); a copy on the NAS so a session there can work on it any time (the NAS is always on).
 - **No tooling for this project is installed on the NAS**; it isn't a proper development
   environment. Development and the spike run on another machine. Remote mode is tested on Ido's
   development machine and Windows laptop, not the NAS (see above).
