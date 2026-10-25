@@ -254,6 +254,38 @@ Also needed, without a choice to make:
 - SVG: known SVG tag names are created in the SVG namespace, because JSX creates children before
   their parents.
 
+## The shell window (2026-10-25)
+
+Ido chose each of these from options Claude laid out.
+
+- **IntelliJ's fixed docking areas, not free docking.**
+  - Tool windows live in left, right and bottom areas, opened from stripes of icons. Each side
+    shows at most a primary and a secondary window.
+  - The editor area sits in the centre, with tabbed splits.
+  - Why: it matches "same GUI", and it's much simpler than letting any panel dock anywhere.
+  - Rejected: free docking, as in dockview or VS Code's editor groups everywhere.
+- **Plain elements, not web components.**
+  - Components are functions that return DOM.
+  - CSS is plain, with a `cerebro-` class prefix.
+  - Why: a dense IDE UI would otherwise fight shadow roots on focus, keyboard navigation, events
+    and styling.
+  - Plugins may still use shadow DOM inside their own panels.
+- **Themes are CSS custom properties.**
+  - Colours, sizes and fonts are `--cerebro-*` variables, and a theme is a set of values. The first
+    themes are IntelliJ-like dark and light.
+  - Plugins use the same variables.
+- **Browser first, Electron later.**
+  - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
+  - Electron wraps the same page as the last step.
+
+Build order, each step its own PR:
+
+1. the layout model (pure TypeScript, tested in Node);
+2. the layout view;
+3. the menu bar and status bar;
+4. the dev page;
+5. the Electron wrapper.
+
 ## CodeMirror 6, not Monaco (2026-10-25)
 
 Monaco is overkill for Cerebro. Why:

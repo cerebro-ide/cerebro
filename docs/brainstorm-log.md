@@ -1,7 +1,7 @@
 # Brainstorm log — 2026-10-25
 
 The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
-`brainstorm` Claude session on the NAS; sections 8–14 in a session on Ido's development machine
+`brainstorm` Claude session on the NAS; sections 8–15 in a session on Ido's development machine
 (iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
 points where Ido corrected Claude.
 
@@ -355,3 +355,18 @@ collections without proxies, and when effects run. Ido picked Claude's recommend
 - events: `on:click`;
 - props: functions, explicitly;
 - helpers: later, with the UI components.
+
+## 15. The shell window
+
+**Ido:**
+
+> merged, let's start the shell window
+
+**Claude (summary):** proposed five steps, each its own PR: layout model, layout view, menu and
+status bars, a dev page, then Electron. Asked four questions. Ido picked Claude's recommendation
+in each:
+
+- IntelliJ's fixed docking areas;
+- plain elements with prefixed CSS;
+- CSS custom properties for themes;
+- browser first, Electron later.

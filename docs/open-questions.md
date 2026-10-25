@@ -6,9 +6,6 @@
 - **Language server memory**: measured in the spike (measurement 2), about 1 GB per warm
   whole-repo tsserver on ag-charts. Open: the pool size and idle timeout, and the cost of the other
   languages' servers.
-- **Web components and shadow DOM**: whether Cerebro's components and plugins use custom elements
-  and shadow roots (for example to isolate plugins' styles), or plain elements. The JSX runtime
-  works with either.
 - **3-way merge UI**: Cerebro's own view on CodeMirror; design not started.
 - **Host ↔ UI protocol**: JSON-RPC over stdio is proposed. Open: message format details,
   versioning between app and host, and how the host is installed on a remote machine.
