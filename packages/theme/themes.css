@@ -26,8 +26,10 @@
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
 
-  --cerebro-stripe-size: 40px;
-  --cerebro-stripe-button: 30px;
+  --cerebro-stripe-size: 36px;
+  --cerebro-stripe-button: 28px;
+  --cerebro-stripe-icon: 20px;
+  --cerebro-stripe-gap: 8px;
   --cerebro-header-height: 32px;
   --cerebro-tab-height: 36px;
   --cerebro-menu-item-height: 26px;

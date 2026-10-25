@@ -83,9 +83,10 @@
   flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--cerebro-stripe-gap);
+  box-sizing: border-box;
   width: var(--cerebro-stripe-size);
-  padding: 5px;
+  padding: 4px 0;
   background: var(--cerebro-stripe);
 }
 
@@ -102,14 +103,14 @@
   flex: none;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: var(--cerebro-stripe-gap);
   border-radius: var(--cerebro-radius);
 }
 
 /* Separates the side's secondary group from its primary group. */
 .cerebro-stripe__group--left-secondary:not(:empty),
 .cerebro-stripe__group--right-secondary:not(:empty) {
-  padding-top: 5px;
+  padding-top: var(--cerebro-stripe-gap);
   border-top: 1px solid var(--cerebro-separator);
 }
 
@@ -161,8 +162,15 @@
   opacity: 0.35;
 }
 
+/* Icons fill most of the button, as in IntelliJ's new UI; the theme sets their size. */
+.cerebro-stripe-button > svg,
+.cerebro-stripe-button > img {
+  width: var(--cerebro-stripe-icon);
+  height: var(--cerebro-stripe-icon);
+}
+
 .cerebro-stripe-button__letter {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 

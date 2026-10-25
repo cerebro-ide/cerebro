@@ -1,4 +1,5 @@
-// Simple 16px line icons for the playground's sample tool windows.
+// Simple line icons for the playground's sample tool windows. Drawn on a 16-unit grid; the view box
+// crops the margins so the glyph fills the size the theme gives it, as IntelliJ's icons do.
 
 const PATHS: Record<string, string> = {
   folder:
@@ -18,12 +19,12 @@ const PATHS: Record<string, string> = {
 
 export function icon(name: string): Node {
   return (
-    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+    <svg viewBox="1.5 1.5 13 13" width="16" height="16" aria-hidden="true">
       <path
         d={PATHS[name] ?? 'M4 4h8v8H4z'}
         fill="none"
         stroke="currentColor"
-        stroke-width="1.2"
+        stroke-width="0.95"
         stroke-linecap="round"
         stroke-linejoin="round"
       />
