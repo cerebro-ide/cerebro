@@ -18,7 +18,8 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
 - **Settings** layered global → repo → worktree.
 - **The build tooling** (`decisions.md`): npm workspaces, TypeScript 6, Vite, Vitest, ESLint and
   Prettier.
-- **CI on macOS, Windows and Linux** from the start.
+- **CI** from the start: unit tests on Linux. macOS and Windows runs come with the end-to-end
+  tests, which are the tests that depend on the OS.
 
 ## 2. Worktrees and files
 

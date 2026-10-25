@@ -1,7 +1,7 @@
 # Brainstorm log — 2026-10-25
 
 The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
-`brainstorm` Claude session on the NAS; sections 8–11 in a session on Ido's development machine
+`brainstorm` Claude session on the NAS; sections 8–12 in a session on Ido's development machine
 (iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
 points where Ido corrected Claude.
 
@@ -297,3 +297,14 @@ collections without proxies, and when effects run. Ido picked Claude's recommend
 - nested objects stored as-is, wrapped explicitly with `observableObject`;
 - collections with explicit methods and bulk change events;
 - synchronous effects.
+
+## 12. CI
+
+**Ido:**
+
+> let's set up CI first - but the per OS tests are only needed for e2e browser tests, and we can start at this point with only unit tests which don't require this level of complexity
+
+**Claude (summary):**
+
+- Set up one Linux GitHub Actions job: `npm ci`, `npm run check`, build.
+- Updated the plan: macOS and Windows runs come with the end-to-end tests.

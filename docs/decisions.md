@@ -99,6 +99,11 @@ each stand on their own, with their own tests and no hidden dependency on the re
 2. **Integration and end-to-end tests** after that, defined later, probably on real browsers with
    Playwright.
 
+**CI (2026-10-25):** GitHub Actions, one Linux job running `npm run check` and the build. Per-OS
+runs (macOS, Windows) are only needed for the end-to-end browser tests, so they come with those
+(Ido's call). Unit tests don't depend on the OS. This replaced the plan's "CI on all three OSes
+from the start".
+
 ## Minimal dependencies: Cerebro writes its own components (2026-10-25)
 
 Ido plans to implement all components and keep dependencies to a minimum; the ecosystem around a UI
