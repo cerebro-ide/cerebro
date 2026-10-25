@@ -1,6 +1,6 @@
 import { effect } from '@cerebro-ide/reactive';
 import { describe, expect, it, vi } from 'vitest';
-import { CommandRegistry, KeyDispatcher, Keymap } from '../src/index.js';
+import { CommandRegistry, KeyDispatcher, Keymap, SEQUENCE_TIMEOUT } from '../src/index.js';
 
 function setup() {
   const keymap = new Keymap('other');
@@ -85,6 +85,60 @@ describe('KeyDispatcher', () => {
     const { dispatcher, ran } = setup();
     dispatcher.press('Ctrl+K');
     dispatcher.cancel();
+    expect(dispatcher.press('Ctrl+S')).toBe('handled');
+    expect(ran).toEqual(['save']);
+  });
+
+  it('runs a chord also bound alone when the sequence breaks or times out', () => {
+    vi.useFakeTimers();
+    const { keymap, dispatcher, ran } = setup();
+    keymap.bindDefault('ctrl+k', 'menu');
+    expect(dispatcher.press('Ctrl+K', 'first')).toBe('pending');
+    expect(dispatcher.press('Ctrl+S')).toBe('handled');
+    expect(ran).toEqual(['settings']);
+    dispatcher.press('Ctrl+K');
+    expect(dispatcher.press('A')).toBe('handled');
+    expect(ran).toEqual(['settings', 'menu']);
+    dispatcher.press('Ctrl+K');
+    vi.advanceTimersByTime(SEQUENCE_TIMEOUT);
+    expect(ran).toEqual(['settings', 'menu', 'menu']);
+    expect(dispatcher.waiting).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it('abandons a started sequence after the timeout, so later keys pass', () => {
+    vi.useFakeTimers();
+    const { dispatcher, ran } = setup();
+    dispatcher.press('Ctrl+K');
+    vi.advanceTimersByTime(SEQUENCE_TIMEOUT - 1);
+    expect(dispatcher.waiting).toBe(true);
+    vi.advanceTimersByTime(1);
+    expect(dispatcher.waiting).toBe(false);
+    expect(dispatcher.press('A')).toBe('unhandled');
+    expect(ran).toEqual([]);
+    vi.useRealTimers();
+  });
+
+  it('takes the timeout it’s given, and cancelling stops the timer', () => {
+    vi.useFakeTimers();
+    const { keymap, commands, ran } = setup();
+    keymap.bindDefault('ctrl+k', 'menu');
+    const quick = new KeyDispatcher(keymap, commands, 100);
+    quick.press('Ctrl+K');
+    vi.advanceTimersByTime(100);
+    expect(ran).toEqual(['menu']);
+    quick.press('Ctrl+K');
+    quick.cancel();
+    vi.advanceTimersByTime(1000);
+    expect(ran).toEqual(['menu']);
+    vi.useRealTimers();
+  });
+
+  it('doesn’t wait for a sequence whose commands are disabled', () => {
+    const { keymap, dispatcher, ran } = setup();
+    keymap.bindDefault('ctrl+j ctrl+j', 'off');
+    expect(dispatcher.press('Ctrl+J')).toBe('unhandled');
+    expect(dispatcher.waiting).toBe(false);
     expect(dispatcher.press('Ctrl+S')).toBe('handled');
     expect(ran).toEqual(['save']);
   });

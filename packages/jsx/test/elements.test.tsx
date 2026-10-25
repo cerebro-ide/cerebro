@@ -76,6 +76,32 @@ describe('props', () => {
     expect(div.outerHTML).toBe('<div hidden=""></div>');
   });
 
+  it('resets a bound property to its default when its value goes null', () => {
+    const value = signal<string | null>('abc');
+    const checked = signal<boolean | undefined>(true);
+    const title = signal<string | null>('tip');
+    const root = mount(() => (
+      <div>
+        <input value={() => value.get()} />
+        <input type="checkbox" checked={() => checked.get()} value={() => value.get()} />
+        <span title={() => title.get()} />
+      </div>
+    ));
+    const [text, box] = [...root.querySelectorAll('input')] as [HTMLInputElement, HTMLInputElement];
+    const span = root.querySelector('span') as HTMLElement;
+    value.set(null);
+    checked.set(undefined);
+    title.set(null);
+    // Properties that don't follow their attribute: an input's value, a checkbox's checked.
+    expect(text.value).toBe('');
+    expect(box.checked).toBe(false);
+    // The default for an element like this one: a checkbox's value is "on".
+    expect(box.value).toBe('on');
+    expect(span.hasAttribute('title')).toBe(false);
+    value.set('again');
+    expect(text.value).toBe('again');
+  });
+
   it('forces a property or an attribute', () => {
     const root = mount(() => <div prop:custom={{ rich: true }} attr:id="by-attr" />);
     const div = root.querySelector('div') as unknown as HTMLElement & { custom: unknown };

@@ -10,4 +10,11 @@ export {
   type KeyEventLike,
   type Platform,
 } from './keys.js';
-export { KeyDispatcher, Keymap, type Binding, type KeyResult, type UserBinding } from './keymap.js';
+export {
+  KeyDispatcher,
+  Keymap,
+  SEQUENCE_TIMEOUT,
+  type Binding,
+  type KeyResult,
+  type UserBinding,
+} from './keymap.js';

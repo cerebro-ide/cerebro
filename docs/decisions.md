@@ -336,6 +336,16 @@ Built for Ido's requirements in `features.md` ("The window's parts").
   - **Keys:** shortcuts are read from the physical key, so they work on any keyboard layout; `Mod`
     is Cmd on macOS and Ctrl elsewhere.
   - **Sequences:** multi-chord shortcuts such as `Ctrl+K Ctrl+S` work, as in IntelliJ.
+    Fixed after the test review (2026-10-25), where probes found a chord bound alone was
+    unreachable once it also started a sequence, and a started sequence swallowed the next key
+    however much later:
+    - a sequence waits only if an enabled command is bound to a longer one;
+    - a started sequence is abandoned after 2 seconds (claim: IntelliJ's default wait, not
+      checked), or when the window loses focus;
+    - a chord also bound alone runs when the wait times out, or when the next chord breaks the
+      sequence;
+    - a chord that breaks a started sequence is swallowed, so it doesn't type or run something
+      else (as before).
   - **Layers:** the user's bindings come first, and can remove defaults.
 - **The menu component** (`@cerebro-ide/ui-menu`) is the menu bar's dropdowns and every context
   menu.
