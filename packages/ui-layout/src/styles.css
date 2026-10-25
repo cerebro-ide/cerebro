@@ -282,3 +282,191 @@
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* The editor area: splits of tab groups. */
+
+.cerebro-editor-area {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background: var(--cerebro-background);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+}
+
+.cerebro-editor-area [hidden] {
+  display: none !important;
+}
+
+.cerebro-editor-area--resizing,
+.cerebro-editor-area--dragging {
+  user-select: none;
+}
+
+.cerebro-editor-split {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-editor-split--vertical {
+  flex-direction: column;
+}
+
+.cerebro-editor-cell {
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* A group's view is rendered into this wrapper, which stays out of the layout. */
+.cerebro-editor-holder {
+  display: contents;
+}
+
+.cerebro-editor-group {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.cerebro-editor-tabs {
+  display: flex;
+  flex: none;
+  height: var(--cerebro-tab-height);
+  overflow-x: auto;
+  border-bottom: 1px solid var(--cerebro-border);
+  scrollbar-width: none;
+  user-select: none;
+}
+
+.cerebro-editor-tab {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px 0 12px;
+  color: var(--cerebro-text-muted);
+  cursor: pointer;
+  touch-action: none;
+  white-space: nowrap;
+}
+
+.cerebro-editor-tab:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-editor-tab--active {
+  color: var(--cerebro-text);
+}
+
+/* The active tab's underline: accent in the active group, muted elsewhere. */
+.cerebro-editor-tab--active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: var(--cerebro-separator);
+}
+
+.cerebro-editor-group--active .cerebro-editor-tab--active::after {
+  background: var(--cerebro-accent);
+}
+
+.cerebro-editor-tab:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
+}
+
+.cerebro-editor-tab--dragged {
+  opacity: 0.35;
+}
+
+.cerebro-editor-tab__close {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-text-muted);
+  cursor: pointer;
+  visibility: hidden;
+}
+
+.cerebro-editor-tab:hover .cerebro-editor-tab__close,
+.cerebro-editor-tab--active .cerebro-editor-tab__close {
+  visibility: visible;
+}
+
+.cerebro-editor-tab__close:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+/* The drop indicator in a tab strip: a line before a tab, or after the last one. */
+.cerebro-editor-tab--drop-before::before,
+.cerebro-editor-tabs--drop-end::after {
+  content: '';
+  flex: none;
+  width: 2px;
+  margin: 6px 0;
+  border-radius: 1px;
+  background: var(--cerebro-drop);
+}
+
+.cerebro-editor-tab--drop-before::before {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -1px;
+}
+
+.cerebro-editor-content {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* Where a dragged tab would land in a group: all of it, or the half a new split would take. */
+.cerebro-editor-drop {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  border: 1px solid var(--cerebro-drop);
+  background: color-mix(in srgb, var(--cerebro-drop) 16%, transparent);
+  pointer-events: none;
+}
+
+.cerebro-editor-drop[data-zone='left'] {
+  right: 50%;
+}
+
+.cerebro-editor-drop[data-zone='right'] {
+  left: 50%;
+}
+
+.cerebro-editor-drop[data-zone='up'] {
+  bottom: 50%;
+}
+
+.cerebro-editor-drop[data-zone='down'] {
+  top: 50%;
+}
+
+/* Between editor groups the line must show against the editor background. */
+.cerebro-editor-split > .cerebro-splitter {
+  background: var(--cerebro-separator);
+}
