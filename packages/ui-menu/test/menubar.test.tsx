@@ -105,9 +105,13 @@ describe('hidden, behind a button', () => {
     const { button, bar, item } = mount(false);
     expect(names(bar())).toEqual([]);
     expect(button().getAttribute('aria-expanded')).toBe('false');
+    expect(bar().classList.contains('cerebro-menubar--takeover')).toBe(false);
     press(button());
     expect(names(bar())).toEqual(['File', 'Edit', 'View']);
     expect(menus()).toEqual(['main/file']);
+    // It takes over its row (here the container, which is positioned).
+    expect(bar().classList.contains('cerebro-menubar--takeover')).toBe(true);
+    expect(bar().getBoundingClientRect().width).toBe(bar().parentElement?.clientWidth);
     expect(bar().querySelector('.cerebro-menubar__button')).toBeNull();
     // Opened below its name, in the expanded bar.
     const popup = (document.querySelector('.cerebro-menu') as HTMLElement).getBoundingClientRect();
@@ -118,6 +122,7 @@ describe('hidden, behind a button', () => {
     expect(menus()).toEqual([]);
     expect(names(bar())).toEqual([]);
     expect(button()).not.toBeNull();
+    expect(bar().classList.contains('cerebro-menubar--takeover')).toBe(false);
   });
 
   it('collapses on a press outside, or when its name is pressed again', () => {

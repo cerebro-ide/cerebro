@@ -1,6 +1,8 @@
 /* The main toolbar. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
 
+/* Positioned, so a hidden menu bar in use can take over the whole row. */
 .cerebro-toolbar {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
