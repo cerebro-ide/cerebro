@@ -15,6 +15,7 @@ import {
   type NativeMenuBridge,
 } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
+import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';

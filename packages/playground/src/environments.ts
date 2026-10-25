@@ -9,6 +9,7 @@ import {
   type Tab,
 } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
+import { prompt } from '@cerebro-ide/ui-dialog';
 
 const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro', name: 'cerebro', branch: 'main' },
@@ -78,9 +79,15 @@ export function setupEnvironments(
     id: 'env.new',
     label: 'New &Worktree',
     dialog: true,
-    run: () => {
-      const name = window.prompt('New worktree name');
-      if (!name || worktrees.get().some((w) => w.id === name)) return;
+    run: async () => {
+      const name = await prompt({
+        title: 'New Worktree',
+        label: 'Name:',
+        ok: 'Create',
+        validate: (text) =>
+          worktrees.get().some((w) => w.id === text) ? `Worktree ${text} exists` : undefined,
+      });
+      if (name === undefined) return;
       const spec = { id: name, name, branch: workspace.active?.branch ?? 'main' };
       worktrees.set([...worktrees.get(), spec]);
       addWorktree(spec);
@@ -94,9 +101,14 @@ export function setupEnvironments(
     label: 'New &Branch',
     dialog: true,
     enabled: () => workspace.active !== undefined,
-    run: () => {
-      const name = window.prompt('New branch name');
-      if (!name || branches.get().includes(name)) return;
+    run: async () => {
+      const name = await prompt({
+        title: 'New Branch',
+        label: 'Name:',
+        ok: 'Create',
+        validate: (text) => (branches.get().includes(text) ? `Branch ${text} exists` : undefined),
+      });
+      if (name === undefined) return;
       branches.set([...branches.get(), name]);
       addBranch(name);
       commands.execute(`branch.checkout.${name}`);

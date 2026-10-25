@@ -480,6 +480,40 @@ new UI.
   - copy and paste in text fields work without an Edit menu of Electron's roles.
 - **Still to do:** packaging is milestone 3.
 
+## Dialogs (2026-10-25)
+
+`ui-dialog`: modal dialogs, as IntelliJ's, first of the dialogs and popups added to milestone 1
+(`plan-v1.md`).
+
+- **In the page, not separate OS windows.** IntelliJ's dialogs are their own windows; Cerebro's
+  are drawn over the window, so they work the same in the browser and in Electron.
+  - Nothing behind takes the pointer: a layer covers the window, without dimming it, since
+    IntelliJ doesn't.
+  - Presses on the layer don't take the focus from the dialog.
+  - The layer is `app-region: no-drag`, so the title-bar toolbar doesn't drag the desktop window
+    from under a dialog. (Claim: Chromium subtracts a covering no-drag element from the drag
+    region; not yet checked by dragging.)
+- **The keyboard stays in the dialog:**
+  - Tab and Shift+Tab cycle through its controls;
+  - Escape cancels; Enter accepts, unless the focus is on a button (which Enter presses) or in a
+    multi-line field, or OK is disabled;
+  - keys don't reach the app's shortcuts. The menu bar, which listens to the whole window, stands
+    aside while any `aria-modal` element is open. Measured in the app: Alt+F and Ctrl+Shift+N do
+    nothing while a dialog is open.
+  - Closing gives the focus back to what had it.
+- **Layout:** a title bar with a close button, the content, then the buttons at the bottom right:
+  Cancel then OK on macOS, OK then Cancel elsewhere, as IntelliJ on each. The primary button is
+  the accent colour. Opens centred; the title bar drags it, always keeping 40px of it in the
+  window.
+- **API:** `openDialog({ title, content, ok: { label, enabled, accept }, cancelLabel, width })`
+  returns a handle whose `result` resolves with what OK accepted, or undefined. Dialogs stack.
+- **`prompt()`** asks for a line of text: OK is enabled once the text is non-blank and valid, and
+  the reason it isn't shows under the field in the error colour. It replaced the playground's
+  `window.prompt` for New Worktree and New Branch.
+- New theme variables: `--cerebro-input`, `--cerebro-input-border`, `--cerebro-error`.
+- **Not yet:** while a dialog is open, the macOS native menu's commands still run, and button
+  mnemonics aren't supported.
+
 ## Desktop conventions in the UI (2026-10-25)
 
 Ido: the UI behaves like an application, not a website.
