@@ -9,10 +9,12 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cerebro-ide/commands": "0.0.0",
     "@cerebro-ide/jsx": "0.0.0",
     "@cerebro-ide/layout": "0.0.0",
     "@cerebro-ide/reactive": "0.0.0",
     "@cerebro-ide/theme": "0.0.0",
-    "@cerebro-ide/ui-layout": "0.0.0"
+    "@cerebro-ide/ui-layout": "0.0.0",
+    "@cerebro-ide/ui-menu": "0.0.0"
   }
 }

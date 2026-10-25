@@ -3,6 +3,9 @@ import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
 import { EditorAreaView, ShellLayout } from '@cerebro-ide/ui-layout';
+import { openContextMenu } from '@cerebro-ide/ui-menu';
+import '@cerebro-ide/ui-menu/styles.css';
+import { dark, setDark, setupCommands } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import './playground.css';
@@ -43,9 +46,10 @@ for (const path of ['README.md', 'src/main.ts', 'src/shell.tsx', 'src/styles.css
 }
 editor.moveToSplit('src/styles.css', editor.activeGroupId, editor.activeGroupId, 'right');
 
+const services = setupCommands(editor, FILES, tabOf);
+
 function toggleTheme() {
-  const root = document.documentElement;
-  root.dataset['cerebroTheme'] = root.dataset['cerebroTheme'] === 'light' ? 'dark' : 'light';
+  setDark(!dark.get());
 }
 
 function Files() {
@@ -92,7 +96,10 @@ function Code(props: { path: string }) {
       : `const value${String(i)} = compute(${String(i)}, '${props.path}');`,
   );
   return (
-    <pre class="playground-code cerebro-selectable">
+    <pre
+      class="playground-code cerebro-selectable"
+      on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
+    >
       {lines.map((line, i) => (
         <div>
           <span class="playground-line">{i + 1}</span>
@@ -125,6 +132,9 @@ render(
           area={editor}
           content={(tab) => <Code path={tab.id} />}
           empty={() => <Empty />}
+          onTabContextMenu={(event, group, tab) =>
+            openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
+          }
         />
       )}
       icon={icon}

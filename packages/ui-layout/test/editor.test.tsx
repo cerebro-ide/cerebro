@@ -374,3 +374,37 @@ describe('desktop conventions', () => {
     }
   });
 });
+
+describe('tab context menus', () => {
+  it('reports a right-click on a tab, with its group', () => {
+    const area = new EditorArea();
+    area.open(tab('a'));
+    const onTabContextMenu = vi.fn();
+    const container = document.createElement('div');
+    document.body.append(container);
+    const handle = render(
+      () => <EditorAreaView area={area} content={() => null} onTabContextMenu={onTabContextMenu} />,
+      container,
+    );
+    const element = container.querySelector('[data-tab="a"]') as HTMLElement;
+    element.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(onTabContextMenu).toHaveBeenCalledTimes(1);
+    const [event, group, reported] = onTabContextMenu.mock.calls[0] as [
+      MouseEvent,
+      EditorGroup,
+      { id: string },
+    ];
+    expect(event.type).toBe('contextmenu');
+    expect(group).toBe(area.activeGroup);
+    expect(reported.id).toBe('a');
+    handle.dispose();
+    container.remove();
+  });
+
+  it('does nothing without a handler', () => {
+    const { tabEl } = mount();
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    tabEl('a').dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
+});
