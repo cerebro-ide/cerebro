@@ -1,8 +1,9 @@
 # Brainstorm log — 2026-10-25
 
-The conversation in which Cerebro was scoped, held in the `brainstorm` Claude session on the NAS.
-Ido's messages are verbatim. Claude's replies are summarised, including the points where Ido
-corrected Claude.
+The conversations in which Cerebro was scoped and planned. Sections 1–7 were held in the
+`brainstorm` Claude session on the NAS; sections 8–9 in a session on Ido's development machine
+(iMoses-PC, WSL2). Ido's messages are verbatim. Claude's replies are summarised, including the
+points where Ido corrected Claude.
 
 ---
 
@@ -137,3 +138,97 @@ publishing. Created this repo's contents at `/home/claude/repos/cerebro`.
 > note in the architecture that while we still don't know how the final product would look like, the code must be modular, clean, decoupled, and extensible (support plugins)
 
 **Claude (summary):** Added a "Code principles" section to `architecture.md`.
+
+## 8. The spike
+
+Run on iMoses-PC; full results in `spike-multi-worktree.md`. Ido's choices when Claude asked how to
+set it up: keep everything inside the repo, gitignored; worktrees spread like agent branches
+(latest, a week old, a month old); and:
+
+> Use the local copy - it's not used by anyone but you
+
+(his existing ag-charts clone), and install Node 24 globally.
+
+**Claude (summary):**
+
+- Results:
+  - a worktree at an indexed commit indexes in 25 ms;
+  - a warm whole-repo tsserver costs about 1 GB and takes about 7 s to answer the first query;
+  - name-based navigation finds nearly every real reference but is noisy for common member names.
+- Verdict: the approach holds.
+- Reported the problems met on the way, including a postinstall script that changed the main
+  clone's git config (reverted).
+- Ido asked for the conclusions, then had the results committed and the spike worktrees and data
+  removed.
+
+## 9. Planning the first version
+
+**Ido:**
+
+> let's plan the first version
+
+**Claude (summary):**
+
+- Proposed:
+  - a monorepo with every feature built as a plugin;
+  - JSON-RPC over stdio for local, WSL and SSH;
+  - seven milestones;
+  - Monaco, dockview and React.
+- Asked four questions: the UI framework, where the window runs, whether remote mode is in the
+  first version, and which languages get language-server navigation.
+
+**Ido** (answers):
+
+> UI framework: Let's talk about it. The original was actually done in React, but these days I'm not sure if we need to use a framework - I'm interested in your opinion. The ecosystem doesn't matter to me much since I plan on implementing ALL components and having the least amount of deps possible.
+>
+> Where the window runs: All of the above. My work laptop is Mac, we'll develop on WSL but I want it to be able to run on native windows and linux as well...
+>
+> Remote mode: We could do it slighlty later, after we get the main shell ready, but ideally it'll be very soon after. Testing would be best with the NAS before actually starting to use it on my work laptop where it'll run locally.
+>
+> Languages: All target languages
+
+**Claude (summary):**
+
+- Recommended no framework: plain TypeScript and DOM with its own small reactive core. Reasons:
+  the plugin boundary should be the DOM, IDE components are imperative anyway, and VS Code's
+  workbench does the same. Solid was offered as the middle ground.
+- Switched the editor recommendation from Monaco to CodeMirror 6, since the host owns the language
+  servers.
+- Dropped dockview, since Cerebro builds its own docking.
+- Noted what all target languages and all platforms add to the first version.
+- Raised a conflict: testing remote mode on the NAS would mean installing the host there.
+- Listed which pieces stay libraries.
+
+**Ido:**
+
+> A few questions.
+> - What about a MobX style reactive state management?
+> - No templating engine, does it include no JSX?
+> - Doesn't Monaco buys us in editor validations? As in, wiggly lines under bad code, mismatching types, etc? Or it that relatively easy to implement on CodeMirror?
+> - Ignore my note about the NAS, I'd rather keep the contraint and not install anything new there. We'll test it on this machine and my other Windows laptop.
+> - You read of libraries usage seems accurate to me
+
+**Claude (summary):**
+
+- MobX's model is signals one layer up, so: a signals core with MobX-style decorators on top,
+  without deep proxies, plus explicit observable collections.
+- JSX is syntax, not templating. TypeScript compiles it into Cerebro's own runtime, which builds
+  DOM directly, with reactive parts bound explicitly.
+- Monaco's validation runs in the UI and doesn't see the worktree, so it's wrong in a monorepo.
+  Real diagnostics come from the host's language servers, and CodeMirror's official
+  `@codemirror/lint` draws them.
+
+**Ido:**
+
+> I agree about mobx proxies - but do note that we need an observed collection type and something similar for nested objects.
+> I like JSX, so unless there's a good reason not to use it (e.g. does it play nicely with web-components and/or shadow dom?) then let's have it.
+> So let's go with CodeMirror, it sounds that Monaco is an overkill for what we're aiming for.
+>
+> write this to the docs. Make a specific note that by modular approach I mean that every part of the system must be developed and tested in isolation - meaning that any part of the system could be used as a standalone library if ever needed. We'll have a few layers of tests, the first being unit-tests with full coverage, before we move into e2e and integration tests which we'll define later on, probably on top of real browsers using playwright.
+
+**Claude (summary):**
+
+- JSX works with web components and shadow DOM: custom elements are ordinary tags, rich data goes
+  in as properties, and events crossing a shadow root need `composed: true`. Whether Cerebro uses
+  web components at all is left open.
+- Wrote the decisions, the architecture and `plan-v1.md`.

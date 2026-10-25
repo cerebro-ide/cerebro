@@ -1,7 +1,8 @@
 # Cerebro
 
 An IDE that is not built around *writing* code but around **inspecting code and managing the
-work of AI agents**. Status: idea stage, docs only, no code yet.
+work of AI agents**. Status: planning the first version. The multi-worktree spike is done; no
+product code yet.
 
 Most coding is now done by agents. What the human still needs is fast access to both high-level
 and low-level inspection of that work: which agent is doing what in which worktree, what it
@@ -30,7 +31,8 @@ unique; the strength is combining them in one focused, simple tool.
 |---|---|
 | [docs/features.md](docs/features.md) | the feature list, with notes on each |
 | [docs/decisions.md](docs/decisions.md) | what has been decided, and why |
-| [docs/architecture.md](docs/architecture.md) | host/UI split, indexing, language servers |
-| [docs/spike-multi-worktree.md](docs/spike-multi-worktree.md) | the first experiment: is running many worktrees solvable? |
+| [docs/architecture.md](docs/architecture.md) | code principles, packages, host/UI split, UI, indexing, language servers |
+| [docs/plan-v1.md](docs/plan-v1.md) | the first version's milestones |
+| [docs/spike-multi-worktree.md](docs/spike-multi-worktree.md) | the first experiment: is running many worktrees solvable? (done: yes) |
 | [docs/open-questions.md](docs/open-questions.md) | what is still undecided |
-| [docs/brainstorm-log.md](docs/brainstorm-log.md) | the original conversation: Ido's messages verbatim, Claude's replies summarised |
+| [docs/brainstorm-log.md](docs/brainstorm-log.md) | the conversations so far: Ido's messages verbatim, Claude's replies summarised |

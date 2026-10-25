@@ -5,9 +5,9 @@ scope for the first release (see `decisions.md`).
 
 ## 1. IntelliJ-style GUI — first version
 
-Imitate IntelliJ's menus, docked tool windows and layout. Ido has built this before. Docking can
-start from an existing library (candidates: dockview, FlexLayout; not evaluated yet). The editor
-and diff views can be built on Monaco or CodeMirror rather than inheriting a whole IDE.
+Imitate IntelliJ's menus, docked tool windows and layout. Ido has built this before. Cerebro
+writes its own components, docking included, without a UI framework. The editor is CodeMirror 6;
+the diff views are Cerebro's own, on top of it (see `decisions.md`).
 
 ## 2. Indexing shared across worktrees — first version (via the spike)
 
@@ -25,8 +25,9 @@ they are layered (global → repo → worktree).
 The IntelliJ features Ido uses most: search by file, class, method/symbol and text; click a usage
 to jump to its definition; click a definition to see its usages.
 
-Initial languages: TypeScript, HTML, CSS, Markdown, Bash, Python, YAML, JSON (more later). All of
-these have existing language servers, so this is integration work:
+Initial languages, **all in the first version**: TypeScript, HTML, CSS, Markdown, Bash, Python,
+YAML, JSON (more later). All of these have existing language servers, so this is integration
+work:
 
 | language | language server |
 |---|---|
