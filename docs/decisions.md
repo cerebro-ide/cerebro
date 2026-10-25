@@ -292,7 +292,7 @@ Ido chose each of these from options Claude laid out.
   - Plugins use the same variables.
 - **Browser first, Electron later.**
   - `npm run dev` serves the shell, viewed in a browser (WSL forwards `localhost` to Windows).
-  - Electron wraps the same page as the last step.
+  - Electron wraps the same page as the last step (done; see "The Electron app").
 
 **The editor area's view** (built 2026-10-25, while Ido tried the tool windows):
 
@@ -431,6 +431,35 @@ new UI.
     animating when the user prefers reduced motion.
 - **The playground's items are samples only:** environment, active file, a fake indexing task,
   position, separator, encoding, indent and file type.
+
+## The Electron app (2026-10-25)
+
+`packages/app`: the main process and a preload script, around the same page `npm run dev` serves.
+
+- **Electron 44.9.3**, pinned; 45.0.0 was out for under two weeks.
+- **The toolbar is the title bar**, as in IntelliJ's new UI. From Electron's docs:
+  - `titleBarStyle: 'hidden'` removes the title bar; on Windows and Linux `titleBarOverlay` draws
+    the window controls over the page, coloured as the toolbar; macOS keeps its traffic lights,
+    placed with `trafficLightPosition`;
+  - the toolbar has `app-region: drag`, and its buttons and menus `no-drag`;
+  - CSS `env(titlebar-area-x)` and `env(titlebar-area-width)` give the room the controls leave. The
+    toolbar pads its right side by what they take, and its left by 80px on macOS.
+
+  Measured on Linux (WSLg) at 1440px: the controls take 113px and the toolbar pads 119px.
+- **The page is locked down**: context isolation, the sandbox, no Node. The preload script only
+  tells the page it's in the app and on which platform (`window.cerebro`); the page tags `<html>`
+  with `cerebro-app` and `cerebro-platform-<platform>` for its CSS. The window opens no other
+  windows and navigates only within its own origin (files, for the built page).
+- **Sandboxed preloads must be CommonJS** (Electron's docs), so the preload is a `.cts` file.
+- **Two ways to run it:**
+  - `npm run app` builds the main process, starts Vite on the playground and opens Electron on it,
+    so the page reloads as the code changes; stopping either stops both.
+  - Otherwise it loads the built page (`npm run build:web -w @cerebro-ide/playground`), so the
+    page is built with relative URLs.
+- **Tests:** the window's options and the main process, with Electron mocked; the preload and the
+  real window by a smoke run with Playwright's Electron support, not yet in CI.
+- **Still to do:** the native macOS menu from the menu registry (see the menu bar above), checked on
+  a Mac; packaging is milestone 3.
 
 ## Desktop conventions in the UI (2026-10-25)
 

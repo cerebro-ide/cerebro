@@ -27,6 +27,9 @@
     },
     {
       "path": "packages/ui-toolbar/tsconfig.build.json"
+    },
+    {
+      "path": "packages/app/tsconfig.build.json"
     }
   ]
 }

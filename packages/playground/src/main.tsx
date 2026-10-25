@@ -24,6 +24,22 @@ import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import './playground.css';
 
+/** Set by the desktop app's preload script. */
+declare global {
+  interface Window {
+    cerebro?: { app: boolean; platform: string };
+  }
+}
+
+// In the desktop app the toolbar is the title bar: tag the page so its CSS leaves room for the
+// window controls.
+if (window.cerebro?.app) {
+  document.documentElement.classList.add(
+    'cerebro-app',
+    `cerebro-platform-${window.cerebro.platform}`,
+  );
+}
+
 const layout = new Layout();
 
 const windows: ToolWindowSpec[] = [

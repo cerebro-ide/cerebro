@@ -11,7 +11,12 @@ export default tseslint.config(
     },
   },
   {
-    files: ['*.js', '*.config.ts'],
+    files: ['*.js', '*.config.ts', 'packages/*/scripts/*.mjs'],
     extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
+    // Node scripts: the globals they use.
+    files: ['packages/*/scripts/*.mjs'],
+    languageOptions: { globals: { console: 'readonly', process: 'readonly', URL: 'readonly' } },
   },
 );
