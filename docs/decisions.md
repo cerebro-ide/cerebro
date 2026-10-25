@@ -320,6 +320,32 @@ Build order:
 
 Until code review starts, a PR may bundle several of these commits (`CLAUDE.md`).
 
+## Commands, menus and shortcuts (2026-10-25)
+
+Built for Ido's requirements in `features.md` ("The window's parts").
+
+- **One registry behind everything.** Menus, context menus, toolbars and shortcuts all trigger
+  commands (`@cerebro-ide/commands`), as IntelliJ's actions do.
+  - A command has an id, a label with `&` before its mnemonic, a handler, and optionally an
+    enabled check, a checked state (for toggles) and `dialog` (shown with `…`).
+- **Menus are built from contributions.**
+  - Each contribution names a menu id (`main`, `main/file`, `editor/tab`), a group and an order.
+  - Groups are separated automatically; submenus refer to other menus.
+  - Hidden items and stranded separators are removed.
+- **The keymap:**
+  - **Keys:** shortcuts are read from the physical key, so they work on any keyboard layout; `Mod`
+    is Cmd on macOS and Ctrl elsewhere.
+  - **Sequences:** multi-chord shortcuts such as `Ctrl+K Ctrl+S` work, as in IntelliJ.
+  - **Layers:** the user's bindings come first, and can remove defaults.
+- **The menu component** (`@cerebro-ide/ui-menu`) is the menu bar's dropdowns and every context
+  menu.
+  - Full keyboard navigation, including mnemonic letters (several items sharing a letter cycle,
+    as on Windows).
+  - Keys an open menu handles don't reach the app's shortcuts.
+  - It stays inside the window, and gives focus back when it closes.
+- **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
+  app opens the menu.
+
 ## Desktop conventions in the UI (2026-10-25)
 
 Ido: the UI behaves like an application, not a website.

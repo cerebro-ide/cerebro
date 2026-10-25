@@ -114,7 +114,7 @@ class MenuSession implements MenuHandle {
   open = true;
   private readonly levels: Level[] = [];
   private readonly layer: HTMLElement;
-  private readonly restoreFocus: Element | null;
+  private readonly restoreFocus: HTMLElement;
 
   constructor(
     private readonly services: MenuServices,
@@ -122,7 +122,8 @@ class MenuSession implements MenuHandle {
     position: MenuPosition,
     private readonly options: MenuOptions,
   ) {
-    this.restoreFocus = document.activeElement;
+    // At least the body: a document always has a focused element.
+    this.restoreFocus = document.activeElement as HTMLElement;
     this.layer = document.createElement('div');
     this.layer.className = 'cerebro-menu-layer';
     document.body.append(this.layer);
@@ -142,7 +143,7 @@ class MenuSession implements MenuHandle {
     window.removeEventListener('pointerdown', this.onPointerDown, true);
     window.removeEventListener('blur', this.onBlur);
     window.removeEventListener('resize', this.onBlur);
-    if (this.restoreFocus instanceof HTMLElement) this.restoreFocus.focus();
+    this.restoreFocus.focus();
     this.options.onClose?.();
   }
 
@@ -216,8 +217,8 @@ class MenuSession implements MenuHandle {
   /** Runs a command item, or opens a submenu item's menu (focusing its first item from keys). */
   private activate(depth: number, index: number, fromKeyboard: boolean): void {
     const level = this.levels[depth] as Level;
-    const entry = visibleEntries(this.services, level.menu)[index];
-    if (!entry || 'separator' in entry) return;
+    // Callers only pass items, never separators.
+    const entry = visibleEntries(this.services, level.menu)[index] as Item;
     level.highlight = index;
     if ('submenu' in entry) {
       const open = this.levels[depth + 1];
