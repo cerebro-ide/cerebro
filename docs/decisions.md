@@ -359,6 +359,28 @@ Built for Ido's requirements in `features.md` ("The window's parts").
 - **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
   app opens the menu.
 
+## Environment tabs (2026-10-25)
+
+The outer of the two tab layers (`features.md`): one tab per open environment (a worktree with its
+session), in a row under the main toolbar across the full width. IntelliJ has no equivalent, since
+it gives each project its own window, so the design is Claude's.
+
+- **Model:** `Environments` in `@cerebro-ide/layout`.
+  - Each `Environment` has its own `EditorArea`; the tool-window layout stays shared, as Ido
+    confirmed.
+  - Opening a worktree that's already open switches to its tab.
+  - Closing a tab activates the next one, or the previous for the last.
+- **Tabs** (`EnvironmentTabs`): badge, name (kept whole) and branch (truncated first).
+  - Click or Enter to switch; × or middle-click to close; drag to reorder.
+  - A **+** opens another environment, and tabs have a context menu.
+- **Editor areas** (`EnvironmentEditors`): each open environment's is rendered once and kept, hidden,
+  while inactive, so switching back finds its splits, tabs and content exactly as they were.
+- **The toolbar's environment selector** shows the active environment and opens worktrees as
+  tabs; the branch selector acts on the active one.
+- **For later:**
+  - tool-window contents are re-rendered on a switch rather than kept alive;
+  - agent-session status on the tabs comes with agent sessions (milestone 6).
+
 ## The main toolbar (2026-10-25)
 
 `@cerebro-ide/ui-toolbar`, across the top of the window (the shell's `header`), as in IntelliJ's
