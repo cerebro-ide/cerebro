@@ -64,10 +64,18 @@
   text-underline-offset: 2px;
 }
 
+/* Thin, as in IntelliJ: about 3px between the items it separates. */
 .cerebro-menu-separator {
   height: 1px;
-  margin: 4px 6px;
+  margin: 1px 6px;
   background: var(--cerebro-separator);
+}
+
+/* Icons share the check mark's column, and are drawn at the theme's menu icon size. */
+.cerebro-menu-item__check > svg,
+.cerebro-menu-item__check > img {
+  width: var(--cerebro-menu-icon);
+  height: var(--cerebro-menu-icon);
 }
 
 /* The menu bar, and the button it collapses into. */

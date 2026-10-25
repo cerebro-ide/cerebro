@@ -350,6 +350,12 @@ Built for Ido's requirements in `features.md` ("The window's parts").
 
   Mnemonics in the bar are underlined while a menu is open or Alt is held. Claude first opened a
   separate vertical menu from ☰; Ido pointed to IntelliJ's behaviour instead.
+- **Menu items as in IntelliJ, matched by measurement** (Ido's screenshot), in units of the
+  height of a capital letter, since the screenshot's display scale is unknown:
+  - item spacing was already IntelliJ's (2.8× there, 2.9× here), so the height stayed;
+  - separators shrank to IntelliJ's ~0.4×, from 1×;
+  - commands may have an icon, drawn at ~1.4× in the check mark's column, through an `icon`
+    callback in the menu services.
 - **Views stay free of the menu package.** They report events such as `onTabContextMenu`, and the
   app opens the menu.
 

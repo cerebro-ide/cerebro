@@ -24,6 +24,8 @@ export interface MenuServices {
   menus: MenuRegistry;
   /** For showing shortcuts; without it, none show. */
   keymap?: Keymap;
+  /** Draws a command's icon, in the column check marks use; without it, no icons show. */
+  icon?: (name: string) => Child;
 }
 
 /** Where a menu opens: at a point, or beside an element. */
@@ -54,7 +56,8 @@ export interface MenuHandle {
 
 /** An item that can be shown: a registered command, or a submenu with visible items. */
 type Item =
-  { command: string; label: string; dialog: boolean } | { submenu: string; label: string };
+  | { command: string; label: string; dialog: boolean; icon?: string }
+  | { submenu: string; label: string };
 
 type Entry = Item | { separator: true };
 
@@ -105,9 +108,14 @@ export function visibleEntries(services: MenuServices, menu: string): Entry[] {
         : [];
     }
     const command = services.commands.get(entry.command);
-    return command
-      ? [{ command: command.id, label: command.label, dialog: command.dialog ?? false }]
-      : [];
+    if (!command) return [];
+    const item: Item = {
+      command: command.id,
+      label: command.label,
+      dialog: command.dialog ?? false,
+    };
+    if (command.icon !== undefined) item.icon = command.icon;
+    return [item];
   });
   return items.filter(
     (entry, i) =>
@@ -314,20 +322,25 @@ class MenuSession implements MenuHandle {
             }}
           >
             <span class="cerebro-menu-item__check">
-              {() =>
-                checked() && (
-                  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                    <path
-                      d="M3.5 8.5l3 3 6-7"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.5"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    />
-                  </svg>
-                )
-              }
+              {() => {
+                // A check mark for a checked toggle, else the command's icon, as in IntelliJ.
+                if (checked()) {
+                  return (
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                      <path
+                        d="M3.5 8.5l3 3 6-7"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      />
+                    </svg>
+                  );
+                }
+                const icon = 'icon' in entry ? entry.icon : undefined;
+                return icon !== undefined && services.icon ? services.icon(icon) : null;
+              }}
             </span>
             <span class="cerebro-menu-item__label">
               {label.index < 0

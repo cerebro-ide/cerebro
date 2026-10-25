@@ -10,6 +10,8 @@ export interface CommandSpec<C = unknown> {
   label: string;
   /** Opens a dialog, so menus show the label with an ellipsis. */
   dialog?: boolean;
+  /** An icon name for menus and toolbars; how it's drawn is up to the view. */
+  icon?: string;
   /** For context menus, the thing the menu was opened on. */
   run: (context: C) => unknown;
   /** Read reactively: views update when what it reads changes. */

@@ -21,7 +21,7 @@ function setup(withKeymap = true) {
   const add = (id: string, label: string, extra: object = {}) =>
     commands.register({ id, label, run: (c) => ran.push([id, c]), ...extra });
   add('new', '&New');
-  add('open', '&Open', { dialog: true });
+  add('open', '&Open', { dialog: true, icon: 'folder' });
   add('toggle', '&Toggle', { checked: () => toggled.get() });
   add('disabled', 'Dis&abled', { enabled: () => allowed.get() });
   add('delete', '&Delete');
@@ -50,7 +50,8 @@ function setup(withKeymap = true) {
   menus.contribute({ menu: 'test', item: { submenu: 'test/empty', label: '&Empty' }, group: 'd' });
   item('test/recent', 'r1');
   item('test/recent', 'r2');
-  const services = withKeymap ? { commands, menus, keymap } : { commands, menus };
+  const icon = (name: string) => <i class="test-icon">{name}</i>;
+  const services = withKeymap ? { commands, menus, keymap, icon } : { commands, menus };
   return { services, commands, menus, ran, toggled, allowed };
 }
 
@@ -89,7 +90,7 @@ describe('contents', () => {
     const { services } = setup();
     expect(visibleEntries(services, 'test')).toEqual([
       { command: 'new', label: '&New', dialog: false },
-      { command: 'open', label: '&Open', dialog: true },
+      { command: 'open', label: '&Open', dialog: true, icon: 'folder' },
       { submenu: 'test/recent', label: '&Recent' },
       { separator: true },
       { command: 'toggle', label: '&Toggle', dialog: false },
@@ -432,5 +433,23 @@ describe('opening options', () => {
     open(services, 'test', { x: 10, y: 10 }, { submenu: 'nope' });
     expect(popups()).toHaveLength(1);
     expect(highlighted()).toBeUndefined();
+  });
+});
+
+describe('icons', () => {
+  it('draws a command’s icon in the check column, through the services', () => {
+    const { services } = setup();
+    open(services, 'test', { x: 10, y: 10 });
+    const [, openItem, , toggle] = items();
+    expect(openItem?.querySelector('.cerebro-menu-item__check .test-icon')?.textContent).toBe(
+      'folder',
+    );
+    expect(toggle?.querySelector('.cerebro-menu-item__check svg')).not.toBeNull();
+  });
+
+  it('draws no icons without an icon callback', () => {
+    const { services } = setup(false);
+    open(services, 'test', { x: 10, y: 10 });
+    expect(items()[1]?.querySelector('.cerebro-menu-item__check')?.children).toHaveLength(0);
   });
 });

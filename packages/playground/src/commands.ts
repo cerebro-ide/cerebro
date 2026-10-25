@@ -11,6 +11,7 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { icon } from './icons.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
 export interface TabContext {
@@ -127,6 +128,7 @@ export function setupCommands(
     id: 'file.open',
     label: '&Open',
     dialog: true,
+    icon: 'folder',
     run: () => commands.execute('file.goTo'),
   });
   files.forEach((path, i) => {
@@ -151,6 +153,7 @@ export function setupCommands(
     id: 'file.settings',
     label: 'Se&ttings',
     dialog: true,
+    icon: 'services',
     run: () => {
       window.alert('Settings come later.');
     },
@@ -187,6 +190,7 @@ export function setupCommands(
     commands.register({
       id: `view.tool.${tool.id}`,
       label: tool.title,
+      ...(tool.icon === undefined ? {} : { icon: tool.icon }),
       checked: () => tools.isVisible(tool.id),
       run: () => {
         tools.toggle(tool.id);
@@ -271,5 +275,5 @@ export function setupCommands(
     if (dispatcher.press(chord, context) !== 'unhandled') event.preventDefault();
   });
 
-  return { commands, menus, keymap };
+  return { commands, menus, keymap, icon };
 }
