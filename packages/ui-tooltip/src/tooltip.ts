@@ -29,12 +29,15 @@ const GAP = 6;
 let tip: HTMLElement | undefined;
 let shownFor: Element | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
+/** The element whose tooltip is waiting out the pause. */
+let pendingFor: Element | undefined;
 let hiddenAt = Number.NEGATIVE_INFINITY;
 let listening = false;
 
 function hide(): void {
   clearTimeout(timer);
   timer = undefined;
+  pendingFor = undefined;
   if (tip) {
     tip.remove();
     tip = undefined;
@@ -47,6 +50,8 @@ function listen(): void {
   if (listening) return;
   listening = true;
   window.addEventListener('keydown', hide, true);
+  // Any press, caught before the control's own handler: it may open a menu or replace the control.
+  window.addEventListener('pointerdown', hide, true);
   window.addEventListener('scroll', hide, true);
   window.addEventListener('blur', hide);
 }
@@ -54,7 +59,8 @@ function listen(): void {
 function show(element: Element, options: TooltipOptions): void {
   hide();
   const text = options.text();
-  if (text === '') return;
+  // Never for an element that's gone: it would show at 0,0 and never get a pointerleave.
+  if (text === '' || !element.isConnected) return;
   tip = document.createElement('div');
   tip.className = 'cerebro-tooltip';
   tip.setAttribute('role', 'tooltip');
@@ -111,23 +117,24 @@ export function attachTooltip(element: Element, options: TooltipOptions): Dispos
   const enter = () => {
     clearTimeout(timer);
     if (performance.now() - hiddenAt < QUICK_WINDOW || tip) show(element, options);
-    else
+    else {
+      pendingFor = element;
       timer = setTimeout(() => {
         show(element, options);
       }, SHOW_DELAY);
+    }
   };
   const leave = () => {
     if (shownFor === element || timer !== undefined) hide();
   };
   element.addEventListener('pointerenter', enter);
   element.addEventListener('pointerleave', leave);
-  element.addEventListener('pointerdown', hide);
   return {
     dispose: () => {
       element.removeEventListener('pointerenter', enter);
       element.removeEventListener('pointerleave', leave);
-      element.removeEventListener('pointerdown', hide);
-      if (shownFor === element) hide();
+      // Shown or still waiting: either way it must not outlive the element.
+      if (shownFor === element || pendingFor === element) hide();
     },
   };
 }
