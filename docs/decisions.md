@@ -576,9 +576,15 @@ global → repo → worktree".
   global setting; each environment's sample code follows its font size, soft wrap and tab size.
   Measured in the app: font size 18 set at Worktree scope applied, was saved to that worktree's
   layer only, and survived a reload.
-- **Open, for Ido:** where each layer's file lives (global in the user's config directory; repo
-  committed in the repo, in its git directory so it's shared by worktrees but not committed, or in
-  Cerebro's own data; worktree likewise), and the file format. Saving needs the host.
+- **Where the files live** (Ido, 2026-10-25):
+  - global: the user's config directory (`~/.config/Cerebro/settings.json` on Linux);
+  - repo: **in the repo, committed** (like `.vscode/` or `.idea/`), so it can be shared and travels
+    with clones to other machines. Considered and rejected: the repo's git directory
+    (`.git/cerebro/`), shared by its worktrees but lost with the clone, and impossible to share or
+    clone elsewhere. Later, maybe: a combination with Cerebro's own data directory, for settings
+    that shouldn't be committed.
+  - Since each worktree is its own checkout, each reads the committed file from its own branch.
+  - Still open: the worktree layer's file, the exact path and the format. Saving needs the host.
 - Keybindings aren't settings pages yet.
 
 ## Desktop conventions in the UI (2026-10-25)
