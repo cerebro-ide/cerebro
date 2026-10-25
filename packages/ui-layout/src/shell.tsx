@@ -9,6 +9,8 @@
 import type { Child } from '@cerebro-ide/jsx';
 import type { Anchor, Area, Layout, Slot, ToolWindow, ToolWindows } from '@cerebro-ide/layout';
 import { makeObservable } from '@cerebro-ide/reactive';
+import { dragFrom } from './drag.js';
+import { Splitter } from './splitter.js';
 
 export interface ShellLayoutProps {
   layout: Layout;
@@ -20,8 +22,6 @@ export interface ShellLayoutProps {
   icon?: (name: string) => Child;
 }
 
-/** How far the pointer moves before pressing a stripe button becomes a drag, in pixels. */
-export const DRAG_THRESHOLD = 4;
 /** The editor keeps at least this much room when an area is resized, in pixels. */
 export const MIN_EDITOR = 120;
 
@@ -211,6 +211,9 @@ function AreaView(props: { ctx: Context; anchor: Anchor }): Child {
   const sideways = anchor !== 'bottom';
   const both = () => area.primary !== undefined && area.secondary !== undefined;
   const snapshot = () => ({ size: area.size, split: area.split });
+  const resizing = (active: boolean) => {
+    ctx.drag.resizing = active;
+  };
   const view = (
     <div
       class={`cerebro-area cerebro-area--${anchor}`}
@@ -230,9 +233,9 @@ function AreaView(props: { ctx: Context; anchor: Anchor }): Child {
       {() =>
         both() && (
           <Splitter
-            ctx={ctx}
             line={sideways ? 'horizontal' : 'vertical'}
-            snapshot={snapshot}
+            start={snapshot}
+            onResizing={resizing}
             onDrag={(start, delta, element) => {
               const container = element.parentElement as HTMLElement;
               const extent = sideways ? container.clientHeight : container.clientWidth;
@@ -250,10 +253,10 @@ function AreaView(props: { ctx: Context; anchor: Anchor }): Child {
   );
   const splitter = (
     <Splitter
-      ctx={ctx}
       line={sideways ? 'vertical' : 'horizontal'}
       hidden={() => !area.open}
-      snapshot={snapshot}
+      start={snapshot}
+      onResizing={resizing}
       onDrag={(start, delta, element) => {
         // The left area grows with the pointer; right and bottom grow against it.
         const sign = anchor === 'left' ? 1 : -1;
@@ -304,98 +307,17 @@ function Pane(props: { ctx: Context; area: Area; id: string; slot: Slot }): Node
   );
 }
 
-interface Snapshot {
-  size: number;
-  split: number;
-}
-
-function Splitter(props: {
-  ctx: Context;
-  /** The direction of the line the splitter draws. */
-  line: 'vertical' | 'horizontal';
-  hidden?: () => boolean;
-  snapshot: () => Snapshot;
-  onDrag: (start: Snapshot, delta: number, element: HTMLElement) => void;
-}): Node {
-  const { ctx, line } = props;
-  return (
-    <div
-      class={`cerebro-splitter cerebro-splitter--${line}`}
-      role="separator"
-      aria-orientation={line}
-      hidden={props.hidden ?? false}
-      on:pointerdown={(down: PointerEvent) => {
-        if (down.button !== 0) return;
-        down.preventDefault();
-        const element = down.currentTarget as HTMLElement;
-        const start = props.snapshot();
-        const origin = line === 'vertical' ? down.clientX : down.clientY;
-        ctx.drag.resizing = true;
-        trackPointer(
-          (move) => {
-            const position = line === 'vertical' ? move.clientX : move.clientY;
-            props.onDrag(start, position - origin, element);
-          },
-          () => {
-            ctx.drag.resizing = false;
-          },
-        );
-      }}
-    />
-  );
-}
-
-/** Follows the pointer on the whole window until it's released (committed) or Escape (cancelled). */
-function trackPointer(
-  onMove: (event: PointerEvent) => void,
-  onEnd: (committed: boolean) => void,
-): void {
-  const move = (event: PointerEvent) => {
-    onMove(event);
-  };
-  const up = () => {
-    end(true);
-  };
-  const cancel = () => {
-    end(false);
-  };
-  const key = (event: KeyboardEvent) => {
-    if (event.key === 'Escape') end(false);
-  };
-  const end = (committed: boolean) => {
-    window.removeEventListener('pointermove', move);
-    window.removeEventListener('pointerup', up);
-    window.removeEventListener('pointercancel', cancel);
-    window.removeEventListener('keydown', key);
-    onEnd(committed);
-  };
-  window.addEventListener('pointermove', move);
-  window.addEventListener('pointerup', up);
-  window.addEventListener('pointercancel', cancel);
-  window.addEventListener('keydown', key);
-}
-
 function startDrag(ctx: Context, tool: ToolWindow, down: PointerEvent): void {
   if (down.button !== 0) return;
   const { drag, tools } = ctx;
-  let ghost: HTMLElement | undefined;
-  trackPointer(
-    (move) => {
-      if (!ghost) {
-        const distance = Math.hypot(move.clientX - down.clientX, move.clientY - down.clientY);
-        if (distance < DRAG_THRESHOLD) return;
-        ghost = document.createElement('div');
-        ghost.className = 'cerebro-drag-ghost';
-        ghost.textContent = tool.title;
-        document.body.append(ghost);
-        drag.id = tool.id;
-      }
-      placeGhost(ghost, move.clientX, move.clientY);
-      drag.setTarget(findTarget(move.clientX, move.clientY));
+  dragFrom(down, tool.title, {
+    start() {
+      drag.id = tool.id;
     },
-    (committed) => {
-      if (!ghost) return;
-      ghost.remove();
+    move(event) {
+      drag.setTarget(findTarget(event.clientX, event.clientY));
+    },
+    end(committed) {
       const target = drag.target;
       drag.setTarget(undefined);
       drag.id = undefined;
@@ -406,19 +328,7 @@ function startDrag(ctx: Context, tool: ToolWindow, down: PointerEvent): void {
         ctx.suppressClick = false;
       });
     },
-  );
-}
-
-/** The offset of the drag label from the pointer, in pixels. */
-const GHOST_OFFSET = 12;
-
-/** Puts the drag label below and right of the pointer, flipped to stay inside the window. */
-function placeGhost(ghost: HTMLElement, x: number, y: number): void {
-  const right = x + GHOST_OFFSET + ghost.offsetWidth <= window.innerWidth;
-  const below = y + GHOST_OFFSET + ghost.offsetHeight <= window.innerHeight;
-  const left = right ? x + GHOST_OFFSET : x - GHOST_OFFSET - ghost.offsetWidth;
-  const top = below ? y + GHOST_OFFSET : y - GHOST_OFFSET - ghost.offsetHeight;
-  ghost.style.transform = `translate(${String(left)}px, ${String(top)}px)`;
+  });
 }
 
 /**
