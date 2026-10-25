@@ -27,6 +27,9 @@
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+  --cerebro-input: #1e1f22;
+  --cerebro-input-border: #4e5157;
+  --cerebro-error: #f75464;
 
   --cerebro-stripe-size: 36px;
   --cerebro-stripe-button: 28px;
@@ -61,4 +64,7 @@
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+  --cerebro-input: #ffffff;
+  --cerebro-input-border: #c9ccd6;
+  --cerebro-error: #db3b4b;
 }

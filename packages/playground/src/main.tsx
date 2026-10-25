@@ -15,6 +15,9 @@ import {
   type NativeMenuBridge,
 } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
+import '@cerebro-ide/ui-dialog/styles.css';
+import '@cerebro-ide/ui-popup/styles.css';
+import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
@@ -22,7 +25,8 @@ import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-too
 import '@cerebro-ide/ui-toolbar/styles.css';
 import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
-import { signal } from '@cerebro-ide/reactive';
+import { effect, signal } from '@cerebro-ide/reactive';
+import { settingsFor } from './settings.js';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -170,14 +174,14 @@ function Header() {
         ),
         <ToolbarDropdown
           services={services}
-          menu="toolbar/environments"
+          popup={environments.pickWorktree}
           label="Environment"
           badge={() => active()?.name ?? ''}
           text={() => active()?.name ?? 'No environment'}
         />,
         <ToolbarDropdown
           services={services}
-          menu="toolbar/branches"
+          popup={environments.pickBranch}
           label="Branch"
           icon={icon('git')}
           text={() => active()?.branch ?? '—'}
@@ -242,15 +246,27 @@ function Content(props: { id: string }) {
   );
 }
 
-/** Pretend file contents: numbered lines of code-like text. */
-function Code(props: { path: string }) {
+// The theme follows its setting.
+effect(() => {
+  document.documentElement.dataset['cerebroTheme'] = dark.get() ? 'dark' : 'light';
+  return undefined;
+});
+
+/** Pretend file contents: numbered lines of code-like text, as the environment's settings say. */
+function Code(props: { path: string; env: string }) {
+  const settings = settingsFor(props.env);
   const lines = Array.from({ length: 60 }, (_, i) =>
     i === 0
       ? `// ${props.path}`
-      : `const value${String(i)} = compute(${String(i)}, '${props.path}');`,
+      : `${i % 5 === 0 ? '\t' : ''}const value${String(i)} = compute(${String(i)}, '${props.path}', 'a long argument that shows soft wrapping');`,
   );
   return (
     <pre
+      style={{
+        fontSize: () => `${String(settings.get('editor.fontSize'))}px`,
+        whiteSpace: () => (settings.get('editor.softWrap') ? 'pre-wrap' : 'pre'),
+        tabSize: () => String(settings.get('editor.tabSize')),
+      }}
       class="playground-code cerebro-selectable"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
     >
@@ -296,7 +312,7 @@ render(
           editor={(env) => (
             <EditorAreaView
               area={env.editor}
-              content={(tab) => <Code path={tab.id} />}
+              content={(tab) => <Code path={tab.id} env={env.id} />}
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
                 openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })

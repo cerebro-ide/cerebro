@@ -1,0 +1,24 @@
+{
+  "name": "@cerebro-ide/settings",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Settings: registered with a type and default, set in layers (global, repo, worktree).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}

@@ -9,6 +9,9 @@ import {
   type Tab,
 } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
+import { prompt } from '@cerebro-ide/ui-dialog';
+import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
+import { icon } from './icons.js';
 
 const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro', name: 'cerebro', branch: 'main' },
@@ -32,7 +35,11 @@ export function setupEnvironments(
   menus: MenuRegistry,
   /** Called for a worktree's first opening, to put some files in its editor. */
   seed: (env: Environment) => void,
-): { open: (id: string) => void } {
+): {
+  open: (id: string) => void;
+  pickWorktree: (button: HTMLElement) => PickerHandle<unknown>;
+  pickBranch: (button: HTMLElement) => PickerHandle<unknown>;
+} {
   const open = (id: string) => {
     const spec = worktrees.get().find((w) => w.id === id) as EnvironmentSpec;
     const isNew = !workspace.open.some((e) => e.id === id);
@@ -78,9 +85,15 @@ export function setupEnvironments(
     id: 'env.new',
     label: 'New &Worktree',
     dialog: true,
-    run: () => {
-      const name = window.prompt('New worktree name');
-      if (!name || worktrees.get().some((w) => w.id === name)) return;
+    run: async () => {
+      const name = await prompt({
+        title: 'New Worktree',
+        label: 'Name:',
+        ok: 'Create',
+        validate: (text) =>
+          worktrees.get().some((w) => w.id === text) ? `Worktree ${text} exists` : undefined,
+      });
+      if (name === undefined) return;
       const spec = { id: name, name, branch: workspace.active?.branch ?? 'main' };
       worktrees.set([...worktrees.get(), spec]);
       addWorktree(spec);
@@ -94,9 +107,14 @@ export function setupEnvironments(
     label: 'New &Branch',
     dialog: true,
     enabled: () => workspace.active !== undefined,
-    run: () => {
-      const name = window.prompt('New branch name');
-      if (!name || branches.get().includes(name)) return;
+    run: async () => {
+      const name = await prompt({
+        title: 'New Branch',
+        label: 'Name:',
+        ok: 'Create',
+        validate: (text) => (branches.get().includes(text) ? `Branch ${text} exists` : undefined),
+      });
+      if (name === undefined) return;
       branches.set([...branches.get(), name]);
       addBranch(name);
       commands.execute(`branch.checkout.${name}`);
@@ -123,7 +141,56 @@ export function setupEnvironments(
   menus.contribute({ menu: 'env/tab', item: { command: 'env.close' } });
   menus.contribute({ menu: 'env/tab', item: { command: 'env.closeOthers' } });
 
-  return { open };
+  type Choice = PickerItem & { run: () => void };
+  const command = (id: string, label: string): Choice => ({
+    label,
+    run: () => commands.execute(id),
+  });
+  /** A searchable popup below a toolbar button, as IntelliJ's branch popup. */
+  const pick = (button: HTMLElement, label: string, items: (query: string) => Choice[]) => {
+    const handle = openPicker<Choice>({
+      label,
+      placeholder: 'Search',
+      position: { below: button },
+      owner: button,
+      items,
+    });
+    void handle.result.then((choice) => choice?.run());
+    return handle;
+  };
+  const current = (yes: boolean) => (yes ? { icon: () => icon('check') } : {});
+
+  const pickWorktree = (button: HTMLElement) =>
+    pick(button, 'Worktrees', (query) => [
+      ...fuzzyFilter([command('env.new', 'New Worktree…')], query),
+      ...fuzzyFilter(
+        worktrees.get().map((w): Choice => ({
+          label: w.name,
+          detail: w.branch,
+          group: 'Worktrees',
+          ...current(workspace.activeId === w.id),
+          run: () => {
+            open(w.id);
+          },
+        })),
+        query,
+      ),
+    ]);
+  const pickBranch = (button: HTMLElement) =>
+    pick(button, 'Branches', (query) => [
+      ...fuzzyFilter([command('branch.new', 'New Branch…')], query),
+      ...fuzzyFilter(
+        branches.get().map((b): Choice => ({
+          label: b,
+          group: 'Local',
+          ...current(workspace.active?.branch === b),
+          run: () => commands.execute(`branch.checkout.${b}`),
+        })),
+        query,
+      ),
+    ]);
+
+  return { open, pickWorktree, pickBranch };
 }
 
 /** Files for a sample environment's first opening. */

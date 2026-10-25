@@ -1,0 +1,29 @@
+{
+  "name": "@cerebro-ide/ui-settings",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The Settings dialog: a tree of pages, each page's settings, edited per scope.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/jsx": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0",
+    "@cerebro-ide/settings": "0.0.0",
+    "@cerebro-ide/ui-dialog": "0.0.0"
+  }
+}

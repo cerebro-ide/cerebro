@@ -1,0 +1,131 @@
+/* Dialogs. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+/* Covers the window, so nothing behind a dialog takes the pointer, nor drags the desktop app. */
+.cerebro-dialog-layer {
+  position: fixed;
+  z-index: 900;
+  inset: 0;
+  app-region: no-drag;
+}
+
+.cerebro-dialog {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 300px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 8px;
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-dialog:focus {
+  outline: none;
+}
+
+.cerebro-dialog__title {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  padding: 0 6px 0 16px;
+  font-weight: 600;
+  touch-action: none;
+}
+
+.cerebro-dialog__close {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-dialog__close:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
+
+.cerebro-dialog__content {
+  flex: auto;
+  min-height: 0;
+  padding: 4px 16px 8px;
+  overflow: auto;
+}
+
+.cerebro-dialog__buttons {
+  display: flex;
+  flex: none;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px 16px;
+}
+
+.cerebro-dialog__button {
+  min-width: 72px;
+  height: 28px;
+  padding: 0 14px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.cerebro-dialog__button--primary {
+  border-color: var(--cerebro-accent);
+  background: var(--cerebro-accent);
+  color: #ffffff;
+}
+
+.cerebro-dialog__button:disabled {
+  opacity: 0.5;
+}
+
+.cerebro-dialog__button:focus-visible,
+.cerebro-dialog-field__input:focus {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: 1px;
+}
+
+/* A labelled text field, as in prompt(). */
+.cerebro-dialog-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cerebro-dialog-field__input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
+
+.cerebro-dialog-field__input--invalid,
+.cerebro-dialog-field__input--invalid:focus {
+  outline-color: var(--cerebro-error);
+  border-color: var(--cerebro-error);
+}
+
+.cerebro-dialog-field__error {
+  min-height: 1.3em;
+  color: var(--cerebro-error);
+}

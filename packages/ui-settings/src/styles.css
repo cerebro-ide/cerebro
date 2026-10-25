@@ -1,0 +1,158 @@
+/* The Settings dialog. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-settings {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  height: min(520px, calc(100vh - 160px));
+  margin: 0 -16px -8px;
+  border-top: 1px solid var(--cerebro-separator);
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
+.cerebro-settings__side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--cerebro-separator);
+}
+
+.cerebro-settings__search,
+.cerebro-setting__input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
+
+.cerebro-settings__search {
+  margin: 8px;
+}
+
+.cerebro-settings__search:focus,
+.cerebro-setting__input:focus,
+.cerebro-settings__tree:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -1px;
+}
+
+.cerebro-settings__tree {
+  flex: auto;
+  min-height: 0;
+  padding: 0 4px 8px;
+  overflow-y: auto;
+}
+
+.cerebro-settings__node {
+  height: var(--cerebro-menu-item-height);
+  line-height: var(--cerebro-menu-item-height);
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.cerebro-settings__node--selected {
+  background: var(--cerebro-menu-highlight);
+}
+
+.cerebro-settings__main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cerebro-settings__scopes {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
+.cerebro-settings__scope {
+  height: 26px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text-muted);
+  font: inherit;
+}
+
+.cerebro-settings__scope:hover {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-settings__scope--active,
+.cerebro-settings__scope--active:hover {
+  background: var(--cerebro-selected);
+  color: var(--cerebro-text);
+}
+
+.cerebro-settings__page {
+  flex: auto;
+  min-height: 0;
+  padding: 0 16px 16px;
+  overflow-y: auto;
+}
+
+.cerebro-settings__heading {
+  margin: 12px 0;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+.cerebro-settings__empty {
+  padding: 16px;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-setting {
+  padding: 6px 0;
+}
+
+.cerebro-setting__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 28px;
+}
+
+.cerebro-setting__title {
+  min-width: 160px;
+}
+
+/* A setting set in the scope being edited, as IntelliJ marks a changed one. */
+.cerebro-setting--set .cerebro-setting__title {
+  color: var(--cerebro-accent);
+}
+
+.cerebro-setting__input--invalid,
+.cerebro-setting__input--invalid:focus {
+  border-color: var(--cerebro-error);
+  outline-color: var(--cerebro-error);
+}
+
+.cerebro-setting__input:disabled,
+.cerebro-setting__checkbox:disabled {
+  opacity: 0.5;
+}
+
+.cerebro-setting__reset {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cerebro-accent);
+  font: inherit;
+}
+
+.cerebro-setting__note {
+  margin-top: 2px;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-setting__note--override {
+  color: var(--cerebro-text);
+}

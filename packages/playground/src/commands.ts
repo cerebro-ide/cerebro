@@ -2,6 +2,8 @@
 
 import {
   chordFromEvent,
+  displayText,
+  formatSequence,
   CommandRegistry,
   KeyDispatcher,
   Keymap,
@@ -9,9 +11,13 @@ import {
   type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
-import { signal } from '@cerebro-ide/reactive';
+import { computed, signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { openSettings } from '@cerebro-ide/ui-settings';
+import { active } from './environments.js';
 import { icon } from './icons.js';
+import { globalSettings, save, settingsFor } from './settings.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
 export interface TabContext {
@@ -19,7 +25,8 @@ export interface TabContext {
   tab: string;
 }
 
-export const dark = signal(true);
+/** The theme, from the global settings. */
+export const dark = computed(() => globalSettings.get('appearance.theme') === 'dark');
 
 /** IntelliJ's shortcuts for its tool windows. */
 const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
@@ -37,8 +44,8 @@ const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
 export const menuVisible = signal(false);
 
 export function setDark(value: boolean): void {
-  dark.set(value);
-  document.documentElement.dataset['cerebroTheme'] = value ? 'dark' : 'light';
+  globalSettings.layers.global.set('appearance.theme', value ? 'dark' : 'light');
+  save(globalSettings, ['global']);
 }
 
 export function setupCommands(
@@ -53,6 +60,32 @@ export function setupCommands(
   const keymap = new Keymap(platform);
   const ed = activeEditor;
   const group = (c: TabContext) => (ed() as EditorArea).group(c.group);
+
+  /** The sample files as popup items: the name, with its directory after it. */
+  const fileItems = files.map((path): PickerItem & { run: () => void } => {
+    const slash = path.lastIndexOf('/');
+    return {
+      label: path.slice(slash + 1),
+      ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
+      group: 'Files',
+      icon: () => icon('file'),
+      run: () => ed()?.open(tabOf(path)),
+    };
+  });
+  /** Enabled commands as popup items, with their shortcuts. */
+  const actionItems = () =>
+    [...commands.commands.values()]
+      .filter((c) => c.id !== 'search.everywhere' && commands.isEnabled(c.id))
+      .map((c): PickerItem & { run: () => void } => {
+        const key = keymap.shortcutsFor(c.id)[0];
+        return {
+          label: displayText(c.label, c.dialog),
+          group: 'Actions',
+          ...(key === undefined ? {} : { shortcut: formatSequence(key, platform) }),
+          ...(c.icon === undefined ? {} : { icon: () => icon(c.icon as string) }),
+          run: () => commands.execute(c.id),
+        };
+      });
 
   commands.register<TabContext>({
     id: 'editor.close',
@@ -104,10 +137,14 @@ export function setupCommands(
     id: 'file.goTo',
     label: '&Go to File',
     dialog: true,
-    run: () => {
-      const name = window.prompt(`Go to file (${files.join(', ')})`);
-      const path = files.find((f) => name && f.endsWith(name));
-      if (path) ed()?.open(tabOf(path));
+    run: async () => {
+      const file = await openPicker({
+        label: 'Go to File',
+        placeholder: 'Type a file name',
+        position: 'top',
+        items: (query) => fuzzyFilter(fileItems, query),
+      }).result;
+      file?.run();
     },
   });
   commands.register({
@@ -160,7 +197,17 @@ export function setupCommands(
     dialog: true,
     icon: 'services',
     run: () => {
-      window.alert('Settings come later.');
+      const env = active();
+      const settings = settingsFor(env?.id);
+      openSettings({
+        settings,
+        ...(env
+          ? { scopeLabels: { repo: 'Repository: cerebro', worktree: `Worktree: ${env.name}` } }
+          : { scopes: ['global'] }),
+        onApply: (scopes) => {
+          save(settings, scopes);
+        },
+      });
     },
   });
   commands.register({
@@ -210,7 +257,16 @@ export function setupCommands(
     label: '&Search Everywhere',
     dialog: true,
     icon: 'search',
-    run: () => commands.execute('file.goTo'),
+    // A sample of IntelliJ's: files, then actions, filtered together.
+    run: async () => {
+      const item = await openPicker({
+        label: 'Search Everywhere',
+        placeholder: 'Type a file or action name',
+        position: 'top',
+        items: (query) => [...fuzzyFilter(fileItems, query), ...fuzzyFilter(actionItems(), query)],
+      }).result;
+      item?.run();
+    },
   });
   commands.register({
     id: 'help.about',

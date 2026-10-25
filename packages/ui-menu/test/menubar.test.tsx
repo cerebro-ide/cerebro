@@ -170,6 +170,18 @@ describe('hidden, behind a button', () => {
     expect(menus()).toEqual([]);
     expect(names(bar())).toEqual([]);
   });
+
+  it('leaves the keyboard to a modal dialog', () => {
+    const { bar } = mount(false);
+    const modal = document.createElement('div');
+    modal.setAttribute('aria-modal', 'true');
+    document.body.append(modal);
+    expect(alt('E').defaultPrevented).toBe(false);
+    altAlone();
+    modal.remove();
+    expect(menus()).toEqual([]);
+    expect(names(bar())).toEqual([]);
+  });
 });
 
 describe('visible, as a bar', () => {

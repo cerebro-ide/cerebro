@@ -221,6 +221,38 @@ describe('ToolbarDropdown', () => {
     expect(withIcon.button.querySelector('.cerebro-toolbar-dropdown__badge')).toBeNull();
   });
 
+  it('opens a popup instead of a menu, closing it on a second press', async () => {
+    let settle: () => void = () => undefined;
+    const close = vi.fn(() => {
+      settle();
+    });
+    const popup = vi.fn(() => ({
+      close,
+      result: new Promise<void>((resolve) => {
+        settle = resolve;
+      }),
+    }));
+    const { button } = dropdown({ popup });
+    expect(button.getAttribute('aria-haspopup')).toBe('dialog');
+    press(button);
+    expect(popup).toHaveBeenCalledWith(button);
+    expect(menus()).toEqual([]);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    press(button);
+    expect(close).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+    // Closing by itself (a choice made) frees the button for the next press.
+    press(button);
+    settle();
+    await vi.waitFor(() => {
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+    });
+    press(button);
+    expect(popup).toHaveBeenCalledTimes(3);
+  });
+
   it('names what is chosen in its tooltip', () => {
     vi.useFakeTimers();
     const { button } = dropdown();

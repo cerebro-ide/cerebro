@@ -478,7 +478,124 @@ new UI.
   - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
     those commands would do nothing);
   - copy and paste in text fields work without an Edit menu of Electron's roles.
-- **Still to do:** packaging is milestone 3.
+- **Still to do:** a Content-Security-Policy for the page (Electron warns there is none); packaging
+  is milestone 3.
+
+## Dialogs (2026-10-25)
+
+`ui-dialog`: modal dialogs, as IntelliJ's, first of the dialogs and popups added to milestone 1
+(`plan-v1.md`).
+
+- **In the page, not separate OS windows.** IntelliJ's dialogs are their own windows; Cerebro's
+  are drawn over the window, so they work the same in the browser and in Electron.
+  - Nothing behind takes the pointer: a layer covers the window, without dimming it, since
+    IntelliJ doesn't.
+  - Presses on the layer don't take the focus from the dialog.
+  - The layer is `app-region: no-drag`, so the title-bar toolbar doesn't drag the desktop window
+    from under a dialog. (Claim: Chromium subtracts a covering no-drag element from the drag
+    region; not yet checked by dragging.)
+- **The keyboard stays in the dialog:**
+  - Tab and Shift+Tab cycle through its controls;
+  - Escape cancels; Enter accepts, unless the focus is on a button (which Enter presses) or in a
+    multi-line field, or OK is disabled;
+  - keys don't reach the app's shortcuts. The menu bar, which listens to the whole window, stands
+    aside while any `aria-modal` element is open. Measured in the app: Alt+F and Ctrl+Shift+N do
+    nothing while a dialog is open.
+  - Closing gives the focus back to what had it.
+- **Layout:** a title bar with a close button, the content, then the buttons at the bottom right:
+  Cancel then OK on macOS, OK then Cancel elsewhere, as IntelliJ on each. The primary button is
+  the accent colour. Opens centred; the title bar drags it, always keeping 40px of it in the
+  window.
+- **API:** `openDialog({ title, content, ok: { label, enabled, accept }, cancelLabel, width })`
+  returns a handle whose `result` resolves with what OK accepted, or undefined. Dialogs stack.
+- **`prompt()`** asks for a line of text: OK is enabled once the text is non-blank and valid, and
+  the reason it isn't shows under the field in the error colour. It replaced the playground's
+  `window.prompt` for New Worktree and New Branch.
+- New theme variables: `--cerebro-input`, `--cerebro-input-border`, `--cerebro-error`.
+- **Not yet:** while a dialog is open, the macOS native menu's commands still run, and button
+  mnemonics aren't supported.
+
+## Popups (2026-10-25)
+
+`ui-popup`: a search field over a list, as IntelliJ's Search Everywhere, Go to File and branch
+popup; the second of the dialogs and popups added to milestone 1.
+
+- **Not modal:** a press outside, leaving the window, or resizing it closes the popup. Presses in
+  its owner (the button it opened from) are left to the owner, which toggles it.
+- **Keyboard:** the search field keeps the focus (clicks on items don't take it). Up and Down move,
+  wrapping; Page Up and Page Down jump 10; Enter chooses; Escape closes. Keys typed into it don't
+  reach the app's shortcuts. Closing gives the focus back.
+- **Placement:** at the top centre (15% down, 600px wide) for Search Everywhere and Go to File;
+  below an element (360px) for pickers, kept inside the window.
+- **The caller searches:** `openPicker({ items: (query) => … })`, read reactively, so a list in
+  hand uses `fuzzyFilter` and the host's search can come later without changing the popup. Items
+  have a label, a muted detail and shortcut, an icon, and a group, shown with a header over each.
+- **Matching** (`match`, `fuzzyFilter`): the query's characters in order, ignoring case. Scores
+  favour adjacent runs and word starts (after a separator, or a camelCase capital), then shorter
+  names. Each character's placement is searched among its likely spots (right after the previous
+  match, a word start, or its first occurrence), since taking the first occurrence greedily ranked
+  `st` higher in `pasta` than in `src/styles.css` (found by a test). Matched letters show in the
+  accent colour, bold. IntelliJ's matching is richer; this is the start.
+- **Toolbar dropdowns** can open a popup instead of a menu (`popup` instead of `menu`). The
+  environment and branch dropdowns now open searchable pickers: an action (New Worktree…, New
+  Branch…), then the list, the current one checked.
+- **In the playground:** Go to File (Ctrl+Shift+N) and Search Everywhere (Ctrl+Shift+A; files, then
+  enabled actions with their shortcuts) use it; Go to File no longer uses `window.prompt`. Actions
+  run from there without a context, so tab commands don't show; a proper action context comes with
+  the real Search Everywhere.
+- **Not yet:** the list isn't virtualised (all matches render); that comes with the lists of
+  milestone 2.
+
+## Settings (2026-10-25)
+
+`settings` (the model) and `ui-settings` (the Settings dialog), from milestone 1's "settings layered
+global → repo → worktree".
+
+- **Registered settings:** each has an id (`editor.fontSize`), a title, a page, a type (boolean,
+  number with optional min, max and integer, string, or enum with options) and a default. A setting
+  may name the scopes it can be set in; a theme is global only.
+- **Layers:** global (the user's), repo (shared by its worktrees) and worktree. An environment sees
+  the narrowest layer that sets a valid value, then the default. All of it is reactive.
+- **Values from files are checked:** invalid values of known settings are dropped; values of
+  unknown settings are kept, since their plugin may not be loaded yet, and are checked again when
+  read.
+- **The dialog**, as IntelliJ's: a search field over a tree of pages, the page's settings on the
+  right, and OK, Cancel and Apply. Above the page, the scope being edited: Global, Repository,
+  Worktree (named after the repo and worktree). Choices of Claude's, open to change:
+  - each setting shows its value at the scope being edited, inherited unless set there; one set
+    there has its title in the accent colour and a Reset;
+  - one set in a narrower scope says "Overridden in …", since that's what the environment sees;
+  - one that can't be set in the scope is disabled there ("Global only");
+  - edits are a draft until Apply or OK; Cancel drops them;
+  - the search filters the tree by page and setting titles.
+- **Apply on dialogs:** `openDialog` takes an `apply` button, which OK also runs. Button order:
+  OK, Cancel, Apply elsewhere; Cancel, Apply, OK on macOS (claim: IntelliJ's macOS order, not
+  checked).
+- **In the playground:** sample settings (theme, soft wrap, tab size, font size, a branch prefix),
+  saved per layer in the browser's storage until the host saves files. The theme toggle writes the
+  global setting; each environment's sample code follows its font size, soft wrap and tab size.
+  Measured in the app: font size 18 set at Worktree scope applied, was saved to that worktree's
+  layer only, and survived a reload.
+- **Where the files live** (Ido, 2026-10-25):
+  - global: the user's config directory (`~/.config/Cerebro/settings.json` on Linux);
+  - repo: **in the repo, committed** (like `.vscode/` or `.idea/`), so it can be shared and travels
+    with clones to other machines. Considered and rejected: the repo's git directory
+    (`.git/cerebro/`), shared by its worktrees but lost with the clone, and impossible to share or
+    clone elsewhere. Later, maybe: a combination with Cerebro's own data directory, for settings
+    that shouldn't be committed.
+  - Since each worktree is its own checkout, each reads the committed file from its own branch.
+  - **Settings files live in two places only:** in the repo or in the app's directory (Ido). The
+    location could later be configurable, through a global setting (the global file is the one
+    at a fixed path).
+  - **Local data goes in the local database** (Ido): the host's database, beside the session
+    database. It isn't shared, since it can be recreated on another machine. Read as covering the
+    worktree layer: a worktree's settings are local data, not a file.
+  - **The repo file is `.cerebro/settings.json5`, in JSON5** (Ido): JSON with comments, trailing
+    commas and unquoted keys, so people can annotate shared settings. The global file takes the same
+    format, `settings.json5` in the app's directory. The extension is `.json5` rather than the
+    proposed `.json`, so editors don't flag the comments. Reading it needs a JSON5 parser in the
+    host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
+- Keybindings aren't settings pages yet.
 
 ## Desktop conventions in the UI (2026-10-25)
 

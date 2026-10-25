@@ -5,7 +5,8 @@
 // - ToolbarButton: an icon button that runs a command, its tooltip naming the command and its
 //   shortcut;
 // - ToolbarDropdown: a label with a chevron that opens a menu from the menu registry below it, so
-//   choices get the menus' keyboard navigation, mnemonics and check marks. An optional badge (a
+//   choices get the menus' keyboard navigation, mnemonics and check marks; or, for long lists, a
+//   popup of the app's (a searchable picker, as IntelliJ's branch popup). An optional badge (a
 //   name's initials on a colour from it, as IntelliJ's project widget) can lead the label.
 
 import { displayText, type CommandRegistry } from '@cerebro-ide/commands';
@@ -61,10 +62,19 @@ class DropdownState {
   }
 }
 
+/** A popup a dropdown opens instead of a menu: closed by the dropdown, or closing by itself. */
+export interface DropdownPopup {
+  close(): void;
+  /** Settles when the popup closes. */
+  readonly result: Promise<unknown>;
+}
+
 export interface ToolbarDropdownProps {
   services: MenuServices;
-  /** The menu it opens. */
-  menu: string;
+  /** The menu it opens, unless it opens a popup. */
+  menu?: string;
+  /** Opens a popup below the button instead of a menu. */
+  popup?: (button: HTMLElement) => DropdownPopup;
   text: () => string;
   /** For the tooltip and screen readers: what is being chosen. */
   label: string;
@@ -78,13 +88,23 @@ export interface ToolbarDropdownProps {
 export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
   const { badge } = props;
   const state = new DropdownState();
-  let handle: MenuHandle | undefined;
+  let handle: MenuHandle | DropdownPopup | undefined;
   let element: HTMLElement | undefined;
   const open = (fromKeyboard: boolean) => {
     state.open = true;
+    if (props.popup) {
+      const popup = props.popup(element as HTMLElement);
+      handle = popup;
+      // A press while it's open only closes it, so it's still the handle when it settles.
+      void popup.result.then(() => {
+        handle = undefined;
+        state.open = false;
+      });
+      return;
+    }
     handle = openMenu(
       props.services,
-      props.menu,
+      props.menu as string,
       { anchor: element as Element, placement: 'below' },
       {
         context: props.context?.(),
@@ -111,7 +131,7 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
           : 'cerebro-toolbar-dropdown'
       }
       aria-label={() => `${props.label}: ${props.text()}`}
-      aria-haspopup="menu"
+      aria-haspopup={props.popup ? 'dialog' : 'menu'}
       aria-expanded={() => String(state.open)}
       data-menu={props.menu}
       ref={(button) => {

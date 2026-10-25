@@ -9,7 +9,7 @@
 //   letters then work, Escape or Alt leaves).
 // - While a menu is open, Left and Right move to the neighbouring menu.
 // Mnemonics in the bar are underlined while Alt is held, the bar has the keyboard or a menu is open,
-// as in IntelliJ.
+// as in IntelliJ. While a modal dialog is open, the bar leaves the keyboard alone.
 
 import { parseLabel } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
@@ -51,6 +51,11 @@ interface Root {
 
 function cls(...names: (string | false | undefined)[]): string {
   return names.filter(Boolean).join(' ');
+}
+
+/** Whether a modal dialog is open, of any kind. */
+function modalOpen(): boolean {
+  return document.querySelector('[aria-modal="true"]') !== null;
 }
 
 /** The letter or digit a key event's physical key makes. */
@@ -120,6 +125,11 @@ export function MenuBar(props: MenuBarProps): Node {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
+    // A modal dialog has the keyboard.
+    if (modalOpen()) {
+      altAlone = false;
+      return;
+    }
     if (event.key === 'Alt') {
       state.alt = true;
       altAlone = !event.ctrlKey && !event.metaKey && !event.shiftKey;
