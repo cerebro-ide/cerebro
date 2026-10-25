@@ -274,6 +274,9 @@ Ido chose each of these from options Claude laid out.
     stripe its secondary (right) part.
   - **Corrected 2026-10-25:** Ido first added a top area, then withdrew it. The new UI has no top
     stripe.
+  - The bottom area spans the full width between the stripes; the left and right areas stop above
+    it, as in IntelliJ (Ido, correcting Claude's first version, where the side areas took the full
+    height).
   - The editor area sits in the centre, with tabbed splits.
   - Why: it matches "same GUI", and it's much simpler than letting any panel dock anywhere.
   - Rejected: free docking, as in dockview or VS Code's editor groups everywhere.

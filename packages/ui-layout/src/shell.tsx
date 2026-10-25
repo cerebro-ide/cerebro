@@ -1,5 +1,6 @@
 // The layout view, as in IntelliJ's new UI: a stripe of tool window buttons on the left and on the
-// right, the open tool windows in their areas, and the editor in the centre.
+// right, the open tool windows in their areas, and the editor in the centre. The bottom area spans
+// the full width between the stripes; the left and right areas stop above it.
 //
 // Each stripe's top part holds its side's area (primary group, then secondary); its bottom part
 // holds the bottom area's windows: the left stripe the bottom's left part (primary), the right
@@ -96,12 +97,12 @@ export function ShellLayout(props: ShellLayoutProps): Node {
     >
       <Stripe ctx={ctx} side="left" />
       <div class="cerebro-shell__main">
-        <AreaView ctx={ctx} anchor="left" />
-        <div class="cerebro-shell__center">
+        <div class="cerebro-shell__row">
+          <AreaView ctx={ctx} anchor="left" />
           <div class="cerebro-shell__editor">{props.editor()}</div>
-          <AreaView ctx={ctx} anchor="bottom" />
+          <AreaView ctx={ctx} anchor="right" />
         </div>
-        <AreaView ctx={ctx} anchor="right" />
+        <AreaView ctx={ctx} anchor="bottom" />
       </div>
       <Stripe ctx={ctx} side="right" />
     </div>

@@ -201,6 +201,11 @@ describe('opening and closing', () => {
     expect($('.cerebro-area--bottom').getBoundingClientRect().top).toBeGreaterThanOrEqual(
       editor.bottom,
     );
+    // The bottom area spans the full width, under the left and right areas.
+    const bottom = $('.cerebro-area--bottom').getBoundingClientRect();
+    expect($('.cerebro-area--left').getBoundingClientRect().bottom).toBeLessThanOrEqual(bottom.top);
+    expect(bottom.left).toBe($('.cerebro-area--left').getBoundingClientRect().left);
+    expect(bottom.right).toBe($('.cerebro-area--right').getBoundingClientRect().right);
     expect($('.cerebro-area--left').getBoundingClientRect().width).toBe(280);
     expect($('.cerebro-area--bottom').getBoundingClientRect().height).toBe(220);
   });
@@ -380,8 +385,8 @@ describe('resizing', () => {
     const bottom = outer(container, 'bottom');
     const b = centre(bottom.splitter);
     drag(bottom.splitter, [{ x: b.x, y: b.y - 5000 }]);
-    const center = bottom.splitter.parentElement as HTMLElement;
-    expect(tools.areas.bottom.size).toBe(center.clientHeight - MIN_EDITOR);
+    const column = bottom.splitter.parentElement as HTMLElement;
+    expect(tools.areas.bottom.size).toBe(column.clientHeight - MIN_EDITOR);
   });
 
   it('moves the split between two slots', () => {

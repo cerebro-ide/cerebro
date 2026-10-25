@@ -16,17 +16,18 @@
   display: none !important;
 }
 
+/* A column: the row of left area, editor and right area, then the full-width bottom area. */
 .cerebro-shell__main {
   display: flex;
   flex: 1;
+  flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 
-.cerebro-shell__center {
+.cerebro-shell__row {
   display: flex;
   flex: 1;
-  flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
