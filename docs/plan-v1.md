@@ -21,7 +21,15 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
   - two layers of tabs: environments, then files;
   - a status bar;
   - keyboard navigation everywhere, with configurable shortcuts.
-- **Settings** layered global → repo → worktree.
+- **Dialogs and popups** (Ido, 2026-10-25), built before the protocol and the plugin registry, since
+  the toolbar's Search Everywhere and Settings buttons have nothing behind them yet:
+  - a modal dialog, as IntelliJ's: a title bar, focus kept inside, Escape and Enter, OK and Cancel,
+    draggable. It replaces the playground's `window.prompt` calls (New Worktree, New Branch);
+  - a popup with a search field over a keyboard-navigable list, non-modal, closing on Escape or a
+    click outside: Search Everywhere, Go to File, and searchable branch and worktree pickers, on
+    sample data until search lands in milestone 2.
+- **Settings** layered global → repo → worktree, with the Settings dialog (a tree of pages on the
+  left, the page on the right).
 - **The build tooling** (`decisions.md`): npm workspaces, TypeScript 6, Vite, Vitest, ESLint and
   Prettier.
 - **CI** from the start: unit tests on Linux. macOS and Windows runs come with the end-to-end
@@ -70,4 +78,5 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
 
 - **Snapshots:** the base commit at session start, and a working-tree snapshot on each turn end.
 - **Views:** changes since the session started, per turn, and per commit. Each goes from the file
-  list to the diff, then to the code with full navigation.
+  list to the diff, then to the code with full navigation. Diffs open as views (an editor tab or
+  their own window), as in IntelliJ, not in a modal.
