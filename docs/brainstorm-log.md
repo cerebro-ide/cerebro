@@ -395,3 +395,8 @@ folding the dev server into that step.
 **Ido** (asked to open the layout view's PR):
 
 > just to be clear about my process, i'm gonna be leaner until we'll actually have a good fundation running, then we'll drill down into actual improvements and writing skills and instructions for future work. for now, open the pr - even if it isn't exactly what i hoped for it's fine for now...
+
+**Ido** (with PR #6 open):
+
+> I want to note that I also expect to have a "file menu" at the top, as well as something similar to intellij top menu with the branch/worktree selection, 2 layers to tabs to manage both different envs and files, and that everything need to support keyboard navigation/shortcuts that can be configured.
+> oh, and to be clear about the file menu, it includes letter shortcuts, just like in existing OS, where i can use something like alt+o to open specific menus. menus that have dialogs/modals end with ... otherwise they don't and it could support nesting. these menus should also be the base for context-menus which should offer the same set of features. it could be hidden by default, as intellij does it, which is a very nice feature. also I expect some sort of a statusbar at the bottom which we'll later discuss what can go on, but similar to intellij it'll probably be indication of running backroung tasks, services, and base data about active env/session/file

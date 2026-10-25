@@ -13,8 +13,14 @@ full coverage. Integration and end-to-end tests (probably Playwright) are define
   - the JSX runtime.
 - **The protocol:** JSON-RPC over stdio, with the host started as a local child process.
 - **The plugin registry and the first contribution points:** views, commands, menus.
-- **The IntelliJ-style window:** menu bar, docked tool windows (own docking), editor tabs, status
-  bar.
+- **The IntelliJ-style window** (`features.md`, "The window's parts"):
+  - a menu bar with mnemonics, `…` for dialogs, nesting, hidden by default;
+  - context menus on the same menus;
+  - a main toolbar with branch and worktree selection;
+  - docked tool windows (own docking);
+  - two layers of tabs: environments, then files;
+  - a status bar;
+  - keyboard navigation everywhere, with configurable shortcuts.
 - **Settings** layered global → repo → worktree.
 - **The build tooling** (`decisions.md`): npm workspaces, TypeScript 6, Vite, Vitest, ESLint and
   Prettier.

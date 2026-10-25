@@ -9,6 +9,22 @@ Imitate IntelliJ's menus, docked tool windows and layout. Ido has built this bef
 writes its own components, docking included, without a UI framework. The editor is CodeMirror 6;
 the diff views are Cerebro's own, on top of it (see `decisions.md`).
 
+### The window's parts (Ido, 2026-10-25)
+
+- **Menu bar**, like an OS menu: File, Edit and so on.
+  - Mnemonic letters, as in existing OSes: Alt plus a letter opens a menu (for example Alt+O).
+  - Items that open a dialog end with `…`; others don't.
+  - Menus can nest.
+  - It can be hidden by default, as IntelliJ's new UI does, which Ido calls a very nice feature.
+- **Context menus** are built on the same menus and offer the same features.
+- **A main toolbar** at the top, like IntelliJ's, with branch and worktree selection.
+- **Two layers of tabs:** one for environments (a worktree with its session), and inside each, the
+  file tabs.
+- **Keyboard navigation and shortcuts everywhere**, and the shortcuts are configurable.
+- **A status bar** at the bottom. Its contents are to be discussed; like IntelliJ's, it will
+  probably show running background tasks, services, and basic information about the active
+  environment, session and file.
+
 ## 2. Indexing shared across worktrees — first version (via the spike)
 
 Opening a new worktree should not re-index files that are identical to ones already indexed.
