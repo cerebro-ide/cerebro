@@ -9,6 +9,12 @@ have randomized tests: seeded runs of random operations, checking after each ste
 invariants and what the operation promises, or a plain model of the expected state. Each was shown
 to catch a bug planted in the model.
 
+UI packages test their key flows with real keyboard and mouse input as well (`real-input.test.tsx`,
+Playwright's input through Vitest's `userEvent`), so the browser's own behaviour takes part: focus,
+Enter and Space pressing buttons, typing. Hand-made events stay for edge cases that need exact
+values. Drags go by window coordinates, since Vitest can resolve two similar elements to the same
+target.
+
 ## 1. Foundations and the shell
 
 - **The base libraries:**
