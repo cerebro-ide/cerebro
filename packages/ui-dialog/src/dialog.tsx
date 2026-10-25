@@ -23,6 +23,11 @@ export interface DialogOptions<T> {
   content: (dialog: DialogHandle<T>) => Child;
   /** The OK button. Without it, the dialog has only Cancel's button, named Close. */
   ok?: DialogOk<T>;
+  /**
+   * An Apply button, as in IntelliJ's Settings: runs without closing. OK runs it too before
+   * accepting, while it's enabled.
+   */
+  apply?: { enabled?: () => boolean; run: () => void };
   /** Default: Cancel, or Close without an OK button. */
   cancelLabel?: string;
   /** The dialog's width in pixels; by default it fits its content. */
@@ -89,7 +94,10 @@ class Dialog<T> implements DialogHandle<T> {
 
   private accept(): void {
     const { ok } = this.options;
-    if (ok && (ok.enabled?.() ?? true)) this.close(ok.accept());
+    if (!ok || !(ok.enabled?.() ?? true)) return;
+    const { apply } = this.options;
+    if (apply && (apply.enabled?.() ?? true)) apply.run();
+    this.close(ok.accept());
   }
 
   private center(): void {
@@ -191,6 +199,19 @@ class Dialog<T> implements DialogHandle<T> {
         {ok.label ?? 'OK'}
       </button>
     ) : null;
+    const { apply } = options;
+    const applyButton = apply ? (
+      <button
+        type="button"
+        class="cerebro-dialog__button"
+        disabled={() => !(apply.enabled?.() ?? true)}
+        on:click={() => {
+          apply.run();
+        }}
+      >
+        Apply
+      </button>
+    ) : null;
     const cancelButton = (
       <button
         type="button"
@@ -236,7 +257,9 @@ class Dialog<T> implements DialogHandle<T> {
         </div>
         <div class="cerebro-dialog__content">{options.content(this)}</div>
         <div class="cerebro-dialog__buttons">
-          {platform === 'mac' ? [cancelButton, okButton] : [okButton, cancelButton]}
+          {platform === 'mac'
+            ? [cancelButton, applyButton, okButton]
+            : [okButton, cancelButton, applyButton]}
         </div>
       </div>
     );

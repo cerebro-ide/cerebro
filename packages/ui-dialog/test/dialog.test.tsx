@@ -90,6 +90,32 @@ describe('openDialog', () => {
     expect(buttons()).toEqual(['Never mind', 'Create']);
   });
 
+  it('applies without closing, and on OK while there is something to apply', async () => {
+    const pending = signal(false);
+    const run = vi.fn(() => {
+      pending.set(false);
+    });
+    const handle = dialog({
+      ok: { accept: () => 'ok' },
+      apply: { enabled: () => pending.get(), run },
+      platform: 'other',
+    });
+    expect(buttons()).toEqual(['OK', 'Cancel', 'Apply']);
+    expect(button('Apply').disabled).toBe(true);
+    pending.set(true);
+    button('Apply').click();
+    expect(run).toHaveBeenCalledOnce();
+    expect(handle.open).toBe(true);
+    button('OK').click();
+    expect(run).toHaveBeenCalledOnce();
+    expect(await handle.result).toBe('ok');
+    const again = dialog({ ok: { accept: () => 1 }, apply: { run }, platform: 'mac' });
+    expect(buttons()).toEqual(['Cancel', 'Apply', 'OK']);
+    button('OK').click();
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(await again.result).toBe(1);
+  });
+
   it('takes the button order from the browser by default', () => {
     const platform = vi.spyOn(navigator, 'platform', 'get');
     for (const [name, order] of [

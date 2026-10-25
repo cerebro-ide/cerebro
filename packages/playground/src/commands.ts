@@ -11,10 +11,13 @@ import {
   type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
-import { signal } from '@cerebro-ide/reactive';
+import { computed, signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { openSettings } from '@cerebro-ide/ui-settings';
+import { active } from './environments.js';
 import { icon } from './icons.js';
+import { globalSettings, save, settingsFor } from './settings.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
 export interface TabContext {
@@ -22,7 +25,8 @@ export interface TabContext {
   tab: string;
 }
 
-export const dark = signal(true);
+/** The theme, from the global settings. */
+export const dark = computed(() => globalSettings.get('appearance.theme') === 'dark');
 
 /** IntelliJ's shortcuts for its tool windows. */
 const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
@@ -40,8 +44,8 @@ const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
 export const menuVisible = signal(false);
 
 export function setDark(value: boolean): void {
-  dark.set(value);
-  document.documentElement.dataset['cerebroTheme'] = value ? 'dark' : 'light';
+  globalSettings.layers.global.set('appearance.theme', value ? 'dark' : 'light');
+  save(globalSettings, ['global']);
 }
 
 export function setupCommands(
@@ -193,7 +197,17 @@ export function setupCommands(
     dialog: true,
     icon: 'services',
     run: () => {
-      window.alert('Settings come later.');
+      const env = active();
+      const settings = settingsFor(env?.id);
+      openSettings({
+        settings,
+        ...(env
+          ? { scopeLabels: { repo: 'Repository: cerebro', worktree: `Worktree: ${env.name}` } }
+          : { scopes: ['global'] }),
+        onApply: (scopes) => {
+          save(settings, scopes);
+        },
+      });
     },
   });
   commands.register({

@@ -478,7 +478,8 @@ new UI.
   - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
     those commands would do nothing);
   - copy and paste in text fields work without an Edit menu of Electron's roles.
-- **Still to do:** packaging is milestone 3.
+- **Still to do:** a Content-Security-Policy for the page (Electron warns there is none); packaging
+  is milestone 3.
 
 ## Dialogs (2026-10-25)
 
@@ -544,6 +545,41 @@ popup; the second of the dialogs and popups added to milestone 1.
   the real Search Everywhere.
 - **Not yet:** the list isn't virtualised (all matches render); that comes with the lists of
   milestone 2.
+
+## Settings (2026-10-25)
+
+`settings` (the model) and `ui-settings` (the Settings dialog), from milestone 1's "settings layered
+global → repo → worktree".
+
+- **Registered settings:** each has an id (`editor.fontSize`), a title, a page, a type (boolean,
+  number with optional min, max and integer, string, or enum with options) and a default. A setting
+  may name the scopes it can be set in; a theme is global only.
+- **Layers:** global (the user's), repo (shared by its worktrees) and worktree. An environment sees
+  the narrowest layer that sets a valid value, then the default. All of it is reactive.
+- **Values from files are checked:** invalid values of known settings are dropped; values of
+  unknown settings are kept, since their plugin may not be loaded yet, and are checked again when
+  read.
+- **The dialog**, as IntelliJ's: a search field over a tree of pages, the page's settings on the
+  right, and OK, Cancel and Apply. Above the page, the scope being edited: Global, Repository,
+  Worktree (named after the repo and worktree). Choices of Claude's, open to change:
+  - each setting shows its value at the scope being edited, inherited unless set there; one set
+    there has its title in the accent colour and a Reset;
+  - one set in a narrower scope says "Overridden in …", since that's what the environment sees;
+  - one that can't be set in the scope is disabled there ("Global only");
+  - edits are a draft until Apply or OK; Cancel drops them;
+  - the search filters the tree by page and setting titles.
+- **Apply on dialogs:** `openDialog` takes an `apply` button, which OK also runs. Button order:
+  OK, Cancel, Apply elsewhere; Cancel, Apply, OK on macOS (claim: IntelliJ's macOS order, not
+  checked).
+- **In the playground:** sample settings (theme, soft wrap, tab size, font size, a branch prefix),
+  saved per layer in the browser's storage until the host saves files. The theme toggle writes the
+  global setting; each environment's sample code follows its font size, soft wrap and tab size.
+  Measured in the app: font size 18 set at Worktree scope applied, was saved to that worktree's
+  layer only, and survived a reload.
+- **Open, for Ido:** where each layer's file lives (global in the user's config directory; repo
+  committed in the repo, in its git directory so it's shared by worktrees but not committed, or in
+  Cerebro's own data; worktree likewise), and the file format. Saving needs the host.
+- Keybindings aren't settings pages yet.
 
 ## Desktop conventions in the UI (2026-10-25)
 
