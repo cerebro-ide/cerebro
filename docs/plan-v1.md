@@ -4,6 +4,11 @@ Scope and choices are in `decisions.md`; the shape is in `architecture.md`. Each
 with something usable on ag-charts. Every part is built as a standalone package with unit tests at
 full coverage. Integration and end-to-end tests (probably Playwright) are defined later.
 
+Models with many operations (the editor area, tool windows, environments, settings layers) also
+have randomized tests: seeded runs of random operations, checking after each step the model's
+invariants and what the operation promises, or a plain model of the expected state. Each was shown
+to catch a bug planted in the model.
+
 ## 1. Foundations and the shell
 
 - **The base libraries:**
