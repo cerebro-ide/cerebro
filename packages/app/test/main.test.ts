@@ -53,6 +53,9 @@ const electron = vi.hoisted(() => {
 
 vi.mock('electron', () => ({ app: electron.app, BrowserWindow: electron.BrowserWindow }));
 
+const display = vi.hoisted(() => ({ installDisplayScale: vi.fn() }));
+vi.mock('../src/display.js', () => display);
+
 const host = vi.hoisted(() => ({ installHost: vi.fn() }));
 vi.mock('../src/host.js', () => host);
 
@@ -118,11 +121,15 @@ describe('start', () => {
     expect(electron.windows).toHaveLength(1);
   });
 
-  it('keeps its data where it’s told to, if told', () => {
+  it('keeps its data where it’s told to, if told, then applies the display scale', () => {
     start('/tmp/cerebro-test');
     expect(electron.app.setPath).toHaveBeenCalledWith('userData', '/tmp/cerebro-test');
     expect(host.installHost).toHaveBeenCalled();
     expect(menu.installMenu).toHaveBeenCalled();
+    expect(display.installDisplayScale).toHaveBeenCalled();
+    expect(electron.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(
+      display.installDisplayScale.mock.invocationCallOrder[0] as number,
+    );
     electron.app.setPath.mockClear();
     vi.stubEnv('CEREBRO_USER_DATA', '');
     start();
