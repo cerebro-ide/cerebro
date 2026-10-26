@@ -47,10 +47,10 @@ function wordAt(view: EditorView, pos: number): string | undefined {
   return range ? view.state.sliceDoc(range.from, range.to) : undefined;
 }
 
-const variable = (name: string) => `var(--cerebro-${name})`;
+export const variable = (name: string) => `var(--cerebro-${name})`;
 
 /** The editor's look, from the theme's variables. */
-const theme = EditorView.theme({
+export const theme = EditorView.theme({
   '&': {
     height: '100%',
     color: variable('text'),
@@ -89,7 +89,7 @@ const theme = EditorView.theme({
 });
 
 /** Lines 22px apart at 13px, as WebStorm (measured), in whole pixels so they don't drift. */
-function scroller(fontSize: number) {
+export function scroller(fontSize: number) {
   return {
     fontSize: `${String(fontSize)}px`,
     lineHeight: `${String(Math.round(fontSize * 1.7))}px`,
@@ -97,7 +97,7 @@ function scroller(fontSize: number) {
 }
 
 /** Syntax colours, from the theme's variables. */
-const highlight = HighlightStyle.define([
+export const highlight = HighlightStyle.define([
   { tag: [tags.keyword, tags.modifier, tags.operatorKeyword], color: variable('syntax-keyword') },
   { tag: [tags.string, tags.special(tags.string), tags.regexp], color: variable('syntax-string') },
   { tag: [tags.number, tags.bool, tags.null, tags.atom], color: variable('syntax-number') },

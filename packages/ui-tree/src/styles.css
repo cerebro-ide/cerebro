@@ -70,6 +70,11 @@
   color: var(--cerebro-text);
 }
 
+/* A row's icon keeps its size when the text is cut short. */
+.cerebro-tree-row__content > svg {
+  flex: none;
+}
+
 .cerebro-tree-row__note {
   padding-left: 8px;
   color: var(--cerebro-text-muted);

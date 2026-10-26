@@ -5,9 +5,12 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   addWorktree,
+  committedText,
   git,
+  listChanges,
   listFiles,
   listWorktrees,
+  parseStatus,
   parseWorktrees,
   removeWorktree,
 } from '../src/index.js';
@@ -42,6 +45,39 @@ describe('parseWorktrees', () => {
     ]);
     expect(parseWorktrees('')).toEqual([]);
     expect(parseWorktrees('garbage\n\n')).toEqual([]);
+  });
+});
+
+describe('parseStatus', () => {
+  it('reads each change, staged or not, sorted by path', () => {
+    const output = [
+      ' M b.ts',
+      'M  a.ts',
+      'MM c.ts',
+      'A  new.ts',
+      'AM newer.ts',
+      ' D gone.ts',
+      'D  removed.ts',
+      'R  moved.ts',
+      'old.ts',
+      'C  copy.ts',
+      'a.ts',
+      '?? untracked dir/x.ts',
+      '',
+    ].join('\0');
+    expect(parseStatus(output)).toEqual([
+      { path: 'a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'modified' },
+      { path: 'c.ts', status: 'modified' },
+      { path: 'copy.ts', status: 'added' },
+      { path: 'gone.ts', status: 'deleted' },
+      { path: 'moved.ts', status: 'renamed', from: 'old.ts' },
+      { path: 'new.ts', status: 'added' },
+      { path: 'newer.ts', status: 'added' },
+      { path: 'removed.ts', status: 'deleted' },
+      { path: 'untracked dir/x.ts', status: 'untracked' },
+    ]);
+    expect(parseStatus('')).toEqual([]);
   });
 });
 
@@ -109,5 +145,19 @@ describe('with real git', () => {
   it('fails with git’s message outside a repository, or without git’s own message', async () => {
     await expect(git(root, ['worktree', 'list'])).rejects.toThrow(/not a git repository/);
     await expect(git(join(root, 'missing'), ['status'])).rejects.toThrow(/ENOENT|spawn/);
+  });
+
+  it('lists a worktree’s changes, and reads a file as last committed', async () => {
+    const path = join(root, 'changes');
+    await addWorktree(repo, { path, branch: 'changes', create: true });
+    writeFileSync(join(path, 'a.txt'), 'changed');
+    writeFileSync(join(path, 'b.txt'), 'new');
+    run(path, 'mv', 'a.txt', 'c.txt');
+    expect(await listChanges(path)).toEqual([
+      { path: 'b.txt', status: 'untracked' },
+      { path: 'c.txt', status: 'renamed', from: 'a.txt' },
+    ]);
+    expect(await committedText(path, 'a.txt')).toBe('a');
+    expect(await committedText(path, 'b.txt')).toBe('');
   });
 });

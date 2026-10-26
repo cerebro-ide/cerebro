@@ -1,0 +1,70 @@
+import '@cerebro-ide/theme/themes.css';
+import '../src/styles.css';
+import { render } from '@cerebro-ide/jsx';
+import { signal } from '@cerebro-ide/reactive';
+import { afterEach, describe, expect, it } from 'vitest';
+import { DiffEditor, type DiffEditorProps } from '../src/index.js';
+
+let cleanup: (() => void) | undefined;
+
+afterEach(() => {
+  cleanup?.();
+  cleanup = undefined;
+});
+
+function mount(props: DiffEditorProps) {
+  const container = document.createElement('div');
+  container.style.cssText = 'position: fixed; left: 0; top: 0; width: 800px; height: 300px;';
+  document.body.append(container);
+  const handle = render(() => <DiffEditor {...props} />, container);
+  cleanup = () => {
+    handle.dispose();
+    container.remove();
+  };
+  return (container.querySelector('.cerebro-editor-diff') as HTMLElement).shadowRoot as ShadowRoot;
+}
+
+const lines = (editor: Element) =>
+  [...editor.querySelectorAll('.cm-line')].map((line) => line.textContent);
+
+describe('the diff editor', () => {
+  it('shows the committed text on the left and the current on the right, changes marked', () => {
+    const root = mount({
+      path: 'a.ts',
+      original: 'const a = 1;\nconst same = 0;\n',
+      text: 'const a = 2;\nconst same = 0;\nconst added = 3;\n',
+    });
+    const [left, right] = root.querySelectorAll('.cm-mergeViewEditor .cm-editor');
+    expect(lines(left as Element)).toEqual(['const a = 1;', 'const same = 0;', '']);
+    expect(lines(right as Element)).toContain('const added = 3;');
+    expect(left?.querySelector('.cm-changedLine')?.textContent).toBe('const a = 1;');
+    expect(
+      [...(right as Element).querySelectorAll('.cm-changedLine')].map((l) => l.textContent),
+    ).toEqual(['const a = 2;', 'const added = 3;']);
+    // In the theme's colours.
+    const removed = getComputedStyle(left?.querySelector('.cm-changedLine') as Element);
+    expect(removed.backgroundColor).toBe('rgb(62, 42, 44)');
+  });
+
+  it('applies the font size and tab size as they change, and shows a file of no language', () => {
+    const fontSize = signal(13);
+    const root = mount({
+      path: 'notes',
+      original: '',
+      text: 'new\n',
+      fontSize: () => fontSize.get(),
+      tabSize: () => 2,
+    });
+    const scrollers = root.querySelectorAll<HTMLElement>('.cm-scroller');
+    expect(getComputedStyle(scrollers[1] as Element).fontSize).toBe('13px');
+    fontSize.set(16);
+    expect(getComputedStyle(scrollers[0] as Element).fontSize).toBe('16px');
+    expect(getComputedStyle(scrollers[1] as Element).fontSize).toBe('16px');
+  });
+
+  it('defaults its settings', () => {
+    const root = mount({ path: 'a.md', original: '# a', text: '# b' });
+    const scroller = root.querySelector('.cm-scroller') as Element;
+    expect(getComputedStyle(scroller).fontSize).toBe('13px');
+  });
+});

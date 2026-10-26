@@ -10,7 +10,9 @@ import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile } from './files.js';
 import {
   addWorktree,
+  committedText,
   git as runGit,
+  listChanges,
   listFiles,
   listWorktrees,
   removeWorktree,
@@ -86,16 +88,29 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     index.usages(text(params, 'worktree'), text(params, 'name')),
   );
   connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
-  connection.onRequest('fs.read', async (params) => {
+  /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
+  const read = async (path: string): Promise<string> => {
     try {
-      return { text: await readTextFile(text(params, 'path')) };
+      return await readTextFile(path);
     } catch (error) {
-      // Binary and oversized files are refused with the reason, for the editor to show.
       if (error instanceof UnreadableFile) {
         throw new ResponseError(ErrorCodes.InvalidParams, error.message, { reason: error.reason });
       }
       throw error;
     }
+  };
+  connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  connection.onRequest('git.changes', (params) => listChanges(text(params, 'path'), git));
+  // A file's two sides for its diff: as last committed (where it was, if renamed), and as it is.
+  connection.onRequest('git.diff', async (params) => {
+    const worktree = text(params, 'path');
+    const file = text(params, 'file');
+    const change = (await listChanges(worktree, git)).find((c) => c.path === file);
+    const [original, current] = await Promise.all([
+      committedText(worktree, change?.from ?? file, git),
+      change?.status === 'deleted' ? '' : read(join(worktree, file)),
+    ]);
+    return { original, text: current };
   });
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;
