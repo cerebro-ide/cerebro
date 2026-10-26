@@ -195,6 +195,8 @@ function StripeButton(props: { ctx: Context; tool: ToolWindow }): Node {
       ref={tooltip({
         text: () => tool.title,
         shortcut: () => ctx.props.shortcut?.(tool.id),
+        // At once, as WebStorm's stripe buttons.
+        delay: 0,
         // Beside the button, away from the window's edge.
         placement: () =>
           tool.anchor === 'right' || (tool.anchor === 'bottom' && tool.slot === 'secondary')

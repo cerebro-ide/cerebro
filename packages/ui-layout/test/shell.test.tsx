@@ -542,6 +542,16 @@ describe('tooltips', () => {
     vi.useRealTimers();
   });
 
+  it('shows a stripe button’s at once, with no pause', () => {
+    vi.useFakeTimers();
+    const { button } = mount();
+    button('project').dispatchEvent(new PointerEvent('pointerenter'));
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('ProjectAlt+1');
+    button('project').dispatchEvent(new PointerEvent('pointerleave'));
+    vi.advanceTimersByTime(QUICK_WINDOW + 1);
+    vi.useRealTimers();
+  });
+
   it('works without a shortcut callback, and on the hide button', () => {
     vi.useFakeTimers();
     const { button, tools, $ } = mount({ shortcuts: false });

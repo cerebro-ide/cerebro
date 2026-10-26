@@ -899,6 +899,8 @@ same spirit, not measured. Choices of Claude's, open to change:
   under the SIL Open Font License, from the `@fontsource` packages. Without them each platform drew
   its own fallback, so no screenshot could match. Code ligatures are off, as WebStorm's default.
 - **Scrollbars** are a thin rounded thumb with no track or arrows.
+- **Stripe buttons' tooltips show at once** (Ido), with no pause; other controls keep the pause.
+  Tooltips take a `delay` option for this.
 - **Not done:** the project colour's glow at the toolbar's left, file icons in tabs, and widths
   that are the user's layout (the Project tool window's, 370px in the screenshot).
 
