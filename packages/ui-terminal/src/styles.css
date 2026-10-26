@@ -54,18 +54,33 @@
   background: var(--cerebro-editor-selection);
 }
 
-/* An outline while the terminal doesn't have the focus; a block, the character in it, while it does. */
+/*
+ * An outline while the terminal doesn't have the focus. While it does, a blinking block that shows
+ * what's under it as a negative: white, blended by difference, inverts each colour, the text's and
+ * the background's alike.
+ */
 .cerebro-terminal__cursor {
   box-sizing: border-box;
   width: 1ch;
   outline: 1px solid var(--cerebro-text);
   outline-offset: -1px;
   pointer-events: none;
+  /* Over the rows, which are added after it as the screen fills. */
+  z-index: 1;
 }
 
 .cerebro-terminal__cursor--focused {
-  background: var(--cerebro-text);
-  color: var(--cerebro-background);
+  outline: none;
+  background: #fff;
+  mix-blend-mode: difference;
+  animation: cerebro-terminal-blink 1s step-end infinite;
+}
+
+/* Shown for half a second, hidden for half a second, as IntelliJ's caret. */
+@keyframes cerebro-terminal-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .cerebro-terminal__cursor[hidden] {
