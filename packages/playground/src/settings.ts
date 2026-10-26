@@ -26,6 +26,22 @@ registry.register({
   scopes: ['global'],
 });
 registry.register({
+  id: 'appearance.displayScale',
+  title: 'Display scale',
+  description: 'How large the app draws. Auto follows the system. Applies when the app restarts.',
+  page: 'appearance',
+  type: 'enum',
+  default: 'auto',
+  options: [
+    { value: 'auto', label: 'Auto' },
+    ...['1', '1.25', '1.5', '1.75', '2', '2.5', '3'].map((value) => ({
+      value,
+      label: `${String(Number(value) * 100)}%`,
+    })),
+  ],
+  scopes: ['global'],
+});
+registry.register({
   id: 'editor.softWrap',
   title: 'Soft-wrap lines',
   description: 'Long lines continue on the next line instead of scrolling sideways.',
