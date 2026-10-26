@@ -653,6 +653,30 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## The layout persists (2026-10-26)
+
+Ido: the layout should keep its state and stay consistent between runs; a reload reset it.
+
+- **What's kept:** tool windows (anchor, slot, order, which are open, area sizes and splits), the
+  open environments and the active one, and each environment's editor area (splits and sizes,
+  groups, tabs, active tab and group).
+- **The models save and restore themselves** as plain data (`state()` and `restore()` on
+  `ToolWindows`, `EditorArea` and `Environments`). Restoring keeps only what's still valid, a
+  choice of Claude's, open to change:
+  - tool windows: places of registered windows (new ones keep their own, after the saved ones),
+    sizes and splits clamped, open windows only if registered and in that slot;
+  - environments: only those the app still resolves (a removed worktree is dropped);
+  - editor areas: tabs that still exist (untitled files aren't kept: their contents aren't),
+    groups with tabs, splits with two or more children, merged into a parent of the same
+    direction, and positive sizes (others get an equal share). Saved sizes are kept even below
+    `MIN_PANE`, since repeated splits can make them so.
+- **Stored as local data** (as decided for settings): the browser's storage for now, until the
+  host's local database exists. Saved 200 ms after a change settles, and when the page goes away.
+- **Tests:** the randomized tests save every few steps, through JSON, restore into a new model
+  (tool windows registered in another order) and compare. Unit tests cover invalid and outdated
+  data. An e2e test rearranges the window (a tool window closed, another opened, another
+  environment, a file opened), reloads, and finds the same layout; it fails without saving.
+
 ## The protocol and the host (2026-10-26)
 
 Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local child process
@@ -686,6 +710,27 @@ Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local ch
   repository; the main process with a fake child. E2E: the page pings the host, and lists a
   throwaway repository's two worktrees, switching branch with the worktree. Both fail without the
   host.
+
+## Plugins (2026-10-26)
+
+Milestone 1's plugin registry and first contribution points: views, commands, menus
+(`plugin-api`). Choices of Claude's, open to change:
+
+- **A plugin** has an id (dotted by publisher, such as `cerebro.notes`), a name, and `activate`,
+  which may be async.
+- **It contributes through its context:** commands, menu items, default shortcuts (the user's
+  bindings still come first), views, and cleanups. The context records each, so removing the plugin
+  removes everything it added, in reverse order.
+- **A view is a tool window** (place, title, icon) and a `mount(container)` that fills a DOM
+  element however the plugin likes, returning an optional cleanup: the plugin boundary is the DOM
+  (see "No UI framework"). Other kinds of views (editor tabs, status bar items) come later.
+- **A failing activation** removes what the plugin added so far, and its entry records the error
+  (state `failed`); the others are unaffected.
+- **Not yet:** loading plugins from disk, manifests, versions, permissions, and running plugins in
+  isolation. Plugins are added in code for now.
+- **In the playground:** a sample Notes plugin written in plain DOM, as a third party would: a
+  tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut. An
+  e2e test uses all of it, and fails without the plugin.
 
 ## End-to-end tests (2026-10-25)
 
