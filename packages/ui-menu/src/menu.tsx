@@ -2,7 +2,8 @@
 // the menu bar's dropdowns and every context menu.
 //
 // Items show their label with the mnemonic underlined, an ellipsis for commands that open a dialog,
-// a check mark for toggles, their shortcut, and an arrow for submenus. Commands that aren't
+// a check mark for toggles, their shortcut, and an arrow for submenus. A heading titles a group of
+// items; it can't be highlighted or chosen. Commands that aren't
 // registered and empty submenus are hidden. Keyboard: Up/Down/Home/End move, Enter/Space activate,
 // Right opens a submenu, Left/Escape close one, a mnemonic letter activates its item (or cycles
 // between items sharing it). Keys a menu handles don't reach the app's shortcuts.
@@ -59,7 +60,12 @@ type Item =
   | { command: string; label: string; dialog: boolean; icon?: string }
   | { submenu: string; label: string };
 
-type Entry = Item | { separator: true };
+type Entry = Item | { separator: true } | { heading: string };
+
+/** Whether an entry can be highlighted and chosen: not a separator or a heading. */
+function isItem(entry: Entry | undefined): entry is Item {
+  return entry !== undefined && !('separator' in entry) && !('heading' in entry);
+}
 
 class Level {
   readonly menu: string;
@@ -101,7 +107,7 @@ export function openContextMenu(
 /** A menu's visible entries: hidden items removed, and no leading, trailing or doubled separators. */
 export function visibleEntries(services: MenuServices, menu: string): Entry[] {
   const items: Entry[] = services.menus.entries(menu).flatMap((entry: MenuEntry): Entry[] => {
-    if ('separator' in entry) return [entry];
+    if ('separator' in entry || 'heading' in entry) return [entry];
     if ('submenu' in entry) {
       return visibleEntries(services, entry.submenu).some((e) => !('separator' in e))
         ? [entry]
@@ -202,10 +208,10 @@ class MenuSession implements MenuHandle {
         return true;
       case 'Enter':
       case ' ':
-        if (current && !('separator' in current)) this.activate(depth, level.highlight, true);
+        if (isItem(current)) this.activate(depth, level.highlight, true);
         return true;
       case 'ArrowRight':
-        if (current && 'submenu' in current) this.activate(depth, level.highlight, true);
+        if (isItem(current) && 'submenu' in current) this.activate(depth, level.highlight, true);
         else this.options.onNavigate?.(1);
         return true;
       case 'ArrowLeft':
@@ -223,7 +229,7 @@ class MenuSession implements MenuHandle {
     const letter = /^Key([A-Z])$/.exec(event.code)?.[1] ?? /^Digit(\d)$/.exec(event.code)?.[1];
     if (!letter) return false;
     const matches = entries.flatMap((entry, i) =>
-      !('separator' in entry) && parseLabel(entry.label).mnemonic === letter ? [i] : [],
+      isItem(entry) && parseLabel(entry.label).mnemonic === letter ? [i] : [],
     );
     if (matches.length === 1) this.activate(depth, matches[0] as number, true);
     else if (matches.length > 1) {
@@ -284,6 +290,13 @@ class MenuSession implements MenuHandle {
     return () =>
       visibleEntries(services, level.menu).map((entry, index) => {
         if ('separator' in entry) return <div class="cerebro-menu-separator" role="separator" />;
+        if ('heading' in entry) {
+          return (
+            <div class="cerebro-menu-heading" role="presentation">
+              {entry.heading}
+            </div>
+          );
+        }
         const label = parseLabel(entry.label);
         const isCommand = 'command' in entry;
         const enabled = () => !isCommand || services.commands.isEnabled(entry.command, context);
@@ -379,7 +392,7 @@ function step(entries: Entry[], from: number, direction: 1 | -1): number {
   const count = entries.length;
   for (let n = 1; n <= count; n++) {
     const i = (((from + direction * n) % count) + count) % count;
-    if (!('separator' in (entries[i] as Entry))) return i;
+    if (isItem(entries[i])) return i;
   }
   return -1;
 }

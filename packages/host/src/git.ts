@@ -161,6 +161,48 @@ export async function listChanges(worktree: string, run: Git = git): Promise<Cha
 }
 
 /**
+ * The worktree's files git ignores; a folder ignored as a whole is one entry, ending in `/`
+ * (`node_modules/`), not every file in it.
+ */
+export async function listIgnored(worktree: string, run: Git = git): Promise<string[]> {
+  const output = await run(worktree, [
+    'ls-files',
+    '--others',
+    '--ignored',
+    '--exclude-standard',
+    '--directory',
+    '-z',
+  ]);
+  return output
+    .split('\0')
+    .filter(Boolean)
+    .sort((a, b) => (a < b ? -1 : 1));
+}
+
+/**
+ * Undoes changes, staged or not, back to the last commit: a modified or deleted file comes back as
+ * committed, a renamed one goes back to its old name. An added file is unstaged; its copy on disk
+ * is deleted too, if `deleteAdded`, else it stays, untracked. Untracked files aren't touched.
+ */
+export async function rollback(
+  worktree: string,
+  changes: readonly Change[],
+  deleteAdded: boolean,
+  run: Git = git,
+): Promise<void> {
+  const kept = changes.filter((c) => c.status === 'added' && !deleteAdded).map((c) => c.path);
+  // Measured: restoring from HEAD, staged and in the worktree, brings a modified, deleted or
+  // renamed file (given both its paths) back, and deletes an added one.
+  const restored = changes
+    .filter((c) => c.status !== 'untracked' && !kept.includes(c.path))
+    .flatMap((c) => (c.from === undefined ? [c.path] : [c.from, c.path]));
+  if (restored.length > 0) {
+    await run(worktree, ['restore', '--source=HEAD', '--staged', '--worktree', '--', ...restored]);
+  }
+  if (kept.length > 0) await run(worktree, ['restore', '--staged', '--', ...kept]);
+}
+
+/**
  * Reads `git diff --name-status -z`: a status letter (with a similarity score for a rename or a
  * copy), then the path, or the path before and after.
  */

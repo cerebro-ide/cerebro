@@ -16,6 +16,8 @@ import {
   git as runGit,
   listChanges,
   listChangesBetween,
+  listIgnored,
+  rollback,
   textAt,
   listFiles,
   listWorktrees,
@@ -156,6 +158,19 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       change?.status === 'deleted' ? '' : read(join(worktree, file)),
     ]);
     return { original, text: current };
+  });
+  connection.onRequest('git.ignored', (params) => listIgnored(text(params, 'path'), git));
+  // Rolls back the files named, as they're changed now; gives the changes left.
+  connection.onRequest('git.rollback', async (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { files?: unknown; deleteAdded?: unknown };
+    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    const files = new Set(p.files as string[]);
+    const changes = (await listChanges(worktree, git)).filter((c) => files.has(c.path));
+    await rollback(worktree, changes, p.deleteAdded === true, git);
+    return listChanges(worktree, git);
   });
   connection.onRequest('agent.turns', (params) => listTurns(text(params, 'path'), git));
   connection.onRequest('git.addWorktree', (params) => {

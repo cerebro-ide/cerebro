@@ -5,10 +5,10 @@
 // Keyboard, as in IntelliJ's project tree: Up and Down move, Home and End go to the ends, Page Up
 // and Page Down move by a screen, Right expands or steps in, Left collapses or steps out, Enter
 // opens a file or toggles a folder. A click selects; a double click opens or toggles; the arrow
-// toggles.
+// toggles. A selection made from outside (a "select opened file") is scrolled into view.
 
 import { onCleanup, type Child } from '@cerebro-ide/jsx';
-import { makeObservable } from '@cerebro-ide/reactive';
+import { effect, makeObservable, untracked } from '@cerebro-ide/reactive';
 import type { TreeModel, TreeRow } from './model.js';
 
 export interface TreeViewProps<T> {
@@ -19,6 +19,10 @@ export interface TreeViewProps<T> {
   row: (node: T) => Child;
   /** A file opened: double click or Enter on a leaf. */
   onOpen?: (node: T) => void;
+  /** A class for a node's row, to style kinds of rows: groups, say. */
+  rowClass?: (node: T) => string | undefined;
+  /** A context menu asked for on a row, which is selected first. */
+  onContextMenu?: (event: MouseEvent, node: T) => void;
   /** Default: 24. */
   rowHeight?: number;
 }
@@ -109,7 +113,11 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
     return (
       <div
         class={() =>
-          cls('cerebro-tree-row', model.selected === row.key && 'cerebro-tree-row--selected')
+          cls(
+            'cerebro-tree-row',
+            model.selected === row.key && 'cerebro-tree-row--selected',
+            props.rowClass?.(row.node),
+          )
         }
         role="treeitem"
         aria-level={row.depth + 1}
@@ -126,6 +134,11 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         }}
         on:dblclick={() => {
           open(row);
+        }}
+        on:contextmenu={(event) => {
+          if (!props.onContextMenu) return;
+          model.select(row.key);
+          props.onContextMenu(event, row.node);
         }}
       >
         <span
@@ -171,8 +184,15 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         };
         const observer = new ResizeObserver(measure);
         observer.observe(tree);
+        // A selection made from outside shows; one made here is in view already.
+        // Only the selection is followed, not the rows: a refresh doesn't scroll.
+        const follow = effect(() => {
+          if (model.selected !== undefined) untracked(reveal);
+          return undefined;
+        });
         onCleanup(() => {
           observer.disconnect();
+          follow.dispose();
         });
         queueMicrotask(measure);
       }}

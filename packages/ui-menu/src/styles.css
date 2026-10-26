@@ -64,6 +64,16 @@
   text-underline-offset: 2px;
 }
 
+/* A group's title, as IntelliJ's view options menus: muted, from where the check marks start. */
+.cerebro-menu-heading {
+  display: flex;
+  align-items: center;
+  height: var(--cerebro-menu-item-height);
+  padding: 0 6px 0 8px;
+  color: var(--cerebro-text-muted);
+  white-space: nowrap;
+}
+
 /* Thin, as in IntelliJ: about 3px between the items it separates. */
 .cerebro-menu-separator {
   height: 1px;

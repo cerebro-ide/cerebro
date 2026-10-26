@@ -1,10 +1,15 @@
 // Menus by id (`main` for the menu bar, `main/file`, `editor/tab` for a context menu, …), built from
 // contributions. Items are ordered by group, then order within the group, with a separator between
-// groups. A submenu item refers to another menu.
+// groups. A submenu item refers to another menu; a heading titles its group.
 
 import { makeObservable, ObservableArray, type Disposable } from '@cerebro-ide/reactive';
 
-export type MenuItemSpec = { command: string } | { submenu: string; label: string };
+/**
+ * A command; a submenu; or a heading, a group's title that isn't an item (IntelliJ's "Group By" in a
+ * view options menu).
+ */
+export type MenuItemSpec =
+  { command: string } | { submenu: string; label: string } | { heading: string };
 
 export interface Contribution {
   menu: string;

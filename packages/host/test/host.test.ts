@@ -183,6 +183,55 @@ describe('changes', () => {
   });
 });
 
+describe('ignored files and rolling back', () => {
+  it('lists ignored files', async () => {
+    const { ui, git } = connect(vi.fn(() => Promise.resolve('out/\0a.log\0')));
+    expect(await ui.request('git.ignored', { path: '/w' })).toEqual(['a.log', 'out/']);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'ls-files',
+      '--others',
+      '--ignored',
+      '--exclude-standard',
+      '--directory',
+      '-z',
+    ]);
+  });
+
+  it('rolls back the files named, as changed now, and gives the changes left', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(args[0] === 'status' ? ' M a.ts\0A  n.ts\0?? u.ts\0' : ''),
+    );
+    const { ui } = connect(git);
+    await ui.request('git.rollback', { path: '/w', files: ['a.ts', 'n.ts', 'gone.ts'] });
+    expect(git).toHaveBeenCalledWith('/w', ['restore', '--staged', '--', 'n.ts']);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'restore',
+      '--source=HEAD',
+      '--staged',
+      '--worktree',
+      '--',
+      'a.ts',
+    ]);
+    git.mockClear();
+    expect(
+      await ui.request('git.rollback', { path: '/w', files: ['n.ts'], deleteAdded: true }),
+    ).toHaveLength(3);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'restore',
+      '--source=HEAD',
+      '--staged',
+      '--worktree',
+      '--',
+      'n.ts',
+    ]);
+    for (const files of [undefined, 'a.ts', [3]]) {
+      await expect(ui.request('git.rollback', { path: '/w', files })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+});
+
 describe('files', () => {
   it('reads a file, refusing a binary one with its reason', async () => {
     const { ui } = connect();

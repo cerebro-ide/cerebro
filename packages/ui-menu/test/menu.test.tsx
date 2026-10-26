@@ -270,6 +270,52 @@ describe('keyboard', () => {
   });
 });
 
+describe('headings', () => {
+  function withHeadings() {
+    const setupped = setup();
+    const { menus } = setupped;
+    menus.contribute({ menu: 'view', item: { heading: 'Group By' }, group: 'a' });
+    menus.contribute({ menu: 'view', item: { command: 'toggle' }, group: 'a' });
+    menus.contribute({ menu: 'view', item: { heading: 'Show' }, group: 'b' });
+    menus.contribute({ menu: 'view', item: { command: 'new' }, group: 'b' });
+    return setupped;
+  }
+
+  it('titles a group, between its separator and its items', () => {
+    const { services } = withHeadings();
+    open(services, 'view', { x: 10, y: 10 });
+    const popup = popups().at(-1) as HTMLElement;
+    expect(
+      [...popup.children].map((child) =>
+        child.classList.contains('cerebro-menu-heading')
+          ? `# ${String(child.textContent)}`
+          : child.classList.contains('cerebro-menu-separator')
+            ? '---'
+            : String(child.querySelector('.cerebro-menu-item__label')?.textContent),
+      ),
+    ).toEqual(['# Group By', 'Toggle', '---', '# Show', 'New']);
+    expect(visibleEntries(services, 'view')[0]).toEqual({ heading: 'Group By' });
+  });
+
+  it('is skipped by the keys, and can’t be chosen', () => {
+    const { services, ran } = withHeadings();
+    open(services, 'view', { x: 10, y: 10 });
+    key('ArrowDown');
+    expect(highlighted()).toBe('Toggle');
+    key('ArrowDown');
+    expect(highlighted()).toBe('New');
+    key('ArrowDown');
+    expect(highlighted()).toBe('Toggle');
+    key('End');
+    expect(highlighted()).toBe('New');
+    // Its letter isn't a mnemonic, and clicking it does nothing.
+    letter('G');
+    (document.querySelector('.cerebro-menu-heading') as HTMLElement).click();
+    expect(ran).toEqual([]);
+    expect(popups()).toHaveLength(1);
+  });
+});
+
 describe('mouse', () => {
   const enter = (element: Element, movementX = 1) =>
     element.dispatchEvent(new PointerEvent('pointermove', { movementX }));
