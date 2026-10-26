@@ -16,11 +16,16 @@ is updated as the work goes.
 | #18 | Create and remove worktrees | #15 (+#17 merged in) | CI green |
 | #19 | The project tree: a virtualised tree, folders listed by the host | #18 | CI green |
 | #20 | The code editor: CodeMirror, read-only, in a shadow root (for the CSP) | #19 | CI green |
-| #21 | Find file: the worktree's files from git, faster matching | #20 | CI running |
+| #21 | Find file: the worktree's files from git, faster matching | #20 | CI green |
+| #22 | The shared index, first part: Go to Symbol, go to definition, find usages, by name | #21 | CI running |
 
 #13, #14 and #16 each touch the e2e suite or the playground's `main.tsx`; whichever merges later may
-need `main` merged in. #18–#21 are stacked: each includes the ones below it, and #17's CI matrix,
-so their e2e tests run on all three OSes.
+need `main` merged in. #18–#22 are stacked: each includes the ones below it, and #17's CI matrix,
+so their e2e tests run on all three OSes; all green on Linux, macOS and Windows as of #21.
+
+Fixes found by running on all three OSes: paths are written with `/` everywhere, as git writes them
+(Windows mixed separators, and an 8.3 short temp path in the tests); and Electron's default menu is
+suppressed on Windows and Linux (the page has its own), after which the Linux e2e flake stopped.
 
 ## Decisions made (all in `docs/decisions.md`, marked open to change)
 
@@ -36,6 +41,9 @@ so their e2e tests run on all three OSes.
   blocked by the page's CSP in a document, not in a shadow root (measured).
 - New dependencies: CodeMirror's packages, each pinned to a version at least two weeks old.
 - Find file uses `git ls-files` (no new dependency); matching is 1.5–10× faster on 50,000 paths.
+- The index is the spike's, TS/TSX/JS only, rebuilt per host run (persisting it needs the local
+  database); everything it finds is labelled "Name matches". web-tree-sitter at the spike's
+  measured version; the grammars' native install scripts are denied, only their WASM is used.
 
 ## Open, for Ido
 
@@ -45,5 +53,7 @@ so their e2e tests run on all three OSes.
 - **Saving settings files** (the global `settings.json5` and the repo's `.cerebro/settings.json5`)
   needs a decision: rewriting a hand-edited JSON5 file from the UI would drop its comments. Options:
   edit the text in place (keeping comments), or keep UI changes elsewhere.
-- **An e2e flake on Linux CI:** a click waited forever for the button to be "stable" (Playwright
-  measures that over animation frames). Not reproduced locally, even under xvfb. Forced for now.
+- **The Linux e2e flake** (a click waiting forever for "stable") stopped after Electron's default
+  menu was removed; the click is still forced. A claim that the menu was the cause.
+- **The local database** (session DB, persisted index, layout and worktree settings as local data)
+  isn't built: it needs a choice of storage (SQLite would be a native dependency).
