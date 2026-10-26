@@ -62,6 +62,7 @@ export { FRESH_FOR, IndexService } from './index-service.js';
 export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
 export {
   BadQuery,
+  byPlace,
   LIMIT,
   rgArguments,
   searchText,

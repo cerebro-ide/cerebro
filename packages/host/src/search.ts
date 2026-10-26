@@ -104,6 +104,12 @@ export function toMatch(folder: string, data: RgMatch['data']): TextMatch | unde
   };
 }
 
+/** Orders lines found by path, then line. */
+export function byPlace(a: TextMatch, b: TextMatch): number {
+  if (a.path === b.path) return a.line - b.line;
+  return a.path < b.path ? -1 : 1;
+}
+
 /** Searches the files in `folder` for a text; the lines found, sorted by path and line. */
 export function searchText(folder: string, search: TextSearch, rg = rgPath): Promise<TextResults> {
   const limit = search.limit ?? LIMIT;
@@ -148,7 +154,7 @@ export function searchText(folder: string, search: TextSearch, rg = rgPath): Pro
         reject(new BadQuery(errors.trim() || 'The search failed'));
         return;
       }
-      matches.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : a.line - b.line));
+      matches.sort(byPlace);
       resolve({ matches, limited });
     });
   });

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { BadQuery, rgArguments, searchText, toMatch } from '../src/index.js';
+import { BadQuery, byPlace, rgArguments, searchText, toMatch } from '../src/index.js';
 
 /** A folder, a git repository, with files to search. */
 function folder(): string {
@@ -17,6 +17,11 @@ function folder(): string {
   writeFileSync(join(dir, '.github', 'ci.yml'), 'shape: 1\n');
   writeFileSync(join(dir, 'build', 'out.js'), 'shape\n');
   writeFileSync(join(dir, '.gitignore'), 'build/\n');
+  // Not UTF-8 (Latin-1's é): ripgrep gives its bytes, and it's left out.
+  writeFileSync(
+    join(dir, 'src', 'latin1.txt'),
+    Buffer.from([0x73, 0x68, 0x61, 0x70, 0x65, 0xe9, 0x0a]),
+  );
   return dir;
 }
 
@@ -98,6 +103,15 @@ describe('ripgrep', () => {
     expect(all).toEqual(expect.arrayContaining(['--case-sensitive', '--word-regexp']));
     expect(all).not.toContain('--fixed-strings');
     expect(all.at(-1)).toBe('-a');
+  });
+
+  it('orders lines by path, then line', () => {
+    const at = (path: string, line: number) => ({ path, line, text: '', ranges: [] });
+    expect([at('/b', 0), at('/a', 2), at('/a', 1)].sort(byPlace)).toEqual([
+      at('/a', 1),
+      at('/a', 2),
+      at('/b', 0),
+    ]);
   });
 
   it('skips lines that aren’t UTF-8, and drops matches past a cut line', () => {
