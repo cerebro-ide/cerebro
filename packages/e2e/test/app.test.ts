@@ -95,7 +95,9 @@ describe('the window', () => {
       await page().locator(opens).waitFor({ state: 'detached' });
     }
     await page().locator('.cerebro-menubar--takeover').waitFor({ state: 'detached' });
-    await page().locator('[aria-label^="Branch:"]').click();
+    // Forced: in CI under xvfb this click twice waited forever for the button to be "stable",
+    // which Playwright measures over animation frames (not reproduced locally, even under xvfb).
+    await page().locator('[aria-label^="Branch:"]').click({ force: true });
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.press('Escape');
     expect(await page().evaluate(() => (window as { violations?: string[] }).violations)).toEqual(
