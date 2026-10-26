@@ -53,9 +53,11 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
   // Folders first; git's own folder isn't shown.
   expect(await names()).toEqual(['src', 'README.md']);
+  // Forced, as in app.test.ts: in CI under xvfb this click waited forever for the arrow to be
+  // "stable" (not reproduced locally, even under xvfb).
   await page
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
-    .click();
+    .click({ force: true });
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
   expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'use.ts', 'README.md']);
   await page.evaluate(() => {
