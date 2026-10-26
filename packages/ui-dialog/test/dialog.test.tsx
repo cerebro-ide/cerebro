@@ -116,6 +116,19 @@ describe('openDialog', () => {
     expect(await again.result).toBe(1);
   });
 
+  it('closes with a choice’s result, its button beside OK', async () => {
+    const options = {
+      ok: { label: 'This Window', accept: () => 'this' },
+      choices: [{ label: 'New Window', accept: () => 'new' }],
+    };
+    const handle = dialog({ ...options, platform: 'other' });
+    expect(buttons()).toEqual(['This Window', 'New Window', 'Cancel']);
+    button('New Window').click();
+    expect(await handle.result).toBe('new');
+    dialog({ ...options, platform: 'mac' });
+    expect(buttons()).toEqual(['Cancel', 'New Window', 'This Window']);
+  });
+
   it('takes the button order from the browser by default', () => {
     const platform = vi.spyOn(navigator, 'platform', 'get');
     for (const [name, order] of [

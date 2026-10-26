@@ -10,7 +10,8 @@ registry.registerPage({ id: 'appearance', title: 'Appearance', order: 1 });
 registry.registerPage({ id: 'editor', title: 'Editor', order: 2 });
 registry.registerPage({ id: 'editor/general', title: 'General', parent: 'editor', order: 1 });
 registry.registerPage({ id: 'editor/font', title: 'Font', parent: 'editor', order: 2 });
-registry.registerPage({ id: 'vcs', title: 'Version Control', order: 3 });
+registry.registerPage({ id: 'system', title: 'System Settings', order: 3 });
+registry.registerPage({ id: 'vcs', title: 'Version Control', order: 4 });
 registry.registerPage({ id: 'vcs/git', title: 'Git', parent: 'vcs' });
 
 registry.register({
@@ -38,6 +39,20 @@ registry.register({
       value,
       label: `${String(Number(value) * 100)}%`,
     })),
+  ],
+  scopes: ['global'],
+});
+registry.register({
+  id: 'project.openIn',
+  title: 'Open project in',
+  description: 'Where a project opens while another is open, as IntelliJ asks.',
+  page: 'system',
+  type: 'enum',
+  default: 'ask',
+  options: [
+    { value: 'ask', label: 'Ask' },
+    { value: 'new', label: 'New window' },
+    { value: 'this', label: 'This window' },
   ],
   scopes: ['global'],
 });

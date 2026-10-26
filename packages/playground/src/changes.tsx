@@ -18,7 +18,7 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
-import { active, currentHost } from './environments.js';
+import { active, currentHost, gitRepository } from './environments.js';
 import { icon } from './icons.js';
 
 export interface Change {
@@ -294,7 +294,7 @@ function changesOf(worktree: string): Changes {
 /** The active worktree's changes, in the desktop app. */
 function current(): Changes | undefined {
   const env = active();
-  return env && currentHost() ? changesOf(env.id) : undefined;
+  return env && currentHost() && gitRepository.get() ? changesOf(env.id) : undefined;
 }
 
 /** Reads every worktree's lists again: after the view options change. */
@@ -683,6 +683,9 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
         if (!env) return <p class="playground-project__empty">No environment open</p>;
         if (!currentHost()) {
           return <p class="playground-project__empty">Changes show in the desktop app.</p>;
+        }
+        if (!gitRepository.get()) {
+          return <p class="playground-project__empty">Not a git repository</p>;
         }
         const { model, empty, refresh: read } = changesOf(env.id);
         const refresh = () => {

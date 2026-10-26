@@ -11,15 +11,18 @@ export const TOOLBAR_HEIGHT = 43;
 const FRAME = '#25282c';
 const TEXT = '#d1d3d9';
 
+/** The Welcome window's size: smaller than a project's, as IntelliJ's. */
+export const WELCOME_SIZE = { width: 800, height: 650 };
+
 export function windowOptions(
   platform: NodeJS.Platform,
   preload: string,
   /** The page's zoom, if it's to be other than 1 (see display.ts). */
   zoomFactor?: number,
+  size: { width: number; height: number } = { width: 1440, height: 900 },
 ): BrowserWindowConstructorOptions {
   return {
-    width: 1440,
-    height: 900,
+    ...size,
     minWidth: 800,
     minHeight: 500,
     backgroundColor: FRAME,
