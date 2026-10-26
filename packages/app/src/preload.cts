@@ -1,6 +1,7 @@
 // Runs in the window before the page, sandboxed (so CommonJS): tells the page it runs in the app,
 // and on which platform, so it can leave room for the window controls; and on macOS lets it show
-// its menu as the application menu (see menu.ts), and reach the host (host.ts).
+// its menu as the application menu (see menu.ts), keep the display scale chosen (display.ts), and
+// reach the host (host.ts).
 
 // The CommonJS form of an import; verbatimModuleSyntax rules out `import … from` here.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -11,10 +12,18 @@ const SET_MENU = 'cerebro:menu:set';
 const MENU_COMMAND = 'cerebro:menu:command';
 // Kept in step with host.ts.
 const HOST_REQUEST = 'cerebro:host:request';
+// Kept in step with display.ts.
+const SET_SCALE = 'cerebro:display:scale';
 
 electron.contextBridge.exposeInMainWorld('cerebro', {
   app: true,
   platform: process.platform,
+  display: {
+    /** Keeps the display scale chosen for the next start: 'auto', or a factor such as '1.5'. */
+    setScale: (choice: string) => {
+      electron.ipcRenderer.send(SET_SCALE, choice);
+    },
+  },
   host: {
     /** Sends a request to the host; resolves with its result. */
     request: (method: string, params?: unknown): Promise<unknown> =>
