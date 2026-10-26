@@ -14,6 +14,8 @@ const TEXT = '#dfe1e5';
 export function windowOptions(
   platform: NodeJS.Platform,
   preload: string,
+  /** The page's zoom, if it's to be other than 1 (see display.ts). */
+  zoomFactor?: number,
 ): BrowserWindowConstructorOptions {
   return {
     width: 1440,
@@ -31,6 +33,7 @@ export function windowOptions(
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
+      ...(zoomFactor === undefined ? {} : { zoomFactor }),
     },
   };
 }
