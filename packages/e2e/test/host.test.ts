@@ -51,6 +51,18 @@ it('answers the page through the host it started', async () => {
   expect(pong).toEqual({ version: 1 });
 });
 
+it('lists actions in Search Everywhere before the Commit tool window has shown', async () => {
+  const page = running.page;
+  // Checking whether the Commit window's commands were enabled built its tree, inside the popup's
+  // computed list, which may not write: the list failed.
+  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click();
+  await page.keyboard.type('Dark Theme');
+  await expect
+    .poll(() => page.locator('.cerebro-popup-item__label').allTextContents())
+    .toContain('Dark Theme');
+  await page.keyboard.press('Escape');
+});
+
 it('shows the worktree’s files in the project tree, and opens one', async () => {
   const page = running.page;
   const names = () => page.locator('.cerebro-tree-row').allTextContents();
