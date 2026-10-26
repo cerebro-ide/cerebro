@@ -42,7 +42,8 @@ vi.mock('electron', () => ({
   BrowserWindow: electron.BrowserWindow,
 }));
 
-const { HOST_NOTIFICATION, HOST_REQUEST, installHost, startHost } = await import('../src/host.js');
+const { HOST_NOTIFICATION, HOST_REQUEST, Hosts, installHosts, startHost } =
+  await import('../src/host.js');
 
 /** A child process whose stdin the test reads and whose stdout it writes. */
 function fakeChild() {
@@ -108,44 +109,65 @@ describe('startHost', () => {
   });
 });
 
-describe('installHost', () => {
-  it('forwards the page’s requests, and stops the host when the app quits', async () => {
+/** A window as hosts see it, recording what its page was sent. */
+function fakeWindow(id: number) {
+  return { id, send: vi.fn() };
+}
+
+describe('Hosts', () => {
+  it('starts a host per window for its project, routing requests and notifications by window', async () => {
+    const one = fakeChild();
+    const hosts = new Hosts(one.spawn as never);
+    const window = fakeWindow(1);
+    hosts.attach(window, '/repo');
+    expect((one.spawn.mock.calls[0] as unknown as [string, string[], { cwd: string }])[2].cwd).toBe(
+      '/repo',
+    );
+    const next = one.sent();
+    const answer = hosts.request(1, 'git.worktrees', { repo: '/x' });
+    expect(await next).toMatchObject({ method: 'git.worktrees', params: { repo: '/x' } });
+    one.child.stdout.write('{"jsonrpc":"2.0","id":1,"result":[]}\n');
+    expect(await answer).toEqual([]);
+    one.child.stdout.write('{"jsonrpc":"2.0","method":"index.progress","params":{"done":1}}\n');
+    await vi.waitFor(() => {
+      expect(window.send).toHaveBeenCalledWith(HOST_NOTIFICATION, 'index.progress', { done: 1 });
+    });
+    expect(() => hosts.request(2, 'host.ping', undefined)).toThrow('no project open');
+  });
+
+  it('stops a window’s host when it gets another, when it closes, and all of them at the end', () => {
+    const first = fakeChild();
+    const hosts = new Hosts(first.spawn as never);
+    const window = fakeWindow(1);
+    hosts.attach(window, '/a');
+    const second = fakeChild();
+    first.spawn.mockImplementation(() => second.child);
+    hosts.attach(window, '/b');
+    expect(first.child.kill).toHaveBeenCalled();
+    hosts.detach(window);
+    expect(second.child.kill).toHaveBeenCalled();
+    hosts.detach(window);
+    const third = fakeChild();
+    first.spawn.mockImplementation(() => third.child);
+    hosts.attach(fakeWindow(2), '/c');
+    hosts.stopAll();
+    expect(third.child.kill).toHaveBeenCalled();
+  });
+});
+
+describe('installHosts', () => {
+  it('forwards a page’s requests to its window’s host, and stops the hosts when the app quits', async () => {
     const { child, spawn, sent } = fakeChild();
-    installHost('/repo', spawn as never);
+    const hosts = installHosts(spawn as never);
+    hosts.attach(fakeWindow(7), '/repo');
     const handle = electron.handlers.get(HOST_REQUEST) as Listener;
     const next = sent();
-    const answer = handle({}, 'git.worktrees', { repo: '/x' }) as Promise<unknown>;
-    expect(await next).toMatchObject({ method: 'git.worktrees', params: { repo: '/x' } });
-    child.stdout.write('{"jsonrpc":"2.0","id":1,"result":[]}\n');
-    expect(await answer).toEqual([]);
-    expect(() => handle({}, 5)).toThrow('needs a method name');
+    const answer = handle({ sender: { id: 7 } }, 'host.ping') as Promise<unknown>;
+    expect(await next).toMatchObject({ method: 'host.ping' });
+    child.stdout.write('{"jsonrpc":"2.0","id":1,"result":{"version":1}}\n');
+    expect(await answer).toEqual({ version: 1 });
+    expect(() => handle({ sender: { id: 7 } }, 5)).toThrow('needs a method name');
     (electron.appListeners.get('will-quit') as Listener)();
     expect(child.kill).toHaveBeenCalled();
-  });
-
-  it('passes the host’s progress notifications on to the windows', async () => {
-    const { child, spawn } = fakeChild();
-    installHost('/repo', spawn as never);
-    child.stdout.write('{"jsonrpc":"2.0","method":"index.progress","params":{"done":1}}\n');
-    await vi.waitFor(() => {
-      expect(electron.sent).toContainEqual([HOST_NOTIFICATION, 'index.progress', { done: 1 }]);
-    });
-  });
-
-  it('opens CEREBRO_REPO, else the folder the app started in', () => {
-    const first = fakeChild();
-    vi.stubEnv('CEREBRO_REPO', '/chosen');
-    installHost(undefined, first.spawn as never);
-    vi.unstubAllEnvs();
-    expect(
-      (first.spawn.mock.calls[0] as unknown as [string, string[], { cwd: string }])[2].cwd,
-    ).toBe('/chosen');
-    const second = fakeChild();
-    vi.stubEnv('CEREBRO_REPO', undefined);
-    installHost(undefined, second.spawn as never);
-    vi.unstubAllEnvs();
-    expect(
-      (second.spawn.mock.calls[0] as unknown as [string, string[], { cwd: string }])[2].cwd,
-    ).toBe(process.cwd());
   });
 });

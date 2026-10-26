@@ -2,7 +2,8 @@
 // since a chosen scale stays for the rest of the app's run.
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
@@ -10,7 +11,8 @@ import { launch, type Running } from './app.js';
 let running: Running;
 
 beforeAll(async () => {
-  running = await launch();
+  // A project, for the settings: the Welcome window has none.
+  running = await launch({ CEREBRO_REPO: mkdtempSync(join(tmpdir(), 'cerebro-e2e-display-')) });
 });
 
 afterAll(async () => {

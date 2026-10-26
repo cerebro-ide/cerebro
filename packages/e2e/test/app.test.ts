@@ -1,22 +1,34 @@
 // The desktop app end to end: the window, dialogs, popups, settings and shortcuts, as a user drives
 // them. These are the flows checked by hand while building them.
 
-import { mkdtempSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
 
 let running: Running;
+// The real path: on Windows, the temporary folder can come with an 8.3 short name.
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-app-')));
+const repo = join(root, 'project');
+/** A second worktree, on its own branch. */
+const other = join(root, 'project-agent');
 
 beforeAll(async () => {
-  // A folder that isn't a repository: the host can't list worktrees there, so the page keeps its
-  // sample worktrees, which these tests use.
-  running = await launch({ CEREBRO_REPO: mkdtempSync(join(tmpdir(), 'cerebro-e2e-empty-')) });
+  const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, stdio: 'pipe' });
+  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  mkdirSync(join(repo, 'src'));
+  writeFileSync(join(repo, 'src', 'layout.ts'), 'export const layout = {};\n');
+  git('add', '.');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+  git('worktree', 'add', '-q', '-b', 'feat/agent', other);
+  running = await launch({ CEREBRO_REPO: repo });
 });
 
 afterAll(async () => {
   await running.close();
+  rmSync(root, { recursive: true, force: true });
 });
 
 beforeEach(async () => {
@@ -31,6 +43,13 @@ const fontSize = () =>
     .locator('.cm-scroller')
     .first()
     .evaluate((code) => getComputedStyle(code).fontSize);
+/** Opens src/layout.ts with Go to File. */
+async function openLayout(): Promise<void> {
+  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.type('layout');
+  await page().locator('.cerebro-popup-item', { hasText: 'layout.ts' }).waitFor();
+  await page().keyboard.press('Enter');
+}
 const branch = () => page().locator('[aria-label^="Branch:"]').getAttribute('aria-label');
 
 describe('the window', () => {
@@ -146,9 +165,7 @@ describe('dialogs', () => {
 
 describe('popups', () => {
   it('goes to a file', async () => {
-    await page().keyboard.press('ControlOrMeta+Shift+N');
-    await page().keyboard.type('layout');
-    await page().keyboard.press('Enter');
+    await openLayout();
     // The status bar names the active file.
     expect(await page().locator('.cerebro-statusbar').textContent()).toContain('src/layout.ts');
   });
@@ -167,6 +184,7 @@ describe('popups', () => {
 
 describe('settings', () => {
   it('applies a worktree’s setting, saved across a reload, overriding the repository', async () => {
+    await openLayout();
     expect(await fontSize()).toBe('13px');
     await page().keyboard.press('ControlOrMeta+Alt+S');
     await page().locator('[data-page="editor/font"]').click();
@@ -230,14 +248,13 @@ describe('the layout', () => {
     await page().locator('.cerebro-stripe-button[data-id="project"]').click();
     await page().locator('.cerebro-stripe-button[data-id="git"]').click();
     await page().locator('[aria-label^="Environment:"]').click();
-    await page().locator('.cerebro-popup-item', { hasText: 'cerebro-agent-1' }).click();
-    await page().keyboard.press('ControlOrMeta+Shift+N');
-    await page().keyboard.type('layout');
-    await page().keyboard.press('Enter');
+    await page().locator('.cerebro-popup-item', { hasText: 'project-agent' }).click();
+    await openLayout();
     const before = await snapshot();
     expect(before.tools).not.toContain('project');
     expect(before.tools).toContain('git');
-    expect(before.envs).toEqual(['cerebro-status-bar', 'cerebro-agent-1']);
+    // Environments are known by their worktree's path, as git writes it.
+    expect(before.envs).toEqual([repo, other].map((p) => p.replaceAll('\\', '/')));
     expect(before.file).toContain('src/layout.ts');
     await page().reload();
     await page().waitForSelector('.cerebro-toolbar');

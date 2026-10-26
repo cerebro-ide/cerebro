@@ -28,6 +28,11 @@ function isRecent(value: unknown): value is RecentProject {
   );
 }
 
+/** A project's name: its folder's, or the path for a root. */
+export function projectName(path: string): string {
+  return basename(path) || path;
+}
+
 /** The projects opened recently, the latest first, and the ones open now, saved to a file. */
 export class ProjectStore {
   private recentList: RecentProject[] = [];
@@ -58,7 +63,7 @@ export class ProjectStore {
 
   /** A project was opened: first among the recent ones, and open. */
   opened(path: string): void {
-    const recent = { path, name: basename(path) || path, opened: this.now() };
+    const recent = { path, name: projectName(path), opened: this.now() };
     this.recentList = [recent, ...this.recentList.filter((r) => r.path !== path)].slice(
       0,
       MAX_RECENT,

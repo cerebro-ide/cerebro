@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { installMenu } from './menu.js';
-import { ProjectStore, ProjectWindows, type ProjectWindow } from './projects.js';
+import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
 import { WELCOME_SIZE, windowOptions } from './window.js';
 
 /** The built UI, relative to this file once compiled to dist/. */
@@ -129,9 +129,7 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
   };
   ipcMain.handle(PROJECT_CURRENT, (event) => {
     const path = windows.projectOf(event.sender.id);
-    return path === undefined
-      ? null
-      : { path, name: store.recent.find((r) => r.path === path)?.name ?? path };
+    return path === undefined ? null : { path, name: projectName(path) };
   });
   ipcMain.handle(PROJECT_RECENT, () =>
     store.recent.map((recent) => ({ ...recent, exists: isFolder(recent.path) })),
@@ -176,7 +174,8 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   forcedScale = installDisplayScale();
   installMenu();
   const hosts = installHosts();
-  const repo = process.env['CEREBRO_REPO'];
+  // Empty is unset: a test or a shell can clear it without removing it.
+  const repo = process.env['CEREBRO_REPO'] || undefined;
   let windows: ProjectWindows | undefined;
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

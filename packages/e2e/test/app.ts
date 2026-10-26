@@ -35,6 +35,9 @@ export interface Running {
   close(): Promise<void>;
 }
 
+/** What shows once a window is ready: the main toolbar, or the Welcome window. */
+const READY = '.cerebro-toolbar, .playground-welcome';
+
 async function start(
   data: string,
   env: Record<string, string>,
@@ -47,11 +50,14 @@ async function start(
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
-  await page.waitForSelector('.cerebro-toolbar');
+  await page.waitForSelector(READY);
   return { app, page };
 }
 
-/** Launches the app; `env` adds to its environment (such as CEREBRO_REPO, the repository to open). */
+/**
+ * Launches the app; `env` adds to its environment (such as CEREBRO_REPO, the repository to open).
+ * Without CEREBRO_REPO it opens the projects open when it last quit, else the Welcome window.
+ */
 export async function launch(env: Record<string, string> = {}): Promise<Running> {
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
@@ -69,7 +75,7 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
       });
       messages.length = 0;
       await running.page.reload();
-      await running.page.waitForSelector('.cerebro-toolbar');
+      await running.page.waitForSelector(READY);
     },
     async restart() {
       await stop(running.app);

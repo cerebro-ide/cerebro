@@ -154,8 +154,9 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
+// The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
-  seedFiles(env, tabOf);
+  if (!project) seedFiles(env, tabOf);
 });
 // The layout as it was left, else the defaults: one environment open.
 const persisted = {
@@ -219,7 +220,9 @@ status.add({
   icon: 'git',
   text: () => {
     const env = active();
-    return env ? `${env.name} · ${env.branch}` : 'No environment';
+    if (!env) return 'No environment';
+    // A folder without git has no branch.
+    return env.branch === '' ? env.name : `${env.name} · ${env.branch}`;
   },
   tooltip: () => 'Environment: worktree and branch (sample)',
 });
