@@ -4,6 +4,7 @@
 
 import { app, BrowserWindow, type WebContents } from 'electron';
 import { fileURLToPath } from 'node:url';
+import { installDisplayScale } from './display.js';
 import { installMenu } from './menu.js';
 import { windowOptions } from './window.js';
 
@@ -42,11 +43,14 @@ export async function createWindow(
 
 /**
  * Starts the app: a window when ready, another when re-activated without one (macOS), and on macOS
- * the application menu from the page. `userData` replaces the folder the app keeps its data in.
+ * the application menu from the page, at the display scale chosen. `userData` replaces the folder
+ * the app keeps its data in.
  */
 export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   // Somewhere else for the app's data, such as a throwaway folder for end-to-end tests.
   if (userData) app.setPath('userData', userData);
+  // Before the app is ready: Chromium fixes the scale when it starts.
+  installDisplayScale();
   installMenu();
   app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();

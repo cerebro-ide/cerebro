@@ -508,6 +508,23 @@ new UI.
   test: the policy is there, Electron's warning is gone, and opening the popups, dialogs and menus
   breaks no rule. Inline `style` strings set through JSX would break it (the JSX runtime sets those
   with `setAttribute`); none are used, and the e2e test would catch one.
+- **The display scale** (2026-10-26; Ido: the OS's scale by default, a setting to override it):
+  - **Measured under WSLg:** Electron saw a scale of 1 while Windows was at 150% (AppliedDPI 144),
+    so the app looked zoomed out. WSLg doesn't pass Windows' scale on.
+  - **Auto** leaves the scale to Electron natively. Under WSL (the kernel's version names
+    Microsoft) it reads Windows' `AppliedDPI` from the registry through `reg.exe` (0.1 s; PowerShell
+    took 2.6 s) and forces it, falling back to Electron's if that fails.
+  - **The setting** Appearance › Display scale is global only: Auto, or 100% to 300%.
+  - **Applied with Chromium's `--force-device-scale-factor`** before the app is ready. It isn't in
+    Electron's list of switches, but `appendSwitch` passes it to Chromium. Measured: device pixel
+    ratio and Electron's scale factor both 1.5, and the window controls overlay stays consistent,
+    since everything scales together. Chosen over the page's zoom factor, which would scale the
+    page but not the window controls drawn over it (a claim, from how zoom works; not measured).
+  - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
+    so. Until settings files exist, the page sends the choice to the main process, which keeps it
+    in `display.json` in its data folder.
+  - E2E tests: the default matches Windows' scale under WSL (Electron's elsewhere), and a chosen
+    125% applies after a restart. Both fail without the feature.
 - **Still to do:** packaging is milestone 3.
 
 ## Dialogs (2026-10-25)
