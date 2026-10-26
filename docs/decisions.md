@@ -879,6 +879,30 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## Agent status and resuming (2026-10-26)
+
+The POC's third step: each worktree's agent shows whether it's working, waiting for the user, or
+done, and its session resumes after the app restarts.
+
+- **From Claude Code's hooks,** given to `claude` with `--settings` when the host starts it as an
+  agent, so the user's own settings are untouched. Measured with `claude` 2.1.310: hooks passed
+  that way run, with the session's id in their input. `UserPromptSubmit` and `PostToolUse` mean
+  working, `Notification` waiting (a permission prompt, say), `Stop` done.
+- **A hook runs the host's own entry point** (`main.js hook <name>`, as Node in Electron), which
+  sends the hook's input over a local socket (a named pipe on Windows) to the host that started the
+  agent, with the agent's key from its environment. It never fails the agent: a host that's gone is
+  ignored. The command is for a POSIX shell; Windows isn't handled yet (nor is `claude` there).
+- **Shown** as a dot on the environment tabs (pulsing while working) and in the status bar for the
+  active worktree; clicking the status bar item opens the Claude tool window. Colours not measured.
+- **Resuming:** the session's id from the hooks is kept per worktree (in the page's storage), and
+  the agent starts with `--resume <id>`. If the agent exits with an error (its session gone, say),
+  the next start is a new session. Measured: after a restart, the conversation shows again.
+- **Terminals don't inherit Claude Code's session variables** (`CLAUDECODE`, `CLAUDE_CODE_SESSION_ID`
+  and the like), for an app started from a Claude Code session: with them, `claude` in a terminal
+  kept no transcript, so `--resume` found nothing (measured); without them, it resumed. Nor
+  `ELECTRON_RUN_AS_NODE`, which the host runs with.
+- **Tests:** the e2e test puts a pretend `claude` on the PATH that runs the hooks it was given.
+
 ## Changes and diffs (2026-10-26)
 
 The POC's second step: the worktree's changed files, each opening its diff in an editor tab.

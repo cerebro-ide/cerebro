@@ -24,6 +24,8 @@ export interface OpenOptions {
   /** The program to run, else the user's shell. */
   command?: string;
   args?: string[];
+  /** Added to the host's environment. */
+  env?: Record<string, string>;
   cols: number;
   rows: number;
 }
@@ -48,6 +50,27 @@ interface Terminal {
   pending: string;
   exitCode: number | undefined;
 }
+
+/**
+ * Variables of the process that started the app, not for its terminals: Electron's, which makes
+ * Electron run as Node, and a Claude Code session's (when the app was started from one), with which
+ * a `claude` in a terminal kept no transcript to resume (measured: with them, no session file;
+ * without, `--resume` found it).
+ */
+export const UNINHERITED = [
+  'ELECTRON_RUN_AS_NODE',
+  'CLAUDECODE',
+  'CLAUDE_PID',
+  'CLAUDE_EFFORT',
+  'CLAUDE_CODE_ENTRYPOINT',
+  'CLAUDE_CODE_EXECPATH',
+  'CLAUDE_CODE_SESSION_ID',
+  'CLAUDE_CODE_CHILD_SESSION',
+  'CLAUDE_CODE_SESSION_ATTENDED',
+  'CLAUDE_CODE_BRIDGE_SESSION_ID',
+  'CLAUDE_CODE_MESSAGING_SOCKET',
+  'CLAUDE_CODE_MESSAGING_TOKEN',
+] as const;
 
 /** The user's shell. */
 export function defaultShell(
@@ -79,7 +102,13 @@ export class Terminals {
       cwd: options.cwd,
       cols: options.cols,
       rows: options.rows,
-      env: { ...process.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+      env: {
+        ...process.env,
+        ...Object.fromEntries(UNINHERITED.map((name) => [name, undefined])),
+        TERM: 'xterm-256color',
+        COLORTERM: 'truecolor',
+        ...options.env,
+      },
     });
     const terminal: Terminal = {
       id: this.next++,

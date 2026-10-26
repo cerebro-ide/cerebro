@@ -153,6 +153,7 @@ describe('starting and drawing', () => {
     load.mockRestore();
     expect(host.backend.open.mock.calls[0]).not.toHaveProperty('0.command');
     expect(host.backend.open.mock.calls[0]).not.toHaveProperty('0.args');
+    expect(host.backend.open.mock.calls[0]).not.toHaveProperty('0.agent');
   });
 
   it('shows the running process’s recent output, and follows the element’s size', async () => {
@@ -575,6 +576,28 @@ describe('ending', () => {
     await userEvent.keyboard('y');
     expect(host.written()).toBe('y');
     expect(host.backend.close).not.toHaveBeenCalled();
+  });
+
+  it('runs an agent, its arguments read at each start, and says when it ends', async () => {
+    const onExit = vi.fn();
+    let run = 0;
+    const { host, view } = await started({
+      command: 'claude',
+      args: () => [`--run=${String(++run)}`],
+      agent: true,
+      onExit,
+    });
+    expect(host.backend.open.mock.calls[0]).toMatchObject([
+      { command: 'claude', args: ['--run=1'], agent: true },
+    ]);
+    host.exit(1, 2);
+    await shows(view, 'Process ended with code 2');
+    expect(onExit).toHaveBeenCalledWith(2);
+    view.focus();
+    await userEvent.keyboard('{Enter}');
+    await vi.waitFor(() => {
+      expect(host.backend.open.mock.calls[1]).toMatchObject([{ args: ['--run=2'] }]);
+    });
   });
 
   it('says so for a process that had already ended', async () => {

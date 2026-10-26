@@ -14,17 +14,31 @@ export {
   type Worktree,
 } from './git.js';
 export {
+  hookSettings,
+  HOOK_STATES,
+  listenForHooks,
+  parseHookInput,
+  sendHook,
+  socketPath,
+  type AgentState,
+  type AgentStatus,
+  type HookMessage,
+} from './agents.js';
+export {
+  defaultHookCommand,
   makeSpawnHelperExecutable,
   nodePty,
   PROTOCOL_VERSION,
   serve,
   serveOn,
+  shellWord,
   type HostOptions,
 } from './host.js';
 export {
   BUFFER_LIMIT,
   defaultShell,
   Terminals,
+  UNINHERITED,
   type Opened,
   type OpenOptions,
   type Pty,

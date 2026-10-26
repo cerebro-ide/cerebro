@@ -6,11 +6,15 @@ import { PassThrough } from 'node:stream';
 import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
+  defaultHookCommand,
+  hookSettings,
   makeSpawnHelperExecutable,
   nodePty,
   PROTOCOL_VERSION,
   serve,
+  sendHook,
   serveOn,
+  shellWord,
   type Git,
   type Pty,
 } from '../src/index.js';
@@ -263,6 +267,60 @@ describe('terminals', () => {
     // Ending the connection ends its terminals.
     stop();
     expect(pty.kill).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs an agent with Cerebro’s hooks, telling the UI its status', async () => {
+    const { pty } = fake();
+    const spawn = vi.fn(() => pty);
+    // eslint-disable-next-line prefer-const -- the two refer to each other
+    let host: Connection;
+    const ui = new Connection((line) => {
+      host.receive(line);
+    });
+    host = new Connection((line) => {
+      ui.receive(line);
+    });
+    const stop = serveOn(host, { repo: '/r', pty: spawn, hookCommand: 'hook-client' });
+    await ui.request('terminal.open', {
+      key: 'claude:/w',
+      cwd: '/w',
+      command: 'claude',
+      args: ['--resume', 's'],
+      agent: true,
+    });
+    const [, args, options] = spawn.mock.calls[0] as unknown as [
+      string,
+      string[],
+      { env: Record<string, string> },
+    ];
+    expect(args.slice(0, 2)).toEqual(['--settings', hookSettings('hook-client')]);
+    expect(args.slice(2)).toEqual(['--resume', 's']);
+    expect(options.env['CEREBRO_AGENT_KEY']).toBe('claude:/w');
+    const statuses = vi.fn();
+    ui.onNotification('agent.status', statuses);
+    await sendHook(options.env['CEREBRO_HOOK_SOCKET'] as string, {
+      key: 'claude:/w',
+      event: 'Notification',
+      input: { session_id: 's' },
+    });
+    await vi.waitFor(() => {
+      expect(statuses).toHaveBeenCalledWith({ key: 'claude:/w', state: 'waiting', sessionId: 's' });
+    });
+    // An agent without arguments of its own.
+    await ui.request('terminal.open', { key: 'claude:/v', cwd: '/v', agent: true });
+    expect((spawn.mock.calls[1] as unknown as [string, string[]])[1]).toHaveLength(2);
+    stop();
+  });
+
+  it('runs hooks with this host’s entry, as Node, quoted for the shell', () => {
+    expect(defaultHookCommand('/opt/My App/electron', "/it's/main.js")).toBe(
+      `ELECTRON_RUN_AS_NODE=1 '/opt/My App/electron' '/it'\\''s/main.js' hook`,
+    );
+    expect(defaultHookCommand()).toContain(shellWord(process.execPath));
+    const argv = process.argv;
+    process.argv = [argv[0] as string];
+    expect(defaultHookCommand('/node')).toBe(`ELECTRON_RUN_AS_NODE=1 '/node' '' hook`);
+    process.argv = argv;
   });
 
   it('refuses requests without an id', async () => {

@@ -18,6 +18,8 @@ export interface TerminalBackend {
     cwd: string;
     command?: string;
     args?: string[];
+    /** An agent: the host runs it with its hooks, to hear its status. */
+    agent?: boolean;
     cols: number;
     rows: number;
   }): Promise<{ id: number; buffer: string; exitCode?: number }>;
@@ -35,7 +37,12 @@ export interface TerminalOptions {
   cwd: string;
   /** The program to run, else the user's shell. */
   command?: string;
-  args?: string[];
+  /** Read each time the process starts: they may change between runs. */
+  args?: string[] | (() => string[]);
+  /** An agent (Claude Code), which the host runs with its hooks. */
+  agent?: boolean;
+  /** The process ended. */
+  onExit?: (exitCode: number) => void;
   /** Default: 13. */
   fontSize?: number;
   /** Lines kept above the screen. Default: 10,000. */
@@ -324,12 +331,14 @@ export class TerminalView {
   private async start(): Promise<void> {
     this.starting = true;
     this.exited = false;
-    const { key, cwd, command, args } = this.options;
+    const { key, cwd, command, agent } = this.options;
+    const args = typeof this.options.args === 'function' ? this.options.args() : this.options.args;
     const opened = await this.backend.open({
       key,
       cwd,
       ...(command === undefined ? {} : { command }),
       ...(args === undefined ? {} : { args }),
+      ...(agent === true ? { agent } : {}),
       cols: this.terminal.cols,
       rows: this.terminal.rows,
     });
@@ -370,6 +379,7 @@ export class TerminalView {
 
   private ended(exitCode: number): void {
     this.exited = true;
+    this.options.onExit?.(exitCode);
     this.terminal.write(
       `\r\n\x1b[2mProcess ended with code ${String(exitCode)}. Press Enter to start it again.\x1b[0m\r\n`,
     );

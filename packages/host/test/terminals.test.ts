@@ -59,6 +59,18 @@ describe('terminals', () => {
     expect(spawn).toHaveBeenLastCalledWith('claude', ['--continue'], expect.anything());
   });
 
+  it('adds to the host’s environment, without Electron’s or a Claude Code session’s', () => {
+    vi.stubEnv('ELECTRON_RUN_AS_NODE', '1');
+    vi.stubEnv('CLAUDECODE', '1');
+    const { terminals, spawn } = setup();
+    terminals.open({ ...open, env: { EXTRA: 'yes' } });
+    vi.unstubAllEnvs();
+    const env = (spawn.mock.calls[0] as unknown as [string, string[], { env: object }])[2].env;
+    expect(env).toMatchObject({ EXTRA: 'yes', COLORTERM: 'truecolor' });
+    expect(env).toHaveProperty('ELECTRON_RUN_AS_NODE', undefined);
+    expect(env).toHaveProperty('CLAUDECODE', undefined);
+  });
+
   it('sends output in batches, and the exit after the last of it', () => {
     vi.useFakeTimers();
     const { terminals, notify, ptys } = setup();
