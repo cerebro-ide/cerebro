@@ -30,6 +30,8 @@ it in the real app), `/decision` (record a decision).
 - Until code review starts, a PR may bundle several commits: no need for a PR per commit.
 - Exception: a change that touches only Markdown files may be committed and pushed straight to
   `main`. PRs are mostly for CI, and Markdown files don't go through CI.
+- Work to do is tracked in `docs/backlog.md`, not GitHub issues: issues are only for other people
+  reporting problems (Ido, 2026-10-26).
 - No "Generated with Claude" footers or `Co-Authored-By` trailers in commits, PRs or issues.
 - Proof is a measurement or official documentation; anything else is labelled as a claim.
 - Every bug fix comes with a test that fails without the fix, so the bug can't come back unnoticed.
