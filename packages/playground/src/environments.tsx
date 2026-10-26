@@ -1,5 +1,6 @@
-// Sample worktrees and branches for the toolbar's selectors and the environment tabs, until the host
-// can list real ones. Opening a worktree makes it an environment tab, with its own editor area.
+// Worktrees and branches for the toolbar's selectors and the environment tabs: a repository's real
+// ones from the host in the desktop app, which also creates and removes worktrees; samples in a
+// browser. Opening a worktree makes it an environment tab, with its own editor area.
 
 import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import {
@@ -8,8 +9,8 @@ import {
   type EnvironmentSpec,
   type Tab,
 } from '@cerebro-ide/layout';
-import { signal } from '@cerebro-ide/reactive';
-import { prompt } from '@cerebro-ide/ui-dialog';
+import { signal, type Disposable } from '@cerebro-ide/reactive';
+import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { icon } from './icons.js';
 
@@ -24,24 +25,45 @@ const branches = signal(['main', 'feat/status-bar', 'feat/agent-sessions', 'fix/
 export interface HostWorktree {
   path: string;
   branch: string | undefined;
+  main: boolean;
   bare: boolean;
 }
 
+/** The host, in the desktop app. */
+export interface Host {
+  request(method: string, params?: unknown): Promise<unknown>;
+}
+
+let host: Host | undefined;
+/** The repository's main worktree, which can't be removed. */
+let mainWorktree: string | undefined;
+
+/** A worktree as an environment: known by its path, named after its folder. */
+function toSpec(w: HostWorktree): EnvironmentSpec {
+  return {
+    id: w.path,
+    name: w.path.split(/[\\/]/).at(-1) ?? w.path,
+    branch: w.branch ?? 'detached',
+  };
+}
+
 /**
- * Uses a repository's real worktrees instead of the samples, and their branches; call before
- * `setupEnvironments`. Each is known by its path, and named after its folder.
+ * Uses a repository's real worktrees instead of the samples, and their branches, with the host
+ * that listed them for creating and removing others; call before `setupEnvironments`.
  */
-export function useWorktrees(list: readonly HostWorktree[]): void {
-  const specs = list
-    .filter((w) => !w.bare)
-    .map((w) => ({
-      id: w.path,
-      name: w.path.split(/[\\/]/).at(-1) ?? w.path,
-      branch: w.branch ?? 'detached',
-    }));
-  if (specs.length === 0) return;
+export function useWorktrees(list: readonly HostWorktree[], from?: Host): void {
+  const real = list.filter((w) => !w.bare);
+  if (real.length === 0) return;
+  host = from;
+  mainWorktree = real.find((w) => w.main)?.path;
+  const specs = real.map(toSpec);
   worktrees.set(specs);
   branches.set([...new Set(specs.map((s) => s.branch).filter((b) => b !== 'detached'))]);
+}
+
+/** Shows why something failed, in a dialog. */
+function showError(title: string, message: string): void {
+  openDialog({ title, content: () => <p class="cerebro-selectable">{message}</p> });
 }
 
 /** The worktree opened when nothing else is: the sample with files, or a repository's main one. */
@@ -78,8 +100,10 @@ export function setupEnvironments(
     const env = workspace.openOrActivate(spec);
     if (isNew) seed(env);
   };
+  /** Each worktree's command and menu item, to remove with the worktree. */
+  const registered = new Map<string, Disposable[]>();
   const addWorktree = (spec: EnvironmentSpec) => {
-    commands.register({
+    const command = commands.register({
       id: `env.open.${spec.id}`,
       label: literal(spec.name),
       checked: () => workspace.activeId === spec.id,
@@ -87,11 +111,31 @@ export function setupEnvironments(
         open(spec.id);
       },
     });
-    menus.contribute({
+    const item = menus.contribute({
       menu: 'toolbar/environments',
       item: { command: `env.open.${spec.id}` },
       group: 'a',
     });
+    registered.set(spec.id, [command, item]);
+  };
+  /** Takes the host's worktrees after a change: new ones are added, gone ones dropped. */
+  const sync = (list: readonly HostWorktree[]) => {
+    const specs = list.filter((w) => !w.bare).map(toSpec);
+    for (const spec of specs) if (!registered.has(spec.id)) addWorktree(spec);
+    for (const [id, disposables] of registered) {
+      if (specs.some((s) => s.id === id)) continue;
+      workspace.close(id);
+      for (const d of disposables) d.dispose();
+      registered.delete(id);
+    }
+    worktrees.set(specs);
+    for (const spec of specs) {
+      if (spec.branch !== 'detached' && !branches.get().includes(spec.branch)) {
+        branches.set([...branches.get(), spec.branch]);
+        addBranch(spec.branch);
+      }
+    }
+    return specs;
   };
   const addBranch = (branch: string) => {
     commands.register({
@@ -123,9 +167,30 @@ export function setupEnvironments(
         label: 'Name:',
         ok: 'Create',
         validate: (text) =>
-          worktrees.get().some((w) => w.id === text) ? `Worktree ${text} exists` : undefined,
+          worktrees.get().some((w) => w.name === text)
+            ? `Worktree ${text} exists`
+            : /^[\w.-]+$/.test(text)
+              ? undefined
+              : 'Letters, digits, dots, dashes and underscores only',
       });
       if (name === undefined) return;
+      if (host && mainWorktree !== undefined) {
+        // Beside the main worktree, on a new branch of the same name, from the active one's branch.
+        const path = `${mainWorktree.slice(0, mainWorktree.search(/[\\/][^\\/]*$/))}/${name}`;
+        try {
+          const list = (await host.request('git.addWorktree', {
+            path,
+            branch: name,
+            create: true,
+            from: workspace.active?.branch,
+          })) as HostWorktree[];
+          const created = sync(list).find((s) => s.name === name);
+          if (created) open(created.id);
+        } catch (error) {
+          showError('Couldn’t Create the Worktree', (error as Error).message);
+        }
+        return;
+      }
       const spec = { id: name, name, branch: workspace.active?.branch ?? 'main' };
       worktrees.set([...worktrees.get(), spec]);
       addWorktree(spec);
@@ -170,8 +235,51 @@ export function setupEnvironments(
       for (const other of workspace.open) if (other.id !== env.id) workspace.close(other.id);
     },
   });
+  commands.register<Environment>({
+    id: 'env.remove',
+    label: '&Remove Worktree',
+    dialog: true,
+    // Only real worktrees, and never the repository's main one.
+    enabled: (env?: Environment) =>
+      host !== undefined && env !== undefined && env.id !== mainWorktree,
+    run: async (env) => {
+      const remove = async (force: boolean) =>
+        (await host?.request('git.removeWorktree', { path: env.id, force })) as HostWorktree[];
+      const confirmed = await openDialog<true>({
+        title: 'Remove Worktree',
+        ok: { label: 'Remove', accept: () => true },
+        content: () => (
+          <p>
+            Remove {env.name} and delete its folder? Its branch, {env.branch}, stays.
+          </p>
+        ),
+      }).result;
+      if (!confirmed) return;
+      try {
+        sync(await remove(false));
+      } catch (error) {
+        const message = (error as Error).message;
+        if (!/modified or untracked/.test(message)) {
+          showError('Couldn’t Remove the Worktree', message);
+          return;
+        }
+        const anyway = await openDialog<true>({
+          title: 'Remove Worktree',
+          ok: { label: 'Remove Anyway', accept: () => true },
+          content: () => <p>{env.name} has uncommitted changes, which would be lost.</p>,
+        }).result;
+        if (!anyway) return;
+        try {
+          sync(await remove(true));
+        } catch (forced) {
+          showError('Couldn’t Remove the Worktree', (forced as Error).message);
+        }
+      }
+    },
+  });
   menus.contribute({ menu: 'env/tab', item: { command: 'env.close' } });
   menus.contribute({ menu: 'env/tab', item: { command: 'env.closeOthers' } });
+  menus.contribute({ menu: 'env/tab', item: { command: 'env.remove' }, group: 'z' });
 
   type Choice = PickerItem & { run: () => void };
   const command = (id: string, label: string): Choice => ({

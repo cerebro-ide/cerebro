@@ -1,7 +1,7 @@
 // The host's methods, on a connection to the UI.
 
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
-import { git as runGit, listWorktrees, type Git } from './git.js';
+import { addWorktree, git as runGit, listWorktrees, removeWorktree, type Git } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
 export const PROTOCOL_VERSION = 1;
@@ -16,13 +16,43 @@ export interface HostOptions {
 export function serveOn(connection: Connection, options: HostOptions): void {
   const git = options.git ?? runGit;
   connection.onRequest('host.ping', () => ({ version: PROTOCOL_VERSION }));
-  connection.onRequest('git.worktrees', async (params) => {
+  /** The repository a request names, else the host's own. */
+  const repoOf = (params: unknown): string => {
     const repo = (params as { repo?: unknown } | null)?.repo ?? options.repo;
     if (typeof repo !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'repo must be a path');
     }
-    return listWorktrees(repo, git);
+    return repo;
+  };
+  const text = (params: unknown, key: string): string => {
+    const value = (params as Record<string, unknown> | null)?.[key];
+    if (typeof value !== 'string' || value === '') {
+      throw new ResponseError(ErrorCodes.InvalidParams, `${key} must be a non-empty string`);
+    }
+    return value;
+  };
+  connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
+  connection.onRequest('git.addWorktree', (params) => {
+    const p = params as { create?: unknown; from?: unknown } | null;
+    return addWorktree(
+      repoOf(params),
+      {
+        path: text(params, 'path'),
+        branch: text(params, 'branch'),
+        create: p?.create === true,
+        ...(typeof p?.from === 'string' ? { from: p.from } : {}),
+      },
+      git,
+    );
   });
+  connection.onRequest('git.removeWorktree', (params) =>
+    removeWorktree(
+      repoOf(params),
+      text(params, 'path'),
+      (params as { force?: unknown }).force === true,
+      git,
+    ),
+  );
 }
 
 /** Serves the host over a pair of streams, as the UI's child process does over stdio. */

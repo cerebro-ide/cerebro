@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { git, listWorktrees, parseWorktrees } from '../src/index.js';
+import { addWorktree, git, listWorktrees, parseWorktrees, removeWorktree } from '../src/index.js';
 
 describe('parseWorktrees', () => {
   it('reads each worktree: path, commit, branch, and which is the main one', () => {
@@ -61,6 +61,33 @@ describe('with real git', () => {
         [join(root, 'feature'), 'feature', false],
       ]);
     }
+  });
+
+  it('adds worktrees, on a new branch or an existing one, and removes them', async () => {
+    const created = await addWorktree(repo, {
+      path: join(root, 'fix'),
+      branch: 'fix/one',
+      create: true,
+      from: 'main',
+    });
+    expect(created.map((w) => w.branch)).toEqual(['main', 'feature', 'fix/one']);
+    run(repo, 'branch', 'spare');
+    const existing = await addWorktree(repo, { path: join(root, 'spare'), branch: 'spare' });
+    expect(existing.at(-1)).toMatchObject({ path: join(root, 'spare'), branch: 'spare' });
+    const afterRemove = await removeWorktree(repo, join(root, 'spare'));
+    expect(afterRemove.map((w) => w.branch)).toEqual(['main', 'feature', 'fix/one']);
+    await addWorktree(repo, { path: join(root, 'head'), branch: 'from-head', create: true });
+    await removeWorktree(repo, join(root, 'head'));
+  });
+
+  it('refuses to remove a worktree with changes unless forced, and the main one', async () => {
+    const path = join(root, 'dirty');
+    await addWorktree(repo, { path, branch: 'dirty', create: true });
+    writeFileSync(join(path, 'a.txt'), 'changed');
+    await expect(removeWorktree(repo, path)).rejects.toThrow(/modified or untracked/);
+    const after = await removeWorktree(repo, path, true);
+    expect(after.some((w) => w.path === path)).toBe(false);
+    await expect(removeWorktree(repo, repo, true)).rejects.toThrow(/main working tree/);
   });
 
   it('fails with git’s message outside a repository, or without git’s own message', async () => {

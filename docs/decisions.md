@@ -626,6 +626,26 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## Creating and removing worktrees (2026-10-26)
+
+Milestone 2's first item: the worktree list, from `git worktree list`, with create and remove.
+Choices of Claude's, open to change:
+
+- **The host** adds `git.addWorktree` (a path and a branch, new from a starting point or existing)
+  and `git.removeWorktree` (a path; `force` for one with changes). Each answers with the
+  worktrees after. Git's own rules hold: a worktree with changes isn't removed unless forced, and
+  the main one never is.
+- **New Worktree** asks for a name (letters, digits, dots, dashes, underscores) and creates the
+  worktree beside the main one (`<main's parent>/<name>`), on a new branch of the same name, from
+  the active environment's branch, then opens it. IntelliJ asks for the path and branch
+  separately; a fuller dialog can come later.
+- **Remove Worktree…** is on an environment tab's context menu, disabled for the main worktree. It
+  asks first, saying the folder is deleted and the branch stays. If git refuses because of
+  changes, a second dialog offers Remove Anyway. Failures show git's message in a dialog.
+- E2E tests against a throwaway repository: create, remove, remove with changes (forced), and
+  remove offered for a linked worktree but not the main one. Creating and removing fail without
+  the host.
+
 ## The protocol and the host (2026-10-26)
 
 Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local child process

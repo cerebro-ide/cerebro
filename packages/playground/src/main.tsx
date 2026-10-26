@@ -66,7 +66,10 @@ if (window.cerebro?.app) {
 // if it fails), the samples stay.
 if (window.cerebro?.host) {
   try {
-    useWorktrees((await window.cerebro.host.request('git.worktrees')) as HostWorktree[]);
+    useWorktrees(
+      (await window.cerebro.host.request('git.worktrees')) as HostWorktree[],
+      window.cerebro.host,
+    );
   } catch (error) {
     console.error('The host could not list worktrees', error);
   }

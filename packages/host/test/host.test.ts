@@ -46,6 +46,41 @@ describe('the host’s methods', () => {
   });
 });
 
+describe('adding and removing worktrees', () => {
+  it('runs git with what the request says, answering with the worktrees after', async () => {
+    const { ui, git } = connect();
+    expect(
+      await ui.request('git.addWorktree', {
+        path: '/w',
+        branch: 'feat/x',
+        create: true,
+        from: 'main',
+      }),
+    ).toHaveLength(1);
+    expect(git).toHaveBeenCalledWith('/default', ['worktree', 'add', '-b', 'feat/x', '/w', 'main']);
+    await ui.request('git.addWorktree', { path: '/w2', branch: 'old', repo: '/r' });
+    expect(git).toHaveBeenCalledWith('/r', ['worktree', 'add', '/w2', 'old']);
+    await ui.request('git.removeWorktree', { path: '/w', force: true });
+    expect(git).toHaveBeenCalledWith('/default', ['worktree', 'remove', '--force', '/w']);
+    await ui.request('git.removeWorktree', { path: '/w2' });
+    expect(git).toHaveBeenCalledWith('/default', ['worktree', 'remove', '/w2']);
+  });
+
+  it('refuses requests without a path or branch', async () => {
+    const { ui } = connect();
+    for (const [method, params] of [
+      ['git.addWorktree', { branch: 'b' }],
+      ['git.addWorktree', { path: '/w', branch: '' }],
+      ['git.addWorktree', null],
+      ['git.removeWorktree', { path: 3 }],
+    ] as const) {
+      await expect(ui.request(method, params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+});
+
 describe('serve', () => {
   it('speaks one message per line over streams, and closes when the input ends', async () => {
     const input = new PassThrough();
