@@ -247,6 +247,23 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
   });
 
+  it('reveals a position without taking the focus, when asked', async () => {
+    const field = document.createElement('input');
+    document.body.append(field);
+    field.focus();
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({
+      path: 'a.txt',
+      text,
+      reveal: () => ({ line: 200, column: 0 }),
+      revealFocus: false,
+    });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 200');
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
   it('draws the selection in the theme’s colour, focused or not', async () => {
     const root = mount({ path: 'a.txt', text: 'selected text' });
     const expected = getComputedStyle(document.documentElement)

@@ -384,3 +384,46 @@ body,
   background: var(--cerebro-hover);
   color: var(--cerebro-text);
 }
+
+/* Find in Files: its title and count over the field, the options beside it, and the code below. */
+.playground-find__title {
+  font-weight: 600;
+}
+
+.playground-find__count {
+  color: var(--cerebro-text-muted);
+}
+
+.playground-find__error {
+  color: var(--cerebro-error);
+}
+
+.playground-find__option {
+  min-width: 24px;
+  height: 22px;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-icon);
+  font-family: var(--cerebro-font-mono);
+  font-size: 12px;
+}
+
+.playground-find__option:hover {
+  background: var(--cerebro-hover);
+}
+
+.playground-find__option[aria-pressed='true'] {
+  border-color: var(--cerebro-accent);
+  background: var(--cerebro-selected);
+  color: var(--cerebro-text);
+}
+
+.playground-find__preview {
+  height: 100%;
+}
+
+.playground-find__preview .cerebro-editor-code {
+  height: 100%;
+}

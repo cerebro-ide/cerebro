@@ -41,6 +41,8 @@ export interface CodeEditorProps {
   tabSize?: () => number;
   /** A position to show and select: where a definition is. Read reactively; zero-based. */
   reveal?: () => { line: number; column: number } | undefined;
+  /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
+  revealFocus?: boolean;
   /** Go to definition of the word at the cursor: Mod+B or Mod+click, as in IntelliJ. */
   onGoToDefinition?: (word: string) => void;
   /** Find usages of the word at the cursor: Alt+F7, as in IntelliJ. */
@@ -250,7 +252,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         selection: { anchor: pos },
         effects: EditorView.scrollIntoView(pos, { y: 'center' }),
       });
-      view.focus();
+      if (props.revealFocus !== false) view.focus();
     });
     return undefined;
   });

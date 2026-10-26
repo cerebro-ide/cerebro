@@ -49,6 +49,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { documentFor, saveAll, setupSaving } from './documents.js';
+import { findInFiles } from './find.js';
 import { currentProject, setupProjects } from './projects.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
@@ -156,6 +157,21 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
+// Find in Files, through the host: Edit → Find → Find in Files, as IntelliJ's.
+services.commands.register({
+  id: 'find.inFiles',
+  label: 'Find in &Files…',
+  dialog: true,
+  enabled: navigation.available,
+  run: () => findInFiles(navigation.openAt),
+});
+services.keymap?.bindDefault('Mod+Shift+F', 'find.inFiles');
+services.menus.contribute({
+  menu: 'main/edit',
+  item: { submenu: 'main/edit/find', label: '&Find' },
+  group: 'f',
+});
+services.menus.contribute({ menu: 'main/edit/find', item: { command: 'find.inFiles' } });
 // Saving, as IntelliJ's: Save All, and on its own when the window loses the focus or closes (the
 // app asks, through cerebroSaveAll, before it closes or reloads the window).
 const reportSaving = (error: unknown) => {
