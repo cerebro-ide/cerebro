@@ -234,7 +234,7 @@ export class TerminalView {
       this.terminal.resize(cols, rows);
       if (this.id !== undefined && !this.exited) this.backend.resize(this.id, cols, rows);
     }
-    if (this.id === undefined && !this.starting) void this.start();
+    if (this.id === undefined && !this.starting && !this.exited) this.begin();
     this.schedule();
   }
 
@@ -308,6 +308,19 @@ export class TerminalView {
 
   // The process
 
+  /** Starts the process; if the host can't, says why, and Enter tries again. */
+  private begin(): void {
+    this.start().catch((error: unknown) => {
+      this.starting = false;
+      this.exited = true;
+      this.queued = '';
+      const message = error instanceof Error ? error.message : String(error);
+      this.terminal.write(
+        `\x1b[2mCouldn’t start: ${message}\r\nPress Enter to try again.\x1b[0m\r\n`,
+      );
+    });
+  }
+
   private async start(): Promise<void> {
     this.starting = true;
     this.exited = false;
@@ -335,12 +348,12 @@ export class TerminalView {
     if (this.exited) {
       // Enter starts it again.
       if (data === '\r') {
-        this.backend.close(this.id as number);
+        if (this.id !== undefined) this.backend.close(this.id);
         this.id = undefined;
         this.terminal.reset();
         this.cursorVisible = true;
         this.sgrMouse = false;
-        void this.start();
+        this.begin();
       }
       return;
     }

@@ -278,10 +278,13 @@ it('runs a shell in the Terminal tool window', async () => {
   await terminal.locator('.cerebro-terminal__viewport').click();
   await page.keyboard.type('echo cerebro-ok');
   await page.keyboard.press('Enter');
-  // The output's own line, apart from the typed command.
-  await page.waitForFunction(() =>
-    [...document.querySelectorAll('.cerebro-terminal__row')].some(
-      (row) => row.textContent.trim() === 'cerebro-ok',
-    ),
-  );
+  // The output's own line, apart from the typed command. On failure: what the terminal shows, and
+  // what the page logged.
+  const rows = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('.cerebro-terminal__row')].map((row) => row.textContent.trim()),
+    );
+  await expect
+    .poll(rows, { message: `page console: ${JSON.stringify(running.messages)}`, timeout: 5000 })
+    .toContain('cerebro-ok');
 });

@@ -553,6 +553,30 @@ describe('ending', () => {
     expect(host.backend.resize).not.toHaveBeenCalled();
   });
 
+  it('says why the host couldn’t start it, and tries again on Enter', async () => {
+    const host = fakeBackend();
+    host.backend.open
+      .mockRejectedValueOnce(new Error('posix_spawnp failed'))
+      .mockRejectedValueOnce('no reason');
+    const view = mount(host.backend);
+    await shows(view, 'Couldn’t start: posix_spawnp failed');
+    view.focus();
+    await userEvent.keyboard('x{Enter}');
+    await shows(view, 'Couldn’t start: no reason');
+    // A resize doesn't try again; Enter does.
+    view.element.style.width = '400px';
+    await settle();
+    expect(host.backend.open).toHaveBeenCalledTimes(2);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitFor(() => {
+      expect(host.backend.open).toHaveBeenCalledTimes(3);
+    });
+    await Promise.resolve();
+    await userEvent.keyboard('y');
+    expect(host.written()).toBe('y');
+    expect(host.backend.close).not.toHaveBeenCalled();
+  });
+
   it('says so for a process that had already ended', async () => {
     const { view } = await started({}, { buffer: 'done', exitCode: 0 });
     await shows(view, 'Process ended with code 0');
