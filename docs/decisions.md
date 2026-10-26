@@ -680,6 +680,32 @@ Ido: the layout should keep its state and stay consistent between runs; a reload
   data. An e2e test rearranges the window (a tool window closed, another opened, another
   environment, a file opened), reloads, and finds the same layout; it fails without saving.
 
+## The project tree (2026-10-26)
+
+Milestone 2's project tree: a virtualised tree on observable collections. Choices of Claude's, open
+to change:
+
+- **`ui-tree`:** a model (expanded nodes, children loaded lazily the first time a folder opens,
+  the visible rows, the selection) apart from the view, so it's tested without the DOM. Children
+  come from a source, synchronously or not. A failed load keeps its error, and reloading retries.
+- **Virtualised:** fixed-height rows (24 px); only the rows in view, plus 8 either side, are in the
+  DOM, in a spacer as tall as all the rows. Measured in the tests: 10,003 rows draw 28 elements,
+  36 after scrolling to the middle.
+- **Keyboard as IntelliJ's project tree:** Up and Down, Home and End, Page Up and Page Down (a
+  screen less one row), Right expands or steps in, Left collapses or steps out, Enter opens a file
+  or toggles a folder. Click selects, double click opens or toggles, the arrow toggles. Collapsing a
+  folder moves a selection inside it to the folder, as IntelliJ does.
+- **The host lists a folder** (`fs.list`): folders first, then files, by name ignoring case;
+  `.git` isn't listed. Ignored files show for now; marking them is for later.
+- **The Project tool window** shows the active environment's tree, one per environment so each keeps
+  its open folders. Files come from the host in the app, and from the sample paths in a browser.
+  Opening a file opens a tab named after it, known by its path; its contents are still the sample
+  text until the editor reads files.
+- **Tests:** the model (with a randomized test: the selection always shows, rows only under open
+  folders), the view (virtualisation, keys, mouse, real input), the host listing a real folder, and
+  e2e: a throwaway repository's tree, a folder opened, a file opened. Fails without the host's
+  files.
+
 ## Creating and removing worktrees (2026-10-26)
 
 Milestone 2's first item: the worktree list, from `git worktree list`, with create and remove.

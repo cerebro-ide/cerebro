@@ -1,7 +1,7 @@
 // The host end to end: the app starts it for a repository, and the page shows what it reports.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -20,6 +20,8 @@ beforeAll(async () => {
   const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' });
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   writeFileSync(join(repo, 'README.md'), '# project');
+  mkdirSync(join(repo, 'src'));
+  writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
   git(repo, 'add', '.');
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
@@ -38,6 +40,25 @@ it('answers the page through the host it started', async () => {
     ).cerebro.host.request('host.ping'),
   );
   expect(pong).toEqual({ version: 1 });
+});
+
+it('shows the worktree’s files in the project tree, and opens one', async () => {
+  const page = running.page;
+  const names = () => page.locator('.cerebro-tree-row').allTextContents();
+  await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
+  // Folders first; git's own folder isn't shown.
+  expect(await names()).toEqual(['src', 'README.md']);
+  // Forced, as in app.test.ts: in CI under xvfb this click waited forever for the arrow to be
+  // "stable" (not reproduced locally, even under xvfb).
+  await page
+    .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
+    .click({ force: true });
+  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
+  expect(await names()).toEqual(['src', 'app.ts', 'README.md']);
+  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
+  expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
+    gitPath(repo, 'src', 'app.ts'),
+  );
 });
 
 it('lists the repository’s real worktrees, opening the main one', async () => {

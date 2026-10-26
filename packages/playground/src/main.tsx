@@ -24,6 +24,8 @@ import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
+import '@cerebro-ide/ui-tree/styles.css';
+import { ProjectTree } from './project.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
@@ -266,18 +268,7 @@ function Files() {
       <button type="button" class="playground-button" on:click={toggleTheme}>
         Toggle dark / light
       </button>
-      <ul class="playground-list">
-        {FILES.map((path) => (
-          <li
-            class="playground-file"
-            on:click={() => {
-              editor()?.open(tabOf(path));
-            }}
-          >
-            {path}
-          </li>
-        ))}
-      </ul>
+      <ProjectTree samples={FILES} open={(tab) => editor()?.open(tab)} />
     </div>
   );
 }

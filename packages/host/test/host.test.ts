@@ -81,6 +81,19 @@ describe('adding and removing worktrees', () => {
   });
 });
 
+describe('files', () => {
+  it('lists a folder', async () => {
+    const { ui } = connect();
+    const entries = (await ui.request('fs.list', { path: import.meta.dirname })) as {
+      name: string;
+    }[];
+    expect(entries.map((e) => e.name)).toContain('host.test.ts');
+    await expect(ui.request('fs.list', {})).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+});
+
 describe('serve', () => {
   it('speaks one message per line over streams, and closes when the input ends', async () => {
     const input = new PassThrough();

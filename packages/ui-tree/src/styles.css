@@ -1,0 +1,80 @@
+/* Trees. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-tree {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.cerebro-tree:focus {
+  outline: none;
+}
+
+.cerebro-tree__spacer {
+  position: relative;
+  min-width: 100%;
+}
+
+.cerebro-tree-row {
+  position: absolute;
+  right: 0;
+  left: 0;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  gap: 2px;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.cerebro-tree-row--selected {
+  background: var(--cerebro-selected);
+}
+
+.cerebro-tree:focus .cerebro-tree-row--selected {
+  background: var(--cerebro-menu-highlight);
+}
+
+.cerebro-tree-row__arrow {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-tree-row__arrow svg {
+  transition: transform 0.1s;
+}
+
+.cerebro-tree-row__arrow--open svg {
+  transform: rotate(90deg);
+}
+
+.cerebro-tree-row__arrow--none {
+  visibility: hidden;
+}
+
+.cerebro-tree-row__content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.cerebro-tree-row__note {
+  padding-left: 8px;
+  color: var(--cerebro-text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cerebro-tree-row__arrow svg {
+    transition: none;
+  }
+}
