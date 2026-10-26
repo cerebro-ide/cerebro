@@ -76,6 +76,14 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   expect(await page.evaluate(() => (window as { violations?: string[] }).violations)).toEqual([]);
 });
 
+it('keeps the file open after a reload, read again from disk', async () => {
+  const page = running.page;
+  await page.reload();
+  await page.locator('.cerebro-editor-tab--active', { hasText: 'app.ts' }).waitFor();
+  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
+  expect(await page.locator('.cm-content').textContent()).toBe('export {};');
+});
+
 it('says why a file can’t be opened', async () => {
   const page = running.page;
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));

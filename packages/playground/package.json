@@ -13,6 +13,7 @@
     "@cerebro-ide/commands": "0.0.0",
     "@cerebro-ide/jsx": "0.0.0",
     "@cerebro-ide/layout": "0.0.0",
+    "@cerebro-ide/plugin-api": "0.0.0",
     "@cerebro-ide/reactive": "0.0.0",
     "@cerebro-ide/settings": "0.0.0",
     "@cerebro-ide/theme": "0.0.0",

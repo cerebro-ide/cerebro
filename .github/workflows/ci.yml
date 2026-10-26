@@ -41,9 +41,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # Electron's Chromium needs the same system libraries as Playwright's.
-      - if: runner.os == 'Linux'
-        run: npx playwright install-deps chromium
+      # No system libraries to install: GitHub's Ubuntu runner comes with Chrome (so Chromium's
+      # libraries) and xvfb. Installing Playwright's took 11 s to 10 minutes, waiting on apt.
       - if: runner.os == 'Linux'
         run: xvfb-run --auto-servernum npm run e2e
       - if: runner.os != 'Linux'
