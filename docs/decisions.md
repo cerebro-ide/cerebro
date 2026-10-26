@@ -620,6 +620,22 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## End-to-end tests (2026-10-25)
+
+From the test review: the assembled app had no tests, and the bugs found by hand lived there.
+
+- **`packages/e2e`:** Vitest in Node drives the built desktop app through Playwright's Electron
+  support (`_electron.launch`), already installed for the browser tests: no new dependency.
+- **Isolated:** each test file launches one app with a throwaway data folder (the main process
+  takes `CEREBRO_USER_DATA`), and each test starts from cleared storage and a reloaded page.
+- **The flows checked by hand while building them:** the window and its title bar (measured
+  against the window-controls overlay), no other windows, dialogs (validation, shortcuts kept from
+  running behind one), Go to File, Search Everywhere running an action that persists, a worktree
+  setting applied, saved and shown as overriding the repository, a key sequence and its timeout,
+  and the tooltip over the ☰ menu. Shown to catch the Settings page bug, put back on purpose.
+- **Separate from `npm run check`:** it needs a build and a display. `npm run e2e` builds and runs
+  it; CI runs it on Linux under `xvfb-run`. macOS and Windows runs come next.
+
 ## Desktop conventions in the UI (2026-10-25)
 
 Ido: the UI behaves like an application, not a website.

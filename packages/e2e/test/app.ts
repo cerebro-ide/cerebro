@@ -1,0 +1,45 @@
+// Launching the built desktop app for a test file: a throwaway data folder each time, so tests never
+// touch the user's settings, and a fresh page for each test.
+
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { _electron, type ElectronApplication, type Page } from 'playwright';
+
+const APP = fileURLToPath(new URL('../../app', import.meta.url));
+
+export interface Running {
+  app: ElectronApplication;
+  page: Page;
+  /** Clears what the page saved and reloads it, for a test to start fresh. */
+  reset(): Promise<void>;
+  close(): Promise<void>;
+}
+
+export async function launch(): Promise<Running> {
+  const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
+  const app = await _electron.launch({
+    args: [APP],
+    env: { ...process.env, CEREBRO_USER_DATA: data },
+  });
+  const page = await app.firstWindow();
+  // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
+  page.setDefaultTimeout(5000);
+  await page.waitForSelector('.cerebro-toolbar');
+  return {
+    app,
+    page,
+    async reset() {
+      await page.evaluate(() => {
+        localStorage.clear();
+      });
+      await page.reload();
+      await page.waitForSelector('.cerebro-toolbar');
+    },
+    async close() {
+      await app.close();
+      await rm(data, { recursive: true, force: true });
+    },
+  };
+}

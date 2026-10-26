@@ -2,7 +2,7 @@
 
 Scope and choices are in `decisions.md`; the shape is in `architecture.md`. Each milestone ends
 with something usable on ag-charts. Every part is built as a standalone package with unit tests at
-full coverage. Integration and end-to-end tests (probably Playwright) are defined later.
+full coverage. End-to-end tests drive the built desktop app through Playwright (`packages/e2e`, `npm run e2e`).
 
 Models with many operations (the editor area, tool windows, environments, settings layers) also
 have randomized tests: seeded runs of random operations, checking after each step the model's
