@@ -49,13 +49,13 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   // Folders first; git's own folder isn't shown.
   expect(await names()).toEqual(['src', 'README.md']);
   await page
-    .locator(`.cerebro-tree-row[data-key="${join(repo, 'src')}"] .cerebro-tree-row__arrow`)
+    .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click();
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
   expect(await names()).toEqual(['src', 'app.ts', 'README.md']);
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
   expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
-    join(repo, 'src', 'app.ts'),
+    gitPath(repo, 'src', 'app.ts'),
   );
 });
 
