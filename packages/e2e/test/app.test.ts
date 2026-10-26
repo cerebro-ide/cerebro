@@ -168,6 +168,31 @@ describe('settings', () => {
   });
 });
 
+describe('plugins', () => {
+  it('shows a plugin’s view, and runs its command from search and from its shortcut', async () => {
+    const notes = () => page().locator('.playground-view li').allTextContents();
+    await page().locator('.cerebro-stripe-button[data-id="notes"]').click();
+    const input = page().locator('.playground-notes__input');
+    await input.click();
+    await page().keyboard.type('first');
+    await page().keyboard.press('Enter');
+    await page().keyboard.type('second');
+    await page().keyboard.press('Enter');
+    expect(await notes()).toEqual(['first', 'second']);
+    await page().keyboard.press('Control+Shift+A');
+    await page().keyboard.type('clear notes');
+    await page().keyboard.press('Enter');
+    expect(await notes()).toEqual([]);
+    await input.click();
+    await page().keyboard.type('third');
+    await page().keyboard.press('Enter');
+    // Out of the field, so the shortcut reaches the app.
+    await page().locator('.cerebro-statusbar').click();
+    await page().keyboard.press('Control+Alt+Shift+N');
+    expect(await notes()).toEqual([]);
+  });
+});
+
 describe('shortcuts', () => {
   it('runs a sequence, and abandons one left waiting', async () => {
     await page().keyboard.press('Control+K');
