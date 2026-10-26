@@ -33,6 +33,18 @@ export interface CodeEditorProps {
   softWrap?: () => boolean;
   /** Read reactively. Default: 4. */
   tabSize?: () => number;
+  /** A position to show and select: where a definition is. Read reactively; zero-based. */
+  reveal?: () => { line: number; column: number } | undefined;
+  /** Go to definition of the word at the cursor: Mod+B or Mod+click, as in IntelliJ. */
+  onGoToDefinition?: (word: string) => void;
+  /** Find usages of the word at the cursor: Alt+F7, as in IntelliJ. */
+  onFindUsages?: (word: string) => void;
+}
+
+/** The word at a position in the editor, if there is one. */
+function wordAt(view: EditorView, pos: number): string | undefined {
+  const range = view.state.wordAt(pos);
+  return range ? view.state.sliceDoc(range.from, range.to) : undefined;
 }
 
 const variable = (name: string) => `var(--cerebro-${name})`;
@@ -96,7 +108,38 @@ export function CodeEditor(props: CodeEditorProps): Node {
         highlightActiveLine(),
         drawSelection(),
         EditorState.readOnly.of(true),
-        keymap.of(defaultKeymap),
+        keymap.of([
+          {
+            key: 'Mod-b',
+            run: (v) => {
+              const word = wordAt(v, v.state.selection.main.head);
+              if (word === undefined || !props.onGoToDefinition) return false;
+              props.onGoToDefinition(word);
+              return true;
+            },
+          },
+          {
+            key: 'Alt-F7',
+            run: (v) => {
+              const word = wordAt(v, v.state.selection.main.head);
+              if (word === undefined || !props.onFindUsages) return false;
+              props.onFindUsages(word);
+              return true;
+            },
+          },
+          ...defaultKeymap,
+        ]),
+        EditorView.domEventHandlers({
+          mousedown: (event, v) => {
+            if (!(event.ctrlKey || event.metaKey) || !props.onGoToDefinition) return false;
+            // Not precise: the nearest position, never none.
+            const word = wordAt(v, v.posAtCoords({ x: event.clientX, y: event.clientY }, false));
+            if (word === undefined) return false;
+            event.preventDefault();
+            props.onGoToDefinition(word);
+            return true;
+          },
+        }),
         theme,
         syntaxHighlighting(highlight),
         ...(language ? [language] : []),
@@ -109,8 +152,27 @@ export function CodeEditor(props: CodeEditorProps): Node {
     view.dispatch({ effects: settings.reconfigure(configure()) });
     return undefined;
   });
+  // A position to reveal: selected, scrolled to the middle of the editor, and focused, as IntelliJ
+  // does after navigating. After the current task, since an editor opened to reveal a position isn't
+  // in the document yet, and a detached element can't take the focus.
+  const revealing = effect(() => {
+    const at = props.reveal?.();
+    if (!at) return undefined;
+    queueMicrotask(() => {
+      if (!container.isConnected) return;
+      const line = view.state.doc.line(Math.min(Math.max(at.line + 1, 1), view.state.doc.lines));
+      const pos = Math.min(line.from + at.column, line.to);
+      view.dispatch({
+        selection: { anchor: pos },
+        effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+      });
+      view.focus();
+    });
+    return undefined;
+  });
   onCleanup(() => {
     watch.dispose();
+    revealing.dispose();
     view.destroy();
   });
   return container;

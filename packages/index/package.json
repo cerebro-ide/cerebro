@@ -1,0 +1,26 @@
+{
+  "name": "@cerebro-ide/index",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The shared index: tree-sitter definitions and identifiers, keyed by git blob hash, shared across worktrees.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "tree-sitter-javascript": "0.23.1",
+    "tree-sitter-typescript": "0.23.2",
+    "web-tree-sitter": "0.25.10"
+  }
+}

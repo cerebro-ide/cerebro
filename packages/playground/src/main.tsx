@@ -28,6 +28,7 @@ import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
 import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
+import { reveals, setupNavigation } from './navigation.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
@@ -130,6 +131,18 @@ const plugins = new PluginRegistry({
   views,
 });
 await plugins.add(notesPlugin);
+
+// Navigation by name, through the host's index.
+const navigation = setupNavigation(editor);
+services.commands.register({
+  id: 'symbol.goTo',
+  label: 'Go to S&ymbol',
+  dialog: true,
+  enabled: navigation.available,
+  run: () => navigation.goToSymbol(),
+});
+services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
+services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
@@ -320,6 +333,13 @@ function Code(props: { path: string; env: string }) {
     <CodeEditor
       path={props.path}
       text={text}
+      reveal={() => reveals.get(props.path)}
+      {...(navigation.available()
+        ? {
+            onGoToDefinition: (name: string) => void navigation.goToDefinition(name),
+            onFindUsages: (name: string) => void navigation.findUsages(name),
+          }
+        : {})}
       fontSize={() => settings.get('editor.fontSize') as number}
       softWrap={() => settings.get('editor.softWrap') as boolean}
       tabSize={() => settings.get('editor.tabSize') as number}

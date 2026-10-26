@@ -2,7 +2,7 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { CodeEditor, languageFor, type CodeEditorProps } from '../src/index.js';
 
@@ -26,6 +26,30 @@ function mount(props: CodeEditorProps) {
   };
   // The editor is in the shadow root of the element the component returns.
   return (container.querySelector('.cerebro-editor-code') as HTMLElement).shadowRoot as ShadowRoot;
+}
+
+/** Clicks the middle of a word in the editor, with the real mouse. */
+async function clickWord(root: ShadowRoot, word: string, modifiers: ('Control' | 'Alt')[] = []) {
+  const line = root.querySelector('.cm-line') as HTMLElement;
+  const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    const at = (node.textContent ?? '').indexOf(word);
+    if (at < 0) continue;
+    const range = document.createRange();
+    range.setStart(node, at);
+    range.setEnd(node, at + word.length);
+    const rect = range.getBoundingClientRect();
+    const box = line.getBoundingClientRect();
+    await userEvent.click(line, {
+      position: {
+        x: rect.left - box.left + rect.width / 2,
+        y: rect.top - box.top + rect.height / 2,
+      },
+      modifiers,
+    });
+    return;
+  }
+  throw new Error(`no ${word}`);
 }
 
 /** The colour a piece of text is drawn in. */
@@ -133,6 +157,83 @@ describe('CodeEditor', () => {
     await userEvent.click(container.querySelector('.cm-line') as HTMLElement);
     await userEvent.keyboard('typed');
     expect(container.querySelector('.cm-line')?.textContent).toBe('fixed');
+  });
+
+  it('reveals a position given before it’s in the document, once it is', async () => {
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; left: 0; top: 0; width: 600px; height: 400px;';
+    document.body.append(container);
+    const text = Array.from({ length: 50 }, (_, i) => `line ${String(i)}`).join('\n');
+    const handle = render(
+      () => <CodeEditor path="a.txt" text={text} reveal={() => ({ line: 40, column: 0 })} />,
+      container,
+    );
+    cleanup = () => {
+      handle.dispose();
+      container.remove();
+    };
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const root = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 40');
+    expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
+  });
+
+  it('doesn’t reveal in an editor taken away before it could', async () => {
+    const detached = document.createElement('div');
+    const handle = render(
+      () => <CodeEditor path="a.txt" text="x" reveal={() => ({ line: 0, column: 0 })} />,
+      detached,
+    );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(document.activeElement).toBe(document.body);
+    handle.dispose();
+  });
+
+  it('reveals a position: selected, and scrolled into view', async () => {
+    const reveal = signal<{ line: number; column: number } | undefined>(undefined);
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({ path: 'a.txt', text, reveal: () => reveal.get() });
+    reveal.set({ line: 250, column: 5 });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 250');
+    expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
+    // Beyond the end, the last line.
+    reveal.set({ line: 9999, column: 0 });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
+  });
+
+  it('goes to a definition with Mod+B or Mod+click, and finds usages with Alt+F7', async () => {
+    const onGoToDefinition = vi.fn();
+    const onFindUsages = vi.fn();
+    const root = mount({
+      path: 'a.ts',
+      text: 'const answer = compute(1);',
+      onGoToDefinition,
+      onFindUsages,
+    });
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Control>}b{/Control}');
+    expect(onGoToDefinition).toHaveBeenLastCalledWith('answer');
+    await userEvent.keyboard('{Alt>}{F7}{/Alt}');
+    expect(onFindUsages).toHaveBeenLastCalledWith('answer');
+    await clickWord(root, 'compute', ['Control']);
+    expect(onGoToDefinition).toHaveBeenLastCalledWith('compute');
+  });
+
+  it('leaves the keys alone without handlers, or off a word', async () => {
+    const root = mount({ path: 'a.ts', text: 'x   y' });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Control>}b{/Control}{Alt>}{F7}{/Alt}');
+    const onGoToDefinition = vi.fn();
+    cleanup?.();
+    const spaced = mount({ path: 'a.ts', text: '   ', onGoToDefinition, onFindUsages: vi.fn() });
+    await userEvent.click(spaced.querySelector('.cm-line') as HTMLElement, {
+      modifiers: ['Control'],
+    });
+    await userEvent.keyboard('{Control>}b{/Control}{Alt>}{F7}{/Alt}');
+    expect(onGoToDefinition).not.toHaveBeenCalled();
   });
 
   it('is gone when disposed', () => {

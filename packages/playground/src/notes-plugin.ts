@@ -53,6 +53,7 @@ export const notesPlugin: Plugin = {
       },
     });
     context.contributeMenu({ menu: 'main/view', item: { command: 'notes.clear' }, group: 'z' });
-    context.bindKey('Mod+Alt+Shift+N', 'notes.clear');
+    // Not Ctrl+Alt+Shift+N: that's Go to Symbol, as in IntelliJ.
+    context.bindKey('Mod+Alt+Shift+K', 'notes.clear');
   },
 };

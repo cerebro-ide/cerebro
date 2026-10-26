@@ -22,6 +22,11 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'README.md'), '# project');
   mkdirSync(join(repo, 'src'));
   writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
+  writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
+  writeFileSync(
+    join(repo, 'src', 'use.ts'),
+    "import { Shape } from './shape';\n\nconst first = new Shape();\nconst second = new Shape();\n",
+  );
   git(repo, 'add', '.');
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
@@ -54,7 +59,7 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click({ force: true });
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
-  expect(await names()).toEqual(['src', 'app.ts', 'README.md']);
+  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'use.ts', 'README.md']);
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as { violations?: string[] }).violations = seen;
@@ -98,6 +103,58 @@ it('goes to a file of the worktree, and finds new ones next time', async () => {
   await page.keyboard.press('ControlOrMeta+Shift+N');
   await page.keyboard.type('fresh');
   await page.locator('.cerebro-popup-item__label', { hasText: 'fresh.md' }).waitFor();
+  await page.keyboard.press('Escape');
+});
+
+it('goes to a symbol by name, opening its file there', async () => {
+  const page = running.page;
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+N');
+  await page.keyboard.type('Shape');
+  await page.locator('.cerebro-popup-item', { hasText: 'Shape' }).waitFor();
+  expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
+  expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe(
+    'src/shape.ts:2',
+  );
+  await page.keyboard.press('Enter');
+  await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+});
+
+it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async () => {
+  const page = running.page;
+  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.type('use.ts');
+  await page.locator('.cerebro-popup-item__label', { hasText: 'use.ts' }).waitFor();
+  await page.keyboard.press('Enter');
+  const line = page.locator('.cm-line', { hasText: 'const first' });
+  await line.waitFor();
+  // Ctrl+click on "Shape" in `new Shape()`: the definition, in shape.ts.
+  const box = await line.evaluate((element) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.textContent ?? '').indexOf('Shape');
+      if (at < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + 5);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return { x: 0, y: 0 };
+  });
+  await page.keyboard.down('Control');
+  await page.mouse.click(box.x, box.y);
+  await page.keyboard.up('Control');
+  await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+  // Alt+F7 on the class's name: every place the name appears.
+  await page.keyboard.press('Alt+F7');
+  await page.locator('.cerebro-popup-item').first().waitFor();
+  expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
+  expect(await page.locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
+    'src/shape.ts:2',
+    'src/use.ts:1',
+    'src/use.ts:3',
+    'src/use.ts:4',
+  ]);
   await page.keyboard.press('Escape');
 });
 

@@ -157,6 +157,21 @@ describe('openPicker', () => {
     expect(document.querySelector('.cerebro-popup__more')?.textContent).toContain('1 more');
   });
 
+  it('tells of query changes, for a search whose results its items read', () => {
+    const results = signal<PickerItem[]>([]);
+    const queries: string[] = [];
+    picker({
+      items: () => results.get(),
+      onQueryChange: (query) => {
+        queries.push(query);
+        results.set([{ label: `result for ${query}` }]);
+      },
+    });
+    type('ab');
+    expect(queries).toEqual(['ab']);
+    expect(labels()).toEqual(['result for ab']);
+  });
+
   it('highlights under a moving pointer only', () => {
     picker();
     const items = document.querySelectorAll<HTMLElement>('.cerebro-popup-item');

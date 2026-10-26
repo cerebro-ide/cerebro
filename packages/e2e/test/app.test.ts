@@ -206,7 +206,7 @@ describe('plugins', () => {
     await page().keyboard.press('Enter');
     // Out of the field, so the shortcut reaches the app.
     await page().locator('.cerebro-statusbar').click();
-    await page().keyboard.press('ControlOrMeta+Alt+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Alt+Shift+K');
     expect(await notes()).toEqual([]);
   });
 });

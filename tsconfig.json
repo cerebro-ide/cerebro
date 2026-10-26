@@ -50,6 +50,9 @@
       "path": "packages/host/tsconfig.build.json"
     },
     {
+      "path": "packages/index/tsconfig.build.json"
+    },
+    {
       "path": "packages/ui-statusbar/tsconfig.build.json"
     },
     {
