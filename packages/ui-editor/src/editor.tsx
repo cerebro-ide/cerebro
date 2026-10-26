@@ -82,9 +82,10 @@ export const theme = EditorView.theme({
     backgroundColor: variable('editor-active-line'),
     color: variable('editor-line-number-active'),
   },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
-    backgroundColor: variable('editor-selection'),
-  },
+  // As specific as CodeMirror's own rule for a focused editor's selection, a light lavender,
+  // which would otherwise win while the editor has the focus.
+  '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground':
+    { backgroundColor: variable('editor-selection') },
   '&.cm-focused': { outline: 'none' },
 });
 

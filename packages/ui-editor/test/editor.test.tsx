@@ -204,6 +204,33 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
   });
 
+  it('draws the selection in the theme’s colour, focused or not', async () => {
+    const root = mount({ path: 'a.txt', text: 'selected text' });
+    const expected = getComputedStyle(document.documentElement)
+      .getPropertyValue('--cerebro-editor-selection')
+      .trim();
+    const probe = document.createElement('div');
+    probe.style.backgroundColor = expected;
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    await userEvent.click(content);
+    await userEvent.keyboard('{Control>}a{/Control}');
+    const background = () =>
+      getComputedStyle(root.querySelector('.cm-selectionBackground') as HTMLElement)
+        .backgroundColor;
+    await vi.waitFor(() => {
+      expect(root.querySelector('.cm-editor')?.classList.contains('cm-focused')).toBe(true);
+      expect(background()).toBe(colour);
+    });
+    content.blur();
+    await vi.waitFor(() => {
+      expect(root.querySelector('.cm-editor')?.classList.contains('cm-focused')).toBe(false);
+      expect(background()).toBe(colour);
+    });
+  });
+
   it('goes to a definition with Mod+B or Mod+click, and finds usages with Alt+F7', async () => {
     const onGoToDefinition = vi.fn();
     const onFindUsages = vi.fn();
