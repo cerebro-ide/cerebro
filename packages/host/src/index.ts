@@ -18,3 +18,4 @@ export {
   UnreadableFile,
   type Entry,
 } from './files.js';
+export { FRESH_FOR, IndexService } from './index-service.js';

@@ -36,6 +36,11 @@ export interface PickerOptions<T extends PickerItem> {
   width?: number;
   /** Shown when nothing matches. Default: Nothing found. */
   empty?: string;
+  /**
+   * Called as the query changes, to start a search elsewhere (the host's index, say) whose results
+   * `items` then reads. (`items` itself mustn't start one: it runs as a computed value.)
+   */
+  onQueryChange?: (query: string) => void;
   /** The most rows drawn; more matches are counted below them. Default: 200. */
   limit?: number;
   /** Presses inside this element don't close the popup; it handles them (the button it opened from). */
@@ -237,6 +242,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
         on:input={(event) => {
           state.query = (event.currentTarget as HTMLInputElement).value;
           state.index = 0;
+          options.onQueryChange?.(state.query);
         }}
         on:keydown={this.onKey}
       />,

@@ -38,5 +38,9 @@
     "@codemirror/autocomplete": "6.20.3",
     "@lezer/common": "1.5.3",
     "@lezer/markdown": "1.8.0"
+  },
+  "allowScripts": {
+    "tree-sitter-javascript": false,
+    "tree-sitter-typescript": false
   }
 }

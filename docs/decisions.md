@@ -631,6 +631,42 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## The shared index, first part (2026-10-26)
+
+Milestone 4's index, from the spike (`spike-multi-worktree.md`), moved into the host. Choices of
+Claude's, open to change:
+
+- **`index`:** the spike's blob-keyed tree-sitter index. Each distinct file content (git blob) is
+  parsed once, whichever worktrees have it. Per blob: definitions (the grammars' tags queries, plus
+  the type aliases, enums, fields and top-level constants the spike added) and every identifier's
+  positions by name.
+- **TypeScript, TSX and JavaScript only**, as the spike measured. The plan's "grammars for every
+  target language" isn't done.
+- **The working tree counts:** tracked files take their blob hash from git's index (`git ls-files
+  -s`); modified and untracked source files are hashed with `git hash-object` and parsed from disk;
+  deleted ones drop out.
+- **The host** keeps one index per repository and indexes a worktree on first use, then again
+  (incrementally) once its last indexing is over 2 seconds old, so a search doesn't run git on every
+  key. Methods: `index.symbols` (names containing the query; exact, then prefix, then shorter
+  names; at most 200), `index.definitions` and `index.usages` (exact name). Paths are the
+  worktree's, joined with `/`.
+- **In the UI, everything says "Name matches":** Go to Symbol (Ctrl+Alt+Shift+N, as IntelliJ), go to
+  definition (Ctrl+B or Ctrl+click on a word: one definition opens directly, several show a list)
+  and find usages (Alt+F7). The editor scrolls to the place, selects it and takes the focus, as
+  IntelliJ does after navigating.
+- **Popups can ask elsewhere** (`onQueryChange`): Go to Symbol asks the host as the query changes,
+  and only the latest query's answer counts. `items` itself can't start a search: it runs as a
+  computed value, which may not write.
+- **Dependencies:** `web-tree-sitter` 0.25.10, `tree-sitter-typescript` 0.23.2 and
+  `tree-sitter-javascript` 0.23.1, the versions the spike measured (newer `web-tree-sitter` exists;
+  its compatibility with these grammars isn't measured). The grammars' install scripts build native
+  addons Cerebro doesn't use (it loads their `.wasm`); they're denied in `allowScripts`, and their
+  optional native `tree-sitter` peer isn't installed.
+- **Not yet:** persisting the index to disk (it's rebuilt per host run), other languages, and
+  indexing progress in the status bar.
+- **Measured in the app (e2e):** the tree-sitter WASM loads in the host on Electron's Node; Go to
+  Symbol, Ctrl+click and Alt+F7 work on a throwaway repository, and fail without the index.
+
 ## Find file (2026-10-26)
 
 Milestone 2's find file. Choices of Claude's, open to change:

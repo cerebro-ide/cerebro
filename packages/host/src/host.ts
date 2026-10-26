@@ -1,6 +1,7 @@
 // The host's methods, on a connection to the UI.
 
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
+import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile } from './files.js';
 import {
   addWorktree,
@@ -41,6 +42,16 @@ export function serveOn(connection: Connection, options: HostOptions): void {
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
   connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
+  const index = new IndexService(git);
+  connection.onRequest('index.symbols', (params) =>
+    index.symbols(text(params, 'worktree'), text(params, 'query')),
+  );
+  connection.onRequest('index.definitions', (params) =>
+    index.definitions(text(params, 'worktree'), text(params, 'name')),
+  );
+  connection.onRequest('index.usages', (params) =>
+    index.usages(text(params, 'worktree'), text(params, 'name')),
+  );
   connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
   connection.onRequest('fs.read', async (params) => {
     try {
