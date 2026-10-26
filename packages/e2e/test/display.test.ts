@@ -38,7 +38,7 @@ it('follows the system by default: Windows’ scale under WSL, else Electron’s
 
 it('takes the scale chosen in the settings when the app restarts', async () => {
   const page = running.page;
-  await page.keyboard.press('Control+Alt+S');
+  await page.keyboard.press('ControlOrMeta+Alt+S');
   await page.locator('[data-page="appearance"]').click();
   await page.locator('[data-setting="appearance.displayScale"] select').selectOption('1.25');
   await page.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
@@ -46,7 +46,7 @@ it('takes the scale chosen in the settings when the app restarts', async () => {
   await running.restart();
   expect(await scale()).toBe(1.25);
   // Back to the default, which takes effect on the next restart.
-  await running.page.keyboard.press('Control+Alt+S');
+  await running.page.keyboard.press('ControlOrMeta+Alt+S');
   await running.page.locator('[data-page="appearance"]').click();
   await running.page
     .locator('[data-setting="appearance.displayScale"] select')
