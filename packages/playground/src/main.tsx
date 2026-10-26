@@ -36,7 +36,7 @@ import {
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
-import { settingsFor } from './settings.js';
+import { globalSettings, settingsFor } from './settings.js';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -50,6 +50,7 @@ declare global {
       app: boolean;
       platform: string;
       menu: NativeMenuBridge;
+      display: { setScale(choice: string): void };
       host: { request(method: string, params?: unknown): Promise<unknown> };
     };
   }
@@ -262,6 +263,12 @@ function Content(props: { id: string }) {
     </ul>
   );
 }
+
+// The desktop app keeps the display scale chosen, for its next start.
+effect(() => {
+  window.cerebro?.display.setScale(String(globalSettings.get('appearance.displayScale')));
+  return undefined;
+});
 
 // The theme follows its setting.
 effect(() => {
