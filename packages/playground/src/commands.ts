@@ -343,6 +343,10 @@ export function setupCommands(
       active?.active === undefined ? undefined : { group: active.id, tab: active.active };
     if (dispatcher.press(chord, context) !== 'unhandled') event.preventDefault();
   });
+  // Leaving the window abandons a started sequence.
+  window.addEventListener('blur', () => {
+    dispatcher.cancel();
+  });
 
   return { commands, menus, keymap, icon };
 }

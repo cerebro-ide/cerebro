@@ -22,6 +22,8 @@ export interface Options<T> {
 const MAX_PASSES = 100;
 
 let activeTracker: Tracker | undefined;
+/** How many computed values are running, untracked parts included: none may write. */
+let computingDepth = 0;
 let batchDepth = 0;
 let flushing = false;
 /** Bumped on every write; lets an unobserved computed skip checking its sources. */
@@ -88,12 +90,21 @@ abstract class Tracker extends Source {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- the running tracker is global state
     activeTracker = this;
     this.nextSources = new Map();
+    let completed = false;
     try {
-      return fn();
+      const result = fn();
+      completed = true;
+      return result;
     } finally {
       activeTracker = previous;
       const next = this.nextSources;
       this.nextSources = undefined;
+      // A run that threw may not have reached all it depends on: it keeps what it read before too,
+      // so a change to any of it runs it again, and it can recover.
+      if (!completed) {
+        for (const [source, version] of this.sources)
+          if (!next.has(source)) next.set(source, version);
+      }
       if (this.subscribed()) {
         for (const source of this.sources.keys())
           if (!next.has(source)) source.removeObserver(this);
@@ -231,6 +242,7 @@ export class Computed<T> extends Tracker {
   private recompute(): void {
     const previous = this.state;
     this.computing = true;
+    computingDepth++;
     let next: { value: T } | { error: unknown };
     try {
       next = { value: this.tracked(this.fn) };
@@ -238,6 +250,7 @@ export class Computed<T> extends Tracker {
       next = { error };
     } finally {
       this.computing = false;
+      computingDepth--;
     }
     this.isStale = false;
     this.seenGlobalVersion = globalVersion;
@@ -306,8 +319,9 @@ class EffectNode extends Tracker implements Disposable {
   }
 }
 
+/** Computed values derive; they must not write, not even from an untracked part or an action. */
 function assertNotComputing(): void {
-  if (activeTracker instanceof Computed) {
+  if (computingDepth > 0) {
     throw new Error('A computed value must not write to observables');
   }
 }

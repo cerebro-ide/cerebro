@@ -3,8 +3,13 @@
   "compilerOptions": {
     "composite": true,
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "lib": ["es2023", "dom"]
   },
   "include": ["src"],
-  "references": [{ "path": "../reactive/tsconfig.build.json" }]
+  "references": [
+    {
+      "path": "../reactive/tsconfig.build.json"
+    }
+  ]
 }

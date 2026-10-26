@@ -42,6 +42,13 @@ Or run the same page in the desktop app, reloading as the code changes:
 npm run app
 ```
 
+## Test it
+
+```
+npm run check   # formatting, lint, types, and the unit tests with coverage
+npm run e2e     # builds the desktop app and drives it end to end (needs a display)
+```
+
 ## Docs
 
 | file | what's in it |

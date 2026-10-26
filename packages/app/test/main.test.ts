@@ -45,6 +45,7 @@ const electron = vi.hoisted(() => {
       appListeners.set(event, listener);
     },
     quit: vi.fn(),
+    setPath: vi.fn(),
     whenReady: () => Promise.resolve(),
   };
   return { app, appListeners, windows, BrowserWindow: FakeWindow };
@@ -109,6 +110,16 @@ describe('start', () => {
     electron.windows.length = 0;
     (electron.appListeners.get('activate') as Listener)();
     expect(electron.windows).toHaveLength(1);
+  });
+
+  it('keeps its data where it’s told to, if told', () => {
+    start('/tmp/cerebro-test');
+    expect(electron.app.setPath).toHaveBeenCalledWith('userData', '/tmp/cerebro-test');
+    electron.app.setPath.mockClear();
+    vi.stubEnv('CEREBRO_USER_DATA', '');
+    start();
+    vi.unstubAllEnvs();
+    expect(electron.app.setPath).not.toHaveBeenCalled();
   });
 
   it('quits when the last window closes, except on macOS', () => {

@@ -213,6 +213,19 @@ Ido chose each of these from options Claude laid out.
   - Each collection reports changes in bulk (for example, a splice of 40 items at index 120) for
     virtualised views.
 - **Effects run synchronously**, right after the outermost action or batch ends, as in MobX.
+- **Settled after the test review (2026-10-25),** choices of Claude's, open to change, each
+  pinned by a test:
+  - **A run that throws keeps what it read before:** an effect or computed value that throws partway
+    through still depends on what its previous run read, so a change to any of it runs it again
+    and it can recover. Before, it lost what the failed run didn't reach and stopped reacting to it
+    (as MobX does).
+  - **Computed values never write,** not even from an `untracked` part or an action; before, those
+    got past the check.
+  - **Effects don't own effects created inside them:** they live until disposed. Ownership is the
+    JSX runtime's (regions own what they render); owning them in the core would dispose the views
+    `EnvironmentEditors` renders inside its effect.
+  - **Plain arrays and objects in a model aren't observed** (as decided above; the test covers
+    `push` on a plain array).
   - Rejected: running on a microtask, which coalesces more but makes tests wait and ordering
     harder to follow.
 
@@ -336,6 +349,16 @@ Built for Ido's requirements in `features.md` ("The window's parts").
   - **Keys:** shortcuts are read from the physical key, so they work on any keyboard layout; `Mod`
     is Cmd on macOS and Ctrl elsewhere.
   - **Sequences:** multi-chord shortcuts such as `Ctrl+K Ctrl+S` work, as in IntelliJ.
+    Fixed after the test review (2026-10-25), where probes found a chord bound alone was
+    unreachable once it also started a sequence, and a started sequence swallowed the next key
+    however much later:
+    - a sequence waits only if an enabled command is bound to a longer one;
+    - a started sequence is abandoned after 2 seconds (claim: IntelliJ's default wait, not
+      checked), or when the window loses focus;
+    - a chord also bound alone runs when the wait times out, or when the next chord breaks the
+      sequence;
+    - a chord that breaks a started sequence is swallowed, so it doesn't type or run something
+      else (as before).
   - **Layers:** the user's bindings come first, and can remove defaults.
 - **The menu component** (`@cerebro-ide/ui-menu`) is the menu bar's dropdowns and every context
   menu.
@@ -596,6 +619,22 @@ global → repo → worktree".
     proposed `.json`, so editors don't flag the comments. Reading it needs a JSON5 parser in the
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
+
+## End-to-end tests (2026-10-25)
+
+From the test review: the assembled app had no tests, and the bugs found by hand lived there.
+
+- **`packages/e2e`:** Vitest in Node drives the built desktop app through Playwright's Electron
+  support (`_electron.launch`), already installed for the browser tests: no new dependency.
+- **Isolated:** each test file launches one app with a throwaway data folder (the main process
+  takes `CEREBRO_USER_DATA`), and each test starts from cleared storage and a reloaded page.
+- **The flows checked by hand while building them:** the window and its title bar (measured
+  against the window-controls overlay), no other windows, dialogs (validation, shortcuts kept from
+  running behind one), Go to File, Search Everywhere running an action that persists, a worktree
+  setting applied, saved and shown as overriding the repository, a key sequence and its timeout,
+  and the tooltip over the ☰ menu. Shown to catch the Settings page bug, put back on purpose.
+- **Separate from `npm run check`:** it needs a build and a display. `npm run e2e` builds and runs
+  it; CI runs it on Linux under `xvfb-run`. macOS and Windows runs come next.
 
 ## Desktop conventions in the UI (2026-10-25)
 

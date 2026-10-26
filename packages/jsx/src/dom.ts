@@ -3,7 +3,8 @@
 // Props: `on:<event>` adds a listener; `ref` is called with the finished element; `style` takes a
 // string or an object; `prop:<name>` and `attr:<name>` force a property or an attribute. Otherwise
 // a name the element has as a property is set as a property, anything else as an attribute (always
-// attributes on SVG elements). A function value is a binding, re-applied when what it reads changes.
+// attributes on SVG elements); null or undefined resets either. A function value is a binding,
+// re-applied when what it reads changes.
 
 import { untracked } from '@cerebro-ide/reactive';
 import { bind, Owner, requireOwner, runWithOwner } from './owner.js';
@@ -184,11 +185,31 @@ function assign(element: Element, name: string, value: unknown): void {
     (element as unknown as Record<string, unknown>)[name.slice(5)] = value;
   } else if (name.startsWith('attr:')) {
     setAttribute(element, name.slice(5), value);
-  } else if (value != null && !(element instanceof SVGElement) && name in element) {
-    (element as unknown as Record<string, unknown>)[name] = value;
+  } else if (!(element instanceof SVGElement) && name in element) {
+    const properties = element as unknown as Record<string, unknown>;
+    if (value != null) properties[name] = value;
+    else {
+      // Some properties don't follow their attribute (an input's value, a checkbox's checked), so
+      // the property goes back to its default too, and the attribute is removed after it, since
+      // others (an id) put their attribute back when set.
+      properties[name] = defaultProperty(element, name);
+      element.removeAttribute(name);
+    }
   } else {
     setAttribute(element, name, value);
   }
+}
+
+/**
+ * A property's default for an element like this one: what a new element with the same other
+ * attributes has. (A clone wouldn't do: an input's clone keeps its current value and checked state.)
+ */
+function defaultProperty(element: Element, name: string): unknown {
+  const fresh = document.createElementNS(element.namespaceURI, element.localName);
+  for (const attribute of element.attributes) {
+    if (attribute.name !== name) fresh.setAttribute(attribute.name, attribute.value);
+  }
+  return (fresh as unknown as Record<string, unknown>)[name];
 }
 
 function setAttribute(element: Element, name: string, value: unknown): void {
