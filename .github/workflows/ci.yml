@@ -22,8 +22,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # The browser tests run in the runner's own Chrome: installing Playwright's Chromium and its
+      # libraries took 21 s to 10 minutes, waiting on apt.
       - run: npm run check
+        env:
+          CEREBRO_BROWSER_CHANNEL: chrome
       - run: npm run build
 
   e2e:
