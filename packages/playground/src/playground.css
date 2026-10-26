@@ -66,6 +66,38 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* A changed file in the Commit tool window: its name in its status's colour, then its folder. */
+.playground-change--modified,
+.playground-change--renamed {
+  color: var(--cerebro-vcs-modified);
+}
+
+.playground-change--added {
+  color: var(--cerebro-vcs-added);
+}
+
+.playground-change--deleted {
+  color: var(--cerebro-vcs-deleted);
+}
+
+.playground-change--untracked {
+  color: var(--cerebro-vcs-untracked);
+}
+
+/* The name keeps its size; a long folder is cut short. */
+.playground-change {
+  flex: none;
+}
+
+.playground-change__folder {
+  overflow: hidden;
+  min-width: 0;
+  margin-left: 4px;
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .playground-files .playground-button {
   margin: 0 12px 6px;
 }

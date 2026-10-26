@@ -27,8 +27,9 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
-import { CodeEditor } from '@cerebro-ide/ui-editor';
+import { CodeEditor, DiffEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
+import { ChangesView, diffPath } from './changes.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
@@ -213,7 +214,11 @@ const fileTypes: Record<string, string> = {
   md: 'Markdown',
   json: 'JSON',
 };
-const activePath = () => editor()?.activeGroup.active;
+/** The active tab's file: a diff tab's too. */
+const activePath = () => {
+  const id = editor()?.activeGroup.active;
+  return id === undefined ? undefined : (diffPath(id) ?? id);
+};
 status.add({
   id: 'env',
   side: 'left',
@@ -347,6 +352,7 @@ function TerminalPane(props: { kind: TerminalKind }) {
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
+  if (props.id === 'commit') return <ChangesView open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   // A plugin's view fills a container element, however it likes.
@@ -438,6 +444,48 @@ function Code(props: { path: string; env: string }) {
   );
 }
 
+/** A changed file's diff: as last committed against as it is, read through the host. */
+function Diff(props: { path: string; env: string }) {
+  const settings = settingsFor(props.env);
+  const host = currentHost();
+  if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
+  const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
+    undefined,
+  );
+  host.request('git.diff', { path: props.env, file: props.path }).then(
+    (result) => {
+      loaded.set(result as { original: string; text: string });
+    },
+    (error: unknown) => {
+      loaded.set({ error: (error as Error).message });
+    },
+  );
+  return (
+    <div class="playground-code">
+      {() => {
+        const state = loaded.get();
+        if (!state) return <p class="playground-code__note">Loading…</p>;
+        if ('error' in state) {
+          return (
+            <p class="playground-code__note">
+              Can’t show the changes to {props.path}: {state.error}
+            </p>
+          );
+        }
+        return (
+          <DiffEditor
+            path={props.path}
+            original={state.original}
+            text={state.text}
+            fontSize={() => settings.get('editor.fontSize') as number}
+            tabSize={() => settings.get('editor.tabSize') as number}
+          />
+        );
+      }}
+    </div>
+  );
+}
+
 /** Pretend contents for a sample file: code-like lines, long enough to show soft wrapping. */
 function sampleText(path: string): string {
   return Array.from({ length: 60 }, (_, i) =>
@@ -479,7 +527,14 @@ render(
           editor={(env) => (
             <EditorAreaView
               area={env.editor}
-              content={(tab) => <Code path={tab.id} env={env.id} />}
+              content={(tab) => {
+                const diff = diffPath(tab.id);
+                return diff === undefined ? (
+                  <Code path={tab.id} env={env.id} />
+                ) : (
+                  <Diff path={diff} env={env.id} />
+                );
+              }}
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
                 openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })

@@ -4,20 +4,21 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   makeSpawnHelperExecutable,
   nodePty,
   PROTOCOL_VERSION,
   serve,
   serveOn,
+  type Git,
   type Pty,
 } from '../src/index.js';
 
 const PORCELAIN = 'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n';
 
 /** A UI-side connection to a host served on another connection. */
-function connect(git = vi.fn(() => Promise.resolve(PORCELAIN)), pty?: () => Pty) {
+function connect(git: Mock<Git> = vi.fn(() => Promise.resolve(PORCELAIN)), pty?: () => Pty) {
   // eslint-disable-next-line prefer-const -- the two refer to each other
   let host: Connection;
   const ui = new Connection((line) => {
@@ -103,6 +104,51 @@ describe('git files', () => {
       '--exclude-standard',
       '-z',
     ]);
+  });
+});
+
+describe('changes', () => {
+  it('lists a worktree’s changes', async () => {
+    const { ui, git } = connect(vi.fn(() => Promise.resolve(' M b.ts\0?? a.ts\0')));
+    expect(await ui.request('git.changes', { path: '/w' })).toEqual([
+      { path: 'a.ts', status: 'untracked' },
+      { path: 'b.ts', status: 'modified' },
+    ]);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'status',
+      '--porcelain=v1',
+      '-z',
+      '--untracked-files=all',
+    ]);
+  });
+
+  it('gives a file’s two sides: as committed, where it was, and as it is', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cerebro-diff-'));
+    writeFileSync(join(dir, 'new.ts'), 'now');
+    writeFileSync(join(dir, 'same.ts'), 'same');
+    writeFileSync(join(dir, 'b.bin'), new Uint8Array([0, 1]));
+    const git = vi.fn((_cwd: string, args: readonly string[]) => {
+      if (args[0] === 'status') return Promise.resolve('R  new.ts\0old.ts\0 D gone.ts\0');
+      return Promise.resolve(`committed ${String(args[1])}`);
+    });
+    const { ui } = connect(git);
+    expect(await ui.request('git.diff', { path: dir, file: 'new.ts' })).toEqual({
+      original: 'committed HEAD:old.ts',
+      text: 'now',
+    });
+    expect(await ui.request('git.diff', { path: dir, file: 'gone.ts' })).toEqual({
+      original: 'committed HEAD:gone.ts',
+      text: '',
+    });
+    expect(await ui.request('git.diff', { path: dir, file: 'same.ts' })).toEqual({
+      original: 'committed HEAD:same.ts',
+      text: 'same',
+    });
+    await expect(ui.request('git.diff', { path: dir, file: 'b.bin' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+      data: { reason: 'binary' },
+    });
+    rmSync(dir, { recursive: true });
   });
 });
 

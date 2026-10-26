@@ -293,3 +293,22 @@ it('runs a shell in the Terminal tool window', async () => {
       );
     });
 });
+
+it('lists the worktree’s changes in the Commit tool window, and opens one’s diff', async () => {
+  const page = running.page;
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();
+  writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\nexport {};\n');
+  writeFileSync(join(repo, 'src', 'circle.ts'), 'export class Circle {}\n');
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+  const shape = page.locator('.cerebro-tree-row[data-key="src/shape.ts"]');
+  await shape.waitFor();
+  await expect
+    .poll(() => page.locator('.cerebro-tree-row .playground-change').allTextContents())
+    // Earlier tests leave files of their own.
+    .toEqual(expect.arrayContaining(['circle.ts', 'shape.ts']));
+  await shape.dblclick();
+  // The diff: the committed text on the left, the line added on the right.
+  const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+  await expect.poll(() => added.allTextContents()).toEqual(['export {};']);
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+});

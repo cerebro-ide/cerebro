@@ -49,6 +49,16 @@
   --cerebro-editor-line-number: #4b5059;
   --cerebro-editor-line-number-active: #a1a3ab;
   --cerebro-editor-gutter-line: #313438;
+  /* Diffs: lines removed and added, and the changed text in them (not measured). */
+  --cerebro-diff-removed: #3e2a2c;
+  --cerebro-diff-removed-text: #6b3a3c;
+  --cerebro-diff-added: #263a2c;
+  --cerebro-diff-added-text: #35603e;
+  /* Changed files' names, by status (not measured). */
+  --cerebro-vcs-modified: #6f9fe0;
+  --cerebro-vcs-added: #73bd79;
+  --cerebro-vcs-deleted: #8c8f94;
+  --cerebro-vcs-untracked: #d7745e;
   --cerebro-syntax-keyword: #cf8e6d;
   --cerebro-syntax-string: #6aab73;
   --cerebro-syntax-number: #2aacb8;
@@ -129,6 +139,16 @@
   --cerebro-editor-line-number: #aeb3c2;
   --cerebro-editor-line-number-active: #767a8a;
   --cerebro-editor-gutter-line: #ebecf0;
+  /* Diffs: lines removed and added, and the changed text in them (not measured). */
+  --cerebro-diff-removed: #fbe4e2;
+  --cerebro-diff-removed-text: #f4b8b3;
+  --cerebro-diff-added: #e1f3e1;
+  --cerebro-diff-added-text: #aee0b0;
+  /* Changed files' names, by status (not measured). */
+  --cerebro-vcs-modified: #2f6fc4;
+  --cerebro-vcs-added: #2e8a3c;
+  --cerebro-vcs-deleted: #80838a;
+  --cerebro-vcs-untracked: #b34a2c;
   --cerebro-syntax-keyword: #0033b3;
   --cerebro-syntax-string: #067d17;
   --cerebro-syntax-number: #1750eb;

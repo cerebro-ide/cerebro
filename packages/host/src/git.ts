@@ -109,3 +109,57 @@ export async function listFiles(worktree: string, run: Git = git): Promise<strin
   // A file deleted but not yet staged is still listed as cached once, and as nothing else.
   return [...new Set(output.split('\0').filter(Boolean))].sort();
 }
+
+/** A changed file in a worktree, against its last commit. */
+export interface Change {
+  /** Relative to the worktree, `/`-separated. */
+  path: string;
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+  /** A renamed file's path before. */
+  from?: string;
+}
+
+/**
+ * Reads `git status --porcelain=v1 -z`: an entry per file, `XY path`, X the index's status and Y
+ * the worktree's; a rename's or copy's entry is followed by the path it came from.
+ */
+export function parseStatus(output: string): Change[] {
+  const fields = output.split('\0');
+  const changes: Change[] = [];
+  for (let i = 0; i < fields.length; i++) {
+    const entry = fields[i] as string;
+    if (entry.length < 4) continue;
+    const x = entry[0] as string;
+    const y = entry[1] as string;
+    const path = entry.slice(3);
+    if (x === 'R' || x === 'C') {
+      const from = fields[++i] as string;
+      changes.push(x === 'R' ? { path, status: 'renamed', from } : { path, status: 'added' });
+    } else if (x === '?') changes.push({ path, status: 'untracked' });
+    else if (x === 'D' || y === 'D') changes.push({ path, status: 'deleted' });
+    else if (x === 'A') changes.push({ path, status: 'added' });
+    else changes.push({ path, status: 'modified' });
+  }
+  // A path is listed once.
+  return changes.sort((a, b) => (a.path < b.path ? -1 : 1));
+}
+
+/** The worktree's changes against its last commit, staged or not, untracked files included. */
+export async function listChanges(worktree: string, run: Git = git): Promise<Change[]> {
+  return parseStatus(
+    await run(worktree, ['status', '--porcelain=v1', '-z', '--untracked-files=all']),
+  );
+}
+
+/** A file's text in the worktree's last commit; empty if it isn't in it (or there's none yet). */
+export async function committedText(
+  worktree: string,
+  path: string,
+  run: Git = git,
+): Promise<string> {
+  try {
+    return await run(worktree, ['show', `HEAD:${path}`]);
+  } catch {
+    return '';
+  }
+}

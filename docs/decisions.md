@@ -879,6 +879,25 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## Changes and diffs (2026-10-26)
+
+The POC's second step: the worktree's changed files, each opening its diff in an editor tab.
+
+- **In the Commit tool window,** as IntelliJ lists changes there: each changed file since the
+  worktree's last commit, staged or not, untracked files included (`git status --porcelain=v1 -z
+  --untracked-files=all`), with its name in its status's colour and its folder after. A renamed
+  file shows where it came from.
+- **Read every 2 seconds while it shows,** and when the window gets the focus: an agent changes
+  files without telling. The list is redrawn only when it changed, so a row doesn't change under
+  the pointer (an e2e double-click missed one that was redrawn).
+- **The diff is side by side,** as IntelliJ's default: the last committed text on the left, the
+  file as it is on the right, unchanged lines aligned, read-only. CodeMirror's merge view
+  (`@codemirror/merge` 6.12.2; 6.12.3 was out for under two weeks), in the code editor's look and
+  shadow root. Diff colours and the status colours are theme tokens, not measured.
+- **A diff tab** is the file's path marked `diff:`; it reads both sides through the host when it
+  shows (`git.diff`), so it's current each time it's switched to.
+- **Not done:** staging, committing, reverting, and refreshing a diff while it shows.
+
 ## Terminals and the Claude tool window (2026-10-26)
 
 The POC's first step (Ido: get to a POC he can QA, the steps up to Claude): real terminals per
