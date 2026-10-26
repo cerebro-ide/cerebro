@@ -33,6 +33,14 @@ jobs:
           CEREBRO_BROWSER_CHANNEL: chrome
       - run: npm run build
       - run: xvfb-run --auto-servernum npm run e2e
+      # The end-to-end tests' traces, when they fail: what each action waited for, with screenshots.
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-traces-${{ runner.os }}
+          path: packages/e2e/traces/
+          retention-days: 7
+          if-no-files-found: ignore
 
   e2e:
     # The built desktop app on macOS and Windows, on the runner's own display. Only once the
@@ -52,3 +60,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run e2e
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-traces-${{ runner.os }}
+          path: packages/e2e/traces/
+          retention-days: 7
+          if-no-files-found: ignore

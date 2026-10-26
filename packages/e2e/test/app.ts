@@ -1,13 +1,27 @@
 // Launching the built desktop app for a test file: a throwaway data folder each time, so tests never
-// touch the user's settings, and a fresh page for each test.
+// touch the user's settings, and a fresh page for each test. Each run of the app records a
+// Playwright trace (screenshots, the page's DOM, each action and what it waited for) into
+// packages/e2e/traces/, which CI keeps when the tests fail: open one with
+// `npx playwright show-trace <file>`.
 
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { _electron, type ElectronApplication, type Page } from 'playwright';
+import { expect } from 'vitest';
 
 const APP = fileURLToPath(new URL('../../app', import.meta.url));
+const TRACES = fileURLToPath(new URL('../traces', import.meta.url));
+
+let runs = 0;
+
+/** Saves the app's trace, named for the test file, and closes the app. */
+async function stop(app: ElectronApplication): Promise<void> {
+  const file = basename(expect.getState().testPath ?? 'e2e', '.ts');
+  await app.context().tracing.stop({ path: join(TRACES, `${file}-${String(++runs)}.zip`) });
+  await app.close();
+}
 
 export interface Running {
   app: ElectronApplication;
@@ -29,6 +43,7 @@ async function start(
     args: [APP],
     env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
+  await app.context().tracing.start({ screenshots: true, snapshots: true });
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
@@ -57,14 +72,14 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
       await running.page.waitForSelector('.cerebro-toolbar');
     },
     async restart() {
-      await running.app.close();
+      await stop(running.app);
       const next = await start(data, env);
       listen(next.page);
       running.app = next.app;
       running.page = next.page;
     },
     async close() {
-      await running.app.close();
+      await stop(running.app);
       await rm(data, { recursive: true, force: true });
     },
   };
