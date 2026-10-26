@@ -49,3 +49,47 @@ export function parseWorktrees(porcelain: string): Worktree[] {
 export async function listWorktrees(repo: string, run: Git = git): Promise<Worktree[]> {
   return parseWorktrees(await run(repo, ['worktree', 'list', '--porcelain']));
 }
+
+export interface NewWorktree {
+  /** Where the worktree goes: a folder that doesn't exist yet. */
+  path: string;
+  /** The branch to check out there. */
+  branch: string;
+  /** Create the branch, from `from` (default: the current commit), rather than use an existing one. */
+  create?: boolean;
+  from?: string;
+}
+
+/** Adds a worktree to the repository `repo` is in; resolves with the worktrees after. */
+export async function addWorktree(
+  repo: string,
+  worktree: NewWorktree,
+  run: Git = git,
+): Promise<Worktree[]> {
+  const args = worktree.create
+    ? [
+        'worktree',
+        'add',
+        '-b',
+        worktree.branch,
+        worktree.path,
+        ...(worktree.from ? [worktree.from] : []),
+      ]
+    : ['worktree', 'add', worktree.path, worktree.branch];
+  await run(repo, args);
+  return listWorktrees(repo, run);
+}
+
+/**
+ * Removes a worktree; git refuses one with changes unless `force`, and never removes the main one.
+ * Resolves with the worktrees after.
+ */
+export async function removeWorktree(
+  repo: string,
+  path: string,
+  force = false,
+  run: Git = git,
+): Promise<Worktree[]> {
+  await run(repo, ['worktree', 'remove', ...(force ? ['--force'] : []), path]);
+  return listWorktrees(repo, run);
+}
