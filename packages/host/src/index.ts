@@ -60,3 +60,13 @@ export {
 } from './files.js';
 export { FRESH_FOR, IndexService } from './index-service.js';
 export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
+export {
+  BadQuery,
+  LIMIT,
+  rgArguments,
+  searchText,
+  toMatch,
+  type TextMatch,
+  type TextResults,
+  type TextSearch,
+} from './search.js';

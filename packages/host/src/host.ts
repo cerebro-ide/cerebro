@@ -10,6 +10,7 @@ import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
+import { BadQuery, searchText } from './search.js';
 import {
   addWorktree,
   committedText,
@@ -121,6 +122,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  connection.onRequest('search.text', async (params) => {
+    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown };
+    try {
+      return await searchText(text(params, 'path'), {
+        query: text(params, 'query'),
+        matchCase: p.matchCase === true,
+        words: p.words === true,
+        regex: p.regex === true,
+      });
+    } catch (error) {
+      if (error instanceof BadQuery)
+        throw new ResponseError(ErrorCodes.InvalidParams, error.message);
+      throw error;
+    }
+  });
   connection.onRequest('fs.write', async (params) => {
     const content = (params as { text?: unknown }).text;
     if (typeof content !== 'string') {
