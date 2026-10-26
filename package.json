@@ -40,7 +40,9 @@
     "@lezer/markdown": "1.8.0"
   },
   "allowScripts": {
+    "tree-sitter-bash": false,
     "tree-sitter-javascript": false,
+    "tree-sitter-python": false,
     "tree-sitter-typescript": false
   }
 }

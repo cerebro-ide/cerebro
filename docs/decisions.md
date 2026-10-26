@@ -691,8 +691,12 @@ Claude's, open to change:
   parsed once, whichever worktrees have it. Per blob: definitions (the grammars' tags queries, plus
   the type aliases, enums, fields and top-level constants the spike added) and every identifier's
   positions by name.
-- **TypeScript, TSX and JavaScript only**, as the spike measured. The plan's "grammars for every
-  target language" isn't done.
+- **TypeScript, TSX and JavaScript**, as the spike measured; **Python and Bash** added after
+  (`tree-sitter-python` 0.25.0 with its tags query, `tree-sitter-bash` 0.25.1 with a query of
+  Cerebro's: functions as definitions; variables, functions and command names as identifiers).
+  Measured: their ABI 15 grammars load in web-tree-sitter 0.25.10. JSON, YAML, CSS, HTML and
+  Markdown have nothing to navigate by name, so they aren't indexed. The grammars' native install
+  scripts are denied, as for the others.
 - **The working tree counts:** tracked files take their blob hash from git's index (`git ls-files
   -s`); modified and untracked source files are hashed with `git hash-object` and parsed from disk;
   deleted ones drop out.
