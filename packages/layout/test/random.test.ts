@@ -47,6 +47,13 @@ function run(step: (r: ReturnType<typeof random>, log: (line: string) => void) =
 
 const DIRECTIONS: readonly Direction[] = ['left', 'right', 'up', 'down'];
 
+/** Whether two saved states are the same, sizes to within rounding. */
+function same(a: unknown, b: unknown): boolean {
+  const round = (_key: string, value: unknown) =>
+    typeof value === 'number' ? Math.round(value * 1e9) / 1e9 : value;
+  return JSON.stringify(a, round) === JSON.stringify(b, round);
+}
+
 /** A plain check, much faster than `expect` over thousands of steps. */
 function ensure(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -138,6 +145,13 @@ describe('EditorArea, randomly', () => {
         expect(area.activeGroup.activeTab).toBe(tab);
       }
       checkArea(area);
+      // Saved, through JSON as it's stored, and restored, it's the same area (checked every few
+      // steps, for speed).
+      if (r.int(8) !== 0) return;
+      const copy = new EditorArea();
+      copy.restore(JSON.parse(JSON.stringify(area.state())));
+      checkArea(copy);
+      ensure(same(copy.state(), area.state()), 'the restored area differs');
     });
   });
 });
@@ -228,6 +242,15 @@ describe('ToolWindows, randomly', () => {
         tools.areas[anchor].setSplit(r.int(140) / 100 - 0.2);
       }
       checkWindows(tools);
+      // Restored into windows registered in another order, it's the same layout.
+      if (r.int(8) !== 0) return;
+      const copy = new ToolWindows();
+      for (const window of [...tools.windows.values()].reverse()) {
+        copy.register({ id: window.id, title: window.title, anchor: 'left' });
+      }
+      copy.restore(JSON.parse(JSON.stringify(tools.state())));
+      checkWindows(copy);
+      ensure(same(copy.state(), tools.state()), 'the restored tool windows differ');
     });
   });
 });
@@ -276,6 +299,10 @@ describe('Environments, randomly', () => {
       expect(envs.open.map((e) => e.id)).toEqual(model.order);
       expect(envs.activeId).toBe(model.active);
       expect(envs.active?.id).toBe(model.active);
+      if (r.int(8) !== 0) return;
+      const copy = new Environments();
+      copy.restore(JSON.parse(JSON.stringify(envs.state())), (spec) => spec);
+      ensure(same(copy.state(), envs.state()), 'the restored environments differ');
     });
   });
 });

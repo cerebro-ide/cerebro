@@ -26,10 +26,20 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
-import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
+import {
+  active,
+  existingWorktree,
+  firstWorktree,
+  seedFiles,
+  setupEnvironments,
+  useWorktrees,
+  workspace,
+  type HostWorktree,
+} from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
-import { settingsFor } from './settings.js';
+import { restoreLayout, saveLayout } from './persist.js';
+import { globalSettings, settingsFor } from './settings.js';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -39,7 +49,13 @@ import './playground.css';
 /** Set by the desktop app's preload script. */
 declare global {
   interface Window {
-    cerebro?: { app: boolean; platform: string; menu: NativeMenuBridge };
+    cerebro?: {
+      app: boolean;
+      platform: string;
+      menu: NativeMenuBridge;
+      display: { setScale(choice: string): void };
+      host: { request(method: string, params?: unknown): Promise<unknown> };
+    };
   }
 }
 
@@ -50,6 +66,16 @@ if (window.cerebro?.app) {
     'cerebro-app',
     `cerebro-platform-${window.cerebro.platform}`,
   );
+}
+
+// In the desktop app, the host lists the repository's real worktrees; without it (in a browser, or
+// if it fails), the samples stay.
+if (window.cerebro?.host) {
+  try {
+    useWorktrees((await window.cerebro.host.request('git.worktrees')) as HostWorktree[]);
+  } catch (error) {
+    console.error('The host could not list worktrees', error);
+  }
 }
 
 const layout = new Layout();
@@ -99,7 +125,16 @@ await plugins.add(notesPlugin);
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
-environments.open('cerebro-status-bar');
+// The layout as it was left, else the defaults: one environment open.
+const persisted = {
+  tools: layout.toolWindows,
+  workspace,
+  resolve: existingWorktree,
+  // Untitled files' contents aren't kept, so neither are their tabs.
+  keepTab: (tab: { id: string }) => FILES.includes(tab.id),
+};
+if (!restoreLayout(persisted)) environments.open(firstWorktree());
+saveLayout(persisted);
 
 /** What tab commands from the main menu act on: the active tab. */
 function activeTab(): TabContext | undefined {
@@ -267,6 +302,12 @@ function Content(props: { id: string }) {
     </ul>
   );
 }
+
+// The desktop app keeps the display scale chosen, for its next start.
+effect(() => {
+  window.cerebro?.display.setScale(String(globalSettings.get('appearance.displayScale')));
+  return undefined;
+});
 
 // The theme follows its setting.
 effect(() => {

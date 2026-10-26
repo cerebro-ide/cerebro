@@ -1,0 +1,27 @@
+{
+  "name": "@cerebro-ide/host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The host process: runs next to the repos and answers the UI over JSON-RPC on stdio.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/protocol": "0.0.0"
+  },
+  "bin": {
+    "cerebro-host": "dist/main.js"
+  }
+}

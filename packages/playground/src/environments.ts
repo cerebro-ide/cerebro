@@ -18,7 +18,44 @@ const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro-status-bar', name: 'cerebro-status-bar', branch: 'feat/status-bar' },
   { id: 'cerebro-agent-1', name: 'cerebro-agent-1', branch: 'feat/agent-sessions' },
 ]);
+/** A saved environment, if its worktree still exists. */
+export function existingWorktree(spec: EnvironmentSpec): EnvironmentSpec | undefined {
+  return worktrees.get().some((w) => w.id === spec.id) ? spec : undefined;
+}
+
 const branches = signal(['main', 'feat/status-bar', 'feat/agent-sessions', 'fix/auto-actions']);
+
+/** A repository's worktree, as the host lists it. */
+export interface HostWorktree {
+  path: string;
+  branch: string | undefined;
+  bare: boolean;
+}
+
+/**
+ * Uses a repository's real worktrees instead of the samples, and their branches; call before
+ * `setupEnvironments`. Each is known by its path, and named after its folder.
+ */
+export function useWorktrees(list: readonly HostWorktree[]): void {
+  const specs = list
+    .filter((w) => !w.bare)
+    .map((w) => ({
+      id: w.path,
+      name: w.path.split(/[\\/]/).at(-1) ?? w.path,
+      branch: w.branch ?? 'detached',
+    }));
+  if (specs.length === 0) return;
+  worktrees.set(specs);
+  branches.set([...new Set(specs.map((s) => s.branch).filter((b) => b !== 'detached'))]);
+}
+
+/** The worktree opened when nothing else is: the sample with files, or a repository's main one. */
+export function firstWorktree(): string {
+  const all = worktrees.get();
+  // There's always one: the samples, or a list useWorktrees found non-empty.
+  const first = all.find((w) => w.id === 'cerebro-status-bar') ?? all[0];
+  return first ? first.id : 'cerebro';
+}
 
 /** The open environments, as tabs. */
 export const workspace = new Environments();
