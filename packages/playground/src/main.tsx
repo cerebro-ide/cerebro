@@ -1,4 +1,7 @@
-import { render, type Child } from '@cerebro-ide/jsx';
+import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
+import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
+import type { Keymap } from '@cerebro-ide/commands';
+import { notesPlugin } from './notes-plugin.js';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -32,6 +35,7 @@ import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
   currentHost,
+  existingWorktree,
   firstWorktree,
   seedFiles,
   setupEnvironments,
@@ -41,6 +45,7 @@ import {
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
+import { restoreLayout, saveLayout } from './persist.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
@@ -121,6 +126,16 @@ const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
 
+// Plugins: the sample Notes plugin, added as any plugin would be.
+const views = new ViewRegistry(layout.toolWindows);
+const plugins = new PluginRegistry({
+  commands: services.commands,
+  menus: services.menus,
+  keymap: services.keymap as Keymap,
+  views,
+});
+await plugins.add(notesPlugin);
+
 // Navigation by name, through the host's index.
 const navigation = setupNavigation(editor);
 services.commands.register({
@@ -135,7 +150,17 @@ services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' },
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
-environments.open(firstWorktree());
+// The layout as it was left, else the defaults: one environment open.
+const persisted = {
+  tools: layout.toolWindows,
+  workspace,
+  resolve: existingWorktree,
+  // A repository's files are read again from disk (one that's gone says so); of the samples,
+  // untitled files' contents aren't kept, so neither are their tabs.
+  keepTab: (tab: { id: string }) => currentHost() !== undefined || FILES.includes(tab.id),
+};
+if (!restoreLayout(persisted)) environments.open(firstWorktree());
+saveLayout(persisted);
 
 /** What tab commands from the main menu act on: the active tab. */
 function activeTab(): TabContext | undefined {
@@ -294,6 +319,15 @@ function Files() {
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
+  // A plugin's view fills a container element, however it likes.
+  const view = views.get(props.id);
+  if (view) {
+    const container = document.createElement('div');
+    container.className = 'playground-view';
+    const cleanup = view.mount(container);
+    if (cleanup) onCleanup(cleanup);
+    return container;
+  }
   const title = layout.toolWindows.windows.get(props.id)?.title ?? props.id;
   return () => (
     <ul class="playground-list">

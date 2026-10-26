@@ -43,6 +43,9 @@ export async function createWindow(
     confine(window.webContents, (url) => url.protocol === 'file:');
     await window.loadFile(PAGE);
   }
+  // Again once loaded: a zoom kept from the last run overrides the window's zoomFactor (measured in
+  // CI on macOS: 1.25 after going back to Auto, with zoomFactor 1).
+  if (zoom !== undefined) window.webContents.setZoomFactor(zoom);
   return window;
 }
 

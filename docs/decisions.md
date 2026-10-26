@@ -530,6 +530,9 @@ new UI.
     by the scale chosen over the screen's, through the window's `zoomFactor`; the traffic lights
     keep the OS's size, which is how macOS draws them anyway. The zoom is worked out from the
     primary display when a window opens. Claude's choice, open to change.
+    With no scale forced the zoom is set to 1, and it's set again once the page has loaded: a zoom
+    kept from the last run overrode the window's `zoomFactor` (measured in CI: 1.25 after going
+    back to Auto, with `zoomFactor` 1).
   - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
     so. Until settings files exist, the page sends the choice to the main process, which keeps it
     in `display.json` in its data folder.
@@ -652,6 +655,32 @@ global → repo → worktree".
     proposed `.json`, so editors don't flag the comments. Reading it needs a JSON5 parser in the
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
+
+## The layout persists (2026-10-26)
+
+Ido: the layout should keep its state and stay consistent between runs; a reload reset it.
+
+- **What's kept:** tool windows (anchor, slot, order, which are open, area sizes and splits), the
+  open environments and the active one, and each environment's editor area (splits and sizes,
+  groups, tabs, active tab and group).
+- **The models save and restore themselves** as plain data (`state()` and `restore()` on
+  `ToolWindows`, `EditorArea` and `Environments`). Restoring keeps only what's still valid, a
+  choice of Claude's, open to change:
+  - tool windows: places of registered windows (new ones keep their own, after the saved ones),
+    sizes and splits clamped, open windows only if registered and in that slot;
+  - environments: only those the app still resolves (a removed worktree is dropped);
+  - editor areas: tabs that still exist (a repository's files are all kept and read again from
+    disk, one that's gone saying so; of the samples, untitled files aren't kept: their contents
+    aren't),
+    groups with tabs, splits with two or more children, merged into a parent of the same
+    direction, and positive sizes (others get an equal share). Saved sizes are kept even below
+    `MIN_PANE`, since repeated splits can make them so.
+- **Stored as local data** (as decided for settings): the browser's storage for now, until the
+  host's local database exists. Saved 200 ms after a change settles, and when the page goes away.
+- **Tests:** the randomized tests save every few steps, through JSON, restore into a new model
+  (tool windows registered in another order) and compare. Unit tests cover invalid and outdated
+  data. An e2e test rearranges the window (a tool window closed, another opened, another
+  environment, a file opened), reloads, and finds the same layout; it fails without saving.
 
 ## The shared index, first part (2026-10-26)
 
@@ -827,6 +856,49 @@ Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local ch
   repository; the main process with a fake child. E2E: the page pings the host, and lists a
   throwaway repository's two worktrees, switching branch with the worktree. Both fail without the
   host.
+
+## Plugins (2026-10-26)
+
+Milestone 1's plugin registry and first contribution points: views, commands, menus
+(`plugin-api`). Choices of Claude's, open to change:
+
+- **A plugin** has an id (dotted by publisher, such as `cerebro.notes`), a name, and `activate`,
+  which may be async.
+- **It contributes through its context:** commands, menu items, default shortcuts (the user's
+  bindings still come first), views, and cleanups. The context records each, so removing the plugin
+  removes everything it added, in reverse order.
+- **A view is a tool window** (place, title, icon) and a `mount(container)` that fills a DOM
+  element however the plugin likes, returning an optional cleanup: the plugin boundary is the DOM
+  (see "No UI framework"). Other kinds of views (editor tabs, status bar items) come later.
+- **A failing activation** removes what the plugin added so far, and its entry records the error
+  (state `failed`); the others are unaffected.
+- **Not yet:** loading plugins from disk, manifests, versions, permissions, and running plugins in
+  isolation. Plugins are added in code for now.
+- **In the playground:** a sample Notes plugin written in plain DOM, as a third party would: a
+  tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
+  (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
+  e2e test uses all of it, and fails without the plugin.
+
+## CI: quick, and few minutes (2026-10-26)
+
+Ido: CI should be quick and use as few resources as possible, without hitting the limits that would
+block future runs. The repository is private, on the free plan: 2,000 minutes a month, blocked when
+they run out (no payment method); each job rounded up to a whole minute; per-minute prices of Linux
+$0.006, Windows $0.010 and macOS $0.062 (GitHub's billing docs). Choices of Claude's, open to change:
+
+- **Nothing installed:** GitHub's Ubuntu runner comes with Google Chrome and xvfb (its image's
+  docs). The browser tests run in that Chrome (`CEREBRO_BROWSER_CHANNEL=chrome`, passed to
+  Playwright as its channel), and Electron finds Chromium's libraries already there. Installing
+  Playwright's Chromium and libraries took 11 s to 10 minutes (measured), waiting on apt.
+- **Pull requests only:** a pull request's run tests its merge into main, so main isn't run again
+  after merging. Markdown-only changes don't run.
+- **One Linux job** for the checks, the build and the Linux end-to-end tests: one install and one
+  rounded-up minute fewer than two jobs.
+- **macOS and Windows only after the check passes,** so their dearer minutes aren't spent on a
+  change that fails anyway. It makes a run about a minute longer when everything passes.
+- **10-minute timeouts** on every job, instead of GitHub's default of 6 hours, so a hang can't
+  use up the month.
+- A newer push to the same pull request cancels the run in progress.
 
 ## End-to-end tests (2026-10-25)
 
