@@ -3,7 +3,7 @@ import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { CodeEditor, languageFor, type CodeEditorProps } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
@@ -229,6 +229,65 @@ describe('CodeEditor', () => {
       expect(root.querySelector('.cm-editor')?.classList.contains('cm-focused')).toBe(false);
       expect(background()).toBe(colour);
     });
+  });
+
+  it.each(['1.25', '1.5'])(
+    'draws a selection over several lines without a seam, at a scale of %s',
+    async (zoom) => {
+      const text = Array.from({ length: 8 }, (_, i) => `line ${String(i)} ${'x'.repeat(i * 3)}`);
+      const root = mount({ path: 'a.txt', text: text.join('\n') });
+      const container = (root.host as HTMLElement).parentElement as HTMLElement;
+      // A fractional scale, as a display's: the seams between the selection's parts fall inside
+      // device pixels.
+      container.style.zoom = zoom;
+      await userEvent.click(root.querySelectorAll('.cm-line')[2] as HTMLElement);
+      // From the end of a line to four lines down: the line's end, three lines, the last's start.
+      await userEvent.keyboard('{End}{Shift>}{ArrowDown}{ArrowDown}{ArrowDown}{ArrowDown}{/Shift}');
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      // A column of pixels through the selection, right of where the first line's part starts.
+      const base64 = await page.screenshot({ element: container, save: false });
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const canvas = document.createElement('canvas');
+      canvas.width = image.width;
+      canvas.height = image.height;
+      const context = canvas.getContext('2d') as CanvasRenderingContext2D;
+      context.drawImage(image, 0, 0);
+      const x = Math.floor(image.width * 0.9);
+      const column = Array.from({ length: image.height }, (_, y) =>
+        [...context.getImageData(x, y, 1, 1).data.slice(0, 3)].join(','),
+      );
+      const selected = '33,66,131';
+      const first = column.indexOf(selected);
+      const last = column.lastIndexOf(selected);
+      expect(first).toBeGreaterThan(0);
+      // Within 4 of the selection's colour in each channel: the parts' anti-aliased edges, now over
+      // the strip, still round a level or so off (measured: 3 at most). The seam itself was 15
+      // levels darker in blue.
+      const off = column
+        .slice(first, last + 1)
+        .map((colour) => colour.split(',').map(Number))
+        .filter((rgb) =>
+          rgb.some((value, i) => Math.abs(value - ([33, 66, 131][i] as number)) > 4),
+        );
+      expect(off).toEqual([]);
+    },
+  );
+
+  it('bridges only where two lines’ parts of the selection meet', async () => {
+    const root = mount({ path: 'a.txt', text: 'a longer line\nshort\nthe longest line of all' });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    // From the first line's end to the same column a line down: the parts meet at a corner.
+    await userEvent.keyboard('{End}{Shift>}{ArrowDown}{/Shift}');
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    const parts = () => root.querySelectorAll('.cm-selectionLayer .cm-selectionBackground').length;
+    // Two parts in CodeMirror's layer; nothing to bridge in Cerebro's.
+    expect(parts()).toBe(2);
+    await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    // Three parts, and a bridge over each of the two seams.
+    expect(parts()).toBe(5);
   });
 
   it('goes to a definition with Mod+B or Mod+click, and finds usages with Alt+F7', async () => {

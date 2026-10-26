@@ -9,14 +9,16 @@
 
 import { defaultKeymap } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState } from '@codemirror/state';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import {
   drawSelection,
   EditorView,
   highlightActiveLine,
   highlightActiveLineGutter,
   keymap,
+  layer,
   lineNumbers,
+  RectangleMarker,
 } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
@@ -89,6 +91,39 @@ export const theme = EditorView.theme({
   '&.cm-focused': { outline: 'none' },
 });
 
+/**
+ * The selection, drawn by CodeMirror as a rectangle per part (the first line's end, the lines
+ * between, the last line's start), plus a thin strip over each seam between two parts. Where a
+ * seam falls inside a device pixel (a fractional display scale), both parts' edges are
+ * anti-aliased and the background showed through as a dark line (measured). The strip lies within
+ * both parts, so it never shows outside the selection.
+ */
+export const selection: Extension = [
+  drawSelection(),
+  layer({
+    above: false,
+    class: 'cm-selectionLayer',
+    update: (update) =>
+      update.docChanged || update.selectionSet || update.viewportChanged || update.geometryChanged,
+    markers: (view) =>
+      view.state.selection.ranges.flatMap((range) => {
+        const parts = RectangleMarker.forRange(view, 'cm-selectionBackground', range);
+        return parts.slice(1).flatMap((below, i) => {
+          const above = parts[i] as RectangleMarker;
+          const left = Math.max(above.left, below.left);
+          const right = Math.min(
+            above.left + Number(above.width),
+            below.left + Number(below.width),
+          );
+          const seam = above.top + above.height;
+          return right > left
+            ? [new RectangleMarker('cm-selectionBackground', left, seam - 1, right - left, 2)]
+            : [];
+        });
+      }),
+  }),
+];
+
 /** Lines 22px apart at 13px, as WebStorm (measured), in whole pixels so they don't drift. */
 export function scroller(fontSize: number) {
   return {
@@ -133,7 +168,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightActiveLine(),
-        drawSelection(),
+        selection,
         EditorState.readOnly.of(true),
         keymap.of([
           {

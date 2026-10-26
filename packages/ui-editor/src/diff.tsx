@@ -5,10 +5,10 @@
 import { MergeView } from '@codemirror/merge';
 import { syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, type Extension } from '@codemirror/state';
-import { drawSelection, EditorView, lineNumbers } from '@codemirror/view';
+import { EditorView, lineNumbers } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
-import { highlight, scroller, theme, variable } from './editor.js';
+import { highlight, scroller, selection, theme, variable } from './editor.js';
 import { languageFor } from './languages.js';
 
 export interface DiffEditorProps {
@@ -49,7 +49,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     doc,
     extensions: [
       lineNumbers(),
-      drawSelection(),
+      selection,
       EditorState.readOnly.of(true),
       theme,
       diffTheme,
