@@ -1,0 +1,8 @@
+/*
+ * The fonts the theme names, bundled so every platform draws the same text: Inter for the UI, as
+ * IntelliJ's new UI, and JetBrains Mono for code. Both are under the SIL Open Font License.
+ */
+
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/700.css';

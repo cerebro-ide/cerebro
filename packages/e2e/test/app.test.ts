@@ -65,7 +65,7 @@ describe('the window', () => {
       const rect = info.overlay as DOMRect;
       const controls = info.width - rect.x - rect.width;
       expect(controls).toBeGreaterThan(0);
-      expect(info.paddingRight).toBe(`${String(controls + 6)}px`);
+      expect(info.paddingRight).toBe(`${String(controls + 5)}px`);
     }
   });
 

@@ -56,19 +56,45 @@ const theme = EditorView.theme({
     color: variable('text'),
     backgroundColor: variable('background'),
   },
-  '.cm-scroller': { fontFamily: variable('font-mono'), lineHeight: '1.6' },
+  // No ligatures, as WebStorm's default.
+  '.cm-scroller': { fontFamily: variable('font-mono'), fontVariantLigatures: 'none' },
+  // Scrollbars as the page's (@cerebro-ide/theme's base.css), which don't reach the shadow root.
+  '.cm-scroller::-webkit-scrollbar': { width: '12px', height: '12px', background: 'transparent' },
+  '.cm-scroller::-webkit-scrollbar-thumb': {
+    border: 'solid transparent',
+    borderWidth: '0 4px 0 0',
+    borderRadius: '6px',
+    background: `${variable('scrollbar')} padding-box`,
+  },
+  '.cm-scroller::-webkit-scrollbar-thumb:horizontal': { borderWidth: '0 0 4px' },
+  '.cm-scroller::-webkit-scrollbar-corner': { background: 'transparent' },
+  // As WebStorm (measured): the numbers, room for gutter icons after them, then a line.
   '.cm-gutters': {
     backgroundColor: variable('background'),
-    color: variable('text-muted'),
+    color: variable('editor-line-number'),
     border: 'none',
+    borderRight: `1px solid ${variable('editor-gutter-line')}`,
   },
+  '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
+  '.cm-line': { padding: '0 2px' },
   '.cm-activeLine': { backgroundColor: variable('editor-active-line') },
-  '.cm-activeLineGutter': { backgroundColor: variable('editor-active-line') },
+  '.cm-activeLineGutter': {
+    backgroundColor: variable('editor-active-line'),
+    color: variable('editor-line-number-active'),
+  },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
     backgroundColor: variable('editor-selection'),
   },
   '&.cm-focused': { outline: 'none' },
 });
+
+/** Lines 22px apart at 13px, as WebStorm (measured), in whole pixels so they don't drift. */
+function scroller(fontSize: number) {
+  return {
+    fontSize: `${String(fontSize)}px`,
+    lineHeight: `${String(Math.round(fontSize * 1.7))}px`,
+  };
+}
 
 /** Syntax colours, from the theme's variables. */
 const highlight = HighlightStyle.define([
@@ -94,7 +120,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const configure = () => [
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     props.softWrap?.() ? EditorView.lineWrapping : [],
-    EditorView.theme({ '.cm-scroller': { fontSize: `${String(props.fontSize?.() ?? 13)}px` } }),
+    EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
   ];
   const language = languageFor(props.path);
   const view = new EditorView({

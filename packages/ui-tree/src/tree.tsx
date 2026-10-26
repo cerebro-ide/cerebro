@@ -26,6 +26,9 @@ export interface TreeViewProps<T> {
 /** Rows drawn beyond each edge of the view, so a quick scroll doesn't show blanks. */
 const OVERSCAN = 8;
 
+/** How far each level is indented, as WebStorm (measured). */
+const INDENT = 19;
+
 class Viewport {
   top = 0;
   height = 0;
@@ -116,7 +119,7 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         style={{
           top: `${String(index * rowHeight)}px`,
           height: `${String(rowHeight)}px`,
-          paddingLeft: `${String(4 + row.depth * 16)}px`,
+          paddingLeft: `${String(row.depth * INDENT)}px`,
         }}
         on:click={() => {
           model.select(row.key);

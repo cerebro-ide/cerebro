@@ -102,7 +102,7 @@ describe('TreeView', () => {
     expect(row('big').getAttribute('aria-expanded')).toBe('true');
     expect(row('small').getAttribute('aria-expanded')).toBe('false');
     expect(row('top.md').hasAttribute('aria-expanded')).toBe(false);
-    expect(row('big/file-00000.ts').style.paddingLeft).toBe('20px');
+    expect(row('big/file-00000.ts').style.paddingLeft).toBe('19px');
     expect(row('big/file-00000.ts').getAttribute('aria-level')).toBe('2');
     expect(row('big/file-00000.ts').textContent).toBe('file-00000.ts');
   });

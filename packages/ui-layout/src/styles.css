@@ -30,7 +30,7 @@
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--cerebro-panel);
+  background: var(--cerebro-frame);
   color: var(--cerebro-text);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);
@@ -43,7 +43,6 @@
 
 .cerebro-shell__header {
   flex: none;
-  border-bottom: 1px solid var(--cerebro-border);
 }
 
 .cerebro-shell__footer {
@@ -72,11 +71,19 @@
   min-height: 0;
 }
 
+/*
+ * Islands, as WebStorm's Islands theme: the editor and each tool window is a rounded panel on the
+ * window's frame, with a gap between them.
+ */
 .cerebro-shell__editor {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  /* No top edge: the tab strip there is the edge's colour, and as tall as WebStorm's with it. */
+  border: 1px solid var(--cerebro-panel);
+  border-top: none;
+  border-radius: var(--cerebro-island-radius);
   background: var(--cerebro-background);
 }
 
@@ -90,16 +97,14 @@
   gap: var(--cerebro-stripe-gap);
   box-sizing: border-box;
   width: var(--cerebro-stripe-size);
-  padding: 4px 0;
+  padding: 3px 0;
   background: var(--cerebro-stripe);
 }
 
+/* As WebStorm: a pixel between the left stripe and the islands, none on the right. */
 .cerebro-stripe--left {
-  border-right: 1px solid var(--cerebro-border);
-}
-
-.cerebro-stripe--right {
-  border-left: 1px solid var(--cerebro-border);
+  width: calc(var(--cerebro-stripe-size) + 1px);
+  padding-right: 1px;
 }
 
 .cerebro-stripe__group {
@@ -111,11 +116,14 @@
   border-radius: var(--cerebro-radius);
 }
 
-/* Separates the side's secondary group from its primary group. */
-.cerebro-stripe__group--left-secondary:not(:empty),
-.cerebro-stripe__group--right-secondary:not(:empty) {
-  padding-top: var(--cerebro-stripe-gap);
-  border-top: 1px solid var(--cerebro-separator);
+/* Separates the side's secondary group from its primary group: a short line. */
+.cerebro-stripe__group--left-secondary:not(:empty)::before,
+.cerebro-stripe__group--right-secondary:not(:empty)::before {
+  content: '';
+  flex: none;
+  width: 24px;
+  height: 1px;
+  background: var(--cerebro-separator);
 }
 
 /* Pushes the bottom area's group to the bottom of the stripe. */
@@ -142,19 +150,17 @@
   border: none;
   border-radius: var(--cerebro-radius);
   background: transparent;
-  color: var(--cerebro-text-muted);
+  color: var(--cerebro-icon);
   touch-action: none;
 }
 
 .cerebro-stripe-button:hover {
   background: var(--cerebro-hover);
-  color: var(--cerebro-text);
 }
 
 .cerebro-stripe-button--active,
 .cerebro-stripe-button--active:hover {
-  background: var(--cerebro-selected);
-  color: var(--cerebro-text);
+  background: var(--cerebro-stripe-selected);
 }
 
 .cerebro-stripe-button:focus-visible {
@@ -203,7 +209,6 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: var(--cerebro-panel);
 }
 
 .cerebro-area--left,
@@ -221,6 +226,9 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
+  border-radius: var(--cerebro-island-radius);
+  background: var(--cerebro-panel);
 }
 
 .cerebro-tool-window__header {
@@ -229,7 +237,8 @@
   align-items: center;
   gap: 4px;
   height: var(--cerebro-header-height);
-  padding: 0 4px 0 10px;
+  padding: 0 8px 0 12px;
+  border-bottom: 1px solid var(--cerebro-border);
   font-weight: 600;
 }
 
@@ -243,18 +252,17 @@
 .cerebro-tool-window__hide {
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
   border-radius: 4px;
   background: transparent;
-  color: var(--cerebro-text-muted);
+  color: var(--cerebro-icon);
 }
 
 .cerebro-tool-window__hide:hover {
   background: var(--cerebro-hover);
-  color: var(--cerebro-text);
 }
 
 .cerebro-tool-window__hide:focus-visible {
@@ -268,7 +276,7 @@
   overflow: auto;
 }
 
-/* Splitters: a 1px line with a wider invisible handle. */
+/* Splitters: a 1px line with a wider invisible handle; between islands, the gap itself. */
 
 .cerebro-splitter {
   position: relative;
@@ -303,6 +311,30 @@
 
 .cerebro-splitter:hover::before {
   background: var(--cerebro-hover);
+}
+
+.cerebro-shell__row > .cerebro-splitter,
+.cerebro-shell__main > .cerebro-splitter,
+.cerebro-area > .cerebro-splitter {
+  background: transparent;
+}
+
+.cerebro-shell__row > .cerebro-splitter,
+.cerebro-area--bottom > .cerebro-splitter {
+  width: var(--cerebro-splitter);
+}
+
+.cerebro-shell__main > .cerebro-splitter,
+.cerebro-area--left > .cerebro-splitter,
+.cerebro-area--right > .cerebro-splitter {
+  height: var(--cerebro-splitter);
+}
+
+.cerebro-shell__row > .cerebro-splitter::before,
+.cerebro-shell__main > .cerebro-splitter::before,
+.cerebro-area > .cerebro-splitter::before {
+  inset: 0;
+  background: none;
 }
 
 /* The label that follows the pointer while dragging a tool window. */
@@ -370,12 +402,17 @@
   min-height: 0;
 }
 
+/* The tab strip, on the tool windows' colour; tabs are pills, the active one outlined. */
 .cerebro-editor-tabs {
   display: flex;
   flex: none;
+  align-items: center;
+  gap: 4px;
   height: var(--cerebro-tab-height);
+  padding: 0 6px;
   overflow-x: auto;
   border-bottom: 1px solid var(--cerebro-border);
+  background: var(--cerebro-panel);
   scrollbar-width: none;
 }
 
@@ -383,36 +420,28 @@
   position: relative;
   display: flex;
   flex: none;
+  box-sizing: border-box;
   align-items: center;
   gap: 4px;
-  padding: 0 4px 0 12px;
-  color: var(--cerebro-text-muted);
+  height: 28px;
+  padding: 0 3px 0 7px;
+  border: 1px solid transparent;
+  border-radius: var(--cerebro-radius);
+  color: var(--cerebro-tab-text);
   touch-action: none;
   white-space: nowrap;
 }
 
 .cerebro-editor-tab:hover {
   background: var(--cerebro-hover);
-  color: var(--cerebro-text);
 }
 
-.cerebro-editor-tab--active {
-  color: var(--cerebro-text);
-}
-
-/* The active tab's underline: accent in the active group, muted elsewhere. */
-.cerebro-editor-tab--active::after {
-  content: '';
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  background: var(--cerebro-separator);
-}
-
-.cerebro-editor-group--active .cerebro-editor-tab--active::after {
-  background: var(--cerebro-accent);
+.cerebro-editor-tab--active,
+.cerebro-editor-tab--active:hover {
+  border-color: var(--cerebro-tab-active-border);
+  background: var(--cerebro-tab-active);
+  color: var(--cerebro-tab-active-text);
+  font-weight: 600;
 }
 
 .cerebro-editor-tab:focus-visible {
@@ -427,8 +456,8 @@
 .cerebro-editor-tab__close {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   padding: 0;
   border: none;
   border-radius: 4px;
@@ -452,6 +481,7 @@
 .cerebro-editor-tabs--drop-end::after {
   content: '';
   flex: none;
+  align-self: stretch;
   width: 2px;
   margin: 6px 0;
   border-radius: 1px;
@@ -515,7 +545,7 @@
   height: var(--cerebro-env-tab-height);
   padding: 4px 6px;
   box-sizing: border-box;
-  background: var(--cerebro-panel);
+  background: var(--cerebro-frame);
   color: var(--cerebro-text-muted);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);

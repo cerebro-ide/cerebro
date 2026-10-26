@@ -3,6 +3,7 @@ import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
 import type { Keymap } from '@cerebro-ide/commands';
 import { notesPlugin } from './notes-plugin.js';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
+import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
 import {

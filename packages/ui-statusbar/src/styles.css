@@ -5,9 +5,8 @@
   justify-content: space-between;
   align-items: center;
   height: var(--cerebro-statusbar-height);
-  padding: 0 6px;
-  border-top: 1px solid var(--cerebro-border);
-  background: var(--cerebro-panel);
+  padding: 0 8px;
+  background: var(--cerebro-frame);
   color: var(--cerebro-text-muted);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);
@@ -30,7 +29,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: calc(var(--cerebro-statusbar-height) - 6px);
+  height: calc(var(--cerebro-statusbar-height) - 8px);
   padding: 0 6px;
   border: none;
   border-radius: 4px;

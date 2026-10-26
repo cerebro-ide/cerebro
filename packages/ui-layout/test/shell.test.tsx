@@ -113,12 +113,13 @@ describe('stripes', () => {
     // The bottom group sits at the bottom of the stripe.
     const stripe = group('bottom', 'primary').parentElement as HTMLElement;
     expect(group('bottom', 'primary').getBoundingClientRect().bottom).toBeCloseTo(
-      stripe.getBoundingClientRect().bottom - 4,
+      stripe.getBoundingClientRect().bottom - 3,
     );
-    // The stripe is exactly as wide as the theme says, its buttons and icons too.
-    expect(stripe.getBoundingClientRect().width).toBe(36);
+    // The stripe is exactly as wide as the theme says (the left one a pixel wider, as WebStorm's),
+    // its buttons and icons too.
+    expect(stripe.getBoundingClientRect().width).toBe(41);
     const project = group('left', 'primary').querySelector('.cerebro-stripe-button') as HTMLElement;
-    expect(project.getBoundingClientRect().width).toBe(28);
+    expect(project.getBoundingClientRect().width).toBe(30);
   });
 
   it('draws icons through the icon prop, else the title’s first letter', () => {

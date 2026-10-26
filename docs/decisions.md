@@ -879,6 +879,29 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## The look: WebStorm's Islands theme (2026-10-26)
+
+Ido: match a screenshot of WebStorm's Islands dark theme as closely as possible, pixel by pixel,
+before he points out specifics. The dark theme's values are measured from that screenshot (1693 ×
+1440 at scale 1, sampled pixel by pixel); the light theme's new values are Claude's guesses in the
+same spirit, not measured. Choices of Claude's, open to change:
+
+- **Islands:** the editor and each tool window is a panel with 8px corners on the window's frame
+  colour, 5px apart. The gaps are the splitters' handles; splitters between editor groups, inside
+  the editor's island, stay 1px lines.
+- **Colours:** the frame (toolbar, stripes, status bar) `#25282c`, tool windows `#191a1c`, the
+  editor `#1e2022`, text `#d1d3d9`, the status bar's text `#9fa2a8`, icons `#c3c5ca`.
+- **Sizes:** toolbar 43px, stripes 40px (the left one 41px, as measured) with 30px buttons 10px
+  apart, tool window headers and the tab strip 40px, status bar 32px, tree rows 24px with 19px per
+  level, code lines 22px at 13px.
+- **Editor tabs are pills,** 28px tall, the active one outlined and bold; no underline.
+- **Fonts bundled:** Inter for the UI (IntelliJ's new UI uses it) and JetBrains Mono for code, both
+  under the SIL Open Font License, from the `@fontsource` packages. Without them each platform drew
+  its own fallback, so no screenshot could match. Code ligatures are off, as WebStorm's default.
+- **Scrollbars** are a thin rounded thumb with no track or arrows.
+- **Not done:** the project colour's glow at the toolbar's left, file icons in tabs, and widths
+  that are the user's layout (the Project tool window's, 370px in the screenshot).
+
 ## CI: quick, and few minutes (2026-10-26)
 
 Ido: CI should be quick and use as few resources as possible, without hitting the limits that would
