@@ -23,7 +23,15 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
-import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
+import {
+  active,
+  firstWorktree,
+  seedFiles,
+  setupEnvironments,
+  useWorktrees,
+  workspace,
+  type HostWorktree,
+} from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { settingsFor } from './settings.js';
@@ -36,7 +44,12 @@ import './playground.css';
 /** Set by the desktop app's preload script. */
 declare global {
   interface Window {
-    cerebro?: { app: boolean; platform: string; menu: NativeMenuBridge };
+    cerebro?: {
+      app: boolean;
+      platform: string;
+      menu: NativeMenuBridge;
+      host: { request(method: string, params?: unknown): Promise<unknown> };
+    };
   }
 }
 
@@ -47,6 +60,16 @@ if (window.cerebro?.app) {
     'cerebro-app',
     `cerebro-platform-${window.cerebro.platform}`,
   );
+}
+
+// In the desktop app, the host lists the repository's real worktrees; without it (in a browser, or
+// if it fails), the samples stay.
+if (window.cerebro?.host) {
+  try {
+    useWorktrees((await window.cerebro.host.request('git.worktrees')) as HostWorktree[]);
+  } catch (error) {
+    console.error('The host could not list worktrees', error);
+  }
 }
 
 const layout = new Layout();
@@ -86,7 +109,7 @@ const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
-environments.open('cerebro-status-bar');
+environments.open(firstWorktree());
 
 /** What tab commands from the main menu act on: the active tab. */
 function activeTab(): TabContext | undefined {

@@ -1,13 +1,18 @@
 // The desktop app end to end: the window, dialogs, popups, settings and shortcuts, as a user drives
 // them. These are the flows checked by hand while building them.
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
 
 let running: Running;
 
 beforeAll(async () => {
-  running = await launch();
+  // A folder that isn't a repository: the host can't list worktrees there, so the page keeps its
+  // sample worktrees, which these tests use.
+  running = await launch({ CEREBRO_REPO: mkdtempSync(join(tmpdir(), 'cerebro-e2e-empty-')) });
 });
 
 afterAll(async () => {

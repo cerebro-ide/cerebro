@@ -35,6 +35,12 @@
       "path": "packages/ui-settings/tsconfig.build.json"
     },
     {
+      "path": "packages/protocol/tsconfig.build.json"
+    },
+    {
+      "path": "packages/host/tsconfig.build.json"
+    },
+    {
       "path": "packages/ui-statusbar/tsconfig.build.json"
     },
     {

@@ -14,5 +14,9 @@
   },
   "devDependencies": {
     "electron": "44.9.3"
+  },
+  "dependencies": {
+    "@cerebro-ide/host": "0.0.0",
+    "@cerebro-ide/protocol": "0.0.0"
   }
 }

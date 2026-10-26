@@ -19,11 +19,12 @@ export interface Running {
   close(): Promise<void>;
 }
 
-export async function launch(): Promise<Running> {
+/** Launches the app; `env` adds to its environment (such as CEREBRO_REPO, the repository to open). */
+export async function launch(env: Record<string, string> = {}): Promise<Running> {
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const app = await _electron.launch({
     args: [APP],
-    env: { ...process.env, CEREBRO_USER_DATA: data },
+    env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.

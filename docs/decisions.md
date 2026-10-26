@@ -626,6 +626,40 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## The protocol and the host (2026-10-26)
+
+Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local child process
+(`architecture.md`). Choices of Claude's, open to change:
+
+- **`protocol`:** JSON-RPC 2.0, with no Node or DOM dependency, so the UI, the main process and the
+  host all use it. Either side sends requests and notifications. A request is cancelled with a
+  `$/cancelRequest` notification, as in the Language Server Protocol, and fails with
+  `RequestCancelled` (-32800); the handler gets a cancellation token. Requests waiting when the
+  connection closes fail with `ConnectionClosed` (-32099). Malformed messages get the standard
+  JSON-RPC errors.
+- **Framing: one message per line** (newline-delimited JSON) rather than LSP's `Content-Length`
+  headers: `JSON.stringify` never emits a raw newline, so a line is a message, and it's simpler to
+  read and debug over `wsl.exe` or `ssh`. A line split across chunks is joined (`LineReader`).
+- **`host`:** a Node process serving the protocol on stdin and stdout for a repository (its folder,
+  or `CEREBRO_REPO`). It exits when its input ends. First methods: `host.ping` (the protocol's
+  version, 1) and `git.worktrees` (from `git worktree list --porcelain`: path, commit, branch,
+  whether it's the main one, bare).
+- **Started from Electron's main process** with Electron's own Node: `process.execPath` with
+  `ELECTRON_RUN_AS_NODE=1` (Electron's docs: "Starts the process as a normal Node.js process"), so
+  no separate Node is needed. Electron's `utilityProcess` was the alternative, but its documented
+  stdio options cover stdout and stderr, not stdin, and stdio is the transport WSL and ssh will
+  use. The host stops when the app quits.
+- **The page reaches the host through IPC:** the preload's `cerebro.host.request(method, params)`,
+  forwarded by the main process. Errors cross as messages.
+- **The playground in the app** lists the repository's real worktrees (named after their folders,
+  known by their paths) instead of the samples, opening the main one; in a browser, or if git
+  fails, the samples stay.
+- **Tests:** the protocol between two connected connections (both directions, errors,
+  cancellation, malformed input, closing); the host's methods, with real git on a throwaway
+  repository; the main process with a fake child. E2E: the page pings the host, and lists a
+  throwaway repository's two worktrees, switching branch with the worktree. Both fail without the
+  host.
+
 ## End-to-end tests (2026-10-25)
 
 From the test review: the assembled app had no tests, and the bugs found by hand lived there.
