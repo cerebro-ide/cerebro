@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@cerebro-ide/index": "0.0.0",
-    "@cerebro-ide/protocol": "0.0.0"
+    "@cerebro-ide/protocol": "0.0.0",
+    "node-pty": "1.1.0"
   },
   "bin": {
     "cerebro-host": "dist/main.js"

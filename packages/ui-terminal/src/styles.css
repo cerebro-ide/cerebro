@@ -1,0 +1,20 @@
+/* Terminals. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+@import '@xterm/xterm/css/xterm.css';
+
+.cerebro-terminal {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 6px 0 0 12px;
+  background: var(--cerebro-background);
+}
+
+.cerebro-terminal .xterm {
+  height: 100%;
+}
+
+/* xterm sets these from its theme in a <style> element, which the page's policy blocks. */
+.cerebro-terminal .xterm .xterm-scrollable-element > .scrollbar > .slider {
+  border-radius: 4px;
+  background: var(--cerebro-scrollbar);
+}

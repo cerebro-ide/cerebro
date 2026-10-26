@@ -52,6 +52,8 @@ import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
+import { allTerminals, terminalFor, type TerminalKind } from './terminals.js';
+import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
 
 /** Set by the desktop app's preload script. */
@@ -102,6 +104,7 @@ const windows: ToolWindowSpec[] = [
   { id: 'terminal', title: 'Terminal', anchor: 'bottom', icon: 'terminal' },
   { id: 'problems', title: 'Problems', anchor: 'bottom', icon: 'problems' },
   { id: 'git', title: 'Git', anchor: 'bottom', icon: 'git' },
+  { id: 'claude', title: 'Claude', anchor: 'right', icon: 'agent' },
   { id: 'notifications', title: 'Notifications', anchor: 'right', icon: 'bell' },
   { id: 'database', title: 'Database', anchor: 'right', icon: 'database' },
   { id: 'services', title: 'Services', anchor: 'bottom', slot: 'secondary', icon: 'services' },
@@ -109,6 +112,7 @@ const windows: ToolWindowSpec[] = [
 for (const spec of windows) layout.toolWindows.register(spec);
 layout.toolWindows.show('project');
 layout.toolWindows.show('terminal');
+layout.toolWindows.show('claude');
 
 const FILES = [
   'README.md',
@@ -317,9 +321,24 @@ function Files() {
   );
 }
 
+/** The active worktree's terminal of a kind: its shell, or its agent. */
+function TerminalPane(props: { kind: TerminalKind }) {
+  return () => {
+    const env = active();
+    if (!env) return <p class="playground-project__empty">No environment open</p>;
+    const view = terminalFor(props.kind, env.id);
+    if (!view) {
+      return <p class="playground-project__empty">Terminals run in the desktop app.</p>;
+    }
+    return view.element;
+  };
+}
+
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
+  if (props.id === 'terminal') return <TerminalPane kind="shell" />;
+  if (props.id === 'claude') return <TerminalPane kind="claude" />;
   // A plugin's view fills a container element, however it likes.
   const view = views.get(props.id);
   if (view) {
@@ -350,6 +369,7 @@ effect(() => {
 // The theme follows its setting.
 effect(() => {
   document.documentElement.dataset['cerebroTheme'] = dark.get() ? 'dark' : 'light';
+  for (const terminal of allTerminals()) terminal.refreshTheme();
   return undefined;
 });
 

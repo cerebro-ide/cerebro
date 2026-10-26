@@ -13,6 +13,7 @@ import { signal, type Disposable } from '@cerebro-ide/reactive';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { icon } from './icons.js';
+import { closeTerminals } from './terminals.js';
 
 const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro', name: 'cerebro', branch: 'main' },
@@ -253,8 +254,14 @@ export function setupEnvironments(
     enabled: (env?: Environment) =>
       host !== undefined && env !== undefined && env.id !== mainWorktree,
     run: async (env) => {
-      const remove = async (force: boolean) =>
-        (await host?.request('git.removeWorktree', { path: env.id, force })) as HostWorktree[];
+      const remove = async (force: boolean) => {
+        // Its terminals run in the folder that's going.
+        closeTerminals(env.id);
+        return (await host?.request('git.removeWorktree', {
+          path: env.id,
+          force,
+        })) as HostWorktree[];
+      };
       const confirmed = await openDialog<true>({
         title: 'Remove Worktree',
         ok: { label: 'Remove', accept: () => true },
