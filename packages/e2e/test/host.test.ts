@@ -68,6 +68,59 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
       seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
     });
   });
+  for (let round = 0; round < 3; round++) {
+    const report = await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const out: Record<string, unknown> = {
+            visibility: document.visibilityState,
+            focus: document.hasFocus(),
+            size: [innerWidth, innerHeight, devicePixelRatio],
+          };
+          let frames = 0;
+          const tick = () => {
+            frames++;
+            if (frames < 1000) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+          const added: string[] = [];
+          let removed = 0;
+          let attributes = 0;
+          const tree = document.querySelector('.cerebro-tree') ?? document.body;
+          const observer = new MutationObserver((records) => {
+            for (const r of records) {
+              if (r.type === 'attributes') attributes++;
+              removed += r.removedNodes.length;
+              r.addedNodes.forEach((n) => added.push((n as Element).className ?? n.nodeName));
+            }
+          });
+          observer.observe(tree, { subtree: true, childList: true, attributes: true });
+          const boxes: string[] = [];
+          const sample = setInterval(() => {
+            const row = [...document.querySelectorAll('.cerebro-tree-row')].find((r) =>
+              r.textContent?.includes('app.ts'),
+            );
+            const b = row?.getBoundingClientRect();
+            boxes.push(b ? `${b.x},${b.y},${b.width},${b.height}` : 'none');
+          }, 100);
+          setTimeout(() => {
+            clearInterval(sample);
+            observer.disconnect();
+            Object.assign(out, {
+              frames,
+              removed,
+              attributes,
+              added: added.slice(0, 10),
+              addedCount: added.length,
+              boxes: [...new Set(boxes)],
+              status: document.querySelector('.cerebro-statusbar')?.textContent,
+            });
+            resolve(out);
+          }, 1000);
+        }),
+    );
+    process.stderr.write(`DIAG ${String(round)} ${JSON.stringify(report)}\n`);
+  }
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
   expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
     gitPath(repo, 'src', 'app.ts'),
