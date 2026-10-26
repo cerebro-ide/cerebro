@@ -1,0 +1,26 @@
+{
+  "name": "@cerebro-ide/ui-terminal",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A terminal view: xterm.js on a process the host runs on a pseudo-terminal.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@xterm/headless": "6.0.0"
+  }
+}

@@ -9,7 +9,23 @@ export {
   type NewWorktree,
   type Worktree,
 } from './git.js';
-export { PROTOCOL_VERSION, serve, serveOn, type HostOptions } from './host.js';
+export {
+  makeSpawnHelperExecutable,
+  nodePty,
+  PROTOCOL_VERSION,
+  serve,
+  serveOn,
+  type HostOptions,
+} from './host.js';
+export {
+  BUFFER_LIMIT,
+  defaultShell,
+  Terminals,
+  type Opened,
+  type OpenOptions,
+  type Pty,
+  type SpawnPty,
+} from './terminals.js';
 export {
   listFolder,
   MAX_FILE_SIZE,

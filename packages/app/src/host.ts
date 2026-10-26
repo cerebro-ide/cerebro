@@ -11,7 +11,7 @@ export const HOST_REQUEST = 'cerebro:host:request';
 export const HOST_NOTIFICATION = 'cerebro:host:notification';
 
 /** The host's notifications the page hears. */
-export const FORWARDED = ['index.progress'] as const;
+export const FORWARDED = ['index.progress', 'terminal.data', 'terminal.exit'] as const;
 
 /** The host's entry point, built beside this app. */
 const HOST = fileURLToPath(new URL('../../host/dist/main.js', import.meta.url));
