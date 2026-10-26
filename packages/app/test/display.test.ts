@@ -20,7 +20,7 @@ const electron = vi.hoisted(() => {
 
 vi.mock('electron', () => ({ app: electron.app, ipcMain: electron.ipcMain }));
 
-const { installDisplayScale, isWsl, osScale, readChoice, scaleFor, SET_SCALE, system } =
+const { installDisplayScale, isWsl, osScale, readChoice, scaleFor, SET_SCALE, system, zoomFor } =
   await import('../src/display.js');
 
 const REG = `
@@ -96,6 +96,15 @@ describe('installDisplayScale', () => {
     );
   });
 
+  it('forces no scale on macOS, which ignores the switch: the page is zoomed instead', () => {
+    const sys = {
+      ...fake({ files: { '/data/display.json': '{"scale":"1.25"}' } }),
+      platform: 'darwin' as const,
+    };
+    expect(installDisplayScale(sys, vi.fn())).toBe(1.25);
+    expect(electron.app.commandLine.appendSwitch).not.toHaveBeenCalled();
+  });
+
   it('leaves the scale to Electron when there’s nothing to force', () => {
     expect(installDisplayScale(fake(), vi.fn())).toBeUndefined();
     expect(electron.app.commandLine.appendSwitch).not.toHaveBeenCalled();
@@ -112,6 +121,15 @@ describe('installDisplayScale', () => {
       throw new Error('read-only');
     });
     expect(() => send({}, '2')).not.toThrow();
+  });
+});
+
+describe('zoomFor', () => {
+  it('zooms by the scale over the screen’s, only on macOS and only for a forced scale', () => {
+    expect(zoomFor(1.25, 'darwin', 2)).toBe(0.625);
+    expect(zoomFor(1.25, 'darwin', 1)).toBe(1.25);
+    expect(zoomFor(undefined, 'darwin', 2)).toBeUndefined();
+    expect(zoomFor(1.25, 'linux', 1)).toBeUndefined();
   });
 });
 
