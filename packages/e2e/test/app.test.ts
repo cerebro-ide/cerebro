@@ -168,6 +168,40 @@ describe('settings', () => {
   });
 });
 
+describe('the layout', () => {
+  /** What the window shows: open tool windows, environment tabs, the active one and its file. */
+  const snapshot = () =>
+    page().evaluate(() => ({
+      tools: [...document.querySelectorAll('.cerebro-stripe-button[aria-pressed="true"]')].map(
+        (b) => (b as HTMLElement).dataset['id'],
+      ),
+      envs: [...document.querySelectorAll('.cerebro-env-tab')].map(
+        (t) => (t as HTMLElement).dataset['env'],
+      ),
+      active: document.querySelector<HTMLElement>('.cerebro-env-tab--active')?.dataset['env'],
+      file: document.querySelector('.cerebro-statusbar')?.textContent,
+    }));
+
+  it('is as it was left after a reload', async () => {
+    // Rearranged: Project closed, Git opened, another environment, a file opened in it.
+    await page().locator('.cerebro-stripe-button[data-id="project"]').click();
+    await page().locator('.cerebro-stripe-button[data-id="git"]').click();
+    await page().locator('[aria-label^="Environment:"]').click();
+    await page().locator('.cerebro-popup-item', { hasText: 'cerebro-agent-1' }).click();
+    await page().keyboard.press('Control+Shift+N');
+    await page().keyboard.type('layout');
+    await page().keyboard.press('Enter');
+    const before = await snapshot();
+    expect(before.tools).not.toContain('project');
+    expect(before.tools).toContain('git');
+    expect(before.envs).toEqual(['cerebro-status-bar', 'cerebro-agent-1']);
+    expect(before.file).toContain('src/layout.ts');
+    await page().reload();
+    await page().waitForSelector('.cerebro-toolbar');
+    expect(await snapshot()).toEqual(before);
+  });
+});
+
 describe('shortcuts', () => {
   it('runs a sequence, and abandons one left waiting', async () => {
     await page().keyboard.press('Control+K');
