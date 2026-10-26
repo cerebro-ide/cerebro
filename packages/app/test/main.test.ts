@@ -56,6 +56,9 @@ vi.mock('electron', () => ({ app: electron.app, BrowserWindow: electron.BrowserW
 const host = vi.hoisted(() => ({ installHost: vi.fn() }));
 vi.mock('../src/host.js', () => host);
 
+const menu = vi.hoisted(() => ({ installMenu: vi.fn() }));
+vi.mock('../src/menu.js', () => menu);
+
 const { createWindow, start } = await import('../src/main.js');
 
 /** Whether navigating to `url` is let through. */
@@ -119,6 +122,7 @@ describe('start', () => {
     start('/tmp/cerebro-test');
     expect(electron.app.setPath).toHaveBeenCalledWith('userData', '/tmp/cerebro-test');
     expect(host.installHost).toHaveBeenCalled();
+    expect(menu.installMenu).toHaveBeenCalled();
     electron.app.setPath.mockClear();
     vi.stubEnv('CEREBRO_USER_DATA', '');
     start();

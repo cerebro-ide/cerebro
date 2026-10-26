@@ -495,6 +495,11 @@ new UI.
     ignored (Electron reports `triggeredByAccelerator`), so the keymap is the only thing that runs
     them, with its chords and user bindings. Sequences of several chords show no accelerator.
   - The in-window menu bar isn't shown there.
+- **Windows and Linux have no native application menu** (2026-10-26): the menu bar is the page's
+  own, and Electron's default menu (with its own Alt handling and shortcuts) is suppressed with
+  `Menu.setApplicationMenu(null)`, which Electron's docs say also removes the window's menu bar.
+  Found while chasing a CI flake on Linux where, after Alt+F, clicks waited forever; a claim that
+  the default menu caused it, measured only by the flake stopping.
 
   Measured on Linux: the IPC both ways, and Electron building the template (roles, checkboxes,
   accelerators such as `Command+Plus`). Claims, still to check on a Mac:

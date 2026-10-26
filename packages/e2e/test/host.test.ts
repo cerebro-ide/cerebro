@@ -8,8 +8,13 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
 
 let running: Running;
-const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-e2e-repo-')));
+// The real path: on Windows, the temporary folder can come with an 8.3 short name, which git and
+// the app write out in full.
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-repo-')));
 const repo = join(root, 'project');
+
+/** A path as git and Cerebro write it: with forward slashes, on every OS. */
+const gitPath = (...parts: string[]) => join(...parts).replaceAll('\\', '/');
 
 beforeAll(async () => {
   const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' });
@@ -86,7 +91,7 @@ async function createWorktree(name: string) {
   await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click();
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
-  await page.locator(`.cerebro-env-tab[data-env="${join(root, name)}"]`).waitFor();
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(root, name)}"]`).waitFor();
 }
 
 /** Chooses Remove Worktree… on an environment tab. */
@@ -105,27 +110,27 @@ it('creates a worktree beside the main one, on a new branch, and opens it', asyn
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: extra',
   );
-  expect(gitWorktrees()).toContain(join(root, 'extra'));
+  expect(gitWorktrees()).toContain(gitPath(root, 'extra'));
 });
 
 it('removes a worktree after asking, and offers to force one with changes', async () => {
   const page = running.page;
-  await removeFromTab(join(root, 'extra'));
+  await removeFromTab(gitPath(root, 'extra'));
   await page.locator('.cerebro-dialog__button', { hasText: 'Remove' }).click();
-  await page.locator(`.cerebro-env-tab[data-env="${join(root, 'extra')}"]`).waitFor({
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(root, 'extra')}"]`).waitFor({
     state: 'detached',
   });
-  expect(gitWorktrees()).not.toContain(join(root, 'extra'));
+  expect(gitWorktrees()).not.toContain(gitPath(root, 'extra'));
 
   await createWorktree('dirty');
   writeFileSync(join(root, 'dirty', 'README.md'), 'changed');
-  await removeFromTab(join(root, 'dirty'));
+  await removeFromTab(gitPath(root, 'dirty'));
   await page.locator('.cerebro-dialog__button', { hasText: 'Remove' }).click();
   await page.locator('.cerebro-dialog__button', { hasText: 'Remove Anyway' }).click();
-  await page.locator(`.cerebro-env-tab[data-env="${join(root, 'dirty')}"]`).waitFor({
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(root, 'dirty')}"]`).waitFor({
     state: 'detached',
   });
-  expect(gitWorktrees()).not.toContain(join(root, 'dirty'));
+  expect(gitWorktrees()).not.toContain(gitPath(root, 'dirty'));
 });
 
 it('offers to remove a linked worktree, but not the main one', async () => {
@@ -141,6 +146,6 @@ it('offers to remove a linked worktree, but not the main one', async () => {
   // Two tabs, so the tabs show.
   await page.locator('[aria-label^="Environment:"]').click();
   await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
-  expect(await removable(join(root, 'project-e2e'))).toBe(true);
-  expect(await removable(repo)).toBe(false);
+  expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
+  expect(await removable(gitPath(repo))).toBe(false);
 });
