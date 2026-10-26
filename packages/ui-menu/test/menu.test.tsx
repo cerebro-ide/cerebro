@@ -288,7 +288,7 @@ describe('headings', () => {
     expect(
       [...popup.children].map((child) =>
         child.classList.contains('cerebro-menu-heading')
-          ? `# ${String(child.textContent)}`
+          ? `# ${child.textContent}`
           : child.classList.contains('cerebro-menu-separator')
             ? '---'
             : String(child.querySelector('.cerebro-menu-item__label')?.textContent),

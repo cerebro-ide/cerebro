@@ -167,7 +167,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
     }
-    const files = new Set(p.files as string[]);
+    const files = new Set(p.files);
     const changes = (await listChanges(worktree, git)).filter((c) => files.has(c.path));
     await rollback(worktree, changes, p.deleteAdded === true, git);
     return listChanges(worktree, git);
