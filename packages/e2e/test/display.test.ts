@@ -44,6 +44,19 @@ it('takes the scale chosen in the settings when the app restarts', async () => {
   await page.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
   const before = await scale();
   await running.restart();
+  const diag = await running.app.evaluate(({ app, screen }) => ({
+    switch: app.commandLine.hasSwitch('force-device-scale-factor'),
+    value: app.commandLine.getSwitchValue('force-device-scale-factor'),
+    screen: screen.getPrimaryDisplay().scaleFactor,
+    data: app.getPath('userData'),
+  }));
+  let saved = 'unreadable';
+  try {
+    saved = readFileSync(`${diag.data}/display.json`, 'utf8');
+  } catch {
+    // reported as unreadable
+  }
+  process.stderr.write(`DIAGSCALE ${JSON.stringify({ ...diag, saved, dpr: await scale() })}\n`);
   expect(await scale()).toBe(1.25);
   // Back to the default, which takes effect on the next restart.
   await running.page.keyboard.press('ControlOrMeta+Alt+S');

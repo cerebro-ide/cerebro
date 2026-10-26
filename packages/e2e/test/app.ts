@@ -26,7 +26,7 @@ async function start(
   env: Record<string, string>,
 ): Promise<{ app: ElectronApplication; page: Page }> {
   const app = await _electron.launch({
-    args: [APP],
+    args: [...(process.env['E2E_DISABLE_GPU'] ? ['--disable-gpu'] : []), APP],
     env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
   const page = await app.firstWindow();

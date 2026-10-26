@@ -68,6 +68,9 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
       seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
     });
   });
+  process.stderr.write(
+    `DIAGGPU ${JSON.stringify(await running.app.evaluate(({ app }) => ({ gpu: app.getGPUFeatureStatus(), disabled: app.commandLine.hasSwitch('disable-gpu') })))}\n`,
+  );
   for (let round = 0; round < 3; round++) {
     const report = await page.evaluate(
       () =>
