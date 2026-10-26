@@ -206,6 +206,20 @@ describe('TreeModel, all at once', () => {
     expect(model.loaded.has('docs')).toBe(false);
   });
 
+  it('loads, on a refresh, folders marked expanded before they showed', async () => {
+    let roots: Item[] = [];
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: (node) => (node ? (node.children ?? []) : roots),
+    });
+    await settle();
+    // Expanded by key, as a view does for folders it wants open from the start.
+    model.expanded.add('src');
+    roots = tree({ src: { 'a.ts': null }, docs: { 'plan.md': null } });
+    await model.refresh();
+    expect(shown(model)).toEqual(['src', '  a.ts', 'docs']);
+  });
+
   it('refreshes a tree whose roots can’t be read', async () => {
     const model = new TreeModel<Item>({
       ...source([]),

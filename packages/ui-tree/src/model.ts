@@ -83,7 +83,8 @@ export class TreeModel<T> {
 
   /**
    * Reads the tree again: the roots, and the children of every node loaded before that's still
-   * there, so what was expanded stays expanded, with what it holds now.
+   * there, so what was expanded stays expanded, with what it holds now. Nodes marked expanded
+   * before they were ever loaded are loaded too.
    */
   async refresh(): Promise<void> {
     const before = new Set(this.loaded.keys());
@@ -92,7 +93,7 @@ export class TreeModel<T> {
       await Promise.all(
         children.map(async (node) => {
           const key = this.source.key(node);
-          if (this.source.isLeaf(node) || !before.has(key)) return;
+          if (this.source.isLeaf(node) || !(before.has(key) || this.expanded.has(key))) return;
           await this.load(node, true);
           await reload(key);
         }),

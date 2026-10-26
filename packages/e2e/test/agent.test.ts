@@ -69,7 +69,7 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
       .toContain('pretend claude: --resume fake-session');
   });
 
-  it('lists its turn in the Commit tool window, with the file it wrote, and opens its diff', async () => {
+  it('lists its turn in the Commit tool window, with the file it wrote, and shows its diff', async () => {
     const page = running.page;
     await page.locator('.cerebro-stripe-button[data-id="commit"]').click({ force: true });
     // Both runs' turns: the one after the restart wrote the same file again, changing nothing.
@@ -77,8 +77,9 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     // Each hook runs the host's entry as Node: slow, so this waits longer than most.
     await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
     await turns.last().dblclick();
-    const file = page.locator('.cerebro-tree-row[data-key$=":agent.txt"]');
-    await file.dblclick();
+    const file = page.locator('.cerebro-tree-row[data-key^="turn:"][data-key$=":agent.txt"]');
+    await file.click();
+    await page.keyboard.press('ControlOrMeta+d');
     const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
     await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
   });

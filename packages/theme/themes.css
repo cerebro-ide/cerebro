@@ -59,6 +59,7 @@
   --cerebro-vcs-added: #73bd79;
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
+  --cerebro-vcs-ignored: #a8a35a;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #548af7;
   --cerebro-agent-waiting: #e5a345;
@@ -153,6 +154,7 @@
   --cerebro-vcs-added: #2e8a3c;
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;
+  --cerebro-vcs-ignored: #7d7a2a;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #3574f0;
   --cerebro-agent-waiting: #c77d0e;
