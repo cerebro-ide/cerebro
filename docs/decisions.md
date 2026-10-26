@@ -901,6 +901,11 @@ worktree, and a Claude tool window running `claude`.
   shows the same process with its last 256 KB of output. Output is batched every 4 ms. The shell
   is `$SHELL` (else `/bin/bash`), or `COMSPEC` on Windows. `TERM=xterm-256color`,
   `COLORTERM=truecolor`.
+- **node-pty's macOS helper is made executable by the host** before it spawns. node-pty 1.1.0
+  publishes `prebuilds/darwin-*/spawn-helper` with mode 0644 (measured: `npm pack node-pty@1.1.0
+  --dry-run --json`), and on macOS every spawn failed with "posix_spawnp failed" (measured: the
+  macOS e2e run). A postinstall script was the alternative; the host's fix also covers installs it
+  doesn't control.
 - **When the process ends** the view says so; Enter starts it again. Removing a worktree ends its
   terminals.
 - **Shortcuts:** keys the app binds (and chord prefixes) go to the app; others go to the process,

@@ -1,10 +1,18 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
 import { describe, expect, it, vi } from 'vitest';
-import { nodePty, PROTOCOL_VERSION, serve, serveOn, type Pty } from '../src/index.js';
+import {
+  makeSpawnHelperExecutable,
+  nodePty,
+  PROTOCOL_VERSION,
+  serve,
+  serveOn,
+  type Pty,
+} from '../src/index.js';
 
 const PORCELAIN = 'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n';
 
@@ -237,5 +245,24 @@ describe('terminals', () => {
     });
     expect(code).toBe(0);
     expect(output.trim()).toBe('xterm-256color');
+  });
+
+  it('makes node-pty’s macOS helper executable, which its package leaves unexecutable', () => {
+    const root = dirname(createRequire(import.meta.url).resolve('node-pty/package.json'));
+    const helper = join(root, 'prebuilds', 'darwin-x64', 'spawn-helper');
+    const mode = statSync(helper).mode & 0o777;
+    try {
+      chmodSync(helper, 0o644);
+      makeSpawnHelperExecutable('linux', 'x64');
+      expect(statSync(helper).mode & 0o777).toBe(0o644);
+      makeSpawnHelperExecutable('darwin', 'x64');
+      expect(statSync(helper).mode & 0o777).toBe(0o755);
+      // No prebuild for the architecture: nothing to do.
+      expect(() => {
+        makeSpawnHelperExecutable('darwin', 'mips');
+      }).not.toThrow();
+    } finally {
+      chmodSync(helper, mode);
+    }
   });
 });

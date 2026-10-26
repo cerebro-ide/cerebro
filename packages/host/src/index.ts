@@ -9,7 +9,14 @@ export {
   type NewWorktree,
   type Worktree,
 } from './git.js';
-export { nodePty, PROTOCOL_VERSION, serve, serveOn, type HostOptions } from './host.js';
+export {
+  makeSpawnHelperExecutable,
+  nodePty,
+  PROTOCOL_VERSION,
+  serve,
+  serveOn,
+  type HostOptions,
+} from './host.js';
 export {
   BUFFER_LIMIT,
   defaultShell,

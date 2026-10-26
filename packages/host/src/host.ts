@@ -1,5 +1,8 @@
 // The host's methods, on a connection to the UI.
 
+import { chmodSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { dirname, join } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
@@ -24,9 +27,26 @@ export interface HostOptions {
   pty?: SpawnPty;
 }
 
+/**
+ * Makes node-pty's macOS helper executable. node-pty 1.1.0 publishes it without the execute bit
+ * (mode 0644 in the package's file list), and spawns through it from its prebuilds, so every spawn
+ * fails with "posix_spawnp failed" until the bit is set.
+ */
+export function makeSpawnHelperExecutable(platform = process.platform, arch = process.arch): void {
+  if (platform !== 'darwin') return;
+  const root = dirname(createRequire(import.meta.url).resolve('node-pty/package.json'));
+  try {
+    chmodSync(join(root, 'prebuilds', `darwin-${arch}`, 'spawn-helper'), 0o755);
+  } catch {
+    // No prebuild for this architecture: node-pty built its own, which is executable.
+  }
+}
+
 /** node-pty's spawn, as terminals use it. */
-export const nodePty: SpawnPty = (file, args, options) =>
-  spawnPty(file, args, { name: 'xterm-256color', ...options });
+export const nodePty: SpawnPty = (file, args, options) => {
+  makeSpawnHelperExecutable();
+  return spawnPty(file, args, { name: 'xterm-256color', ...options });
+};
 
 /** Registers the host's methods on `connection`; the function returned ends what they started. */
 export function serveOn(connection: Connection, options: HostOptions): () => void {
