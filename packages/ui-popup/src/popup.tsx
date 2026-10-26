@@ -58,6 +58,28 @@ const PAGE = 10;
 /** The space between a popup and the window's top edge, or the element it opens below. */
 const GAP = 4;
 
+/**
+ * Where the pointer was before its latest move, from every move in the window: a list shifting
+ * under a still pointer makes the browser send moves at the same place, which mustn't take over
+ * from the keyboard. Positions, not movementX and movementY: Chrome gave those as 0 for
+ * Playwright's moves (measured in CI), and the guard must not depend on how a move was made.
+ */
+let previousPointer: { x: number; y: number } | undefined;
+let pointer: { x: number; y: number } | undefined;
+window.addEventListener(
+  'pointermove',
+  (event) => {
+    previousPointer = pointer;
+    pointer = { x: event.clientX, y: event.clientY };
+  },
+  { capture: true, passive: true },
+);
+
+/** Whether a move is the pointer's own, not the page's moving under it. */
+function pointerMoved(event: PointerEvent): boolean {
+  return previousPointer?.x !== event.clientX || previousPointer.y !== event.clientY;
+}
+
 class PickerState {
   query = '';
   /** The highlighted item's index; -1 for none. */
@@ -267,7 +289,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
                 data-index={index}
                 on:pointermove={(event) => {
                   // Only a pointer that really moves takes over from the keyboard.
-                  if (event.movementX !== 0 || event.movementY !== 0) state.index = index;
+                  if (pointerMoved(event)) state.index = index;
                 }}
                 on:mousedown={(event) => {
                   // Keeps the focus in the search field.

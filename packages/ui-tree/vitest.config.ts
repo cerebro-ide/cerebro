@@ -11,7 +11,13 @@ export default defineProject({
     browser: {
       enabled: true,
       headless: true,
-      provider: playwright(),
+      // CI uses the runner's own Chrome (CEREBRO_BROWSER_CHANNEL=chrome), with nothing to install;
+      // elsewhere, Playwright's Chromium.
+      provider: playwright({
+        launchOptions: process.env['CEREBRO_BROWSER_CHANNEL']
+          ? { channel: process.env['CEREBRO_BROWSER_CHANNEL'] }
+          : {},
+      }),
       instances: [{ browser: 'chromium' }],
       viewport: { width: 1200, height: 800 },
     },

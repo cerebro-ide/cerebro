@@ -81,3 +81,17 @@ body,
   padding: 8px 16px;
   color: var(--cerebro-text-muted);
 }
+
+.playground-notes__input {
+  box-sizing: border-box;
+  width: calc(100% - 24px);
+  height: 26px;
+  margin: 8px 12px 0;
+  padding: 0 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
