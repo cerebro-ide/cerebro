@@ -174,10 +174,17 @@ describe('openPicker', () => {
 
   it('highlights under a moving pointer only', () => {
     picker();
-    const item = document.querySelectorAll('.cerebro-popup-item')[2] as HTMLElement;
-    item.dispatchEvent(new PointerEvent('pointermove', { bubbles: true }));
+    const items = document.querySelectorAll<HTMLElement>('.cerebro-popup-item');
+    const move = (index: number, clientY: number) =>
+      (items[index] as HTMLElement).dispatchEvent(
+        new PointerEvent('pointermove', { bubbles: true, clientX: 10, clientY }),
+      );
+    move(0, 30);
     expect(highlightedLabel()).toBe('README.md');
-    item.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, movementY: 2 }));
+    // The list shifted under a still pointer: no movement of its own.
+    move(2, 30);
+    expect(highlightedLabel()).toBe('README.md');
+    move(2, 32);
     expect(highlightedLabel()).toBe('shell.tsx');
   });
 

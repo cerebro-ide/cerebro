@@ -14,6 +14,7 @@ const electron = vi.hoisted(() => {
     openHandler: Listener | undefined;
     contentListeners = new Map<string, Listener>();
     webContents = {
+      setZoomFactor: vi.fn(),
       setWindowOpenHandler: (handler: Listener) => {
         this.openHandler = handler;
       },
@@ -157,6 +158,9 @@ describe('start', () => {
         webPreferences: expect.objectContaining({ zoomFactor: 0.625 }) as unknown,
       }),
     );
+    await vi.waitFor(() => {
+      expect(electron.windows[0]?.webContents.setZoomFactor).toHaveBeenCalledWith(0.625);
+    });
   });
 
   it('quits when the last window closes, except on macOS', () => {

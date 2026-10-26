@@ -1,0 +1,26 @@
+{
+  "name": "@cerebro-ide/plugin-api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Plugins and their contribution points: views, commands, menus and shortcuts.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/commands": "0.0.0",
+    "@cerebro-ide/layout": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}
