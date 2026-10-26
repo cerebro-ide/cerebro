@@ -197,7 +197,7 @@ describe('plugins', () => {
     await page().keyboard.type('second');
     await page().keyboard.press('Enter');
     expect(await notes()).toEqual(['first', 'second']);
-    await page().keyboard.press('Control+Shift+A');
+    await page().keyboard.press('ControlOrMeta+Shift+A');
     await page().keyboard.type('clear notes');
     await page().keyboard.press('Enter');
     expect(await notes()).toEqual([]);
@@ -206,7 +206,7 @@ describe('plugins', () => {
     await page().keyboard.press('Enter');
     // Out of the field, so the shortcut reaches the app.
     await page().locator('.cerebro-statusbar').click();
-    await page().keyboard.press('Control+Alt+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Alt+Shift+N');
     expect(await notes()).toEqual([]);
   });
 });
@@ -231,7 +231,7 @@ describe('the layout', () => {
     await page().locator('.cerebro-stripe-button[data-id="git"]').click();
     await page().locator('[aria-label^="Environment:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'cerebro-agent-1' }).click();
-    await page().keyboard.press('Control+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Shift+N');
     await page().keyboard.type('layout');
     await page().keyboard.press('Enter');
     const before = await snapshot();
