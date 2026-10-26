@@ -52,6 +52,12 @@ export type TerminalKind = 'shell' | 'claude';
 const host = window.cerebro?.host;
 const shared = host ? backend(host) : undefined;
 const views = new Map<string, TerminalView>();
+let passKey: (event: KeyboardEvent) => boolean = () => false;
+
+/** Which keys terminals let through to the app: its shortcuts. */
+export function setTerminalKeys(pass: (event: KeyboardEvent) => boolean): void {
+  passKey = pass;
+}
 
 /** The worktree's terminal of this kind, made the first time it's asked for. */
 export function terminalFor(kind: TerminalKind, worktree: string): TerminalView | undefined {
@@ -62,16 +68,13 @@ export function terminalFor(kind: TerminalKind, worktree: string): TerminalView 
     view = new TerminalView(shared, {
       key,
       cwd: worktree,
+      mac: window.cerebro?.platform === 'darwin',
+      passKey: (event) => passKey(event),
       ...(kind === 'claude' ? { command: 'claude' } : {}),
     });
     views.set(key, view);
   }
   return view;
-}
-
-/** Every terminal made so far: to recolour them when the theme changes. */
-export function allTerminals(): Iterable<TerminalView> {
-  return views.values();
 }
 
 /** Ends a worktree's terminals, as when it's removed. */

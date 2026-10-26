@@ -14,8 +14,12 @@ function fakePty() {
   } satisfies Pty;
   return {
     pty,
-    output: (text: string) => data(text),
-    exit: (code: number) => exit({ exitCode: code }),
+    output: (text: string) => {
+      data(text);
+    },
+    exit: (code: number) => {
+      exit({ exitCode: code });
+    },
   };
 }
 

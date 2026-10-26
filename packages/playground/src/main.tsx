@@ -48,11 +48,11 @@ import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { globalSettings, settingsFor } from './settings.js';
-import { formatSequence } from '@cerebro-ide/commands';
+import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
-import { allTerminals, terminalFor, type TerminalKind } from './terminals.js';
+import { setTerminalKeys, terminalFor, type TerminalKind } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
 
@@ -130,6 +130,16 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+
+// Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
+setTerminalKeys((event) => {
+  const keymap = services.keymap;
+  const chord = chordFromEvent(event);
+  if (!keymap || chord === undefined) return false;
+  const bare = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
+  if (bare && keymap.platform !== 'mac') return false;
+  return keymap.commandsFor(chord).length > 0 || keymap.isPrefix(chord);
+});
 
 // Plugins: the sample Notes plugin, added as any plugin would be.
 const views = new ViewRegistry(layout.toolWindows);
@@ -369,7 +379,6 @@ effect(() => {
 // The theme follows its setting.
 effect(() => {
   document.documentElement.dataset['cerebroTheme'] = dark.get() ? 'dark' : 'light';
-  for (const terminal of allTerminals()) terminal.refreshTheme();
   return undefined;
 });
 

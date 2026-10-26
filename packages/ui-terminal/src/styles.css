@@ -1,20 +1,92 @@
 /* Terminals. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
 
-@import '@xterm/xterm/css/xterm.css';
-
 .cerebro-terminal {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--cerebro-background);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font-mono);
+  font-variant-ligatures: none;
+  line-height: var(--cerebro-terminal-row, 16px);
+  cursor: text;
+}
+
+.cerebro-terminal__viewport {
   box-sizing: border-box;
   height: 100%;
   padding: 6px 0 0 12px;
-  background: var(--cerebro-background);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
-.cerebro-terminal .xterm {
-  height: 100%;
+.cerebro-terminal__lines {
+  position: relative;
 }
 
-/* xterm sets these from its theme in a <style> element, which the page's policy blocks. */
-.cerebro-terminal .xterm .xterm-scrollable-element > .scrollbar > .slider {
-  border-radius: 4px;
-  background: var(--cerebro-scrollbar);
+.cerebro-terminal__row,
+.cerebro-terminal__cursor {
+  position: absolute;
+  left: 0;
+  height: var(--cerebro-terminal-row, 16px);
+  white-space: pre;
+}
+
+.cerebro-terminal__box {
+  display: inline-block;
+  overflow: visible;
+  vertical-align: top;
+}
+
+.cerebro-terminal__bold {
+  font-weight: 700;
+}
+
+.cerebro-terminal__italic {
+  font-style: italic;
+}
+
+.cerebro-terminal__dim {
+  opacity: 0.5;
+}
+
+.cerebro-terminal__selected {
+  background: var(--cerebro-editor-selection);
+}
+
+/* An outline while the terminal doesn't have the focus; a block, the character in it, while it does. */
+.cerebro-terminal__cursor {
+  box-sizing: border-box;
+  width: 1ch;
+  outline: 1px solid var(--cerebro-text);
+  outline-offset: -1px;
+  pointer-events: none;
+}
+
+.cerebro-terminal__cursor--focused {
+  background: var(--cerebro-text);
+  color: var(--cerebro-background);
+}
+
+.cerebro-terminal__cursor[hidden] {
+  display: none;
+}
+
+/* Receives the keys and the text typed (input methods included), out of sight. */
+.cerebro-terminal__input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  resize: none;
+}
+
+.cerebro-terminal__measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
 }

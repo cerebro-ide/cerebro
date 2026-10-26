@@ -137,7 +137,7 @@ Libraries used, because writing them isn't worth it:
 |---|---|
 | Electron | the app shell |
 | CodeMirror 6 | the editor core |
-| xterm.js | the terminal emulator |
+| xterm.js's headless terminal (`@xterm/headless`) | the terminal emulator's parser and screen state; Cerebro draws it (2026-10-26) |
 | node-pty | terminals in the host |
 | web-tree-sitter and grammars | the shared index |
 | the language servers | precise navigation and diagnostics |
@@ -878,6 +878,41 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## Terminals and the Claude tool window (2026-10-26)
+
+The POC's first step (Ido: get to a POC he can QA, the steps up to Claude): real terminals per
+worktree, and a Claude tool window running `claude`.
+
+- **Own renderer on `@xterm/headless`** (Ido's decision). xterm.js's own renderer was tried first;
+  Ido, who has contributed to xterm.js, dislikes how it handles rendering, and in the app it broke
+  against the page's Content-Security-Policy (`style-src 'self'`): many "Applying inline style
+  violates…" errors (seen in the app's console), the wrong font, and black strips. So xterm.js's
+  headless terminal does the parsing and keeps the screen and scrollback, and `ui-terminal` draws
+  it: one element per line in view, runs of same-looking cells as spans, styles set through the
+  style object only (which the CSP allows), in the theme's font and colours. Wide characters and
+  symbols get a box of exactly their cells. Keys, mouse reports (X10, normal, button and any
+  motion; SGR or the original encoding), bracketed paste, focus reports, the alternate screen's
+  wheel-as-arrows and synchronized output (mode 2026, for at most a second) are Cerebro's,
+  following xterm's behaviour.
+- **Processes run in the host,** on a pseudo-terminal with `node-pty` 1.1.0 (its N-API build loads
+  under Electron's Node; measured by its test running `/bin/sh -c 'echo $TERM'`). One process per
+  key (`shell:` or `claude:` and the worktree), so switching worktrees, or reloading the page,
+  shows the same process with its last 256 KB of output. Output is batched every 4 ms. The shell
+  is `$SHELL` (else `/bin/bash`), or `COMSPEC` on Windows. `TERM=xterm-256color`,
+  `COLORTERM=truecolor`.
+- **When the process ends** the view says so; Enter starts it again. Removing a worktree ends its
+  terminals.
+- **Shortcuts:** keys the app binds (and chord prefixes) go to the app; others go to the process,
+  except bare Ctrl+key on Windows and Linux, which always goes to the process. Copy is Ctrl+Shift+C,
+  or Ctrl+C with a selection (Cmd+C on macOS); paste is the platform's.
+- **The Claude tool window** is on the right, shown by default, and runs `claude` in the active
+  worktree. The e2e tests that click in the editor hide it, since it narrows the editor.
+- **The 16 ANSI colours** are theme tokens (`--cerebro-terminal-ansi-0..15`); their values are not
+  measured from WebStorm, a claim to check.
+- **Not done:** `claude` on Windows (it needs its `.cmd`), the PATH of an app started from the macOS
+  desktop, small gaps between block characters at line height 1.2, and our cursor's outline showing
+  over Claude's own input while unfocused.
 
 ## The look: WebStorm's Islands theme (2026-10-26)
 

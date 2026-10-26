@@ -57,6 +57,23 @@
   --cerebro-syntax-type: #bcbec4;
   --cerebro-syntax-property: #c77dbb;
   --cerebro-syntax-tag: #d5b778;
+  /* The terminal's 16 named colours (not measured). */
+  --cerebro-terminal-ansi-0: #000000;
+  --cerebro-terminal-ansi-1: #f0524f;
+  --cerebro-terminal-ansi-2: #5c962c;
+  --cerebro-terminal-ansi-3: #a68a0d;
+  --cerebro-terminal-ansi-4: #3993d4;
+  --cerebro-terminal-ansi-5: #a771bf;
+  --cerebro-terminal-ansi-6: #00a3a3;
+  --cerebro-terminal-ansi-7: #808080;
+  --cerebro-terminal-ansi-8: #595959;
+  --cerebro-terminal-ansi-9: #ff4050;
+  --cerebro-terminal-ansi-10: #4fc414;
+  --cerebro-terminal-ansi-11: #e5bf00;
+  --cerebro-terminal-ansi-12: #1fb0ff;
+  --cerebro-terminal-ansi-13: #ed7eed;
+  --cerebro-terminal-ansi-14: #00e5e5;
+  --cerebro-terminal-ansi-15: #ffffff;
 
   --cerebro-stripe-size: 40px;
   --cerebro-stripe-button: 30px;
@@ -120,4 +137,21 @@
   --cerebro-syntax-type: #000000;
   --cerebro-syntax-property: #871094;
   --cerebro-syntax-tag: #0033b3;
+  /* The terminal's 16 named colours (not measured). */
+  --cerebro-terminal-ansi-0: #000000;
+  --cerebro-terminal-ansi-1: #c91b00;
+  --cerebro-terminal-ansi-2: #00a600;
+  --cerebro-terminal-ansi-3: #999900;
+  --cerebro-terminal-ansi-4: #0225c7;
+  --cerebro-terminal-ansi-5: #b200b2;
+  --cerebro-terminal-ansi-6: #00a6b2;
+  --cerebro-terminal-ansi-7: #bfbfbf;
+  --cerebro-terminal-ansi-8: #666666;
+  --cerebro-terminal-ansi-9: #e50000;
+  --cerebro-terminal-ansi-10: #00d900;
+  --cerebro-terminal-ansi-11: #b2b200;
+  --cerebro-terminal-ansi-12: #0000ff;
+  --cerebro-terminal-ansi-13: #e500e5;
+  --cerebro-terminal-ansi-14: #00b2b2;
+  --cerebro-terminal-ansi-15: #e5e5e5;
 }

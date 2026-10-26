@@ -32,6 +32,8 @@ beforeAll(async () => {
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
   running = await launch({ CEREBRO_REPO: repo });
+  // The Claude tool window takes room from the editor, which these tests click in.
+  await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click();
 });
 
 afterAll(async () => {
@@ -268,4 +270,18 @@ it('offers to remove a linked worktree, but not the main one', async () => {
   await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
   expect(await removable(gitPath(repo))).toBe(false);
+});
+
+it('runs a shell in the Terminal tool window', async () => {
+  const page = running.page;
+  const terminal = page.locator('.cerebro-terminal').first();
+  await terminal.locator('.cerebro-terminal__viewport').click();
+  await page.keyboard.type('echo cerebro-ok');
+  await page.keyboard.press('Enter');
+  // The output's own line, apart from the typed command.
+  await page.waitForFunction(() =>
+    [...document.querySelectorAll('.cerebro-terminal__row')].some(
+      (row) => row.textContent.trim() === 'cerebro-ok',
+    ),
+  );
 });

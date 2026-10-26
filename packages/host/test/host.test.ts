@@ -160,7 +160,12 @@ describe('terminals', () => {
       resize: vi.fn(),
       kill: vi.fn(),
     };
-    return { pty, output: (data: string) => output(data) };
+    return {
+      pty,
+      output: (data: string) => {
+        output(data);
+      },
+    };
   }
 
   it('opens, writes, resizes and closes, the output arriving as notifications', async () => {
