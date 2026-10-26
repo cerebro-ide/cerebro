@@ -23,6 +23,7 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
   writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
+  writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n');
   writeFileSync(
     join(repo, 'src', 'use.ts'),
     "import { Shape } from './shape';\n\nconst first = new Shape();\nconst second = new Shape();\n",
@@ -57,7 +58,7 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click();
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
-  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'use.ts', 'README.md']);
+  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as { violations?: string[] }).violations = seen;
@@ -107,6 +108,17 @@ it('goes to a symbol by name, opening its file there', async () => {
   );
   await page.keyboard.press('Enter');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+});
+
+it('finds symbols in Python too', async () => {
+  const page = running.page;
+  await page.keyboard.press('ControlOrMeta+Alt+Shift+N');
+  await page.keyboard.type('Toolbox');
+  await page.locator('.cerebro-popup-item', { hasText: 'Toolbox' }).waitFor();
+  expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe(
+    'src/tool.py:1',
+  );
+  await page.keyboard.press('Escape');
 });
 
 it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async () => {

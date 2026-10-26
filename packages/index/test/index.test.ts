@@ -28,6 +28,9 @@ describe('languageOf', () => {
     expect(languageOf('a.MTS')).toBe('typescript');
     expect(languageOf('a.tsx')).toBe('tsx');
     expect(languageOf('a.jsx')).toBe('javascript');
+    expect(languageOf('a.py')).toBe('python');
+    expect(languageOf('a.sh')).toBe('bash');
+    expect(languageOf('a.bash')).toBe('bash');
     expect(languageOf('a.md')).toBeUndefined();
   });
 });
@@ -76,6 +79,33 @@ describe('BlobIndex', () => {
     expect(
       index.parse('class Old { run() {} }', 'javascript').definitions.map((d) => d.name),
     ).toEqual(expect.arrayContaining(['Old', 'run']));
+  });
+
+  it('parses Python: classes, functions, module constants, and names', () => {
+    const blob = index.parse(
+      [
+        'LIMIT = 3',
+        'class Shape:',
+        '    def area(self):',
+        '        return LIMIT',
+        'Shape().area()',
+      ].join('\n'),
+      'python',
+    );
+    expect(blob.definitions.map((d) => `${d.kind} ${d.name} ${String(d.line)}`)).toEqual(
+      expect.arrayContaining(['constant LIMIT 0', 'class Shape 1', 'function area 2']),
+    );
+    expect(blob.identifiers.get('LIMIT')).toEqual([0, 0, 3, 15]);
+  });
+
+  it('parses Bash: functions as definitions, and where they’re called', () => {
+    const blob = index.parse(
+      ['build() {', '  echo "$TARGET"', '}', 'TARGET=out', 'build'].join('\n'),
+      'bash',
+    );
+    expect(blob.definitions).toEqual([{ name: 'build', kind: 'function', line: 0, column: 0 }]);
+    expect(blob.identifiers.get('build')).toEqual([0, 0, 4, 0]);
+    expect(blob.identifiers.get('TARGET')).toEqual([1, 9, 3, 0]);
   });
 
   it('parses each blob once', () => {

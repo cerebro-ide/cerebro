@@ -1,5 +1,6 @@
-// The languages the index parses, with tree-sitter's WASM grammars: TypeScript, TSX and JavaScript
-// for now, as the spike measured them (spike-multi-worktree.md). The other target languages follow.
+// The languages the index parses, with tree-sitter's WASM grammars: TypeScript, TSX and JavaScript,
+// as the spike measured them (spike-multi-worktree.md), Python and Bash. The other target languages
+// (JSON, YAML, CSS, HTML, Markdown) have no definitions or identifiers to navigate by name.
 //
 // Definitions come from each grammar's own tags query, plus the definitions name-based navigation
 // needs that those don't cover; identifiers are every name, for usages.
@@ -12,6 +13,8 @@ const require = createRequire(import.meta.url);
 const packageDir = (name: string) => dirname(require.resolve(`${name}/package.json`));
 const jsDir = packageDir('tree-sitter-javascript');
 const tsDir = packageDir('tree-sitter-typescript');
+const pythonDir = packageDir('tree-sitter-python');
+const bashDir = packageDir('tree-sitter-bash');
 
 // The JavaScript tags query attaches doc comments with directives web-tree-sitter doesn't run;
 // those parts are dropped, the patterns kept.
@@ -35,7 +38,19 @@ const jsIdentifiers = `[
 ] @id`;
 const tsIdentifiers = jsIdentifiers.replace('(identifier)', '(identifier) (type_identifier)');
 
-export type LanguageId = 'typescript' | 'tsx' | 'javascript';
+const pythonTags = readFileSync(join(pythonDir, 'queries/tags.scm'), 'utf8');
+
+/** Bash's grammar has no tags query: its definitions are functions. */
+const bashTags = '(function_definition name: (word) @name) @definition.function';
+
+/** Bash's names: variables, functions, and commands (which call functions). */
+const bashIdentifiers = `
+(variable_name) @id
+(function_definition name: (word) @id)
+(command_name (word) @id)
+`;
+
+export type LanguageId = 'typescript' | 'tsx' | 'javascript' | 'python' | 'bash';
 
 export interface LanguageSpec {
   wasm: string;
@@ -59,6 +74,16 @@ export const LANGUAGES: Readonly<Record<LanguageId, LanguageSpec>> = {
     tags: jsTags,
     identifiers: jsIdentifiers,
   },
+  python: {
+    wasm: join(pythonDir, 'tree-sitter-python.wasm'),
+    tags: pythonTags,
+    identifiers: '(identifier) @id',
+  },
+  bash: {
+    wasm: join(bashDir, 'tree-sitter-bash.wasm'),
+    tags: bashTags,
+    identifiers: bashIdentifiers,
+  },
 };
 
 const EXTENSIONS: Readonly<Record<string, LanguageId>> = {
@@ -70,6 +95,9 @@ const EXTENSIONS: Readonly<Record<string, LanguageId>> = {
   '.mjs': 'javascript',
   '.cjs': 'javascript',
   '.jsx': 'javascript',
+  '.py': 'python',
+  '.sh': 'bash',
+  '.bash': 'bash',
 };
 
 /** The language of a file by its extension, if the index parses it. */
