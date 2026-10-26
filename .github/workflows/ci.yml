@@ -50,5 +50,9 @@ jobs:
       - if: runner.os == 'Linux'
         continue-on-error: true
         run: E2E_DISABLE_GPU=1 xvfb-run --auto-servernum npm test -w @cerebro-ide/e2e
+      - if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm test -w @cerebro-ide/e2e -- frames
+      - if: runner.os == 'Linux'
+        run: E2E_DISABLE_GPU=1 xvfb-run --auto-servernum npm test -w @cerebro-ide/e2e -- frames
       - if: runner.os != 'Linux'
         run: npm run e2e
