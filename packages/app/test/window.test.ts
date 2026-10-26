@@ -23,4 +23,8 @@ describe('windowOptions', () => {
       nodeIntegration: false,
     });
   });
+
+  it('zooms the page when told to', () => {
+    expect(windowOptions('darwin', '/preload.cjs', 0.625).webPreferences?.zoomFactor).toBe(0.625);
+  });
 });
