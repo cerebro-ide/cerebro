@@ -69,6 +69,23 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   expect(await page.evaluate(() => (window as { violations?: string[] }).violations)).toEqual([]);
 });
 
+it('goes to a file of the worktree, and finds new ones next time', async () => {
+  const page = running.page;
+  const labels = () => page.locator('.cerebro-popup-item__label').allTextContents();
+  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.type('app');
+  await page.locator('.cerebro-popup-item__label', { hasText: 'app.ts' }).waitFor();
+  expect(await labels()).toEqual(['app.ts']);
+  expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe('src');
+  await page.keyboard.press('Enter');
+  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
+  writeFileSync(join(repo, 'fresh.md'), '# new');
+  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.type('fresh');
+  await page.locator('.cerebro-popup-item__label', { hasText: 'fresh.md' }).waitFor();
+  await page.keyboard.press('Escape');
+});
+
 it('says why a file can’t be opened', async () => {
   const page = running.page;
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));

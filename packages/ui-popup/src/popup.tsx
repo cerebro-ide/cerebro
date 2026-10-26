@@ -36,6 +36,8 @@ export interface PickerOptions<T extends PickerItem> {
   width?: number;
   /** Shown when nothing matches. Default: Nothing found. */
   empty?: string;
+  /** The most rows drawn; more matches are counted below them. Default: 200. */
+  limit?: number;
   /** Presses inside this element don't close the popup; it handles them (the button it opened from). */
   owner?: Element;
 }
@@ -46,6 +48,9 @@ export interface PickerHandle<T> {
   readonly open: boolean;
   close(): void;
 }
+
+/** The most rows drawn by default: thousands of matches would be slow to draw, and of no use. */
+const LIMIT = 200;
 
 /** Rows a Page Up or Page Down moves. */
 const PAGE = 10;
@@ -181,7 +186,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     // Keys stay in the popup: the app's shortcuts don't run while typing in it.
     event.stopPropagation();
     if (event.isComposing) return;
-    const count = this.items.get().length;
+    const count = Math.min(this.items.get().length, this.options.limit ?? LIMIT);
     const { index } = this.state;
     /** Highlights another item; there's none to move to in an empty list. */
     const go = (to: number) => {
@@ -241,42 +246,51 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           if (items.length === 0) {
             return <div class="cerebro-popup__empty">{options.empty ?? 'Nothing found'}</div>;
           }
-          return items.map((item, index) => [
-            item.group !== undefined && item.group !== items[index - 1]?.group ? (
-              <div class="cerebro-popup__group" role="presentation">
-                {item.group}
+          const limit = options.limit ?? LIMIT;
+          const more = items.length - limit;
+          return [
+            ...items.slice(0, limit).map((item, index) => [
+              item.group !== undefined && item.group !== items[index - 1]?.group ? (
+                <div class="cerebro-popup__group" role="presentation">
+                  {item.group}
+                </div>
+              ) : null,
+              <div
+                class={() =>
+                  cls(
+                    'cerebro-popup-item',
+                    state.index === index && 'cerebro-popup-item--highlighted',
+                  )
+                }
+                role="option"
+                aria-selected={() => String(state.index === index)}
+                data-index={index}
+                on:pointermove={(event) => {
+                  // Only a pointer that really moves takes over from the keyboard.
+                  if (event.movementX !== 0 || event.movementY !== 0) state.index = index;
+                }}
+                on:mousedown={(event) => {
+                  // Keeps the focus in the search field.
+                  event.preventDefault();
+                }}
+                on:click={() => {
+                  this.choose(index);
+                }}
+              >
+                <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
+                <span class="cerebro-popup-item__label">
+                  {highlighted(item.label, item.highlight)}
+                </span>
+                <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
+                <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
+              </div>,
+            ]),
+            more > 0 ? (
+              <div class="cerebro-popup__more">
+                {String(more)} more; type more to narrow them down
               </div>
             ) : null,
-            <div
-              class={() =>
-                cls(
-                  'cerebro-popup-item',
-                  state.index === index && 'cerebro-popup-item--highlighted',
-                )
-              }
-              role="option"
-              aria-selected={() => String(state.index === index)}
-              data-index={index}
-              on:pointermove={(event) => {
-                // Only a pointer that really moves takes over from the keyboard.
-                if (event.movementX !== 0 || event.movementY !== 0) state.index = index;
-              }}
-              on:mousedown={(event) => {
-                // Keeps the focus in the search field.
-                event.preventDefault();
-              }}
-              on:click={() => {
-                this.choose(index);
-              }}
-            >
-              <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
-              <span class="cerebro-popup-item__label">
-                {highlighted(item.label, item.highlight)}
-              </span>
-              <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
-              <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
-            </div>,
-          ]);
+          ];
         }}
       </div>,
     ];

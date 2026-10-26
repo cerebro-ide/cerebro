@@ -11,11 +11,11 @@ import {
   type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
-import { computed, signal } from '@cerebro-ide/reactive';
+import { computed, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { openSettings } from '@cerebro-ide/ui-settings';
-import { active } from './environments.js';
+import { active, currentHost } from './environments.js';
 import { icon } from './icons.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 
@@ -61,17 +61,50 @@ export function setupCommands(
   const ed = activeEditor;
   const group = (c: TabContext) => (ed() as EditorArea).group(c.group);
 
-  /** The sample files as popup items: the name, with its directory after it. */
-  const fileItems = files.map((path): PickerItem & { run: () => void } => {
-    const slash = path.lastIndexOf('/');
-    return {
-      label: path.slice(slash + 1),
-      ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
-      group: 'Files',
-      icon: () => icon('file'),
-      run: () => ed()?.open(tabOf(path)),
-    };
-  });
+  /** Files as popup items: the name, with its directory after it; `open` opens the path. */
+  const toItems = (paths: readonly string[], open: (path: string) => void) =>
+    paths.map((path): PickerItem & { run: () => void } => {
+      const slash = path.lastIndexOf('/');
+      return {
+        label: path.slice(slash + 1),
+        ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
+        group: 'Files',
+        icon: () => icon('file'),
+        run: () => {
+          open(path);
+        },
+      };
+    });
+  const sampleItems = toItems(files, (path) => ed()?.open(tabOf(path)));
+  /** Each worktree's files from the host, as items; refreshed each time a popup opens. */
+  const worktreeItems = new Map<string, Signal<(PickerItem & { run: () => void })[]>>();
+  const refreshFiles = () => {
+    const host = currentHost();
+    const env = active();
+    if (!host || !env) return;
+    let items = worktreeItems.get(env.id);
+    if (!items) {
+      items = signal<(PickerItem & { run: () => void })[]>([]);
+      worktreeItems.set(env.id, items);
+    }
+    const target = items;
+    host.request('git.files', { path: env.id }).then(
+      (paths) => {
+        target.set(
+          toItems(paths as string[], (path) =>
+            ed()?.open({ id: `${env.id}/${path}`, title: path.split('/').at(-1) as string }),
+          ),
+        );
+      },
+      () => undefined,
+    );
+  };
+  /** The files to search: the active worktree's in the app, the samples in a browser. */
+  const fileItems = () => {
+    const env = active();
+    if (!currentHost() || !env) return sampleItems;
+    return worktreeItems.get(env.id)?.get() ?? [];
+  };
   /** Enabled commands as popup items, with their shortcuts. */
   const actionItems = () =>
     [...commands.commands.values()]
@@ -138,11 +171,12 @@ export function setupCommands(
     label: '&Go to File',
     dialog: true,
     run: async () => {
+      refreshFiles();
       const file = await openPicker({
         label: 'Go to File',
         placeholder: 'Type a file name',
         position: 'top',
-        items: (query) => fuzzyFilter(fileItems, query),
+        items: (query) => fuzzyFilter(fileItems(), query),
       }).result;
       file?.run();
     },
@@ -259,11 +293,15 @@ export function setupCommands(
     icon: 'search',
     // A sample of IntelliJ's: files, then actions, filtered together.
     run: async () => {
+      refreshFiles();
       const item = await openPicker({
         label: 'Search Everywhere',
         placeholder: 'Type a file or action name',
         position: 'top',
-        items: (query) => [...fuzzyFilter(fileItems, query), ...fuzzyFilter(actionItems(), query)],
+        items: (query) => [
+          ...fuzzyFilter(fileItems(), query),
+          ...fuzzyFilter(actionItems(), query),
+        ],
       }).result;
       item?.run();
     },

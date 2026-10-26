@@ -93,3 +93,19 @@ export async function removeWorktree(
   await run(repo, ['worktree', 'remove', ...(force ? ['--force'] : []), path]);
   return listWorktrees(repo, run);
 }
+
+/**
+ * A worktree's files, relative to it: tracked ones and untracked ones git doesn't ignore, as
+ * `/`-separated paths, sorted. What Go to File searches.
+ */
+export async function listFiles(worktree: string, run: Git = git): Promise<string[]> {
+  const output = await run(worktree, [
+    'ls-files',
+    '--cached',
+    '--others',
+    '--exclude-standard',
+    '-z',
+  ]);
+  // A file deleted but not yet staged is still listed as cached once, and as nothing else.
+  return [...new Set(output.split('\0').filter(Boolean))].sort();
+}

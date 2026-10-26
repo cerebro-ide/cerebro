@@ -141,6 +141,22 @@ describe('openPicker', () => {
     second.close();
   });
 
+  it('draws at most its limit of rows, counting the rest, and moves only among them', () => {
+    picker({
+      items: () => Array.from({ length: 205 }, (_, i) => ({ label: `item ${String(i)}` })),
+    });
+    expect(labels()).toHaveLength(200);
+    expect(document.querySelector('.cerebro-popup__more')?.textContent).toBe(
+      '5 more; type more to narrow them down',
+    );
+    key('ArrowUp');
+    expect(highlightedLabel()).toBe('item 199');
+    popup().remove();
+    picker({ items: () => FILES, limit: 2 });
+    expect(labels()).toEqual(['README.md', 'main.ts']);
+    expect(document.querySelector('.cerebro-popup__more')?.textContent).toContain('1 more');
+  });
+
   it('highlights under a moving pointer only', () => {
     picker();
     const item = document.querySelectorAll('.cerebro-popup-item')[2] as HTMLElement;

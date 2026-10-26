@@ -626,6 +626,27 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## Find file (2026-10-26)
+
+Milestone 2's find file. Choices of Claude's, open to change:
+
+- **The host lists a worktree's files** (`git.files`) with `git ls-files --cached --others
+  --exclude-standard`: tracked files, and untracked ones git doesn't ignore. No new dependency, and
+  `.gitignore` is honoured as git does it.
+- **Go to File and Search Everywhere** search the active worktree's files in the app (the samples
+  in a browser). The list is fetched each time a popup opens, so new files show; the previous list
+  shows meanwhile.
+- **Matching got faster** (measured on 50,000 paths in Chromium, per keystroke): broad queries
+  (`f`, `file`) from about 85–110 ms to 50–70 ms, selective ones (`sub3file9`) from 240 ms to 24 ms.
+  How: a plain in-order check rules out non-matches before the scoring search; word starts are
+  found by character code for ASCII; the search's memo and word-start buffers are shared and reused
+  rather than allocated per path. Results are unchanged (the matching tests pass as before).
+- **A popup draws at most 200 rows** and counts the rest ("N more; type more to narrow them
+  down"): drawing tens of thousands of matches for one letter would be slow and of no use.
+- **Text search** (the plan's ripgrep) isn't done: shipping ripgrep means a binary for each OS
+  (a new dependency), while `git grep` needs none but searches only what git knows about. Ido's to
+  decide.
+
 ## The code editor (2026-10-26)
 
 Milestone 2's CodeMirror editor, with syntax highlighting for the target languages (`ui-editor`).

@@ -1,9 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { addWorktree, git, listWorktrees, parseWorktrees, removeWorktree } from '../src/index.js';
+import {
+  addWorktree,
+  git,
+  listFiles,
+  listWorktrees,
+  parseWorktrees,
+  removeWorktree,
+} from '../src/index.js';
 
 describe('parseWorktrees', () => {
   it('reads each worktree: path, commit, branch, and which is the main one', () => {
@@ -88,6 +95,15 @@ describe('with real git', () => {
     const after = await removeWorktree(repo, path, true);
     expect(after.some((w) => w.path === path)).toBe(false);
     await expect(removeWorktree(repo, repo, true)).rejects.toThrow(/main working tree/);
+  });
+
+  it('lists a worktree’s files, tracked and untracked, without ignored ones', async () => {
+    mkdirSync(join(repo, 'src'));
+    writeFileSync(join(repo, 'src', 'new file.ts'), '');
+    writeFileSync(join(repo, '.gitignore'), 'build/\n');
+    mkdirSync(join(repo, 'build'));
+    writeFileSync(join(repo, 'build', 'out.js'), '');
+    expect(await listFiles(repo)).toEqual(['.gitignore', 'a.txt', 'src/new file.ts']);
   });
 
   it('fails with git’s message outside a repository, or without git’s own message', async () => {
