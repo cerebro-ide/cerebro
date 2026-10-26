@@ -291,10 +291,14 @@ function changesOf(worktree: string): Changes {
   return changes;
 }
 
-/** The active worktree's changes, in the desktop app. */
+/**
+ * The active worktree's changes, once the Commit window has shown them. Only looked up, not made:
+ * commands' `enabled` call this, and may run in a computed value (Search Everywhere's list), which
+ * must not write to observables, as making the tree does.
+ */
 function current(): Changes | undefined {
   const env = active();
-  return env && currentHost() ? changesOf(env.id) : undefined;
+  return env && currentHost() ? lists.get(env.id) : undefined;
 }
 
 /** Reads every worktree's lists again: after the view options change. */
