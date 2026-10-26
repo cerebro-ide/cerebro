@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
 - [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn
@@ -932,6 +933,30 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## A basic IDE before git and agent management (2026-10-26)
+
+Ido: "I want to be able to actually use this as a basic IDE before we move to the more advance
+features, like git management and claude/agents management." The commit and diff work still
+wanted, after this.
+
+- **In this stage** (Ido's choice, 2026-10-26):
+  - **Opening a project:** File → Open… with the OS's folder picker, and recent projects. Today
+    the repository is fixed when the app starts (`CEREBRO_REPO` or the folder it started in).
+  - **Editing and saving files:** the editor has been read-only so far.
+  - **Search:** Find in Files (ripgrep, as the plan's milestone 2 has it) and Find/Replace in the
+    open file.
+  - **Navigation:** Ctrl/Cmd+click to a declaration, Back and Forward, Recent Files, Go to Line,
+    selecting the opened file in the project tree.
+  - **Language servers** (the plan's milestone 5): precise go to definition and find usages,
+    instead of the index's name matches. "Jump to source" here means going from a symbol to its
+    definition (Ido).
+- **Order** (Claude's, open to change): opening a project, editing, search, navigation, language
+  servers. Each builds on the one before: any folder first, then working in it.
+- **After it:** committing from the Commit window, diffs to code (F4 from a diff line), the
+  plan's "since the session started" and per-commit views, then shelve and stash.
+- **This departs from `plan-v1.md`'s order,** where agent sessions (6) and change inspection (7)
+  came after language servers but were built first, as the POC's steps.
 
 ## The Commit tool window's toolbar (2026-10-26)
 
