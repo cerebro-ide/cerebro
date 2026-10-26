@@ -501,8 +501,14 @@ new UI.
   - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
     those commands would do nothing);
   - copy and paste in text fields work without an Edit menu of Electron's roles.
-- **Still to do:** a Content-Security-Policy for the page (Electron warns there is none); packaging
-  is milestone 3.
+- **A Content-Security-Policy** (2026-10-26) in the built page: only the page's own scripts, styles,
+  images and fonts (the last two also as data: URLs); no inline scripts or styles, no eval, no
+  objects, no `<base>`, no forms. Added by a Vite plugin at build time only, since the dev server
+  injects inline styles. The page's inline `<style>` moved to `playground.css`. Measured with an e2e
+  test: the policy is there, Electron's warning is gone, and opening the popups, dialogs and menus
+  breaks no rule. Inline `style` strings set through JSX would break it (the JSX runtime sets those
+  with `setAttribute`); none are used, and the e2e test would catch one.
+- **Still to do:** packaging is milestone 3.
 
 ## Dialogs (2026-10-25)
 

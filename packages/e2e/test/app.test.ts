@@ -64,6 +64,31 @@ describe('the window', () => {
     }
   });
 
+  it('has a Content-Security-Policy that nothing it does breaks', async () => {
+    expect(
+      await page().locator('meta[http-equiv="Content-Security-Policy"]').getAttribute('content'),
+    ).toContain("script-src 'self'");
+    // Electron warns at load about a page without one.
+    expect(running.messages.filter((m) => m.includes('Content-Security-Policy'))).toEqual([]);
+    await page().evaluate(() => {
+      const seen: string[] = [];
+      (window as { violations?: string[] }).violations = seen;
+      document.addEventListener('securitypolicyviolation', (event) => {
+        seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
+      });
+    });
+    for (const keys of ['Control+Shift+A', 'Control+Shift+N', 'Control+Alt+S', 'Alt+F']) {
+      await page().keyboard.press(keys);
+      await page().keyboard.press('Escape');
+    }
+    await page().locator('[aria-label^="Branch:"]').click();
+    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
+    await page().keyboard.press('Escape');
+    expect(await page().evaluate(() => (window as { violations?: string[] }).violations)).toEqual(
+      [],
+    );
+  });
+
   it('opens no other windows', async () => {
     const opened = await page().evaluate(() => window.open('https://example.com') === null);
     expect(opened).toBe(true);
