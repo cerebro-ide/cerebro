@@ -18,6 +18,7 @@
     "@cerebro-ide/settings": "0.0.0",
     "@cerebro-ide/theme": "0.0.0",
     "@cerebro-ide/ui-dialog": "0.0.0",
+    "@cerebro-ide/ui-editor": "0.0.0",
     "@cerebro-ide/ui-layout": "0.0.0",
     "@cerebro-ide/ui-menu": "0.0.0",
     "@cerebro-ide/ui-popup": "0.0.0",

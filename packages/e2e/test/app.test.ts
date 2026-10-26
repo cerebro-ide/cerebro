@@ -28,7 +28,7 @@ const count = (selector: string) => page().locator(selector).count();
 const theme = () => page().evaluate(() => document.documentElement.dataset['cerebroTheme']);
 const fontSize = () =>
   page()
-    .locator('.playground-code')
+    .locator('.cm-scroller')
     .first()
     .evaluate((code) => getComputedStyle(code).fontSize);
 const branch = () => page().locator('[aria-label^="Branch:"]').getAttribute('aria-label');

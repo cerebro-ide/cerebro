@@ -1,0 +1,6 @@
+/* The code editor's frame; CodeMirror's own look comes from the theme variables (editor.tsx). */
+
+.cerebro-editor-code {
+  height: 100%;
+  user-select: text;
+}

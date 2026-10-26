@@ -669,7 +669,9 @@ Ido: the layout should keep its state and stay consistent between runs; a reload
   - tool windows: places of registered windows (new ones keep their own, after the saved ones),
     sizes and splits clamped, open windows only if registered and in that slot;
   - environments: only those the app still resolves (a removed worktree is dropped);
-  - editor areas: tabs that still exist (untitled files aren't kept: their contents aren't),
+  - editor areas: tabs that still exist (a repository's files are all kept and read again from
+    disk, one that's gone saying so; of the samples, untitled files aren't kept: their contents
+    aren't),
     groups with tabs, splits with two or more children, merged into a parent of the same
     direction, and positive sizes (others get an equal share). Saved sizes are kept even below
     `MIN_PANE`, since repeated splits can make them so.
@@ -679,6 +681,34 @@ Ido: the layout should keep its state and stay consistent between runs; a reload
   (tool windows registered in another order) and compare. Unit tests cover invalid and outdated
   data. An e2e test rearranges the window (a tool window closed, another opened, another
   environment, a file opened), reloads, and finds the same layout; it fails without saving.
+
+## The code editor (2026-10-26)
+
+Milestone 2's CodeMirror editor, with syntax highlighting for the target languages (`ui-editor`).
+Choices of Claude's, open to change:
+
+- **Read-only for now.** Files open from the project tree and show their text; saving needs its
+  own design (conflicts with what agents change, encodings, line endings).
+- **Languages by extension:** TypeScript and JavaScript (`ts`, `tsx`, `mts`, `cts`, `js`, `jsx`,
+  `mjs`, `cjs`), JSON, CSS, HTML, Markdown, Python, YAML, and Bash through CodeMirror's legacy
+  shell mode. Anything else is plain text.
+- **Colours are theme variables** (`--cerebro-syntax-*`, `--cerebro-editor-*`), taken from
+  IntelliJ's dark and light themes, so the editor follows the theme.
+- **The editor settings apply live:** font size, soft wrap and tab size, per environment.
+- **In a shadow root.** CodeMirror adds its styles with `style-mod`, which uses constructable
+  stylesheets inside a shadow root but `<style>` elements in a document (read in its source), and
+  the page's Content-Security-Policy blocks those: in the app, no syntax colours or font size
+  applied. In a shadow root, measured in the app: the colours and settings apply and the policy
+  reports no violation. Rejected: allowing inline styles, and a fixed nonce, which is no
+  protection in a static page.
+- **The host reads files** (`fs.read`) as UTF-8, refusing binary files (a NUL byte in the first
+  8 KB, as git decides) and files over 10 MB, with the reason, which the editor shows.
+- **New dependencies:** CodeMirror's packages (`state`, `view`, `language`, `commands`, the language
+  packages and `legacy-modes`) and `@lezer/highlight`, all by CodeMirror's author, each pinned to a
+  version at least two weeks old. Three packages pulled in by them were newer, so they're pinned too
+  (`@codemirror/autocomplete` 6.20.3, `@lezer/common` 1.5.3, `@lezer/markdown` 1.8.0), as
+  `ui-editor` dependencies and root `overrides`.
+- The bundle grew past 500 kB with the grammars; loading languages on demand can come later.
 
 ## The project tree (2026-10-26)
 
@@ -780,6 +810,27 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
 - **In the playground:** a sample Notes plugin written in plain DOM, as a third party would: a
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut. An
   e2e test uses all of it, and fails without the plugin.
+
+## CI: quick, and few minutes (2026-10-26)
+
+Ido: CI should be quick and use as few resources as possible, without hitting the limits that would
+block future runs. The repository is private, on the free plan: 2,000 minutes a month, blocked when
+they run out (no payment method); each job rounded up to a whole minute; per-minute prices of Linux
+$0.006, Windows $0.010 and macOS $0.062 (GitHub's billing docs). Choices of Claude's, open to change:
+
+- **Nothing installed:** GitHub's Ubuntu runner comes with Google Chrome and xvfb (its image's
+  docs). The browser tests run in that Chrome (`CEREBRO_BROWSER_CHANNEL=chrome`, passed to
+  Playwright as its channel), and Electron finds Chromium's libraries already there. Installing
+  Playwright's Chromium and libraries took 11 s to 10 minutes (measured), waiting on apt.
+- **Pull requests only:** a pull request's run tests its merge into main, so main isn't run again
+  after merging. Markdown-only changes don't run.
+- **One Linux job** for the checks, the build and the Linux end-to-end tests: one install and one
+  rounded-up minute fewer than two jobs.
+- **macOS and Windows only after the check passes,** so their dearer minutes aren't spent on a
+  change that fails anyway. It makes a run about a minute longer when everything passes.
+- **10-minute timeouts** on every job, instead of GitHub's default of 6 hours, so a hang can't
+  use up the month.
+- A newer push to the same pull request cancels the run in progress.
 
 ## End-to-end tests (2026-10-25)
 

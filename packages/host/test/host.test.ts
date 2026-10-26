@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
 import { describe, expect, it, vi } from 'vitest';
@@ -82,6 +85,22 @@ describe('adding and removing worktrees', () => {
 });
 
 describe('files', () => {
+  it('reads a file, refusing a binary one with its reason', async () => {
+    const { ui } = connect();
+    const read = (await ui.request('fs.read', { path: import.meta.filename })) as { text: string };
+    expect(read.text).toContain('reads a file');
+    const dir = mkdtempSync(join(tmpdir(), 'cerebro-read-'));
+    writeFileSync(join(dir, 'b.bin'), new Uint8Array([0, 1]));
+    await expect(ui.request('fs.read', { path: join(dir, 'b.bin') })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+      data: { reason: 'binary' },
+    });
+    await expect(ui.request('fs.read', { path: join(dir, 'none') })).rejects.toMatchObject({
+      code: ErrorCodes.InternalError,
+    });
+    rmSync(dir, { recursive: true });
+  });
+
   it('lists a folder', async () => {
     const { ui } = connect();
     const entries = (await ui.request('fs.list', { path: import.meta.dirname })) as {

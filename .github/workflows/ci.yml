@@ -1,9 +1,10 @@
 name: CI
 
+# On pull requests only: a pull request's run already tests its merge into main, so main isn't run
+# again after the merge. The repository is private, with the free plan's 2,000 minutes a month
+# (blocked when they run out), each job rounded up to a whole minute, and macOS minutes priced at
+# about 10 times Linux's, Windows' at about 1.7 times (GitHub's docs).
 on:
-  push:
-    branches: [main]
-    paths-ignore: ['**.md']
   pull_request:
     paths-ignore: ['**.md']
 
@@ -13,8 +14,10 @@ concurrency:
 
 jobs:
   check:
-    # Unit tests only for now; macOS and Windows runs come with the end-to-end tests.
+    # Formatting, lint, types, unit and browser tests, the build, and the end-to-end tests on Linux,
+    # in one job: one install and one rounded-up minute fewer than separate jobs.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -22,18 +25,25 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      # Nothing to install: GitHub's Ubuntu runner comes with Google Chrome, for the browser tests,
+      # and with Chromium's libraries and xvfb, for Electron. Installing Playwright's Chromium and
+      # its libraries took 11 s to 10 minutes, waiting on apt.
       - run: npm run check
+        env:
+          CEREBRO_BROWSER_CHANNEL: chrome
       - run: npm run build
+      - run: xvfb-run --auto-servernum npm run e2e
 
   e2e:
-    # The built desktop app, driven through Playwright, on each OS: under a virtual display on
-    # Linux, on the runner's own display on macOS and Windows.
+    # The built desktop app on macOS and Windows, on the runner's own display. Only once the
+    # check passes, so their dearer minutes aren't spent on a change that fails anyway.
+    needs: check
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -41,9 +51,4 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      # No system libraries to install: GitHub's Ubuntu runner comes with Chrome (so Chromium's
-      # libraries) and xvfb. Installing Playwright's took 11 s to 10 minutes, waiting on apt.
-      - if: runner.os == 'Linux'
-        run: xvfb-run --auto-servernum npm run e2e
-      - if: runner.os != 'Linux'
-        run: npm run e2e
+      - run: npm run e2e
