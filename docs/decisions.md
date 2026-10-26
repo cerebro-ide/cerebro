@@ -666,8 +666,14 @@ Claude's, open to change:
   its compatibility with these grammars isn't measured). The grammars' install scripts build native
   addons Cerebro doesn't use (it loads their `.wasm`); they're denied in `allowScripts`, and their
   optional native `tree-sitter` peer isn't installed.
-- **Not yet:** persisting the index to disk (it's rebuilt per host run), other languages, and
-  indexing progress in the status bar.
+- **Warmed up, with progress** (2026-10-26): measured on ag-charts (5,231 source files), the first
+  indexing took 14 s (re-indexing 0.15 s, a search 24 ms, 473 MB), so a first Go to Symbol would
+  wait. A worktree is now indexed as soon as it becomes active (`index.warm`), and the host reports
+  progress every 200 files (`index.progress`, forwarded by the main process to the page), yielding
+  between batches so its other requests aren't held up. The status bar shows "Indexing… n / total"
+  with a bar, then "Indexed". (The status bar's contents are still Ido's to settle; this replaces
+  its sample background task in the app.)
+- **Not yet:** persisting the index to disk (it's rebuilt per host run).
 - **Measured in the app (e2e):** the tree-sitter WASM loads in the host on Electron's Node; Go to
   Symbol, Ctrl+click and Alt+F7 work on a throwaway repository, and fail without the index.
 

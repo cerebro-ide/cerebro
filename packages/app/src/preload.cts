@@ -11,6 +11,7 @@ const SET_MENU = 'cerebro:menu:set';
 const MENU_COMMAND = 'cerebro:menu:command';
 // Kept in step with host.ts.
 const HOST_REQUEST = 'cerebro:host:request';
+const HOST_NOTIFICATION = 'cerebro:host:notification';
 
 electron.contextBridge.exposeInMainWorld('cerebro', {
   app: true,
@@ -19,6 +20,16 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     /** Sends a request to the host; resolves with its result. */
     request: (method: string, params?: unknown): Promise<unknown> =>
       electron.ipcRenderer.invoke(HOST_REQUEST, method, params),
+    /** Calls `listener` with each notification from the host; returns a function that stops it. */
+    onNotification: (listener: (method: string, params: unknown) => void) => {
+      const handler = (_event: unknown, method: unknown, params: unknown) => {
+        if (typeof method === 'string') listener(method, params);
+      };
+      electron.ipcRenderer.on(HOST_NOTIFICATION, handler);
+      return () => {
+        electron.ipcRenderer.off(HOST_NOTIFICATION, handler);
+      };
+    },
   },
   menu: {
     set: (items: unknown) => {

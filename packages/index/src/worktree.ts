@@ -35,11 +35,22 @@ async function hashFiles(worktree: string, paths: readonly string[], git: Git) {
   return hashes;
 }
 
-/** Indexes a worktree's source files, parsing only the contents the index doesn't have. */
+/** Told how far indexing has got: files done of the total, as each batch is parsed. */
+export type Progress = (done: number, total: number) => void;
+
+/** Files parsed between progress reports, and between yields to other work. */
+export const BATCH = 200;
+
+/**
+ * Indexes a worktree's source files, parsing only the contents the index doesn't have. Every
+ * BATCH files it reports progress and yields, so other requests (and the host's other work) aren't
+ * held up by a large first indexing.
+ */
 export async function indexWorktree(
   index: BlobIndex,
   worktree: string,
   git: Git,
+  progress?: Progress,
 ): Promise<IndexedWorktree> {
   const files = new Map<string, string>();
   // `<mode> <blob> <stage>\t<path>`; symbolic links (120000) aren't files to parse.
@@ -57,6 +68,7 @@ export async function indexWorktree(
   ].filter((path) => languageOf(path) && !deleted.includes(path));
   for (const [path, hash] of await hashFiles(worktree, changed, git)) files.set(path, hash);
   let parsed = 0;
+  let done = 0;
   for (const [path, blob] of files) {
     const added = index.add(
       blob,
@@ -64,6 +76,11 @@ export async function indexWorktree(
       languageOf(path) as NonNullable<ReturnType<typeof languageOf>>,
     );
     if (added) parsed++;
+    if (++done % BATCH === 0) {
+      progress?.(done, files.size);
+      await new Promise((resolve) => setImmediate(resolve));
+    }
   }
+  progress?.(files.size, files.size);
   return { files, parsed };
 }

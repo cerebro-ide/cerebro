@@ -21,12 +21,28 @@ const electron = vi.hoisted(() => {
         appListeners.set(event, listener);
       },
     },
+    sent: [] as unknown[][],
+    BrowserWindow: {
+      getAllWindows: () => [
+        {
+          webContents: {
+            send: (...args: unknown[]) => {
+              electron.sent.push(args);
+            },
+          },
+        },
+      ],
+    },
   };
 });
 
-vi.mock('electron', () => ({ ipcMain: electron.ipcMain, app: electron.app }));
+vi.mock('electron', () => ({
+  ipcMain: electron.ipcMain,
+  app: electron.app,
+  BrowserWindow: electron.BrowserWindow,
+}));
 
-const { HOST_REQUEST, installHost, startHost } = await import('../src/host.js');
+const { HOST_NOTIFICATION, HOST_REQUEST, installHost, startHost } = await import('../src/host.js');
 
 /** A child process whose stdin the test reads and whose stdout it writes. */
 function fakeChild() {
@@ -105,6 +121,15 @@ describe('installHost', () => {
     expect(() => handle({}, 5)).toThrow('needs a method name');
     (electron.appListeners.get('will-quit') as Listener)();
     expect(child.kill).toHaveBeenCalled();
+  });
+
+  it('passes the host’s progress notifications on to the windows', async () => {
+    const { child, spawn } = fakeChild();
+    installHost('/repo', spawn as never);
+    child.stdout.write('{"jsonrpc":"2.0","method":"index.progress","params":{"done":1}}\n');
+    await vi.waitFor(() => {
+      expect(electron.sent).toContainEqual([HOST_NOTIFICATION, 'index.progress', { done: 1 }]);
+    });
   });
 
   it('opens CEREBRO_REPO, else the folder the app started in', () => {
