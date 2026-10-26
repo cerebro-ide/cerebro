@@ -2,7 +2,7 @@
 // the tool window layout is shared by all, so switching doesn't rearrange the window.
 
 import { makeObservable } from '@cerebro-ide/reactive';
-import { EditorArea } from './editor-area.js';
+import { EditorArea, type EditorState, type Tab } from './editor-area.js';
 
 export interface EnvironmentSpec {
   id: string;
@@ -22,6 +22,12 @@ export class Environment {
     this.branch = spec.branch;
     makeObservable(this);
   }
+}
+
+/** Open environments, the active one and their editor areas, as plain data to save between runs. */
+export interface EnvironmentsState {
+  open: (EnvironmentSpec & { editor: EditorState })[];
+  active: string | undefined;
 }
 
 export class Environments {
@@ -76,5 +82,47 @@ export class Environments {
     const rest = this.open.filter((e) => e !== env);
     const at = Math.min(Math.max(index, 0), rest.length);
     this.open = [...rest.slice(0, at), env, ...rest.slice(at)];
+  }
+
+  /** The open environments and their editor areas, as plain data to save between runs. */
+  state(): EnvironmentsState {
+    return {
+      open: this.open.map((env) => ({
+        id: env.id,
+        name: env.name,
+        branch: env.branch,
+        editor: env.editor.state(),
+      })),
+      active: this.activeId,
+    };
+  }
+
+  /**
+   * Opens what a saved state had open, replacing what's open now. `resolve` gives the environment
+   * to open for a saved one, or undefined when it no longer exists (a removed worktree); `keepTab`
+   * says which saved tabs still exist.
+   */
+  restore(
+    saved: unknown,
+    resolve: (spec: EnvironmentSpec) => EnvironmentSpec | undefined,
+    keepTab: (env: Environment, tab: Tab) => boolean = () => true,
+  ): void {
+    this.open = [];
+    this.activeId = undefined;
+    const record =
+      typeof saved === 'object' && saved !== null ? (saved as Record<string, unknown>) : {};
+    for (const raw of Array.isArray(record['open']) ? (record['open'] as unknown[]) : []) {
+      if (typeof raw !== 'object' || raw === null) continue;
+      const { id, name, branch, editor } = raw as Record<string, unknown>;
+      if (typeof id !== 'string' || typeof name !== 'string' || typeof branch !== 'string')
+        continue;
+      const spec = resolve({ id, name, branch });
+      if (!spec || this.open.some((e) => e.id === spec.id)) continue;
+      const env = new Environment(spec);
+      env.editor.restore(editor, (tab) => keepTab(env, tab));
+      this.open = [...this.open, env];
+    }
+    const active = record['active'];
+    this.activeId = this.open.find((e) => e.id === active)?.id ?? this.open[0]?.id;
   }
 }

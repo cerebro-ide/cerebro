@@ -41,6 +41,9 @@
       "path": "packages/ui-editor/tsconfig.build.json"
     },
     {
+      "path": "packages/plugin-api/tsconfig.build.json"
+    },
+    {
       "path": "packages/protocol/tsconfig.build.json"
     },
     {
