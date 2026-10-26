@@ -17,7 +17,9 @@ is updated as the work goes.
 | #19 | The project tree: a virtualised tree, folders listed by the host | #18 | CI green |
 | #20 | The code editor: CodeMirror, read-only, in a shadow root (for the CSP) | #19 | CI green |
 | #21 | Find file: the worktree's files from git, faster matching | #20 | CI green |
-| #22 | The shared index, first part: Go to Symbol, go to definition, find usages, by name | #21 | CI running |
+| #22 | The shared index, first part: Go to Symbol, go to definition, find usages, by name | #21 | CI green (all three OSes) |
+| #23 | The index: Python and Bash | #22 | CI not checked |
+| #24 | Index warm-up and progress in the status bar (ag-charts: 14 s first indexing) | #23 | CI not checked |
 
 #13, #14 and #16 each touch the e2e suite or the playground's `main.tsx`; whichever merges later may
 need `main` merged in. #18–#22 are stacked: each includes the ones below it, and #17's CI matrix,
@@ -57,3 +59,12 @@ suppressed on Windows and Linux (the page has its own), after which the Linux e2
   menu was removed; the click is still forced. A claim that the menu was the cause.
 - **The local database** (session DB, persisted index, layout and worktree settings as local data)
   isn't built: it needs a choice of storage (SQLite would be a native dependency).
+
+## Where it stopped (usage limit)
+
+- **In progress, not committed:** a Keymap page in Settings (configurable shortcuts, from Ido's
+  original requirements). The first piece, custom pages in the Settings dialog, is in a local git
+  stash ("keymap settings page…") on branch `feat/keymap-settings` (off #24), without tests yet.
+  Still to do: the `ui-keymap` package (a draft of user bindings: add by recording keys, remove,
+  reset, conflicts), wiring and persisting it in the playground, tests.
+- **CI for #23 and #24** wasn't checked after opening.
