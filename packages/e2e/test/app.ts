@@ -12,6 +12,8 @@ const APP = fileURLToPath(new URL('../../app', import.meta.url));
 export interface Running {
   app: ElectronApplication;
   page: Page;
+  /** The page's console messages since the last reset. */
+  messages: string[];
   /** Clears what the page saved and reloads it, for a test to start fresh. */
   reset(): Promise<void>;
   close(): Promise<void>;
@@ -26,14 +28,18 @@ export async function launch(): Promise<Running> {
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
+  const messages: string[] = [];
+  page.on('console', (message) => messages.push(message.text()));
   await page.waitForSelector('.cerebro-toolbar');
   return {
     app,
     page,
+    messages,
     async reset() {
       await page.evaluate(() => {
         localStorage.clear();
       });
+      messages.length = 0;
       await page.reload();
       await page.waitForSelector('.cerebro-toolbar');
     },

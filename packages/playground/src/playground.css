@@ -1,3 +1,10 @@
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
 .playground-editor {
   max-width: 560px;
   padding: 24px 32px;
