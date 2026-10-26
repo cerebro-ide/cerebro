@@ -879,6 +879,27 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## Agent turns (2026-10-26)
+
+Milestone 7's first part (change inspection, `docs/plan-v1.md`): what each of the agent's turns
+changed, in the Commit tool window.
+
+- **A snapshot before and after each turn,** not only at its end as the plan said: the difference
+  between the two is what the turn changed, even when the user (or another tool) changed files
+  between turns. The host takes them on the `UserPromptSubmit` and `Stop` hooks.
+- **A snapshot is a commit** of every file git doesn't ignore, made through a copy of the
+  worktree's index (`GIT_INDEX_FILE`), so what the user staged is untouched (measured), with
+  Cerebro as its author, whoever the user is. Each turn's end is kept by a ref under
+  `refs/worktree/cerebro/turns/`: git keeps the commits, and other worktrees don't see them
+  (measured). The prompt, cut to 200 characters, is the commit's message. Nothing removes them yet.
+- **The prompt's hook waits for the snapshot** (the hook client waits for the host's reply), so the
+  agent can't change a file before it's taken; the other hooks don't wait.
+- **In the Commit tool window,** under the uncommitted changes, each turn, the latest first, with
+  its time and prompt; expanded, the files it changed, each opening the diff between the two
+  snapshots (a tab id `diff@from..to:path`).
+- **Not yet:** the plan's "since the session started" and per-commit views; a turn that's under way
+  when the app quits is lost.
+
 ## Agent status and resuming (2026-10-26)
 
 The POC's third step: each worktree's agent shows whether it's working, waiting for the user, or
