@@ -1,6 +1,7 @@
 export {
   addWorktree,
   git,
+  listFiles,
   listWorktrees,
   parseWorktrees,
   removeWorktree,

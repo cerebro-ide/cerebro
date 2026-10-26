@@ -15,6 +15,14 @@ describe('match', () => {
     expect(match('ev', 'searchEverywhere')?.indices).toEqual([6, 7]);
     // A later word start that continues into a run beats the first occurrence.
     expect(match('abc', 'a-ab-c')?.indices).toEqual([2, 3, 5]);
+    // An adjacent run beats a later word start.
+    expect(match('ab', 'ab-b')?.indices).toEqual([0, 1]);
+    // Long paths grow the shared buffers, and still match.
+    const long = `${'dir/'.repeat(100)}file.ts`;
+    expect(match('dirfile', long)?.indices.at(-1)).toBe(long.indexOf('file') + 3);
+    // Beyond ASCII: a non-letter separates words, a letter doesn't.
+    expect(match('b', 'été·bon')?.indices).toEqual([4]);
+    expect(match('t', 'été')?.indices).toEqual([1]);
     // Without a later word start, the first occurrence stays.
     expect(match('a', 'banana')?.indices).toEqual([1]);
   });

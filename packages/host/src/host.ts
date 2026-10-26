@@ -2,7 +2,14 @@
 
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
 import { listFolder, readTextFile, UnreadableFile } from './files.js';
-import { addWorktree, git as runGit, listWorktrees, removeWorktree, type Git } from './git.js';
+import {
+  addWorktree,
+  git as runGit,
+  listFiles,
+  listWorktrees,
+  removeWorktree,
+  type Git,
+} from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
 export const PROTOCOL_VERSION = 1;
@@ -34,6 +41,7 @@ export function serveOn(connection: Connection, options: HostOptions): void {
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
   connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
+  connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
   connection.onRequest('fs.read', async (params) => {
     try {
       return { text: await readTextFile(text(params, 'path')) };

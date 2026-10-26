@@ -57,6 +57,7 @@
   border-top: 1px solid var(--cerebro-separator);
 }
 
+.cerebro-popup__more,
 .cerebro-popup__empty {
   padding: 8px;
   color: var(--cerebro-text-muted);

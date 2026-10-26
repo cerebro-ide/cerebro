@@ -84,6 +84,20 @@ describe('adding and removing worktrees', () => {
   });
 });
 
+describe('git files', () => {
+  it('lists a worktree’s files', async () => {
+    const { ui, git } = connect(vi.fn(() => Promise.resolve('b.ts\0a.ts\0a.ts\0')));
+    expect(await ui.request('git.files', { path: '/w' })).toEqual(['a.ts', 'b.ts']);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'ls-files',
+      '--cached',
+      '--others',
+      '--exclude-standard',
+      '-z',
+    ]);
+  });
+});
+
 describe('files', () => {
   it('reads a file, refusing a binary one with its reason', async () => {
     const { ui } = connect();
