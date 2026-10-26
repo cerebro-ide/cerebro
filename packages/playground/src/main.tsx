@@ -1,4 +1,4 @@
-import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
+import { onCleanup, render } from '@cerebro-ide/jsx';
 import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
 import type { Keymap } from '@cerebro-ide/commands';
 import { notesPlugin } from './notes-plugin.js';
@@ -23,7 +23,7 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
-import { CodeEditor, DiffEditor } from '@cerebro-ide/ui-editor';
+import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
@@ -45,8 +45,10 @@ import {
   type HostWorktree,
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
+import { openDialog } from '@cerebro-ide/ui-dialog';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
+import { documentFor, saveAll, setupSaving } from './documents.js';
 import { currentProject, setupProjects } from './projects.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
@@ -154,6 +156,26 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
+// Saving, as IntelliJ's: Save All, and on its own when the window loses the focus or closes (the
+// app asks, through cerebroSaveAll, before it closes or reloads the window).
+const reportSaving = (error: unknown) => {
+  openDialog({
+    title: 'Couldn’t Save',
+    content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+  });
+};
+services.commands.register({
+  id: 'file.saveAll',
+  label: 'Save &All',
+  run: () => saveAll().catch(reportSaving),
+});
+services.keymap?.bindDefault('Mod+S', 'file.saveAll');
+services.menus.contribute({ menu: 'main/file', item: { command: 'file.saveAll' }, group: 'b' });
+(globalThis as { cerebroSaveAll?: () => Promise<void> }).cerebroSaveAll = () =>
+  saveAll().catch((error: unknown) => {
+    console.error(error);
+  });
+setupSaving(reportSaving);
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (!project) seedFiles(env, tabOf);
@@ -398,58 +420,45 @@ effect(() => {
   return undefined;
 });
 
-/** A file's contents in the editor, as the environment's settings say. */
+/** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {
   const settings = settingsFor(props.env);
-  const editor = (text: string) => (
-    <CodeEditor
-      path={props.path}
-      text={text}
-      reveal={() => reveals.get(props.path)}
-      {...(navigation.available()
-        ? {
-            onGoToDefinition: (name: string) => void navigation.goToDefinition(name),
-            onFindUsages: (name: string) => void navigation.findUsages(name),
-          }
-        : {})}
-      fontSize={() => settings.get('editor.fontSize') as number}
-      softWrap={() => settings.get('editor.softWrap') as boolean}
-      tabSize={() => settings.get('editor.tabSize') as number}
-    />
-  );
-  const host = currentHost();
-  // A file from the repository, read through the host; else the sample text.
-  const content: Child = host
-    ? (() => {
-        const loaded = signal<{ text: string } | { error: string } | undefined>(undefined);
-        host.request('fs.read', { path: props.path }).then(
-          (result) => {
-            loaded.set(result as { text: string });
-          },
-          (error: unknown) => {
-            loaded.set({ error: (error as Error).message });
-          },
-        );
-        return () => {
-          const state = loaded.get();
-          if (!state) return <p class="playground-code__note">Loading…</p>;
-          if ('error' in state) {
-            return (
-              <p class="playground-code__note">
-                Can’t open {props.path}: {state.error}
-              </p>
-            );
-          }
-          return editor(state.text);
-        };
-      })()
-    : editor(sampleText(props.path));
+  const loaded = signal<EditorDocument | { error: string } | undefined>(undefined);
+  void documentFor(props.path, () => sampleText(props.path)).then((result) => {
+    loaded.set(result);
+  });
   return (
     <div
       class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
     >
-      {content}
+      {() => {
+        const state = loaded.get();
+        if (!state) return <p class="playground-code__note">Loading…</p>;
+        if ('error' in state) {
+          return (
+            <p class="playground-code__note">
+              Can’t open {props.path}: {state.error}
+            </p>
+          );
+        }
+        return (
+          <CodeEditor
+            path={props.path}
+            document={state}
+            reveal={() => reveals.get(props.path)}
+            {...(navigation.available()
+              ? {
+                  onGoToDefinition: (name: string) => void navigation.goToDefinition(name),
+                  onFindUsages: (name: string) => void navigation.findUsages(name),
+                }
+              : {})}
+            fontSize={() => settings.get('editor.fontSize') as number}
+            softWrap={() => settings.get('editor.softWrap') as boolean}
+            tabSize={() => settings.get('editor.tabSize') as number}
+          />
+        );
+      }}
     </div>
   );
 }

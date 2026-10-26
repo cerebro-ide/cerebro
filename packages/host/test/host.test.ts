@@ -1,5 +1,14 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -246,6 +255,27 @@ describe('files', () => {
     await expect(ui.request('fs.read', { path: join(dir, 'none') })).rejects.toMatchObject({
       code: ErrorCodes.InternalError,
     });
+    rmSync(dir, { recursive: true });
+  });
+
+  it('saves a file that exists, all of it, refusing to make one', async () => {
+    const { ui } = connect();
+    const dir = mkdtempSync(join(tmpdir(), 'cerebro-write-'));
+    const file = join(dir, 'a.ts');
+    writeFileSync(file, 'a longer text than what replaces it');
+    expect(await ui.request('fs.write', { path: file, text: 'short' })).toBeNull();
+    expect(readFileSync(file, 'utf8')).toBe('short');
+    await expect(
+      ui.request('fs.write', { path: join(dir, 'none'), text: '' }),
+    ).rejects.toMatchObject({
+      code: ErrorCodes.InternalError,
+    });
+    expect(existsSync(join(dir, 'none'))).toBe(false);
+    for (const params of [{ path: file }, { path: file, text: 3 }, { text: 'x' }]) {
+      await expect(ui.request('fs.write', params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
     rmSync(dir, { recursive: true });
   });
 

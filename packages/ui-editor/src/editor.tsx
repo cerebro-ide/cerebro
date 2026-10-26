@@ -1,15 +1,15 @@
 // The code editor: CodeMirror 6, in Cerebro's theme (its colours are the theme's CSS variables, so
 // it follows dark and light), with the language for the file and the editor settings applied as
-// they change. Read-only until the host can save files.
+// they change. Given a document, it edits it, with undo; without one, it's read-only.
 //
 // It lives in a shadow root. CodeMirror adds its styles with style-mod, which uses constructable
 // stylesheets inside a shadow root but <style> elements in a document, and the page's
 // Content-Security-Policy blocks those (`style-src 'self'`). The theme's variables still reach it:
 // custom properties are inherited into shadow roots.
 
-import { defaultKeymap } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   drawSelection,
   EditorView,
@@ -23,12 +23,16 @@ import {
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
 import { tags } from '@lezer/highlight';
+import { EditorDocument, KEPT } from './document.js';
 import { languageFor } from './languages.js';
 
 export interface CodeEditorProps {
   /** The file's path: its language comes from the extension. */
   path: string;
-  text: string;
+  /** The text to show, read-only, when there's no document. */
+  text?: string;
+  /** The document to edit: its text, kept with the selection and undo history between editors. */
+  document?: EditorDocument;
   /** Read reactively. Default: 13. */
   fontSize?: () => number;
   /** Read reactively. Default: off. */
@@ -147,7 +151,7 @@ export const highlight = HighlightStyle.define([
   { tag: [tags.tagName, tags.heading], color: variable('syntax-tag'), fontWeight: 'bold' },
 ]);
 
-/** A read-only code editor for one file. */
+/** A code editor for one file: editing its document, or showing a text read-only. */
 export function CodeEditor(props: CodeEditorProps): Node {
   const container = document.createElement('div');
   container.className = 'cerebro-editor-code';
@@ -159,55 +163,73 @@ export function CodeEditor(props: CodeEditorProps): Node {
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
   ];
   const language = languageFor(props.path);
+  const doc = props.document;
+  const extensions: Extension[] = [
+    lineNumbers(),
+    highlightActiveLineGutter(),
+    highlightActiveLine(),
+    selection,
+    doc ? [history(), keymap.of([...historyKeymap, indentWithTab])] : EditorState.readOnly.of(true),
+    // The document follows the edits.
+    doc
+      ? EditorView.updateListener.of((update) => {
+          if (update.docChanged) doc.text.set(update.state.doc);
+        })
+      : [],
+    keymap.of([
+      {
+        key: 'Mod-b',
+        run: (v) => {
+          const word = wordAt(v, v.state.selection.main.head);
+          if (word === undefined || !props.onGoToDefinition) return false;
+          props.onGoToDefinition(word);
+          return true;
+        },
+      },
+      {
+        key: 'Alt-F7',
+        run: (v) => {
+          const word = wordAt(v, v.state.selection.main.head);
+          if (word === undefined || !props.onFindUsages) return false;
+          props.onFindUsages(word);
+          return true;
+        },
+      },
+      ...defaultKeymap,
+    ]),
+    EditorView.domEventHandlers({
+      mousedown: (event, v) => {
+        if (!(event.ctrlKey || event.metaKey) || !props.onGoToDefinition) return false;
+        // Not precise: the nearest position, never none.
+        const word = wordAt(v, v.posAtCoords({ x: event.clientX, y: event.clientY }, false));
+        if (word === undefined) return false;
+        event.preventDefault();
+        props.onGoToDefinition(word);
+        return true;
+      },
+    }),
+    theme,
+    syntaxHighlighting(highlight),
+    ...(language ? [language] : []),
+    settings.of(configure()),
+  ];
   const view = new EditorView({
     parent: shadow,
     root: shadow,
-    state: EditorState.create({
-      doc: props.text,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLineGutter(),
-        highlightActiveLine(),
-        selection,
-        EditorState.readOnly.of(true),
-        keymap.of([
-          {
-            key: 'Mod-b',
-            run: (v) => {
-              const word = wordAt(v, v.state.selection.main.head);
-              if (word === undefined || !props.onGoToDefinition) return false;
-              props.onGoToDefinition(word);
-              return true;
-            },
-          },
-          {
-            key: 'Alt-F7',
-            run: (v) => {
-              const word = wordAt(v, v.state.selection.main.head);
-              if (word === undefined || !props.onFindUsages) return false;
-              props.onFindUsages(word);
-              return true;
-            },
-          },
-          ...defaultKeymap,
-        ]),
-        EditorView.domEventHandlers({
-          mousedown: (event, v) => {
-            if (!(event.ctrlKey || event.metaKey) || !props.onGoToDefinition) return false;
-            // Not precise: the nearest position, never none.
-            const word = wordAt(v, v.posAtCoords({ x: event.clientX, y: event.clientY }, false));
-            if (word === undefined) return false;
-            event.preventDefault();
-            props.onGoToDefinition(word);
-            return true;
-          },
-        }),
-        theme,
-        syntaxHighlighting(highlight),
-        ...(language ? [language] : []),
-        settings.of(configure()),
-      ],
-    }),
+    state:
+      doc?.state === undefined
+        ? EditorState.create({ doc: doc ? doc.text.peek() : (props.text ?? ''), extensions })
+        : EditorState.fromJSON(doc.state, { extensions }, KEPT),
+  });
+  // The document's text changed elsewhere (read again from disk): shown, not undoable.
+  const following = effect(() => {
+    const text = doc?.text.get();
+    if (text === undefined || text === view.state.doc) return undefined;
+    view.dispatch({
+      changes: { from: 0, to: view.state.doc.length, insert: text },
+      annotations: Transaction.addToHistory.of(false),
+    });
+    return undefined;
   });
   // The settings apply as they change, without rebuilding the editor.
   const watch = effect(() => {
@@ -233,8 +255,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return undefined;
   });
   onCleanup(() => {
+    if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();
     revealing.dispose();
+    following.dispose();
     view.destroy();
   });
   return container;

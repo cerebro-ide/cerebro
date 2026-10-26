@@ -1,0 +1,86 @@
+// Editing end to end: typing in a file, undo, Save All, edits kept across tabs, saving when the
+// window closes, and a file changed on disk shown again.
+
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterAll, beforeAll, expect, it } from 'vitest';
+import { launch, type Running } from './app.js';
+
+let running: Running;
+// The real path: on Windows, the temporary folder can come with an 8.3 short name.
+const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-editing-')));
+const repo = join(root, 'project');
+const first = join(repo, 'src', 'first.ts');
+const second = join(repo, 'src', 'second.ts');
+
+const page = () => running.page;
+const disk = (path: string) => readFileSync(path, 'utf8');
+/** The active editor's text, its lines joined. */
+const shown = () =>
+  page()
+    .locator('.cm-line')
+    .allTextContents()
+    .then((lines) => lines.join('\n'));
+
+/** Opens a file with Go to File, and puts the cursor at the end of its first line. */
+async function open(name: string): Promise<void> {
+  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.type(name);
+  await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
+  await page().keyboard.press('Enter');
+  await page().locator('.cm-line').first().click();
+  await page().keyboard.press('End');
+}
+
+beforeAll(async () => {
+  execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  mkdirSync(join(repo, 'src'));
+  writeFileSync(first, 'const first = 1;\r\nexport {};\r\n');
+  writeFileSync(second, 'const second = 2;\n');
+  execFileSync('git', ['add', '.'], { cwd: repo });
+  execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
+    cwd: repo,
+  });
+  running = await launch({ CEREBRO_REPO: repo });
+  // The Claude tool window takes room from the editor, which these tests click in.
+  await page().locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
+});
+
+afterAll(async () => {
+  await running.close();
+  rmSync(root, { recursive: true, force: true });
+});
+
+it('edits a file, undoes, and saves it with Save All, keeping its line separators', async () => {
+  await open('first.ts');
+  await page().keyboard.type(' // typed');
+  expect(await shown()).toContain('const first = 1; // typed');
+  // Not saved yet.
+  expect(disk(first)).toBe('const first = 1;\r\nexport {};\r\n');
+  await page().keyboard.press('ControlOrMeta+z');
+  expect(await shown()).not.toContain('typed');
+  await page().keyboard.type(' // kept');
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect.poll(() => disk(first)).toBe('const first = 1; // kept\r\nexport {};\r\n');
+});
+
+it('keeps a file’s unsaved edits when another tab is shown, and saves before closing', async () => {
+  await open('second.ts');
+  await page().keyboard.type(' // unsaved');
+  await open('first.ts');
+  await page().locator('.cerebro-editor-tab', { hasText: 'second.ts' }).click();
+  expect(await shown()).toContain('const second = 2; // unsaved');
+  expect(disk(second)).toBe('const second = 2;\n');
+  // Quitting saves.
+  await running.restart();
+  expect(disk(second)).toBe('const second = 2; // unsaved\n');
+});
+
+it('shows a file changed on disk', async () => {
+  await page().locator('.cerebro-editor-tab', { hasText: 'second.ts' }).click();
+  await page().locator('.cm-line').first().waitFor();
+  writeFileSync(second, 'const second = 3;\n');
+  await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3;\n');
+});

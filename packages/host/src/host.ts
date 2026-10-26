@@ -9,7 +9,7 @@ import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
-import { listFolder, readTextFile, UnreadableFile } from './files.js';
+import { listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import {
   addWorktree,
   committedText,
@@ -121,6 +121,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  connection.onRequest('fs.write', async (params) => {
+    const content = (params as { text?: unknown }).text;
+    if (typeof content !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'text must be a string');
+    }
+    await writeTextFile(text(params, 'path'), content);
+    return null;
+  });
   /** A request's commits to compare (a turn's snapshots), if it names them. */
   const range = (params: unknown): { from: string; to: string } | undefined => {
     const p = params as { from?: unknown; to?: unknown };
