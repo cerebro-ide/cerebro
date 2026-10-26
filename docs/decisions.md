@@ -811,6 +811,27 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut. An
   e2e test uses all of it, and fails without the plugin.
 
+## CI: quick, and few minutes (2026-10-26)
+
+Ido: CI should be quick and use as few resources as possible, without hitting the limits that would
+block future runs. The repository is private, on the free plan: 2,000 minutes a month, blocked when
+they run out (no payment method); each job rounded up to a whole minute; per-minute prices of Linux
+$0.006, Windows $0.010 and macOS $0.062 (GitHub's billing docs). Choices of Claude's, open to change:
+
+- **Nothing installed:** GitHub's Ubuntu runner comes with Google Chrome and xvfb (its image's
+  docs). The browser tests run in that Chrome (`CEREBRO_BROWSER_CHANNEL=chrome`, passed to
+  Playwright as its channel), and Electron finds Chromium's libraries already there. Installing
+  Playwright's Chromium and libraries took 11 s to 10 minutes (measured), waiting on apt.
+- **Pull requests only:** a pull request's run tests its merge into main, so main isn't run again
+  after merging. Markdown-only changes don't run.
+- **One Linux job** for the checks, the build and the Linux end-to-end tests: one install and one
+  rounded-up minute fewer than two jobs.
+- **macOS and Windows only after the check passes,** so their dearer minutes aren't spent on a
+  change that fails anyway. It makes a run about a minute longer when everything passes.
+- **10-minute timeouts** on every job, instead of GitHub's default of 6 hours, so a hang can't
+  use up the month.
+- A newer push to the same pull request cancels the run in progress.
+
 ## End-to-end tests (2026-10-25)
 
 From the test review: the assembled app had no tests, and the bugs found by hand lived there.
