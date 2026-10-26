@@ -42,7 +42,13 @@ export function serveOn(connection: Connection, options: HostOptions): void {
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
   connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
-  const index = new IndexService(git);
+  const index = new IndexService(git, Date.now, (worktree, done, total) => {
+    connection.notify('index.progress', { worktree, done, total });
+  });
+  connection.onRequest('index.warm', (params) => {
+    index.warm(text(params, 'worktree'));
+    return null;
+  });
   connection.onRequest('index.symbols', (params) =>
     index.symbols(text(params, 'worktree'), text(params, 'query')),
   );

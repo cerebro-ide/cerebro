@@ -5,9 +5,13 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Connection, LineReader } from '@cerebro-ide/protocol';
-import { app, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 
 export const HOST_REQUEST = 'cerebro:host:request';
+export const HOST_NOTIFICATION = 'cerebro:host:notification';
+
+/** The host's notifications the page hears. */
+export const FORWARDED = ['index.progress'] as const;
 
 /** The host's entry point, built beside this app. */
 const HOST = fileURLToPath(new URL('../../host/dist/main.js', import.meta.url));
@@ -50,7 +54,10 @@ export function startHost(
   };
 }
 
-/** Starts the host and lets the page send it requests; it stops when the app quits. */
+/**
+ * Starts the host and lets the page send it requests and hear its notifications; it stops when the
+ * app quits.
+ */
 export function installHost(
   repo = process.env['CEREBRO_REPO'] ?? process.cwd(),
   spawn: typeof nodeSpawn = nodeSpawn,
@@ -60,5 +67,12 @@ export function installHost(
     if (typeof method !== 'string') throw new Error('A host request needs a method name');
     return host.connection.request(method, params);
   });
+  for (const method of FORWARDED) {
+    host.connection.onNotification(method, (params) => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(HOST_NOTIFICATION, method, params);
+      }
+    });
+  }
   app.on('will-quit', host.stop);
 }

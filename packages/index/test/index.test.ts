@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   BlobIndex,
   definitions,
+  BATCH,
   indexWorktree,
   languageOf,
   symbols,
@@ -151,6 +152,28 @@ describe('a worktree', () => {
     const second = await indexWorktree(index, join(root, 'other'), git);
     expect(second.parsed).toBe(0);
     expect(second.files).toEqual(first.files);
+  });
+
+  it('reports progress by batches, and at the end', async () => {
+    const reports: [number, number][] = [];
+    await indexWorktree(index, repo, git, (done, total) => reports.push([done, total]));
+    expect(reports).toEqual([[3, 3]]);
+  });
+
+  it('reports each batch of a larger worktree', async () => {
+    const big = join(root, 'big');
+    execFileSync('git', ['init', '-q', '-b', 'main', big]);
+    const count = BATCH * 2 + 50;
+    for (let i = 0; i < count; i++) {
+      writeFileSync(join(big, `f${String(i)}.ts`), `export const v${String(i)} = ${String(i)};\n`);
+    }
+    const reports: [number, number][] = [];
+    await indexWorktree(index, big, git, (done, total) => reports.push([done, total]));
+    expect(reports).toEqual([
+      [BATCH, count],
+      [BATCH * 2, count],
+      [count, count],
+    ]);
   });
 
   it('follows the working tree: changed, new and deleted files', async () => {

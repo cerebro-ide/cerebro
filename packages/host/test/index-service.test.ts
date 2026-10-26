@@ -47,6 +47,22 @@ describe('IndexService', () => {
     expect(counted.mock.calls.length).toBeGreaterThan(calls);
   });
 
+  it('warms a worktree up front, telling how far it got', async () => {
+    const reports: [string, number, number][] = [];
+    const service = new IndexService(git, Date.now, (worktree, done, total) =>
+      reports.push([worktree, done, total]),
+    );
+    service.warm(repo);
+    // Finished: the last report has all files done.
+    await vi.waitFor(() => {
+      const [worktree, done, total] = reports.at(-1) ?? [];
+      expect(worktree).toBe(repo);
+      expect(done).toBe(total);
+    });
+    // A worktree that can't be indexed fails quietly when warmed.
+    service.warm(join(root, 'not-a-repo'));
+  });
+
   it('serves the index over the protocol, refusing requests without a worktree', async () => {
     // eslint-disable-next-line prefer-const -- the two refer to each other
     let host: Connection;
@@ -57,6 +73,15 @@ describe('IndexService', () => {
       ui.receive(line);
     });
     serveOn(host, { repo });
+    const progress = vi.fn();
+    ui.onNotification('index.progress', progress);
+    expect(await ui.request('index.warm', { worktree: repo })).toBeNull();
+    await vi.waitFor(() => {
+      const last = progress.mock.calls.at(-1)?.[0] as
+        { worktree: string; done: number; total: number } | undefined;
+      expect(last?.worktree).toBe(repo);
+      expect(last?.done).toBe(last?.total);
+    });
     expect(await ui.request('index.symbols', { worktree: repo, query: 'Shape' })).toHaveLength(1);
     expect(await ui.request('index.definitions', { worktree: repo, name: 'Shape' })).toHaveLength(
       1,

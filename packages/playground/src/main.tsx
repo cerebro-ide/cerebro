@@ -29,6 +29,7 @@ import '@cerebro-ide/ui-editor/styles.css';
 import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
 import { reveals, setupNavigation } from './navigation.js';
+import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
@@ -60,7 +61,10 @@ declare global {
       platform: string;
       menu: NativeMenuBridge;
       display: { setScale(choice: string): void };
-      host: { request(method: string, params?: unknown): Promise<unknown> };
+      host: {
+        request(method: string, params?: unknown): Promise<unknown>;
+        onNotification(listener: (method: string, params: unknown) => void): () => void;
+      };
     };
   }
 }
@@ -166,15 +170,27 @@ function activeTab(): TabContext | undefined {
 
 /** A sample status bar: what really goes on it is still to be decided. */
 const status = new StatusBar();
+// The index's progress, from the host in the app; a sample task in a browser.
 const indexing = signal<Progress>(0);
-const timer = setInterval(() => {
-  const value = indexing.get();
-  if (typeof value === 'number' && value < 1) indexing.set(Math.min(1, value + 0.025));
-  else {
-    indexing.set(undefined);
-    clearInterval(timer);
-  }
-}, 200);
+if (currentHost()) {
+  setupIndexing((listener) => window.cerebro?.host.onNotification(listener) ?? (() => undefined));
+} else {
+  const timer = setInterval(() => {
+    const value = indexing.get();
+    if (typeof value === 'number' && value < 1) indexing.set(Math.min(1, value + 0.025));
+    else {
+      indexing.set(undefined);
+      clearInterval(timer);
+    }
+  }, 200);
+}
+/** The active worktree's indexing, as a fraction done; undefined when it's done or not started. */
+const indexProgress = (): Progress => {
+  if (!currentHost()) return indexing.get();
+  const env = active();
+  const state = env ? progress.get(env.id) : undefined;
+  return state && state.done < state.total ? state.done / state.total : undefined;
+};
 const fileTypes: Record<string, string> = {
   ts: 'TypeScript',
   tsx: 'TypeScript JSX',
@@ -204,9 +220,19 @@ status.add({
   id: 'indexing',
   side: 'left',
   order: 2,
-  text: () => (indexing.get() === undefined ? 'Indexed' : 'Indexing…'),
-  tooltip: () => 'A background task (sample)',
-  progress: () => indexing.get(),
+  text: () => {
+    const env = active();
+    const state = env ? progress.get(env.id) : undefined;
+    if (currentHost() && state && state.done < state.total) {
+      return `Indexing… ${state.done.toLocaleString()} / ${state.total.toLocaleString()}`;
+    }
+    return indexProgress() === undefined ? 'Indexed' : 'Indexing…';
+  },
+  tooltip: () =>
+    currentHost()
+      ? 'The worktree’s sources, indexed for navigation by name'
+      : 'A background task (sample)',
+  progress: indexProgress,
 });
 status.add({
   id: 'position',
