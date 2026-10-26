@@ -2,11 +2,10 @@
 // editor.
 
 import { open, readdir } from 'node:fs/promises';
-import { join } from 'node:path';
 
 export interface Entry {
   name: string;
-  /** The entry's path: the folder's, joined with its name. */
+  /** The entry's path: the folder's and its name, with `/` between, as git writes paths. */
   path: string;
   kind: 'file' | 'directory';
 }
@@ -14,14 +13,23 @@ export interface Entry {
 /** Never listed: git's own folder. */
 const HIDDEN = new Set(['.git']);
 
+/**
+ * A path with `/` between its parts, on every OS, as git writes paths (Windows takes either), so
+ * paths from git and from the file system compare equal.
+ */
+export function toSlashes(path: string, platform: NodeJS.Platform = process.platform): string {
+  return platform === 'win32' ? path.replaceAll('\\', '/') : path;
+}
+
 /** A folder's entries: folders first, then files, each by name ignoring case, as IntelliJ sorts. */
 export async function listFolder(folder: string): Promise<Entry[]> {
   const entries = await readdir(folder, { withFileTypes: true });
+  const base = toSlashes(folder).replace(/\/+$/, '');
   return entries
     .filter((e) => !HIDDEN.has(e.name))
     .map((e): Entry => ({
       name: e.name,
-      path: join(folder, e.name),
+      path: `${base}/${e.name}`,
       kind: e.isDirectory() ? 'directory' : 'file',
     }))
     .sort(
