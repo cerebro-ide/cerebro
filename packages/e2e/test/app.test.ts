@@ -82,10 +82,19 @@ describe('the window', () => {
         seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
       });
     });
-    for (const keys of ['Control+Shift+A', 'Control+Shift+N', 'Control+Alt+S', 'Alt+F']) {
+    // Each opens something; each is seen open, then closed, before the next.
+    for (const [keys, opens] of [
+      ['Control+Shift+A', '.cerebro-popup'],
+      ['Control+Shift+N', '.cerebro-popup'],
+      ['Control+Alt+S', '.cerebro-dialog'],
+      ['Alt+F', '.cerebro-menu'],
+    ] as const) {
       await page().keyboard.press(keys);
+      await page().locator(opens).waitFor();
       await page().keyboard.press('Escape');
+      await page().locator(opens).waitFor({ state: 'detached' });
     }
+    await page().locator('.cerebro-menubar--takeover').waitFor({ state: 'detached' });
     await page().locator('[aria-label^="Branch:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.press('Escape');
