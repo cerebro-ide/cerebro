@@ -186,6 +186,81 @@ describe('TreeModel', () => {
   });
 });
 
+describe('TreeModel, all at once', () => {
+  it('refreshes the roots and every folder loaded before, keeping them expanded', async () => {
+    let roots = tree({ src: { 'a.ts': null, lib: { 'b.ts': null } }, docs: { 'plan.md': null } });
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: (node) => (node ? (node.children ?? []) : roots),
+    });
+    await settle();
+    model.expand(roots[0] as Item);
+    await settle();
+    model.expand((roots[0] as Item).children?.[1] as Item);
+    await settle();
+    expect(shown(model)).toEqual(['src', '  a.ts', '  lib', '    b.ts', 'docs']);
+    // A file added under lib, a folder never opened (docs) and one gone (src/lib's sibling).
+    roots = tree({ src: { lib: { 'b.ts': null, 'c.ts': null } }, docs: { 'plan.md': null } });
+    await model.refresh();
+    expect(shown(model)).toEqual(['src', '  lib', '    b.ts', '    c.ts', 'docs']);
+    expect(model.loaded.has('docs')).toBe(false);
+  });
+
+  it('loads, on a refresh, folders marked expanded before they showed', async () => {
+    let roots: Item[] = [];
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: (node) => (node ? (node.children ?? []) : roots),
+    });
+    await settle();
+    // Expanded by key, as a view does for folders it wants open from the start.
+    model.expanded.add('src');
+    roots = tree({ src: { 'a.ts': null }, docs: { 'plan.md': null } });
+    await model.refresh();
+    expect(shown(model)).toEqual(['src', '  a.ts', 'docs']);
+  });
+
+  it('refreshes a tree whose roots can’t be read', async () => {
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: () => {
+        throw new Error('gone');
+      },
+    });
+    await settle();
+    await model.refresh();
+    expect(model.rows).toEqual([]);
+    expect([...model.errors.values()]).toEqual(['gone']);
+  });
+
+  it('expands everything, loading as it goes, and collapses everything', async () => {
+    const model = new TreeModel(source(FILES, { async: true }));
+    await settle();
+    await model.expandAll();
+    expect(shown(model)).toEqual([
+      'src',
+      '  ui',
+      '    tree.tsx',
+      '    menu.tsx',
+      '  main.ts',
+      'docs',
+      '  plan.md',
+      'README.md',
+    ]);
+    model.select('src/ui/menu.tsx');
+    model.collapseAll();
+    expect(shown(model)).toEqual(['src', 'docs', 'README.md']);
+    expect(model.selected).toBe('src');
+    // Nothing selected, or a root: the selection stays.
+    model.select(undefined);
+    model.collapseAll();
+    expect(model.selected).toBeUndefined();
+    model.select('README.md');
+    model.collapseAll();
+    expect(model.selected).toBe('README.md');
+  });
+});
+
 describe('TreeModel, randomly', () => {
   it('keeps the selection on a row that shows, under expanded folders', async () => {
     const all: Item[] = [];

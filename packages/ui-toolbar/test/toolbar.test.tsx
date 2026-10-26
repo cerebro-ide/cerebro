@@ -114,6 +114,28 @@ describe('ToolbarButton', () => {
     expect(button.disabled).toBe(true);
   });
 
+  it('passes its context to its command, to run and to be enabled', () => {
+    const { commands, ran } = setup();
+    const seen: unknown[] = [];
+    commands.register({
+      id: 'scoped',
+      label: 'Scoped',
+      enabled: (context) => {
+        seen.push(context);
+        return context === 'here';
+      },
+      run: (context) => ran.push(['scoped', context]),
+    });
+    const container = mount(() => (
+      <ToolbarButton commands={commands} command="scoped" icon="s" context={() => 'here'} />
+    ));
+    const button = container.querySelector('button') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(ran).toEqual([['scoped', 'here']]);
+    expect(seen).toContain('here');
+  });
+
   it('falls back to the command id for an unknown command', () => {
     const { commands } = setup();
     const container = mount(() => <ToolbarButton commands={commands} command="missing" icon="?" />);

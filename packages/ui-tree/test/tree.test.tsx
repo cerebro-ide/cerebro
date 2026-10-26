@@ -43,7 +43,10 @@ function source(count: number, options: { slow?: boolean } = {}): TreeSource<Ite
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
-async function mount(count = 10_000, options: { slow?: boolean } = {}) {
+async function mount(
+  count = 10_000,
+  options: { slow?: boolean; menu?: (event: MouseEvent, node: Item) => void } = {},
+) {
   const model = new TreeModel(source(count, options));
   const opened = vi.fn();
   const container = document.createElement('div');
@@ -56,6 +59,8 @@ async function mount(count = 10_000, options: { slow?: boolean } = {}) {
         label="Project"
         row={(node) => <span class="test-name">{node.path.split('/').at(-1)}</span>}
         onOpen={opened}
+        rowClass={(node) => (node.folder ? 'test-folder' : undefined)}
+        {...(options.menu ? { onContextMenu: options.menu } : {})}
       />
     ),
     container,
@@ -173,6 +178,40 @@ describe('TreeView', () => {
     model.expand({ path: 'small', folder: true });
     await settle();
     expect(row('small').querySelector('.cerebro-tree-row__note')?.textContent).toBe('Loading…');
+  });
+
+  it('classes rows by their node, and selects a row asking for its context menu', async () => {
+    const menu = vi.fn((event: MouseEvent) => {
+      event.preventDefault();
+    });
+    const { row, model } = await mount(10, { menu });
+    expect(row('big').classList).toContain('test-folder');
+    expect(row('top.md').classList).not.toContain('test-folder');
+    row('top.md').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(model.selected).toBe('top.md');
+    expect(menu).toHaveBeenCalledWith(expect.any(MouseEvent), { path: 'top.md', folder: false });
+  });
+
+  it('leaves a context menu alone without a handler', async () => {
+    const { row, model } = await mount(10);
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    row('top.md').dispatchEvent(event);
+    expect(model.selected).toBeUndefined();
+    expect(event.defaultPrevented).toBe(false);
+  });
+
+  it('scrolls to a selection made from outside, and not when the rows change', async () => {
+    const { model, tree } = await mount();
+    model.expand({ path: 'big', folder: true });
+    await settle();
+    model.select('big/file-05000.ts');
+    await settle();
+    expect(tree.scrollTop).toBeGreaterThan(5000 * 24 - 480);
+    tree.scrollTop = 0;
+    tree.dispatchEvent(new Event('scroll'));
+    model.expand({ path: 'small', folder: true });
+    await settle();
+    expect(tree.scrollTop).toBe(0);
   });
 
   it('works with the real keyboard and mouse', async () => {

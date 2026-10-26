@@ -1,7 +1,7 @@
 // The host end to end: the app starts it for a repository, and the page shows what it reports.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -295,21 +295,64 @@ it('runs a shell in the Terminal tool window', async () => {
     });
 });
 
-it('lists the worktree’s changes in the Commit tool window, and opens one’s diff', async () => {
+it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl+D shows its diff', async () => {
   const page = running.page;
   await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();
   writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\nexport {};\n');
   writeFileSync(join(repo, 'src', 'circle.ts'), 'export class Circle {}\n');
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
-  const shape = page.locator('.cerebro-tree-row[data-key="src/shape.ts"]');
+  // Grouped by directory: under Changes, then src.
+  const shape = page.locator('.cerebro-tree-row[data-key$="changes:src/shape.ts"]');
   await shape.waitFor();
+  // Untracked, so under Unversioned Files.
+  await page.locator('.cerebro-tree-row[data-key$="unversioned:src/circle.ts"]').waitFor();
   await expect
     .poll(() => page.locator('.cerebro-tree-row .playground-change').allTextContents())
     // Earlier tests leave files of their own.
-    .toEqual(expect.arrayContaining(['circle.ts', 'shape.ts']));
+    .toEqual(expect.arrayContaining(['src', 'circle.ts', 'shape.ts']));
+  // A double click opens the file, as IntelliJ's does, not its diff.
   await shape.dblclick();
+  await page.locator('.cm-content', { hasText: 'export class Shape {}' }).waitFor();
+  expect(await page.locator('.cerebro-editor-diff').count()).toBe(0);
+  await shape.click();
+  await page.keyboard.press('ControlOrMeta+d');
   // The diff: the committed text on the left, the line added on the right.
   const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
   await expect.poll(() => added.allTextContents()).toEqual(['export {};']);
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+});
+
+it('groups the Commit tool window’s files or not, collapses and expands them, and rolls one back', async () => {
+  const page = running.page;
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();
+  writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes, changed.\nexport class Shape {}\n');
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+  const shape = page.locator('.cerebro-tree-row[data-key$="changes:src/shape.ts"]');
+  const folder = page.locator('.cerebro-tree-row[data-key$="changes:src/"]');
+  await shape.waitFor();
+  await folder.waitFor();
+  const button = (command: string) =>
+    page.locator(`.playground-changes__toolbar [data-command="${command}"]`);
+  // Not grouped: no folder rows, each file with its folder after its name.
+  await page.locator('.playground-changes__toolbar [data-menu="changes/view"]').click();
+  await page.locator('.cerebro-menu-item', { hasText: 'Directory' }).click();
+  await expect.poll(() => folder.count()).toBe(0);
+  await expect.poll(() => shape.locator('.playground-change__folder').textContent()).toBe('src');
+  // Ctrl+P, as IntelliJ's, groups them again while the window has the keyboard.
+  await shape.click();
+  await page.keyboard.press('ControlOrMeta+p');
+  await folder.waitFor();
+  await button('changes.collapseAll').click();
+  await expect.poll(() => shape.count()).toBe(0);
+  await button('changes.expandAll').click();
+  await shape.waitFor();
+  // Rollback asks first, then restores the file as last committed.
+  await shape.click();
+  await button('changes.rollback').click();
+  const dialog = page.locator('.cerebro-dialog');
+  await expect.poll(() => dialog.locator('li').allTextContents()).toEqual(['src/shape.ts']);
+  await dialog.locator('button', { hasText: 'Rollback' }).click();
+  await expect.poll(() => shape.count(), { timeout: 15_000 }).toBe(0);
+  expect(readFileSync(join(repo, 'src', 'shape.ts'), 'utf8')).not.toContain('changed');
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });

@@ -66,6 +66,62 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* The Commit tool window: its toolbar, then the tree. */
+.playground-changes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playground-changes > .cerebro-tree {
+  flex: auto;
+  min-height: 0;
+}
+
+.playground-changes__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 4px;
+}
+
+.playground-changes__toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
+.playground-changes__toolbar .cerebro-toolbar-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playground-changes__separator {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--cerebro-separator);
+}
+
+/* The default changelist's name is bold, as IntelliJ's. */
+.playground-changes__group--changes {
+  font-weight: 600;
+}
+
+.playground-rollback__files {
+  overflow: auto;
+  max-height: 240px;
+  margin: 0 0 12px;
+  padding: 0 0 0 4px;
+  list-style: none;
+}
+
+.playground-rollback__option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* A changed file in the Commit tool window: its name in its status's colour, then its folder. */
 .playground-change--modified,
 .playground-change--renamed {
@@ -82,6 +138,10 @@ body,
 
 .playground-change--untracked {
   color: var(--cerebro-vcs-untracked);
+}
+
+.playground-change--ignored {
+  color: var(--cerebro-vcs-ignored);
 }
 
 /* A turn's prompt is cut short; all of it shows on hover. */

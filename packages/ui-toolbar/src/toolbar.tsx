@@ -30,6 +30,8 @@ export interface ToolbarButtonProps {
   icon: Child;
   /** The command's shortcut, for the tooltip. */
   shortcut?: () => string | undefined;
+  /** Passed to the command, as a context menu's: what the toolbar acts on. Read reactively. */
+  context?: () => unknown;
 }
 
 /** An icon button that runs a command; disabled while the command is. */
@@ -42,11 +44,11 @@ export function ToolbarButton(props: ToolbarButtonProps): Node {
       type="button"
       class="cerebro-toolbar-button"
       aria-label={label}
-      disabled={() => !commands.isEnabled(command)}
+      disabled={() => !commands.isEnabled(command, props.context?.())}
       data-command={command}
       ref={tooltip({ text: () => label, shortcut: () => props.shortcut?.(), placement: 'below' })}
       on:click={() => {
-        commands.execute(command);
+        commands.execute(command, props.context?.());
       }}
     >
       {props.icon}

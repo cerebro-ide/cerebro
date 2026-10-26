@@ -94,6 +94,12 @@ describe('nativeMenu', () => {
     ]);
   });
 
+  it('shows a heading as a label that does nothing', () => {
+    const { services } = setup();
+    services.menus.contribute({ menu: 'headed', item: { heading: 'Group By' } });
+    expect(nativeMenu(services, 'headed')).toEqual([{ label: 'Group By', enabled: false }]);
+  });
+
   it('shows commands’ states for a context, and no shortcuts without a keymap', () => {
     const { services } = setup();
     const file = nativeMenu(

@@ -29,7 +29,7 @@ import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
 import { CodeEditor, DiffEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
-import { ChangesView, diffPath, diffRange, type Range } from './changes.js';
+import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
@@ -132,6 +132,10 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+setupChanges(services, {
+  open: (tab) => editor()?.open(tab),
+  activeTab: () => editor()?.activeGroup.active,
+});
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
 setTerminalKeys((event) => {
@@ -363,7 +367,8 @@ function TerminalPane(props: { kind: TerminalKind }) {
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
-  if (props.id === 'commit') return <ChangesView open={(tab) => editor()?.open(tab)} />;
+  if (props.id === 'commit')
+    return <ChangesView services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   // A plugin's view fills a container element, however it likes.

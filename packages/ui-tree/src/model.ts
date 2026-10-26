@@ -81,6 +81,55 @@ export class TreeModel<T> {
     }
   }
 
+  /**
+   * Reads the tree again: the roots, and the children of every node loaded before that's still
+   * there, so what was expanded stays expanded, with what it holds now. Nodes marked expanded
+   * before they were ever loaded are loaded too.
+   */
+  async refresh(): Promise<void> {
+    const before = new Set(this.loaded.keys());
+    const reload = async (parent: string): Promise<void> => {
+      const children = this.loaded.get(parent) ?? [];
+      await Promise.all(
+        children.map(async (node) => {
+          const key = this.source.key(node);
+          if (this.source.isLeaf(node) || !(before.has(key) || this.expanded.has(key))) return;
+          await this.load(node, true);
+          await reload(key);
+        }),
+      );
+    };
+    await this.load(undefined, true);
+    await reload(ROOT);
+  }
+
+  /** Expands every node, loading children as needed, down to the leaves. */
+  async expandAll(): Promise<void> {
+    for (;;) {
+      const closed = this.rows.filter((row) => !row.leaf && !row.expanded);
+      if (closed.length === 0) return;
+      await Promise.all(
+        closed.map((row) => {
+          this.expanded.add(row.key);
+          return this.load(row.node);
+        }),
+      );
+    }
+  }
+
+  /** Collapses every node; a selection inside one moves to its root, as in IntelliJ. */
+  collapseAll(): void {
+    const rows = this.rows;
+    for (let i = this.selectedIndex; i >= 0; i--) {
+      const row = rows[i] as TreeRow<T>;
+      if (row.depth === 0) {
+        this.selected = row.key;
+        break;
+      }
+    }
+    this.expanded.clear();
+  }
+
   /** Expands a node, loading its children the first time. */
   expand(node: T): void {
     if (this.source.isLeaf(node)) return;

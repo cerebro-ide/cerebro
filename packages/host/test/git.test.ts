@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -9,11 +17,13 @@ import {
   git,
   listChanges,
   listFiles,
+  listIgnored,
   listWorktrees,
   parseNameStatus,
   parseStatus,
   parseWorktrees,
   removeWorktree,
+  rollback,
 } from '../src/index.js';
 
 describe('parseWorktrees', () => {
@@ -191,5 +201,51 @@ describe('with real git', () => {
     ]);
     expect(await committedText(path, 'a.txt')).toBe('a');
     expect(await committedText(path, 'b.txt')).toBe('');
+  });
+
+  it('lists ignored files, a folder ignored whole as one entry', async () => {
+    const path = join(root, 'ignored');
+    await addWorktree(repo, { path, branch: 'ignored', create: true });
+    writeFileSync(join(path, '.gitignore'), 'out/\n*.log\n');
+    mkdirSync(join(path, 'out'));
+    writeFileSync(join(path, 'out', 'a.js'), '');
+    writeFileSync(join(path, 'out', 'b.js'), '');
+    writeFileSync(join(path, 'debug.log'), '');
+    writeFileSync(join(path, 'kept.ts'), '');
+    expect(await listIgnored(path)).toEqual(['debug.log', 'out/']);
+  });
+
+  it('rolls changes back: modified, deleted, renamed, and added, kept or deleted', async () => {
+    const path = join(root, 'rollback');
+    await addWorktree(repo, { path, branch: 'rollback', create: true });
+    writeFileSync(join(path, 'b.txt'), 'b');
+    writeFileSync(join(path, 'c.txt'), 'c');
+    run(path, 'add', '.');
+    run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'more');
+    writeFileSync(join(path, 'a.txt'), 'changed');
+    rmSync(join(path, 'b.txt'));
+    run(path, 'mv', 'c.txt', 'd.txt');
+    writeFileSync(join(path, 'new.txt'), 'new');
+    writeFileSync(join(path, 'kept.txt'), 'kept');
+    run(path, 'add', 'new.txt', 'kept.txt');
+    writeFileSync(join(path, 'loose.txt'), 'untracked');
+    const changes = await listChanges(path);
+    const pick = (...names: string[]) => changes.filter((c) => names.includes(c.path));
+    await rollback(path, pick('a.txt', 'b.txt', 'd.txt', 'new.txt', 'loose.txt'), true);
+    expect(await listChanges(path)).toEqual([
+      { path: 'kept.txt', status: 'added' },
+      { path: 'loose.txt', status: 'untracked' },
+    ]);
+    expect(readFileSync(join(path, 'a.txt'), 'utf8')).toBe('a');
+    expect(existsSync(join(path, 'b.txt')) && existsSync(join(path, 'c.txt'))).toBe(true);
+    expect(existsSync(join(path, 'new.txt'))).toBe(false);
+    // An added file whose copy is kept: unstaged, so untracked.
+    await rollback(path, pick('kept.txt'), false);
+    expect(await listChanges(path)).toEqual([
+      { path: 'kept.txt', status: 'untracked' },
+      { path: 'loose.txt', status: 'untracked' },
+    ]);
+    // Nothing to roll back: git isn't run.
+    await rollback(path, [], false);
   });
 });

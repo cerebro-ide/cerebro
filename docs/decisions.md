@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
 - [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn
 - [Agent status and resuming (2026-10-26)](#agent-status-and-resuming-2026-10-26): from Claude Code's hooks; sessions resumed
@@ -932,6 +933,41 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## The Commit tool window's toolbar (2026-10-26)
+
+Ido, from screenshots of IntelliJ's Commit tool window: "note the missing options here. these are
+important. most of all, the expand collapse and group!", and "clicking a file here doesn't
+automatically open the diff window, it just opens the file. to open the diff one need to press
+cmd/ctrl+d - or select it from the context menu".
+
+- **Opening a file opens the file** (Ido): a double click, Enter or Jump to Source (F4). Show Diff
+  (Ctrl/Cmd+D, the toolbar or the context menu) opens its diff. This changes "Changes and diffs",
+  where opening a file opened its diff. A deleted file doesn't open.
+- **The toolbar, in IntelliJ's order:** Refresh, Rollback, Show Diff, View Options (the eye), Select
+  Opened File, Expand All, Collapse All. Shelve and stash are later (Ido: "could be done in later
+  stages").
+- **View Options** is a menu with headings, as IntelliJ's: Group By → Directory (on by default, as
+  IntelliJ's), Show → Ignored Files (off). Both kept in the page's local storage, for every
+  worktree. Menus got headings for it (`{ heading }` items, which can't be chosen).
+- **Groups, as IntelliJ's:** Changes (tracked files), Unversioned Files (untracked, only when there
+  are any), Ignored Files (when shown and there are any: `git ls-files --others --ignored
+  --exclude-standard --directory`, so an ignored folder is one row), then the agent's turns. Grouped
+  by directory, a folder holding only one folder shows as one row (`src/main`), folders first, each
+  with its number of files. Groups and folders are expanded when they first show; Ignored Files
+  starts closed (a claim about IntelliJ, and open to change).
+- **Rollback** (Ctrl/Cmd+Alt+Z) acts on the selected file, or every file in the selected folder or
+  group; untracked, ignored and turns' files aren't rolled back. A dialog lists them first, with
+  "Delete local copies of added files" (off) when any were added, as IntelliJ's. The host's
+  `git.rollback` runs `git restore --source=HEAD --staged --worktree` (a renamed file's old path
+  too); an added file it keeps is only unstaged (`git restore --staged`), as measured in the tests.
+- **Shortcuts** are IntelliJ's: Ctrl/Cmd+D, F4, Ctrl/Cmd+Alt+Z, Ctrl/Cmd+P (group by directory),
+  Ctrl/Cmd+= or + (expand all), Ctrl/Cmd+- (collapse all). They act only while the Commit window has
+  the keyboard (otherwise they pass through, to the editor, say); its toolbar and menus pass the
+  commands a context saying they come from it.
+- **Ignored files' colour** is a new theme token, `--cerebro-vcs-ignored`, not measured.
+- **Not yet:** shelve and stash, changelists, selecting several files, and other View Options
+  groupings (IntelliJ's module and repository groupings don't apply).
+
 ## Instructions for Claude: rules and skills (2026-10-26)
 
 Ido: CLAUDE.md will grow out of control; split it into skills and rules files.
@@ -1012,7 +1048,10 @@ The POC's second step: the worktree's changed files, each opening its diff in an
   shadow root. Diff colours and the status colours are theme tokens, not measured.
 - **A diff tab** is the file's path marked `diff:`; it reads both sides through the host when it
   shows (`git.diff`), so it's current each time it's switched to.
-- **Not done:** staging, committing, reverting, and refreshing a diff while it shows.
+- **Not done:** staging, committing, and refreshing a diff while it shows. Reverting came with the
+  toolbar (see "The Commit tool window's toolbar").
+- **Changed 2026-10-26:** opening a file opens the file, not its diff, as IntelliJ's does (Ido);
+  Show Diff opens the diff. See "The Commit tool window's toolbar".
 
 ## Terminals and the Claude tool window (2026-10-26)
 

@@ -90,6 +90,8 @@ export function nativeMenu(
   const { commands, keymap } = services;
   return visibleEntries(services, menu).map((entry): NativeMenuItem => {
     if ('separator' in entry) return { separator: true };
+    // A heading: a label that does nothing.
+    if ('heading' in entry) return { label: entry.heading, enabled: false };
     if ('submenu' in entry) {
       return {
         label: parseLabel(entry.label).text,
