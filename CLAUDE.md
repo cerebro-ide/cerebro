@@ -1,7 +1,12 @@
 # Cerebro
 
 Ido's project: a free, standalone IDE for inspecting code and managing AI agents' work. Read
-`README.md` first, then `docs/decisions.md` before proposing anything that contradicts a decision.
+`README.md` first, then the index of `docs/decisions.md` (and the entries that bear on the work)
+before proposing anything that contradicts a decision.
+
+More instructions load when they apply: `.claude/rules/` for parts of the code (tests, UI, host,
+dependencies, docs), and skills for procedures: `/pr` (a change through review and CI), `/qa` (see
+it in the real app), `/decision` (record a decision).
 
 ## Where this repo lives
 
@@ -14,7 +19,9 @@ Ido's project: a free, standalone IDE for inspecting code and managing AI agents
 
 ## Working rules
 
-- Do exactly what Ido asked; if unclear, ask. Don't fill in what he didn't say.
+- Do exactly what Ido asked; if unclear, ask. Don't fill in what he didn't say, and don't swap in
+  your own judgment for his: if an instruction seems wrong or can't be followed, ask before doing
+  anything else. An instruction applies to the task it was given for, unless he says it's standing.
 - Commit only when asked; a commit is always pushed in the same step.
 - On a feature branch, Claude commits and pushes as it goes, without asking each time (Ido,
   2026-10-25, after a WSL update ended a session with uncommitted work on disk).

@@ -3,6 +3,59 @@
 Agreed during the 2026-10-25 brainstorm unless dated otherwise. Each entry: the decision, why, and
 what was rejected.
 
+Read the index, then the entries that bear on the work at hand.
+
+## Index
+
+- [A standalone app, not a plugin or a fork](#a-standalone-app-not-a-plugin-or-a-fork): not a JetBrains plugin, not a VS Code fork
+- [Electron](#electron): over Tauri
+- [Agents are driven through their CLIs, not the Agent SDK](#agents-are-driven-through-their-clis-not-the-agent-sdk): Claude Code in a terminal, wrapped
+- [Host process + UI, for local and remote use](#host-process--ui-for-local-and-remote-use): the host does the work; the UI talks to it
+- [Language servers, not home-grown analysis](#language-servers-not-home-grown-analysis): navigation from existing language servers
+- [Many worktrees must be proven solvable before building](#many-worktrees-must-be-proven-solvable-before-building): the spike's reason
+- [First version scope](#first-version-scope): what v1 holds
+- [Platforms (2026-10-25)](#platforms-2026-10-25): macOS, Windows, Linux, and repos in WSL
+- [Remote mode soon after the shell (2026-10-25)](#remote-mode-soon-after-the-shell-2026-10-25): repos on another machine, after the shell
+- [Modular means usable in isolation (2026-10-25)](#modular-means-usable-in-isolation-2026-10-25): each package works on its own
+- [Testing in layers (2026-10-25)](#testing-in-layers-2026-10-25): unit, browser and end-to-end; CI
+- [Pull requests (2026-10-25)](#pull-requests-2026-10-25): changes through PRs, Ido merges
+- [Minimal dependencies: Cerebro writes its own components (2026-10-25)](#minimal-dependencies-cerebro-writes-its-own-components-2026-10-25): few dependencies
+- [No UI framework: own reactive core, MobX-style (2026-10-25)](#no-ui-framework-own-reactive-core-mobx-style-2026-10-25): plain DOM and Cerebro's reactive core
+- [The MobX-style API (2026-10-25)](#the-mobx-style-api-2026-10-25): the reactive core's API
+- [JSX that builds DOM directly (2026-10-25)](#jsx-that-builds-dom-directly-2026-10-25): Cerebro's JSX runtime
+- [The shell window (2026-10-25)](#the-shell-window-2026-10-25): the window's parts: stripes, tool windows, editor
+- [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
+- [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
+- [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors
+- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout
+- [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
+- [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
+- [Popups (2026-10-25)](#popups-2026-10-25): a search field over a list, not modal
+- [Settings (2026-10-25)](#settings-2026-10-25): global, repository and worktree levels
+- [The layout persists (2026-10-26)](#the-layout-persists-2026-10-26): the layout saved between runs
+- [The shared index, first part (2026-10-26)](#the-shared-index-first-part-2026-10-26): one index for many worktrees, in the host
+- [Find file (2026-10-26)](#find-file-2026-10-26): go to a file by name
+- [The code editor (2026-10-26)](#the-code-editor-2026-10-26): CodeMirror, read-only, highlighted
+- [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files
+- [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
+- [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
+- [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
+- [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn
+- [Agent status and resuming (2026-10-26)](#agent-status-and-resuming-2026-10-26): from Claude Code's hooks; sessions resumed
+- [Changes and diffs (2026-10-26)](#changes-and-diffs-2026-10-26): the Commit tool window, side-by-side diffs
+- [Terminals and the Claude tool window (2026-10-26)](#terminals-and-the-claude-tool-window-2026-10-26): xterm's headless core, Cerebro's renderer
+- [The look: WebStorm's Islands theme (2026-10-26)](#the-look-webstorms-islands-theme-2026-10-26): matched to WebStorm, pixel by pixel
+- [CI: quick, and few minutes (2026-10-26)](#ci-quick-and-few-minutes-2026-10-26): one Linux job first, then macOS and Windows
+- [End-to-end tests (2026-10-25)](#end-to-end-tests-2026-10-25): the built app, driven by Playwright
+- [Desktop conventions in the UI (2026-10-25)](#desktop-conventions-in-the-ui-2026-10-25): an application, not a website
+- [CodeMirror 6, not Monaco (2026-10-25)](#codemirror-6-not-monaco-2026-10-25): why CodeMirror
+- [Build tooling: the minimal, mainstream set (2026-10-25)](#build-tooling-the-minimal-mainstream-set-2026-10-25): TypeScript, Vite, Vitest, ESLint, Prettier
+- [Name: Cerebro](#name-cerebro): to check before publishing
+- [Where it lives and where it's developed](#where-it-lives-and-where-its-developed): the WSL development distro; nothing installed on the NAS
+- [Goal: a tool first, ideally published](#goal-a-tool-first-ideally-published): for Ido first
+- [Process: lean until the foundation runs (2026-10-25)](#process-lean-until-the-foundation-runs-2026-10-25): pieces land before they're perfect
+
 ## A standalone app, not a plugin or a fork
 
 - **Not a JetBrains plugin.** A plugin limits the UX Cerebro is after and forces every user to pay
@@ -878,6 +931,24 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## Instructions for Claude: rules and skills (2026-10-26)
+
+Ido: CLAUDE.md will grow out of control; split it into skills and rules files.
+
+- **CLAUDE.md keeps what applies everywhere:** the project, the NAS, the working rules. Claude
+  Code loads it in full in every session; its docs suggest under 200 lines per file.
+- **`.claude/rules/`, scoped by path:** tests, the UI, the host, dependencies, docs. From Claude
+  Code's docs: a rule with `paths` loads when Claude reads, writes or edits a matching file
+  (Read, Write or Edit, or `cat`/`head` of one file), not on edits made through other shell
+  commands; rules that must never be missed stay in CLAUDE.md.
+- **Skills for procedures:** `/pr`, `/qa`, `/decision`. Only their descriptions load until one is
+  used (Claude Code's docs).
+- **Claude's own memory moved into the repo:** it lives on one machine, so sessions on the NAS
+  never saw it.
+- **This file has an index,** so a session reads it and only the entries it needs.
+- **`/qa` runs `packages/e2e/scripts/qa.mjs`:** the built app on a new repository, a screenshot,
+  the console's errors; scripts import its `launch` to drive the page.
 
 ## Agent turns (2026-10-26)
 
