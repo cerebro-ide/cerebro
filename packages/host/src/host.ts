@@ -1,7 +1,7 @@
 // The host's methods, on a connection to the UI.
 
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
-import { listFolder } from './files.js';
+import { listFolder, readTextFile, UnreadableFile } from './files.js';
 import { addWorktree, git as runGit, listWorktrees, removeWorktree, type Git } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
@@ -34,6 +34,17 @@ export function serveOn(connection: Connection, options: HostOptions): void {
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
   connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
+  connection.onRequest('fs.read', async (params) => {
+    try {
+      return { text: await readTextFile(text(params, 'path')) };
+    } catch (error) {
+      // Binary and oversized files are refused with the reason, for the editor to show.
+      if (error instanceof UnreadableFile) {
+        throw new ResponseError(ErrorCodes.InvalidParams, error.message, { reason: error.reason });
+      }
+      throw error;
+    }
+  });
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;
     return addWorktree(

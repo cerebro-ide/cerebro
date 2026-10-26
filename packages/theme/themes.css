@@ -30,6 +30,17 @@
   --cerebro-input: #1e1f22;
   --cerebro-input-border: #4e5157;
   --cerebro-error: #f75464;
+  /* The editor, as IntelliJ's dark theme. */
+  --cerebro-editor-active-line: #26282e;
+  --cerebro-editor-selection: #214283;
+  --cerebro-syntax-keyword: #cf8e6d;
+  --cerebro-syntax-string: #6aab73;
+  --cerebro-syntax-number: #2aacb8;
+  --cerebro-syntax-comment: #7a7e85;
+  --cerebro-syntax-function: #56a8f5;
+  --cerebro-syntax-type: #bcbec4;
+  --cerebro-syntax-property: #c77dbb;
+  --cerebro-syntax-tag: #d5b778;
 
   --cerebro-stripe-size: 36px;
   --cerebro-stripe-button: 28px;
@@ -67,4 +78,15 @@
   --cerebro-input: #ffffff;
   --cerebro-input-border: #c9ccd6;
   --cerebro-error: #db3b4b;
+  /* The editor, as IntelliJ's light theme. */
+  --cerebro-editor-active-line: #f5f8fe;
+  --cerebro-editor-selection: #a6d2ff;
+  --cerebro-syntax-keyword: #0033b3;
+  --cerebro-syntax-string: #067d17;
+  --cerebro-syntax-number: #1750eb;
+  --cerebro-syntax-comment: #8c8c8c;
+  --cerebro-syntax-function: #00627a;
+  --cerebro-syntax-type: #000000;
+  --cerebro-syntax-property: #871094;
+  --cerebro-syntax-tag: #0033b3;
 }

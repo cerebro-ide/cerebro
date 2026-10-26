@@ -1,4 +1,4 @@
-import { render } from '@cerebro-ide/jsx';
+import { render, type Child } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -22,11 +22,14 @@ import '@cerebro-ide/ui-tooltip/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
+import '@cerebro-ide/ui-editor/styles.css';
+import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
+  currentHost,
   firstWorktree,
   seedFiles,
   setupEnvironments,
@@ -269,32 +272,62 @@ effect(() => {
   return undefined;
 });
 
-/** Pretend file contents: numbered lines of code-like text, as the environment's settings say. */
+/** A file's contents in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {
   const settings = settingsFor(props.env);
-  const lines = Array.from({ length: 60 }, (_, i) =>
-    i === 0
-      ? `// ${props.path}`
-      : `${i % 5 === 0 ? '\t' : ''}const value${String(i)} = compute(${String(i)}, '${props.path}', 'a long argument that shows soft wrapping');`,
+  const editor = (text: string) => (
+    <CodeEditor
+      path={props.path}
+      text={text}
+      fontSize={() => settings.get('editor.fontSize') as number}
+      softWrap={() => settings.get('editor.softWrap') as boolean}
+      tabSize={() => settings.get('editor.tabSize') as number}
+    />
   );
+  const host = currentHost();
+  // A file from the repository, read through the host; else the sample text.
+  const content: Child = host
+    ? (() => {
+        const loaded = signal<{ text: string } | { error: string } | undefined>(undefined);
+        host.request('fs.read', { path: props.path }).then(
+          (result) => {
+            loaded.set(result as { text: string });
+          },
+          (error: unknown) => {
+            loaded.set({ error: (error as Error).message });
+          },
+        );
+        return () => {
+          const state = loaded.get();
+          if (!state) return <p class="playground-code__note">Loading…</p>;
+          if ('error' in state) {
+            return (
+              <p class="playground-code__note">
+                Can’t open {props.path}: {state.error}
+              </p>
+            );
+          }
+          return editor(state.text);
+        };
+      })()
+    : editor(sampleText(props.path));
   return (
-    <pre
-      style={{
-        fontSize: () => `${String(settings.get('editor.fontSize'))}px`,
-        whiteSpace: () => (settings.get('editor.softWrap') ? 'pre-wrap' : 'pre'),
-        tabSize: () => String(settings.get('editor.tabSize')),
-      }}
-      class="playground-code cerebro-selectable"
+    <div
+      class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
     >
-      {lines.map((line, i) => (
-        <div>
-          <span class="playground-line">{i + 1}</span>
-          {line}
-        </div>
-      ))}
-    </pre>
+      {content}
+    </div>
   );
+}
+
+/** Pretend contents for a sample file: code-like lines, long enough to show soft wrapping. */
+function sampleText(path: string): string {
+  return Array.from({ length: 60 }, (_, i) =>
+    i === 0
+      ? `// ${path}`
+      : `${i % 5 === 0 ? '\t' : ''}const value${String(i)} = compute(${String(i)}, '${path}', 'a long argument that shows soft wrapping');`,
+  ).join('\n');
 }
 
 function NoEnvironment() {

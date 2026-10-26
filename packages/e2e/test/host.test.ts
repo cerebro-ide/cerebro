@@ -48,10 +48,34 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     .click();
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
   expect(await names()).toEqual(['src', 'app.ts', 'README.md']);
+  await page.evaluate(() => {
+    const seen: string[] = [];
+    (window as { violations?: string[] }).violations = seen;
+    document.addEventListener('securitypolicyviolation', (event) => {
+      seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
+    });
+  });
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
   expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
     join(repo, 'src', 'app.ts'),
   );
+  // The file's own text, in the editor, highlighted, with no Content-Security-Policy broken.
+  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
+  expect(await page.locator('.cm-content').textContent()).toBe('export {};');
+  const keyword = page.locator('.cm-line span', { hasText: 'export' });
+  expect(await keyword.evaluate((span) => getComputedStyle(span).color)).not.toBe(
+    await page.locator('.cm-content').evaluate((content) => getComputedStyle(content).color),
+  );
+  expect(await page.evaluate(() => (window as { violations?: string[] }).violations)).toEqual([]);
+});
+
+it('says why a file can’t be opened', async () => {
+  const page = running.page;
+  writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
+  // Folders are listed once; reloading reads the main worktree's again.
+  await page.reload();
+  await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick();
+  await page.locator('.playground-code__note', { hasText: 'binary' }).waitFor();
 });
 
 it('lists the repository’s real worktrees, opening the main one', async () => {

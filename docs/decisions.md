@@ -626,6 +626,34 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## The code editor (2026-10-26)
+
+Milestone 2's CodeMirror editor, with syntax highlighting for the target languages (`ui-editor`).
+Choices of Claude's, open to change:
+
+- **Read-only for now.** Files open from the project tree and show their text; saving needs its
+  own design (conflicts with what agents change, encodings, line endings).
+- **Languages by extension:** TypeScript and JavaScript (`ts`, `tsx`, `mts`, `cts`, `js`, `jsx`,
+  `mjs`, `cjs`), JSON, CSS, HTML, Markdown, Python, YAML, and Bash through CodeMirror's legacy
+  shell mode. Anything else is plain text.
+- **Colours are theme variables** (`--cerebro-syntax-*`, `--cerebro-editor-*`), taken from
+  IntelliJ's dark and light themes, so the editor follows the theme.
+- **The editor settings apply live:** font size, soft wrap and tab size, per environment.
+- **In a shadow root.** CodeMirror adds its styles with `style-mod`, which uses constructable
+  stylesheets inside a shadow root but `<style>` elements in a document (read in its source), and
+  the page's Content-Security-Policy blocks those: in the app, no syntax colours or font size
+  applied. In a shadow root, measured in the app: the colours and settings apply and the policy
+  reports no violation. Rejected: allowing inline styles, and a fixed nonce, which is no
+  protection in a static page.
+- **The host reads files** (`fs.read`) as UTF-8, refusing binary files (a NUL byte in the first
+  8 KB, as git decides) and files over 10 MB, with the reason, which the editor shows.
+- **New dependencies:** CodeMirror's packages (`state`, `view`, `language`, `commands`, the language
+  packages and `legacy-modes`) and `@lezer/highlight`, all by CodeMirror's author, each pinned to a
+  version at least two weeks old. Three packages pulled in by them were newer, so they're pinned too
+  (`@codemirror/autocomplete` 6.20.3, `@lezer/common` 1.5.3, `@lezer/markdown` 1.8.0), as
+  `ui-editor` dependencies and root `overrides`.
+- The bundle grew past 500 kB with the grammars; loading languages on demand can come later.
+
 ## The project tree (2026-10-26)
 
 Milestone 2's project tree: a virtualised tree on observable collections. Choices of Claude's, open

@@ -74,17 +74,10 @@ body,
 }
 
 .playground-code {
-  margin: 0;
-  padding: 8px 0;
-  font-family: var(--cerebro-font-mono);
-  font-size: 13px;
-  line-height: 1.6;
+  height: 100%;
 }
 
-.playground-line {
-  display: inline-block;
-  width: 3em;
-  margin-right: 16px;
+.playground-code__note {
+  padding: 8px 16px;
   color: var(--cerebro-text-muted);
-  text-align: right;
 }
