@@ -56,9 +56,15 @@ export function applicationMenu(items: unknown, sender: WebContents): Menu {
   ]);
 }
 
-/** On macOS, shows the menu the page sends as the application menu. */
+/** On macOS, shows the menu the page sends as the application menu; elsewhere, none. */
 export function installMenu(platform: NodeJS.Platform = process.platform): void {
-  if (platform !== 'darwin') return;
+  if (platform !== 'darwin') {
+    // Elsewhere the menu bar is the page's own. Electron's default menu would sit behind it, with
+    // its own Alt handling and shortcuts; null suppresses it and the window's menu bar (Electron's
+    // docs).
+    Menu.setApplicationMenu(null);
+    return;
+  }
   ipcMain.on(SET_MENU, (event, items: unknown) => {
     Menu.setApplicationMenu(applicationMenu(items, event.sender));
   });

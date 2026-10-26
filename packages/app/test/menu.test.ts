@@ -101,8 +101,9 @@ describe('installMenu', () => {
     expect(electron.Menu.setApplicationMenu).toHaveBeenCalledOnce();
   });
 
-  it('does nothing elsewhere', () => {
+  it('removes Electron’s default menu elsewhere, listening to nothing', () => {
     installMenu('win32');
+    expect(electron.Menu.setApplicationMenu).toHaveBeenCalledWith(null);
     installMenu();
     expect(electron.ipc.size).toBe(0);
   });
