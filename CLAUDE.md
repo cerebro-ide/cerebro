@@ -25,4 +25,5 @@ Ido's project: a free, standalone IDE for inspecting code and managing AI agents
   `main`. PRs are mostly for CI, and Markdown files don't go through CI.
 - No "Generated with Claude" footers or `Co-Authored-By` trailers in commits, PRs or issues.
 - Proof is a measurement or official documentation; anything else is labelled as a claim.
+- Every bug fix comes with a test that fails without the fix, so the bug can't come back unnoticed.
 - When a decision changes, update `docs/decisions.md` and say why.
