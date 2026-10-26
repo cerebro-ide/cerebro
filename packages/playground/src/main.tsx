@@ -1,4 +1,7 @@
-import { render } from '@cerebro-ide/jsx';
+import { onCleanup, render } from '@cerebro-ide/jsx';
+import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
+import type { Keymap } from '@cerebro-ide/commands';
+import { notesPlugin } from './notes-plugin.js';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -109,6 +112,16 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+
+// Plugins: the sample Notes plugin, added as any plugin would be.
+const views = new ViewRegistry(layout.toolWindows);
+const plugins = new PluginRegistry({
+  commands: services.commands,
+  menus: services.menus,
+  keymap: services.keymap as Keymap,
+  views,
+});
+await plugins.add(notesPlugin);
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
@@ -269,6 +282,15 @@ function Files() {
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
+  // A plugin's view fills a container element, however it likes.
+  const view = views.get(props.id);
+  if (view) {
+    const container = document.createElement('div');
+    container.className = 'playground-view';
+    const cleanup = view.mount(container);
+    if (cleanup) onCleanup(cleanup);
+    return container;
+  }
   const title = layout.toolWindows.windows.get(props.id)?.title ?? props.id;
   return () => (
     <ul class="playground-list">

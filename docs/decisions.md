@@ -711,6 +711,27 @@ Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local ch
   throwaway repository's two worktrees, switching branch with the worktree. Both fail without the
   host.
 
+## Plugins (2026-10-26)
+
+Milestone 1's plugin registry and first contribution points: views, commands, menus
+(`plugin-api`). Choices of Claude's, open to change:
+
+- **A plugin** has an id (dotted by publisher, such as `cerebro.notes`), a name, and `activate`,
+  which may be async.
+- **It contributes through its context:** commands, menu items, default shortcuts (the user's
+  bindings still come first), views, and cleanups. The context records each, so removing the plugin
+  removes everything it added, in reverse order.
+- **A view is a tool window** (place, title, icon) and a `mount(container)` that fills a DOM
+  element however the plugin likes, returning an optional cleanup: the plugin boundary is the DOM
+  (see "No UI framework"). Other kinds of views (editor tabs, status bar items) come later.
+- **A failing activation** removes what the plugin added so far, and its entry records the error
+  (state `failed`); the others are unaffected.
+- **Not yet:** loading plugins from disk, manifests, versions, permissions, and running plugins in
+  isolation. Plugins are added in code for now.
+- **In the playground:** a sample Notes plugin written in plain DOM, as a third party would: a
+  tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut. An
+  e2e test uses all of it, and fails without the plugin.
+
 ## End-to-end tests (2026-10-25)
 
 From the test review: the assembled app had no tests, and the bugs found by hand lived there.
