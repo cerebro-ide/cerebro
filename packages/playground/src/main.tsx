@@ -26,9 +26,12 @@ import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
   existingWorktree,
+  firstWorktree,
   seedFiles,
   setupEnvironments,
+  useWorktrees,
   workspace,
+  type HostWorktree,
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
@@ -48,6 +51,7 @@ declare global {
       platform: string;
       menu: NativeMenuBridge;
       display: { setScale(choice: string): void };
+      host: { request(method: string, params?: unknown): Promise<unknown> };
     };
   }
 }
@@ -59,6 +63,16 @@ if (window.cerebro?.app) {
     'cerebro-app',
     `cerebro-platform-${window.cerebro.platform}`,
   );
+}
+
+// In the desktop app, the host lists the repository's real worktrees; without it (in a browser, or
+// if it fails), the samples stay.
+if (window.cerebro?.host) {
+  try {
+    useWorktrees((await window.cerebro.host.request('git.worktrees')) as HostWorktree[]);
+  } catch (error) {
+    console.error('The host could not list worktrees', error);
+  }
 }
 
 const layout = new Layout();
@@ -106,7 +120,7 @@ const persisted = {
   // Untitled files' contents aren't kept, so neither are their tabs.
   keepTab: (tab: { id: string }) => FILES.includes(tab.id),
 };
-if (!restoreLayout(persisted)) environments.open('cerebro-status-bar');
+if (!restoreLayout(persisted)) environments.open(firstWorktree());
 saveLayout(persisted);
 
 /** What tab commands from the main menu act on: the active tab. */

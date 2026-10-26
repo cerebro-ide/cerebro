@@ -495,6 +495,11 @@ new UI.
     ignored (Electron reports `triggeredByAccelerator`), so the keymap is the only thing that runs
     them, with its chords and user bindings. Sequences of several chords show no accelerator.
   - The in-window menu bar isn't shown there.
+- **Windows and Linux have no native application menu** (2026-10-26): the menu bar is the page's
+  own, and Electron's default menu (with its own Alt handling and shortcuts) is suppressed with
+  `Menu.setApplicationMenu(null)`, which Electron's docs say also removes the window's menu bar.
+  Found while chasing a CI flake on Linux where, after Alt+F, clicks waited forever; a claim that
+  the default menu caused it, measured only by the flake stopping.
 
   Measured on Linux: the IPC both ways, and Electron building the template (roles, checkboxes,
   accelerators such as `Command+Plus`). Claims, still to check on a Mac:
@@ -520,6 +525,11 @@ new UI.
     ratio and Electron's scale factor both 1.5, and the window controls overlay stays consistent,
     since everything scales together. Chosen over the page's zoom factor, which would scale the
     page but not the window controls drawn over it (a claim, from how zoom works; not measured).
+  - **On macOS the switch is ignored** (measured in CI, 2026-10-26: the switch set to 1.25, the
+    screen's scale and the page's device pixel ratio both 1). There the page is zoomed instead,
+    by the scale chosen over the screen's, through the window's `zoomFactor`; the traffic lights
+    keep the OS's size, which is how macOS draws them anyway. The zoom is worked out from the
+    primary display when a window opens. Claude's choice, open to change.
   - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
     so. Until settings files exist, the page sends the choice to the main process, which keeps it
     in `display.json` in its data folder.
@@ -666,6 +676,40 @@ Ido: the layout should keep its state and stay consistent between runs; a reload
   (tool windows registered in another order) and compare. Unit tests cover invalid and outdated
   data. An e2e test rearranges the window (a tool window closed, another opened, another
   environment, a file opened), reloads, and finds the same layout; it fails without saving.
+
+## The protocol and the host (2026-10-26)
+
+Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local child process
+(`architecture.md`). Choices of Claude's, open to change:
+
+- **`protocol`:** JSON-RPC 2.0, with no Node or DOM dependency, so the UI, the main process and the
+  host all use it. Either side sends requests and notifications. A request is cancelled with a
+  `$/cancelRequest` notification, as in the Language Server Protocol, and fails with
+  `RequestCancelled` (-32800); the handler gets a cancellation token. Requests waiting when the
+  connection closes fail with `ConnectionClosed` (-32099). Malformed messages get the standard
+  JSON-RPC errors.
+- **Framing: one message per line** (newline-delimited JSON) rather than LSP's `Content-Length`
+  headers: `JSON.stringify` never emits a raw newline, so a line is a message, and it's simpler to
+  read and debug over `wsl.exe` or `ssh`. A line split across chunks is joined (`LineReader`).
+- **`host`:** a Node process serving the protocol on stdin and stdout for a repository (its folder,
+  or `CEREBRO_REPO`). It exits when its input ends. First methods: `host.ping` (the protocol's
+  version, 1) and `git.worktrees` (from `git worktree list --porcelain`: path, commit, branch,
+  whether it's the main one, bare).
+- **Started from Electron's main process** with Electron's own Node: `process.execPath` with
+  `ELECTRON_RUN_AS_NODE=1` (Electron's docs: "Starts the process as a normal Node.js process"), so
+  no separate Node is needed. Electron's `utilityProcess` was the alternative, but its documented
+  stdio options cover stdout and stderr, not stdin, and stdio is the transport WSL and ssh will
+  use. The host stops when the app quits.
+- **The page reaches the host through IPC:** the preload's `cerebro.host.request(method, params)`,
+  forwarded by the main process. Errors cross as messages.
+- **The playground in the app** lists the repository's real worktrees (named after their folders,
+  known by their paths) instead of the samples, opening the main one; in a browser, or if git
+  fails, the samples stay.
+- **Tests:** the protocol between two connected connections (both directions, errors,
+  cancellation, malformed input, closing); the host's methods, with real git on a throwaway
+  repository; the main process with a fake child. E2E: the page pings the host, and lists a
+  throwaway repository's two worktrees, switching branch with the worktree. Both fail without the
+  host.
 
 ## End-to-end tests (2026-10-25)
 

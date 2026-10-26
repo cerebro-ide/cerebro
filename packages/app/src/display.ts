@@ -1,6 +1,8 @@
 // The display scale: the OS's by default, or the user's choice (Appearance › Display scale). Chromium
 // fixes the scale when it starts, so it's applied with its --force-device-scale-factor switch before
-// the app is ready, and a change applies on the next start.
+// the app is ready, and a change applies on the next start. macOS ignores that switch (measured in
+// CI: the page's devicePixelRatio stayed 1 with 1.25 forced), so there the page is zoomed instead,
+// by the scale chosen over the screen's: the page's devicePixelRatio is the screen's times the zoom.
 //
 // Under WSL, the app draws through WSLg, which doesn't pass Windows' scale on: Electron sees 1
 // whatever Windows uses (measured: 1 under Windows at 150%). There, the OS scale is read from
@@ -70,6 +72,15 @@ export function scaleFor(choice: ScaleChoice, sys: System): number | undefined {
   return choice === 'auto' ? osScale(sys) : Number(choice);
 }
 
+/** The page's zoom for a forced scale: only on macOS, where the switch is ignored. */
+export function zoomFor(
+  scale: number | undefined,
+  platform: NodeJS.Platform,
+  screenScale: number,
+): number | undefined {
+  return scale !== undefined && platform === 'darwin' ? scale / screenScale : undefined;
+}
+
 function isChoice(value: unknown): value is ScaleChoice {
   return SCALES.includes(value as ScaleChoice);
 }
@@ -96,7 +107,9 @@ export function installDisplayScale(
 ): number | undefined {
   const folder = app.getPath('userData');
   const scale = scaleFor(readChoice(folder, sys), sys);
-  if (scale !== undefined) app.commandLine.appendSwitch('force-device-scale-factor', String(scale));
+  if (scale !== undefined && sys.platform !== 'darwin') {
+    app.commandLine.appendSwitch('force-device-scale-factor', String(scale));
+  }
   ipcMain.on(SET_SCALE, (_event, choice: unknown) => {
     if (!isChoice(choice)) return;
     try {

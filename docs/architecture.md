@@ -54,7 +54,7 @@ Electron UI  ──(JSON-RPC over stdio: local child, wsl.exe, or ssh)──  Ho
 - The host runs next to the repos (laptop, WSL or server), so the index and language servers stay
   local to the files, and only results cross the boundary.
 
-**Transport (proposed):** JSON-RPC over the host's stdin and stdout, in every mode.
+**Transport:** JSON-RPC 2.0 over the host's stdin and stdout, one message per line, in every mode (see `decisions.md`, "The protocol and the host"). Local mode is built.
 
 | mode | how the app starts the host |
 |---|---|

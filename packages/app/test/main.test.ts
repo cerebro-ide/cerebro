@@ -51,10 +51,23 @@ const electron = vi.hoisted(() => {
   return { app, appListeners, windows, BrowserWindow: FakeWindow };
 });
 
-vi.mock('electron', () => ({ app: electron.app, BrowserWindow: electron.BrowserWindow }));
+vi.mock('electron', () => ({
+  app: electron.app,
+  BrowserWindow: electron.BrowserWindow,
+  screen: { getPrimaryDisplay: () => ({ scaleFactor: 2 }) },
+}));
 
-const display = vi.hoisted(() => ({ installDisplayScale: vi.fn() }));
+const display = vi.hoisted(() => ({
+  installDisplayScale: vi.fn((): number | undefined => undefined),
+  zoomFor: vi.fn((): number | undefined => undefined),
+}));
 vi.mock('../src/display.js', () => display);
+
+const host = vi.hoisted(() => ({ installHost: vi.fn() }));
+vi.mock('../src/host.js', () => host);
+
+const menu = vi.hoisted(() => ({ installMenu: vi.fn() }));
+vi.mock('../src/menu.js', () => menu);
 
 const { createWindow, start } = await import('../src/main.js');
 
@@ -118,6 +131,8 @@ describe('start', () => {
   it('keeps its data where it’s told to, if told, then applies the display scale', () => {
     start('/tmp/cerebro-test');
     expect(electron.app.setPath).toHaveBeenCalledWith('userData', '/tmp/cerebro-test');
+    expect(host.installHost).toHaveBeenCalled();
+    expect(menu.installMenu).toHaveBeenCalled();
     expect(display.installDisplayScale).toHaveBeenCalled();
     expect(electron.app.setPath.mock.invocationCallOrder[0]).toBeLessThan(
       display.installDisplayScale.mock.invocationCallOrder[0] as number,
@@ -127,6 +142,21 @@ describe('start', () => {
     start();
     vi.unstubAllEnvs();
     expect(electron.app.setPath).not.toHaveBeenCalled();
+  });
+
+  it('zooms its windows as the display scale forced asks', async () => {
+    display.installDisplayScale.mockReturnValueOnce(1.25);
+    display.zoomFor.mockReturnValueOnce(0.625);
+    start();
+    await vi.waitFor(() => {
+      expect(electron.windows).toHaveLength(1);
+    });
+    expect(display.zoomFor).toHaveBeenLastCalledWith(1.25, process.platform, 2);
+    expect(electron.windows[0]?.options).toEqual(
+      expect.objectContaining({
+        webPreferences: expect.objectContaining({ zoomFactor: 0.625 }) as unknown,
+      }),
+    );
   });
 
   it('quits when the last window closes, except on macOS', () => {

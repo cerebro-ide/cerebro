@@ -21,10 +21,13 @@ export interface Running {
   close(): Promise<void>;
 }
 
-async function start(data: string): Promise<{ app: ElectronApplication; page: Page }> {
+async function start(
+  data: string,
+  env: Record<string, string>,
+): Promise<{ app: ElectronApplication; page: Page }> {
   const app = await _electron.launch({
     args: [APP],
-    env: { ...process.env, CEREBRO_USER_DATA: data },
+    env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
@@ -33,13 +36,14 @@ async function start(data: string): Promise<{ app: ElectronApplication; page: Pa
   return { app, page };
 }
 
-export async function launch(): Promise<Running> {
+/** Launches the app; `env` adds to its environment (such as CEREBRO_REPO, the repository to open). */
+export async function launch(env: Record<string, string> = {}): Promise<Running> {
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
   const listen = (page: Page) => {
     page.on('console', (message) => messages.push(message.text()));
   };
-  const first = await start(data);
+  const first = await start(data, env);
   listen(first.page);
   const running: Running = {
     ...first,
@@ -54,7 +58,7 @@ export async function launch(): Promise<Running> {
     },
     async restart() {
       await running.app.close();
-      const next = await start(data);
+      const next = await start(data, env);
       listen(next.page);
       running.app = next.app;
       running.page = next.page;

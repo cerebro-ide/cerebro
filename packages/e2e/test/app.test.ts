@@ -1,13 +1,18 @@
 // The desktop app end to end: the window, dialogs, popups, settings and shortcuts, as a user drives
 // them. These are the flows checked by hand while building them.
 
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
 
 let running: Running;
 
 beforeAll(async () => {
-  running = await launch();
+  // A folder that isn't a repository: the host can't list worktrees there, so the page keeps its
+  // sample worktrees, which these tests use.
+  running = await launch({ CEREBRO_REPO: mkdtempSync(join(tmpdir(), 'cerebro-e2e-empty-')) });
 });
 
 afterAll(async () => {
@@ -77,11 +82,22 @@ describe('the window', () => {
         seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
       });
     });
-    for (const keys of ['Control+Shift+A', 'Control+Shift+N', 'Control+Alt+S', 'Alt+F']) {
+    // Each opens something; each is seen open, then closed, before the next.
+    for (const [keys, opens] of [
+      ['Control+Shift+A', '.cerebro-popup'],
+      ['Control+Shift+N', '.cerebro-popup'],
+      ['Control+Alt+S', '.cerebro-dialog'],
+      ['Alt+F', '.cerebro-menu'],
+    ] as const) {
       await page().keyboard.press(keys);
+      await page().locator(opens).waitFor();
       await page().keyboard.press('Escape');
+      await page().locator(opens).waitFor({ state: 'detached' });
     }
-    await page().locator('[aria-label^="Branch:"]').click();
+    await page().locator('.cerebro-menubar--takeover').waitFor({ state: 'detached' });
+    // Forced: in CI under xvfb this click twice waited forever for the button to be "stable",
+    // which Playwright measures over animation frames (not reproduced locally, even under xvfb).
+    await page().locator('[aria-label^="Branch:"]').click({ force: true });
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.press('Escape');
     expect(await page().evaluate(() => (window as { violations?: string[] }).violations)).toEqual(
