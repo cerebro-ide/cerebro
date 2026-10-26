@@ -27,9 +27,13 @@ jobs:
       - run: npm run build
 
   e2e:
-    # The built desktop app, driven through Playwright, under a virtual display. Linux for now;
-    # macOS and Windows runs come next.
-    runs-on: ubuntu-latest
+    # The built desktop app, driven through Playwright, on each OS: under a virtual display on
+    # Linux, on the runner's own display on macOS and Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -38,5 +42,9 @@ jobs:
           cache: npm
       - run: npm ci
       # Electron's Chromium needs the same system libraries as Playwright's.
-      - run: npx playwright install-deps chromium
-      - run: xvfb-run --auto-servernum npm run e2e
+      - if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium
+      - if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run e2e
+      - if: runner.os != 'Linux'
+        run: npm run e2e
