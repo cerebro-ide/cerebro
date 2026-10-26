@@ -366,6 +366,7 @@ describe('terminals', () => {
     const statuses = vi.fn();
     ui.onNotification('agent.status', statuses);
     const failed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // The hook returns once the snapshot before the turn is taken.
     await sendHook(socket, {
       key: 'claude:a',
       event: 'UserPromptSubmit',
@@ -379,11 +380,6 @@ describe('terminals', () => {
       expect(failed).toHaveBeenCalled();
     });
     failed.mockRestore();
-    // The snapshot before the turn, the repository's only commit, is taken before the file changes.
-    await vi.waitFor(async () => {
-      const objects = await runGit(dir, ['cat-file', '--batch-all-objects', '--batch-check']);
-      expect(objects).toContain(' commit ');
-    });
     writeFileSync(join(dir, 'a.txt'), 'after');
     await sendHook(socket, { key: 'claude:a', event: 'Stop', input: {} });
     const turns = await vi.waitFor(async () => {

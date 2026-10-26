@@ -198,18 +198,19 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // Each agent's folder, and its turns' snapshots.
   const agents = new Map<string, string>();
   const turns = new TurnRecorder(git);
-  const record = (snapshot: Promise<void>) => {
+  const record = (snapshot: Promise<void>) =>
     snapshot.catch((error: unknown) => {
       console.error('A turn’s snapshot failed', error);
     });
-  };
   const hookServer = listenForHooks(hooks, (status) => {
-    const worktree = agents.get(status.key);
-    if (status.event === 'UserPromptSubmit' && worktree !== undefined) {
-      record(turns.started(status.key, worktree, status.prompt ?? ''));
-    }
-    if (status.event === 'Stop') record(turns.ended(status.key));
     connection.notify('agent.status', status);
+    const worktree = agents.get(status.key);
+    // The agent waits for the snapshot before its turn, so the turn's changes come after it.
+    if (status.event === 'UserPromptSubmit' && worktree !== undefined) {
+      return record(turns.started(status.key, worktree, status.prompt ?? ''));
+    }
+    if (status.event === 'Stop') void record(turns.ended(status.key));
+    return undefined;
   });
   const hookCommand = options.hookCommand ?? defaultHookCommand();
   connection.onRequest('terminal.open', (params) => {

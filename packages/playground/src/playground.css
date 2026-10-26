@@ -84,6 +84,14 @@ body,
   color: var(--cerebro-vcs-untracked);
 }
 
+/* A turn's prompt is cut short; all of it shows on hover. */
+.playground-turn {
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* The name keeps its size; a long folder is cut short. */
 .playground-change {
   flex: none;

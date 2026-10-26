@@ -55,37 +55,44 @@ export function hookSettings(command: string): string {
   return JSON.stringify({ hooks });
 }
 
-/** Listens for hook messages on `path`; a message for an unknown hook, or garbled, is ignored. */
+/**
+ * Listens for hook messages on `path`; a message for an unknown hook, or garbled, is ignored. The
+ * hook client waits until `notify` is done with its message, so the agent goes on after it.
+ */
 export function listenForHooks(
   path: string,
-  notify: (status: AgentStatus) => void,
+  notify: (status: AgentStatus) => void | Promise<void>,
   platform: NodeJS.Platform = process.platform,
 ): Server {
-  const server = createServer((socket) => {
+  // Half open: the client has sent all of its message, and waits for the end of the reply.
+  const server = createServer({ allowHalfOpen: true }, (socket) => {
     let text = '';
     socket.setEncoding('utf8');
     socket.on('data', (chunk: string) => {
       text += chunk;
     });
     socket.on('end', () => {
-      let message: HookMessage;
-      try {
-        message = JSON.parse(text) as HookMessage;
-      } catch {
-        return;
-      }
-      const state = HOOK_STATES[message.event];
-      if (state === undefined || typeof message.key !== 'string') return;
-      const { session_id: id, prompt } = message.input;
-      notify({
-        key: message.key,
-        state,
-        sessionId: typeof id === 'string' ? id : undefined,
-        event: message.event,
-        ...(typeof prompt === 'string' ? { prompt } : {}),
-      });
+      void handle(text).finally(() => socket.end());
     });
   });
+  const handle = async (text: string) => {
+    let message: HookMessage;
+    try {
+      message = JSON.parse(text) as HookMessage;
+    } catch {
+      return;
+    }
+    const state = HOOK_STATES[message.event];
+    if (state === undefined || typeof message.key !== 'string') return;
+    const { session_id: id, prompt } = message.input;
+    await notify({
+      key: message.key,
+      state,
+      sessionId: typeof id === 'string' ? id : undefined,
+      event: message.event,
+      ...(typeof prompt === 'string' ? { prompt } : {}),
+    });
+  };
   // A socket file left by a host that crashed would stop the server listening. (Windows' named
   // pipes go with their process.)
   if (platform !== 'win32') rmSync(path, { force: true });
@@ -96,8 +103,8 @@ export function listenForHooks(
 }
 
 /**
- * The hook client: sends a hook's message to the host at `path`. Never fails, so a host that's gone
- * can't hold up the agent: it resolves either way.
+ * The hook client: sends a hook's message to the host at `path`, and waits for the host to be done
+ * with it. Never fails, so a host that's gone can't hold up the agent: it resolves either way.
  */
 export function sendHook(path: string, message: HookMessage): Promise<void> {
   return new Promise((resolve) => {

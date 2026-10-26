@@ -29,7 +29,7 @@ import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
 import { CodeEditor, DiffEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
-import { ChangesView, diffPath } from './changes.js';
+import { ChangesView, diffPath, diffRange, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
@@ -455,15 +455,18 @@ function Code(props: { path: string; env: string }) {
   );
 }
 
-/** A changed file's diff: as last committed against as it is, read through the host. */
-function Diff(props: { path: string; env: string }) {
+/**
+ * A changed file's diff, read through the host: as last committed against as it is, or at two
+ * commits (an agent's turn's snapshots).
+ */
+function Diff(props: { path: string; env: string; range: Range | undefined }) {
   const settings = settingsFor(props.env);
   const host = currentHost();
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
   const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
     undefined,
   );
-  host.request('git.diff', { path: props.env, file: props.path }).then(
+  host.request('git.diff', { path: props.env, file: props.path, ...props.range }).then(
     (result) => {
       loaded.set(result as { original: string; text: string });
     },
@@ -543,7 +546,7 @@ render(
                 return diff === undefined ? (
                   <Code path={tab.id} env={env.id} />
                 ) : (
-                  <Diff path={diff} env={env.id} />
+                  <Diff path={diff} env={env.id} range={diffRange(tab.id)} />
                 );
               }}
               empty={() => <Empty />}
