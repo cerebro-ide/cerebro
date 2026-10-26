@@ -16,6 +16,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { active, currentHost } from './environments.js';
+import { openFolder } from './projects.js';
 import { icon } from './icons.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 
@@ -205,18 +206,21 @@ export function setupCommands(
     label: '&Open',
     dialog: true,
     icon: 'folder',
-    run: () => commands.execute('file.goTo'),
+    // In the app, a folder to open as a project, as IntelliJ's; in a browser, a sample file.
+    run: () => (window.cerebro ? openFolder() : commands.execute('file.goTo')),
   });
-  files.forEach((path, i) => {
-    commands.register({
-      id: `file.recent.${String(i)}`,
-      label: `&${String(i + 1)} ${path}`,
-      run: () => {
-        ed()?.open(tabOf(path));
-      },
+  // The app lists recent projects there instead (projects.tsx).
+  if (!window.cerebro)
+    files.forEach((path, i) => {
+      commands.register({
+        id: `file.recent.${String(i)}`,
+        label: `&${String(i + 1)} ${path}`,
+        run: () => {
+          ed()?.open(tabOf(path));
+        },
+      });
+      menus.contribute({ menu: 'main/file/recent', item: { command: `file.recent.${String(i)}` } });
     });
-    menus.contribute({ menu: 'main/file/recent', item: { command: `file.recent.${String(i)}` } });
-  });
   commands.register<TabContext | undefined>({
     id: 'file.closeTab',
     label: '&Close Tab',

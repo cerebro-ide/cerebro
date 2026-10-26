@@ -222,3 +222,165 @@ body,
     opacity: 0.35;
   }
 }
+
+/* The Open Project dialog's question and its checkbox. */
+.playground-open-project p {
+  margin: 0 0 12px;
+}
+
+.playground-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/*
+ * The Welcome window, as IntelliJ's: a side with the app's name, and the recent projects. The top
+ * strip is the title bar: it drags the window, leaving room for the window controls.
+ */
+.playground-welcome {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--cerebro-background);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  cursor: default;
+  user-select: none;
+}
+
+.playground-welcome__titlebar {
+  flex: none;
+  height: var(--cerebro-toolbar-height);
+  app-region: drag;
+  background: var(--cerebro-frame);
+}
+
+.playground-welcome__body {
+  display: flex;
+  flex: auto;
+  min-height: 0;
+}
+
+.playground-welcome__side {
+  flex: none;
+  width: 200px;
+  padding: 16px 20px;
+  background: var(--cerebro-panel);
+}
+
+.playground-welcome__logo {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.playground-welcome__main {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-width: 0;
+  padding: 16px 20px;
+}
+
+.playground-welcome__actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.playground-welcome__search {
+  flex: auto;
+  min-width: 0;
+  padding: 4px 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.playground-welcome__search:focus {
+  border-color: var(--cerebro-accent);
+  outline: none;
+}
+
+.playground-welcome__empty {
+  color: var(--cerebro-text-muted);
+}
+
+.playground-welcome__projects {
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.playground-welcome__project {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--cerebro-radius);
+}
+
+.playground-welcome__project--highlighted {
+  background: var(--cerebro-hover);
+}
+
+.playground-welcome__project--missing .playground-welcome__names {
+  opacity: 0.6;
+}
+
+.playground-welcome__badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.playground-welcome__names {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-welcome__name,
+.playground-welcome__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playground-welcome__path {
+  color: var(--cerebro-text-muted);
+  font-size: 12px;
+}
+
+.playground-welcome__remove {
+  visibility: hidden;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: var(--cerebro-radius);
+  background: transparent;
+  color: var(--cerebro-text-muted);
+  font: inherit;
+  font-size: 16px;
+}
+
+.playground-welcome__project--highlighted .playground-welcome__remove {
+  visibility: visible;
+}
+
+.playground-welcome__remove:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}

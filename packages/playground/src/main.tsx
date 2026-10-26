@@ -12,12 +12,8 @@ import {
   EnvironmentTabs,
   ShellLayout,
 } from '@cerebro-ide/ui-layout';
-import {
-  MenuBar,
-  openContextMenu,
-  syncNativeMenu,
-  type NativeMenuBridge,
-} from '@cerebro-ide/ui-menu';
+import './bridge.js';
+import { MenuBar, openContextMenu, syncNativeMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
@@ -42,6 +38,8 @@ import {
   firstWorktree,
   seedFiles,
   setupEnvironments,
+  gitRepository,
+  useFolder,
   useWorktrees,
   workspace,
   type HostWorktree,
@@ -49,6 +47,7 @@ import {
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
+import { currentProject, setupProjects } from './projects.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
@@ -57,22 +56,6 @@ import { icon } from './icons.js';
 import { setTerminalKeys, terminalFor, type TerminalKind } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
-
-/** Set by the desktop app's preload script. */
-declare global {
-  interface Window {
-    cerebro?: {
-      app: boolean;
-      platform: string;
-      menu: NativeMenuBridge;
-      display: { setScale(choice: string): void };
-      host: {
-        request(method: string, params?: unknown): Promise<unknown>;
-        onNotification(listener: (method: string, params: unknown) => void): () => void;
-      };
-    };
-  }
-}
 
 // In the desktop app the toolbar is the title bar: tag the page so its CSS leaves room for the
 // window controls.
@@ -83,16 +66,18 @@ if (window.cerebro?.app) {
   );
 }
 
-// In the desktop app, the host lists the repository's real worktrees; without it (in a browser, or
-// if it fails), the samples stay.
-if (window.cerebro?.host) {
+// In the desktop app, the host lists the project's real worktrees; a folder that isn't a git
+// repository is one environment. Without the host (in a browser), the samples stay.
+const project = currentProject();
+if (window.cerebro?.host && project) {
   try {
     useWorktrees(
       (await window.cerebro.host.request('git.worktrees')) as HostWorktree[],
       window.cerebro.host,
     );
   } catch (error) {
-    console.error('The host could not list worktrees', error);
+    console.info(`${project.path} opens without git:`, error);
+    useFolder(project.path, window.cerebro.host);
   }
 }
 
@@ -132,6 +117,7 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+await setupProjects(services.commands, services.menus);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
@@ -168,11 +154,14 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
+// The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
-  seedFiles(env, tabOf);
+  if (!project) seedFiles(env, tabOf);
 });
 // The layout as it was left, else the defaults: one environment open.
 const persisted = {
+  // Each project keeps its own.
+  key: project ? `cerebro.layout:${project.path}` : 'cerebro.layout',
   tools: layout.toolWindows,
   workspace,
   resolve: existingWorktree,
@@ -231,7 +220,9 @@ status.add({
   icon: 'git',
   text: () => {
     const env = active();
-    return env ? `${env.name} · ${env.branch}` : 'No environment';
+    if (!env) return 'No environment';
+    // A folder without git has no branch.
+    return env.branch === '' ? env.name : `${env.name} · ${env.branch}`;
   },
   tooltip: () => 'Environment: worktree and branch (sample)',
 });
@@ -310,13 +301,16 @@ function Header() {
           badge={() => active()?.name ?? ''}
           text={() => active()?.name ?? 'No environment'}
         />,
-        <ToolbarDropdown
-          services={services}
-          popup={environments.pickBranch}
-          label="Branch"
-          icon={icon('git')}
-          text={() => active()?.branch ?? '—'}
-        />,
+        // A folder without git has no branches.
+        gitRepository.get() ? (
+          <ToolbarDropdown
+            services={services}
+            popup={environments.pickBranch}
+            label="Branch"
+            icon={icon('git')}
+            text={() => active()?.branch ?? '—'}
+          />
+        ) : null,
       ]}
       right={() => [
         <ToolbarButton

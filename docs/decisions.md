@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
@@ -934,6 +935,38 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## Opening a project (2026-10-26)
+
+The first part of "A basic IDE before git and agent management": any folder, opened from the app.
+
+- **A window per project, each with its own host** (Claude's, open to change): as IntelliJ's, two
+  projects are two windows. The main process starts a host for each window's folder and routes the
+  page's requests by the window that sent them. One host serving many folders was the alternative;
+  a host per folder keeps a project's work (index, terminals, agents) apart, and stopped with it.
+- **Recent and open projects** are kept in `projects.json` in the app's data folder: up to 20 recent
+  ones, the latest first, and the ones open at quit. At start (Ido: "Reopen last project"), the
+  ones open when the app quit reopen; with none, the Welcome window shows. `CEREBRO_REPO`, when set,
+  opens that folder instead (for development and tests). The folder the app started in no longer
+  counts: a project is chosen, not implied.
+- **The Welcome window,** as IntelliJ's: recent projects with a search field (arrows and Enter
+  work from it), an Open button, and × to forget a project; one that's gone says "(not found)" and
+  can't be opened. Opening a project from it replaces it. Closing the last project (File → Close
+  Project) shows it again; closing a window with others open forgets that it was open, closing the
+  last one doesn't, so it reopens.
+- **Opening while a project is open asks where** (Ido: "Ask, as IntelliJ"): This Window or New
+  Window, with "Remember, don't ask again", which saves the global setting "Open project in" (ask,
+  new window, this window) on the System Settings page. A project already open is brought to the
+  front instead. File → Open… uses the OS's folder dialog; File → Open Recent lists the recent
+  projects. Dialogs got `choices`: buttons beside OK that close with their own result.
+- **A folder without git opens** (Ido: "Yes, without git"): one environment, the folder, with no
+  branch selector, no new worktree or branch, and the Commit window saying "Not a git repository".
+- **The samples stay only in a browser:** a project's window shows its own files, with no sample
+  tabs. The layout is saved per project. The e2e tests that used the samples now run on a throwaway
+  repository with two worktrees.
+- **Not yet:** Go to File and the index in a folder without git (they read git's file list; with
+  ripgrep, in the search step); the macOS menu bar with several windows (it's the menu of
+  the window that last sent one, not of the focused one).
+
 ## A basic IDE before git and agent management (2026-10-26)
 
 Ido: "I want to be able to actually use this as a basic IDE before we move to the more advance
@@ -943,6 +976,7 @@ wanted, after this.
 - **In this stage** (Ido's choice, 2026-10-26):
   - **Opening a project:** File → Open… with the OS's folder picker, and recent projects. Today
     the repository is fixed when the app starts (`CEREBRO_REPO` or the folder it started in).
+    Done: see "Opening a project".
   - **Editing and saving files:** the editor has been read-only so far.
   - **Search:** Find in Files (ripgrep, as the plan's milestone 2 has it) and Find/Replace in the
     open file.

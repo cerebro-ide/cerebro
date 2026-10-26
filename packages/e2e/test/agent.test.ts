@@ -76,8 +76,17 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     const turns = page.locator('.cerebro-tree-row', { hasText: 'Write a file' });
     // Each hook runs the host's entry as Node: slow, so this waits longer than most.
     await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
-    await turns.last().dblclick();
     const file = page.locator('.cerebro-tree-row[data-key^="turn:"][data-key$=":agent.txt"]');
+    // Double-clicked again until it's seen expanded: right after the turn showed, its file
+    // sometimes never did (3 runs in 9 locally; why isn't known yet).
+    await expect
+      .poll(async () => {
+        if ((await turns.last().getAttribute('aria-expanded')) !== 'true') {
+          await turns.last().dblclick();
+        }
+        return file.count();
+      })
+      .toBe(1);
     await file.click();
     await page.keyboard.press('ControlOrMeta+d');
     const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');

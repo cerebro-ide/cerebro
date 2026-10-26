@@ -28,6 +28,11 @@ export interface DialogOptions<T> {
    * accepting, while it's enabled.
    */
   apply?: { enabled?: () => boolean; run: () => void };
+  /**
+   * More buttons that close the dialog with a result, as OK does but without Enter: IntelliJ's
+   * Open Project dialog has This Window (OK) and New Window. They go beside OK.
+   */
+  choices?: { label: string; accept: () => T }[];
   /** Default: Cancel, or Close without an OK button. */
   cancelLabel?: string;
   /** The dialog's width in pixels; by default it fits its content. */
@@ -223,6 +228,17 @@ class Dialog<T> implements DialogHandle<T> {
         {options.cancelLabel ?? (ok ? 'Cancel' : 'Close')}
       </button>
     );
+    const choices = (options.choices ?? []).map((choice) => (
+      <button
+        type="button"
+        class="cerebro-dialog__button"
+        on:click={() => {
+          this.close(choice.accept());
+        }}
+      >
+        {choice.label}
+      </button>
+    ));
     const titleId = `cerebro-dialog-title-${String(++dialogs)}`;
     return (
       <div
@@ -258,8 +274,8 @@ class Dialog<T> implements DialogHandle<T> {
         <div class="cerebro-dialog__content">{options.content(this)}</div>
         <div class="cerebro-dialog__buttons">
           {platform === 'mac'
-            ? [cancelButton, applyButton, okButton]
-            : [okButton, cancelButton, applyButton]}
+            ? [cancelButton, applyButton, ...choices.reverse(), okButton]
+            : [okButton, ...choices, cancelButton, applyButton]}
         </div>
       </div>
     );

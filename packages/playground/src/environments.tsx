@@ -67,6 +67,21 @@ export function useWorktrees(list: readonly HostWorktree[], from?: Host): void {
   branches.set([...new Set(specs.map((s) => s.branch).filter((b) => b !== 'detached'))]);
 }
 
+/**
+ * Whether the project is a git repository. A folder without git is one environment, with no
+ * worktrees to add, no branches and no changes.
+ */
+export const gitRepository = signal(true);
+
+/** Uses a folder that isn't a git repository: one environment, the folder itself. */
+export function useFolder(path: string, from: Host): void {
+  host = from;
+  mainWorktree = path;
+  gitRepository.set(false);
+  worktrees.set([{ id: path, name: path.split(/[\\/]/).at(-1) || path, branch: '' }]);
+  branches.set([]);
+}
+
 /** The host, when the page runs in the desktop app on a real repository. */
 export function currentHost(): Host | undefined {
   return host;
@@ -172,6 +187,7 @@ export function setupEnvironments(
     id: 'env.new',
     label: 'New &Worktree',
     dialog: true,
+    enabled: () => gitRepository.get(),
     run: async () => {
       const name = await prompt({
         title: 'New Worktree',
@@ -214,7 +230,7 @@ export function setupEnvironments(
     id: 'branch.new',
     label: 'New &Branch',
     dialog: true,
-    enabled: () => workspace.active !== undefined,
+    enabled: () => workspace.active !== undefined && gitRepository.get(),
     run: async () => {
       const name = await prompt({
         title: 'New Branch',

@@ -5,11 +5,12 @@
 import type { Environments, EnvironmentSpec, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { effect } from '@cerebro-ide/reactive';
 
-const KEY = 'cerebro.layout';
 /** How long changes settle before they're saved, in milliseconds. */
 const DELAY = 200;
 
 interface Parts {
+  /** Where in the browser's storage it's kept. */
+  key: string;
   tools: ToolWindows;
   workspace: Environments;
   /** The environment to open for a saved one, or undefined when it no longer exists. */
@@ -22,7 +23,7 @@ interface Parts {
 export function restoreLayout(parts: Parts): boolean {
   let saved: { toolWindows?: unknown; environments?: unknown };
   try {
-    const text = localStorage.getItem(KEY);
+    const text = localStorage.getItem(parts.key);
     if (!text) return false;
     saved = JSON.parse(text) as typeof saved;
   } catch {
@@ -41,7 +42,7 @@ export function saveLayout(parts: Parts): void {
     clearTimeout(timer);
     if (pending === undefined) return;
     try {
-      localStorage.setItem(KEY, pending);
+      localStorage.setItem(parts.key, pending);
     } catch {
       // Storage may be full or blocked: the layout just isn't kept.
     }
