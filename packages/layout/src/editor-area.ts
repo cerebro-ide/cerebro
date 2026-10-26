@@ -51,6 +51,17 @@ export class EditorSplit {
 
 export type EditorNode = EditorGroup | EditorSplit;
 
+/** An editor area as plain data, to save between runs. */
+export interface EditorState {
+  root: EditorNodeState;
+  /** The active group's position among the groups, in reading order. */
+  activeGroup: number;
+}
+
+export type EditorNodeState =
+  | { kind: 'group'; tabs: Tab[]; active: string | undefined }
+  | { kind: 'split'; orientation: Orientation; children: EditorNodeState[]; sizes: number[] };
+
 export class EditorArea {
   root: EditorNode;
   activeGroupId: string;
@@ -173,6 +184,94 @@ export class EditorArea {
     this.close(fromId, tabId);
   }
 
+  /** The area as plain data, to save between runs. */
+  state(): EditorState {
+    const save = (node: EditorNode): EditorNodeState =>
+      node instanceof EditorGroup
+        ? {
+            kind: 'group',
+            tabs: node.tabs.map(({ id, title }) => ({ id, title })),
+            active: node.active,
+          }
+        : {
+            kind: 'split',
+            orientation: node.orientation,
+            children: node.children.map(save),
+            sizes: [...node.sizes],
+          };
+    return {
+      root: save(this.root),
+      activeGroup: this.groups.findIndex((g) => g.id === this.activeGroupId),
+    };
+  }
+
+  /**
+   * Replaces the area with a saved one, keeping only what's valid: tabs `keep` accepts, groups
+   * with tabs, splits with two or more children (merged into a parent of the same direction), and
+   * positive sizes (others get an equal share), scaled to sum to 1. With nothing valid, the area is one empty group.
+   */
+  restore(saved: unknown, keep: (tab: Tab) => boolean = () => true): void {
+    const build = (raw: unknown): EditorNode | undefined => {
+      if (!isRecord(raw)) return undefined;
+      if (raw['kind'] === 'group') {
+        const ids = new Set<string>();
+        const tabs = (Array.isArray(raw['tabs']) ? raw['tabs'] : [])
+          .filter(isTab)
+          .map(({ id, title }) => ({ id, title }))
+          .filter((tab) => {
+            // The first of a tab, and only if it still exists.
+            if (ids.has(tab.id)) return false;
+            ids.add(tab.id);
+            return keep(tab);
+          });
+        const first = tabs[0];
+        if (!first) return undefined;
+        const group = this.createGroup();
+        group.tabs = tabs;
+        group.active = tabs.some((t) => t.id === raw['active'])
+          ? (raw['active'] as string)
+          : first.id;
+        return group;
+      }
+      const orientation = raw['orientation'];
+      if (raw['kind'] !== 'split' || (orientation !== 'horizontal' && orientation !== 'vertical')) {
+        return undefined;
+      }
+      const sizes = Array.isArray(raw['sizes']) ? (raw['sizes'] as unknown[]) : [];
+      const parts = (Array.isArray(raw['children']) ? raw['children'] : []).flatMap((child, i) => {
+        const node = build(child);
+        if (!node) return [];
+        const size = sizes[i];
+        const share = typeof size === 'number' && Number.isFinite(size) && size > 0 ? size : 0;
+        // A child split in the same direction merges into this one.
+        if (node instanceof EditorSplit && node.orientation === orientation) {
+          return node.children.map((c, j) => ({
+            node: c,
+            size: share * (node.sizes[j] as number),
+          }));
+        }
+        return [{ node, size: share }];
+      });
+      if (parts.length < 2) return parts[0]?.node;
+      // Children without a valid size get an equal share.
+      const fallback = 1 / parts.length;
+      return new EditorSplit(
+        this.newId('s'),
+        orientation,
+        parts.map((p) => p.node),
+        // Saved sizes as they were, even below MIN_PANE: repeated splits can make them so.
+        normalize(parts.map((p) => (p.size > 0 ? p.size : fallback))),
+      );
+    };
+    const root = (isRecord(saved) ? build(saved['root']) : undefined) ?? this.createGroup();
+    this.root = root;
+    const groups = groupsOf(root);
+    const index = isRecord(saved) ? saved['activeGroup'] : undefined;
+    // A tree always has a group.
+    const active = (groups[typeof index === 'number' ? index : 0] ?? groups[0]) as EditorGroup;
+    this.activeGroupId = active.id;
+  }
+
   /** Sets a split's sizes: each at least `MIN_PANE`, then scaled to sum to 1. */
   resize(splitId: string, sizes: readonly number[]): void {
     const split = splitsOf(this.root).find((s) => s.id === splitId);
@@ -241,6 +340,14 @@ export class EditorArea {
   private newId(prefix: string): string {
     return `${prefix}${String(this.#nextId++)}`;
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isTab(value: unknown): value is Tab {
+  return isRecord(value) && typeof value['id'] === 'string' && typeof value['title'] === 'string';
 }
 
 function groupsOf(node: EditorNode): EditorGroup[] {

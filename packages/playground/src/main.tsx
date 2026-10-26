@@ -23,9 +23,16 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
-import { active, seedFiles, setupEnvironments, workspace } from './environments.js';
+import {
+  active,
+  existingWorktree,
+  seedFiles,
+  setupEnvironments,
+  workspace,
+} from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { effect, signal } from '@cerebro-ide/reactive';
+import { restoreLayout, saveLayout } from './persist.js';
 import { settingsFor } from './settings.js';
 import { formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
@@ -86,7 +93,16 @@ const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   seedFiles(env, tabOf);
 });
-environments.open('cerebro-status-bar');
+// The layout as it was left, else the defaults: one environment open.
+const persisted = {
+  tools: layout.toolWindows,
+  workspace,
+  resolve: existingWorktree,
+  // Untitled files' contents aren't kept, so neither are their tabs.
+  keepTab: (tab: { id: string }) => FILES.includes(tab.id),
+};
+if (!restoreLayout(persisted)) environments.open('cerebro-status-bar');
+saveLayout(persisted);
 
 /** What tab commands from the main menu act on: the active tab. */
 function activeTab(): TabContext | undefined {

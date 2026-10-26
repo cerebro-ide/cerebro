@@ -18,6 +18,11 @@ const worktrees = signal<EnvironmentSpec[]>([
   { id: 'cerebro-status-bar', name: 'cerebro-status-bar', branch: 'feat/status-bar' },
   { id: 'cerebro-agent-1', name: 'cerebro-agent-1', branch: 'feat/agent-sessions' },
 ]);
+/** A saved environment, if its worktree still exists. */
+export function existingWorktree(spec: EnvironmentSpec): EnvironmentSpec | undefined {
+  return worktrees.get().some((w) => w.id === spec.id) ? spec : undefined;
+}
+
 const branches = signal(['main', 'feat/status-bar', 'feat/agent-sessions', 'fix/auto-actions']);
 
 /** The open environments, as tabs. */
