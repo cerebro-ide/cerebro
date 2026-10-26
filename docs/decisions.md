@@ -530,6 +530,8 @@ new UI.
     by the scale chosen over the screen's, through the window's `zoomFactor`; the traffic lights
     keep the OS's size, which is how macOS draws them anyway. The zoom is worked out from the
     primary display when a window opens. Claude's choice, open to change.
+    With no scale forced the zoom is set to 1: without a zoom factor, a window kept the last run's
+    zoom (measured in CI: 1.25 after going back to Auto; why it's kept is a claim, not measured).
   - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
     so. Until settings files exist, the page sends the choice to the main process, which keeps it
     in `display.json` in its data folder.
