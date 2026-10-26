@@ -30,6 +30,7 @@ import '@cerebro-ide/ui-editor/styles.css';
 import { CodeEditor, DiffEditor } from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
 import { ChangesView, diffPath } from './changes.js';
+import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
@@ -190,6 +191,7 @@ const status = new StatusBar();
 const indexing = signal<Progress>(0);
 if (currentHost()) {
   setupIndexing((listener) => window.cerebro?.host.onNotification(listener) ?? (() => undefined));
+  setupAgents((listener) => window.cerebro?.host.onNotification(listener) ?? (() => undefined));
 } else {
   const timer = setInterval(() => {
     const value = indexing.get();
@@ -253,6 +255,15 @@ status.add({
       ? 'The worktree’s sources, indexed for navigation by name'
       : 'A background task (sample)',
   progress: indexProgress,
+});
+status.add({
+  id: 'agent',
+  side: 'left',
+  order: 3,
+  icon: 'agent',
+  text: () => agentText(active()?.id),
+  tooltip: () => 'The worktree’s agent, in the Claude tool window',
+  command: 'view.tool.claude',
 });
 status.add({
   id: 'position',
@@ -549,6 +560,7 @@ render(
         <Header />,
         <EnvironmentTabs
           environments={workspace}
+          badge={(env) => <AgentBadge worktree={env.id} />}
           label={(env) => () => {
             const file = env.editor.activeGroup.activeTab?.title;
             return file === undefined ? env.name : `${env.name} – ${file}`;

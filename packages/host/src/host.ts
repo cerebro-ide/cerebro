@@ -6,6 +6,7 @@ import { dirname, join } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
+import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile } from './files.js';
 import {
@@ -27,6 +28,21 @@ export interface HostOptions {
   repo: string;
   git?: Git;
   pty?: SpawnPty;
+  /** The command an agent's hooks run, the hook's name after it. Default: this host's entry. */
+  hookCommand?: string;
+}
+
+/** A word for a POSIX shell: quoted, as it is. */
+export function shellWord(word: string): string {
+  return `'${word.replaceAll("'", "'\\''")}'`;
+}
+
+/** The hooks' command: this host's own entry point, run as Node, as a hook client. */
+export function defaultHookCommand(
+  execPath = process.execPath,
+  entry = process.argv[1] ?? '',
+): string {
+  return `ELECTRON_RUN_AS_NODE=1 ${shellWord(execPath)} ${shellWord(entry)} hook`;
 }
 
 /**
@@ -147,13 +163,31 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const value = (params as Record<string, unknown>)[key];
     return typeof value === 'number' && value > 0 ? Math.floor(value) : key === 'cols' ? 80 : 24;
   };
+  // Agents report their status through hooks, to a socket of this host's.
+  const hooks = socketPath();
+  const hookServer = listenForHooks(hooks, (status) => {
+    connection.notify('agent.status', status);
+  });
+  const hookCommand = options.hookCommand ?? defaultHookCommand();
   connection.onRequest('terminal.open', (params) => {
-    const p = params as { command?: unknown; args?: unknown };
+    const p = params as { command?: unknown; args?: unknown; agent?: unknown };
+    const key = text(params, 'key');
+    const args = Array.isArray(p.args) ? p.args.map(String) : [];
+    // An agent (Claude Code) runs with Cerebro's hooks, which say which agent they're from.
+    const agent =
+      p.agent === true
+        ? {
+            args: ['--settings', hookSettings(hookCommand), ...args],
+            env: { CEREBRO_HOOK_SOCKET: hooks, CEREBRO_AGENT_KEY: key },
+          }
+        : Array.isArray(p.args)
+          ? { args }
+          : {};
     return terminals.open({
-      key: text(params, 'key'),
+      key,
       cwd: text(params, 'cwd'),
       ...(typeof p.command === 'string' ? { command: p.command } : {}),
-      ...(Array.isArray(p.args) ? { args: p.args.map(String) } : {}),
+      ...agent,
       cols: size(params, 'cols'),
       rows: size(params, 'rows'),
     });
@@ -172,6 +206,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   return () => {
     terminals.closeAll();
+    hookServer.close();
   };
 }
 

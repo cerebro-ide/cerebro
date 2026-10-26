@@ -3,6 +3,7 @@
 // made again for the same worktree (switching back, or after a reload) shows the same process.
 
 import { TerminalView, type TerminalBackend } from '@cerebro-ide/ui-terminal';
+import { agentArgs, agentEnded } from './agents.js';
 
 type Listener<T extends unknown[]> = (...args: T) => void;
 
@@ -70,7 +71,17 @@ export function terminalFor(kind: TerminalKind, worktree: string): TerminalView 
       cwd: worktree,
       mac: window.cerebro?.platform === 'darwin',
       passKey: (event) => passKey(event),
-      ...(kind === 'claude' ? { command: 'claude' } : {}),
+      // The agent runs with the host's hooks, and resumes its last session.
+      ...(kind === 'claude'
+        ? {
+            command: 'claude',
+            args: () => agentArgs(worktree),
+            agent: true,
+            onExit: (exitCode: number) => {
+              agentEnded(worktree, exitCode);
+            },
+          }
+        : {}),
     });
     views.set(key, view);
   }

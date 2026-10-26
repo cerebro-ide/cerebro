@@ -127,3 +127,30 @@ body,
   font: inherit;
   user-select: text;
 }
+
+/* An agent's state, on its environment tab: working pulses, waiting asks for attention. */
+.playground-agent {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
+.playground-agent--working {
+  background: var(--cerebro-agent-working);
+  animation: playground-agent-pulse 1.2s ease-in-out infinite;
+}
+
+.playground-agent--waiting {
+  background: var(--cerebro-agent-waiting);
+}
+
+.playground-agent--done {
+  background: var(--cerebro-agent-done);
+}
+
+@keyframes playground-agent-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
