@@ -16,11 +16,12 @@ export interface Running {
   messages: string[];
   /** Clears what the page saved and reloads it, for a test to start fresh. */
   reset(): Promise<void>;
+  /** Quits and starts the app again with the same data, as a user restarting it. */
+  restart(): Promise<void>;
   close(): Promise<void>;
 }
 
-export async function launch(): Promise<Running> {
-  const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
+async function start(data: string): Promise<{ app: ElectronApplication; page: Page }> {
   const app = await _electron.launch({
     args: [APP],
     env: { ...process.env, CEREBRO_USER_DATA: data },
@@ -28,24 +29,40 @@ export async function launch(): Promise<Running> {
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
-  const messages: string[] = [];
-  page.on('console', (message) => messages.push(message.text()));
   await page.waitForSelector('.cerebro-toolbar');
-  return {
-    app,
-    page,
+  return { app, page };
+}
+
+export async function launch(): Promise<Running> {
+  const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
+  const messages: string[] = [];
+  const listen = (page: Page) => {
+    page.on('console', (message) => messages.push(message.text()));
+  };
+  const first = await start(data);
+  listen(first.page);
+  const running: Running = {
+    ...first,
     messages,
     async reset() {
-      await page.evaluate(() => {
+      await running.page.evaluate(() => {
         localStorage.clear();
       });
       messages.length = 0;
-      await page.reload();
-      await page.waitForSelector('.cerebro-toolbar');
+      await running.page.reload();
+      await running.page.waitForSelector('.cerebro-toolbar');
+    },
+    async restart() {
+      await running.app.close();
+      const next = await start(data);
+      listen(next.page);
+      running.app = next.app;
+      running.page = next.page;
     },
     async close() {
-      await app.close();
+      await running.app.close();
       await rm(data, { recursive: true, force: true });
     },
   };
+  return running;
 }
