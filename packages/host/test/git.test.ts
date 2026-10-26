@@ -10,6 +10,7 @@ import {
   listChanges,
   listFiles,
   listWorktrees,
+  parseNameStatus,
   parseStatus,
   parseWorktrees,
   removeWorktree,
@@ -78,6 +79,37 @@ describe('parseStatus', () => {
       { path: 'untracked dir/x.ts', status: 'untracked' },
     ]);
     expect(parseStatus('')).toEqual([]);
+  });
+});
+
+describe('parseNameStatus', () => {
+  it('reads each change between two commits, sorted by path', () => {
+    const output = [
+      'M',
+      'b.ts',
+      'A',
+      'new.ts',
+      'D',
+      'gone.ts',
+      'R087',
+      'old.ts',
+      'moved.ts',
+      'C100',
+      'a.ts',
+      'copy.ts',
+      'T',
+      'link',
+      '',
+    ].join('\0');
+    expect(parseNameStatus(output)).toEqual([
+      { path: 'b.ts', status: 'modified' },
+      { path: 'copy.ts', status: 'added' },
+      { path: 'gone.ts', status: 'deleted' },
+      { path: 'link', status: 'modified' },
+      { path: 'moved.ts', status: 'renamed', from: 'old.ts' },
+      { path: 'new.ts', status: 'added' },
+    ]);
+    expect(parseNameStatus('')).toEqual([]);
   });
 });
 

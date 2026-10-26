@@ -14,15 +14,24 @@ export interface Worktree {
   bare: boolean;
 }
 
-/** Runs git with `args` in `cwd`, resolving with its output. */
-export type Git = (cwd: string, args: readonly string[]) => Promise<string>;
+/** Runs git with `args` in `cwd`, `env` added to its environment, resolving with its output. */
+export type Git = (
+  cwd: string,
+  args: readonly string[],
+  env?: Readonly<Record<string, string>>,
+) => Promise<string>;
 
-export const git: Git = (cwd, args) =>
+export const git: Git = (cwd, args, env) =>
   new Promise((resolve, reject) => {
-    execFile('git', [...args], { cwd, maxBuffer: 64 * 1024 * 1024 }, (error, stdout, stderr) => {
-      if (error) reject(new Error(stderr.trim() || error.message));
-      else resolve(stdout);
-    });
+    execFile(
+      'git',
+      [...args],
+      { cwd, maxBuffer: 64 * 1024 * 1024, ...(env ? { env: { ...process.env, ...env } } : {}) },
+      (error, stdout, stderr) => {
+        if (error) reject(new Error(stderr.trim() || error.message));
+        else resolve(stdout);
+      },
+    );
   });
 
 /** Reads `git worktree list --porcelain`: a block of lines per worktree, blank-line separated. */
@@ -151,15 +160,53 @@ export async function listChanges(worktree: string, run: Git = git): Promise<Cha
   );
 }
 
-/** A file's text in the worktree's last commit; empty if it isn't in it (or there's none yet). */
-export async function committedText(
+/**
+ * Reads `git diff --name-status -z`: a status letter (with a similarity score for a rename or a
+ * copy), then the path, or the path before and after.
+ */
+export function parseNameStatus(output: string): Change[] {
+  const fields = output.split('\0');
+  const changes: Change[] = [];
+  for (let i = 0; i < fields.length - 1; i++) {
+    const letter = (fields[i] as string).charAt(0);
+    if (letter === 'R' || letter === 'C') {
+      const from = fields[++i] as string;
+      const path = fields[++i] as string;
+      changes.push(letter === 'R' ? { path, status: 'renamed', from } : { path, status: 'added' });
+      continue;
+    }
+    const path = fields[++i] as string;
+    const status = letter === 'A' ? 'added' : letter === 'D' ? 'deleted' : 'modified';
+    changes.push({ path, status });
+  }
+  return changes.sort((a, b) => (a.path < b.path ? -1 : 1));
+}
+
+/** The changes from one commit to another, renames found. */
+export async function listChangesBetween(
   worktree: string,
+  from: string,
+  to: string,
+  run: Git = git,
+): Promise<Change[]> {
+  return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', from, to]));
+}
+
+/** A file's text at a commit; empty if it isn't in it (or there's no such commit yet). */
+export async function textAt(
+  worktree: string,
+  commit: string,
   path: string,
   run: Git = git,
 ): Promise<string> {
   try {
-    return await run(worktree, ['show', `HEAD:${path}`]);
+    return await run(worktree, ['show', `${commit}:${path}`]);
   } catch {
     return '';
   }
+}
+
+/** A file's text in the worktree's last commit; empty if it isn't in it (or there's none yet). */
+export function committedText(worktree: string, path: string, run: Git = git): Promise<string> {
+  return textAt(worktree, 'HEAD', path, run);
 }

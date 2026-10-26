@@ -3,11 +3,14 @@ export {
   committedText,
   git,
   listChanges,
+  listChangesBetween,
   listFiles,
   listWorktrees,
+  parseNameStatus,
   parseStatus,
   parseWorktrees,
   removeWorktree,
+  textAt,
   type Change,
   type Git,
   type NewWorktree,
@@ -53,3 +56,4 @@ export {
   type Entry,
 } from './files.js';
 export { FRESH_FOR, IndexService } from './index-service.js';
+export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';

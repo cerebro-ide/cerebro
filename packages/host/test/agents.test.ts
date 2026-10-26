@@ -30,7 +30,7 @@ describe('agents’ hooks', () => {
     await sendHook(path, {
       key: 'claude:/w',
       event: 'UserPromptSubmit',
-      input: { session_id: 's1' },
+      input: { session_id: 's1', prompt: 'Fix it' },
     });
     await sendHook(path, { key: 'claude:/w', event: 'Stop', input: {} });
     await sendHook(path, { key: 'claude:/w', event: 'SessionEnd', input: {} });
@@ -40,8 +40,14 @@ describe('agents’ hooks', () => {
       expect(statuses).toHaveLength(2);
     });
     expect(statuses).toEqual([
-      { key: 'claude:/w', state: 'working', sessionId: 's1' },
-      { key: 'claude:/w', state: 'done', sessionId: undefined },
+      {
+        key: 'claude:/w',
+        state: 'working',
+        sessionId: 's1',
+        event: 'UserPromptSubmit',
+        prompt: 'Fix it',
+      },
+      { key: 'claude:/w', state: 'done', sessionId: undefined, event: 'Stop' },
     ]);
     server.close();
   });

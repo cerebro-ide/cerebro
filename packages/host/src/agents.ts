@@ -22,7 +22,7 @@ export const HOOK_STATES: Readonly<Record<string, AgentState>> = {
 export interface HookMessage {
   key: string;
   event: string;
-  input: { session_id?: unknown };
+  input: { session_id?: unknown; prompt?: unknown };
 }
 
 /** An agent's status, as the UI hears it. */
@@ -30,6 +30,10 @@ export interface AgentStatus {
   key: string;
   state: AgentState;
   sessionId: string | undefined;
+  /** The hook that told it. */
+  event: string;
+  /** For a prompt sent: the prompt. */
+  prompt?: string;
 }
 
 let sockets = 0;
@@ -72,8 +76,14 @@ export function listenForHooks(
       }
       const state = HOOK_STATES[message.event];
       if (state === undefined || typeof message.key !== 'string') return;
-      const id = message.input.session_id;
-      notify({ key: message.key, state, sessionId: typeof id === 'string' ? id : undefined });
+      const { session_id: id, prompt } = message.input;
+      notify({
+        key: message.key,
+        state,
+        sessionId: typeof id === 'string' ? id : undefined,
+        event: message.event,
+        ...(typeof prompt === 'string' ? { prompt } : {}),
+      });
     });
   });
   // A socket file left by a host that crashed would stop the server listening. (Windows' named
