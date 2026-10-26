@@ -82,12 +82,13 @@ describe('the window', () => {
         seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
       });
     });
-    // Each opens something; each is seen open, then closed, before the next.
+    // Each opens something; each is seen open, then closed, before the next. (macOS has no menu
+    // bar in the window: its menu is the system's.)
     for (const [keys, opens] of [
-      ['Control+Shift+A', '.cerebro-popup'],
-      ['Control+Shift+N', '.cerebro-popup'],
-      ['Control+Alt+S', '.cerebro-dialog'],
-      ['Alt+F', '.cerebro-menu'],
+      ['ControlOrMeta+Shift+A', '.cerebro-popup'],
+      ['ControlOrMeta+Shift+N', '.cerebro-popup'],
+      ['ControlOrMeta+Alt+S', '.cerebro-dialog'],
+      ...(process.platform === 'darwin' ? [] : [['Alt+F', '.cerebro-menu']]),
     ] as const) {
       await page().keyboard.press(keys);
       await page().locator(opens).waitFor();
@@ -132,19 +133,19 @@ describe('dialogs', () => {
     await page().locator('[aria-label^="Branch:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.press('Alt+F');
-    await page().keyboard.press('Control+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Shift+N');
     expect(await count('.cerebro-menu')).toBe(0);
     expect(await count('.cerebro-popup')).toBe(0);
     await page().keyboard.press('Escape');
     expect(await count('.cerebro-dialog')).toBe(0);
-    await page().keyboard.press('Control+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Shift+N');
     expect(await count('.cerebro-popup')).toBe(1);
   });
 });
 
 describe('popups', () => {
   it('goes to a file', async () => {
-    await page().keyboard.press('Control+Shift+N');
+    await page().keyboard.press('ControlOrMeta+Shift+N');
     await page().keyboard.type('layout');
     await page().keyboard.press('Enter');
     // The status bar names the active file.
@@ -153,7 +154,7 @@ describe('popups', () => {
 
   it('searches everywhere and runs an action, the theme staying after a reload', async () => {
     expect(await theme()).toBe('dark');
-    await page().keyboard.press('Control+Shift+A');
+    await page().keyboard.press('ControlOrMeta+Shift+A');
     await page().keyboard.type('dark theme');
     await page().keyboard.press('Enter');
     expect(await theme()).toBe('light');
@@ -166,7 +167,7 @@ describe('popups', () => {
 describe('settings', () => {
   it('applies a worktree’s setting, saved across a reload, overriding the repository', async () => {
     expect(await fontSize()).toBe('13px');
-    await page().keyboard.press('Control+Alt+S');
+    await page().keyboard.press('ControlOrMeta+Alt+S');
     await page().locator('[data-page="editor/font"]').click();
     await page().locator('[data-scope="worktree"]').click();
     await page().locator('[data-setting="editor.fontSize"] input').fill('18');
@@ -175,7 +176,7 @@ describe('settings', () => {
     await page().reload();
     await page().waitForSelector('.cerebro-toolbar');
     expect(await fontSize()).toBe('18px');
-    await page().keyboard.press('Control+Alt+S');
+    await page().keyboard.press('ControlOrMeta+Alt+S');
     await page().locator('[data-page="editor/font"]').click();
     await page().locator('[data-scope="repo"]').click();
     expect(await page().locator('[data-setting="editor.fontSize"]').textContent()).toContain(
@@ -195,12 +196,16 @@ describe('shortcuts', () => {
     expect(await theme()).toBe('light');
   });
 
-  it('shows no tooltip over the menu the ☰ button opens', async () => {
-    const button = page().locator('.cerebro-menubar__button');
-    await button.hover();
-    await button.click();
-    expect(await count('.cerebro-menu')).toBe(1);
-    await page().waitForTimeout(1000);
-    expect(await count('.cerebro-tooltip')).toBe(0);
-  });
+  // macOS shows the menu in the system's menu bar, not behind a ☰ button.
+  it.skipIf(process.platform === 'darwin')(
+    'shows no tooltip over the menu the ☰ button opens',
+    async () => {
+      const button = page().locator('.cerebro-menubar__button');
+      await button.hover();
+      await button.click();
+      expect(await count('.cerebro-menu')).toBe(1);
+      await page().waitForTimeout(1000);
+      expect(await count('.cerebro-tooltip')).toBe(0);
+    },
+  );
 });

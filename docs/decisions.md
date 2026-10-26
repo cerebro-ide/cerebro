@@ -720,7 +720,9 @@ From the test review: the assembled app had no tests, and the bugs found by hand
   setting applied, saved and shown as overriding the repository, a key sequence and its timeout,
   and the tooltip over the ☰ menu. Shown to catch the Settings page bug, put back on purpose.
 - **Separate from `npm run check`:** it needs a build and a display. `npm run e2e` builds and runs
-  it; CI runs it on Linux under `xvfb-run`. macOS and Windows runs come next.
+  it; CI runs it on Linux under `xvfb-run`, and on macOS and Windows (2026-10-26) on the runners'
+  own displays. Shortcuts bound with `Mod` are pressed as `ControlOrMeta`; the in-window menu bar's
+  steps run except on macOS, whose menu is the system's.
 
 ## Desktop conventions in the UI (2026-10-25)
 
