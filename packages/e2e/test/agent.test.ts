@@ -59,11 +59,14 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
   it('shows its status from its hooks, and resumes its session after a restart', async () => {
     const page = running.page;
     const status = page.locator('.cerebro-statusbar');
-    await expect.poll(() => status.innerText()).toContain('Claude is done');
+    // Each hook runs the host's entry as Node: slow, in CI more than a poll's second.
+    await expect.poll(() => status.innerText(), { timeout: 15_000 }).toContain('Claude is done');
     await expect.poll(shown).toContain('pretend claude:');
     expect(await shown()).not.toContain('--resume');
     await running.restart();
-    await expect.poll(shown).toContain('pretend claude: --resume fake-session');
+    await expect
+      .poll(shown, { timeout: 15_000 })
+      .toContain('pretend claude: --resume fake-session');
   });
 
   it('lists its turn in the Commit tool window, with the file it wrote, and opens its diff', async () => {
