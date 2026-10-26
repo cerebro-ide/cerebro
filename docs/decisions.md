@@ -653,6 +653,30 @@ global → repo → worktree".
     host (the `json5` package, or a small one of Cerebro's; to choose then). Saving needs the host.
 - Keybindings aren't settings pages yet.
 
+## The layout persists (2026-10-26)
+
+Ido: the layout should keep its state and stay consistent between runs; a reload reset it.
+
+- **What's kept:** tool windows (anchor, slot, order, which are open, area sizes and splits), the
+  open environments and the active one, and each environment's editor area (splits and sizes,
+  groups, tabs, active tab and group).
+- **The models save and restore themselves** as plain data (`state()` and `restore()` on
+  `ToolWindows`, `EditorArea` and `Environments`). Restoring keeps only what's still valid, a
+  choice of Claude's, open to change:
+  - tool windows: places of registered windows (new ones keep their own, after the saved ones),
+    sizes and splits clamped, open windows only if registered and in that slot;
+  - environments: only those the app still resolves (a removed worktree is dropped);
+  - editor areas: tabs that still exist (untitled files aren't kept: their contents aren't),
+    groups with tabs, splits with two or more children, merged into a parent of the same
+    direction, and positive sizes (others get an equal share). Saved sizes are kept even below
+    `MIN_PANE`, since repeated splits can make them so.
+- **Stored as local data** (as decided for settings): the browser's storage for now, until the
+  host's local database exists. Saved 200 ms after a change settles, and when the page goes away.
+- **Tests:** the randomized tests save every few steps, through JSON, restore into a new model
+  (tool windows registered in another order) and compare. Unit tests cover invalid and outdated
+  data. An e2e test rearranges the window (a tool window closed, another opened, another
+  environment, a file opened), reloads, and finds the same layout; it fails without saving.
+
 ## The protocol and the host (2026-10-26)
 
 Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local child process
