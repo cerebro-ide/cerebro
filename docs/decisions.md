@@ -530,6 +530,9 @@ new UI.
     by the scale chosen over the screen's, through the window's `zoomFactor`; the traffic lights
     keep the OS's size, which is how macOS draws them anyway. The zoom is worked out from the
     primary display when a window opens. Claude's choice, open to change.
+    With no scale forced the zoom is set to 1, and it's set again once the page has loaded: a zoom
+    kept from the last run overrode the window's `zoomFactor` (measured in CI: 1.25 after going
+    back to Auto, with `zoomFactor` 1).
   - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
     so. Until settings files exist, the page sends the choice to the main process, which keeps it
     in `display.json` in its data folder.
@@ -746,7 +749,9 @@ From the test review: the assembled app had no tests, and the bugs found by hand
   setting applied, saved and shown as overriding the repository, a key sequence and its timeout,
   and the tooltip over the ☰ menu. Shown to catch the Settings page bug, put back on purpose.
 - **Separate from `npm run check`:** it needs a build and a display. `npm run e2e` builds and runs
-  it; CI runs it on Linux under `xvfb-run`. macOS and Windows runs come next.
+  it; CI runs it on Linux under `xvfb-run`, and on macOS and Windows (2026-10-26) on the runners'
+  own displays. Shortcuts bound with `Mod` are pressed as `ControlOrMeta`; the in-window menu bar's
+  steps run except on macOS, whose menu is the system's.
 
 ## Desktop conventions in the UI (2026-10-25)
 
