@@ -32,8 +32,9 @@ beforeAll(async () => {
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
   running = await launch({ CEREBRO_REPO: repo });
-  // The Claude tool window takes room from the editor, which these tests click in.
-  await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click();
+  // The Claude tool window takes room from the editor, which these tests click in. Forced, as for
+  // the tree's arrow below: in CI under xvfb this click twice waited for the button to be "stable".
+  await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
 });
 
 afterAll(async () => {
