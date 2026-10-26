@@ -4,10 +4,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, it } from 'vitest';
 import { launch, type Running } from './app.js';
 
 let running: Running;
+const gaps: string[] = [];
 // The real path: on Windows, the temporary folder can come with an 8.3 short name, which git and
 // the app write out in full.
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-repo-')));
@@ -32,9 +33,43 @@ beforeAll(async () => {
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
   running = await launch({ CEREBRO_REPO: repo });
+  const recorder = () => {
+    const w = window as unknown as { mark?: string };
+    let last = performance.now();
+    const tick = (now: number) => {
+      if (now - last > 150) {
+        console.debug(`GAP ${String(Math.round(now - last))}ms during "${w.mark ?? 'a new load'}"`);
+      }
+      last = now;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  };
+  running.page.on('console', (message) => {
+    if (message.text().startsWith('GAP ')) gaps.push(message.text());
+  });
+  await running.page.addInitScript(recorder);
+  await running.page.evaluate(recorder);
+});
+
+beforeEach(async (context) => {
+  const metrics = await running.app.evaluate(({ app }) =>
+    app
+      .getAppMetrics()
+      .map(
+        (m) =>
+          `${m.type}${m.name ? `(${m.name})` : ''}=${String(Math.round(m.cpu.percentCPUUsage))}%`,
+      )
+      .join(' '),
+  );
+  process.stderr.write(`CPU before "${context.task.name}": ${metrics}\n`);
+  await running.page.evaluate((name) => {
+    (window as unknown as { mark: string }).mark = name;
+  }, context.task.name);
 });
 
 afterAll(async () => {
+  process.stderr.write(`GAPS ${String(gaps.length)}\n${gaps.join('\n')}\n`);
   await running.close();
   rmSync(root, { recursive: true, force: true });
 });
