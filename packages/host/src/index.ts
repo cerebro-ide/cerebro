@@ -9,3 +9,4 @@ export {
   type Worktree,
 } from './git.js';
 export { PROTOCOL_VERSION, serve, serveOn, type HostOptions } from './host.js';
+export { listFolder, type Entry } from './files.js';

@@ -50,7 +50,20 @@ body,
 }
 
 .playground-files {
-  padding: 8px 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding-top: 8px;
+}
+
+.playground-project {
+  flex: auto;
+  min-height: 0;
+}
+
+.playground-project__empty {
+  padding: 0 12px;
+  color: var(--cerebro-text-muted);
 }
 
 .playground-files .playground-button {

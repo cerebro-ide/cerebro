@@ -23,6 +23,7 @@
     "@cerebro-ide/ui-settings": "0.0.0",
     "@cerebro-ide/ui-statusbar": "0.0.0",
     "@cerebro-ide/ui-toolbar": "0.0.0",
-    "@cerebro-ide/ui-tooltip": "0.0.0"
+    "@cerebro-ide/ui-tooltip": "0.0.0",
+    "@cerebro-ide/ui-tree": "0.0.0"
   }
 }

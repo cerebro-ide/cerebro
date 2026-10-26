@@ -61,6 +61,11 @@ export function useWorktrees(list: readonly HostWorktree[], from?: Host): void {
   branches.set([...new Set(specs.map((s) => s.branch).filter((b) => b !== 'detached'))]);
 }
 
+/** The host, when the page runs in the desktop app on a real repository. */
+export function currentHost(): Host | undefined {
+  return host;
+}
+
 /** Shows why something failed, in a dialog. */
 function showError(title: string, message: string): void {
   openDialog({ title, content: () => <p class="cerebro-selectable">{message}</p> });

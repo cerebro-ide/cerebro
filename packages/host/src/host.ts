@@ -1,6 +1,7 @@
 // The host's methods, on a connection to the UI.
 
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
+import { listFolder } from './files.js';
 import { addWorktree, git as runGit, listWorktrees, removeWorktree, type Git } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
@@ -32,6 +33,7 @@ export function serveOn(connection: Connection, options: HostOptions): void {
     return value;
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
+  connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;
     return addWorktree(
