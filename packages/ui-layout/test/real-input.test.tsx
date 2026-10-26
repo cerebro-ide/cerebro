@@ -97,11 +97,14 @@ describe('dragging, with the real mouse', () => {
     for (const id of ['a', 'b']) area.open({ id, title: id });
     const container = mount(() => <EditorAreaView area={area} content={(t) => t.id} />);
     const group = area.activeGroupId;
-    const tab = container.querySelector(`[data-tab="a"]`) as HTMLElement;
+    // By its title: a one-letter tab's centre is on its close button.
+    const title = container.querySelector(
+      `[data-tab="a"] .cerebro-editor-tab__title`,
+    ) as HTMLElement;
     const content = (
       container.querySelector(`[data-content="${group}"]`) as HTMLElement
     ).getBoundingClientRect();
-    await drag(centre(tab), {
+    await drag(centre(title), {
       x: content.right - (content.width * SPLIT_EDGE) / 2,
       y: content.top + content.height / 2,
     });

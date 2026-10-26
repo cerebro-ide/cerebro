@@ -1,7 +1,7 @@
 // Tooltips in the app's own style, replacing the browser's: the text, and the shortcut when there is
-// one. One tooltip shows at a time. It appears after a pause; moving straight on to another control
-// shows that one's at once, as IntelliJ does. Leaving the control, a press, a key, scrolling or the
-// window losing focus hides it.
+// one. One tooltip shows at a time. It appears after a pause, or at once for controls that ask;
+// moving straight on to another control shows that one's at once, as IntelliJ does. Leaving the
+// control, a press, a key, scrolling or the window losing focus hides it.
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import type { Disposable } from '@cerebro-ide/reactive';
@@ -17,6 +17,8 @@ export interface TooltipOptions {
    * Default: below.
    */
   placement?: Placement | (() => Placement);
+  /** How long the pointer rests on the control before it shows, in milliseconds. Default: SHOW_DELAY. */
+  delay?: number;
 }
 
 /** How long the pointer rests on a control before its tooltip shows, in milliseconds. */
@@ -116,12 +118,13 @@ export function attachTooltip(element: Element, options: TooltipOptions): Dispos
   listen();
   const enter = () => {
     clearTimeout(timer);
-    if (performance.now() - hiddenAt < QUICK_WINDOW || tip) show(element, options);
+    const delay = options.delay ?? SHOW_DELAY;
+    if (delay === 0 || performance.now() - hiddenAt < QUICK_WINDOW || tip) show(element, options);
     else {
       pendingFor = element;
       timer = setTimeout(() => {
         show(element, options);
-      }, SHOW_DELAY);
+      }, delay);
     }
   };
   const leave = () => {

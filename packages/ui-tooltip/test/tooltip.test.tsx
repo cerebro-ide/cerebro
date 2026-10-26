@@ -52,6 +52,13 @@ describe('showing and hiding', () => {
     expect(tip()).toBeNull();
   });
 
+  it('shows at once for a control that asks for no delay', () => {
+    const element = control();
+    attach(element, { text: () => 'Project', delay: 0 });
+    enter(element);
+    expect(tip()?.textContent).toBe('Project');
+  });
+
   it('shows no shortcut part without one', () => {
     const element = control();
     attach(element, { text: () => 'Terminal', shortcut: () => undefined });

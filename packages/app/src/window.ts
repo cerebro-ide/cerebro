@@ -5,11 +5,11 @@
 import type { BrowserWindowConstructorOptions } from 'electron';
 
 /** The main toolbar's height: the window controls are drawn at this height over it. */
-export const TOOLBAR_HEIGHT = 40;
+export const TOOLBAR_HEIGHT = 43;
 
-/** The dark theme's panel and text colours, so the window doesn't flash white while loading. */
-const PANEL = '#2b2d30';
-const TEXT = '#dfe1e5';
+/** The dark theme's frame and text colours, so the window doesn't flash white while loading. */
+const FRAME = '#25282c';
+const TEXT = '#d1d3d9';
 
 export function windowOptions(
   platform: NodeJS.Platform,
@@ -22,12 +22,12 @@ export function windowOptions(
     height: 900,
     minWidth: 800,
     minHeight: 500,
-    backgroundColor: PANEL,
+    backgroundColor: FRAME,
     show: false,
     titleBarStyle: 'hidden',
     ...(platform === 'darwin'
       ? { trafficLightPosition: { x: 14, y: 13 } }
-      : { titleBarOverlay: { color: PANEL, symbolColor: TEXT, height: TOOLBAR_HEIGHT } }),
+      : { titleBarOverlay: { color: FRAME, symbolColor: TEXT, height: TOOLBAR_HEIGHT } }),
     webPreferences: {
       preload,
       contextIsolation: true,

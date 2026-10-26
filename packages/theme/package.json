@@ -2,13 +2,19 @@
   "name": "@cerebro-ide/theme",
   "version": "0.0.0",
   "private": true,
-  "description": "Cerebro's theme variables (--cerebro-*, dark by default, light with data-cerebro-theme=\"light\") and the app's base conventions.",
+  "description": "Cerebro's theme variables (--cerebro-*, dark by default, light with data-cerebro-theme=\"light\"), the app's base conventions, and its bundled fonts.",
   "exports": {
     "./themes.css": "./themes.css",
-    "./base.css": "./base.css"
+    "./base.css": "./base.css",
+    "./fonts.css": "./fonts.css"
   },
   "files": [
     "themes.css",
-    "base.css"
-  ]
+    "base.css",
+    "fonts.css"
+  ],
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0"
+  }
 }

@@ -1,38 +1,54 @@
 /*
  * Theme variables. Every Cerebro component and plugin styles itself with these, so a theme is only a
  * set of values. Dark is the default; set data-cerebro-theme="light" on an ancestor for light.
- * Colours approximate IntelliJ's new UI.
+ * Dark is measured from WebStorm's Islands theme (a screenshot, 2026-10-26); light approximates
+ * IntelliJ's new UI.
  */
 
 :root,
 [data-cerebro-theme='dark'] {
   color-scheme: dark;
 
-  --cerebro-font: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --cerebro-font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --cerebro-font-mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
   --cerebro-font-size: 13px;
 
-  --cerebro-background: #1e1f22;
-  --cerebro-panel: #2b2d30;
-  --cerebro-stripe: #2b2d30;
-  --cerebro-border: #1e1f22;
-  --cerebro-separator: #393b40;
-  --cerebro-text: #dfe1e5;
-  --cerebro-text-muted: #868a91;
+  /* The window's frame: the toolbar, the stripes, the status bar and the gaps between islands. */
+  --cerebro-frame: #25282c;
+  /* The editor island. */
+  --cerebro-background: #1e2022;
+  /* Tool window islands. */
+  --cerebro-panel: #191a1c;
+  --cerebro-stripe: #25282c;
+  --cerebro-border: #25282c;
+  --cerebro-separator: #40434b;
+  --cerebro-text: #d1d3d9;
+  --cerebro-text-muted: #9fa2a8;
+  --cerebro-icon: #c3c5ca;
   --cerebro-hover: rgb(255 255 255 / 0.07);
-  --cerebro-selected: #43454a;
+  --cerebro-selected: #33343b;
+  --cerebro-stripe-selected: #494a4c;
+  --cerebro-tab-text: #afb1b6;
+  --cerebro-tab-active: #25282c;
+  --cerebro-tab-active-border: #40434b;
+  --cerebro-tab-active-text: #ffffff;
+  --cerebro-tree-arrow: #84868c;
   --cerebro-menu-highlight: #2e436e;
   --cerebro-tooltip: #393b40;
   --cerebro-tooltip-border: #4e5157;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
+  --cerebro-scrollbar: rgb(255 255 255 / 0.15);
   --cerebro-input: #1e1f22;
   --cerebro-input-border: #4e5157;
   --cerebro-error: #f75464;
   /* The editor, as IntelliJ's dark theme. */
-  --cerebro-editor-active-line: #26282e;
+  --cerebro-editor-active-line: #25282e;
   --cerebro-editor-selection: #214283;
+  --cerebro-editor-line-number: #4b5059;
+  --cerebro-editor-line-number-active: #a1a3ab;
+  --cerebro-editor-gutter-line: #313438;
   --cerebro-syntax-keyword: #cf8e6d;
   --cerebro-syntax-string: #6aab73;
   --cerebro-syntax-number: #2aacb8;
@@ -42,45 +58,60 @@
   --cerebro-syntax-property: #c77dbb;
   --cerebro-syntax-tag: #d5b778;
 
-  --cerebro-stripe-size: 36px;
-  --cerebro-stripe-button: 28px;
+  --cerebro-stripe-size: 40px;
+  --cerebro-stripe-button: 30px;
   --cerebro-stripe-icon: 20px;
-  --cerebro-stripe-gap: 8px;
-  --cerebro-header-height: 32px;
-  --cerebro-tab-height: 36px;
+  --cerebro-stripe-gap: 10px;
+  --cerebro-header-height: 40px;
+  --cerebro-tab-height: 40px;
   --cerebro-menu-item-height: 26px;
   --cerebro-menu-icon: 14px;
-  --cerebro-statusbar-height: 26px;
-  --cerebro-toolbar-height: 40px;
+  --cerebro-statusbar-height: 32px;
+  --cerebro-toolbar-height: 43px;
   --cerebro-env-tab-height: 34px;
+  --cerebro-tree-indent: 19px;
+  /* The gap between islands, which is also the splitters' handle. */
   --cerebro-splitter: 5px;
   --cerebro-radius: 6px;
+  --cerebro-island-radius: 8px;
 }
 
 [data-cerebro-theme='light'] {
   color-scheme: light;
 
+  --cerebro-frame: #ebecf0;
   --cerebro-background: #ffffff;
   --cerebro-panel: #f7f8fa;
-  --cerebro-stripe: #f7f8fa;
+  --cerebro-stripe: #ebecf0;
   --cerebro-border: #ebecf0;
   --cerebro-separator: #dfe1e5;
   --cerebro-text: #1e1f22;
   --cerebro-text-muted: #6c707e;
+  --cerebro-icon: #6c707e;
   --cerebro-hover: rgb(0 0 0 / 0.05);
   --cerebro-selected: #dfe1e5;
+  --cerebro-stripe-selected: #dfe1e5;
+  --cerebro-tab-text: #494b57;
+  --cerebro-tab-active: #ebecf0;
+  --cerebro-tab-active-border: #c9ccd6;
+  --cerebro-tab-active-text: #000000;
+  --cerebro-tree-arrow: #818594;
   --cerebro-menu-highlight: #d5e1ff;
   --cerebro-tooltip: #ffffff;
   --cerebro-tooltip-border: #dfe1e5;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.15);
+  --cerebro-scrollbar: rgb(0 0 0 / 0.2);
   --cerebro-input: #ffffff;
   --cerebro-input-border: #c9ccd6;
   --cerebro-error: #db3b4b;
   /* The editor, as IntelliJ's light theme. */
   --cerebro-editor-active-line: #f5f8fe;
   --cerebro-editor-selection: #a6d2ff;
+  --cerebro-editor-line-number: #aeb3c2;
+  --cerebro-editor-line-number-active: #767a8a;
+  --cerebro-editor-gutter-line: #ebecf0;
   --cerebro-syntax-keyword: #0033b3;
   --cerebro-syntax-string: #067d17;
   --cerebro-syntax-number: #1750eb;

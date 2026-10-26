@@ -22,13 +22,14 @@
 
 .cerebro-tree-row {
   position: absolute;
-  right: 0;
-  left: 0;
+  right: 12px;
+  left: 12px;
   display: flex;
   box-sizing: border-box;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   padding-right: 8px;
+  border-radius: 4px;
   white-space: nowrap;
 }
 
@@ -46,7 +47,7 @@
   place-items: center;
   width: 16px;
   height: 16px;
-  color: var(--cerebro-text-muted);
+  color: var(--cerebro-tree-arrow);
 }
 
 .cerebro-tree-row__arrow svg {
@@ -66,6 +67,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  color: var(--cerebro-text);
 }
 
 .cerebro-tree-row__note {
