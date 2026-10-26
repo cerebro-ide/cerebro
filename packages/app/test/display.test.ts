@@ -125,10 +125,10 @@ describe('installDisplayScale', () => {
 });
 
 describe('zoomFor', () => {
-  it('zooms by the scale over the screen’s, only on macOS and only for a forced scale', () => {
+  it('zooms by the scale over the screen’s on macOS, and to 1 with none forced', () => {
     expect(zoomFor(1.25, 'darwin', 2)).toBe(0.625);
     expect(zoomFor(1.25, 'darwin', 1)).toBe(1.25);
-    expect(zoomFor(undefined, 'darwin', 2)).toBeUndefined();
+    expect(zoomFor(undefined, 'darwin', 2)).toBe(1);
     expect(zoomFor(1.25, 'linux', 1)).toBeUndefined();
   });
 });

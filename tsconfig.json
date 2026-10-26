@@ -38,6 +38,9 @@
       "path": "packages/ui-tree/tsconfig.build.json"
     },
     {
+      "path": "packages/plugin-api/tsconfig.build.json"
+    },
+    {
       "path": "packages/protocol/tsconfig.build.json"
     },
     {

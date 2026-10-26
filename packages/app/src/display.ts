@@ -72,13 +72,18 @@ export function scaleFor(choice: ScaleChoice, sys: System): number | undefined {
   return choice === 'auto' ? osScale(sys) : Number(choice);
 }
 
-/** The page's zoom for a forced scale: only on macOS, where the switch is ignored. */
+/**
+ * The page's zoom: only on macOS, where the switch is ignored; there 1 when no scale is forced, since
+ * a window without a zoom factor kept the zoom of the last run (measured in CI: 1.25 after going
+ * back to auto).
+ */
 export function zoomFor(
   scale: number | undefined,
   platform: NodeJS.Platform,
   screenScale: number,
 ): number | undefined {
-  return scale !== undefined && platform === 'darwin' ? scale / screenScale : undefined;
+  if (platform !== 'darwin') return undefined;
+  return scale === undefined ? 1 : scale / screenScale;
 }
 
 function isChoice(value: unknown): value is ScaleChoice {
