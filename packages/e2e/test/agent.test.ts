@@ -1,6 +1,6 @@
-// The agent's status end to end, with a pretend `claude` on the PATH: it runs the hooks the host
-// gave it (through --settings) as Claude Code would, and shows the arguments it got. Not on Windows,
-// where a script on the PATH can't be run by its #! line.
+// The agent end to end, with a pretend `claude` on the PATH: it runs the hooks the host gave it
+// (through --settings) as Claude Code would, writes a file during its turn, and shows the arguments
+// it got. Not on Windows, where a script on the PATH can't be run by its #! line.
 
 import { execFileSync } from 'node:child_process';
 import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -11,13 +11,17 @@ import { launch, type Running } from './app.js';
 
 const FAKE_CLAUDE = `#!/usr/bin/env node
 const { execSync } = require('node:child_process');
+const { writeFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 const at = args.indexOf('--settings');
 const hooks = JSON.parse(args[at + 1]).hooks;
 const run = (event) =>
-  execSync(hooks[event][0].hooks[0].command, { input: '{"session_id":"fake-session"}' });
+  execSync(hooks[event][0].hooks[0].command, {
+    input: '{"session_id":"fake-session","prompt":"Write a file"}',
+  });
 console.log('pretend claude: ' + args.filter((_, i) => i !== at && i !== at + 1).join(' '));
 run('UserPromptSubmit');
+writeFileSync('agent.txt', 'written by the agent\\n');
 setTimeout(() => run('Stop'), 500);
 setInterval(() => {}, 1000);
 `;
@@ -63,5 +67,19 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     await expect
       .poll(shown, { timeout: 15_000 })
       .toContain('pretend claude: --resume fake-session');
+  });
+
+  it('lists its turn in the Commit tool window, with the file it wrote, and opens its diff', async () => {
+    const page = running.page;
+    await page.locator('.cerebro-stripe-button[data-id="commit"]').click({ force: true });
+    // Both runs' turns: the one after the restart wrote the same file again, changing nothing.
+    const turns = page.locator('.cerebro-tree-row', { hasText: 'Write a file' });
+    // Each hook runs the host's entry as Node: slow, so this waits longer than most.
+    await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
+    await turns.last().dblclick();
+    const file = page.locator('.cerebro-tree-row[data-key$=":agent.txt"]');
+    await file.dblclick();
+    const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+    await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
   });
 });

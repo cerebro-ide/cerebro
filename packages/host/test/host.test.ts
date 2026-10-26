@@ -1,4 +1,5 @@
-import { chmodSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, mkdtempSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -7,6 +8,7 @@ import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   defaultHookCommand,
+  git as runGit,
   hookSettings,
   makeSpawnHelperExecutable,
   nodePty,
@@ -17,7 +19,10 @@ import {
   shellWord,
   type Git,
   type Pty,
+  type Turn,
 } from '../src/index.js';
+
+type Env = Record<string, string>;
 
 const PORCELAIN = 'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n';
 
@@ -153,6 +158,28 @@ describe('changes', () => {
       data: { reason: 'binary' },
     });
     rmSync(dir, { recursive: true });
+  });
+
+  it('lists the changes between two commits, and gives a file’s sides at each', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) => {
+      if (args[0] === 'diff') return Promise.resolve('R100\0old.ts\0new.ts\0M\0b.ts\0');
+      return Promise.resolve(`at ${String(args[1])}`);
+    });
+    const { ui } = connect(git);
+    const range = { path: '/w', from: 'c1', to: 'c2' };
+    expect(await ui.request('git.changes', range)).toEqual([
+      { path: 'b.ts', status: 'modified' },
+      { path: 'new.ts', status: 'renamed', from: 'old.ts' },
+    ]);
+    expect(git).toHaveBeenCalledWith('/w', ['diff', '--name-status', '-z', '-M', 'c1', 'c2']);
+    expect(await ui.request('git.diff', { ...range, file: 'new.ts' })).toEqual({
+      original: 'at c1:old.ts',
+      text: 'at c2:new.ts',
+    });
+    expect(await ui.request('git.diff', { ...range, file: 'b.ts' })).toEqual({
+      original: 'at c1:b.ts',
+      text: 'at c2:b.ts',
+    });
   });
 });
 
@@ -304,12 +331,72 @@ describe('terminals', () => {
       input: { session_id: 's' },
     });
     await vi.waitFor(() => {
-      expect(statuses).toHaveBeenCalledWith({ key: 'claude:/w', state: 'waiting', sessionId: 's' });
+      expect(statuses).toHaveBeenCalledWith({
+        key: 'claude:/w',
+        state: 'waiting',
+        sessionId: 's',
+        event: 'Notification',
+      });
     });
     // An agent without arguments of its own.
     await ui.request('terminal.open', { key: 'claude:/v', cwd: '/v', agent: true });
     expect((spawn.mock.calls[1] as unknown as [string, string[]])[1]).toHaveLength(2);
     stop();
+  });
+
+  it('keeps each agent turn’s snapshots, and lists the turns', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-turns-')));
+    execFileSync('git', ['init', '-q', dir]);
+    writeFileSync(join(dir, 'a.txt'), 'before');
+    const spawn = vi.fn(() => fake().pty);
+    // eslint-disable-next-line prefer-const -- the two refer to each other
+    let host: Connection;
+    const ui = new Connection((line) => {
+      host.receive(line);
+    });
+    host = new Connection((line) => {
+      ui.receive(line);
+    });
+    const stop = serveOn(host, { repo: dir, git: runGit, pty: spawn, hookCommand: 'h' });
+    await ui.request('terminal.open', { key: 'claude:a', cwd: dir, agent: true });
+    await ui.request('terminal.open', { key: 'claude:b', cwd: tmpdir(), agent: true });
+    const socket = (spawn.mock.calls[0] as unknown as [string, string[], { env: Env }])[2].env[
+      'CEREBRO_HOOK_SOCKET'
+    ] as string;
+    const statuses = vi.fn();
+    ui.onNotification('agent.status', statuses);
+    const failed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // The hook returns once the snapshot before the turn is taken.
+    await sendHook(socket, {
+      key: 'claude:a',
+      event: 'UserPromptSubmit',
+      input: { prompt: 'Change a' },
+    });
+    // Not an agent the host started; and one outside a repository, which can't be kept.
+    await sendHook(socket, { key: 'other', event: 'UserPromptSubmit', input: {} });
+    await sendHook(socket, { key: 'claude:b', event: 'UserPromptSubmit', input: {} });
+    await vi.waitFor(() => {
+      expect(statuses).toHaveBeenCalledTimes(3);
+      expect(failed).toHaveBeenCalled();
+    });
+    failed.mockRestore();
+    writeFileSync(join(dir, 'a.txt'), 'after');
+    await sendHook(socket, { key: 'claude:a', event: 'Stop', input: {} });
+    const turns = await vi.waitFor(async () => {
+      const listed = (await ui.request('agent.turns', { path: dir })) as Turn[];
+      expect(listed).toHaveLength(1);
+      return listed;
+    });
+    const [turn] = turns as [Turn];
+    expect(turn.prompt).toBe('Change a');
+    expect(
+      await ui.request('git.diff', { path: dir, file: 'a.txt', from: turn.start, to: turn.end }),
+    ).toEqual({
+      original: 'before',
+      text: 'after',
+    });
+    stop();
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('runs hooks with this host’s entry, as Node, quoted for the shell', () => {

@@ -7,6 +7,7 @@ import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
+import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile } from './files.js';
 import {
@@ -14,6 +15,8 @@ import {
   committedText,
   git as runGit,
   listChanges,
+  listChangesBetween,
+  textAt,
   listFiles,
   listWorktrees,
   removeWorktree,
@@ -116,11 +119,37 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
-  connection.onRequest('git.changes', (params) => listChanges(text(params, 'path'), git));
-  // A file's two sides for its diff: as last committed (where it was, if renamed), and as it is.
+  /** A request's commits to compare (a turn's snapshots), if it names them. */
+  const range = (params: unknown): { from: string; to: string } | undefined => {
+    const p = params as { from?: unknown; to?: unknown };
+    return typeof p.from === 'string' && typeof p.to === 'string'
+      ? { from: p.from, to: p.to }
+      : undefined;
+  };
+  // A worktree's changes since its last commit, or from one commit to another.
+  connection.onRequest('git.changes', (params) => {
+    const worktree = text(params, 'path');
+    const between = range(params);
+    return between
+      ? listChangesBetween(worktree, between.from, between.to, git)
+      : listChanges(worktree, git);
+  });
+  // A file's two sides for its diff: as last committed (where it was, if renamed), and as it is;
+  // or at one commit and another.
   connection.onRequest('git.diff', async (params) => {
     const worktree = text(params, 'path');
     const file = text(params, 'file');
+    const between = range(params);
+    if (between) {
+      const change = (await listChangesBetween(worktree, between.from, between.to, git)).find(
+        (c) => c.path === file,
+      );
+      const [original, current] = await Promise.all([
+        textAt(worktree, between.from, change?.from ?? file, git),
+        textAt(worktree, between.to, file, git),
+      ]);
+      return { original, text: current };
+    }
     const change = (await listChanges(worktree, git)).find((c) => c.path === file);
     const [original, current] = await Promise.all([
       committedText(worktree, change?.from ?? file, git),
@@ -128,6 +157,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     ]);
     return { original, text: current };
   });
+  connection.onRequest('agent.turns', (params) => listTurns(text(params, 'path'), git));
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;
     return addWorktree(
@@ -165,14 +195,30 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   };
   // Agents report their status through hooks, to a socket of this host's.
   const hooks = socketPath();
+  // Each agent's folder, and its turns' snapshots.
+  const agents = new Map<string, string>();
+  const turns = new TurnRecorder(git);
+  const record = (snapshot: Promise<void>) =>
+    snapshot.catch((error: unknown) => {
+      console.error('A turn’s snapshot failed', error);
+    });
   const hookServer = listenForHooks(hooks, (status) => {
     connection.notify('agent.status', status);
+    const worktree = agents.get(status.key);
+    // The agent waits for the snapshot before its turn, so the turn's changes come after it.
+    if (status.event === 'UserPromptSubmit' && worktree !== undefined) {
+      return record(turns.started(status.key, worktree, status.prompt ?? ''));
+    }
+    if (status.event === 'Stop') void record(turns.ended(status.key));
+    return undefined;
   });
   const hookCommand = options.hookCommand ?? defaultHookCommand();
   connection.onRequest('terminal.open', (params) => {
     const p = params as { command?: unknown; args?: unknown; agent?: unknown };
     const key = text(params, 'key');
+    const cwd = text(params, 'cwd');
     const args = Array.isArray(p.args) ? p.args.map(String) : [];
+    if (p.agent === true) agents.set(key, cwd);
     // An agent (Claude Code) runs with Cerebro's hooks, which say which agent they're from.
     const agent =
       p.agent === true
@@ -185,7 +231,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
           : {};
     return terminals.open({
       key,
-      cwd: text(params, 'cwd'),
+      cwd,
       ...(typeof p.command === 'string' ? { command: p.command } : {}),
       ...agent,
       cols: size(params, 'cols'),

@@ -26,11 +26,13 @@ describe('agents’ hooks', () => {
   it('turns hook messages into agents’ states, ignoring ones it doesn’t know', async () => {
     const path = socketPath();
     const statuses: AgentStatus[] = [];
-    const server = listenForHooks(path, (status) => statuses.push(status));
+    const server = listenForHooks(path, (status) => {
+      statuses.push(status);
+    });
     await sendHook(path, {
       key: 'claude:/w',
       event: 'UserPromptSubmit',
-      input: { session_id: 's1' },
+      input: { session_id: 's1', prompt: 'Fix it' },
     });
     await sendHook(path, { key: 'claude:/w', event: 'Stop', input: {} });
     await sendHook(path, { key: 'claude:/w', event: 'SessionEnd', input: {} });
@@ -40,9 +42,27 @@ describe('agents’ hooks', () => {
       expect(statuses).toHaveLength(2);
     });
     expect(statuses).toEqual([
-      { key: 'claude:/w', state: 'working', sessionId: 's1' },
-      { key: 'claude:/w', state: 'done', sessionId: undefined },
+      {
+        key: 'claude:/w',
+        state: 'working',
+        sessionId: 's1',
+        event: 'UserPromptSubmit',
+        prompt: 'Fix it',
+      },
+      { key: 'claude:/w', state: 'done', sessionId: undefined, event: 'Stop' },
     ]);
+    server.close();
+  });
+
+  it('has the hook client wait until the host is done with its message', async () => {
+    const path = socketPath();
+    let done = false;
+    const server = listenForHooks(path, async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      done = true;
+    });
+    await sendHook(path, { key: 'k', event: 'Stop', input: {} });
+    expect(done).toBe(true);
     server.close();
   });
 
