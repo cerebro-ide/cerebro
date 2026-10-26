@@ -520,6 +520,11 @@ new UI.
     ratio and Electron's scale factor both 1.5, and the window controls overlay stays consistent,
     since everything scales together. Chosen over the page's zoom factor, which would scale the
     page but not the window controls drawn over it (a claim, from how zoom works; not measured).
+  - **On macOS the switch is ignored** (measured in CI, 2026-10-26: the switch set to 1.25, the
+    screen's scale and the page's device pixel ratio both 1). There the page is zoomed instead,
+    by the scale chosen over the screen's, through the window's `zoomFactor`; the traffic lights
+    keep the OS's size, which is how macOS draws them anyway. The zoom is worked out from the
+    primary display when a window opens. Claude's choice, open to change.
   - **Applies on the next start,** since Chromium fixes the scale when it starts; the setting says
     so. Until settings files exist, the page sends the choice to the main process, which keeps it
     in `display.json` in its data folder.
