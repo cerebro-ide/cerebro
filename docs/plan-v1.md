@@ -39,6 +39,12 @@ target.
   - a popup with a search field over a keyboard-navigable list, non-modal, closing on Escape or a
     click outside: Search Everywhere, Go to File, and searchable branch and worktree pickers, on
     sample data until search lands in milestone 2.
+- **Display scale** (Ido, 2026-10-26): the app takes the OS's display scale by default, and a
+  setting overrides it. Under WSLg the OS scale doesn't reach Electron (measured: scale factor 1),
+  so the default there must come from Windows.
+- **The layout persists** (Ido, 2026-10-26): the layout (tool windows, sizes, environment tabs,
+  editor splits and tabs) keeps its state and stays consistent between runs; today a reload resets
+  it. Stored as local data (see `decisions.md`, settings).
 - **Settings** layered global → repo → worktree, with the Settings dialog (a tree of pages on the
   left, the page on the right).
 - **The build tooling** (`decisions.md`): npm workspaces, TypeScript 6, Vite, Vitest, ESLint and
