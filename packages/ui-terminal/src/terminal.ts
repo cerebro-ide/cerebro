@@ -306,11 +306,14 @@ export class TerminalView {
     const shown = this.cursorVisible && !this.exited && y >= first && y < last;
     this.cursor.hidden = !shown;
     if (!shown) return;
-    this.cursor.style.top = `${String(y * this.rowHeight)}px`;
-    this.cursor.style.left = `${String(buffer.cursorX)}ch`;
+    const top = `${String(y * this.rowHeight)}px`;
+    const left = `${String(buffer.cursorX)}ch`;
+    const moved = this.cursor.style.top !== top || this.cursor.style.left !== left;
+    this.cursor.style.top = top;
+    this.cursor.style.left = left;
     this.cursor.classList.toggle('cerebro-terminal__cursor--focused', this.focused);
-    this.line(y).getCell(buffer.cursorX, this.cell);
-    this.cursor.textContent = this.focused ? this.cell.getChars() : '';
+    // A cursor that moves shows at once: its blink starts again.
+    if (moved) for (const blink of this.cursor.getAnimations()) blink.currentTime = 0;
   }
 
   // The process

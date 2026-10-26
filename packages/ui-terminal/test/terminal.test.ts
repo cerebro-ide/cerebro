@@ -1,6 +1,6 @@
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
-import { userEvent } from 'vitest/browser';
+import { page, userEvent } from 'vitest/browser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TerminalView, type TerminalBackend, type TerminalOptions } from '../src/index.js';
 
@@ -205,7 +205,7 @@ describe('starting and drawing', () => {
     await shows(view, 'stuck', 3000);
   });
 
-  it('draws the cursor: a block with its character while focused, an outline else; or hidden', async () => {
+  it('draws the cursor: a blinking block while focused, an outline else; or hidden', async () => {
     const { host, view } = await started();
     host.output(1, 'ab\x1b[1D');
     const cursor = part(view, '.cerebro-terminal__cursor');
@@ -213,12 +213,27 @@ describe('starting and drawing', () => {
       expect(cursor.style.left).toBe('1ch');
     });
     expect(cursor.hidden).toBe(false);
-    expect(cursor.textContent).toBe('');
+    expect(cursor.getAnimations()).toEqual([]);
     view.focus();
     await vi.waitFor(() => {
-      expect(cursor.textContent).toBe('b');
+      expect(cursor.classList).toContain('cerebro-terminal__cursor--focused');
     });
-    expect(cursor.classList).toContain('cerebro-terminal__cursor--focused');
+    // Blinking: shown half the time; moving starts the blink again, so it shows at once.
+    const [blink] = cursor.getAnimations() as [CSSAnimation];
+    expect(blink.animationName).toBe('cerebro-terminal-blink');
+    blink.currentTime = 700;
+    expect(getComputedStyle(cursor).opacity).toBe('0');
+    host.output(1, '\x1b[1D');
+    await vi.waitFor(() => {
+      expect(cursor.style.left).toBe('0ch');
+    });
+    expect(blink.currentTime).toBeLessThan(500);
+    expect(getComputedStyle(cursor).opacity).toBe('1');
+    // Drawn again in place: the blink goes on.
+    blink.currentTime = 700;
+    host.output(1, '\x1b[?25l\x1b[?25h');
+    await settle();
+    expect(blink.currentTime).toBeGreaterThanOrEqual(700);
     host.output(1, '\x1b[?25l');
     await vi.waitFor(() => {
       expect(cursor.hidden).toBe(true);
@@ -227,6 +242,41 @@ describe('starting and drawing', () => {
     await vi.waitFor(() => {
       expect(cursor.hidden).toBe(false);
     });
+  });
+
+  it('shows what’s under the focused cursor as a negative, coloured text included', async () => {
+    const { host, view } = await started();
+    // Red letters, the cursor on one of them.
+    host.output(1, '\x1b[31mRRRR\x1b[0m\x1b[2D');
+    const cursor = part(view, '.cerebro-terminal__cursor');
+    view.focus();
+    await vi.waitFor(() => {
+      expect(cursor.classList).toContain('cerebro-terminal__cursor--focused');
+    });
+    for (const blink of cursor.getAnimations()) blink.pause();
+    const base64 = await page.screenshot({ element: cursor, save: false });
+    const image = new Image();
+    image.src = `data:image/png;base64,${base64}`;
+    await image.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = image.width;
+    canvas.height = image.height;
+    const context = canvas.getContext('2d') as CanvasRenderingContext2D;
+    context.drawImage(image, 0, 0);
+    const { data } = context.getImageData(0, 0, image.width, image.height);
+    const pixels = Array.from({ length: data.length / 4 }, (_, i) => [
+      data[i * 4] as number,
+      data[i * 4 + 1] as number,
+      data[i * 4 + 2] as number,
+    ]);
+    const near = (rgb: number[], hex: string) =>
+      rgb.every((v, i) => Math.abs(v - (255 - parseInt(hex.slice(1 + i * 2, 3 + i * 2), 16))) <= 2);
+    // The theme's background (#1e2022) and red (#f0524f), each inverted.
+    const background = pixels.filter((rgb) => near(rgb, '#1e2022')).length;
+    const red = pixels.filter((rgb) => near(rgb, '#f0524f')).length;
+    // Most of the cell is background; the letter's strokes are the rest (measured: 40% and more).
+    expect(background / pixels.length).toBeGreaterThan(0.3);
+    expect(red).toBeGreaterThan(0);
   });
 });
 
