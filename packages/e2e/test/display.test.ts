@@ -66,8 +66,5 @@ it('takes the scale chosen in the settings when the app restarts', async () => {
   await running.page.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
   await expect.poll(saved).toBe('{"scale":"auto"}');
   await running.restart();
-  process.stderr.write(
-    `DIAGZOOM ${JSON.stringify(await running.app.evaluate(({ BrowserWindow, screen }) => ({ zoom: BrowserWindow.getAllWindows()[0]?.webContents.getZoomFactor(), screen: screen.getPrimaryDisplay().scaleFactor })))}\n`,
-  );
   expect(await scale()).toBe(before);
 });
