@@ -285,6 +285,11 @@ it('runs a shell in the Terminal tool window', async () => {
       [...document.querySelectorAll('.cerebro-terminal__row')].map((row) => row.textContent.trim()),
     );
   await expect
-    .poll(rows, { message: `page console: ${JSON.stringify(running.messages)}`, timeout: 5000 })
-    .toContain('cerebro-ok');
+    .poll(rows, { timeout: 5000 })
+    .toContain('cerebro-ok')
+    .catch(async () => {
+      throw new Error(
+        `Not shown. Terminal: ${JSON.stringify(await rows())}; console: ${JSON.stringify(running.messages)}`,
+      );
+    });
 });
