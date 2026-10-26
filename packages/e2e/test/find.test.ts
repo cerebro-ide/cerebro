@@ -1,8 +1,8 @@
-// Find in Files end to end: ripgrep through the host, the options, a bad pattern, the preview, and
-// opening a line found.
+// Find end to end: in files (ripgrep through the host, the options, a bad pattern, the preview, and
+// opening a line found), and in a file, with its bar, replacing and saving.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -59,4 +59,25 @@ it('says what’s wrong with a bad regular expression', async () => {
     .poll(() => page().locator('.playground-find__error').textContent(), { timeout: 15_000 })
     .toContain('unclosed group');
   await page().keyboard.press('Escape');
+});
+
+it('finds and replaces in the open file, with the find bar', async () => {
+  // src/use.ts is open, from the first test.
+  await page().locator('.cm-content').click();
+  await page().keyboard.press('ControlOrMeta+f');
+  await page().keyboard.type('Shape');
+  const count = () => page().locator('.cerebro-find__count').textContent();
+  // Case ignored, `./shape` too.
+  await expect.poll(count).toMatch(/^\d\/3$/);
+  await page().keyboard.press('Alt+KeyC');
+  await expect.poll(count).toMatch(/^\d\/2$/);
+  await page().keyboard.press('ControlOrMeta+r');
+  await page().keyboard.type('Form');
+  await page().locator('.cerebro-find__button', { hasText: 'Replace All' }).click();
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect
+    .poll(() => readFileSync(join(repo, 'src', 'use.ts'), 'utf8'))
+    .toBe("import { Form } from './shape';\nnew Form();\n");
+  await page().keyboard.press('Escape');
+  expect(await page().locator('.cerebro-find').count()).toBe(0);
 });
