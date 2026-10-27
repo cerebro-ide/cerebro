@@ -36,7 +36,7 @@ import {
 import { ProjectTree, selectInTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
-import { carets, history, recentTabs, reveals, setupNavigation } from './navigation.js';
+import { carets, history, recentTabs, reveals, setupNavigation, tops } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
@@ -778,6 +778,7 @@ function Code(props: { path: string; env: string }) {
             document={state}
             reveal={() => reveals.get(props.path)}
             onCaret={(at) => carets.set(props.path, at)}
+            onScroll={(top) => tops.set(props.path, top)}
             {...(navigation.available()
               ? {
                   onGoToDefinition: (name: string, at: { line: number; column: number }) =>

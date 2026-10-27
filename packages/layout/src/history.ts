@@ -12,10 +12,14 @@ export interface Position {
   column: number;
 }
 
-/** A tab, and where its caret was, if it has one (a diff has none). */
+/**
+ * A tab, where its caret was, if it has one (a diff has none), and the line at the top of its view,
+ * so going back shows it as it was.
+ */
 export interface Place {
   tab: Tab;
   at?: Position | undefined;
+  top?: number | undefined;
 }
 
 /** How many places are kept behind (a claim, not measured: IntelliJ keeps a few dozen). */
@@ -29,22 +33,25 @@ export class NavigationHistory {
   readonly #area: EditorArea;
   readonly #caret: (tab: string) => Position | undefined;
   readonly #reveal: (place: Place) => void;
+  readonly #top: (tab: string) => number | undefined;
   readonly #watching: Disposable;
   /** The tab going back or forward is making active: reaching it isn't leaving a place. */
   #arriving: string | undefined;
 
   /**
-   * Follows `area`'s active tab. `caret` says where a tab's caret is; `reveal` puts the caret back
-   * at a place's position, once its tab is active.
+   * Follows `area`'s active tab. `caret` says where a tab's caret is, and `top` which line is at
+   * the top of its view; `reveal` puts them back as a place has them, once its tab is active.
    */
   constructor(
     area: EditorArea,
     caret: (tab: string) => Position | undefined,
     reveal: (place: Place) => void,
+    top: (tab: string) => number | undefined = () => undefined,
   ) {
     this.#area = area;
     this.#caret = caret;
     this.#reveal = reveal;
+    this.#top = top;
     makeObservable(this);
     let current: Tab | undefined;
     this.#watching = effect(() => {
@@ -107,7 +114,7 @@ export class NavigationHistory {
   }
 
   #placeOf(tab: Tab): Place {
-    return { tab, at: this.#caret(tab.id) };
+    return { tab, at: this.#caret(tab.id), top: this.#top(tab.id) };
   }
 
   /** Remembers a place left, unless it's where the last one was; what was ahead is forgotten. */

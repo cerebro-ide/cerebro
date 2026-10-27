@@ -123,4 +123,25 @@ describe('NavigationHistory', () => {
     history.goBack();
     expect(reveal).toHaveBeenLastCalledWith({ tab: tab('diff'), at: undefined });
   });
+
+  it('keeps the line at the top of each place’s view, to show it as it was', () => {
+    const area = new EditorArea();
+    const tops = new Map([['a', 40]]);
+    const reveal = vi.fn();
+    const history = new NavigationHistory(
+      area,
+      () => ({ line: 50, column: 0 }),
+      reveal,
+      (id) => tops.get(id),
+    );
+    area.open(tab('a'));
+    area.open(tab('b'));
+    tops.set('a', 0);
+    history.goBack();
+    expect(reveal).toHaveBeenLastCalledWith({
+      tab: tab('a'),
+      at: { line: 50, column: 0 },
+      top: 40,
+    });
+  });
 });
