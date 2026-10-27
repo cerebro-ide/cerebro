@@ -225,6 +225,13 @@ describe('LanguageServers', () => {
     expect(server.exited).toBe(true);
   });
 
+  it('stops once its server has exited, so what it holds can go (CI: its folder couldn’t)', async () => {
+    const server = new LanguageServer(fake('links'), root, () => undefined);
+    await server.ready;
+    await server.stop();
+    expect(server.exited).toBe(true);
+  });
+
   it('kills a server that won’t stop, or can’t be asked to', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
     const stubborn = new LanguageServer(fake('stubborn'), root, () => undefined);

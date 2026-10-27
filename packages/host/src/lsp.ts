@@ -169,18 +169,19 @@ export class LanguageServer {
     );
   }
 
-  /** Asks it to stop, and kills it if it doesn't. */
+  /** Asks it to stop, and kills it if it doesn't; resolves once its process has exited. */
   async stop(): Promise<void> {
     if (this.#exited) return;
+    const gone = new Promise((resolve) => this.#process.once('exit', resolve));
     const kill = setTimeout(() => this.#process.kill(), STOP_WAIT);
     try {
       await this.#connection.request('shutdown');
       this.#connection.notify('exit');
     } catch {
       this.#process.kill();
-    } finally {
-      clearTimeout(kill);
     }
+    await gone;
+    clearTimeout(kill);
   }
 
   async #ask(
