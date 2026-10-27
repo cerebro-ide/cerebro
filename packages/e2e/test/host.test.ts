@@ -194,7 +194,8 @@ it('says why a file can’t be opened', async () => {
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   // Folders are listed once; reloading reads the main worktree's again.
   await page.reload();
-  await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick();
+  // Forced: under xvfb in CI, the row never counted as "stable" (#58's CI).
+  await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick({ force: true });
   await page.locator('.playground-code__note', { hasText: 'binary' }).waitFor();
 });
 
