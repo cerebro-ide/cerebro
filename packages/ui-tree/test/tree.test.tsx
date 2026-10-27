@@ -82,6 +82,81 @@ async function mount(
 }
 
 describe('TreeView', () => {
+  it('spans every row across the widest one, so the selection reaches the end', async () => {
+    const long = `${'a-very-long-folder-name-'.repeat(4)}end`;
+    let roots: Item[] = [
+      { path: long, folder: true },
+      { path: 'short.ts', folder: false },
+    ];
+    const model = new TreeModel<Item>({
+      children: (node) => (node ? [] : roots),
+      key: (node) => node.path,
+      isLeaf: (node) => !node.folder,
+    });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; left: 0; top: 0; width: 200px; height: 200px;';
+    document.body.append(container);
+    const handle = render(
+      () => <TreeView model={model} label="Project" row={(node) => <span>{node.path}</span>} />,
+      container,
+    );
+    cleanup = () => {
+      handle.dispose();
+      container.remove();
+    };
+    await settle();
+    const tree = container.querySelector('.cerebro-tree') as HTMLElement;
+    const short = container.querySelector('[data-key="short.ts"]') as HTMLElement;
+    const longRow = container.querySelector(`[data-key="${long}"]`) as HTMLElement;
+    expect(tree.scrollWidth).toBeGreaterThan(tree.clientWidth);
+    // The rows are inset 12px either side, as WebStorm's.
+    expect(short.getBoundingClientRect().width).toBe(tree.scrollWidth - 24);
+    expect(longRow.scrollWidth).toBe(longRow.clientWidth);
+    // Gone, they're back to the tree's width.
+    roots = [{ path: 'short.ts', folder: false }];
+    await model.refresh();
+    await settle();
+    expect(tree.scrollWidth).toBe(tree.clientWidth);
+    const again = container.querySelector('[data-key="short.ts"]') as HTMLElement;
+    expect(again.getBoundingClientRect().width).toBe(tree.clientWidth - 24);
+  });
+
+  it('keeps that width while scrolling down past the long row', async () => {
+    const long = `${'a-very-long-folder-name-'.repeat(4)}end`;
+    const files = Array.from({ length: 100 }, (_, i) => ({
+      path: `f${String(i)}.ts`,
+      folder: false,
+    }));
+    const model = new TreeModel<Item>({
+      children: (node) => (node ? [] : [{ path: long, folder: true }, ...files]),
+      key: (node) => node.path,
+      isLeaf: (node) => !node.folder,
+    });
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; left: 0; top: 0; width: 200px; height: 200px;';
+    document.body.append(container);
+    const handle = render(
+      () => <TreeView model={model} label="Project" row={(node) => <span>{node.path}</span>} />,
+      container,
+    );
+    cleanup = () => {
+      handle.dispose();
+      container.remove();
+    };
+    await settle();
+    const tree = container.querySelector('.cerebro-tree') as HTMLElement;
+    const wide = tree.scrollWidth;
+    expect(wide).toBeGreaterThan(tree.clientWidth);
+    // Far enough down that the long row isn't drawn.
+    tree.scrollTop = 24 * 60;
+    tree.dispatchEvent(new Event('scroll'));
+    await settle();
+    expect(container.querySelector(`[data-key="${long}"]`)).toBeNull();
+    expect(tree.scrollWidth).toBe(wide);
+    const row = container.querySelector('[data-key="f60.ts"]') as HTMLElement;
+    expect(row.getBoundingClientRect().width).toBe(wide - 24);
+  });
+
   it('draws only the rows in view, in a spacer as tall as all of them', async () => {
     const { model, tree, rows } = await mount();
     model.expand({ path: 'big', folder: true });

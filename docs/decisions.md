@@ -862,7 +862,18 @@ to change:
   or toggles a folder. Click selects, double click opens or toggles, the arrow toggles. Collapsing a
   folder moves a selection inside it to the folder, as IntelliJ does.
 - **The host lists a folder** (`fs.list`): folders first, then files, by name ignoring case;
-  `.git` isn't listed. Ignored files show for now; marking them is for later.
+  `.git` isn't listed. Ignored files show, in the ignored colour (changed 2026-10-27, from Ido:
+  "the file viewer is missing indication of ignored files (different font color)"): `fs.list`
+  marks the entries git ignores, files in an ignored folder too, asking `git check-ignore -z
+  --stdin` (names on its input, so none is quoted and no command line is too long; `-z` works only
+  with `--stdin`, measured). The colour is the Commit window's `--cerebro-vcs-ignored`, on the name
+  alone.
+- **Every row is as wide as the widest drawn row** (changed 2026-10-27, from Ido: the selection
+  "doesn't reach all the way to the end"): rows are absolutely placed, so a long name scrolled the
+  tree sideways while the rows, and the selection's colour, stayed as wide as the view. Only the
+  rows drawn are measured; the widest seen is kept while the rows stay the same, so scrolling down
+  past a long row doesn't narrow them (Ido: "the problem appears when scrolling vertically"). It
+  starts again when a folder opens or closes, the tree is refreshed, or it's resized.
 - **The Project tool window** shows the active environment's tree, one per environment so each keeps
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample

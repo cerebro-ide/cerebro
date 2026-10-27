@@ -1,5 +1,6 @@
 // The Project tool window: the active environment's files as a tree. In the desktop app they come
-// from the host, folder by folder as they're opened; in a browser, from the sample paths. Each
+// from the host, folder by folder as they're opened, those git ignores in the ignored colour, as
+// IntelliJ shows them; in a browser, from the sample paths. Each
 // environment keeps its own tree, so switching back finds its folders as they were.
 
 import type { Tab } from '@cerebro-ide/layout';
@@ -11,6 +12,8 @@ export interface FileNode {
   path: string;
   name: string;
   kind: 'file' | 'directory';
+  /** Git ignores it: its name shows in the ignored colour, as in the Commit tool window. */
+  ignored?: boolean;
 }
 
 /** The sample paths as a tree: `src/main.ts` gives the folder `src` with the file in it. */
@@ -89,7 +92,14 @@ export function ProjectTree(props: {
           <TreeView
             model={modelFor(env.id, props.samples)}
             label={`${env.name} files`}
-            row={(node) => [icon(node.kind === 'directory' ? 'folder' : 'file'), node.name]}
+            row={(node) => [
+              icon(node.kind === 'directory' ? 'folder' : 'file'),
+              node.ignored ? (
+                <span class="playground-change--ignored">{node.name}</span>
+              ) : (
+                node.name
+              ),
+            ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });
             }}

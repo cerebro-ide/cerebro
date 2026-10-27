@@ -1,7 +1,15 @@
 // The host end to end: the app starts it for a repository, and the page shows what it reports.
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -202,6 +210,19 @@ it('says why a file can’t be opened', async () => {
   // Forced: under xvfb in CI, the row never counted as "stable" (#58's CI).
   await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick({ force: true });
   await page.locator('.playground-code__note', { hasText: 'binary' }).waitFor();
+});
+
+it('shows the files git ignores in the ignored colour, as IntelliJ', async () => {
+  const page = running.page;
+  // Ignored through git's own exclude file: no .gitignore to show up as a change in later tests.
+  appendFileSync(join(repo, '.git', 'info', 'exclude'), 'debug.log\n');
+  writeFileSync(join(repo, 'debug.log'), 'x');
+  await page.reload();
+  const name = (file: string) =>
+    page.locator('.cerebro-tree-row', { hasText: file }).locator('.playground-change--ignored');
+  await page.locator('.cerebro-tree-row', { hasText: 'debug.log' }).waitFor();
+  expect(await name('debug.log').count()).toBe(1);
+  expect(await name('README.md').count()).toBe(0);
 });
 
 it('lists the repository’s real worktrees, opening the main one', async () => {

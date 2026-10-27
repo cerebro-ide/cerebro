@@ -1,6 +1,7 @@
 // Git, through its command line: the host runs next to the repos, so git is local to them.
 
 import { execFile } from 'node:child_process';
+import type { Writable } from 'node:stream';
 
 export interface Worktree {
   /** The worktree's folder, absolute. */
@@ -14,16 +15,20 @@ export interface Worktree {
   bare: boolean;
 }
 
-/** Runs git with `args` in `cwd`, `env` added to its environment, resolving with its output. */
+/**
+ * Runs git with `args` in `cwd`, `env` added to its environment and `input` on its standard input,
+ * resolving with its output.
+ */
 export type Git = (
   cwd: string,
   args: readonly string[],
   env?: Readonly<Record<string, string>>,
+  input?: string,
 ) => Promise<string>;
 
-export const git: Git = (cwd, args, env) =>
+export const git: Git = (cwd, args, env, input) =>
   new Promise((resolve, reject) => {
-    execFile(
+    const child = execFile(
       'git',
       [...args],
       { cwd, maxBuffer: 64 * 1024 * 1024, ...(env ? { env: { ...process.env, ...env } } : {}) },
@@ -32,6 +37,10 @@ export const git: Git = (cwd, args, env) =>
         else resolve(stdout);
       },
     );
+    const stdin = child.stdin as Writable;
+    // Git may exit without reading it (outside a repository): the exit is what's reported.
+    stdin.on('error', () => undefined);
+    stdin.end(input);
   });
 
 /** Reads `git worktree list --porcelain`: a block of lines per worktree, blank-line separated. */
@@ -177,6 +186,31 @@ export async function listIgnored(worktree: string, run: Git = git): Promise<str
     .split('\0')
     .filter(Boolean)
     .sort((a, b) => (a < b ? -1 : 1));
+}
+
+/**
+ * Which of a folder's entries git ignores, by name: those in an ignored folder too, but not files
+ * git tracks. None outside a repository.
+ */
+export async function ignoredAmong(
+  folder: string,
+  names: readonly string[],
+  run: Git = git,
+): Promise<Set<string>> {
+  if (names.length === 0) return new Set();
+  try {
+    // On its input, NUL-separated (`-z`), so names are never quoted, nor too many for a command line.
+    const output = await run(
+      folder,
+      ['check-ignore', '-z', '--stdin'],
+      undefined,
+      names.join('\0'),
+    );
+    return new Set(output.split('\0').filter(Boolean));
+  } catch {
+    // It exits with 1 when none is ignored (measured), and fails outside a repository.
+    return new Set();
+  }
 }
 
 /**
