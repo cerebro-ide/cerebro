@@ -26,6 +26,13 @@ common known configurations".
 - **Step 1 done (2026-10-27):** IntelliJ's and VS Code's, for Windows and Linux and for macOS
   (decision "Ready-made keymaps"). Left: changing keys in the Keymap page, and the other keymaps.
 
+### Polish
+
+- **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
+  Recent Files), as IntelliJ's. From Ido (2026-10-27), with a screenshot of the tree: "missing
+  icons per file type - but don't work on the icons now just add it to the list of things to
+  polish".
+
 ## Known gaps
 
 - **Editing:** see "Not yet" in the decision "Editing and saving" (a file with unsaved edits changed
