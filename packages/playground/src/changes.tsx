@@ -18,7 +18,7 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
-import { active, currentHost, gitRepository } from './environments.js';
+import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
 
 export interface Change {
@@ -199,7 +199,7 @@ const lists = new Map<string, Changes>();
 function changesOf(worktree: string): Changes {
   let changes = lists.get(worktree);
   if (!changes) {
-    const host = currentHost() as NonNullable<ReturnType<typeof currentHost>>;
+    const host = hostFor(worktree) as NonNullable<ReturnType<typeof hostFor>>;
     let tracked: Change[] = [];
     let unversioned: Change[] = [];
     let ignored: Change[] = [];
@@ -532,7 +532,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     const env = active();
     if (!env) return;
     try {
-      await currentHost()?.request('git.rollback', {
+      await hostFor(env.id)?.request('git.rollback', {
         path: env.id,
         files: files.map((change) => change.path),
         deleteAdded: deleteAdded.peek(),

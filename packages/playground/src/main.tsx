@@ -42,16 +42,20 @@ import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-too
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
+  activeProject,
   currentHost,
   existingWorktree,
   firstWorktree,
+  hostFor,
+  loadProject,
+  projectOf,
+  projects,
   seedFiles,
   setupEnvironments,
   gitRepository,
-  useFolder,
-  useWorktrees,
+  useProjects,
   workspace,
-  type HostWorktree,
+  type Host,
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
@@ -61,7 +65,15 @@ import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
 import { documentFor, saveAll, setupSaving } from './documents.js';
 import { findInFiles } from './find.js';
-import { currentProject, setupProjects } from './projects.js';
+import {
+  closeProject,
+  openProject,
+  projectAdded,
+  projectRemoved,
+  setupProjects,
+  windowProjects,
+} from './projects.js';
+import type { RecentProject } from './bridge.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
@@ -86,19 +98,16 @@ if (window.cerebro?.app) {
   );
 }
 
-// In the desktop app, the host lists the project's real worktrees; a folder that isn't a git
-// repository is one environment. Without the host (in a browser), the samples stay.
-const project = currentProject();
-if (window.cerebro?.host && project) {
-  try {
-    useWorktrees(
-      (await window.cerebro.host.request('git.worktrees')) as HostWorktree[],
-      window.cerebro.host,
-    );
-  } catch (error) {
-    console.info(`${project.path} opens without git:`, error);
-    useFolder(project.path, window.cerebro.host);
-  }
+// In the desktop app, each project's host lists its real worktrees; a folder that isn't a git
+// repository is one environment. Without the hosts (in a browser), the samples stay.
+const initial = windowProjects();
+/** A project's host, through the app. */
+const hostOf = (path: string): Host => ({
+  request: (method, params) =>
+    (window.cerebro as NonNullable<Window['cerebro']>).host.request(path, method, params),
+});
+if (window.cerebro && initial.length > 0) {
+  useProjects(await Promise.all(initial.map((p) => loadProject(p, hostOf(p.path)))));
 }
 
 const layout = new Layout();
@@ -141,7 +150,21 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 const editor = () => active()?.editor;
 
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
-await setupProjects(services.commands, services.menus);
+/**
+ * Closes the active project: its tabs, then its host. The window's last closes the window, which
+ * saves the files first.
+ */
+async function closeActiveProject(): Promise<void> {
+  const project = activeProject();
+  if (!project) return;
+  if (projects.get().length > 1) {
+    await saveAll().catch(reportSaving);
+    environments.removeProject(project.path);
+    projectRemoved(project.path);
+  }
+  await closeProject(project.path);
+}
+await setupProjects(services.commands, services.menus, closeActiveProject);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
@@ -336,12 +359,22 @@ services.menus.contribute({ menu: 'main/file', item: { command: 'file.saveAll' }
 setupSaving(reportSaving);
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
-  if (!project) seedFiles(env, tabOf);
+  if (initial.length === 0) seedFiles(env, tabOf);
+});
+// A project that joins the window shows at once; one asked to open again comes to the front.
+window.cerebro?.project.onAdded((project) => {
+  projectAdded(project);
+  void loadProject(project, hostOf(project.path)).then((state) => {
+    environments.addProject(state);
+  });
+});
+window.cerebro?.project.onShow((path) => {
+  environments.showProject(path);
 });
 // The layout as it was left, else the defaults: one environment open.
 const persisted = {
-  // Each project keeps its own.
-  key: project ? `cerebro.layout:${project.path}` : 'cerebro.layout',
+  // Each window keeps its own, by its first project.
+  key: initial[0] ? `cerebro.layout:${initial[0].path}` : 'cerebro.layout',
   tools: layout.toolWindows,
   workspace,
   resolve: existingWorktree,
@@ -363,8 +396,13 @@ const status = new StatusBar();
 // The index's progress, from the host in the app; a sample task in a browser.
 const indexing = signal<Progress>(0);
 if (currentHost()) {
-  setupIndexing((listener) => window.cerebro?.host.onNotification(listener) ?? (() => undefined));
-  setupAgents((listener) => window.cerebro?.host.onNotification(listener) ?? (() => undefined));
+  // Indexing and agents are known by their worktree, whichever host they come from.
+  const notifications = (listener: (method: string, params: unknown) => void) =>
+    window.cerebro?.host.onNotification((_project, method, params) => {
+      listener(method, params);
+    }) ?? (() => undefined);
+  setupIndexing(notifications);
+  setupAgents(notifications);
 } else {
   const timer = setInterval(() => {
     const value = indexing.get();
@@ -457,6 +495,81 @@ status.add({
   tooltip: () => 'File Type',
 });
 
+/**
+ * An environment's name on its tab: with its project's once the window has two, unless it's the
+ * project's own folder.
+ */
+function envName(id: string, name: string): string {
+  const project = projectOf(id);
+  return projects.get().length < 2 || !project || project.name === name
+    ? name
+    : `${project.name} · ${name}`;
+}
+
+// The window is named after the active project.
+effect(() => {
+  const project = activeProject();
+  if (window.cerebro && project) document.title = project.name;
+  return undefined;
+});
+
+/** The recent projects, read again each time the Project popup opens. */
+const recentProjects = signal<RecentProject[]>([]);
+
+/**
+ * The toolbar's Project popup, as IntelliJ's project widget: Open…, the window's projects, and the
+ * recent ones, which open as the "Open project in" setting says.
+ */
+function pickProject(button: HTMLElement) {
+  void window.cerebro?.project.recent().then((recent) => {
+    recentProjects.set(recent);
+  });
+  type Choice = { label: string; detail?: string; group?: string; run: () => void };
+  const handle = openPicker<Choice & { icon?: () => Node }>({
+    label: 'Projects',
+    placeholder: 'Search',
+    position: { below: button },
+    owner: button,
+    items: (query) => {
+      const open = projects.get();
+      return [
+        ...fuzzyFilter(
+          services.commands.isEnabled('file.open')
+            ? [{ label: 'Open…', run: () => services.commands.execute('file.open') }]
+            : [],
+          query,
+        ),
+        ...fuzzyFilter(
+          open.map((p) => ({
+            label: p.name,
+            ...(p.path === '' ? {} : { detail: p.path }),
+            group: 'This Window',
+            ...(activeProject() === p ? { icon: () => icon('check') } : {}),
+            run: () => {
+              environments.showProject(p.path);
+            },
+          })),
+          query,
+        ),
+        ...fuzzyFilter(
+          recentProjects
+            .get()
+            .filter((r) => r.exists && !open.some((p) => p.path === r.path))
+            .map((r) => ({
+              label: r.name,
+              detail: r.path,
+              group: 'Recent Projects',
+              run: () => void openProject(r.path),
+            })),
+          query,
+        ),
+      ];
+    },
+  });
+  void handle.result.then((choice) => choice?.run());
+  return handle;
+}
+
 /** The shortcut bound to a command, formatted for this platform. */
 function shortcutOf(command: string): string | undefined {
   const key = services.keymap?.shortcutsFor(command)[0];
@@ -476,10 +589,17 @@ function Header() {
         ),
         <ToolbarDropdown
           services={services}
+          popup={pickProject}
+          label="Project"
+          badge={() => activeProject()?.name ?? ''}
+          text={() => activeProject()?.name ?? 'No project'}
+        />,
+        <ToolbarDropdown
+          services={services}
           popup={environments.pickWorktree}
-          label="Environment"
-          badge={() => active()?.name ?? ''}
-          text={() => active()?.name ?? 'No environment'}
+          label="Worktree"
+          icon={icon('folder')}
+          text={() => active()?.name ?? 'No worktree'}
         />,
         // A folder without git has no branches.
         gitRepository.get() ? (
@@ -674,7 +794,7 @@ function Code(props: { path: string; env: string }) {
  */
 function Diff(props: { path: string; env: string; range: Range | undefined }) {
   const settings = settingsFor(props.env);
-  const host = currentHost();
+  const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
   const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
     undefined,
@@ -780,7 +900,8 @@ render(
           badge={(env) => <AgentBadge worktree={env.id} />}
           label={(env) => () => {
             const file = env.editor.activeGroup.activeTab?.title;
-            return file === undefined ? env.name : `${env.name} – ${file}`;
+            const name = envName(env.id, env.name);
+            return file === undefined ? name : `${name} – ${file}`;
           }}
           onAdd={(button) => {
             openMenu(

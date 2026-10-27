@@ -4,7 +4,7 @@
 
 import type { Tab } from '@cerebro-ide/layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
-import { active, currentHost } from './environments.js';
+import { active, currentHost, hostFor } from './environments.js';
 import { icon } from './icons.js';
 
 export interface FileNode {
@@ -45,7 +45,7 @@ const models = new Map<string, TreeModel<FileNode>>();
 function modelFor(envId: string, samples: readonly string[]): TreeModel<FileNode> {
   let model = models.get(envId);
   if (!model) {
-    const host = currentHost();
+    const host = hostFor(envId);
     const source: TreeSource<FileNode> = host
       ? {
           children: async (node) =>

@@ -8,7 +8,7 @@ import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { documentFor } from './documents.js';
-import { active, currentHost } from './environments.js';
+import { active, hostFor } from './environments.js';
 
 /** A line found, as the host gives it. */
 interface TextMatch {
@@ -104,8 +104,8 @@ function Preview(props: { match: TextMatch }) {
 export async function findInFiles(
   open: (at: { path: string; line: number; column: number }) => void,
 ): Promise<void> {
-  const host = currentHost();
   const worktree = active()?.id;
+  const host = worktree === undefined ? undefined : hostFor(worktree);
   if (!host || worktree === undefined) return;
   const query = signal('');
   const matchCase = signal(false);

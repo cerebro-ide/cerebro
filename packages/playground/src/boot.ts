@@ -1,7 +1,7 @@
 // The page's entry. In the desktop app, a window without a project shows the Welcome screen; one
-// with a project, or the page in a browser, shows the IDE.
+// with projects, or the page in a browser, shows the IDE.
 
-import { loadProject } from './projects.js';
+import { loadProjects } from './projects.js';
 
-const project = await loadProject();
-await (window.cerebro && !project ? import('./welcome.js') : import('./main.js'));
+const projects = await loadProjects();
+await (window.cerebro && projects.length === 0 ? import('./welcome.js') : import('./main.js'));

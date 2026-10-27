@@ -361,7 +361,7 @@ describe('the layout', () => {
     // Rearranged: Project closed, Git opened, another environment, a file opened in it.
     await page().locator('.cerebro-stripe-button[data-id="project"]').click();
     await page().locator('.cerebro-stripe-button[data-id="git"]').click();
-    await page().locator('[aria-label^="Environment:"]').click();
+    await page().locator('[aria-label^="Worktree:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'project-agent' }).click();
     await openLayout();
     const before = await snapshot();

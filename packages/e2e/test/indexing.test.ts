@@ -62,10 +62,16 @@ it('counts in the status bar while it indexes', async () => {
       () =>
         running.page.evaluate(async (worktree) => {
           const { cerebro, statusTexts } = window as unknown as {
-            cerebro: { host: { request(method: string, params: unknown): Promise<unknown> } };
+            cerebro: {
+              project: { current(): Promise<{ path: string }[]> };
+              host: {
+                request(project: string, method: string, params: unknown): Promise<unknown>;
+              };
+            };
             statusTexts: string[];
           };
-          await cerebro.host.request('index.warm', { worktree });
+          const [project] = await cerebro.project.current();
+          await cerebro.host.request(project?.path ?? '', 'index.warm', { worktree });
           return statusTexts.some((text) => /Indexing… [\d,]+ \/ 3,000/.test(text));
         }, gitPath(repo)),
       { timeout: 20_000, interval: 500 },

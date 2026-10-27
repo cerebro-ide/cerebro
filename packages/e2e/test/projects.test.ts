@@ -117,3 +117,50 @@ it('closes a project’s window, and shows the Welcome window after the last', a
     .toEqual(['plain', 'repository']);
   running.page = page;
 });
+
+/** The environment tabs' labels. */
+const tabs = (page: Page) =>
+  page.locator('.cerebro-env-tab .cerebro-env-tab__label').allTextContents();
+
+it('opens a project in this window as more tabs, each with its own host, and they reopen together', async () => {
+  const welcome = running.page;
+  await choose(repo);
+  const opened = running.app.waitForEvent('window');
+  await welcome.locator('.playground-welcome button', { hasText: 'Open' }).click();
+  const page = await opened;
+  await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
+  await choose(plain);
+  await openFromMenu(page);
+  const dialog = page.locator('.cerebro-dialog', { hasText: 'Where would you like to open' });
+  await dialog.locator('button', { hasText: 'This Window' }).click();
+  // The window keeps its project, and shows the other's files, through its own host.
+  await page.locator('.cerebro-tree-row', { hasText: 'docs' }).waitFor({ timeout: 15_000 });
+  expect(await titles()).toEqual(['plain']);
+  expect(await tabs(page)).toEqual(['repository', 'plain']);
+  // Without git there, no branch selector while it's active.
+  expect(await page.locator('.cerebro-toolbar-dropdown[aria-label="Branch"]').count()).toBe(0);
+  // The Project popup lists the window's projects, and shows one when chosen.
+  await page.locator('[aria-label^="Project:"]').click();
+  await expect
+    .poll(() => page.locator('.cerebro-popup-item .cerebro-popup-item__label').allTextContents())
+    .toEqual(['Open…', 'repository', 'plain']);
+  await page.locator('.cerebro-popup-item', { hasText: 'repository' }).click();
+  await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
+  await expect.poll(titles).toEqual(['repository']);
+  // At the next start, both in one window.
+  await running.restart();
+  await expect.poll(() => tabs(running.page), { timeout: 15_000 }).toHaveLength(2);
+  expect(running.app.windows()).toHaveLength(1);
+});
+
+it('closes one of a window’s projects: its tabs go, the window stays', async () => {
+  const page = running.page;
+  await page.locator('.cerebro-env-tab', { hasText: 'plain' }).click();
+  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click();
+  await page.keyboard.type('Close Project');
+  await page.locator('.cerebro-popup-item', { hasText: 'Close Project' }).click();
+  await expect.poll(titles).toEqual(['repository']);
+  // One environment: the tabs hide.
+  await expect.poll(() => page.locator('.cerebro-env-tabs').isHidden()).toBe(true);
+  await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
+});

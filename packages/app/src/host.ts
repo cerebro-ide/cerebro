@@ -86,9 +86,9 @@ export class Hosts {
         window.send(HOST_NOTIFICATION, repo, method, params);
       });
     }
-    let hosts = this.running.get(window.id);
-    if (!hosts) this.running.set(window.id, (hosts = new Map()));
+    const hosts = this.running.get(window.id) ?? new Map<string, ReturnType<typeof startHost>>();
     hosts.set(repo, host);
+    this.running.set(window.id, hosts);
   }
 
   /** Stops the host of a project in a window, or without one, all of the window's. */

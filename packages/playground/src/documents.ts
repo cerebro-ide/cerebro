@@ -5,7 +5,7 @@
 // them.
 
 import { EditorDocument } from '@cerebro-ide/ui-editor';
-import { currentHost } from './environments.js';
+import { currentHost, hostFor } from './environments.js';
 
 /** How often open files are read again for changes on disk, while the window has the focus. */
 export const RELOAD_EVERY = 2000;
@@ -21,7 +21,7 @@ const documents = new Map<string, Promise<Loaded>>();
 export function documentFor(path: string, sample: () => string): Promise<Loaded> {
   let loaded = documents.get(path);
   if (!loaded) {
-    const host = currentHost();
+    const host = hostFor(path);
     loaded = host
       ? host.request('fs.read', { path }).then(
           (result) => new EditorDocument((result as { text: string }).text),
@@ -49,11 +49,11 @@ async function opened(): Promise<[string, EditorDocument][]> {
 
 /** Saves every modified document; a file that can't be saved is reported, and stays modified. */
 export async function saveAll(): Promise<void> {
-  const host = currentHost();
-  if (!host) return;
+  if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
-    if (!doc.modified.peek()) continue;
+    const host = hostFor(path);
+    if (!host || !doc.modified.peek()) continue;
     // What's written, which the editor may change while it's being written.
     const text = doc.text.peek();
     try {
@@ -68,10 +68,10 @@ export async function saveAll(): Promise<void> {
 
 /** Reads the open files again, taking what changed on disk where there are no unsaved edits. */
 export async function reloadAll(): Promise<void> {
-  const host = currentHost();
-  if (!host) return;
+  if (!currentHost()) return;
   for (const [path, doc] of await opened()) {
-    if (doc.modified.peek()) continue;
+    const host = hostFor(path);
+    if (!host || doc.modified.peek()) continue;
     try {
       const { text } = (await host.request('fs.read', { path })) as { text: string };
       doc.changedOnDisk(text);

@@ -3,7 +3,7 @@
 // ag-charts' 5,231 source files took 14 s, measured).
 
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
-import { active, currentHost, gitRepository } from './environments.js';
+import { active, currentHost, hostFor, projectOf } from './environments.js';
 
 /** How far each worktree's indexing has got. */
 export const progress = new ObservableMap<string, { done: number; total: number }>();
@@ -12,8 +12,7 @@ export const progress = new ObservableMap<string, { done: number; total: number 
 export function setupIndexing(
   onNotification?: (listener: (method: string, params: unknown) => void) => () => void,
 ): void {
-  const host = currentHost();
-  if (!host) return;
+  if (!currentHost()) return;
   onNotification?.((method, params) => {
     if (method !== 'index.progress') return;
     const { worktree, done, total } = params as { worktree: string; done: number; total: number };
@@ -22,7 +21,8 @@ export function setupIndexing(
   effect(() => {
     const env = active();
     // The index reads files through git: a folder without git has none yet.
-    if (env && gitRepository.get()) void host.request('index.warm', { worktree: env.id });
+    if (env && projectOf(env.id)?.git)
+      void hostFor(env.id)?.request('index.warm', { worktree: env.id });
     return undefined;
   });
 }

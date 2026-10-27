@@ -1,5 +1,5 @@
-// Terminals in the active worktree, run by the host: the Terminal tool window's shells, as tabs,
-// and the Claude tool window's agent. Each worktree keeps its own, running while another is shown;
+// Terminals in the active worktree, run by its project's host: the Terminal tool window's shells, as
+// tabs, and the Claude tool window's agent. Each worktree keeps its own, running while another is shown;
 // a view made again for the same worktree (switching back, or after a reload) shows the same
 // process.
 
@@ -9,23 +9,27 @@ import { agentArgs, agentEnded } from './agents.js';
 
 type Listener<T extends unknown[]> = (...args: T) => void;
 
-/** The host's terminal methods and notifications, through the desktop app. */
-function backend(host: NonNullable<Window['cerebro']>['host']): TerminalBackend {
+/**
+ * A project's host's terminal methods and notifications, through the desktop app. Terminals are
+ * numbered by each host: only the project's own notifications are its terminals'.
+ */
+function backend(host: NonNullable<Window['cerebro']>['host'], project: string): TerminalBackend {
   const data = new Set<Listener<[number, string]>>();
   const exits = new Set<Listener<[number, number]>>();
-  host.onNotification((method, params) => {
+  host.onNotification((from, method, params) => {
+    if (from !== project) return;
     const p = params as { id: number; data: string; exitCode: number };
     if (method === 'terminal.data') for (const listener of data) listener(p.id, p.data);
     if (method === 'terminal.exit') for (const listener of exits) listener(p.id, p.exitCode);
   });
   const send = (method: string, params: unknown) => {
-    host.request(method, params).catch((error: unknown) => {
+    host.request(project, method, params).catch((error: unknown) => {
       console.error(`${method} failed`, error);
     });
   };
   return {
     open: (options) =>
-      host.request('terminal.open', options) as Promise<{
+      host.request(project, 'terminal.open', options) as Promise<{
         id: number;
         buffer: string;
         exitCode?: number;
@@ -53,7 +57,27 @@ function backend(host: NonNullable<Window['cerebro']>['host']): TerminalBackend 
 export type TerminalKind = 'shell' | 'claude';
 
 const host = window.cerebro?.host;
-const shared = host ? backend(host) : undefined;
+/** Each project's terminals, by its path. */
+const backends = new Map<string, TerminalBackend>();
+let projectOf: (worktree: string) => string | undefined = () => undefined;
+
+/** How a worktree's project is found: its terminals run on that project's host. */
+export function setTerminalProject(resolve: (worktree: string) => string | undefined): void {
+  projectOf = resolve;
+}
+
+/** The terminals of a worktree's project, in the desktop app. */
+function backendFor(worktree: string): TerminalBackend | undefined {
+  const project = projectOf(worktree);
+  if (!host || project === undefined) return undefined;
+  let found = backends.get(project);
+  if (!found) {
+    found = backend(host, project);
+    backends.set(project, found);
+  }
+  return found;
+}
+
 const views = new Map<string, TerminalView>();
 let passKey: (event: KeyboardEvent) => boolean = () => false;
 
@@ -64,9 +88,10 @@ export function setTerminalKeys(pass: (event: KeyboardEvent) => boolean): void {
 
 /** The worktree's terminal under this key, made the first time it's asked for. */
 function terminal(kind: TerminalKind, worktree: string, key: string): TerminalView | undefined {
-  if (!shared) return undefined;
   let view = views.get(key);
   if (!view) {
+    const shared = backendFor(worktree);
+    if (!shared) return undefined;
     view = new TerminalView(shared, {
       key,
       cwd: worktree,
