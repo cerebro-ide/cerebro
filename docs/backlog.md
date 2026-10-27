@@ -12,20 +12,6 @@ Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as t
 something we can get to designing a bit later on". It needs a design before it's built; the
 Terminal tool window's tabs (decision "Several terminals") are the pieces to reuse.
 
-### Themes: match Islands Light, name them Islands Dark and Islands Light, choose them in Settings
-
-From Ido (2026-10-26), with a screenshot of IntelliJ's light theme and its Settings dialog.
-
-- **Match the light theme to IntelliJ's "Islands Light",** with that screenshot as the reference,
-  as the dark theme was matched to Islands Dark. Today's light theme approximates IntelliJ's new UI
-  and wasn't measured.
-- **Names:** "Islands Dark" and "Islands Light". IntelliJ also has plain "Dark" and "Light",
-  without the islands' rounded corners. Ido: "MAYBE we'll do in the future, but for now these are
-  fine."
-- **Where it's chosen, as in IntelliJ's Settings:** Appearance & Behavior → Appearance → Theme, a
-  dropdown, with a "Sync with OS" checkbox beside it. Cerebro's Settings has an Appearance page
-  with a Theme setting already; it should follow this layout and naming.
-
 ### Keymaps: configurable, with IntelliJ's ready-made ones to choose from
 
 From Ido (2026-10-26), with a screenshot of IntelliJ's Settings → Keymap: "not only should keymapping

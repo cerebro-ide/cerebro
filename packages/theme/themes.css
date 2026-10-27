@@ -1,8 +1,8 @@
 /*
  * Theme variables. Every Cerebro component and plugin styles itself with these, so a theme is only a
  * set of values. Dark is the default; set data-cerebro-theme="light" on an ancestor for light.
- * Dark is measured from WebStorm's Islands theme (a screenshot, 2026-10-26); light approximates
- * IntelliJ's new UI.
+ * Islands Dark is measured from a screenshot of WebStorm's (2026-10-26); Islands Light, where marked,
+ * from one of IntelliJ's (Ido's, 2026-10-26, a lossy WebP: values within a few units).
  */
 
 :root,
@@ -19,6 +19,8 @@
   --cerebro-background: #1e2022;
   /* Tool window islands. */
   --cerebro-panel: #191a1c;
+  /* Dialogs. */
+  --cerebro-dialog: #191a1c;
   --cerebro-stripe: #25282c;
   --cerebro-border: #25282c;
   --cerebro-separator: #40434b;
@@ -119,24 +121,28 @@
 [data-cerebro-theme='light'] {
   color-scheme: light;
 
-  --cerebro-frame: #ebecf0;
+  /* Measured: the frame, the islands (tool windows as white as the editor), dialogs. */
+  --cerebro-frame: #e8eaee;
   --cerebro-background: #ffffff;
-  --cerebro-panel: #f7f8fa;
-  --cerebro-stripe: #ebecf0;
-  --cerebro-border: #ebecf0;
+  --cerebro-panel: #ffffff;
+  --cerebro-dialog: #f6f8fa;
+  --cerebro-stripe: #e8eaee;
+  --cerebro-border: #e8eaee;
   --cerebro-separator: #dfe1e5;
   --cerebro-text: #1e1f22;
   --cerebro-text-muted: #6c707e;
   --cerebro-icon: #6c707e;
   --cerebro-hover: rgb(0 0 0 / 0.05);
-  --cerebro-selected: #dfe1e5;
-  --cerebro-stripe-selected: #dfe1e5;
+  /* Measured: a tree's selected row, a stripe's selected button, the active tab and its outline,
+     a focused list's selected row. */
+  --cerebro-selected: #e8eaee;
+  --cerebro-stripe-selected: #d9d9e0;
   --cerebro-tab-text: #494b57;
-  --cerebro-tab-active: #ebecf0;
-  --cerebro-tab-active-border: #c9ccd6;
+  --cerebro-tab-active: #e8eaee;
+  --cerebro-tab-active-border: #cbcdcf;
   --cerebro-tab-active-text: #000000;
   --cerebro-tree-arrow: #818594;
-  --cerebro-menu-highlight: #d5e1ff;
+  --cerebro-menu-highlight: #d0e0fd;
   --cerebro-tooltip: #ffffff;
   --cerebro-tooltip-border: #dfe1e5;
   --cerebro-accent: #3574f0;
@@ -149,7 +155,8 @@
      IntelliJ's grey (MainWindow.FullScreeControl.Background, Islands' theme file). */
   --cerebro-fullscreen-button: #7a7b80;
   --cerebro-input: #ffffff;
-  --cerebro-input-border: #c9ccd6;
+  /* Measured: a field's and a dropdown's border. */
+  --cerebro-input-border: #d1d3d5;
   --cerebro-error: #db3b4b;
   /* The editor, as IntelliJ's light theme. */
   --cerebro-editor-active-line: #f5f8fe;

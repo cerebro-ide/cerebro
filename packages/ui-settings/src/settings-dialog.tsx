@@ -215,6 +215,38 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
     }
   };
 
+  const Reset = (p: { spec: SettingSpec }) => () =>
+    draft.isSet(state.scope, p.spec.id) ? (
+      <button
+        type="button"
+        class="cerebro-setting__reset"
+        on:click={() => {
+          draft.reset(state.scope, p.spec.id);
+        }}
+      >
+        Reset
+      </button>
+    ) : null;
+
+  /** A setting shown on another's row: its control, then its title, as a checkbox's label. */
+  const Beside = (p: { spec: SettingSpec }) => (
+    <span
+      class={() =>
+        cls(
+          'cerebro-setting__beside',
+          draft.isSet(state.scope, p.spec.id) && 'cerebro-setting__beside--set',
+        )
+      }
+      data-setting={p.spec.id}
+    >
+      <label class="cerebro-setting__beside-label">
+        <Control spec={p.spec} />
+        <span class="cerebro-setting__beside-title">{p.spec.title}</span>
+      </label>
+      <Reset spec={p.spec} />
+    </span>
+  );
+
   const Setting = (p: { spec: SettingSpec }) => {
     const { spec } = p;
     const isSet = () => draft.isSet(state.scope, spec.id);
@@ -226,19 +258,13 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
         <div class="cerebro-setting__row">
           <span class="cerebro-setting__title">{spec.title}</span>
           <Control spec={spec} />
-          {() =>
-            isSet() ? (
-              <button
-                type="button"
-                class="cerebro-setting__reset"
-                on:click={() => {
-                  draft.reset(state.scope, spec.id);
-                }}
-              >
-                Reset
-              </button>
-            ) : null
-          }
+          <Reset spec={spec} />
+          {registry
+            .onPage(spec.page)
+            .filter((other) => other.beside === spec.id)
+            .map((other) => (
+              <Beside spec={other} />
+            ))}
         </div>
         {spec.description === undefined ? null : (
           <div class="cerebro-setting__note">{spec.description}</div>
@@ -270,7 +296,10 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
         {settingsHere.length === 0 ? (
           <div class="cerebro-settings__empty">Choose a page below {page.title}</div>
         ) : (
-          settingsHere.map((spec) => <Setting spec={spec} />)
+          settingsHere
+            // One shown beside another is on that one's row.
+            .filter((spec) => !settingsHere.some((other) => other.id === spec.beside))
+            .map((spec) => <Setting spec={spec} />)
         )}
       </div>
     );

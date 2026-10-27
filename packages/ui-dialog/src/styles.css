@@ -18,7 +18,7 @@
   max-height: calc(100vh - 32px);
   border: 1px solid var(--cerebro-separator);
   border-radius: 8px;
-  background: var(--cerebro-panel);
+  background: var(--cerebro-dialog);
   box-shadow: var(--cerebro-shadow);
   color: var(--cerebro-text);
   font-family: var(--cerebro-font);

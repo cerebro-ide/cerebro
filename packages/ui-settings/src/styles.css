@@ -125,8 +125,23 @@
 }
 
 /* A setting set in the scope being edited, as IntelliJ marks a changed one. */
-.cerebro-setting--set .cerebro-setting__title {
+.cerebro-setting--set .cerebro-setting__title,
+.cerebro-setting__beside--set .cerebro-setting__beside-title {
   color: var(--cerebro-accent);
+}
+
+/* A setting on another's row, after its control: a checkbox and its title. */
+.cerebro-setting__beside {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 8px;
+}
+
+.cerebro-setting__beside-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cerebro-setting__input--invalid,
