@@ -185,7 +185,8 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   // the name appears, as the index finds them.
   await page.keyboard.press('ControlOrMeta+Shift+N');
   await page.keyboard.type('run.sh');
-  await page.locator('.cerebro-popup-item__label', { hasText: 'run.sh' }).waitFor();
+  // Highlighted: Enter opens what's highlighted, which follows the query as it's typed.
+  await page.locator('.cerebro-popup-item--highlighted', { hasText: 'run.sh' }).waitFor();
   await page.keyboard.press('Enter');
   await page.locator('.cm-line', { hasText: /^greet$/ }).click();
   await page.keyboard.press('Home');
