@@ -243,7 +243,8 @@ it('lists the repository’s real worktrees, opening the main one', async () => 
     'Main Worktree',
     'Worktrees',
   ]);
-  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
+  // Forced: in CI under xvfb this click waited forever for the item to be "stable" (#68's run).
+  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click({ force: true });
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: feat/e2e',
   );
@@ -319,7 +320,8 @@ it('offers to remove a linked worktree, but not the main one', async () => {
   // Two tabs, so the tabs show.
   // Forced: under xvfb in CI this click waited forever for it to be "stable".
   await page.locator('[aria-label^="Worktree:"]').click({ force: true });
-  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
+  // Forced: in CI under xvfb this click waited forever for the item to be "stable" (#68's run).
+  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click({ force: true });
   expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
   expect(await removable(gitPath(repo))).toBe(false);
 });

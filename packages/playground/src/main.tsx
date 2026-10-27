@@ -65,6 +65,7 @@ import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
 import { documentFor, saveAll, setupSaving } from './documents.js';
 import { findInFiles } from './find.js';
+import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
   closeProject,
   openProject,
@@ -203,13 +204,26 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
-// Find in Files and Replace in Files, through the host: Edit → Find, as IntelliJ's.
+// Find in Files and Replace in Files, through the host: Edit → Find, as IntelliJ's. What's found
+// can go to the Find tool window, which appears the first time, as IntelliJ's.
+const inFindWindow = (occurrences: Occurrences) => {
+  if (!layout.toolWindows.windows.has('find')) {
+    layout.toolWindows.register({ id: 'find', title: 'Find', anchor: 'bottom', icon: 'search' });
+  }
+  showOccurrences(occurrences);
+  layout.toolWindows.show('find');
+};
 services.commands.register({
   id: 'find.inFiles',
   label: 'Find in &Files…',
   dialog: true,
   enabled: navigation.available,
-  run: () => findInFiles(navigation.openAt, editor()?.activeGroup.active),
+  run: () =>
+    findInFiles({
+      open: navigation.openAt,
+      showOccurrences: inFindWindow,
+      file: editor()?.activeGroup.active,
+    }),
 });
 services.keymap?.bindDefault('Mod+Shift+F', 'find.inFiles');
 services.menus.contribute({
@@ -223,7 +237,13 @@ services.commands.register({
   label: '&Replace in Files…',
   dialog: true,
   enabled: navigation.available,
-  run: () => findInFiles(navigation.openAt, editor()?.activeGroup.active, true),
+  run: () =>
+    findInFiles({
+      open: navigation.openAt,
+      showOccurrences: inFindWindow,
+      file: editor()?.activeGroup.active,
+      replacing: true,
+    }),
 });
 services.keymap?.bindDefault('Mod+Shift+R', 'replace.inFiles');
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'replace.inFiles' } });
@@ -715,6 +735,7 @@ function Content(props: { id: string }) {
   if (props.id === 'commit')
     return <ChangesView services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
+  if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   // A plugin's view fills a container element, however it likes.
   const view = views.get(props.id);
