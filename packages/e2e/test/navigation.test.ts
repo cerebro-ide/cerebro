@@ -1,4 +1,5 @@
-// Navigation end to end: Back and Forward through the places the caret was, and Recent Files.
+// Navigation end to end: Back and Forward through the places the caret was, Recent Files, and Go
+// to Line.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -92,4 +93,19 @@ it('lists the recent files, the latest first, and goes to the one before with En
   expect(await labels()).toEqual(['a.ts', 'b.ts']);
   await page().keyboard.press('Enter');
   await expect.poll(where).toMatchObject({ tab: 'b.ts' });
+});
+
+it('goes to a line and column, from the caret’s, and back', async () => {
+  await open('a.ts');
+  await page().locator('.cm-line').first().click();
+  await page().keyboard.press('Home');
+  await page().keyboard.press(mac ? 'Meta+l' : 'Control+g');
+  const field = page().locator('.cerebro-dialog-field__input');
+  expect(await field.inputValue()).toBe('1:1');
+  // Typed over the selected text.
+  await page().keyboard.type('82:8');
+  await page().keyboard.press('Enter');
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  await page().keyboard.press(mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft');
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'target();' });
 });

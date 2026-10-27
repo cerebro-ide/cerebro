@@ -25,7 +25,13 @@ import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusb
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
-import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
+import {
+  CodeEditor,
+  DiffEditor,
+  formatLineColumn,
+  parseLineColumn,
+  type EditorDocument,
+} from '@cerebro-ide/ui-editor';
 import { ProjectTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
@@ -47,7 +53,7 @@ import {
   type HostWorktree,
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
-import { openDialog } from '@cerebro-ide/ui-dialog';
+import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
@@ -244,6 +250,40 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+E', 'view.recentFiles');
 services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
+// Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
+/** The active tab's file, if it's one (not a diff). */
+const activeFile = () => {
+  const tab = editor()?.activeGroup.activeTab;
+  return tab && diffPath(tab.id) === undefined ? tab : undefined;
+};
+services.commands.register({
+  id: 'navigate.goToLine',
+  label: '&Line/Column',
+  dialog: true,
+  enabled: () => activeFile() !== undefined,
+  run: async () => {
+    const file = activeFile();
+    if (!file) return;
+    const current = carets.get(file.id) ?? { line: 0, column: 0 };
+    const typed = await prompt({
+      title: 'Go to Line:Column',
+      label: '[Line] [:column]:',
+      value: formatLineColumn(current),
+      validate: (text) =>
+        parseLineColumn(text, current) === undefined ? 'Not a line or column' : undefined,
+    });
+    const at = typed === undefined ? undefined : parseLineColumn(typed, current);
+    if (!at) return;
+    history()?.record();
+    reveals.set(file.id, at);
+  },
+});
+services.keymap?.bindDefault(mac ? 'Mod+L' : 'Ctrl+G', 'navigate.goToLine');
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.goToLine' },
+  group: 'b',
+});
 window.addEventListener('mouseup', (event) => {
   const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
   if (command === undefined || !services.commands.isEnabled(command)) return;
