@@ -1,8 +1,9 @@
 // Scrollbars as IntelliJ's: a rounded thumb drawn over the content, which shows through it, taking no
 // room. The browser's own scrollbars are hidden (styles.css; a shadow root needs
-// `scrollbar-width: none` of its own), and a layer over the page draws the thumbs of the areas under
-// the pointer, and of an area while it scrolls, fading out after. A thumb is less transparent under the
-// pointer, and can be dragged.
+// `scrollbar-width: none` of its own), and thumbs are drawn for the areas under the pointer, and for
+// an area while it scrolls, fading out after. Each is stacked at its area's level, so what's over the
+// area (a popup) covers its thumbs too. A thumb is less transparent under the pointer, and can be
+// dragged.
 
 /** How long an area's thumbs stay after it scrolled, the pointer elsewhere, in milliseconds. */
 export const HIDE_AFTER = 1000;
@@ -50,6 +51,21 @@ function measure(size: number, view: number, offset: number) {
   if (size <= view) return undefined;
   const length = Math.max(MIN_LENGTH, (view * view) / size);
   return { start: ((view - length) * offset) / (size - view), length };
+}
+
+/**
+ * The level an element is drawn at among the page's: the z-index of its outermost ancestor that
+ * has one (through shadow roots' hosts); 1, just over the page, when none has.
+ */
+function levelOf(element: Element): number {
+  let level = 1;
+  for (let node: Element | null = element; node;) {
+    const z = Number.parseInt(getComputedStyle(node).zIndex, 10);
+    if (!Number.isNaN(z)) level = z;
+    const parent: Node | null = node.parentNode;
+    node = parent instanceof ShadowRoot ? parent.host : node.parentElement;
+  }
+  return level;
 }
 
 /** Puts an area's thumbs over its edges, as it's scrolled. */
@@ -142,12 +158,16 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
   const attach = (scroller: HTMLElement): Bars => {
     const existing = shown.get(scroller);
     if (existing) return existing;
+    // At the area's level, and after what's over it at the same level (a popup opened since).
+    const level = levelOf(scroller);
+    document.body.append(layer);
     const thumb = (axis: Axis) => {
       const element = document.createElement('div');
       element.className = `cerebro-scrollbar cerebro-scrollbar--${axis}`;
       element.addEventListener('pointerdown', (event) => {
         drag(bars, axis, event);
       });
+      element.style.zIndex = String(level);
       layer.append(element);
       return element;
     };
