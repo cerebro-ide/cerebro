@@ -965,6 +965,10 @@ change.
   worktree and server, started when a file of its language opens, stopped after 10 minutes unused
   (a claim: long enough to come back to a worktree), as "Many worktrees must be proven solvable"
   planned.
+- **Only in a project TypeScript sees whole:** a file with a `tsconfig.json` or `jsconfig.json` in
+  its folder or one above, within the worktree. Without one, TypeScript's server makes a project
+  of the open files alone. Measured in the app: Find Usages said "No usages" where an unopened file
+  called the function. Such files get the name matches instead.
 - **The file as the editor has it:** each request sends the file's text, so unsaved edits are
   answered as they are (the server's copy follows them).
 - **Name matches when no server answers:** a language without a server, a server that fails, or

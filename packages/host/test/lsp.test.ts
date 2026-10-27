@@ -114,6 +114,22 @@ describe('LanguageServers', () => {
     expect(servers.size).toBe(0);
   });
 
+  it('has no answer for a file outside any project its server needs, as TypeScript’s', async () => {
+    const project = `${root}/projects`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(`${project}/app/src`, { recursive: true });
+    writeFileSync(`${project}/app/project.json`, '{}');
+    const needy: ServerSpec = { ...fake('links'), projectFiles: ['project.json'] };
+    const servers = pool([needy]);
+    // Its project file in a folder above, up to the worktree: asked.
+    const inside = { path: `${project}/app/src/a.fake`, text: 'x' };
+    expect(await servers.definitions(project, inside, at(0, 0))).not.toBeNull();
+    // None between it and the worktree: not asked, so the name matches show instead of nothing.
+    const outside = { path: `${project}/a.fake`, text: 'x' };
+    expect(await servers.definitions(project, outside, at(0, 0))).toBeNull();
+    expect(servers.size).toBe(1);
+  });
+
   it('opens a file in its server ahead of a question, answering what the server asks', async () => {
     writeFileSync(log, '');
     const servers = pool([fake('links')]);

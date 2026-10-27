@@ -55,6 +55,8 @@ async function untilAnswered<T>(keys: string, answered: () => Promise<T>): Promi
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  // TypeScript's server sees a project whole only with a tsconfig.json.
+  writeFileSync(join(repo, 'tsconfig.json'), '{}');
   // Two functions named run: the index can't tell which is meant, TypeScript can.
   writeFileSync(join(repo, 'lib.ts'), 'export function run() {}\n');
   writeFileSync(join(repo, 'other.ts'), 'export function run() {}\nrun();\n');
