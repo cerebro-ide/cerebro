@@ -291,7 +291,7 @@ describe('CodeEditor', () => {
       const line = root
         .elementsFromPoint(box.left + box.width / 2, box.top + 1)
         .find((e) => e.classList.contains('cm-line'));
-      return Number(line?.textContent?.split(' ')[1]);
+      return Number(line?.textContent.split(' ')[1]);
     };
     // Far down: the lines above that were never drawn have estimated heights, so it's whichever
     // line is drawn there.
