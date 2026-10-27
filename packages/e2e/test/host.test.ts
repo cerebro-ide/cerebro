@@ -321,8 +321,13 @@ it('opens more terminals as tabs, each its own shell, and closes them', async ()
       .allTextContents()
       .then((rows) => rows.join(''));
   expect(await titles()).toEqual(['Local']);
-  // Forced: under xvfb in CI, clicks can wait forever for the button to be "stable".
-  await window.locator('[aria-label="New Tab"]').click({ force: true });
+  // The new shell has the keys at once, in the same task as the click: in CI, keys typed a frame
+  // later went to the + button. Clicked from the page to read the focus in that same task.
+  const focused = await page.evaluate(() => {
+    document.querySelector<HTMLElement>('[aria-label="New Tab"]')?.click();
+    return document.activeElement?.closest('.cerebro-terminal')?.isConnected ?? false;
+  });
+  expect(focused).toBe(true);
   expect(await titles()).toEqual(['Local', 'Local (2)']);
   // The new shell has the keys.
   await page.keyboard.type('echo second-shell');

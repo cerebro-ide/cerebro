@@ -539,8 +539,10 @@ function TerminalTabs() {
     // In a plain browser there are no terminals to show tabs for.
     if (!env || !window.cerebro) return null;
     const shells = shellsFor(env.id);
+    // At once, not a frame later: keys typed meanwhile went to the + button, whose Space opened
+    // yet another tab.
     const focus = () => {
-      requestAnimationFrame(() => shells.view(shells.active)?.focus());
+      shells.view(shells.active)?.focus();
     };
     return (
       <ToolTabs
