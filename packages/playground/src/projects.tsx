@@ -1,8 +1,8 @@
 // Projects, in the desktop app: the folders this window shows, as tabs, opening another (File →
 // Open… with the system's folder picker, or a recent one), and closing one. As IntelliJ's, opening a
-// project while one is open asks whether it joins this window or gets a new one, unless the "Open
-// project in" setting says. The app keeps the windows and the recent projects
-// (packages/app/src/projects.ts).
+// project while one is open asks where, unless the "Open project in" setting says: This Window, in
+// the active project's place, or New Window, as more tabs (Ido's: IntelliJ's windows merged into
+// tabs). The app keeps the windows and the recent projects (packages/app/src/projects.ts).
 
 import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
@@ -21,6 +21,13 @@ export async function loadProjects(): Promise<Project[]> {
 /** The projects this window shows: none in a browser, or in the Welcome window. */
 export function windowProjects(): readonly Project[] {
   return opened;
+}
+
+let activePath: () => string | undefined = () => undefined;
+
+/** How the active project is found: This Window opens a project in its place. */
+export function setActiveProject(find: () => string | undefined): void {
+  activePath = find;
 }
 
 /** A project joined this window. */
@@ -83,7 +90,7 @@ export async function openProject(path: string): Promise<void> {
   }
   if (!where) return;
   try {
-    await bridge.open(path, where);
+    await bridge.open(path, where, where === 'this' ? activePath() : undefined);
   } catch (error) {
     showError('Couldn’t Open the Project', error);
   }

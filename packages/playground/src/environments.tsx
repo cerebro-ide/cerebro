@@ -189,8 +189,11 @@ export function setupEnvironments(
   seed: (env: Environment) => void,
 ): {
   open: (id: string) => void;
-  /** Takes a project that joined the window, and shows its main worktree. */
-  addProject: (project: ProjectState) => void;
+  /**
+   * Takes a project that joined the window, and shows its main worktree; one that `replaces`
+   * another takes its place, and its first tab's.
+   */
+  addProject: (project: ProjectState, replaces?: string) => void;
   /** Shows a project: its environment last active, else its main worktree. */
   showProject: (path: string) => void;
   /** Closes a project's environments and drops its worktrees: before its host stops. */
@@ -272,11 +275,19 @@ export function setupEnvironments(
   };
   for (const project of projects.get()) register(project);
 
-  const addProject = (project: ProjectState) => {
+  const addProject = (project: ProjectState, replaces?: string) => {
     if (projects.get().some((p) => p.path === project.path)) return;
-    projects.set([...projects.get(), project]);
+    const old = projects.get().find((p) => p.path === replaces);
+    const ids = new Set(old?.worktrees.get().map((w) => w.id));
+    const tab = workspace.open.findIndex((e) => ids.has(e.id));
+    const list = [...projects.get()];
+    list.splice(old ? list.indexOf(old) : list.length, 0, project);
+    if (old) removeProject(old.path);
+    projects.set(list.filter((p) => p !== old));
     register(project);
-    open(firstWorktree(project));
+    const first = firstWorktree(project);
+    open(first);
+    if (tab >= 0) workspace.move(first, tab);
   };
   const showProject = (path: string) => {
     const project = projects.get().find((p) => p.path === path);

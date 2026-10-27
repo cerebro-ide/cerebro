@@ -134,31 +134,37 @@ describe('ProjectWindows', () => {
     expect(none.hosts.attach).not.toHaveBeenCalled();
   });
 
-  it('opens a project in a new window, or as tabs in the asking one, and shows one already open', () => {
+  it('opens a project as more tabs, or in the active one’s place, and shows one already open', () => {
     const { projects, windows, hosts, store, shown } = setup();
     projects.start(a);
     const first = windows[0] as FakeWindow;
+    // New Window: the project joins the window as tabs, with a host of its own, its page told.
     projects.open('/work/b', 'new', first.id);
-    expect(shown()).toEqual([[a], [b]]);
-    expect(store.open).toEqual([[a], [b]]);
-    // This Window: the project joins it, its page told, with a host of its own.
-    projects.open('/work/c', 'this', first.id);
-    expect(shown()).toEqual([[a, c], [b]]);
+    expect(shown()).toEqual([[a, b]]);
+    expect(hosts.attach).toHaveBeenLastCalledWith(first, b);
+    expect(first.send).toHaveBeenCalledWith(PROJECT_ADDED, { path: b, name: 'b' });
+    expect(store.open).toEqual([[a, b]]);
+    // This Window: in the place of the project named, whose host stops.
+    projects.open('/work/c', 'this', first.id, a);
+    expect(shown()).toEqual([[c, b]]);
+    expect(hosts.detach).toHaveBeenCalledWith(first, a);
     expect(hosts.attach).toHaveBeenLastCalledWith(first, c);
-    expect(first.send).toHaveBeenCalledWith(PROJECT_ADDED, { path: c, name: 'c' });
-    expect(store.open).toEqual([[a, c], [b]]);
+    expect(first.send).toHaveBeenLastCalledWith(PROJECT_ADDED, { path: c, name: 'c', replaces: a });
+    expect(store.open).toEqual([[c, b]]);
     expect(store.recent[0]?.path).toBe(c);
+    // Naming none of the window's, it joins it.
+    projects.open('/work/a', 'this', first.id, '/work/elsewhere');
+    expect(shown()).toEqual([[c, b, a]]);
     // Open already: its window comes to the front, and its page shows it.
-    projects.open('/work/c', 'this', 2);
+    projects.open('/work/c', 'this', first.id, b);
     expect(first.focus).toHaveBeenCalled();
     expect(first.send).toHaveBeenLastCalledWith(PROJECT_SHOW, c);
-    expect(windows).toHaveLength(2);
     expect(() => {
       projects.open('/missing', 'new');
     }).toThrow('is not a folder that can be opened');
-    // Without a window asking (no page), a new window.
+    // Without a window asking (no page), a window of its own.
     projects.open('/work/d', 'this');
-    expect(windows).toHaveLength(3);
+    expect(shown()).toEqual([[c, b, a], [resolve('/work/d')]]);
   });
 
   it('gives the Welcome window’s place to the project it opens', () => {

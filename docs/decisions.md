@@ -1264,14 +1264,18 @@ The first part of "A basic IDE before git and agent management": any folder, ope
 
 - **Projects as tabs, each with its own host** (changed 2026-10-27, Ido: "Opening a repo/project
   on 'This window' should not close the existing project but add tabs similar to how multiple
-  worktrees function - that's how intellij does it"). This Window adds the project to the window:
-  its worktrees join the one strip of environment tabs (Ido's choice of one strip over a row of
-  project tabs above the worktrees'), labelled with the project's name once the window has two.
-  Each project keeps its own host (Ido's choice), so the main process routes a page's requests by
-  window and project, and a host's notifications carry its project. Closing a project closes its
-  tabs and stops its host; closing the window's last one closes the window. The projects open at
-  quit reopen together, by window. Before, a window showed one project, and This Window replaced
-  it, reloading the page. One host serving many folders stays rejected: a host per folder keeps a
+  worktrees function - that's how intellij does it", then: "New window should open a new tab, this
+  Window should replace the active tab"). Opening a project from a project's window asks where, as
+  before, but neither answer makes a window: New Window adds the project to the window as tabs,
+  as IntelliJ's windows merged into tabs; This Window puts it in the place of the active project,
+  whose host stops, its first tab where the other's was. Its worktrees join the one strip of
+  environment tabs (Ido's choice of one strip over a row of project tabs above the worktrees'),
+  labelled with the project's name once the window has two. Each project keeps its own host (Ido's
+  choice), so the main process routes a page's requests by window and project, and a host's
+  notifications carry its project. Closing a project closes its tabs and stops its host; closing
+  the window's last one closes the window. The projects open at quit reopen together, by window.
+  Before, a window showed one project: This Window replaced it, reloading the page, and New Window
+  made another window. One host serving many folders stays rejected: a host per folder keeps a
   project's work (index, terminals, agents) apart, and stopped with it.
 - **The toolbar** (changed 2026-10-27, Ido: "in intellij the project menu opens into previous
   projects, in our in opens into the worktree menu"): Project, as IntelliJ's project widget (the
@@ -1289,7 +1293,7 @@ The first part of "A basic IDE before git and agent management": any folder, ope
   Project) shows it again; closing a window with others open forgets that it was open, closing the
   last one doesn't, so it reopens.
 - **Opening while a project is open asks where** (Ido: "Ask, as IntelliJ"): This Window or New
-  Window, with "Remember, don't ask again", which saves the global setting "Open project in" (ask,
+  Window (what each does: above), with "Remember, don't ask again", which saves the global setting "Open project in" (ask,
   new window, this window) on the System Settings page. A project already open is brought to the
   front instead. File → Open… uses the OS's folder dialog; File → Open Recent lists the recent
   projects. Dialogs got `choices`: buttons beside OK that close with their own result.

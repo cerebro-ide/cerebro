@@ -190,9 +190,14 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
       : await dialog.showOpenDialog(options);
     return picked.canceled ? null : (picked.filePaths[0] ?? null);
   });
-  ipcMain.handle(PROJECT_OPEN, (event, path: unknown, where: unknown) => {
+  ipcMain.handle(PROJECT_OPEN, (event, path: unknown, where: unknown, replacing: unknown) => {
     if (where !== 'this' && where !== 'new') throw new Error('where must be "this" or "new"');
-    windows.open(text(path, 'path'), where, event.sender.id);
+    windows.open(
+      text(path, 'path'),
+      where,
+      event.sender.id,
+      replacing === undefined ? undefined : text(replacing, 'replacing'),
+    );
   });
   ipcMain.handle(PROJECT_CLOSE, (event, path: unknown) => {
     windows.close(event.sender.id, text(path, 'path'));

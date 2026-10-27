@@ -16,7 +16,10 @@ export interface RecentProject extends Project {
   exists: boolean;
 }
 
-/** Where a project opens: in this window, as more tabs, or a new one. */
+/**
+ * Where a project opens from a project's window: in the place of its active project ('this'), or
+ * as more tabs ('new').
+ */
 export type OpenIn = 'this' | 'new';
 
 declare global {
@@ -34,12 +37,13 @@ declare global {
         current(): Promise<Project[]>;
         recent(): Promise<RecentProject[]>;
         pick(): Promise<string | null>;
-        open(path: string, where: OpenIn): Promise<void>;
+        /** From a project's window: as more tabs ('new'), or in the place of `replacing`. */
+        open(path: string, where: OpenIn, replacing?: string): Promise<void>;
         /** Closes one of the window's projects; its last closes the window. */
         close(path: string): Promise<void>;
         forget(path: string): Promise<void>;
-        /** A project joined the window. */
-        onAdded(listener: (project: Project) => void): () => void;
+        /** A project joined the window; in the place of `replaces`, if it says. */
+        onAdded(listener: (project: Project & { replaces?: string }) => void): () => void;
         /** One of the window's projects was asked to open again: show it. */
         onShow(listener: (path: string) => void): () => void;
       };

@@ -1,6 +1,6 @@
-// Projects: folders opened in windows, each project with its own host (host.ts). As in IntelliJ, a
-// project opens in a window of its own, or joins the one asking as more tabs; one already open is
-// brought to the front instead. The app keeps the projects opened recently and the ones open when
+// Projects: folders opened in windows, as tabs, each project with its own host (host.ts). A project
+// opened from a window joins it as more tabs (New Window), or takes the place of its active project
+// (This Window); one already open is brought to the front instead. The app keeps the projects opened recently and the ones open when
 // it quit, by window, in its data folder (projects.json), and reopens those at the next start; with
 // none, or once the last project is closed, it shows the Welcome window.
 //
@@ -106,7 +106,10 @@ export class ProjectStore {
   }
 }
 
-/** Tells a page a project joined its window, as tabs: `{ path, name }`. */
+/**
+ * Tells a page a project joined its window, as tabs: `{ path, name }`, with `replaces`, the path
+ * of the project whose place it takes, if it does.
+ */
 export const PROJECT_ADDED = 'cerebro:project:added';
 /** Tells a page to show one of its projects, asked to open again: its path. */
 export const PROJECT_SHOW = 'cerebro:project:show';
@@ -135,7 +138,10 @@ export interface ProjectDeps {
   exists(path: string): boolean;
 }
 
-/** Where to open a project: in the window asking, as more tabs, or a new one. */
+/**
+ * Where to open a project from a window: in the place of its active project ('this'), or as more
+ * tabs ('new'), as IntelliJ's windows merged into tabs.
+ */
 export type OpenIn = 'this' | 'new';
 
 interface Entry {
@@ -173,11 +179,12 @@ export class ProjectWindows {
   }
 
   /**
-   * Opens a project, from the window `from` if a page asked: as more tabs in it, or in a new
-   * window. One already open comes to the front. From the Welcome window, a project always gets a
-   * new window, and the Welcome window closes.
+   * Opens a project, from the window `from` if a page asked: as more tabs in it ('new'), or in the
+   * place of its project `replacing` ('this'), whose host stops. One already open comes to the
+   * front. Without a page asking, or from the Welcome window, a project gets a window of its own,
+   * and the Welcome window closes.
    */
-  open(path: string, where: OpenIn, from?: number): void {
+  open(path: string, where: OpenIn, from?: number, replacing?: string): void {
     const project = resolve(path);
     if (!this.deps.exists(project))
       throw new Error(`${project} is not a folder that can be opened`);
@@ -189,12 +196,23 @@ export class ProjectWindows {
       }
     }
     const asking = from === undefined ? undefined : this.windows.get(from);
-    if (asking && asking.projects.length > 0 && where === 'this') {
-      asking.projects.push(project);
+    if (asking && asking.projects.length > 0) {
+      // In its place, else after the others.
+      const index =
+        where === 'this' && replacing !== undefined ? asking.projects.indexOf(replacing) : -1;
+      if (index < 0) asking.projects.push(project);
+      else {
+        asking.projects[index] = project;
+        this.deps.hosts.detach(asking.window, replacing);
+      }
       this.deps.hosts.attach(asking.window, project);
       this.deps.store.opened(project);
       this.save();
-      asking.window.send(PROJECT_ADDED, { path: project, name: projectName(project) });
+      asking.window.send(PROJECT_ADDED, {
+        path: project,
+        name: projectName(project),
+        ...(index < 0 ? {} : { replaces: replacing }),
+      });
       return;
     }
     this.openWindow([project]);
