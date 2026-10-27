@@ -29,7 +29,7 @@ import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-edi
 import { ProjectTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
-import { reveals, setupNavigation } from './navigation.js';
+import { carets, history, reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
@@ -175,6 +175,44 @@ services.menus.contribute({
   group: 'f',
 });
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'find.inFiles' } });
+// Back and Forward through the places the caret was, as IntelliJ's Navigate menu, its shortcuts,
+// and the mouse's own back and forward buttons.
+services.commands.register({
+  id: 'navigate.back',
+  label: '&Back',
+  enabled: () => history()?.canGoBack ?? false,
+  run: () => history()?.goBack(),
+});
+services.commands.register({
+  id: 'navigate.forward',
+  label: '&Forward',
+  enabled: () => history()?.canGoForward ?? false,
+  run: () => history()?.goForward(),
+});
+const mac = services.keymap?.platform === 'mac';
+services.keymap?.bindDefault(mac ? 'Mod+[' : 'Ctrl+Alt+Left', 'navigate.back');
+services.keymap?.bindDefault(mac ? 'Mod+]' : 'Ctrl+Alt+Right', 'navigate.forward');
+services.menus.contribute({
+  menu: 'main',
+  item: { submenu: 'main/navigate', label: '&Navigate' },
+  order: 4,
+});
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.back' },
+  group: 'a',
+});
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.forward' },
+  group: 'a',
+});
+window.addEventListener('mouseup', (event) => {
+  const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
+  if (command === undefined || !services.commands.isEnabled(command)) return;
+  event.preventDefault();
+  services.commands.execute(command);
+});
 // Saving, as IntelliJ's: Save All, and on its own when the window loses the focus or closes (the
 // app asks, through cerebroSaveAll, before it closes or reloads the window).
 const reportSaving = (error: unknown) => {
@@ -461,6 +499,7 @@ function Code(props: { path: string; env: string }) {
             path={props.path}
             document={state}
             reveal={() => reveals.get(props.path)}
+            onCaret={(at) => carets.set(props.path, at)}
             {...(navigation.available()
               ? {
                   onGoToDefinition: (name: string) => void navigation.goToDefinition(name),

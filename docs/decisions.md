@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, as IntelliJ's
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
@@ -940,6 +941,27 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## Navigation (2026-10-27)
+
+The stage "A basic IDE before git and agent management" (Ido): "Ctrl/Cmd+click to a declaration,
+Back and Forward, Recent Files, Go to Line, selecting the opened file in the project tree". As
+IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
+
+- **Back and Forward,** as IntelliJ's Navigate → Back and Forward (`NavigationHistory` in
+  `layout`), one history per environment. A place is a tab and its caret. A place is left when
+  another tab becomes active (opened, chosen, or the one shown after a tab closes), and when a
+  navigation jumps within a file (go to definition, a Find in Files result). Back returns to the
+  last place left; Forward undoes it; going somewhere new forgets the places ahead. A place once,
+  however often it's left from the same line. 50 places kept (a claim: IntelliJ keeps a few
+  dozen; not measured).
+- **Shortcuts as IntelliJ's default keymaps:** Ctrl+Alt+Left and Ctrl+Alt+Right on Windows and
+  Linux, Cmd+[ and Cmd+] on macOS; and the mouse's back and forward buttons. A Navigate menu
+  after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
+  CodeMirror's indent less and more (Ctrl+[ and Ctrl+] elsewhere): IntelliJ indents with Tab and
+  Shift+Tab.
+- **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some);
+  Back doesn't restore the scroll position, only the caret, centred.
 
 ## Scrollbars over the content (2026-10-27)
 
