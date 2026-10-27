@@ -11,7 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { _electron, type ElectronApplication, type Page } from 'playwright';
 import { expect } from 'vitest';
 
-const APP = fileURLToPath(new URL('../../app', import.meta.url));
+/** The app's package, which Electron runs. */
+export const APP = fileURLToPath(new URL('../../app', import.meta.url));
 const TRACES = fileURLToPath(new URL('../traces', import.meta.url));
 
 let runs = 0;

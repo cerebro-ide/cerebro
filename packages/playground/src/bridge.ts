@@ -27,10 +27,7 @@ declare global {
       menu: NativeMenuBridge;
       display: { setScale(choice: string): void };
       window: {
-        setColours(frame: string, text: string): void;
-        onFullScreen(listener: (fullScreen: boolean) => void): () => void;
-        leaveFullScreen(): void;
-        close(): void;
+        setColours(frame: string, text: string, fullScreenButtons: string): void;
       };
       project: {
         current(): Promise<Project | null>;

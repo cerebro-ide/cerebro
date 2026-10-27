@@ -20,6 +20,8 @@ const electron = vi.hoisted(() => {
 });
 
 vi.mock('electron', () => ({ BrowserWindow: electron.BrowserWindow, ipcMain: electron.ipcMain }));
+const greyFullScreenButtons = vi.hoisted(() => vi.fn());
+vi.mock('../src/fullscreen.js', () => ({ greyFullScreenButtons }));
 
 const { installWindowColours, SET_COLOURS } = await import('../src/colours.js');
 
@@ -42,11 +44,16 @@ describe('installWindowColours', () => {
     expect(electron.window.setBackgroundColor).not.toHaveBeenCalled();
   });
 
-  it('leaves macOS’s traffic lights alone', () => {
+  it('leaves macOS’s traffic lights alone, but greys its full-screen buttons as the theme', () => {
     installWindowColours('darwin');
     vi.clearAllMocks();
-    send(1, '#ebecf0', '#1e1f22');
+    send(1, '#ebecf0', '#1e1f22', '#7a7b80');
     expect(electron.window.setBackgroundColor).toHaveBeenCalled();
     expect(electron.window.setTitleBarOverlay).not.toHaveBeenCalled();
+    expect(greyFullScreenButtons).toHaveBeenCalledWith(electron.window, '#7a7b80');
+    vi.clearAllMocks();
+    send(1, '#ebecf0', '#1e1f22', 'grey');
+    send(1, '#ebecf0', '#1e1f22');
+    expect(greyFullScreenButtons).not.toHaveBeenCalled();
   });
 });
