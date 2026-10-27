@@ -15,6 +15,8 @@ const build = spawnSync('npx', ['tsc', '-b', 'tsconfig.build.json'], {
   stdio: 'inherit',
 });
 if (build.status !== 0) process.exit(build.status ?? 1);
+const native = spawnSync(process.execPath, ['scripts/native.mjs'], { cwd: app, stdio: 'inherit' });
+if (native.status !== 0) process.exit(native.status ?? 1);
 
 const server = await createServer({ root: playground, configFile: `${playground}/vite.config.ts` });
 await server.listen();

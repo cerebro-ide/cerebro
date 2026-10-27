@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { APP, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -152,9 +152,10 @@ describe('the window', () => {
     },
   );
 
-  // Only macOS hides its window buttons in full screen.
+  // Only macOS hides its window buttons in full screen. The pointer over them, which shows close
+  // and zoom as themselves, can't be driven from here: it's macOS's own mouse.
   it.runIf(process.platform === 'darwin')(
-    'keeps window buttons in full screen, as IntelliJ, and leaves full screen with them',
+    'keeps the window’s buttons in full screen, as IntelliJ: real ones, where they were',
     async () => {
       const fullScreen = (value?: boolean) =>
         running.app.evaluate(({ BrowserWindow }, value) => {
@@ -162,27 +163,44 @@ describe('the window', () => {
           if (value !== undefined) window.setFullScreen(value);
           return window.isFullScreen();
         }, value);
-      const buttons = page().locator('.cerebro-fullscreen-buttons');
-      expect(await buttons.count()).toBe(0);
-      // What the page hears, for CI's log if it fails.
-      await page().evaluate(() => {
-        const heard: boolean[] = [];
-        (globalThis as { heard?: boolean[] }).heard = heard;
-        const bridge = (
-          window as unknown as {
-            cerebro: { window: { onFullScreen(listener: (value: boolean) => void): void } };
-          }
-        ).cerebro;
-        bridge.window.onFullScreen((value) => heard.push(value));
-      });
+      /** The buttons in the window, from the native module's own report. */
+      const buttons = () =>
+        running.app.evaluate(
+          ({ BrowserWindow }, module) => {
+            const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
+            const loaded = { exports: {} as { state(handle: Buffer): unknown } };
+            process.dlopen(loaded, module);
+            return loaded.exports.state(window.getNativeWindowHandle());
+          },
+          join(APP, 'dist', 'fullscreen.node'),
+        );
+      expect(await buttons()).toBeNull();
       await fullScreen(true);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
-      const heard = () => page().evaluate(() => (globalThis as { heard?: boolean[] }).heard);
-      await expect.poll(heard, { timeout: 15_000 }).toContain(true);
-      await buttons.waitFor({ timeout: 15_000 });
-      await page().locator('[aria-label="Exit Full Screen"]').click();
+      await expect.poll(buttons, { timeout: 15_000 }).not.toBeNull();
+      const shown = (await buttons()) as {
+        class: string;
+        hidden: boolean;
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }[];
+      // For CI's log.
+      console.log('Full-screen buttons:', JSON.stringify(shown));
+      // AppKit's own close, minimize and zoom buttons (their classes, as seen on CI's macOS), grey
+      // until the pointer is over them.
+      expect(shown.map((button) => button.class)).toEqual([
+        '_NSThemeCloseWidget',
+        '_NSThemeWidget',
+        '_NSThemeZoomWidget',
+      ]);
+      expect(shown.every((button) => button.hidden)).toBe(true);
+      // Where the traffic lights sit out of full screen (window.ts).
+      expect(shown[0]).toMatchObject({ x: 14, y: 13 });
+      await fullScreen(false);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
-      await buttons.waitFor({ state: 'detached', timeout: 15_000 });
+      await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
     },
   );
 

@@ -7,7 +7,7 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc -b tsconfig.build.json",
+    "build": "tsc -b tsconfig.build.json && node scripts/native.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "node scripts/dev.mjs",
     "start": "electron ."

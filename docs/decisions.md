@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
-- [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): always shown, as IntelliJ's
+- [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
@@ -976,21 +976,35 @@ Ido: "it's always visible in intellij, it's us that drop them in full screen mod
 shouldn't". In full screen, macOS hides the traffic lights until the pointer reaches the top of the
 screen, which left the room kept for them empty.
 
-- **The toolbar draws them in full screen,** as IntelliJ's (`FullScreenButtons` in `ui-toolbar`).
-  IntelliJ's aren't macOS's either: JetBrains Runtime draws them (`AWTButtonsView` in
-  `AWTWindow.m`, on by default in the new UI through `apple.awt.newFullScreenControls`): three 12px
-  grey circles where the traffic lights were, and under the pointer close and zoom as the real
-  buttons, minimize staying grey (it can't be done in full screen). Their grey is the theme's
-  `MainWindow.FullScreeControl.Background` (Islands: `#575A5C` dark, `#7A7B80` light). Electron
-  has no such option, so Cerebro draws all three.
-- **Close** closes the window as its own button does (saving first); **the green one leaves full
-  screen.** The main process tells the page when its window enters or leaves full screen
-  (`packages/app/src/fullscreen.ts`).
-- **Claims, not measured:** the red and green (`#ff5f57`, `#28c840`, macOS's usual colours; Apple
-  doesn't publish them), the symbols' look, and the circles' place (from the window's
-  `trafficLightPosition` and each button's 14×16 frame, 20px apart). Ido to compare on his Mac.
-- **Not yet:** the Welcome window in full screen (it has no toolbar); when the menu bar slides down,
-  macOS's own buttons show over Cerebro's (JetBrains Runtime hides them; Electron can't).
+- **Real buttons, made by AppKit, put in the window where the traffic lights were** (changed
+  2026-10-27, from buttons drawn in the page), as JetBrains Runtime does for IntelliJ (`setWindowFullScreenControls` in
+  `AWTWindow.m`, on in the new UI through `apple.awt.newFullScreenControls`): close, minimize and
+  zoom from `[NSWindow standardWindowButton:forStyleMask:]`, in a view over the window's content.
+  Until the pointer is over them they're three 12px grey circles; under it, close and zoom show as
+  themselves, minimize staying grey (it does nothing in full screen). The grey is the theme's
+  `MainWindow.FullScreeControl.Background` (Islands: `#575A5C` dark, `#7A7B80` light), sent by the
+  page with its other window colours. The copies macOS shows when the menu bar slides down are
+  hidden, as JetBrains Runtime hides them, so they don't show twice.
+- **Why it changed:** the first version drew the buttons in the page, and Ido: "it's very obvious
+  that you're faking the buttons. they don't keep the same size, and they loose builtin os
+  functionality, such as hovering the fullscreen button doesn't show the layout options". Real
+  buttons are macOS's own, with its size and behaviour.
+- **A native module of Cerebro's own** (`packages/app/native/fullscreen.m`, Objective-C over
+  Node-API), since Electron has no option for it: it leaves the buttons to macOS in full screen
+  (`native_window_mac.mm`). The main process loads it (`packages/app/src/fullscreen.ts`) and gives
+  it the window's `getNativeWindowHandle()` as it enters and leaves full screen. Built on macOS by
+  one `clang` call (`packages/app/scripts/native.mjs`, run by the app's build), against the running
+  Node's headers: Node-API is the same in Electron. No new dependency; rejected: node-gyp (a
+  dependency for one file) and an FFI such as koffi (84 MB, with an install script). Claude's
+  choice, open to change.
+- **Measured on CI's macOS** (the end-to-end test): the buttons are AppKit's own
+  (`_NSThemeCloseWidget`, `_NSThemeWidget`, `_NSThemeZoomWidget`), 14×14, 23px apart, the first at
+  (14, 13), where the traffic lights sit out of full screen. **Claims, not measured:** that the green button keeps its
+  window-layout menu under the pointer (it's the same AppKit button; JetBrains Runtime relies on
+  it), and how they look; Ido to check on his Mac.
+- **Not yet:** the Welcome window in full screen has them too, over no toolbar; leaving full screen
+  takes them out when it's done, not as it starts, as JetBrains Runtime does (Electron has no
+  "will leave" event).
 
 ## The window's colours follow the theme (2026-10-27)
 

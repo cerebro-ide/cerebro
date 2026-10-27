@@ -7,10 +7,8 @@ import { render, type Child } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { userEvent } from 'vitest/browser';
 import {
   badgeColour,
-  FullScreenButtons,
   initials,
   MainToolbar,
   ToolbarButton,
@@ -285,29 +283,5 @@ describe('ToolbarDropdown', () => {
     expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Choice');
     button.dispatchEvent(new PointerEvent('pointerleave'));
     vi.useRealTimers();
-  });
-});
-
-describe('FullScreenButtons', () => {
-  it('closes and leaves full screen, grey until the pointer is over them', async () => {
-    const close = vi.fn();
-    const leave = vi.fn();
-    const container = mount(() => <FullScreenButtons close={close} leave={leave} />);
-    const buttons = [...container.querySelectorAll<HTMLElement>('.cerebro-fullscreen-button')];
-    const colours = () => buttons.map((b) => getComputedStyle(b).backgroundColor);
-    const grey = 'rgb(87, 90, 92)';
-    expect(colours()).toEqual([grey, grey, grey]);
-    await userEvent.hover(buttons[0] as HTMLElement);
-    // Close red, minimize still grey (it can't be done in full screen), leaving green.
-    expect(colours()).toEqual(['rgb(255, 95, 87)', grey, 'rgb(40, 200, 64)']);
-    expect(getComputedStyle(buttons[0]?.querySelector('svg') as Element).visibility).toBe(
-      'visible',
-    );
-    await userEvent.click(container.querySelector('[aria-label="Close"]') as HTMLElement);
-    expect(close).toHaveBeenCalledOnce();
-    await userEvent.click(
-      container.querySelector('[aria-label="Exit Full Screen"]') as HTMLElement,
-    );
-    expect(leave).toHaveBeenCalledOnce();
   });
 });

@@ -42,12 +42,9 @@
   /* Scrollbar thumbs: Islands Dark's (its theme file's ScrollBar.Transparent colours). */
   --cerebro-scrollbar: rgb(128 128 128 / 0.35);
   --cerebro-scrollbar-hover: rgb(128 128 128 / 0.55);
-  /* macOS's window buttons in full screen: IntelliJ's grey (MainWindow.FullScreeControl.Background,
-     Islands' theme file); red and green as macOS's traffic lights (not measured). */
+  /* macOS's window buttons in full screen, until the pointer is over them (app/native/fullscreen.m):
+     IntelliJ's grey (MainWindow.FullScreeControl.Background, Islands' theme file). */
   --cerebro-fullscreen-button: #575a5c;
-  --cerebro-window-close: #ff5f57;
-  --cerebro-window-zoom: #28c840;
-  --cerebro-window-button-symbol: rgb(0 0 0 / 0.5);
   --cerebro-input: #1e1f22;
   --cerebro-input-border: #4e5157;
   --cerebro-error: #f75464;
@@ -148,12 +145,9 @@
   /* Scrollbar thumbs: IntelliJ's own light colours (ScrollBarPainter), which Islands Light keeps. */
   --cerebro-scrollbar: rgb(115 115 115 / 0.2);
   --cerebro-scrollbar-hover: rgb(115 115 115 / 0.28);
-  /* macOS's window buttons in full screen: IntelliJ's grey (MainWindow.FullScreeControl.Background,
-     Islands' theme file); red and green as macOS's traffic lights (not measured). */
+  /* macOS's window buttons in full screen, until the pointer is over them (app/native/fullscreen.m):
+     IntelliJ's grey (MainWindow.FullScreeControl.Background, Islands' theme file). */
   --cerebro-fullscreen-button: #7a7b80;
-  --cerebro-window-close: #ff5f57;
-  --cerebro-window-zoom: #28c840;
-  --cerebro-window-button-symbol: rgb(0 0 0 / 0.5);
   --cerebro-input: #ffffff;
   --cerebro-input-border: #c9ccd6;
   --cerebro-error: #db3b4b;
