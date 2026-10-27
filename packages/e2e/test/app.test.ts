@@ -376,8 +376,8 @@ describe('the layout', () => {
 
 describe('shortcuts', () => {
   /** Chooses a keymap in Settings → Keymap. */
-  const useKeymap = async (label: string) => {
-    await page().keyboard.press(KEYS.settings);
+  const useKeymap = async (label: string, settings: string = KEYS.settings) => {
+    await page().keyboard.press(settings);
     await page().locator('[data-page="keymap"]').click();
     await page().locator('[data-setting="keymap"] select').selectOption({ label });
     await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
@@ -399,7 +399,10 @@ describe('shortcuts', () => {
     await page().waitForTimeout(2500);
     await page().keyboard.press(`${chord}+T`);
     expect(await theme()).toBe('light');
-    await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA');
+    // That T, alone, is VS Code's Go to Symbol: its popup closes.
+    await page().keyboard.press('Escape');
+    // Back, through VS Code's Settings key.
+    await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
   });
 
   // macOS shows the menu in the system's menu bar, not behind a ☰ button.
