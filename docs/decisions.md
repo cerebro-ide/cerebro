@@ -45,6 +45,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
+- [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
@@ -1117,6 +1118,27 @@ mode?"
   macOS draws its own traffic lights. Only `#rrggbb` colours are taken.
 - **Measured:** the e2e test "draws the window controls in the theme's colours" sees the overlay set
   to the light theme's colours, then the dark theme's.
+
+## Tabs that don't fit (2026-10-27)
+
+Ido's report (2026-10-26, with screenshots of IntelliJ): with more tabs than room, editor tabs were
+squeezed ("pack…") and the rest couldn't be reached.
+
+- **The strip scrolls; tabs keep their width,** as IntelliJ's single row of tabs. The active tab is
+  scrolled into view whenever it changes, with a little of the next tab showing past the cut edge;
+  the mouse wheel scrolls the strip sideways. Rejected: squeezing tabs (what was there), and wrapping
+  them onto several rows (IntelliJ's other option, not its default).
+- **A cut edge fades** (a 32-pixel `mask-image` gradient), at the start, the end, or both.
+- **A chevron after the tabs, shown only while some are hidden, lists every tab:** its icon, its
+  name, and a close button shown on hover, the active one highlighted; typing filters it, as every
+  popup. It's the `ui-popup` picker, which gained an item close button for it, so `ui-layout` now
+  depends on `ui-popup` (both Cerebro's own packages).
+- **For any tab bar:** `TabOverflow`, `watchOverflow`, `overflowClasses` and `MoreTabs` in
+  `ui-layout` take a strip and its tabs; the editor uses them first, the Terminal tool window's tabs
+  when it holds several terminals (backlog).
+- **Editor tabs show the file's icon**, as IntelliJ's: the playground passes it (a file, or a diff).
+- These are Claude's choices, open to change. The fade's width and the peek (24 pixels) weren't
+  measured from IntelliJ: claims, to check against it.
 
 ## Search (2026-10-26)
 

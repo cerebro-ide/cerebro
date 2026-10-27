@@ -2,6 +2,7 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import {
   fuzzyFilter,
   openPicker,
@@ -245,6 +246,31 @@ describe('openPicker', () => {
     expect(
       [...document.querySelectorAll('.cerebro-popup-item__shortcut')].at(-1)?.textContent,
     ).toBe('R');
+  });
+
+  it('closes an item with its close button, keeping the popup open', async () => {
+    const tabs = signal(['a.ts', 'b.ts']);
+    const handle = picker({
+      items: () =>
+        tabs.get().map((label) => ({
+          label,
+          close: {
+            label: `Close ${label}`,
+            run: () => {
+              tabs.set(tabs.get().filter((t) => t !== label));
+            },
+          },
+        })),
+    });
+    const close = document.querySelector('[aria-label="Close b.ts"]') as HTMLElement;
+    // Shown on the highlighted item, and the one hovered.
+    expect(getComputedStyle(close).visibility).toBe('hidden');
+    await userEvent.hover(close.parentElement as HTMLElement);
+    expect(getComputedStyle(close).visibility).toBe('visible');
+    await userEvent.click(close);
+    expect(labels()).toEqual(['a.ts']);
+    expect(handle.open).toBe(true);
+    expect(document.querySelectorAll('.cerebro-popup-item__close')).toHaveLength(1);
   });
 
   it('shows a header, options beside the field, and the highlighted item in a preview', () => {

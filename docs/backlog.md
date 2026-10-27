@@ -6,24 +6,13 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### Tabs that don't fit: a dropdown listing them, and a fade at the cut edge, for every tab bar
-
-Reported by Ido (2026-10-26), with screenshots of IntelliJ. When there isn't room for every tab,
-IntelliJ:
-
-- shows a chevron dropdown after the tabs, listing every tab with its icon and a close button, the
-  active one highlighted;
-- fades the last visible tab at the cut edge.
-
-Today the tabs are cut off (an editor tab shows as "pack…", with no way to reach the rest). This
-applies to every tab bar: editor tabs, and tool windows' tabs such as the Terminal's.
-
 ### Several terminals in the Terminal tool window (and, to design later, several Claude sessions)
 
 Raised by Ido (2026-10-26), with a screenshot of IntelliJ's Terminal tool window.
 
 - **The Terminal tool window holds several terminals, as tabs:** a + button to open another, and a
-  dropdown beside it, as IntelliJ's. Its tabs overflow as every tab bar should (above).
+  dropdown beside it, as IntelliJ's. Its tabs overflow as the editor's do (`MoreTabs` and
+  `watchOverflow`, decision "Tabs that don't fit").
 - **Several Claude tabs:** IntelliJ also lets several Claude Code sessions open as tabs. Ido:
   "that's something we can get to designing a bit later on". It needs a design before it's built.
 

@@ -402,18 +402,78 @@
   min-height: 0;
 }
 
-/* The tab strip, on the tool windows' colour; tabs are pills, the active one outlined. */
-.cerebro-editor-tabs {
+/* The tab bar, on the tool windows' colour: the strip of tabs, and the chevron listing them when
+   some don't fit. Tabs are pills, the active one outlined. */
+.cerebro-editor-tab-bar {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 4px;
   height: var(--cerebro-tab-height);
-  padding: 0 6px;
-  overflow-x: auto;
+  padding-right: 4px;
   border-bottom: 1px solid var(--cerebro-border);
   background: var(--cerebro-panel);
+}
+
+.cerebro-editor-tabs {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  height: 100%;
+  padding: 0 6px;
+  overflow-x: auto;
   scrollbar-width: none;
+}
+
+/* A cut edge fades, as IntelliJ's: the tabs go on past it. */
+.cerebro-editor-tabs--cut-end {
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.cerebro-editor-tabs--cut-start {
+  mask-image: linear-gradient(to left, #000 calc(100% - 32px), transparent);
+}
+
+.cerebro-editor-tabs--cut-start.cerebro-editor-tabs--cut-end {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 32px,
+    #000 calc(100% - 32px),
+    transparent
+  );
+}
+
+.cerebro-editor-tab__icon {
+  display: grid;
+  place-items: center;
+}
+
+.cerebro-tabs-more {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-icon);
+}
+
+.cerebro-tabs-more[hidden] {
+  display: none;
+}
+
+.cerebro-tabs-more:hover {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-tabs-more:focus-visible {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -2px;
 }
 
 .cerebro-editor-tab {

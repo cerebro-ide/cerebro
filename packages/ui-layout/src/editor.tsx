@@ -17,6 +17,7 @@ import type {
 import { effect, makeObservable } from '@cerebro-ide/reactive';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { dragFrom } from './drag.js';
+import { MoreTabs, overflowClasses, TabOverflow, watchOverflow } from './overflow.js';
 import { Splitter } from './splitter.js';
 
 export interface EditorAreaViewProps {
@@ -25,6 +26,8 @@ export interface EditorAreaViewProps {
   content: (tab: Tab) => Child;
   /** Shown in a group without tabs; only the last group can be empty. */
   empty?: () => Child;
+  /** A tab's icon, before its title and in the list of hidden tabs: its file's type. */
+  icon?: (tab: Tab) => Child;
   /** A tab was right-clicked (or the context-menu key pressed on it): open its context menu. */
   onTabContextMenu?: (event: MouseEvent, group: EditorGroup, tab: Tab) => void;
 }
@@ -172,6 +175,7 @@ function SplitView(props: {
 function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
   const { ctx, group } = props;
   const { area, drag } = ctx;
+  const overflow = new TabOverflow();
   const others = () => group.tabs.filter((t) => !(drag.from === group.id && t.id === drag.tab));
   const dropAtEnd = () => {
     const target = drag.target;
@@ -195,12 +199,41 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
       }
       data-group={group.id}
     >
-      <div
-        class={() => cls('cerebro-editor-tabs', dropAtEnd() && 'cerebro-editor-tabs--drop-end')}
-        role="tablist"
-        data-strip={group.id}
-      >
-        {() => group.tabs.map((tab) => <TabView ctx={ctx} group={group} tab={tab} />)}
+      <div class="cerebro-editor-tab-bar">
+        <div
+          class={() =>
+            cls(
+              'cerebro-editor-tabs',
+              dropAtEnd() && 'cerebro-editor-tabs--drop-end',
+              ...overflowClasses(overflow, 'cerebro-editor-tabs'),
+            )
+          }
+          role="tablist"
+          data-strip={group.id}
+          ref={watchOverflow(overflow)}
+        >
+          {() => group.tabs.map((tab) => <TabView ctx={ctx} group={group} tab={tab} />)}
+        </div>
+        <MoreTabs
+          overflow={overflow}
+          tabs={() =>
+            group.tabs.map((tab) => {
+              const icon = ctx.props.icon;
+              return {
+                id: tab.id,
+                title: tab.title,
+                ...(icon ? { icon: () => icon(tab) } : {}),
+                active: group.active === tab.id,
+                select: () => {
+                  area.activate(group.id, tab.id);
+                },
+                close: () => {
+                  area.close(group.id, tab.id);
+                },
+              };
+            })
+          }
+        />
       </div>
       <div
         class="cerebro-editor-content"
@@ -262,6 +295,7 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
         ctx.props.onTabContextMenu?.(event, group, tab);
       }}
     >
+      {ctx.props.icon ? <span class="cerebro-editor-tab__icon">{ctx.props.icon(tab)}</span> : null}
       <span class="cerebro-editor-tab__title">{tab.title}</span>
       <button
         type="button"

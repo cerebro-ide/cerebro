@@ -6,3 +6,5 @@ export { DRAG_THRESHOLD, dragFrom, trackPointer, type DragHandlers } from './dra
 export { Splitter, type SplitterProps } from './splitter.js';
 export { EnvironmentEditors, EnvironmentTabs } from './environments.js';
 export type { EnvironmentEditorsProps, EnvironmentTabsProps } from './environments.js';
+export { MoreTabs, overflowClasses, TabOverflow, watchOverflow } from './overflow.js';
+export type { ListedTab } from './overflow.js';
