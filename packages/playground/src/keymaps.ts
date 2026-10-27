@@ -200,12 +200,19 @@ export function codeMirrorKey(sequence: string): string {
     .join(' ');
 }
 
-/** The editor's actions' keys in a keymap, for its editors. */
+/**
+ * The editor's actions' keys in a keymap, for its editors. Undo and Redo have none there: the Edit
+ * commands' keys run them (edit.ts), so the editor doesn't too.
+ */
 export function editorKeys(keymap: Keymap): EditorKeys {
-  return Object.fromEntries(
-    Object.entries(EDITOR_ACTIONS).map(([action, command]) => [
-      action,
-      keymap.shortcutsFor(command).map(codeMirrorKey),
-    ]),
-  );
+  return {
+    ...Object.fromEntries(
+      Object.entries(EDITOR_ACTIONS).map(([action, command]) => [
+        action,
+        keymap.shortcutsFor(command).map(codeMirrorKey),
+      ]),
+    ),
+    undo: [],
+    redo: [],
+  };
 }

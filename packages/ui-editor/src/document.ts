@@ -26,7 +26,7 @@ export class EditorDocument {
 
   constructor(content: string) {
     this.lineSeparator = content.includes('\r\n') ? '\r\n' : '\n';
-    const text = Text.of(content.split(/\r\n?|\n/));
+    const text = textOf(content);
     this.text = signal(text);
     this.disk = signal(text);
     this.modified = computed(() => !this.text.get().eq(this.disk.get()));
@@ -53,16 +53,51 @@ export class EditorDocument {
     this.text.set(set.apply(before));
   }
 
+  /** Whether the file's content on disk is other than the text last read from or saved to it. */
+  changedFrom(content: string): boolean {
+    return !textOf(content).eq(this.disk.peek());
+  }
+
+  /**
+   * A conflict between the edits and the file changed on disk, resolved, as IntelliJ's File Cache
+   * Conflict: the text becomes `content` (the disk's, the edits', or a merge of both), as an edit undo
+   * takes back, and the disk's is `disk`, so the next save writes the text over it.
+   */
+  resolve(content: string, disk: string): void {
+    const before = this.text.peek().toString();
+    const text = textOf(content).toString();
+    // Only the part that differs is replaced, so a caret outside it stays where it was.
+    let from = 0;
+    while (from < before.length && from < text.length && before[from] === text[from]) from++;
+    let end = 0;
+    while (
+      end < before.length - from &&
+      end < text.length - from &&
+      before[before.length - 1 - end] === text[text.length - 1 - end]
+    ) {
+      end++;
+    }
+    if (before !== text) {
+      this.edit([{ from, to: before.length - end, insert: text.slice(from, text.length - end) }]);
+    }
+    this.disk.set(textOf(disk));
+  }
+
   /**
    * The file changed on disk: its text replaces the document's unless that's modified, in which
    * case the edits are kept. Returns whether the text was replaced.
    */
   changedOnDisk(content: string): boolean {
     if (this.modified.peek()) return false;
-    const text = Text.of(content.split(/\r\n?|\n/));
+    const text = textOf(content);
     if (text.eq(this.disk.peek())) return false;
     this.disk.set(text);
     this.text.set(text);
     return true;
   }
+}
+
+/** A file's content as CodeMirror's text, its lines split on either separator. */
+function textOf(content: string): Text {
+  return Text.of(content.split(/\r\n?|\n/));
 }

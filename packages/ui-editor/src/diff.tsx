@@ -1,6 +1,7 @@
 // A file's diff, side by side as IntelliJ shows it: the last committed text on the left, the
 // current one on the right, changed lines marked and unchanged ones aligned. CodeMirror's merge
 // view, read-only, in the code editor's look and in a shadow root for the same reason (editor.tsx).
+// To merge, the right side can be edited, with an arrow by each change that takes the left's.
 
 import { MergeView } from '@codemirror/merge';
 import { syntaxHighlighting } from '@codemirror/language';
@@ -22,6 +23,8 @@ export interface DiffEditorProps {
   fontSize?: () => number;
   /** Read reactively. Default: 4. */
   tabSize?: () => number;
+  /** Makes the right side editable, to merge into it: called with its text as it's edited. */
+  onEdit?: (text: string) => void;
 }
 
 /** The changes' colours, from the theme's variables: removed on the left, added on the right. */
@@ -34,7 +37,7 @@ const diffTheme = EditorView.theme({
   '&.cm-merge-b .cm-changedLineGutter': { background: variable('diff-added-text') },
 });
 
-/** A read-only diff of one file. */
+/** A diff of one file: read-only, or editable on the right to merge. */
 export function DiffEditor(props: DiffEditorProps): Node {
   const container = document.createElement('div');
   container.className = 'cerebro-editor-diff';
@@ -45,12 +48,16 @@ export function DiffEditor(props: DiffEditorProps): Node {
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
   ];
-  const side = (doc: string, settings: Compartment) => ({
+  const side = (doc: string, settings: Compartment, onEdit?: (text: string) => void) => ({
     doc,
     extensions: [
       lineNumbers(),
       selection,
-      EditorState.readOnly.of(true),
+      onEdit
+        ? EditorView.updateListener.of((update) => {
+            if (update.docChanged) onEdit(update.state.doc.toString());
+          })
+        : EditorState.readOnly.of(true),
       theme,
       diffTheme,
       syntaxHighlighting(highlight),
@@ -60,11 +67,12 @@ export function DiffEditor(props: DiffEditorProps): Node {
   });
   const view = new MergeView({
     a: side(props.original, sides[0]),
-    b: side(props.text, sides[1]),
+    b: side(props.text, sides[1], props.onEdit),
     parent: shadow,
     root: shadow,
     gutter: true,
     highlightChanges: true,
+    ...(props.onEdit ? { revertControls: 'a-to-b' as const } : {}),
   });
   // The merge view grows with its text; its frame scrolls. Set through the style object, which
   // the page's Content-Security-Policy allows.

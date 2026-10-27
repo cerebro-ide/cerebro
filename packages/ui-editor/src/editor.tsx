@@ -7,7 +7,14 @@
 // Content-Security-Policy blocks those (`style-src 'self'`). The theme's variables still reach it:
 // custom properties are inherited into shadow roots.
 
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import {
+  defaultKeymap,
+  history,
+  historyField,
+  indentWithTab,
+  redo,
+  undo,
+} from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
@@ -70,6 +77,9 @@ export interface EditorKeys {
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
+  /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
+  undo?: readonly string[];
+  redo?: readonly string[];
 }
 
 /** IntelliJ's keys. */
@@ -78,7 +88,22 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
+  undo: ['Mod-z'],
+  redo: ['Mod-Shift-z'],
 };
+
+/**
+ * Undoes or redoes in the editor `element` is in (the focused one, say), as Edit → Undo and Redo
+ * do; returns whether it's in an editor with an undo history, which takes it even with nothing to
+ * undo.
+ */
+export function editorHistory(element: Element, action: 'undo' | 'redo'): boolean {
+  const editor = element.closest('.cm-editor');
+  const view = editor && EditorView.findFromDOM(editor as HTMLElement);
+  if (!view?.state.field(historyField, false)) return false;
+  (action === 'undo' ? undo : redo)(view);
+  return true;
+}
 
 /** A position in the editor as a line and column, zero-based. */
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
@@ -293,6 +318,12 @@ export function CodeEditor(props: CodeEditorProps): Node {
           run: atCursor(() => props.onGoToDefinition),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
+        ...(doc
+          ? [
+              ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
+              ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
+            ]
+          : []),
       ]),
     ];
   };
@@ -314,7 +345,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
-    doc ? [history(), keymap.of([...historyKeymap, indentWithTab])] : EditorState.readOnly.of(true),
+    doc ? [history(), keymap.of([indentWithTab])] : EditorState.readOnly.of(true),
     // The document follows the edits.
     doc
       ? EditorView.updateListener.of((update) => {

@@ -2,7 +2,8 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { DiffEditor, type DiffEditorProps } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
@@ -60,6 +61,20 @@ describe('the diff editor', () => {
     fontSize.set(16);
     expect(getComputedStyle(scrollers[0] as Element).fontSize).toBe('16px');
     expect(getComputedStyle(scrollers[1] as Element).fontSize).toBe('16px');
+  });
+
+  it('merges into the right side: typed into, or taking the left’s change by its arrow', async () => {
+    const onEdit = vi.fn();
+    const root = mount({ path: 'a.txt', original: 'disk\nsame', text: 'memory\nsame', onEdit });
+    const right = root.querySelectorAll('.cm-editor')[1] as Element;
+    // Drawn once the view has measured itself.
+    await expect.poll(() => root.querySelector('.cm-merge-revert button')).not.toBeNull();
+    await userEvent.click(root.querySelector('.cm-merge-revert button') as Element);
+    expect(onEdit).toHaveBeenLastCalledWith('disk\nsame');
+    await userEvent.click(right.querySelector('.cm-line') as Element);
+    await userEvent.keyboard('{End}!');
+    expect(onEdit).toHaveBeenLastCalledWith('disk!\nsame');
+    expect(lines(right)).toEqual(['disk!', 'same']);
   });
 
   it('defaults its settings', () => {
