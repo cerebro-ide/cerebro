@@ -12,8 +12,8 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   drawSelection,
-  EditorView,
   highlightActiveLine,
+  EditorView,
   highlightActiveLineGutter,
   keymap,
   layer,
@@ -162,7 +162,8 @@ export const theme = EditorView.theme({
   '.cm-searchMatch': { backgroundColor: variable('search-match') },
   '.cm-searchMatch-selected': { backgroundColor: variable('search-match-selected') },
   '.cm-line': { padding: '0 2px' },
-  '.cm-activeLine': { backgroundColor: variable('editor-active-line') },
+  '.cerebro-activeLine': { backgroundColor: variable('editor-active-line') },
+  '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-activeLineGutter': {
     backgroundColor: variable('editor-active-line'),
     color: variable('editor-line-number-active'),
@@ -206,6 +207,36 @@ export const selection: Extension = [
       }),
   }),
 ];
+
+/**
+ * The caret's line, highlighted as IntelliJ's: a layer beneath the selection's, so a selection on
+ * that line shows. CodeMirror's own (`highlightActiveLine`) paints the line itself, which is above
+ * the selection layer, and hid it: a double-clicked word showed nothing (measured in the test).
+ */
+export const activeLine: Extension = layer({
+  above: false,
+  class: 'cerebro-activeLineLayer',
+  update: (update) =>
+    update.docChanged || update.selectionSet || update.viewportChanged || update.geometryChanged,
+  markers: (view) => {
+    // The layer's origin, as CodeMirror places its markers: the scroller's corner, scrolled.
+    const scroller = view.scrollDOM.getBoundingClientRect();
+    const content = view.contentDOM.getBoundingClientRect();
+    const top = view.documentTop - scroller.top + view.scrollDOM.scrollTop;
+    const left = content.left - scroller.left + view.scrollDOM.scrollLeft;
+    const lines = new Set(view.state.selection.ranges.map((range) => view.lineBlockAt(range.head)));
+    return [...lines].map(
+      (block) =>
+        new RectangleMarker(
+          'cerebro-activeLine',
+          left,
+          top + block.top,
+          content.width,
+          block.height,
+        ),
+    );
+  },
+});
 
 /** Lines 22px apart at 13px, as WebStorm (measured), in whole pixels so they don't drift. */
 export function scroller(fontSize: number) {
@@ -274,8 +305,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLineGutter(),
-    highlightActiveLine(),
     selection,
+    // After the selection: a later layer beneath goes lower.
+    activeLine,
+    // Marks the caret's line (`cm-activeLine`), painted by the layer.
+    highlightActiveLine(),
     doc ? [history(), keymap.of([...historyKeymap, indentWithTab])] : EditorState.readOnly.of(true),
     // The document follows the edits.
     doc
