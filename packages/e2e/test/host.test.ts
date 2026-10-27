@@ -182,12 +182,25 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.mouse.click(box.x, box.y);
   await page.keyboard.up('Control');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+  // On macOS, Control+click is also a right click: its context menu closes first.
+  await page.keyboard.press('Escape');
   // Alt+F7 on a name in a file no language server reads (shell scripts have none yet): every place
   // the name appears, as the index finds them.
   await page.keyboard.press('ControlOrMeta+Shift+N');
   await page.keyboard.type('run.sh');
   // Highlighted: Enter opens what's highlighted, which follows the query as it's typed.
-  await page.locator('.cerebro-popup-item--highlighted', { hasText: 'run.sh' }).waitFor();
+  await page
+    .locator('.cerebro-popup-item--highlighted', { hasText: 'run.sh' })
+    .waitFor()
+    .catch(async (error: unknown) => {
+      // macOS CI didn't get here once: what showed instead.
+      console.log(
+        'Go to File:',
+        await page.locator('.cerebro-popup, .cerebro-menu').allTextContents(),
+        await page.evaluate(() => document.activeElement?.className),
+      );
+      throw error;
+    });
   await page.keyboard.press('Enter');
   await page.locator('.cm-line', { hasText: /^greet$/ }).click();
   await page.keyboard.press('Home');
