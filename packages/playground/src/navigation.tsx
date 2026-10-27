@@ -2,10 +2,15 @@
 // from the editor. The index matches names, not meanings (that comes with the language servers),
 // so every list says "Name matches".
 
-import type { EditorArea } from '@cerebro-ide/layout';
-import { ObservableMap, signal } from '@cerebro-ide/reactive';
+import {
+  NavigationHistory,
+  type EditorArea,
+  type Environment,
+  type Position,
+} from '@cerebro-ide/layout';
+import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { active, currentHost } from './environments.js';
+import { active, currentHost, workspace } from './environments.js';
 import { icon } from './icons.js';
 
 interface Located {
@@ -23,9 +28,39 @@ export const reveals = new ObservableMap<string, { line: number; column: number 
 
 const GROUP = 'Name matches';
 
+/** Where each open file's caret is, by path, as its editor says. */
+export const carets = new Map<string, Position>();
+
+/** Each environment's Back and Forward, following its editor area from when it opens. */
+const histories = new WeakMap<Environment, NavigationHistory>();
+effect(() => {
+  for (const env of workspace.open) {
+    if (histories.has(env)) continue;
+    histories.set(
+      env,
+      new NavigationHistory(
+        env.editor,
+        (path) => carets.get(path),
+        (place) => {
+          if (place.at) reveals.set(place.tab.id, { ...place.at });
+        },
+      ),
+    );
+  }
+  return undefined;
+});
+
+/** The active environment's Back and Forward. */
+export function history(): NavigationHistory | undefined {
+  const env = active();
+  return env && histories.get(env);
+}
+
 export function setupNavigation(editor: () => EditorArea | undefined) {
   /** Opens a file at a position. */
   const openAt = (at: Located) => {
+    // A jump within the file is a place left too; to another file, the history sees the tab change.
+    if (editor()?.activeGroup.active === at.path) history()?.record();
     editor()?.open({ id: at.path, title: at.path.split('/').at(-1) as string });
     // A new object each time, so revealing the same place again works.
     reveals.set(at.path, { line: at.line, column: at.column });

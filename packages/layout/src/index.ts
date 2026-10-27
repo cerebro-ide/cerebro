@@ -30,3 +30,4 @@ export {
   type EnvironmentSpec,
   type EnvironmentsState,
 } from './environments.js';
+export { MAX_PLACES, NavigationHistory, type Place, type Position } from './history.js';

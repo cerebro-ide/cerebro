@@ -48,6 +48,8 @@ export interface CodeEditorProps {
   onGoToDefinition?: (word: string) => void;
   /** Find usages of the word at the cursor: Alt+F7, as in IntelliJ. */
   onFindUsages?: (word: string) => void;
+  /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
+  onCaret?: (at: { line: number; column: number }) => void;
 }
 
 /** The word at a position in the editor, if there is one. */
@@ -209,6 +211,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
   ];
   const language = languageFor(props.path);
   const doc = props.document;
+  const caret = (state: EditorState) => {
+    const head = state.selection.main.head;
+    const line = state.doc.lineAt(head);
+    props.onCaret?.({ line: line.number - 1, column: head - line.from });
+  };
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLineGutter(),
@@ -220,6 +227,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     doc
       ? EditorView.updateListener.of((update) => {
           if (update.docChanged) doc.text.set(update.state.doc);
+        })
+      : [],
+    props.onCaret
+      ? EditorView.updateListener.of((update) => {
+          if (update.selectionSet) caret(update.state);
         })
       : [],
     keymap.of([
@@ -267,6 +279,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ? EditorState.create({ doc: doc ? doc.text.peek() : (props.text ?? ''), extensions })
         : EditorState.fromJSON(doc.state, { extensions }, KEPT),
   });
+  caret(view.state);
   // The document's text changed elsewhere (read again from disk): shown, not undoable.
   const following = effect(() => {
     const text = doc?.text.get();
