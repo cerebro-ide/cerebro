@@ -957,7 +957,9 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   dozen; not measured).
 - **Shortcuts as IntelliJ's default keymaps:** Ctrl+Alt+Left and Ctrl+Alt+Right on Windows and
   Linux, Cmd+[ and Cmd+] on macOS; and the mouse's back and forward buttons. A Navigate menu
-  after View holds them, as IntelliJ's.
+  after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
+  CodeMirror's indent less and more (Ctrl+[ and Ctrl+] elsewhere): IntelliJ indents with Tab and
+  Shift+Tab.
 - **Recent Files** (View → Recent Files, Ctrl+E, Cmd+E on macOS), as IntelliJ's: the files shown in
   the environment, the latest first, closed ones too, with the one before the current highlighted,
   so Ctrl+E then Enter goes back to it. Typing filters. Diffs aren't files, so they aren't listed.

@@ -253,7 +253,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
           return true;
         },
       },
-      ...defaultKeymap,
+      // Not CodeMirror's Mod-[ and Mod-] (indent less and more): they're Back and Forward on
+      // macOS, as IntelliJ's; Tab and Shift+Tab indent.
+      ...defaultKeymap.filter((binding) => binding.key !== 'Mod-[' && binding.key !== 'Mod-]'),
     ]),
     EditorView.domEventHandlers({
       mousedown: (event, v) => {
