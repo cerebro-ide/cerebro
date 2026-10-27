@@ -4,6 +4,7 @@
 
 import {
   NavigationHistory,
+  RecentTabs,
   type EditorArea,
   type Environment,
   type Position,
@@ -33,9 +34,12 @@ export const carets = new Map<string, Position>();
 
 /** Each environment's Back and Forward, following its editor area from when it opens. */
 const histories = new WeakMap<Environment, NavigationHistory>();
+/** Each environment's Recent Files, likewise. */
+const recents = new WeakMap<Environment, RecentTabs>();
 effect(() => {
   for (const env of workspace.open) {
     if (histories.has(env)) continue;
+    recents.set(env, new RecentTabs(env.editor));
     histories.set(
       env,
       new NavigationHistory(
@@ -49,6 +53,12 @@ effect(() => {
   }
   return undefined;
 });
+
+/** The active environment's Recent Files. */
+export function recentTabs(): RecentTabs | undefined {
+  const env = active();
+  return env && recents.get(env);
+}
 
 /** The active environment's Back and Forward. */
 export function history(): NavigationHistory | undefined {

@@ -53,6 +53,8 @@ export interface PickerOptions<T extends PickerItem> {
   preview?: (item: T | undefined) => Child;
   /** Keys pressed in the search field, before the popup's own; returns whether it handled one. */
   onKey?: (event: KeyboardEvent) => boolean;
+  /** The item highlighted as it opens, until the query changes (Recent Files': the second). */
+  initial?: number;
 }
 
 export interface PickerHandle<T> {
@@ -145,6 +147,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       this.resolve = resolve;
     });
     this.items = computed(() => options.items(this.state.query));
+    this.state.index = Math.max(0, Math.min(options.initial ?? 0, this.items.get().length - 1));
     // At least the body: a document always has a focused element.
     this.restoreFocus = document.activeElement as HTMLElement;
     this.element = document.createElement('div');

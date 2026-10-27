@@ -29,7 +29,7 @@ import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-edi
 import { ProjectTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
-import { carets, history, reveals, setupNavigation } from './navigation.js';
+import { carets, history, recentTabs, reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
@@ -48,6 +48,7 @@ import {
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
+import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
@@ -207,6 +208,42 @@ services.menus.contribute({
   item: { command: 'navigate.forward' },
   group: 'a',
 });
+// Recent Files, as IntelliJ's: the files shown, the latest first, the one before the current
+// highlighted, so Enter goes back to it.
+services.commands.register({
+  id: 'view.recentFiles',
+  label: 'Recent &Files',
+  dialog: true,
+  run: async () => {
+    const root = active()?.id;
+    const items = (recentTabs()?.tabs ?? [])
+      .filter((tab) => diffPath(tab.id) === undefined)
+      .map((tab) => {
+        const path =
+          root !== undefined && tab.id.startsWith(`${root}/`)
+            ? tab.id.slice(root.length + 1)
+            : tab.id;
+        const slash = path.lastIndexOf('/');
+        return {
+          label: tab.title,
+          ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
+          icon: () => icon('file'),
+          tab,
+        };
+      });
+    const chosen = await openPicker({
+      label: 'Recent Files',
+      placeholder: 'Type a file name',
+      position: 'top',
+      empty: 'No recent files',
+      initial: 1,
+      items: (query) => fuzzyFilter(items, query),
+    }).result;
+    if (chosen) editor()?.open(chosen.tab);
+  },
+});
+services.keymap?.bindDefault('Mod+E', 'view.recentFiles');
+services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
 window.addEventListener('mouseup', (event) => {
   const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
   if (command === undefined || !services.commands.isEnabled(command)) return;

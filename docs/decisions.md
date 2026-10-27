@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, as IntelliJ's
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
@@ -960,8 +960,14 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
   CodeMirror's indent less and more (Ctrl+[ and Ctrl+] elsewhere): IntelliJ indents with Tab and
   Shift+Tab.
+- **Recent Files** (View → Recent Files, Ctrl+E, Cmd+E on macOS), as IntelliJ's: the files shown in
+  the environment, the latest first, closed ones too, with the one before the current highlighted,
+  so Ctrl+E then Enter goes back to it. Typing filters. Diffs aren't files, so they aren't listed.
+  50 kept (IntelliJ's default "Recent files limit", a claim: not measured) (`RecentTabs` in
+  `layout`).
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some);
-  Back doesn't restore the scroll position, only the caret, centred.
+  Back doesn't restore the scroll position, only the caret, centred. Recent Files isn't kept
+  between runs, and lacks IntelliJ's tool windows column and "Show edited only".
 
 ## Scrollbars over the content (2026-10-27)
 
