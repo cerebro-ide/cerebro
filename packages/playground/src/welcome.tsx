@@ -17,7 +17,7 @@ import { badgeColour, initials } from '@cerebro-ide/ui-toolbar';
 import type { RecentProject } from './bridge.js';
 import { openFolder, openProject } from './projects.js';
 import { globalSettings } from './settings.js';
-import { applyTheme } from './theme.js';
+import { applyTheme, themeIsDark } from './theme.js';
 import './playground.css';
 
 const bridge = (window.cerebro as NonNullable<Window['cerebro']>).project;
@@ -28,7 +28,7 @@ document.documentElement.classList.add(
 );
 document.title = 'Welcome to Cerebro';
 effect(() => {
-  applyTheme(globalSettings.get('appearance.theme') !== 'light');
+  applyTheme(themeIsDark(globalSettings));
   return undefined;
 });
 installScrollbars();

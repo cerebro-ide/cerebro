@@ -22,6 +22,11 @@ interface Common {
   page: string;
   /** Where it may be set; default: everywhere. A theme, say, is only global. */
   scopes?: readonly Scope[];
+  /**
+   * Another setting on the same page, whose row this one shows on, after its control: IntelliJ's
+   * "Sync with OS" beside its Theme.
+   */
+  beside?: string;
 }
 
 export type SettingSpec = Common &

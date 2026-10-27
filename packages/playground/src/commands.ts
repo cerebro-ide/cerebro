@@ -19,6 +19,7 @@ import { active, currentHost } from './environments.js';
 import { openFolder } from './projects.js';
 import { icon } from './icons.js';
 import { globalSettings, save, settingsFor } from './settings.js';
+import { themeIsDark } from './theme.js';
 
 /** What tab commands act on: the tab a context menu was opened on, or the active one. */
 export interface TabContext {
@@ -26,8 +27,8 @@ export interface TabContext {
   tab: string;
 }
 
-/** The theme, from the global settings. */
-export const dark = computed(() => globalSettings.get('appearance.theme') === 'dark');
+/** The theme, from the global settings: chosen, or the system's. */
+export const dark = computed(() => themeIsDark(globalSettings));
 
 /** IntelliJ's shortcuts for its tool windows. */
 const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
@@ -45,7 +46,9 @@ const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
 export const menuVisible = signal(false);
 
 export function setDark(value: boolean): void {
+  // Chosen here, it no longer follows the system.
   globalSettings.layers.global.set('appearance.theme', value ? 'dark' : 'light');
+  globalSettings.layers.global.reset('appearance.syncWithOs');
   save(globalSettings, ['global']);
 }
 
@@ -360,7 +363,6 @@ export function setupCommands(
   });
   menus.contribute({ menu: 'editor/tab', item: { command: 'editor.copyPath' }, group: 'c-path' });
   menus.contribute({ menu: 'editor/content', item: { command: 'file.goTo' }, group: 'a' });
-  menus.contribute({ menu: 'editor/content', item: { command: 'view.darkTheme' }, group: 'b' });
 
   keymap.bindDefault('Ctrl+F4', 'editor.close');
   keymap.bindDefault('Mod+Alt+N', 'file.new');

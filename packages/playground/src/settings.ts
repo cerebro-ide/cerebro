@@ -20,11 +20,22 @@ registry.register({
   page: 'appearance',
   type: 'enum',
   default: 'dark',
+  // As IntelliJ names them; its plain Dark and Light, without islands, may come later (Ido).
   options: [
-    { value: 'dark', label: 'Dark' },
-    { value: 'light', label: 'Light' },
+    { value: 'dark', label: 'Islands Dark' },
+    { value: 'light', label: 'Islands Light' },
   ],
   scopes: ['global'],
+});
+registry.register({
+  id: 'appearance.syncWithOs',
+  title: 'Sync with OS',
+  description: 'The theme follows the system’s light or dark appearance.',
+  page: 'appearance',
+  type: 'boolean',
+  default: false,
+  scopes: ['global'],
+  beside: 'appearance.theme',
 });
 registry.register({
   id: 'appearance.displayScale',

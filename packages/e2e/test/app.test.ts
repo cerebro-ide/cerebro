@@ -145,7 +145,7 @@ describe('the window', () => {
         running.app.evaluate(() => (globalThis as { overlays?: unknown[] }).overlays);
       await page().keyboard.press('Control+K');
       await page().keyboard.press('Control+T');
-      await expect.poll(overlays).toEqual([{ color: '#ebecf0', symbolColor: '#1e1f22' }]);
+      await expect.poll(overlays).toEqual([{ color: '#e8eaee', symbolColor: '#1e1f22' }]);
       await page().keyboard.press('Control+K');
       await page().keyboard.press('Control+T');
       await expect.poll(overlays).toContainEqual({ color: '#25282c', symbolColor: '#d1d3d9' });
@@ -279,6 +279,42 @@ describe('settings', () => {
     expect(await page().locator('[data-setting="editor.fontSize"]').textContent()).toContain(
       'Overridden in Worktree',
     );
+  });
+
+  it('chooses Islands Dark or Light in Appearance, or follows the system with Sync with OS', async () => {
+    const appearance = async () => {
+      await page().keyboard.press('ControlOrMeta+Alt+S');
+      await page().locator('[data-page="appearance"]').click();
+      await page().locator('[data-scope="global"]').click();
+    };
+    const ok = () => page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await appearance();
+    const row = page().locator('[data-setting="appearance.theme"] .cerebro-setting__row');
+    expect(await row.locator('option').allTextContents()).toEqual([
+      'Islands Dark',
+      'Islands Light',
+    ]);
+    await row.locator('select').selectOption({ label: 'Islands Light' });
+    // Sync with OS is on the Theme's row, as IntelliJ's.
+    await row.getByText('Sync with OS').click();
+    await page().emulateMedia({ colorScheme: 'dark' });
+    await ok();
+    await expect.poll(theme).toBe('dark');
+    await page().emulateMedia({ colorScheme: 'light' });
+    await expect.poll(theme).toBe('light');
+    await page().emulateMedia({ colorScheme: 'dark' });
+    await expect.poll(theme).toBe('dark');
+    // Off: the theme chosen again.
+    await appearance();
+    await row.getByText('Sync with OS').click();
+    await ok();
+    await expect.poll(theme).toBe('light');
+    await page().emulateMedia({ colorScheme: null });
+    // Dark again, for the tests after.
+    await appearance();
+    await row.locator('select').selectOption({ label: 'Islands Dark' });
+    await ok();
+    await expect.poll(theme).toBe('dark');
   });
 });
 

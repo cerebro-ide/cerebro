@@ -47,6 +47,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
 - [Several terminals (2026-10-27)](#several-terminals-2026-10-27): the Terminal tool window's shells as tabs, a + button
+- [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
@@ -1170,6 +1171,31 @@ in the Terminal tool window, as tabs, with a + button.
 - These are Claude's choices, open to change.
 - **Not yet:** several Claude sessions (Ido: to design later); IntelliJ's dropdown for choosing a
   shell; renaming a tab.
+
+## Islands Dark and Islands Light (2026-10-27)
+
+Ido's request (2026-10-26, with a screenshot of IntelliJ's Islands Light and its Settings): match
+the light theme to it, name the themes as IntelliJ does, and choose them where IntelliJ does.
+
+- **Names:** "Islands Dark" and "Islands Light" (the stored values stay `dark` and `light`).
+  IntelliJ's plain Dark and Light, without islands: Ido, "MAYBE we'll do in the future".
+- **Islands Light measured** from Ido's screenshot (a lossy WebP, so within a few units; sampled
+  pixel by pixel in Chromium): the frame and stripes `#e8eaee`; tool windows white, as the editor
+  (the light theme had them grey); dialogs `#f6f8fa`, so they have a token of their own,
+  `--cerebro-dialog` (Islands Dark keeps its tool windows' colour there, not measured); a tree's
+  selected row `#e8eaee`; a focused list's `#d0e0fd`; a selected stripe button `#d9d9e0`; the
+  active tab `#e8eaee` outlined `#cbcdcf`; fields' borders `#d1d3d5`. Thin strokes (icons, muted
+  text) can't be measured from it, antialiased at 2×: they keep IntelliJ's light palette, a claim.
+  The accent stays `#3574f0`: the screenshot's buttons read `#3671e1`, likely its colour profile.
+- **Chosen in Settings → Appearance → Theme, with "Sync with OS" beside it,** as IntelliJ's. Synced,
+  the theme follows the system's light or dark appearance as it changes (`prefers-color-scheme`,
+  which Electron takes from the system). Choosing a theme with View → Dark Theme turns syncing off.
+  Settings gained `beside`: a setting shown on another's row.
+- **Not in the editor's context menu any more:** it doesn't belong there, as Ido said of the theme
+  outside Settings. View → Dark Theme and its shortcut stay.
+- These are Claude's choices, open to change.
+- **Not yet:** IntelliJ's gear beside Sync with OS (which themes to sync to), its "Editor color
+  scheme", and the light theme's syntax colours, which weren't in the screenshot.
 
 ## Search (2026-10-26)
 

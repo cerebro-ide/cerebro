@@ -237,6 +237,47 @@ describe('openSettings', () => {
     expect(settings.get('editor.fontSize')).toBe(14);
   });
 
+  it('shows a setting beside another on its row, as IntelliJ’s Sync with OS', () => {
+    const env = setup();
+    env.registry.register({
+      id: 'appearance.syncWithOs',
+      title: 'Sync with OS',
+      page: 'appearance',
+      type: 'boolean',
+      default: false,
+      scopes: ['global'],
+      beside: 'appearance.theme',
+    });
+    // Beside a setting that isn't on the page: shown on its own.
+    env.registry.register({
+      id: 'appearance.alone',
+      title: 'Alone',
+      page: 'appearance',
+      type: 'boolean',
+      default: false,
+      beside: 'editor.fontSize',
+    });
+    openSettings({ settings: env.settings, onApply: vi.fn(), platform: 'other' });
+    const rows = [...document.querySelectorAll<HTMLElement>('.cerebro-setting')].map(
+      (row) => row.dataset['setting'],
+    );
+    expect(rows).toEqual(['appearance.theme', 'appearance.alone']);
+    const row = q('[data-setting="appearance.theme"] .cerebro-setting__row');
+    expect(row.textContent).toBe('ThemeDarkLightSync with OS');
+    const sync = input('appearance.syncWithOs');
+    // The title is its label: clicking it checks the box.
+    q('[data-setting="appearance.syncWithOs"] .cerebro-setting__beside-title').click();
+    expect(sync.checked).toBe(true);
+    expect(
+      setting('appearance.syncWithOs').classList.contains('cerebro-setting__beside--set'),
+    ).toBe(true);
+    q('[data-setting="appearance.syncWithOs"] .cerebro-setting__reset').click();
+    expect(sync.checked).toBe(false);
+    sync.click();
+    button('Apply').click();
+    expect(env.layers.global.toJSON()).toEqual({ 'appearance.syncWithOs': true });
+  });
+
   it('disables settings the scope can’t set, naming where they can be', () => {
     open({ scope: 'repo' });
     const select = q('[data-setting="appearance.theme"] select') as HTMLSelectElement;
