@@ -108,6 +108,18 @@ it('scrolls the tabs with the mouse wheel, either way, when they overflow', asyn
   expect(event.defaultPrevented).toBe(false);
 });
 
+it('keeps the middle button for closing tabs, not autoscroll', () => {
+  const { strip, tabEl } = mount(LONG);
+  const press = (button: number) => {
+    const event = new MouseEvent('mousedown', { button, bubbles: true, cancelable: true });
+    tabEl(LONG[0] as string).dispatchEvent(event);
+    return event.defaultPrevented;
+  };
+  expect(press(1)).toBe(true);
+  expect(press(0)).toBe(false);
+  expect(strip.isConnected).toBe(true);
+});
+
 it('lists every tab from the chevron, the active one highlighted, and goes to the one chosen', async () => {
   const { area, more, inView } = mount(LONG);
   await vi.waitFor(() => {

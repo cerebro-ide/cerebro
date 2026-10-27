@@ -82,13 +82,20 @@ export function watchOverflow(overflow: TabOverflow): (strip: Element) => void {
       event.preventDefault();
       strip.scrollLeft += delta;
     };
+    // The middle button closes a tab; in a strip that scrolls, Chromium on Windows would start its
+    // autoscroll instead.
+    const middle = (event: MouseEvent) => {
+      if (event.button === 1) event.preventDefault();
+    };
     strip.addEventListener('wheel', wheel, { passive: false });
+    strip.addEventListener('mousedown', middle);
     strip.addEventListener('scroll', measure, { passive: true });
     onCleanup(() => {
       cancelAnimationFrame(frame);
       resizes.disconnect();
       changes.disconnect();
       strip.removeEventListener('wheel', wheel);
+      strip.removeEventListener('mousedown', middle);
       strip.removeEventListener('scroll', measure);
     });
     reveal();

@@ -145,11 +145,13 @@ it('scrolls tabs that don’t fit, keeping the active one in view, and lists the
     .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
     .toContain('file0.txt');
   expect(await inView()).toBe(true);
-  // Leaves the tabs as they were.
+  // Leaves the tabs as they were: the middle button closes each, scrolled or not.
   for (let i = 0; i < 16; i++) {
     await page()
       .locator('.cerebro-editor-tab', { hasText: `file${String(i)}.txt` })
       .click({ button: 'middle', force: true });
   }
+  const titles = () => page().locator('.cerebro-editor-tab').allTextContents();
+  await expect.poll(titles).toEqual(expect.not.arrayContaining([expect.stringMatching(/^file/)]));
   await more.waitFor({ state: 'hidden' });
 });
