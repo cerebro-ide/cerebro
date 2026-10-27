@@ -278,6 +278,7 @@ describe('openPicker', () => {
     picker({
       header: () => <span class="test-title">Find in Files</span>,
       options: () => <button class="test-option">Aa</button>,
+      toolbar: () => <button class="test-scope">Directory</button>,
       preview: (item) => <p class="test-preview">{item?.label ?? 'none'}</p>,
       onKey: (event) => {
         if (event.key !== 'c' || !event.altKey) return false;
@@ -287,6 +288,13 @@ describe('openPicker', () => {
     });
     expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Find in Files');
     expect(document.querySelector('.cerebro-popup__search-row .test-option')).not.toBeNull();
+    // The toolbar between the field and the list.
+    const toolbar = document.querySelector('.cerebro-popup__toolbar') as HTMLElement;
+    expect(toolbar.querySelector('.test-scope')).not.toBeNull();
+    expect(toolbar.previousElementSibling?.classList.contains('cerebro-popup__search-row')).toBe(
+      true,
+    );
+    expect(toolbar.nextElementSibling?.classList.contains('cerebro-popup__list')).toBe(true);
     const preview = () => document.querySelector('.test-preview')?.textContent;
     expect(preview()).toBe('README.md');
     key('ArrowDown');

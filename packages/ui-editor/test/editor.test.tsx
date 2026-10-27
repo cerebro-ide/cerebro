@@ -265,13 +265,19 @@ describe('CodeEditor', () => {
   });
 
   it('reveals a position: selected, and scrolled into view', async () => {
-    const reveal = signal<{ line: number; column: number } | undefined>(undefined);
+    const reveal = signal<{ line: number; column: number; end?: number } | undefined>(undefined);
     const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
     const root = mount({ path: 'a.txt', text, reveal: () => reveal.get() });
     reveal.set({ line: 250, column: 5 });
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 250');
     expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
+    // To an end column: that part of the line selected.
+    reveal.set({ line: 250, column: 5, end: 8 });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect((root as ShadowRoot & { getSelection: () => Selection }).getSelection().toString()).toBe(
+      '250',
+    );
     // Beyond the end, the last line.
     reveal.set({ line: 9999, column: 0 });
     await new Promise((resolve) => requestAnimationFrame(resolve));

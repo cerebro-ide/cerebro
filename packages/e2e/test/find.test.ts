@@ -51,6 +51,29 @@ it('finds a text in the files, with Match Case, and opens a line found', async (
   );
 });
 
+it('finds in a directory, the active file’s to start with, and in the files a mask keeps', async () => {
+  // src/use.ts is open, from the first test.
+  mkdirSync(join(repo, 'notes'));
+  writeFileSync(join(repo, 'notes', 'shape.md'), 'shape\n');
+  await page().keyboard.press('ControlOrMeta+Shift+F');
+  await page().keyboard.type('shape');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(5);
+  await page().getByRole('tab', { name: 'Directory' }).click();
+  expect(await page().getByLabel('Directory').inputValue()).toBe('src');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(4);
+  await page().getByRole('checkbox', { name: 'File mask' }).check();
+  await page().getByRole('textbox', { name: 'File mask' }).fill('*.ts, !use.ts');
+  await expect
+    .poll(rows, { timeout: 15_000 })
+    .toEqual([expect.stringContaining('// Shapes.'), expect.stringContaining('class Shape')]);
+  // Kept for the next search, as IntelliJ keeps them; put back for the tests after this one.
+  await page().getByRole('checkbox', { name: 'File mask' }).uncheck();
+  await page().getByRole('tab', { name: 'In Project' }).click();
+  // From the checkbox, which has the focus.
+  await page().keyboard.press('Escape');
+  expect(await page().locator('.cerebro-popup').count()).toBe(0);
+});
+
 it('says what’s wrong with a bad regular expression', async () => {
   await page().keyboard.press('ControlOrMeta+Shift+F');
   await page().keyboard.press('Alt+KeyX');

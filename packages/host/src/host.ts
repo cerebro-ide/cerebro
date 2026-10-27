@@ -40,6 +40,8 @@ export interface HostOptions {
   hookCommand?: string;
   /** The language servers. Default: Cerebro's own, started as needed. */
   languageServers?: LanguageServers;
+  /** ripgrep, for Find in Files. Default: @vscode/ripgrep's. */
+  rg?: string;
 }
 
 /** A word for a POSIX shell: quoted, as it is. */
@@ -164,15 +166,31 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  // Only the latest search's answer is used (the page searches as the user types): a new one stops
+  // the one still running.
+  let searching: AbortController | undefined;
   connection.onRequest('search.text', async (params) => {
-    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown };
+    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown; masks?: unknown };
+    const masks = p.masks ?? [];
+    if (!Array.isArray(masks) || masks.some((mask) => typeof mask !== 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'masks must be strings');
+    }
+    searching?.abort();
+    const controller = new AbortController();
+    searching = controller;
     try {
-      return await searchText(text(params, 'path'), {
-        query: text(params, 'query'),
-        matchCase: p.matchCase === true,
-        words: p.words === true,
-        regex: p.regex === true,
-      });
+      return await searchText(
+        text(params, 'path'),
+        {
+          query: text(params, 'query'),
+          matchCase: p.matchCase === true,
+          words: p.words === true,
+          regex: p.regex === true,
+          masks: masks as string[],
+        },
+        options.rg,
+        controller.signal,
+      );
     } catch (error) {
       if (error instanceof BadQuery)
         throw new ResponseError(ErrorCodes.InvalidParams, error.message);

@@ -1,7 +1,8 @@
 // Find in Files, as IntelliJ's popup: a search field with Match Case, Words and Regex beside it
 // (Alt+C, Alt+W, Alt+X), the lines found with the file and line at the right, and the highlighted
-// line's file below, in an editor. Enter or a click opens the file there. The host searches the
-// active worktree with ripgrep, as the user types.
+// line's file below, in an editor, its match selected. Enter or a click opens the file there. Under the
+// field, the scope: In Project, or a Directory (the active file's, to start with); in the header, a
+// File mask (`*.ts, !*.test.ts`). The host searches with ripgrep, as the user types.
 
 import { signal } from '@cerebro-ide/reactive';
 import { CodeEditor } from '@cerebro-ide/ui-editor';
@@ -56,6 +57,33 @@ export function countOf(found: Found | undefined): string {
   return `${plural(matches, 'match')} in ${String(files)}${plus} file${files === 1 ? '' : 's'}`;
 }
 
+/** Where to search, kept between searches as IntelliJ keeps it. */
+const scope = signal<'project' | 'directory'>('project');
+/** The File mask, and whether it's used. */
+const maskOn = signal(false);
+const mask = signal('');
+
+/** A File mask as the host takes it: comma-separated masks, `!` leaving files out. */
+export function masksOf(text: string): string[] {
+  return text
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/** The folder searched: the worktree, or a folder in it, written relative to it. */
+export function folderOf(worktree: string, directory: string): string {
+  const relative = directory.replaceAll('\\', '/').replace(/^\/+|\/+$/g, '');
+  return relative === '' ? worktree : `${worktree}/${relative}`;
+}
+
+/** Keeps a field's keys from the app's shortcuts; Enter searches again, Escape closes. */
+const fieldKeys = (search: () => void, close: () => void) => (event: KeyboardEvent) => {
+  event.stopPropagation();
+  if (event.key === 'Enter') search();
+  if (event.key === 'Escape') close();
+};
+
 /** An option's toggle, as IntelliJ's beside the field. */
 function Toggle(props: { label: string; text: string; on: () => boolean; toggle: () => void }) {
   return (
@@ -91,7 +119,11 @@ function Preview(props: { match: TextMatch }) {
           <CodeEditor
             path={props.match.path}
             text={content}
-            reveal={() => ({ line: props.match.line, column: props.match.ranges[0]?.[0] ?? 0 })}
+            // The first match on the line, selected, as IntelliJ's preview highlights it.
+            reveal={() => {
+              const [from, to] = props.match.ranges[0] ?? [0, 0];
+              return { line: props.match.line, column: from, end: to };
+            }}
             revealFocus={false}
           />
         );
@@ -100,13 +132,19 @@ function Preview(props: { match: TextMatch }) {
   );
 }
 
-/** Opens Find in Files over the active worktree; `open` opens a file at a line. */
+/**
+ * Opens Find in Files over the active worktree; `open` opens a file at a line. `file`, the active
+ * file, gives Directory its folder.
+ */
 export async function findInFiles(
   open: (at: { path: string; line: number; column: number }) => void,
+  file?: string,
 ): Promise<void> {
   const worktree = active()?.id;
   const host = worktree === undefined ? undefined : hostFor(worktree);
   if (!host || worktree === undefined) return;
+  const within = file?.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : '';
+  const directory = signal(within.split('/').slice(0, -1).join('/'));
   const query = signal('');
   const matchCase = signal(false);
   const words = signal(false);
@@ -125,7 +163,8 @@ export async function findInFiles(
     timer = setTimeout(() => {
       void host
         .request('search.text', {
-          path: worktree,
+          path: scope.peek() === 'project' ? worktree : folderOf(worktree, directory.peek()),
+          masks: maskOn.peek() ? masksOf(mask.peek()) : [],
           query: text,
           matchCase: matchCase.peek(),
           words: words.peek(),
@@ -161,7 +200,28 @@ export async function findInFiles(
       }}
     />
   );
-  const chosen = await openPicker<Choice>({
+  const scopeTab = (text: string, value: 'project' | 'directory') => (
+    <button
+      type="button"
+      role="tab"
+      class="playground-find__scope"
+      aria-selected={() => String(scope.get() === value)}
+      on:mousedown={(event) => {
+        // Keeps the focus in the search field.
+        event.preventDefault();
+      }}
+      on:click={() => {
+        scope.set(value);
+        search();
+      }}
+    >
+      {text}
+    </button>
+  );
+  const close = () => {
+    picker.close();
+  };
+  const picker = openPicker<Choice>({
     label: 'Find in Files',
     placeholder: 'Text to find',
     position: 'top',
@@ -178,6 +238,52 @@ export async function findInFiles(
           <span class="playground-find__count">{countOf(result)}</span>
         );
       },
+      <label class="playground-find__mask">
+        <input
+          type="checkbox"
+          checked={() => maskOn.get()}
+          on:change={(event) => {
+            maskOn.set((event.currentTarget as HTMLInputElement).checked);
+            search();
+          }}
+          on:keydown={fieldKeys(search, close)}
+        />
+        File mask
+      </label>,
+      <input
+        class="playground-find__field playground-find__mask-field"
+        type="text"
+        spellcheck={false}
+        aria-label="File mask"
+        placeholder="*.ts, !*.test.ts"
+        disabled={() => !maskOn.get()}
+        value={mask.peek()}
+        on:input={(event) => {
+          mask.set((event.currentTarget as HTMLInputElement).value);
+          search();
+        }}
+        on:keydown={fieldKeys(search, close)}
+      />,
+    ],
+    toolbar: () => [
+      scopeTab('In Project', 'project'),
+      scopeTab('Directory', 'directory'),
+      () =>
+        scope.get() === 'directory' ? (
+          <input
+            class="playground-find__field playground-find__directory"
+            type="text"
+            spellcheck={false}
+            aria-label="Directory"
+            placeholder="The project's root"
+            value={directory.peek()}
+            on:input={(event) => {
+              directory.set((event.currentTarget as HTMLInputElement).value);
+              search();
+            }}
+            on:keydown={fieldKeys(search, close)}
+          />
+        ) : null,
     ],
     options: () => [
       option('Match Case (Alt+C)', 'Cc', matchCase),
@@ -199,7 +305,8 @@ export async function findInFiles(
       toggle(on);
       return true;
     },
-  }).result;
+  });
+  const chosen = await picker.result;
   clearTimeout(timer);
   if (chosen) {
     const { match } = chosen;

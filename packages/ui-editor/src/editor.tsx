@@ -41,7 +41,9 @@ export interface CodeEditorProps {
   /** Read reactively. Default: 4. */
   tabSize?: () => number;
   /** A position to show and select: where a definition is. Read reactively; zero-based. */
-  reveal?: () => { line: number; column: number; top?: number | undefined } | undefined;
+  reveal?: () =>
+    | { line: number; column: number; end?: number | undefined; top?: number | undefined }
+    | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
   /**
@@ -385,7 +387,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
       const line = lineOf(at.line);
       const pos = Math.min(line.from + at.column, line.to);
       view.dispatch({
-        selection: { anchor: pos },
+        // To `end`, on the same line: a match, say.
+        selection: { anchor: pos, head: Math.min(line.from + (at.end ?? at.column), line.to) },
         effects:
           at.top === undefined
             ? EditorView.scrollIntoView(pos, { y: 'center' })
