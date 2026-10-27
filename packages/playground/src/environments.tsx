@@ -340,7 +340,8 @@ export function setupEnvironments(
         worktrees.get().map((w): Choice => ({
           label: w.name,
           detail: w.branch,
-          group: 'Worktrees',
+          // The repository's own folder (git lists it first), apart from the worktrees beside it.
+          group: gitRepository.get() && w.id === mainWorktree ? 'Main Worktree' : 'Worktrees',
           ...current(workspace.activeId === w.id),
           run: () => {
             open(w.id);

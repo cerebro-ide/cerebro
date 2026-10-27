@@ -210,6 +210,11 @@ it('lists the repository’s real worktrees, opening the main one', async () => 
   expect(
     await page.locator('.cerebro-popup-item .cerebro-popup-item__label').allTextContents(),
   ).toEqual(['New Worktree…', 'project', 'project-e2e']);
+  // The repository's own folder is apart from the worktrees, under its own header.
+  expect(await page.locator('.cerebro-popup__group').allTextContents()).toEqual([
+    'Main Worktree',
+    'Worktrees',
+  ]);
   await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: feat/e2e',
