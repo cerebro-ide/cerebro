@@ -92,6 +92,22 @@ describe('searchText', () => {
       await expect(searchText(dir, { query: 'x' }, script)).rejects.toThrow('The search failed');
     },
   );
+
+  it.skipIf(process.platform === 'win32')(
+    'stops ripgrep when aborted, answering with what it found so far',
+    async () => {
+      const dir = folder();
+      // Never finishes on its own; exec, so killing it kills the sleep, as it would ripgrep.
+      const script = join(dir, 'slow.sh');
+      writeFileSync(script, '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
+      const controller = new AbortController();
+      const searching = searchText(dir, { query: 'x' }, script, controller.signal);
+      controller.abort();
+      const started = Date.now();
+      expect(await searching).toEqual({ matches: [], limited: true });
+      expect(Date.now() - started).toBeLessThan(5000);
+    },
+  );
 });
 
 describe('ripgrep', () => {

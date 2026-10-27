@@ -110,8 +110,16 @@ export function byPlace(a: TextMatch, b: TextMatch): number {
   return a.path < b.path ? -1 : 1;
 }
 
-/** Searches the files in `folder` for a text; the lines found, sorted by path and line. */
-export function searchText(folder: string, search: TextSearch, rg = rgPath): Promise<TextResults> {
+/**
+ * Searches the files in `folder` for a text; the lines found, sorted by path and line. Aborted
+ * (`signal`), it stops ripgrep and answers with what it found so far, as stopped early.
+ */
+export function searchText(
+  folder: string,
+  search: TextSearch,
+  rg = rgPath,
+  signal?: AbortSignal,
+): Promise<TextResults> {
   const limit = search.limit ?? LIMIT;
   return new Promise((resolve, reject) => {
     const child = spawn(rg, rgArguments(search), {
@@ -141,6 +149,15 @@ export function searchText(folder: string, search: TextSearch, rg = rgPath): Pro
       matches.push(match);
     };
     lines.on('line', onLine);
+    signal?.addEventListener(
+      'abort',
+      () => {
+        limited = true;
+        lines.off('line', onLine);
+        child.kill();
+      },
+      { once: true },
+    );
     child.on('error', reject);
     // Done once ripgrep has exited and every line it printed was read, in either order.
     const exited = new Promise<number | null>((done) => {
@@ -151,7 +168,7 @@ export function searchText(folder: string, search: TextSearch, rg = rgPath): Pro
     });
     void Promise.all([exited, read]).then(([code]) => {
       // 0: found; 1: nothing found; 2: an error, which may come with what was found (an unreadable
-      // file among others). Killed at the limit: no code.
+      // file among others). Killed at the limit, or aborted: no code.
       if (code === 2 && matches.length === 0) {
         reject(new BadQuery(errors.trim() || 'The search failed'));
         return;

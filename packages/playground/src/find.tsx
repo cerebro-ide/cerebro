@@ -1,6 +1,6 @@
 // Find in Files, as IntelliJ's popup: a search field with Match Case, Words and Regex beside it
 // (Alt+C, Alt+W, Alt+X), the lines found with the file and line at the right, and the highlighted
-// line's file below, in an editor. Enter or a click opens the file there. The host searches the
+// line's file below, in an editor, its match selected. Enter or a click opens the file there. The host searches the
 // active worktree with ripgrep, as the user types.
 
 import { signal } from '@cerebro-ide/reactive';
@@ -91,7 +91,11 @@ function Preview(props: { match: TextMatch }) {
           <CodeEditor
             path={props.match.path}
             text={content}
-            reveal={() => ({ line: props.match.line, column: props.match.ranges[0]?.[0] ?? 0 })}
+            // The first match on the line, selected, as IntelliJ's preview highlights it.
+            reveal={() => {
+              const [from, to] = props.match.ranges[0] ?? [0, 0];
+              return { line: props.match.line, column: from, end: to };
+            }}
             revealFocus={false}
           />
         );

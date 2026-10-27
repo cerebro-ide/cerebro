@@ -164,15 +164,26 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  // Only the latest search's answer is used (the page searches as the user types): a new one stops
+  // the one still running.
+  let searching: AbortController | undefined;
   connection.onRequest('search.text', async (params) => {
     const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown };
+    searching?.abort();
+    const controller = new AbortController();
+    searching = controller;
     try {
-      return await searchText(text(params, 'path'), {
-        query: text(params, 'query'),
-        matchCase: p.matchCase === true,
-        words: p.words === true,
-        regex: p.regex === true,
-      });
+      return await searchText(
+        text(params, 'path'),
+        {
+          query: text(params, 'query'),
+          matchCase: p.matchCase === true,
+          words: p.words === true,
+          regex: p.regex === true,
+        },
+        undefined,
+        controller.signal,
+      );
     } catch (error) {
       if (error instanceof BadQuery)
         throw new ResponseError(ErrorCodes.InvalidParams, error.message);
