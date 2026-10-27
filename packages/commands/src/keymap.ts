@@ -1,5 +1,6 @@
-// The keymap: which key sequences run which commands. Defaults come from the commands' owners;
-// the user's bindings come on top, and can also remove a default. A sequence of several chords
+// The keymap: which key sequences run which commands. Defaults come from the commands' owners; a
+// ready-made keymap (IntelliJ's, VS Code's) replaces the keys of the commands it names; the user's
+// bindings come on top, and can also remove a default. A sequence of several chords
 // waits for the next chord while a longer binding could still match.
 
 import { makeObservable, ObservableArray, type Disposable } from '@cerebro-ide/reactive';
@@ -17,10 +18,31 @@ export interface UserBinding extends Binding {
   remove?: boolean;
 }
 
+/**
+ * A ready-made keymap, as IntelliJ's list of them: the keys of the commands it names, written for
+ * the platform it's for (explicit modifiers, not `Mod`). A command it doesn't name takes its
+ * `parent`'s keys, else its default ones.
+ */
+export interface KeymapPreset {
+  id: string;
+  name: string;
+  bindings: Readonly<Record<string, readonly string[]>>;
+  parent?: KeymapPreset;
+}
+
+/** A preset's keys for each command it or its parents name, the nearest winning. */
+function presetBindings(preset: KeymapPreset): Map<string, readonly string[]> {
+  const keys = preset.parent ? presetBindings(preset.parent) : new Map<string, readonly string[]>();
+  for (const [command, sequences] of Object.entries(preset.bindings)) keys.set(command, sequences);
+  return keys;
+}
+
 export class Keymap {
   readonly platform: Platform;
   readonly defaults = new ObservableArray<Binding>();
   user: readonly UserBinding[] = [];
+  /** The ready-made keymap in use, if any. */
+  preset: KeymapPreset | undefined = undefined;
 
   constructor(platform: Platform) {
     this.platform = platform;
@@ -38,17 +60,31 @@ export class Keymap {
     };
   }
 
+  /** Uses a ready-made keymap, or none: the defaults alone. */
+  setPreset(preset: KeymapPreset | undefined): void {
+    this.preset = preset;
+  }
+
   /** Replaces the user's bindings, as loaded from their settings. */
   setUser(bindings: readonly UserBinding[]): void {
     this.user = bindings.map((b) => ({ ...b, key: normalizeSequence(b.key, this.platform) }));
   }
 
-  /** The bindings in effect: the user's first, then the defaults they don't remove. */
+  /**
+   * The bindings in effect: the user's first, then the preset's, then the defaults of the commands
+   * it doesn't name; less those the user removes.
+   */
   get bindings(): Binding[] {
     const removed = new Set(this.user.filter((b) => b.remove).map((b) => `${b.key}\n${b.command}`));
     const added = this.user.filter((b) => !b.remove).map(({ key, command }) => ({ key, command }));
-    const defaults = this.defaults.toArray().filter((b) => !removed.has(`${b.key}\n${b.command}`));
-    return [...added, ...defaults];
+    const named = this.preset ? presetBindings(this.preset) : new Map<string, readonly string[]>();
+    const preset = [...named].flatMap(([command, keys]) =>
+      keys.map((key) => ({ key: normalizeSequence(key, this.platform), command })),
+    );
+    const defaults = this.defaults.toArray().filter((b) => !named.has(b.command));
+    return [...added, ...preset, ...defaults].filter(
+      (b, i) => i < added.length || !removed.has(`${b.key}\n${b.command}`),
+    );
   }
 
   /** Commands bound to exactly this sequence, in priority order. */

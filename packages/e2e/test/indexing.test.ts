@@ -5,7 +5,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-index-')));
@@ -34,7 +34,7 @@ it('indexes the worktree as it opens, so the first search is answered at once', 
   const status = running.page.locator('.cerebro-statusbar');
   await status.getByText('Indexed').waitFor({ timeout: 30_000 });
   // Ready before anyone searched.
-  await running.page.keyboard.press('ControlOrMeta+Alt+Shift+N');
+  await running.page.keyboard.press(KEYS.goToSymbol);
   await running.page.keyboard.type('Module2999');
   await running.page.locator('.cerebro-popup-item', { hasText: 'Module2999' }).waitFor();
   expect(await running.page.locator('.cerebro-popup-item__label').allTextContents()).toEqual([

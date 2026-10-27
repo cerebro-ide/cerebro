@@ -15,6 +15,19 @@ import { expect } from 'vitest';
 export const APP = fileURLToPath(new URL('../../app', import.meta.url));
 const TRACES = fileURLToPath(new URL('../traces', import.meta.url));
 
+/**
+ * The keys of the default keymap, IntelliJ's for the system the tests run on, where they differ
+ * between macOS and the others (decision "Ready-made keymaps").
+ */
+const mac = process.platform === 'darwin';
+export const KEYS = {
+  settings: mac ? 'Meta+Comma' : 'Control+Alt+S',
+  goToFile: mac ? 'Meta+Shift+O' : 'Control+Shift+N',
+  goToSymbol: mac ? 'Meta+Alt+O' : 'Control+Alt+Shift+N',
+  groupByDirectory: mac ? 'Control+P' : 'Control+Alt+P',
+  darkTheme: 'Control+Backquote',
+} as const;
+
 let runs = 0;
 
 /** Saves the app's trace, named for the test file, and closes the app. */

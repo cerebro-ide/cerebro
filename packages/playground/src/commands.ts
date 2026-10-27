@@ -11,13 +11,14 @@ import {
   type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
-import { computed, signal, type Signal } from '@cerebro-ide/reactive';
+import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { active, currentHost, hostFor } from './environments.js';
 import { openFolder } from './projects.js';
 import { icon } from './icons.js';
+import { PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 import { themeIsDark } from './theme.js';
 
@@ -377,6 +378,12 @@ export function setupCommands(
   keymap.bindDefault('Mod+Shift+N', 'file.goTo');
   keymap.bindDefault('Ctrl+K Ctrl+T', 'view.darkTheme');
   keymap.bindDefault('Ctrl+Shift+C', 'editor.copyPath');
+  // The keymap chosen in Settings → Keymap, as it changes.
+  effect(() => {
+    const id = globalSettings.get('keymap');
+    keymap.setPreset(PRESETS.find((preset) => preset.id === id));
+    return undefined;
+  });
 
   // Shortcuts act on the active tab. Keys an open menu handles never get here.
   const dispatcher = new KeyDispatcher(keymap, commands);

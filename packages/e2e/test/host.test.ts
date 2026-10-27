@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name, which git and
@@ -117,7 +117,7 @@ it('keeps the file open after a reload, read again from disk', async () => {
 it('goes to a file of the worktree, and finds new ones next time', async () => {
   const page = running.page;
   const labels = () => page.locator('.cerebro-popup-item__label').allTextContents();
-  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.press(KEYS.goToFile);
   await page.keyboard.type('app');
   await page.locator('.cerebro-popup-item__label', { hasText: 'app.ts' }).waitFor();
   expect(await labels()).toEqual(['app.ts']);
@@ -125,7 +125,7 @@ it('goes to a file of the worktree, and finds new ones next time', async () => {
   await page.keyboard.press('Enter');
   await page.locator('.cm-line', { hasText: 'export' }).waitFor();
   writeFileSync(join(repo, 'fresh.md'), '# new');
-  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.press(KEYS.goToFile);
   await page.keyboard.type('fresh');
   await page.locator('.cerebro-popup-item__label', { hasText: 'fresh.md' }).waitFor();
   await page.keyboard.press('Escape');
@@ -133,7 +133,7 @@ it('goes to a file of the worktree, and finds new ones next time', async () => {
 
 it('goes to a symbol by name, opening its file there', async () => {
   const page = running.page;
-  await page.keyboard.press('ControlOrMeta+Alt+Shift+N');
+  await page.keyboard.press(KEYS.goToSymbol);
   await page.keyboard.type('Shape');
   await page.locator('.cerebro-popup-item', { hasText: 'Shape' }).waitFor();
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
@@ -146,7 +146,7 @@ it('goes to a symbol by name, opening its file there', async () => {
 
 it('finds symbols in Python too', async () => {
   const page = running.page;
-  await page.keyboard.press('ControlOrMeta+Alt+Shift+N');
+  await page.keyboard.press(KEYS.goToSymbol);
   await page.keyboard.type('Toolbox');
   await page.locator('.cerebro-popup-item', { hasText: 'Toolbox' }).waitFor();
   expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe(
@@ -157,7 +157,7 @@ it('finds symbols in Python too', async () => {
 
 it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async () => {
   const page = running.page;
-  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.press(KEYS.goToFile);
   await page.keyboard.type('use.ts');
   await page.locator('.cerebro-popup-item__label', { hasText: 'use.ts' }).waitFor();
   await page.keyboard.press('Enter');
@@ -413,9 +413,10 @@ it('groups the Commit tool window’s files or not, collapses and expands them, 
   await page.locator('.cerebro-menu-item', { hasText: 'Directory' }).click();
   await expect.poll(() => folder.count()).toBe(0);
   await expect.poll(() => shape.locator('.playground-change__folder').textContent()).toBe('src');
-  // Ctrl+P, as IntelliJ's, groups them again while the window has the keyboard.
+  // Group by Directory (IntelliJ's Ctrl+Alt+P, Ctrl+P on macOS) groups them again while the window
+  // has the keyboard.
   await shape.click();
-  await page.keyboard.press('ControlOrMeta+p');
+  await page.keyboard.press(KEYS.groupByDirectory);
   await folder.waitFor();
   await button('changes.collapseAll').click();
   await expect.poll(() => shape.count()).toBe(0);
