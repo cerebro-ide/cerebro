@@ -6,15 +6,11 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### Several terminals in the Terminal tool window (and, to design later, several Claude sessions)
+### Several Claude sessions, as tabs (to design later)
 
-Raised by Ido (2026-10-26), with a screenshot of IntelliJ's Terminal tool window.
-
-- **The Terminal tool window holds several terminals, as tabs:** a + button to open another, and a
-  dropdown beside it, as IntelliJ's. Its tabs overflow as the editor's do (`MoreTabs` and
-  `watchOverflow`, decision "Tabs that don't fit").
-- **Several Claude tabs:** IntelliJ also lets several Claude Code sessions open as tabs. Ido:
-  "that's something we can get to designing a bit later on". It needs a design before it's built.
+Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
+something we can get to designing a bit later on". It needs a design before it's built; the
+Terminal tool window's tabs (decision "Several terminals") are the pieces to reuse.
 
 ### Themes: match Islands Light, name them Islands Dark and Islands Light, choose them in Settings
 

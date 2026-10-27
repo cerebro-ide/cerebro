@@ -11,6 +11,7 @@ import {
   EnvironmentEditors,
   EnvironmentTabs,
   ShellLayout,
+  ToolTabs,
 } from '@cerebro-ide/ui-layout';
 import './bridge.js';
 import { MenuBar, openContextMenu, syncNativeMenu } from '@cerebro-ide/ui-menu';
@@ -66,7 +67,13 @@ import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
-import { setTerminalKeys, terminalFor, type TerminalKind } from './terminals.js';
+import {
+  agentTerminal,
+  setLastShellClosed,
+  setTerminalKeys,
+  Shells,
+  shellsFor,
+} from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
 
@@ -113,6 +120,10 @@ for (const spec of windows) layout.toolWindows.register(spec);
 layout.toolWindows.show('project');
 layout.toolWindows.show('terminal');
 layout.toolWindows.show('claude');
+// Closing the last terminal hides the Terminal tool window, as IntelliJ's.
+setLastShellClosed(() => {
+  layout.toolWindows.hide('terminal');
+});
 
 const FILES = [
   'README.md',
@@ -507,16 +518,55 @@ function Files() {
   );
 }
 
-/** The active worktree's terminal of a kind: its shell, or its agent. */
-function TerminalPane(props: { kind: TerminalKind }) {
+/** The active worktree's terminal of a kind: its shell (the tab shown), or its agent. */
+function TerminalPane(props: { kind: 'shell' | 'claude' }) {
   return () => {
     const env = active();
     if (!env) return <p class="playground-project__empty">No environment open</p>;
-    const view = terminalFor(props.kind, env.id);
+    const shells = shellsFor(env.id);
+    const view = props.kind === 'claude' ? agentTerminal(env.id) : shells.view(shells.active);
     if (!view) {
       return <p class="playground-project__empty">Terminals run in the desktop app.</p>;
     }
     return view.element;
+  };
+}
+
+/** The Terminal tool window's tabs: the active worktree's shells. */
+function TerminalTabs() {
+  return () => {
+    const env = active();
+    // In a plain browser there are no terminals to show tabs for.
+    if (!env || !window.cerebro) return null;
+    const shells = shellsFor(env.id);
+    const focus = () => {
+      requestAnimationFrame(() => shells.view(shells.active)?.focus());
+    };
+    return (
+      <ToolTabs
+        tabs={() =>
+          shells.numbers.map((number) => ({
+            id: String(number),
+            title: Shells.title(number),
+            active: shells.active === number,
+            select: () => {
+              shells.select(number);
+              focus();
+            },
+            close: () => {
+              shells.close(number);
+            },
+          }))
+        }
+        add={{
+          label: 'New Tab',
+          run: () => {
+            shells.add();
+            focus();
+          },
+        }}
+      />
+    );
   };
 }
 
@@ -754,6 +804,7 @@ render(
           }}
         />
       )}
+      tabs={(id) => (id === 'terminal' ? <TerminalTabs /> : null)}
       actions={(id) =>
         id === 'project' ? (
           <ToolbarButton

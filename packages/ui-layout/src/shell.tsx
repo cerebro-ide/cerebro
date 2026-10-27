@@ -28,6 +28,8 @@ export interface ShellLayoutProps {
   icon?: (name: string) => Child;
   /** The shortcut that toggles a tool window, for its button's tooltip, if it has one. */
   shortcut?: (id: string) => string | undefined;
+  /** Tabs in a tool window's header, after its title: the Terminal's sessions (`ToolTabs`). */
+  tabs?: (id: string) => Child;
   /** Buttons in a tool window's header, before Hide: the Project's Select Opened File, say. */
   actions?: (id: string) => Child;
 }
@@ -312,6 +314,7 @@ function Pane(props: { ctx: Context; area: Area; id: string; slot: Slot }): Node
     >
       <header class="cerebro-tool-window__header">
         <span class="cerebro-tool-window__title">{() => tool.title}</span>
+        {ctx.props.tabs?.(id)}
         {ctx.props.actions?.(id)}
         <button
           type="button"

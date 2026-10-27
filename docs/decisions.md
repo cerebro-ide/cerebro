@@ -46,6 +46,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
+- [Several terminals (2026-10-27)](#several-terminals-2026-10-27): the Terminal tool window's shells as tabs, a + button
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
@@ -1139,6 +1140,30 @@ squeezed ("pack…") and the rest couldn't be reached.
 - **Editor tabs show the file's icon**, as IntelliJ's: the playground passes it (a file, or a diff).
 - These are Claude's choices, open to change. The fade's width and the peek (24 pixels) weren't
   measured from IntelliJ: claims, to check against it.
+
+## Several terminals (2026-10-27)
+
+Ido's request (2026-10-26, with a screenshot of IntelliJ's Terminal tool window): several terminals
+in the Terminal tool window, as tabs, with a + button.
+
+- **A worktree's shells are tabs in the tool window's header,** after its title, as IntelliJ's:
+  "Local", "Local (2)", each numbered with the lowest number free (a claim about IntelliJ's
+  numbering, not checked), each with a close button; the middle button closes one too. A + button
+  opens another and gives it the keys. Tabs that don't fit scroll and are listed by the chevron
+  (decision "Tabs that don't fit").
+- **`ToolTabs` in `ui-layout`,** for any tool window: `ShellLayout` takes `tabs`, shown after the
+  title, which then takes only its own width.
+- **Each tab is its own process in the host** (key `shell:<worktree>:<n>`). The tabs are kept in
+  the browser's storage by worktree, so after a reload they show the same processes; after a
+  restart, new shells in the same tabs.
+- **Closing the last tab hides the tool window,** as IntelliJ's; shown again, it has a new shell.
+- **A shell that ends keeps its tab,** saying so, and Enter starts it again (decision "Terminals and
+  the Claude tool window"). IntelliJ closes the tab instead; kept as decided until Ido says
+  otherwise.
+- The active tab's fill is the stripe's selected colour, not measured from IntelliJ: a claim.
+- These are Claude's choices, open to change.
+- **Not yet:** several Claude sessions (Ido: to design later); IntelliJ's dropdown for choosing a
+  shell; renaming a tab.
 
 ## Search (2026-10-26)
 
