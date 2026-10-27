@@ -957,7 +957,9 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   dozen; not measured).
 - **Shortcuts as IntelliJ's default keymaps:** Ctrl+Alt+Left and Ctrl+Alt+Right on Windows and
   Linux, Cmd+[ and Cmd+] on macOS; and the mouse's back and forward buttons. A Navigate menu
-  after View holds them, as IntelliJ's.
+  after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
+  CodeMirror's indent less and more (Ctrl+[ and Ctrl+] elsewhere): IntelliJ indents with Tab and
+  Shift+Tab.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some);
   Back doesn't restore the scroll position, only the caret, centred.
 

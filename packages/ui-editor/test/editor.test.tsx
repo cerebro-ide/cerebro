@@ -247,6 +247,17 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
   });
 
+  it('leaves Mod+[ and Mod+] to the app: Back and Forward on macOS, not indenting', async () => {
+    const document = new EditorDocument('    indented');
+    const root = mount({ path: 'a.txt', document });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    // Mod is Ctrl here, off macOS; [ is written [[.
+    await userEvent.keyboard('{Control>}[[{/Control}');
+    expect(document.text.get().toString()).toBe('    indented');
+    await userEvent.keyboard('{Control>}]{/Control}');
+    expect(document.text.get().toString()).toBe('    indented');
+  });
+
   it('says where the caret is as it opens and as it moves', async () => {
     const onCaret = vi.fn();
     const root = mount({ path: 'a.txt', text: 'first\nsecond line', onCaret });
