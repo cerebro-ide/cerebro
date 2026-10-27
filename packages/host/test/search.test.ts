@@ -100,12 +100,18 @@ describe('searchText', () => {
       // Never finishes on its own; exec, so killing it kills the sleep, as it would ripgrep.
       const script = join(dir, 'slow.sh');
       writeFileSync(script, '#!/bin/sh\nexec sleep 30\n', { mode: 0o755 });
-      const controller = new AbortController();
-      const searching = searchText(dir, { query: 'x' }, script, controller.signal);
-      controller.abort();
-      const started = Date.now();
-      expect(await searching).toEqual({ matches: [], limited: true });
-      expect(Date.now() - started).toBeLessThan(5000);
+      const abortedAfter = async (ms: number) => {
+        const controller = new AbortController();
+        const searching = searchText(dir, { query: 'x' }, script, controller.signal);
+        if (ms > 0) await new Promise((done) => setTimeout(done, ms));
+        controller.abort();
+        const started = Date.now();
+        expect(await searching).toEqual({ matches: [], limited: true });
+        expect(Date.now() - started).toBeLessThan(5000);
+      };
+      // While ripgrep runs, and before it started.
+      await abortedAfter(200);
+      await abortedAfter(0);
     },
   );
 });
@@ -119,6 +125,30 @@ describe('ripgrep', () => {
     expect(all).toEqual(expect.arrayContaining(['--case-sensitive', '--word-regexp']));
     expect(all).not.toContain('--fixed-strings');
     expect(all.at(-1)).toBe('-a');
+  });
+
+  it('keeps only the files the masks match, and leaves out those a ! mask names', async () => {
+    const dir = folder();
+    const files = async (masks: string[]) => [
+      ...new Set(
+        (await searchText(dir, { query: 'shape', masks })).matches.map((m) =>
+          m.path.slice(slashes(dir).length),
+        ),
+      ),
+    ];
+    // A mask without a slash matches a name in any folder.
+    expect(await files(['*.ts'])).toEqual(['/src/a.ts', '/src/b.ts']);
+    expect(await files(['*.ts', '!b.ts'])).toEqual(['/src/a.ts']);
+    expect(await files(['!*.ts'])).toEqual(['/.github/ci.yml']);
+    expect(rgArguments({ query: 'a', masks: ['*.ts'] })).toContain('--glob=*.ts');
+  });
+
+  it('refuses a folder that isn’t there', async () => {
+    const dir = folder();
+    await expect(searchText(join(dir, 'none'), { query: 'a' })).rejects.toThrow(BadQuery);
+    await expect(searchText(join(dir, '.gitignore'), { query: 'a' })).rejects.toThrow(
+      'No such folder',
+    );
   });
 
   it('orders lines by path, then line', () => {

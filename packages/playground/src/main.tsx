@@ -209,7 +209,7 @@ services.commands.register({
   label: 'Find in &Files…',
   dialog: true,
   enabled: navigation.available,
-  run: () => findInFiles(navigation.openAt),
+  run: () => findInFiles(navigation.openAt, editor()?.activeGroup.active),
 });
 services.keymap?.bindDefault('Mod+Shift+F', 'find.inFiles');
 services.menus.contribute({

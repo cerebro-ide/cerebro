@@ -41,6 +41,7 @@ function connect(
   git: Mock<Git> = vi.fn(() => Promise.resolve(PORCELAIN)),
   pty?: () => Pty,
   languageServers?: LanguageServers,
+  rg?: string,
 ) {
   // eslint-disable-next-line prefer-const -- the two refer to each other
   let host: Connection;
@@ -55,6 +56,7 @@ function connect(
     git,
     ...(pty ? { pty } : {}),
     ...(languageServers ? { languageServers } : {}),
+    ...(rg ? { rg } : {}),
   });
   return { ui, git, stop };
 }
@@ -338,8 +340,29 @@ describe('files', () => {
     await expect(
       ui.request('search.text', { path: import.meta.dirname, query: '(', regex: true }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Only the files the masks keep.
+    const masked = (await ui.request('search.text', {
+      path: import.meta.dirname,
+      // Not written whole, or this line would be found too.
+      query: ['searches a', 'folder’s files'].join(' '),
+      matchCase: true,
+      masks: ['*.ts', '!host.*'],
+    })) as { matches: unknown[] };
+    expect(masked.matches).toEqual([]);
+    await expect(
+      ui.request('search.text', { path: import.meta.dirname, query: 'x', masks: [1] }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    await expect(
+      ui.request('search.text', { path: import.meta.dirname, query: 'x', masks: '*.ts' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // A Directory typed that isn't there: said so, as a bad query.
     await expect(
       ui.request('search.text', { path: join(import.meta.dirname, 'none'), query: 'x' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams, message: /No such folder/ });
+    // ripgrep that can't start: the host's own failure.
+    const broken = connect(undefined, undefined, undefined, join(import.meta.dirname, 'no-rg')).ui;
+    await expect(
+      broken.request('search.text', { path: import.meta.dirname, query: 'x' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InternalError });
   });
 

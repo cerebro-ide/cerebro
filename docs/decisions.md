@@ -1276,10 +1276,17 @@ after IntelliJ, open to change.
   2026-08-31), which keeps the query and highlights the matches; the bar is Cerebro's, styled in the
   editor's shadow root. As CodeMirror does, going to a match selects the field's text.
 - **Match colours** (`--cerebro-search-match`, `-selected`) weren't measured from IntelliJ.
-- **Not yet:** Find in Files' scopes (directory, module, file mask), its "Open in Find Window" with
-  a results tree, Replace in Files, cancelling a running search in the host (the latest answer wins;
-  earlier ones still run to their limit), and highlighting the match in the preview, not just its
-  line.
+- **Scopes** (changed 2026-10-27, from the polish Ido asked for): under the field, In Project or
+  Directory, as IntelliJ's tabs. Directory's folder is typed relative to the project, and starts
+  at the active file's folder; a folder that isn't there says so. In the header, a File mask
+  (`*.ts, !*.test.ts`): comma-separated, `!` leaves files out, given to ripgrep as `--glob`, so a
+  mask without `/` matches a name in any folder (tested). The scope and the mask are kept between
+  searches, as IntelliJ keeps them. IntelliJ's Module and Scope aren't offered: Cerebro has no
+  modules or named scopes. The picker grew a row for them, between its field and its list.
+- **A new search stops the one still running** (changed 2026-10-27): the host kills ripgrep, so a
+  search typed letter by letter doesn't leave several running to their limit. The preview selects
+  the first match on the line, as IntelliJ's highlights it.
+- **Not yet:** its "Open in Find Window" with a results tree, and Replace in Files.
 
 ## Editing and saving (2026-10-26)
 

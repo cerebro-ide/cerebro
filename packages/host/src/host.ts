@@ -40,6 +40,8 @@ export interface HostOptions {
   hookCommand?: string;
   /** The language servers. Default: Cerebro's own, started as needed. */
   languageServers?: LanguageServers;
+  /** ripgrep, for Find in Files. Default: @vscode/ripgrep's. */
+  rg?: string;
 }
 
 /** A word for a POSIX shell: quoted, as it is. */
@@ -168,7 +170,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // the one still running.
   let searching: AbortController | undefined;
   connection.onRequest('search.text', async (params) => {
-    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown };
+    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown; masks?: unknown };
+    const masks = p.masks ?? [];
+    if (!Array.isArray(masks) || masks.some((mask) => typeof mask !== 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'masks must be strings');
+    }
     searching?.abort();
     const controller = new AbortController();
     searching = controller;
@@ -180,8 +186,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
           matchCase: p.matchCase === true,
           words: p.words === true,
           regex: p.regex === true,
+          masks: masks as string[],
         },
-        undefined,
+        options.rg,
         controller.signal,
       );
     } catch (error) {
