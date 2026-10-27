@@ -1,5 +1,6 @@
 // Language servers end to end: go to definition and find usages answered by meaning (TypeScript's
-// own server), where the index's name matches would list every function of that name.
+// own server, basedpyright for Python), where the index's name matches would list every function
+// of that name.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -59,6 +60,9 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'lib.ts'), 'export function run() {}\n');
   writeFileSync(join(repo, 'other.ts'), 'export function run() {}\nrun();\n');
   writeFileSync(join(repo, 'main.ts'), "import { run } from './lib';\n\nrun();\n");
+  writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
+  writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
+  writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -94,6 +98,27 @@ it('finds the usages of the function meant, not of every one of that name', asyn
   // Not other.ts's call to its own run.
   expect(await popup().locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
     'main.ts:3',
+  ]);
+  await page().keyboard.press('Escape');
+});
+
+it('does the same for Python', async () => {
+  await openAt('main.py', 'walk()');
+  await untilAnswered('ControlOrMeta+b', async () => {
+    const at = await where();
+    return at.tab === 'lib.py' && at.line === 'def walk():';
+  });
+  await untilAnswered(
+    'Alt+F7',
+    async () =>
+      (await popup()
+        .getAttribute('aria-label', { timeout: 1_000 })
+        .catch(() => null)) === 'Usages of walk',
+  );
+  // The import, and the call; not other.py's call to its own walk.
+  expect(await popup().locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
+    'main.py:1',
+    'main.py:3',
   ]);
   await page().keyboard.press('Escape');
 });

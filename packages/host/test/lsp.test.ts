@@ -104,6 +104,36 @@ describe('TypeScript 7’s server', () => {
   }, 60_000);
 });
 
+describe('basedpyright, for Python', () => {
+  it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
+    const project = `${root}/py`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'a.py'), 'def target():\n    pass\n\ndef other():\n    pass\n');
+    const b = { path: `${project}/b.py`, text: 'from a import target\ntarget()\n' };
+    writeFileSync(b.path, b.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.definitions(project, b, at(1, 2))).toEqual([
+      { path: `${project}/a.py`, line: 0, column: 4 },
+    ]);
+    // Edited, not saved: answered as the UI has it.
+    const edited = { ...b, text: 'from a import other\n\nother()\n' };
+    expect(await servers.definitions(project, edited, at(2, 1))).toEqual([
+      { path: `${project}/a.py`, line: 3, column: 4 },
+    ]);
+    const usages = await servers.usages(
+      project,
+      { path: `${project}/a.py`, text: readFileSync(join(project, 'a.py'), 'utf8') },
+      at(3, 5),
+    );
+    expect(usages).toEqual(
+      expect.arrayContaining([{ path: `${project}/b.py`, line: 2, column: 0 }]),
+    );
+    expect(usages).not.toContainEqual({ path: `${project}/a.py`, line: 3, column: 4 });
+  }, 60_000);
+});
+
 describe('LanguageServers', () => {
   it('has no answer for a language without a server', async () => {
     const servers = pool([fake('links')]);

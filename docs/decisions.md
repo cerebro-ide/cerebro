@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
-- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, a lazy pool in the host, name matches meanwhile
+- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
@@ -947,7 +947,7 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
 
 The plan's milestone 5, and the stage "A basic IDE before git and agent management" (Ido:
 "language servers first"): go to definition and find usages by meaning, not by name. TypeScript and
-JavaScript first; the other languages follow, each its own change. Claude's choices, open to
+JavaScript, then Python; the other languages follow, each its own change. Claude's choices, open to
 change.
 
 - **TypeScript's own server: TypeScript 7's `tsc --lsp --stdio`,** not vtsls or
@@ -956,6 +956,10 @@ change.
   wrap the older tsserver in a second process. Measured on Cerebro's own repository (this WSL
   machine): the first go to definition, starting the server, answered in 91 ms; find usages in
   74 ms. The spike measured about 7 s for tsserver's warm-up.
+- **Python: basedpyright 1.40.2** (published 2026-10-04, per npm), the plan's choice: pyright's
+  server, with fixes. JavaScript with no dependencies and no install scripts (27.9 MB unpacked, per
+  npm), run by the Node the host runs in (Electron's binary, as Node). Its usages include the
+  imports, as IntelliJ's do (a claim); TypeScript's leave them out.
 - **A new package, `servers`,** says which server reads which file and how it's started.
   `typescript` 7.0.2 is its dependency alone, so its `tsc` doesn't replace the TypeScript 6 the
   build uses in other packages' scripts. Its executable is the platform package npm installs
@@ -971,7 +975,7 @@ change.
   one that doesn't answer within 3 seconds (a claim) falls back to the index's "Name matches". A
   server's answer shows without that heading. Find usages leaves the declaration out, as
   IntelliJ's.
-- **Not yet:** the other languages (basedpyright, bash-language-server, yaml-language-server,
+- **Not yet:** the other languages (bash-language-server, yaml-language-server,
   vscode-langservers-extracted, marksman); diagnostics, hover and completions.
 
 ## Navigation (2026-10-27)

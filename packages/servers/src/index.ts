@@ -64,9 +64,33 @@ export function typescriptServer(
   };
 }
 
+/** Resolves from this package, where the servers written in JavaScript are installed. */
+const fromHere: Resolve = (id) => createRequire(import.meta.url).resolve(id);
+
+/**
+ * basedpyright's language server, for Python: pyright's, with its fixes. JavaScript, run by the
+ * Node the host runs in (Electron's own binary, as Node, in the app).
+ */
+export function pythonServer(
+  node: string = process.execPath,
+  resolve: Resolve = fromHere,
+): ServerSpec {
+  return {
+    id: 'python',
+    languageOf: (path) => {
+      const ext = extension(path);
+      return ext === '.py' || ext === '.pyi' ? 'python' : undefined;
+    },
+    command: () => ({
+      command: node,
+      args: [resolve('basedpyright/langserver.index.js'), '--stdio'],
+    }),
+  };
+}
+
 /** Every server, in the order they're asked whether they serve a file. */
 export function servers(): ServerSpec[] {
-  return [typescriptServer()];
+  return [typescriptServer(), pythonServer()];
 }
 
 /** The server for a file, and the file's language id, if one serves it. */
