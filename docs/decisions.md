@@ -50,7 +50,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
-- [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
+- [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
@@ -1262,10 +1262,22 @@ choices below are Claude's, after IntelliJ, open to change.
 
 The first part of "A basic IDE before git and agent management": any folder, opened from the app.
 
-- **A window per project, each with its own host** (Claude's, open to change): as IntelliJ's, two
-  projects are two windows. The main process starts a host for each window's folder and routes the
-  page's requests by the window that sent them. One host serving many folders was the alternative;
-  a host per folder keeps a project's work (index, terminals, agents) apart, and stopped with it.
+- **Projects as tabs, each with its own host** (changed 2026-10-27, Ido: "Opening a repo/project
+  on 'This window' should not close the existing project but add tabs similar to how multiple
+  worktrees function - that's how intellij does it"). This Window adds the project to the window:
+  its worktrees join the one strip of environment tabs (Ido's choice of one strip over a row of
+  project tabs above the worktrees'), labelled with the project's name once the window has two.
+  Each project keeps its own host (Ido's choice), so the main process routes a page's requests by
+  window and project, and a host's notifications carry its project. Closing a project closes its
+  tabs and stops its host; closing the window's last one closes the window. The projects open at
+  quit reopen together, by window. Before, a window showed one project, and This Window replaced
+  it, reloading the page. One host serving many folders stays rejected: a host per folder keeps a
+  project's work (index, terminals, agents) apart, and stopped with it.
+- **The toolbar** (changed 2026-10-27, Ido: "in intellij the project menu opens into previous
+  projects, in our in opens into the worktree menu"): Project, as IntelliJ's project widget (the
+  window's projects, Open…, and the recent ones), then Worktree (Ido's choice of a dropdown of its
+  own over listing worktrees in the branch popup), then Branch. The Worktree picker lists the active
+  project's worktrees, the main one under its own header.
 - **Recent and open projects** are kept in `projects.json` in the app's data folder: up to 20 recent
   ones, the latest first, and the ones open at quit. At start (Ido: "Reopen last project"), the
   ones open when the app quit reopen; with none, the Welcome window shows. `CEREBRO_REPO`, when set,

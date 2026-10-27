@@ -45,11 +45,16 @@ afterAll(async () => {
 });
 
 it('answers the page through the host it started', async () => {
-  const pong = await running.page.evaluate(() =>
-    (
-      window as unknown as { cerebro: { host: { request(m: string): Promise<unknown> } } }
-    ).cerebro.host.request('host.ping'),
-  );
+  const pong = await running.page.evaluate(async () => {
+    const { cerebro } = window as unknown as {
+      cerebro: {
+        project: { current(): Promise<{ path: string }[]> };
+        host: { request(project: string, method: string): Promise<unknown> };
+      };
+    };
+    const [project] = await cerebro.project.current();
+    return cerebro.host.request(project?.path ?? '', 'host.ping');
+  });
   expect(pong).toEqual({ version: 1 });
 });
 
@@ -200,13 +205,13 @@ it('says why a file can’t be opened', async () => {
 
 it('lists the repository’s real worktrees, opening the main one', async () => {
   const page = running.page;
-  expect(await page.locator('[aria-label^="Environment:"]').getAttribute('aria-label')).toBe(
-    'Environment: project',
+  expect(await page.locator('[aria-label^="Worktree:"]').getAttribute('aria-label')).toBe(
+    'Worktree: project',
   );
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: main',
   );
-  await page.locator('[aria-label^="Environment:"]').click();
+  await page.locator('[aria-label^="Worktree:"]').click();
   expect(
     await page.locator('.cerebro-popup-item .cerebro-popup-item__label').allTextContents(),
   ).toEqual(['New Worktree…', 'project', 'project-e2e']);
@@ -231,7 +236,7 @@ const gitWorktrees = () =>
 /** Creates a worktree from the environment picker, waiting for git and for its tab. */
 async function createWorktree(name: string) {
   const page = running.page;
-  await page.locator('[aria-label^="Environment:"]').click();
+  await page.locator('[aria-label^="Worktree:"]').click();
   await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click();
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
@@ -248,8 +253,8 @@ async function removeFromTab(path: string) {
 it('creates a worktree beside the main one, on a new branch, and opens it', async () => {
   await createWorktree('extra');
   const page = running.page;
-  expect(await page.locator('[aria-label^="Environment:"]').getAttribute('aria-label')).toBe(
-    'Environment: extra',
+  expect(await page.locator('[aria-label^="Worktree:"]').getAttribute('aria-label')).toBe(
+    'Worktree: extra',
   );
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: extra',
@@ -288,7 +293,7 @@ it('offers to remove a linked worktree, but not the main one', async () => {
     return disabled === 'false';
   };
   // Two tabs, so the tabs show.
-  await page.locator('[aria-label^="Environment:"]').click();
+  await page.locator('[aria-label^="Worktree:"]').click();
   await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
   expect(await removable(gitPath(repo))).toBe(false);

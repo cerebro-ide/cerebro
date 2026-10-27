@@ -15,7 +15,7 @@ import { computed, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { openSettings } from '@cerebro-ide/ui-settings';
-import { active, currentHost } from './environments.js';
+import { active, currentHost, hostFor } from './environments.js';
 import { openFolder } from './projects.js';
 import { icon } from './icons.js';
 import { globalSettings, save, settingsFor } from './settings.js';
@@ -83,9 +83,10 @@ export function setupCommands(
   /** Each worktree's files from the host, as items; refreshed each time a popup opens. */
   const worktreeItems = new Map<string, Signal<(PickerItem & { run: () => void })[]>>();
   const refreshFiles = () => {
-    const host = currentHost();
     const env = active();
-    if (!host || !env) return;
+    if (!env) return;
+    const host = hostFor(env.id);
+    if (!host) return;
     let items = worktreeItems.get(env.id);
     if (!items) {
       items = signal<(PickerItem & { run: () => void })[]>([]);

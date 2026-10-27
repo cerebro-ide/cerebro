@@ -1,7 +1,8 @@
-// Projects, in the desktop app: the folder this window shows, opening another (File → Open… with the
-// system's folder picker, or a recent one), and closing it. As IntelliJ's, opening a project while
-// one is open asks whether it goes in this window or a new one, unless the "Open project in"
-// setting says. The app keeps the windows and the recent projects (packages/app/src/projects.ts).
+// Projects, in the desktop app: the folders this window shows, as tabs, opening another (File →
+// Open… with the system's folder picker, or a recent one), and closing one. As IntelliJ's, opening a
+// project while one is open asks whether it joins this window or gets a new one, unless the "Open
+// project in" setting says. The app keeps the windows and the recent projects
+// (packages/app/src/projects.ts).
 
 import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
@@ -9,18 +10,27 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { OpenIn, Project, RecentProject } from './bridge.js';
 import { globalSettings, save } from './settings.js';
 
-let project: Project | undefined;
+let opened: Project[] = [];
 
-/** Reads which project this window shows, and names the window after it. */
-export async function loadProject(): Promise<Project | undefined> {
-  project = (await window.cerebro?.project.current()) ?? undefined;
-  if (project) document.title = project.name;
-  return project;
+/** Reads which projects this window shows, in the order they were opened. */
+export async function loadProjects(): Promise<Project[]> {
+  opened = (await window.cerebro?.project.current()) ?? [];
+  return opened;
 }
 
-/** The project this window shows: undefined in a browser, or in the Welcome window. */
-export function currentProject(): Project | undefined {
-  return project;
+/** The projects this window shows: none in a browser, or in the Welcome window. */
+export function windowProjects(): readonly Project[] {
+  return opened;
+}
+
+/** A project joined this window. */
+export function projectAdded(project: Project): void {
+  opened = [...opened.filter((p) => p.path !== project.path), project];
+}
+
+/** A project left this window. */
+export function projectRemoved(path: string): void {
+  opened = opened.filter((p) => p.path !== path);
 }
 
 /** Shows why something failed, in a dialog. */
@@ -61,13 +71,13 @@ async function askWhere(): Promise<OpenIn | undefined> {
 
 /**
  * Opens a project: from the Welcome window, in a new window that replaces it; from a project's
- * window, where the setting says, asking if it says to.
+ * window, where the setting says, asking if it says to. One open already is shown.
  */
 export async function openProject(path: string): Promise<void> {
   const bridge = window.cerebro?.project;
   if (!bridge) return;
   let where: OpenIn | undefined = 'new';
-  if (project && path !== project.path) {
+  if (opened.length > 0 && !opened.some((p) => p.path === path)) {
     const setting = globalSettings.get('project.openIn');
     where = setting === 'this' || setting === 'new' ? setting : await askWhere();
   }
@@ -90,22 +100,31 @@ export function recentLabel(recent: RecentProject): string {
   return `${recent.name} [${recent.path}]`.replaceAll('&', '&&');
 }
 
-/** File → Open… opens a folder, Open Recent lists the recent projects, Close Project closes. */
-export async function setupProjects(commands: CommandRegistry, menus: MenuRegistry): Promise<void> {
+/** Closes one of this window's projects, saying if it can't. */
+export async function closeProject(path: string): Promise<void> {
+  try {
+    await window.cerebro?.project.close(path);
+  } catch (error) {
+    showError('Couldn’t Close the Project', error);
+  }
+}
+
+/**
+ * File → Open… opens a folder, Open Recent lists the recent projects, Close Project closes the
+ * active one (`close`).
+ */
+export async function setupProjects(
+  commands: CommandRegistry,
+  menus: MenuRegistry,
+  close: () => Promise<void>,
+): Promise<void> {
   const bridge = window.cerebro?.project;
   if (!bridge) return;
-  commands.register({
-    id: 'project.close',
-    label: 'Close Pro&ject',
-    run: () =>
-      bridge.close().catch((error: unknown) => {
-        showError('Couldn’t Close the Project', error);
-      }),
-  });
+  commands.register({ id: 'project.close', label: 'Close Pro&ject', run: close });
   menus.contribute({ menu: 'main/file', item: { command: 'project.close' }, group: 'b' });
   const recent = await bridge.recent();
   recent
-    .filter((r) => r.exists && r.path !== project?.path)
+    .filter((r) => r.exists && !opened.some((p) => p.path === r.path))
     .forEach((r, i) => {
       const id = `project.recent.${String(i)}`;
       commands.register({ id, label: recentLabel(r), run: () => openProject(r.path) });

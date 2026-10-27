@@ -11,7 +11,7 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { active, currentHost, workspace } from './environments.js';
+import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 
 interface Located {
@@ -96,16 +96,18 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     at,
   });
   const request = async (method: string, params: Record<string, string>) => {
-    const host = currentHost();
     const env = active();
-    if (!host || !env) return [];
+    if (!env) return [];
+    const host = hostFor(env.id);
+    if (!host) return [];
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
   };
   /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
   const ask = async (method: string, asked: Asked | undefined) => {
-    const host = currentHost();
     const env = active();
-    if (!host || !env || !asked) return null;
+    if (!env || !asked) return null;
+    const host = hostFor(env.id);
+    if (!host) return null;
     try {
       return (await host.request(method, { worktree: env.id, ...asked })) as Located[] | null;
     } catch {
@@ -151,8 +153,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
 
     /** Starts the file's language server, if it has one, so it's ready when asked. */
     opened(path: string, text: string) {
-      const host = currentHost();
       const env = active();
+      const host = env ? hostFor(env.id) : undefined;
       if (host && env)
         void host.request('lsp.open', { worktree: env.id, path, text }).catch(() => undefined);
     },

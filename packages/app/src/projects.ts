@@ -1,8 +1,8 @@
-// Projects: a folder opened in a window, each window with its own host for it (host.ts). As in
-// IntelliJ, a project opens in its own window or replaces the one asking; one already open is
+// Projects: folders opened in windows, each project with its own host (host.ts). As in IntelliJ, a
+// project opens in a window of its own, or joins the one asking as more tabs; one already open is
 // brought to the front instead. The app keeps the projects opened recently and the ones open when
-// it quit, in its data folder (projects.json), and reopens those at the next start; with none, or
-// once the last project is closed, it shows the Welcome window.
+// it quit, by window, in its data folder (projects.json), and reopens those at the next start; with
+// none, or once the last project is closed, it shows the Welcome window.
 //
 // Electron stays out of this file: main.ts gives it windows as `ProjectWindow`s.
 
@@ -33,10 +33,18 @@ export function projectName(path: string): string {
   return basename(path) || path;
 }
 
-/** The projects opened recently, the latest first, and the ones open now, saved to a file. */
+/** A window's projects as saved: their paths, in the order of their tabs. */
+function isGroup(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((path) => typeof path === 'string');
+}
+
+/**
+ * The projects opened recently, the latest first, and the ones open now, by window, saved to a
+ * file.
+ */
 export class ProjectStore {
   private recentList: RecentProject[] = [];
-  private openList: string[] = [];
+  private openList: string[][] = [];
 
   constructor(
     private readonly file: string,
@@ -46,7 +54,10 @@ export class ProjectStore {
       const saved = JSON.parse(readFileSync(file, 'utf8')) as { recent?: unknown; open?: unknown };
       if (Array.isArray(saved.recent)) this.recentList = saved.recent.filter(isRecent);
       if (Array.isArray(saved.open)) {
-        this.openList = saved.open.filter((path): path is string => typeof path === 'string');
+        // A path alone is a window of its own, as saved before windows had several projects.
+        this.openList = saved.open
+          .map((entry: unknown) => (typeof entry === 'string' ? [entry] : entry))
+          .filter((group): group is string[] => isGroup(group) && group.length > 0);
       }
     } catch {
       // None saved yet, or unreadable: nothing recent.
@@ -57,24 +68,24 @@ export class ProjectStore {
     return this.recentList;
   }
 
-  get open(): readonly string[] {
+  /** The projects open, by window. */
+  get open(): readonly (readonly string[])[] {
     return this.openList;
   }
 
-  /** A project was opened: first among the recent ones, and open. */
+  /** A project was opened: first among the recent ones. */
   opened(path: string): void {
     const recent = { path, name: projectName(path), opened: this.now() };
     this.recentList = [recent, ...this.recentList.filter((r) => r.path !== path)].slice(
       0,
       MAX_RECENT,
     );
-    if (!this.openList.includes(path)) this.openList.push(path);
     this.save();
   }
 
-  /** A project was closed: it won't reopen at the next start. */
-  closed(path: string): void {
-    this.openList = this.openList.filter((p) => p !== path);
+  /** The projects open now, by window: those that reopen at the next start. */
+  setOpen(windows: readonly (readonly string[])[]): void {
+    this.openList = windows.map((group) => [...group]);
     this.save();
   }
 
@@ -95,6 +106,11 @@ export class ProjectStore {
   }
 }
 
+/** Tells a page a project joined its window, as tabs: `{ path, name }`. */
+export const PROJECT_ADDED = 'cerebro:project:added';
+/** Tells a page to show one of its projects, asked to open again: its path. */
+export const PROJECT_SHOW = 'cerebro:project:show';
+
 /** A window, as projects need it. */
 export interface ProjectWindow {
   /** Its contents' id: what IPC messages from its page carry. */
@@ -102,8 +118,6 @@ export interface ProjectWindow {
   send(channel: string, ...args: unknown[]): void;
   focus(): void;
   close(): void;
-  /** Loads its page again: after its project changed. */
-  reload(): void;
   onClosed(listener: () => void): void;
 }
 
@@ -112,75 +126,98 @@ export interface ProjectDeps {
   /** Starts and stops windows' hosts (host.ts). */
   hosts: {
     attach(window: ProjectWindow, repo: string): void;
-    detach(window: ProjectWindow): void;
+    /** Stops a project's host in a window, or without one, all of the window's. */
+    detach(window: ProjectWindow, repo?: string): void;
   };
-  /** A new window, for a project or, without one, the Welcome window. */
-  create(project: string | undefined): ProjectWindow;
+  /** A new window, for projects or, smaller, the Welcome window. */
+  create(welcome: boolean): ProjectWindow;
   /** Whether a folder is there to open. */
   exists(path: string): boolean;
 }
 
-/** Where to open a project: in the window asking, or a new one. */
+/** Where to open a project: in the window asking, as more tabs, or a new one. */
 export type OpenIn = 'this' | 'new';
+
+interface Entry {
+  window: ProjectWindow;
+  /** Its projects, in the order they were opened; none for the Welcome window. */
+  projects: string[];
+}
 
 /** The windows and the projects they show. */
 export class ProjectWindows {
-  private readonly windows = new Map<number, { window: ProjectWindow; project?: string }>();
+  private readonly windows = new Map<number, Entry>();
   private quitting = false;
 
   constructor(private readonly deps: ProjectDeps) {}
 
   /**
    * Opens the first windows: `repo`'s project when given (CEREBRO_REPO), else the projects open
-   * when the app last quit that are still there, else the Welcome window.
+   * when the app last quit that are still there, by window, else the Welcome window.
    */
   start(repo?: string): void {
-    const paths =
+    const groups =
       repo === undefined
-        ? this.deps.store.open.filter((p) => this.deps.exists(p))
-        : [resolve(repo)];
-    if (paths.length === 0) this.welcome();
-    for (const path of paths) this.openWindow(path);
+        ? this.deps.store.open
+            .map((group) => group.filter((p) => this.deps.exists(p)))
+            .filter((group) => group.length > 0)
+        : [[resolve(repo)]];
+    if (groups.length === 0) this.welcome();
+    for (const group of groups) this.openWindow(group);
+    this.save();
   }
 
-  /** The project a window shows; undefined for the Welcome window, or a window not known. */
-  projectOf(id: number): string | undefined {
-    return this.windows.get(id)?.project;
+  /** The projects a window shows; none for the Welcome window, or a window not known. */
+  projectsOf(id: number): readonly string[] {
+    return this.windows.get(id)?.projects ?? [];
   }
 
   /**
-   * Opens a project, from the window `from` if a page asked. One already open comes to the front.
-   * In the Welcome window, a project always gets a new window, and the Welcome window closes.
+   * Opens a project, from the window `from` if a page asked: as more tabs in it, or in a new
+   * window. One already open comes to the front. From the Welcome window, a project always gets a
+   * new window, and the Welcome window closes.
    */
   open(path: string, where: OpenIn, from?: number): void {
     const project = resolve(path);
     if (!this.deps.exists(project))
       throw new Error(`${project} is not a folder that can be opened`);
     for (const entry of this.windows.values()) {
-      if (entry.project === project) {
+      if (entry.projects.includes(project)) {
         entry.window.focus();
+        entry.window.send(PROJECT_SHOW, project);
         return;
       }
     }
     const asking = from === undefined ? undefined : this.windows.get(from);
-    if (asking?.project !== undefined && where === 'this') {
-      this.deps.store.closed(asking.project);
-      asking.project = project;
+    if (asking && asking.projects.length > 0 && where === 'this') {
+      asking.projects.push(project);
       this.deps.hosts.attach(asking.window, project);
       this.deps.store.opened(project);
-      asking.window.reload();
+      this.save();
+      asking.window.send(PROJECT_ADDED, { path: project, name: projectName(project) });
       return;
     }
-    this.openWindow(project);
-    if (asking && asking.project === undefined) asking.window.close();
+    this.openWindow([project]);
+    this.save();
+    if (asking && asking.projects.length === 0) asking.window.close();
   }
 
-  /** Closes a window's project: its window closes, and the Welcome window shows if it was the last. */
-  close(id: number): void {
+  /**
+   * Closes a project in a window, stopping its host. Its last project closes the window, and the
+   * Welcome window shows if it was the last.
+   */
+  close(id: number, path: string): void {
     const entry = this.windows.get(id);
-    if (entry?.project === undefined) return;
-    this.deps.store.closed(entry.project);
-    if (this.projectWindows() === 1) this.welcome();
+    if (!entry?.projects.includes(path)) return;
+    if (entry.projects.length > 1) {
+      entry.projects.splice(entry.projects.indexOf(path), 1);
+      this.deps.hosts.detach(entry.window, path);
+      this.save();
+      return;
+    }
+    entry.projects = [];
+    this.save();
+    if (this.projectWindows() === 0) this.welcome();
     entry.window.close();
   }
 
@@ -190,31 +227,39 @@ export class ProjectWindows {
   }
 
   private projectWindows(): number {
-    return [...this.windows.values()].filter((entry) => entry.project !== undefined).length;
+    return [...this.windows.values()].filter((entry) => entry.projects.length > 0).length;
   }
 
-  private openWindow(project: string): void {
-    const window = this.track(this.deps.create(project), project);
-    this.deps.hosts.attach(window, project);
-    this.deps.store.opened(project);
+  /** Keeps the projects open now, by window, for the next start. */
+  private save(): void {
+    this.deps.store.setOpen(
+      [...this.windows.values()]
+        .map((entry) => entry.projects)
+        .filter((projects) => projects.length > 0),
+    );
+  }
+
+  private openWindow(projects: string[]): void {
+    const window = this.track(this.deps.create(false), projects);
+    for (const project of projects) {
+      this.deps.hosts.attach(window, project);
+      this.deps.store.opened(project);
+    }
   }
 
   private welcome(): void {
-    this.track(this.deps.create(undefined), undefined);
+    this.track(this.deps.create(true), []);
   }
 
-  private track(window: ProjectWindow, project: string | undefined): ProjectWindow {
-    const entry: { window: ProjectWindow; project?: string } = { window };
-    if (project !== undefined) entry.project = project;
+  private track(window: ProjectWindow, projects: string[]): ProjectWindow {
+    const entry: Entry = { window, projects: [...projects] };
     this.windows.set(window.id, entry);
     window.onClosed(() => {
       this.windows.delete(window.id);
       this.deps.hosts.detach(window);
-      // Closing the last project's window quits the app (or, on macOS, leaves it running): that
-      // project reopens next time, as IntelliJ's does. Closing one of several closes it.
-      if (entry.project !== undefined && !this.quitting && this.projectWindows() > 0) {
-        this.deps.store.closed(entry.project);
-      }
+      // Closing the last project's window quits the app (or, on macOS, leaves it running): its
+      // projects reopen next time, as IntelliJ's do. Closing one of several forgets its projects.
+      if (!this.quitting && this.projectWindows() > 0) this.save();
     });
     return window;
   }
