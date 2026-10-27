@@ -19,6 +19,8 @@ import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
 import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
+import '@cerebro-ide/ui-scrollbar/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
@@ -429,6 +431,8 @@ effect(() => {
   applyTheme(dark.get());
   return undefined;
 });
+
+installScrollbars();
 
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {

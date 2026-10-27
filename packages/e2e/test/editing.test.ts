@@ -40,6 +40,9 @@ beforeAll(async () => {
   writeFileSync(first, 'const first = 1;\r\nexport {};\r\n');
   writeFileSync(second, 'const second = 2;\n');
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
+  // More than the editor and the Project tool window show.
+  writeFileSync(join(repo, 'long.ts'), 'export {};\n'.repeat(300));
+  for (let i = 0; i < 40; i++) writeFileSync(join(repo, `file${String(i)}.txt`), '');
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -99,4 +102,23 @@ it('shows no scrollbar where nothing overflows: the Project tool window, a file 
       .map((e) => `${e.className}: ${String(e.scrollHeight)} > ${String(e.clientHeight)}`),
   );
   expect(overflowing).toEqual([]);
+});
+
+it('draws scrollbars over the content, taking no room: the Project tool window, the editor', async () => {
+  await open('long.ts');
+  // Native scrollbars would take room beside the content: none do.
+  const room = await page().evaluate(() =>
+    [
+      document.querySelector('.cerebro-tree'),
+      document.querySelector('.cerebro-editor-code')?.shadowRoot?.querySelector('.cm-scroller'),
+    ].map((e) =>
+      e instanceof HTMLElement && e.scrollHeight > e.clientHeight
+        ? e.offsetWidth - e.clientWidth
+        : 'nothing to scroll',
+    ),
+  );
+  expect(room).toEqual([0, 0]);
+  // A thumb shows over the editor while it's hovered.
+  await page().locator('.cm-line').first().hover();
+  await page().locator('.cerebro-scrollbar--y.cerebro-scrollbar--shown').first().waitFor();
 });

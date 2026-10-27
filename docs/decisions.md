@@ -40,6 +40,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
+- [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
@@ -938,6 +940,47 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
 
+## Scrollbars over the content (2026-10-27)
+
+Ido: "in intellij the scrollbar are transparent over the window and don't take their own space, so
+if text/code is under the scrollbar it's visible. Can we do that too?"
+
+- **Cerebro draws its own thumbs** (`@cerebro-ide/ui-scrollbar`): the browser's scrollbars are
+  hidden (`scrollbar-width: none`), and one layer over the page draws the thumbs of the scroll
+  areas under the pointer, and of an area while it scrolls, fading out a second after. Thumbs can
+  be dragged. It finds scroll areas itself, so no package wires anything, and it reaches shadow
+  roots (the editor's) once the pointer or the focus has been in them. A shadow root hides its own
+  scrollbars (the editor's theme does).
+- **As IntelliJ's (its source, `intellij-community`):** on Windows and Linux a transparent bar's
+  thumb is 10px and keeps its width under the pointer, only less transparent
+  (`DefaultScrollBarUI`); on macOS it's rounded (`ScrollBarPainter`), and widens from 11px to 14px
+  while hovered when scroll bars show only while scrolling (`MacScrollBarUI`). Cerebro's: 10px,
+  rounded, 2px from the edge, the same width under the pointer (Ido saw only the colour change in
+  his macOS screenshots). Colours: Islands Dark's (`ManyIslandsDark.theme.json`, `#808080` at 35%,
+  55% hovered); Islands Light sets none, so IntelliJ's defaults (`#737373` at 20%, 28%). Showing on
+  hover and fading after a scroll is Claude's choice, open to change.
+- **Measured:** before, the editor and the Project tree gave 12px to their scrollbar; now 0 (e2e
+  test "draws scrollbars over the content").
+- **Rejected: Chromium's overlay scrollbars** (`--enable-features=OverlayScrollbar`). Measured in
+  Cerebro's Electron: they take no room only without `::-webkit-scrollbar` styles, and then draw
+  a track and arrow buttons and didn't fade in 3 seconds; `scrollbar-color` colours them but keeps
+  the arrows and never hides them.
+- **Not yet:** IntelliJ's faint track under a hovered bar (`#808080` at 10%), clicking the track to
+  page, and the macOS widening. The layer is above popups, so a thumb fading out can show over a
+  popup that just opened.
+
+## The window's colours follow the theme (2026-10-27)
+
+Ido: "have you already noticed that the windows min/max/close buttons don't play nicely with light
+mode?"
+
+- **The page sends its theme's frame and text colours** to the main process when the theme changes
+  (`window.cerebro.setColours`, `packages/app/src/colours.ts`), which sets the window's background
+  and, on Windows and Linux, the title bar overlay's colours (Electron's `setTitleBarOverlay`).
+  macOS draws its own traffic lights. Only `#rrggbb` colours are taken.
+- **Measured:** the e2e test "draws the window controls in the theme's colours" sees the overlay set
+  to the light theme's colours, then the dark theme's.
+
 ## Search (2026-10-26)
 
 The third part of "A basic IDE before git and agent management". The choices below are Claude's,
@@ -1235,7 +1278,8 @@ same spirit, not measured. Choices of Claude's, open to change:
 - **Fonts bundled:** Inter for the UI (IntelliJ's new UI uses it) and JetBrains Mono for code, both
   under the SIL Open Font License, from the `@fontsource` packages. Without them each platform drew
   its own fallback, so no screenshot could match. Code ligatures are off, as WebStorm's default.
-- **Scrollbars** are a thin rounded thumb with no track or arrows.
+- **Scrollbars** are a thin rounded thumb with no track or arrows, drawn over the content since
+  "Scrollbars over the content".
 - **Stripe buttons' tooltips show at once** (Ido), with no pause; other controls keep the pause.
   Tooltips take a `delay` option for this.
 - **Not done:** the project colour's glow at the toolbar's left, file icons in tabs, and widths

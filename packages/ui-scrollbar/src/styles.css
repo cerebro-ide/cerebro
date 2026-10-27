@@ -1,0 +1,45 @@
+/* Scrollbars. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+/* The browser's own take room beside the content: hidden, Cerebro's thumbs drawn instead. */
+* {
+  scrollbar-width: none;
+}
+
+.cerebro-scrollbars {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  pointer-events: none;
+}
+
+/*
+ * As IntelliJ's thumbs over the content (DefaultScrollBarUI, ScrollBarPainter): 10px wide, the same
+ * width under the pointer, only less transparent; rounded, as on macOS. 2px from the edge.
+ */
+.cerebro-scrollbar {
+  position: fixed;
+  border-radius: 5px;
+  background: var(--cerebro-scrollbar);
+  opacity: 0;
+  transition: opacity 200ms;
+  pointer-events: auto;
+}
+
+.cerebro-scrollbar--shown {
+  opacity: 1;
+}
+
+.cerebro-scrollbar--y {
+  width: 10px;
+  margin-left: -12px;
+}
+
+.cerebro-scrollbar--x {
+  height: 10px;
+  margin-top: -12px;
+}
+
+.cerebro-scrollbar:hover,
+.cerebro-scrollbar--dragging {
+  background: var(--cerebro-scrollbar-hover);
+}

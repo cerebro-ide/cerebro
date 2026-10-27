@@ -66,17 +66,13 @@ export const theme = EditorView.theme({
     backgroundColor: variable('background'),
   },
   // No ligatures, as WebStorm's default.
-  '.cm-scroller': { fontFamily: variable('font-mono'), fontVariantLigatures: 'none' },
-  // Scrollbars as the page's (@cerebro-ide/theme's base.css), which don't reach the shadow root.
-  '.cm-scroller::-webkit-scrollbar': { width: '12px', height: '12px', background: 'transparent' },
-  '.cm-scroller::-webkit-scrollbar-thumb': {
-    border: 'solid transparent',
-    borderWidth: '0 4px 0 0',
-    borderRadius: '6px',
-    background: `${variable('scrollbar')} padding-box`,
+  // No scrollbar taking room: the page draws its own over the content (@cerebro-ide/ui-scrollbar),
+  // and its styles don't reach the shadow root.
+  '.cm-scroller': {
+    fontFamily: variable('font-mono'),
+    fontVariantLigatures: 'none',
+    scrollbarWidth: 'none',
   },
-  '.cm-scroller::-webkit-scrollbar-thumb:horizontal': { borderWidth: '0 0 4px' },
-  '.cm-scroller::-webkit-scrollbar-corner': { background: 'transparent' },
   // As WebStorm (measured): the numbers, room for gutter icons after them, then a line.
   '.cm-gutters': {
     backgroundColor: variable('background'),
