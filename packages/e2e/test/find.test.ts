@@ -104,3 +104,26 @@ it('finds and replaces in the open file, with the find bar', async () => {
   await page().keyboard.press('Escape');
   expect(await page().locator('.cerebro-find').count()).toBe(0);
 });
+
+it('replaces in files, the highlighted line, then all, with a regular expression’s groups', async () => {
+  mkdirSync(join(repo, 'rep'));
+  writeFileSync(join(repo, 'rep', 'a.txt'), 'colour red\ncolour blue\n');
+  writeFileSync(join(repo, 'rep', 'b.txt'), 'colour green\n');
+  const file = (name: string) => readFileSync(join(repo, 'rep', name), 'utf8');
+  await page().keyboard.press('ControlOrMeta+Shift+R');
+  await page().keyboard.press('Alt+KeyX');
+  await page().keyboard.type('colou?r (\\w+)');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(3);
+  await page().getByRole('textbox', { name: 'Replace with' }).fill('color: $1');
+  // The highlighted line only: the first.
+  await page().getByRole('button', { name: 'Replace', exact: true }).click();
+  await expect.poll(() => file('a.txt'), { timeout: 15_000 }).toBe('color: red\ncolour blue\n');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(2);
+  await page().getByRole('button', { name: 'Replace All' }).click();
+  // Asked first.
+  await page().getByText('Replace 2 matches in 2 files with “color: $1”?').waitFor();
+  await page().getByRole('button', { name: 'Replace', exact: true }).click();
+  await expect.poll(() => file('a.txt'), { timeout: 15_000 }).toBe('color: red\ncolor: blue\n');
+  expect(file('b.txt')).toBe('color: green\n');
+  expect(await page().locator('.cerebro-popup').count()).toBe(0);
+});

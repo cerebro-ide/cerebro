@@ -1286,7 +1286,22 @@ after IntelliJ, open to change.
 - **A new search stops the one still running** (changed 2026-10-27): the host kills ripgrep, so a
   search typed letter by letter doesn't leave several running to their limit. The preview selects
   the first match on the line, as IntelliJ's highlights it.
-- **Not yet:** its "Open in Find Window" with a results tree, and Replace in Files.
+- **Replace in Files** (added 2026-10-27, Ido: "do those"): Edit → Find → Replace in Files
+  (Ctrl/Cmd+Shift+R, IntelliJ's; Ctrl/Cmd+Shift+H in VS Code's keymaps) is the same popup with a
+  Replace field under the search field. Replace takes the highlighted line's matches; Replace All
+  (Mod+Alt+Enter) takes every match, up to 100,000 lines, after a dialog asks to confirm.
+  - ripgrep works out each replacement (`--replace`; its JSON gives each match's replacement,
+    measured), so `$1` follows the same regular expression syntax as the search. Without Regex, `$` is
+    literal.
+  - Lines are then given whole, not cut at 1000 bytes, so every match on them is replaced.
+  - The replacements go into the files' documents: an editor showing one can undo them. A line that
+    changed since the search (an unsaved edit) is left as it is, and the user is told.
+  - The replaced files are saved straight away. A document with no editor keeps no undo history, so
+    there's no undo there; that's why Replace All asks first.
+  - Replace waits for the search being typed to finish, so it never uses an earlier answer's
+    replacements (a bug the e2e test caught).
+- **Not yet:** "Open in Find Window" with a results tree; IntelliJ's Preserve Case; Replace All
+  undone as one step across files.
 
 ## Editing and saving (2026-10-26)
 

@@ -113,9 +113,12 @@ describe('openPicker', () => {
   });
 
   it('moves with the arrows, wrapping, and pages', () => {
-    picker({ items: () => Array.from({ length: 30 }, (_, i) => ({ label: `item ${String(i)}` })) });
+    const handle = picker({
+      items: () => Array.from({ length: 30 }, (_, i) => ({ label: `item ${String(i)}` })),
+    });
     key('ArrowUp');
     expect(highlightedLabel()).toBe('item 29');
+    expect(handle.highlighted()?.label).toBe('item 29');
     key('ArrowDown');
     expect(highlightedLabel()).toBe('item 0');
     key('PageDown');

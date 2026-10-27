@@ -407,6 +407,38 @@ body,
   color: var(--cerebro-text);
 }
 
+/* Under the field: Replace's row, then the scopes'. */
+.playground-find__toolbar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.playground-find__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+}
+
+.playground-find__replace {
+  flex: 1;
+}
+
+.playground-find__button {
+  height: 24px;
+  padding: 0 10px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.playground-find__button:hover {
+  background: var(--cerebro-hover);
+}
+
 /* In Project | Directory, as IntelliJ's tabs under the field. */
 .playground-find__scope {
   height: 24px;

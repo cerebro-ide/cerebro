@@ -4,7 +4,7 @@
 // CodeMirror reads either separator, and writes `\n` unless told otherwise.
 
 import { historyField } from '@codemirror/commands';
-import { Text } from '@codemirror/state';
+import { ChangeSet, Text } from '@codemirror/state';
 import { computed, signal, type Computed, type Signal } from '@cerebro-ide/reactive';
 
 /** The fields an editor's state is kept with between editors: the undo history with the rest. */
@@ -21,6 +21,8 @@ export class EditorDocument {
   readonly lineSeparator: '\n' | '\r\n';
   /** The last editor's state (selection, history), for the next one; undefined before any. */
   state: unknown;
+  /** The last change made through `edit`: an editor showing the text it was made to takes it as an edit. */
+  lastEdit: { before: Text; changes: ChangeSet } | undefined;
 
   constructor(content: string) {
     this.lineSeparator = content.includes('\r\n') ? '\r\n' : '\n';
@@ -38,6 +40,17 @@ export class EditorDocument {
   /** The text was saved: it's what's on disk now. */
   saved(text: Text = this.text.peek()): void {
     this.disk.set(text);
+  }
+
+  /**
+   * Changes the text from outside an editor (Replace in Files), at offsets into the text as it is.
+   * An editor showing it takes the change as an edit, which undo takes back.
+   */
+  edit(changes: readonly { from: number; to: number; insert: string }[]): void {
+    const before = this.text.peek();
+    const set = ChangeSet.of(changes, before.length);
+    this.lastEdit = { before, changes: set };
+    this.text.set(set.apply(before));
   }
 
   /**

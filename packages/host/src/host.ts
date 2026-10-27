@@ -170,7 +170,20 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // the one still running.
   let searching: AbortController | undefined;
   connection.onRequest('search.text', async (params) => {
-    const p = params as { matchCase?: unknown; words?: unknown; regex?: unknown; masks?: unknown };
+    const p = params as {
+      matchCase?: unknown;
+      words?: unknown;
+      regex?: unknown;
+      masks?: unknown;
+      replace?: unknown;
+      limit?: unknown;
+    };
+    if (p.replace !== undefined && typeof p.replace !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'replace must be a string');
+    }
+    if (p.limit !== undefined && !(Number.isInteger(p.limit) && (p.limit as number) > 0)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'limit must be a positive integer');
+    }
     const masks = p.masks ?? [];
     if (!Array.isArray(masks) || masks.some((mask) => typeof mask !== 'string')) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'masks must be strings');
@@ -187,6 +200,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
           words: p.words === true,
           regex: p.regex === true,
           masks: masks as string[],
+          ...(p.replace === undefined ? {} : { replace: p.replace }),
+          ...(p.limit === undefined ? {} : { limit: p.limit as number }),
         },
         options.rg,
         controller.signal,

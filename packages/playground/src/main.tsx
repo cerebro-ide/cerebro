@@ -203,7 +203,7 @@ services.commands.register({
 });
 services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
 services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
-// Find in Files, through the host: Edit → Find → Find in Files, as IntelliJ's.
+// Find in Files and Replace in Files, through the host: Edit → Find, as IntelliJ's.
 services.commands.register({
   id: 'find.inFiles',
   label: 'Find in &Files…',
@@ -218,6 +218,15 @@ services.menus.contribute({
   group: 'f',
 });
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'find.inFiles' } });
+services.commands.register({
+  id: 'replace.inFiles',
+  label: '&Replace in Files…',
+  dialog: true,
+  enabled: navigation.available,
+  run: () => findInFiles(navigation.openAt, editor()?.activeGroup.active, true),
+});
+services.keymap?.bindDefault('Mod+Shift+R', 'replace.inFiles');
+services.menus.contribute({ menu: 'main/edit/find', item: { command: 'replace.inFiles' } });
 // Back and Forward through the places the caret was, as IntelliJ's Navigate menu, its shortcuts,
 // and the mouse's own back and forward buttons.
 services.commands.register({
