@@ -26,7 +26,12 @@ declare global {
       platform: string;
       menu: NativeMenuBridge;
       display: { setScale(choice: string): void };
-      window: { setColours(frame: string, text: string): void };
+      window: {
+        setColours(frame: string, text: string): void;
+        onFullScreen(listener: (fullScreen: boolean) => void): () => void;
+        leaveFullScreen(): void;
+        close(): void;
+      };
       project: {
         current(): Promise<Project | null>;
         recent(): Promise<RecentProject[]>;

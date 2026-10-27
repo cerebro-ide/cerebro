@@ -17,6 +17,18 @@ const HOST_NOTIFICATION = 'cerebro:host:notification';
 const SET_SCALE = 'cerebro:display:scale';
 // Kept in step with colours.ts.
 const SET_COLOURS = 'cerebro:window:colours';
+// Kept in step with fullscreen.ts.
+const FULL_SCREEN = 'cerebro:window:full-screen';
+const LEAVE_FULL_SCREEN = 'cerebro:window:leave-full-screen';
+const CLOSE_WINDOW = 'cerebro:window:close';
+
+/** Whether the window is full screen, heard from the start, and who's listening. */
+let fullScreen = false;
+const fullScreenListeners = new Set<(fullScreen: boolean) => void>();
+electron.ipcRenderer.on(FULL_SCREEN, (_event, value: unknown) => {
+  fullScreen = value === true;
+  for (const listener of fullScreenListeners) listener(fullScreen);
+});
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -38,6 +50,21 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     /** Colours the window (its background, and its controls on Windows and Linux) as the theme. */
     setColours: (frame: string, text: string) => {
       electron.ipcRenderer.send(SET_COLOURS, frame, text);
+    },
+    /** Calls `listener` with whether the window is full screen, now and when it changes. */
+    onFullScreen: (listener: (fullScreen: boolean) => void) => {
+      fullScreenListeners.add(listener);
+      listener(fullScreen);
+      return () => {
+        fullScreenListeners.delete(listener);
+      };
+    },
+    leaveFullScreen: () => {
+      electron.ipcRenderer.send(LEAVE_FULL_SCREEN);
+    },
+    /** Closes the window, as its close button does. */
+    close: () => {
+      electron.ipcRenderer.send(CLOSE_WINDOW);
     },
   },
   project: {

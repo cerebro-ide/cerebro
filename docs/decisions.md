@@ -41,6 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
+- [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): always shown, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
@@ -968,6 +969,28 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
 - **Not yet:** IntelliJ's faint track under a hovered bar (`#808080` at 10%), clicking the track to
   page, and the macOS widening. The layer is above popups, so a thumb fading out can show over a
   popup that just opened.
+
+## Window buttons in full screen on macOS (2026-10-27)
+
+Ido: "it's always visible in intellij, it's us that drop them in full screen mode, and we
+shouldn't". In full screen, macOS hides the traffic lights until the pointer reaches the top of the
+screen, which left the room kept for them empty.
+
+- **The toolbar draws them in full screen,** as IntelliJ's (`FullScreenButtons` in `ui-toolbar`).
+  IntelliJ's aren't macOS's either: JetBrains Runtime draws them (`AWTButtonsView` in
+  `AWTWindow.m`, on by default in the new UI through `apple.awt.newFullScreenControls`): three 12px
+  grey circles where the traffic lights were, and under the pointer close and zoom as the real
+  buttons, minimize staying grey (it can't be done in full screen). Their grey is the theme's
+  `MainWindow.FullScreeControl.Background` (Islands: `#575A5C` dark, `#7A7B80` light). Electron
+  has no such option, so Cerebro draws all three.
+- **Close** closes the window as its own button does (saving first); **the green one leaves full
+  screen.** The main process tells the page when its window enters or leaves full screen
+  (`packages/app/src/fullscreen.ts`).
+- **Claims, not measured:** the red and green (`#ff5f57`, `#28c840`, macOS's usual colours; Apple
+  doesn't publish them), the symbols' look, and the circles' place (from the window's
+  `trafficLightPosition` and each button's 14×16 frame, 20px apart). Ido to compare on his Mac.
+- **Not yet:** the Welcome window in full screen (it has no toolbar); when the menu bar slides down,
+  macOS's own buttons show over Cerebro's (JetBrains Runtime hides them; Electron can't).
 
 ## The window's colours follow the theme (2026-10-27)
 

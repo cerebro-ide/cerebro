@@ -152,6 +152,26 @@ describe('the window', () => {
     },
   );
 
+  // Only macOS hides its window buttons in full screen.
+  it.runIf(process.platform === 'darwin')(
+    'keeps window buttons in full screen, as IntelliJ, and leaves full screen with them',
+    async () => {
+      const fullScreen = (value?: boolean) =>
+        running.app.evaluate(({ BrowserWindow }, value) => {
+          const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
+          if (value !== undefined) window.setFullScreen(value);
+          return window.isFullScreen();
+        }, value);
+      const buttons = page().locator('.cerebro-fullscreen-buttons');
+      expect(await buttons.count()).toBe(0);
+      await fullScreen(true);
+      await buttons.waitFor({ timeout: 15_000 });
+      await page().locator('[aria-label="Exit Full Screen"]').click();
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
+      await buttons.waitFor({ state: 'detached', timeout: 15_000 });
+    },
+  );
+
   it('opens no other windows', async () => {
     const opened = await page().evaluate(() => window.open('https://example.com') === null);
     expect(opened).toBe(true);

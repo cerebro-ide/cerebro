@@ -31,7 +31,12 @@ import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './ch
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
-import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import {
+  FullScreenButtons,
+  MainToolbar,
+  ToolbarButton,
+  ToolbarDropdown,
+} from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
@@ -328,10 +333,24 @@ function shortcutOf(command: string): string | undefined {
 const nativeMenu = window.cerebro?.platform === 'darwin' ? window.cerebro.menu : undefined;
 if (nativeMenu) syncNativeMenu(services, nativeMenu, { context: activeTab });
 
+/** Whether the window is full screen, where macOS hides its buttons and the toolbar draws them. */
+const fullScreen = signal(false);
+if (window.cerebro?.platform === 'darwin') {
+  window.cerebro.window.onFullScreen((value) => {
+    fullScreen.set(value);
+  });
+}
+
 function Header() {
   return (
     <MainToolbar
       left={() => [
+        fullScreen.get() ? (
+          <FullScreenButtons
+            close={() => window.cerebro?.window.close()}
+            leave={() => window.cerebro?.window.leaveFullScreen()}
+          />
+        ) : null,
         nativeMenu ? null : (
           <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
         ),

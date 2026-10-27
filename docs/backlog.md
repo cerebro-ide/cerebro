@@ -6,12 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### macOS full screen: the window buttons show only with the menu bar
-
-Reported by Ido (2026-10-26), with a screenshot: in full screen, macOS hides the traffic lights
-until the pointer reaches the top of the screen, leaving the gap kept for them empty. Waiting for
-Ido's choice: follow macOS (no gap in full screen), or keep the buttons visible.
-
 ### Tabs that don't fit: a dropdown listing them, and a fade at the cut edge, for every tab bar
 
 Reported by Ido (2026-10-26), with screenshots of IntelliJ. When there isn't room for every tab,
