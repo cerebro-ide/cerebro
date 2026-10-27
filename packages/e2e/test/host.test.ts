@@ -330,7 +330,15 @@ it('opens more terminals as tabs, each its own shell, and closes them', async ()
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
   // After a reload: the same tabs, showing the same shells.
   await page.reload();
-  await window.locator('.cerebro-tool-tab--active', { hasText: 'Local (2)' }).waitFor();
+  // The tabs show once the host has given the environment back. On failure: what the window shows.
+  await window
+    .locator('.cerebro-tool-tab--active', { hasText: 'Local (2)' })
+    .waitFor({ timeout: 15_000 })
+    .catch(async () => {
+      throw new Error(
+        `Not shown. Terminal tool window: ${JSON.stringify(await window.allTextContents())}; console: ${JSON.stringify(running.messages)}`,
+      );
+    });
   expect(await titles()).toEqual(['Local', 'Local (2)']);
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
   // The first is still there, without it.
