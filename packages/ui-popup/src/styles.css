@@ -34,6 +34,45 @@
   user-select: text;
 }
 
+/* The field with options at its right (Find in Files' Match Case, Words, Regex). */
+.cerebro-popup__search-row {
+  display: flex;
+  flex: none;
+  align-items: center;
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
+.cerebro-popup__search-row .cerebro-popup__search {
+  flex: auto;
+  min-width: 0;
+  border-bottom: none;
+}
+
+.cerebro-popup__options {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding-right: 8px;
+}
+
+.cerebro-popup__header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  height: 32px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
+/* The highlighted item in full, under the list. */
+.cerebro-popup__preview {
+  flex: none;
+  height: 280px;
+  border-top: 1px solid var(--cerebro-separator);
+  overflow: hidden;
+}
+
 .cerebro-popup__search::placeholder {
   color: var(--cerebro-text-muted);
 }

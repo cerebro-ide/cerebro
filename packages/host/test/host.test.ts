@@ -279,6 +279,28 @@ describe('files', () => {
     rmSync(dir, { recursive: true });
   });
 
+  it('searches a folder’s files, refusing a bad pattern', async () => {
+    const { ui } = connect();
+    const found = (await ui.request('search.text', {
+      path: import.meta.dirname,
+      query: 'searches a folder’s files',
+      matchCase: true,
+      words: false,
+      regex: false,
+    })) as { matches: { path: string }[] };
+    // This test's name and its query.
+    expect(found.matches.map((m) => m.path.split('/').at(-1))).toEqual([
+      'host.test.ts',
+      'host.test.ts',
+    ]);
+    await expect(
+      ui.request('search.text', { path: import.meta.dirname, query: '(', regex: true }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    await expect(
+      ui.request('search.text', { path: join(import.meta.dirname, 'none'), query: 'x' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InternalError });
+  });
+
   it('lists a folder', async () => {
     const { ui } = connect();
     const entries = (await ui.request('fs.list', { path: import.meta.dirname })) as {

@@ -24,6 +24,7 @@ import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
 import { tags } from '@lezer/highlight';
 import { EditorDocument, KEPT } from './document.js';
+import { findAndReplace } from './find.js';
 import { languageFor } from './languages.js';
 
 export interface CodeEditorProps {
@@ -41,6 +42,8 @@ export interface CodeEditorProps {
   tabSize?: () => number;
   /** A position to show and select: where a definition is. Read reactively; zero-based. */
   reveal?: () => { line: number; column: number } | undefined;
+  /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
+  revealFocus?: boolean;
   /** Go to definition of the word at the cursor: Mod+B or Mod+click, as in IntelliJ. */
   onGoToDefinition?: (word: string) => void;
   /** Find usages of the word at the cursor: Alt+F7, as in IntelliJ. */
@@ -82,6 +85,52 @@ export const theme = EditorView.theme({
     borderRight: `1px solid ${variable('editor-gutter-line')}`,
   },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
+  // Find and Replace: the bar over the editor, and the matches it highlights.
+  '.cm-panels': { backgroundColor: variable('panel'), color: variable('text') },
+  '.cm-panels-top': { borderBottom: `1px solid ${variable('separator')}` },
+  '.cerebro-find': {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    padding: '4px 8px',
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+  },
+  '.cerebro-find__row': { display: 'flex', alignItems: 'center', gap: '4px' },
+  '.cerebro-find__field': {
+    flex: '0 1 320px',
+    minWidth: '80px',
+    height: '24px',
+    padding: '0 6px',
+    border: `1px solid ${variable('input-border')}`,
+    borderRadius: '4px',
+    background: variable('input'),
+    color: variable('text'),
+    font: 'inherit',
+    outline: 'none',
+  },
+  '.cerebro-find__field:focus': { borderColor: variable('accent') },
+  '.cerebro-find__option, .cerebro-find__button': {
+    minWidth: '24px',
+    height: '22px',
+    padding: '0 4px',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    background: 'none',
+    color: variable('icon'),
+    font: 'inherit',
+  },
+  '.cerebro-find__option': { fontFamily: variable('font-mono'), fontSize: '12px' },
+  '.cerebro-find__option:hover, .cerebro-find__button:hover': { background: variable('hover') },
+  '.cerebro-find__option[aria-pressed="true"]': {
+    borderColor: variable('accent'),
+    background: variable('selected'),
+    color: variable('text'),
+  },
+  '.cerebro-find__count': { minWidth: '80px', padding: '0 8px', color: variable('text-muted') },
+  '.cerebro-find__close': { marginLeft: 'auto' },
+  '.cm-searchMatch': { backgroundColor: variable('search-match') },
+  '.cm-searchMatch-selected': { backgroundColor: variable('search-match-selected') },
   '.cm-line': { padding: '0 2px' },
   '.cm-activeLine': { backgroundColor: variable('editor-active-line') },
   '.cm-activeLineGutter': {
@@ -170,6 +219,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     highlightActiveLine(),
     selection,
     doc ? [history(), keymap.of([...historyKeymap, indentWithTab])] : EditorState.readOnly.of(true),
+    findAndReplace(doc !== undefined),
     // The document follows the edits.
     doc
       ? EditorView.updateListener.of((update) => {
@@ -250,7 +300,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         selection: { anchor: pos },
         effects: EditorView.scrollIntoView(pos, { y: 'center' }),
       });
-      view.focus();
+      if (props.revealFocus !== false) view.focus();
     });
     return undefined;
   });

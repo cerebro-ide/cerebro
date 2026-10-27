@@ -61,6 +61,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
   };
 
   return {
+    openAt,
     /** Whether navigation by name works here: the app, on a real repository. */
     available: () => currentHost() !== undefined && active() !== undefined,
 

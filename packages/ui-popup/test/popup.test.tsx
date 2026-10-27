@@ -234,4 +234,30 @@ describe('openPicker', () => {
       [...document.querySelectorAll('.cerebro-popup-item__shortcut')].at(-1)?.textContent,
     ).toBe('R');
   });
+
+  it('shows a header, options beside the field, and the highlighted item in a preview', () => {
+    const matchCase = signal(false);
+    picker({
+      header: () => <span class="test-title">Find in Files</span>,
+      options: () => <button class="test-option">Aa</button>,
+      preview: (item) => <p class="test-preview">{item?.label ?? 'none'}</p>,
+      onKey: (event) => {
+        if (event.key !== 'c' || !event.altKey) return false;
+        matchCase.set(!matchCase.get());
+        return true;
+      },
+    });
+    expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Find in Files');
+    expect(document.querySelector('.cerebro-popup__search-row .test-option')).not.toBeNull();
+    const preview = () => document.querySelector('.test-preview')?.textContent;
+    expect(preview()).toBe('README.md');
+    key('ArrowDown');
+    expect(preview()).toBe('main.ts');
+    type('nothing like it');
+    expect(preview()).toBe('none');
+    // The caller's keys first: handled, they go no further.
+    expect(key('c', { altKey: true }).defaultPrevented).toBe(true);
+    expect(matchCase.get()).toBe(true);
+    expect(key('x', { altKey: true }).defaultPrevented).toBe(false);
+  });
 });

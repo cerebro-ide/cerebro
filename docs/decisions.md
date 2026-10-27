@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
@@ -936,6 +937,39 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## Search (2026-10-26)
+
+The third part of "A basic IDE before git and agent management". The choices below are Claude's,
+after IntelliJ, open to change.
+
+- **Find in Files** (Ctrl/Cmd+Shift+F; Edit → Find): IntelliJ's popup. Its title and the count ("5
+  matches in 2 files", with + when the search stopped at its limit) are at the top. Match Case,
+  Words and Regex sit beside the field (Alt+C, Alt+W, Alt+X, by the key's place, since Option+C
+  types ç on macOS). Each line found shows with its matches bold, and its file and line at the
+  right; the highlighted line's file is shown below, read-only. Enter or a click opens it there. It
+  searches as the user types (after 150 ms), and only the latest answer counts. A bad pattern
+  shows ripgrep's message.
+- **The host searches with ripgrep** (`search.text`), as `plan-v1.md` has it. It comes from
+  `@vscode/ripgrep` 1.18.0, out since 2026-05-07: it ships ripgrep 15 as a package per platform,
+  with no install script, and VS Code uses it. Case is ignored unless asked, as in IntelliJ. Hidden
+  files are searched, but not what .gitignore leaves out, `.git`, or files over the editor's 10 MB.
+  It stops at 1000 lines; lines are sorted by path, then line. Offsets are converted from bytes
+  to UTF-16, and lines that aren't UTF-8 are left out.
+- **The picker grew** a header, options beside its field, a preview below its list, and the caller's
+  keys first, for Find in Files; Go to File and the rest are unchanged.
+- **Find and Replace in a file** (Ctrl/Cmd+F, Ctrl/Cmd+R): IntelliJ's bar over the editor. It
+  searches as it's typed, from the cursor. Its count says which match of how many ("2/5", up to
+  9999+). Enter and Shift+Enter, or F3 and Shift+F3, go to the next and previous match. The same
+  options and keys as Find in Files. Replace and Replace All are there only when the file can be
+  edited. Escape anywhere in it closes it. It's built on `@codemirror/search` 6.7.2 (out since
+  2026-08-31), which keeps the query and highlights the matches; the bar is Cerebro's, styled in the
+  editor's shadow root. As CodeMirror does, going to a match selects the field's text.
+- **Match colours** (`--cerebro-search-match`, `-selected`) weren't measured from IntelliJ.
+- **Not yet:** Find in Files' scopes (directory, module, file mask), its "Open in Find Window" with
+  a results tree, Replace in Files, cancelling a running search in the host (the latest answer wins;
+  earlier ones still run to their limit), and highlighting the match in the preview, not just its
+  line.
 
 ## Editing and saving (2026-10-26)
 

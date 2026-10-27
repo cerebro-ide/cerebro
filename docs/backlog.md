@@ -57,6 +57,18 @@ From Ido (2026-10-26), with a screenshot of IntelliJ's light theme and its Setti
   2026-10-26). The title bar overlay's colours are fixed to the dark theme's
   (`packages/app/src/window.ts`); they should follow the theme when it changes.
 
+### Keymaps: configurable, with IntelliJ's ready-made ones to choose from
+
+From Ido (2026-10-26), with a screenshot of IntelliJ's Settings → Keymap: "not only should keymapping
+be configurable, but similar to intellij I want to offer out of the box multiple keymaps based on
+common known configurations".
+
+- **Configurable:** the user changes any action's shortcuts, as in IntelliJ's Keymap page.
+- **Ready-made keymaps to start from,** chosen from a dropdown, as IntelliJ's list: Eclipse, Eclipse
+  (macOS), Emacs, IntelliJ IDEA Classic, macOS System Shortcuts, NetBeans, Sublime Text, Sublime Text
+  (macOS), Visual Studio, Visual Studio (macOS), VSCode, alongside the default one (IntelliJ's for
+  each platform).
+
 ## Known gaps
 
 - **Editing:** see "Not yet" in the decision "Editing and saving" (a file with unsaved edits changed

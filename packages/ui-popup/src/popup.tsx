@@ -45,6 +45,14 @@ export interface PickerOptions<T extends PickerItem> {
   limit?: number;
   /** Presses inside this element don't close the popup; it handles them (the button it opened from). */
   owner?: Element;
+  /** Above the search field: a title, and what was found, as Find in Files'. */
+  header?: () => Child;
+  /** Beside the search field, at its right: options such as Find in Files' Match Case. */
+  options?: () => Child;
+  /** Below the list: the highlighted item shown in full (Find in Files' code). Read reactively. */
+  preview?: (item: T | undefined) => Child;
+  /** Keys pressed in the search field, before the popup's own; returns whether it handled one. */
+  onKey?: (event: KeyboardEvent) => boolean;
 }
 
 export interface PickerHandle<T> {
@@ -213,6 +221,10 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     // Keys stay in the popup: the app's shortcuts don't run while typing in it.
     event.stopPropagation();
     if (event.isComposing) return;
+    if (this.options.onKey?.(event)) {
+      event.preventDefault();
+      return;
+    }
     const count = Math.min(this.items.get().length, this.options.limit ?? LIMIT);
     const { index } = this.state;
     /** Highlights another item; there's none to move to in an empty list. */
@@ -253,7 +265,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   private view(): Child {
     const { options, state } = this;
-    return [
+    const input = (
       <input
         class="cerebro-popup__search"
         type="text"
@@ -267,7 +279,18 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           options.onQueryChange?.(state.query);
         }}
         on:keydown={this.onKey}
-      />,
+      />
+    );
+    return [
+      options.header ? <div class="cerebro-popup__header">{options.header()}</div> : null,
+      options.options ? (
+        <div class="cerebro-popup__search-row">
+          {input}
+          <div class="cerebro-popup__options">{options.options()}</div>
+        </div>
+      ) : (
+        input
+      ),
       <div class="cerebro-popup__list" id="cerebro-popup-list" role="listbox">
         {() => {
           const items = this.items.get();
@@ -321,6 +344,13 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           ];
         }}
       </div>,
+      options.preview ? (
+        <div class="cerebro-popup__preview">
+          {() =>
+            (options.preview as NonNullable<typeof options.preview>)(this.items.get()[state.index])
+          }
+        </div>
+      ) : null,
     ];
   }
 }

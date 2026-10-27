@@ -21,6 +21,7 @@
   "dependencies": {
     "@cerebro-ide/index": "0.0.0",
     "@cerebro-ide/protocol": "0.0.0",
+    "@vscode/ripgrep": "1.18.0",
     "node-pty": "1.1.0"
   },
   "bin": {
