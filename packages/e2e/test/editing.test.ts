@@ -124,7 +124,8 @@ it('draws scrollbars over the content, taking no room: the Project tool window, 
 });
 
 it('scrolls tabs that don’t fit, keeping the active one in view, and lists them all', async () => {
-  const more = page().locator('.cerebro-tabs-more');
+  // The editor's: tool windows with tabs have their own.
+  const more = page().locator('.cerebro-editor-tab-bar .cerebro-tabs-more');
   for (let i = 0; i < 16; i++) await open(`file${String(i)}.txt`);
   await more.waitFor();
   // The active tab, the last opened, is whole inside the strip.
