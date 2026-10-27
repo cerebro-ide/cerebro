@@ -467,6 +467,27 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).not.toHaveBeenCalled();
   });
 
+  it('shows a selection on the caret’s line over the active line’s colour', async () => {
+    // It was hidden: a double-clicked word, or a drag, showed nothing on that line.
+    const doc = new EditorDocument('const answer = 1;\nnext line');
+    // Plain text: the line is one text node.
+    const root = mount({ path: 'a.txt', document: doc });
+    const line = root.querySelector('.cm-line') as HTMLElement;
+    const text = line.firstChild;
+    const range = document.createRange();
+    range.setStart(text as Node, 6);
+    range.setEnd(text as Node, 12);
+    const rect = range.getBoundingClientRect();
+    const box = line.getBoundingClientRect();
+    const middle = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    await userEvent.dblClick(line, { position: { x: middle.x - box.left, y: middle.y - box.top } });
+    // What's seen at the word: the topmost element painting a background is the selection's.
+    const painted = root
+      .elementsFromPoint(middle.x, middle.y)
+      .find((element) => getComputedStyle(element).backgroundColor !== 'rgba(0, 0, 0, 0)');
+    expect(painted?.className).toBe('cm-selectionBackground');
+  });
+
   it('is gone when disposed', () => {
     const root = mount({ path: 'a.txt', text: 'x' });
     expect(root.querySelector('.cm-editor')).not.toBeNull();
