@@ -121,6 +121,31 @@ describe('CodeEditor', () => {
     );
   });
 
+  it('draws the caret in the theme’s text colour, seen in either theme', async () => {
+    const container = mount({ path: 'a.txt', text: 'one\ntwo' });
+    await userEvent.click(container.querySelector('.cm-line') as HTMLElement);
+    const caret = await vi.waitFor(() => {
+      const found = container.querySelector('.cm-cursor');
+      expect(found).not.toBeNull();
+      return found as HTMLElement;
+    });
+    const text = () => {
+      const n = parseInt(
+        getComputedStyle(document.documentElement)
+          .getPropertyValue('--cerebro-text')
+          .trim()
+          .slice(1),
+        16,
+      );
+      return `rgb(${String(n >> 16)}, ${String((n >> 8) & 255)}, ${String(n & 255)})`;
+    };
+    // CodeMirror's own is black: unseen on the dark theme's background.
+    expect(getComputedStyle(caret).borderLeftColor).toBe(text());
+    document.documentElement.dataset['cerebroTheme'] = 'light';
+    expect(getComputedStyle(caret).borderLeftColor).toBe(text());
+    document.documentElement.dataset['cerebroTheme'] = 'dark';
+  });
+
   it('applies the settings as they change', () => {
     const fontSize = signal(13);
     const softWrap = signal(false);

@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -282,7 +282,9 @@ describe('projectWindow', () => {
     expect(fake.webContents.reload).not.toHaveBeenCalled();
   });
 
-  it('says when its page can’t load', async () => {
+  it('says when its page can’t load, and logs it in the app’s data folder', async () => {
+    const data = folder();
+    electron.app.getPath.mockReturnValueOnce(data);
     vi.stubEnv('CEREBRO_DEV_URL', '');
     electron.BrowserWindow.failLoad = true;
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -291,7 +293,20 @@ describe('projectWindow', () => {
     await vi.waitFor(() => {
       expect(error).toHaveBeenCalledWith('The window could not load', expect.any(Error));
     });
+    expect(readFileSync(join(data, 'pages.log'), 'utf8')).toMatch(/could not load: Error: gone\n$/);
     error.mockRestore();
+  });
+
+  it('logs what goes wrong in its page', () => {
+    const data = folder();
+    electron.app.getPath.mockReturnValueOnce(data);
+    projectWindow('/somewhere');
+    const fake = electron.windows[0] as FakeWindow;
+    (fake.contentListeners.get('render-process-gone') as Listener)(
+      {},
+      { reason: 'crashed', exitCode: 1 },
+    );
+    expect(readFileSync(join(data, 'pages.log'), 'utf8')).toMatch(/page gone: crashed/);
   });
 });
 
