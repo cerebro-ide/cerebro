@@ -41,6 +41,7 @@ function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean; shortcuts
         {...(options.shortcuts === false
           ? {}
           : { shortcut: (id: string) => (id === 'project' ? 'Alt+1' : undefined) })}
+        actions={(id) => (id === 'project' ? <button class="test-action">locate</button> : null)}
       />
     ),
     container,
@@ -161,6 +162,19 @@ describe('opening and closing', () => {
     );
     project.click();
     expect(tools.isVisible('project')).toBe(false);
+  });
+
+  it('shows a window’s own buttons in its header, before Hide', () => {
+    const { tools, $ } = mount();
+    tools.show('project');
+    tools.show('terminal');
+    const header = $('.cerebro-tool-window[data-id="project"] .cerebro-tool-window__header');
+    expect([...header.children].map((child) => child.className)).toEqual([
+      'cerebro-tool-window__title',
+      'test-action',
+      'cerebro-tool-window__hide',
+    ]);
+    expect($('.cerebro-tool-window[data-id="terminal"] .test-action')).toBeNull();
   });
 
   it('hides a window from its header', () => {

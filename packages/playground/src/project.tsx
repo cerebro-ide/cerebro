@@ -60,6 +60,21 @@ function modelFor(envId: string, samples: readonly string[]): TreeModel<FileNode
   return model;
 }
 
+/**
+ * Selects a file in the active environment's tree, opening the folders down to it, as IntelliJ's
+ * Select Opened File. `path` is a tab's: the file's full path in the app, a sample's own.
+ */
+export function selectInTree(path: string, samples: readonly string[]): Promise<boolean> {
+  const env = active();
+  if (!env) return Promise.resolve(false);
+  const app = currentHost() !== undefined;
+  const root = app ? `${env.id}/` : '';
+  if (!path.startsWith(root)) return Promise.resolve(false);
+  const parts = path.slice(root.length).split('/');
+  const keys = parts.map((_, i) => root + parts.slice(0, i + 1).join('/'));
+  return modelFor(env.id, samples).reveal(keys);
+}
+
 export function ProjectTree(props: {
   samples: readonly string[];
   /** Opens a file in the active environment's editor. */

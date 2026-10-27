@@ -38,6 +38,8 @@ export class TreeModel<T> {
   selected: string | undefined = undefined;
   /** Why loading failed, by parent's key. */
   readonly errors = new ObservableMap<string, string>();
+  /** Loads under way, by parent's key. */
+  readonly #pending = new Map<string, Promise<void>>();
 
   constructor(private readonly source: TreeSource<T>) {
     makeObservable(this);
@@ -65,20 +67,30 @@ export class TreeModel<T> {
     return this.rows.findIndex((r) => r.key === this.selected);
   }
 
-  /** Loads a node's children (the roots for `undefined`), once, unless `reload`. */
-  async load(node: T | undefined, reload = false): Promise<void> {
+  /**
+   * Loads a node's children (the roots for `undefined`), once, unless `reload`. While they're
+   * loading, resolves when they've loaded.
+   */
+  load(node: T | undefined, reload = false): Promise<void> {
     const key = node === undefined ? ROOT : this.source.key(node);
-    if ((this.loaded.has(key) && !reload) || this.loading.has(key)) return;
+    const pending = this.#pending.get(key);
+    if (pending) return pending;
+    if (this.loaded.has(key) && !reload) return Promise.resolve();
     this.loading.add(key);
     this.errors.delete(key);
-    try {
-      const children = await this.source.children(node);
-      this.loaded.set(key, [...children]);
-    } catch (error) {
-      this.errors.set(key, error instanceof Error ? error.message : String(error));
-    } finally {
-      this.loading.delete(key);
-    }
+    const loading = (async () => {
+      try {
+        const children = await this.source.children(node);
+        this.loaded.set(key, [...children]);
+      } catch (error) {
+        this.errors.set(key, error instanceof Error ? error.message : String(error));
+      } finally {
+        this.loading.delete(key);
+        this.#pending.delete(key);
+      }
+    })();
+    this.#pending.set(key, loading);
+    return loading;
   }
 
   /**
@@ -158,6 +170,27 @@ export class TreeModel<T> {
 
   select(key: string | undefined): void {
     this.selected = key;
+  }
+
+  /**
+   * Selects a node given the keys from its root down to it, expanding (and loading) the folders on
+   * the way: IntelliJ's Select Opened File. Resolves with whether it was found.
+   */
+  async reveal(keys: readonly string[]): Promise<boolean> {
+    await this.load(undefined);
+    let parent = ROOT;
+    for (const [index, key] of keys.entries()) {
+      const node = this.loaded.get(parent)?.find((n) => this.source.key(n) === key);
+      if (node === undefined) return false;
+      if (index === keys.length - 1) {
+        this.selected = key;
+        return true;
+      }
+      this.expanded.add(key);
+      await this.load(node);
+      parent = key;
+    }
+    return false;
   }
 
   /** Moves the selection by `delta` rows, stopping at the ends; with none, starts at the first. */
