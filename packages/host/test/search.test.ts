@@ -143,6 +143,38 @@ describe('ripgrep', () => {
     expect(rgArguments({ query: 'a', masks: ['*.ts'] })).toContain('--glob=*.ts');
   });
 
+  it('gives what each match would be replaced with, with groups only in a regular expression', async () => {
+    const dir = folder();
+    writeFileSync(join(dir, 'src', 'long.ts'), `${'x'.repeat(2000)} shape shape\n`);
+    const replaced = async (query: string, replace: string, regex = false) =>
+      (
+        await searchText(dir, { query, replace, regex, matchCase: true, masks: ['*.ts'] })
+      ).matches.map((m) => [m.path.slice(slashes(dir).length), m.line, m.replacements]);
+    expect(await replaced('Shape', '$1$0')).toEqual([
+      ['/src/a.ts', 0, ['$1$0']],
+      ['/src/a.ts', 1, ['$1$0']],
+    ]);
+    expect(await replaced('(Sha)(pe)', '$2$1', true)).toEqual([
+      ['/src/a.ts', 0, ['peSha']],
+      ['/src/a.ts', 1, ['peSha']],
+    ]);
+    expect(await replaced('Shape', '')).toEqual([
+      ['/src/a.ts', 0, ['']],
+      ['/src/a.ts', 1, ['']],
+    ]);
+    // A long line, given whole: both its matches, past where a search cuts it.
+    const long = await searchText(dir, { query: 'shape', replace: 'x', masks: ['long.ts'] });
+    expect(long.matches[0]?.ranges).toEqual([
+      [2001, 2006],
+      [2007, 2012],
+    ]);
+    expect(long.matches[0]?.replacements).toEqual(['x', 'x']);
+    // Without replace, none.
+    expect((await searchText(dir, { query: 'Shape' })).matches[0]).not.toHaveProperty(
+      'replacements',
+    );
+  });
+
   it('refuses a folder that isn’t there', async () => {
     const dir = folder();
     await expect(searchText(join(dir, 'none'), { query: 'a' })).rejects.toThrow(BadQuery);

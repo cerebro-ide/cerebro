@@ -69,6 +69,8 @@ export interface PickerHandle<T> {
   readonly result: Promise<T | undefined>;
   readonly open: boolean;
   close(): void;
+  /** The item highlighted now: Replace in Files' Replace acts on it. */
+  highlighted(): T | undefined;
 }
 
 /** The most rows drawn by default: thousands of matches would be slow to draw, and of no use. */
@@ -177,6 +179,10 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   close(): void {
     this.finish(undefined);
+  }
+
+  highlighted(): T | undefined {
+    return this.items.peek()[this.state.index];
   }
 
   private finish(result: T | undefined): void {

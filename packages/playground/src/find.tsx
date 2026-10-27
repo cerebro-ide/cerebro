@@ -3,12 +3,17 @@
 // line's file below, in an editor, its match selected. Enter or a click opens the file there. Under the
 // field, the scope: In Project, or a Directory (the active file's, to start with); in the header, a
 // File mask (`*.ts, !*.test.ts`). The host searches with ripgrep, as the user types.
+// Replace in Files is the same popup with a Replace field: Replace takes the highlighted line's
+// matches, Replace All (Mod+Alt+Enter) every match, after asking. ripgrep works out each
+// replacement, so a regular expression's groups follow its syntax; they go into the files'
+// documents, so an open editor can undo them, and the files are saved.
 
 import { signal } from '@cerebro-ide/reactive';
+import { openDialog } from '@cerebro-ide/ui-dialog';
 import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { documentFor } from './documents.js';
+import { documentFor, saveFiles } from './documents.js';
 import { active, hostFor } from './environments.js';
 
 /** A line found, as the host gives it. */
@@ -17,6 +22,8 @@ interface TextMatch {
   line: number;
   text: string;
   ranges: [number, number][];
+  /** What each match would be replaced with, when replacing. */
+  replacements?: string[];
 }
 
 type Found = { matches: TextMatch[]; limited: boolean } | { error: string };
@@ -25,6 +32,9 @@ type Choice = PickerItem & { match: TextMatch };
 
 /** How long typing pauses before the search runs. */
 export const SEARCH_DELAY = 150;
+
+/** The most lines Replace All takes: past this, it's refused rather than done in part. */
+export const REPLACE_LIMIT = 100_000;
 
 /** The longest part of a line listed. */
 const LINE_LIMIT = 200;
@@ -62,6 +72,65 @@ const scope = signal<'project' | 'directory'>('project');
 /** The File mask, and whether it's used. */
 const maskOn = signal(false);
 const mask = signal('');
+/** What Replace in Files replaces with, kept as the rest. */
+const replacement = signal('');
+
+/**
+ * Replaces the matches on these lines, in their files' documents, and saves the files. A line that's
+ * changed since it was found (an unsaved edit) is left: how many lines were, and were replaced.
+ */
+export async function replaceLines(
+  lines: readonly TextMatch[],
+): Promise<{ replaced: number; skipped: number }> {
+  const byFile = new Map<string, TextMatch[]>();
+  for (const line of lines) byFile.set(line.path, [...(byFile.get(line.path) ?? []), line]);
+  let replaced = 0;
+  let skipped = 0;
+  const changed: string[] = [];
+  for (const [path, matches] of byFile) {
+    const doc = await documentFor(path, () => '');
+    if ('error' in doc) {
+      skipped += matches.length;
+      continue;
+    }
+    const text = doc.text.peek();
+    const edits: { from: number; to: number; insert: string }[] = [];
+    for (const match of matches) {
+      const line = match.line < text.lines ? text.line(match.line + 1) : undefined;
+      if (line?.text !== match.text || !match.replacements) {
+        skipped++;
+        continue;
+      }
+      match.ranges.forEach(([from, to], i) => {
+        edits.push({
+          from: line.from + from,
+          to: line.from + to,
+          insert: match.replacements?.[i] ?? '',
+        });
+      });
+      replaced++;
+    }
+    if (edits.length === 0) continue;
+    doc.edit(edits);
+    changed.push(path);
+  }
+  await saveFiles(changed);
+  return { replaced, skipped };
+}
+
+/** Says when lines weren't replaced, having changed since the search. */
+function reportSkipped(skipped: number): void {
+  if (skipped === 0) return;
+  openDialog({
+    title: 'Replace in Files',
+    content: () => (
+      <p>
+        {skipped === 1 ? '1 line wasn’t' : `${String(skipped)} lines weren’t`} replaced: changed
+        since the search.
+      </p>
+    ),
+  });
+}
 
 /** A File mask as the host takes it: comma-separated masks, `!` leaving files out. */
 export function masksOf(text: string): string[] {
@@ -133,12 +202,13 @@ function Preview(props: { match: TextMatch }) {
 }
 
 /**
- * Opens Find in Files over the active worktree; `open` opens a file at a line. `file`, the active
- * file, gives Directory its folder.
+ * Opens Find in Files over the active worktree, or Replace in Files (`replacing`); `open` opens a
+ * file at a line. `file`, the active file, gives Directory its folder.
  */
 export async function findInFiles(
   open: (at: { path: string; line: number; column: number }) => void,
   file?: string,
+  replacing = false,
 ): Promise<void> {
   const worktree = active()?.id;
   const host = worktree === undefined ? undefined : hostFor(worktree);
@@ -152,24 +222,31 @@ export async function findInFiles(
   const found = signal<Found | undefined>(undefined);
   let latest = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  /** The search as it's set now. */
+  const settings = () => ({
+    path: scope.peek() === 'project' ? worktree : folderOf(worktree, directory.peek()),
+    masks: maskOn.peek() ? masksOf(mask.peek()) : [],
+    query: query.peek(),
+    matchCase: matchCase.peek(),
+    words: words.peek(),
+    regex: regex.peek(),
+    ...(replacing ? { replace: replacement.peek() } : {}),
+  });
+  /** The search waiting for typing to pause, and the latest one running. */
+  let pending: (() => Promise<void>) | undefined;
+  let running = Promise.resolve();
   const search = () => {
     clearTimeout(timer);
+    pending = undefined;
     const asked = ++latest;
-    const text = query.peek();
-    if (text === '') {
+    if (query.peek() === '') {
       found.set(undefined);
       return;
     }
-    timer = setTimeout(() => {
-      void host
-        .request('search.text', {
-          path: scope.peek() === 'project' ? worktree : folderOf(worktree, directory.peek()),
-          masks: maskOn.peek() ? masksOf(mask.peek()) : [],
-          query: text,
-          matchCase: matchCase.peek(),
-          words: words.peek(),
-          regex: regex.peek(),
-        })
+    const run = () => {
+      pending = undefined;
+      running = host
+        .request('search.text', settings())
         .then(
           (result) => result as Found,
           (error: unknown) => ({ error: (error as Error).message }),
@@ -178,7 +255,15 @@ export async function findInFiles(
           // Only the latest search's answer counts.
           if (asked === latest) found.set(result);
         });
-    }, SEARCH_DELAY);
+      return running;
+    };
+    pending = run;
+    timer = setTimeout(() => void run(), SEARCH_DELAY);
+  };
+  /** The search as typed so far, done now: Replace takes what it found, not an earlier answer. */
+  const settled = () => {
+    clearTimeout(timer);
+    return pending ? pending() : running;
   };
   const toggle = (option: ReturnType<typeof signal<boolean>>) => {
     option.set(!option.peek());
@@ -199,6 +284,19 @@ export async function findInFiles(
         toggle(on);
       }}
     />
+  );
+  const button = (text: string, run: () => void) => (
+    <button
+      type="button"
+      class="playground-find__button"
+      on:mousedown={(event) => {
+        // Keeps the focus where it is.
+        event.preventDefault();
+      }}
+      on:click={run}
+    >
+      {text}
+    </button>
   );
   const scopeTab = (text: string, value: 'project' | 'directory') => (
     <button
@@ -221,14 +319,64 @@ export async function findInFiles(
   const close = () => {
     picker.close();
   };
+  /** The highlighted line's matches, replaced; the list is searched again. */
+  const replaceOne = async () => {
+    await settled();
+    const item = picker.highlighted();
+    if (!item) return;
+    const { skipped } = await replaceLines([item.match]);
+    reportSkipped(skipped);
+    search();
+  };
+  /** Every match, after asking, with the popup closed. */
+  const replaceAll = async () => {
+    if (query.peek() === '') return;
+    picker.close();
+    let result: Found;
+    try {
+      result = (await host.request('search.text', {
+        ...settings(),
+        limit: REPLACE_LIMIT,
+      })) as Found;
+    } catch (error) {
+      result = { error: (error as Error).message };
+    }
+    if ('error' in result || result.limited || result.matches.length === 0) {
+      const why =
+        'error' in result
+          ? result.error.split('\n').at(-1)
+          : result.limited
+            ? `More than ${String(REPLACE_LIMIT)} lines match: narrow the search first.`
+            : 'Nothing found.';
+      openDialog({ title: 'Replace in Files', content: () => <p>{why}</p> });
+      return;
+    }
+    const { matches } = result;
+    const confirmed = await openDialog<true>({
+      title: 'Replace in Files',
+      ok: { label: 'Replace', accept: () => true },
+      content: () => (
+        <p>
+          Replace {countOf(result)} with “{replacement.peek()}”?
+        </p>
+      ),
+    }).result;
+    if (!confirmed) return;
+    reportSkipped((await replaceLines(matches)).skipped);
+  };
+  /** Replace All's keys: Mod+Alt+Enter. */
+  const replaceAllKey = (event: KeyboardEvent) =>
+    replacing && event.key === 'Enter' && event.altKey && (event.ctrlKey || event.metaKey);
   const picker = openPicker<Choice>({
-    label: 'Find in Files',
+    label: replacing ? 'Replace in Files' : 'Find in Files',
     placeholder: 'Text to find',
     position: 'top',
     width: 800,
     empty: 'Nothing found',
     header: () => [
-      <span class="playground-find__title">Find in Files</span>,
+      <span class="playground-find__title">
+        {replacing ? 'Replace in Files' : 'Find in Files'}
+      </span>,
       () => {
         const result = found.get();
         // ripgrep's own words, last line: for a bad pattern, what's wrong with it.
@@ -265,26 +413,57 @@ export async function findInFiles(
         on:keydown={fieldKeys(search, close)}
       />,
     ],
-    toolbar: () => [
-      scopeTab('In Project', 'project'),
-      scopeTab('Directory', 'directory'),
-      () =>
-        scope.get() === 'directory' ? (
-          <input
-            class="playground-find__field playground-find__directory"
-            type="text"
-            spellcheck={false}
-            aria-label="Directory"
-            placeholder="The project's root"
-            value={directory.peek()}
-            on:input={(event) => {
-              directory.set((event.currentTarget as HTMLInputElement).value);
-              search();
-            }}
-            on:keydown={fieldKeys(search, close)}
-          />
-        ) : null,
-    ],
+    toolbar: () => (
+      <div class="playground-find__toolbar">
+        {replacing ? (
+          <div class="playground-find__row">
+            <input
+              class="playground-find__field playground-find__replace"
+              type="text"
+              spellcheck={false}
+              aria-label="Replace with"
+              placeholder="Replace with"
+              value={replacement.peek()}
+              on:input={(event) => {
+                replacement.set((event.currentTarget as HTMLInputElement).value);
+                search();
+              }}
+              on:keydown={(event) => {
+                if (replaceAllKey(event)) {
+                  event.stopPropagation();
+                  void replaceAll();
+                  return;
+                }
+                fieldKeys(search, close)(event);
+              }}
+            />
+            {button('Replace', () => void replaceOne())}
+            {button('Replace All', () => void replaceAll())}
+          </div>
+        ) : null}
+        <div class="playground-find__row">
+          {scopeTab('In Project', 'project')}
+          {scopeTab('Directory', 'directory')}
+          {() =>
+            scope.get() === 'directory' ? (
+              <input
+                class="playground-find__field playground-find__directory"
+                type="text"
+                spellcheck={false}
+                aria-label="Directory"
+                placeholder="The project's root"
+                value={directory.peek()}
+                on:input={(event) => {
+                  directory.set((event.currentTarget as HTMLInputElement).value);
+                  search();
+                }}
+                on:keydown={fieldKeys(search, close)}
+              />
+            ) : null
+          }
+        </div>
+      </div>
+    ),
     options: () => [
       option('Match Case (Alt+C)', 'Cc', matchCase),
       option('Words (Alt+W)', 'W', words),
@@ -300,6 +479,10 @@ export async function findInFiles(
       search();
     },
     onKey: (event) => {
+      if (replaceAllKey(event)) {
+        void replaceAll();
+        return true;
+      }
       const on = event.altKey && !event.ctrlKey && !event.metaKey ? keys[event.code] : undefined;
       if (!on) return false;
       toggle(on);

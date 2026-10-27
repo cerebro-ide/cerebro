@@ -49,9 +49,15 @@ async function opened(): Promise<[string, EditorDocument][]> {
 
 /** Saves every modified document; a file that can't be saved is reported, and stays modified. */
 export async function saveAll(): Promise<void> {
+  await saveFiles();
+}
+
+/** Saves these files' documents, if modified (all of them without `paths`), as Save All does. */
+export async function saveFiles(paths?: readonly string[]): Promise<void> {
   if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
+    if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
     if (!host || !doc.modified.peek()) continue;
     // What's written, which the editor may change while it's being written.

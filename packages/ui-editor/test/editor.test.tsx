@@ -233,6 +233,39 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
   });
 
+  it('takes an edit made to its document elsewhere as an edit, which undo takes back', async () => {
+    const doc = new EditorDocument('one two\nthree');
+    let root = mount({ path: 'a.txt', document: doc });
+    doc.edit([
+      { from: 0, to: 3, insert: '1' },
+      { from: 8, to: 13, insert: '3' },
+    ]);
+    expect(doc.content()).toBe('1 two\n3');
+    expect([...root.querySelectorAll('.cm-line')].map((line) => line.textContent)).toEqual([
+      '1 two',
+      '3',
+    ]);
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one two\nthree');
+    // Made while no editor shows it: the next one still takes it back, from the state it keeps.
+    cleanup?.();
+    doc.edit([{ from: 0, to: 3, insert: 'ONE' }]);
+    root = mount({ path: 'a.txt', document: doc });
+    expect(root.querySelector('.cm-line')?.textContent).toBe('ONE two');
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one two\nthree');
+    // The text changed again after an edit, or since: shown as it is.
+    cleanup?.();
+    doc.edit([{ from: 0, to: 3, insert: 'x' }]);
+    doc.text.set(Text.of(['y']));
+    root = mount({ path: 'a.txt', document: doc });
+    expect(root.querySelector('.cm-line')?.textContent).toBe('y');
+    doc.text.set(Text.of(['z']));
+    expect(root.querySelector('.cm-line')?.textContent).toBe('z');
+  });
+
   it('reveals a position given before it’s in the document, once it is', async () => {
     const container = document.createElement('div');
     container.style.cssText = 'position: fixed; left: 0; top: 0; width: 600px; height: 400px;';

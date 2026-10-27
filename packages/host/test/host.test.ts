@@ -355,6 +355,21 @@ describe('files', () => {
     await expect(
       ui.request('search.text', { path: import.meta.dirname, query: 'x', masks: '*.ts' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Replacements, and a limit, when asked.
+    const replacing = (await ui.request('search.text', {
+      path: import.meta.dirname,
+      query: ['searches a', 'folder’s files'].join(' '),
+      matchCase: true,
+      replace: 'X',
+      limit: 1,
+    })) as { matches: { replacements: string[] }[]; limited: boolean };
+    expect(replacing.matches.map((m) => m.replacements)).toEqual([['X']]);
+    expect(replacing.limited).toBe(true);
+    for (const bad of [{ replace: 1 }, { limit: 0 }, { limit: 1.5 }]) {
+      await expect(
+        ui.request('search.text', { path: import.meta.dirname, query: 'x', ...bad }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
     // A Directory typed that isn't there: said so, as a bad query.
     await expect(
       ui.request('search.text', { path: join(import.meta.dirname, 'none'), query: 'x' }),

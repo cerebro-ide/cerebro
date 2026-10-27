@@ -22,6 +22,12 @@ export interface TextSearch {
    * files out. gitignore's syntax: a mask without `/` matches a file's name in any folder.
    */
   masks?: readonly string[];
+  /**
+   * What each match would be replaced with, for Replace in Files: ripgrep's `--replace`, so with a
+   * regular expression `$1` is its first group (literal otherwise). Lines are then given whole, not
+   * cut, so every match on them is there to replace.
+   */
+  replace?: string;
   /** The most lines found before the search stops. Default: LIMIT. */
   limit?: number;
 }
@@ -36,6 +42,8 @@ export interface TextMatch {
   text: string;
   /** Each match, as UTF-16 offsets into the text: from, to. */
   ranges: [number, number][];
+  /** What each match would be replaced with, in the same order; only when asked (`replace`). */
+  replacements?: string[];
 }
 
 export interface TextResults {
@@ -64,7 +72,7 @@ interface RgMatch {
     path: { text?: string };
     lines: { text?: string };
     line_number: number;
-    submatches: { start: number; end: number }[];
+    submatches: { start: number; end: number; replacement?: { text?: string } }[];
   };
 }
 
@@ -77,8 +85,10 @@ export function rgArguments(search: TextSearch): string[] {
     '--glob=!.git',
     ...(search.masks ?? []).map((mask) => `--glob=${mask}`),
     `--max-filesize=${String(MAX_FILE_SIZE)}`,
-    `--max-columns=${String(MAX_COLUMNS)}`,
-    '--max-columns-preview',
+    ...(search.replace === undefined
+      ? [`--max-columns=${String(MAX_COLUMNS)}`, '--max-columns-preview']
+      : // Without a regular expression, `$` is no group: written as ripgrep's `$$`.
+        [`--replace=${search.regex ? search.replace : search.replace.replaceAll('$', '$$$$')}`]),
     ...(search.regex ? [] : ['--fixed-strings']),
     search.matchCase ? '--case-sensitive' : '--ignore-case',
     ...(search.words ? ['--word-regexp'] : []),
@@ -98,16 +108,17 @@ export function toMatch(folder: string, data: RgMatch['data']): TextMatch | unde
   if (path.text === undefined || lines.text === undefined) return undefined;
   const text = lines.text.replace(/\r?\n$/, '');
   const bytes = Buffer.from(text);
+  const submatches = data.submatches.filter((s) => s.start <= bytes.length);
+  const replaced = submatches.map((s) => s.replacement?.text);
   return {
     path: `${toSlashes(folder).replace(/\/+$/, '')}/${toSlashes(path.text)}`,
     line: data.line_number - 1,
     text,
-    ranges: data.submatches
-      .filter((s) => s.start <= bytes.length)
-      .map((s): [number, number] => [
-        utf16(bytes, s.start),
-        utf16(bytes, Math.min(s.end, bytes.length)),
-      ]),
+    ranges: submatches.map((s): [number, number] => [
+      utf16(bytes, s.start),
+      utf16(bytes, Math.min(s.end, bytes.length)),
+    ]),
+    ...(replaced[0] === undefined ? {} : { replacements: replaced as string[] }),
   };
 }
 

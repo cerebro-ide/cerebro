@@ -358,10 +358,16 @@ export function CodeEditor(props: CodeEditorProps): Node {
         : EditorState.fromJSON(doc.state, { extensions }, KEPT),
   });
   caret(view.state);
-  // The document's text changed elsewhere (read again from disk): shown, not undoable.
+  // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable; read again
+  // from disk, shown, not undoable.
   const following = effect(() => {
     const text = doc?.text.get();
     if (text === undefined || text === view.state.doc) return undefined;
+    const edit = doc?.lastEdit;
+    if (edit?.before.eq(view.state.doc) && edit.changes.apply(edit.before).eq(text)) {
+      view.dispatch({ changes: edit.changes, userEvent: 'input.replace' });
+      return undefined;
+    }
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: text },
       annotations: Transaction.addToHistory.of(false),
