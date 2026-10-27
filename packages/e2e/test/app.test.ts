@@ -188,11 +188,12 @@ describe('the window', () => {
       }[];
       // For CI's log.
       console.log('Full-screen buttons:', JSON.stringify(shown));
-      // AppKit's own close, minimize and zoom buttons, grey until the pointer is over them.
+      // AppKit's own close, minimize and zoom buttons (their classes, as seen on CI's macOS), grey
+      // until the pointer is over them.
       expect(shown.map((button) => button.class)).toEqual([
-        expect.stringMatching(/Close/),
-        expect.stringMatching(/Minimiz/),
-        expect.stringMatching(/Zoom/),
+        '_NSThemeCloseWidget',
+        '_NSThemeWidget',
+        '_NSThemeZoomWidget',
       ]);
       expect(shown.every((button) => button.hidden)).toBe(true);
       // Where the traffic lights sit out of full screen (window.ts).

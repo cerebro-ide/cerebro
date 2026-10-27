@@ -1017,8 +1017,9 @@ screen, which left the room kept for them empty.
   Node's headers: Node-API is the same in Electron. No new dependency; rejected: node-gyp (a
   dependency for one file) and an FFI such as koffi (84 MB, with an install script). Claude's
   choice, open to change.
-- **Measured on CI's macOS** (the end-to-end test): the buttons are AppKit's close, minimize and
-  zoom, at the traffic lights' place. **Claims, not measured:** that the green button keeps its
+- **Measured on CI's macOS** (the end-to-end test): the buttons are AppKit's own
+  (`_NSThemeCloseWidget`, `_NSThemeWidget`, `_NSThemeZoomWidget`), 14×14, 23px apart, the first at
+  (14, 13), where the traffic lights sit out of full screen. **Claims, not measured:** that the green button keeps its
   window-layout menu under the pointer (it's the same AppKit button; JetBrains Runtime relies on
   it), and how they look; Ido to check on his Mac.
 - **Not yet:** the Welcome window in full screen has them too, over no toolbar; leaving full screen
