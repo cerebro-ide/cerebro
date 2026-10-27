@@ -23,6 +23,11 @@ export interface ServerSpec {
    * (within the worktree) for it to be asked: without one, it sees only the files it's shown.
    */
   projectFiles?: readonly string[];
+  /**
+   * A line it logs once it's read the project (`window/logMessage`), before which its answers miss
+   * files: questions wait for it.
+   */
+  readyWhen?: RegExp;
 }
 
 /** Resolves a module, as Node would: what tests replace. */
@@ -89,6 +94,9 @@ export function pythonServer(
       const ext = extension(path);
       return ext === '.py' || ext === '.pyi' ? 'python' : undefined;
     },
+    // Asked before it's found the folder's files, it answers as if there were none but the open
+    // ones (measured: no usages in an unopened file at once, found 3 s later). It logs this then.
+    readyWhen: /^(Found \d+ source files?|No source files found)/,
     command: () => ({
       command: node,
       args: [resolve('basedpyright/langserver.index.js'), '--stdio'],

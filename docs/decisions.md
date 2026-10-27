@@ -960,6 +960,10 @@ change.
   server, with fixes. JavaScript with no dependencies and no install scripts (27.9 MB unpacked, per
   npm), run by the Node the host runs in (Electron's binary, as Node). Its usages include the
   imports, as IntelliJ's do (a claim); TypeScript's leave them out.
+- **A server is asked once it's read the project,** when it says so. basedpyright reports no
+  progress, but logs "Found N source files". Asked before then, it answers as if only the open
+  files existed (measured: no usages in an unopened file at once; found 3 s later). Questions wait
+  for that line, within the 3 seconds, and the name matches show meanwhile.
 - **A new package, `servers`,** says which server reads which file and how it's started.
   `typescript` 7.0.2 is its dependency alone, so its `tsc` doesn't replace the TypeScript 6 the
   build uses in other packages' scripts. Its executable is the platform package npm installs

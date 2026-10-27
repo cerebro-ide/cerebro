@@ -48,6 +48,10 @@ describe('pythonServer', () => {
     expect(spec.languageOf('/a/B.PYI')).toBe('python');
     expect(spec.languageOf('/a/b.ts')).toBeUndefined();
     expect(spec.languageOf('/a/py')).toBeUndefined();
+    // Asked once it's found the folder's files, as it logs.
+    expect(spec.readyWhen?.test('Found 2 source files')).toBe(true);
+    expect(spec.readyWhen?.test('No source files found.')).toBe(true);
+    expect(spec.readyWhen?.test('Starting service instance')).toBe(false);
   });
 
   it('runs basedpyright’s language server, installed with it, with the host’s Node', () => {
