@@ -86,7 +86,8 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
       seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
     });
   });
-  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
+  // Forced: under xvfb in CI this double-click waited forever for the row to be "stable".
+  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick({ force: true });
   expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
     gitPath(repo, 'src', 'app.ts'),
   );
