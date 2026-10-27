@@ -164,7 +164,21 @@ describe('the window', () => {
         }, value);
       const buttons = page().locator('.cerebro-fullscreen-buttons');
       expect(await buttons.count()).toBe(0);
+      // What the page hears, for CI's log if it fails.
+      await page().evaluate(() => {
+        const heard: boolean[] = [];
+        (globalThis as { heard?: boolean[] }).heard = heard;
+        const bridge = (
+          window as unknown as {
+            cerebro: { window: { onFullScreen(listener: (value: boolean) => void): void } };
+          }
+        ).cerebro;
+        bridge.window.onFullScreen((value) => heard.push(value));
+      });
       await fullScreen(true);
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
+      const heard = () => page().evaluate(() => (globalThis as { heard?: boolean[] }).heard);
+      await expect.poll(heard, { timeout: 15_000 }).toContain(true);
       await buttons.waitFor({ timeout: 15_000 });
       await page().locator('[aria-label="Exit Full Screen"]').click();
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
