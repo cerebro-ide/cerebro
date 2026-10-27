@@ -124,7 +124,8 @@ it('replaces in files, the highlighted line, then all, with a regular expression
   await page().getByText('Replace 2 matches in 2 files with “color: $1”?').waitFor();
   await page().getByRole('button', { name: 'Replace', exact: true }).click();
   await expect.poll(() => file('a.txt'), { timeout: 15_000 }).toBe('color: red\ncolor: blue\n');
-  expect(file('b.txt')).toBe('color: green\n');
+  // Saved after a.txt: each file is read before it's written, for a change made on disk.
+  await expect.poll(() => file('b.txt'), { timeout: 15_000 }).toBe('color: green\n');
   expect(await page().locator('.cerebro-popup').count()).toBe(0);
 });
 
