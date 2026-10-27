@@ -44,12 +44,21 @@ export interface CodeEditorProps {
   reveal?: () => { line: number; column: number } | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
-  /** Go to definition of the word at the cursor: Mod+B or Mod+click, as in IntelliJ. */
-  onGoToDefinition?: (word: string) => void;
-  /** Find usages of the word at the cursor: Alt+F7, as in IntelliJ. */
-  onFindUsages?: (word: string) => void;
+  /**
+   * Go to definition of the word at the cursor, given where it is (zero-based): Mod+B or
+   * Mod+click, as in IntelliJ.
+   */
+  onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
+  /** Find usages of the word at the cursor, given where it is: Alt+F7, as in IntelliJ. */
+  onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
   onCaret?: (at: { line: number; column: number }) => void;
+}
+
+/** A position in the editor as a line and column, zero-based. */
+function placeOf(state: EditorState, pos: number): { line: number; column: number } {
+  const line = state.doc.lineAt(pos);
+  return { line: line.number - 1, column: pos - line.from };
 }
 
 /** The word at a position in the editor, if there is one. */
@@ -212,9 +221,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const language = languageFor(props.path);
   const doc = props.document;
   const caret = (state: EditorState) => {
-    const head = state.selection.main.head;
-    const line = state.doc.lineAt(head);
-    props.onCaret?.({ line: line.number - 1, column: head - line.from });
+    props.onCaret?.(placeOf(state, state.selection.main.head));
   };
   const extensions: Extension[] = [
     lineNumbers(),
@@ -238,18 +245,20 @@ export function CodeEditor(props: CodeEditorProps): Node {
       {
         key: 'Mod-b',
         run: (v) => {
-          const word = wordAt(v, v.state.selection.main.head);
+          const head = v.state.selection.main.head;
+          const word = wordAt(v, head);
           if (word === undefined || !props.onGoToDefinition) return false;
-          props.onGoToDefinition(word);
+          props.onGoToDefinition(word, placeOf(v.state, head));
           return true;
         },
       },
       {
         key: 'Alt-F7',
         run: (v) => {
-          const word = wordAt(v, v.state.selection.main.head);
+          const head = v.state.selection.main.head;
+          const word = wordAt(v, head);
           if (word === undefined || !props.onFindUsages) return false;
-          props.onFindUsages(word);
+          props.onFindUsages(word, placeOf(v.state, head));
           return true;
         },
       },
@@ -261,10 +270,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
       mousedown: (event, v) => {
         if (!(event.ctrlKey || event.metaKey) || !props.onGoToDefinition) return false;
         // Not precise: the nearest position, never none.
-        const word = wordAt(v, v.posAtCoords({ x: event.clientX, y: event.clientY }, false));
+        const pos = v.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+        const word = wordAt(v, pos);
         if (word === undefined) return false;
         event.preventDefault();
-        props.onGoToDefinition(word);
+        props.onGoToDefinition(word, placeOf(v.state, pos));
         return true;
       },
     }),

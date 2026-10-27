@@ -379,13 +379,19 @@ describe('CodeEditor', () => {
       onGoToDefinition,
       onFindUsages,
     });
+    // Where the word is, for a language server: within it.
+    const within = (from: number, to: number) =>
+      expect.objectContaining({
+        line: 0,
+        column: expect.toSatisfy((column: number) => column >= from && column <= to) as number,
+      }) as unknown;
     await clickWord(root, 'answer');
     await userEvent.keyboard('{Control>}b{/Control}');
-    expect(onGoToDefinition).toHaveBeenLastCalledWith('answer');
+    expect(onGoToDefinition).toHaveBeenLastCalledWith('answer', within(6, 12));
     await userEvent.keyboard('{Alt>}{F7}{/Alt}');
-    expect(onFindUsages).toHaveBeenLastCalledWith('answer');
+    expect(onFindUsages).toHaveBeenLastCalledWith('answer', within(6, 12));
     await clickWord(root, 'compute', ['Control']);
-    expect(onGoToDefinition).toHaveBeenLastCalledWith('compute');
+    expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
   });
 
   it('leaves the keys alone without handlers, or off a word', async () => {

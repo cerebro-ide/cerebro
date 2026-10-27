@@ -27,6 +27,7 @@ import {
   serveOn,
   shellWord,
   type Git,
+  type LanguageServers,
   type Pty,
   type Turn,
 } from '../src/index.js';
@@ -36,7 +37,11 @@ type Env = Record<string, string>;
 const PORCELAIN = 'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n';
 
 /** A UI-side connection to a host served on another connection. */
-function connect(git: Mock<Git> = vi.fn(() => Promise.resolve(PORCELAIN)), pty?: () => Pty) {
+function connect(
+  git: Mock<Git> = vi.fn(() => Promise.resolve(PORCELAIN)),
+  pty?: () => Pty,
+  languageServers?: LanguageServers,
+) {
   // eslint-disable-next-line prefer-const -- the two refer to each other
   let host: Connection;
   const ui = new Connection((line) => {
@@ -45,7 +50,12 @@ function connect(git: Mock<Git> = vi.fn(() => Promise.resolve(PORCELAIN)), pty?:
   host = new Connection((line) => {
     ui.receive(line);
   });
-  const stop = serveOn(host, { repo: '/default', git, ...(pty ? { pty } : {}) });
+  const stop = serveOn(host, {
+    repo: '/default',
+    git,
+    ...(pty ? { pty } : {}),
+    ...(languageServers ? { languageServers } : {}),
+  });
   return { ui, git, stop };
 }
 
@@ -73,6 +83,38 @@ describe('the host’s methods', () => {
     await expect(ui.request('git.worktrees')).rejects.toMatchObject({
       message: 'not a git repository',
     });
+  });
+});
+
+describe('language servers', () => {
+  it('asks them about a file as the UI has it, and checks what it’s given', async () => {
+    const servers = {
+      open: vi.fn(),
+      definitions: vi.fn(() => Promise.resolve([{ path: '/w/a.ts', line: 1, column: 2 }])),
+      usages: vi.fn(() => Promise.resolve(null)),
+      dispose: vi.fn(() => Promise.resolve()),
+    };
+    const { ui, stop } = connect(undefined, undefined, servers as unknown as LanguageServers);
+    const file = { worktree: '/w', path: '/w/b.ts', text: 'x' };
+    expect(await ui.request('lsp.open', file)).toBeNull();
+    expect(servers.open).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
+    expect(await ui.request('lsp.definitions', { ...file, line: 3, column: 4 })).toEqual([
+      { path: '/w/a.ts', line: 1, column: 2 },
+    ]);
+    expect(servers.definitions).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 3, column: 4 },
+    );
+    expect(await ui.request('lsp.usages', { ...file, line: 0, column: 0 })).toBeNull();
+    await expect(ui.request('lsp.usages', { ...file, line: 'a', column: 0 })).rejects.toMatchObject(
+      { code: ErrorCodes.InvalidParams },
+    );
+    await expect(ui.request('lsp.open', { ...file, text: 3 })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+    stop();
+    expect(servers.dispose).toHaveBeenCalled();
   });
 });
 

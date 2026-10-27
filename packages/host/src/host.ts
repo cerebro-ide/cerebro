@@ -11,6 +11,7 @@ import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
 import { listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import { BadQuery, searchText } from './search.js';
+import { LanguageServers } from './lsp.js';
 import {
   addWorktree,
   committedText,
@@ -36,6 +37,8 @@ export interface HostOptions {
   pty?: SpawnPty;
   /** The command an agent's hooks run, the hook's name after it. Default: this host's entry. */
   hookCommand?: string;
+  /** The language servers. Default: Cerebro's own, started as needed. */
+  languageServers?: LanguageServers;
 }
 
 /** A word for a POSIX shell: quoted, as it is. */
@@ -108,6 +111,34 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   connection.onRequest('index.usages', (params) =>
     index.usages(text(params, 'worktree'), text(params, 'name')),
+  );
+  // Language servers: precise navigation, given the file as the UI has it, and a place in it.
+  // null when no server answers (none for the language, or still loading): the UI falls back to
+  // the index's name matches.
+  const servers = options.languageServers ?? new LanguageServers();
+  const fileOf = (params: unknown) => {
+    const value = (params as { text?: unknown } | null)?.text;
+    if (typeof value !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'text must be a string');
+    }
+    return { path: text(params, 'path'), text: value };
+  };
+  const placeOf = (params: unknown) => {
+    const { line, column } = params as { line?: unknown; column?: unknown };
+    if (!Number.isInteger(line) || !Number.isInteger(column)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'line and column must be integers');
+    }
+    return { path: '', line: line as number, column: column as number };
+  };
+  connection.onRequest('lsp.open', (params) => {
+    servers.open(text(params, 'worktree'), fileOf(params));
+    return null;
+  });
+  connection.onRequest('lsp.definitions', (params) =>
+    servers.definitions(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.usages', (params) =>
+    servers.usages(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
   connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
   /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
@@ -292,6 +323,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   return () => {
     terminals.closeAll();
     hookServer.close();
+    void servers.dispose();
   };
 }
 
