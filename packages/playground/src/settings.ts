@@ -3,6 +3,7 @@
 // them to files.
 
 import { Settings, SettingsLayer, SettingsRegistry, type Scope } from '@cerebro-ide/settings';
+import { PRESETS } from './keymaps.js';
 
 export const registry = new SettingsRegistry();
 
@@ -10,8 +11,9 @@ registry.registerPage({ id: 'appearance', title: 'Appearance', order: 1 });
 registry.registerPage({ id: 'editor', title: 'Editor', order: 2 });
 registry.registerPage({ id: 'editor/general', title: 'General', parent: 'editor', order: 1 });
 registry.registerPage({ id: 'editor/font', title: 'Font', parent: 'editor', order: 2 });
-registry.registerPage({ id: 'system', title: 'System Settings', order: 3 });
-registry.registerPage({ id: 'vcs', title: 'Version Control', order: 4 });
+registry.registerPage({ id: 'keymap', title: 'Keymap', order: 3 });
+registry.registerPage({ id: 'system', title: 'System Settings', order: 4 });
+registry.registerPage({ id: 'vcs', title: 'Version Control', order: 5 });
 registry.registerPage({ id: 'vcs/git', title: 'Git', parent: 'vcs' });
 
 registry.register({
@@ -51,6 +53,17 @@ registry.register({
       label: `${String(Number(value) * 100)}%`,
     })),
   ],
+  scopes: ['global'],
+});
+registry.register({
+  id: 'keymap',
+  title: 'Keymap',
+  description: 'The keys of the commands, as in IntelliJ or VS Code.',
+  page: 'keymap',
+  type: 'enum',
+  // As IntelliJ: its own keymap for the system it runs on.
+  default: navigator.platform.includes('Mac') ? 'intellij-mac' : 'intellij',
+  options: PRESETS.map((preset) => ({ value: preset.id, label: preset.name })),
   scopes: ['global'],
 });
 registry.register({

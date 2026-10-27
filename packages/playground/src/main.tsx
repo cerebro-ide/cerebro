@@ -79,6 +79,7 @@ import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
+import { editorKeys } from './keymaps.js';
 import {
   agentTerminal,
   setLastShellClosed,
@@ -781,6 +782,7 @@ function Code(props: { path: string; env: string }) {
             fontSize={() => settings.get('editor.fontSize') as number}
             softWrap={() => settings.get('editor.softWrap') as boolean}
             tabSize={() => settings.get('editor.tabSize') as number}
+            {...(services.keymap ? { keys: () => editorKeys(services.keymap as Keymap) } : {})}
           />
         );
       }}

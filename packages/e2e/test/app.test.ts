@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { APP, launch, type Running } from './app.js';
+import { APP, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -45,7 +45,7 @@ const fontSize = () =>
     .evaluate((code) => getComputedStyle(code).fontSize);
 /** Opens src/layout.ts with Go to File. */
 async function openLayout(): Promise<void> {
-  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type('layout');
   await page().locator('.cerebro-popup-item', { hasText: 'layout.ts' }).waitFor();
   await page().keyboard.press('Enter');
@@ -105,8 +105,8 @@ describe('the window', () => {
     // bar in the window: its menu is the system's.)
     for (const [keys, opens] of [
       ['ControlOrMeta+Shift+A', '.cerebro-popup'],
-      ['ControlOrMeta+Shift+N', '.cerebro-popup'],
-      ['ControlOrMeta+Alt+S', '.cerebro-dialog'],
+      [KEYS.goToFile, '.cerebro-popup'],
+      [KEYS.settings, '.cerebro-dialog'],
       ...(process.platform === 'darwin' ? [] : [['Alt+F', '.cerebro-menu']]),
     ] as const) {
       await page().keyboard.press(keys);
@@ -143,11 +143,9 @@ describe('the window', () => {
       });
       const overlays = () =>
         running.app.evaluate(() => (globalThis as { overlays?: unknown[] }).overlays);
-      await page().keyboard.press('Control+K');
-      await page().keyboard.press('Control+T');
+      await page().keyboard.press(KEYS.darkTheme);
       await expect.poll(overlays).toEqual([{ color: '#e8eaee', symbolColor: '#1e1f22' }]);
-      await page().keyboard.press('Control+K');
-      await page().keyboard.press('Control+T');
+      await page().keyboard.press(KEYS.darkTheme);
       await expect.poll(overlays).toContainEqual({ color: '#25282c', symbolColor: '#d1d3d9' });
     },
   );
@@ -231,12 +229,12 @@ describe('dialogs', () => {
     await page().locator('[aria-label^="Branch:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.press('Alt+F');
-    await page().keyboard.press('ControlOrMeta+Shift+N');
+    await page().keyboard.press(KEYS.goToFile);
     expect(await count('.cerebro-menu')).toBe(0);
     expect(await count('.cerebro-popup')).toBe(0);
     await page().keyboard.press('Escape');
     expect(await count('.cerebro-dialog')).toBe(0);
-    await page().keyboard.press('ControlOrMeta+Shift+N');
+    await page().keyboard.press(KEYS.goToFile);
     expect(await count('.cerebro-popup')).toBe(1);
   });
 });
@@ -264,7 +262,7 @@ describe('settings', () => {
   it('applies a worktree’s setting, saved across a reload, overriding the repository', async () => {
     await openLayout();
     expect(await fontSize()).toBe('13px');
-    await page().keyboard.press('ControlOrMeta+Alt+S');
+    await page().keyboard.press(KEYS.settings);
     await page().locator('[data-page="editor/font"]').click();
     await page().locator('[data-scope="worktree"]').click();
     await page().locator('[data-setting="editor.fontSize"] input').fill('18');
@@ -273,7 +271,7 @@ describe('settings', () => {
     await page().reload();
     await page().waitForSelector('.cerebro-toolbar');
     expect(await fontSize()).toBe('18px');
-    await page().keyboard.press('ControlOrMeta+Alt+S');
+    await page().keyboard.press(KEYS.settings);
     await page().locator('[data-page="editor/font"]').click();
     await page().locator('[data-scope="repo"]').click();
     expect(await page().locator('[data-setting="editor.fontSize"]').textContent()).toContain(
@@ -283,7 +281,7 @@ describe('settings', () => {
 
   it('chooses Islands Dark or Light in Appearance, or follows the system with Sync with OS', async () => {
     const appearance = async () => {
-      await page().keyboard.press('ControlOrMeta+Alt+S');
+      await page().keyboard.press(KEYS.settings);
       await page().locator('[data-page="appearance"]').click();
       await page().locator('[data-scope="global"]').click();
     };
@@ -377,14 +375,34 @@ describe('the layout', () => {
 });
 
 describe('shortcuts', () => {
-  it('runs a sequence, and abandons one left waiting', async () => {
-    await page().keyboard.press('Control+K');
-    await page().keyboard.press('Control+T');
+  /** Chooses a keymap in Settings → Keymap. */
+  const useKeymap = async (label: string, settings: string = KEYS.settings) => {
+    await page().keyboard.press(settings);
+    await page().locator('[data-page="keymap"]').click();
+    await page().locator('[data-setting="keymap"] select').selectOption({ label });
+    await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+  };
+
+  it('takes VS Code’s keys, its sequences included, when its keymap is chosen', async () => {
+    const mac = process.platform === 'darwin';
+    await useKeymap(mac ? 'VS Code (macOS)' : 'VS Code');
+    // Go to File is VS Code's; IntelliJ's no longer is.
+    await page().keyboard.press(mac ? 'Meta+P' : 'Control+P');
+    await page().locator('.cerebro-popup').waitFor();
+    await page().keyboard.press('Escape');
+    // Dark Theme: a sequence, then one left waiting is abandoned.
+    const chord = mac ? 'Meta' : 'Control';
+    await page().keyboard.press(`${chord}+K`);
+    await page().keyboard.press(`${chord}+T`);
     expect(await theme()).toBe('light');
-    await page().keyboard.press('Control+K');
+    await page().keyboard.press(`${chord}+K`);
     await page().waitForTimeout(2500);
-    await page().keyboard.press('Control+T');
+    await page().keyboard.press(`${chord}+T`);
     expect(await theme()).toBe('light');
+    // That T, alone, is VS Code's Go to Symbol: its popup closes.
+    await page().keyboard.press('Escape');
+    // Back, through VS Code's Settings key.
+    await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
   });
 
   // macOS shows the menu in the system's menu bar, not behind a ☰ button.

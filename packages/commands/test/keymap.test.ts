@@ -37,6 +37,23 @@ describe('Keymap', () => {
     expect(keymap.bindings[0]).toEqual({ key: 'Ctrl+Alt+S', command: 'save' });
   });
 
+  it('takes a preset’s keys, and its parent’s, for the commands they name', () => {
+    const { keymap } = setup();
+    const parent = { id: 'p', name: 'Parent', bindings: { save: ['ctrl+w'], menu: ['F10'] } };
+    keymap.setPreset({ id: 'c', name: 'Child', bindings: { save: ['F2', 'ctrl+k s'] }, parent });
+    expect(keymap.shortcutsFor('save')).toEqual(['F2', 'Ctrl+K S']);
+    expect(keymap.shortcutsFor('menu')).toEqual(['F10']);
+    // Not named: the default.
+    expect(keymap.shortcutsFor('saveAll')).toEqual(['Ctrl+Shift+S']);
+    keymap.setUser([
+      { key: 'F2', command: 'save', remove: true },
+      { key: 'F3', command: 'save' },
+    ]);
+    expect(keymap.shortcutsFor('save')).toEqual(['F3', 'Ctrl+K S']);
+    keymap.setPreset(undefined);
+    expect(keymap.shortcutsFor('save')).toEqual(['F3', 'Ctrl+S']);
+  });
+
   it('removes a default on dispose, and is reactive', () => {
     const keymap = new Keymap('mac');
     const seen: string[][] = [];

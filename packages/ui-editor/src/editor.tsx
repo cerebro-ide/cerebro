@@ -45,15 +45,36 @@ export interface CodeEditorProps {
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
   /**
-   * Go to definition of the word at the cursor, given where it is (zero-based): Mod+B or
-   * Mod+click, as in IntelliJ.
+   * Go to definition of the word at the cursor, given where it is (zero-based): its keys (Mod+B in
+   * IntelliJ) or Mod+click.
    */
   onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
-  /** Find usages of the word at the cursor, given where it is: Alt+F7, as in IntelliJ. */
+  /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
   onCaret?: (at: { line: number; column: number }) => void;
+  /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
+  keys?: () => EditorKeys;
 }
+
+/**
+ * The keys of the editor's own actions, as CodeMirror writes them (`Mod-b`, `Ctrl-k Ctrl-t`); an
+ * action not given keeps IntelliJ's.
+ */
+export interface EditorKeys {
+  goToDefinition?: readonly string[];
+  findUsages?: readonly string[];
+  find?: readonly string[];
+  replace?: readonly string[];
+}
+
+/** IntelliJ's keys. */
+export const DEFAULT_KEYS: Required<EditorKeys> = {
+  goToDefinition: ['Mod-b'],
+  findUsages: ['Alt-F7'],
+  find: ['Mod-f'],
+  replace: ['Mod-r'],
+};
 
 /** A position in the editor as a line and column, zero-based. */
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
@@ -215,6 +236,31 @@ export function CodeEditor(props: CodeEditorProps): Node {
   container.className = 'cerebro-editor-code';
   const shadow = container.attachShadow({ mode: 'open' });
   const settings = new Compartment();
+  const keyed = new Compartment();
+  /** At the word at the cursor, if there is one and a handler: runs it. */
+  const atCursor =
+    (handler: () => CodeEditorProps['onFindUsages']) =>
+    (v: EditorView): boolean => {
+      const head = v.state.selection.main.head;
+      const word = wordAt(v, head);
+      const run = handler();
+      if (word === undefined || !run) return false;
+      run(word, placeOf(v.state, head));
+      return true;
+    };
+  const actions = () => {
+    const keys = { ...DEFAULT_KEYS, ...props.keys?.() };
+    return [
+      findAndReplace(doc !== undefined, keys),
+      keymap.of([
+        ...keys.goToDefinition.map((key) => ({
+          key,
+          run: atCursor(() => props.onGoToDefinition),
+        })),
+        ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
+      ]),
+    ];
+  };
   const configure = () => [
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     props.softWrap?.() ? EditorView.lineWrapping : [],
@@ -231,7 +277,6 @@ export function CodeEditor(props: CodeEditorProps): Node {
     highlightActiveLine(),
     selection,
     doc ? [history(), keymap.of([...historyKeymap, indentWithTab])] : EditorState.readOnly.of(true),
-    findAndReplace(doc !== undefined),
     // The document follows the edits.
     doc
       ? EditorView.updateListener.of((update) => {
@@ -243,27 +288,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
           if (update.selectionSet) caret(update.state);
         })
       : [],
+    keyed.of(actions()),
     keymap.of([
-      {
-        key: 'Mod-b',
-        run: (v) => {
-          const head = v.state.selection.main.head;
-          const word = wordAt(v, head);
-          if (word === undefined || !props.onGoToDefinition) return false;
-          props.onGoToDefinition(word, placeOf(v.state, head));
-          return true;
-        },
-      },
-      {
-        key: 'Alt-F7',
-        run: (v) => {
-          const head = v.state.selection.main.head;
-          const word = wordAt(v, head);
-          if (word === undefined || !props.onFindUsages) return false;
-          props.onFindUsages(word, placeOf(v.state, head));
-          return true;
-        },
-      },
       // Not CodeMirror's Mod-[ and Mod-] (indent less and more): they're Back and Forward on
       // macOS, as IntelliJ's; Tab and Shift+Tab indent.
       ...defaultKeymap.filter((binding) => binding.key !== 'Mod-[' && binding.key !== 'Mod-]'),
@@ -306,7 +332,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   });
   // The settings apply as they change, without rebuilding the editor.
   const watch = effect(() => {
-    view.dispatch({ effects: settings.reconfigure(configure()) });
+    view.dispatch({ effects: [settings.reconfigure(configure()), keyed.reconfigure(actions())] });
     return undefined;
   });
   // A position to reveal: selected, scrolled to the middle of the editor, and focused, as IntelliJ

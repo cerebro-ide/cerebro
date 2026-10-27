@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -23,7 +23,7 @@ const where = async () => ({
 
 /** Opens a file with Go to File. */
 async function open(name: string): Promise<void> {
-  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
   await page().keyboard.press('Enter');

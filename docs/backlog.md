@@ -23,6 +23,8 @@ common known configurations".
   (macOS), Emacs, IntelliJ IDEA Classic, macOS System Shortcuts, NetBeans, Sublime Text, Sublime Text
   (macOS), Visual Studio, Visual Studio (macOS), VSCode, alongside the default one (IntelliJ's for
   each platform).
+- **Step 1 done (2026-10-27):** IntelliJ's and VS Code's, for Windows and Linux and for macOS
+  (decision "Ready-made keymaps"). Left: changing keys in the Keymap page, and the other keymaps.
 
 ## Known gaps
 

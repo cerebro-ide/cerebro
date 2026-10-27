@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -26,7 +26,7 @@ const shown = () =>
 
 /** Opens a file with Go to File, and puts the cursor at the end of its first line. */
 async function open(name: string): Promise<void> {
-  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
   await page().keyboard.press('Enter');
@@ -90,7 +90,7 @@ it('shows a file changed on disk', async () => {
 });
 
 it('shows no scrollbar where nothing overflows: the Project tool window, a file it can’t open', async () => {
-  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type('image.bin');
   await page().locator('.cerebro-popup-item', { hasText: 'image.bin' }).waitFor();
   await page().keyboard.press('Enter');

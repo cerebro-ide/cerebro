@@ -48,6 +48,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
 - [Several terminals (2026-10-27)](#several-terminals-2026-10-27): the Terminal tool window's shells as tabs, a + button
 - [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
+- [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
@@ -425,7 +426,8 @@ Built for Ido's requirements in `features.md` ("The window's parts").
       sequence;
     - a chord that breaks a started sequence is swallowed, so it doesn't type or run something
       else (as before).
-  - **Layers:** the user's bindings come first, and can remove defaults.
+  - **Layers:** the user's bindings come first, and can remove defaults; then a ready-made keymap's
+    (decision "Ready-made keymaps", 2026-10-27).
 - **The menu component** (`@cerebro-ide/ui-menu`) is the menu bar's dropdowns and every context
   menu.
   - Full keyboard navigation, including mnemonic letters (several items sharing a letter cycle,
@@ -1196,6 +1198,39 @@ the light theme to it, name the themes as IntelliJ does, and choose them where I
 - These are Claude's choices, open to change.
 - **Not yet:** IntelliJ's gear beside Sync with OS (which themes to sync to), its "Editor color
   scheme", and the light theme's syntax colours, which weren't in the screenshot.
+
+## Ready-made keymaps (2026-10-27)
+
+Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both macos and plain
+(win/Linux) configuration, similar to intellij. That includes vscode and intellij own as step 1").
+
+- **Four keymaps, chosen in Settings → Keymap,** as IntelliJ's list names them: IntelliJ IDEA,
+  IntelliJ IDEA (macOS), VS Code, VS Code (macOS). The default is IntelliJ's for the system the app
+  runs on, as in IntelliJ. Any of them can be chosen on any system, as in IntelliJ.
+- **The keys are the sources' own,** for the commands Cerebro has (`playground/src/keymaps.ts`):
+  - IntelliJ: its keymap files, `$default.xml` and `Mac OS X 10.5+.xml` (the macOS one takes
+    `$default`'s keys with Ctrl and Cmd swapped, and overrides some: read in IntelliJ's source).
+  - VS Code: its keyboard shortcut sheets for Windows and macOS. A command they don't name keeps
+    IntelliJ's keys for the same system (Claude's choice, open to change).
+  - Three keys differ from the earlier defaults, as IntelliJ's file has them: Group by Directory is
+    Ctrl+Alt+P (not Ctrl+P), New File is New Scratch File's Ctrl+Alt+Shift+Insert, and Dark Theme
+    takes Quick Switch Scheme's Ctrl+`. The defaults stay, for commands no keymap names (a
+    plugin's).
+- **In `@cerebro-ide/commands`,** a keymap is a `KeymapPreset`: the keys of the commands it names,
+  with explicit modifiers, and an optional parent for the rest. The bindings in effect are the
+  user's, then the preset's (its own over its parent's), then the defaults of commands it doesn't
+  name; the user's removals apply to all of them.
+- **The editor's own actions follow the keymap:** go to definition, find usages, Find and Replace
+  run in CodeMirror, which now takes their keys as a prop (`keys`), read reactively. In VS Code's
+  keymaps they are F12, Shift+F12, Ctrl+F (Cmd+F) and Ctrl+H (Cmd+Alt+F).
+- **Not yet:**
+  - the user changing a command's keys in the Keymap page (the rest of the backlog entry), and
+    IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
+  - CodeMirror's text editing keys (moving by word, duplicating a line) follow CodeMirror, not the
+    keymap;
+  - VS Code's Linux differences (Go Back is Ctrl+Alt+-, its sheet says);
+  - punctuation with Shift is named by the character it types (Ctrl+Shift+- arrives as
+    Ctrl+Shift+_), so VS Code's macOS Go Forward is written for a US layout.
 
 ## Search (2026-10-26)
 

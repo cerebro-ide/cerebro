@@ -1,4 +1,5 @@
-// Find and Replace in a file, as IntelliJ's bar over the editor: Mod+F finds, Mod+R also replaces.
+// Find and Replace in a file, as IntelliJ's bar over the editor: Find (Mod+F in IntelliJ's keymap)
+// finds, Replace (Mod+R) also replaces.
 // The field searches as it's typed, selecting the first match from the cursor; Enter and Shift+Enter
 // (or F3 and Shift+F3 in the editor) go to the next and previous; the count says which match of how
 // many. Match Case, Words and Regex sit beside the field (Alt+C, Alt+W, Alt+X). Escape closes it.
@@ -275,26 +276,25 @@ function open(view: EditorView, replace: boolean): boolean {
 }
 
 /** Find, and Replace when the editor can be edited, with the bar and its keys. */
-export function findAndReplace(editable: boolean): Extension {
+export function findAndReplace(
+  editable: boolean,
+  keys: { find: readonly string[]; replace: readonly string[] },
+): Extension {
   return [
     search({ top: true, createPanel: (view) => findBar(view, editable) }),
     keymap.of([
-      {
-        key: 'Mod-f',
-        run: (view) => open(view, false),
+      ...keys.find.map((key) => ({
+        key,
+        run: (view: EditorView) => open(view, false),
         preventDefault: true,
         scope: `editor ${SCOPE}`,
-      },
-      ...(editable
-        ? [
-            {
-              key: 'Mod-r',
-              run: (view: EditorView) => open(view, true),
-              preventDefault: true,
-              scope: `editor ${SCOPE}`,
-            },
-          ]
-        : []),
+      })),
+      ...(editable ? keys.replace : []).map((key) => ({
+        key,
+        run: (view: EditorView) => open(view, true),
+        preventDefault: true,
+        scope: `editor ${SCOPE}`,
+      })),
       {
         key: 'F3',
         run: findNext,

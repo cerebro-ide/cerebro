@@ -16,5 +16,6 @@ export {
   SEQUENCE_TIMEOUT,
   type Binding,
   type KeyResult,
+  type KeymapPreset,
   type UserBinding,
 } from './keymap.js';

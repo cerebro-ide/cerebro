@@ -5,7 +5,13 @@ import { signal } from '@cerebro-ide/reactive';
 import { Text } from '@codemirror/state';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { CodeEditor, EditorDocument, languageFor, type CodeEditorProps } from '../src/index.js';
+import {
+  CodeEditor,
+  EditorDocument,
+  languageFor,
+  type CodeEditorProps,
+  type EditorKeys,
+} from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -417,6 +423,34 @@ describe('CodeEditor', () => {
     expect(onFindUsages).toHaveBeenLastCalledWith('answer', within(6, 12));
     await clickWord(root, 'compute', ['Control']);
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
+  });
+
+  it('takes its actions’ keys from the keymap, as they change', async () => {
+    const onGoToDefinition = vi.fn();
+    const onFindUsages = vi.fn();
+    const keys = signal<EditorKeys>({
+      goToDefinition: ['F12'],
+      findUsages: ['Shift-F12'],
+      replace: ['Mod-h'],
+    });
+    const root = mount({
+      path: 'a.ts',
+      document: new EditorDocument('const answer = 1;'),
+      onGoToDefinition,
+      onFindUsages,
+      keys: () => keys.get(),
+    });
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Control>}b{/Control}{F12}{Shift>}{F12}{/Shift}');
+    expect(onGoToDefinition.mock.calls.map(([word]) => word as string)).toEqual(['answer']);
+    expect(onFindUsages).toHaveBeenCalledTimes(1);
+    // Find isn't given: IntelliJ's. Replace is the keymap's.
+    await userEvent.keyboard('{Control>}h{/Control}');
+    expect(root.activeElement?.classList.contains('cerebro-find__replace')).toBe(true);
+    keys.set({});
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Control>}b{/Control}');
+    expect(onGoToDefinition).toHaveBeenCalledTimes(2);
   });
 
   it('leaves the keys alone without handlers, or off a word', async () => {
