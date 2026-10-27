@@ -146,11 +146,12 @@ it('scrolls tabs that don’t fit, keeping the active one in view, and lists the
     .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
     .toContain('file0.txt');
   expect(await inView()).toBe(true);
-  // Leaves the tabs as they were: the middle button closes each, scrolled or not.
+  // Leaves the tabs as they were. The middle button's event, not a real click: under xvfb in CI a
+  // forced middle click on a scrolled tab could wait forever (navigation.test.ts clicks for real).
   for (let i = 0; i < 16; i++) {
     await page()
       .locator('.cerebro-editor-tab', { hasText: `file${String(i)}.txt` })
-      .click({ button: 'middle', force: true });
+      .dispatchEvent('auxclick', { button: 1 });
   }
   const titles = () => page().locator('.cerebro-editor-tab').allTextContents();
   await expect.poll(titles).toEqual(expect.not.arrayContaining([expect.stringMatching(/^file/)]));

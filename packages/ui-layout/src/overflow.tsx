@@ -43,6 +43,8 @@ const PEEK = 24;
 export function watchOverflow(overflow: TabOverflow): (strip: Element) => void {
   return (element) => {
     const strip = element as HTMLElement;
+    // No scrollbar over the tabs, as IntelliJ's: the wheel scrolls them (below).
+    strip.dataset['scrollbar'] = 'none';
     const measure = () => {
       overflow.start = strip.scrollLeft > 0;
       overflow.end = strip.scrollLeft + strip.clientWidth < strip.scrollWidth - 1;

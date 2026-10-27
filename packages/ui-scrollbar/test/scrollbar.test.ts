@@ -90,6 +90,17 @@ describe('installScrollbars', () => {
     expect(thumb('x')).toBeNull();
   });
 
+  it('shows no thumbs over an area marked as wanting none, hovered or scrolled', async () => {
+    install();
+    const scroller = area(800, 100, 'auto hidden');
+    scroller.dataset['scrollbar'] = 'none';
+    await userEvent.hover(scroller);
+    scroller.scrollLeft = 200;
+    await wait(50);
+    expect(thumb('x')).toBeNull();
+    expect(scroller.scrollLeft).toBe(200);
+  });
+
   it('scrolls as a thumb is dragged', async () => {
     install();
     const scroller = area(100, 400);

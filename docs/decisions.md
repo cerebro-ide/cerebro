@@ -1130,6 +1130,11 @@ squeezed ("pack…") and the rest couldn't be reached.
   the mouse wheel scrolls the strip sideways. Rejected: squeezing tabs (what was there), and wrapping
   them onto several rows (IntelliJ's other option, not its default).
 - **A cut edge fades** (a 32-pixel `mask-image` gradient), at the start, the end, or both.
+- **No scrollbar over the tabs** (Ido, 2026-10-27: "No scrollbar on the tabs! But mouse event should
+  still work"): a strip is marked `data-scrollbar="none"`, which `ui-scrollbar` leaves without
+  thumbs; the wheel still scrolls it. The middle button's mousedown is cancelled in a strip, so it
+  closes a tab rather than starting Chromium's autoscroll on Windows (a claim, from a Windows-only
+  e2e failure).
 - **A chevron after the tabs, shown only while some are hidden, lists every tab:** its icon, its
   name, and a close button shown on hover, the active one highlighted; typing filters it, as every
   popup. It's the `ui-popup` picker, which gained an item close button for it, so `ui-layout` now

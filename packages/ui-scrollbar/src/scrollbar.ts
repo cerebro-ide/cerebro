@@ -30,10 +30,14 @@ interface Bars {
 
 const SCROLLS = /auto|scroll/;
 
-/** Whether an element is an area that scrolls, with more content than it shows. */
+/**
+ * Whether an element is an area that scrolls, with more content than it shows, and wants thumbs:
+ * one marked `data-scrollbar="none"` (a strip of tabs) scrolls without them.
+ */
 function scrollable(target: EventTarget): target is HTMLElement {
   if (!(target instanceof HTMLElement)) return false;
   if (target === document.body || target === document.documentElement) return false;
+  if (target.dataset['scrollbar'] === 'none') return false;
   if (target.scrollHeight <= target.clientHeight && target.scrollWidth <= target.clientWidth) {
     return false;
   }

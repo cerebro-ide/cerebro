@@ -89,6 +89,8 @@ it('scrolls the tabs with the mouse wheel, either way, when they overflow', asyn
   await vi.waitFor(() => {
     expect(strip.scrollLeft).toBeGreaterThan(0);
   });
+  // The wheel is how it scrolls: it shows no scrollbar (ui-scrollbar).
+  expect(strip.dataset['scrollbar']).toBe('none');
   const wheel = (init: WheelEventInit) => {
     const event = new WheelEvent('wheel', { bubbles: true, cancelable: true, ...init });
     strip.dispatchEvent(event);
