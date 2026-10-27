@@ -345,12 +345,14 @@ function Header() {
   return (
     <MainToolbar
       left={() => [
-        fullScreen.get() ? (
-          <FullScreenButtons
-            close={() => window.cerebro?.window.close()}
-            leave={() => window.cerebro?.window.leaveFullScreen()}
-          />
-        ) : null,
+        // A function: shown and hidden as the window enters and leaves full screen.
+        () =>
+          fullScreen.get() ? (
+            <FullScreenButtons
+              close={() => window.cerebro?.window.close()}
+              leave={() => window.cerebro?.window.leaveFullScreen()}
+            />
+          ) : null,
         nativeMenu ? null : (
           <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
         ),
