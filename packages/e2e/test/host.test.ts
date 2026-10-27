@@ -199,7 +199,7 @@ it('says why a file can’t be opened', async () => {
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   // Folders are listed once; reloading reads the main worktree's again.
   await page.reload();
-  // Forced: under xvfb in CI this double-click waited forever for the row to be "stable".
+  // Forced: under xvfb in CI, the row never counted as "stable" (#58's CI).
   await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick({ force: true });
   await page.locator('.playground-code__note', { hasText: 'binary' }).waitFor();
 });
@@ -325,7 +325,7 @@ it('runs a shell in the Terminal tool window', async () => {
     });
 });
 
-it('opens more terminals as tabs, each its own shell, and closes them', async () => {
+it('opens more terminals as tabs, each its own shell, and closes them, or they end', async () => {
   const page = running.page;
   const window = page.locator('.cerebro-tool-window[data-id="terminal"]');
   const titles = () => window.locator('.cerebro-tool-tab__title').allTextContents();
@@ -364,8 +364,12 @@ it('opens more terminals as tabs, each its own shell, and closes them', async ()
   await window.locator('.cerebro-tool-tab', { hasText: /^Local$/ }).click({ force: true });
   await expect.poll(shown, { timeout: 5000 }).toContain('cerebro-ok');
   expect(await shown()).not.toContain('second-shell');
-  await window.locator('[aria-label="Close Local (2)"]').click({ force: true });
-  expect(await titles()).toEqual(['Local']);
+  // A shell that ends closes its tab, as IntelliJ's do.
+  await window.locator('.cerebro-tool-tab', { hasText: 'Local (2)' }).click({ force: true });
+  await window.locator('.cerebro-terminal__viewport').click({ force: true });
+  await page.keyboard.type('exit');
+  await page.keyboard.press('Enter');
+  await expect.poll(titles, { timeout: 5000 }).toEqual(['Local']);
   // Closing the last hides the tool window; shown again, it has a new shell.
   await window.locator('[aria-label="Close Local"]').click({ force: true });
   await window.waitFor({ state: 'detached' });

@@ -86,8 +86,16 @@ export function setTerminalKeys(pass: (event: KeyboardEvent) => boolean): void {
   passKey = pass;
 }
 
-/** The worktree's terminal under this key, made the first time it's asked for. */
-function terminal(kind: TerminalKind, worktree: string, key: string): TerminalView | undefined {
+/**
+ * The worktree's terminal under this key, made the first time it's asked for. A shell's `onExit`
+ * runs when it ends.
+ */
+function terminal(
+  kind: TerminalKind,
+  worktree: string,
+  key: string,
+  onExit?: () => void,
+): TerminalView | undefined {
   let view = views.get(key);
   if (!view) {
     const shared = backendFor(worktree);
@@ -107,7 +115,9 @@ function terminal(kind: TerminalKind, worktree: string, key: string): TerminalVi
               agentEnded(worktree, exitCode);
             },
           }
-        : {}),
+        : onExit
+          ? { onExit }
+          : {}),
     });
     views.set(key, view);
   }
@@ -150,8 +160,9 @@ function saveShells(worktree: string, entry: SavedShells | undefined): void {
 
 /**
  * A worktree's shells, the Terminal tool window's tabs, as IntelliJ's: "Local", "Local (2)", each
- * numbered with the lowest number free. The first is there from the start; closing the last opens
- * a new one, for the next time the tool window shows (`onLastClosed` hides it, as IntelliJ does).
+ * numbered with the lowest number free. The first is there from the start; closing the last, or
+ * its shell ending (exit), opens a new one, for the next time the tool window shows (`onLastClosed`
+ * hides it, as IntelliJ does).
  * The tabs are kept between runs, so after a reload they show the same processes.
  */
 export class Shells {
@@ -175,7 +186,10 @@ export class Shells {
 
   /** The terminal of a tab, made when first shown. */
   view(number: number): TerminalView | undefined {
-    return terminal('shell', this.worktree, this.key(number));
+    // A shell that ends closes its tab, as IntelliJ's do.
+    return terminal('shell', this.worktree, this.key(number), () => {
+      this.close(number);
+    });
   }
 
   /** Opens another shell, and shows it. */

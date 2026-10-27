@@ -76,6 +76,39 @@ describe('installScrollbars', () => {
     expect(thumb('y')).toBeNull();
   });
 
+  it('draws an area’s thumbs at its own level: under a popup over it, over the popup’s own', async () => {
+    install();
+    const under = area(100, 400);
+    under.scrollTop = 10;
+    await expect.poll(() => shown('y')).toBe(true);
+    // A popup opened over the area, as a search popup over the editor.
+    const popup = document.createElement('div');
+    Object.assign(popup.style, {
+      position: 'fixed',
+      inset: '0',
+      zIndex: '950',
+      background: 'white',
+    });
+    document.body.append(popup);
+    cleanup.push(() => {
+      popup.remove();
+    });
+    const centre = (element: HTMLElement) => {
+      const { left, top, width, height } = element.getBoundingClientRect();
+      return document.elementFromPoint(left + width / 2, top + height / 2);
+    };
+    expect(centre(thumb('y') as HTMLElement)).toBe(popup);
+    // The popup's own list shows its thumb over the popup.
+    const list = area(100, 400, 'auto', popup);
+    list.scrollTop = 10;
+    const own = () =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-scrollbar--y')].find(
+        (t) => t !== thumb('y'),
+      );
+    await expect.poll(() => own()?.classList.contains('cerebro-scrollbar--shown')).toBe(true);
+    expect(centre(own() as HTMLElement)).toBe(own());
+  });
+
   it('shows the thumbs of an area while it scrolls, and a while after', async () => {
     install();
     const scroller = area(800, 100, 'auto hidden');
