@@ -69,7 +69,8 @@ registry.register({
 registry.register({
   id: 'project.openIn',
   title: 'Open project in',
-  description: 'Where a project opens while another is open, as IntelliJ asks.',
+  description:
+    'Where a project opens while another is open: New window adds it as tabs, This window puts it in the active project’s place.',
   page: 'system',
   type: 'enum',
   default: 'ask',

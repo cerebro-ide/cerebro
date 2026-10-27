@@ -212,7 +212,8 @@ it('lists the repository’s real worktrees, opening the main one', async () => 
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: main',
   );
-  await page.locator('[aria-label^="Worktree:"]').click();
+  // Forced: under xvfb in CI this click waited forever for it to be "stable".
+  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
   expect(
     await page.locator('.cerebro-popup-item .cerebro-popup-item__label').allTextContents(),
   ).toEqual(['New Worktree…', 'project', 'project-e2e']);
@@ -237,7 +238,8 @@ const gitWorktrees = () =>
 /** Creates a worktree from the environment picker, waiting for git and for its tab. */
 async function createWorktree(name: string) {
   const page = running.page;
-  await page.locator('[aria-label^="Worktree:"]').click();
+  // Forced: under xvfb in CI this click waited forever for it to be "stable".
+  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
   await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click();
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
@@ -294,7 +296,8 @@ it('offers to remove a linked worktree, but not the main one', async () => {
     return disabled === 'false';
   };
   // Two tabs, so the tabs show.
-  await page.locator('[aria-label^="Worktree:"]').click();
+  // Forced: under xvfb in CI this click waited forever for it to be "stable".
+  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
   await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
   expect(await removable(gitPath(repo))).toBe(false);

@@ -327,11 +327,18 @@ describe('installProjects', () => {
     expect(() => ask(PROJECT_OPEN, undefined, a, 'elsewhere')).toThrow('where must be');
     expect(() => ask(PROJECT_OPEN, undefined, '', 'new')).toThrow('path must be a path');
     ask(PROJECT_OPEN, undefined, a, 'new');
-    ask(PROJECT_OPEN, electron.windows[0], b, 'new');
+    ask(PROJECT_OPEN, undefined, b, 'new');
     expect(store.open).toEqual([[a], [b]]);
     expect(host.hosts.attach).toHaveBeenCalledTimes(2);
+    // In the place of the window's project.
+    const c = folder();
+    expect(() => ask(PROJECT_OPEN, electron.windows[0], c, 'this', 5)).toThrow(
+      'replacing must be a path',
+    );
+    ask(PROJECT_OPEN, electron.windows[0], c, 'this', a);
+    expect(store.open).toEqual([[c], [b]]);
     expect(() => ask(PROJECT_CLOSE, electron.windows[0])).toThrow('path must be a path');
-    ask(PROJECT_CLOSE, electron.windows[0], a);
+    ask(PROJECT_CLOSE, electron.windows[0], c);
     expect(store.open).toEqual([[b]]);
     (electron.appListeners.get('before-quit') as Listener)();
     (electron.windows[1]?.listeners.get('closed') as Listener)();

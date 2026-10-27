@@ -64,9 +64,12 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     recent: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_RECENT),
     /** Asks for a folder with the system's dialog; null if none was chosen. */
     pick: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_PICK),
-    /** Opens a project in this window, as more tabs, or a new one. */
-    open: (path: string, where: 'this' | 'new'): Promise<unknown> =>
-      electron.ipcRenderer.invoke(PROJECT_OPEN, path, where),
+    /**
+     * Opens a project from this window: as more tabs ('new'), or in the place of its project
+     * `replacing` ('this').
+     */
+    open: (path: string, where: 'this' | 'new', replacing?: string): Promise<unknown> =>
+      electron.ipcRenderer.invoke(PROJECT_OPEN, path, where, replacing),
     /** Closes one of this window's projects; its last closes the window. */
     close: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CLOSE, path),
     /** Calls `listener` with each project that joins this window. */

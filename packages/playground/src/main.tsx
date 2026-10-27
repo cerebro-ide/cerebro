@@ -70,6 +70,7 @@ import {
   openProject,
   projectAdded,
   projectRemoved,
+  setActiveProject,
   setupProjects,
   windowProjects,
 } from './projects.js';
@@ -363,12 +364,18 @@ const environments = setupEnvironments(services.commands, services.menus, (env) 
   if (initial.length === 0) seedFiles(env, tabOf);
 });
 // A project that joins the window shows at once; one asked to open again comes to the front.
-window.cerebro?.project.onAdded((project) => {
+window.cerebro?.project.onAdded(({ replaces, ...project }) => {
   projectAdded(project);
-  void loadProject(project, hostOf(project.path)).then((state) => {
-    environments.addProject(state);
-  });
+  // One opened in This Window takes the active project's place, whose files are saved first.
+  if (replaces !== undefined) projectRemoved(replaces);
+  void (replaces === undefined ? Promise.resolve() : saveAll().catch(reportSaving))
+    .then(() => loadProject(project, hostOf(project.path)))
+    .then((state) => {
+      environments.addProject(state, replaces);
+    });
 });
+// This Window replaces the active project.
+setActiveProject(() => activeProject()?.path);
 window.cerebro?.project.onShow((path) => {
   environments.showProject(path);
 });
