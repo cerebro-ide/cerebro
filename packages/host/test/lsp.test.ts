@@ -104,6 +104,41 @@ describe('TypeScript 7’s server', () => {
   }, 60_000);
 });
 
+describe('basedpyright, for Python', () => {
+  it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
+    const project = `${root}/py`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'a.py'), 'def target():\n    pass\n\ndef other():\n    pass\n');
+    // Never opened: found all the same, with no project file (pyright's project is the folder).
+    writeFileSync(join(project, 'c.py'), 'import a\n\na.other()\n');
+    const b = { path: `${project}/b.py`, text: 'from a import target\ntarget()\n' };
+    writeFileSync(b.path, b.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.definitions(project, b, at(1, 2))).toEqual([
+      { path: `${project}/a.py`, line: 0, column: 4 },
+    ]);
+    // Edited, not saved: answered as the UI has it.
+    const edited = { ...b, text: 'from a import other\n\nother()\n' };
+    expect(await servers.definitions(project, edited, at(2, 1))).toEqual([
+      { path: `${project}/a.py`, line: 3, column: 4 },
+    ]);
+    const usages = await servers.usages(
+      project,
+      { path: `${project}/a.py`, text: readFileSync(join(project, 'a.py'), 'utf8') },
+      at(3, 5),
+    );
+    expect(usages).toEqual(
+      expect.arrayContaining([
+        { path: `${project}/b.py`, line: 2, column: 0 },
+        { path: `${project}/c.py`, line: 2, column: 2 },
+      ]),
+    );
+    expect(usages).not.toContainEqual({ path: `${project}/a.py`, line: 3, column: 4 });
+  }, 60_000);
+});
+
 describe('LanguageServers', () => {
   it('has no answer for a language without a server', async () => {
     const servers = pool([fake('links')]);
@@ -128,6 +163,17 @@ describe('LanguageServers', () => {
     const outside = { path: `${project}/a.fake`, text: 'x' };
     expect(await servers.definitions(project, outside, at(0, 0))).toBeNull();
     expect(servers.size).toBe(1);
+  });
+
+  it('waits for a server to say it’s loaded, when it can say so, before asking it', async () => {
+    const loads: ServerSpec = { ...fake('loads'), readyWhen: /^Loaded \d+ files/ };
+    const servers = pool([loads]);
+    const started = Date.now();
+    expect(await servers.definitions(root, file, at(0, 0))).toEqual([]);
+    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+    // Not loaded in time: no answer, so the name matches show.
+    const slow = pool([loads], { patience: 100 });
+    expect(await slow.definitions(root, file, at(0, 0))).toBeNull();
   });
 
   it('opens a file in its server ahead of a question, answering what the server asks', async () => {

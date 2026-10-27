@@ -111,6 +111,16 @@ export class LanguageServer {
     }
     const folders = [{ uri: uriOf(root), name: root.slice(root.lastIndexOf('/') + 1) }];
     this.#connection.onRequest('workspace/workspaceFolders', () => folders);
+    // A server that says when it's read the project is ready then; others once initialized.
+    const { readyWhen } = spec;
+    const loaded = readyWhen
+      ? new Promise<void>((resolve) => {
+          this.#connection.onNotification('window/logMessage', (params) => {
+            const message = (params as { message?: unknown } | null)?.message;
+            if (typeof message === 'string' && readyWhen.test(message)) resolve();
+          });
+        })
+      : undefined;
     this.ready = this.#connection
       .request('initialize', {
         processId: process.pid,
@@ -127,6 +137,7 @@ export class LanguageServer {
       })
       .then(() => {
         this.#connection.notify('initialized', {});
+        return loaded;
       });
     // A server that fails to start exits, and is forgotten then: no one need wait on it.
     this.ready.catch(() => undefined);

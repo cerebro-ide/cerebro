@@ -23,7 +23,8 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
   writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
-  writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n\nToolbox()\n');
+  writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n');
+  writeFileSync(join(repo, 'src', 'run.sh'), 'greet() {\n  echo hi\n}\n\ngreet\n');
   writeFileSync(
     join(repo, 'src', 'use.ts'),
     "import { Shape } from './shape';\n\nconst first = new Shape();\nconst second = new Shape();\n",
@@ -76,7 +77,15 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click({ force: true });
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
-  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+  expect(await names()).toEqual([
+    'src',
+    'app.ts',
+    'run.sh',
+    'shape.ts',
+    'tool.py',
+    'use.ts',
+    'README.md',
+  ]);
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as { violations?: string[] }).violations = seen;
@@ -173,20 +182,34 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.mouse.click(box.x, box.y);
   await page.keyboard.up('Control');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
-  // Alt+F7 on a name in a file no language server reads (Python's has none yet): every place the
-  // name appears, as the index finds them.
+  // On macOS, Control+click is also a right click: its context menu closes first.
+  await page.keyboard.press('Escape');
+  // Alt+F7 on a name in a file no language server reads (shell scripts have none yet): every place
+  // the name appears, as the index finds them.
   await page.keyboard.press('ControlOrMeta+Shift+N');
-  await page.keyboard.type('tool.py');
-  await page.locator('.cerebro-popup-item__label', { hasText: 'tool.py' }).waitFor();
+  await page.keyboard.type('run.sh');
+  // Highlighted: Enter opens what's highlighted, which follows the query as it's typed.
+  await page
+    .locator('.cerebro-popup-item--highlighted', { hasText: 'run.sh' })
+    .waitFor()
+    .catch(async (error: unknown) => {
+      // macOS CI didn't get here once: what showed instead.
+      console.log(
+        'Go to File:',
+        await page.locator('.cerebro-popup, .cerebro-menu').allTextContents(),
+        await page.evaluate(() => document.activeElement?.className),
+      );
+      throw error;
+    });
   await page.keyboard.press('Enter');
-  await page.locator('.cm-line', { hasText: 'Toolbox()' }).click();
+  await page.locator('.cm-line', { hasText: /^greet$/ }).click();
   await page.keyboard.press('Home');
   await page.keyboard.press('Alt+F7');
   await page.locator('.cerebro-popup-item').first().waitFor();
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
   expect(await page.locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
-    'src/tool.py:1',
-    'src/tool.py:4',
+    'src/run.sh:1',
+    'src/run.sh:5',
   ]);
   await page.keyboard.press('Escape');
 });

@@ -1,10 +1,12 @@
 // A language server that misbehaves as asked (its first argument), for the LSP client's tests:
 // "exit" exits at once; "silent" never answers a definition; "stubborn" ignores shutdown;
-// "links" answers definitions with location links; "fails" answers them with an error.
+// "links" answers definitions with location links; "fails" answers them with an error; "loads"
+// logs other lines, then "Loaded", after it's initialized.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
 import { appendFileSync } from 'node:fs';
+import { setTimeout } from 'node:timers';
 
 const [mode, log] = process.argv.slice(2);
 if (mode === 'exit') process.exit(1);
@@ -24,6 +26,12 @@ const handle = (message) => {
     send({ id: 'c2', method: 'workspace/configuration' });
     send({ id: 'c3', method: 'client/registerCapability', params: {} });
     send({ id: 'c4', method: 'workspace/workspaceFolders' });
+  } else if (method === 'initialized' && mode === 'loads') {
+    send({ method: 'window/logMessage', params: { type: 3, message: 'Loading' } });
+    send({ method: 'window/logMessage', params: null });
+    setTimeout(() => {
+      send({ method: 'window/logMessage', params: { type: 3, message: 'Loaded 2 files' } });
+    }, 300);
   } else if (method === 'textDocument/definition') {
     if (mode === 'silent') return;
     if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });
