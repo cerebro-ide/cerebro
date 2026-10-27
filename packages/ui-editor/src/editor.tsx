@@ -41,7 +41,7 @@ export interface CodeEditorProps {
   /** Read reactively. Default: 4. */
   tabSize?: () => number;
   /** A position to show and select: where a definition is. Read reactively; zero-based. */
-  reveal?: () => { line: number; column: number } | undefined;
+  reveal?: () => { line: number; column: number; top?: number | undefined } | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
   /**
@@ -51,6 +51,8 @@ export interface CodeEditorProps {
   onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
+  /** The line at the top of the editor, zero-based: each time it scrolls. */
+  onScroll?: (top: number) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
   onCaret?: (at: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
@@ -369,25 +371,42 @@ export function CodeEditor(props: CodeEditorProps): Node {
     view.dispatch({ effects: [settings.reconfigure(configure()), keyed.reconfigure(actions())] });
     return undefined;
   });
-  // A position to reveal: selected, scrolled to the middle of the editor, and focused, as IntelliJ
-  // does after navigating. After the current task, since an editor opened to reveal a position isn't
+  // A position to reveal: selected, scrolled to the middle of the editor (or with the line `top`
+  // at the top, as it was: going back), and focused, as IntelliJ does after navigating. After the current task, since an editor opened to reveal a position isn't
   // in the document yet, and a detached element can't take the focus.
+  /** A line by its zero-based number, kept within the document. */
+  const lineOf = (n: number) =>
+    view.state.doc.line(Math.min(Math.max(n + 1, 1), view.state.doc.lines));
   const revealing = effect(() => {
     const at = props.reveal?.();
     if (!at) return undefined;
     queueMicrotask(() => {
       if (!container.isConnected) return;
-      const line = view.state.doc.line(Math.min(Math.max(at.line + 1, 1), view.state.doc.lines));
+      const line = lineOf(at.line);
       const pos = Math.min(line.from + at.column, line.to);
       view.dispatch({
         selection: { anchor: pos },
-        effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+        effects:
+          at.top === undefined
+            ? EditorView.scrollIntoView(pos, { y: 'center' })
+            : EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 }),
       });
       if (props.revealFocus !== false) view.focus();
     });
     return undefined;
   });
+  // Read once CodeMirror has measured the lines scrolled into view: before, their heights are
+  // estimates. Heights are from the document's top, below the content's padding.
+  const scrolled = () => {
+    view.requestMeasure({
+      key: scrolled,
+      read: () => view.lineBlockAtHeight(view.scrollDOM.scrollTop - view.documentPadding.top).from,
+      write: (from) => props.onScroll?.(view.state.doc.lineAt(from).number - 1),
+    });
+  };
+  view.scrollDOM.addEventListener('scroll', scrolled);
   onCleanup(() => {
+    view.scrollDOM.removeEventListener('scroll', scrolled);
     if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();
     revealing.dispose();

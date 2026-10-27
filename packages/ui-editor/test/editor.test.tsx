@@ -278,6 +278,40 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
   });
 
+  it('says which line is at the top as it scrolls, and puts it back there when revealing', async () => {
+    const onScroll = vi.fn();
+    const reveal = signal<{ line: number; column: number; top?: number } | undefined>(undefined);
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({ path: 'a.txt', text, onScroll, reveal: () => reveal.get() });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    /** The line drawn at the editor's top edge. */
+    const shown = () => {
+      const box = scroller.getBoundingClientRect();
+      const line = root
+        .elementsFromPoint(box.left + box.width / 2, box.top + 1)
+        .find((e) => e.classList.contains('cm-line'));
+      return Number(line?.textContent?.split(' ')[1]);
+    };
+    // Far down: the lines above that were never drawn have estimated heights, so it's whichever
+    // line is drawn there.
+    scroller.scrollTop = 2200;
+    await vi.waitFor(() => {
+      expect(onScroll).toHaveBeenCalled();
+    });
+    expect(onScroll).toHaveBeenLastCalledWith(shown());
+    expect(shown()).toBeGreaterThan(50);
+    // The caret at line 120, with line 110 at the top: not centred.
+    reveal.set({ line: 120, column: 0, top: 110 });
+    await frame();
+    await frame();
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 120');
+    await vi.waitFor(() => {
+      expect(onScroll).toHaveBeenLastCalledWith(110);
+    });
+    expect(shown()).toBe(110);
+  });
+
   it('leaves Mod+[ and Mod+] to the app: Back and Forward on macOS, not indenting', async () => {
     const document = new EditorDocument('    indented');
     const root = mount({ path: 'a.txt', document });

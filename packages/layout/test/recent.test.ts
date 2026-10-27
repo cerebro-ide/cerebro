@@ -31,4 +31,16 @@ describe('RecentTabs', () => {
     expect(recent.tabs).toHaveLength(MAX_RECENT);
     expect(recent.tabs[0]?.id).toBe(String(MAX_RECENT + 2));
   });
+
+  it('restores what an earlier run saved, after the tabs shown since', () => {
+    const area = new EditorArea();
+    const recent = new RecentTabs(area);
+    area.open(tab('b'));
+    recent.restore([tab('a'), tab('b'), { id: 'c', title: 'c', extra: 1 }, { id: 2 }, null, 'd']);
+    expect(recent.tabs).toEqual([tab('b'), tab('a'), tab('c')]);
+    recent.restore('not a list');
+    recent.restore(Array.from({ length: MAX_RECENT + 5 }, (_, i) => tab(`x${String(i)}`)));
+    expect(recent.tabs).toHaveLength(MAX_RECENT);
+    expect(recent.tabs[0]).toEqual(tab('b'));
+  });
 });

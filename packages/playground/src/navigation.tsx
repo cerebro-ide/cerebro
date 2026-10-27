@@ -33,12 +33,20 @@ export interface Asked {
 }
 
 /** Positions to reveal in open files, by path: the editor follows them. */
-export const reveals = new ObservableMap<string, { line: number; column: number }>();
+export const reveals = new ObservableMap<
+  string,
+  { line: number; column: number; top?: number | undefined }
+>();
 
 const GROUP = 'Name matches';
 
 /** Where each open file's caret is, by path, as its editor says. */
 export const carets = new Map<string, Position>();
+/** Which line is at the top of each open file's editor, as it says. */
+export const tops = new Map<string, number>();
+
+/** Where each environment's Recent Files is kept between runs. */
+const recentKey = (env: Environment) => `cerebro.recent:${env.id}`;
 
 /** Each environment's Back and Forward, following its editor area from when it opens. */
 const histories = new WeakMap<Environment, NavigationHistory>();
@@ -47,15 +55,32 @@ const recents = new WeakMap<Environment, RecentTabs>();
 effect(() => {
   for (const env of workspace.open) {
     if (histories.has(env)) continue;
-    recents.set(env, new RecentTabs(env.editor));
+    const recent = new RecentTabs(env.editor);
+    try {
+      recent.restore(JSON.parse(localStorage.getItem(recentKey(env)) ?? '[]'));
+    } catch {
+      // Unreadable: it starts empty.
+    }
+    // Kept as it changes, as IntelliJ keeps it.
+    effect(() => {
+      const json = JSON.stringify(recent.tabs);
+      try {
+        localStorage.setItem(recentKey(env), json);
+      } catch {
+        // Storage may be full or blocked: it just isn't kept.
+      }
+      return undefined;
+    });
+    recents.set(env, recent);
     histories.set(
       env,
       new NavigationHistory(
         env.editor,
         (path) => carets.get(path),
         (place) => {
-          if (place.at) reveals.set(place.tab.id, { ...place.at });
+          if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
         },
+        (path) => tops.get(path),
       ),
     );
   }

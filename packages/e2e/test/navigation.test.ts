@@ -123,3 +123,53 @@ it('selects the opened file in the Project tool window, opening the folders down
   await project.locator('[data-command="project.selectOpenedFile"]').click();
   await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
 });
+
+it('goes back to a place as it was scrolled, not just to its caret', async () => {
+  await open('a.ts');
+  await page().locator('.cm-line', { hasText: 'target();' }).first().click();
+  await page().keyboard.press('Home');
+  /** The line drawn at the top of the editor. */
+  const top = () =>
+    page().evaluate(() => {
+      // The shown editor: other tabs' are kept, hidden.
+      const editor = [...document.querySelectorAll<HTMLElement>('.cerebro-editor-code')].find(
+        (e) => e.offsetParent !== null,
+      ) as HTMLElement;
+      const root = editor.shadowRoot as ShadowRoot;
+      const box = (root.querySelector('.cm-scroller') as HTMLElement).getBoundingClientRect();
+      // The first line not wholly scrolled out of view.
+      return [...root.querySelectorAll('.cm-line')].find(
+        (line) => line.getBoundingClientRect().bottom > box.top,
+      )?.textContent;
+    });
+  // Scrolled down by the wheel, the caret left where it was.
+  await page().locator('.cm-line', { hasText: 'target();' }).first().hover();
+  await page().mouse.wheel(0, 200);
+  await expect.poll(top).not.toBe('target();');
+  const scrolled = await top();
+  await page().keyboard.press('ControlOrMeta+b');
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  await page().keyboard.press(mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft');
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'target();' });
+  // Once the editor has scrolled (a frame) and measured (another): polling could catch the moment
+  // before, which may match by chance.
+  await page().evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  expect(await top()).toBe(scrolled);
+});
+
+it('keeps the recent files when the app restarts', async () => {
+  const labels = async () => {
+    await page().keyboard.press('ControlOrMeta+e');
+    await page().locator('.cerebro-popup').waitFor();
+    const shown = await page().locator('.cerebro-popup-item__label').allTextContents();
+    await page().keyboard.press('Escape');
+    return shown;
+  };
+  const before = await labels();
+  expect(before.length).toBeGreaterThan(1);
+  await running.restart();
+  await page().locator('.cm-line').first().waitFor();
+  expect(await labels()).toEqual(before);
+});
