@@ -871,7 +871,9 @@ to change:
 - **Every row is as wide as the widest drawn row** (changed 2026-10-27, from Ido: the selection
   "doesn't reach all the way to the end"): rows are absolutely placed, so a long name scrolled the
   tree sideways while the rows, and the selection's colour, stayed as wide as the view. Only the
-  rows drawn are measured, so the width can change as the tree scrolls down.
+  rows drawn are measured; the widest seen is kept while the rows stay the same, so scrolling down
+  past a long row doesn't narrow them (Ido: "the problem appears when scrolling vertically"). It
+  starts again when a folder opens or closes, the tree is refreshed, or it's resized.
 - **The Project tool window** shows the active environment's tree, one per environment so each keeps
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
