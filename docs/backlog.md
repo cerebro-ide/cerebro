@@ -26,6 +26,28 @@ common known configurations".
 - **Step 1 done (2026-10-27):** IntelliJ's and VS Code's, for Windows and Linux and for macOS
   (decision "Ready-made keymaps"). Left: changing keys in the Keymap page, and the other keymaps.
 
+### Search Everywhere, as IntelliJ's
+
+From Ido (2026-10-27), with a screenshot of IntelliJ's: "another thing I think we're missing is a
+global search (in intellij double shift press) that has a top menu for various types of search".
+
+- **Double Shift** opens it, as IntelliJ's.
+- **Tabs along the top:** All, Classes, Files, Symbols, Actions, Text. Each one searches only its
+  kind; All shows them together, grouped.
+- **Each row** has an icon, the name with what matched highlighted, and its path after it, muted.
+- **A preview below the list** shows the highlighted result's file, with the match highlighted.
+- **"Include non-project items",** a filter, and "Open In Right Split" are also in the screenshot.
+- **What exists now:** `search.everywhere` (Ctrl/Cmd+Shift+A, IntelliJ's Find Action key) is a
+  sample: files and actions in one list, no tabs. Go to File, Go to Symbol and Find in Files are
+  separate popups whose sources the tabs can reuse.
+
+### Local History
+
+From Ido (2026-10-27, "yes", when asked whether to add it): there's no undo for what happens to
+files outside the editor. The editor's undo is per file and lives only while its document does.
+Saving, Replace in Files, Rollback and an agent's edits can't be taken back. IntelliJ's Local
+History keeps each file's versions, labelled by what changed them, to compare and revert to.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
