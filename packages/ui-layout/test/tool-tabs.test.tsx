@@ -96,7 +96,6 @@ it('opens another tab with +', async () => {
 it('closes a tab with its button, without showing it, or with the middle button', async () => {
   const sessions = new Sessions();
   const { tab, titles } = mount(sessions);
-  await userEvent.hover(tab(2));
   await userEvent.click(tab(2).querySelector('.cerebro-tool-tab__close') as HTMLElement);
   expect(titles()).toEqual(['Local (1)']);
   expect(sessions.active).toBe(1);

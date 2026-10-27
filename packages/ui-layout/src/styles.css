@@ -318,12 +318,14 @@
 .cerebro-tool-tab {
   display: flex;
   flex: none;
+  box-sizing: border-box;
   align-items: center;
   gap: 4px;
-  height: 24px;
-  padding: 0 4px 0 8px;
-  border-radius: 4px;
-  color: var(--cerebro-text);
+  height: 28px;
+  padding: 0 3px 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--cerebro-radius);
+  color: var(--cerebro-tab-text);
   white-space: nowrap;
 }
 
@@ -331,9 +333,12 @@
   background: var(--cerebro-hover);
 }
 
+/* As IntelliJ's Terminal tabs: pills like the editor's, the active one outlined. */
 .cerebro-tool-tab--active,
 .cerebro-tool-tab--active:hover {
-  background: var(--cerebro-stripe-selected);
+  border-color: var(--cerebro-tab-active-border);
+  background: var(--cerebro-tab-active);
+  color: var(--cerebro-tab-active-text);
 }
 
 .cerebro-tool-tab__icon {
@@ -341,6 +346,7 @@
   place-items: center;
 }
 
+/* Shown on every tab, as IntelliJ's Terminal tabs. */
 .cerebro-tool-tab__close {
   display: grid;
   place-items: center;
@@ -351,12 +357,6 @@
   border-radius: 4px;
   background: transparent;
   color: var(--cerebro-text-muted);
-  visibility: hidden;
-}
-
-.cerebro-tool-tab:hover .cerebro-tool-tab__close,
-.cerebro-tool-tab--active .cerebro-tool-tab__close {
-  visibility: visible;
 }
 
 .cerebro-tool-tab__close:hover {

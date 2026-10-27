@@ -1160,7 +1160,8 @@ in the Terminal tool window, as tabs, with a + button.
 - **A shell that ends keeps its tab,** saying so, and Enter starts it again (decision "Terminals and
   the Claude tool window"). IntelliJ closes the tab instead; kept as decided until Ido says
   otherwise.
-- The active tab's fill is the stripe's selected colour, not measured from IntelliJ: a claim.
+- **They look like IntelliJ's Terminal tabs** (Ido's screenshot, 2026-10-26): pills like the editor's,
+  the active one outlined, a close button on every tab.
 - These are Claude's choices, open to change.
 - **Not yet:** several Claude sessions (Ido: to design later); IntelliJ's dropdown for choosing a
   shell; renaming a tab.
