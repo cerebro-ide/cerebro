@@ -40,6 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): a window and a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
@@ -811,7 +812,8 @@ Milestone 2's CodeMirror editor, with syntax highlighting for the target languag
 Choices of Claude's, open to change:
 
 - **Read-only for now.** Files open from the project tree and show their text; saving needs its
-  own design (conflicts with what agents change, encodings, line endings).
+  own design (conflicts with what agents change, encodings, line endings). (Changed 2026-10-26:
+  editable, see "Editing and saving".)
 - **Languages by extension:** TypeScript and JavaScript (`ts`, `tsx`, `mts`, `cts`, `js`, `jsx`,
   `mjs`, `cjs`), JSON, CSS, HTML, Markdown, Python, YAML, and Bash through CodeMirror's legacy
   shell mode. Anything else is plain text.
@@ -934,6 +936,34 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
   e2e test uses all of it, and fails without the plugin.
+
+## Editing and saving (2026-10-26)
+
+The second part of "A basic IDE before git and agent management" (Ido: "Yes, edit and save"). The
+choices below are Claude's, after IntelliJ, open to change.
+
+- **A document per open file,** as IntelliJ's: it outlives the editors showing it, so switching tabs
+  keeps the edits, the selection and the undo history (CodeMirror's state, kept as JSON with its
+  history field between editors). It knows the text last read or saved, so whether it's modified.
+- **Saving as IntelliJ does by default:** File → Save All (Ctrl/Cmd+S), and on its own when the
+  window loses the focus, and before it closes, reloads (another project in this window) or the app
+  quits: the main process has the page save (`cerebroSaveAll`) and waits up to 5 seconds. No save
+  on every keystroke, and no Save for one file, as in IntelliJ. Modified tabs aren't marked, as
+  IntelliJ's default (Settings → Editor Tabs → "Mark modified" off: a claim, not checked).
+- **The file keeps its line separators:** a file with `\r\n` is saved with them (CodeMirror joins
+  with `\n` unless told). Saving writes over the file in place, which must exist (`fs.write`), so
+  its permissions stay; a new file isn't made by a save.
+- **Files changed on disk** (by an agent, git, a terminal) are read again when the window gets the
+  focus and every 2 seconds while it has it, as IntelliJ synchronizes on frame activation; one with
+  unsaved edits keeps them. Reading again isn't undoable. Polling was chosen over watching files for
+  now: a few open files read every 2 seconds is a claim of small cost, not measured.
+- **Undo, redo, Tab to indent** in the editor (CodeMirror's history and keys); the diff stays
+  read-only.
+- **In a browser,** the samples can be edited, and aren't saved.
+- **Not yet:** a conflict when a file with unsaved edits changes on disk (IntelliJ asks; here the
+  edits win, and saving overwrites); a byte order mark is dropped on save; Edit → Undo/Redo/Cut/
+  Copy/Paste in the menu stay disabled (the keys work in the editor); a tab closed with unsaved edits
+  keeps its document until saved; files deleted on disk keep their tabs.
 
 ## Opening a project (2026-10-26)
 

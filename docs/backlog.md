@@ -59,6 +59,8 @@ From Ido (2026-10-26), with a screenshot of IntelliJ's light theme and its Setti
 
 ## Known gaps
 
+- **Editing:** see "Not yet" in the decision "Editing and saving" (a file with unsaved edits changed
+  on disk, the byte order mark, the Edit menu, deleted files).
 - **Go to File and the index in a folder without git:** they read git's file list. With ripgrep, in
   the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of

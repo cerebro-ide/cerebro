@@ -30,6 +30,7 @@ const electron = vi.hoisted(() => {
       setZoomFactor: vi.fn(),
       send: vi.fn(),
       reload: vi.fn(),
+      executeJavaScript: vi.fn((): Promise<unknown> => Promise.resolve()),
       setWindowOpenHandler: (handler: Listener) => {
         this.openHandler = handler;
       },
@@ -108,6 +109,7 @@ const {
   createWindow,
   installProjects,
   projectWindow,
+  saveFiles,
   start,
   PROJECT_CLOSE,
   PROJECT_CURRENT,
@@ -177,8 +179,23 @@ describe('createWindow', () => {
   });
 });
 
+describe('saveFiles', () => {
+  const contents = (result: Promise<unknown>) =>
+    ({ executeJavaScript: () => result }) as unknown as Parameters<typeof saveFiles>[0];
+
+  it('waits for the page to save, and carries on when it fails or takes too long', async () => {
+    await expect(saveFiles(contents(Promise.resolve(3)))).resolves.toBeUndefined();
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await saveFiles(contents(Promise.reject(new Error('no'))));
+    expect(error).toHaveBeenCalledWith('The page could not save its files', expect.any(Error));
+    await saveFiles(contents(new Promise(() => undefined)), 1);
+    expect(error).toHaveBeenCalledWith('The page took too long to save its files');
+    error.mockRestore();
+  });
+});
+
 describe('projectWindow', () => {
-  it('acts on its window until it closes, then does nothing', () => {
+  it('acts on its window until it closes, then does nothing', async () => {
     vi.stubEnv('CEREBRO_DEV_URL', '');
     const window = projectWindow('/work/a');
     vi.unstubAllEnvs();
@@ -195,7 +212,13 @@ describe('projectWindow', () => {
     expect(fake.restore).toHaveBeenCalled();
     expect(fake.focus).toHaveBeenCalledTimes(2);
     window.reload();
-    expect(fake.webContents.reload).toHaveBeenCalledOnce();
+    // After its page saved its files.
+    expect(fake.webContents.executeJavaScript).toHaveBeenCalledWith(
+      'globalThis.cerebroSaveAll?.()',
+    );
+    await vi.waitFor(() => {
+      expect(fake.webContents.reload).toHaveBeenCalledOnce();
+    });
     window.close();
     expect(fake.close).toHaveBeenCalledOnce();
     (fake.listeners.get('closed') as Listener)();
@@ -208,6 +231,53 @@ describe('projectWindow', () => {
     expect(fake.focus).toHaveBeenCalledTimes(2);
     expect(fake.webContents.reload).toHaveBeenCalledOnce();
     expect(fake.close).toHaveBeenCalledOnce();
+  });
+
+  it('has its page save its files before it closes, then quits again if the app was quitting', async () => {
+    vi.stubEnv('CEREBRO_DEV_URL', '');
+    installProjects(host.hosts as never, new ProjectStore(join(folder(), 'projects.json')));
+    projectWindow('/work/a');
+    vi.unstubAllEnvs();
+    const fake = electron.windows[0] as FakeWindow;
+    const close = fake.listeners.get('close') as Listener;
+    const event = { preventDefault: vi.fn() };
+    close(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+    expect(fake.webContents.executeJavaScript).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(fake.close).toHaveBeenCalledOnce();
+    });
+    // Saved: the close goes ahead.
+    const again = { preventDefault: vi.fn() };
+    close(again);
+    expect(again.preventDefault).not.toHaveBeenCalled();
+    // While quitting, the app quits again once the page has saved.
+    (electron.appListeners.get('before-quit') as Listener)();
+    projectWindow('/work/b');
+    const other = electron.windows[1] as FakeWindow;
+    (other.listeners.get('close') as Listener)({ preventDefault: vi.fn() });
+    await vi.waitFor(() => {
+      expect(electron.app.quit).toHaveBeenCalled();
+    });
+    expect(other.close).not.toHaveBeenCalled();
+  });
+
+  it('doesn’t reload a window closed while its page was saving', async () => {
+    vi.stubEnv('CEREBRO_DEV_URL', '');
+    const window = projectWindow('/work/a');
+    vi.unstubAllEnvs();
+    const fake = electron.windows[0] as FakeWindow;
+    let finish: (value: unknown) => void = () => undefined;
+    fake.webContents.executeJavaScript.mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    window.reload();
+    (fake.listeners.get('closed') as Listener)();
+    finish(undefined);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fake.webContents.reload).not.toHaveBeenCalled();
   });
 
   it('says when its page can’t load', async () => {

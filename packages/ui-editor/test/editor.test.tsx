@@ -2,9 +2,10 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
+import { Text } from '@codemirror/state';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
-import { CodeEditor, languageFor, type CodeEditorProps } from '../src/index.js';
+import { CodeEditor, EditorDocument, languageFor, type CodeEditorProps } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -151,12 +152,54 @@ describe('CodeEditor', () => {
     );
   });
 
+  it('is empty with neither a text nor a document', () => {
+    const container = mount({ path: 'a.txt' });
+    expect(container.querySelector('.cm-line')?.textContent).toBe('');
+  });
+
   it('can’t be edited, even by real typing', async () => {
     const container = mount({ path: 'a.txt', text: 'fixed' });
     // Playwright reaches into open shadow roots.
     await userEvent.click(container.querySelector('.cm-line') as HTMLElement);
     await userEvent.keyboard('typed');
     expect(container.querySelector('.cm-line')?.textContent).toBe('fixed');
+  });
+
+  it('edits its document by real typing, with undo', async () => {
+    const doc = new EditorDocument('one');
+    const root = mount({ path: 'a.txt', document: doc });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End} two');
+    expect(doc.content()).toBe('one two');
+    expect(doc.modified.get()).toBe(true);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one');
+    expect(doc.modified.get()).toBe(false);
+  });
+
+  it('keeps a document’s edits, selection and undo history for its next editor', async () => {
+    const doc = new EditorDocument('one');
+    let root = mount({ path: 'a.txt', document: doc });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End} two');
+    cleanup?.();
+    root = mount({ path: 'a.txt', document: doc });
+    expect(root.querySelector('.cm-line')?.textContent).toBe('one two');
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('!');
+    expect(doc.content()).toBe('one two!');
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one two');
+  });
+
+  it('shows a document’s text read again from disk, which undo doesn’t take back', async () => {
+    const doc = new EditorDocument('one');
+    const root = mount({ path: 'a.txt', document: doc });
+    expect(doc.changedOnDisk('changed')).toBe(true);
+    expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
   });
 
   it('reveals a position given before it’s in the document, once it is', async () => {
@@ -335,5 +378,35 @@ describe('CodeEditor', () => {
     const root = mount({ path: 'a.ts', text: 'const x = 1;' });
     expect(document.querySelectorAll('style').length).toBe(before);
     expect(root.adoptedStyleSheets.length).toBeGreaterThan(0);
+  });
+});
+
+describe('EditorDocument', () => {
+  it('saves with the file’s line separator', () => {
+    const crlf = new EditorDocument('a\r\nb');
+    expect(crlf.lineSeparator).toBe('\r\n');
+    expect(crlf.text.get().lines).toBe(2);
+    expect(crlf.content()).toBe('a\r\nb');
+    expect(new EditorDocument('a\nb\n').content()).toBe('a\nb\n');
+  });
+
+  it('knows it’s modified until saved', () => {
+    const doc = new EditorDocument('a');
+    const edited = Text.of(['ab']);
+    doc.text.set(edited);
+    expect(doc.modified.get()).toBe(true);
+    doc.saved();
+    expect(doc.modified.get()).toBe(false);
+    expect(doc.disk.get()).toBe(edited);
+  });
+
+  it('takes the text changed on disk, unless it’s modified or the same', () => {
+    const doc = new EditorDocument('a');
+    expect(doc.changedOnDisk('a')).toBe(false);
+    expect(doc.changedOnDisk('b')).toBe(true);
+    expect(doc.content()).toBe('b');
+    doc.text.set(Text.of(['mine']));
+    expect(doc.changedOnDisk('c')).toBe(false);
+    expect(doc.content()).toBe('mine');
   });
 });

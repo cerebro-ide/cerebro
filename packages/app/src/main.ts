@@ -78,6 +78,35 @@ export function createWindow(
   return { window, loaded: load(window, devUrl, zoom) };
 }
 
+/** How long a page gets to save its files before its window closes or reloads anyway. */
+export const SAVE_TIMEOUT = 5000;
+
+/** Whether the app is quitting: a window that held its closing back to save quits it again. */
+let quitting = false;
+
+/**
+ * Has a page save its unsaved files (the page's `cerebroSaveAll`, which the Welcome window hasn't),
+ * waiting at most SAVE_TIMEOUT; never fails.
+ */
+export function saveFiles(contents: WebContents, timeout = SAVE_TIMEOUT): Promise<void> {
+  const saving = contents.executeJavaScript('globalThis.cerebroSaveAll?.()').then(
+    () => undefined,
+    (error: unknown) => {
+      console.error('The page could not save its files', error);
+    },
+  );
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<void>((resolve) => {
+    timer = setTimeout(() => {
+      console.error('The page took too long to save its files');
+      resolve();
+    }, timeout);
+  });
+  return Promise.race([saving, late]).finally(() => {
+    clearTimeout(timer);
+  });
+}
+
 /** A new window as projects see it; its page loads in the background. */
 export function projectWindow(project: string | undefined): ProjectWindow {
   const { window, loaded } = createWindow(project === undefined);
@@ -87,6 +116,17 @@ export function projectWindow(project: string | undefined): ProjectWindow {
   const contents = window.webContents;
   const closed: (() => void)[] = [];
   let open = true;
+  // The page saves its files first: the close waits for it, then happens again.
+  let saved = false;
+  window.on('close', (event) => {
+    if (saved) return;
+    event.preventDefault();
+    void saveFiles(contents).then(() => {
+      saved = true;
+      if (quitting) app.quit();
+      else window.close();
+    });
+  });
   window.on('closed', () => {
     open = false;
     for (const listener of closed) listener();
@@ -105,7 +145,10 @@ export function projectWindow(project: string | undefined): ProjectWindow {
       if (open) window.close();
     },
     reload: () => {
-      if (open) contents.reload();
+      if (!open) return;
+      void saveFiles(contents).then(() => {
+        if (open) contents.reload();
+      });
     },
     onClosed: (listener) => {
       closed.push(listener);
@@ -156,6 +199,7 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
     store.forget(text(path, 'path'));
   });
   app.on('before-quit', () => {
+    quitting = true;
     windows.quit();
   });
   return windows;
