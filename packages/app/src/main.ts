@@ -18,6 +18,7 @@ import { installWindowColours } from './colours.js';
 import { installFullScreen } from './fullscreen.js';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
+import { logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
 import { WELCOME_SIZE, windowOptions } from './window.js';
@@ -109,13 +110,19 @@ export function saveFiles(contents: WebContents, timeout = SAVE_TIMEOUT): Promis
   });
 }
 
-/** A new window as projects see it; its page loads in the background. */
+/**
+ * A new window as projects see it; its page loads in the background, and what goes wrong in it is
+ * logged to PAGE_LOG in the app's data folder.
+ */
 export function projectWindow(project: string | undefined): ProjectWindow {
   const { window, loaded } = createWindow(project === undefined);
+  const contents = window.webContents;
+  const log = join(app.getPath('userData'), PAGE_LOG);
+  logPage(contents, log);
   loaded.catch((error: unknown) => {
     console.error('The window could not load', error);
+    writeLog(log, String(contents.id), `could not load: ${String(error)}`);
   });
-  const contents = window.webContents;
   const closed: (() => void)[] = [];
   let open = true;
   // The page saves its files first: the close waits for it, then happens again.
