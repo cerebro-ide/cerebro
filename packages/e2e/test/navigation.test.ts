@@ -1,4 +1,4 @@
-// Navigation end to end: Back and Forward through the places the caret was.
+// Navigation end to end: Back and Forward through the places the caret was, and Recent Files.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -69,4 +69,27 @@ it('goes back and forward through the places the caret was, within a file and ac
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   await page().keyboard.press(forward);
   await expect.poll(where).toEqual({ tab: 'b.ts', line: 'export const b = 1;' });
+});
+
+it('lists the recent files, the latest first, and goes to the one before with Enter', async () => {
+  // The last test left b.ts shown, after a.ts.
+  const recent = async () => {
+    await page().keyboard.press('ControlOrMeta+e');
+    await page().locator('.cerebro-popup').waitFor();
+  };
+  const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+  const highlighted = () =>
+    page().locator('.cerebro-popup-item--highlighted .cerebro-popup-item__label').textContent();
+  await recent();
+  expect(await labels()).toEqual(['b.ts', 'a.ts']);
+  expect(await highlighted()).toBe('a.ts');
+  await page().keyboard.press('Enter');
+  await expect.poll(where).toMatchObject({ tab: 'a.ts' });
+  // A closed file stays in the list.
+  await page().locator('.cerebro-editor-tab', { hasText: 'b.ts' }).click({ button: 'middle' });
+  await page().locator('.cerebro-editor-tab', { hasText: 'b.ts' }).waitFor({ state: 'detached' });
+  await recent();
+  expect(await labels()).toEqual(['a.ts', 'b.ts']);
+  await page().keyboard.press('Enter');
+  await expect.poll(where).toMatchObject({ tab: 'b.ts' });
 });

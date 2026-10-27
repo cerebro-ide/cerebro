@@ -67,6 +67,18 @@ describe('openPicker', () => {
     expect(highlightedLabel()).toBe('README.md');
   });
 
+  it('opens with another item highlighted when asked, until the query changes', () => {
+    picker({ initial: 1 });
+    expect(highlightedLabel()).toBe('main.ts');
+    type('s');
+    expect(highlightedLabel()).toBe(labels()[0]);
+  });
+
+  it('highlights what there is, asked for more than there is', () => {
+    picker({ initial: 9 });
+    expect(highlightedLabel()).toBe('shell.tsx');
+  });
+
   it('opens below an element, kept inside the window', () => {
     const button = document.createElement('button');
     button.style.cssText = 'position: fixed; left: 100px; top: 10px; width: 80px; height: 30px;';
