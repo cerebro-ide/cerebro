@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
-- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, a lazy pool in the host, name matches meanwhile
+- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
@@ -947,7 +947,7 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
 
 The plan's milestone 5, and the stage "A basic IDE before git and agent management" (Ido:
 "language servers first"): go to definition and find usages by meaning, not by name. TypeScript and
-JavaScript, then Python; the other languages follow, each its own change. Claude's choices, open to
+JavaScript, then Python and shell scripts; the other languages follow, each its own change. Claude's choices, open to
 change.
 
 - **TypeScript's own server: TypeScript 7's `tsc --lsp --stdio`,** not vtsls or
@@ -960,10 +960,24 @@ change.
   server, with fixes. JavaScript with no dependencies and no install scripts (27.9 MB unpacked, per
   npm), run by the Node the host runs in (Electron's binary, as Node). Its usages include the
   imports, as IntelliJ's do (a claim); TypeScript's leave them out.
+- **Shell scripts: bash-language-server 5.8.1** (published 2026-09-19, per npm), the plan's
+  choice. 36 packages, none with install scripts, run by the host's Node.
+  - **Its zod overridden to 4.6.6** (2026-10-11): it pins zod 3.25.76, which has a high-severity
+    advisory (GHSA-mrhx-c7xc-m3w5, memory exhaustion; fixed in 4.6.6). With 4.6.6 its real-server
+    test passes, and `npm audit` finds nothing. Here zod only reads the settings Cerebro sends
+    (none), so the risk was low anyway (a claim).
+  - **Under WSL it gets a PATH without the Windows folders** (`/mnt/c/...`). It lists the PATH's
+    programs before answering anything: measured 5.8 s to start with them, 257 ms without. Those
+    programs only matter for completions.
 - **A server is asked once it's read the project,** when it says so. basedpyright reports no
   progress, but logs "Found N source files". Asked before then, it answers as if only the open
   files existed (measured: no usages in an unopened file at once; found 3 s later). Questions wait
-  for that line, within the 3 seconds, and the name matches show meanwhile.
+  for that line, within the 3 seconds, and the name matches show meanwhile. bash-language-server
+  likewise, on "BackgroundAnalysis: Completed" (measured the same way: no usages at once).
+- **`CEREBRO_LANGUAGE_SERVERS`** names the servers that run (`typescript`, `python`, `bash`,
+  comma-separated; empty for none; all when unset). The end-to-end tests of the name matches turn
+  them off with it, since every language the index reads now has a server. It's also a way to rule
+  a server out when something's wrong.
 - **A new package, `servers`,** says which server reads which file and how it's started.
   `typescript` 7.0.2 is its dependency alone, so its `tsc` doesn't replace the TypeScript 6 the
   build uses in other packages' scripts. Its executable is the platform package npm installs
@@ -983,8 +997,13 @@ change.
   one that doesn't answer within 3 seconds (a claim) falls back to the index's "Name matches". A
   server's answer shows without that heading. Find usages leaves the declaration out, as
   IntelliJ's.
-- **Not yet:** the other languages (bash-language-server, yaml-language-server,
-  vscode-langservers-extracted, marksman); diagnostics, hover and completions.
+- **Not yet:**
+  - **YAML:** yaml-language-server 2.0.0 is under two weeks old, so it waits.
+  - **HTML, CSS, JSON and Markdown:** they gain little for navigation. With diagnostics,
+    completions and hover, Cerebro would wrap Microsoft's maintained libraries
+    (`vscode-css-languageservice` and the others) itself. vscode-langservers-extracted, last
+    released in 2024 with TypeScript 4, wraps the same libraries, and marksman isn't on npm.
+  - Diagnostics, hover and completions.
 
 ## Navigation (2026-10-27)
 

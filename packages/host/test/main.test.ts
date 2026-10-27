@@ -7,19 +7,43 @@ const agents = vi.hoisted(() => ({
   parseHookInput: (text: string) => JSON.parse(text) as unknown,
 }));
 vi.mock('../src/agents.js', () => agents);
+// The language servers it's given: their ids.
+const lsp = vi.hoisted(() => ({
+  LanguageServers: vi.fn(function (this: { ids: string[] }, specs: { id: string }[]) {
+    this.ids = specs.map((spec) => spec.id);
+  }),
+}));
+vi.mock('../src/lsp.js', () => lsp);
 
 it('serves over stdio, for CEREBRO_REPO or the folder it started in', async () => {
   vi.stubEnv('CEREBRO_REPO', '/chosen');
   await import('../src/main.js');
   vi.unstubAllEnvs();
-  expect(host.serve).toHaveBeenCalledWith(process.stdin, process.stdout, { repo: '/chosen' });
+  expect(host.serve).toHaveBeenCalledWith(process.stdin, process.stdout, {
+    repo: '/chosen',
+    languageServers: { ids: ['typescript', 'python', 'bash'] },
+  });
   vi.resetModules();
   vi.stubEnv('CEREBRO_REPO', undefined);
   await import('../src/main.js');
   vi.unstubAllEnvs();
-  expect(host.serve).toHaveBeenLastCalledWith(process.stdin, process.stdout, {
-    repo: process.cwd(),
-  });
+  expect(host.serve).toHaveBeenLastCalledWith(
+    process.stdin,
+    process.stdout,
+    expect.objectContaining({ repo: process.cwd() }),
+  );
+});
+
+it('runs only the language servers CEREBRO_LANGUAGE_SERVERS names, when it’s set', async () => {
+  vi.resetModules();
+  vi.stubEnv('CEREBRO_LANGUAGE_SERVERS', '');
+  await import('../src/main.js');
+  vi.unstubAllEnvs();
+  expect(host.serve).toHaveBeenLastCalledWith(
+    process.stdin,
+    process.stdout,
+    expect.objectContaining({ languageServers: { ids: [] } }),
+  );
 });
 
 it('is an agent’s hook when asked: it tells the host what it read', async () => {

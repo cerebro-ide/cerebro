@@ -99,7 +99,8 @@ it('lists the recent files, the latest first, and goes to the one before with En
 
 it('goes to a line and column, from the caret’s, and back', async () => {
   await open('a.ts');
-  await page().locator('.cm-line').first().click();
+  // a.ts's own line: the last file's may still show for a moment, and a click there is lost.
+  await page().locator('.cm-line', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
   await page().keyboard.press(mac ? 'Meta+l' : 'Control+g');
   const field = page().locator('.cerebro-dialog-field__input');

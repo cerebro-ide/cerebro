@@ -139,6 +139,35 @@ describe('basedpyright, for Python', () => {
   }, 60_000);
 });
 
+describe('bash-language-server, for shell scripts', () => {
+  it('goes to a definition and finds usages, in a script never opened too', async () => {
+    const project = `${root}/sh`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'lib.sh'), 'greet() {\n  echo hi\n}\n');
+    // Never opened: found all the same, once the server has read the folder.
+    writeFileSync(join(project, 'other.sh'), 'source ./lib.sh\ngreet\n');
+    const main = { path: `${project}/main.sh`, text: 'source ./lib.sh\n\ngreet\n' };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.definitions(project, main, at(2, 1))).toEqual([
+      { path: `${project}/lib.sh`, line: 0, column: 0 },
+    ]);
+    const usages = await servers.usages(
+      project,
+      { path: `${project}/lib.sh`, text: readFileSync(join(project, 'lib.sh'), 'utf8') },
+      at(0, 1),
+    );
+    expect(usages).toEqual(
+      expect.arrayContaining([
+        { path: `${project}/main.sh`, line: 2, column: 0 },
+        { path: `${project}/other.sh`, line: 1, column: 0 },
+      ]),
+    );
+  }, 60_000);
+});
+
 describe('LanguageServers', () => {
   it('has no answer for a language without a server', async () => {
     const servers = pool([fake('links')]);
