@@ -20,19 +20,22 @@ export interface Usage {
 
 /**
  * Definitions whose name contains the query, ignoring case: exact names first, then prefixes, then
- * the rest, shorter names before longer, then by path. At most `limit`.
+ * the rest, shorter names before longer, then by path. At most `limit`; only of these `kinds`
+ * (`class`, `function`, ...), when given: Search Everywhere's Classes.
  */
 export function symbols(
   index: BlobIndex,
   files: ReadonlyMap<string, string>,
   query: string,
   limit = 200,
+  kinds?: readonly string[],
 ): Symbol[] {
   const q = query.trim().toLowerCase();
   if (q === '') return [];
   const found: (Symbol & { rank: number })[] = [];
   for (const [path, blob] of files) {
     for (const d of index.blobs.get(blob)?.definitions ?? []) {
+      if (kinds && !kinds.includes(d.kind)) continue;
       const name = d.name.toLowerCase();
       const at = name.indexOf(q);
       if (at < 0) continue;

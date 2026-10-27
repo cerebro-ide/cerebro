@@ -3,6 +3,7 @@ import {
   chordFromEvent,
   formatChord,
   formatSequence,
+  ModifierTaps,
   normalizeChord,
   normalizeSequence,
 } from '../src/index.js';
@@ -54,6 +55,11 @@ describe('normalizeChord', () => {
     expect(() => normalizeChord('Ctrl+Shift', 'other')).toThrow('has no key');
     expect(() => normalizeChord('A+B', 'other')).toThrow('Invalid key chord');
     expect(() => normalizeChord('Ctrl+', 'other')).toThrow('Invalid key chord');
+  });
+
+  it('takes a modifier on its own, tapped: double Shift', () => {
+    expect(normalizeSequence('shift shift', 'other')).toBe('Shift Shift');
+    expect(normalizeChord('Mod', 'mac')).toBe('Meta');
   });
 });
 
@@ -111,5 +117,91 @@ describe('formatting', () => {
   it('separates the chords of a sequence with commas', () => {
     expect(formatSequence('Ctrl+K Ctrl+S', 'other')).toBe('Ctrl+K, Ctrl+S');
     expect(formatSequence('Meta+K Meta+S', 'mac')).toBe('⌘K, ⌘S');
+  });
+
+  it('names a modifier tapped twice as IntelliJ does', () => {
+    expect(formatSequence('Shift Shift', 'other')).toBe('Double Shift');
+    expect(formatSequence('Shift Shift', 'mac')).toBe('Double ⇧');
+    // Not a double tap: chords as usual.
+    expect(formatSequence('Shift Ctrl', 'other')).toBe('Shift, Ctrl');
+    expect(formatSequence('A A', 'other')).toBe('A, A');
+  });
+});
+
+describe('ModifierTaps', () => {
+  const shift = {
+    key: 'Shift',
+    code: 'ShiftLeft',
+    ctrlKey: false,
+    altKey: false,
+    shiftKey: false,
+    metaKey: false,
+  };
+  const setup = () => {
+    let now = 0;
+    const taps = new ModifierTaps(400, () => now);
+    const tap = (after = 0) => {
+      now += after;
+      taps.keydown({ ...shift, shiftKey: true });
+      return taps.keyup({ ...shift, shiftKey: false });
+    };
+    return { taps, tap };
+  };
+
+  it('gives Shift Shift for a second quick tap, and starts again after it', () => {
+    const { tap } = setup();
+    expect(tap()).toBeUndefined();
+    expect(tap(300)).toBe('Shift Shift');
+    expect(tap(100)).toBeUndefined();
+    expect(tap(100)).toBe('Shift Shift');
+  });
+
+  it('times taps by the clock by default', () => {
+    const taps = new ModifierTaps();
+    taps.keydown({ ...shift, shiftKey: true });
+    taps.keyup(shift);
+    taps.keydown({ ...shift, shiftKey: true });
+    expect(taps.keyup(shift)).toBe('Shift Shift');
+  });
+
+  it('doesn’t count a slow second tap, but counts it as a first', () => {
+    const { tap } = setup();
+    tap();
+    expect(tap(401)).toBeUndefined();
+    expect(tap(100)).toBe('Shift Shift');
+  });
+
+  it('breaks on another key, a chord, a key held down, or leaving the window', () => {
+    const { taps, tap } = setup();
+    tap();
+    // Shift+A between: typing a capital.
+    taps.keydown({
+      key: 'A',
+      code: 'KeyA',
+      ctrlKey: false,
+      altKey: false,
+      shiftKey: true,
+      metaKey: false,
+    });
+    expect(tap()).toBeUndefined();
+    // Ctrl held with Shift.
+    taps.keydown({ ...shift, key: 'Control', ctrlKey: true, shiftKey: false });
+    taps.keydown({ ...shift, ctrlKey: true, shiftKey: true });
+    expect(taps.keyup({ ...shift, ctrlKey: true })).toBeUndefined();
+    expect(tap()).toBeUndefined();
+    // Another modifier's tap.
+    taps.keydown({ ...shift, key: 'Alt', altKey: true });
+    expect(taps.keyup({ ...shift, key: 'Alt' })).toBeUndefined();
+    expect(tap()).toBeUndefined();
+    taps.reset();
+    expect(tap()).toBeUndefined();
+    // A modifier's own flag, set or not on its own press: a tap either way.
+    taps.keydown({ ...shift, shiftKey: false });
+    expect(taps.keyup(shift)).toBe('Shift Shift');
+    // Repeats while held change nothing.
+    expect(tap()).toBeUndefined();
+    taps.keydown({ ...shift, shiftKey: true });
+    taps.keydown({ ...shift, shiftKey: true, repeat: true });
+    expect(taps.keyup(shift)).toBe('Shift Shift');
   });
 });

@@ -144,12 +144,44 @@ it('goes to a symbol by name, opening its file there', async () => {
   await page.keyboard.press(KEYS.goToSymbol);
   await page.keyboard.type('Shape');
   await page.locator('.cerebro-popup-item', { hasText: 'Shape' }).waitFor();
-  expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
+  // Search Everywhere, on its Symbols tab.
+  expect(
+    await page.locator('.cerebro-popup [role="tab"][aria-selected="true"]').textContent(),
+  ).toBe('Symbols');
   expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe(
     'src/shape.ts:2',
   );
   await page.keyboard.press('Enter');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+});
+
+it('searches everywhere with double Shift: a tab per kind, the result’s file below', async () => {
+  const page = running.page;
+  await page.keyboard.press('Shift');
+  await page.keyboard.press('Shift');
+  const selected = () =>
+    page.locator('.cerebro-popup [role="tab"][aria-selected="true"]').textContent();
+  const labels = () => page.locator('.cerebro-popup-item__label').allTextContents();
+  expect(await selected()).toBe('All');
+  await page.keyboard.type('shape');
+  await expect
+    .poll(() => page.locator('.cerebro-popup__group').allTextContents(), { timeout: 15_000 })
+    .toEqual(expect.arrayContaining(['Classes', 'Files']));
+  await page.keyboard.press('Tab');
+  expect(await selected()).toBe('Classes');
+  await expect.poll(labels, { timeout: 15_000 }).toEqual(['Shape']);
+  // The class's file below, at the class.
+  await page
+    .locator('.playground-find__preview .cm-line', { hasText: 'export class Shape' })
+    .waitFor();
+  // Back past All to the last tab: Text, the lines.
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Shift+Tab');
+  expect(await selected()).toBe('Text');
+  await expect
+    .poll(labels, { timeout: 15_000 })
+    .toEqual(expect.arrayContaining(["import { Shape } from './shape';", 'export class Shape {}']));
+  await page.keyboard.press('Escape');
 });
 
 it('finds symbols in Python too', async () => {

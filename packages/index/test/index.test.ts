@@ -231,6 +231,9 @@ describe('symbols ranking', () => {
       'DarkMode@a.ts',
     ]);
     expect(symbols(index, files, 'mode', 1)).toHaveLength(1);
+    // Only some kinds: past the limit's cut, not after it.
+    expect(symbols(index, files, 'mode', 1, ['class']).map((s) => s.name)).toEqual(['Mode']);
+    expect(symbols(index, files, 'mode', 200, ['function'])).toEqual([]);
     // The same name twice in one file: by line.
     index.add(
       'rank-c',

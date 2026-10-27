@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Several terminals (2026-10-27)](#several-terminals-2026-10-27): the Terminal tool window's shells as tabs, a + button
 - [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
 - [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings
+- [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
@@ -1247,6 +1248,43 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
   - VS Code's Linux differences (Go Back is Ctrl+Alt+-, its sheet says);
   - punctuation with Shift is named by the character it types (Ctrl+Shift+- arrives as
     Ctrl+Shift+_), so VS Code's macOS Go Forward is written for a US layout.
+
+## Search Everywhere (2026-10-27)
+
+From Ido, with a screenshot of IntelliJ's: "another thing I think we're missing is a global search
+(in intellij double shift press) that has a top menu for various types of search". The choices
+below, other than following IntelliJ, are Claude's and open to change.
+
+- **Double Shift opens it,** as IntelliJ's. The keymap takes a modifier on its own as a chord, so
+  the binding is `Shift Shift`, shown as "Double Shift" ("Double ⇧" on macOS). Both taps must come
+  within 400 ms, with nothing pressed between them. The 400 ms is a guess, not measured from
+  IntelliJ. VS Code's keymaps, which don't name it, keep it, as with any command they don't name.
+- **Tabs along the top:** All, Classes, Files, Symbols, Actions, Text. Tab and Shift+Tab move
+  between them, as in IntelliJ.
+  - **Classes** are the index's classes, interfaces, enums and type aliases.
+  - **Symbols** are every definition the index has; the index gained a `kinds` filter, applied
+    before its limit.
+  - **Files** filters the project's files by name. With nothing typed, it shows Recent Files.
+  - **Actions** are the commands.
+  - **Text** searches lines with ripgrep, as Find in Files does.
+  - **All** lists up to 8 of each kind but Text, each under its header. Classes aren't listed
+    again under Symbols. Before anything's typed, All shows Recent Files.
+- **The highlighted result's file shows below,** as Find in Files' preview does, at the class, the
+  symbol or the line.
+- **Go to File, Go to Symbol, a new Go to Class and a new Find Action open it on their own tab,**
+  as IntelliJ's do.
+  - The key that ran Search Everywhere, Ctrl/Cmd+Shift+A, is IntelliJ's Find Action, and now opens
+    the Actions tab.
+  - Go to Class has IntelliJ's keys: Ctrl+N, Cmd+O on macOS.
+  - VS Code's Command Palette keys (Ctrl/Cmd+Shift+P, F1) open the Actions tab.
+  - The VS Code keymaps leave Go to Class without a key: VS Code has no such command, and
+    IntelliJ's keys are VS Code's New File and Open.
+  - Go to Symbol's own popup is gone. Its "Name matches" header is gone too, since everything
+    here is matched by name.
+- **Not yet:**
+  - "Include non-project items", the filter and "Open In Right Split" from IntelliJ's popup.
+  - "Show more" in All for a kind with more than 8 results.
+  - Double Shift while the popup is open, which IntelliJ uses to include non-project items.
 
 ## Search (2026-10-26)
 
