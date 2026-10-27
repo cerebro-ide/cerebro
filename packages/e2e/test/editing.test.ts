@@ -122,3 +122,34 @@ it('draws scrollbars over the content, taking no room: the Project tool window, 
   await page().locator('.cm-line').first().hover();
   await page().locator('.cerebro-scrollbar--y.cerebro-scrollbar--shown').first().waitFor();
 });
+
+it('scrolls tabs that don’t fit, keeping the active one in view, and lists them all', async () => {
+  const more = page().locator('.cerebro-tabs-more');
+  for (let i = 0; i < 16; i++) await open(`file${String(i)}.txt`);
+  await more.waitFor();
+  // The active tab, the last opened, is whole inside the strip.
+  const inView = () =>
+    page().evaluate(() => {
+      const [strip, tab] = ['.cerebro-editor-tabs', '.cerebro-editor-tab--active'].map((selector) =>
+        document.querySelector(selector)?.getBoundingClientRect(),
+      );
+      return !!strip && !!tab && tab.left >= strip.left && tab.right <= strip.right;
+    });
+  expect(await inView()).toBe(true);
+  // Forced: under xvfb in CI, clicks can wait forever for the button to be "stable".
+  await more.click({ force: true });
+  await page().keyboard.type('file0.txt');
+  await page().locator('.cerebro-popup-item', { hasText: 'file0.txt' }).waitFor();
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
+    .toContain('file0.txt');
+  expect(await inView()).toBe(true);
+  // Leaves the tabs as they were.
+  for (let i = 0; i < 16; i++) {
+    await page()
+      .locator('.cerebro-editor-tab', { hasText: `file${String(i)}.txt` })
+      .click({ button: 'middle', force: true });
+  }
+  await more.waitFor({ state: 'hidden' });
+});

@@ -20,6 +20,11 @@ export interface PickerItem {
   group?: string;
   /** Indices in the label of the characters that matched the query, shown bold. */
   highlight?: readonly number[];
+  /**
+   * A close button at the item's end, shown while it's hovered or highlighted: IntelliJ's list of
+   * hidden tabs has one per tab. The list follows what its items read, so a closed one goes.
+   */
+  close?: { label: string; run: () => void };
 }
 
 /** Where a popup opens: below an element (a toolbar button), or at the top centre of the window. */
@@ -337,6 +342,28 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
                 </span>
                 <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
                 <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
+                {item.close ? (
+                  <button
+                    type="button"
+                    class="cerebro-popup-item__close"
+                    aria-label={item.close.label}
+                    tabIndex={-1}
+                    on:click={(event) => {
+                      // Closes the item, not the popup.
+                      event.stopPropagation();
+                      item.close?.run();
+                    }}
+                  >
+                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                      <path
+                        d="M4.5 4.5l7 7M11.5 4.5l-7 7"
+                        stroke="currentColor"
+                        stroke-width="1.4"
+                        stroke-linecap="round"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
               </div>,
             ]),
             more > 0 ? (

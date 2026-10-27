@@ -21,6 +21,9 @@
     },
     {
       "path": "../ui-tooltip/tsconfig.build.json"
+    },
+    {
+      "path": "../ui-popup/tsconfig.build.json"
     }
   ]
 }

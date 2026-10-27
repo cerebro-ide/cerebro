@@ -710,6 +710,7 @@ render(
                   <Diff path={diff} env={env.id} range={diffRange(tab.id)} />
                 );
               }}
+              icon={(tab) => icon(diffPath(tab.id) === undefined ? 'file' : 'diff')}
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
                 openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })

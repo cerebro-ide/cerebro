@@ -137,3 +137,31 @@
 .cerebro-popup-item__shortcut {
   padding-left: 16px;
 }
+
+/* A closable item's button, as an editor tab's: in the grid's last column, past the shortcut. */
+.cerebro-popup-item:has(.cerebro-popup-item__close) {
+  grid-template-columns: 18px auto minmax(0, 1fr) auto 16px;
+}
+
+.cerebro-popup-item__close {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-text-muted);
+  visibility: hidden;
+}
+
+.cerebro-popup-item:hover .cerebro-popup-item__close,
+.cerebro-popup-item--highlighted .cerebro-popup-item__close {
+  visibility: visible;
+}
+
+.cerebro-popup-item__close:hover {
+  background: var(--cerebro-hover);
+  color: var(--cerebro-text);
+}
