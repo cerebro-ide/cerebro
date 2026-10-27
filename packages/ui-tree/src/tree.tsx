@@ -108,6 +108,19 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
     reveal();
   };
 
+  // Set as the tree is drawn, before it's ever fitted.
+  let spacer!: HTMLElement;
+  /**
+   * As wide as the widest row drawn, so each row, and the selection's colour, spans the width the
+   * tree scrolls across, as IntelliJ's; at least the tree's own width (the spacer's minimum).
+   */
+  const fit = () => {
+    spacer.style.width = '';
+    const rows = [...spacer.children] as HTMLElement[];
+    const overflow = Math.max(0, ...rows.map((row) => row.scrollWidth - row.clientWidth));
+    if (overflow > 0) spacer.style.width = `${String(spacer.clientWidth + overflow)}px`;
+  };
+
   const Row = (p: { row: TreeRow<T>; index: number }) => {
     const { row, index } = p;
     return (
@@ -181,6 +194,7 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         const measure = () => {
           viewport.height = tree.clientHeight;
           viewport.top = tree.scrollTop;
+          fit();
         };
         const observer = new ResizeObserver(measure);
         observer.observe(tree);
@@ -207,8 +221,12 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
       <div
         class="cerebro-tree__spacer"
         style={{ height: () => `${String(model.rows.length * rowHeight)}px` }}
+        ref={(element) => {
+          spacer = element;
+        }}
       >
         {() => {
+          queueMicrotask(fit);
           const rows = model.rows;
           const first = Math.max(0, Math.floor(viewport.top / rowHeight) - OVERSCAN);
           const last = Math.min(

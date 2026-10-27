@@ -25,6 +25,7 @@ import {
   listWorktrees,
   removeWorktree,
   type Git,
+  ignoredAmong,
 } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
@@ -95,7 +96,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return value;
   };
   connection.onRequest('git.worktrees', (params) => listWorktrees(repoOf(params), git));
-  connection.onRequest('fs.list', (params) => listFolder(text(params, 'path')));
+  // A folder's entries; those git ignores say so, for the Project tree to show them dimmed.
+  connection.onRequest('fs.list', async (params) => {
+    const folder = text(params, 'path');
+    const entries = await listFolder(folder);
+    const ignored = await ignoredAmong(
+      folder,
+      entries.map((e) => e.name),
+      git,
+    );
+    return entries.map((e) => (ignored.has(e.name) ? { ...e, ignored: true } : e));
+  });
   const index = new IndexService(git, Date.now, (worktree, done, total) => {
     connection.notify('index.progress', { worktree, done, total });
   });

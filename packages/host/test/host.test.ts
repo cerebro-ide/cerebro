@@ -349,6 +349,20 @@ describe('files', () => {
       name: string;
     }[];
     expect(entries.map((e) => e.name)).toContain('host.test.ts');
+    // This repository ignores nothing in its tests' folder.
+    expect(entries.some((e) => 'ignored' in e)).toBe(false);
+    // A repository that ignores some, with real git: they say so.
+    const real = connect(vi.fn(runGit)).ui;
+    const repo = mkdtempSync(join(tmpdir(), 'cerebro-host-ignored-'));
+    execFileSync('git', ['init', '-q', repo]);
+    writeFileSync(join(repo, '.gitignore'), '*.log\n');
+    writeFileSync(join(repo, 'debug.log'), '');
+    writeFileSync(join(repo, 'kept.ts'), '');
+    expect(await real.request('fs.list', { path: repo })).toEqual([
+      expect.objectContaining({ name: '.gitignore' }),
+      expect.objectContaining({ name: 'debug.log', ignored: true }),
+      { name: 'kept.ts', path: `${repo.replaceAll('\\', '/')}/kept.ts`, kind: 'file' },
+    ]);
     await expect(ui.request('fs.list', {})).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });

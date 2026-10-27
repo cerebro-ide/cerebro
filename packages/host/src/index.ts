@@ -4,6 +4,7 @@ export {
   git,
   listChanges,
   listChangesBetween,
+  ignoredAmong,
   listIgnored,
   listFiles,
   listWorktrees,

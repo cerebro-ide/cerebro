@@ -10,13 +10,15 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   addWorktree,
   committedText,
   git,
+  type Git,
   listChanges,
   listFiles,
+  ignoredAmong,
   listIgnored,
   listWorktrees,
   parseNameStatus,
@@ -213,6 +215,38 @@ describe('with real git', () => {
     writeFileSync(join(path, 'debug.log'), '');
     writeFileSync(join(path, 'kept.ts'), '');
     expect(await listIgnored(path)).toEqual(['debug.log', 'out/']);
+  });
+
+  it('says which of a folder’s entries are ignored, inside an ignored folder too', async () => {
+    const path = join(root, 'ignored-among');
+    await addWorktree(repo, { path, branch: 'ignored-among', create: true });
+    writeFileSync(join(path, '.gitignore'), 'out/\n*.log\n');
+    mkdirSync(join(path, 'out', 'deep'), { recursive: true });
+    writeFileSync(join(path, 'out', 'deep', 'a.js'), '');
+    writeFileSync(join(path, 'debug.log'), '');
+    writeFileSync(join(path, 'kept.ts'), '');
+    expect(await ignoredAmong(path, ['out', 'debug.log', 'kept.ts', '.gitignore'])).toEqual(
+      new Set(['out', 'debug.log']),
+    );
+    expect(await ignoredAmong(join(path, 'out', 'deep'), ['a.js'])).toEqual(new Set(['a.js']));
+    // None of them: git exits with 1.
+    expect(await ignoredAmong(path, ['kept.ts'])).toEqual(new Set());
+    // Outside a repository: none.
+    expect(await ignoredAmong(tmpdir(), ['x'])).toEqual(new Set());
+  });
+
+  it('fails, without an unhandled error, when git exits without reading its input', async () => {
+    // Outside a repository git stops at once: writing 10 MB to it then fails (EPIPE), which was
+    // thrown as an uncaught exception.
+    await expect(
+      git(tmpdir(), ['check-ignore', '-z', '--stdin'], undefined, 'x'.repeat(10_000_000)),
+    ).rejects.toThrow();
+  });
+
+  it('asks git nothing about no names', async () => {
+    const run = vi.fn<Git>();
+    expect(await ignoredAmong('/repo', [], run)).toEqual(new Set());
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('rolls changes back: modified, deleted, renamed, and added, kept or deleted', async () => {
