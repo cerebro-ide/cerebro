@@ -18,6 +18,11 @@ export interface ServerSpec {
   languageOf(path: string): string | undefined;
   /** How to start it. */
   command(): ServerCommand;
+  /**
+   * Files that make a project it sees whole, one of which must be in a file's folder or above
+   * (within the worktree) for it to be asked: without one, it sees only the files it's shown.
+   */
+  projectFiles?: readonly string[];
 }
 
 /** Resolves a module, as Node would: what tests replace. */
@@ -56,6 +61,9 @@ export function typescriptServer(
       const ext = extension(path);
       return ext === undefined ? undefined : TYPESCRIPT[ext];
     },
+    // Without one, TypeScript's server makes a project of the open files alone: no usages in the
+    // others (measured: "No usages" where main.ts calls lib.ts's run, main.ts not open).
+    projectFiles: ['tsconfig.json', 'jsconfig.json'],
     command: () => {
       const platformPackage = resolve(`@typescript/typescript-${platform}-${arch}/package.json`);
       const exe = join(dirname(platformPackage), 'lib', platform === 'win32' ? 'tsc.exe' : 'tsc');

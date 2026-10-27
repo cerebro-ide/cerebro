@@ -8,6 +8,7 @@
 // the UI shows the index's name matches meanwhile.
 
 import { spawn, type ChildProcess } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection } from '@cerebro-ide/protocol';
 import { frame, FrameReader } from './framing.js';
@@ -212,6 +213,16 @@ function within<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
   });
 }
 
+/** Whether one of `names` is in a file's folder or one above it, up to the worktree's. */
+function inProject(worktree: string, path: string, names: readonly string[] | undefined): boolean {
+  if (!names) return true;
+  for (let folder = path.slice(0, path.lastIndexOf('/')); ;) {
+    if (names.some((name) => existsSync(`${folder}/${name}`))) return true;
+    if (folder.length <= worktree.length) return false;
+    folder = folder.slice(0, folder.lastIndexOf('/'));
+  }
+}
+
 /** The servers running, one per worktree and server, started as they're needed. */
 export class LanguageServers {
   readonly #running = new Map<
@@ -229,13 +240,16 @@ export class LanguageServers {
     return this.#running.size;
   }
 
-  /** The server for a file in a worktree, started if it isn't; none for a language without one. */
+  /**
+   * The server for a file in a worktree, started if it isn't; none for a language without one, or
+   * for a file outside any project its server needs.
+   */
   serverFor(
     worktree: string,
     path: string,
   ): { server: LanguageServer; languageId: string } | undefined {
     const found = serverFor(path, this.specs);
-    if (!found) return undefined;
+    if (!found || !inProject(worktree, path, found.spec.projectFiles)) return undefined;
     const key = `${worktree}\u0000${found.spec.id}`;
     let entry = this.#running.get(key);
     if (!entry) {

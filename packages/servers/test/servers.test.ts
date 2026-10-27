@@ -12,6 +12,8 @@ describe('typescriptServer', () => {
     expect(spec.languageOf('/a/b.jsx')).toBe('javascriptreact');
     expect(spec.languageOf('/a/b.py')).toBeUndefined();
     expect(spec.languageOf('/a/Makefile')).toBeUndefined();
+    // Only in a project: without one, its server sees only the open files.
+    expect(spec.projectFiles).toEqual(['tsconfig.json', 'jsconfig.json']);
   });
 
   it('runs TypeScript 7’s compiler for this platform, installed with it, as a language server', () => {
