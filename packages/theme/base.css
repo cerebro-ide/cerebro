@@ -16,28 +16,3 @@ textarea,
   cursor: text;
   user-select: text;
 }
-
-/*
- * Scrollbars as WebStorm's: a thin rounded thumb with no track or arrows, 4px from the edge. Shadow
- * roots (the code editor) need their own copy of these rules.
- */
-::-webkit-scrollbar {
-  width: 12px;
-  height: 12px;
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  border: solid transparent;
-  border-width: 0 4px 0 0;
-  border-radius: 6px;
-  background: var(--cerebro-scrollbar) padding-box;
-}
-
-::-webkit-scrollbar-thumb:horizontal {
-  border-width: 0 0 4px;
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}

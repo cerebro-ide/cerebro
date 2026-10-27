@@ -39,6 +39,10 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(first, 'const first = 1;\r\nexport {};\r\n');
   writeFileSync(second, 'const second = 2;\n');
+  writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
+  // More than the editor and the Project tool window show.
+  writeFileSync(join(repo, 'long.ts'), 'export {};\n'.repeat(300));
+  for (let i = 0; i < 40; i++) writeFileSync(join(repo, `file${String(i)}.txt`), '');
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -83,4 +87,38 @@ it('shows a file changed on disk', async () => {
   await page().locator('.cm-line').first().waitFor();
   writeFileSync(second, 'const second = 3;\n');
   await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3;\n');
+});
+
+it('shows no scrollbar where nothing overflows: the Project tool window, a file it can’t open', async () => {
+  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.type('image.bin');
+  await page().locator('.cerebro-popup-item', { hasText: 'image.bin' }).waitFor();
+  await page().keyboard.press('Enter');
+  await page().locator('.playground-code__note', { hasText: 'binary' }).waitFor();
+  // Scrolled areas whose content is taller than they are: there should be none.
+  const overflowing = await page().evaluate(() =>
+    [...document.querySelectorAll('.cerebro-tool-window__body, .cerebro-editor-content')]
+      .filter((e) => e.scrollHeight > e.clientHeight)
+      .map((e) => `${e.className}: ${String(e.scrollHeight)} > ${String(e.clientHeight)}`),
+  );
+  expect(overflowing).toEqual([]);
+});
+
+it('draws scrollbars over the content, taking no room: the Project tool window, the editor', async () => {
+  await open('long.ts');
+  // Native scrollbars would take room beside the content: none do.
+  const room = await page().evaluate(() =>
+    [
+      document.querySelector('.cerebro-tree'),
+      document.querySelector('.cerebro-editor-code')?.shadowRoot?.querySelector('.cm-scroller'),
+    ].map((e) =>
+      e instanceof HTMLElement && e.scrollHeight > e.clientHeight
+        ? e.offsetWidth - e.clientWidth
+        : 'nothing to scroll',
+    ),
+  );
+  expect(room).toEqual([0, 0]);
+  // A thumb shows over the editor while it's hovered.
+  await page().locator('.cm-line').first().hover();
+  await page().locator('.cerebro-scrollbar--y.cerebro-scrollbar--shown').first().waitFor();
 });

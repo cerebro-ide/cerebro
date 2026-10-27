@@ -23,6 +23,9 @@
       "path": "packages/ui-tooltip/tsconfig.build.json"
     },
     {
+      "path": "packages/ui-scrollbar/tsconfig.build.json"
+    },
+    {
       "path": "packages/ui-dialog/tsconfig.build.json"
     },
     {

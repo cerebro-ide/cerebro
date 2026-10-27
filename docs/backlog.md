@@ -6,17 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### A vertical scrollbar shows when nothing overflows
-
-Reported by Ido (2026-10-26), with a screenshot: a vertical scrollbar shows although the content
-fits, in two places:
-
-- the Project tool window, beside a tree that fits;
-- the editor area, beside a short error message ("Can't open README.md …").
-
-Expected: no scrollbar unless the content overflows. The fix comes with a test that fails without
-it.
-
 ### Tabs that don't fit: a dropdown listing them, and a fade at the cut edge, for every tab bar
 
 Reported by Ido (2026-10-26), with screenshots of IntelliJ. When there isn't room for every tab,
@@ -51,11 +40,6 @@ From Ido (2026-10-26), with a screenshot of IntelliJ's light theme and its Setti
 - **Where it's chosen, as in IntelliJ's Settings:** Appearance & Behavior → Appearance → Theme, a
   dropdown, with a "Sync with OS" checkbox beside it. Cerebro's Settings has an Appearance page
   with a Theme setting already; it should follow this layout and naming.
-- **Remove the "Toggle dark / light" button from the Project tool window,** where it doesn't
-  belong. The theme is chosen in Settings, and with View → Dark Theme (Ctrl+K Ctrl+T).
-- **The window's minimize, maximize and close buttons stay dark in the light theme** (Ido,
-  2026-10-26). The title bar overlay's colours are fixed to the dark theme's
-  (`packages/app/src/window.ts`); they should follow the theme when it changes.
 
 ### Keymaps: configurable, with IntelliJ's ready-made ones to choose from
 
@@ -77,6 +61,7 @@ common known configurations".
   the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
+- **The Project tree doesn't show files added on disk** until it's opened again (seen in QA).
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.

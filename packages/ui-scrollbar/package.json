@@ -1,0 +1,23 @@
+{
+  "name": "@cerebro-ide/ui-scrollbar",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Scrollbars as IntelliJ's: a thumb drawn over the content, taking no room.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

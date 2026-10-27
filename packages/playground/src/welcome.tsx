@@ -7,6 +7,8 @@ import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
+import '@cerebro-ide/ui-scrollbar/styles.css';
 import './bridge.js';
 import { render } from '@cerebro-ide/jsx';
 import { computed, effect, signal } from '@cerebro-ide/reactive';
@@ -15,6 +17,7 @@ import { badgeColour, initials } from '@cerebro-ide/ui-toolbar';
 import type { RecentProject } from './bridge.js';
 import { openFolder, openProject } from './projects.js';
 import { globalSettings } from './settings.js';
+import { applyTheme } from './theme.js';
 import './playground.css';
 
 const bridge = (window.cerebro as NonNullable<Window['cerebro']>).project;
@@ -25,10 +28,10 @@ document.documentElement.classList.add(
 );
 document.title = 'Welcome to Cerebro';
 effect(() => {
-  document.documentElement.dataset['cerebroTheme'] =
-    globalSettings.get('appearance.theme') === 'light' ? 'light' : 'dark';
+  applyTheme(globalSettings.get('appearance.theme') !== 'light');
   return undefined;
 });
+installScrollbars();
 
 const recent = signal<RecentProject[]>(await bridge.recent());
 const query = signal('');

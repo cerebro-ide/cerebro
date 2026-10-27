@@ -21,19 +21,6 @@ body,
   color: var(--cerebro-text-muted);
 }
 
-.playground-button {
-  padding: 5px 12px;
-  border: 1px solid var(--cerebro-separator);
-  border-radius: var(--cerebro-radius);
-  background: var(--cerebro-panel);
-  color: var(--cerebro-text);
-  font: inherit;
-}
-
-.playground-button:hover {
-  background: var(--cerebro-hover);
-}
-
 .playground-list {
   margin: 0;
   padding: 4px 0;
@@ -52,6 +39,8 @@ body,
 .playground-files {
   display: flex;
   flex-direction: column;
+  /* Its padding inside its height: else it's taller than its tool window, which scrolls. */
+  box-sizing: border-box;
   height: 100%;
   padding-top: 8px;
 }
@@ -166,10 +155,6 @@ body,
   white-space: nowrap;
 }
 
-.playground-files .playground-button {
-  margin: 0 12px 6px;
-}
-
 .playground-file {
 }
 
@@ -178,6 +163,8 @@ body,
 }
 
 .playground-code__note {
+  /* A paragraph's margins would reach past the editor area, which would scroll. */
+  margin: 0;
   padding: 8px 16px;
   color: var(--cerebro-text-muted);
 }

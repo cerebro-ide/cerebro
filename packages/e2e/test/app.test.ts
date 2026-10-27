@@ -126,6 +126,66 @@ describe('the window', () => {
     );
   });
 
+  // macOS draws its own traffic lights.
+  it.skipIf(process.platform === 'darwin')(
+    'draws the window controls in the theme’s colours',
+    async () => {
+      // What the window's controls are given, from now on.
+      await running.app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
+        const given: unknown[] = [];
+        (globalThis as { overlays?: unknown[] }).overlays = given;
+        const set = window.setTitleBarOverlay.bind(window);
+        window.setTitleBarOverlay = (options) => {
+          given.push(options);
+          set(options);
+        };
+      });
+      const overlays = () =>
+        running.app.evaluate(() => (globalThis as { overlays?: unknown[] }).overlays);
+      await page().keyboard.press('Control+K');
+      await page().keyboard.press('Control+T');
+      await expect.poll(overlays).toEqual([{ color: '#ebecf0', symbolColor: '#1e1f22' }]);
+      await page().keyboard.press('Control+K');
+      await page().keyboard.press('Control+T');
+      await expect.poll(overlays).toContainEqual({ color: '#25282c', symbolColor: '#d1d3d9' });
+    },
+  );
+
+  // Only macOS hides its window buttons in full screen.
+  it.runIf(process.platform === 'darwin')(
+    'keeps window buttons in full screen, as IntelliJ, and leaves full screen with them',
+    async () => {
+      const fullScreen = (value?: boolean) =>
+        running.app.evaluate(({ BrowserWindow }, value) => {
+          const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
+          if (value !== undefined) window.setFullScreen(value);
+          return window.isFullScreen();
+        }, value);
+      const buttons = page().locator('.cerebro-fullscreen-buttons');
+      expect(await buttons.count()).toBe(0);
+      // What the page hears, for CI's log if it fails.
+      await page().evaluate(() => {
+        const heard: boolean[] = [];
+        (globalThis as { heard?: boolean[] }).heard = heard;
+        const bridge = (
+          window as unknown as {
+            cerebro: { window: { onFullScreen(listener: (value: boolean) => void): void } };
+          }
+        ).cerebro;
+        bridge.window.onFullScreen((value) => heard.push(value));
+      });
+      await fullScreen(true);
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
+      const heard = () => page().evaluate(() => (globalThis as { heard?: boolean[] }).heard);
+      await expect.poll(heard, { timeout: 15_000 }).toContain(true);
+      await buttons.waitFor({ timeout: 15_000 });
+      await page().locator('[aria-label="Exit Full Screen"]').click();
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
+      await buttons.waitFor({ state: 'detached', timeout: 15_000 });
+    },
+  );
+
   it('opens no other windows', async () => {
     const opened = await page().evaluate(() => window.open('https://example.com') === null);
     expect(opened).toBe(true);

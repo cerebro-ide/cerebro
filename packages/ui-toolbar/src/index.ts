@@ -8,3 +8,4 @@ export {
   type ToolbarButtonProps,
   type ToolbarDropdownProps,
 } from './toolbar.js';
+export { FullScreenButtons } from './fullscreen.js';

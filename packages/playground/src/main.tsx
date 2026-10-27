@@ -19,6 +19,8 @@ import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
 import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
+import '@cerebro-ide/ui-scrollbar/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
 import '@cerebro-ide/ui-tree/styles.css';
@@ -29,7 +31,12 @@ import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './ch
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { reveals, setupNavigation } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
-import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import {
+  FullScreenButtons,
+  MainToolbar,
+  ToolbarButton,
+  ToolbarDropdown,
+} from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import {
   active,
@@ -48,12 +55,13 @@ import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
+import { applyTheme } from './theme.js';
 import { documentFor, saveAll, setupSaving } from './documents.js';
 import { findInFiles } from './find.js';
 import { currentProject, setupProjects } from './projects.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
-import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
+import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import { setTerminalKeys, terminalFor, type TerminalKind } from './terminals.js';
@@ -325,10 +333,26 @@ function shortcutOf(command: string): string | undefined {
 const nativeMenu = window.cerebro?.platform === 'darwin' ? window.cerebro.menu : undefined;
 if (nativeMenu) syncNativeMenu(services, nativeMenu, { context: activeTab });
 
+/** Whether the window is full screen, where macOS hides its buttons and the toolbar draws them. */
+const fullScreen = signal(false);
+if (window.cerebro?.platform === 'darwin') {
+  window.cerebro.window.onFullScreen((value) => {
+    fullScreen.set(value);
+  });
+}
+
 function Header() {
   return (
     <MainToolbar
       left={() => [
+        // A function: shown and hidden as the window enters and leaves full screen.
+        () =>
+          fullScreen.get() ? (
+            <FullScreenButtons
+              close={() => window.cerebro?.window.close()}
+              leave={() => window.cerebro?.window.leaveFullScreen()}
+            />
+          ) : null,
         nativeMenu ? null : (
           <MenuBar services={services} visible={() => menuVisible.get()} context={activeTab} />
         ),
@@ -368,16 +392,9 @@ function Header() {
   );
 }
 
-function toggleTheme() {
-  setDark(!dark.get());
-}
-
 function Files() {
   return (
     <div class="playground-files">
-      <button type="button" class="playground-button" on:click={toggleTheme}>
-        Toggle dark / light
-      </button>
       <ProjectTree samples={FILES} open={(tab) => editor()?.open(tab)} />
     </div>
   );
@@ -432,9 +449,11 @@ effect(() => {
 
 // The theme follows its setting.
 effect(() => {
-  document.documentElement.dataset['cerebroTheme'] = dark.get() ? 'dark' : 'light';
+  applyTheme(dark.get());
   return undefined;
 });
+
+installScrollbars();
 
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {

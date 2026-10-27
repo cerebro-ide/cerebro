@@ -91,7 +91,10 @@ it('asks where to open another project, and opens a folder without git in a new 
 
 it('reopens the projects open when the app quit', async () => {
   await running.restart();
-  await expect.poll(titles, { timeout: 15_000 }).toEqual(['repository', 'plain']);
+  // Both, in whatever order their windows were seen: they open at once.
+  await expect
+    .poll(async () => (await titles()).sort(), { timeout: 15_000 })
+    .toEqual(['plain', 'repository']);
 });
 
 it('closes a project’s window, and shows the Welcome window after the last', async () => {
