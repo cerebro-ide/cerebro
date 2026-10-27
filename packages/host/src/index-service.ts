@@ -53,9 +53,9 @@ export class IndexService {
     return items.map((item) => ({ ...item, path: `${worktree}/${item.path}` }));
   }
 
-  async symbols(worktree: string, query: string) {
+  async symbols(worktree: string, query: string, kinds?: readonly string[]) {
     const { index, files } = await this.files(worktree);
-    return IndexService.absolute(worktree, symbols(index, files, query));
+    return IndexService.absolute(worktree, symbols(index, files, query, undefined, kinds));
   }
 
   async definitions(worktree: string, name: string) {

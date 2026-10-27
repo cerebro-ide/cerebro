@@ -3,7 +3,9 @@ export { CommandRegistry, type CommandSpec } from './commands.js';
 export { MenuRegistry, type Contribution, type MenuEntry, type MenuItemSpec } from './menus.js';
 export {
   chordFromEvent,
+  DOUBLE_TAP,
   formatChord,
+  ModifierTaps,
   formatSequence,
   normalizeChord,
   normalizeSequence,

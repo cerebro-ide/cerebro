@@ -83,6 +83,12 @@ describe('IndexService', () => {
       expect(last?.done).toBe(last?.total);
     });
     expect(await ui.request('index.symbols', { worktree: repo, query: 'Shape' })).toHaveLength(1);
+    expect(
+      await ui.request('index.symbols', { worktree: repo, query: 'Shape', kinds: ['function'] }),
+    ).toEqual([]);
+    await expect(
+      ui.request('index.symbols', { worktree: repo, query: 'x', kinds: [1] }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     expect(await ui.request('index.definitions', { worktree: repo, name: 'Shape' })).toHaveLength(
       1,
     );

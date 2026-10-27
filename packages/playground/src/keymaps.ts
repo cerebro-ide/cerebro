@@ -25,8 +25,10 @@ export const INTELLIJ: KeymapPreset = {
   name: 'IntelliJ IDEA',
   bindings: {
     'symbol.goTo': ['Ctrl+Alt+Shift+N'],
+    'class.goTo': ['Ctrl+N'],
     'file.goTo': ['Ctrl+Shift+N'],
-    'search.everywhere': ['Ctrl+Shift+A'],
+    'search.everywhere': ['Shift Shift'],
+    'action.find': ['Ctrl+Shift+A'],
     'find.inFiles': ['Ctrl+Shift+F'],
     'replace.inFiles': ['Ctrl+Shift+R'],
     'navigate.back': ['Ctrl+Alt+Left'],
@@ -71,8 +73,10 @@ export const INTELLIJ_MAC: KeymapPreset = {
   name: 'IntelliJ IDEA (macOS)',
   bindings: {
     'symbol.goTo': ['Meta+Alt+O'],
+    'class.goTo': ['Meta+O'],
     'file.goTo': ['Meta+Shift+O'],
-    'search.everywhere': ['Meta+Shift+A'],
+    'search.everywhere': ['Shift Shift'],
+    'action.find': ['Meta+Shift+A'],
     'find.inFiles': ['Meta+Shift+F'],
     'replace.inFiles': ['Meta+Shift+R'],
     'navigate.back': ['Meta+[', 'Meta+Alt+Left'],
@@ -116,9 +120,12 @@ export const VSCODE: KeymapPreset = {
   name: 'VS Code',
   parent: INTELLIJ,
   bindings: {
-    'search.everywhere': ['Ctrl+Shift+P', 'F1'],
+    // The Command Palette: commands, as Find Action's tab.
+    'action.find': ['Ctrl+Shift+P', 'F1'],
     'file.goTo': ['Ctrl+P'],
     'symbol.goTo': ['Ctrl+T'],
+    // VS Code has no Go to Class; IntelliJ's Ctrl+N is its New File.
+    'class.goTo': [],
     'file.settings': ['Ctrl+,'],
     'find.inFiles': ['Ctrl+Shift+F'],
     'replace.inFiles': ['Ctrl+Shift+H'],
@@ -148,9 +155,11 @@ export const VSCODE_MAC: KeymapPreset = {
   name: 'VS Code (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
-    'search.everywhere': ['Meta+Shift+P', 'F1'],
+    'action.find': ['Meta+Shift+P', 'F1'],
     'file.goTo': ['Meta+P'],
     'symbol.goTo': ['Meta+T'],
+    // No Go to Class, as on Windows; IntelliJ's Cmd+O would be VS Code's Open.
+    'class.goTo': [],
     'file.settings': ['Meta+,'],
     'find.inFiles': ['Meta+Shift+F'],
     'replace.inFiles': ['Meta+Shift+H'],

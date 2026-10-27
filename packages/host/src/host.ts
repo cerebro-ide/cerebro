@@ -116,9 +116,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     index.warm(text(params, 'worktree'));
     return null;
   });
-  connection.onRequest('index.symbols', (params) =>
-    index.symbols(text(params, 'worktree'), text(params, 'query')),
-  );
+  connection.onRequest('index.symbols', (params) => {
+    // Only of these kinds, when given: Search Everywhere's Classes.
+    const { kinds } = params as { kinds?: unknown };
+    if (
+      kinds !== undefined &&
+      !(Array.isArray(kinds) && kinds.every((k) => typeof k === 'string'))
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'kinds must be strings');
+    }
+    return index.symbols(text(params, 'worktree'), text(params, 'query'), kinds);
+  });
   connection.onRequest('index.definitions', (params) =>
     index.definitions(text(params, 'worktree'), text(params, 'name')),
   );

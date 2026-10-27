@@ -170,10 +170,18 @@ function Toggle(props: { label: string; text: string; on: () => boolean; toggle:
   );
 }
 
-/** The highlighted line's file, read-only, scrolled to the line. */
-function Preview(props: { match: TextMatch }) {
+/** A place in a file, its match from `column` to `end`: what a preview shows. */
+export interface Place {
+  path: string;
+  line: number;
+  column: number;
+  end?: number;
+}
+
+/** A file, read-only, scrolled to a place and its match selected, as IntelliJ's previews. */
+export function Preview(props: { at: Place }) {
   const text = signal<string | undefined>(undefined);
-  void documentFor(props.match.path, () => '').then((doc) => {
+  void documentFor(props.at.path, () => '').then((doc) => {
     text.set('error' in doc ? '' : doc.content());
   });
   return (
@@ -183,19 +191,25 @@ function Preview(props: { match: TextMatch }) {
         if (content === undefined) return null;
         return (
           <CodeEditor
-            path={props.match.path}
+            path={props.at.path}
             text={content}
-            // The first match on the line, selected, as IntelliJ's preview highlights it.
-            reveal={() => {
-              const [from, to] = props.match.ranges[0] ?? [0, 0];
-              return { line: props.match.line, column: from, end: to };
-            }}
+            reveal={() => ({
+              line: props.at.line,
+              column: props.at.column,
+              end: props.at.end ?? props.at.column,
+            })}
             revealFocus={false}
           />
         );
       }}
     </div>
   );
+}
+
+/** A line found's first match, as a place. */
+export function placeOf(match: TextMatch): Place {
+  const [from, to] = match.ranges[0] ?? [0, 0];
+  return { path: match.path, line: match.line, column: from, end: to };
 }
 
 export interface FindOptions {
@@ -509,7 +523,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
       const result = found.get();
       return !result || 'error' in result ? [] : result.matches.map(choiceOf);
     },
-    preview: (item) => (item ? <Preview match={item.match} /> : null),
+    preview: (item) => (item ? <Preview at={placeOf(item.match)} /> : null),
     onQueryChange: (text) => {
       query.set(text);
       search();

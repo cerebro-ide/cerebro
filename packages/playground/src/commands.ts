@@ -4,6 +4,7 @@ import {
   chordFromEvent,
   displayText,
   formatSequence,
+  ModifierTaps,
   CommandRegistry,
   KeyDispatcher,
   Keymap,
@@ -13,10 +14,11 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { active, currentHost, hostFor } from './environments.js';
+import type { Place } from './find.js';
 import { openFolder } from './projects.js';
+import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
 import { icon } from './icons.js';
 import { PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
@@ -53,11 +55,28 @@ export function setDark(value: boolean): void {
   save(globalSettings, ['global']);
 }
 
+/** Search Everywhere's commands: not listed among its own actions. */
+const EVERYWHERE = new Set([
+  'search.everywhere',
+  'class.goTo',
+  'file.goTo',
+  'symbol.goTo',
+  'action.find',
+]);
+
 export function setupCommands(
   activeEditor: () => EditorArea | undefined,
   tools: ToolWindows,
   files: readonly string[],
   tabOf: (path: string) => Tab,
+  navigation: {
+    /** Opens a file at a place, as a step Back can return from. */
+    openAt: (at: Place) => void;
+    /** The active environment's Recent Files, most recent first. */
+    recent: () => readonly Tab[];
+    /** Whether the host's index can be searched. */
+    available: () => boolean;
+  },
 ): MenuServices {
   const platform: Platform = navigator.platform.includes('Mac') ? 'mac' : 'other';
   const commands = new CommandRegistry();
@@ -66,15 +85,23 @@ export function setupCommands(
   const ed = activeEditor;
   const group = (c: TabContext) => (ed() as EditorArea).group(c.group);
 
-  /** Files as popup items: the name, with its directory after it; `open` opens the path. */
-  const toItems = (paths: readonly string[], open: (path: string) => void) =>
-    paths.map((path): PickerItem & { run: () => void } => {
+  /**
+   * Files as popup items: the name, with its directory after it; `open` opens the path. With
+   * `absolute`, the file's own path, for a preview.
+   */
+  const toItems = (
+    paths: readonly string[],
+    open: (path: string) => void,
+    absolute?: (path: string) => string,
+  ) =>
+    paths.map((path): Result => {
       const slash = path.lastIndexOf('/');
       return {
         label: path.slice(slash + 1),
         ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
         group: 'Files',
         icon: () => icon('file'),
+        ...(absolute ? { at: { path: absolute(path), line: 0, column: 0 } } : {}),
         run: () => {
           open(path);
         },
@@ -82,7 +109,7 @@ export function setupCommands(
     });
   const sampleItems = toItems(files, (path) => ed()?.open(tabOf(path)));
   /** Each worktree's files from the host, as items; refreshed each time a popup opens. */
-  const worktreeItems = new Map<string, Signal<(PickerItem & { run: () => void })[]>>();
+  const worktreeItems = new Map<string, Signal<Result[]>>();
   const refreshFiles = () => {
     const env = active();
     if (!env) return;
@@ -90,15 +117,18 @@ export function setupCommands(
     if (!host) return;
     let items = worktreeItems.get(env.id);
     if (!items) {
-      items = signal<(PickerItem & { run: () => void })[]>([]);
+      items = signal<Result[]>([]);
       worktreeItems.set(env.id, items);
     }
     const target = items;
     host.request('git.files', { path: env.id }).then(
       (paths) => {
         target.set(
-          toItems(paths as string[], (path) =>
-            ed()?.open({ id: `${env.id}/${path}`, title: path.split('/').at(-1) as string }),
+          toItems(
+            paths as string[],
+            (path) =>
+              ed()?.open({ id: `${env.id}/${path}`, title: path.split('/').at(-1) as string }),
+            (path) => `${env.id}/${path}`,
           ),
         );
       },
@@ -114,8 +144,8 @@ export function setupCommands(
   /** Enabled commands as popup items, with their shortcuts. */
   const actionItems = () =>
     [...commands.commands.values()]
-      .filter((c) => c.id !== 'search.everywhere' && commands.isEnabled(c.id))
-      .map((c): PickerItem & { run: () => void } => {
+      .filter((c) => !EVERYWHERE.has(c.id) && commands.isEnabled(c.id))
+      .map((c): Result => {
         const key = keymap.shortcutsFor(c.id)[0];
         return {
           label: displayText(c.label, c.dialog),
@@ -171,21 +201,6 @@ export function setupCommands(
     label: 'Copy &Path',
     enabled: (c?: TabContext) => c !== undefined,
     run: (c) => navigator.clipboard.writeText(c.tab),
-  });
-  commands.register({
-    id: 'file.goTo',
-    label: '&Go to File',
-    dialog: true,
-    run: async () => {
-      refreshFiles();
-      const file = await openPicker({
-        label: 'Go to File',
-        placeholder: 'Type a file name',
-        position: 'top',
-        items: (query) => fuzzyFilter(fileItems(), query),
-      }).result;
-      file?.run();
-    },
   });
   commands.register({
     id: 'view.darkTheme',
@@ -295,26 +310,53 @@ export function setupCommands(
     const key = TOOL_SHORTCUTS[tool.id];
     if (key) keymap.bindDefault(key, `view.tool.${tool.id}`);
   }
-  commands.register({
-    id: 'search.everywhere',
-    label: '&Search Everywhere',
-    dialog: true,
-    icon: 'search',
-    // A sample of IntelliJ's: files, then actions, filtered together.
-    run: async () => {
-      refreshFiles();
-      const item = await openPicker({
-        label: 'Search Everywhere',
-        placeholder: 'Type a file or action name',
-        position: 'top',
-        items: (query) => [
-          ...fuzzyFilter(fileItems(), query),
-          ...fuzzyFilter(actionItems(), query),
-        ],
-      }).result;
-      item?.run();
-    },
-  });
+  // Search Everywhere, and the commands that open it on one of its tabs, as IntelliJ's.
+  /** The active environment's Recent Files, as results. */
+  const recentItems = () => {
+    const env = active();
+    const tabs = navigation.recent();
+    if (!env || !currentHost())
+      return toItems(
+        tabs.map((tab) => tab.id),
+        (path) => ed()?.open(tabOf(path)),
+      );
+    const prefix = `${env.id}/`;
+    return toItems(
+      tabs.filter((tab) => tab.id.startsWith(prefix)).map((tab) => tab.id.slice(prefix.length)),
+      (path) => ed()?.open({ id: `${prefix}${path}`, title: path.split('/').at(-1) as string }),
+      (path) => `${prefix}${path}`,
+    );
+  };
+  const everywhere = (tab: SearchTab) => {
+    refreshFiles();
+    return searchEverywhere(
+      {
+        files: fileItems,
+        recent: recentItems,
+        actions: actionItems,
+        open: navigation.openAt,
+      },
+      tab,
+    );
+  };
+  const entries: { id: string; label: string; tab: SearchTab; index?: boolean; icon?: string }[] = [
+    { id: 'search.everywhere', label: '&Search Everywhere', tab: 'all', icon: 'search' },
+    { id: 'class.goTo', label: 'Go to &Class', tab: 'classes', index: true },
+    { id: 'file.goTo', label: '&Go to File', tab: 'files' },
+    { id: 'symbol.goTo', label: 'Go to S&ymbol', tab: 'symbols', index: true },
+    { id: 'action.find', label: 'Find &Action', tab: 'actions' },
+  ];
+  for (const entry of entries) {
+    commands.register({
+      id: entry.id,
+      label: entry.label,
+      dialog: true,
+      ...(entry.icon === undefined ? {} : { icon: entry.icon }),
+      // Classes and Symbols are the host's index's: the app's only.
+      ...(entry.index ? { enabled: navigation.available } : {}),
+      run: () => everywhere(entry.tab),
+    });
+  }
   commands.register({
     id: 'help.about',
     label: '&About Cerebro',
@@ -365,11 +407,15 @@ export function setupCommands(
   });
   menus.contribute({ menu: 'editor/tab', item: { command: 'editor.copyPath' }, group: 'c-path' });
   menus.contribute({ menu: 'editor/content', item: { command: 'file.goTo' }, group: 'a' });
+  menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
 
   keymap.bindDefault('Ctrl+F4', 'editor.close');
   keymap.bindDefault('Mod+Alt+N', 'file.new');
   keymap.bindDefault('Mod+Alt+S', 'file.settings');
-  keymap.bindDefault('Mod+Shift+A', 'search.everywhere');
+  keymap.bindDefault('Shift Shift', 'search.everywhere');
+  keymap.bindDefault('Mod+Shift+A', 'action.find');
+  keymap.bindDefault('Mod+N', 'class.goTo');
+  keymap.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
   keymap.bindDefault('Mod+Z', 'edit.undo');
   keymap.bindDefault('Mod+Shift+Z', 'edit.redo');
   keymap.bindDefault('Mod+X', 'edit.cut');
@@ -387,7 +433,14 @@ export function setupCommands(
 
   // Shortcuts act on the active tab. Keys an open menu handles never get here.
   const dispatcher = new KeyDispatcher(keymap, commands);
+  // A modifier tapped twice on its own: IntelliJ's double Shift.
+  const taps = new ModifierTaps();
+  window.addEventListener('keyup', (event) => {
+    const sequence = taps.keyup(event);
+    if (sequence !== undefined) dispatcher.press(sequence);
+  });
   window.addEventListener('keydown', (event) => {
+    taps.keydown(event);
     const chord = chordFromEvent(event);
     if (chord === undefined) return;
     const active = ed()?.activeGroup;
@@ -397,6 +450,7 @@ export function setupCommands(
   });
   // Leaving the window abandons a started sequence.
   window.addEventListener('blur', () => {
+    taps.reset();
     dispatcher.cancel();
   });
 

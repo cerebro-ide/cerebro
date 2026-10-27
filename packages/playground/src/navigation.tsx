@@ -1,6 +1,6 @@
-// Navigation: Go to Symbol by name, through the host's index; and go to definition and find usages
-// from the editor, asking the file's language server first (meanings, not names) and the index when
-// none answers. The index matches names, not meanings, so its lists say "Name matches".
+// Navigation: go to definition and find usages from the editor, asking the file's language server
+// first (meanings, not names) and the index when none answers. The index matches names, not
+// meanings, so its lists say "Name matches". Go to Symbol is Search Everywhere's.
 
 import {
   NavigationHistory,
@@ -9,7 +9,7 @@ import {
   type Environment,
   type Position,
 } from '@cerebro-ide/layout';
-import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
+import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
@@ -155,26 +155,6 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     openAt,
     /** Whether navigation by name works here: the app, on a real repository. */
     available: () => currentHost() !== undefined && active() !== undefined,
-
-    async goToSymbol() {
-      const results = signal<Choice[]>([]);
-      let latest = 0;
-      const chosen = await openPicker<Choice>({
-        label: 'Go to Symbol',
-        placeholder: 'Type a class, function or other name',
-        position: 'top',
-        empty: 'No symbols found',
-        items: () => results.get(),
-        onQueryChange: (query) => {
-          const asked = ++latest;
-          void request('index.symbols', { query }).then((found) => {
-            // Only the latest query's answer counts.
-            if (asked === latest) results.set(found.map((s) => choice(s, s.name ?? '')));
-          });
-        },
-      }).result;
-      if (chosen) openAt(chosen.at);
-    },
 
     /** Starts the file's language server, if it has one, so it's ready when asked. */
     opened(path: string, text: string) {

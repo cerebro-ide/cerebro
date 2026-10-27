@@ -152,7 +152,13 @@ const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as st
 /** The active environment's editor area, if an environment is open. */
 const editor = () => active()?.editor;
 
-const services = setupCommands(editor, layout.toolWindows, FILES, tabOf);
+// Navigation by name, through the host's index; Search Everywhere's commands open places with it.
+const navigation = setupNavigation(editor);
+const services = setupCommands(editor, layout.toolWindows, FILES, tabOf, {
+  openAt: navigation.openAt,
+  recent: () => recentTabs()?.tabs ?? [],
+  available: navigation.available,
+});
 /**
  * Closes the active project: its tabs, then its host. The window's last closes the window, which
  * saves the files first.
@@ -193,17 +199,6 @@ const plugins = new PluginRegistry({
 });
 await plugins.add(notesPlugin);
 
-// Navigation by name, through the host's index.
-const navigation = setupNavigation(editor);
-services.commands.register({
-  id: 'symbol.goTo',
-  label: 'Go to S&ymbol',
-  dialog: true,
-  enabled: navigation.available,
-  run: () => navigation.goToSymbol(),
-});
-services.keymap?.bindDefault('Mod+Alt+Shift+N', 'symbol.goTo');
-services.menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
 // Find in Files and Replace in Files, through the host: Edit → Find, as IntelliJ's. What's found
 // can go to the Find tool window, which appears the first time, as IntelliJ's.
 const inFindWindow = (occurrences: Occurrences) => {
