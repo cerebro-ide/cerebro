@@ -29,7 +29,6 @@ const electron = vi.hoisted(() => {
       id: ++ids,
       setZoomFactor: vi.fn(),
       send: vi.fn(),
-      reload: vi.fn(),
       executeJavaScript: vi.fn((): Promise<unknown> => Promise.resolve()),
       setWindowOpenHandler: (handler: Listener) => {
         this.openHandler = handler;
@@ -197,9 +196,9 @@ describe('saveFiles', () => {
 });
 
 describe('projectWindow', () => {
-  it('acts on its window until it closes, then does nothing', async () => {
+  it('acts on its window until it closes, then does nothing', () => {
     vi.stubEnv('CEREBRO_DEV_URL', '');
-    const window = projectWindow('/work/a');
+    const window = projectWindow(false);
     vi.unstubAllEnvs();
     const fake = electron.windows[0] as FakeWindow;
     expect(window.id).toBe(fake.webContents.id);
@@ -213,32 +212,22 @@ describe('projectWindow', () => {
     window.focus();
     expect(fake.restore).toHaveBeenCalled();
     expect(fake.focus).toHaveBeenCalledTimes(2);
-    window.reload();
-    // After its page saved its files.
-    expect(fake.webContents.executeJavaScript).toHaveBeenCalledWith(
-      'globalThis.cerebroSaveAll?.()',
-    );
-    await vi.waitFor(() => {
-      expect(fake.webContents.reload).toHaveBeenCalledOnce();
-    });
     window.close();
     expect(fake.close).toHaveBeenCalledOnce();
     (fake.listeners.get('closed') as Listener)();
     expect(closed).toHaveBeenCalled();
     window.send('channel', 2);
     window.focus();
-    window.reload();
     window.close();
     expect(fake.webContents.send).toHaveBeenCalledOnce();
     expect(fake.focus).toHaveBeenCalledTimes(2);
-    expect(fake.webContents.reload).toHaveBeenCalledOnce();
     expect(fake.close).toHaveBeenCalledOnce();
   });
 
   it('has its page save its files before it closes, then quits again if the app was quitting', async () => {
     vi.stubEnv('CEREBRO_DEV_URL', '');
     installProjects(host.hosts as never, new ProjectStore(join(folder(), 'projects.json')));
-    projectWindow('/work/a');
+    projectWindow(false);
     vi.unstubAllEnvs();
     const fake = electron.windows[0] as FakeWindow;
     const close = fake.listeners.get('close') as Listener;
@@ -255,7 +244,7 @@ describe('projectWindow', () => {
     expect(again.preventDefault).not.toHaveBeenCalled();
     // While quitting, the app quits again once the page has saved.
     (electron.appListeners.get('before-quit') as Listener)();
-    projectWindow('/work/b');
+    projectWindow(false);
     const other = electron.windows[1] as FakeWindow;
     (other.listeners.get('close') as Listener)({ preventDefault: vi.fn() });
     await vi.waitFor(() => {
@@ -264,31 +253,13 @@ describe('projectWindow', () => {
     expect(other.close).not.toHaveBeenCalled();
   });
 
-  it('doesn’t reload a window closed while its page was saving', async () => {
-    vi.stubEnv('CEREBRO_DEV_URL', '');
-    const window = projectWindow('/work/a');
-    vi.unstubAllEnvs();
-    const fake = electron.windows[0] as FakeWindow;
-    let finish: (value: unknown) => void = () => undefined;
-    fake.webContents.executeJavaScript.mockReturnValueOnce(
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-    );
-    window.reload();
-    (fake.listeners.get('closed') as Listener)();
-    finish(undefined);
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fake.webContents.reload).not.toHaveBeenCalled();
-  });
-
   it('says when its page can’t load, and logs it in the app’s data folder', async () => {
     const data = folder();
     electron.app.getPath.mockReturnValueOnce(data);
     vi.stubEnv('CEREBRO_DEV_URL', '');
     electron.BrowserWindow.failLoad = true;
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    projectWindow(undefined);
+    projectWindow(true);
     vi.unstubAllEnvs();
     await vi.waitFor(() => {
       expect(error).toHaveBeenCalledWith('The window could not load', expect.any(Error));
@@ -300,7 +271,7 @@ describe('projectWindow', () => {
   it('logs what goes wrong in its page', () => {
     const data = folder();
     electron.app.getPath.mockReturnValueOnce(data);
-    projectWindow('/somewhere');
+    projectWindow(false);
     const fake = electron.windows[0] as FakeWindow;
     (fake.contentListeners.get('render-process-gone') as Listener)(
       {},
@@ -311,18 +282,17 @@ describe('projectWindow', () => {
 });
 
 describe('installProjects', () => {
-  it('tells a page its project, lists the recent ones, and forgets one', async () => {
+  it('tells a page its projects, lists the recent ones, and forgets one', async () => {
     const a = folder();
     const store = new ProjectStore(join(folder(), 'projects.json'));
     store.opened('/gone');
     const windows = installProjects(host.hosts as never, store);
     windows.start(a);
     const window = electron.windows[0] as FakeWindow;
-    expect(await ask(PROJECT_CURRENT, window)).toEqual({
-      path: a,
-      name: expect.any(String) as unknown,
-    });
-    expect(await ask(PROJECT_CURRENT, undefined)).toBeNull();
+    expect(await ask(PROJECT_CURRENT, window)).toEqual([
+      { path: a, name: expect.any(String) as unknown },
+    ]);
+    expect(await ask(PROJECT_CURRENT, undefined)).toEqual([]);
     expect(await ask(PROJECT_RECENT, window)).toEqual([
       expect.objectContaining({ path: a, exists: true }),
       expect.objectContaining({ path: '/gone', exists: false }),
@@ -358,13 +328,14 @@ describe('installProjects', () => {
     expect(() => ask(PROJECT_OPEN, undefined, '', 'new')).toThrow('path must be a path');
     ask(PROJECT_OPEN, undefined, a, 'new');
     ask(PROJECT_OPEN, electron.windows[0], b, 'new');
-    expect(store.open).toEqual([a, b]);
+    expect(store.open).toEqual([[a], [b]]);
     expect(host.hosts.attach).toHaveBeenCalledTimes(2);
-    ask(PROJECT_CLOSE, electron.windows[0]);
-    expect(store.open).toEqual([b]);
+    expect(() => ask(PROJECT_CLOSE, electron.windows[0])).toThrow('path must be a path');
+    ask(PROJECT_CLOSE, electron.windows[0], a);
+    expect(store.open).toEqual([[b]]);
     (electron.appListeners.get('before-quit') as Listener)();
     (electron.windows[1]?.listeners.get('closed') as Listener)();
-    expect(store.open).toEqual([b]);
+    expect(store.open).toEqual([[b]]);
   });
 });
 

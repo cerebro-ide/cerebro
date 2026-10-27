@@ -2,12 +2,18 @@ import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it, vi, type Mock } from 'vitest';
-import { ProjectStore, ProjectWindows, type ProjectWindow } from '../src/projects.js';
+import {
+  PROJECT_ADDED,
+  PROJECT_SHOW,
+  ProjectStore,
+  ProjectWindows,
+  type ProjectWindow,
+} from '../src/projects.js';
 
 const folder = () => mkdtempSync(join(tmpdir(), 'cerebro-projects-'));
 
 describe('ProjectStore', () => {
-  it('starts empty, and keeps what was opened, the latest first, for the next start', () => {
+  it('starts empty, and keeps what was opened, the latest first, and what’s open by window', () => {
     const file = join(folder(), 'data', 'projects.json');
     let time = 0;
     const store = new ProjectStore(file, () => ++time);
@@ -20,12 +26,11 @@ describe('ProjectStore', () => {
       { path: '/work/a', name: 'a', opened: 3 },
       { path: '/work/b', name: 'b', opened: 2 },
     ]);
-    expect(store.open).toEqual(['/work/a', '/work/b']);
-    store.closed('/work/a');
+    store.setOpen([['/work/a', '/work/c'], ['/work/b']]);
     store.forget('/work/b');
     const again = new ProjectStore(file);
     expect(again.recent).toEqual([{ path: '/work/a', name: 'a', opened: 3 }]);
-    expect(again.open).toEqual(['/work/b']);
+    expect(again.open).toEqual([['/work/a', '/work/c'], ['/work/b']]);
   });
 
   it('keeps 20 recent projects, and names a root by its path', () => {
@@ -44,12 +49,13 @@ describe('ProjectStore', () => {
       file,
       JSON.stringify({
         recent: [{ path: '/a' }, { path: '/b', name: 'b', opened: 1 }],
-        open: ['/b', 5],
+        // A path alone, as saved before windows had several projects, is a window of its own.
+        open: ['/b', 5, ['/c', '/d'], [], ['/e', 6]],
       }),
     );
     const store = new ProjectStore(file);
     expect(store.recent).toEqual([{ path: '/b', name: 'b', opened: 1 }]);
-    expect(store.open).toEqual(['/b']);
+    expect(store.open).toEqual([['/b'], ['/c', '/d']]);
     writeFileSync(file, '{');
     expect(new ProjectStore(file).recent).toEqual([]);
     writeFileSync(file, '{}');
@@ -66,29 +72,28 @@ describe('ProjectStore', () => {
 });
 
 interface FakeWindow extends ProjectWindow {
-  project: string | undefined;
+  welcome: boolean;
   focus: Mock;
-  reload: Mock;
+  send: Mock;
   /** Closes it as the user would. */
   closeNow: () => void;
 }
 
 /** Fake windows, the hosts they get, and the folders that exist. */
-function setup(open: string[] = [], exists = (path: string) => !path.includes('missing')) {
+function setup(open: string[][] = [], exists = (path: string) => !path.includes('missing')) {
   const dir = folder();
   const store = new ProjectStore(join(dir, 'projects.json'));
-  for (const path of open) store.opened(path);
+  store.setOpen(open);
   const windows: FakeWindow[] = [];
   let ids = 0;
   const hosts = { attach: vi.fn(), detach: vi.fn() };
-  const create = (project: string | undefined) => {
+  const create = (welcome: boolean) => {
     const listeners: (() => void)[] = [];
     const window: FakeWindow = {
       id: ++ids,
-      project,
+      welcome,
       send: vi.fn(),
       focus: vi.fn(),
-      reload: vi.fn(),
       close: vi.fn(() => {
         window.closeNow();
       }),
@@ -102,45 +107,52 @@ function setup(open: string[] = [], exists = (path: string) => !path.includes('m
     return window;
   };
   const projects = new ProjectWindows({ store, hosts, create, exists });
-  return { store, hosts, windows, projects };
+  /** Each window's projects, or 'welcome'. */
+  const shown = () => windows.map((w) => (w.welcome ? 'welcome' : [...projects.projectsOf(w.id)]));
+  return { store, hosts, windows, projects, shown };
 }
 
 const a = resolve('/work/a');
 const b = resolve('/work/b');
+const c = resolve('/work/c');
 
 describe('ProjectWindows', () => {
   it('opens CEREBRO_REPO’s project, else those open at the last quit that are there, else Welcome', () => {
-    const repo = setup([a]);
+    const repo = setup([[a]]);
     repo.projects.start('/work/b');
-    expect(repo.windows.map((w) => w.project)).toEqual([b]);
+    expect(repo.shown()).toEqual([[b]]);
     expect(repo.hosts.attach).toHaveBeenCalledWith(repo.windows[0], b);
-    expect(repo.projects.projectOf(1)).toBe(b);
-    const last = setup([a, resolve('/missing'), b]);
+    const last = setup([[a, resolve('/missing')], [resolve('/missing')], [b, c]]);
     last.projects.start();
-    expect(last.windows.map((w) => w.project)).toEqual([a, b]);
+    expect(last.shown()).toEqual([[a], [b, c]]);
+    expect(last.hosts.attach).toHaveBeenCalledTimes(3);
+    expect(last.store.open).toEqual([[a], [b, c]]);
     const none = setup();
     none.projects.start();
-    expect(none.windows.map((w) => w.project)).toEqual([undefined]);
-    expect(none.projects.projectOf(1)).toBeUndefined();
+    expect(none.shown()).toEqual(['welcome']);
+    expect(none.projects.projectsOf(1)).toEqual([]);
     expect(none.hosts.attach).not.toHaveBeenCalled();
   });
 
-  it('opens a project in a new window, or in the asking one, and brings one open to the front', () => {
-    const { projects, windows, hosts, store } = setup();
+  it('opens a project in a new window, or as tabs in the asking one, and shows one already open', () => {
+    const { projects, windows, hosts, store, shown } = setup();
     projects.start(a);
-    const first = windows[0] as (typeof windows)[number];
+    const first = windows[0] as FakeWindow;
     projects.open('/work/b', 'new', first.id);
-    expect(windows.map((w) => w.project)).toEqual([a, b]);
-    expect(store.open).toEqual([a, b]);
-    projects.open('/work/a', 'this', 2);
-    expect(first.focus).toHaveBeenCalled();
-    expect(windows).toHaveLength(2);
-    const c = resolve('/work/c');
+    expect(shown()).toEqual([[a], [b]]);
+    expect(store.open).toEqual([[a], [b]]);
+    // This Window: the project joins it, its page told, with a host of its own.
     projects.open('/work/c', 'this', first.id);
-    expect(projects.projectOf(first.id)).toBe(c);
+    expect(shown()).toEqual([[a, c], [b]]);
     expect(hosts.attach).toHaveBeenLastCalledWith(first, c);
-    expect(first.reload).toHaveBeenCalled();
-    expect(store.open).toEqual([b, c]);
+    expect(first.send).toHaveBeenCalledWith(PROJECT_ADDED, { path: c, name: 'c' });
+    expect(store.open).toEqual([[a, c], [b]]);
+    expect(store.recent[0]?.path).toBe(c);
+    // Open already: its window comes to the front, and its page shows it.
+    projects.open('/work/c', 'this', 2);
+    expect(first.focus).toHaveBeenCalled();
+    expect(first.send).toHaveBeenLastCalledWith(PROJECT_SHOW, c);
+    expect(windows).toHaveLength(2);
     expect(() => {
       projects.open('/missing', 'new');
     }).toThrow('is not a folder that can be opened');
@@ -150,41 +162,49 @@ describe('ProjectWindows', () => {
   });
 
   it('gives the Welcome window’s place to the project it opens', () => {
-    const { projects, windows } = setup();
+    const { projects, shown } = setup();
     projects.start();
     projects.open('/work/a', 'this', 1);
-    expect(windows.map((w) => w.project)).toEqual([a]);
+    expect(shown()).toEqual([[a]]);
   });
 
-  it('closes a project’s window, showing Welcome after the last; Welcome has none to close', () => {
-    const { projects, windows, store, hosts } = setup([a, b]);
+  it('closes a project, its host and, with its last, its window; Welcome shows after the last', () => {
+    const { projects, store, hosts, shown, windows } = setup([[a, c], [b]]);
     projects.start();
-    projects.close(1);
-    expect(windows.map((w) => w.project)).toEqual([b]);
-    expect(hosts.detach).toHaveBeenCalledOnce();
-    projects.close(2);
-    expect(windows.map((w) => w.project)).toEqual([undefined]);
+    const first = windows[0] as FakeWindow;
+    projects.close(first.id, c);
+    expect(shown()).toEqual([[a], [b]]);
+    expect(hosts.detach).toHaveBeenCalledWith(first, c);
+    expect(store.open).toEqual([[a], [b]]);
+    // Not one of the window's: nothing.
+    projects.close(first.id, b);
+    expect(shown()).toEqual([[a], [b]]);
+    projects.close(first.id, a);
+    expect(shown()).toEqual([[b]]);
+    expect(store.open).toEqual([[b]]);
+    projects.close(2, b);
+    expect(shown()).toEqual(['welcome']);
     expect(store.open).toEqual([]);
-    projects.close(3);
-    projects.close(99);
+    projects.close(3, b);
+    projects.close(99, b);
     expect(windows).toHaveLength(1);
   });
 
-  it('reopens the last project closed with its window, but not one closed beside others', () => {
-    const { projects, windows, store } = setup([a, b]);
+  it('reopens the last window’s projects when it closes, but not those of one closed beside others', () => {
+    const { projects, windows, store } = setup([[a, c], [b]]);
     projects.start();
     windows[0]?.closeNow();
-    expect(store.open).toEqual([b]);
+    expect(store.open).toEqual([[b]]);
     windows[0]?.closeNow();
-    expect(store.open).toEqual([b]);
+    expect(store.open).toEqual([[b]]);
   });
 
   it('keeps every project open when the app quits', () => {
-    const { projects, windows, store } = setup([a, b]);
+    const { projects, windows, store } = setup([[a], [b]]);
     projects.start();
     projects.quit();
     windows[0]?.closeNow();
     windows[0]?.closeNow();
-    expect(store.open).toEqual([a, b]);
+    expect(store.open).toEqual([[a], [b]]);
   });
 });

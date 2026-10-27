@@ -1,7 +1,7 @@
 // The host: started as a child process running Electron's own Node (ELECTRON_RUN_AS_NODE, so no
 // separate Node is needed), speaking JSON-RPC over its stdin and stdout, the transport WSL and ssh
-// will use too. One per project window, for its project; the page reaches it through IPC. A host
-// ends with its window, or with the app.
+// will use too. One per project open in a window (a window may show several, as tabs); the page
+// reaches each through IPC, naming the project. A host ends with its project, its window, or the app.
 
 import { spawn as nodeSpawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -67,41 +67,51 @@ export interface HostWindow {
 }
 
 /**
- * Each window's host, for the project it shows: a window's requests go to its own host, and its
- * host's notifications to it alone. A window without a project (the Welcome window) has none.
+ * The host of each project open in each window: a window's requests for a project go to that
+ * project's host, and a host's notifications to its window alone, with its project. A window
+ * without a project (the Welcome window) has none.
  */
 export class Hosts {
-  private readonly running = new Map<number, ReturnType<typeof startHost>>();
+  /** By window, then by project. */
+  private readonly running = new Map<number, Map<string, ReturnType<typeof startHost>>>();
 
   constructor(private readonly spawn: typeof nodeSpawn = nodeSpawn) {}
 
-  /** Starts a host for `repo` serving `window`, stopping the one it had. */
+  /** Starts a host for `repo` in `window`, stopping the one it had there. */
   attach(window: HostWindow, repo: string): void {
-    this.detach(window);
+    this.detach(window, repo);
     const host = startHost(repo, this.spawn);
     for (const method of FORWARDED) {
       host.connection.onNotification(method, (params) => {
-        window.send(HOST_NOTIFICATION, method, params);
+        window.send(HOST_NOTIFICATION, repo, method, params);
       });
     }
-    this.running.set(window.id, host);
+    let hosts = this.running.get(window.id);
+    if (!hosts) this.running.set(window.id, (hosts = new Map()));
+    hosts.set(repo, host);
   }
 
-  /** Stops a window's host, if it has one. */
-  detach(window: HostWindow): void {
-    this.running.get(window.id)?.stop();
-    this.running.delete(window.id);
+  /** Stops the host of a project in a window, or without one, all of the window's. */
+  detach(window: HostWindow, repo?: string): void {
+    const hosts = this.running.get(window.id);
+    if (!hosts) return;
+    for (const [path, host] of hosts) {
+      if (repo !== undefined && path !== repo) continue;
+      host.stop();
+      hosts.delete(path);
+    }
+    if (hosts.size === 0) this.running.delete(window.id);
   }
 
-  /** Sends a request to the host of the window `id`. */
-  request(id: number, method: string, params: unknown): Promise<unknown> {
-    const host = this.running.get(id);
-    if (!host) throw new Error('This window has no project open');
+  /** Sends a request to the host of the project `repo` in the window `id`. */
+  request(id: number, repo: string, method: string, params: unknown): Promise<unknown> {
+    const host = this.running.get(id)?.get(repo);
+    if (!host) throw new Error(`This window has no project open at ${repo}`);
     return host.connection.request(method, params);
   }
 
   stopAll(): void {
-    for (const host of this.running.values()) host.stop();
+    for (const hosts of this.running.values()) for (const host of hosts.values()) host.stop();
     this.running.clear();
   }
 }
@@ -112,9 +122,10 @@ export class Hosts {
  */
 export function installHosts(spawn: typeof nodeSpawn = nodeSpawn): Hosts {
   const hosts = new Hosts(spawn);
-  ipcMain.handle(HOST_REQUEST, (event, method: unknown, params: unknown) => {
+  ipcMain.handle(HOST_REQUEST, (event, repo: unknown, method: unknown, params: unknown) => {
+    if (typeof repo !== 'string') throw new Error('A host request needs a project');
     if (typeof method !== 'string') throw new Error('A host request needs a method name');
-    return hosts.request(event.sender.id, method, params);
+    return hosts.request(event.sender.id, repo, method, params);
   });
   app.on('will-quit', () => {
     hosts.stopAll();

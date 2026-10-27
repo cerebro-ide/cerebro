@@ -1,7 +1,7 @@
 // Runs in the window before the page, sandboxed (so CommonJS): tells the page it runs in the app,
 // and on which platform, so it can leave room for the window controls; and on macOS lets it show
 // its menu as the application menu (see menu.ts), keep the display scale chosen (display.ts), open
-// and close projects (projects.ts), and reach its window's host (host.ts).
+// and close projects (projects.ts), and reach its projects' hosts (host.ts).
 
 // The CommonJS form of an import; verbatimModuleSyntax rules out `import … from` here.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -24,6 +24,20 @@ const PROJECT_PICK = 'cerebro:project:pick';
 const PROJECT_OPEN = 'cerebro:project:open';
 const PROJECT_CLOSE = 'cerebro:project:close';
 const PROJECT_FORGET = 'cerebro:project:forget';
+// Kept in step with projects.ts.
+const PROJECT_ADDED = 'cerebro:project:added';
+const PROJECT_SHOW = 'cerebro:project:show';
+
+/** Calls `listener` with each message on `channel`; returns a function that stops it. */
+function listen(channel: string, listener: (...args: unknown[]) => void): () => void {
+  const handler = (_event: unknown, ...args: unknown[]) => {
+    listener(...args);
+  };
+  electron.ipcRenderer.on(channel, handler);
+  return () => {
+    electron.ipcRenderer.off(channel, handler);
+  };
+}
 
 electron.contextBridge.exposeInMainWorld('cerebro', {
   app: true,
@@ -44,47 +58,46 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     },
   },
   project: {
-    /** The project this window shows, or null in the Welcome window. */
+    /** The projects this window shows, in the order they were opened; none in the Welcome window. */
     current: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CURRENT),
     /** The projects opened recently, the latest first, each saying whether it's still there. */
     recent: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_RECENT),
     /** Asks for a folder with the system's dialog; null if none was chosen. */
     pick: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_PICK),
-    /** Opens a project in this window or a new one. */
+    /** Opens a project in this window, as more tabs, or a new one. */
     open: (path: string, where: 'this' | 'new'): Promise<unknown> =>
       electron.ipcRenderer.invoke(PROJECT_OPEN, path, where),
-    /** Closes this window's project. */
-    close: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CLOSE),
+    /** Closes one of this window's projects; its last closes the window. */
+    close: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CLOSE, path),
+    /** Calls `listener` with each project that joins this window. */
+    onAdded: (listener: (project: unknown) => void) => listen(PROJECT_ADDED, listener),
+    /** Calls `listener` with a project of this window's asked to open again: show it. */
+    onShow: (listener: (path: unknown) => void) => listen(PROJECT_SHOW, listener),
     /** Removes a project from the recent ones. */
     forget: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_FORGET, path),
   },
   host: {
-    /** Sends a request to the host; resolves with its result. */
-    request: (method: string, params?: unknown): Promise<unknown> =>
-      electron.ipcRenderer.invoke(HOST_REQUEST, method, params),
-    /** Calls `listener` with each notification from the host; returns a function that stops it. */
-    onNotification: (listener: (method: string, params: unknown) => void) => {
-      const handler = (_event: unknown, method: unknown, params: unknown) => {
-        if (typeof method === 'string') listener(method, params);
-      };
-      electron.ipcRenderer.on(HOST_NOTIFICATION, handler);
-      return () => {
-        electron.ipcRenderer.off(HOST_NOTIFICATION, handler);
-      };
-    },
+    /** Sends a request to a project's host; resolves with its result. */
+    request: (project: string, method: string, params?: unknown): Promise<unknown> =>
+      electron.ipcRenderer.invoke(HOST_REQUEST, project, method, params),
+    /**
+     * Calls `listener` with each notification from the hosts, with the project of the host it
+     * came from; returns a function that stops it.
+     */
+    onNotification: (listener: (project: string, method: string, params: unknown) => void) =>
+      listen(HOST_NOTIFICATION, (project, method, params) => {
+        if (typeof project === 'string' && typeof method === 'string') {
+          listener(project, method, params);
+        }
+      }),
   },
   menu: {
     set: (items: unknown) => {
       electron.ipcRenderer.send(SET_MENU, items);
     },
-    onCommand: (listener: (command: string) => void) => {
-      const handler = (_event: unknown, command: unknown) => {
+    onCommand: (listener: (command: string) => void) =>
+      listen(MENU_COMMAND, (command) => {
         if (typeof command === 'string') listener(command);
-      };
-      electron.ipcRenderer.on(MENU_COMMAND, handler);
-      return () => {
-        electron.ipcRenderer.off(MENU_COMMAND, handler);
-      };
-    },
+      }),
   },
 });

@@ -115,7 +115,7 @@ function fakeWindow(id: number) {
 }
 
 describe('Hosts', () => {
-  it('starts a host per window for its project, routing requests and notifications by window', async () => {
+  it('starts a host per project in a window, routing requests and notifications by both', async () => {
     const one = fakeChild();
     const hosts = new Hosts(one.spawn as never);
     const window = fakeWindow(1);
@@ -124,28 +124,42 @@ describe('Hosts', () => {
       '/repo',
     );
     const next = one.sent();
-    const answer = hosts.request(1, 'git.worktrees', { repo: '/x' });
+    const answer = hosts.request(1, '/repo', 'git.worktrees', { repo: '/x' });
     expect(await next).toMatchObject({ method: 'git.worktrees', params: { repo: '/x' } });
     one.child.stdout.write('{"jsonrpc":"2.0","id":1,"result":[]}\n');
     expect(await answer).toEqual([]);
     one.child.stdout.write('{"jsonrpc":"2.0","method":"index.progress","params":{"done":1}}\n');
     await vi.waitFor(() => {
-      expect(window.send).toHaveBeenCalledWith(HOST_NOTIFICATION, 'index.progress', { done: 1 });
+      expect(window.send).toHaveBeenCalledWith(HOST_NOTIFICATION, '/repo', 'index.progress', {
+        done: 1,
+      });
     });
-    expect(() => hosts.request(2, 'host.ping', undefined)).toThrow('no project open');
+    expect(() => hosts.request(2, '/repo', 'host.ping', undefined)).toThrow('no project open');
+    expect(() => hosts.request(1, '/other', 'host.ping', undefined)).toThrow(
+      'no project open at /other',
+    );
   });
 
-  it('stops a window’s host when it gets another, when it closes, and all of them at the end', () => {
+  it('stops a project’s host when it starts again, when it closes, with its window, and at the end', () => {
     const first = fakeChild();
     const hosts = new Hosts(first.spawn as never);
     const window = fakeWindow(1);
     hosts.attach(window, '/a');
+    const again = fakeChild();
+    first.spawn.mockImplementation(() => again.child);
+    hosts.attach(window, '/a');
+    expect(first.child.kill).toHaveBeenCalled();
     const second = fakeChild();
     first.spawn.mockImplementation(() => second.child);
     hosts.attach(window, '/b');
-    expect(first.child.kill).toHaveBeenCalled();
-    hosts.detach(window);
+    // Closing one project stops its host alone.
+    hosts.detach(window, '/b');
     expect(second.child.kill).toHaveBeenCalled();
+    expect(again.child.kill).not.toHaveBeenCalled();
+    hosts.detach(window, '/b');
+    // The window closing stops the rest.
+    hosts.detach(window);
+    expect(again.child.kill).toHaveBeenCalled();
     hosts.detach(window);
     const third = fakeChild();
     first.spawn.mockImplementation(() => third.child);
@@ -156,17 +170,18 @@ describe('Hosts', () => {
 });
 
 describe('installHosts', () => {
-  it('forwards a page’s requests to its window’s host, and stops the hosts when the app quits', async () => {
+  it('forwards a page’s requests to its project’s host, and stops the hosts when the app quits', async () => {
     const { child, spawn, sent } = fakeChild();
     const hosts = installHosts(spawn as never);
     hosts.attach(fakeWindow(7), '/repo');
     const handle = electron.handlers.get(HOST_REQUEST) as Listener;
     const next = sent();
-    const answer = handle({ sender: { id: 7 } }, 'host.ping') as Promise<unknown>;
+    const answer = handle({ sender: { id: 7 } }, '/repo', 'host.ping') as Promise<unknown>;
     expect(await next).toMatchObject({ method: 'host.ping' });
     child.stdout.write('{"jsonrpc":"2.0","id":1,"result":{"version":1}}\n');
     expect(await answer).toEqual({ version: 1 });
-    expect(() => handle({ sender: { id: 7 } }, 5)).toThrow('needs a method name');
+    expect(() => handle({ sender: { id: 7 } }, '/repo', 5)).toThrow('needs a method name');
+    expect(() => handle({ sender: { id: 7 } }, 5, 'host.ping')).toThrow('needs a project');
     (electron.appListeners.get('will-quit') as Listener)();
     expect(child.kill).toHaveBeenCalled();
   });

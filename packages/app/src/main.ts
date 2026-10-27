@@ -81,7 +81,7 @@ export function createWindow(
   return { window, loaded: load(window, devUrl, zoom) };
 }
 
-/** How long a page gets to save its files before its window closes or reloads anyway. */
+/** How long a page gets to save its files before its window closes anyway. */
 export const SAVE_TIMEOUT = 5000;
 
 /** Whether the app is quitting: a window that held its closing back to save quits it again. */
@@ -114,8 +114,8 @@ export function saveFiles(contents: WebContents, timeout = SAVE_TIMEOUT): Promis
  * A new window as projects see it; its page loads in the background, and what goes wrong in it is
  * logged to PAGE_LOG in the app's data folder.
  */
-export function projectWindow(project: string | undefined): ProjectWindow {
-  const { window, loaded } = createWindow(project === undefined);
+export function projectWindow(welcome: boolean): ProjectWindow {
+  const { window, loaded } = createWindow(welcome);
   const contents = window.webContents;
   const log = join(app.getPath('userData'), PAGE_LOG);
   logPage(contents, log);
@@ -153,12 +153,6 @@ export function projectWindow(project: string | undefined): ProjectWindow {
     close: () => {
       if (open) window.close();
     },
-    reload: () => {
-      if (!open) return;
-      void saveFiles(contents).then(() => {
-        if (open) contents.reload();
-      });
-    },
     onClosed: (listener) => {
       closed.push(listener);
     },
@@ -167,7 +161,7 @@ export function projectWindow(project: string | undefined): ProjectWindow {
 
 const isFolder = (path: string) => existsSync(path) && statSync(path).isDirectory();
 
-/** Lets pages ask which project they show, list and open projects, and close theirs. */
+/** Lets pages ask which projects they show, list and open projects, and close theirs. */
 export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindows {
   const windows = new ProjectWindows({
     store,
@@ -179,10 +173,9 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
     if (typeof value !== 'string' || value === '') throw new Error(`${name} must be a path`);
     return value;
   };
-  ipcMain.handle(PROJECT_CURRENT, (event) => {
-    const path = windows.projectOf(event.sender.id);
-    return path === undefined ? null : { path, name: projectName(path) };
-  });
+  ipcMain.handle(PROJECT_CURRENT, (event) =>
+    windows.projectsOf(event.sender.id).map((path) => ({ path, name: projectName(path) })),
+  );
   ipcMain.handle(PROJECT_RECENT, () =>
     store.recent.map((recent) => ({ ...recent, exists: isFolder(recent.path) })),
   );
@@ -201,8 +194,8 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
     if (where !== 'this' && where !== 'new') throw new Error('where must be "this" or "new"');
     windows.open(text(path, 'path'), where, event.sender.id);
   });
-  ipcMain.handle(PROJECT_CLOSE, (event) => {
-    windows.close(event.sender.id);
+  ipcMain.handle(PROJECT_CLOSE, (event, path: unknown) => {
+    windows.close(event.sender.id, text(path, 'path'));
   });
   ipcMain.handle(PROJECT_FORGET, (_event, path: unknown) => {
     store.forget(text(path, 'path'));
