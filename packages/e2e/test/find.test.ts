@@ -127,3 +127,40 @@ it('replaces in files, the highlighted line, then all, with a regular expression
   expect(file('b.txt')).toBe('color: green\n');
   expect(await page().locator('.cerebro-popup').count()).toBe(0);
 });
+
+it('opens what’s found in the Find window, as a tree, and a line from there', async () => {
+  expect(await page().locator('.cerebro-stripe-button[data-id="find"]').count()).toBe(0);
+  await page().keyboard.press('ControlOrMeta+Shift+F');
+  await page().keyboard.type('shape');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(4);
+  await page().keyboard.press('ControlOrMeta+Enter');
+  const title = page().locator('.playground-occurrences__title');
+  await expect
+    .poll(() => title.textContent(), { timeout: 15_000 })
+    .toBe("Occurrences of 'shape' in Project4 matches in 3 files");
+  // Folders, then files, then lines, as found: src/use.ts's Shape is Form since the find bar's test.
+  expect(
+    await page().locator('.playground-occurrences .cerebro-tree-row').allTextContents(),
+  ).toEqual([
+    'notes1 match',
+    'shape.md1 match',
+    '1shape',
+    'src3 matches',
+    'shape.ts2 matches',
+    '1// Shapes.',
+    '2export class Shape {}',
+    'use.ts1 match',
+    "1import { Form } from './shape';",
+  ]);
+  expect(await page().locator('.cerebro-stripe-button[data-id="find"]').count()).toBe(1);
+  // By the keys: here, a double click on a row the tree had to scroll to opened the row above it.
+  await page().locator('.playground-occurrences .cerebro-tree-row').first().click();
+  for (let i = 0; i < 6; i++) await page().keyboard.press('ArrowDown');
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(() => page().locator('.cerebro-statusbar').textContent())
+    .toContain('src/shape.ts');
+  await expect
+    .poll(() => page().locator('.cm-activeLine').textContent())
+    .toBe('export class Shape {}');
+});

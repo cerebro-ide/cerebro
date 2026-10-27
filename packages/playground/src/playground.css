@@ -439,6 +439,10 @@ body,
   background: var(--cerebro-hover);
 }
 
+.playground-find__spacer {
+  flex: 1;
+}
+
 /* In Project | Directory, as IntelliJ's tabs under the field. */
 .playground-find__scope {
   height: 24px;
@@ -497,4 +501,36 @@ body,
 
 .playground-find__preview .cerebro-editor-code {
   height: 100%;
+}
+
+/* The Find tool window: its search's title and count, then the tree. */
+.playground-occurrences {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playground-occurrences__title {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  padding: 6px 12px;
+}
+
+.playground-occurrences__count,
+.playground-occurrences__number {
+  color: var(--cerebro-text-muted);
+}
+
+.playground-occurrences__name,
+.playground-occurrences__number {
+  margin-right: 8px;
+}
+
+.playground-occurrences__text {
+  white-space: pre;
+}
+
+.playground-occurrences__match {
+  font-weight: 600;
 }

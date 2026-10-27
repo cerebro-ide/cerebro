@@ -1300,8 +1300,19 @@ after IntelliJ, open to change.
     there's no undo there; that's why Replace All asks first.
   - Replace waits for the search being typed to finish, so it never uses an earlier answer's
     replacements (a bug the e2e test caught).
-- **Not yet:** "Open in Find Window" with a results tree; IntelliJ's Preserve Case; Replace All
-  undone as one step across files.
+- **The Find tool window** (added 2026-10-27, Ido: "do those"): Open in Find Window (a button
+  under the field, or Ctrl/Cmd+Enter) runs the search again, up to 100,000 lines, and shows it in
+  a Find tool window at the bottom.
+  - The window is registered the first time it's used, as IntelliJ's appears.
+  - Its title says what was searched and where ("Occurrences of 'shape' in Project", with the
+    mask), then the count.
+  - The tree has a node per folder (its whole path, flattened), then per file, then per line, each
+    with how many matches it holds, all open.
+  - Double click or Enter on a line opens it there.
+  - It shows the active worktree's last search: a new one replaces it. IntelliJ keeps each in a
+    tab.
+- **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
+  options; IntelliJ's Preserve Case; Replace All undone as one step across files.
 
 ## Editing and saving (2026-10-26)
 

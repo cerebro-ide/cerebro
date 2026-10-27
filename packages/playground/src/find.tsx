@@ -14,10 +14,11 @@ import { CodeEditor } from '@cerebro-ide/ui-editor';
 import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { documentFor, saveFiles } from './documents.js';
+import type { Occurrences } from './find-window.js';
 import { active, hostFor } from './environments.js';
 
 /** A line found, as the host gives it. */
-interface TextMatch {
+export interface TextMatch {
   path: string;
   line: number;
   text: string;
@@ -33,8 +34,11 @@ type Choice = PickerItem & { match: TextMatch };
 /** How long typing pauses before the search runs. */
 export const SEARCH_DELAY = 150;
 
-/** The most lines Replace All takes: past this, it's refused rather than done in part. */
-export const REPLACE_LIMIT = 100_000;
+/**
+ * The most lines Replace All and the Find window take: past this, Replace All is refused rather
+ * than done in part, and the Find window says there's more.
+ */
+export const WHOLE_LIMIT = 100_000;
 
 /** The longest part of a line listed. */
 const LINE_LIMIT = 200;
@@ -146,13 +150,6 @@ export function folderOf(worktree: string, directory: string): string {
   return relative === '' ? worktree : `${worktree}/${relative}`;
 }
 
-/** Keeps a field's keys from the app's shortcuts; Enter searches again, Escape closes. */
-const fieldKeys = (search: () => void, close: () => void) => (event: KeyboardEvent) => {
-  event.stopPropagation();
-  if (event.key === 'Enter') search();
-  if (event.key === 'Escape') close();
-};
-
 /** An option's toggle, as IntelliJ's beside the field. */
 function Toggle(props: { label: string; text: string; on: () => boolean; toggle: () => void }) {
   return (
@@ -201,15 +198,20 @@ function Preview(props: { match: TextMatch }) {
   );
 }
 
-/**
- * Opens Find in Files over the active worktree, or Replace in Files (`replacing`); `open` opens a
- * file at a line. `file`, the active file, gives Directory its folder.
- */
-export async function findInFiles(
-  open: (at: { path: string; line: number; column: number }) => void,
-  file?: string,
-  replacing = false,
-): Promise<void> {
+export interface FindOptions {
+  /** Opens a file at a line. */
+  open: (at: { path: string; line: number; column: number }) => void;
+  /** Shows the lines found in the Find window: Open in Find Window. */
+  showOccurrences: (occurrences: Occurrences) => void;
+  /** The active file: Directory starts at its folder. */
+  file?: string | undefined;
+  /** Replace in Files, not Find. */
+  replacing?: boolean;
+}
+
+/** Opens Find in Files over the active worktree, or Replace in Files. */
+export async function findInFiles(options: FindOptions): Promise<void> {
+  const { open, file, replacing = false } = options;
   const worktree = active()?.id;
   const host = worktree === undefined ? undefined : hostFor(worktree);
   if (!host || worktree === undefined) return;
@@ -336,7 +338,7 @@ export async function findInFiles(
     try {
       result = (await host.request('search.text', {
         ...settings(),
-        limit: REPLACE_LIMIT,
+        limit: WHOLE_LIMIT,
       })) as Found;
     } catch (error) {
       result = { error: (error as Error).message };
@@ -346,7 +348,7 @@ export async function findInFiles(
         'error' in result
           ? result.error.split('\n').at(-1)
           : result.limited
-            ? `More than ${String(REPLACE_LIMIT)} lines match: narrow the search first.`
+            ? `More than ${String(WHOLE_LIMIT)} lines match: narrow the search first.`
             : 'Nothing found.';
       openDialog({ title: 'Replace in Files', content: () => <p>{why}</p> });
       return;
@@ -364,9 +366,48 @@ export async function findInFiles(
     if (!confirmed) return;
     reportSkipped((await replaceLines(matches)).skipped);
   };
-  /** Replace All's keys: Mod+Alt+Enter. */
-  const replaceAllKey = (event: KeyboardEvent) =>
-    replacing && event.key === 'Enter' && event.altKey && (event.ctrlKey || event.metaKey);
+  /** Every line found, in the Find window, with the popup closed. */
+  const openInWindow = async () => {
+    if (query.peek() === '') return;
+    const asked = settings();
+    picker.close();
+    let result: Found;
+    try {
+      result = (await host.request('search.text', { ...asked, limit: WHOLE_LIMIT })) as Found;
+    } catch (error) {
+      result = { error: (error as Error).message };
+    }
+    if ('error' in result) {
+      openDialog({
+        title: 'Find in Files',
+        content: () => <p>{result.error.split('\n').at(-1)}</p>,
+      });
+      return;
+    }
+    const where =
+      asked.path === worktree ? 'Project' : `Directory ${asked.path.slice(worktree.length + 1)}`;
+    const masks = asked.masks.length > 0 ? ` with mask '${asked.masks.join(', ')}'` : '';
+    options.showOccurrences({
+      worktree,
+      title: `Occurrences of '${asked.query}' in ${where}${masks}`,
+      matches: result.matches,
+      limited: result.limited,
+    });
+  };
+  /** The popup's own keys, wherever the focus is in it: Replace All, and Open in Find Window. */
+  const shortcut = (event: KeyboardEvent) => {
+    if (event.key !== 'Enter' || !(event.ctrlKey || event.metaKey)) return false;
+    if (event.altKey && !replacing) return false;
+    void (event.altKey ? replaceAll() : openInWindow());
+    return true;
+  };
+  /** A field's keys, kept from the app's shortcuts: Enter searches again, Escape closes. */
+  const fieldKeys = (event: KeyboardEvent) => {
+    event.stopPropagation();
+    if (shortcut(event)) return;
+    if (event.key === 'Enter') search();
+    if (event.key === 'Escape') close();
+  };
   const picker = openPicker<Choice>({
     label: replacing ? 'Replace in Files' : 'Find in Files',
     placeholder: 'Text to find',
@@ -394,7 +435,7 @@ export async function findInFiles(
             maskOn.set((event.currentTarget as HTMLInputElement).checked);
             search();
           }}
-          on:keydown={fieldKeys(search, close)}
+          on:keydown={fieldKeys}
         />
         File mask
       </label>,
@@ -410,7 +451,7 @@ export async function findInFiles(
           mask.set((event.currentTarget as HTMLInputElement).value);
           search();
         }}
-        on:keydown={fieldKeys(search, close)}
+        on:keydown={fieldKeys}
       />,
     ],
     toolbar: () => (
@@ -428,14 +469,7 @@ export async function findInFiles(
                 replacement.set((event.currentTarget as HTMLInputElement).value);
                 search();
               }}
-              on:keydown={(event) => {
-                if (replaceAllKey(event)) {
-                  event.stopPropagation();
-                  void replaceAll();
-                  return;
-                }
-                fieldKeys(search, close)(event);
-              }}
+              on:keydown={fieldKeys}
             />
             {button('Replace', () => void replaceOne())}
             {button('Replace All', () => void replaceAll())}
@@ -457,10 +491,12 @@ export async function findInFiles(
                   directory.set((event.currentTarget as HTMLInputElement).value);
                   search();
                 }}
-                on:keydown={fieldKeys(search, close)}
+                on:keydown={fieldKeys}
               />
             ) : null
           }
+          <span class="playground-find__spacer" />
+          {button('Open in Find Window', () => void openInWindow())}
         </div>
       </div>
     ),
@@ -479,10 +515,7 @@ export async function findInFiles(
       search();
     },
     onKey: (event) => {
-      if (replaceAllKey(event)) {
-        void replaceAll();
-        return true;
-      }
+      if (shortcut(event)) return true;
       const on = event.altKey && !event.ctrlKey && !event.metaKey ? keys[event.code] : undefined;
       if (!on) return false;
       toggle(on);
