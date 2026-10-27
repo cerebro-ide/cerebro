@@ -55,7 +55,8 @@ it('lists actions in Search Everywhere before the Commit tool window has shown',
   const page = running.page;
   // Checking whether the Commit window's commands were enabled built its tree, inside the popup's
   // computed list, which may not write: the list failed.
-  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click();
+  // Forced: under xvfb in CI this click waited forever for the button to be "stable".
+  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click({ force: true });
   await page.keyboard.type('Dark Theme');
   await expect
     .poll(() => page.locator('.cerebro-popup-item__label').allTextContents())
