@@ -92,6 +92,8 @@ export const theme = EditorView.theme({
     borderRight: `1px solid ${variable('editor-gutter-line')}`,
   },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
+  // The caret in the text's colour: CodeMirror's own is black, unseen on the dark theme.
+  '.cm-cursor, .cm-dropCursor': { borderLeftColor: variable('text') },
   // Find and Replace: the bar over the editor, and the matches it highlights.
   '.cm-panels': { backgroundColor: variable('panel'), color: variable('text') },
   '.cm-panels-top': { borderBottom: `1px solid ${variable('separator')}` },
