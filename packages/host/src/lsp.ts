@@ -35,10 +35,20 @@ export const PATIENCE = 3_000;
 const STOP_WAIT = 2_000;
 
 /** Starts a server's process: what tests replace. */
-export type Run = (command: string, args: string[], cwd: string) => ChildProcess;
+export type Run = (
+  command: string,
+  args: string[],
+  cwd: string,
+  env?: Record<string, string>,
+) => ChildProcess;
 
-const runProcess: Run = (command, args, cwd) =>
-  spawn(command, args, { cwd, stdio: ['pipe', 'pipe', 'ignore'], windowsHide: true });
+const runProcess: Run = (command, args, cwd, env) =>
+  spawn(command, args, {
+    cwd,
+    env: env ? { ...process.env, ...env } : process.env,
+    stdio: ['pipe', 'pipe', 'ignore'],
+    windowsHide: true,
+  });
 
 /** A path as a file URI. */
 export function uriOf(path: string): string {
@@ -80,8 +90,8 @@ export class LanguageServer {
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
-    const { command, args } = spec.command();
-    this.#process = run(command, args, root);
+    const { command, args, env } = spec.command();
+    this.#process = run(command, args, root, env);
     const stdin = this.#process.stdin;
     // Writing to a server that's gone fails here; its exit is handled below.
     stdin?.on('error', () => undefined);

@@ -24,7 +24,6 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
   writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
   writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n');
-  writeFileSync(join(repo, 'src', 'run.sh'), 'greet() {\n  echo hi\n}\n\ngreet\n');
   writeFileSync(
     join(repo, 'src', 'use.ts'),
     "import { Shape } from './shape';\n\nconst first = new Shape();\nconst second = new Shape();\n",
@@ -32,7 +31,9 @@ beforeAll(async () => {
   git(repo, 'add', '.');
   git(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
   git(repo, 'worktree', 'add', '-q', '-b', 'feat/e2e', join(root, 'project-e2e'));
-  running = await launch({ CEREBRO_REPO: repo });
+  // No language servers: these tests are of the index's name matches, what shows without them
+  // (language-servers.test.ts has theirs).
+  running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
   // The Claude tool window takes room from the editor, which these tests click in. Forced, as for
   // the tree's arrow below: in CI under xvfb this click twice waited for the button to be "stable".
   await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
@@ -77,15 +78,7 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click({ force: true });
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
-  expect(await names()).toEqual([
-    'src',
-    'app.ts',
-    'run.sh',
-    'shape.ts',
-    'tool.py',
-    'use.ts',
-    'README.md',
-  ]);
+  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as { violations?: string[] }).violations = seen;
@@ -182,34 +175,15 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.mouse.click(box.x, box.y);
   await page.keyboard.up('Control');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
-  // On macOS, Control+click is also a right click: its context menu closes first.
-  await page.keyboard.press('Escape');
-  // Alt+F7 on a name in a file no language server reads (shell scripts have none yet): every place
-  // the name appears, as the index finds them.
-  await page.keyboard.press('ControlOrMeta+Shift+N');
-  await page.keyboard.type('run.sh');
-  // Highlighted: Enter opens what's highlighted, which follows the query as it's typed.
-  await page
-    .locator('.cerebro-popup-item--highlighted', { hasText: 'run.sh' })
-    .waitFor()
-    .catch(async (error: unknown) => {
-      // macOS CI didn't get here once: what showed instead.
-      console.log(
-        'Go to File:',
-        await page.locator('.cerebro-popup, .cerebro-menu').allTextContents(),
-        await page.evaluate(() => document.activeElement?.className),
-      );
-      throw error;
-    });
-  await page.keyboard.press('Enter');
-  await page.locator('.cm-line', { hasText: /^greet$/ }).click();
-  await page.keyboard.press('Home');
+  // Alt+F7 on the class's name: every place the name appears.
   await page.keyboard.press('Alt+F7');
   await page.locator('.cerebro-popup-item').first().waitFor();
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
   expect(await page.locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
-    'src/run.sh:1',
-    'src/run.sh:5',
+    'src/shape.ts:2',
+    'src/use.ts:1',
+    'src/use.ts:3',
+    'src/use.ts:4',
   ]);
   await page.keyboard.press('Escape');
 });

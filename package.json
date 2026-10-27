@@ -37,7 +37,8 @@
   "overrides": {
     "@codemirror/autocomplete": "6.20.3",
     "@lezer/common": "1.5.3",
-    "@lezer/markdown": "1.8.0"
+    "@lezer/markdown": "1.8.0",
+    "zod": "4.6.6"
   },
   "allowScripts": {
     "node-pty": true,

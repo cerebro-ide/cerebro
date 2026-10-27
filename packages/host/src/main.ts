@@ -1,10 +1,13 @@
 #!/usr/bin/env node
 // The host's entry point: serves the UI over stdin and stdout, for the repository in the folder it
-// was started in (or CEREBRO_REPO), and exits when the UI closes its end. Run as `main.js hook
-// <name>`, it's an agent's hook instead, telling the host that started the agent (agents.ts).
+// was started in (or CEREBRO_REPO), with the language servers CEREBRO_LANGUAGE_SERVERS names (all,
+// when it's unset), and exits when the UI closes its end. Run as `main.js hook <name>`, it's an
+// agent's hook instead, telling the host that started the agent (agents.ts).
 
+import { servers } from '@cerebro-ide/servers';
 import { parseHookInput, sendHook } from './agents.js';
 import { serve } from './host.js';
+import { LanguageServers } from './lsp.js';
 
 if (process.argv[2] === 'hook') {
   let text = '';
@@ -20,5 +23,8 @@ if (process.argv[2] === 'hook') {
     });
   });
 } else {
-  serve(process.stdin, process.stdout, { repo: process.env['CEREBRO_REPO'] ?? process.cwd() });
+  serve(process.stdin, process.stdout, {
+    repo: process.env['CEREBRO_REPO'] ?? process.cwd(),
+    languageServers: new LanguageServers(servers(process.env['CEREBRO_LANGUAGE_SERVERS'])),
+  });
 }

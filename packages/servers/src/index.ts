@@ -9,6 +9,8 @@ import { dirname, join } from 'node:path';
 export interface ServerCommand {
   command: string;
   args: string[];
+  /** Variables to set, over the host's own. */
+  env?: Record<string, string>;
 }
 
 export interface ServerSpec {
@@ -104,9 +106,58 @@ export function pythonServer(
   };
 }
 
-/** Every server, in the order they're asked whether they serve a file. */
-export function servers(): ServerSpec[] {
-  return [typescriptServer(), pythonServer()];
+/**
+ * A PATH without the Windows folders WSL adds to it (`/mnt/c/...`): reading them is slow, and a
+ * server that lists the PATH's programs waits on it (measured: bash-language-server started in
+ * 5.8 s under WSL with them, 257 ms without).
+ */
+export function withoutWindowsFolders(
+  path: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (platform !== 'linux') return path;
+  return path
+    .split(':')
+    .filter((folder) => !/^\/mnt\/[a-z]\//i.test(folder))
+    .join(':');
+}
+
+/**
+ * bash-language-server, for shell scripts: tree-sitter's, run by the Node the host runs in. It lists
+ * the PATH's programs (for completions) before it answers anything.
+ */
+export function bashServer(
+  node: string = process.execPath,
+  resolve: Resolve = fromHere,
+  path: string = process.env['PATH'] ?? '',
+): ServerSpec {
+  return {
+    id: 'bash',
+    languageOf: (file) => {
+      const ext = extension(file);
+      return ext === '.sh' || ext === '.bash' ? 'shellscript' : undefined;
+    },
+    // Asked before it's read the folder's scripts, it finds no usages in the others (measured: none
+    // at once, found 3 s later). It logs the end of that reading, however it ends.
+    readyWhen: /BackgroundAnalysis: (Completed|skipping|stopped|failed resolving)/,
+    command: () => ({
+      command: node,
+      args: [resolve('bash-language-server/out/cli.js'), 'start'],
+      env: { PATH: withoutWindowsFolders(path) },
+    }),
+  };
+}
+
+/**
+ * The servers that run, in the order they're asked whether they serve a file: every one, or those
+ * named in `only` (ids, comma-separated; empty for none), as CEREBRO_LANGUAGE_SERVERS says, for
+ * tests of what shows without them, and to rule a server out when something's wrong.
+ */
+export function servers(only?: string): ServerSpec[] {
+  const all = [typescriptServer(), pythonServer(), bashServer()];
+  if (only === undefined) return all;
+  const ids = new Set(only.split(',').map((id) => id.trim()));
+  return all.filter((spec) => ids.has(spec.id));
 }
 
 /** The server for a file, and the file's language id, if one serves it. */

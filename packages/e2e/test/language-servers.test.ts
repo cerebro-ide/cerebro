@@ -1,6 +1,6 @@
 // Language servers end to end: go to definition and find usages answered by meaning (TypeScript's
-// own server, basedpyright for Python), where the index's name matches would list every function
-// of that name.
+// own server, basedpyright for Python, bash-language-server for shell scripts), where the index's
+// name matches would list every function of that name.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -65,6 +65,9 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
+  writeFileSync(join(repo, 'lib.sh'), 'greet() {\n  echo hi\n}\n');
+  writeFileSync(join(repo, 'other.sh'), 'greet() {\n  echo hello\n}\n\ngreet\n');
+  writeFileSync(join(repo, 'main.sh'), 'source ./lib.sh\n\ngreet\n');
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -123,4 +126,12 @@ it('does the same for Python', async () => {
     'main.py:3',
   ]);
   await page().keyboard.press('Escape');
+});
+
+it('does the same for shell scripts, following what a script sources', async () => {
+  await openAt('main.sh', 'greet');
+  await untilAnswered('ControlOrMeta+b', async () => {
+    const at = await where();
+    return at.tab === 'lib.sh' && at.line === 'greet() {';
+  });
 });
