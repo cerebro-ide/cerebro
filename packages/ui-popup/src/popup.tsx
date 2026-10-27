@@ -54,6 +54,8 @@ export interface PickerOptions<T extends PickerItem> {
   header?: () => Child;
   /** Beside the search field, at its right: options such as Find in Files' Match Case. */
   options?: () => Child;
+  /** Below the search field, above the list: Find in Files' scopes, say. */
+  toolbar?: () => Child;
   /** Below the list: the highlighted item shown in full (Find in Files' code). Read reactively. */
   preview?: (item: T | undefined) => Child;
   /** Keys pressed in the search field, before the popup's own; returns whether it handled one. */
@@ -299,6 +301,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       ) : (
         input
       ),
+      options.toolbar ? <div class="cerebro-popup__toolbar">{options.toolbar()}</div> : null,
       <div class="cerebro-popup__list" id="cerebro-popup-list" role="listbox">
         {() => {
           const items = this.items.get();

@@ -65,6 +65,17 @@
   border-bottom: 1px solid var(--cerebro-separator);
 }
 
+/* A row between the field and the list: Find in Files' scopes. */
+.cerebro-popup__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
 /* The highlighted item in full, under the list. */
 .cerebro-popup__preview {
   flex: none;
