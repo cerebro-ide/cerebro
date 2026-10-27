@@ -210,6 +210,25 @@ body,
   }
 }
 
+/* The File Cache Conflict's difference: the disk's text and the edits, side by side, titled. */
+.playground-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 60vh;
+}
+
+.playground-conflict__titles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  color: var(--cerebro-text-muted);
+}
+
+.playground-conflict__diff {
+  flex: 1;
+  min-height: 0;
+}
+
 /* The Open Project dialog's question and its checkbox. */
 .playground-open-project p {
   margin: 0 0 12px;

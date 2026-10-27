@@ -2,6 +2,7 @@
 // `window.cerebro`, undefined in a browser.
 
 import type { NativeMenuBridge } from '@cerebro-ide/ui-menu';
+import type { EditAction } from './edit.js';
 
 /** A project: a folder opened in a window, which may show several, as tabs. */
 export interface Project {
@@ -27,7 +28,8 @@ declare global {
     cerebro?: {
       app: boolean;
       platform: string;
-      menu: NativeMenuBridge;
+      /** The menu, and the system's edit actions on the focused field. */
+      menu: NativeMenuBridge & { edit(action: EditAction): void };
       display: { setScale(choice: string): void };
       window: {
         setColours(frame: string, text: string, fullScreenButtons: string): void;

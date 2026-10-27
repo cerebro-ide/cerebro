@@ -51,7 +51,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings
 - [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
-- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; Save All and saving on its own, as IntelliJ
+- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; saving on its own, as IntelliJ; conflicts with the disk asked about; the Edit menu
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
@@ -1360,25 +1360,47 @@ choices below are Claude's, after IntelliJ, open to change.
 - **A document per open file,** as IntelliJ's: it outlives the editors showing it, so switching tabs
   keeps the edits, the selection and the undo history (CodeMirror's state, kept as JSON with its
   history field between editors). It knows the text last read or saved, so whether it's modified.
-- **Saving as IntelliJ does by default:** File → Save All (Ctrl/Cmd+S), and on its own when the
-  window loses the focus, and before it closes, reloads (another project in this window) or the app
-  quits: the main process has the page save (`cerebroSaveAll`) and waits up to 5 seconds. No save
-  on every keystroke, and no Save for one file, as in IntelliJ. Modified tabs aren't marked, as
-  IntelliJ's default (Settings → Editor Tabs → "Mark modified" off: a claim, not checked).
+- **Saving on its own** (changed 2026-10-27; Ido: "this IDE doesn't work in a way that a user need
+  to manually trigger a save action, it auto-saves", in batches, after a while or when the focus
+  leaves). IntelliJ's triggers, read in its source (`SaveAndSyncHandlerImpl.kt`,
+  `GeneralSettings.kt`): when the window loses the focus (on by default there), and after the IDE
+  is idle, no key or mouse, for 15 seconds (its setting's default value, though the setting is off
+  by default there; on here, as Ido asked for saving after a while). Ido's own: when an editor
+  loses the focus, its file is saved. Still before the window closes, reloads (another project in
+  this window) or the app quits: the main process has the page save (`cerebroSaveAll`) and waits
+  up to 5 seconds. File → Save All (Ctrl/Cmd+S) saves at once. Before, only the window losing the
+  focus and Save All saved. No save on every keystroke, and no Save for one file, as in IntelliJ.
+  Modified tabs aren't marked, as IntelliJ's default (Settings → Editor Tabs → "Mark modified" off:
+  a claim, not checked).
 - **The file keeps its line separators:** a file with `\r\n` is saved with them (CodeMirror joins
   with `\n` unless told). Saving writes over the file in place, which must exist (`fs.write`), so
   its permissions stay; a new file isn't made by a save.
 - **Files changed on disk** (by an agent, git, a terminal) are read again when the window gets the
-  focus and every 2 seconds while it has it, as IntelliJ synchronizes on frame activation; one with
-  unsaved edits keeps them. Reading again isn't undoable. Polling was chosen over watching files for
-  now: a few open files read every 2 seconds is a claim of small cost, not measured.
-- **Undo, redo, Tab to indent** in the editor (CodeMirror's history and keys); the diff stays
-  read-only.
+  focus and every 2 seconds while it has it, as IntelliJ synchronizes on frame activation. Reading
+  again isn't undoable. Polling was chosen over watching files for now: a few open files read every
+  2 seconds is a claim of small cost, not measured.
+- **A file changed both in the editor and on disk is a conflict** (2026-10-27, Ido: "a popup should
+  prompt the user to select between the two OR open a merge window"), found when it's read again or
+  before it's saved (saving reads the file first, and doesn't write over a change it didn't read).
+  It's asked about as IntelliJ's File Cache Conflict (`ConflictResolverDialog.java`, its words from
+  `UIBundle.properties`): Load File System Changes, Keep Memory Changes (Escape too, IntelliJ's
+  Cancel; saved over the disk's later), or Show Difference: the disk's text on the left and the
+  edits on the right, editable, with an arrow by each change that takes the disk's, and Save Memory
+  Content. Loading or merging is an edit undo takes back. Before, the edits won and saving
+  overwrote. IntelliJ can also merge on its own, without asking, behind a registry setting
+  (`ide.merge.external.changes`) used when a client asks for it; not done here.
+- **Undo, redo, Tab to indent** in the editor (CodeMirror's history); the diff stays read-only.
+- **Edit → Undo, Redo, Cut, Copy, Paste** (2026-10-27; Ido asked that they work) act on what had
+  the focus before the menu opened, as IntelliJ's, and their keys are the keymap's, also in the
+  editor (so a keymap's Redo, such as VS Code's Ctrl+Y, works there). Undo and Redo in an editor
+  are its history's; elsewhere, and Cut, Copy and Paste everywhere, the system's, run by Electron
+  (`webContents.undo()`, `.paste()`…) because a page can't paste on its own. They're enabled where
+  text is typed; Copy also in a read-only editor or with a selection. Before, the menu's were
+  disabled and only the editor's own keys worked.
 - **In a browser,** the samples can be edited, and aren't saved.
-- **Not yet:** a conflict when a file with unsaved edits changes on disk (IntelliJ asks; here the
-  edits win, and saving overwrites); a byte order mark is dropped on save; Edit → Undo/Redo/Cut/
-  Copy/Paste in the menu stay disabled (the keys work in the editor); a tab closed with unsaved edits
-  keeps its document until saved; files deleted on disk keep their tabs.
+- **Not yet:** a byte order mark is dropped on save; the idle time isn't a setting; Undo shows no
+  name of what it undoes ("Undo Typing"), and stays enabled with nothing to undo; Edit → Copy in a
+  terminal copies nothing (its own Ctrl+Shift+C does); files deleted on disk keep their tabs.
 
 ## Opening a project (2026-10-26)
 

@@ -19,6 +19,7 @@ import { active, currentHost, hostFor } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
+import { setupEdit } from './edit.js';
 import { icon } from './icons.js';
 import { PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
@@ -274,14 +275,8 @@ export function setupCommands(
     enabled: () => false,
     run: () => undefined,
   });
-  for (const [id, label] of [
-    ['undo', '&Undo'],
-    ['redo', '&Redo'],
-    ['cut', 'Cu&t'],
-    ['copy', '&Copy'],
-    ['paste', '&Paste'],
-  ] as const) {
-    commands.register({ id: `edit.${id}`, label, enabled: () => false, run: () => undefined });
+  setupEdit(commands);
+  for (const id of ['undo', 'redo', 'cut', 'copy', 'paste']) {
     menus.contribute({
       menu: 'main/edit',
       item: { command: `edit.${id}` },

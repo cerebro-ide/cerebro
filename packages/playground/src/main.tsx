@@ -63,7 +63,8 @@ import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
-import { documentFor, saveAll, setupSaving } from './documents.js';
+import { documentFor, saveAll, saveFiles, setupSaving } from './documents.js';
+import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
@@ -363,8 +364,8 @@ window.addEventListener('mouseup', (event) => {
   event.preventDefault();
   services.commands.execute(command);
 });
-// Saving, as IntelliJ's: Save All, and on its own when the window loses the focus or closes (the
-// app asks, through cerebroSaveAll, before it closes or reloads the window).
+// Saving, on its own as IntelliJ's (documents.ts), and when the window closes (the app asks,
+// through cerebroSaveAll, before it closes or reloads the window); Save All saves at once.
 const reportSaving = (error: unknown) => {
   openDialog({
     title: 'Couldn’t Save',
@@ -382,7 +383,7 @@ services.menus.contribute({ menu: 'main/file', item: { command: 'file.saveAll' }
   saveAll().catch((error: unknown) => {
     console.error(error);
   });
-setupSaving(reportSaving);
+setupSaving(reportSaving, resolveConflict);
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (initial.length === 0) seedFiles(env, tabOf);
@@ -781,6 +782,12 @@ function Code(props: { path: string; env: string }) {
     <div
       class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
+      on:focusout={(event) => {
+        // The editor's file is saved when the focus leaves it, for the window or somewhere else in it.
+        const to = event.relatedTarget;
+        if (to instanceof Node && (event.currentTarget as HTMLElement).contains(to)) return;
+        saveFiles([props.path]).catch(reportSaving);
+      }}
     >
       {() => {
         const state = loaded.get();

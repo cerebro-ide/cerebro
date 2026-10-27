@@ -1,14 +1,49 @@
 // The files open for editing, as IntelliJ keeps them: a document per file, which outlives its tabs,
-// read through the host. Saving is IntelliJ's too: File → Save All (Mod+S), and on its own when the
-// window loses the focus or closes. A file changed on disk (by an agent, or git) is read again when
-// the window gets the focus and every few seconds while it has it; one with unsaved edits keeps
-// them.
+// read through the host. Saving is on its own, as IntelliJ's (its SaveAndSyncHandlerImpl): when the
+// window loses the focus or closes, and after the IDE has been idle for a while; and when an editor
+// loses the focus. File → Save All (Mod+S) saves at once. A file changed on disk (by an agent, or
+// git) is read again when the window gets the focus and every few seconds while it has it. One also
+// changed in the editor is a conflict, as IntelliJ's File Cache Conflict: nothing is written over
+// it, and the user chooses between the two, or merges them.
 
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor } from './environments.js';
 
 /** How often open files are read again for changes on disk, while the window has the focus. */
 export const RELOAD_EVERY = 2000;
+
+/**
+ * How long without a key or the mouse before modified files are saved: IntelliJ's "Save files if
+ * the IDE is idle for" default (GeneralSettings.kt: 15 seconds), there off by default.
+ */
+export const SAVE_WHEN_IDLE = 15_000;
+
+/**
+ * Asks how a conflict is resolved, and resolves it through `EditorDocument.resolve`: left as it is,
+ * the edits are kept unsaved, and the conflict found again.
+ */
+export type ConflictResolver = (path: string, doc: EditorDocument, disk: string) => Promise<void>;
+
+let resolveConflict: ConflictResolver = () => Promise.resolve();
+
+/** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
+const resolving = new Set<string>();
+
+/**
+ * Whether the file changed on disk while it has edits, given what's on disk: if so, the conflict
+ * is resolved first. Returns whether it's still unresolved, or being resolved.
+ */
+async function conflicts(path: string, doc: EditorDocument, disk: string): Promise<boolean> {
+  if (resolving.has(path)) return true;
+  if (!doc.modified.peek() || !doc.changedFrom(disk)) return false;
+  resolving.add(path);
+  try {
+    await resolveConflict(path, doc, disk);
+  } finally {
+    resolving.delete(path);
+  }
+  return doc.changedFrom(disk);
+}
 
 type Loaded = EditorDocument | { error: string };
 
@@ -60,9 +95,17 @@ export async function saveFiles(paths?: readonly string[]): Promise<void> {
     if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
     if (!host || !doc.modified.peek()) continue;
-    // What's written, which the editor may change while it's being written.
-    const text = doc.text.peek();
     try {
+      // Not over a change made on disk since it was read: that's a conflict.
+      const disk = await host.request('fs.read', { path }).then(
+        (result) => (result as { text: string }).text,
+        // Gone: written again.
+        () => undefined,
+      );
+      if (disk !== undefined && (await conflicts(path, doc, disk))) continue;
+      if (!doc.modified.peek()) continue;
+      // What's written, which the editor may change while it's being written.
+      const text = doc.text.peek();
       await host.request('fs.write', { path, text: doc.content() });
       doc.saved(text);
     } catch (error) {
@@ -72,23 +115,33 @@ export async function saveFiles(paths?: readonly string[]): Promise<void> {
   if (failed.length > 0) throw new Error(`Couldn’t save ${failed.join('; ')}`);
 }
 
-/** Reads the open files again, taking what changed on disk where there are no unsaved edits. */
+/**
+ * Reads the open files again, taking what changed on disk where there are no unsaved edits; where
+ * there are, it's a conflict.
+ */
 export async function reloadAll(): Promise<void> {
   if (!currentHost()) return;
   for (const [path, doc] of await opened()) {
     const host = hostFor(path);
-    if (!host || doc.modified.peek()) continue;
+    if (!host || resolving.has(path)) continue;
+    let text: string;
     try {
-      const { text } = (await host.request('fs.read', { path })) as { text: string };
-      doc.changedOnDisk(text);
+      ({ text } = (await host.request('fs.read', { path })) as { text: string });
     } catch {
       // Gone, or unreadable now: the editor keeps what it shows.
+      continue;
     }
+    if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
   }
 }
 
-/** Saves when the window loses the focus, and reads changed files when it has it. */
-export function setupSaving(report: (error: unknown) => void): void {
+/**
+ * Saves on its own, as IntelliJ: when the window loses the focus, and after `SAVE_WHEN_IDLE`
+ * without a key or the mouse. Reads changed files when the window has the focus. Conflicts are
+ * resolved through `resolver`.
+ */
+export function setupSaving(report: (error: unknown) => void, resolver: ConflictResolver): void {
+  resolveConflict = resolver;
   const save = () => {
     saveAll().catch(report);
   };
@@ -100,4 +153,12 @@ export function setupSaving(report: (error: unknown) => void): void {
   setInterval(() => {
     if (document.hasFocus()) reload();
   }, RELOAD_EVERY);
+  let idle: ReturnType<typeof setTimeout> | undefined;
+  const active = () => {
+    clearTimeout(idle);
+    idle = setTimeout(save, SAVE_WHEN_IDLE);
+  };
+  for (const type of ['keydown', 'pointerdown', 'wheel']) {
+    window.addEventListener(type, active, { capture: true, passive: true });
+  }
 }

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import {
   CodeEditor,
+  editorHistory,
   EditorDocument,
   languageFor,
   type CodeEditorProps,
@@ -526,6 +527,43 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).toHaveBeenCalledTimes(2);
   });
 
+  it('undoes and redoes with IntelliJ’s keys', async () => {
+    const doc = new EditorDocument('one');
+    const root = mount({ path: 'a.txt', document: doc });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End}!');
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one');
+    await userEvent.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+    expect(doc.content()).toBe('one!');
+  });
+
+  it('leaves undo and redo to the app when it gives no keys: its Edit commands', async () => {
+    const doc = new EditorDocument('one');
+    const root = mount({ path: 'a.txt', document: doc, keys: () => ({ undo: [], redo: [] }) });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End}!');
+    // The app's keymap takes the key the editor leaves, keeping the browser's own undo from it.
+    const app = (event: KeyboardEvent) => {
+      if (event.key === 'z' && !event.defaultPrevented) event.preventDefault();
+    };
+    window.addEventListener('keydown', app);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    window.removeEventListener('keydown', app);
+    expect(doc.content()).toBe('one!');
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    expect(editorHistory(content, 'undo')).toBe(true);
+    expect(doc.content()).toBe('one');
+    expect(editorHistory(content, 'redo')).toBe(true);
+    expect(doc.content()).toBe('one!');
+  });
+
+  it('leaves Edit → Undo to the system outside an editor with a history', () => {
+    const root = mount({ path: 'a.txt', text: 'read only' });
+    expect(editorHistory(root.querySelector('.cm-content') as Element, 'undo')).toBe(false);
+    expect(editorHistory(document.body, 'undo')).toBe(false);
+  });
+
   it('leaves the keys alone without handlers, or off a word', async () => {
     const root = mount({ path: 'a.ts', text: 'x   y' });
     await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
@@ -594,6 +632,31 @@ describe('EditorDocument', () => {
     doc.saved();
     expect(doc.modified.get()).toBe(false);
     expect(doc.disk.get()).toBe(edited);
+  });
+
+  it('knows whether the file on disk changed from what it last read or saved', () => {
+    const doc = new EditorDocument('a\r\nb');
+    expect(doc.changedFrom('a\nb')).toBe(false);
+    expect(doc.changedFrom('a\nc')).toBe(true);
+  });
+
+  it('resolves a conflict: the text as an edit of only what differs, and the disk’s', () => {
+    const doc = new EditorDocument('one two three');
+    doc.text.set(Text.of(['one 2 three']));
+    // Kept: the same text, now to be written over the disk's.
+    doc.resolve('one 2 three', 'one two three');
+    expect(doc.lastEdit).toBeUndefined();
+    expect(doc.disk.get().toString()).toBe('one two three');
+    expect(doc.modified.get()).toBe(true);
+    // Loaded: the disk's, changing only the middle.
+    doc.resolve('one two three', 'one two three');
+    expect(doc.content()).toBe('one two three');
+    expect(doc.modified.get()).toBe(false);
+    const change: { from: number; to: number; insert: string }[] = [];
+    doc.lastEdit?.changes.iterChanges((from, to, _f, _t, inserted) => {
+      change.push({ from, to, insert: inserted.toString() });
+    });
+    expect(change).toEqual([{ from: 4, to: 5, insert: 'two' }]);
   });
 
   it('takes the text changed on disk, unless it’s modified or the same', () => {

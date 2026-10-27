@@ -1,5 +1,6 @@
-// Editing end to end: typing in a file, undo, Save All, edits kept across tabs, saving when the
-// window closes, and a file changed on disk shown again.
+// Editing end to end: typing in a file, undo, Save All, edits kept across tabs, saving on its own
+// (when the editor loses the focus, when the window closes), a file changed on disk shown again, a
+// file changed in both resolved, and the Edit menu.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -70,16 +71,19 @@ it('edits a file, undoes, and saves it with Save All, keeping its line separator
   await expect.poll(() => disk(first)).toBe('const first = 1; // kept\r\nexport {};\r\n');
 });
 
-it('keeps a file’s unsaved edits when another tab is shown, and saves before closing', async () => {
+it('keeps a file’s edits when another tab is shown, and saves before closing', async () => {
   await open('second.ts');
-  await page().keyboard.type(' // unsaved');
+  await page().keyboard.type(' // kept');
   await open('first.ts');
   await page().locator('.cerebro-editor-tab', { hasText: 'second.ts' }).click();
-  expect(await shown()).toContain('const second = 2; // unsaved');
-  expect(disk(second)).toBe('const second = 2;\n');
+  expect(await shown()).toContain('const second = 2; // kept');
+  await page().locator('.cm-line').first().click();
+  await page().keyboard.press('End');
+  await page().keyboard.type(' // unsaved');
+  expect(disk(second)).toBe('const second = 2; // kept\n');
   // Quitting saves.
   await running.restart();
-  expect(disk(second)).toBe('const second = 2; // unsaved\n');
+  expect(disk(second)).toBe('const second = 2; // kept // unsaved\n');
 });
 
 it('shows a file changed on disk', async () => {
@@ -88,6 +92,79 @@ it('shows a file changed on disk', async () => {
   writeFileSync(second, 'const second = 3;\n');
   await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3;\n');
 });
+
+it('saves a file on its own when the editor loses the focus', async () => {
+  await open('second.ts');
+  await page().keyboard.type(' // autosaved');
+  expect(disk(second)).toBe('const second = 3;\n');
+  await page().locator('.cerebro-tree').first().focus();
+  await expect
+    .poll(() => disk(second), { timeout: 15_000 })
+    .toBe('const second = 3; // autosaved\n');
+});
+
+it('asks about a file changed both in the editor and on disk: keep, load, or merge', async () => {
+  const dialog = page().locator('.cerebro-dialog', { hasText: 'File Cache Conflict' });
+  const button = (name: string) => dialog.getByRole('button', { name, exact: true });
+  /** Edits the file, changes it on disk, and waits to be asked. */
+  const conflict = async (typed: string, written: string) => {
+    await open('second.ts');
+    await page().keyboard.type(typed);
+    writeFileSync(second, written);
+    // Read again every 2 seconds.
+    await dialog.waitFor({ timeout: 15_000 });
+  };
+  await conflict(' // mine', 'const second = 4;\n');
+  await button('Keep Memory Changes').click();
+  await dialog.waitFor({ state: 'detached' });
+  // Saved over the disk's, now that it's chosen.
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect
+    .poll(() => disk(second), { timeout: 15_000 })
+    .toBe('const second = 3; // autosaved // mine\n');
+
+  await conflict(' // lost', 'const second = 5;\n');
+  await button('Load File System Changes').click();
+  await expect.poll(shown).toBe('const second = 5;\n');
+
+  // The disk's change taken into the edits, by the arrow beside it, and saved.
+  await conflict(' // merged', 'const second = 6;\n');
+  await button('Show Difference').click();
+  const merge = page().locator('.cerebro-dialog', { hasText: 'Save Memory Content' });
+  const revert = merge.locator('.cm-merge-revert button').first();
+  await revert.waitFor();
+  await revert.click();
+  await merge.getByRole('button', { name: 'Save Memory Content' }).click();
+  await dialog.waitFor({ state: 'detached' });
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect.poll(() => disk(second), { timeout: 15_000 }).toBe('const second = 6;\n');
+});
+
+// macOS shows the menu in the system's menu bar, which Playwright can't click.
+it.skipIf(process.platform === 'darwin')(
+  'undoes, copies and pastes in the editor through the Edit menu',
+  async () => {
+    const edit = async (item: string) => {
+      await page().keyboard.press('Alt+E');
+      await page().locator('.cerebro-menu-item', { hasText: item }).click();
+      await page().locator('.cerebro-menu').first().waitFor({ state: 'detached' });
+    };
+    await open('second.ts');
+    const before = await shown();
+    const line = before.split('\n')[0] as string;
+    await page().keyboard.type(' x');
+    await edit('Undo');
+    expect(await shown()).toBe(before);
+    await page().keyboard.press('Home');
+    await page().keyboard.press('Shift+End');
+    await edit('Copy');
+    await page().keyboard.press('End');
+    await edit('Paste');
+    await expect.poll(shown).toBe(before.replace(line, line + line));
+    await edit('Undo');
+    await expect.poll(shown).toBe(before);
+  },
+);
 
 it('shows no scrollbar where nothing overflows: the Project tool window, a file it can’t open', async () => {
   await page().keyboard.press(KEYS.goToFile);

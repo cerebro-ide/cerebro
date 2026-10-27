@@ -21,7 +21,7 @@ const electron = vi.hoisted(() => {
 
 vi.mock('electron', () => ({ ipcMain: electron.ipcMain, Menu: electron.Menu }));
 
-const { applicationMenu, installMenu, MENU_COMMAND, SET_MENU, template } =
+const { applicationMenu, EDIT, installMenu, MENU_COMMAND, SET_MENU, template } =
   await import('../src/menu.js');
 
 /** Clicks a built item, by the mouse or through its accelerator. */
@@ -101,10 +101,25 @@ describe('installMenu', () => {
     expect(electron.Menu.setApplicationMenu).toHaveBeenCalledOnce();
   });
 
-  it('removes Electron’s default menu elsewhere, listening to nothing', () => {
+  it('removes Electron’s default menu elsewhere, listening only for edit actions', () => {
     installMenu('win32');
     expect(electron.Menu.setApplicationMenu).toHaveBeenCalledWith(null);
     installMenu();
-    expect(electron.ipc.size).toBe(0);
+    expect([...electron.ipc.keys()]).toEqual([EDIT]);
+  });
+
+  it('runs the edit actions a page asks for, and nothing else', () => {
+    installMenu('linux');
+    const sender = { undo: vi.fn(), redo: vi.fn(), cut: vi.fn(), copy: vi.fn(), paste: vi.fn() };
+    const edit = electron.ipc.get(EDIT) as Listener;
+    edit({ sender }, 'paste');
+    edit({ sender }, 'undo');
+    edit({ sender }, 'reload');
+    edit({ sender }, 3);
+    expect(sender.paste).toHaveBeenCalledOnce();
+    expect(sender.undo).toHaveBeenCalledOnce();
+    expect([sender.redo, sender.cut, sender.copy].every((f) => f.mock.calls.length === 0)).toBe(
+      true,
+    );
   });
 });

@@ -10,6 +10,7 @@ import electron = require('electron');
 // Kept in step with menu.ts, which a sandboxed preload can't import.
 const SET_MENU = 'cerebro:menu:set';
 const MENU_COMMAND = 'cerebro:menu:command';
+const EDIT = 'cerebro:menu:edit';
 // Kept in step with host.ts.
 const HOST_REQUEST = 'cerebro:host:request';
 const HOST_NOTIFICATION = 'cerebro:host:notification';
@@ -102,5 +103,9 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
       listen(MENU_COMMAND, (command) => {
         if (typeof command === 'string') listener(command);
       }),
+    /** Runs the system's edit action on the focused field: undo, redo, cut, copy or paste. */
+    edit: (action: string) => {
+      electron.ipcRenderer.send(EDIT, action);
+    },
   },
 });
