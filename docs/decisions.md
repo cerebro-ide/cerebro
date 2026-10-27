@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
@@ -969,9 +969,14 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   Line:Column" dialog: `[Line] [:column]`, counted from 1, filled with the caret's place and
   selected. A column alone stays on the line; a line alone goes to its start. It's a place left,
   for Back. Not in a diff.
+- **Select Opened File:** IntelliJ's crosshair button in the Project tool window's header (tool
+  windows take header buttons through `ShellLayout`'s `actions`). It shows the Project tool window
+  and selects the active file, opening the folders down to it (`TreeModel.reveal` in `ui-tree`);
+  the focus stays in the editor.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some);
   Back doesn't restore the scroll position, only the caret, centred. Recent Files isn't kept
-  between runs, and lacks IntelliJ's tool windows column and "Show edited only".
+  between runs, and lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's
+  "Always Select Opened File" option and Alt+F1's Select In aren't there.
 
 ## Scrollbars over the content (2026-10-27)
 

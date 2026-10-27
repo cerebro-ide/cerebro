@@ -32,7 +32,7 @@ import {
   parseLineColumn,
   type EditorDocument,
 } from '@cerebro-ide/ui-editor';
-import { ProjectTree } from './project.js';
+import { ProjectTree, selectInTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { carets, history, recentTabs, reveals, setupNavigation } from './navigation.js';
@@ -283,6 +283,19 @@ services.menus.contribute({
   menu: 'main/navigate',
   item: { command: 'navigate.goToLine' },
   group: 'b',
+});
+// Select Opened File, as IntelliJ's button in the Project tool window's header.
+services.commands.register({
+  id: 'project.selectOpenedFile',
+  label: 'Select Opened File',
+  icon: 'locate',
+  enabled: () => activeFile() !== undefined,
+  run: async () => {
+    const file = activeFile();
+    if (!file) return;
+    layout.toolWindows.show('project');
+    await selectInTree(file.id, FILES);
+  },
 });
 window.addEventListener('mouseup', (event) => {
   const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
@@ -730,6 +743,15 @@ render(
           }}
         />
       )}
+      actions={(id) =>
+        id === 'project' ? (
+          <ToolbarButton
+            commands={services.commands}
+            command="project.selectOpenedFile"
+            icon={icon('locate')}
+          />
+        ) : null
+      }
       shortcut={(id) => {
         const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
         return key === undefined

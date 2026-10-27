@@ -1,8 +1,8 @@
-// Navigation end to end: Back and Forward through the places the caret was, Recent Files, and Go
-// to Line.
+// Navigation end to end: Back and Forward through the places the caret was, Recent Files, Go to
+// Line, and selecting the opened file in the Project tool window.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -36,6 +36,8 @@ beforeAll(async () => {
   const lines = ['target();', ...Array.from({ length: 80 }, (_, i) => `// ${String(i)}`)];
   writeFileSync(join(repo, 'a.ts'), [...lines, 'export function target() {}', ''].join('\n'));
   writeFileSync(join(repo, 'b.ts'), 'export const b = 1;\n');
+  mkdirSync(join(repo, 'src', 'deep'), { recursive: true });
+  writeFileSync(join(repo, 'src', 'deep', 'c.ts'), 'export const c = 1;\n');
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -108,4 +110,15 @@ it('goes to a line and column, from the caret’s, and back', async () => {
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   await page().keyboard.press(mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft');
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'target();' });
+});
+
+it('selects the opened file in the Project tool window, opening the folders down to it', async () => {
+  await open('c.ts');
+  const project = page().locator('.cerebro-tool-window[data-id="project"]');
+  const key = `${repo.replaceAll('\\', '/')}/src/deep/c.ts`;
+  const row = project.locator(`.cerebro-tree-row[data-key="${key}"]`);
+  // Its folder is closed.
+  expect(await row.count()).toBe(0);
+  await project.locator('[data-command="project.selectOpenedFile"]').click();
+  await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
 });

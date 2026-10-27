@@ -22,11 +22,20 @@ const FILES = tree({
   'README.md': null,
 });
 
-function source(roots: Item[], options: { async?: boolean; fail?: string } = {}): TreeSource<Item> {
+function source(
+  roots: Item[],
+  options: { async?: boolean; slow?: boolean; fail?: string } = {},
+): TreeSource<Item> {
   return {
     children: (node) => {
       if (node && node.path === options.fail) throw new Error(`can't read ${node.path}`);
       const children = node ? (node.children ?? []) : roots;
+      if (options.slow)
+        return new Promise((resolve) =>
+          setTimeout(() => {
+            resolve(children);
+          }, 20),
+        );
       return options.async ? Promise.resolve(children) : children;
     },
     key: (node) => node.path,
@@ -70,6 +79,28 @@ describe('TreeModel', () => {
     expect(shown(model)).toHaveLength(7);
     model.expand(find('README.md'));
     expect(shown(model)).toHaveLength(7);
+  });
+
+  it('reveals a node by the keys down to it, expanding and loading the folders on the way', async () => {
+    const model = new TreeModel(source(FILES, { async: true }));
+    expect(await model.reveal(['src', 'src/ui', 'src/ui/menu.tsx'])).toBe(true);
+    expect(model.selected).toBe('src/ui/menu.tsx');
+    expect(shown(model)).toEqual([
+      'src',
+      '  ui',
+      '    tree.tsx',
+      '    menu.tsx',
+      '  main.ts',
+      'docs',
+      'README.md',
+    ]);
+    // Its roots still loading as it's asked: once they've loaded.
+    const loading = new TreeModel(source(FILES, { async: true, slow: true }));
+    expect(await loading.reveal(['docs'])).toBe(true);
+    // What isn't there: nothing selected anew.
+    expect(await model.reveal(['src', 'src/gone.ts'])).toBe(false);
+    expect(await model.reveal([])).toBe(false);
+    expect(model.selected).toBe('src/ui/menu.tsx');
   });
 
   it('loads children lazily, once, marking a folder that’s loading', async () => {
