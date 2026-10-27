@@ -568,6 +568,9 @@ function Code(props: { path: string; env: string }) {
   const loaded = signal<EditorDocument | { error: string } | undefined>(undefined);
   void documentFor(props.path, () => sampleText(props.path)).then((result) => {
     loaded.set(result);
+    if (!('error' in result) && navigation.available()) {
+      navigation.opened(props.path, result.text.peek().toString());
+    }
   });
   return (
     <div
@@ -584,6 +587,11 @@ function Code(props: { path: string; env: string }) {
             </p>
           );
         }
+        const asked = (doc: EditorDocument, at: { line: number; column: number }) => ({
+          path: props.path,
+          text: doc.text.peek().toString(),
+          ...at,
+        });
         return (
           <CodeEditor
             path={props.path}
@@ -592,8 +600,10 @@ function Code(props: { path: string; env: string }) {
             onCaret={(at) => carets.set(props.path, at)}
             {...(navigation.available()
               ? {
-                  onGoToDefinition: (name: string) => void navigation.goToDefinition(name),
-                  onFindUsages: (name: string) => void navigation.findUsages(name),
+                  onGoToDefinition: (name: string, at: { line: number; column: number }) =>
+                    void navigation.goToDefinition(name, asked(state, at)),
+                  onFindUsages: (name: string, at: { line: number; column: number }) =>
+                    void navigation.findUsages(name, asked(state, at)),
                 }
               : {})}
             fontSize={() => settings.get('editor.fontSize') as number}

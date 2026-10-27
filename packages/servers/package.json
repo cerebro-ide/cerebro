@@ -1,0 +1,24 @@
+{
+  "name": "@cerebro-ide/servers",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The language servers Cerebro runs, and how each is started.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../node_modules/typescript/bin/tsc -b tsconfig.build.json",
+    "typecheck": "node ../../node_modules/typescript/bin/tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "typescript": "7.0.2"
+  }
+}

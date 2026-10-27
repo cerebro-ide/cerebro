@@ -126,19 +126,21 @@ export function searchText(folder: string, search: TextSearch, rg = rgPath): Pro
       errors += chunk;
     });
     const lines = createInterface({ input: child.stdout });
-    lines.on('line', (line) => {
-      if (limited) return;
+    const onLine = (line: string) => {
       const message = JSON.parse(line) as RgMatch;
       if (message.type !== 'match') return;
       const match = toMatch(folder, message.data);
       if (!match) return;
       if (matches.length === limit) {
         limited = true;
+        // Lines already read may still come, as many as ripgrep's output happened to hold.
+        lines.off('line', onLine);
         child.kill();
         return;
       }
       matches.push(match);
-    });
+    };
+    lines.on('line', onLine);
     child.on('error', reject);
     // Done once ripgrep has exited and every line it printed was read, in either order.
     const exited = new Promise<number | null>((done) => {

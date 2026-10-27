@@ -1,6 +1,6 @@
-// Navigation by name, through the host's index: Go to Symbol, and go to definition and find usages
-// from the editor. The index matches names, not meanings (that comes with the language servers),
-// so every list says "Name matches".
+// Navigation: Go to Symbol by name, through the host's index; and go to definition and find usages
+// from the editor, asking the file's language server first (meanings, not names) and the index when
+// none answers. The index matches names, not meanings, so its lists say "Name matches".
 
 import {
   NavigationHistory,
@@ -23,6 +23,14 @@ interface Located {
 }
 
 type Choice = PickerItem & { at: Located };
+
+/** A place in a file as the editor has it, unsaved edits and all: what a language server is asked. */
+export interface Asked {
+  path: string;
+  text: string;
+  line: number;
+  column: number;
+}
 
 /** Positions to reveal in open files, by path: the editor follows them. */
 export const reveals = new ObservableMap<string, { line: number; column: number }>();
@@ -79,11 +87,11 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     const root = active()?.id;
     return root !== undefined && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
   };
-  const choice = (at: Located, label: string): Choice => ({
+  const choice = (at: Located, label: string, group: string | null = GROUP): Choice => ({
     label,
     detail: `${relative(at.path)}:${String(at.line + 1)}`,
     ...(at.kind === undefined ? {} : { shortcut: at.kind }),
-    group: GROUP,
+    ...(group === null ? {} : { group }),
     icon: () => icon(at.kind === undefined ? 'file' : 'structure'),
     at,
   });
@@ -92,6 +100,17 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     const env = active();
     if (!host || !env) return [];
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
+  };
+  /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
+  const ask = async (method: string, asked: Asked | undefined) => {
+    const host = currentHost();
+    const env = active();
+    if (!host || !env || !asked) return null;
+    try {
+      return (await host.request(method, { worktree: env.id, ...asked })) as Located[] | null;
+    } catch {
+      return null;
+    }
   };
   /** A list to choose a place from, opening the one chosen. */
   const choose = async (label: string, empty: string, items: Choice[]) => {
@@ -130,7 +149,27 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       if (chosen) openAt(chosen.at);
     },
 
-    async goToDefinition(name: string) {
+    /** Starts the file's language server, if it has one, so it's ready when asked. */
+    opened(path: string, text: string) {
+      const host = currentHost();
+      const env = active();
+      if (host && env)
+        void host.request('lsp.open', { worktree: env.id, path, text }).catch(() => undefined);
+    },
+
+    async goToDefinition(name: string, asked?: Asked) {
+      const precise = await ask('lsp.definitions', asked);
+      if (precise) {
+        if (precise.length === 1) openAt(precise[0] as Located);
+        else {
+          await choose(
+            `Definitions of ${name}`,
+            `Cannot find declaration to go to`,
+            precise.map((d) => choice(d, name, null)),
+          );
+        }
+        return;
+      }
       const found = await request('index.definitions', { name });
       if (found.length === 1) openAt(found[0] as Located);
       else {
@@ -142,7 +181,16 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       }
     },
 
-    async findUsages(name: string) {
+    async findUsages(name: string, asked?: Asked) {
+      const precise = await ask('lsp.usages', asked);
+      if (precise) {
+        await choose(
+          `Usages of ${name}`,
+          `No usages of ${name}`,
+          precise.map((u) => choice(u, relative(u.path).split('/').at(-1) as string, null)),
+        );
+        return;
+      }
       const found = await request('index.usages', { name });
       await choose(
         `Usages of ${name}`,

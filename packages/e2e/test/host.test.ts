@@ -23,7 +23,7 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(join(repo, 'src', 'app.ts'), 'export {};');
   writeFileSync(join(repo, 'src', 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
-  writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n');
+  writeFileSync(join(repo, 'src', 'tool.py'), 'class Toolbox:\n    pass\n\nToolbox()\n');
   writeFileSync(
     join(repo, 'src', 'use.ts'),
     "import { Shape } from './shape';\n\nconst first = new Shape();\nconst second = new Shape();\n",
@@ -55,7 +55,8 @@ it('lists actions in Search Everywhere before the Commit tool window has shown',
   const page = running.page;
   // Checking whether the Commit window's commands were enabled built its tree, inside the popup's
   // computed list, which may not write: the list failed.
-  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click();
+  // Forced: under xvfb in CI this click waited forever for the button to be "stable".
+  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click({ force: true });
   await page.keyboard.type('Dark Theme');
   await expect
     .poll(() => page.locator('.cerebro-popup-item__label').allTextContents())
@@ -172,15 +173,20 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.mouse.click(box.x, box.y);
   await page.keyboard.up('Control');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
-  // Alt+F7 on the class's name: every place the name appears.
+  // Alt+F7 on a name in a file no language server reads (Python's has none yet): every place the
+  // name appears, as the index finds them.
+  await page.keyboard.press('ControlOrMeta+Shift+N');
+  await page.keyboard.type('tool.py');
+  await page.locator('.cerebro-popup-item__label', { hasText: 'tool.py' }).waitFor();
+  await page.keyboard.press('Enter');
+  await page.locator('.cm-line', { hasText: 'Toolbox()' }).click();
+  await page.keyboard.press('Home');
   await page.keyboard.press('Alt+F7');
   await page.locator('.cerebro-popup-item').first().waitFor();
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
   expect(await page.locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
-    'src/shape.ts:2',
-    'src/use.ts:1',
-    'src/use.ts:3',
-    'src/use.ts:4',
+    'src/tool.py:1',
+    'src/tool.py:4',
   ]);
   await page.keyboard.press('Escape');
 });

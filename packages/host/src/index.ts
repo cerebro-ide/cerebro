@@ -71,3 +71,15 @@ export {
   type TextResults,
   type TextSearch,
 } from './search.js';
+export {
+  IDLE_AFTER,
+  LanguageServer,
+  LanguageServers,
+  located,
+  PATIENCE,
+  pathOf,
+  uriOf,
+  type Located,
+  type OpenFile,
+  type Run,
+} from './lsp.js';
