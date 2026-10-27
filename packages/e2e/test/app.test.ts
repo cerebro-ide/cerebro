@@ -126,6 +126,32 @@ describe('the window', () => {
     );
   });
 
+  // macOS draws its own traffic lights.
+  it.skipIf(process.platform === 'darwin')(
+    'draws the window controls in the theme’s colours',
+    async () => {
+      // What the window's controls are given, from now on.
+      await running.app.evaluate(({ BrowserWindow }) => {
+        const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
+        const given: unknown[] = [];
+        (globalThis as { overlays?: unknown[] }).overlays = given;
+        const set = window.setTitleBarOverlay.bind(window);
+        window.setTitleBarOverlay = (options) => {
+          given.push(options);
+          set(options);
+        };
+      });
+      const overlays = () =>
+        running.app.evaluate(() => (globalThis as { overlays?: unknown[] }).overlays);
+      await page().keyboard.press('Control+K');
+      await page().keyboard.press('Control+T');
+      await expect.poll(overlays).toEqual([{ color: '#ebecf0', symbolColor: '#1e1f22' }]);
+      await page().keyboard.press('Control+K');
+      await page().keyboard.press('Control+T');
+      await expect.poll(overlays).toContainEqual({ color: '#25282c', symbolColor: '#d1d3d9' });
+    },
+  );
+
   it('opens no other windows', async () => {
     const opened = await page().evaluate(() => window.open('https://example.com') === null);
     expect(opened).toBe(true);

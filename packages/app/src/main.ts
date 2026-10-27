@@ -14,6 +14,7 @@ import {
   type WebContents,
 } from 'electron';
 import { fileURLToPath } from 'node:url';
+import { installWindowColours } from './colours.js';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { installMenu } from './menu.js';
@@ -217,6 +218,7 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   // Before the app is ready: Chromium fixes the scale when it starts.
   forcedScale = installDisplayScale();
   installMenu();
+  installWindowColours();
   const hosts = installHosts();
   // Empty is unset: a test or a shell can clear it without removing it.
   const repo = process.env['CEREBRO_REPO'] || undefined;

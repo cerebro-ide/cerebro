@@ -26,6 +26,7 @@ declare global {
       platform: string;
       menu: NativeMenuBridge;
       display: { setScale(choice: string): void };
+      window: { setColours(frame: string, text: string): void };
       project: {
         current(): Promise<Project | null>;
         recent(): Promise<RecentProject[]>;

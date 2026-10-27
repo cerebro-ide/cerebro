@@ -15,6 +15,8 @@ const HOST_REQUEST = 'cerebro:host:request';
 const HOST_NOTIFICATION = 'cerebro:host:notification';
 // Kept in step with display.ts.
 const SET_SCALE = 'cerebro:display:scale';
+// Kept in step with colours.ts.
+const SET_COLOURS = 'cerebro:window:colours';
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -30,6 +32,12 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     /** Keeps the display scale chosen for the next start: 'auto', or a factor such as '1.5'. */
     setScale: (choice: string) => {
       electron.ipcRenderer.send(SET_SCALE, choice);
+    },
+  },
+  window: {
+    /** Colours the window (its background, and its controls on Windows and Linux) as the theme. */
+    setColours: (frame: string, text: string) => {
+      electron.ipcRenderer.send(SET_COLOURS, frame, text);
     },
   },
   project: {

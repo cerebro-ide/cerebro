@@ -39,6 +39,7 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(first, 'const first = 1;\r\nexport {};\r\n');
   writeFileSync(second, 'const second = 2;\n');
+  writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   execFileSync('git', ['add', '.'], { cwd: repo });
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
     cwd: repo,
@@ -83,4 +84,19 @@ it('shows a file changed on disk', async () => {
   await page().locator('.cm-line').first().waitFor();
   writeFileSync(second, 'const second = 3;\n');
   await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3;\n');
+});
+
+it('shows no scrollbar where nothing overflows: the Project tool window, a file it can’t open', async () => {
+  await page().keyboard.press('ControlOrMeta+Shift+N');
+  await page().keyboard.type('image.bin');
+  await page().locator('.cerebro-popup-item', { hasText: 'image.bin' }).waitFor();
+  await page().keyboard.press('Enter');
+  await page().locator('.playground-code__note', { hasText: 'binary' }).waitFor();
+  // Scrolled areas whose content is taller than they are: there should be none.
+  const overflowing = await page().evaluate(() =>
+    [...document.querySelectorAll('.cerebro-tool-window__body, .cerebro-editor-content')]
+      .filter((e) => e.scrollHeight > e.clientHeight)
+      .map((e) => `${e.className}: ${String(e.scrollHeight)} > ${String(e.clientHeight)}`),
+  );
+  expect(overflowing).toEqual([]);
 });

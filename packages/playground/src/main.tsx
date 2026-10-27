@@ -48,12 +48,13 @@ import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
+import { applyTheme } from './theme.js';
 import { documentFor, saveAll, setupSaving } from './documents.js';
 import { findInFiles } from './find.js';
 import { currentProject, setupProjects } from './projects.js';
 import { globalSettings, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
-import { dark, menuVisible, setDark, setupCommands, type TabContext } from './commands.js';
+import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import { setTerminalKeys, terminalFor, type TerminalKind } from './terminals.js';
@@ -368,16 +369,9 @@ function Header() {
   );
 }
 
-function toggleTheme() {
-  setDark(!dark.get());
-}
-
 function Files() {
   return (
     <div class="playground-files">
-      <button type="button" class="playground-button" on:click={toggleTheme}>
-        Toggle dark / light
-      </button>
       <ProjectTree samples={FILES} open={(tab) => editor()?.open(tab)} />
     </div>
   );
@@ -432,7 +426,7 @@ effect(() => {
 
 // The theme follows its setting.
 effect(() => {
-  document.documentElement.dataset['cerebroTheme'] = dark.get() ? 'dark' : 'light';
+  applyTheme(dark.get());
   return undefined;
 });
 

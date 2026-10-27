@@ -104,6 +104,7 @@ vi.mock('../src/host.js', () => host);
 
 const menu = vi.hoisted(() => ({ installMenu: vi.fn() }));
 vi.mock('../src/menu.js', () => menu);
+vi.mock('../src/colours.js', () => ({ installWindowColours: vi.fn() }));
 
 const {
   createWindow,
