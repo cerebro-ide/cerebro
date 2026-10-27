@@ -311,6 +311,55 @@ it('runs a shell in the Terminal tool window', async () => {
     });
 });
 
+it('opens more terminals as tabs, each its own shell, and closes them', async () => {
+  const page = running.page;
+  const window = page.locator('.cerebro-tool-window[data-id="terminal"]');
+  const titles = () => window.locator('.cerebro-tool-tab__title').allTextContents();
+  const shown = () =>
+    window
+      .locator('.cerebro-terminal__row')
+      .allTextContents()
+      .then((rows) => rows.join(''));
+  expect(await titles()).toEqual(['Local']);
+  // The new shell has the keys at once, in the same task as the click: in CI, keys typed a frame
+  // later went to the + button. Clicked from the page to read the focus in that same task.
+  const focused = await page.evaluate(() => {
+    document.querySelector<HTMLElement>('[aria-label="New Tab"]')?.click();
+    return document.activeElement?.closest('.cerebro-terminal')?.isConnected ?? false;
+  });
+  expect(focused).toBe(true);
+  expect(await titles()).toEqual(['Local', 'Local (2)']);
+  // The new shell has the keys.
+  await page.keyboard.type('echo second-shell');
+  await page.keyboard.press('Enter');
+  await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
+  // After a reload: the same tabs, showing the same shells.
+  await page.reload();
+  // The tabs show once the host has given the environment back. On failure: what the window shows.
+  await window
+    .locator('.cerebro-tool-tab--active', { hasText: 'Local (2)' })
+    .waitFor({ timeout: 15_000 })
+    .catch(async () => {
+      throw new Error(
+        `Not shown. Terminal tool window: ${JSON.stringify(await window.allTextContents())}; console: ${JSON.stringify(running.messages)}`,
+      );
+    });
+  expect(await titles()).toEqual(['Local', 'Local (2)']);
+  await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
+  // The first is still there, without it.
+  await window.locator('.cerebro-tool-tab', { hasText: /^Local$/ }).click({ force: true });
+  await expect.poll(shown, { timeout: 5000 }).toContain('cerebro-ok');
+  expect(await shown()).not.toContain('second-shell');
+  await window.locator('[aria-label="Close Local (2)"]').click({ force: true });
+  expect(await titles()).toEqual(['Local']);
+  // Closing the last hides the tool window; shown again, it has a new shell.
+  await window.locator('[aria-label="Close Local"]').click({ force: true });
+  await window.waitFor({ state: 'detached' });
+  await page.locator('.cerebro-stripe-button[data-id="terminal"]').click({ force: true });
+  expect(await titles()).toEqual(['Local']);
+  await expect.poll(shown, { timeout: 5000 }).not.toContain('cerebro-ok');
+});
+
 it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl+D shows its diff', async () => {
   const page = running.page;
   await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();

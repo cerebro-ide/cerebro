@@ -8,3 +8,4 @@ export { EnvironmentEditors, EnvironmentTabs } from './environments.js';
 export type { EnvironmentEditorsProps, EnvironmentTabsProps } from './environments.js';
 export { MoreTabs, overflowClasses, TabOverflow, watchOverflow } from './overflow.js';
 export type { ListedTab } from './overflow.js';
+export { ToolTabs, type ToolTabsProps } from './tool-tabs.js';

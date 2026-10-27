@@ -41,6 +41,7 @@ function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean; shortcuts
         {...(options.shortcuts === false
           ? {}
           : { shortcut: (id: string) => (id === 'project' ? 'Alt+1' : undefined) })}
+        tabs={(id) => (id === 'terminal' ? <div class="cerebro-tool-tabs test-tabs" /> : null)}
         actions={(id) => (id === 'project' ? <button class="test-action">locate</button> : null)}
       />
     ),
@@ -175,6 +176,23 @@ describe('opening and closing', () => {
       'cerebro-tool-window__hide',
     ]);
     expect($('.cerebro-tool-window[data-id="terminal"] .test-action')).toBeNull();
+  });
+
+  it('shows a window’s tabs after its title, which then takes only its own width', () => {
+    const { tools, $ } = mount();
+    tools.show('project');
+    tools.show('terminal');
+    const header = $('.cerebro-tool-window[data-id="terminal"] .cerebro-tool-window__header');
+    expect([...header.children].map((child) => child.className)).toEqual([
+      'cerebro-tool-window__title',
+      'cerebro-tool-tabs test-tabs',
+      'cerebro-tool-window__hide',
+    ]);
+    const title = (id: string) =>
+      $(`.cerebro-tool-window[data-id="${id}"] .cerebro-tool-window__title`);
+    expect(getComputedStyle(title('terminal')).flexGrow).toBe('0');
+    expect(getComputedStyle(title('project')).flexGrow).toBe('1');
+    expect(getComputedStyle($('.test-tabs')).flexGrow).toBe('1');
   });
 
   it('hides a window from its header', () => {
