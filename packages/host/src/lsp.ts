@@ -406,7 +406,9 @@ export class LanguageServers {
     if (!found) return null;
     const { server } = found;
     /** A file as the server has it, or as it is on disk, opened in the server. */
-    const known = async (path: string): Promise<{ file: OpenFile; languageId: string } | undefined> => {
+    const known = async (
+      path: string,
+    ): Promise<{ file: OpenFile; languageId: string } | undefined> => {
       const languageId = serverFor(path, this.specs)?.languageId ?? found.languageId;
       if (path === file.path) return { file, languageId };
       const open = server.opened(path);
@@ -418,9 +420,9 @@ export class LanguageServers {
       }
     };
     // Asked only about places in files already read.
-    const at = async (place: Located, question: typeof server.definitions) => {
+    const at = async (place: Located, question: 'definitions' | 'implementations') => {
       const k = (await known(place.path)) as { file: OpenFile; languageId: string };
-      return question.call(server, k.file, k.languageId, place);
+      return server[question](k.file, k.languageId, place);
     };
     try {
       const answer = await within(
@@ -429,8 +431,8 @@ export class LanguageServers {
             const k = await known(path);
             return k ? server.symbols(k.file, k.languageId) : [];
           },
-          definitions: (place) => at(place, server.definitions),
-          implementations: (place) => at(place, server.implementations),
+          definitions: (place) => at(place, 'definitions'),
+          implementations: (place) => at(place, 'implementations'),
           text: async (path) => (await known(path))?.file.text,
         }),
         this.options.markersPatience ?? MARKERS_PATIENCE,
