@@ -48,6 +48,17 @@ describe('the diff editor', () => {
     expect(root.querySelectorAll('.cm-gutters[data-scrollbar-obstacle]')).toHaveLength(2);
   });
 
+  it('is as wide as the longest line on each side, though it isn’t drawn', async () => {
+    const lines = Array.from({ length: 3000 }, (_, i) => `line ${String(i)}`);
+    lines[2500] = 'x'.repeat(400);
+    const root = mount({ path: 'a.txt', original: lines.join('\n'), text: lines.join('\n') });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    for (const content of root.querySelectorAll<HTMLElement>('.cm-content')) {
+      expect(parseFloat(content.style.minWidth)).toBeGreaterThan(2000);
+    }
+  });
+
   it('applies the font size and tab size as they change, and shows a file of no language', () => {
     const fontSize = signal(13);
     const root = mount({

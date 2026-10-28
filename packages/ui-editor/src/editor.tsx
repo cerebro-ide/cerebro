@@ -28,6 +28,7 @@ import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { languageFor } from './languages.js';
+import { fullWidth } from './width.js';
 
 export interface CodeEditorProps {
   /** The file's path: its language comes from the extension. */
@@ -350,6 +351,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     lineNumbers(),
     highlightActiveLineGutter(),
     gutterObstacle,
+    fullWidth,
     selection,
     // After the selection: a later layer beneath goes lower.
     activeLine,

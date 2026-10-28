@@ -11,6 +11,7 @@ import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
 import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
 import { languageFor } from './languages.js';
+import { fullWidth } from './width.js';
 
 export interface DiffEditorProps {
   /** The file's path: its language comes from the extension. */
@@ -53,6 +54,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     extensions: [
       lineNumbers(),
       gutterObstacle,
+      fullWidth,
       selection,
       onEdit
         ? EditorView.updateListener.of((update) => {
