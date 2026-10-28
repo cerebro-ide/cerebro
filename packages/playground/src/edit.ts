@@ -16,6 +16,36 @@ export type EditAction = 'undo' | 'redo' | 'cut' | 'copy' | 'paste';
  */
 const lastFocused = signal<Element | undefined>(undefined);
 
+/** The focused element, inside shadow roots: an editor's content, or its find bar's field. */
+function deepActive(): Element | undefined {
+  let active = document.activeElement;
+  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
+  return active ?? undefined;
+}
+
+/** Whether an element is a menu's, its bar's, or the page itself: never what's edited. */
+function inMenu(element: Element): boolean {
+  return (
+    element === document.body || element.closest('.cerebro-menu-layer, .cerebro-menubar') !== null
+  );
+}
+
+/**
+ * Follows the focus. A move inside a shadow root, as from an editor to its find bar, reaches the
+ * window as no focus event (the DOM stops one whose target and related target are the same host),
+ * so it's also read before each key and press, which come before a menu opens.
+ */
+function follow(): void {
+  const active = deepActive();
+  if (active && !inMenu(active)) lastFocused.set(active);
+}
+
+/** What the command acts on: what has the focus, or had it before a menu took it. */
+function target(): Element | undefined {
+  const active = deepActive();
+  return active && !inMenu(active) ? active : lastFocused.peek();
+}
+
 /** Where text is typed: a text field, or an editable code editor. */
 function editable(element: Element | undefined): boolean {
   if (!element?.isConnected) return false;
@@ -36,7 +66,7 @@ function copyable(): boolean {
 
 /** Runs an edit action on what last had the focus. */
 function run(action: EditAction): void {
-  const focused = lastFocused.peek();
+  const focused = target();
   if (focused instanceof HTMLElement && focused.isConnected) focused.focus();
   if ((action === 'undo' || action === 'redo') && focused && editorHistory(focused, action)) return;
   const app = window.cerebro?.menu;
@@ -47,17 +77,9 @@ function run(action: EditAction): void {
 
 /** Registers the Edit commands, and follows the focus for them. */
 export function setupEdit(commands: CommandRegistry): void {
-  window.addEventListener(
-    'focusin',
-    (event) => {
-      const target = event.composedPath()[0];
-      if (!(target instanceof Element)) return;
-      // A menu, its bar or the toolbar's menu button takes the focus while it's open.
-      if (target.closest('.cerebro-menu-layer, .cerebro-menubar')) return;
-      lastFocused.set(target);
-    },
-    true,
-  );
+  for (const type of ['focusin', 'keydown', 'pointerdown']) {
+    window.addEventListener(type, follow, true);
+  }
   const entries: [EditAction, string, () => boolean][] = [
     ['undo', '&Undo', () => editable(lastFocused.get())],
     ['redo', '&Redo', () => editable(lastFocused.get())],
