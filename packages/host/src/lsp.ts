@@ -61,9 +61,17 @@ const runProcess: Run = (command, args, cwd, env) =>
     windowsHide: true,
   });
 
-/** A path as a file URI. */
-export function uriOf(path: string): string {
-  return pathToFileURL(path).href;
+/**
+ * A path as a file URI, a Windows drive spelled as VS Code spells it (`file:///c%3A/...`): so
+ * TypeScript's server does, and it compares URIs as text (its highlights are kept only for the URI
+ * asked about).
+ */
+export function uriOf(path: string, platform: NodeJS.Platform = process.platform): string {
+  const windows = platform === 'win32';
+  return pathToFileURL(path, { windows }).href.replace(
+    /^file:\/\/\/([A-Za-z]):/,
+    (_, drive: string) => `file:///${drive.toLowerCase()}%3A`,
+  );
 }
 
 /** A file URI as a path with `/`, a Windows drive in capitals, as git writes them. */

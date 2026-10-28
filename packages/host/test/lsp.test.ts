@@ -54,6 +54,13 @@ describe('paths and locations', () => {
     expect(pathOf('file:///c%3A/Users/a.ts', 'win32')).toBe('C:/Users/a.ts');
   });
 
+  it('spells a Windows path’s URI as VS Code does, as TypeScript’s server compares them', () => {
+    // Its highlights are kept only for the URI asked about, spelled as it spells it: with Node's
+    // `file:///C:/...`, none were (measured, Windows CI).
+    expect(uriOf('C:\\Users\\a b\\x.ts', 'win32')).toBe('file:///c%3A/Users/a%20b/x.ts');
+    expect(pathOf(uriOf('C:\\Users\\a.ts', 'win32'), 'win32')).toBe('C:/Users/a.ts');
+  });
+
   it('reads locations and location links, one or many, or none', () => {
     const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 3 } };
     expect(located(null)).toEqual([]);
