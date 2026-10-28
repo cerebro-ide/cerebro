@@ -3,7 +3,7 @@
 // name matches would list every function of that name.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
@@ -171,20 +171,47 @@ it('highlights the symbol at the caret where it is, not another of its name', as
       });
     });
   // Declared on line 2, read on 3; not b's, on 6 and 7. Asked again until the server answers: one
-  // still loading (on Windows in CI) doesn't, and only a move asks again.
-  await expect
-    .poll(
-      async () => {
-        const lines = await usageLines();
-        if (lines.length === 0) {
-          await page().keyboard.press('ArrowRight');
-          await page().keyboard.press('ArrowLeft');
-        }
-        return lines;
+  // still loading doesn't, and only a move asks again.
+  try {
+    await expect
+      .poll(
+        async () => {
+          const lines = await usageLines();
+          if (lines.length === 0) {
+            await page().keyboard.press('ArrowRight');
+            await page().keyboard.press('ArrowLeft');
+          }
+          return lines;
+        },
+        { timeout: 45_000, interval: 1_000 },
+      )
+      .toEqual(['2 write', '3']);
+  } catch (error) {
+    // CI's log is all there is: what the host answers there, asked directly, and the console.
+    const text = readFileSync(join(repo, 'scope.ts'), 'utf8');
+    const asked = { worktree: repo, path: join(repo, 'scope.ts'), text, line: 2, column: 10 };
+    const answers = await page().evaluate(
+      async ({ asked, repo }) => {
+        const host = (
+          window as unknown as {
+            cerebro: { host: { request: (p: string, m: string, a: unknown) => Promise<unknown> } };
+          }
+        ).cerebro.host;
+        const answer = (method: string) =>
+          host.request(repo, method, asked).then(
+            (result) => JSON.stringify(result),
+            (failure: unknown) => `failed: ${String(failure)}`,
+          );
+        return {
+          highlights: await answer('lsp.highlights'),
+          definitions: await answer('lsp.definitions'),
+        };
       },
-      { timeout: 45_000, interval: 1_000 },
-    )
-    .toEqual(['2 write', '3']);
+      { asked, repo },
+    );
+    console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
+    throw error;
+  }
 }, 60_000);
 
 it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
