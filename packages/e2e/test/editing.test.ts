@@ -95,6 +95,10 @@ it('saves a file with its byte order mark, which isn’t shown', async () => {
   await page().keyboard.type(' kept');
   await page().keyboard.press('ControlOrMeta+s');
   await expect.poll(() => disk(join(repo, 'bom.txt'))).toBe('\uFEFFmarked kept\n');
+  // Leaves the tabs as they were: the middle button's event, as the tabs test does.
+  const tab = page().locator('.cerebro-editor-tab', { hasText: 'bom.txt' });
+  await tab.dispatchEvent('auxclick', { button: 1 });
+  await tab.waitFor({ state: 'detached' });
 });
 
 it('closes a file’s tab when the file is deleted on disk', async () => {
