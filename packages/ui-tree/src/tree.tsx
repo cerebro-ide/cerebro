@@ -51,6 +51,8 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
   const rowHeight = props.rowHeight ?? 24;
   const viewport = new Viewport();
   let element: HTMLElement | undefined;
+  /** While a press is focusing the tree. */
+  let pointing = false;
 
   /** Scrolls the selected row into view, if it isn't. */
   const reveal = () => {
@@ -218,8 +220,17 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         viewport.top = (event.currentTarget as HTMLElement).scrollTop;
       }}
       on:keydown={onKey}
+      on:pointerdown={() => {
+        // The focus a press gives comes within its task: a timer runs after it.
+        pointing = true;
+        setTimeout(() => {
+          pointing = false;
+        });
+      }}
       on:focus={() => {
-        if (model.selected === undefined) model.move(0);
+        // Focused with the keys, the first row is selected. Not by a press: it selects the row
+        // pressed, and selecting the first scrolled the tree to the top under the pointer.
+        if (model.selected === undefined && !pointing) model.move(0);
       }}
     >
       <div

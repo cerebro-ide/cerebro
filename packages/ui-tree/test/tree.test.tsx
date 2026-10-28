@@ -218,6 +218,17 @@ describe('TreeView', () => {
     expect(model.selected).toBe('top.md');
   });
 
+  it('selects the row clicked when the click focuses it, scrolled, without going to the top', async () => {
+    const { model, tree, row } = await mount(100);
+    model.expand({ path: 'big', folder: true });
+    await settle();
+    tree.scrollTop = 1200;
+    await settle();
+    await userEvent.click(row('big/file-00060.ts'));
+    expect(model.selected).toBe('big/file-00060.ts');
+    expect(tree.scrollTop).toBe(1200);
+  });
+
   it('opens a file and toggles a folder with Enter or a double click', async () => {
     const { model, opened, row, key } = await mount(2);
     model.select('top.md');
