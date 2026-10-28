@@ -161,6 +161,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.usages', (params) =>
     servers.usages(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
+  connection.onRequest('lsp.highlights', (params) =>
+    servers.highlights(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
   connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
   /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
   const read = async (path: string): Promise<string> => {

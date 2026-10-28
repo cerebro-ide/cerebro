@@ -10,3 +10,11 @@ export { languageFor } from './languages.js';
 export { DiffEditor, type DiffEditorProps } from './diff.js';
 export { EditorDocument } from './document.js';
 export { formatLineColumn, parseLineColumn } from './line.js';
+export {
+  placeAt,
+  USAGES_AFTER,
+  type AskDefinition,
+  type AskUsages,
+  type Place,
+  type Usage,
+} from './usages.js';
