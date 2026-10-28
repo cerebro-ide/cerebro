@@ -170,9 +170,22 @@ it('highlights the symbol at the caret where it is, not another of its name', as
         return `${String(line)}${usage.classList.contains('cerebro-usage--write') ? ' write' : ''}`;
       });
     });
-  // Declared on line 2, read on 3; not b's, on 6 and 7.
-  await expect.poll(usageLines, { timeout: 30_000 }).toEqual(['2 write', '3']);
-});
+  // Declared on line 2, read on 3; not b's, on 6 and 7. Asked again until the server answers: one
+  // still loading (on Windows in CI) doesn't, and only a move asks again.
+  await expect
+    .poll(
+      async () => {
+        const lines = await usageLines();
+        if (lines.length === 0) {
+          await page().keyboard.press('ArrowRight');
+          await page().keyboard.press('ArrowLeft');
+        }
+        return lines;
+      },
+      { timeout: 45_000, interval: 1_000 },
+    )
+    .toEqual(['2 write', '3']);
+}, 60_000);
 
 it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
   await openAt('main.ts', 'run();');
