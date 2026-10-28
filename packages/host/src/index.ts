@@ -79,6 +79,7 @@ export {
   LanguageServers,
   highlighted,
   located,
+  MARKERS_PATIENCE,
   PATIENCE,
   pathOf,
   uriOf,
@@ -87,3 +88,4 @@ export {
   type OpenFile,
   type Run,
 } from './lsp.js';
+export { baseNames, markersOf, type Marker, type MarkerKind } from './markers.js';

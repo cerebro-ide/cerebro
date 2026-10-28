@@ -9,10 +9,12 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection } from '@cerebro-ide/protocol';
 import { frame, FrameReader } from './framing.js';
 import { serverFor, servers, type ServerSpec } from '@cerebro-ide/servers';
+import { markersOf, type DocumentSymbol, type Marker } from './markers.js';
 
 /** A place in a file, zero-based, its path with `/` on every OS. */
 export interface Located {
@@ -42,6 +44,11 @@ export interface OpenFile {
 export const IDLE_AFTER = 10 * 60_000;
 /** How long an answer is waited for before the name matches are shown instead. */
 export const PATIENCE = 3_000;
+/**
+ * How long a file's gutter markers are waited for: a question per member, and the files its bases
+ * are in read (a claim: long enough for a server still loading its project).
+ */
+export const MARKERS_PATIENCE = 30_000;
 /** How long a server is given to stop before it's killed. */
 const STOP_WAIT = 2_000;
 
@@ -172,6 +179,8 @@ export class LanguageServer {
             definition: { linkSupport: true },
             references: {},
             documentHighlight: {},
+            documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+            implementation: { linkSupport: true },
           },
           workspace: { configuration: true, workspaceFolders: true },
         },
@@ -186,6 +195,12 @@ export class LanguageServer {
 
   get exited(): boolean {
     return this.#exited;
+  }
+
+  /** A file open in the server, with the text it has; undefined when it isn't open. */
+  opened(path: string): OpenFile | undefined {
+    const open = this.#documents.get(uriOf(path));
+    return open && { path, text: open.text };
   }
 
   /** Opens a file in the server, or gives it the file's text as it is now. */
@@ -224,6 +239,24 @@ export class LanguageServer {
   /** Where the symbol at a place in a file is, in that file: its usages, as IntelliJ highlights. */
   async highlights(file: OpenFile, languageId: string, at: Located): Promise<Highlight[]> {
     return highlighted(await this.#ask('textDocument/documentHighlight', file, languageId, at));
+  }
+
+  /** What a symbol at a place in a file is implemented or overridden by. */
+  async implementations(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
+    return located(await this.#ask('textDocument/implementation', file, languageId, at));
+  }
+
+  /** A file's symbols, nested: its types, and their members in them. */
+  async symbols(file: OpenFile, languageId: string): Promise<DocumentSymbol[]> {
+    await this.ready;
+    this.sync(file, languageId);
+    const answer = await this.#connection.request('textDocument/documentSymbol', {
+      textDocument: { uri: uriOf(file.path) },
+    });
+    // Flat SymbolInformation, from a server that ignores the client's nesting: none to use.
+    return Array.isArray(answer)
+      ? (answer as DocumentSymbol[]).filter((s) => 'selectionRange' in s)
+      : [];
   }
 
   /** Asks it to stop, and kills it if it doesn't; resolves once its process has exited. */
@@ -290,7 +323,12 @@ export class LanguageServers {
 
   constructor(
     private readonly specs: readonly ServerSpec[] = servers(),
-    private readonly options: { run?: Run; idleAfter?: number; patience?: number } = {},
+    private readonly options: {
+      run?: Run;
+      idleAfter?: number;
+      patience?: number;
+      markersPatience?: number;
+    } = {},
   ) {}
 
   /** How many are running. */
@@ -357,6 +395,50 @@ export class LanguageServers {
     return this.#ask(worktree, file, (server, languageId) =>
       server.highlights(file, languageId, at),
     );
+  }
+
+  /**
+   * A file's gutter markers: what its types and members implement or override, and what implements
+   * or overrides them. Other files are read from disk, or as the server has them when open.
+   */
+  async markers(worktree: string, file: OpenFile): Promise<Marker[] | null> {
+    const found = this.serverFor(worktree, file.path);
+    if (!found) return null;
+    const { server } = found;
+    /** A file as the server has it, or as it is on disk, opened in the server. */
+    const known = async (path: string): Promise<{ file: OpenFile; languageId: string } | undefined> => {
+      const languageId = serverFor(path, this.specs)?.languageId ?? found.languageId;
+      if (path === file.path) return { file, languageId };
+      const open = server.opened(path);
+      if (open) return { file: open, languageId };
+      try {
+        return { file: { path, text: await readFile(path, 'utf8') }, languageId };
+      } catch {
+        return undefined;
+      }
+    };
+    // Asked only about places in files already read.
+    const at = async (place: Located, question: typeof server.definitions) => {
+      const k = (await known(place.path)) as { file: OpenFile; languageId: string };
+      return question.call(server, k.file, k.languageId, place);
+    };
+    try {
+      const answer = await within(
+        markersOf(file.path, {
+          symbols: async (path) => {
+            const k = await known(path);
+            return k ? server.symbols(k.file, k.languageId) : [];
+          },
+          definitions: (place) => at(place, server.definitions),
+          implementations: (place) => at(place, server.implementations),
+          text: async (path) => (await known(path))?.file.text,
+        }),
+        this.options.markersPatience ?? MARKERS_PATIENCE,
+      );
+      return answer ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Stops them all. */

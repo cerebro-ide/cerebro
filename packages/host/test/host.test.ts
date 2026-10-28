@@ -95,6 +95,7 @@ describe('language servers', () => {
       definitions: vi.fn(() => Promise.resolve([{ path: '/w/a.ts', line: 1, column: 2 }])),
       usages: vi.fn(() => Promise.resolve(null)),
       highlights: vi.fn(() => Promise.resolve([])),
+      markers: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
     const { ui, stop } = connect(undefined, undefined, servers as unknown as LanguageServers);
@@ -116,6 +117,8 @@ describe('language servers', () => {
       { path: '/w/b.ts', text: 'x' },
       { path: '', line: 2, column: 1 },
     );
+    expect(await ui.request('lsp.markers', file)).toEqual([]);
+    expect(servers.markers).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     await expect(ui.request('lsp.usages', { ...file, line: 'a', column: 0 })).rejects.toMatchObject(
       { code: ErrorCodes.InvalidParams },
     );
