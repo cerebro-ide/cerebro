@@ -227,10 +227,13 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
           pointing = false;
         });
       }}
-      on:focus={() => {
-        // Focused with the keys, the first row is selected. Not by a press: it selects the row
-        // pressed, and selecting the first scrolled the tree to the top under the pointer.
-        if (model.selected === undefined && !pointing) model.move(0);
+      on:focus={(event) => {
+        // Focused with the keys, the first row in view is selected: whole, so the tree doesn't
+        // scroll. Not by a press: it selects the row pressed.
+        if (model.selected !== undefined || pointing) return;
+        const top = (event.currentTarget as HTMLElement).scrollTop;
+        const row = model.rows[Math.ceil(top / rowHeight)];
+        if (row) model.select(row.key);
       }}
     >
       <div

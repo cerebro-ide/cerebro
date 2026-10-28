@@ -304,7 +304,10 @@ async function createWorktree(name: string) {
 /** Chooses Remove Worktree… on an environment tab. */
 async function removeFromTab(path: string) {
   const page = running.page;
-  await page.locator(`.cerebro-env-tab[data-env="${path}"]`).click({ button: 'right' });
+  // Forced: under xvfb in CI this click waited forever for the tab to be "stable" (#76's run).
+  await page
+    .locator(`.cerebro-env-tab[data-env="${path}"]`)
+    .click({ button: 'right', force: true });
   await page.locator('.cerebro-menu-item', { hasText: 'Remove Worktree' }).click();
 }
 
@@ -343,7 +346,10 @@ it('removes a worktree after asking, and offers to force one with changes', asyn
 it('offers to remove a linked worktree, but not the main one', async () => {
   const page = running.page;
   const removable = async (path: string) => {
-    await page.locator(`.cerebro-env-tab[data-env="${path}"]`).click({ button: 'right' });
+    // Forced, as in removeFromTab.
+    await page
+      .locator(`.cerebro-env-tab[data-env="${path}"]`)
+      .click({ button: 'right', force: true });
     const disabled = await page
       .locator('.cerebro-menu-item', { hasText: 'Remove Worktree' })
       .getAttribute('aria-disabled');
@@ -405,6 +411,24 @@ it.skipIf(process.platform === 'darwin')(
     await page.mouse.move(box.x + cell * 9.5, y, { steps: 4 });
     await page.mouse.up();
     await page.keyboard.press('Alt+E');
+    // Nothing is cut from a terminal or undone in it; it takes pastes.
+    const states = await page
+      .locator('.cerebro-menu-item')
+      .evaluateAll((items) =>
+        items.map(
+          (i) =>
+            `${i.querySelector('.cerebro-menu-item__label')?.textContent ?? ''}: ${i.getAttribute('aria-disabled') === 'true' ? 'disabled' : 'enabled'}`,
+        ),
+      );
+    expect(states).toEqual(
+      expect.arrayContaining([
+        'Undo: disabled',
+        'Redo: disabled',
+        'Cut: disabled',
+        'Copy: enabled',
+        'Paste: enabled',
+      ]),
+    );
     await page.locator('.cerebro-menu-item', { hasText: /^Copy/ }).click();
     await expect.poll(clipboard).toBe('cerebro-ok');
   },

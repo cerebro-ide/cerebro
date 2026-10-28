@@ -4,7 +4,8 @@
 // through the app (a page can't paste on its own), or the browser's in a plain browser. In a code
 // editor, Undo and Redo say what they'd do ("Undo Typing"), and are enabled only when there's
 // something to do, as IntelliJ's (UndoManagerImpl); elsewhere they need somewhere to type, as Cut and
-// Paste do. Copy needs that or a selection; in a terminal, it copies the terminal's selection.
+// Paste do. Copy needs that or a selection; in a terminal, it copies the terminal's selection. A
+// terminal takes typing and pastes, but its text is the shell's: nothing is cut from it or undone.
 
 import type { CommandRegistry } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
@@ -59,6 +60,11 @@ function editable(element: Element | undefined): boolean {
   return element instanceof HTMLElement && element.isContentEditable;
 }
 
+/** Where text is typed and can be changed: not a terminal, which only takes what's typed. */
+function changeable(element: Element | undefined): boolean {
+  return editable(element) && !element?.closest('.cerebro-terminal');
+}
+
 /** Whether there's text to copy: somewhere to type, a read-only editor, or a selection. */
 function copyable(): boolean {
   const focused = lastFocused.get();
@@ -90,7 +96,7 @@ export function setupEdit(commands: CommandRegistry): void {
     window.addEventListener(type, follow, true);
   }
   const entries: [EditAction, string, () => boolean][] = [
-    ['cut', 'Cu&t', () => editable(lastFocused.get())],
+    ['cut', 'Cu&t', () => changeable(lastFocused.get())],
     ['copy', '&Copy', copyable],
     ['paste', '&Paste', () => editable(lastFocused.get())],
   ];
@@ -118,7 +124,7 @@ export function setupEdit(commands: CommandRegistry): void {
       },
       enabled: () => {
         const editor = history(action);
-        return editor ? editor.name !== undefined : editable(lastFocused.get());
+        return editor ? editor.name !== undefined : changeable(lastFocused.get());
       },
       run: () => {
         run(action);

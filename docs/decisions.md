@@ -42,7 +42,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
-- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters
+- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
@@ -1097,9 +1097,16 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   Cerebro's Electron: they take no room only without `::-webkit-scrollbar` styles, and then draw
   a track and arrow buttons and didn't fade in 3 seconds; `scrollbar-color` colours them but keeps
   the arrows and never hides them.
-- **Not yet:** IntelliJ's faint track under a hovered bar (`#808080` at 10%), clicking the track to
-  page, and the macOS widening. The layer is above popups, so a thumb fading out can show over a
-  popup that just opened.
+- **The track** (added 2026-10-28, Ido chose it from the list of what was left): under the pointer,
+  or while its thumb is dragged, a bar shows its track, as IntelliJ's. Its colour is IntelliJ's
+  hovered track on a transparent bar, `#808080` at 10% (`0x1A808080` in `ScrollBarPainter`;
+  Islands Dark sets the same, Islands Light none), a plain rectangle in the thumb's band. Pressing
+  the track scrolls a page (what the area shows) towards the press. The page's size is Claude's
+  choice, open to change.
+- **Each area's thumbs are in a layer of their own** (2026-10-28), added to the page when the area
+  gets them. Before, all were in one layer, moved to the end of the page whenever an area got
+  thumbs: a thumb fading out under a popup then came over it.
+- **Not yet:** the macOS widening; holding the press on a track doesn't repeat it (Swing's does: a claim, not checked).
 
 ## Window buttons in full screen on macOS (2026-10-27)
 
@@ -1425,9 +1432,11 @@ choices below are Claude's, after IntelliJ, open to change.
     its name. A command's menu label can now change (`text` on a command).
   - In a terminal, Copy copies its selection (2026-10-28): the terminal answers the copy event its
     text field gets. Before, it copied the text field's, which is always empty.
+  - In a terminal, Cut, Undo and Redo are disabled (2026-10-28): its text is the shell's, so
+    nothing is cut from it or undone; Paste stays, as typing does. Claude's choice, open to change.
 - **In a browser,** the samples can be edited, and aren't saved.
 - **Not yet:** the idle time isn't a setting; Undo's names in a text field (only the editor's are
-  known); Cut and Undo stay enabled in a terminal.
+  known).
 
 ## Opening a project (2026-10-26)
 
