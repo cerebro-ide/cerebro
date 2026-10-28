@@ -10,6 +10,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   LanguageServer,
   LanguageServers,
+  highlighted,
   located,
   pathOf,
   uriOf,
@@ -66,6 +67,25 @@ describe('paths and locations', () => {
       ),
     ).toEqual([{ path: '/b.ts', line: 1, column: 2 }]);
   });
+
+  it('reads highlights: writes apart from reads and text, or none', () => {
+    const range = (line: number) => ({
+      start: { line, character: 2 },
+      end: { line, character: 5 },
+    });
+    expect(highlighted(null)).toEqual([]);
+    expect(
+      highlighted([
+        { range: range(0), kind: 3 },
+        { range: range(1), kind: 2 },
+        { range: range(2) },
+      ]),
+    ).toEqual([
+      { from: { line: 0, column: 2 }, to: { line: 0, column: 5 }, write: true },
+      { from: { line: 1, column: 2 }, to: { line: 1, column: 5 }, write: false },
+      { from: { line: 2, column: 2 }, to: { line: 2, column: 5 }, write: false },
+    ]);
+  });
 });
 
 describe('TypeScript 7’s server', () => {
@@ -102,6 +122,29 @@ describe('TypeScript 7’s server', () => {
     // One server for the worktree, whatever the file.
     expect(servers.size).toBe(1);
   }, 60_000);
+
+  it('highlights a symbol where it is in its file, not another of the same name', async () => {
+    const project = `${root}/ts`;
+    const c = {
+      path: `${project}/c.ts`,
+      text: [
+        'export function a() {',
+        '  const extra = 1;',
+        '  return extra;',
+        '}',
+        'export function b() {',
+        '  const extra = 2;',
+        '  return extra;',
+        '}',
+        '',
+      ].join('\n'),
+    };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.highlights(project, c, at(2, 10))).toEqual([
+      { from: { line: 1, column: 8 }, to: { line: 1, column: 13 }, write: true },
+      { from: { line: 2, column: 9 }, to: { line: 2, column: 14 }, write: false },
+    ]);
+  }, 60_000);
 });
 
 describe('basedpyright, for Python', () => {
@@ -137,6 +180,19 @@ describe('basedpyright, for Python', () => {
     );
     expect(usages).not.toContainEqual({ path: `${project}/a.py`, line: 3, column: 4 });
   }, 60_000);
+
+  it('highlights a symbol where it is in its file, not another of the same name', async () => {
+    const project = `${root}/py`;
+    const d = {
+      path: `${project}/d.py`,
+      text: 'def a():\n    extra = 1\n    return extra\n\ndef b():\n    extra = 2\n    return extra\n',
+    };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.highlights(project, d, at(2, 12))).toEqual([
+      { from: { line: 1, column: 4 }, to: { line: 1, column: 9 }, write: true },
+      { from: { line: 2, column: 11 }, to: { line: 2, column: 16 }, write: false },
+    ]);
+  }, 60_000);
 });
 
 describe('bash-language-server, for shell scripts', () => {
@@ -165,6 +221,14 @@ describe('bash-language-server, for shell scripts', () => {
         { path: `${project}/other.sh`, line: 1, column: 0 },
       ]),
     );
+  }, 60_000);
+
+  it('highlights a name where it is in its script', async () => {
+    const project = `${root}/sh`;
+    const main = { path: `${project}/main.sh`, text: 'source ./lib.sh\n\ngreet\ngreet\n' };
+    const servers = pool(undefined, { patience: 60_000 });
+    const found = await servers.highlights(project, main, at(2, 1));
+    expect(found?.map((h) => h.from.line)).toEqual([2, 3]);
   }, 60_000);
 });
 

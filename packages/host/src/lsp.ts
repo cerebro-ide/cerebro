@@ -21,6 +21,17 @@ export interface Located {
   column: number;
 }
 
+/** A stretch of a file's text, zero-based, the end after its last character. */
+export interface Span {
+  from: { line: number; column: number };
+  to: { line: number; column: number };
+}
+
+/** Where the symbol at the caret is in its file: read, or written (assigned, declared with a value). */
+export interface Highlight extends Span {
+  write: boolean;
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -62,6 +73,7 @@ export function pathOf(uri: string, platform: NodeJS.Platform = process.platform
 }
 
 interface Range {
+  end: { line: number; character: number };
   start: { line: number; character: number };
 }
 type Location = { uri: string; range: Range } | { targetUri: string; targetSelectionRange: Range };
@@ -77,6 +89,16 @@ export function located(result: unknown, platform: NodeJS.Platform = process.pla
         : [location.uri, location.range];
     return { path: pathOf(uri, platform), line: range.start.line, column: range.start.character };
   });
+}
+
+/** A server's document highlights: LSP's kind 3 is a write; 1 (text) and 2 (read) are reads. */
+export function highlighted(result: unknown): Highlight[] {
+  if (!Array.isArray(result)) return [];
+  return (result as { range: Range; kind?: number }[]).map(({ range, kind }) => ({
+    from: { line: range.start.line, column: range.start.character },
+    to: { line: range.end.line, column: range.end.character },
+    write: kind === 3,
+  }));
 }
 
 /** One server's process, for one worktree. */
@@ -141,6 +163,7 @@ export class LanguageServer {
             synchronization: { didSave: false },
             definition: { linkSupport: true },
             references: {},
+            documentHighlight: {},
           },
           workspace: { configuration: true, workspaceFolders: true },
         },
@@ -188,6 +211,11 @@ export class LanguageServer {
         context: { includeDeclaration: false },
       }),
     );
+  }
+
+  /** Where the symbol at a place in a file is, in that file: its usages, as IntelliJ highlights. */
+  async highlights(file: OpenFile, languageId: string, at: Located): Promise<Highlight[]> {
+    return highlighted(await this.#ask('textDocument/documentHighlight', file, languageId, at));
   }
 
   /** Asks it to stop, and kills it if it doesn't; resolves once its process has exited. */
@@ -316,6 +344,13 @@ export class LanguageServers {
     return this.#ask(worktree, file, (server, languageId) => server.usages(file, languageId, at));
   }
 
+  /** Where the symbol at a place is in its file; null when no server answers in time. */
+  highlights(worktree: string, file: OpenFile, at: Located): Promise<Highlight[] | null> {
+    return this.#ask(worktree, file, (server, languageId) =>
+      server.highlights(file, languageId, at),
+    );
+  }
+
   /** Stops them all. */
   async dispose(): Promise<void> {
     const running = [...this.#running.values()];
@@ -328,11 +363,11 @@ export class LanguageServers {
     );
   }
 
-  async #ask(
+  async #ask<T>(
     worktree: string,
     file: OpenFile,
-    question: (server: LanguageServer, languageId: string) => Promise<Located[]>,
-  ): Promise<Located[] | null> {
+    question: (server: LanguageServer, languageId: string) => Promise<T[]>,
+  ): Promise<T[] | null> {
     const found = this.serverFor(worktree, file.path);
     if (!found) return null;
     try {
