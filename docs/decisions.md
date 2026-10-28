@@ -51,7 +51,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings
 - [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
-- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; saving on its own, as IntelliJ; conflicts with the disk asked about; the Edit menu
+- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; saving on its own, as IntelliJ; conflicts with the disk asked about; deleted files' tabs closed; the Edit menu, Undo named
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
@@ -1373,7 +1373,9 @@ choices below are Claude's, after IntelliJ, open to change.
   Modified tabs aren't marked, as IntelliJ's default (Settings → Editor Tabs → "Mark modified" off:
   a claim, not checked).
 - **The file keeps its line separators:** a file with `\r\n` is saved with them (CodeMirror joins
-  with `\n` unless told). Saving writes over the file in place, which must exist (`fs.write`), so
+  with `\n` unless told). And its byte order mark (2026-10-28): the host reads it
+  (`TextDecoder` with `ignoreBOM`; by default it dropped it), the editor doesn't show it, and the
+  file is saved with it, as IntelliJ keeps one. Before, it was dropped on save. Saving writes over the file in place, which must exist (`fs.write`), so
   its permissions stay; a new file isn't made by a save.
 - **Files changed on disk** (by an agent, git, a terminal) are read again when the window gets the
   focus and every 2 seconds while it has it, as IntelliJ synchronizes on frame activation. Reading
@@ -1389,7 +1391,16 @@ choices below are Claude's, after IntelliJ, open to change.
   Content. Loading or merging is an edit undo takes back. Before, the edits won and saving
   overwrote. IntelliJ can also merge on its own, without asking, behind a registry setting
   (`ide.merge.external.changes`) used when a client asks for it; not done here.
+- **A file deleted on disk has its tabs closed** (2026-10-28), in every environment and group, its
+  unsaved edits with them, as IntelliJ closes a deleted file's editors (`FileEditorManagerImpl`,
+  `beforeFileDeletion`). It's found when the file is read again, or before it's saved: a read that
+  fails asks the host whether the file is there (`fs.exists`; an error's details don't cross
+  Electron's IPC), and a file that can't be told about stays open. Before, the tab stayed, and
+  saving it failed. A restored tab whose file is gone still says it can't be opened.
 - **Undo, redo, Tab to indent** in the editor (CodeMirror's history); the diff stays read-only.
+  Switching tabs lost the history until 2026-10-28: a new editor took its own text, equal to the
+  document's but not the same object, as a change on disk, which isn't undoable and cleared it (and
+  put the caret at the top). Fixed, with a test.
 - **Edit → Undo, Redo, Cut, Copy, Paste** (2026-10-27; Ido asked that they work) act on what had
   the focus before the menu opened, as IntelliJ's, and their keys are the keymap's, also in the
   editor (so a keymap's Redo, such as VS Code's Ctrl+Y, works there). Undo and Redo in an editor
@@ -1397,10 +1408,17 @@ choices below are Claude's, after IntelliJ, open to change.
   (`webContents.undo()`, `.paste()`…) because a page can't paste on its own. They're enabled where
   text is typed; Copy also in a read-only editor or with a selection. Before, the menu's were
   disabled and only the editor's own keys worked.
+  - In an editor, Undo and Redo say what they'd do and are disabled with nothing to do
+    (2026-10-28), as IntelliJ's (`UndoManagerImpl`: "Undo {name}", only "Undo" for a change
+    without one). The names are IntelliJ's for the same commands (Typing, Paste, Cut, Backspace,
+    Delete, Delete Line, Replace, Indent Selection, Unindent Line or Selection), kept beside
+    CodeMirror's history from each change's user event; typing joined to the change before keeps
+    its name. A command's menu label can now change (`text` on a command).
+  - In a terminal, Copy copies its selection (2026-10-28): the terminal answers the copy event its
+    text field gets. Before, it copied the text field's, which is always empty.
 - **In a browser,** the samples can be edited, and aren't saved.
-- **Not yet:** a byte order mark is dropped on save; the idle time isn't a setting; Undo shows no
-  name of what it undoes ("Undo Typing"), and stays enabled with nothing to undo; Edit → Copy in a
-  terminal copies nothing (its own Ctrl+Shift+C does); files deleted on disk keep their tabs.
+- **Not yet:** the idle time isn't a setting; Undo's names in a text field (only the editor's are
+  known); Cut and Undo stay enabled in a terminal.
 
 ## Opening a project (2026-10-26)
 
