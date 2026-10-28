@@ -4,6 +4,11 @@
 // an area while it scrolls, fading out after. Each is stacked at its area's level, so what's over the
 // area (a popup) covers its thumbs too. A thumb is less transparent under the pointer, and can be
 // dragged.
+//
+// Thumbs avoid what's in their way, as IntelliJ's (Ido, with its screenshots): a thumb moves along a
+// track that stops short of the other bar, so the two never meet in the corner, and of anything in
+// the area marked `data-scrollbar-obstacle` that overlaps the bar (an editor's gutter, which the
+// horizontal bar starts after; a toolbar over the area's top, which the vertical one starts below).
 
 /** How long an area's thumbs stay after it scrolled, the pointer elsewhere, in milliseconds. */
 export const HIDE_AFTER = 1000;
@@ -11,6 +16,13 @@ export const HIDE_AFTER = 1000;
 export const FADE = 200;
 /** The shortest a thumb gets, in pixels. */
 const MIN_LENGTH = 24;
+/** How far a bar is drawn from its area's edge: 10px wide, 2px in (styles.css). */
+const FROM_EDGE = 12;
+const WIDTH = 10;
+/** How far a track stops from the edge where the other bar is: before it, with 2px between. */
+const CORNER = FROM_EDGE + 2;
+/** What a thumb's track avoids, in the area. */
+const OBSTACLE = '[data-scrollbar-obstacle]';
 
 type Axis = 'x' | 'y';
 
@@ -20,6 +32,8 @@ interface Bars {
   thumbs: Record<Axis, HTMLElement>;
   /** The axes it scrolls along: overflow auto or scroll. */
   axes: Record<Axis, boolean>;
+  /** How long each thumb's track is, as last placed. */
+  tracks: Record<Axis, number>;
   observer: ResizeObserver;
   hovered: boolean;
   dragging: boolean;
@@ -46,11 +60,33 @@ function scrollable(target: EventTarget): target is HTMLElement {
   return SCROLLS.test(overflowX) || SCROLLS.test(overflowY);
 }
 
-/** Where a thumb starts along its area and how long it is, or nothing when all is shown. */
-function measure(size: number, view: number, offset: number) {
-  if (size <= view) return undefined;
-  const length = Math.max(MIN_LENGTH, (view * view) / size);
-  return { start: ((view - length) * offset) / (size - view), length };
+/**
+ * Where a thumb starts along its track and how long it is, or nothing when all is shown or there's
+ * no track.
+ */
+function measure(size: number, view: number, offset: number, track: number) {
+  if (size <= view || track <= 0) return undefined;
+  const length = Math.min(track, Math.max(MIN_LENGTH, (track * view) / size));
+  return { start: ((track - length) * offset) / (size - view), length };
+}
+
+/** A span along one axis. */
+interface Span {
+  from: number;
+  to: number;
+}
+
+/**
+ * A bar's track from `from` to `to`, shortened by the obstacles across it (spans along the bar):
+ * each takes the track's end nearer to it.
+ */
+function avoid({ from, to }: Span, obstacles: readonly Span[]): Span {
+  for (const o of obstacles) {
+    if (o.to <= from || o.from >= to) continue;
+    if (o.from - from < to - o.to) from = Math.max(from, o.to);
+    else to = Math.min(to, o.from);
+  }
+  return { from, to };
 }
 
 /**
@@ -68,24 +104,52 @@ function levelOf(element: Element): number {
   return level;
 }
 
-/** Puts an area's thumbs over its edges, as it's scrolled. */
+/** Puts an area's thumbs over its edges, as it's scrolled, their tracks clear of what's in the way. */
 function place(bars: Bars): void {
   const { scroller: s, thumbs, axes } = bars;
   const rect = s.getBoundingClientRect();
   const left = rect.left + s.clientLeft;
   const top = rect.top + s.clientTop;
-  const y = axes.y ? measure(s.scrollHeight, s.clientHeight, s.scrollTop) : undefined;
+  const width = s.clientWidth;
+  const height = s.clientHeight;
+  const scrollsY = axes.y && s.scrollHeight > height;
+  const scrollsX = axes.x && s.scrollWidth > width;
+  // The obstacles in the area, from its top left corner.
+  const obstacles = [...s.querySelectorAll(OBSTACLE)].map((o) => {
+    const r = o.getBoundingClientRect();
+    return {
+      x: { from: r.left - left, to: r.right - left },
+      y: { from: r.top - top, to: r.bottom - top },
+    };
+  });
+  /** The obstacles across a bar drawn in `band` across it, as spans along it. */
+  const across = (along: Axis, band: Span) => {
+    const other: Axis = along === 'x' ? 'y' : 'x';
+    return obstacles
+      .filter((o) => o[other].from < band.to && o[other].to > band.from)
+      .map((o) => o[along]);
+  };
+  const trackY = avoid(
+    { from: 0, to: height - (scrollsX ? CORNER : 0) },
+    across('y', { from: width - FROM_EDGE, to: width - FROM_EDGE + WIDTH }),
+  );
+  const trackX = avoid(
+    { from: 0, to: width - (scrollsY ? CORNER : 0) },
+    across('x', { from: height - FROM_EDGE, to: height - FROM_EDGE + WIDTH }),
+  );
+  bars.tracks = { x: trackX.to - trackX.from, y: trackY.to - trackY.from };
+  const y = scrollsY ? measure(s.scrollHeight, height, s.scrollTop, bars.tracks.y) : undefined;
   thumbs.y.hidden = !y;
   if (y) {
-    thumbs.y.style.left = `${String(left + s.clientWidth)}px`;
-    thumbs.y.style.top = `${String(top + y.start)}px`;
+    thumbs.y.style.left = `${String(left + width)}px`;
+    thumbs.y.style.top = `${String(top + trackY.from + y.start)}px`;
     thumbs.y.style.height = `${String(y.length)}px`;
   }
-  const x = axes.x ? measure(s.scrollWidth, s.clientWidth, s.scrollLeft) : undefined;
+  const x = scrollsX ? measure(s.scrollWidth, width, s.scrollLeft, bars.tracks.x) : undefined;
   thumbs.x.hidden = !x;
   if (x) {
-    thumbs.x.style.top = `${String(top + s.clientHeight)}px`;
-    thumbs.x.style.left = `${String(left + x.start)}px`;
+    thumbs.x.style.top = `${String(top + height)}px`;
+    thumbs.x.style.left = `${String(left + trackX.from + x.start)}px`;
     thumbs.x.style.width = `${String(x.length)}px`;
   }
 }
@@ -131,9 +195,7 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     const from = vertical ? event.clientY : event.clientX;
     const start = vertical ? s.scrollTop : s.scrollLeft;
     const size = vertical ? s.scrollHeight - s.clientHeight : s.scrollWidth - s.clientWidth;
-    const track = vertical
-      ? s.clientHeight - thumb.offsetHeight
-      : s.clientWidth - thumb.offsetWidth;
+    const track = bars.tracks[axis] - (vertical ? thumb.offsetHeight : thumb.offsetWidth);
     const ratio = size / Math.max(1, track);
     bars.dragging = true;
     thumb.classList.add('cerebro-scrollbar--dragging');
@@ -176,6 +238,7 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
       scroller,
       thumbs: { x: thumb('x'), y: thumb('y') },
       axes: { x: SCROLLS.test(overflowX), y: SCROLLS.test(overflowY) },
+      tracks: { x: 0, y: 0 },
       observer: new ResizeObserver(() => {
         place(bars);
       }),

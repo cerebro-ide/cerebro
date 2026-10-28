@@ -42,7 +42,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
-- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden
+- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
@@ -1082,6 +1082,15 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   his macOS screenshots). Colours: Islands Dark's (`ManyIslandsDark.theme.json`, `#808080` at 35%,
   55% hovered); Islands Light sets none, so IntelliJ's defaults (`#737373` at 20%, 28%). Showing on
   hover and fading after a scroll is Claude's choice, open to change.
+- **Thumbs avoid obstacles** (changed 2026-10-28; Ido, with screenshots of IntelliJ: "they don't
+  take the entire available space, they avoid obstacles"). A thumb moves along a track that stops
+  14px short of the other bar when the area scrolls both ways (12px for that bar, 2px between), so
+  the two never meet in the corner. It also stops short of anything in the area marked
+  `data-scrollbar-obstacle` that overlaps the bar, at the track's end nearer to it. The editors
+  mark their gutters, so the horizontal bar starts after them. A toolbar over an area's top would
+  start the vertical bar below it; the editor's find bar is above its scroll area, so it already
+  does. Before, both bars ran along the whole edge and crossed in the corner. A standing rule in
+  `.claude/rules/ui.md`.
 - **Measured:** before, the editor and the Project tree gave 12px to their scrollbar; now 0 (e2e
   test "draws scrollbars over the content").
 - **Rejected: Chromium's overlay scrollbars** (`--enable-features=OverlayScrollbar`). Measured in

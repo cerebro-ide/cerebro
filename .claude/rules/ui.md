@@ -24,6 +24,13 @@ paths:
 - **IntelliJ (WebStorm's Islands theme) is the reference** for look and behaviour: when unsure how
   something should look or act, it's how IntelliJ does it. The UI behaves like a desktop
   application, not a website (decision "Desktop conventions in the UI").
+- **Scrollbars avoid obstacles** (Ido, 2026-10-28, from IntelliJ): a thumb's track never runs
+  under something in its way. The vertical and horizontal bars never meet in the corner (each
+  track stops short of the other bar), and neither runs over an editor's gutter (the horizontal
+  bar starts after it) or a toolbar over a scroll area (the vertical bar starts below it).
+  `ui-scrollbar` does this for anything inside a scroll area marked `data-scrollbar-obstacle`:
+  mark what's new and in a bar's way (the editors mark their gutters), and check new scroll areas
+  for it.
 - **The playground is the app's page** (`packages/playground`): it assembles the packages. It talks
   to the host through `currentHost()`, which is undefined in a plain browser: views say what shows
   in the desktop app instead.

@@ -9,7 +9,7 @@ import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import { EditorView, lineNumbers } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
-import { highlight, scroller, selection, theme, variable } from './editor.js';
+import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
 import { languageFor } from './languages.js';
 
 export interface DiffEditorProps {
@@ -52,6 +52,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     doc,
     extensions: [
       lineNumbers(),
+      gutterObstacle,
       selection,
       onEdit
         ? EditorView.updateListener.of((update) => {
