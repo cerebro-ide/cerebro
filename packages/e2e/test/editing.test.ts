@@ -166,6 +166,23 @@ it.skipIf(process.platform === 'darwin')(
   },
 );
 
+it('pastes into the find bar’s field with the keys, not into the editor', async () => {
+  await open('second.ts');
+  const before = await shown();
+  await running.app.evaluate(({ clipboard }) => {
+    // Electron's clipboard writes at once; its types say a promise.
+    void clipboard.writeText('pasted');
+  });
+  await page().keyboard.press('ControlOrMeta+f');
+  const field = page().locator('.cerebro-find__field').first();
+  await field.waitFor();
+  await field.fill('');
+  await page().keyboard.press('ControlOrMeta+v');
+  await expect.poll(() => field.inputValue()).toBe('pasted');
+  expect(await shown()).toBe(before);
+  await page().keyboard.press('Escape');
+});
+
 it('shows no scrollbar where nothing overflows: the Project tool window, a file it can’t open', async () => {
   await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type('image.bin');
