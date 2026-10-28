@@ -3,7 +3,8 @@
 // `scrollbar-width: none` of its own), and thumbs are drawn for the areas under the pointer, and for
 // an area while it scrolls, fading out after. Each is stacked at its area's level, so what's over the
 // area (a popup) covers its thumbs too. A thumb is less transparent under the pointer, and can be
-// dragged.
+// dragged. Under the pointer, a bar shows its track faintly, as IntelliJ's; pressing the track
+// scrolls a page towards the press.
 //
 // Thumbs avoid what's in their way, as IntelliJ's (Ido, with its screenshots): a thumb moves along a
 // track that stops short of the other bar, so the two never meet in the corner, and of anything in
@@ -29,7 +30,11 @@ type Axis = 'x' | 'y';
 /** An area whose thumbs are shown, or fading out. */
 interface Bars {
   scroller: HTMLElement;
+  /** What its thumbs and tracks are drawn in: after what was on the page when it got them. */
+  layer: HTMLElement;
   thumbs: Record<Axis, HTMLElement>;
+  /** The tracks drawn under the thumbs, shown while the pointer is over the bar. */
+  rails: Record<Axis, HTMLElement>;
   /** The axes it scrolls along: overflow auto or scroll. */
   axes: Record<Axis, boolean>;
   /** How long each thumb's track is, as last placed. */
@@ -106,7 +111,7 @@ function levelOf(element: Element): number {
 
 /** Puts an area's thumbs over its edges, as it's scrolled, their tracks clear of what's in the way. */
 function place(bars: Bars): void {
-  const { scroller: s, thumbs, axes } = bars;
+  const { scroller: s, thumbs, rails, axes } = bars;
   const rect = s.getBoundingClientRect();
   const left = rect.left + s.clientLeft;
   const top = rect.top + s.clientTop;
@@ -140,25 +145,46 @@ function place(bars: Bars): void {
   bars.tracks = { x: trackX.to - trackX.from, y: trackY.to - trackY.from };
   const y = scrollsY ? measure(s.scrollHeight, height, s.scrollTop, bars.tracks.y) : undefined;
   thumbs.y.hidden = !y;
+  rails.y.hidden = !y;
   if (y) {
     thumbs.y.style.left = `${String(left + width)}px`;
     thumbs.y.style.top = `${String(top + trackY.from + y.start)}px`;
     thumbs.y.style.height = `${String(y.length)}px`;
+    rails.y.style.left = `${String(left + width)}px`;
+    rails.y.style.top = `${String(top + trackY.from)}px`;
+    rails.y.style.height = `${String(bars.tracks.y)}px`;
   }
   const x = scrollsX ? measure(s.scrollWidth, width, s.scrollLeft, bars.tracks.x) : undefined;
   thumbs.x.hidden = !x;
+  rails.x.hidden = !x;
   if (x) {
     thumbs.x.style.top = `${String(top + height)}px`;
     thumbs.x.style.left = `${String(left + trackX.from + x.start)}px`;
     thumbs.x.style.width = `${String(x.length)}px`;
+    rails.x.style.top = `${String(top + height)}px`;
+    rails.x.style.left = `${String(left + trackX.from)}px`;
+    rails.x.style.width = `${String(bars.tracks.x)}px`;
   }
+}
+
+/** Whether an event's path goes through thumbs or tracks. */
+const onBars = (path: EventTarget[]) =>
+  path.some((node) => node instanceof HTMLElement && node.classList.contains('cerebro-scrollbars'));
+
+/**
+ * Scrolls an area a page (what it shows) towards a press on a track: before the thumb, back; after
+ * it, on.
+ */
+function page(bars: Bars, axis: Axis, event: PointerEvent): void {
+  event.preventDefault();
+  const s = bars.scroller;
+  const thumb = bars.thumbs[axis].getBoundingClientRect();
+  if (axis === 'y') s.scrollTop += event.clientY < thumb.top ? -s.clientHeight : s.clientHeight;
+  else s.scrollLeft += event.clientX < thumb.left ? -s.clientWidth : s.clientWidth;
 }
 
 /** Shows Cerebro's scrollbars over the page, the browser's hidden; returns what removes them. */
 export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
-  const layer = document.createElement('div');
-  layer.className = 'cerebro-scrollbars';
-  document.body.append(layer);
   const shown = new Map<HTMLElement, Bars>();
   /** Shadow roots listened to for scrolling, which doesn't leave them. */
   const roots = new Set<ShadowRoot>();
@@ -167,8 +193,7 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     clearTimeout(bars.scrolled);
     clearTimeout(bars.removing);
     bars.observer.disconnect();
-    bars.thumbs.x.remove();
-    bars.thumbs.y.remove();
+    bars.layer.remove();
     shown.delete(bars.scroller);
   };
 
@@ -220,23 +245,38 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
   const attach = (scroller: HTMLElement): Bars => {
     const existing = shown.get(scroller);
     if (existing) return existing;
-    // At the area's level, and after what's over it at the same level (a popup opened since).
+    // At the area's level, and after what's over it at the same level (a popup opened since). Each
+    // area's in a layer of its own: one added later doesn't bring others' over what's opened since.
     const level = levelOf(scroller);
+    const layer = document.createElement('div');
+    layer.className = 'cerebro-scrollbars';
     document.body.append(layer);
-    const thumb = (axis: Axis) => {
+    const draw = (name: string, axis: Axis, press: (event: PointerEvent) => void) => {
       const element = document.createElement('div');
-      element.className = `cerebro-scrollbar cerebro-scrollbar--${axis}`;
-      element.addEventListener('pointerdown', (event) => {
-        drag(bars, axis, event);
-      });
+      element.className = `${name} ${name}--${axis}`;
+      element.addEventListener('pointerdown', press);
       element.style.zIndex = String(level);
       layer.append(element);
       return element;
     };
+    // Each track just before its thumb, which is drawn over it (styles.css shows the track while
+    // its thumb is under the pointer).
+    const bar = (axis: Axis) => ({
+      rail: draw('cerebro-scrollbar-track', axis, (event) => {
+        page(bars, axis, event);
+      }),
+      thumb: draw('cerebro-scrollbar', axis, (event) => {
+        drag(bars, axis, event);
+      }),
+    });
     const { overflowX, overflowY } = getComputedStyle(scroller);
+    const x = bar('x');
+    const y = bar('y');
     const bars: Bars = {
       scroller,
-      thumbs: { x: thumb('x'), y: thumb('y') },
+      layer,
+      rails: { x: x.rail, y: y.rail },
+      thumbs: { x: x.thumb, y: y.thumb },
       axes: { x: SCROLLS.test(overflowX), y: SCROLLS.test(overflowY) },
       tracks: { x: 0, y: 0 },
       observer: new ResizeObserver(() => {
@@ -292,8 +332,8 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
   const onOver = (event: PointerEvent) => {
     const path = event.composedPath();
     listenIn(path);
-    // On a thumb: its area stays hovered.
-    if (path.includes(layer)) return;
+    // On a thumb or a track: its area stays hovered.
+    if (onBars(path)) return;
     hover(new Set(path));
   };
   const onOut = (event: PointerEvent) => {
@@ -315,6 +355,5 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     document.removeEventListener('scroll', onScroll, true);
     for (const root of roots) root.removeEventListener('scroll', onScroll, true);
     for (const bars of [...shown.values()]) detach(bars);
-    layer.remove();
   };
 }

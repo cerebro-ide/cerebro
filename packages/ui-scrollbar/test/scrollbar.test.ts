@@ -41,6 +41,8 @@ function install(): void {
 
 const thumb = (axis: 'x' | 'y') =>
   document.querySelector<HTMLElement>(`.cerebro-scrollbar--${axis}`);
+const track = (axis: 'x' | 'y') =>
+  document.querySelector<HTMLElement>(`.cerebro-scrollbar-track--${axis}`);
 const shown = (axis: 'x' | 'y') =>
   thumb(axis)?.classList.contains('cerebro-scrollbar--shown') ?? false;
 const box = (element: HTMLElement | null) => {
@@ -107,6 +109,67 @@ describe('installScrollbars', () => {
       );
     await expect.poll(() => own()?.classList.contains('cerebro-scrollbar--shown')).toBe(true);
     expect(centre(own() as HTMLElement)).toBe(own());
+  });
+
+  it('keeps an area’s thumbs under a popup opened since, when another area gets thumbs', async () => {
+    install();
+    /** A popup over the page, at the popups' level, as Search Everywhere. */
+    const popup = () => {
+      const element = document.createElement('div');
+      Object.assign(element.style, { position: 'fixed', inset: '0', zIndex: '950' });
+      document.body.append(element);
+      cleanup.push(() => {
+        element.remove();
+      });
+      return element;
+    };
+    const first = area(100, 400, 'auto', popup());
+    first.scrollTop = 10;
+    await expect.poll(() => shown('y')).toBe(true);
+    const below = thumb('y') as HTMLElement;
+    // A second popup over the first, whose list then scrolls: its thumbs come after the popup.
+    const over = popup();
+    over.style.background = 'white';
+    const second = area(100, 400, 'auto', over);
+    second.style.left = '400px';
+    second.scrollTop = 10;
+    await expect.poll(() => document.querySelectorAll('.cerebro-scrollbar--y').length).toBe(2);
+    // The first popup's thumb is under the second popup.
+    const { left, top, width, height } = below.getBoundingClientRect();
+    expect(document.elementFromPoint(left + width / 2, top + height / 2)).toBe(over);
+  });
+
+  it('shows a bar’s track under the pointer, and pages towards a press on it', async () => {
+    install();
+    const scroller = area(100, 400);
+    await userEvent.hover(scroller);
+    const rail = track('y') as HTMLElement;
+    // Along the whole track, under the thumb: shown only with the pointer on the bar.
+    expect(box(rail)).toEqual({ left: 288, top: 100, width: 10, height: 100 });
+    expect(getComputedStyle(rail).opacity).toBe('0');
+    await userEvent.hover(thumb('y') as HTMLElement);
+    expect(getComputedStyle(rail).opacity).toBe('1');
+    expect(getComputedStyle(rail).backgroundColor).toBe('rgba(128, 128, 128, 0.1)');
+    // Below the thumb: a page on, what the area shows.
+    await userEvent.click(rail, { position: { x: 5, y: 80 }, modifiers: [] });
+    expect(getComputedStyle(rail).opacity).toBe('1');
+    expect(scroller.scrollTop).toBe(100);
+    // Above it, a page back.
+    await expect.poll(() => box(thumb('y')).top).toBe(125);
+    await userEvent.click(rail, { position: { x: 5, y: 10 }, modifiers: [] });
+    expect(scroller.scrollTop).toBe(0);
+  });
+
+  it('pages across too', async () => {
+    install();
+    const scroller = area(800, 100);
+    await userEvent.hover(scroller);
+    const rail = track('x') as HTMLElement;
+    await userEvent.click(rail, { position: { x: 150, y: 5 }, modifiers: [] });
+    expect(scroller.scrollLeft).toBe(200);
+    await expect.poll(() => box(thumb('x')).left).toBe(150);
+    await userEvent.click(rail, { position: { x: 20, y: 5 }, modifiers: [] });
+    expect(scroller.scrollLeft).toBe(0);
   });
 
   it('shows the thumbs of an area while it scrolls, and a while after', async () => {

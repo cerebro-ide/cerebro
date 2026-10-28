@@ -44,3 +44,31 @@
 .cerebro-scrollbar--dragging {
   background: var(--cerebro-scrollbar-hover);
 }
+
+/*
+ * A bar's track, shown under the pointer as IntelliJ's (ScrollBarPainter's hovered track on a
+ * transparent bar: a rectangle, #808080 at 10%), the same band as the thumb. Over the thumb, or
+ * while it's dragged, the track shows too.
+ */
+.cerebro-scrollbar-track {
+  position: fixed;
+  background: var(--cerebro-scrollbar-track);
+  opacity: 0;
+  pointer-events: auto;
+}
+
+.cerebro-scrollbar-track:hover,
+.cerebro-scrollbar-track:has(+ .cerebro-scrollbar:hover),
+.cerebro-scrollbar-track:has(+ .cerebro-scrollbar--dragging) {
+  opacity: 1;
+}
+
+.cerebro-scrollbar-track--y {
+  width: 10px;
+  margin-left: -12px;
+}
+
+.cerebro-scrollbar-track--x {
+  height: 10px;
+  margin-top: -12px;
+}
