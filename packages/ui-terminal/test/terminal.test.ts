@@ -434,6 +434,20 @@ describe('selecting and copying', () => {
     expect(copy).toHaveBeenCalledWith('ab');
   });
 
+  it('copies the selection when copying is asked of its text field (Edit → Copy)', async () => {
+    const { view } = await withText();
+    drag(view, cellAt(view, 0, 0), cellAt(view, 0, 4));
+    view.focus();
+    const data = new DataTransfer();
+    const input = view.element.querySelector('.cerebro-terminal__input') as HTMLElement;
+    const event = new ClipboardEvent('copy', { clipboardData: data, cancelable: true });
+    input.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+    expect(data.getData('text/plain')).toBe('hello');
+    // Still selected: the menu's Copy isn't the key, which goes on to the program the next time.
+    expect(view.selectedText()).toBe('hello');
+  });
+
   it('copies to the system clipboard by default, and survives a refusal', async () => {
     const write = vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('no'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);

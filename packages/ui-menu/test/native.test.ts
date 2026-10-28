@@ -110,6 +110,18 @@ describe('nativeMenu', () => {
     expect(file[0]).toEqual({ label: 'Open…', command: 'open', enabled: true });
     expect(file[3]).toEqual(expect.objectContaining({ checked: true }));
   });
+
+  it('shows a command’s text for the context', () => {
+    const { services } = setup();
+    services.commands.register({
+      id: 'undo',
+      label: '&Undo',
+      text: (c) => `&Undo ${String(c)}`,
+      run: () => undefined,
+    });
+    services.menus.contribute({ menu: 'edit', item: { command: 'undo' } });
+    expect(nativeMenu(services, 'edit', 'Typing')[0]?.label).toBe('Undo Typing');
+  });
 });
 
 describe('syncNativeMenu', () => {

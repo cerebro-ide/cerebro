@@ -99,6 +99,8 @@ it('lists the recent files, the latest first, and goes to the one before with En
 
 it('goes to a line and column, from the caret’s, and back', async () => {
   await open('a.ts');
+  // Its caret is where it was left, at the definition: to the top.
+  await page().keyboard.press('ControlOrMeta+Home');
   // a.ts's own line: the last file's may still show for a moment, and a click there is lost.
   await page().locator('.cm-line', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
@@ -126,6 +128,7 @@ it('selects the opened file in the Project tool window, opening the folders down
 
 it('goes back to a place as it was scrolled, not just to its caret', async () => {
   await open('a.ts');
+  await page().keyboard.press('ControlOrMeta+Home');
   await page().locator('.cm-line', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
   /** The line drawn at the top of the editor. */

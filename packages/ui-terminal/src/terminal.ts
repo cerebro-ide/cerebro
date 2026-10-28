@@ -411,6 +411,11 @@ export class TerminalView {
       if (text === '') return;
       this.type(this.terminal.modes.bracketedPasteMode ? `\x1b[200~${text}\x1b[201~` : text);
     });
+    // Copy from elsewhere (the app's Edit → Copy): the selection, which isn't the text field's.
+    input.addEventListener('copy', (event) => {
+      event.preventDefault();
+      event.clipboardData?.setData('text/plain', this.selectedText());
+    });
     input.addEventListener('focus', () => {
       this.focusChanged(true);
     });

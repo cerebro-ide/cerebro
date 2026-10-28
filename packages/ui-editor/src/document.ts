@@ -1,14 +1,16 @@
 // A file's text while it's open, as IntelliJ's documents: it outlives the editors that show it, so
 // switching tabs keeps the edits, the selection and the undo history. It knows the text last read
 // from or saved to disk, and so whether it's modified. Lines are joined as the file joined them:
-// CodeMirror reads either separator, and writes `\n` unless told otherwise.
+// CodeMirror reads either separator, and writes `\n` unless told otherwise. A byte order mark isn't
+// shown, and is saved as it was read, as IntelliJ keeps one.
 
 import { historyField } from '@codemirror/commands';
 import { ChangeSet, Text } from '@codemirror/state';
 import { computed, signal, type Computed, type Signal } from '@cerebro-ide/reactive';
+import { historyNames } from './history.js';
 
 /** The fields an editor's state is kept with between editors: the undo history with the rest. */
-export const KEPT = { history: historyField };
+export const KEPT = { history: historyField, historyNames };
 
 export class EditorDocument {
   /** The text in the editor. */
@@ -19,6 +21,8 @@ export class EditorDocument {
   readonly modified: Computed<boolean>;
   /** How the file joins its lines. */
   readonly lineSeparator: '\n' | '\r\n';
+  /** Whether the file starts with a byte order mark. */
+  readonly bom: boolean;
   /** The last editor's state (selection, history), for the next one; undefined before any. */
   state: unknown;
   /** The last change made through `edit`: an editor showing the text it was made to takes it as an edit. */
@@ -26,15 +30,16 @@ export class EditorDocument {
 
   constructor(content: string) {
     this.lineSeparator = content.includes('\r\n') ? '\r\n' : '\n';
+    this.bom = content.startsWith(BOM);
     const text = textOf(content);
     this.text = signal(text);
     this.disk = signal(text);
     this.modified = computed(() => !this.text.get().eq(this.disk.get()));
   }
 
-  /** The text as the file holds it, with its line separator. */
+  /** The text as the file holds it, with its line separator and byte order mark. */
   content(): string {
-    return this.text.peek().sliceString(0, undefined, this.lineSeparator);
+    return (this.bom ? BOM : '') + this.text.peek().sliceString(0, undefined, this.lineSeparator);
   }
 
   /** The text was saved: it's what's on disk now. */
@@ -97,7 +102,9 @@ export class EditorDocument {
   }
 }
 
-/** A file's content as CodeMirror's text, its lines split on either separator. */
+const BOM = '\uFEFF';
+
+/** A file's content as CodeMirror's text, its lines split on either separator, without a BOM. */
 function textOf(content: string): Text {
-  return Text.of(content.split(/\r\n?|\n/));
+  return Text.of((content.startsWith(BOM) ? content.slice(1) : content).split(/\r\n?|\n/));
 }

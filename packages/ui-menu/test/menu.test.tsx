@@ -146,6 +146,24 @@ describe('contents', () => {
     expect(items()[3]?.getAttribute('aria-checked')).toBe('false');
     expect(items()[4]?.classList.contains('cerebro-menu-item--disabled')).toBe(false);
   });
+
+  it('shows a command’s text for the context, as it changes, with its mnemonic', () => {
+    const { services, commands, menus, ran } = setup();
+    const name = signal('Typing');
+    commands.register({
+      id: 'undo',
+      label: '&Undo',
+      text: (context) => `&Undo ${name.get()} in ${String(context)}`,
+      run: (c) => ran.push(['undo', c]),
+    });
+    menus.contribute({ menu: 'edit', item: { command: 'undo' } });
+    open(services, 'edit', { x: 10, y: 10 }, { context: 'a.ts' });
+    expect(labels()).toEqual(['Undo Typing in a.ts']);
+    name.set('Paste');
+    expect(labels()).toEqual(['Undo Paste in a.ts']);
+    letter('U');
+    expect(ran).toEqual([['undo', 'a.ts']]);
+  });
 });
 
 describe('keyboard', () => {

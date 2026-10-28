@@ -42,8 +42,7 @@ History keeps each file's versions, labelled by what changed them, to compare an
 
 ## Known gaps
 
-- **Editing:** see "Not yet" in the decision "Editing and saving" (a file with unsaved edits changed
-  on disk, the byte order mark, the Edit menu, deleted files).
+- **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Go to File and the index in a folder without git:** they read git's file list. With ripgrep, in
   the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of

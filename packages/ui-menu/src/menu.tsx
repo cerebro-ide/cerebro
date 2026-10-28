@@ -104,12 +104,15 @@ export function openContextMenu(
   return openMenu(services, menu, { x: event.clientX, y: event.clientY }, { context });
 }
 
-/** A menu's visible entries: hidden items removed, and no leading, trailing or doubled separators. */
-export function visibleEntries(services: MenuServices, menu: string): Entry[] {
+/**
+ * A menu's visible entries, their labels for `context`: hidden items removed, and no leading,
+ * trailing or doubled separators.
+ */
+export function visibleEntries(services: MenuServices, menu: string, context?: unknown): Entry[] {
   const items: Entry[] = services.menus.entries(menu).flatMap((entry: MenuEntry): Entry[] => {
     if ('separator' in entry || 'heading' in entry) return [entry];
     if ('submenu' in entry) {
-      return visibleEntries(services, entry.submenu).some((e) => !('separator' in e))
+      return visibleEntries(services, entry.submenu, context).some((e) => !('separator' in e))
         ? [entry]
         : [];
     }
@@ -117,7 +120,7 @@ export function visibleEntries(services: MenuServices, menu: string): Entry[] {
     if (!command) return [];
     const item: Item = {
       command: command.id,
-      label: command.label,
+      label: command.text?.(context) ?? command.label,
       dialog: command.dialog ?? false,
     };
     if (command.icon !== undefined) item.icon = command.icon;
@@ -152,7 +155,7 @@ class MenuSession implements MenuHandle {
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('resize', this.onBlur);
     const level = this.push(menu, position);
-    const entries = visibleEntries(services, menu);
+    const entries = visibleEntries(services, menu, options.context);
     const submenu = entries.findIndex((e) => 'submenu' in e && e.submenu === options.submenu);
     if (submenu >= 0) this.activate(0, submenu, true);
     else if (options.focusFirst) level.highlight = step(entries, -1, 1);
@@ -183,7 +186,7 @@ class MenuSession implements MenuHandle {
   private readonly onKey = (event: KeyboardEvent) => {
     const depth = this.levels.length - 1;
     const level = this.levels[depth] as Level;
-    const entries = visibleEntries(this.services, level.menu);
+    const entries = visibleEntries(this.services, level.menu, this.options.context);
     const handled = this.key(event, depth, level, entries);
     if (handled) {
       event.preventDefault();
@@ -243,7 +246,7 @@ class MenuSession implements MenuHandle {
   private activate(depth: number, index: number, fromKeyboard: boolean): void {
     const level = this.levels[depth] as Level;
     // Callers only pass items, never separators.
-    const entry = visibleEntries(this.services, level.menu)[index] as Item;
+    const entry = visibleEntries(this.services, level.menu, this.options.context)[index] as Item;
     level.highlight = index;
     if ('submenu' in entry) {
       const open = this.levels[depth + 1];
@@ -251,7 +254,8 @@ class MenuSession implements MenuHandle {
       this.truncate(depth + 1);
       const item = level.element?.querySelector(`[data-index="${String(index)}"]`) as Element;
       const sub = this.push(entry.submenu, { anchor: item, placement: 'right' });
-      if (fromKeyboard) sub.highlight = step(visibleEntries(this.services, sub.menu), -1, 1);
+      if (fromKeyboard)
+        sub.highlight = step(visibleEntries(this.services, sub.menu, this.options.context), -1, 1);
       return;
     }
     if (!this.services.commands.isEnabled(entry.command, this.options.context)) return;
@@ -288,7 +292,7 @@ class MenuSession implements MenuHandle {
     const context = this.options.context;
     const platform = services.keymap?.platform ?? 'other';
     return () =>
-      visibleEntries(services, level.menu).map((entry, index) => {
+      visibleEntries(services, level.menu, context).map((entry, index) => {
         if ('separator' in entry) return <div class="cerebro-menu-separator" role="separator" />;
         if ('heading' in entry) {
           return (

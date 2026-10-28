@@ -1,7 +1,7 @@
 // The file system, next to the repos: listing a folder for the project tree, reading and writing a
 // file for the editor.
 
-import { open, readdir } from 'node:fs/promises';
+import { open, readdir, stat } from 'node:fs/promises';
 
 export interface Entry {
   name: string;
@@ -54,8 +54,9 @@ export class UnreadableFile extends Error {
 }
 
 /**
- * A text file's contents, as UTF-8. A file with a NUL byte in its first 8 KB is binary, as git
- * decides; one over MAX_FILE_SIZE isn't read.
+ * A text file's contents, as UTF-8, with its byte order mark if it has one, so it's saved with it.
+ * A file with a NUL byte in its first 8 KB is binary, as git decides; one over MAX_FILE_SIZE isn't
+ * read.
  */
 export async function readTextFile(path: string): Promise<string> {
   const file = await open(path, 'r');
@@ -65,9 +66,24 @@ export async function readTextFile(path: string): Promise<string> {
     const bytes = new Uint8Array(size);
     await file.read(bytes, 0, size, 0);
     if (bytes.subarray(0, 8000).includes(0)) throw new UnreadableFile('binary', path);
-    return new TextDecoder().decode(bytes);
+    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
   } finally {
     await file.close();
+  }
+}
+
+/**
+ * Whether a file or folder is there: false when it, or a folder on its path, isn't; an error when
+ * that can't be told (no permission).
+ */
+export async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return false;
+    throw error;
   }
 }
 

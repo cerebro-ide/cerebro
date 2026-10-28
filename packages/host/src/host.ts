@@ -9,7 +9,7 @@ import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
-import { listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
+import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
 import {
@@ -174,6 +174,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
   };
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
+  connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
   // Only the latest search's answer is used (the page searches as the user types): a new one stops
   // the one still running.
   let searching: AbortController | undefined;

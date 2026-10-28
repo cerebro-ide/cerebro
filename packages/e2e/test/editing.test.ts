@@ -1,6 +1,7 @@
 // Editing end to end: typing in a file, undo, Save All, edits kept across tabs, saving on its own
-// (when the editor loses the focus, when the window closes), a file changed on disk shown again, a
-// file changed in both resolved, and the Edit menu.
+// (when the editor loses the focus, when the window closes), a byte order mark kept, a file changed
+// on disk shown again, a file changed in both resolved, a deleted file's tab closed, and the Edit
+// menu.
 
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -40,6 +41,8 @@ beforeAll(async () => {
   mkdirSync(join(repo, 'src'));
   writeFileSync(first, 'const first = 1;\r\nexport {};\r\n');
   writeFileSync(second, 'const second = 2;\n');
+  writeFileSync(join(repo, 'bom.txt'), '\uFEFFmarked\n');
+  writeFileSync(join(repo, 'gone.txt'), 'deleted soon\n');
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   // More than the editor and the Project tool window show.
   writeFileSync(join(repo, 'long.ts'), 'export {};\n'.repeat(300));
@@ -84,6 +87,23 @@ it('keeps a file’s edits when another tab is shown, and saves before closing',
   // Quitting saves.
   await running.restart();
   expect(disk(second)).toBe('const second = 2; // kept // unsaved\n');
+});
+
+it('saves a file with its byte order mark, which isn’t shown', async () => {
+  await open('bom.txt');
+  expect(await shown()).toBe('marked\n');
+  await page().keyboard.type(' kept');
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect.poll(() => disk(join(repo, 'bom.txt'))).toBe('\uFEFFmarked kept\n');
+});
+
+it('closes a file’s tab when the file is deleted on disk', async () => {
+  const tab = page().locator('.cerebro-editor-tab', { hasText: 'gone.txt' });
+  await open('gone.txt');
+  await tab.waitFor();
+  rmSync(join(repo, 'gone.txt'));
+  // Read again every 2 seconds.
+  await tab.waitFor({ state: 'detached', timeout: 15_000 });
 });
 
 it('shows a file changed on disk', async () => {
@@ -163,6 +183,43 @@ it.skipIf(process.platform === 'darwin')(
     await expect.poll(shown).toBe(before.replace(line, line + line));
     await edit('Undo');
     await expect.poll(shown).toBe(before);
+  },
+);
+
+// macOS shows the menu in the system's menu bar, which Playwright can't click.
+it.skipIf(process.platform === 'darwin')(
+  'names what Undo and Redo would do, and disables them with nothing to do',
+  async () => {
+    const item = (name: RegExp) =>
+      page().locator('.cerebro-menu-item', {
+        has: page().locator('.cerebro-menu-item__label', { hasText: name }),
+      });
+    const menu = async () => {
+      await page().keyboard.press('Alt+E');
+      const [undo, redo] = [item(/^Undo/), item(/^Redo/)];
+      const state = async (i: typeof undo) =>
+        `${(await i.locator('.cerebro-menu-item__label').textContent()) ?? ''}: ${(await i.getAttribute('aria-disabled')) === 'true' ? 'disabled' : 'enabled'}`;
+      return [await state(undo), await state(redo)];
+    };
+    const close = async () => {
+      await page().keyboard.press('Escape');
+      await page().locator('.cerebro-menu').first().waitFor({ state: 'detached' });
+    };
+    // Never edited.
+    await open('file39.txt');
+    expect(await menu()).toEqual(['Undo: disabled', 'Redo: disabled']);
+    await close();
+    await page().keyboard.type('typed');
+    expect(await menu()).toEqual(['Undo Typing: enabled', 'Redo: disabled']);
+    await item(/^Undo/).click();
+    await page().locator('.cerebro-menu').first().waitFor({ state: 'detached' });
+    expect(await shown()).toBe('');
+    expect(await menu()).toEqual(['Undo: disabled', 'Redo Typing: enabled']);
+    await close();
+    // Leaves the tabs as they were (the tab test below counts them).
+    await page()
+      .locator('.cerebro-editor-tab', { hasText: 'file39.txt' })
+      .dispatchEvent('auxclick', { button: 1 });
   },
 );
 
