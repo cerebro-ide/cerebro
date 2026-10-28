@@ -390,9 +390,19 @@ it.skipIf(process.platform === 'darwin')(
       // Electron's clipboard writes at once; its types say a promise.
       void clipboard.writeText('before');
     });
-    // The output's line: a double click selects its word.
+    // The output's line, dragged across from its first character to its last.
     const row = page.locator('.cerebro-terminal__row', { hasText: /^\s*cerebro-ok\s*$/ }).first();
-    await row.dblclick({ position: { x: 10, y: 5 } });
+    const box = (await row.boundingBox()) as { x: number; y: number; height: number };
+    // A character's width: the terminal measures 100.
+    const cell = await page
+      .locator('.cerebro-terminal__measure')
+      .first()
+      .evaluate((e) => e.getBoundingClientRect().width / 100);
+    const y = box.y + box.height / 2;
+    await page.mouse.move(box.x + cell / 2, y);
+    await page.mouse.down();
+    await page.mouse.move(box.x + cell * 9.5, y, { steps: 4 });
+    await page.mouse.up();
     await page.keyboard.press('Alt+E');
     await page.locator('.cerebro-menu-item', { hasText: /^Copy/ }).click();
     await expect.poll(clipboard).toBe('cerebro-ok');
