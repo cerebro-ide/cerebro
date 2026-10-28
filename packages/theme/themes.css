@@ -56,6 +56,13 @@
   --cerebro-editor-usage: #373b39;
   --cerebro-editor-usage-write: #402f33;
   --cerebro-editor-link: #548af7;
+  /* Gutter markers: IntelliJ's icons' own colours (expui/gutter, its _dark files). */
+  --cerebro-editor-marker-i: #57965c;
+  --cerebro-editor-marker-i-disc: #253627;
+  --cerebro-editor-marker-o: #548af7;
+  --cerebro-editor-marker-o-disc: #25324d;
+  --cerebro-editor-marker-up: #db5c5c;
+  --cerebro-editor-marker-down: #ced0d6;
   --cerebro-editor-selection: #214283;
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #32593d;
@@ -168,6 +175,13 @@
   --cerebro-editor-usage: #edebfc;
   --cerebro-editor-usage-write: #fce8f4;
   --cerebro-editor-link: #006dcc;
+  /* Gutter markers: IntelliJ's icons' own colours (expui/gutter). */
+  --cerebro-editor-marker-i: #208a3c;
+  --cerebro-editor-marker-i-disc: #f2fcf3;
+  --cerebro-editor-marker-o: #3574f0;
+  --cerebro-editor-marker-o-disc: #edf3ff;
+  --cerebro-editor-marker-up: #db3b4b;
+  --cerebro-editor-marker-down: #6c707e;
   --cerebro-editor-selection: #a6d2ff;
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #ffe88c;

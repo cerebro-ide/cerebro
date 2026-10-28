@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
@@ -1064,6 +1065,38 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
   Select Opened File" option and Alt+F1's Select In aren't there.
 
+## Gutter markers: what a member implements or overrides (2026-10-28)
+
+From Ido, with a screenshot of IntelliJ: the icons between the line numbers and the text that go to
+the interface member or super method; first put in the backlog, then asked for ("Do phase 3 now
+too"), with arrows both ways (his choice).
+
+- **Worked out from what the servers offer,** as neither TypeScript 7's server nor basedpyright
+  offers the type hierarchy request (measured: neither lists `typeHierarchyProvider` in its
+  `initialize` answer); both answer `documentSymbol` and `implementation` (measured). The host
+  does it (`lsp.markers`, `packages/host/src/markers.ts`), for a whole file at once:
+  - **Down** (is implemented, is overridden): each type's and member's implementations, from the
+    server, but itself (both servers include it, measured).
+  - **Up** (implements, overrides): the names in a type's header (after `extends`/`implements`, or
+    in Python's parentheses), each taken to its definition; a member of the nearest base with the
+    member's name is the one. By name, as both languages override. Bases are followed up to 8 deep
+    (a claim), each once.
+  - "Implements" when the base is an interface or the member there is abstract (`abstract`, or
+    Python's `@abstractmethod`); "overrides" otherwise. Likewise down.
+  - Files the bases are in are read from disk, or taken as the server has them when open.
+- **Asked as a file opens, and 500 ms after an edit** (a claim: typing isn't held up); waited for
+  up to 30 s (a claim: a server still loading its project). An answer for text since edited is
+  dropped; what's shown moves with edits.
+- **IntelliJ's own icons** (`platform/icons/src/expui/gutter`, Apache 2.0): their shapes, their
+  colours as theme tokens, dark and light from its files. In the 42px WebStorm leaves after the
+  numbers (measured before); where in it is a claim.
+- **A click goes there;** several places offer a list to choose from. Its titles ("Implementations
+  of", "Super methods of") are a claim, not measured.
+- **Not yet:** shell scripts (bash-language-server offers neither request, measured), and a
+  marker's tooltip naming where it goes (IntelliJ's "Implements method in Shape").
+- **Rejected:** matching by name across the project, as the index does: it can't tell which `run`
+  is meant, which is why the servers are asked.
+
 ## Usages at the caret, and links with Ctrl held (2026-10-28)
 
 From Ido, with screenshots of IntelliJ: the symbol at the caret highlighted wherever it is in the
@@ -1088,8 +1121,8 @@ colour and underlined.
   name match in the index when no server answers. In `CTRL_CLICKABLE`'s colour, underlined:
   `#548af7` dark, `#006dcc` light. Only while the pointer is over the word, not beside it at its
   line's end. Pressing Ctrl with the pointer still shows it too.
-- **Not yet:** IntelliJ's gutter icons for what a member implements or overrides (in the backlog),
-  and the usages' marks on the scrollbar.
+- **Not yet:** the usages' marks on the scrollbar. (IntelliJ's gutter icons came next: "Gutter
+  markers".)
 
 ## Scrollbars over the content (2026-10-27)
 

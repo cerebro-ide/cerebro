@@ -77,6 +77,17 @@ beforeAll(async () => {
       '',
     ].join('\n'),
   );
+  // An interface and two classes implementing it: gutter markers between them.
+  writeFileSync(join(repo, 'shape.ts'), 'export interface Shape {\n  area(): number;\n}\n');
+  for (const [name, n] of [
+    ['Square', 1],
+    ['Circle', 2],
+  ] as const) {
+    writeFileSync(
+      join(repo, `${name.toLowerCase()}.ts`),
+      `import { Shape } from './shape';\nexport class ${name} implements Shape {\n  area() { return ${String(n)}; }\n}\n`,
+    );
+  }
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
@@ -238,4 +249,24 @@ it('shows a word with a definition as a link under the pointer with Ctrl held', 
     .toBe('run');
   await page().keyboard.up('Control');
   await page().locator('.cerebro-link').waitFor({ state: 'detached' });
+});
+
+it('shows gutter markers between an interface and its implementations, and goes where they say', async () => {
+  await openAt('shape.ts', 'area(): number;');
+  const marker = (label: string) => page().locator(`.cerebro-marker[aria-label="${label}"]`);
+  // Asked as the file opens; TypeScript's server may still be loading.
+  await marker('Is implemented area').waitFor({ timeout: 30_000 });
+  await marker('Is implemented area').click();
+  await expect
+    .poll(() => popup().locator('.cerebro-popup-item__detail').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toEqual(['circle.ts:3', 'square.ts:3']);
+  await page().keyboard.press('Escape');
+  await openAt('square.ts', 'area()');
+  await marker('Implements area').waitFor({ timeout: 30_000 });
+  await marker('Implements area').click();
+  await expect
+    .poll(where, { timeout: 15_000 })
+    .toEqual({ tab: 'shape.ts', line: '  area(): number;' });
 });
