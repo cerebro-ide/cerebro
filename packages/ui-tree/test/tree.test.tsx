@@ -18,11 +18,18 @@ afterEach(async () => {
   await userEvent.cleanup();
 });
 
-/** A source: `count` files under `big/`, a small folder, and a file; or children that never come. */
-function source(count: number, options: { slow?: boolean } = {}): TreeSource<Item> {
+/**
+ * A source: `count` files under `big/`, a small folder, and a file; or children that never come; or
+ * nothing at all.
+ */
+function source(
+  count: number,
+  options: { slow?: boolean; empty?: boolean } = {},
+): TreeSource<Item> {
   return {
     children: (node) => {
       if (options.slow && node) return new Promise(() => undefined);
+      if (options.empty) return [];
       if (!node) {
         return [
           { path: 'big', folder: true },
@@ -45,7 +52,11 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 async function mount(
   count = 10_000,
-  options: { slow?: boolean; menu?: (event: MouseEvent, node: Item) => void } = {},
+  options: {
+    slow?: boolean;
+    empty?: boolean;
+    menu?: (event: MouseEvent, node: Item) => void;
+  } = {},
 ) {
   const model = new TreeModel(source(count, options));
   const opened = vi.fn();
@@ -227,6 +238,26 @@ describe('TreeView', () => {
     await userEvent.click(row('big/file-00060.ts'));
     expect(model.selected).toBe('big/file-00060.ts');
     expect(tree.scrollTop).toBe(1200);
+  });
+
+  it('selects the first row in view when the keys focus it, scrolled, without going to the top', async () => {
+    const { model, tree } = await mount(100);
+    model.expand({ path: 'big', folder: true });
+    await settle();
+    // Not a row's edge: the row half hidden at the top isn't the first in view.
+    tree.scrollTop = 1210;
+    await settle();
+    await userEvent.keyboard('{Tab}');
+    expect(document.activeElement).toBe(tree);
+    // 24 px a row: row 51 is the first whole one, `big` being row 0.
+    expect(model.selected).toBe('big/file-00050.ts');
+    expect(tree.scrollTop).toBe(1210);
+  });
+
+  it('selects nothing on focus when there are no rows', async () => {
+    const { model, tree } = await mount(0, { empty: true });
+    tree.focus();
+    expect(model.selected).toBeUndefined();
   });
 
   it('opens a file and toggles a folder with Enter or a double click', async () => {
