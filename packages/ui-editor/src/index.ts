@@ -10,6 +10,7 @@ export { languageFor } from './languages.js';
 export { DiffEditor, type DiffEditorProps } from './diff.js';
 export { EditorDocument } from './document.js';
 export { formatLineColumn, parseLineColumn } from './line.js';
+export { MARKS_AFTER, type AskMarks, type Mark, type MarkerKind } from './markers.js';
 export {
   placeAt,
   USAGES_AFTER,

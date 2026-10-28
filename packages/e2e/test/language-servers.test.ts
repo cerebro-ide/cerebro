@@ -54,6 +54,42 @@ async function untilAnswered<T>(keys: string, answered: () => Promise<T>): Promi
     .toBeTruthy();
 }
 
+/**
+ * Prints what the host answers about a place, asked directly, and the page's console, then throws
+ * `error`: CI's log is all there is.
+ */
+async function explain(
+  error: unknown,
+  file: string,
+  line: number,
+  column: number,
+  methods: string[],
+): Promise<never> {
+  const text = readFileSync(join(repo, file), 'utf8');
+  const asked = { worktree: repo, path: join(repo, file), text, line, column };
+  const answers = await page().evaluate(
+    async ({ asked, repo, methods }) => {
+      const host = (
+        window as unknown as {
+          cerebro: { host: { request: (p: string, m: string, a: unknown) => Promise<unknown> } };
+        }
+      ).cerebro.host;
+      const answered: Record<string, string> = {};
+      for (const method of methods) {
+        const started = Date.now();
+        answered[method] = await host.request(repo, method, asked).then(
+          (result) => `${JSON.stringify(result)} in ${String(Date.now() - started)}ms`,
+          (failure: unknown) => `failed: ${String(failure)}`,
+        );
+      }
+      return answered;
+    },
+    { asked, repo, methods },
+  );
+  console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
+  throw error;
+}
+
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   // TypeScript's server sees a project whole only with a tsconfig.json.
@@ -77,6 +113,17 @@ beforeAll(async () => {
       '',
     ].join('\n'),
   );
+  // An interface and two classes implementing it: gutter markers between them.
+  writeFileSync(join(repo, 'shape.ts'), 'export interface Shape {\n  area(): number;\n}\n');
+  for (const [name, n] of [
+    ['Square', 1],
+    ['Circle', 2],
+  ] as const) {
+    writeFileSync(
+      join(repo, `${name.toLowerCase()}.ts`),
+      `import { Shape } from './shape';\nexport class ${name} implements Shape {\n  area() { return ${String(n)}; }\n}\n`,
+    );
+  }
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
@@ -124,10 +171,14 @@ it('finds the usages of the function meant, not of every one of that name', asyn
 
 it('does the same for Python', async () => {
   await openAt('main.py', 'walk()');
-  await untilAnswered('ControlOrMeta+b', async () => {
-    const at = await where();
-    return at.tab === 'lib.py' && at.line === 'def walk():';
-  });
+  try {
+    await untilAnswered('ControlOrMeta+b', async () => {
+      const at = await where();
+      return at.tab === 'lib.py' && at.line === 'def walk():';
+    });
+  } catch (error) {
+    await explain(error, 'main.py', 2, 1, ['lsp.definitions', 'lsp.markers', 'lsp.definitions']);
+  }
   await untilAnswered(
     'Alt+F7',
     async () =>
@@ -141,7 +192,7 @@ it('does the same for Python', async () => {
     'main.py:3',
   ]);
   await page().keyboard.press('Escape');
-});
+}, 60_000);
 
 it('does the same for shell scripts, following what a script sources', async () => {
   await openAt('main.sh', 'greet');
@@ -187,30 +238,7 @@ it('highlights the symbol at the caret where it is, not another of its name', as
       )
       .toEqual(['2 write', '3']);
   } catch (error) {
-    // CI's log is all there is: what the host answers there, asked directly, and the console.
-    const text = readFileSync(join(repo, 'scope.ts'), 'utf8');
-    const asked = { worktree: repo, path: join(repo, 'scope.ts'), text, line: 2, column: 10 };
-    const answers = await page().evaluate(
-      async ({ asked, repo }) => {
-        const host = (
-          window as unknown as {
-            cerebro: { host: { request: (p: string, m: string, a: unknown) => Promise<unknown> } };
-          }
-        ).cerebro.host;
-        const answer = (method: string) =>
-          host.request(repo, method, asked).then(
-            (result) => JSON.stringify(result),
-            (failure: unknown) => `failed: ${String(failure)}`,
-          );
-        return {
-          highlights: await answer('lsp.highlights'),
-          definitions: await answer('lsp.definitions'),
-        };
-      },
-      { asked, repo },
-    );
-    console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
-    throw error;
+    await explain(error, 'scope.ts', 2, 10, ['lsp.highlights', 'lsp.definitions']);
   }
 }, 60_000);
 
@@ -238,4 +266,24 @@ it('shows a word with a definition as a link under the pointer with Ctrl held', 
     .toBe('run');
   await page().keyboard.up('Control');
   await page().locator('.cerebro-link').waitFor({ state: 'detached' });
+});
+
+it('shows gutter markers between an interface and its implementations, and goes where they say', async () => {
+  await openAt('shape.ts', 'area(): number;');
+  const marker = (label: string) => page().locator(`.cerebro-marker[aria-label="${label}"]`);
+  // Asked as the file opens; TypeScript's server may still be loading.
+  await marker('Is implemented area').waitFor({ timeout: 30_000 });
+  await marker('Is implemented area').click();
+  await expect
+    .poll(() => popup().locator('.cerebro-popup-item__detail').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toEqual(['circle.ts:3', 'square.ts:3']);
+  await page().keyboard.press('Escape');
+  await openAt('square.ts', 'area()');
+  await marker('Implements area').waitFor({ timeout: 30_000 });
+  await marker('Implements area').click();
+  await expect
+    .poll(where, { timeout: 15_000 })
+    .toEqual({ tab: 'shape.ts', line: '  area(): number;' });
 });

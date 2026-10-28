@@ -27,6 +27,7 @@ import { tags } from '@lezer/highlight';
 import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
+import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { definitionLinks, usageHighlights, type AskDefinition, type AskUsages } from './usages.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
@@ -69,6 +70,13 @@ export interface CodeEditorProps {
    * shows as a link when it has. None: no links.
    */
   canGoToDefinition?: AskDefinition;
+  /**
+   * The file's gutter markers, given its text: what its members implement or override, and what
+   * implements or overrides them. Asked as it opens, and once an edit has settled. None: no markers.
+   */
+  marks?: AskMarks;
+  /** A gutter marker clicked: go where it says. */
+  onMark?: (mark: Mark) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
   onCaret?: (at: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
@@ -149,6 +157,28 @@ export const theme = EditorView.theme({
     borderRight: `1px solid ${variable('editor-gutter-line')}`,
   },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
+  // With markers, they take the room after the numbers (their place in it is a claim).
+  '.cm-lineNumbers:has(+ .cerebro-markers) .cm-gutterElement': { paddingRight: '6px' },
+  '.cerebro-markers .cm-gutterElement': {
+    width: '36px',
+    display: 'flex',
+    alignItems: 'center',
+  },
+  '.cerebro-markers__line': { display: 'flex', gap: '2px' },
+  '.cerebro-marker': { display: 'flex', cursor: 'pointer' },
+  '.cerebro-marker--i': {
+    '--marker': variable('editor-marker-i'),
+    '--marker-disc': variable('editor-marker-i-disc'),
+  },
+  '.cerebro-marker--o': {
+    '--marker': variable('editor-marker-o'),
+    '--marker-disc': variable('editor-marker-o-disc'),
+  },
+  '.cerebro-marker--up': { '--marker-arrow': variable('editor-marker-up') },
+  '.cerebro-marker--down': { '--marker-arrow': variable('editor-marker-down') },
+  '.cerebro-marker__disc': { fill: 'var(--marker-disc)' },
+  '.cerebro-marker__mark': { fill: 'var(--marker)' },
+  '.cerebro-marker__arrow': { fill: 'var(--marker-arrow)' },
   // The caret in the text's colour: CodeMirror's own is black, unseen on the dark theme.
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: variable('text') },
   // Find and Replace: the bar over the editor, and the matches it highlights.
@@ -371,6 +401,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLineGutter(),
+    props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
     gutterObstacle,
     fullWidth,
     selection,

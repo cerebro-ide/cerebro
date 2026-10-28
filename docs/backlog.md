@@ -33,14 +33,6 @@ files outside the editor. The editor's undo is per file and lives only while its
 Saving, Replace in Files, Rollback and an agent's edits can't be taken back. IntelliJ's Local
 History keeps each file's versions, labelled by what changed them, to compare and revert to.
 
-### Gutter icons: what a member implements or overrides
-
-From Ido (2026-10-28), with a screenshot of IntelliJ: the icons between the line numbers and the
-text (IntelliJ's "implements" and "overrides" markers) that go to the interface member or the
-super method. Neither TypeScript 7's server nor basedpyright offers the type hierarchy request that
-would find them (measured: neither lists `typeHierarchyProvider` in its `initialize` answer), so
-it needs another way: worked out from the definitions, or found elsewhere. Open-ended, so it waits.
-
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

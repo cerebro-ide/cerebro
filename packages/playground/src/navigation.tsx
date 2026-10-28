@@ -11,7 +11,7 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import type { Usage } from '@cerebro-ide/ui-editor';
+import type { Mark, MarkerKind, Usage } from '@cerebro-ide/ui-editor';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 
@@ -24,6 +24,19 @@ interface Located {
 }
 
 type Choice = PickerItem & { at: Located };
+
+/** A gutter marker, as the host gives it: where it goes too. */
+interface Marked extends Mark {
+  targets: Located[];
+}
+
+/** The list a gutter marker with several places offers, as IntelliJ's (a claim: not measured). */
+const MARKED: Record<MarkerKind, string> = {
+  implements: 'Super methods of',
+  overrides: 'Super methods of',
+  implemented: 'Implementations of',
+  overridden: 'Overriding methods of',
+};
 
 /** A place in a file as the editor has it, unsaved edits and all: what a language server is asked. */
 export interface Asked {
@@ -168,6 +181,33 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** Where the symbol at a place is in its file, from its language server; none without one. */
     usages(asked: Asked): Promise<Usage[] | null> {
       return ask<Usage>('lsp.highlights', asked);
+    },
+
+    /** A file's gutter markers, from its language server; none without one. */
+    async markers(path: string, text: string): Promise<Marked[] | null> {
+      const env = active();
+      const host = env ? hostFor(env.id) : undefined;
+      if (!env || !host) return null;
+      try {
+        return (await host.request('lsp.markers', { worktree: env.id, path, text })) as
+          Marked[] | null;
+      } catch {
+        return null;
+      }
+    },
+
+    /** Goes where a gutter marker says: there, or to the one chosen of several. */
+    async goToMarked(mark: Mark) {
+      const { targets, name, kind } = mark as Marked;
+      if (targets.length === 1) {
+        openAt(targets[0] as Located);
+        return;
+      }
+      await choose(
+        `${MARKED[kind]} ${name}`,
+        `None found`,
+        targets.map((t) => choice(t, relative(t.path).split('/').at(-1) as string, null)),
+      );
     },
 
     /** Whether the word at a place has a definition to go to: its server's, or a name's match. */

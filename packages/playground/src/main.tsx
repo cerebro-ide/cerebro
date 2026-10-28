@@ -32,6 +32,7 @@ import {
   formatLineColumn,
   parseLineColumn,
   type EditorDocument,
+  type Mark,
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
@@ -828,6 +829,8 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   canGoToDefinition: (name: string, at: { line: number; column: number }) =>
                     navigation.hasDefinition(name, asked(state, at)),
+                  marks: (text: string) => navigation.markers(props.path, text),
+                  onMark: (mark: Mark) => void navigation.goToMarked(mark),
                 }
               : {})}
             fontSize={() => settings.get('editor.fontSize') as number}

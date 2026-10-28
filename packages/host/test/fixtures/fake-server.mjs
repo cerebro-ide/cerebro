@@ -1,7 +1,9 @@
 // A language server that misbehaves as asked (its first argument), for the LSP client's tests:
 // "exit" exits at once; "silent" never answers a definition; "stubborn" ignores shutdown;
 // "links" answers definitions with location links; "fails" answers them with an error; "loads"
-// logs other lines, then "Loaded", after it's initialized.
+// logs other lines, then "Loaded", after it's initialized; "symbols" answers a.fake's and b.fake's
+// symbols (class A extends B, each with a method run), and goes from a.fake's B to b.fake's and to a
+// file that isn't there. The others answer no symbols, "fails" an error and "silent" nothing.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -32,8 +34,35 @@ const handle = (message) => {
     setTimeout(() => {
       send({ method: 'window/logMessage', params: { type: 3, message: 'Loaded 2 files' } });
     }, 300);
+  } else if (method === 'textDocument/documentSymbol') {
+    if (mode === 'silent') return;
+    if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });
+    if (mode !== 'symbols') {
+      send({ id, result: null });
+      return;
+    }
+    const at = (line, character) => ({ start: { line, character }, end: { line, character } });
+    const name = message.params.textDocument.uri.endsWith('a.fake') ? 'A' : 'B';
+    const run = { name: 'run', kind: 6, range: at(1, 2), selectionRange: at(1, 2) };
+    const type = { name, kind: 5, range: at(0, 0), selectionRange: at(0, 6), children: [run] };
+    // And one flat, as SymbolInformation: left out.
+    send({ id, result: [type, { name: 'flat', kind: 12, location: {} }] });
+  } else if (method === 'textDocument/implementation') {
+    send({ id, result: null });
   } else if (method === 'textDocument/definition') {
     if (mode === 'silent') return;
+    if (mode === 'symbols') {
+      const folder = message.params.textDocument.uri.replace(/[^/]*$/, '');
+      const range = { start: { line: 0, character: 6 }, end: { line: 0, character: 7 } };
+      send({
+        id,
+        result: [
+          { uri: `${folder}b.fake`, range },
+          { uri: `${folder}gone.other`, range },
+        ],
+      });
+      return;
+    }
     if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });
     else if (mode === 'links') {
       const range = { start: { line: 4, character: 2 }, end: { line: 4, character: 3 } };

@@ -154,6 +154,64 @@ describe('TypeScript 7’s server', () => {
   }, 60_000);
 });
 
+describe('gutter markers, from TypeScript’s server', () => {
+  it('marks what a member implements or overrides, and what implements or overrides it', async () => {
+    const project = `${root}/tsm`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(join(project, 'tsconfig.json'), '{}');
+    writeFileSync(
+      join(project, 'shape.ts'),
+      'export interface Shape {\n  area(): number;\n  name: string;\n}\n',
+    );
+    const base = [
+      "import { Shape } from './shape';",
+      'export abstract class Base implements Shape {',
+      "  name = 'b';",
+      '  abstract area(): number;',
+      "  describe() { return 'x'; }",
+      '}',
+      '',
+    ].join('\n');
+    writeFileSync(join(project, 'base.ts'), base);
+    writeFileSync(
+      join(project, 'square.ts'),
+      [
+        "import { Base } from './base';",
+        'export class Square extends Base {',
+        '  area() { return 1; }',
+        "  describe() { return 'sq'; }",
+        '  own() {}',
+        '}',
+        '',
+      ].join('\n'),
+    );
+    const servers = pool(undefined, { patience: 60_000 });
+    const markers = await servers.markers(project, { path: `${project}/base.ts`, text: base });
+    const at = (file: string, line: number, column: number) => ({
+      path: `${project}/${file}`,
+      line,
+      column,
+    });
+    expect(markers).toEqual([
+      { line: 1, kind: 'implemented', name: 'Base', targets: [at('square.ts', 1, 13)] },
+      { line: 2, kind: 'implements', name: 'name', targets: [at('shape.ts', 2, 2)] },
+      { line: 3, kind: 'implements', name: 'area', targets: [at('shape.ts', 1, 2)] },
+      { line: 3, kind: 'implemented', name: 'area', targets: [at('square.ts', 2, 2)] },
+      { line: 4, kind: 'overridden', name: 'describe', targets: [at('square.ts', 3, 2)] },
+    ]);
+    // From the subclass, in a file never opened: up to the nearest base, through the files above.
+    const square = await servers.markers(project, {
+      path: `${project}/square.ts`,
+      text: readFileSync(join(project, 'square.ts'), 'utf8'),
+    });
+    expect(square).toEqual([
+      { line: 2, kind: 'implements', name: 'area', targets: [at('base.ts', 3, 11)] },
+      { line: 3, kind: 'overrides', name: 'describe', targets: [at('base.ts', 4, 2)] },
+    ]);
+  }, 60_000);
+});
+
 describe('basedpyright, for Python', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/py`;
@@ -198,6 +256,54 @@ describe('basedpyright, for Python', () => {
     expect(await servers.highlights(project, d, at(2, 12))).toEqual([
       { from: { line: 1, column: 4 }, to: { line: 1, column: 9 }, write: true },
       { from: { line: 2, column: 11 }, to: { line: 2, column: 16 }, write: false },
+    ]);
+  }, 60_000);
+});
+
+describe('gutter markers, from basedpyright', () => {
+  it('marks what a method overrides, and what overrides it', async () => {
+    const project = `${root}/pym`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    const base = [
+      'from abc import ABC, abstractmethod',
+      '',
+      'class Base(ABC):',
+      '    @abstractmethod',
+      '    def area(self):',
+      '        pass',
+      '',
+      '    def describe(self):',
+      '        return "x"',
+      '',
+    ].join('\n');
+    writeFileSync(join(project, 'base.py'), base);
+    const square = [
+      'from base import Base',
+      '',
+      'class Square(Base):',
+      '    def area(self):',
+      '        return 1',
+      '',
+      '    def describe(self):',
+      '        return "sq"',
+      '',
+    ].join('\n');
+    writeFileSync(join(project, 'square.py'), square);
+    const servers = pool(undefined, { patience: 60_000 });
+    const at = (file: string, line: number, column: number) => ({
+      path: `${project}/${file}`,
+      line,
+      column,
+    });
+    expect(await servers.markers(project, { path: `${project}/square.py`, text: square })).toEqual([
+      { line: 3, kind: 'implements', name: 'area', targets: [at('base.py', 4, 8)] },
+      { line: 6, kind: 'overrides', name: 'describe', targets: [at('base.py', 7, 8)] },
+    ]);
+    expect(await servers.markers(project, { path: `${project}/base.py`, text: base })).toEqual([
+      { line: 2, kind: 'overridden', name: 'Base', targets: [at('square.py', 2, 6)] },
+      { line: 4, kind: 'implemented', name: 'area', targets: [at('square.py', 3, 8)] },
+      { line: 7, kind: 'overridden', name: 'describe', targets: [at('square.py', 6, 8)] },
     ]);
   }, 60_000);
 });
@@ -304,6 +410,30 @@ describe('LanguageServers', () => {
     expect(changes()).toBe(0);
     await servers.definitions(root, { ...file, text: 'y' }, at(0, 0));
     expect(changes()).toBe(1);
+  });
+
+  it('works markers out with files read from disk, or as the server has them', async () => {
+    const a = { path: `${root}/a.fake`, text: 'class A extends B {\n  run() {}\n}\n' };
+    writeFileSync(`${root}/b.fake`, 'class B {\n  run() {}\n}\n');
+    const servers = pool([fake('symbols')]);
+    const expected = [
+      {
+        line: 1,
+        kind: 'overrides',
+        name: 'run',
+        targets: [{ path: `${root}/b.fake`, line: 1, column: 2 }],
+      },
+    ];
+    expect(await servers.markers(root, a)).toEqual(expected);
+    // b.fake is open now: as the server has it, not read again.
+    rmSync(`${root}/b.fake`);
+    expect(await servers.markers(root, a)).toEqual(expected);
+    // None from a server with no symbols; nothing for a language without a server, an error, or no
+    // answer in time.
+    expect(await pool([fake('links')]).markers(root, a)).toEqual([]);
+    expect(await servers.markers(root, { path: `${root}/a.txt`, text: '' })).toBeNull();
+    expect(await pool([fake('fails')]).markers(root, a)).toBeNull();
+    expect(await pool([fake('silent')], { markersPatience: 50 }).markers(root, a)).toBeNull();
   });
 
   it('gives up on an answer that doesn’t come in time, or an error', async () => {
