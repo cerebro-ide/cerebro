@@ -405,6 +405,24 @@ it.skipIf(process.platform === 'darwin')(
     await page.mouse.move(box.x + cell * 9.5, y, { steps: 4 });
     await page.mouse.up();
     await page.keyboard.press('Alt+E');
+    // Nothing is cut from a terminal or undone in it; it takes pastes.
+    const states = await page
+      .locator('.cerebro-menu-item')
+      .evaluateAll((items) =>
+        items.map(
+          (i) =>
+            `${i.querySelector('.cerebro-menu-item__label')?.textContent ?? ''}: ${i.getAttribute('aria-disabled') === 'true' ? 'disabled' : 'enabled'}`,
+        ),
+      );
+    expect(states).toEqual(
+      expect.arrayContaining([
+        'Undo: disabled',
+        'Redo: disabled',
+        'Cut: disabled',
+        'Copy: enabled',
+        'Paste: enabled',
+      ]),
+    );
     await page.locator('.cerebro-menu-item', { hasText: /^Copy/ }).click();
     await expect.poll(clipboard).toBe('cerebro-ok');
   },

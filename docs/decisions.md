@@ -1425,9 +1425,11 @@ choices below are Claude's, after IntelliJ, open to change.
     its name. A command's menu label can now change (`text` on a command).
   - In a terminal, Copy copies its selection (2026-10-28): the terminal answers the copy event its
     text field gets. Before, it copied the text field's, which is always empty.
+  - In a terminal, Cut, Undo and Redo are disabled (2026-10-28): its text is the shell's, so
+    nothing is cut from it or undone; Paste stays, as typing does. Claude's choice, open to change.
 - **In a browser,** the samples can be edited, and aren't saved.
 - **Not yet:** the idle time isn't a setting; Undo's names in a text field (only the editor's are
-  known); Cut and Undo stay enabled in a terminal.
+  known).
 
 ## Opening a project (2026-10-26)
 
