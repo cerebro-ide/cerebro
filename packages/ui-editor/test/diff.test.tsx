@@ -44,7 +44,8 @@ describe('the diff editor', () => {
     ).toEqual(['const a = 2;', 'const added = 3;']);
     // In the theme's colours.
     const removed = getComputedStyle(left?.querySelector('.cm-changedLine') as Element);
-    expect(removed.backgroundColor).toBe('rgb(62, 42, 44)');
+    expect(removed.backgroundColor).toBe('rgb(62, 42, 44)'); // Scrollbars avoid both sides' gutters.
+    expect(root.querySelectorAll('.cm-gutters[data-scrollbar-obstacle]')).toHaveLength(2);
   });
 
   it('applies the font size and tab size as they change, and shows a file of no language', () => {

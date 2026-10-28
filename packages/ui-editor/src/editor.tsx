@@ -19,6 +19,7 @@ import {
   layer,
   lineNumbers,
   RectangleMarker,
+  ViewPlugin,
 } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
@@ -205,6 +206,20 @@ export const theme = EditorView.theme({
  * anti-aliased and the background showed through as a dark line (measured). The strip lies within
  * both parts, so it never shows outside the selection.
  */
+/**
+ * Marks the gutters as what scrollbars avoid (`@cerebro-ide/ui-scrollbar`): the horizontal one
+ * starts after them, as IntelliJ's. Again after each update, in case they were drawn anew. Goes
+ * after `lineNumbers()`.
+ */
+export const gutterObstacle = ViewPlugin.define((view) => {
+  // After the line numbers' plugin, which made the gutters.
+  const mark = () => {
+    (view.dom.querySelector('.cm-gutters') as Element).setAttribute('data-scrollbar-obstacle', '');
+  };
+  mark();
+  return { update: mark };
+});
+
 export const selection: Extension = [
   drawSelection(),
   layer({
@@ -334,6 +349,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLineGutter(),
+    gutterObstacle,
     selection,
     // After the selection: a later layer beneath goes lower.
     activeLine,

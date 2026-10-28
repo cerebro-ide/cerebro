@@ -155,7 +155,67 @@ describe('installScrollbars', () => {
     const x = thumb('x') as HTMLElement;
     x.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 110, clientY: 195 }));
     x.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 130, clientY: 195 }));
-    expect(scroller.scrollLeft).toBe(80);
+    // 186px of track (the vertical bar's corner kept clear), a 46.5px thumb: 139.5px for 600px.
+    expect(scroller.scrollLeft).toBeCloseTo((20 * 600) / 139.5, 0);
+  });
+
+  it('keeps the corner clear: neither bar reaches the other', async () => {
+    install();
+    const scroller = area(800, 400);
+    await userEvent.hover(scroller);
+    scroller.scrollTop = 300;
+    scroller.scrollLeft = 600;
+    // Each track stops 14px short of the far edge: 12px for the other bar, 2px between them. (The
+    // vertical thumb is its shortest, 24px.)
+    await expect
+      .poll(() => box(thumb('y')))
+      .toEqual({ left: 288, top: 100 + 86 - 24, width: 10, height: 24 });
+    expect(box(thumb('x'))).toEqual({ left: 100 + 186 - 46.5, top: 188, width: 46.5, height: 10 });
+  });
+
+  it('starts or stops a bar’s track short of what’s marked as in its way', async () => {
+    install();
+    const scroller = area(800, 400);
+    /** An obstacle at a place in the area, staying there as it scrolls, as an editor's gutter. */
+    const obstacle = (left: number, top: number, width: number, height: number) => {
+      const element = document.createElement('div');
+      element.dataset['scrollbarObstacle'] = '';
+      Object.assign(element.style, {
+        position: 'fixed',
+        left: `${String(100 + left)}px`,
+        top: `${String(100 + top)}px`,
+        width: `${String(width)}px`,
+        height: `${String(height)}px`,
+      });
+      scroller.append(element);
+      return element;
+    };
+    // A gutter down the left: the horizontal bar starts after it.
+    obstacle(0, 0, 40, 400);
+    // A toolbar over the top right: the vertical bar starts below it.
+    obstacle(150, 0, 50, 20);
+    // Nearer the end of the vertical track: it stops before it.
+    obstacle(190, 70, 10, 5);
+    // Not across either bar: nothing.
+    obstacle(60, 30, 20, 20);
+    await userEvent.hover(scroller);
+    // Vertical: from 20 to 70 (not 86), 50px, scrolled to the end: the thumb's end at 70.
+    scroller.scrollTop = 300;
+    await expect
+      .poll(() => box(thumb('y')))
+      .toEqual({ left: 288, top: 100 + 70 - 24, width: 10, height: 24 });
+    // Across: from 40 to 186, 146px.
+    expect(box(thumb('x'))).toEqual({ left: 140, top: 188, width: 36.5, height: 10 });
+    // Dragged along the shorter track: 26px of it left for 300px.
+    const y = thumb('y') as HTMLElement;
+    y.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, clientX: 295, clientY: 160 }));
+    y.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 295, clientY: 147 }));
+    expect(scroller.scrollTop).toBeCloseTo(150, 0);
+    y.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    // A bar whose whole track is in the way shows nothing.
+    obstacle(190, 0, 10, 100);
+    scroller.scrollTop = 10;
+    await expect.poll(() => thumb('y')?.hidden).toBe(true);
   });
 
   it('hides when the pointer leaves the window, and ignores what doesn’t scroll', async () => {

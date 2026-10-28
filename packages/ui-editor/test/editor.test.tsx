@@ -107,6 +107,9 @@ describe('CodeEditor', () => {
     ]);
     expect(container.querySelectorAll('.cm-lineNumbers .cm-gutterElement').length).toBeGreaterThan(
       2,
+    ); // Scrollbars avoid the gutters: the horizontal one starts after them.
+    expect(container.querySelector('.cm-gutters')?.hasAttribute('data-scrollbar-obstacle')).toBe(
+      true,
     );
   });
 
