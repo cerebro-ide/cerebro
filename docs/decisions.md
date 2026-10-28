@@ -42,6 +42,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
+- [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
@@ -1062,6 +1063,33 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
   Select Opened File" option and Alt+F1's Select In aren't there.
+
+## Usages at the caret, and links with Ctrl held (2026-10-28)
+
+From Ido, with screenshots of IntelliJ: the symbol at the caret highlighted wherever it is in the
+file, by its references, not its text ("extraProps is only highlighted under the same function
+scope"); and with Ctrl or Cmd held, a word that has a definition shown as clickable, in another
+colour and underlined.
+
+- **The language server's document highlights** (`textDocument/documentHighlight`), asked through
+  the host (`lsp.highlights`) once the caret has stayed for 100 ms (a claim: unnoticed). All three
+  servers offer them (measured: each one's `initialize` answer), and each tells apart two variables
+  of one name in two functions (host tests against the real servers). A server's write (LSP's kind
+  3: assigned, declared with a value) is drawn apart from a read, as IntelliJ's.
+- **Drawn as a layer beneath the selection,** as the caret's line is, so a selection over a usage
+  shows. An answer for a place the caret has left, or for text since edited, is dropped; what's
+  drawn moves with edits until the next answer.
+- **IntelliJ's colours,** from its schemes' `IDENTIFIER_UNDER_CARET_ATTRIBUTES` and
+  `WRITE_IDENTIFIER_UNDER_CARET_ATTRIBUTES`: Islands Dark (`IslandSchemeDark.xml`) `#373b39` and
+  `#402f33`; Light (`expUI_lightScheme.xml`, the Islands Light editor scheme) `#edebfc` and
+  `#fce8f4`.
+- **The link:** with Ctrl or Cmd held (either, as Ctrl+click and Cmd+click already go to a
+  definition), the word under the pointer, when it has a definition: the language server's, or a
+  name match in the index when no server answers. In `CTRL_CLICKABLE`'s colour, underlined:
+  `#548af7` dark, `#006dcc` light. Only while the pointer is over the word, not beside it at its
+  line's end. Pressing Ctrl with the pointer still shows it too.
+- **Not yet:** IntelliJ's gutter icons for what a member implements or overrides (in the backlog),
+  and the usages' marks on the scrollbar.
 
 ## Scrollbars over the content (2026-10-27)
 

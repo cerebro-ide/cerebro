@@ -53,6 +53,9 @@
   --cerebro-error: #f75464;
   /* The editor, as IntelliJ's dark theme. */
   --cerebro-editor-active-line: #25282e;
+  --cerebro-editor-usage: #373b39;
+  --cerebro-editor-usage-write: #402f33;
+  --cerebro-editor-link: #548af7;
   --cerebro-editor-selection: #214283;
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #32593d;
@@ -162,6 +165,9 @@
   --cerebro-error: #db3b4b;
   /* The editor, as IntelliJ's light theme. */
   --cerebro-editor-active-line: #f5f8fe;
+  --cerebro-editor-usage: #edebfc;
+  --cerebro-editor-usage-write: #fce8f4;
+  --cerebro-editor-link: #006dcc;
   --cerebro-editor-selection: #a6d2ff;
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #ffe88c;

@@ -62,6 +62,21 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'lib.ts'), 'export function run() {}\n');
   writeFileSync(join(repo, 'other.ts'), 'export function run() {}\nrun();\n');
   writeFileSync(join(repo, 'main.ts'), "import { run } from './lib';\n\nrun();\n");
+  // A variable named alike in two functions: each is its own.
+  writeFileSync(
+    join(repo, 'scope.ts'),
+    [
+      'export function a() {',
+      '  const extra = 1;',
+      '  return extra;',
+      '}',
+      'export function b() {',
+      '  const extra = 2;',
+      '  return extra;',
+      '}',
+      '',
+    ].join('\n'),
+  );
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
@@ -134,4 +149,53 @@ it('does the same for shell scripts, following what a script sources', async () 
     const at = await where();
     return at.tab === 'lib.sh' && at.line === 'greet() {';
   });
+});
+
+it('highlights the symbol at the caret where it is, not another of its name', async () => {
+  // Into a's `return extra;`, inside the name.
+  await openAt('scope.ts', 'const extra = 1;');
+  for (const key of ['ArrowDown', 'End', 'ArrowLeft', 'ArrowLeft'])
+    await page().keyboard.press(key);
+  // The lines the usages are drawn on, by their middles.
+  const usageLines = () =>
+    page().evaluate(() => {
+      const root = document.querySelector('.cerebro-editor-code')?.shadowRoot;
+      const lines = [...(root?.querySelectorAll('.cm-line') ?? [])].map((line) =>
+        line.getBoundingClientRect(),
+      );
+      return [...(root?.querySelectorAll('.cerebro-usage') ?? [])].map((usage) => {
+        const { top, bottom } = usage.getBoundingClientRect();
+        const middle = (top + bottom) / 2;
+        const line = lines.findIndex((l) => l.top <= middle && middle <= l.bottom) + 1;
+        return `${String(line)}${usage.classList.contains('cerebro-usage--write') ? ' write' : ''}`;
+      });
+    });
+  // Declared on line 2, read on 3; not b's, on 6 and 7.
+  await expect.poll(usageLines, { timeout: 30_000 }).toEqual(['2 write', '3']);
+});
+
+it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
+  await openAt('main.ts', 'run();');
+  const box = (await page().locator('.cm-line', { hasText: 'run();' }).boundingBox()) as {
+    x: number;
+    y: number;
+    height: number;
+  };
+  // Over "run", its first letters.
+  await page().mouse.move(box.x + 8, box.y + box.height / 2);
+  await page().keyboard.down('Control');
+  await expect
+    .poll(
+      () =>
+        page()
+          .locator('.cerebro-link')
+          .textContent({ timeout: 1_000 })
+          .catch(() => null),
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe('run');
+  await page().keyboard.up('Control');
+  await page().locator('.cerebro-link').waitFor({ state: 'detached' });
 });

@@ -824,6 +824,10 @@ function Code(props: { path: string; env: string }) {
                     void navigation.goToDefinition(name, asked(state, at)),
                   onFindUsages: (name: string, at: { line: number; column: number }) =>
                     void navigation.findUsages(name, asked(state, at)),
+                  usages: (at: { line: number; column: number }) =>
+                    navigation.usages(asked(state, at)),
+                  canGoToDefinition: (name: string, at: { line: number; column: number }) =>
+                    navigation.hasDefinition(name, asked(state, at)),
                 }
               : {})}
             fontSize={() => settings.get('editor.fontSize') as number}

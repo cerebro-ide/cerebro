@@ -11,6 +11,7 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import type { Usage } from '@cerebro-ide/ui-editor';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 
@@ -128,13 +129,13 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
   };
   /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
-  const ask = async (method: string, asked: Asked | undefined) => {
+  const ask = async <T = Located,>(method: string, asked: Asked | undefined) => {
     const env = active();
     if (!env || !asked) return null;
     const host = hostFor(env.id);
     if (!host) return null;
     try {
-      return (await host.request(method, { worktree: env.id, ...asked })) as Located[] | null;
+      return (await host.request(method, { worktree: env.id, ...asked })) as T[] | null;
     } catch {
       return null;
     }
@@ -162,6 +163,22 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       const host = env ? hostFor(env.id) : undefined;
       if (host && env)
         void host.request('lsp.open', { worktree: env.id, path, text }).catch(() => undefined);
+    },
+
+    /** Where the symbol at a place is in its file, from its language server; none without one. */
+    usages(asked: Asked): Promise<Usage[] | null> {
+      return ask<Usage>('lsp.highlights', asked);
+    },
+
+    /** Whether the word at a place has a definition to go to: its server's, or a name's match. */
+    async hasDefinition(name: string, asked: Asked): Promise<boolean> {
+      const precise = await ask('lsp.definitions', asked);
+      if (precise) return precise.length > 0;
+      try {
+        return (await request('index.definitions', { name })).length > 0;
+      } catch {
+        return false;
+      }
     },
 
     async goToDefinition(name: string, asked?: Asked) {

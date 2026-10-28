@@ -27,6 +27,7 @@ import { tags } from '@lezer/highlight';
 import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
+import { definitionLinks, usageHighlights, type AskDefinition, type AskUsages } from './usages.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
 
@@ -58,6 +59,16 @@ export interface CodeEditorProps {
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /** The line at the top of the editor, zero-based: each time it scrolls. */
   onScroll?: (top: number) => void;
+  /**
+   * Where the symbol at the caret is in the file, highlighted as IntelliJ's: asked once the caret
+   * stays. None: no highlights.
+   */
+  usages?: AskUsages;
+  /**
+   * Whether the word at a place has a definition: with Ctrl or Cmd held, the word under the pointer
+   * shows as a link when it has. None: no links.
+   */
+  canGoToDefinition?: AskDefinition;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
   onCaret?: (at: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
@@ -188,6 +199,16 @@ export const theme = EditorView.theme({
   '.cm-searchMatch-selected': { backgroundColor: variable('search-match-selected') },
   '.cm-line': { padding: '0 2px' },
   '.cerebro-activeLine': { backgroundColor: variable('editor-active-line') },
+  // The symbol at the caret, where it's read and where it's written, as IntelliJ's.
+  '.cerebro-usage': { backgroundColor: variable('editor-usage') },
+  '.cerebro-usage--write': { backgroundColor: variable('editor-usage-write') },
+  // A word with a definition, under the pointer with Ctrl or Cmd held: the link colour over the
+  // syntax's, underlined.
+  '.cerebro-link, .cerebro-link *': {
+    color: variable('editor-link'),
+    textDecoration: 'underline',
+    cursor: 'pointer',
+  },
   '.cm-activeLine': { backgroundColor: 'transparent' },
   '.cm-activeLineGutter': {
     backgroundColor: variable('editor-active-line'),
@@ -354,6 +375,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     fullWidth,
     selection,
     // After the selection: a later layer beneath goes lower.
+    props.usages ? usageHighlights(props.usages) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
@@ -387,6 +409,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         return true;
       },
     }),
+    props.canGoToDefinition ? definitionLinks(props.canGoToDefinition) : [],
     theme,
     syntaxHighlighting(highlight),
     ...(language ? [language] : []),
