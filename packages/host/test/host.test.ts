@@ -299,6 +299,8 @@ describe('files', () => {
     await expect(ui.request('fs.read', { path: join(dir, 'none') })).rejects.toMatchObject({
       code: ErrorCodes.InternalError,
     });
+    expect(await ui.request('fs.exists', { path: join(dir, 'b.bin') })).toBe(true);
+    expect(await ui.request('fs.exists', { path: join(dir, 'none') })).toBe(false);
     rmSync(dir, { recursive: true });
   });
 

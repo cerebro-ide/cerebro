@@ -8,6 +8,11 @@ export interface CommandSpec<C = unknown> {
   id: string;
   /** With `&` before the mnemonic letter. */
   label: string;
+  /**
+   * What menus show now, when it changes with what the command acts on (IntelliJ's "Undo Typing"),
+   * with `&` before the mnemonic letter. Read reactively. Default: `label`.
+   */
+  text?: (context: C) => string;
   /** Opens a dialog, so menus show the label with an ellipsis. */
   dialog?: boolean;
   /** An icon name for menus and toolbars; how it's drawn is up to the view. */

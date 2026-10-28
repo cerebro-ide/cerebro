@@ -624,6 +624,16 @@ describe('EditorDocument', () => {
     expect(new EditorDocument('a\nb\n').content()).toBe('a\nb\n');
   });
 
+  it('saves with the file’s byte order mark, which isn’t shown', () => {
+    const marked = new EditorDocument('﻿a\r\nb');
+    expect(marked.bom).toBe(true);
+    expect(marked.text.get().toString()).toBe('a\nb');
+    expect(marked.content()).toBe('﻿a\r\nb');
+    // Read again from disk with it: no change.
+    expect(marked.changedFrom('﻿a\nb')).toBe(false);
+    expect(new EditorDocument('a').bom).toBe(false);
+  });
+
   it('knows it’s modified until saved', () => {
     const doc = new EditorDocument('a');
     const edited = Text.of(['ab']);

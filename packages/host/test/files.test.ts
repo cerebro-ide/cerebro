@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { listFolder, MAX_FILE_SIZE, readTextFile, toSlashes } from '../src/index.js';
+import { exists, listFolder, MAX_FILE_SIZE, readTextFile, toSlashes } from '../src/index.js';
 
 describe('listFolder', () => {
   const root = mkdtempSync(join(tmpdir(), 'cerebro-files-'));
@@ -44,6 +44,9 @@ describe('listFolder', () => {
     expect(await readTextFile(join(root, 'text.md'))).toBe('# héllo\nwörld ✓');
     writeFileSync(join(root, 'empty.txt'), '');
     expect(await readTextFile(join(root, 'empty.txt'))).toBe('');
+    // A byte order mark is kept, for the file to be saved with it.
+    writeFileSync(join(root, 'bom.txt'), '\uFEFFmarked');
+    expect(await readTextFile(join(root, 'bom.txt'))).toBe('\uFEFFmarked');
   });
 
   it('refuses binary files and oversized ones', async () => {
@@ -58,6 +61,15 @@ describe('listFolder', () => {
       message: expect.stringContaining('too large') as unknown,
     });
     await expect(readTextFile(join(root, 'missing.txt'))).rejects.toThrow(/ENOENT/);
+  });
+
+  it('tells whether a file is there, and fails when it can’t tell', async () => {
+    writeFileSync(join(root, 'here.txt'), '');
+    expect(await exists(join(root, 'here.txt'))).toBe(true);
+    expect(await exists(join(root, 'gone.txt'))).toBe(false);
+    // A file on the path where a folder should be.
+    expect(await exists(join(root, 'here.txt', 'below.txt'))).toBe(false);
+    await expect(exists('\0')).rejects.toThrow();
   });
 
   it('fails for a folder that isn’t there', async () => {

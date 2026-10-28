@@ -4,7 +4,8 @@
 // loses the focus. File → Save All (Mod+S) saves at once. A file changed on disk (by an agent, or
 // git) is read again when the window gets the focus and every few seconds while it has it. One also
 // changed in the editor is a conflict, as IntelliJ's File Cache Conflict: nothing is written over
-// it, and the user chooses between the two, or merges them.
+// it, and the user chooses between the two, or merges them. A file deleted on disk has its tabs
+// closed, its edits with them, as IntelliJ's FileEditorManagerImpl closes a deleted file's editors.
 
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor } from './environments.js';
@@ -25,6 +26,9 @@ export const SAVE_WHEN_IDLE = 15_000;
 export type ConflictResolver = (path: string, doc: EditorDocument, disk: string) => Promise<void>;
 
 let resolveConflict: ConflictResolver = () => Promise.resolve();
+
+/** Closes a deleted file's tabs. */
+let closeDeleted: (path: string) => void = () => undefined;
 
 /** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
 const resolving = new Set<string>();
@@ -82,6 +86,24 @@ async function opened(): Promise<[string, EditorDocument][]> {
   );
 }
 
+/**
+ * Whether a file that couldn't be read was deleted; if so, its document is forgotten and its tabs
+ * closed.
+ */
+async function deleted(path: string): Promise<boolean> {
+  const there = await hostFor(path)
+    ?.request('fs.exists', { path })
+    .then(
+      (result) => result as boolean,
+      // Can't tell: kept.
+      () => true,
+    );
+  if (there !== false) return false;
+  documents.delete(path);
+  closeDeleted(path);
+  return true;
+}
+
 /** Saves every modified document; a file that can't be saved is reported, and stays modified. */
 export async function saveAll(): Promise<void> {
   await saveFiles();
@@ -99,9 +121,10 @@ export async function saveFiles(paths?: readonly string[]): Promise<void> {
       // Not over a change made on disk since it was read: that's a conflict.
       const disk = await host.request('fs.read', { path }).then(
         (result) => (result as { text: string }).text,
-        // Gone: written again.
         () => undefined,
       );
+      // Deleted: not made again. Unreadable: written over, which says why it fails.
+      if (disk === undefined && (await deleted(path))) continue;
       if (disk !== undefined && (await conflicts(path, doc, disk))) continue;
       if (!doc.modified.peek()) continue;
       // What's written, which the editor may change while it's being written.
@@ -128,7 +151,8 @@ export async function reloadAll(): Promise<void> {
     try {
       ({ text } = (await host.request('fs.read', { path })) as { text: string });
     } catch {
-      // Gone, or unreadable now: the editor keeps what it shows.
+      // Deleted, its tabs closed; or unreadable now: the editor keeps what it shows.
+      await deleted(path);
       continue;
     }
     if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
@@ -138,10 +162,15 @@ export async function reloadAll(): Promise<void> {
 /**
  * Saves on its own, as IntelliJ: when the window loses the focus, and after `SAVE_WHEN_IDLE`
  * without a key or the mouse. Reads changed files when the window has the focus. Conflicts are
- * resolved through `resolver`.
+ * resolved through `resolver`; a deleted file's tabs are closed through `close`.
  */
-export function setupSaving(report: (error: unknown) => void, resolver: ConflictResolver): void {
+export function setupSaving(
+  report: (error: unknown) => void,
+  resolver: ConflictResolver,
+  close: (path: string) => void,
+): void {
   resolveConflict = resolver;
+  closeDeleted = close;
   const save = () => {
     saveAll().catch(report);
   };

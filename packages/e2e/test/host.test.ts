@@ -380,6 +380,25 @@ it('runs a shell in the Terminal tool window', async () => {
     });
 });
 
+// macOS shows the menu in the system's menu bar, which Playwright can't click.
+it.skipIf(process.platform === 'darwin')(
+  'copies a terminal’s selection with Edit → Copy',
+  async () => {
+    const page = running.page;
+    const clipboard = () => running.app.evaluate(({ clipboard }) => clipboard.readText());
+    await running.app.evaluate(({ clipboard }) => {
+      // Electron's clipboard writes at once; its types say a promise.
+      void clipboard.writeText('before');
+    });
+    // The output's line: a double click selects its word.
+    const row = page.locator('.cerebro-terminal__row', { hasText: /^\s*cerebro-ok\s*$/ }).first();
+    await row.dblclick({ position: { x: 10, y: 5 } });
+    await page.keyboard.press('Alt+E');
+    await page.locator('.cerebro-menu-item', { hasText: /^Copy/ }).click();
+    await expect.poll(clipboard).toBe('cerebro-ok');
+  },
+);
+
 it('opens more terminals as tabs, each its own shell, and closes them, or they end', async () => {
   const page = running.page;
   const window = page.locator('.cerebro-tool-window[data-id="terminal"]');

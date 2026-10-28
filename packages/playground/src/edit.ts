@@ -1,12 +1,14 @@
 // Edit → Undo, Redo, Cut, Copy and Paste, as IntelliJ's: they act on what had the focus before the
 // menu opened (a menu takes it while open), and their keys are the keymap's. Undo and Redo in a code
 // editor are its own history's; elsewhere, and Cut, Copy and Paste everywhere, they're the system's,
-// through the app (a page can't paste on its own), or the browser's in a plain browser. Undo, Redo,
-// Cut and Paste need somewhere to type; Copy, that or a selection.
+// through the app (a page can't paste on its own), or the browser's in a plain browser. In a code
+// editor, Undo and Redo say what they'd do ("Undo Typing"), and are enabled only when there's
+// something to do, as IntelliJ's (UndoManagerImpl); elsewhere they need somewhere to type, as Cut and
+// Paste do. Copy needs that or a selection; in a terminal, it copies the terminal's selection.
 
 import type { CommandRegistry } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
-import { editorHistory } from '@cerebro-ide/ui-editor';
+import { editorHistory, historyNamesIn } from '@cerebro-ide/ui-editor';
 
 export type EditAction = 'undo' | 'redo' | 'cut' | 'copy' | 'paste';
 
@@ -64,6 +66,13 @@ function copyable(): boolean {
   return (document.getSelection()?.toString() ?? '') !== '';
 }
 
+/** What Undo or Redo would do in the editor that last had the focus; undefined outside one. */
+function history(action: 'undo' | 'redo'): { name: string | undefined } | undefined {
+  const focused = lastFocused.get();
+  const names = focused && historyNamesIn(focused);
+  return names && { name: names[action] };
+}
+
 /** Runs an edit action on what last had the focus. */
 function run(action: EditAction): void {
   const focused = target();
@@ -81,8 +90,6 @@ export function setupEdit(commands: CommandRegistry): void {
     window.addEventListener(type, follow, true);
   }
   const entries: [EditAction, string, () => boolean][] = [
-    ['undo', '&Undo', () => editable(lastFocused.get())],
-    ['redo', '&Redo', () => editable(lastFocused.get())],
     ['cut', 'Cu&t', () => editable(lastFocused.get())],
     ['copy', '&Copy', copyable],
     ['paste', '&Paste', () => editable(lastFocused.get())],
@@ -92,6 +99,27 @@ export function setupEdit(commands: CommandRegistry): void {
       id: `edit.${action}`,
       label,
       enabled,
+      run: () => {
+        run(action);
+      },
+    });
+  }
+  for (const [action, label] of [
+    ['undo', '&Undo'],
+    ['redo', '&Redo'],
+  ] as const) {
+    commands.register({
+      id: `edit.${action}`,
+      label,
+      // IntelliJ's "_Undo {0}", its name cut to 30 characters; a change without one, only "Undo".
+      text: () => {
+        const name = history(action)?.name?.slice(0, 30);
+        return name ? `${label} ${name}` : label;
+      },
+      enabled: () => {
+        const editor = history(action);
+        return editor ? editor.name !== undefined : editable(lastFocused.get());
+      },
       run: () => {
         run(action);
       },

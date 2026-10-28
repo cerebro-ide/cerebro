@@ -51,6 +51,7 @@ export {
   type SpawnPty,
 } from './terminals.js';
 export {
+  exists,
   listFolder,
   MAX_FILE_SIZE,
   readTextFile,

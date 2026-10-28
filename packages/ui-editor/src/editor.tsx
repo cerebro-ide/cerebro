@@ -7,14 +7,7 @@
 // Content-Security-Policy blocks those (`style-src 'self'`). The theme's variables still reach it:
 // custom properties are inherited into shadow roots.
 
-import {
-  defaultKeymap,
-  history,
-  historyField,
-  indentWithTab,
-  redo,
-  undo,
-} from '@codemirror/commands';
+import { defaultKeymap, historyField, indentWithTab, redo, undo } from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
@@ -32,6 +25,7 @@ import { effect } from '@cerebro-ide/reactive';
 import { tags } from '@lezer/highlight';
 import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
+import { namedHistory } from './history.js';
 import { languageFor } from './languages.js';
 
 export interface CodeEditorProps {
@@ -345,7 +339,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
-    doc ? [history(), keymap.of([indentWithTab])] : EditorState.readOnly.of(true),
+    doc ? [namedHistory(), keymap.of([indentWithTab])] : EditorState.readOnly.of(true),
     // The document follows the edits.
     doc
       ? EditorView.updateListener.of((update) => {
@@ -393,7 +387,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
   // from disk, shown, not undoable.
   const following = effect(() => {
     const text = doc?.text.get();
-    if (text === undefined || text === view.state.doc) return undefined;
+    // The same text, or an equal one: a new editor's, made from the document's kept state.
+    if (text === undefined || text === view.state.doc || text.eq(view.state.doc)) return undefined;
     const edit = doc?.lastEdit;
     if (edit?.before.eq(view.state.doc) && edit.changes.apply(edit.before).eq(text)) {
       view.dispatch({ changes: edit.changes, userEvent: 'input.replace' });

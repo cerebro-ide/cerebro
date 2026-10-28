@@ -383,7 +383,14 @@ services.menus.contribute({ menu: 'main/file', item: { command: 'file.saveAll' }
   saveAll().catch((error: unknown) => {
     console.error(error);
   });
-setupSaving(reportSaving, resolveConflict);
+setupSaving(reportSaving, resolveConflict, (path) => {
+  // In every environment's editor, every group.
+  for (const env of workspace.open) {
+    for (const group of env.editor.groups) {
+      if (group.tabs.some((tab) => tab.id === path)) env.editor.close(group.id, path);
+    }
+  }
+});
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (initial.length === 0) seedFiles(env, tabOf);
