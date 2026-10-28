@@ -294,7 +294,8 @@ async function createWorktree(name: string) {
   const page = running.page;
   // Forced: under xvfb in CI this click waited forever for it to be "stable".
   await page.locator('[aria-label^="Worktree:"]').click({ force: true });
-  await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click();
+  // Forced: under xvfb in CI this click waited forever for the item to be "stable" (#72's run).
+  await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click({ force: true });
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
   await page.locator(`.cerebro-env-tab[data-env="${gitPath(root, name)}"]`).waitFor();
