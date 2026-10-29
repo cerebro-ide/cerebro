@@ -1161,10 +1161,11 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
 - **The track** (added 2026-10-28, Ido chose it from the list of what was left): pressing a bar's
   track scrolls a page (what the area shows) towards the press. The page's size is Claude's
   choice, open to change. **Changed 2026-10-29:** the track is never drawn, and over it and the
-  thumb the cursor is the arrow, even over text (Ido: "it should never be visible. it is never
-  visible on intellij either. it does change the cursor to a pointer when hovered, and that's the
-  indication for it"). It was drawn faintly under the pointer, in the colour `ScrollBarPainter`
-  gives a hovered track on a transparent bar (`#808080` at 10%), which IntelliJ doesn't show.
+  thumb the cursor is the arrow, even over text, which shows the bar is there (Ido). It was drawn
+  faintly under the pointer, in the colour `ScrollBarPainter` gives a hovered track on a
+  transparent bar (`#808080` at 10%). IntelliJ shows it only on trees, not on the editor or
+  previews (Ido); Cerebro shows it nowhere, to be consistent, and because it went over the
+  islands' rounded corners.
 - **Each area's thumbs are in a layer of their own** (2026-10-28), added to the page when the area
   gets them. Before, all were in one layer, moved to the end of the page whenever an area got
   thumbs: a thumb fading out under a popup then came over it.
