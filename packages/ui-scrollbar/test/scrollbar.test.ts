@@ -139,22 +139,26 @@ describe('installScrollbars', () => {
     expect(document.elementFromPoint(left + width / 2, top + height / 2)).toBe(over);
   });
 
-  it('brightens a thumb at once under the pointer, and fades it back after, as IntelliJ', async () => {
+  it('brightens a thumb under the pointer, quicker than it fades back after, as IntelliJ', async () => {
     install();
     const scroller = area(100, 400);
     await userEvent.hover(scroller);
     const bar = thumb('y') as HTMLElement;
     const colour = () => getComputedStyle(bar).backgroundColor;
     const resting = colour();
+    const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    // Under it: as it was for 150ms, then brighter within 125ms more.
     await userEvent.hover(bar);
+    expect(colour()).toBe(resting);
+    await wait(350);
     const hovered = colour();
-    expect(hovered).not.toBe(resting);
-    // Off it, onto the area: still bright a while, then back.
+    expect(hovered).toBe('rgba(128, 128, 128, 0.55)');
+    // Off it, onto the area: still bright for 300ms, then back.
     await userEvent.hover(scroller, { position: { x: 20, y: 20 } });
+    await wait(200);
     expect(colour()).toBe(hovered);
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(colour()).toBe(hovered);
-    await expect.poll(colour, { timeout: 1_000 }).toBe(resting);
+    await wait(350);
+    expect(colour()).toBe(resting);
   });
 
   it('keeps a bar’s track unseen, the arrow over it, and pages towards a press on it', async () => {
