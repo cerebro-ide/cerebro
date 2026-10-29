@@ -139,20 +139,28 @@ describe('installScrollbars', () => {
     expect(document.elementFromPoint(left + width / 2, top + height / 2)).toBe(over);
   });
 
-  it('shows a bar’s track under the pointer, and pages towards a press on it', async () => {
+  it('keeps a bar’s track unseen, the arrow over it, and pages towards a press on it', async () => {
     install();
+    // Over text, as in an editor: the arrow over the bar shows it's there.
+    document.body.style.cursor = 'text';
+    cleanup.push(() => {
+      document.body.style.cursor = '';
+    });
     const scroller = area(100, 400);
     await userEvent.hover(scroller);
     const rail = track('y') as HTMLElement;
-    // Along the whole track, under the thumb: shown only with the pointer on the bar.
+    // Along the whole track, under the thumb.
     expect(box(rail)).toEqual({ left: 288, top: 100, width: 10, height: 100 });
-    expect(getComputedStyle(rail).opacity).toBe('0');
+    const unseen = () => getComputedStyle(rail).backgroundColor === 'rgba(0, 0, 0, 0)';
+    await userEvent.hover(rail, { position: { x: 5, y: 80 } });
+    expect(unseen()).toBe(true);
+    expect(getComputedStyle(rail).cursor).toBe('default');
     await userEvent.hover(thumb('y') as HTMLElement);
-    expect(getComputedStyle(rail).opacity).toBe('1');
-    expect(getComputedStyle(rail).backgroundColor).toBe('rgba(128, 128, 128, 0.1)');
+    expect(unseen()).toBe(true);
+    expect(getComputedStyle(thumb('y') as HTMLElement).cursor).toBe('default');
     // Below the thumb: a page on, what the area shows.
     await userEvent.click(rail, { position: { x: 5, y: 80 }, modifiers: [] });
-    expect(getComputedStyle(rail).opacity).toBe('1');
+    expect(unseen()).toBe(true);
     expect(scroller.scrollTop).toBe(100);
     // Above it, a page back.
     await expect.poll(() => box(thumb('y')).top).toBe(125);
