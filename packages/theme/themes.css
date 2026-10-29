@@ -44,7 +44,6 @@
   /* Scrollbar thumbs: Islands Dark's (its theme file's ScrollBar.Transparent colours). */
   --cerebro-scrollbar: rgb(128 128 128 / 0.35);
   --cerebro-scrollbar-hover: rgb(128 128 128 / 0.55);
-  --cerebro-scrollbar-track: rgb(128 128 128 / 0.1);
   /* macOS's window buttons in full screen, until the pointer is over them (app/native/fullscreen.m):
      IntelliJ's grey (MainWindow.FullScreeControl.Background, Islands' theme file). */
   --cerebro-fullscreen-button: #575a5c;
@@ -162,7 +161,6 @@
   /* Scrollbar thumbs: IntelliJ's own light colours (ScrollBarPainter), which Islands Light keeps. */
   --cerebro-scrollbar: rgb(115 115 115 / 0.2);
   --cerebro-scrollbar-hover: rgb(115 115 115 / 0.28);
-  --cerebro-scrollbar-track: rgb(128 128 128 / 0.1);
   /* macOS's window buttons in full screen, until the pointer is over them (app/native/fullscreen.m):
      IntelliJ's grey (MainWindow.FullScreeControl.Background, Islands' theme file). */
   --cerebro-fullscreen-button: #7a7b80;

@@ -355,6 +355,33 @@ describe('the layout', () => {
       file: document.querySelector('.cerebro-statusbar')?.textContent,
     }));
 
+  it('shows the resize cursor across the gap between panels, under the real pointer', async () => {
+    const splitters = page().locator('.cerebro-shell__row > .cerebro-splitter');
+    expect(await splitters.count()).toBeGreaterThan(0);
+    const seen: string[] = [];
+    for (const splitter of await splitters.all()) {
+      const box = await splitter.boundingBox();
+      if (!box || box.width === 0) continue;
+      const y = box.y + box.height / 2;
+      // Each pixel of the gap, reached by moving across it as a hand would.
+      for (let x = Math.ceil(box.x); x < box.x + box.width; x++) {
+        await page().mouse.move(x - 20, y);
+        await page().mouse.move(x, y, { steps: 4 });
+        seen.push(
+          await page().evaluate(
+            ([x, y]) => {
+              const under = document.elementFromPoint(x, y) as Element;
+              return `${String(x)}: ${under.classList.contains('cerebro-splitter') ? 'splitter' : under.className} ${getComputedStyle(under).cursor}`;
+            },
+            [x, y] as const,
+          ),
+        );
+      }
+    }
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.filter((s) => !s.endsWith(': splitter col-resize'))).toEqual([]);
+  });
+
   it('is as it was left after a reload', async () => {
     // Rearranged: Project closed, Git opened, another environment, a file opened in it.
     await page().locator('.cerebro-stripe-button[data-id="project"]').click();

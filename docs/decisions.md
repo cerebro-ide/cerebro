@@ -44,7 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
-- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
+- [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, never drawn, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
 - [The window's colours follow the theme (2026-10-27)](#the-windows-colours-follow-the-theme-2026-10-27): the window controls in the theme's colours
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
@@ -1143,6 +1143,10 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   his macOS screenshots). Colours: Islands Dark's (`ManyIslandsDark.theme.json`, `#808080` at 35%,
   55% hovered); Islands Light sets none, so IntelliJ's defaults (`#737373` at 20%, 28%). Showing on
   hover and fading after a scroll is Claude's choice, open to change.
+- **Under the pointer, a thumb brightens over 125ms, and fades back over 125ms off it, without a
+  pause** (2026-10-29). 125ms is IntelliJ's (`ScrollBarPainter`'s `TwoWayAnimator`: 11 frames over
+  125ms each way), which also pauses first, 150ms in and 300ms out. Ido compared WebStorm 2024 on
+  Windows with 2026 on macOS, tried the pauses, and dropped them: "I don't want a delay".
 - **Thumbs avoid obstacles** (changed 2026-10-28; Ido, with screenshots of IntelliJ: "they don't
   take the entire available space, they avoid obstacles"). A thumb moves along a track that stops
   14px short of the other bar when the area scrolls both ways (12px for that bar, 2px between), so
@@ -1158,12 +1162,14 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   Cerebro's Electron: they take no room only without `::-webkit-scrollbar` styles, and then draw
   a track and arrow buttons and didn't fade in 3 seconds; `scrollbar-color` colours them but keeps
   the arrows and never hides them.
-- **The track** (added 2026-10-28, Ido chose it from the list of what was left): under the pointer,
-  or while its thumb is dragged, a bar shows its track, as IntelliJ's. Its colour is IntelliJ's
-  hovered track on a transparent bar, `#808080` at 10% (`0x1A808080` in `ScrollBarPainter`;
-  Islands Dark sets the same, Islands Light none), a plain rectangle in the thumb's band. Pressing
-  the track scrolls a page (what the area shows) towards the press. The page's size is Claude's
-  choice, open to change.
+- **The track** (added 2026-10-28, Ido chose it from the list of what was left): pressing a bar's
+  track scrolls a page (what the area shows) towards the press. The page's size is Claude's
+  choice, open to change. **Changed 2026-10-29:** the track is never drawn, and over it and the
+  thumb the cursor is the arrow, even over text, which shows the bar is there (Ido). It was drawn
+  faintly under the pointer, in the colour `ScrollBarPainter` gives a hovered track on a
+  transparent bar (`#808080` at 10%). IntelliJ shows it only on trees, not on the editor or
+  previews (Ido); Cerebro shows it nowhere, to be consistent, and because it went over the
+  islands' rounded corners.
 - **Each area's thumbs are in a layer of their own** (2026-10-28), added to the page when the area
   gets them. Before, all were in one layer, moved to the end of the page whenever an area got
   thumbs: a thumb fading out under a popup then came over it.
