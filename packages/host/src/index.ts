@@ -82,6 +82,7 @@ export {
   MARKERS_PATIENCE,
   PATIENCE,
   pathOf,
+  referencesIn,
   uriOf,
   type Highlight,
   type Located,
