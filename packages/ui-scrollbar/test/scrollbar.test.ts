@@ -139,6 +139,24 @@ describe('installScrollbars', () => {
     expect(document.elementFromPoint(left + width / 2, top + height / 2)).toBe(over);
   });
 
+  it('brightens a thumb at once under the pointer, and fades it back after, as IntelliJ', async () => {
+    install();
+    const scroller = area(100, 400);
+    await userEvent.hover(scroller);
+    const bar = thumb('y') as HTMLElement;
+    const colour = () => getComputedStyle(bar).backgroundColor;
+    const resting = colour();
+    await userEvent.hover(bar);
+    const hovered = colour();
+    expect(hovered).not.toBe(resting);
+    // Off it, onto the area: still bright a while, then back.
+    await userEvent.hover(scroller, { position: { x: 20, y: 20 } });
+    expect(colour()).toBe(hovered);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(colour()).toBe(hovered);
+    await expect.poll(colour, { timeout: 1_000 }).toBe(resting);
+  });
+
   it('keeps a bar’s track unseen, the arrow over it, and pages towards a press on it', async () => {
     install();
     // Over text, as in an editor: the arrow over the bar shows it's there.

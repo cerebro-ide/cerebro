@@ -22,7 +22,13 @@
   border-radius: 5px;
   background: var(--cerebro-scrollbar);
   opacity: 0;
-  transition: opacity 200ms;
+  /*
+   * Back from under the pointer, as IntelliJ's (ScrollBarPainter's TwoWayAnimator): after 300ms,
+   * over 125ms. Under it, at once (Ido, 2026-10-29).
+   */
+  transition:
+    opacity 200ms,
+    background-color 125ms 300ms;
   pointer-events: auto;
 }
 
@@ -43,6 +49,7 @@
 .cerebro-scrollbar:hover,
 .cerebro-scrollbar--dragging {
   background: var(--cerebro-scrollbar-hover);
+  transition: opacity 200ms;
 }
 
 /*
