@@ -116,6 +116,22 @@ export function highlighted(result: unknown): Highlight[] {
   }));
 }
 
+/** A server's references that are in one file, as highlights: reads, as references can't tell. */
+export function referencesIn(
+  path: string,
+  result: unknown,
+  platform: NodeJS.Platform = process.platform,
+): Highlight[] {
+  if (!Array.isArray(result)) return [];
+  return (result as { uri: string; range: Range }[])
+    .filter(({ uri }) => pathOf(uri, platform) === path)
+    .map(({ range }) => ({
+      from: { line: range.start.line, column: range.start.character },
+      to: { line: range.end.line, column: range.end.character },
+      write: false,
+    }));
+}
+
 /** One server's process, for one worktree. */
 export class LanguageServer {
   /** Resolves once the server has answered `initialize`. */
@@ -238,7 +254,18 @@ export class LanguageServer {
 
   /** Where the symbol at a place in a file is, in that file: its usages, as IntelliJ highlights. */
   async highlights(file: OpenFile, languageId: string, at: Located): Promise<Highlight[]> {
-    return highlighted(await this.#ask('textDocument/documentHighlight', file, languageId, at));
+    const found = highlighted(
+      await this.#ask('textDocument/documentHighlight', file, languageId, at),
+    );
+    if (found.length > 0) return found;
+    // TypeScript 7 has none for a name reached through a module's exports, though it finds its
+    // references (measured: eslint-plugin-react-hooks' `configs`, from an eslint.config.js).
+    return referencesIn(
+      file.path,
+      await this.#ask('textDocument/references', file, languageId, at, {
+        context: { includeDeclaration: true },
+      }),
+    );
   }
 
   /** What a symbol at a place in a file is implemented or overridden by. */

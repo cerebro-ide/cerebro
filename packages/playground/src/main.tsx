@@ -30,6 +30,7 @@ import {
   CodeEditor,
   DiffEditor,
   formatLineColumn,
+  languageName,
   parseLineColumn,
   type EditorDocument,
   type Mark,
@@ -461,13 +462,6 @@ const indexProgress = (): Progress => {
   const state = env ? progress.get(env.id) : undefined;
   return state && state.done < state.total ? state.done / state.total : undefined;
 };
-const fileTypes: Record<string, string> = {
-  ts: 'TypeScript',
-  tsx: 'TypeScript JSX',
-  css: 'CSS',
-  md: 'Markdown',
-  json: 'JSON',
-};
 /** The active tab's file: a diff tab's too. */
 const activePath = () => {
   const id = editor()?.activeGroup.active;
@@ -532,7 +526,7 @@ status.add({ id: 'indent', order: 4, text: () => '2 spaces', tooltip: () => 'Ind
 status.add({
   id: 'type',
   order: 5,
-  text: () => fileTypes[activePath()?.split('.').at(-1) ?? ''] ?? 'Plain Text',
+  text: () => languageName(activePath() ?? ''),
   tooltip: () => 'File Type',
 });
 

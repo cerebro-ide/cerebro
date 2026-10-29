@@ -10,6 +10,7 @@ import {
   editorHistory,
   EditorDocument,
   languageFor,
+  languageName,
   type CodeEditorProps,
   type EditorKeys,
 } from '../src/index.js';
@@ -94,6 +95,23 @@ describe('languageFor', () => {
     for (const path of ['a.txt', 'Makefile', '.gitignore', 'dir/']) {
       expect(languageFor(path), path).toBeUndefined();
     }
+  });
+
+  it('names each, as the status bar shows it (JavaScript was Plain Text there)', () => {
+    expect(
+      ['a.ts', 'a.tsx', 'eslint.config.js', 'a.mjs', 'a.py', 'a.sh', 'C:\\A.JSON', 'a.txt'].map(
+        languageName,
+      ),
+    ).toEqual([
+      'TypeScript',
+      'TypeScript JSX',
+      'JavaScript',
+      'JavaScript',
+      'Python',
+      'Shell Script',
+      'JSON',
+      'Plain Text',
+    ]);
   });
 });
 

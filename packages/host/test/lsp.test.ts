@@ -13,6 +13,7 @@ import {
   highlighted,
   located,
   pathOf,
+  referencesIn,
   uriOf,
   type Located,
 } from '../src/lsp.js';
@@ -73,6 +74,21 @@ describe('paths and locations', () => {
         'linux',
       ),
     ).toEqual([{ path: '/b.ts', line: 1, column: 2 }]);
+  });
+
+  it('reads references in one file as highlights, or none', () => {
+    const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } };
+    expect(referencesIn('/a.ts', null, 'linux')).toEqual([]);
+    expect(
+      referencesIn(
+        '/a.ts',
+        [
+          { uri: 'file:///b.ts', range },
+          { uri: 'file:///a.ts', range },
+        ],
+        'linux',
+      ),
+    ).toEqual([{ from: { line: 1, column: 2 }, to: { line: 1, column: 5 }, write: false }]);
   });
 
   it('reads highlights: writes apart from reads and text, or none', () => {
@@ -150,6 +166,38 @@ describe('TypeScript 7’s server', () => {
     expect(await servers.highlights(project, c, at(2, 10))).toEqual([
       { from: { line: 1, column: 8 }, to: { line: 1, column: 13 }, write: true },
       { from: { line: 2, column: 9 }, to: { line: 2, column: 14 }, write: false },
+    ]);
+  }, 60_000);
+});
+
+describe('highlights a name reached through a module’s exports', () => {
+  it('highlights it from its references, where the server’s highlights have none', async () => {
+    // As eslint-plugin-react-hooks' `configs`: a constant exported by name, reached as a member of
+    // the module (TypeScript 7 highlights none of it, measured, but finds its references).
+    const project = `${root}/alias`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(
+      join(project, 'tsconfig.json'),
+      '{ "compilerOptions": { "esModuleInterop": true }, "include": ["src"] }',
+    );
+    const plugin = join(project, 'node_modules', 'plugin');
+    mkdirSync(join(plugin, 'cjs'), { recursive: true });
+    writeFileSync(join(plugin, 'package.json'), '{ "name": "plugin", "types": "./index.d.ts" }');
+    writeFileSync(join(plugin, 'index.d.ts'), "export * from './cjs/plugin';\n");
+    writeFileSync(
+      join(plugin, 'cjs', 'plugin.d.ts'),
+      'declare const configs: { recommended: number };\nexport { configs };\n',
+    );
+    // Outside the project's files, as an eslint.config.js is.
+    const main = {
+      path: `${project}/main.js`,
+      text: "import plugin from 'plugin';\nplugin.configs.recommended;\nplugin.configs;\n",
+    };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.highlights(project, main, at(1, 9))).toEqual([
+      { from: { line: 1, column: 7 }, to: { line: 1, column: 14 }, write: false },
+      { from: { line: 2, column: 7 }, to: { line: 2, column: 14 }, write: false },
     ]);
   }, 60_000);
 });
