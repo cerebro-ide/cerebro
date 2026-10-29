@@ -1143,12 +1143,10 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   his macOS screenshots). Colours: Islands Dark's (`ManyIslandsDark.theme.json`, `#808080` at 35%,
   55% hovered); Islands Light sets none, so IntelliJ's defaults (`#737373` at 20%, 28%). Showing on
   hover and fading after a scroll is Claude's choice, open to change.
-- **Under the pointer, a thumb brightens after 150ms, over 125ms; off it, it fades back after
-  300ms, over 125ms** (2026-10-29), IntelliJ's times (`ScrollBarPainter`'s `TwoWayAnimator`: 11
-  frames, 150ms then 125ms forward, 300ms then 125ms back). From Ido, who first saw it brighten at
-  once and fade back slowly ("they change opacity at once on hover, but transition to the
-  previous opacity when the mouse leaves"), comparing WebStorm 2024 on Windows with 2026 on macOS;
-  then "let's try according to what you found, quick in, slower out".
+- **Under the pointer, a thumb brightens over 125ms, and fades back over 125ms off it, without a
+  pause** (2026-10-29). 125ms is IntelliJ's (`ScrollBarPainter`'s `TwoWayAnimator`: 11 frames over
+  125ms each way), which also pauses first, 150ms in and 300ms out. Ido compared WebStorm 2024 on
+  Windows with 2026 on macOS, tried the pauses, and dropped them: "I don't want a delay".
 - **Thumbs avoid obstacles** (changed 2026-10-28; Ido, with screenshots of IntelliJ: "they don't
   take the entire available space, they avoid obstacles"). A thumb moves along a track that stops
   14px short of the other bar when the area scrolls both ways (12px for that bar, 2px between), so
