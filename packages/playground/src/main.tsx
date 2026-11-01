@@ -36,6 +36,7 @@ import {
   type Mark,
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
+import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import { carets, history, recentTabs, reveals, setupNavigation, tops } from './navigation.js';
@@ -359,6 +360,52 @@ services.commands.register({
     layout.toolWindows.show('project');
     await selectInTree(file.id, FILES);
   },
+});
+/**
+ * Below the focused editor's caret, for a popup shown at it, as IntelliJ shows Select In; else at the
+ * window's upper middle.
+ */
+function caretPoint(): { x: number; y: number } {
+  const cursor = document.activeElement?.shadowRoot?.querySelector('.cm-cursor-primary');
+  if (!cursor) return { x: window.innerWidth / 2, y: window.innerHeight / 3 };
+  const { left, bottom } = cursor.getBoundingClientRect();
+  return { x: left, y: bottom };
+}
+// Select In (select-in.ts): the Project tool window, and in the app the system's file manager.
+setupSelectIn(
+  services,
+  [
+    {
+      id: 'project',
+      label: 'Project',
+      can: () => true,
+      show: async (path) => {
+        layout.toolWindows.show('project');
+        await selectInTree(path, FILES);
+      },
+    },
+    ...(window.cerebro
+      ? [
+          {
+            id: 'fileManager',
+            label: fileManagerLabel(window.cerebro.platform),
+            // A project's file, on disk: not a sample.
+            can: () => currentHost() !== undefined,
+            show: (path: string) => {
+              window.cerebro?.shell.reveal(path);
+            },
+          },
+        ]
+      : []),
+  ],
+  () => activeFile()?.id,
+  caretPoint,
+);
+services.keymap?.bindDefault('Alt+F1', 'navigate.selectIn');
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.selectIn' },
+  group: 'b',
 });
 window.addEventListener('mouseup', (event) => {
   const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];

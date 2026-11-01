@@ -1061,9 +1061,17 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   once CodeMirror has measured the lines: before, their heights are estimates.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
+- **Select In** (added 2026-11-01): Navigate → Select In… (Alt+F1, IntelliJ's `SelectIn` on every
+  platform) opens IntelliJ's "Select In" popup at the caret: the places that can show the active
+  file, numbered as IntelliJ numbers them (`numberingText`: 1 to 9, 0, then letters, each its
+  mnemonic), in IntelliJ's order (its targets' weights). Two so far: Project (the Project tool
+  window, as Select Opened File) and, in the app, the system's file manager, named as IntelliJ's
+  `RevealFileAction` names it ("Reveal in Finder", "Show in Explorer", "Show in File Manager"),
+  through Electron's `shell.showItemInFolder`. Claude's choice of targets, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
-  Select Opened File" option and Alt+F1's Select In aren't there.
+  Select Opened File" option isn't there. Select In's Commit and Terminal targets (IntelliJ's
+  `SelectInChangesViewTarget`, `SelectInTerminal`).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

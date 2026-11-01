@@ -18,6 +18,8 @@ const HOST_NOTIFICATION = 'cerebro:host:notification';
 const SET_SCALE = 'cerebro:display:scale';
 // Kept in step with colours.ts.
 const SET_COLOURS = 'cerebro:window:colours';
+// Kept in step with reveal.ts.
+const REVEAL = 'cerebro:shell:reveal';
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -47,6 +49,12 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     /** Keeps the display scale chosen for the next start: 'auto', or a factor such as '1.5'. */
     setScale: (choice: string) => {
       electron.ipcRenderer.send(SET_SCALE, choice);
+    },
+  },
+  shell: {
+    /** Shows a file in the system's file manager (Finder, Explorer), its folder open. */
+    reveal: (path: string) => {
+      electron.ipcRenderer.send(REVEAL, path);
     },
   },
   window: {

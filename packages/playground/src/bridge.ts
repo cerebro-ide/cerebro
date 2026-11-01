@@ -31,6 +31,8 @@ declare global {
       /** The menu, and the system's edit actions on the focused field. */
       menu: NativeMenuBridge & { edit(action: EditAction): void };
       display: { setScale(choice: string): void };
+      /** Shows a file in the system's file manager (Finder, Explorer), its folder open. */
+      shell: { reveal(path: string): void };
       window: {
         setColours(frame: string, text: string, fullScreenButtons: string): void;
       };
