@@ -85,13 +85,7 @@ import { dark, menuVisible, setupCommands, type TabContext } from './commands.js
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import { editorKeys } from './keymaps.js';
-import {
-  agentTerminal,
-  setLastShellClosed,
-  setTerminalKeys,
-  Shells,
-  shellsFor,
-} from './terminals.js';
+import { agentTerminal, setLastShellClosed, setTerminalKeys, shellsFor } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
 
@@ -687,6 +681,41 @@ function TerminalPane(props: { kind: 'shell' | 'claude' }) {
   };
 }
 
+/** A Terminal tab, for its context menu's commands. */
+interface ShellTab {
+  worktree: string;
+  number: number;
+}
+// The Terminal tab's context menu, as IntelliJ's: Rename Session asks for a name, as its dialog
+// ("Session name:").
+services.commands.register<ShellTab>({
+  id: 'terminal.renameSession',
+  label: 'Rename Session',
+  dialog: true,
+  run: async ({ worktree, number }) => {
+    const shells = shellsFor(worktree);
+    const name = await prompt({
+      title: 'Rename Session',
+      label: 'Session name:',
+      value: shells.titleOf(number),
+    });
+    if (name !== undefined) shells.rename(number, name);
+  },
+});
+services.commands.register<ShellTab>({
+  id: 'terminal.closeTab',
+  label: 'Close Tab',
+  run: ({ worktree, number }) => {
+    shellsFor(worktree).close(number);
+  },
+});
+services.menus.contribute({ menu: 'terminal/tab', item: { command: 'terminal.renameSession' } });
+services.menus.contribute({
+  menu: 'terminal/tab',
+  item: { command: 'terminal.closeTab' },
+  group: 'b',
+});
+
 /** The Terminal tool window's tabs: the active worktree's shells. */
 function TerminalTabs() {
   return () => {
@@ -704,7 +733,7 @@ function TerminalTabs() {
         tabs={() =>
           shells.numbers.map((number) => ({
             id: String(number),
-            title: Shells.title(number),
+            title: shells.titleOf(number),
             active: shells.active === number,
             select: () => {
               shells.select(number);
@@ -712,6 +741,9 @@ function TerminalTabs() {
             },
             close: () => {
               shells.close(number);
+            },
+            contextMenu: (event: MouseEvent) => {
+              openContextMenu(services, 'terminal/tab', event, { worktree: env.id, number });
             },
           }))
         }

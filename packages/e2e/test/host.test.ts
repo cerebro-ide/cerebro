@@ -434,7 +434,7 @@ it.skipIf(process.platform === 'darwin')(
   },
 );
 
-it('opens more terminals as tabs, each its own shell, and closes them, or they end', async () => {
+it('opens more terminals as tabs, each its own shell, renames and closes them, or they end', async () => {
   const page = running.page;
   const window = page.locator('.cerebro-tool-window[data-id="terminal"]');
   const titles = () => window.locator('.cerebro-tool-tab__title').allTextContents();
@@ -456,25 +456,33 @@ it('opens more terminals as tabs, each its own shell, and closes them, or they e
   await page.keyboard.type('echo second-shell');
   await page.keyboard.press('Enter');
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
-  // After a reload: the same tabs, showing the same shells.
+  // Renamed from its context menu, as IntelliJ's Rename Session.
+  await window
+    .locator('.cerebro-tool-tab', { hasText: 'Local (2)' })
+    .click({ button: 'right', force: true });
+  await page.locator('.cerebro-menu-item', { hasText: 'Rename Session' }).click({ force: true });
+  await page.keyboard.type('build');
+  await page.keyboard.press('Enter');
+  await expect.poll(titles).toEqual(['Local', 'build']);
+  // After a reload: the same tabs, named as they were, showing the same shells.
   await page.reload();
   // The tabs show once the host has given the environment back. On failure: what the window shows.
   await window
-    .locator('.cerebro-tool-tab--active', { hasText: 'Local (2)' })
+    .locator('.cerebro-tool-tab--active', { hasText: 'build' })
     .waitFor({ timeout: 15_000 })
     .catch(async () => {
       throw new Error(
         `Not shown. Terminal tool window: ${JSON.stringify(await window.allTextContents())}; console: ${JSON.stringify(running.messages)}`,
       );
     });
-  expect(await titles()).toEqual(['Local', 'Local (2)']);
+  expect(await titles()).toEqual(['Local', 'build']);
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
   // The first is still there, without it.
   await window.locator('.cerebro-tool-tab', { hasText: /^Local$/ }).click({ force: true });
   await expect.poll(shown, { timeout: 5000 }).toContain('cerebro-ok');
   expect(await shown()).not.toContain('second-shell');
   // A shell that ends closes its tab, as IntelliJ's do.
-  await window.locator('.cerebro-tool-tab', { hasText: 'Local (2)' }).click({ force: true });
+  await window.locator('.cerebro-tool-tab', { hasText: 'build' }).click({ force: true });
   await window.locator('.cerebro-terminal__viewport').click({ force: true });
   await page.keyboard.type('exit');
   await page.keyboard.press('Enter');
