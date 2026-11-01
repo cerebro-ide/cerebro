@@ -47,7 +47,6 @@ History keeps each file's versions, labelled by what changed them, to compare an
   the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
-- **The Project tree doesn't show files added on disk** until it's opened again (seen in QA).
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.

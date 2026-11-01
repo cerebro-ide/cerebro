@@ -881,6 +881,14 @@ to change:
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
   text until the editor reads files.
+- **Files added or removed on disk show** (added 2026-11-01; a gap seen in QA). While the tree is
+  shown, its folders that were loaded are read again when the window gets the focus, and every 2 s
+  while it has it, the same timing as open files. IntelliJ refreshes on the window's activation too,
+  and otherwise from a file watcher. Polling is Claude's choice, open to change: a watcher would
+  need a dependency and per-platform limits. A folder that's read again keeps showing what it held,
+  with no "Loading…" flashing by, and keeps its list when the nodes read are the same, field by
+  field, so its rows aren't drawn again every 2 s, under the pointer. The Commit tool window's tree, also read every 2 s, marked its
+  folders as loading on each read too, by its code; this wasn't seen on screen.
 - **Tests:** the model (with a randomized test: the selection always shows, rows only under open
   folders), the view (virtualisation, keys, mouse, real input), the host listing a real folder, and
   e2e: a throwaway repository's tree, a folder opened, a file opened. Fails without the host's
