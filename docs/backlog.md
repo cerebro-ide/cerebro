@@ -43,8 +43,6 @@ History keeps each file's versions, labelled by what changed them, to compare an
 ## Known gaps
 
 - **Editing:** see "Not yet" in the decision "Editing and saving".
-- **Go to File and the index in a folder without git:** they read git's file list. With ripgrep, in
-  the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
 - **The Project tree doesn't show files added on disk** until it's opened again (seen in QA).
