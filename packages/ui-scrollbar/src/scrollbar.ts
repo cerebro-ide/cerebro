@@ -3,8 +3,8 @@
 // `scrollbar-width: none` of its own), and thumbs are drawn for the areas under the pointer, and for
 // an area while it scrolls, fading out after. Each is stacked at its area's level, so what's over the
 // area (a popup) covers its thumbs too. A thumb is less transparent under the pointer, and can be
-// dragged. Under the pointer, a bar shows its track faintly, as IntelliJ's; pressing the track
-// scrolls a page towards the press.
+// dragged. Pressing a bar's track scrolls a page towards the press, and holding it goes on, as
+// IntelliJ's.
 //
 // Thumbs avoid what's in their way, as IntelliJ's (Ido, with its screenshots): a thumb moves along a
 // track that stops short of the other bar, so the two never meet in the corner, and of anything in
@@ -15,6 +15,12 @@
 export const HIDE_AFTER = 1000;
 /** How long thumbs take to fade out (styles.css), after which they're removed, in milliseconds. */
 export const FADE = 200;
+/**
+ * A press held on a track: after how long it pages again, and how often then, in milliseconds
+ * (IntelliJ's `DefaultScrollBarUI`: its scroll timer's initial delay and delay).
+ */
+export const REPEAT_AFTER = 300;
+export const REPEAT_EVERY = 60;
 /** The shortest a thumb gets, in pixels. */
 const MIN_LENGTH = 24;
 /** How far a bar is drawn from its area's edge: 10px wide, 2px in (styles.css). */
@@ -172,15 +178,21 @@ const onBars = (path: EventTarget[]) =>
   path.some((node) => node instanceof HTMLElement && node.classList.contains('cerebro-scrollbars'));
 
 /**
- * Scrolls an area a page (what it shows) towards a press on a track: before the thumb, back; after
- * it, on.
+ * Whether the pointer is still past the thumb, the way a press on the track pages: before it, back;
+ * after it, on.
  */
-function page(bars: Bars, axis: Axis, event: PointerEvent): void {
-  event.preventDefault();
-  const s = bars.scroller;
+function beyond(bars: Bars, axis: Axis, at: { clientX: number; clientY: number }, back: boolean) {
   const thumb = bars.thumbs[axis].getBoundingClientRect();
-  if (axis === 'y') s.scrollTop += event.clientY < thumb.top ? -s.clientHeight : s.clientHeight;
-  else s.scrollLeft += event.clientX < thumb.left ? -s.clientWidth : s.clientWidth;
+  const [point, start, end] =
+    axis === 'y' ? [at.clientY, thumb.top, thumb.bottom] : [at.clientX, thumb.left, thumb.right];
+  return back ? point < start : point > end;
+}
+
+/** Scrolls an area a page (what it shows) along an axis, back or on. */
+function page(bars: Bars, axis: Axis, back: boolean): void {
+  const s = bars.scroller;
+  if (axis === 'y') s.scrollTop += back ? -s.clientHeight : s.clientHeight;
+  else s.scrollLeft += back ? -s.clientWidth : s.clientWidth;
 }
 
 /**
@@ -266,6 +278,53 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     );
   };
 
+  /**
+   * A press on a track: a page towards it, and while it's held, a page again after a pause, then
+   * often, until the thumb reaches the pointer (which may move) or the area its end, as IntelliJ's.
+   */
+  const press = (bars: Bars, axis: Axis, event: PointerEvent) => {
+    event.preventDefault();
+    const rail = bars.rails[axis];
+    const back = !beyond(bars, axis, event, false);
+    let at = { clientX: event.clientX, clientY: event.clientY };
+    page(bars, axis, back);
+    rail.setPointerCapture(event.pointerId);
+    bars.dragging = true;
+    /** Set while it's to page again. */
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const again = () => {
+      timer = undefined;
+      // Placed as scrolled so far: its scroll event may not have come yet.
+      place(bars);
+      if (!beyond(bars, axis, at, back)) return;
+      const s = bars.scroller;
+      const before = axis === 'y' ? s.scrollTop : s.scrollLeft;
+      page(bars, axis, back);
+      if ((axis === 'y' ? s.scrollTop : s.scrollLeft) !== before) {
+        timer = setTimeout(again, REPEAT_EVERY);
+      }
+    };
+    timer = setTimeout(again, REPEAT_AFTER);
+    // Moved past the thumb again once it had stopped: it starts again, after the pause.
+    const move = (next: PointerEvent) => {
+      at = { clientX: next.clientX, clientY: next.clientY };
+      if (timer === undefined && beyond(bars, axis, at, back)) {
+        timer = setTimeout(again, REPEAT_AFTER);
+      }
+    };
+    rail.addEventListener('pointermove', move);
+    rail.addEventListener(
+      'lostpointercapture',
+      () => {
+        clearTimeout(timer);
+        rail.removeEventListener('pointermove', move);
+        bars.dragging = false;
+        refresh(bars);
+      },
+      { once: true },
+    );
+  };
+
   const attach = (scroller: HTMLElement): Bars => {
     const existing = shown.get(scroller);
     if (existing) return existing;
@@ -287,7 +346,7 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     // its thumb is under the pointer).
     const bar = (axis: Axis) => ({
       rail: draw('cerebro-scrollbar-track', axis, (event) => {
-        if (!passThrough(event)) page(bars, axis, event);
+        if (!passThrough(event)) press(bars, axis, event);
       }),
       thumb: draw('cerebro-scrollbar', axis, (event) => {
         drag(bars, axis, event);

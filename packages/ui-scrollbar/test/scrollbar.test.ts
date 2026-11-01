@@ -2,7 +2,7 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { FADE, installScrollbars } from '../src/index.js';
+import { FADE, installScrollbars, REPEAT_AFTER, REPEAT_EVERY } from '../src/index.js';
 
 const HIDE = 100;
 let cleanup: (() => void)[] = [];
@@ -192,6 +192,51 @@ describe('installScrollbars', () => {
     await userEvent.click(rail, { position: { x: 5, y: 60 }, modifiers: [] });
     expect(pressed).toHaveLength(1);
     expect(scroller.scrollTop).toBe(100);
+  });
+
+  it('goes on paging while a press on the track is held, until the thumb reaches the pointer', async () => {
+    install();
+    const scroller = area(100, 1000);
+    await userEvent.hover(scroller);
+    const rail = track('y') as HTMLElement;
+    const at = (type: string, clientY: number) =>
+      rail.dispatchEvent(new PointerEvent(type, { pointerId: 1, clientX: 295, clientY }));
+    // Near the track's end: a page at once, then none until the pause is over.
+    at('pointerdown', 190);
+    expect(scroller.scrollTop).toBe(100);
+    await wait(REPEAT_AFTER - 100);
+    expect(scroller.scrollTop).toBe(100);
+    // Then a page each time until the thumb (24px of the 100px track) is over the pointer.
+    await expect.poll(() => scroller.scrollTop, { timeout: 2_000 }).toBe(800);
+    await wait(REPEAT_EVERY * 3);
+    expect(scroller.scrollTop).toBe(800);
+    expect(box(thumb('y')).top + box(thumb('y')).height).toBeGreaterThan(190);
+    // The pointer moved on, past it again: on, after the pause, to the end, where it stops.
+    at('pointermove', 199);
+    at('pointermove', 199);
+    await expect.poll(() => scroller.scrollTop, { timeout: 2_000 }).toBe(900);
+    // Moved back over the thumb: nothing.
+    at('pointermove', 150);
+    rail.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    // Back up, released before the pause is over: a page only.
+    at('pointerdown', 101);
+    rail.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    await wait(REPEAT_AFTER + REPEAT_EVERY * 2);
+    expect(scroller.scrollTop).toBe(800);
+  });
+
+  it('goes on paging across, and back to the start, where it stops', async () => {
+    install();
+    const scroller = area(800, 100);
+    await userEvent.hover(scroller);
+    scroller.scrollLeft = 600;
+    const rail = track('x') as HTMLElement;
+    await expect.poll(() => box(thumb('x')).left).toBe(250);
+    rail.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerId: 1, clientX: 101, clientY: 195 }),
+    );
+    await expect.poll(() => scroller.scrollLeft, { timeout: 2_000 }).toBe(0);
+    rail.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
   });
 
   it('pages across too', async () => {

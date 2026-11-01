@@ -16,6 +16,8 @@ export interface Mark {
   line: number;
   kind: MarkerKind;
   name: string;
+  /** The types where it goes, named in its tooltip. */
+  owners?: readonly string[];
 }
 
 /** Asks for a file's marks, given its text as the editor has it; nothing when there's no answer. */
@@ -24,13 +26,19 @@ export type AskMarks = (text: string) => Promise<readonly Mark[] | null | undefi
 /** How long after an edit the marks are asked for again, in ms (a claim: typing isn't held up). */
 export const MARKS_AFTER = 500;
 
-/** What each says, as IntelliJ's tooltips start. */
-const LABELS: Record<MarkerKind, string> = {
-  implements: 'Implements',
-  overrides: 'Overrides',
-  implemented: 'Is implemented',
-  overridden: 'Is overridden',
+/** What each says, after IntelliJ's tooltips ("Implements method in Shape"; the words a claim). */
+const LABELS: Record<MarkerKind, (name: string) => string> = {
+  implements: (name) => `Implements ${name}`,
+  overrides: (name) => `Overrides ${name}`,
+  implemented: (name) => `${name} is implemented`,
+  overridden: (name) => `${name} is overridden`,
 };
+
+/** A marker's tooltip: what it says, and the types where it goes when they're known. */
+function labelOf(mark: Mark): string {
+  const label = LABELS[mark.kind](mark.name);
+  return mark.owners?.length ? `${label} in ${mark.owners.join(', ')}` : label;
+}
 
 const SVG = 'http://www.w3.org/2000/svg';
 const DISC =
@@ -85,7 +93,7 @@ class LineMarks extends GutterMarker {
       other.marks.length === this.marks.length &&
       other.marks.every((m, i) => {
         const mine = this.marks[i] as Mark;
-        return m.kind === mine.kind && m.name === mine.name;
+        return m.kind === mine.kind && labelOf(m) === labelOf(mine);
       })
     );
   }
@@ -99,7 +107,7 @@ class LineMarks extends GutterMarker {
       const family = mark.kind === 'implements' || mark.kind === 'implemented' ? 'i' : 'o';
       button.className = `cerebro-marker cerebro-marker--${family} cerebro-marker--${up ? 'up' : 'down'}`;
       button.dataset['marker'] = String(i);
-      button.title = `${LABELS[mark.kind]} ${mark.name}`;
+      button.title = labelOf(mark);
       button.setAttribute('aria-label', button.title);
       button.append(iconOf(mark.kind));
       element.append(button);

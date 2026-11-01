@@ -161,6 +161,51 @@ describe('find', () => {
     expect(root.querySelector('.cerebro-find__replace')).toBeNull();
   });
 
+  it('replaces in the case of what’s replaced with Preserve case, as IntelliJ', async () => {
+    const doc = new EditorDocument('one shape\ntwo Shape\nTHREE SHAPES\nAB\n');
+    const root = mount({ path: 'a.txt', document: doc });
+    await focusEditor(root);
+    await userEvent.keyboard('{Control>}r{/Control}');
+    const preserve = root.querySelector('[aria-label="Preserve case (Alt+E)"]') as HTMLElement;
+    expect(preserve.getAttribute('aria-pressed')).toBe('false');
+    expect(preserve.querySelector('svg')).not.toBeNull();
+    // Its options' Alt keys are its own, not the menu bar's.
+    expect((root.querySelector('.cerebro-find') as HTMLElement).dataset['altKeys']).toBe('CWXE');
+    (root.querySelector('.cerebro-find__field') as HTMLInputElement).focus();
+    await userEvent.keyboard('shape');
+    const replace = root.querySelector('.cerebro-find__replace') as HTMLInputElement;
+    replace.focus();
+    // Off: as typed.
+    await userEvent.keyboard('form{Enter}');
+    expect(selection(doc)).toBe('one form\ntwo Shape\nTHREE SHAPES\nAB\n');
+    // Alt+E in the field turns it on.
+    await userEvent.keyboard('{Alt>}e{/Alt}');
+    expect(preserve.getAttribute('aria-pressed')).toBe('true');
+    expect(root.activeElement).toBe(replace);
+    await userEvent.keyboard('{Enter}');
+    expect(selection(doc)).toBe('one form\ntwo Form\nTHREE SHAPES\nAB\n');
+    // Replace All too, and the next Replace goes on from where it was.
+    await userEvent.click(
+      [...root.querySelectorAll<HTMLElement>('.cerebro-find__button')].find(
+        (b) => b.textContent === 'Replace All',
+      ) as HTMLElement,
+    );
+    expect(selection(doc)).toBe('one form\ntwo Form\nTHREE FORMS\nAB\n');
+    // A replacement the case would lengthen (ß upper-cased is SS) is left as typed.
+    const find = root.querySelector('.cerebro-find__field') as HTMLInputElement;
+    find.select();
+    find.focus();
+    await userEvent.keyboard('AB');
+    replace.select();
+    replace.focus();
+    await userEvent.keyboard('ß{Enter}');
+    expect(selection(doc)).toBe('one form\ntwo Form\nTHREE FORMS\nß\n');
+    // Its button turns it off, keeping the focus where it was.
+    await userEvent.click(preserve);
+    expect(preserve.getAttribute('aria-pressed')).toBe('false');
+    expect(root.activeElement).toBe(replace);
+  });
+
   it('counts so many matches up to its limit', async () => {
     const root = mount({ path: 'a.txt', text: 'a'.repeat(COUNT_LIMIT + 1) });
     await focusEditor(root);

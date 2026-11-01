@@ -246,6 +246,32 @@ describe('popups', () => {
     expect(await page().locator('.cerebro-statusbar').textContent()).toContain('src/layout.ts');
   });
 
+  it('shows more of a kind in Search Everywhere’s All with its “… more”, until the query changes', async () => {
+    await page().keyboard.press('Shift');
+    await page().keyboard.press('Shift');
+    // The Actions group's rows, the last group: other kinds' results may come in at any time.
+    const actions = () =>
+      page().evaluate(() => {
+        const rows = [...document.querySelectorAll('.cerebro-popup__group, .cerebro-popup-item')];
+        const header = rows.findLastIndex((r) => r.textContent === 'Actions');
+        return header < 0 ? [] : rows.slice(header + 1).map((r) => r.textContent);
+      });
+    // More actions match than All lists of a kind: the first 8, then "… more".
+    await page().keyboard.type('o');
+    await expect.poll(async () => (await actions()).length).toBe(9);
+    expect((await actions()).at(-1)).toBe('\u2026 more');
+    // Forced, as the other clicks in these tests: under xvfb in CI a click can wait forever for
+    // the element to be "stable".
+    await page().locator('.cerebro-popup-item--more').last().click({ force: true });
+    await expect.poll(async () => (await actions()).length).toBeGreaterThan(9);
+    expect(await page().locator('.cerebro-popup').count()).toBe(1);
+    // Another query: the first few again.
+    await page().keyboard.press('Backspace');
+    await page().keyboard.type('o');
+    await expect.poll(async () => (await actions()).length).toBe(9);
+    await page().keyboard.press('Escape');
+  });
+
   it('searches everywhere and runs an action, the theme staying after a reload', async () => {
     expect(await theme()).toBe('dark');
     await page().keyboard.press('ControlOrMeta+Shift+A');
@@ -401,8 +427,49 @@ describe('shortcuts', () => {
     expect(await theme()).toBe('light');
     // That T, alone, is VS Code's Go to Symbol: its popup closes.
     await page().keyboard.press('Escape');
+    // On Linux, its Linux sheet's keys where they differ: Go Back, as the Navigate menu shows.
+    if (process.platform === 'linux') {
+      await page().keyboard.press('Alt+N');
+      const back = page().locator('.cerebro-menu-item', {
+        has: page().locator('.cerebro-menu-item__label', { hasText: /^Back$/ }),
+      });
+      expect(await back.locator('.cerebro-menu-item__shortcut').textContent()).toBe('Ctrl+Alt+-');
+      await page().keyboard.press('Escape');
+      await page().locator('.cerebro-menu').first().waitFor({ state: 'detached' });
+    }
     // Back, through VS Code's Settings key.
     await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
+  });
+
+  it('takes a shortcut the user gives an action on the Keymap page, kept after a reload', async () => {
+    /** Opens Settings → Keymap on Go to File's row. */
+    const goToFileRow = async () => {
+      await page().keyboard.press(KEYS.settings);
+      await page().locator('[data-page="keymap"]').click();
+      await page().locator('.cerebro-keymap__search').fill('Go to File');
+      await page().locator('[data-command="file.goTo"]').click();
+    };
+    await goToFileRow();
+    await page().locator('.cerebro-keymap__action', { hasText: 'Add Keyboard Shortcut' }).click();
+    await page().keyboard.press('F9');
+    // Enter, once there's a stroke, is the shortcut dialog's OK.
+    await page().keyboard.press('Enter');
+    expect(
+      await page().locator('[data-command="file.goTo"] .cerebro-keymap__keys').textContent(),
+    ).toMatch(/^F9, /);
+    await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await page().reload();
+    await page().waitForSelector('.cerebro-toolbar');
+    await page().keyboard.press('F9');
+    await page().locator('.cerebro-popup').waitFor();
+    await page().keyboard.press('Escape');
+    // Back as it was.
+    await goToFileRow();
+    await page().locator('.cerebro-keymap__action', { hasText: 'Reset Shortcuts' }).click();
+    await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await page().keyboard.press('F9');
+    await page().waitForTimeout(500);
+    expect(await count('.cerebro-popup')).toBe(0);
   });
 
   // macOS shows the menu in the system's menu bar, not behind a ☰ button.

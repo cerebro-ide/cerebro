@@ -24,7 +24,8 @@ common known configurations".
   (macOS), Visual Studio, Visual Studio (macOS), VSCode, alongside the default one (IntelliJ's for
   each platform).
 - **Step 1 done (2026-10-27):** IntelliJ's and VS Code's, for Windows and Linux and for macOS
-  (decision "Ready-made keymaps"). Left: changing keys in the Keymap page, and the other keymaps.
+  (decision "Ready-made keymaps"); changing keys in the Keymap page (2026-11-01, decision
+  "Changing keys on the Keymap page"). Left: the other keymaps.
 
 ### Local History
 
@@ -43,11 +44,11 @@ History keeps each file's versions, labelled by what changed them, to compare an
 ## Known gaps
 
 - **Editing:** see "Not yet" in the decision "Editing and saving".
-- **Go to File and the index in a folder without git:** they read git's file list. With ripgrep, in
-  the search step.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
-- **The Project tree doesn't show files added on disk** until it's opened again (seen in QA).
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
+- **The Python e2e test's go to definition sometimes fails on Windows in CI** (#78 twice, #82 once):
+  Ctrl+B never reaches lib.py in 30 s, while the host, asked directly then, answers the definition
+  in 1 ms. The test now also prints where the page is (tab, line, focus, popup) when it fails.

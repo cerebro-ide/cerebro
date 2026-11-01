@@ -18,7 +18,21 @@ import {
   type SettingSpec,
   type SettingValue,
 } from '@cerebro-ide/settings';
+import type { Child } from '@cerebro-ide/jsx';
 import { openDialog, type DialogHandle } from '@cerebro-ide/ui-dialog';
+
+/**
+ * A page's own view, under its settings, for what isn't a setting (IntelliJ's Keymap page and its
+ * actions' shortcuts). It keeps its own draft, applied with the dialog's.
+ */
+export interface CustomPage {
+  /** Given the value any setting has in the dialog's draft, at the scope being edited. */
+  render: (value: (id: string) => SettingValue | undefined) => Child;
+  /** Read reactively: whether it has changes for Apply. */
+  changed: () => boolean;
+  /** Applies its changes, on Apply or OK. */
+  apply: () => void;
+}
 
 export interface SettingsDialogOptions {
   /** The active environment's settings. */
@@ -33,6 +47,8 @@ export interface SettingsDialogOptions {
   page?: string;
   /** Called after changes are applied, with the scopes they changed, to save those layers. */
   onApply?: (scopes: Scope[]) => void;
+  /** Pages' own views, by page id. */
+  pages?: Readonly<Record<string, CustomPage>>;
   platform?: 'mac' | 'other';
 }
 
@@ -130,6 +146,12 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
   const first = registry.children()[0]?.id;
   const state = new DialogState(options.scope ?? 'global', options.page ?? first);
   const scopeName = (scope: Scope) => options.scopeLabels?.[scope] ?? SCOPE_NAMES[scope];
+  const custom = Object.entries(options.pages ?? {});
+  /** A setting's value in the draft, at the scope being edited. */
+  const valueOf = (id: string): SettingValue | undefined => {
+    const spec = registry.settings.get(id);
+    return spec && draft.valueAt(spec, state.scope);
+  };
 
   /** Whether a page, or one under it, has a setting or title matching the search. */
   const matches = (page: PageSpec): boolean => {
@@ -290,10 +312,11 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
     const page = p.id === undefined ? undefined : registry.pages.get(p.id);
     if (!page) return <div class="cerebro-settings__empty">No settings</div>;
     const settingsHere = registry.onPage(page.id);
+    const own = options.pages?.[page.id];
     return (
-      <div class="cerebro-settings__page">
+      <div class={cls('cerebro-settings__page', own && 'cerebro-settings__page--custom')}>
         <h2 class="cerebro-settings__heading">{page.title}</h2>
-        {settingsHere.length === 0 ? (
+        {settingsHere.length === 0 && !own ? (
           <div class="cerebro-settings__empty">Choose a page below {page.title}</div>
         ) : (
           settingsHere
@@ -301,6 +324,7 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
             .filter((spec) => !settingsHere.some((other) => other.id === spec.beside))
             .map((spec) => <Setting spec={spec} />)
         )}
+        {own ? <div class="cerebro-settings__custom">{own.render(valueOf)}</div> : null}
       </div>
     );
   };
@@ -311,9 +335,10 @@ export function openSettings(options: SettingsDialogOptions): DialogHandle<true>
     ...(options.platform === undefined ? {} : { platform: options.platform }),
     ok: { accept: () => true },
     apply: {
-      enabled: () => draft.entries.size > 0,
+      enabled: () => draft.entries.size > 0 || custom.some(([, page]) => page.changed()),
       run: () => {
         const changed = draft.apply();
+        for (const [, page] of custom) if (page.changed()) page.apply();
         options.onApply?.(changed);
       },
     },

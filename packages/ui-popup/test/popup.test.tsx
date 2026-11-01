@@ -251,6 +251,38 @@ describe('openPicker', () => {
     ).toBe('R');
   });
 
+  it('shows more of a group with its “more” item, by Enter or a click, staying open', async () => {
+    const shown = signal(1);
+    const handle = picker({
+      items: () => [
+        ...['a', 'b', 'c'].slice(0, shown.get()).map((label) => ({ label, group: 'Letters' })),
+        ...(shown.get() < 3
+          ? [
+              {
+                label: '… more',
+                group: 'Letters',
+                more: () => {
+                  shown.set(shown.peek() + 1);
+                },
+              },
+            ]
+          : []),
+      ],
+    });
+    // Small and muted, as the group's header.
+    const more = document.querySelector('.cerebro-popup-item--more') as HTMLElement;
+    const header = document.querySelector('.cerebro-popup__group') as HTMLElement;
+    expect(getComputedStyle(more).fontSize).toBe(getComputedStyle(header).fontSize);
+    expect(getComputedStyle(more).color).toBe(getComputedStyle(header).color);
+    key('ArrowDown');
+    key('Enter');
+    expect(labels()).toEqual(['a', 'b', '… more']);
+    expect(handle.open).toBe(true);
+    await userEvent.click(document.querySelector('.cerebro-popup-item--more') as HTMLElement);
+    expect(labels()).toEqual(['a', 'b', 'c']);
+    expect(handle.open).toBe(true);
+  });
+
   it('closes an item with its close button, keeping the popup open', async () => {
     const tabs = signal(['a.ts', 'b.ts']);
     const handle = picker({
@@ -279,6 +311,7 @@ describe('openPicker', () => {
   it('shows a header, options beside the field, and the highlighted item in a preview', () => {
     const matchCase = signal(false);
     picker({
+      altKeys: 'CWX',
       header: () => <span class="test-title">Find in Files</span>,
       options: () => <button class="test-option">Aa</button>,
       toolbar: () => <button class="test-scope">Directory</button>,
@@ -290,6 +323,10 @@ describe('openPicker', () => {
       },
     });
     expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Find in Files');
+    // Its Alt keys, which the menu bar leaves to it.
+    expect((document.querySelector('.cerebro-popup') as HTMLElement).dataset['altKeys']).toBe(
+      'CWX',
+    );
     expect(document.querySelector('.cerebro-popup__search-row .test-option')).not.toBeNull();
     // The toolbar between the field and the list.
     const toolbar = document.querySelector('.cerebro-popup__toolbar') as HTMLElement;

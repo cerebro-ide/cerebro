@@ -1,6 +1,7 @@
 // Search Everywhere, as IntelliJ's (double Shift): one popup with tabs along its top, each searching
 // one kind: Classes and Symbols through the host's index, Files by name, Actions (the commands),
-// and Text through ripgrep. All lists the first few of each but Text, under their kind's header.
+// and Text through ripgrep. All lists the first few of each but Text, under their kind's header,
+// with "… more" after a kind that has more, which shows more of it.
 // Tab and Shift+Tab move between the tabs. The highlighted result's file shows below, at its place.
 // Go to File, Go to Class, Go to Symbol and Find Action open it on their own tab, as IntelliJ's do.
 
@@ -26,6 +27,8 @@ export const CLASS_KINDS = ['class', 'interface', 'enum', 'type'];
 
 /** How many of each kind All lists. */
 export const ALL_LIMIT = 8;
+/** How many more of a kind All lists for its "… more": IntelliJ's (`SearchEverywhereUI`). */
+export const MORE = 15;
 
 /** A result: what choosing it does, and the place its preview shows, if it has one. */
 export type Result = PickerItem & { run: () => void; at?: Place };
@@ -131,6 +134,24 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
       }, SEARCH_DELAY);
     }
   };
+  /** How many times each kind's "… more" was chosen in All, for this query. */
+  const mores = signal<Readonly<Record<string, number>>>({});
+  /** A kind's first results in All, under its header, and "… more" when it has more. */
+  const some = (results: readonly Result[], group: string): Result[] => {
+    const limit = ALL_LIMIT + MORE * (mores.get()[group] ?? 0);
+    const shown = grouped(results.slice(0, limit), group);
+    if (results.length <= limit) return shown;
+    const more: Result = {
+      label: '\u2026 more',
+      group,
+      run: () => undefined,
+      more: () => {
+        const was = mores.peek();
+        mores.set({ ...was, [group]: (was[group] ?? 0) + 1 });
+      },
+    };
+    return [...shown, more];
+  };
   const files = (q: string) =>
     q.trim() === '' ? sources.recent() : fuzzyFilter(sources.files(), q);
   const items = (q: string): Result[] => {
@@ -150,18 +171,17 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
         // Classes are symbols too: listed once, as classes.
         const others = symbols.get().filter((s) => !CLASS_KINDS.includes(s.shortcut ?? ''));
         return [
-          ...grouped(classes.get().slice(0, ALL_LIMIT), 'Classes'),
-          ...grouped(files(q).slice(0, ALL_LIMIT), typed ? 'Files' : 'Recent Files'),
-          ...grouped(others.slice(0, ALL_LIMIT), 'Symbols'),
-          ...(typed
-            ? grouped(fuzzyFilter(sources.actions(), q).slice(0, ALL_LIMIT), 'Actions')
-            : []),
+          ...some(classes.get(), 'Classes'),
+          ...some(files(q), typed ? 'Files' : 'Recent Files'),
+          ...some(others, 'Symbols'),
+          ...(typed ? some(fuzzyFilter(sources.actions(), q), 'Actions') : []),
         ];
       }
     }
   };
   const select = (to: SearchTab) => {
     tab.set(to);
+    mores.set({});
     search();
   };
   const chosen = await openPicker<Result>({
@@ -192,6 +212,7 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
     preview: (item) => (item?.at ? <Preview at={item.at} /> : null),
     onQueryChange: (q) => {
       query.set(q);
+      mores.set({});
       search();
     },
     onKey: (event) => {

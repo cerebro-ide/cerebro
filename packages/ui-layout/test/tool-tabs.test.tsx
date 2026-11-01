@@ -29,7 +29,7 @@ class Sessions {
 /** A header `width` pixels wide holding the tabs of `sessions`, with a + button unless `add` is false. */
 function mount(
   sessions: Sessions,
-  options: { width?: number; add?: boolean; close?: boolean } = {},
+  options: { width?: number; add?: boolean; close?: boolean; menu?: (number: number) => void } = {},
 ) {
   const added = vi.fn(() => {
     sessions.numbers = [...sessions.numbers, sessions.numbers.length + 1];
@@ -51,6 +51,13 @@ function mount(
               },
             }),
         ...(number === 1 ? { icon: () => <i class="test-icon" /> } : {}),
+        ...(options.menu
+          ? {
+              contextMenu: () => {
+                options.menu?.(number);
+              },
+            }
+          : {}),
       })),
     ...(options.add === false ? {} : { add: { label: 'New Tab', run: added } }),
   };
@@ -150,4 +157,20 @@ it('scrolls tabs that don’t fit, and lists them from the chevron', async () =>
   await userEvent.keyboard('(3)');
   await userEvent.keyboard('{Enter}');
   expect(sessions.active).toBe(3);
+});
+
+it('opens a tab’s context menu on right-click, keeping the browser’s for tabs without one', () => {
+  const sessions = new Sessions();
+  const menu = vi.fn();
+  mount(sessions, { menu });
+  const second = document.querySelector('[data-tab="2"]') as HTMLElement;
+  const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+  second.dispatchEvent(event);
+  expect(menu).toHaveBeenCalledWith(2);
+  expect(event.defaultPrevented).toBe(true);
+  cleanup?.();
+  mount(sessions);
+  const plain = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+  (document.querySelector('[data-tab="1"]') as HTMLElement).dispatchEvent(plain);
+  expect(plain.defaultPrevented).toBe(false);
 });

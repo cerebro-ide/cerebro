@@ -129,6 +129,28 @@ it('replaces in files, the highlighted line, then all, with a regular expression
   expect(await page().locator('.cerebro-popup').count()).toBe(0);
 });
 
+it('replaces in files in the case of what’s replaced, with Preserve case', async () => {
+  mkdirSync(join(repo, 'case'));
+  writeFileSync(join(repo, 'case', 'c.txt'), 'tint Tint TINT\n');
+  await page().keyboard.press('ControlOrMeta+Shift+R');
+  await page().keyboard.type('tint');
+  await expect.poll(rows, { timeout: 15_000 }).toHaveLength(1);
+  const field = page().getByRole('textbox', { name: 'Replace with' });
+  await field.fill('shade');
+  // Alt+E, IntelliJ's mnemonic, from the Replace field.
+  await field.press('Alt+KeyE');
+  expect(
+    await page()
+      .getByRole('button', { name: 'Preserve case (Alt+E)' })
+      .getAttribute('aria-pressed'),
+  ).toBe('true');
+  await page().getByRole('button', { name: 'Replace', exact: true }).click();
+  await expect
+    .poll(() => readFileSync(join(repo, 'case', 'c.txt'), 'utf8'), { timeout: 15_000 })
+    .toBe('shade Shade SHADE\n');
+  await page().keyboard.press('Escape');
+});
+
 it('opens what’s found in the Find window, as a tree, and a line from there', async () => {
   expect(await page().locator('.cerebro-stripe-button[data-id="find"]').count()).toBe(0);
   await page().keyboard.press('ControlOrMeta+Shift+F');
