@@ -1055,6 +1055,10 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   windows take header buttons through `ShellLayout`'s `actions`). It shows the Project tool window
   and selects the active file, opening the folders down to it (`TreeModel.reveal` in `ui-tree`);
   the focus stays in the editor.
+- **Always Select Opened File** (added 2026-11-01), as IntelliJ's option of that name: in the
+  Project tool window's Options (⋮) menu, under Behavior. While it's on, choosing a tab selects its
+  file in the tree, as the button does, without showing the tool window. Off by default, as in
+  IntelliJ; kept in the browser's storage.
 - **Back and Forward show a place as it was scrolled** (changed 2026-10-27, Ido's polish pick): a
   place keeps the line at the top of its editor, and going back puts that line at the top again,
   rather than centring the caret. The editor reports the line as it scrolls (`onScroll`), read
@@ -1062,8 +1066,8 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
-  Select Opened File" option and Alt+F1's Select In aren't there.
+  Recent Files lacks IntelliJ's tool windows column and "Show edited only". Alt+F1's Select In
+  isn't there, nor the Options menu's other choices (Open Files with Single Click and the rest).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 
