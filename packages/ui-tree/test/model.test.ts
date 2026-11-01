@@ -265,6 +265,44 @@ describe('TreeModel, all at once', () => {
     expect(shown(model)).toEqual(['src', '  a.ts', '  b.ts']);
   });
 
+  it('keeps a folder’s children as they were when they’re read again the same', async () => {
+    let roots = [{ path: 'a' }, { path: 'b' }];
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: () =>
+        new Promise((resolve) =>
+          setTimeout(() => {
+            resolve(roots);
+          }, 10),
+        ),
+    });
+    // The roots as loaded: the list itself.
+    const loadedRoots = () => model.loaded.get('\u0000root');
+    await model.load(undefined);
+    const first = loadedRoots();
+    // Equal nodes, read anew: the list stays, so the rows aren't drawn again.
+    roots = [{ path: 'a' }, { path: 'b' }];
+    await model.refresh();
+    expect(loadedRoots()).toBe(first);
+    // A changed one, one with another field, one fewer, or another kind of node: read anew.
+    for (const next of [
+      [{ path: 'a' }, { path: 'c' }],
+      [{ path: 'a' }, { path: 'c', children: [] }],
+      [{ path: 'a' }],
+      ['a' as unknown as Item],
+    ]) {
+      const before = loadedRoots();
+      roots = next;
+      await model.refresh();
+      expect(loadedRoots()).not.toBe(before);
+      expect(loadedRoots()).toEqual(next);
+    }
+    // The same node itself is the same.
+    const same = loadedRoots();
+    await model.refresh();
+    expect(loadedRoots()).toBe(same);
+  });
+
   it('loads, on a refresh, folders marked expanded before they showed', async () => {
     let roots: Item[] = [];
     const model = new TreeModel<Item>({

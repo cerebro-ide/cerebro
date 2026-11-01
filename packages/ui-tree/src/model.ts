@@ -54,9 +54,7 @@ export class TreeModel<T> {
         const key = this.source.key(node);
         const leaf = this.source.isLeaf(node);
         const expanded = !leaf && this.expanded.has(key);
-        // Read again, it keeps showing what it held until then: no "Loading…" flashing by.
-        const loading = expanded && this.loading.has(key) && !this.loaded.has(key);
-        rows.push({ node, key, depth, leaf, expanded, loading });
+        rows.push({ node, key, depth, leaf, expanded, loading: expanded && this.loading.has(key) });
         if (expanded) walk(key, depth + 1);
       }
     };
@@ -71,19 +69,22 @@ export class TreeModel<T> {
 
   /**
    * Loads a node's children (the roots for `undefined`), once, unless `reload`. While they're
-   * loading, resolves when they've loaded.
+   * loading, resolves when they've loaded. Children loaded before stay while they're read again,
+   * not marked loading, and stay as they were if they're the same, so a tree read again and again
+   * (to follow the disk) doesn't change under the pointer.
    */
   load(node: T | undefined, reload = false): Promise<void> {
     const key = node === undefined ? ROOT : this.source.key(node);
     const pending = this.#pending.get(key);
     if (pending) return pending;
-    if (this.loaded.has(key) && !reload) return Promise.resolve();
-    this.loading.add(key);
+    const before = this.loaded.get(key);
+    if (before && !reload) return Promise.resolve();
+    if (!before) this.loading.add(key);
     this.errors.delete(key);
     const loading = (async () => {
       try {
         const children = await this.source.children(node);
-        this.loaded.set(key, [...children]);
+        if (!before || !sameNodes(before, children)) this.loaded.set(key, [...children]);
       } catch (error) {
         this.errors.set(key, error instanceof Error ? error.message : String(error));
       } finally {
@@ -242,4 +243,22 @@ export class TreeModel<T> {
       }
     }
   }
+}
+
+/** Whether two lists hold the same nodes: each with the same fields, holding the same values. */
+function sameNodes<T>(a: readonly T[], b: readonly T[]): boolean {
+  return (
+    a.length === b.length &&
+    a.every((node, i) => {
+      const other = b[i] as T;
+      if (node === other) return true;
+      const keys = Object.keys(node as object);
+      return (
+        keys.length === Object.keys(other as object).length &&
+        keys.every(
+          (k) => (node as Record<string, unknown>)[k] === (other as Record<string, unknown>)[k],
+        )
+      );
+    })
+  );
 }

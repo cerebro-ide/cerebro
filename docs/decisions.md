@@ -886,7 +886,8 @@ to change:
   while it has it, the same timing as open files. IntelliJ refreshes on the window's activation too,
   and otherwise from a file watcher. Polling is Claude's choice, open to change: a watcher would
   need a dependency and per-platform limits. A folder that's read again keeps showing what it held,
-  with no "Loading…" flashing by. The Commit tool window's tree, also read every 2 s, marked its
+  with no "Loading…" flashing by, and keeps its list when the nodes read are the same, field by
+  field, so its rows aren't drawn again every 2 s, under the pointer. The Commit tool window's tree, also read every 2 s, marked its
   folders as loading on each read too, by its code; this wasn't seen on screen.
 - **Tests:** the model (with a randomized test: the selection always shows, rows only under open
   folders), the view (virtualisation, keys, mouse, real input), the host listing a real folder, and
