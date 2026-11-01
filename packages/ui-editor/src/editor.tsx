@@ -7,7 +7,14 @@
 // Content-Security-Policy blocks those (`style-src 'self'`). The theme's variables still reach it:
 // custom properties are inherited into shadow roots.
 
-import { defaultKeymap, historyField, indentWithTab, redo, undo } from '@codemirror/commands';
+import {
+  defaultKeymap,
+  historyField,
+  indentWithTab,
+  isolateHistory,
+  redo,
+  undo,
+} from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
@@ -51,6 +58,11 @@ export interface CodeEditorProps {
     | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
+  /**
+   * A request to take the focus, as after opening the file from a list: each value but `undefined`
+   * focuses the editor once it's in the page. Read reactively.
+   */
+  focus?: () => unknown;
   /**
    * Go to definition of the word at the cursor, given where it is (zero-based): its keys (Mod+B in
    * IntelliJ) or Mod+click.
@@ -455,15 +467,19 @@ export function CodeEditor(props: CodeEditorProps): Node {
         : EditorState.fromJSON(doc.state, { extensions }, KEPT),
   });
   caret(view.state);
-  // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable; read again
-  // from disk, shown, not undoable.
+  // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable on its own,
+  // not joined with typing next to it; read again from disk, shown, not undoable.
   const following = effect(() => {
     const text = doc?.text.get();
     // The same text, or an equal one: a new editor's, made from the document's kept state.
     if (text === undefined || text === view.state.doc || text.eq(view.state.doc)) return undefined;
     const edit = doc?.lastEdit;
     if (edit?.before.eq(view.state.doc) && edit.changes.apply(edit.before).eq(text)) {
-      view.dispatch({ changes: edit.changes, userEvent: 'input.replace' });
+      view.dispatch({
+        changes: edit.changes,
+        userEvent: 'input.replace',
+        annotations: isolateHistory.of('full'),
+      });
       return undefined;
     }
     view.dispatch({
@@ -502,6 +518,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
     return undefined;
   });
+  const focusing = effect(() => {
+    if (props.focus?.() === undefined) return undefined;
+    // After the current task, as revealing: a new editor isn't in the document yet.
+    queueMicrotask(() => {
+      if (container.isConnected) view.focus();
+    });
+    return undefined;
+  });
   // Read once CodeMirror has measured the lines scrolled into view: before, their heights are
   // estimates. Heights are from the document's top, below the content's padding.
   const scrolled = () => {
@@ -517,6 +541,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();
     revealing.dispose();
+    focusing.dispose();
     following.dispose();
     view.destroy();
   });

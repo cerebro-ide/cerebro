@@ -255,6 +255,19 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
   });
 
+  it('keeps an edit made elsewhere apart from typing right after it, for undo', async () => {
+    const doc = new EditorDocument('one');
+    const root = mount({ path: 'a.txt', document: doc });
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('{End}');
+    doc.edit([{ from: 3, to: 3, insert: '!' }]);
+    // Next to it, at once: CodeMirror would make them one step.
+    await userEvent.keyboard('x');
+    expect(doc.content()).toMatch(/^one!?x!?$/);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(doc.content()).toBe('one!');
+  });
+
   it('takes an edit made to its document elsewhere as an edit, which undo takes back', async () => {
     const doc = new EditorDocument('one two\nthree');
     let root = mount({ path: 'a.txt', document: doc });
@@ -314,6 +327,24 @@ describe('CodeEditor', () => {
       () => <CodeEditor path="a.txt" text="x" reveal={() => ({ line: 0, column: 0 })} />,
       detached,
     );
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(document.activeElement).toBe(document.body);
+    handle.dispose();
+  });
+
+  it('takes the focus when asked, where its caret is, and not when taken away first', async () => {
+    const focus = signal<object | undefined>(undefined);
+    const root = mount({ path: 'a.txt', text: 'one\ntwo', focus: () => focus.get() });
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(root.activeElement).toBeNull();
+    focus.set({});
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('one');
+    (document.activeElement as HTMLElement).blur();
+
+    const detached = document.createElement('div');
+    const handle = render(() => <CodeEditor path="a.txt" text="x" focus={() => ({})} />, detached);
     await new Promise((resolve) => setTimeout(resolve));
     expect(document.activeElement).toBe(document.body);
     handle.dispose();

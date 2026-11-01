@@ -38,7 +38,15 @@ import {
 import { ProjectTree, selectInTree } from './project.js';
 import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
-import { carets, history, recentTabs, reveals, setupNavigation, tops } from './navigation.js';
+import {
+  carets,
+  focusing,
+  history,
+  recentTabs,
+  reveals,
+  setupNavigation,
+  tops,
+} from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
@@ -159,6 +167,7 @@ const editor = () => active()?.editor;
 const navigation = setupNavigation(editor);
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf, {
   openAt: navigation.openAt,
+  open: navigation.open,
   recent: () => recentTabs()?.tabs ?? [],
   available: navigation.available,
 });
@@ -308,7 +317,7 @@ services.commands.register({
       initial: 1,
       items: (query) => fuzzyFilter(items, query),
     }).result;
-    if (chosen) editor()?.open(chosen.tab);
+    if (chosen) navigation.open(chosen.tab);
   },
 });
 services.keymap?.bindDefault('Mod+E', 'view.recentFiles');
@@ -784,6 +793,9 @@ function Code(props: { path: string; env: string }) {
     <div
       class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
+      on:focusin={() => {
+        focusing.delete(props.path);
+      }}
       on:focusout={(event) => {
         // The editor's file is saved when the focus leaves it, for the window or somewhere else in it.
         const to = event.relatedTarget;
@@ -811,6 +823,7 @@ function Code(props: { path: string; env: string }) {
             path={props.path}
             document={state}
             reveal={() => reveals.get(props.path)}
+            focus={() => focusing.get(props.path)}
             onCaret={(at) => carets.set(props.path, at)}
             onScroll={(top) => tops.set(props.path, top)}
             {...(navigation.available()

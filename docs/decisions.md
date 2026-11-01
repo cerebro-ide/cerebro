@@ -1061,6 +1061,12 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   once CodeMirror has measured the lines: before, their heights are estimates.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
+- **A file chosen from a list takes the focus** (changed 2026-11-01): after Go to File, Recent
+  Files or Search Everywhere's files, the file's editor is focused, as IntelliJ's (a claim: not
+  measured, as it focuses after navigating). Before, a file opened without a place to reveal left
+  the focus on the page. The editor takes a focus request (`focus` on `CodeEditor`), which goes
+  once the editor has the focus. Opening from the Project tool window or the Commit tool window
+  doesn't move the focus yet.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
   Select Opened File" option and Alt+F1's Select In aren't there.
@@ -1465,7 +1471,10 @@ choices below are Claude's, after IntelliJ, open to change.
   `UIBundle.properties`): Load File System Changes, Keep Memory Changes (Escape too, IntelliJ's
   Cancel; saved over the disk's later), or Show Difference: the disk's text on the left and the
   edits on the right, editable, with an arrow by each change that takes the disk's, and Save Memory
-  Content. Loading or merging is an edit undo takes back. Before, the edits won and saving
+  Content. Loading or merging is an edit undo takes back, on its own: typing next to it straight
+  after isn't joined to it (changed 2026-11-01: CodeMirror joins an adjacent typed edit made within
+  half a second to the change before it, so Undo took back both; the same holds for Replace in
+  Files' edits). Before, the edits won and saving
   overwrote. IntelliJ can also merge on its own, without asking, behind a registry setting
   (`ide.merge.external.changes`) used when a client asks for it; not done here.
 - **A file deleted on disk has its tabs closed** (2026-10-28), in every environment and group, its

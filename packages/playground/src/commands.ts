@@ -73,6 +73,8 @@ export function setupCommands(
   navigation: {
     /** Opens a file at a place, as a step Back can return from. */
     openAt: (at: Place) => void;
+    /** Opens a file with its editor focused, as after choosing it from a list. */
+    open: (tab: Tab) => void;
     /** The active environment's Recent Files, most recent first. */
     recent: () => readonly Tab[];
     /** Whether the host's index can be searched. */
@@ -108,7 +110,9 @@ export function setupCommands(
         },
       };
     });
-  const sampleItems = toItems(files, (path) => ed()?.open(tabOf(path)));
+  const sampleItems = toItems(files, (path) => {
+    navigation.open(tabOf(path));
+  });
   /** Each worktree's files from the host, as items; refreshed each time a popup opens. */
   const worktreeItems = new Map<string, Signal<Result[]>>();
   const refreshFiles = () => {
@@ -127,8 +131,9 @@ export function setupCommands(
         target.set(
           toItems(
             paths as string[],
-            (path) =>
-              ed()?.open({ id: `${env.id}/${path}`, title: path.split('/').at(-1) as string }),
+            (path) => {
+              navigation.open({ id: `${env.id}/${path}`, title: path.split('/').at(-1) as string });
+            },
             (path) => `${env.id}/${path}`,
           ),
         );
@@ -237,7 +242,7 @@ export function setupCommands(
         id: `file.recent.${String(i)}`,
         label: `&${String(i + 1)} ${path}`,
         run: () => {
-          ed()?.open(tabOf(path));
+          navigation.open(tabOf(path));
         },
       });
       menus.contribute({ menu: 'main/file/recent', item: { command: `file.recent.${String(i)}` } });
@@ -313,12 +318,16 @@ export function setupCommands(
     if (!env || !currentHost())
       return toItems(
         tabs.map((tab) => tab.id),
-        (path) => ed()?.open(tabOf(path)),
+        (path) => {
+          navigation.open(tabOf(path));
+        },
       );
     const prefix = `${env.id}/`;
     return toItems(
       tabs.filter((tab) => tab.id.startsWith(prefix)).map((tab) => tab.id.slice(prefix.length)),
-      (path) => ed()?.open({ id: `${prefix}${path}`, title: path.split('/').at(-1) as string }),
+      (path) => {
+        navigation.open({ id: `${prefix}${path}`, title: path.split('/').at(-1) as string });
+      },
       (path) => `${prefix}${path}`,
     );
   };

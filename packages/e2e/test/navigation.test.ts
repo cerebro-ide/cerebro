@@ -97,6 +97,33 @@ it('lists the recent files, the latest first, and goes to the one before with En
   await expect.poll(where).toMatchObject({ tab: 'b.ts' });
 });
 
+it('focuses the editor of the file chosen in Go to File or Recent Files, as IntelliJ does', async () => {
+  /** Whether the focus is in the shown editor's text: other tabs' editors are kept, hidden. */
+  const inShownEditor = () =>
+    page().evaluate(() => {
+      const host = document.activeElement as HTMLElement | null;
+      return (
+        host?.classList.contains('cerebro-editor-code') === true &&
+        host.offsetParent !== null &&
+        host.shadowRoot?.activeElement?.classList.contains('cm-content') === true
+      );
+    });
+  const blur = () =>
+    page().evaluate(() => {
+      (document.activeElement as HTMLElement).blur();
+    });
+  await blur();
+  await open('b.ts');
+  await expect.poll(where).toMatchObject({ tab: 'b.ts' });
+  await expect.poll(inShownEditor).toBe(true);
+  await blur();
+  await page().keyboard.press('ControlOrMeta+e');
+  await page().locator('.cerebro-popup').waitFor();
+  await page().keyboard.press('Enter');
+  await expect.poll(where).toMatchObject({ tab: 'a.ts' });
+  await expect.poll(inShownEditor).toBe(true);
+});
+
 it('goes to a line and column, from the caret’s, and back', async () => {
   await open('a.ts');
   // Its caret is where it was left, at the definition: to the top.
