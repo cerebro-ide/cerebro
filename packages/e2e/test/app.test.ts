@@ -249,20 +249,26 @@ describe('popups', () => {
   it('shows more of a kind in Search Everywhere’s All with its “… more”, until the query changes', async () => {
     await page().keyboard.press('Shift');
     await page().keyboard.press('Shift');
-    const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+    // The Actions group's rows, the last group: other kinds' results may come in at any time.
+    const actions = () =>
+      page().evaluate(() => {
+        const rows = [...document.querySelectorAll('.cerebro-popup__group, .cerebro-popup-item')];
+        const header = rows.findLastIndex((r) => r.textContent === 'Actions');
+        return header < 0 ? [] : rows.slice(header + 1).map((r) => r.textContent);
+      });
     // More actions match than All lists of a kind: the first 8, then "… more".
     await page().keyboard.type('o');
-    await expect.poll(async () => (await labels()).at(-1)).toBe('\u2026 more');
-    const before = (await labels()).length;
+    await expect.poll(async () => (await actions()).length).toBe(9);
+    expect((await actions()).at(-1)).toBe('\u2026 more');
     // Forced, as the other clicks in these tests: under xvfb in CI a click can wait forever for
     // the element to be "stable".
     await page().locator('.cerebro-popup-item--more').last().click({ force: true });
-    await expect.poll(async () => (await labels()).length).toBeGreaterThan(before);
+    await expect.poll(async () => (await actions()).length).toBeGreaterThan(9);
     expect(await page().locator('.cerebro-popup').count()).toBe(1);
     // Another query: the first few again.
     await page().keyboard.press('Backspace');
     await page().keyboard.type('o');
-    await expect.poll(async () => (await labels()).length).toBe(before);
+    await expect.poll(async () => (await actions()).length).toBe(9);
     await page().keyboard.press('Escape');
   });
 
