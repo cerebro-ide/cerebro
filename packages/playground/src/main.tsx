@@ -21,6 +21,7 @@ import '@cerebro-ide/ui-popup/styles.css';
 import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-keymap/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
@@ -63,7 +64,7 @@ import {
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
-import { effect, signal } from '@cerebro-ide/reactive';
+import { effect, signal, untracked } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
 import { documentFor, saveAll, saveFiles, setupSaving } from './documents.js';
@@ -360,6 +361,43 @@ services.commands.register({
     layout.toolWindows.show('project');
     await selectInTree(file.id, FILES);
   },
+});
+// IntelliJ's Always Select Opened File, in the Project tool window's Options, under Behavior: the
+// active editor's file is selected in the tree as tabs change. Off by default, as in IntelliJ; kept
+// in the browser's storage.
+const ALWAYS_SELECT_KEY = 'cerebro.project.alwaysSelectOpened';
+const alwaysSelect = signal(
+  (() => {
+    try {
+      return localStorage.getItem(ALWAYS_SELECT_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  })(),
+);
+services.commands.register({
+  id: 'project.alwaysSelectOpened',
+  label: 'Always Select Opened File',
+  checked: () => alwaysSelect.get(),
+  run: () => {
+    alwaysSelect.set(!alwaysSelect.peek());
+    try {
+      localStorage.setItem(ALWAYS_SELECT_KEY, String(alwaysSelect.peek()));
+    } catch {
+      // Storage may be blocked; the option holds until reload.
+    }
+  },
+});
+services.menus.contribute({ menu: 'project/options', item: { heading: 'Behavior' } });
+services.menus.contribute({
+  menu: 'project/options',
+  item: { command: 'project.alwaysSelectOpened' },
+});
+effect(() => {
+  const file = alwaysSelect.get() ? activeFile() : undefined;
+  // The tree's own state, read as it opens folders, isn't what this follows.
+  if (file) untracked(() => void selectInTree(file.id, FILES));
+  return undefined;
 });
 window.addEventListener('mouseup', (event) => {
   const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
@@ -989,13 +1027,33 @@ render(
       )}
       tabs={(id) => (id === 'terminal' ? <TerminalTabs /> : null)}
       actions={(id) =>
-        id === 'project' ? (
-          <ToolbarButton
-            commands={services.commands}
-            command="project.selectOpenedFile"
-            icon={icon('locate')}
-          />
-        ) : null
+        id === 'project'
+          ? [
+              <ToolbarButton
+                commands={services.commands}
+                command="project.selectOpenedFile"
+                icon={icon('locate')}
+              />,
+              <button
+                type="button"
+                class="cerebro-toolbar-button"
+                aria-label="Options"
+                data-menu="project/options"
+                ref={tooltip({ text: () => 'Options', placement: 'below' })}
+                on:click={(event) => {
+                  const anchor = event.currentTarget as HTMLElement;
+                  openMenu(
+                    services,
+                    'project/options',
+                    { anchor, placement: 'below' },
+                    { owner: anchor },
+                  );
+                }}
+              >
+                {icon('more')}
+              </button>,
+            ]
+          : null
       }
       shortcut={(id) => {
         const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
