@@ -237,6 +237,34 @@ describe('TreeModel, all at once', () => {
     expect(model.loaded.has('docs')).toBe(false);
   });
 
+  it('keeps showing a folder’s children while it’s read again, not as loading', async () => {
+    let answer: (items: Item[]) => void = () => undefined;
+    const roots = tree({ src: { 'a.ts': null } });
+    let slow = false;
+    const model = new TreeModel<Item>({
+      ...source([]),
+      children: (node) =>
+        !node
+          ? roots
+          : slow
+            ? new Promise<Item[]>((resolve) => {
+                answer = resolve;
+              })
+            : (node.children ?? []),
+    });
+    await settle();
+    model.expand(roots[0] as Item);
+    await settle();
+    slow = true;
+    const refreshed = model.refresh();
+    await settle();
+    expect(model.rows.map((r) => r.loading)).toEqual([false, false]);
+    expect(shown(model)).toEqual(['src', '  a.ts']);
+    answer(tree({ 'a.ts': null, 'b.ts': null }));
+    await refreshed;
+    expect(shown(model)).toEqual(['src', '  a.ts', '  b.ts']);
+  });
+
   it('loads, on a refresh, folders marked expanded before they showed', async () => {
     let roots: Item[] = [];
     const model = new TreeModel<Item>({

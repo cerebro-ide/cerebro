@@ -114,6 +114,24 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   expect(await page.evaluate(() => (window as { violations?: string[] }).violations)).toEqual([]);
 });
 
+it('shows files added on disk and drops those removed, the folders open as they were', async () => {
+  const page = running.page;
+  const names = () => page.locator('.cerebro-tree-row').allTextContents();
+  const added = join(repo, 'src', 'added.ts');
+  writeFileSync(added, '');
+  try {
+    // Read again while the window has the focus, every 2 seconds.
+    await expect
+      .poll(names, { timeout: 15_000 })
+      .toEqual(['src', 'added.ts', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+  } finally {
+    rmSync(added);
+  }
+  await expect
+    .poll(names, { timeout: 15_000 })
+    .toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+});
+
 it('keeps the file open after a reload, read again from disk', async () => {
   const page = running.page;
   await page.reload();

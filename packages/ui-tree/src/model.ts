@@ -22,7 +22,7 @@ export interface TreeRow<T> {
   depth: number;
   leaf: boolean;
   expanded: boolean;
-  /** Expanded, with its children still loading. */
+  /** Expanded, with its children still loading the first time. */
   loading: boolean;
 }
 
@@ -54,7 +54,9 @@ export class TreeModel<T> {
         const key = this.source.key(node);
         const leaf = this.source.isLeaf(node);
         const expanded = !leaf && this.expanded.has(key);
-        rows.push({ node, key, depth, leaf, expanded, loading: expanded && this.loading.has(key) });
+        // Read again, it keeps showing what it held until then: no "Loading…" flashing by.
+        const loading = expanded && this.loading.has(key) && !this.loaded.has(key);
+        rows.push({ node, key, depth, leaf, expanded, loading });
         if (expanded) walk(key, depth + 1);
       }
     };
