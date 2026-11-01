@@ -1524,8 +1524,12 @@ choices below are Claude's, after IntelliJ, open to change.
   - In a terminal, Cut, Undo and Redo are disabled (2026-10-28): its text is the shell's, so
     nothing is cut from it or undone; Paste stays, as typing does. Claude's choice, open to change.
 - **In a browser,** the samples can be edited, and aren't saved.
-- **Not yet:** the idle time isn't a setting; Undo's names in a text field (only the editor's are
-  known).
+- **The idle save is a setting** (added 2026-11-01), in Settings → System Settings, as IntelliJ's
+  "Save files if the IDE is idle for 15 seconds" (`GeneralSettingsConfigurable.kt`). It's on by
+  default (Ido asked for saving after a while; IntelliJ's is off), with the seconds 1 to 300 and 15
+  by default (`GeneralSettings.SAVE_FILES_AFTER_IDLE_SEC`). The seconds are on the checkbox's
+  row, after it, as Sync with OS is on the Theme's. A change counts from the next key or move.
+- **Not yet:** Undo's names in a text field (only the editor's are known).
 
 ## Opening a project (2026-10-26)
 
