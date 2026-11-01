@@ -10,6 +10,7 @@ import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
+import { filesByRipgrep, folderFiles } from './folder-files.js';
 import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
@@ -22,7 +23,6 @@ import {
   listIgnored,
   rollback,
   textAt,
-  listFiles,
   listWorktrees,
   removeWorktree,
   type Git,
@@ -124,6 +124,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       connection.notify('index.progress', { worktree, done, total });
     },
     options.indexCache === undefined ? undefined : indexCacheFile(options.indexCache, options.repo),
+    (folder) => filesByRipgrep(folder, options.rg),
   );
   connection.onRequest('index.warm', (params) => {
     index.warm(text(params, 'worktree'));
@@ -180,7 +181,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.markers', (params) =>
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );
-  connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
+  connection.onRequest('git.files', (params) => folderFiles(text(params, 'path'), git, options.rg));
   /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
   const read = async (path: string): Promise<string> => {
     try {

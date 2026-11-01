@@ -33,6 +33,8 @@ export class IndexService {
     private readonly progress?: (worktree: string, done: number, total: number) => void,
     /** Where the index is kept between runs; without it, it's rebuilt each run. */
     private readonly cache?: string,
+    /** A folder's files when it isn't in a git repository (a folder opened without git). */
+    private readonly outside?: (folder: string) => Promise<string[]>,
   ) {}
 
   private saving: ReturnType<typeof setTimeout> | undefined;
@@ -66,8 +68,12 @@ export class IndexService {
     const index = await this.index;
     let entry = this.worktrees.get(worktree);
     if (!entry || this.now() - entry.at > FRESH_FOR) {
-      const indexed = indexWorktree(index, worktree, this.git, (done, total) =>
-        this.progress?.(worktree, done, total),
+      const indexed = indexWorktree(
+        index,
+        worktree,
+        this.git,
+        (done, total) => this.progress?.(worktree, done, total),
+        this.outside,
       );
       entry = { at: this.now(), indexed };
       this.worktrees.set(worktree, entry);

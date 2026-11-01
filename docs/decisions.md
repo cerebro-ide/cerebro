@@ -1551,8 +1551,12 @@ The first part of "A basic IDE before git and agent management": any folder, ope
 - **The samples stay only in a browser:** a project's window shows its own files, with no sample
   tabs. The layout is saved per project. The e2e tests that used the samples now run on a throwaway
   repository with two worktrees.
-- **Not yet:** Go to File and the index in a folder without git (they read git's file list; with
-  ripgrep, in the search step); the macOS menu bar with several windows (it's the menu of
+- **Go to File and the index in a folder without git** (changed 2026-11-01; they read git's file
+  list, and had nothing there): the folder's files are ripgrep's list (`rg --files
+  --no-require-git --hidden`, which respects `.gitignore` files and skips `.git`), and the index
+  hashes them with `git hash-object`, which works outside a repository (measured). Git's list
+  stays inside one: it knows what's tracked. Claude's choice, open to change.
+- **Not yet:** the macOS menu bar with several windows (it's the menu of
   the window that last sent one, not of the focused one).
 
 ## A basic IDE before git and agent management (2026-10-26)
