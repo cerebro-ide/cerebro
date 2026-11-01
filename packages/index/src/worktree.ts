@@ -44,17 +44,30 @@ export const BATCH = 200;
 /**
  * Indexes a worktree's source files, parsing only the contents the index doesn't have. Every
  * BATCH files it reports progress and yields, so other requests (and the host's other work) aren't
- * held up by a large first indexing.
+ * held up by a large first indexing. A folder that isn't in a git repository is indexed from the
+ * files `outside` lists, when it's given.
  */
 export async function indexWorktree(
   index: BlobIndex,
   worktree: string,
   git: Git,
   progress?: Progress,
+  outside?: (folder: string) => Promise<string[]>,
 ): Promise<IndexedWorktree> {
+  let listed: string;
+  try {
+    listed = await git(worktree, ['ls-files', '-s', '-z']);
+  } catch (error) {
+    // A folder opened without git: its files as `outside` lists them, each hashed as git would.
+    if (!outside || !(error instanceof Error && /not a git repository/i.test(error.message))) {
+      throw error;
+    }
+    const paths = (await outside(worktree)).filter((path) => languageOf(path));
+    return parseFiles(index, worktree, await hashFiles(worktree, paths, git), progress);
+  }
   const files = new Map<string, string>();
   // `<mode> <blob> <stage>\t<path>`; symbolic links (120000) aren't files to parse.
-  for (const entry of entries(await git(worktree, ['ls-files', '-s', '-z']))) {
+  for (const entry of entries(listed)) {
     const tab = entry.indexOf('\t');
     const [mode, blob] = entry.slice(0, tab).split(' ');
     const path = entry.slice(tab + 1);
@@ -67,6 +80,16 @@ export async function indexWorktree(
     ...entries(await git(worktree, ['ls-files', '--others', '--exclude-standard', '-z'])),
   ].filter((path) => languageOf(path) && !deleted.includes(path));
   for (const [path, hash] of await hashFiles(worktree, changed, git)) files.set(path, hash);
+  return parseFiles(index, worktree, files, progress);
+}
+
+/** Parses the files whose contents the index doesn't have, reporting progress and yielding. */
+async function parseFiles(
+  index: BlobIndex,
+  worktree: string,
+  files: Map<string, string>,
+  progress?: Progress,
+): Promise<IndexedWorktree> {
   let parsed = 0;
   let done = 0;
   for (const [path, blob] of files) {

@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { BlobIndex } from '@cerebro-ide/index';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -138,6 +138,12 @@ describe('IndexService', () => {
       1,
     );
     expect(await ui.request('index.usages', { worktree: repo, name: 'Shape' })).toHaveLength(2);
+    // A folder outside git: its files as ripgrep lists them.
+    const plain = join(root, 'plain');
+    mkdirSync(plain);
+    writeFileSync(join(plain, 'loose.ts'), 'export const loose = 1;\n');
+    expect(await ui.request('index.symbols', { worktree: plain, query: 'loose' })).toHaveLength(1);
+    expect(await ui.request('git.files', { path: plain })).toEqual(['loose.ts']);
     await expect(ui.request('index.symbols', { query: 'x' })).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
