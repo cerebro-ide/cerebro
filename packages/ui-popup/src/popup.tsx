@@ -25,6 +25,11 @@ export interface PickerItem {
    * hidden tabs has one per tab. The list follows what its items read, so a closed one goes.
    */
   close?: { label: string; run: () => void };
+  /**
+   * An item that shows more instead of being chosen: Search Everywhere's "… more" under a kind in
+   * All, as IntelliJ's. Choosing it runs this, and the popup stays open. Drawn as the headers are.
+   */
+  more?: () => void;
 }
 
 /** Where a popup opens: below an element (a toolbar button), or at the top centre of the window. */
@@ -62,6 +67,11 @@ export interface PickerOptions<T extends PickerItem> {
   onKey?: (event: KeyboardEvent) => boolean;
   /** The item highlighted as it opens, until the query changes (Recent Files': the second). */
   initial?: number;
+  /**
+   * Letters the popup handles with Alt (its options': Find in Files' Alt+C), which the menu bar then
+   * leaves to it (`data-alt-keys`).
+   */
+  altKeys?: string;
 }
 
 export interface PickerHandle<T> {
@@ -163,6 +173,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     this.element.className = 'cerebro-popup';
     this.element.setAttribute('role', 'dialog');
     this.element.setAttribute('aria-label', options.label);
+    if (options.altKeys) this.element.dataset['altKeys'] = options.altKeys;
     const top = options.position === 'top';
     this.element.style.width = `${String(options.width ?? (top ? 600 : 360))}px`;
     document.body.append(this.element);
@@ -276,7 +287,8 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   private choose(index: number): void {
     const item = this.items.get()[index];
-    if (item) this.finish(item);
+    if (item?.more) item.more();
+    else if (item) this.finish(item);
   }
 
   private view(): Child {
@@ -327,6 +339,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
                 class={() =>
                   cls(
                     'cerebro-popup-item',
+                    item.more && 'cerebro-popup-item--more',
                     state.index === index && 'cerebro-popup-item--highlighted',
                   )
                 }

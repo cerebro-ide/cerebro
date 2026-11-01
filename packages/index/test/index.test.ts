@@ -212,6 +212,51 @@ describe('a worktree', () => {
   });
 });
 
+describe('a folder outside git', () => {
+  const folder = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-index-plain-')));
+  mkdirSync(join(folder, 'src'));
+  writeFileSync(join(folder, 'src', 'plain.ts'), 'export function plain() {}\n');
+  writeFileSync(join(folder, 'notes.md'), '# notes\n');
+
+  afterAll(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  it('is indexed from the files it’s given, its source files only', async () => {
+    const listed: string[] = [];
+    const outside = (path: string) => {
+      listed.push(path);
+      return Promise.resolve(['notes.md', 'src/plain.ts']);
+    };
+    const { files } = await indexWorktree(index, folder, git, undefined, outside);
+    expect(listed).toEqual([folder]);
+    expect([...files.keys()]).toEqual(['src/plain.ts']);
+    expect(definitions(index, files, 'plain')[0]).toMatchObject({ path: 'src/plain.ts' });
+  });
+
+  it('fails without a way to list its files, and on git’s other failures', async () => {
+    await expect(indexWorktree(index, folder, git)).rejects.toThrow(/not a git repository/);
+    const broken: Git = () => Promise.reject(new Error('fatal: bad object'));
+    const outside = () => Promise.resolve([]);
+    await expect(indexWorktree(index, folder, broken, undefined, outside)).rejects.toThrow(
+      'bad object',
+    );
+    const odd: Git = () => Promise.reject(new Error('not a git repository'.toUpperCase()));
+    expect((await indexWorktree(index, folder, odd, undefined, outside)).files.size).toBe(0);
+    await expect(
+      indexWorktree(
+        index,
+        folder,
+        // Something thrown that isn't an Error isn't taken for git's failure.
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+        () => Promise.reject('not a git repository'),
+        undefined,
+        outside,
+      ),
+    ).rejects.toBe('not a git repository');
+  });
+});
+
 describe('symbols ranking', () => {
   it('puts exact names first, then prefixes, then shorter names, at most the limit', () => {
     const files = new Map([

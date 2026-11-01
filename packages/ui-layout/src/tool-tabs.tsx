@@ -57,6 +57,11 @@ function ToolTab(props: { tab: ListedTab }): Node {
       on:auxclick={(event: MouseEvent) => {
         if (event.button === 1) tab.close?.();
       }}
+      on:contextmenu={(event: MouseEvent) => {
+        if (!tab.contextMenu) return;
+        event.preventDefault();
+        tab.contextMenu(event);
+      }}
     >
       {tab.icon ? <span class="cerebro-tool-tab__icon">{tab.icon()}</span> : null}
       <span class="cerebro-tool-tab__title">{tab.title}</span>

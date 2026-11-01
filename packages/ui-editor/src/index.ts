@@ -19,3 +19,5 @@ export {
   type Place,
   type Usage,
 } from './usages.js';
+export { applyCase } from './preserve-case.js';
+export { preserveCaseIcon } from './find.js';

@@ -135,6 +135,8 @@ const SAVED = 'cerebro.terminals';
 interface SavedShells {
   numbers: number[];
   active: number;
+  /** Names given with Rename Session, by number. */
+  names?: Record<number, string>;
 }
 
 function loadShells(worktree: string): SavedShells | undefined {
@@ -168,6 +170,8 @@ function saveShells(worktree: string, entry: SavedShells | undefined): void {
 export class Shells {
   numbers: number[];
   active: number;
+  /** Names given with Rename Session, by number; the others are "Local (n)". */
+  names: Readonly<Record<number, string>>;
 
   constructor(
     readonly worktree: string,
@@ -177,11 +181,23 @@ export class Shells {
     this.numbers = saved?.numbers ?? [1];
     this.active =
       saved && saved.numbers.includes(saved.active) ? saved.active : (this.numbers[0] as number);
+    this.names = saved?.names ?? {};
     makeObservable(this);
   }
 
   static title(number: number): string {
     return number === 1 ? 'Local' : `Local (${String(number)})`;
+  }
+
+  /** A tab's title: the name it was given, else its number's. */
+  titleOf(number: number): string {
+    return this.names[number] ?? Shells.title(number);
+  }
+
+  /** Names a tab, as IntelliJ's Rename Session. */
+  rename(number: number, name: string): void {
+    this.names = { ...this.names, [number]: name };
+    this.save();
   }
 
   /** The terminal of a tab, made when first shown. */
@@ -214,6 +230,10 @@ export class Shells {
     views.get(key)?.close();
     views.delete(key);
     const rest = this.numbers.filter((n) => n !== number);
+    // The number's next tab is a new one, with its number's title.
+    this.names = Object.fromEntries(
+      Object.entries(this.names).filter(([n]) => Number(n) !== number),
+    );
     if (rest.length === 0) {
       this.numbers = [1];
       this.active = 1;
@@ -240,7 +260,7 @@ export class Shells {
   }
 
   private save(): void {
-    saveShells(this.worktree, { numbers: this.numbers, active: this.active });
+    saveShells(this.worktree, { numbers: this.numbers, active: this.active, names: this.names });
   }
 }
 

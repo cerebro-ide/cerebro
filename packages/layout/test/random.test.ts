@@ -19,6 +19,11 @@ import {
 
 const SEEDS = 100;
 const STEPS = 200;
+/**
+ * How long a run may take, in ms: about 1 s here, 5.2 s once on CI's runner with coverage (measured),
+ * past Vitest's 5 s.
+ */
+const TIMEOUT = 30_000;
 
 /** A small seeded generator (an LCG): enough to vary the operations, and repeatable. */
 function random(seed: number) {
@@ -94,66 +99,70 @@ function checkArea(area: EditorArea): void {
 }
 
 describe('EditorArea, randomly', () => {
-  it('keeps its invariants, and each operation does what it says', () => {
-    let area = new EditorArea();
-    run((r, log) => {
-      if (r.int(50) === 0) area = new EditorArea();
-      const groups = area.groups;
-      const group = r.pick(groups);
-      const tab = group.tabs.length > 0 ? r.pick(group.tabs) : undefined;
-      const op = tab ? r.int(6) : 0;
-      if (op === 0) {
-        const id = `t${String(r.int(8))}`;
-        log(`open ${id} in ${group.id}`);
-        area.open({ id, title: id }, group.id);
-        expect(area.activeGroupId).toBe(group.id);
-        expect(area.activeGroup.active).toBe(id);
-      } else if (op === 1 && tab) {
-        log(`close ${tab.id} in ${group.id}`);
-        area.close(group.id, tab.id);
-        const still = area.groups.find((g) => g.id === group.id);
-        expect(still?.tabs.some((t) => t.id === tab.id) ?? false).toBe(false);
-      } else if (op === 2 && tab) {
-        const direction = r.pick(DIRECTIONS);
-        log(`split ${group.id} ${direction} with ${tab.id}`);
-        const created = area.split(group.id, direction, tab.id);
-        expect(area.activeGroupId).toBe(created.id);
-        expect(created.tabs.map((t) => t.id)).toEqual([tab.id]);
-        expect(area.group(group.id).tabs).toContain(tab);
-      } else if (op === 3 && tab) {
-        const to = r.pick(groups);
-        const direction = r.pick(DIRECTIONS);
-        log(`moveToSplit ${tab.id} from ${group.id} to ${to.id} ${direction}`);
-        const lone = group === to && group.tabs.length === 1;
-        area.moveToSplit(tab.id, group.id, to.id, direction);
-        if (!lone) expect(area.activeGroup.active).toBe(tab.id);
-      } else if (op === 4 && tab) {
-        const to = r.pick(groups);
-        const index = r.int(6);
-        log(`move ${tab.id} from ${group.id} to ${to.id} at ${String(index)}`);
-        const already = group !== to && to.tabs.some((t) => t.id === tab.id);
-        const before = to.tabs.length;
-        area.move(tab.id, group.id, to.id, index);
-        const target = area.group(to.id);
-        const at = target.tabs.findIndex((t) => t.id === tab.id);
-        if (group === to) expect(at).toBe(Math.min(index, before - 1));
-        else if (!already) expect(at).toBe(Math.min(index, before));
-        if (group !== to) expect(target.active).toBe(tab.id);
-      } else if (tab) {
-        log(`activate ${tab.id} in ${group.id}`);
-        area.activate(group.id, tab.id);
-        expect(area.activeGroup.activeTab).toBe(tab);
-      }
-      checkArea(area);
-      // Saved, through JSON as it's stored, and restored, it's the same area (checked every few
-      // steps, for speed).
-      if (r.int(8) !== 0) return;
-      const copy = new EditorArea();
-      copy.restore(JSON.parse(JSON.stringify(area.state())));
-      checkArea(copy);
-      ensure(same(copy.state(), area.state()), 'the restored area differs');
-    });
-  });
+  it(
+    'keeps its invariants, and each operation does what it says',
+    () => {
+      let area = new EditorArea();
+      run((r, log) => {
+        if (r.int(50) === 0) area = new EditorArea();
+        const groups = area.groups;
+        const group = r.pick(groups);
+        const tab = group.tabs.length > 0 ? r.pick(group.tabs) : undefined;
+        const op = tab ? r.int(6) : 0;
+        if (op === 0) {
+          const id = `t${String(r.int(8))}`;
+          log(`open ${id} in ${group.id}`);
+          area.open({ id, title: id }, group.id);
+          expect(area.activeGroupId).toBe(group.id);
+          expect(area.activeGroup.active).toBe(id);
+        } else if (op === 1 && tab) {
+          log(`close ${tab.id} in ${group.id}`);
+          area.close(group.id, tab.id);
+          const still = area.groups.find((g) => g.id === group.id);
+          expect(still?.tabs.some((t) => t.id === tab.id) ?? false).toBe(false);
+        } else if (op === 2 && tab) {
+          const direction = r.pick(DIRECTIONS);
+          log(`split ${group.id} ${direction} with ${tab.id}`);
+          const created = area.split(group.id, direction, tab.id);
+          expect(area.activeGroupId).toBe(created.id);
+          expect(created.tabs.map((t) => t.id)).toEqual([tab.id]);
+          expect(area.group(group.id).tabs).toContain(tab);
+        } else if (op === 3 && tab) {
+          const to = r.pick(groups);
+          const direction = r.pick(DIRECTIONS);
+          log(`moveToSplit ${tab.id} from ${group.id} to ${to.id} ${direction}`);
+          const lone = group === to && group.tabs.length === 1;
+          area.moveToSplit(tab.id, group.id, to.id, direction);
+          if (!lone) expect(area.activeGroup.active).toBe(tab.id);
+        } else if (op === 4 && tab) {
+          const to = r.pick(groups);
+          const index = r.int(6);
+          log(`move ${tab.id} from ${group.id} to ${to.id} at ${String(index)}`);
+          const already = group !== to && to.tabs.some((t) => t.id === tab.id);
+          const before = to.tabs.length;
+          area.move(tab.id, group.id, to.id, index);
+          const target = area.group(to.id);
+          const at = target.tabs.findIndex((t) => t.id === tab.id);
+          if (group === to) expect(at).toBe(Math.min(index, before - 1));
+          else if (!already) expect(at).toBe(Math.min(index, before));
+          if (group !== to) expect(target.active).toBe(tab.id);
+        } else if (tab) {
+          log(`activate ${tab.id} in ${group.id}`);
+          area.activate(group.id, tab.id);
+          expect(area.activeGroup.activeTab).toBe(tab);
+        }
+        checkArea(area);
+        // Saved, through JSON as it's stored, and restored, it's the same area (checked every few
+        // steps, for speed).
+        if (r.int(8) !== 0) return;
+        const copy = new EditorArea();
+        copy.restore(JSON.parse(JSON.stringify(area.state())));
+        checkArea(copy);
+        ensure(same(copy.state(), area.state()), 'the restored area differs');
+      });
+    },
+    TIMEOUT,
+  );
 });
 
 describe('ToolWindows, randomly', () => {
@@ -189,120 +198,128 @@ describe('ToolWindows, randomly', () => {
     }
   }
 
-  it('keeps its invariants, and each operation does what it says', () => {
-    let tools = new ToolWindows();
-    run((r, log) => {
-      if (r.int(50) === 0) tools = new ToolWindows();
-      const id = r.pick(IDS);
-      const known = tools.windows.has(id);
-      const op = known ? r.int(7) : 0;
-      if (op === 0) {
-        if (known) return;
-        const anchor = r.pick(ANCHORS);
-        const slot = r.pick(SLOTS);
-        log(`register ${id} at ${anchor} ${slot}`);
-        tools.register({ id, title: id, anchor, slot });
-        expect(tools.group(anchor, slot).at(-1)?.id).toBe(id);
-      } else if (op === 1) {
-        const window = tools.windows.get(id);
-        const before = window && tools.areas[window.anchor][window.slot];
-        log(`show ${id}`);
-        tools.show(id);
-        expect(tools.isVisible(id)).toBe(true);
-        if (before !== undefined && before !== id) expect(tools.isVisible(before)).toBe(false);
-      } else if (op === 2) {
-        log(`hide ${id}`);
-        tools.hide(id);
-        expect(tools.isVisible(id)).toBe(false);
-      } else if (op === 3) {
-        const was = tools.isVisible(id);
-        log(`toggle ${id}`);
-        tools.toggle(id);
-        expect(tools.isVisible(id)).toBe(!was);
-      } else if (op === 4) {
-        const anchor = r.pick(ANCHORS);
-        const slot = r.pick(SLOTS);
-        const index = r.int(5);
-        const was = tools.isVisible(id);
-        const others = tools.group(anchor, slot).filter((w) => w.id !== id).length;
-        log(`move ${id} to ${anchor} ${slot} at ${String(index)}`);
-        tools.move(id, anchor, slot, index);
-        expect(tools.isVisible(id)).toBe(was);
-        expect(tools.group(anchor, slot).findIndex((w) => w.id === id)).toBe(
-          Math.min(index, others),
-        );
-      } else if (op === 5) {
-        log(`unregister ${id}`);
-        tools.unregister(id);
-        expect(tools.windows.has(id)).toBe(false);
-      } else {
-        const anchor = r.pick(ANCHORS);
-        log(`resize ${anchor}`);
-        tools.areas[anchor].resize(r.int(600) - 100);
-        tools.areas[anchor].setSplit(r.int(140) / 100 - 0.2);
-      }
-      checkWindows(tools);
-      // Restored into windows registered in another order, it's the same layout.
-      if (r.int(8) !== 0) return;
-      const copy = new ToolWindows();
-      for (const window of [...tools.windows.values()].reverse()) {
-        copy.register({ id: window.id, title: window.title, anchor: 'left' });
-      }
-      copy.restore(JSON.parse(JSON.stringify(tools.state())));
-      checkWindows(copy);
-      ensure(same(copy.state(), tools.state()), 'the restored tool windows differ');
-    });
-  });
+  it(
+    'keeps its invariants, and each operation does what it says',
+    () => {
+      let tools = new ToolWindows();
+      run((r, log) => {
+        if (r.int(50) === 0) tools = new ToolWindows();
+        const id = r.pick(IDS);
+        const known = tools.windows.has(id);
+        const op = known ? r.int(7) : 0;
+        if (op === 0) {
+          if (known) return;
+          const anchor = r.pick(ANCHORS);
+          const slot = r.pick(SLOTS);
+          log(`register ${id} at ${anchor} ${slot}`);
+          tools.register({ id, title: id, anchor, slot });
+          expect(tools.group(anchor, slot).at(-1)?.id).toBe(id);
+        } else if (op === 1) {
+          const window = tools.windows.get(id);
+          const before = window && tools.areas[window.anchor][window.slot];
+          log(`show ${id}`);
+          tools.show(id);
+          expect(tools.isVisible(id)).toBe(true);
+          if (before !== undefined && before !== id) expect(tools.isVisible(before)).toBe(false);
+        } else if (op === 2) {
+          log(`hide ${id}`);
+          tools.hide(id);
+          expect(tools.isVisible(id)).toBe(false);
+        } else if (op === 3) {
+          const was = tools.isVisible(id);
+          log(`toggle ${id}`);
+          tools.toggle(id);
+          expect(tools.isVisible(id)).toBe(!was);
+        } else if (op === 4) {
+          const anchor = r.pick(ANCHORS);
+          const slot = r.pick(SLOTS);
+          const index = r.int(5);
+          const was = tools.isVisible(id);
+          const others = tools.group(anchor, slot).filter((w) => w.id !== id).length;
+          log(`move ${id} to ${anchor} ${slot} at ${String(index)}`);
+          tools.move(id, anchor, slot, index);
+          expect(tools.isVisible(id)).toBe(was);
+          expect(tools.group(anchor, slot).findIndex((w) => w.id === id)).toBe(
+            Math.min(index, others),
+          );
+        } else if (op === 5) {
+          log(`unregister ${id}`);
+          tools.unregister(id);
+          expect(tools.windows.has(id)).toBe(false);
+        } else {
+          const anchor = r.pick(ANCHORS);
+          log(`resize ${anchor}`);
+          tools.areas[anchor].resize(r.int(600) - 100);
+          tools.areas[anchor].setSplit(r.int(140) / 100 - 0.2);
+        }
+        checkWindows(tools);
+        // Restored into windows registered in another order, it's the same layout.
+        if (r.int(8) !== 0) return;
+        const copy = new ToolWindows();
+        for (const window of [...tools.windows.values()].reverse()) {
+          copy.register({ id: window.id, title: window.title, anchor: 'left' });
+        }
+        copy.restore(JSON.parse(JSON.stringify(tools.state())));
+        checkWindows(copy);
+        ensure(same(copy.state(), tools.state()), 'the restored tool windows differ');
+      });
+    },
+    TIMEOUT,
+  );
 });
 
 describe('Environments, randomly', () => {
   const IDS = ['a', 'b', 'c', 'd', 'e'];
 
-  it('matches a plain model of tabs and the active one', () => {
-    let envs = new Environments();
-    let model: { order: string[]; active: string | undefined } = { order: [], active: undefined };
-    run((r, log) => {
-      if (r.int(50) === 0) {
-        envs = new Environments();
-        model = { order: [], active: undefined };
-      }
-      const id = r.pick(IDS);
-      const isOpen = model.order.includes(id);
-      const op = r.int(4);
-      if (op === 0) {
-        log(`openOrActivate ${id}`);
-        envs.openOrActivate({ id, name: id, branch: 'main' });
-        if (!isOpen) {
-          const at = model.order.indexOf(model.active as string) + 1;
-          model.order.splice(at, 0, id);
+  it(
+    'matches a plain model of tabs and the active one',
+    () => {
+      let envs = new Environments();
+      let model: { order: string[]; active: string | undefined } = { order: [], active: undefined };
+      run((r, log) => {
+        if (r.int(50) === 0) {
+          envs = new Environments();
+          model = { order: [], active: undefined };
         }
-        model.active = id;
-      } else if (op === 1 && isOpen) {
-        log(`activate ${id}`);
-        envs.activate(id);
-        model.active = id;
-      } else if (op === 2) {
-        log(`close ${id}`);
-        envs.close(id);
-        const index = model.order.indexOf(id);
-        if (index >= 0) {
-          model.order.splice(index, 1);
-          if (model.active === id) model.active = model.order[index] ?? model.order[index - 1];
-        }
-      } else if (op === 3 && isOpen) {
-        const index = r.int(7) - 1;
-        log(`move ${id} to ${String(index)}`);
-        envs.move(id, index);
-        model.order.splice(model.order.indexOf(id), 1);
-        model.order.splice(Math.min(Math.max(index, 0), model.order.length), 0, id);
-      } else return;
-      expect(envs.open.map((e) => e.id)).toEqual(model.order);
-      expect(envs.activeId).toBe(model.active);
-      expect(envs.active?.id).toBe(model.active);
-      if (r.int(8) !== 0) return;
-      const copy = new Environments();
-      copy.restore(JSON.parse(JSON.stringify(envs.state())), (spec) => spec);
-      ensure(same(copy.state(), envs.state()), 'the restored environments differ');
-    });
-  });
+        const id = r.pick(IDS);
+        const isOpen = model.order.includes(id);
+        const op = r.int(4);
+        if (op === 0) {
+          log(`openOrActivate ${id}`);
+          envs.openOrActivate({ id, name: id, branch: 'main' });
+          if (!isOpen) {
+            const at = model.order.indexOf(model.active as string) + 1;
+            model.order.splice(at, 0, id);
+          }
+          model.active = id;
+        } else if (op === 1 && isOpen) {
+          log(`activate ${id}`);
+          envs.activate(id);
+          model.active = id;
+        } else if (op === 2) {
+          log(`close ${id}`);
+          envs.close(id);
+          const index = model.order.indexOf(id);
+          if (index >= 0) {
+            model.order.splice(index, 1);
+            if (model.active === id) model.active = model.order[index] ?? model.order[index - 1];
+          }
+        } else if (op === 3 && isOpen) {
+          const index = r.int(7) - 1;
+          log(`move ${id} to ${String(index)}`);
+          envs.move(id, index);
+          model.order.splice(model.order.indexOf(id), 1);
+          model.order.splice(Math.min(Math.max(index, 0), model.order.length), 0, id);
+        } else return;
+        expect(envs.open.map((e) => e.id)).toEqual(model.order);
+        expect(envs.activeId).toBe(model.active);
+        expect(envs.active?.id).toBe(model.active);
+        if (r.int(8) !== 0) return;
+        const copy = new Environments();
+        copy.restore(JSON.parse(JSON.stringify(envs.state())), (spec) => spec);
+        ensure(same(copy.state(), envs.state()), 'the restored environments differ');
+      });
+    },
+    TIMEOUT,
+  );
 });
