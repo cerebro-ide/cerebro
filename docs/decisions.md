@@ -1124,8 +1124,17 @@ colour and underlined.
   name match in the index when no server answers. In `CTRL_CLICKABLE`'s colour, underlined:
   `#548af7` dark, `#006dcc` light. Only while the pointer is over the word, not beside it at its
   line's end. Pressing Ctrl with the pointer still shows it too.
-- **Not yet:** the usages' marks on the scrollbar. (IntelliJ's gutter icons came next: "Gutter
-  markers".)
+- **Their marks on the scrollbar** (added 2026-11-01), as IntelliJ's error stripe: one per usage,
+  over the scrollbar's band, written apart from read, always shown (not only with the thumb). From
+  IntelliJ's source (`EditorMarkupModelImpl`): where the usage is in the whole text, scaled to the
+  scroll area's height when the text is taller than it, else beside its line; 2px high
+  (`ERROR_STRIPE_MARK_MIN_HEIGHT`'s default). Colours from the same attributes'
+  `ERROR_STRIPE_COLOR`: Islands Dark `#5b786a` and `#ba6387`, Light `#d0a1ff` and `#f0a8d2`.
+  IntelliJ's stripe is 14px beside its thumb. Cerebro's thumb is drawn over the content, so the
+  marks sit in the thumb's band (10px, 2px from the edge), under it. That's a claim, open to
+  change.
+- **Not yet:** clicking a mark on the scrollbar to go there, and its tooltip, as IntelliJ's.
+  (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)
 
