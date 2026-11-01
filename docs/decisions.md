@@ -1092,8 +1092,11 @@ too"), with arrows both ways (his choice).
   numbers (measured before); where in it is a claim.
 - **A click goes there;** several places offer a list to choose from. Its titles ("Implementations
   of", "Super methods of") are a claim, not measured.
-- **Not yet:** shell scripts (bash-language-server offers neither request, measured), and a
-  marker's tooltip naming where it goes (IntelliJ's "Implements method in Shape").
+- **Its tooltip names where it goes** (added 2026-11-01), after IntelliJ's "Implements method in
+  Shape": "Implements area in Shape", "area is implemented in Circle, Square". The types are the
+  bases' names going up, and going down the type each target is, or is a member of, from its file's
+  symbols. The words are a claim, not measured.
+- **Not yet:** shell scripts (bash-language-server offers neither request, measured).
 - **Rejected:** matching by name across the project, as the index does: it can't tell which `run`
   is meant, which is why the servers are asked.
 

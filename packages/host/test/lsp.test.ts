@@ -242,11 +242,41 @@ describe('gutter markers, from TypeScript’s server', () => {
       column,
     });
     expect(markers).toEqual([
-      { line: 1, kind: 'implemented', name: 'Base', targets: [at('square.ts', 1, 13)] },
-      { line: 2, kind: 'implements', name: 'name', targets: [at('shape.ts', 2, 2)] },
-      { line: 3, kind: 'implements', name: 'area', targets: [at('shape.ts', 1, 2)] },
-      { line: 3, kind: 'implemented', name: 'area', targets: [at('square.ts', 2, 2)] },
-      { line: 4, kind: 'overridden', name: 'describe', targets: [at('square.ts', 3, 2)] },
+      {
+        line: 1,
+        kind: 'implemented',
+        name: 'Base',
+        targets: [at('square.ts', 1, 13)],
+        owners: ['Square'],
+      },
+      {
+        line: 2,
+        kind: 'implements',
+        name: 'name',
+        targets: [at('shape.ts', 2, 2)],
+        owners: ['Shape'],
+      },
+      {
+        line: 3,
+        kind: 'implements',
+        name: 'area',
+        targets: [at('shape.ts', 1, 2)],
+        owners: ['Shape'],
+      },
+      {
+        line: 3,
+        kind: 'implemented',
+        name: 'area',
+        targets: [at('square.ts', 2, 2)],
+        owners: ['Square'],
+      },
+      {
+        line: 4,
+        kind: 'overridden',
+        name: 'describe',
+        targets: [at('square.ts', 3, 2)],
+        owners: ['Square'],
+      },
     ]);
     // From the subclass, in a file never opened: up to the nearest base, through the files above.
     const square = await servers.markers(project, {
@@ -254,8 +284,20 @@ describe('gutter markers, from TypeScript’s server', () => {
       text: readFileSync(join(project, 'square.ts'), 'utf8'),
     });
     expect(square).toEqual([
-      { line: 2, kind: 'implements', name: 'area', targets: [at('base.ts', 3, 11)] },
-      { line: 3, kind: 'overrides', name: 'describe', targets: [at('base.ts', 4, 2)] },
+      {
+        line: 2,
+        kind: 'implements',
+        name: 'area',
+        targets: [at('base.ts', 3, 11)],
+        owners: ['Base'],
+      },
+      {
+        line: 3,
+        kind: 'overrides',
+        name: 'describe',
+        targets: [at('base.ts', 4, 2)],
+        owners: ['Base'],
+      },
     ]);
   }, 60_000);
 });
@@ -345,13 +387,43 @@ describe('gutter markers, from basedpyright', () => {
       column,
     });
     expect(await servers.markers(project, { path: `${project}/square.py`, text: square })).toEqual([
-      { line: 3, kind: 'implements', name: 'area', targets: [at('base.py', 4, 8)] },
-      { line: 6, kind: 'overrides', name: 'describe', targets: [at('base.py', 7, 8)] },
+      {
+        line: 3,
+        kind: 'implements',
+        name: 'area',
+        targets: [at('base.py', 4, 8)],
+        owners: ['Base'],
+      },
+      {
+        line: 6,
+        kind: 'overrides',
+        name: 'describe',
+        targets: [at('base.py', 7, 8)],
+        owners: ['Base'],
+      },
     ]);
     expect(await servers.markers(project, { path: `${project}/base.py`, text: base })).toEqual([
-      { line: 2, kind: 'overridden', name: 'Base', targets: [at('square.py', 2, 6)] },
-      { line: 4, kind: 'implemented', name: 'area', targets: [at('square.py', 3, 8)] },
-      { line: 7, kind: 'overridden', name: 'describe', targets: [at('square.py', 6, 8)] },
+      {
+        line: 2,
+        kind: 'overridden',
+        name: 'Base',
+        targets: [at('square.py', 2, 6)],
+        owners: ['Square'],
+      },
+      {
+        line: 4,
+        kind: 'implemented',
+        name: 'area',
+        targets: [at('square.py', 3, 8)],
+        owners: ['Square'],
+      },
+      {
+        line: 7,
+        kind: 'overridden',
+        name: 'describe',
+        targets: [at('square.py', 6, 8)],
+        owners: ['Square'],
+      },
     ]);
   }, 60_000);
 });
@@ -470,6 +542,7 @@ describe('LanguageServers', () => {
         kind: 'overrides',
         name: 'run',
         targets: [{ path: `${root}/b.fake`, line: 1, column: 2 }],
+        owners: ['B'],
       },
     ];
     expect(await servers.markers(root, a)).toEqual(expected);
