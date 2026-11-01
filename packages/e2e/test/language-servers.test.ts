@@ -86,7 +86,27 @@ async function explain(
     },
     { asked, repo, methods },
   );
-  console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
+  // And where the page is: the tab and line, what has the focus, and any popup.
+  const state = {
+    ...(await where()),
+    focus: await page().evaluate(() => {
+      let element = document.activeElement;
+      while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+      return element ? `${element.tagName}.${element.className}` : null;
+    }),
+    popup: await popup()
+      .first()
+      .textContent({ timeout: 1_000 })
+      .catch(() => null),
+  };
+  console.log(
+    'Asked directly:',
+    answers,
+    '\nThe page:',
+    state,
+    '\nConsole:',
+    running.messages.join('\n'),
+  );
   throw error;
 }
 

@@ -50,3 +50,6 @@ History keeps each file's versions, labelled by what changed them, to compare an
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
+- **The Python e2e test's go to definition sometimes fails on Windows in CI** (#78 twice, #82 once):
+  Ctrl+B never reaches lib.py in 30 s, while the host, asked directly then, answers the definition
+  in 1 ms. The test now also prints where the page is (tab, line, focus, popup) when it fails.
