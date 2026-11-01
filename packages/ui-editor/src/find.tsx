@@ -2,8 +2,9 @@
 // finds, Replace (Mod+R) also replaces.
 // The field searches as it's typed, selecting the first match from the cursor; Enter and Shift+Enter
 // (or F3 and Shift+F3 in the editor) go to the next and previous; the count says which match of how
-// many. Match Case, Words and Regex sit beside the field (Alt+C, Alt+W, Alt+X). Escape closes it.
-// CodeMirror's search keeps the query and highlights the matches; the bar is Cerebro's.
+// many. Match Case, Words and Regex sit beside the field (Alt+C, Alt+W, Alt+X), Preserve case beside
+// Replace's (Alt+E, IntelliJ's mnemonic). Escape closes it.
+// CodeMirror's search keeps the query, highlights the matches and replaces; the bar is Cerebro's.
 
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
@@ -20,8 +21,17 @@ import {
   searchPanelOpen,
   setSearchQuery,
 } from '@codemirror/search';
-import { EditorSelection, type EditorState, type Extension } from '@codemirror/state';
+import {
+  EditorSelection,
+  EditorState,
+  StateEffect,
+  StateField,
+  Transaction,
+  type ChangeSpec,
+  type Extension,
+} from '@codemirror/state';
 import { EditorView, keymap, runScopeHandlers, type Panel } from '@codemirror/view';
+import { applyCase } from './preserve-case.js';
 
 /** The most matches counted; past it, the count says so. */
 export const COUNT_LIMIT = 9999;
@@ -72,6 +82,61 @@ function selectFrom(view: EditorView, from: number): boolean {
   return true;
 }
 
+const setPreserveCase = StateEffect.define<boolean>();
+
+/** Whether Replace gives each replacement the case of what it replaces. */
+const preserveCase = StateField.define<boolean>({
+  create: () => false,
+  update: (on, tr) => tr.effects.reduce((v, e) => (e.is(setPreserveCase) ? e.value : v), on),
+});
+
+/**
+ * With Preserve case on, gives the text that Replace and Replace All put in the case of the text it
+ * replaces, as IntelliJ's. A replacement whose length the case changes (`ß` upper-cased is `SS`) is
+ * left as it was: the selection Replace moves on to is where CodeMirror put it.
+ */
+const casedReplacements = EditorState.transactionFilter.of((tr) => {
+  if (!tr.startState.field(preserveCase) || !tr.isUserEvent('input.replace')) return tr;
+  const changes: ChangeSpec[] = [];
+  tr.changes.iterChanges((from, to, _fromB, _toB, inserted) => {
+    const text = inserted.toString();
+    const cased = applyCase(tr.startState.sliceDoc(from, to), text);
+    changes.push({ from, to, insert: cased.length === text.length ? cased : text });
+  });
+  return {
+    changes,
+    selection: tr.selection,
+    effects: tr.effects,
+    scrollIntoView: tr.scrollIntoView,
+    annotations: Transaction.userEvent.of(tr.annotation(Transaction.userEvent) as string),
+  };
+});
+
+/**
+ * IntelliJ's Preserve Case icon (`platform/icons/src/expui/inline/preserveCase.svg`, Apache 2.0,
+ * © JetBrains s.r.o. and contributors): two As, an arrow over them.
+ */
+export function preserveCaseIcon(): Node {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        d="M1.3695 14H0.1815L3.0085 6.3H4.213L7.139 14H5.984L5.28 12.042H2.013L1.3695 14ZM3.476 7.741L2.321 11.1235H4.95L3.729 7.741L3.6025 7.268L3.476 7.741Z"
+        fill="currentColor"
+      />
+      <path
+        d="M9.8695 14H8.6815L11.5085 6.3H12.713L15.639 14H14.484L13.78 12.042H10.513L9.8695 14ZM11.976 7.741L10.821 11.1235H13.45L12.229 7.741L12.1025 7.268L11.976 7.741Z"
+        fill="currentColor"
+      />
+      <path
+        d="M7 5.8125L9.40625 3.40625L7 1"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+      />
+    </svg>
+  );
+}
+
 /** The keymap scope of the keys that work both in the editor and in the bar's fields. */
 const SCOPE = 'cerebro-find';
 
@@ -84,6 +149,8 @@ const OPTION_KEYS = { KeyC: 'caseSensitive', KeyW: 'wholeWord', KeyX: 'regexp' }
 function findBar(view: EditorView, editable: boolean): Panel {
   const dom = document.createElement('div');
   dom.className = 'cerebro-find';
+  // Its options' keys are its own, not the menu bar's mnemonics (Alt+E is Edit's).
+  dom.dataset['altKeys'] = 'CWXE';
   // Escape anywhere in the bar (a field, or a button pressed) closes it, back to the editor.
   dom.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
@@ -105,6 +172,10 @@ function findBar(view: EditorView, editable: boolean): Panel {
   };
   const toggle = (option: (typeof OPTION_KEYS)[keyof typeof OPTION_KEYS]) => {
     update({ [option]: !query.peek()[option] }, true);
+  };
+  const preserving = signal(view.state.field(preserveCase));
+  const togglePreserve = () => {
+    view.dispatch({ effects: setPreserveCase.of(!view.state.field(preserveCase)) });
   };
   const onFindKey = (event: KeyboardEvent) => {
     if (event.key === 'Enter') {
@@ -227,9 +298,30 @@ function findBar(view: EditorView, editable: boolean): Panel {
                 if (event.key === 'Enter') {
                   event.preventDefault();
                   replaceNext(view);
+                } else if (
+                  event.altKey &&
+                  !event.ctrlKey &&
+                  !event.metaKey &&
+                  event.code === 'KeyE'
+                ) {
+                  event.preventDefault();
+                  togglePreserve();
                 } else onFindKey(event);
               }}
             />
+            <button
+              type="button"
+              class="cerebro-find__option"
+              aria-label="Preserve case (Alt+E)"
+              title="Preserve case (Alt+E)"
+              aria-pressed={() => String(preserving.get())}
+              on:mousedown={(event) => {
+                event.preventDefault();
+              }}
+              on:click={togglePreserve}
+            >
+              {preserveCaseIcon()}
+            </button>
             {button('Replace', () => replaceNext(view))}
             {button('Replace All', () => replaceAll(view))}
           </div>
@@ -243,6 +335,7 @@ function findBar(view: EditorView, editable: boolean): Panel {
     update: (update) => {
       const next = getSearchQuery(update.state);
       if (!next.eq(query.peek())) query.set(next);
+      preserving.set(update.state.field(preserveCase));
       if (update.docChanged || update.selectionSet || !next.eq(getSearchQuery(update.startState))) {
         count.set(countMatches(update.state));
       }
@@ -282,6 +375,8 @@ export function findAndReplace(
 ): Extension {
   return [
     search({ top: true, createPanel: (view) => findBar(view, editable) }),
+    preserveCase,
+    casedReplacements,
     keymap.of([
       ...keys.find.map((key) => ({
         key,

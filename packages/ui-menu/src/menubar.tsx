@@ -9,7 +9,9 @@
 //   letters then work, Escape or Alt leaves).
 // - While a menu is open, Left and Right move to the neighbouring menu.
 // Mnemonics in the bar are underlined while Alt is held, the bar has the keyboard or a menu is open,
-// as in IntelliJ. While a modal dialog is open, the bar leaves the keyboard alone.
+// as in IntelliJ. While a modal dialog is open, the bar leaves the keyboard alone, and Alt with a
+// letter that the focused element claims (`data-alt-keys` on it or an ancestor: a Find bar's
+// options, Alt+C, Alt+E) is that element's, as Swing gives the focused component its keys first.
 
 import { parseLabel } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
@@ -61,6 +63,13 @@ function modalOpen(): boolean {
 /** The letter or digit a key event's physical key makes. */
 function letterOf(event: KeyboardEvent): string | undefined {
   return /^Key([A-Z])$/.exec(event.code)?.[1] ?? /^Digit(\d)$/.exec(event.code)?.[1];
+}
+
+/** Whether the element the key went to, inside shadow roots too, claims Alt with this letter. */
+function claimed(event: KeyboardEvent, letter: string): boolean {
+  const target = event.composedPath()[0];
+  const owner = target instanceof Element ? target.closest('[data-alt-keys]') : null;
+  return (owner?.getAttribute('data-alt-keys') ?? '').toUpperCase().includes(letter);
 }
 
 export function MenuBar(props: MenuBarProps): Node {
@@ -138,6 +147,7 @@ export function MenuBar(props: MenuBarProps): Node {
     altAlone = false;
     const letter = letterOf(event);
     if (event.altKey && !event.ctrlKey && !event.metaKey && letter) {
+      if (claimed(event, letter)) return;
       const index = roots().findIndex((r) => parseLabel(r.label).mnemonic === letter);
       if (index < 0) return;
       event.preventDefault();

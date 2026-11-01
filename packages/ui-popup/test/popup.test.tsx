@@ -279,6 +279,7 @@ describe('openPicker', () => {
   it('shows a header, options beside the field, and the highlighted item in a preview', () => {
     const matchCase = signal(false);
     picker({
+      altKeys: 'CWX',
       header: () => <span class="test-title">Find in Files</span>,
       options: () => <button class="test-option">Aa</button>,
       toolbar: () => <button class="test-scope">Directory</button>,
@@ -290,6 +291,10 @@ describe('openPicker', () => {
       },
     });
     expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Find in Files');
+    // Its Alt keys, which the menu bar leaves to it.
+    expect((document.querySelector('.cerebro-popup') as HTMLElement).dataset['altKeys']).toBe(
+      'CWX',
+    );
     expect(document.querySelector('.cerebro-popup__search-row .test-option')).not.toBeNull();
     // The toolbar between the field and the list.
     const toolbar = document.querySelector('.cerebro-popup__toolbar') as HTMLElement;

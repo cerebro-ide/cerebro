@@ -217,6 +217,7 @@ export const theme = EditorView.theme({
     font: 'inherit',
   },
   '.cerebro-find__option': { fontFamily: variable('font-mono'), fontSize: '12px' },
+  '.cerebro-find__option svg': { display: 'block', margin: '0 auto' },
   '.cerebro-find__option:hover, .cerebro-find__button:hover': { background: variable('hover') },
   '.cerebro-find__option[aria-pressed="true"]': {
     borderColor: variable('accent'),

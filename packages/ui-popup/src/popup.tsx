@@ -62,6 +62,11 @@ export interface PickerOptions<T extends PickerItem> {
   onKey?: (event: KeyboardEvent) => boolean;
   /** The item highlighted as it opens, until the query changes (Recent Files': the second). */
   initial?: number;
+  /**
+   * Letters the popup handles with Alt (its options': Find in Files' Alt+C), which the menu bar then
+   * leaves to it (`data-alt-keys`).
+   */
+  altKeys?: string;
 }
 
 export interface PickerHandle<T> {
@@ -163,6 +168,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     this.element.className = 'cerebro-popup';
     this.element.setAttribute('role', 'dialog');
     this.element.setAttribute('aria-label', options.label);
+    if (options.altKeys) this.element.dataset['altKeys'] = options.altKeys;
     const top = options.position === 'top';
     this.element.style.width = `${String(options.width ?? (top ? 600 : 360))}px`;
     document.body.append(this.element);
