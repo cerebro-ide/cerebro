@@ -55,6 +55,9 @@
   --cerebro-editor-active-line: #25282e;
   --cerebro-editor-usage: #373b39;
   --cerebro-editor-usage-write: #402f33;
+  /* Their marks on the scrollbar: the same attributes' ERROR_STRIPE_COLOR (IslandSchemeDark.xml). */
+  --cerebro-editor-usage-stripe: #5b786a;
+  --cerebro-editor-usage-stripe-write: #ba6387;
   --cerebro-editor-link: #548af7;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter, its _dark files). */
   --cerebro-editor-marker-i: #57965c;
@@ -174,6 +177,9 @@
   --cerebro-editor-active-line: #f5f8fe;
   --cerebro-editor-usage: #edebfc;
   --cerebro-editor-usage-write: #fce8f4;
+  /* Their marks on the scrollbar: the same attributes' ERROR_STRIPE_COLOR (expUI_lightScheme.xml). */
+  --cerebro-editor-usage-stripe: #d0a1ff;
+  --cerebro-editor-usage-stripe-write: #f0a8d2;
   --cerebro-editor-link: #006dcc;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter). */
   --cerebro-editor-marker-i: #208a3c;
