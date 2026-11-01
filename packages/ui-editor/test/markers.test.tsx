@@ -33,9 +33,10 @@ function mount(props: Omit<CodeEditorProps, 'path'>) {
 
 const TEXT = 'class A extends B {\n  run() {}\n  walk() {}\n}\n';
 const MARKS: Mark[] = [
-  { line: 1, kind: 'implements', name: 'run' },
-  { line: 1, kind: 'overridden', name: 'run' },
-  { line: 2, kind: 'overrides', name: 'walk' },
+  { line: 1, kind: 'implements', name: 'run', owners: ['R'] },
+  { line: 1, kind: 'overridden', name: 'run', owners: ['C', 'D'] },
+  // Where it goes unknown: what it is, without.
+  { line: 2, kind: 'overrides', name: 'walk', owners: [] },
   // Past the text's end (an answer for an older text): left out.
   { line: 40, kind: 'implemented', name: 'gone' },
 ];
@@ -61,7 +62,7 @@ describe('gutter markers', () => {
     const root = mount({ text: TEXT, marks });
     await expect
       .poll(() => drawn(root))
-      .toEqual(['2: Implements run, Is overridden run', '3: Overrides walk']);
+      .toEqual(['2: Implements run in R, run is overridden in C, D', '3: Overrides walk']);
     expect(marks).toHaveBeenCalledWith(TEXT);
     // In IntelliJ's colours: I in green with a red arrow up; O in blue with a grey arrow down.
     const [implementing, overridden] = root.querySelectorAll('.cerebro-marker');
@@ -113,11 +114,14 @@ describe('gutter markers', () => {
     answers[0]?.(MARKS);
     await expect
       .poll(() => drawn(root))
-      .toEqual(['2: Implements run, Is overridden run', '3: Overrides walk']);
+      .toEqual(['2: Implements run in R, run is overridden in C, D', '3: Overrides walk']);
     // A line added above them: they move down with their lines.
     await userEvent.click(root.querySelector('.cm-line') as Element);
     await userEvent.keyboard('{Home}{Enter}');
-    expect(drawn(root)).toEqual(['3: Implements run, Is overridden run', '4: Overrides walk']);
+    expect(drawn(root)).toEqual([
+      '3: Implements run in R, run is overridden in C, D',
+      '4: Overrides walk',
+    ]);
     expect(marks).toHaveBeenCalledTimes(1);
     await wait(MARKS_AFTER + 50);
     expect(marks).toHaveBeenLastCalledWith(`\n${TEXT}`);
@@ -156,10 +160,22 @@ describe('gutter markers', () => {
     await userEvent.keyboard('y');
     await expect.poll(() => answers.length, { timeout: 2_000 }).toBe(3);
     answers[2]?.([
-      { line: 1, kind: 'implements', name: 'run' },
+      { line: 1, kind: 'implements', name: 'run', owners: ['R'] },
       { line: 2, kind: 'implemented', name: 'walk' },
     ]);
-    await expect.poll(() => drawn(root)).toEqual(['2: Implements run', '3: Is implemented walk']);
+    await expect
+      .poll(() => drawn(root))
+      .toEqual(['2: Implements run in R', '3: walk is implemented']);
+    // Where one goes changed: redrawn.
+    await userEvent.keyboard('z');
+    await expect.poll(() => answers.length, { timeout: 2_000 }).toBe(4);
+    answers[3]?.([
+      { line: 1, kind: 'implements', name: 'run', owners: ['S'] },
+      { line: 2, kind: 'implemented', name: 'walk' },
+    ]);
+    await expect
+      .poll(() => drawn(root))
+      .toEqual(['2: Implements run in S', '3: walk is implemented']);
   });
 
   it('leaves the room after the numbers as it is without them', () => {

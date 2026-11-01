@@ -1,5 +1,6 @@
 // The host's methods, on a connection to the UI.
 
+import { createHash } from 'node:crypto';
 import { chmodSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -9,6 +10,7 @@ import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
+import { filesByRipgrep, folderFiles } from './folder-files.js';
 import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
@@ -21,7 +23,6 @@ import {
   listIgnored,
   rollback,
   textAt,
-  listFiles,
   listWorktrees,
   removeWorktree,
   type Git,
@@ -42,6 +43,13 @@ export interface HostOptions {
   languageServers?: LanguageServers;
   /** ripgrep, for Find in Files. Default: @vscode/ripgrep's. */
   rg?: string;
+  /** A folder to keep the index in between runs, a file per repository; without it, none is kept. */
+  indexCache?: string;
+}
+
+/** The repository's index file in the cache folder: named by a hash of its path. */
+export function indexCacheFile(folder: string, repo: string): string {
+  return join(folder, `${createHash('sha256').update(repo).digest('hex').slice(0, 16)}.json`);
 }
 
 /** A word for a POSIX shell: quoted, as it is. */
@@ -109,9 +117,15 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
     return entries.map((e) => (ignored.has(e.name) ? { ...e, ignored: true } : e));
   });
-  const index = new IndexService(git, Date.now, (worktree, done, total) => {
-    connection.notify('index.progress', { worktree, done, total });
-  });
+  const index = new IndexService(
+    git,
+    Date.now,
+    (worktree, done, total) => {
+      connection.notify('index.progress', { worktree, done, total });
+    },
+    options.indexCache === undefined ? undefined : indexCacheFile(options.indexCache, options.repo),
+    (folder) => filesByRipgrep(folder, options.rg),
+  );
   connection.onRequest('index.warm', (params) => {
     index.warm(text(params, 'worktree'));
     return null;
@@ -167,7 +181,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.markers', (params) =>
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );
-  connection.onRequest('git.files', (params) => listFiles(text(params, 'path'), git));
+  connection.onRequest('git.files', (params) => folderFiles(text(params, 'path'), git, options.rg));
   /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
   const read = async (path: string): Promise<string> => {
     try {

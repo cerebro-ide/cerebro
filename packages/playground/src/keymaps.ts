@@ -6,7 +6,8 @@
 //   (github.com/JetBrains/intellij-community, platform/platform-resources/src/keymaps).
 // - VS Code: its keyboard shortcut sheets for Windows and macOS
 //   (code.visualstudio.com/shortcuts/keyboard-shortcuts-windows.pdf and -macos.pdf); a command they
-//   don't name keeps IntelliJ's keys. Linux's few differences (Go Back is Ctrl+Alt+-) aren't kept.
+//   don't name keeps IntelliJ's keys. On Linux, VS Code's keymap takes its Linux sheet's few
+//   differences (-linux.pdf): Go Back is Ctrl+Alt+-, as `VSCODE_LINUX` has them.
 // A command none of them names (a plugin's) keeps the key its owner gives it.
 
 import type { Keymap, KeymapPreset } from '@cerebro-ide/commands';
@@ -115,6 +116,16 @@ export const INTELLIJ_MAC: KeymapPreset = {
   },
 };
 
+/** Where VS Code's Linux sheet differs from its Windows one, for the commands Cerebro has. */
+export const VSCODE_LINUX: KeymapPreset['bindings'] = {
+  // Forward is Ctrl+Shift+-, which the browser names by the character it types.
+  'navigate.back': ['Ctrl+Alt+-'],
+  'navigate.forward': ['Ctrl+Shift+_'],
+  // Without Windows' Ctrl+F4, and its Save All, Ctrl+K S.
+  'editor.close': ['Ctrl+W'],
+  'file.saveAll': ['Ctrl+S'],
+};
+
 export const VSCODE: KeymapPreset = {
   id: 'vscode',
   name: 'VS Code',
@@ -147,6 +158,7 @@ export const VSCODE: KeymapPreset = {
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    ...(navigator.platform.startsWith('Linux') ? VSCODE_LINUX : {}),
   },
 };
 

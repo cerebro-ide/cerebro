@@ -416,6 +416,11 @@ body,
   font-size: 12px;
 }
 
+.playground-find__option svg {
+  display: block;
+  margin: 0 auto;
+}
+
 .playground-find__option:hover {
   background: var(--cerebro-hover);
 }

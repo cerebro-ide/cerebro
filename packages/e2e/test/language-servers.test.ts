@@ -86,7 +86,27 @@ async function explain(
     },
     { asked, repo, methods },
   );
-  console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
+  // And where the page is: the tab and line, what has the focus, and any popup.
+  const state = {
+    ...(await where()),
+    focus: await page().evaluate(() => {
+      let element = document.activeElement;
+      while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+      return element ? `${element.tagName}.${element.className}` : null;
+    }),
+    popup: await popup()
+      .first()
+      .textContent({ timeout: 1_000 })
+      .catch(() => null),
+  };
+  console.log(
+    'Asked directly:',
+    answers,
+    '\nThe page:',
+    state,
+    '\nConsole:',
+    running.messages.join('\n'),
+  );
   throw error;
 }
 
@@ -272,8 +292,8 @@ it('shows gutter markers between an interface and its implementations, and goes 
   await openAt('shape.ts', 'area(): number;');
   const marker = (label: string) => page().locator(`.cerebro-marker[aria-label="${label}"]`);
   // Asked as the file opens; TypeScript's server may still be loading.
-  await marker('Is implemented area').waitFor({ timeout: 30_000 });
-  await marker('Is implemented area').click();
+  await marker('area is implemented in Circle, Square').waitFor({ timeout: 30_000 });
+  await marker('area is implemented in Circle, Square').click();
   await expect
     .poll(() => popup().locator('.cerebro-popup-item__detail').allTextContents(), {
       timeout: 15_000,
@@ -281,8 +301,8 @@ it('shows gutter markers between an interface and its implementations, and goes 
     .toEqual(['circle.ts:3', 'square.ts:3']);
   await page().keyboard.press('Escape');
   await openAt('square.ts', 'area()');
-  await marker('Implements area').waitFor({ timeout: 30_000 });
-  await marker('Implements area').click();
+  await marker('Implements area in Shape').waitFor({ timeout: 30_000 });
+  await marker('Implements area in Shape').click();
   await expect
     .poll(where, { timeout: 15_000 })
     .toEqual({ tab: 'shape.ts', line: '  area(): number;' });

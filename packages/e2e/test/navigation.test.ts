@@ -153,6 +153,26 @@ it('selects the opened file in the Project tool window, opening the folders down
   await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
 });
 
+it('selects each file as its tab is chosen, with Always Select Opened File on', async () => {
+  const project = page().locator('.cerebro-tool-window[data-id="project"]');
+  const row = (path: string) =>
+    project.locator(`.cerebro-tree-row[data-key="${repo.replaceAll('\\', '/')}/${path}"]`);
+  const toggle = async () => {
+    await project.locator('[data-menu="project/options"]').click();
+    await page().locator('.cerebro-menu-item', { hasText: 'Always Select Opened File' }).click();
+  };
+  await toggle();
+  await open('b.ts');
+  await expect.poll(() => row('b.ts').getAttribute('aria-selected')).toBe('true');
+  await page().locator('.cerebro-editor-tab', { hasText: 'c.ts' }).click();
+  await expect.poll(() => row('src/deep/c.ts').getAttribute('aria-selected')).toBe('true');
+  // Off again: the tree stays where it is.
+  await toggle();
+  await page().locator('.cerebro-editor-tab', { hasText: 'b.ts' }).click();
+  await page().waitForTimeout(500);
+  expect(await row('src/deep/c.ts').getAttribute('aria-selected')).toBe('true');
+});
+
 it('goes back to a place as it was scrolled, not just to its caret', async () => {
   await open('a.ts');
   await page().keyboard.press('ControlOrMeta+Home');

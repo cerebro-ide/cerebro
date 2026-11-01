@@ -10,7 +10,7 @@
 
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { CodeEditor } from '@cerebro-ide/ui-editor';
+import { applyCase, CodeEditor, preserveCaseIcon } from '@cerebro-ide/ui-editor';
 import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { documentFor, saveFiles } from './documents.js';
@@ -78,13 +78,17 @@ const maskOn = signal(false);
 const mask = signal('');
 /** What Replace in Files replaces with, kept as the rest. */
 const replacement = signal('');
+/** Replace's Preserve case: each replacement in the case of the text it replaces, as IntelliJ's. */
+const preserveCase = signal(false);
 
 /**
  * Replaces the matches on these lines, in their files' documents, and saves the files. A line that's
  * changed since it was found (an unsaved edit) is left: how many lines were, and were replaced.
+ * With `preserve`, each replacement takes the case of the text it replaces.
  */
 export async function replaceLines(
   lines: readonly TextMatch[],
+  preserve = false,
 ): Promise<{ replaced: number; skipped: number }> {
   const byFile = new Map<string, TextMatch[]>();
   for (const line of lines) byFile.set(line.path, [...(byFile.get(line.path) ?? []), line]);
@@ -106,10 +110,11 @@ export async function replaceLines(
         continue;
       }
       match.ranges.forEach(([from, to], i) => {
+        const insert = match.replacements?.[i] ?? '';
         edits.push({
           from: line.from + from,
           to: line.from + to,
-          insert: match.replacements?.[i] ?? '',
+          insert: preserve ? applyCase(line.text.slice(from, to), insert) : insert,
         });
       });
       replaced++;
@@ -151,7 +156,12 @@ export function folderOf(worktree: string, directory: string): string {
 }
 
 /** An option's toggle, as IntelliJ's beside the field. */
-function Toggle(props: { label: string; text: string; on: () => boolean; toggle: () => void }) {
+function Toggle(props: {
+  label: string;
+  text: string | Node;
+  on: () => boolean;
+  toggle: () => void;
+}) {
   return (
     <button
       type="button"
@@ -290,7 +300,11 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     KeyC: matchCase,
     KeyW: words,
     KeyX: regex,
+    ...(replacing ? { KeyE: preserveCase } : {}),
   };
+  /** The option an Alt key toggles, by its place. */
+  const optionKey = (event: KeyboardEvent) =>
+    event.altKey && !event.ctrlKey && !event.metaKey ? keys[event.code] : undefined;
   const option = (label: string, text: string, on: ReturnType<typeof signal<boolean>>) => (
     <Toggle
       label={label}
@@ -340,7 +354,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     await settled();
     const item = picker.highlighted();
     if (!item) return;
-    const { skipped } = await replaceLines([item.match]);
+    const { skipped } = await replaceLines([item.match], preserveCase.peek());
     reportSkipped(skipped);
     search();
   };
@@ -378,7 +392,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
       ),
     }).result;
     if (!confirmed) return;
-    reportSkipped((await replaceLines(matches)).skipped);
+    reportSkipped((await replaceLines(matches, preserveCase.peek())).skipped);
   };
   /** Every line found, in the Find window, with the popup closed. */
   const openInWindow = async () => {
@@ -419,10 +433,19 @@ export async function findInFiles(options: FindOptions): Promise<void> {
   const fieldKeys = (event: KeyboardEvent) => {
     event.stopPropagation();
     if (shortcut(event)) return;
+    const on = optionKey(event);
+    if (on) {
+      event.preventDefault();
+      toggle(on);
+      return;
+    }
     if (event.key === 'Enter') search();
     if (event.key === 'Escape') close();
   };
   const picker = openPicker<Choice>({
+    altKeys: Object.keys(keys)
+      .map((code) => code.slice('Key'.length))
+      .join(''),
     label: replacing ? 'Replace in Files' : 'Find in Files',
     placeholder: 'Text to find',
     position: 'top',
@@ -485,6 +508,14 @@ export async function findInFiles(options: FindOptions): Promise<void> {
               }}
               on:keydown={fieldKeys}
             />
+            <Toggle
+              label="Preserve case (Alt+E)"
+              text={preserveCaseIcon()}
+              on={() => preserveCase.get()}
+              toggle={() => {
+                preserveCase.set(!preserveCase.peek());
+              }}
+            />
             {button('Replace', () => void replaceOne())}
             {button('Replace All', () => void replaceAll())}
           </div>
@@ -530,7 +561,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     },
     onKey: (event) => {
       if (shortcut(event)) return true;
-      const on = event.altKey && !event.ctrlKey && !event.metaKey ? keys[event.code] : undefined;
+      const on = optionKey(event);
       if (!on) return false;
       toggle(on);
       return true;

@@ -1,3 +1,4 @@
+import { join } from 'node:path';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { ErrorCodes } from '@cerebro-ide/protocol';
@@ -20,6 +21,7 @@ const electron = vi.hoisted(() => {
       on: (event: string, listener: Listener) => {
         appListeners.set(event, listener);
       },
+      getPath: (name: string) => `/data/${name}`,
     },
     sent: [] as unknown[][],
     BrowserWindow: {
@@ -83,6 +85,8 @@ describe('startHost', () => {
     expect(options.cwd).toBe('/repo');
     expect(options.env['ELECTRON_RUN_AS_NODE']).toBe('1');
     expect(options.env['CEREBRO_REPO']).toBe('/repo');
+    // The index is kept in the app's data folder.
+    expect(options.env['CEREBRO_INDEX_CACHE']).toBe(join('/data/userData', 'index'));
     expect(options.stdio).toEqual(['pipe', 'pipe', 'inherit']);
   });
 

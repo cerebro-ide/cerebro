@@ -160,11 +160,68 @@ describe('usages at the caret', () => {
     await expect.poll(() => drawn(root).length).toBeGreaterThan(0);
   });
 
+  it('marks them on the scrollbar’s band: where they’re shown, or scaled in a long text', async () => {
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      usages: () => Promise.resolve(EXTRA),
+    });
+    const marks = () =>
+      [...root.querySelectorAll<HTMLElement>('.cerebro-usageMark')].map((m) =>
+        m.getBoundingClientRect(),
+      );
+    await expect.poll(() => marks().length).toBe(2);
+    // A text shorter than the editor: each beside its line, 2px high, in the thumb's band.
+    const editor = (root.querySelector('.cm-editor') as HTMLElement).getBoundingClientRect();
+    const lines = [...root.querySelectorAll('.cm-line')].map((l) => l.getBoundingClientRect());
+    expect(marks().map((m) => m.top)).toEqual([lines[0]?.top, lines[1]?.top]);
+    for (const mark of marks()) {
+      expect(mark.height).toBe(2);
+      expect(mark.width).toBe(10);
+      expect(mark.right).toBe(editor.right - 2);
+    }
+    // In IntelliJ's stripe colours: written, then read.
+    const [w, r] = root.querySelectorAll('.cerebro-usageMark');
+    expect(getComputedStyle(w as Element).backgroundColor).toBe('rgb(186, 99, 135)');
+    expect(getComputedStyle(r as Element).backgroundColor).toBe('rgb(91, 120, 106)');
+    // Under the pointer's way: the scrollbar's thumb is over them.
+    expect(getComputedStyle(w as Element).pointerEvents).toBe('none');
+  });
+
+  it('scales the marks to the scroll area in a text taller than it, wherever it’s scrolled', async () => {
+    const text = Array.from({ length: 400 }, (_, i) => `line${String(i)}`).join('\n');
+    const at = (line: number): Usage => ({
+      from: { line, column: 0 },
+      to: { line, column: 4 },
+      write: false,
+    });
+    const root = mount({
+      document: new EditorDocument(text),
+      usages: () => Promise.resolve([at(0), at(200), at(399)]),
+    });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const share = () => {
+      const box = scroller.getBoundingClientRect();
+      return [...root.querySelectorAll('.cerebro-usageMark')].map(
+        (m) => (m.getBoundingClientRect().top - box.top) / box.height,
+      );
+    };
+    await expect.poll(() => share().length).toBe(3);
+    const [first, middle, last] = share() as [number, number, number];
+    expect(first).toBeCloseTo(0, 1);
+    expect(middle).toBeCloseTo(0.5, 1);
+    expect(last).toBeGreaterThan(0.95);
+    expect(last).toBeLessThan(1);
+    scroller.scrollTop = 3_000;
+    await wait(50);
+    expect(share()).toEqual([first, middle, last]);
+  });
+
   it('asks nothing without a way to ask', async () => {
     const root = mount({ document: new EditorDocument(TEXT) });
     await clickAt(root, 'extra', 1);
     await settle();
     expect(root.querySelector('.cerebro-usageLayer')).toBeNull();
+    expect(root.querySelector('.cerebro-usageStripe')).toBeNull();
   });
 });
 

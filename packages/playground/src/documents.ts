@@ -15,12 +15,6 @@ import { currentHost, hostFor } from './environments.js';
 export const RELOAD_EVERY = 2000;
 
 /**
- * How long without a key or the mouse before modified files are saved: IntelliJ's "Save files if
- * the IDE is idle for" default (GeneralSettings.kt: 15 seconds), there off by default.
- */
-export const SAVE_WHEN_IDLE = 15_000;
-
-/**
  * Asks how a conflict is resolved, and resolves it through `EditorDocument.resolve`: left as it is,
  * the edits are kept unsaved, and the conflict found again.
  */
@@ -181,14 +175,16 @@ export async function reloadAll(): Promise<void> {
 }
 
 /**
- * Saves on its own, as IntelliJ: when the window loses the focus, and after `SAVE_WHEN_IDLE`
- * without a key or the mouse. Reads changed files when the window has the focus. Conflicts are
- * resolved through `resolver`; a deleted file's tabs are closed through `close`.
+ * Saves on its own, as IntelliJ: when the window loses the focus, and after `idle()` ms without a
+ * key or the mouse (none when it's undefined: the setting is off). Reads changed files when the
+ * window has the focus. Conflicts are resolved through `resolver`; a deleted file's tabs are closed
+ * through `close`.
  */
 export function setupSaving(
   report: (error: unknown) => void,
   resolver: ConflictResolver,
   close: (path: string) => void,
+  idle: () => number | undefined,
 ): void {
   resolveConflict = resolver;
   closeDeleted = close;
@@ -203,10 +199,12 @@ export function setupSaving(
   setInterval(() => {
     if (document.hasFocus()) reload();
   }, RELOAD_EVERY);
-  let idle: ReturnType<typeof setTimeout> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const active = () => {
-    clearTimeout(idle);
-    idle = setTimeout(save, SAVE_WHEN_IDLE);
+    clearTimeout(timer);
+    // Read each time: a change in Settings counts from the next key or move.
+    const after = idle();
+    if (after !== undefined) timer = setTimeout(save, after);
   };
   for (const type of ['keydown', 'pointerdown', 'wheel']) {
     window.addEventListener(type, active, { capture: true, passive: true });
