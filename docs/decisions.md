@@ -1509,8 +1509,19 @@ after IntelliJ, open to change.
   - Double click or Enter on a line opens it there.
   - It shows the active worktree's last search: a new one replaces it. IntelliJ keeps each in a
     tab.
+- **Preserve case** (added 2026-11-01): a toggle inside the Replace field, in the editor's bar and
+  in Replace in Files, with IntelliJ's icon and its mnemonic, Alt+E. Each replacement takes the case
+  of the text it replaces, word by word: a port of IntelliJ's `PreserveCaseUtil.applyCase` (its
+  default, registry `ide.find.word.based.preserve.case`), passing IntelliJ's own test cases. With
+  Regex, the case applies to what the expression gave, as IntelliJ's. In the editor, CodeMirror's
+  Replace still replaces, and a transaction filter changes the case of what it inserts (a
+  replacement whose length the case would change, `ß` to `SS`, is left as typed).
+  - Alt+E is also the Edit menu's mnemonic, and the menu bar took it first. Now an element claims
+    the letters it handles with Alt (`data-alt-keys`: the editor's bar and Find in Files' popup), and
+    the menu bar leaves those to it, as Swing gives the focused component its keys before the menu
+    bar's mnemonics.
 - **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
-  options; IntelliJ's Preserve Case; Replace All undone as one step across files.
+  options; Replace All undone as one step across files.
 
 ## Editing and saving (2026-10-26)
 

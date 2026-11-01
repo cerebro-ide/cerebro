@@ -237,6 +237,47 @@ describe('visible, as a bar', () => {
     expect(menus()).toEqual(['main/view']);
   });
 
+  it('leaves Alt and a letter to the focused element that claims it, in a shadow root too', () => {
+    mount(true);
+    const bar = document.createElement('div');
+    bar.dataset['altKeys'] = 'cwxe';
+    const host = document.createElement('div');
+    document.body.append(bar, host);
+    const field = document.createElement('input');
+    bar.append(field);
+    const shadow = host.attachShadow({ mode: 'open' });
+    const inner = document.createElement('div');
+    inner.dataset['altKeys'] = 'E';
+    inner.append(document.createElement('input'));
+    shadow.append(inner);
+    const press = (target: Element, letter: string) => {
+      const event = new KeyboardEvent('keydown', {
+        key: letter.toLowerCase(),
+        code: `Key${letter}`,
+        altKey: true,
+        bubbles: true,
+        composed: true,
+        cancelable: true,
+      });
+      target.dispatchEvent(event);
+      return event;
+    };
+    try {
+      expect(press(field, 'E').defaultPrevented).toBe(false);
+      expect(press(inner.firstElementChild as Element, 'E').defaultPrevented).toBe(false);
+      expect(menus()).toEqual([]);
+      // A letter it doesn't claim is the bar's.
+      expect(press(field, 'V').defaultPrevented).toBe(true);
+      expect(menus()).toEqual(['main/view']);
+      key('Escape');
+      // Sent to the document itself, no element's: the bar's.
+      expect(press(document as unknown as Element, 'E').defaultPrevented).toBe(true);
+    } finally {
+      bar.remove();
+      host.remove();
+    }
+  });
+
   it('gives the bar the keyboard with Alt alone', () => {
     const { item, bar } = mount(true);
     altAlone();
