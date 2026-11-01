@@ -795,7 +795,15 @@ Claude's, open to change:
   between batches so its other requests aren't held up. The status bar shows "Indexing… n / total"
   with a bar, then "Indexed". (The status bar's contents are still Ido's to settle; this replaces
   its sample background task in the app.)
-- **Not yet:** persisting the index to disk (it's rebuilt per host run).
+- **Kept on disk between runs** (added 2026-11-01): the parsed blobs are saved as JSON in the app's
+  data folder (`index/`, a file per repository, named by a hash of its path), a second after an
+  indexing that parsed something, and loaded when the host starts. Blobs are keyed by content, so
+  a saved one stays right for as long as it's parsed the same way: the file names the parser
+  (a hash of the grammars, the queries and web-tree-sitter's version), and one from another parser
+  is ignored. Written beside its place and moved over it, so a crash leaves the old one whole.
+  Measured on ag-charts (5,231 files): the file is 14.4 MB; the first search after starting took
+  11.8 s without it and 0.62 s with it. Claude's choice of format and place, open to change; blobs
+  no worktree has any more aren't dropped yet.
 - **Measured in the app (e2e):** the tree-sitter WASM loads in the host on Electron's Node; Go to
   Symbol, Ctrl+click and Alt+F7 work on a throwaway repository, and fail without the index.
 

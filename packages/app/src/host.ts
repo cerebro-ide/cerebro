@@ -4,6 +4,7 @@
 // reaches each through IPC, naming the project. A host ends with its project, its window, or the app.
 
 import { spawn as nodeSpawn } from 'node:child_process';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Connection, LineReader } from '@cerebro-ide/protocol';
 import { app, ipcMain } from 'electron';
@@ -29,7 +30,13 @@ export function startHost(
 ): { connection: Connection; stop: () => void } {
   const child = spawn(process.execPath, [HOST], {
     cwd: repo,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', CEREBRO_REPO: repo },
+    env: {
+      ...process.env,
+      ELECTRON_RUN_AS_NODE: '1',
+      CEREBRO_REPO: repo,
+      // The index, kept between runs in the app's data folder.
+      CEREBRO_INDEX_CACHE: join(app.getPath('userData'), 'index'),
+    },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   const { stdin, stdout } = child as unknown as {
