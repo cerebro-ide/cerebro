@@ -51,7 +51,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Tabs that don't fit (2026-10-27)](#tabs-that-dont-fit-2026-10-27): the strip scrolls, the cut edge fades, a chevron lists every tab
 - [Several terminals (2026-10-27)](#several-terminals-2026-10-27): the Terminal tool window's shells as tabs, a + button
 - [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
-- [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings
+- [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings; IntelliJ's others (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio…) from its files
 - [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; saving on its own, as IntelliJ; conflicts with the disk asked about; deleted files' tabs closed; the Edit menu, Undo named
@@ -1116,8 +1116,7 @@ below, other than following IntelliJ, are Claude's and open to change.
   settings are (`cerebro.keymap.user`).
 - **In packages:** `@cerebro-ide/ui-keymap` has the editor, its draft (`KeymapDraft`) and the
   dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
-- **Not yet:** IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
-  mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
+- **Not yet:** mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
   Shortcut (the search field matches shortcuts as text).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
@@ -1397,13 +1396,29 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
   from its Windows one, for Cerebro's commands. Go Back is Ctrl+Alt+- and Go Forward Ctrl+Shift+-,
   not Alt+Left and Alt+Right. Close Editor is Ctrl+W only, without Ctrl+F4. Save All is Ctrl+S only,
   without Ctrl+K S, which that sheet doesn't list.
+- **IntelliJ's other keymaps** (added 2026-11-01, the backlog's rest of "Keymaps"): Eclipse,
+  Eclipse (macOS), Emacs, IntelliJ IDEA Classic (macOS), macOS System Shortcuts, NetBeans, Sublime
+  Text, Sublime Text (macOS), Visual Studio and Visual Studio (macOS), named as IntelliJ's Settings
+  names them (`DefaultKeymap.kt`), all listed by name.
+  - Their keys are IntelliJ's files for them (`plugins/keymaps` for Eclipse, NetBeans and Visual
+    Studio, the rest beside `$default.xml`), for Cerebro's commands, converted by a script from
+    each action's id (`GotoFile`, `FindInPath`…; the same ids give the IntelliJ keymaps' keys
+    already here).
+  - Each takes its parent's keys for the commands it doesn't name, as IntelliJ: `$default` (here
+    IntelliJ IDEA) or `Mac OS X 10.5+` (IntelliJ IDEA (macOS)). IntelliJ IDEA Classic's parent is
+    `$default` with Ctrl and Cmd swapped, as IntelliJ's `MacOSDefaultKeymap` does for keymaps
+    named "Mac OS X…" (read in its source); `forMac` does it here.
+  - Keys are all the file gives, alternates included (IntelliJ IDEA's own keep only the main
+    ones: unchanged).
+  - Emacs's sequences that start with Escape (`Escape X` for Find Action, `Escape .`, `Escape W`)
+    are left out: Escape closes popups and dialogs here, and each of those has another key. Claude's
+    choice, open to change.
 - **Not yet:**
-  - the user changing a command's keys in the Keymap page (the rest of the backlog entry), and
-    IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
   - CodeMirror's text editing keys (moving by word, duplicating a line) follow CodeMirror, not the
     keymap;
   - punctuation with Shift is named by the character it types (Ctrl+Shift+- arrives as
-    Ctrl+Shift+_), so VS Code's macOS Go Forward is written for a US layout.
+    Ctrl+Shift+_), so VS Code's macOS Go Forward, and the other keymaps' keys with Shift and
+    punctuation, are written for a US layout.
 
 ## Search Everywhere (2026-10-27)
 

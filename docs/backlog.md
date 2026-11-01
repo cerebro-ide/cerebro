@@ -12,21 +12,6 @@ Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as t
 something we can get to designing a bit later on". It needs a design before it's built; the
 Terminal tool window's tabs (decision "Several terminals") are the pieces to reuse.
 
-### Keymaps: configurable, with IntelliJ's ready-made ones to choose from
-
-From Ido (2026-10-26), with a screenshot of IntelliJ's Settings → Keymap: "not only should keymapping
-be configurable, but similar to intellij I want to offer out of the box multiple keymaps based on
-common known configurations".
-
-- **Configurable:** the user changes any action's shortcuts, as in IntelliJ's Keymap page.
-- **Ready-made keymaps to start from,** chosen from a dropdown, as IntelliJ's list: Eclipse, Eclipse
-  (macOS), Emacs, IntelliJ IDEA Classic, macOS System Shortcuts, NetBeans, Sublime Text, Sublime Text
-  (macOS), Visual Studio, Visual Studio (macOS), VSCode, alongside the default one (IntelliJ's for
-  each platform).
-- **Step 1 done (2026-10-27):** IntelliJ's and VS Code's, for Windows and Linux and for macOS
-  (decision "Ready-made keymaps"); changing keys in the Keymap page (2026-11-01, decision
-  "Changing keys on the Keymap page"). Left: the other keymaps.
-
 ### Local History
 
 From Ido (2026-10-27, "yes", when asked whether to add it): there's no undo for what happens to
