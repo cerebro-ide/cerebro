@@ -1,0 +1,152 @@
+/* The keymap editor and its dialogs. Every value comes from the --cerebro-* theme variables
+   (@cerebro-ide/theme). */
+
+.cerebro-keymap {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.cerebro-keymap__search {
+  flex: none;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
+
+.cerebro-keymap__search:focus,
+.cerebro-keymap__list:focus-visible,
+.cerebro-shortcut__stroke:focus {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -1px;
+}
+
+.cerebro-keymap__list {
+  flex: auto;
+  min-height: 120px;
+  padding: 4px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 4px;
+  overflow-y: auto;
+}
+
+.cerebro-keymap__group,
+.cerebro-keymap__row {
+  height: var(--cerebro-menu-item-height);
+  line-height: var(--cerebro-menu-item-height);
+  white-space: nowrap;
+}
+
+.cerebro-keymap__group {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-keymap__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  padding-right: 8px;
+  border-radius: 4px;
+}
+
+.cerebro-keymap__row--selected {
+  background: var(--cerebro-menu-highlight);
+}
+
+/* A command whose keys the user changed, as IntelliJ shows it. */
+.cerebro-keymap__row--modified .cerebro-keymap__label {
+  color: var(--cerebro-accent);
+}
+
+.cerebro-keymap__label,
+.cerebro-keymap__keys {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cerebro-keymap__keys,
+.cerebro-keymap__hint,
+.cerebro-keymap__empty {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-keymap__empty {
+  padding: 8px;
+}
+
+.cerebro-keymap__actions {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+}
+
+.cerebro-keymap__action {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.cerebro-keymap__action:hover:not(:disabled) {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-keymap__action:disabled {
+  color: var(--cerebro-text-muted);
+}
+
+/* The Keyboard Shortcut dialog. */
+.cerebro-shortcut {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cerebro-shortcut__second {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cerebro-shortcut__second .cerebro-shortcut__stroke {
+  flex: auto;
+}
+
+.cerebro-shortcut__enable {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.cerebro-shortcut__stroke:disabled {
+  opacity: 0.5;
+}
+
+.cerebro-shortcut__conflicts {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-shortcut__list {
+  margin: 4px 0 0;
+  padding-left: 20px;
+  color: var(--cerebro-text);
+}
+
+.cerebro-shortcut__warning {
+  max-width: 380px;
+  margin: 0;
+}

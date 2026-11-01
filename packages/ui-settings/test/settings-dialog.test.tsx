@@ -1,6 +1,7 @@
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '../src/styles.css';
+import { signal } from '@cerebro-ide/reactive';
 import { Settings, SettingsLayer, SettingsRegistry, type Scope } from '@cerebro-ide/settings';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openSettings, type SettingsDialogOptions } from '../src/index.js';
@@ -322,5 +323,49 @@ describe('openSettings', () => {
     openSettings({ settings: new Settings(registry, layers), scope: 'worktree' });
     expect(input('editor.fontSize').value).toBe('13');
     expect((q('select') as HTMLSelectElement).value).toBe('dark');
+  });
+
+  it('shows a page’s own view under its settings, given the draft, applied with it', async () => {
+    const changed = signal(false);
+    const apply = vi.fn(() => {
+      changed.set(false);
+    });
+    const { handle, onApply } = open({
+      pages: {
+        appearance: {
+          render: (value) => (
+            <p class="own">
+              {() => `${String(value('appearance.theme'))} ${String(value('missing'))}`}
+            </p>
+          ),
+          changed: () => changed.get(),
+          apply,
+        },
+      },
+    });
+    expect(q('.cerebro-settings__page--custom .own').textContent).toBe('dark undefined');
+    const select = q('[data-setting="appearance.theme"] select') as HTMLSelectElement;
+    select.value = 'light';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    // The draft's value, before it's applied.
+    expect(q('.own').textContent).toBe('light undefined');
+    button('Apply').click();
+    expect(apply).not.toHaveBeenCalled();
+    expect(button('Apply').disabled).toBe(true);
+    changed.set(true);
+    expect(button('Apply').disabled).toBe(false);
+    button('OK').click();
+    expect(apply).toHaveBeenCalledTimes(1);
+    expect(onApply).toHaveBeenLastCalledWith([]);
+    expect(await handle.result).toBe(true);
+  });
+
+  it('shows a page with only its own view, not as empty', () => {
+    open({
+      page: 'vcs',
+      pages: { vcs: { render: () => 'Own', changed: () => false, apply: () => undefined } },
+    });
+    expect(q('.cerebro-settings__custom').textContent).toBe('Own');
+    expect(q('.cerebro-settings__empty')).toBeNull();
   });
 });
