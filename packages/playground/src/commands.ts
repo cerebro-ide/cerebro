@@ -21,6 +21,7 @@ import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
 import { setupEdit } from './edit.js';
 import { icon } from './icons.js';
+import { keymapPage, userKeymaps } from './keymap-page.js';
 import { PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 import { themeIsDark } from './theme.js';
@@ -266,6 +267,7 @@ export function setupCommands(
         onApply: (scopes) => {
           save(settings, scopes);
         },
+        pages: { keymap: keymapPage(keymap, commands, menus) },
       });
     },
   });
@@ -419,10 +421,11 @@ export function setupCommands(
   keymap.bindDefault('Mod+Shift+N', 'file.goTo');
   keymap.bindDefault('Ctrl+K Ctrl+T', 'view.darkTheme');
   keymap.bindDefault('Ctrl+Shift+C', 'editor.copyPath');
-  // The keymap chosen in Settings → Keymap, as it changes.
+  // The keymap chosen in Settings → Keymap, with the user's changes to it, as they change.
   effect(() => {
-    const id = globalSettings.get('keymap');
+    const id = globalSettings.get('keymap') as string;
     keymap.setPreset(PRESETS.find((preset) => preset.id === id));
+    keymap.setUser(userKeymaps.get()[id] ?? []);
     return undefined;
   });
 

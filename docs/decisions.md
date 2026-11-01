@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
@@ -1072,6 +1073,40 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
   Select Opened File" option and Alt+F1's Select In aren't there.
+
+## Changing keys on the Keymap page (2026-11-01)
+
+The rest of step 1 of the backlog's "Keymaps" (Ido: "not only should keymapping be configurable"):
+the user changes any action's shortcuts in Settings → Keymap, as in IntelliJ's page. The choices
+below, other than following IntelliJ, are Claude's and open to change.
+
+- **Under the keymap's dropdown, every command and its shortcuts,** as IntelliJ's tree: under Main
+  Menu, the main menu's menus as they're nested; the rest under Other, by name. A search field
+  keeps the commands whose name or shortcut matches. A command the user changed shows in the
+  accent colour, as IntelliJ shows it.
+- **What can be done to the selected command shows under the list as buttons:** Add Keyboard
+  Shortcut…, Remove each of its shortcuts, Reset Shortcuts. IntelliJ offers the same in a popup on
+  the action; buttons show what's possible without knowing to right-click. Enter or a double click
+  adds a shortcut, as in IntelliJ.
+- **The Keyboard Shortcut dialog is IntelliJ's** (its texts from `KeyMapBundle.properties`): a
+  field that takes the first stroke as it's pressed, a "Second stroke:" checkbox enabling a second
+  field, and "Already assigned to:" listing the commands it clashes with. As IntelliJ's
+  `ShortcutTextField`, the field takes every key but Tab, and Escape and Enter on their own (Enter
+  once it has a stroke), which go to the dialog. A clash is the same keys, or a sequence that starts
+  the other.
+- **OK on a clash asks, as IntelliJ:** "This shortcut is already assigned to other actions. Do you
+  want to remove the other assignments?" with Remove, Keep and Cancel.
+- **Changes are a draft until Apply or OK,** as the rest of Settings: the Settings dialog gained
+  pages' own views (`pages` in `openSettings`), each with its own draft, applied with the dialog's.
+- **Each ready-made keymap keeps its own changes.** IntelliJ makes a named copy of a keymap the user
+  changes; here, choosing another keymap shows that one's keys with its own changes, and the page
+  follows the dropdown before it's applied. The changes are saved in the browser's storage, as the
+  settings are (`cerebro.keymap.user`).
+- **In packages:** `@cerebro-ide/ui-keymap` has the editor, its draft (`KeymapDraft`) and the
+  dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
+- **Not yet:** IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
+  mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
+  Shortcut (the search field matches shortcuts as text).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

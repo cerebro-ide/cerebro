@@ -19,6 +19,7 @@ import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
 import '@cerebro-ide/ui-settings/styles.css';
+import '@cerebro-ide/ui-keymap/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';

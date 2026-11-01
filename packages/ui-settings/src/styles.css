@@ -98,6 +98,24 @@
   overflow-y: auto;
 }
 
+/* A page with its own view below its settings: the view takes the room left, to scroll in itself. */
+.cerebro-settings__page--custom {
+  display: flex;
+  flex-direction: column;
+}
+
+.cerebro-settings__page--custom > * {
+  flex: none;
+}
+
+.cerebro-settings__page--custom > .cerebro-settings__custom {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 8px;
+}
+
 .cerebro-settings__heading {
   margin: 12px 0;
   font-size: 1.1em;
