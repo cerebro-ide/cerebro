@@ -1327,9 +1327,13 @@ in the Terminal tool window, as tabs, with a + button.
   otherwise.
 - **They look like IntelliJ's Terminal tabs** (Ido's screenshot, 2026-10-26): pills like the editor's,
   the active one outlined, a close button on every tab.
+- **A tab's context menu has Rename Session and Close Tab** (added 2026-11-01). Rename Session
+  asks for the name as IntelliJ's does ("Session name:", its `TerminalBundle` text), and the name
+  is kept with the tabs. Closing a tab drops its name: a new tab with its number is "Local (n)"
+  again. IntelliJ's tab menu has more (Close Other Tabs, Move to Editor); left out.
 - These are Claude's choices, open to change.
 - **Not yet:** several Claude sessions (Ido: to design later); IntelliJ's dropdown for choosing a
-  shell; renaming a tab.
+  shell.
 
 ## Islands Dark and Islands Light (2026-10-27)
 
