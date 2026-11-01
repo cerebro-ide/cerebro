@@ -401,6 +401,16 @@ describe('shortcuts', () => {
     expect(await theme()).toBe('light');
     // That T, alone, is VS Code's Go to Symbol: its popup closes.
     await page().keyboard.press('Escape');
+    // On Linux, its Linux sheet's keys where they differ: Go Back, as the Navigate menu shows.
+    if (process.platform === 'linux') {
+      await page().keyboard.press('Alt+N');
+      const back = page().locator('.cerebro-menu-item', {
+        has: page().locator('.cerebro-menu-item__label', { hasText: /^Back$/ }),
+      });
+      expect(await back.locator('.cerebro-menu-item__shortcut').textContent()).toBe('Ctrl+Alt+-');
+      await page().keyboard.press('Escape');
+      await page().locator('.cerebro-menu').first().waitFor({ state: 'detached' });
+    }
     // Back, through VS Code's Settings key.
     await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
   });
