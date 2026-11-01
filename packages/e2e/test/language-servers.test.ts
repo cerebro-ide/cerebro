@@ -113,6 +113,18 @@ beforeAll(async () => {
       '',
     ].join('\n'),
   );
+  // A variable declared at the top of a long file and read at its bottom: marks on the scrollbar.
+  writeFileSync(
+    join(repo, 'long.ts'),
+    [
+      'export function far() {',
+      '  const distant = 1;',
+      ...Array.from({ length: 300 }, (_, i) => `  // ${String(i)}`),
+      '  return distant;',
+      '}',
+      '',
+    ].join('\n'),
+  );
   // An interface and two classes implementing it: gutter markers between them.
   writeFileSync(join(repo, 'shape.ts'), 'export interface Shape {\n  area(): number;\n}\n');
   for (const [name, n] of [
@@ -240,6 +252,23 @@ it('highlights the symbol at the caret where it is, not another of its name', as
   } catch (error) {
     await explain(error, 'scope.ts', 2, 10, ['lsp.highlights', 'lsp.definitions']);
   }
+}, 60_000);
+
+it('goes to a usage when its mark on the scrollbar is clicked, through the scrollbar’s track', async () => {
+  await openAt('long.ts', 'const distant = 1;');
+  // Into the name.
+  await page().keyboard.press('End');
+  for (let i = 0; i < 7; i++) await page().keyboard.press('ArrowLeft');
+  // The read at the bottom, its mark low on the scrollbar, under the track while the pointer's there.
+  const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write)');
+  await mark.waitFor({ timeout: 30_000 });
+  const box = (await mark.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page().mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page().mouse.down();
+  await page().mouse.up();
+  await expect
+    .poll(where, { timeout: 5_000 })
+    .toEqual({ tab: 'long.ts', line: '  return distant;' });
 }, 60_000);
 
 it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
