@@ -1341,12 +1341,16 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
 - **The editor's own actions follow the keymap:** go to definition, find usages, Find and Replace
   run in CodeMirror, which now takes their keys as a prop (`keys`), read reactively. In VS Code's
   keymaps they are F12, Shift+F12, Ctrl+F (Cmd+F) and Ctrl+H (Cmd+Alt+F).
+- **VS Code's Linux keys on Linux** (added 2026-11-01): the VS Code keymap is for Windows and
+  Linux, and on Linux it takes where VS Code's Linux sheet (`keyboard-shortcuts-linux.pdf`) differs
+  from its Windows one, for Cerebro's commands. Go Back is Ctrl+Alt+- and Go Forward Ctrl+Shift+-,
+  not Alt+Left and Alt+Right. Close Editor is Ctrl+W only, without Ctrl+F4. Save All is Ctrl+S only,
+  without Ctrl+K S, which that sheet doesn't list.
 - **Not yet:**
   - the user changing a command's keys in the Keymap page (the rest of the backlog entry), and
     IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
   - CodeMirror's text editing keys (moving by word, duplicating a line) follow CodeMirror, not the
     keymap;
-  - VS Code's Linux differences (Go Back is Ctrl+Alt+-, its sheet says);
   - punctuation with Shift is named by the character it types (Ctrl+Shift+- arrives as
     Ctrl+Shift+_), so VS Code's macOS Go Forward is written for a US layout.
 
