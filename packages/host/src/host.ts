@@ -1,5 +1,6 @@
 // The host's methods, on a connection to the UI.
 
+import { createHash } from 'node:crypto';
 import { chmodSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -42,6 +43,13 @@ export interface HostOptions {
   languageServers?: LanguageServers;
   /** ripgrep, for Find in Files. Default: @vscode/ripgrep's. */
   rg?: string;
+  /** A folder to keep the index in between runs, a file per repository; without it, none is kept. */
+  indexCache?: string;
+}
+
+/** The repository's index file in the cache folder: named by a hash of its path. */
+export function indexCacheFile(folder: string, repo: string): string {
+  return join(folder, `${createHash('sha256').update(repo).digest('hex').slice(0, 16)}.json`);
 }
 
 /** A word for a POSIX shell: quoted, as it is. */
@@ -109,9 +117,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
     return entries.map((e) => (ignored.has(e.name) ? { ...e, ignored: true } : e));
   });
-  const index = new IndexService(git, Date.now, (worktree, done, total) => {
-    connection.notify('index.progress', { worktree, done, total });
-  });
+  const index = new IndexService(
+    git,
+    Date.now,
+    (worktree, done, total) => {
+      connection.notify('index.progress', { worktree, done, total });
+    },
+    options.indexCache === undefined ? undefined : indexCacheFile(options.indexCache, options.repo),
+  );
   connection.onRequest('index.warm', (params) => {
     index.warm(text(params, 'worktree'));
     return null;
