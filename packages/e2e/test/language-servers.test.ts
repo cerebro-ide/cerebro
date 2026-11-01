@@ -262,13 +262,45 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
   // The read at the bottom, its mark low on the scrollbar, under the track while the pointer's there.
   const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write)');
   await mark.waitFor({ timeout: 30_000 });
-  const box = (await mark.boundingBox()) as { x: number; y: number; width: number; height: number };
-  await page().mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  // Where it stays: lines not drawn yet have estimated heights, so a mark can move once they're
+  // measured (a macOS run clicked beside it once).
+  type Box = { x: number; y: number; width: number; height: number };
+  let box = (await mark.boundingBox()) as Box;
+  await expect
+    .poll(
+      async () => {
+        const before = box;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        box = (await mark.boundingBox()) as Box;
+        return JSON.stringify(box) === JSON.stringify(before);
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page().mouse.move(x, y);
   await page().mouse.down();
   await page().mouse.up();
-  await expect
-    .poll(where, { timeout: 5_000 })
-    .toEqual({ tab: 'long.ts', line: '  return distant;' });
+  try {
+    await expect
+      .poll(where, { timeout: 5_000 })
+      .toEqual({ tab: 'long.ts', line: '  return distant;' });
+  } catch (error) {
+    // What was under the pointer, and where the mark is now.
+    console.log(
+      await page().evaluate(
+        ([px, py]) =>
+          document
+            .elementsFromPoint(px as number, py as number)
+            .map((e) => `${e.tagName}.${e.className}`),
+        [x, y],
+      ),
+      box,
+      await mark.boundingBox(),
+    );
+    throw error;
+  }
 }, 60_000);
 
 it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
