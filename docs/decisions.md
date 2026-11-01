@@ -1167,7 +1167,11 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
 - **Each area's thumbs are in a layer of their own** (2026-10-28), added to the page when the area
   gets them. Before, all were in one layer, moved to the end of the page whenever an area got
   thumbs: a thumb fading out under a popup then came over it.
-- **Not yet:** the macOS widening; holding the press on a track doesn't repeat it (Swing's does: a claim, not checked).
+- **A press held on a track goes on paging** (added 2026-11-01), as IntelliJ's `DefaultScrollBarUI`
+  does (its source): after 300 ms, then every 60 ms, until the thumb reaches the pointer or the area
+  its end. Moving the held pointer past the thumb again starts it again after the pause.
+- **Not yet:** the macOS widening; IntelliJ's middle-button press on a track, which moves the thumb
+  there and drags it.
 
 ## Window buttons in full screen on macOS (2026-10-27)
 
