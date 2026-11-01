@@ -81,6 +81,30 @@ registry.register({
   ],
   scopes: ['global'],
 });
+// Autosave, as IntelliJ's System Settings: "Save files if the IDE is idle for 15 seconds", 1 to 300
+// (`GeneralSettings.SAVE_FILES_AFTER_IDLE_SEC`). On here, as Ido asked for saving after a while; off
+// by default in IntelliJ.
+registry.register({
+  id: 'system.saveWhenIdle',
+  title: 'Save files if the IDE is idle for',
+  description: 'Saved once no key has been pressed and the mouse not used for that long.',
+  page: 'system',
+  type: 'boolean',
+  default: true,
+  scopes: ['global'],
+});
+registry.register({
+  id: 'system.idleSeconds',
+  title: 'seconds',
+  page: 'system',
+  type: 'number',
+  default: 15,
+  min: 1,
+  max: 300,
+  integer: true,
+  scopes: ['global'],
+  beside: 'system.saveWhenIdle',
+});
 registry.register({
   id: 'editor.softWrap',
   title: 'Soft-wrap lines',
