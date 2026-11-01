@@ -405,6 +405,37 @@ describe('shortcuts', () => {
     await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
   });
 
+  it('takes a shortcut the user gives an action on the Keymap page, kept after a reload', async () => {
+    /** Opens Settings → Keymap on Go to File's row. */
+    const goToFileRow = async () => {
+      await page().keyboard.press(KEYS.settings);
+      await page().locator('[data-page="keymap"]').click();
+      await page().locator('.cerebro-keymap__search').fill('Go to File');
+      await page().locator('[data-command="file.goTo"]').click();
+    };
+    await goToFileRow();
+    await page().locator('.cerebro-keymap__action', { hasText: 'Add Keyboard Shortcut' }).click();
+    await page().keyboard.press('F9');
+    // Enter, once there's a stroke, is the shortcut dialog's OK.
+    await page().keyboard.press('Enter');
+    expect(
+      await page().locator('[data-command="file.goTo"] .cerebro-keymap__keys').textContent(),
+    ).toMatch(/^F9, /);
+    await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await page().reload();
+    await page().waitForSelector('.cerebro-toolbar');
+    await page().keyboard.press('F9');
+    await page().locator('.cerebro-popup').waitFor();
+    await page().keyboard.press('Escape');
+    // Back as it was.
+    await goToFileRow();
+    await page().locator('.cerebro-keymap__action', { hasText: 'Reset Shortcuts' }).click();
+    await page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await page().keyboard.press('F9');
+    await page().waitForTimeout(500);
+    expect(await count('.cerebro-popup')).toBe(0);
+  });
+
   // macOS shows the menu in the system's menu bar, not behind a ☰ button.
   it.skipIf(process.platform === 'darwin')(
     'shows no tooltip over the menu the ☰ button opens',

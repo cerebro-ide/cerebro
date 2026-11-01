@@ -60,8 +60,8 @@
   background: var(--cerebro-menu-highlight);
 }
 
-/* A command whose keys the user changed, as IntelliJ shows it. */
-.cerebro-keymap__row--modified .cerebro-keymap__label {
+/* A command whose keys the user changed, as IntelliJ shows it; selected, it reads as the others. */
+.cerebro-keymap__row--modified:not(.cerebro-keymap__row--selected) .cerebro-keymap__label {
   color: var(--cerebro-accent);
 }
 
