@@ -25,6 +25,11 @@ export interface PickerItem {
    * hidden tabs has one per tab. The list follows what its items read, so a closed one goes.
    */
   close?: { label: string; run: () => void };
+  /**
+   * An item that shows more instead of being chosen: Search Everywhere's "… more" under a kind in
+   * All, as IntelliJ's. Choosing it runs this, and the popup stays open. Drawn as the headers are.
+   */
+  more?: () => void;
 }
 
 /** Where a popup opens: below an element (a toolbar button), or at the top centre of the window. */
@@ -276,7 +281,8 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   private choose(index: number): void {
     const item = this.items.get()[index];
-    if (item) this.finish(item);
+    if (item?.more) item.more();
+    else if (item) this.finish(item);
   }
 
   private view(): Child {
@@ -327,6 +333,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
                 class={() =>
                   cls(
                     'cerebro-popup-item',
+                    item.more && 'cerebro-popup-item--more',
                     state.index === index && 'cerebro-popup-item--highlighted',
                   )
                 }

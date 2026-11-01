@@ -1358,9 +1358,13 @@ below, other than following IntelliJ, are Claude's and open to change.
     IntelliJ's keys are VS Code's New File and Open.
   - Go to Symbol's own popup is gone. Its "Name matches" header is gone too, since everything
     here is matched by name.
+- **"… more" in All** (added 2026-11-01), after a kind with more than it lists, as IntelliJ's
+  (its source: `SearchEverywhereUI`, `SEResultsListFactory`). Choosing it lists 15 more of that kind
+  (IntelliJ's `MULTIPLE_CONTRIBUTORS_ELEMENTS_LIMIT`) and keeps the popup open. A new query or
+  another tab starts over. The row is small and muted, as the group headers are. The popup's items
+  can now show more instead of being chosen (`PickerItem.more`).
 - **Not yet:**
   - "Include non-project items", the filter and "Open In Right Split" from IntelliJ's popup.
-  - "Show more" in All for a kind with more than 8 results.
   - Double Shift while the popup is open, which IntelliJ uses to include non-project items.
 
 ## Search (2026-10-26)
