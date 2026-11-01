@@ -97,6 +97,33 @@ it('lists the recent files, the latest first, and goes to the one before with En
   await expect.poll(where).toMatchObject({ tab: 'b.ts' });
 });
 
+it('shows only the files edited with Show edited only, flipped by Recent Files’ key again', async () => {
+  // The last test left b.ts shown, after a.ts: an edit to b.ts, taken back so it isn't saved.
+  await page().locator('.cm-line').first().click();
+  await page().keyboard.press('End');
+  await page().keyboard.type(' ');
+  await page().keyboard.press('ControlOrMeta+z');
+  const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+  const edited = page().getByRole('checkbox', { name: 'Show edited only' });
+  await page().keyboard.press('ControlOrMeta+e');
+  await page().locator('.cerebro-popup').waitFor();
+  expect(await labels()).toEqual(['b.ts', 'a.ts']);
+  expect(await edited.isChecked()).toBe(false);
+  await page().keyboard.press('ControlOrMeta+e');
+  await expect.poll(labels).toEqual(['b.ts']);
+  expect(await edited.isChecked()).toBe(true);
+  // Its checkbox flips it too.
+  await edited.click();
+  await expect.poll(labels).toEqual(['b.ts', 'a.ts']);
+  expect(
+    await page()
+      .locator('.cerebro-popup input[type="text"]')
+      .evaluate((e) => e === document.activeElement),
+  ).toBe(true);
+  await page().keyboard.press('Escape');
+  await page().locator('.cerebro-popup').waitFor({ state: 'detached' });
+});
+
 it('goes to a line and column, from the caret’s, and back', async () => {
   await open('a.ts');
   // Its caret is where it was left, at the definition: to the top.

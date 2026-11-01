@@ -1061,8 +1061,17 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   once CodeMirror has measured the lines: before, their heights are estimates.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
+- **Show edited only** (added 2026-11-01): a checkbox in Recent Files' header, as IntelliJ's
+  (`recent.files.checkbox.label`), lists the files edited instead, the latest edited first.
+  Recent Files' own key flips it while the popup is open, and the action Recently Changed Files
+  (no key, as IntelliJ's; found through Search Everywhere, not in a menu) opens with it on, both as
+  IntelliJ's Recent Files spec states. A file counts as edited when its text changes and is left
+  unsaved, so a file read again from disk doesn't. The
+  list is kept per environment between runs, as the other. IntelliJ waits for a pause in typing
+  before it moves a file up; here a file already first isn't moved, so typing changes nothing.
+  Claude's choice, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
+  Recent Files lacks IntelliJ's tool windows column. IntelliJ's "Always
   Select Opened File" option and Alt+F1's Select In aren't there.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)

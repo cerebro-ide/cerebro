@@ -7,6 +7,7 @@
 // it, and the user chooses between the two, or merges them. A file deleted on disk has its tabs
 // closed, its edits with them, as IntelliJ's FileEditorManagerImpl closes a deleted file's editors.
 
+import { effect, untracked } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor } from './environments.js';
 
@@ -53,6 +54,25 @@ type Loaded = EditorDocument | { error: string };
 
 const documents = new Map<string, Promise<Loaded>>();
 
+/** Told of each change to a file's text that leaves it unsaved: an edit, not a read from disk. */
+const editListeners = new Set<(path: string) => void>();
+
+/** Calls `listener` with a file's path as its text is edited (Recent Files' edited ones). */
+export function onEdited(listener: (path: string) => void): void {
+  editListeners.add(listener);
+}
+
+/** Tells the listeners of `doc`'s edits. */
+function watchEdits(path: string, doc: EditorDocument): void {
+  effect(() => {
+    doc.text.get();
+    untracked(() => {
+      if (doc.modified.get()) for (const listener of editListeners) listener(path);
+    });
+    return undefined;
+  });
+}
+
 /**
  * A file's document, read the first time it's asked for, or why it can't be read; in a browser, a
  * document of the sample text, which isn't saved.
@@ -69,7 +89,8 @@ export function documentFor(path: string, sample: () => string): Promise<Loaded>
       : Promise.resolve(new EditorDocument(sample()));
     // A file that couldn't be read is tried again the next time.
     void loaded.then((result) => {
-      if (!(result instanceof EditorDocument)) documents.delete(path);
+      if (result instanceof EditorDocument) watchEdits(path, result);
+      else documents.delete(path);
     });
     documents.set(path, loaded);
   }
