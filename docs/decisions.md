@@ -881,6 +881,14 @@ to change:
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
   text until the editor reads files.
+- **It follows the disk** (changed 2026-11-01; it showed a file added on disk only once opened
+  again, seen in QA): the folders loaded are read again when the window gets the focus and every 2
+  seconds while the tree shows, as the Commit window's list. IntelliJ synchronizes on frame
+  activation and watches files; an agent changes files while Cerebro has the focus, so the focus
+  alone isn't enough. A folder read again isn't marked loading, and keeps its rows when they're the
+  same, so the tree doesn't change under the pointer. Rejected for now: a file watcher in the
+  host, more to build and keep, while reading the folders loaded again is few files (a claim, not
+  measured). Claude's choice, open to change.
 - **Tests:** the model (with a randomized test: the selection always shows, rows only under open
   folders), the view (virtualisation, keys, mouse, real input), the host listing a real folder, and
   e2e: a throwaway repository's tree, a folder opened, a file opened. Fails without the host's

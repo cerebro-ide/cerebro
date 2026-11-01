@@ -1,8 +1,11 @@
 // The Project tool window: the active environment's files as a tree. In the desktop app they come
 // from the host, folder by folder as they're opened, those git ignores in the ignored colour, as
 // IntelliJ shows them; in a browser, from the sample paths. Each
-// environment keeps its own tree, so switching back finds its folders as they were.
+// environment keeps its own tree, so switching back finds its folders as they were. The folders
+// loaded are read again when the window gets the focus and every 2 seconds while the tree shows,
+// as the Commit window's list: an agent adds and deletes files without telling.
 
+import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { active, currentHost, hostFor } from './environments.js';
@@ -43,6 +46,9 @@ function sampleSource(paths: readonly string[]): TreeSource<FileNode> {
 }
 
 const models = new Map<string, TreeModel<FileNode>>();
+
+/** How often the tree that shows is read again, in ms: as the Commit window's list. */
+export const REFRESH_EVERY = 2000;
 
 /** An environment's tree: its worktree's files through the host, else the samples. */
 function modelFor(envId: string, samples: readonly string[]): TreeModel<FileNode> {
@@ -88,9 +94,23 @@ export function ProjectTree(props: {
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
+        const model = modelFor(env.id, props.samples);
+        if (hostFor(env.id)) {
+          const refresh = () => {
+            model.refresh().catch((error: unknown) => {
+              console.error('Reading the files failed', error);
+            });
+          };
+          const timer = setInterval(refresh, REFRESH_EVERY);
+          window.addEventListener('focus', refresh);
+          onCleanup(() => {
+            clearInterval(timer);
+            window.removeEventListener('focus', refresh);
+          });
+        }
         return (
           <TreeView
-            model={modelFor(env.id, props.samples)}
+            model={model}
             label={`${env.name} files`}
             row={(node) => [
               icon(node.kind === 'directory' ? 'folder' : 'file'),

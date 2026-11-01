@@ -139,6 +139,18 @@ it('goes to a file of the worktree, and finds new ones next time', async () => {
   await page.keyboard.press('Escape');
 });
 
+it('shows files added and deleted on disk in the project tree, without a reload', async () => {
+  const page = running.page;
+  const names = () => page.locator('.cerebro-tree-row').allTextContents();
+  // fresh.md, written by the test before, and another.
+  writeFileSync(join(repo, 'later.md'), '# later');
+  await expect
+    .poll(names, { timeout: 10_000 })
+    .toEqual(expect.arrayContaining(['fresh.md', 'later.md']));
+  rmSync(join(repo, 'later.md'));
+  await expect.poll(names, { timeout: 10_000 }).not.toContain('later.md');
+});
+
 it('goes to a symbol by name, opening its file there', async () => {
   const page = running.page;
   await page.keyboard.press(KEYS.goToSymbol);
