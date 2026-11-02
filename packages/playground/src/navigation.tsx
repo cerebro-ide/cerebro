@@ -8,6 +8,7 @@ import {
   type EditorArea,
   type Environment,
   type Position,
+  type Tab,
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
@@ -52,6 +53,9 @@ export const reveals = new ObservableMap<
   string,
   { line: number; column: number; top?: number | undefined }
 >();
+
+/** Open files whose editor is to take the focus, by path: the editor takes each request once. */
+export const focusing = new ObservableMap<string, object>();
 
 const GROUP = 'Name matches';
 
@@ -142,6 +146,12 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     // A new object each time, so revealing the same place again works.
     reveals.set(at.path, { line: at.line, column: at.column });
   };
+  /** Opens a file with its editor focused, as IntelliJ does after a file is chosen from a list. */
+  const open = (tab: Tab) => {
+    editor()?.open(tab);
+    // A new object each time, so asking again works.
+    focusing.set(tab.id, {});
+  };
   const relative = (path: string) => {
     const root = active()?.id;
     return root !== undefined && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
@@ -187,6 +197,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
 
   return {
     openAt,
+    open,
     /** Whether navigation by name works here: the app, on a real repository. */
     available: () => currentHost() !== undefined && active() !== undefined,
 

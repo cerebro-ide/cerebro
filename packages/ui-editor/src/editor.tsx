@@ -7,7 +7,14 @@
 // Content-Security-Policy blocks those (`style-src 'self'`). The theme's variables still reach it:
 // custom properties are inherited into shadow roots.
 
-import { defaultKeymap, historyField, indentWithTab, redo, undo } from '@codemirror/commands';
+import {
+  defaultKeymap,
+  historyField,
+  indentWithTab,
+  isolateHistory,
+  redo,
+  undo,
+} from '@codemirror/commands';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
@@ -51,6 +58,11 @@ export interface CodeEditorProps {
     | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
+  /**
+   * A request to take the focus, as after opening the file from a list: each object focuses the
+   * editor once it's in the page, and only once, whichever editor takes it first. Read reactively.
+   */
+  focus?: () => object | undefined;
   /**
    * Go to definition of the word at the cursor, given where it is (zero-based): its keys (Mod+B in
    * IntelliJ) or Mod+click.
@@ -119,6 +131,9 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
   (action === 'undo' ? undo : redo)(view);
   return true;
 }
+
+/** Focus requests already taken (`focus`): a later editor given one again leaves the focus. */
+const taken = new WeakSet<object>();
 
 /** A position in the editor as a line and column, zero-based. */
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
@@ -479,15 +494,19 @@ export function CodeEditor(props: CodeEditorProps): Node {
         : EditorState.fromJSON(doc.state, { extensions }, KEPT),
   });
   caret(view.state);
-  // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable; read again
-  // from disk, shown, not undoable.
+  // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable on its own,
+  // not joined with typing next to it; read again from disk, shown, not undoable.
   const following = effect(() => {
     const text = doc?.text.get();
     // The same text, or an equal one: a new editor's, made from the document's kept state.
     if (text === undefined || text === view.state.doc || text.eq(view.state.doc)) return undefined;
     const edit = doc?.lastEdit;
     if (edit?.before.eq(view.state.doc) && edit.changes.apply(edit.before).eq(text)) {
-      view.dispatch({ changes: edit.changes, userEvent: 'input.replace' });
+      view.dispatch({
+        changes: edit.changes,
+        userEvent: 'input.replace',
+        annotations: isolateHistory.of('full'),
+      });
       return undefined;
     }
     view.dispatch({
@@ -526,6 +545,17 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
     return undefined;
   });
+  const focusing = effect(() => {
+    const request = props.focus?.();
+    if (request === undefined) return undefined;
+    // After the current task, as revealing: a new editor isn't in the document yet.
+    queueMicrotask(() => {
+      if (!container.isConnected || taken.has(request)) return;
+      taken.add(request);
+      view.focus();
+    });
+    return undefined;
+  });
   // Read once CodeMirror has measured the lines scrolled into view: before, their heights are
   // estimates. Heights are from the document's top, below the content's padding.
   const scrolled = () => {
@@ -541,6 +571,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();
     revealing.dispose();
+    focusing.dispose();
     following.dispose();
     view.destroy();
   });
