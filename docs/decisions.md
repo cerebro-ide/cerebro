@@ -1091,9 +1091,17 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   list is kept per environment between runs, as the other. IntelliJ waits for a pause in typing
   before it moves a file up; here a file already first isn't moved, so typing changes nothing.
   Claude's choice, open to change.
+- **Select In** (added 2026-11-01): Navigate → Select In… (Alt+F1, IntelliJ's `SelectIn` on every
+  platform) opens IntelliJ's "Select In" popup at the caret: the places that can show the active
+  file, numbered as IntelliJ numbers them (`numberingText`: 1 to 9, 0, then letters, each its
+  mnemonic), in IntelliJ's order (its targets' weights). Two so far: Project (the Project tool
+  window, as Select Opened File) and, in the app, the system's file manager, named as IntelliJ's
+  `RevealFileAction` names it ("Reveal in Finder", "Show in Explorer", "Show in File Manager"),
+  through Electron's `shell.showItemInFolder`. Claude's choice of targets, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column. Alt+F1's Select In isn't there, nor the
-  Options menu's other choices (Open Files with Single Click and the rest).
+  Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
+  with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
+  `SelectInChangesViewTarget`, `SelectInTerminal`).
 
 ## Changing keys on the Keymap page (2026-11-01)
 

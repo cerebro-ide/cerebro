@@ -153,6 +153,26 @@ it('selects the opened file in the Project tool window, opening the folders down
   await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
 });
 
+it('selects the file in a place chosen from Select In, by its number', async () => {
+  await open('b.ts');
+  await page().keyboard.press('Alt+F1');
+  await page().locator('.cerebro-menu-heading', { hasText: 'Select In' }).waitFor();
+  // The file manager is listed, not chosen: that would open the system's.
+  const manager = { darwin: 'Reveal in Finder', win32: 'Show in Explorer' }[
+    process.platform as string
+  ];
+  expect(await page().locator('.cerebro-menu-item__label').allTextContents()).toEqual([
+    '1. Project',
+    `2. ${manager ?? 'Show in File Manager'}`,
+  ]);
+  await page().keyboard.press('1');
+  const row = page().locator(
+    `.cerebro-tool-window[data-id="project"] .cerebro-tree-row[data-key="${repo.replaceAll('\\', '/')}/b.ts"]`,
+  );
+  await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
+  expect(await page().locator('.cerebro-menu-heading').count()).toBe(0);
+});
+
 it('selects each file as its tab is chosen, with Always Select Opened File on', async () => {
   const project = page().locator('.cerebro-tool-window[data-id="project"]');
   const row = (path: string) =>

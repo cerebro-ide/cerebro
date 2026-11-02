@@ -20,6 +20,7 @@ import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
+import { installReveal } from './reveal.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
 import { WELCOME_SIZE, windowOptions } from './window.js';
 
@@ -225,6 +226,7 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   forcedScale = installDisplayScale();
   installMenu();
   installWindowColours();
+  installReveal();
   installFullScreen();
   const hosts = installHosts();
   // Empty is unset: a test or a shell can clear it without removing it.
