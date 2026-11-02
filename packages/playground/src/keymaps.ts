@@ -4,6 +4,7 @@
 // - IntelliJ: its keymap files, `$default.xml` (Windows and Linux) and `Mac OS X 10.5+.xml`, which
 //   takes `$default`'s keys with Ctrl and Meta swapped and overrides some
 //   (github.com/JetBrains/intellij-community, platform/platform-resources/src/keymaps).
+//   Commit's Ctrl+K is given where the action is declared (platform/vcs-impl, VcsActions.xml).
 // - VS Code: its keyboard shortcut sheets for Windows and macOS
 //   (code.visualstudio.com/shortcuts/keyboard-shortcuts-windows.pdf and -macos.pdf); a command they
 //   don't name keeps IntelliJ's keys. On Linux, VS Code's keymap takes its Linux sheet's few
@@ -69,6 +70,8 @@ export const INTELLIJ: KeymapPreset = {
     'changes.groupByDirectory': ['Ctrl+Alt+P'],
     'changes.expandAll': ['Ctrl+=', 'Ctrl++'],
     'changes.collapseAll': ['Ctrl+-'],
+    'changes.commit': ['Ctrl+K'],
+    'changes.amend': ['Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
@@ -116,6 +119,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'changes.groupByDirectory': ['Ctrl+P'],
     'changes.expandAll': ['Meta+=', 'Meta++'],
     'changes.collapseAll': ['Meta+-'],
+    'changes.commit': ['Meta+K'],
+    'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
     [EDITOR_ACTIONS.find]: ['Meta+F'],
@@ -235,6 +240,7 @@ export const ECLIPSE: KeymapPreset = {
     'changes.jumpToSource': ['F12', 'Ctrl+Shift+E'],
     'changes.expandAll': ['Ctrl+Shift+*'],
     'changes.collapseAll': ['Ctrl+Shift+/'],
+    'changes.commit': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F3'],
     [EDITOR_ACTIONS.findUsages]: ['Ctrl+G'],
     [EDITOR_ACTIONS.find]: [],
@@ -263,6 +269,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     'changes.rollback': ['Ctrl+Alt+Shift+Z'],
     'changes.expandAll': ['Meta+Shift+*'],
     'changes.collapseAll': ['Meta+Shift+/'],
+    'changes.commit': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F3'],
     [EDITOR_ACTIONS.findUsages]: ['Meta+Shift+G'],
     [EDITOR_ACTIONS.find]: [],
@@ -287,6 +294,7 @@ export const EMACS: KeymapPreset = {
     'edit.cut': ['Shift+Delete'],
     'edit.copy': ['Ctrl+Insert', 'Alt+C'],
     'edit.paste': ['Shift+Insert', 'Ctrl+Y'],
+    'changes.amend': [],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+Alt+G', 'Alt+.'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7', 'Alt+Shift+S'],
     [EDITOR_ACTIONS.find]: ['Ctrl+Alt+S', 'Alt+F3', 'Ctrl+S'],
@@ -313,6 +321,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     'view.tool.git': ['Meta+9'],
     'view.tool.commit': ['Meta+0'],
     'changes.groupByDirectory': ['Ctrl+P'],
+    'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
   },
 };
@@ -353,6 +362,7 @@ export const NETBEANS: KeymapPreset = {
     'view.tool.bookmarks': [],
     'view.tool.problems': ['Alt+6', 'Ctrl+6'],
     'view.tool.structure': ['Ctrl+7', 'Alt+7'],
+    'changes.commit': [],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
   },
 };
@@ -372,6 +382,7 @@ export const SUBLIME: KeymapPreset = {
     'editor.close': ['Ctrl+F4', 'Ctrl+W'],
     'edit.redo': ['Ctrl+Shift+Z', 'Ctrl+Y'],
     'edit.paste': ['Ctrl+Shift+V'],
+    'changes.commit': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
@@ -394,6 +405,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     'edit.redo': ['Meta+Y', 'Meta+Shift+Z'],
     'edit.paste': ['Meta+Shift+V'],
     'changes.jumpToSource': [],
+    'changes.commit': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F12', 'Meta+Alt+Down'],
     [EDITOR_ACTIONS.replace]: ['Meta+Alt+F'],
   },
@@ -423,6 +435,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     'view.tool.services': [],
     'view.tool.commit': [],
     'view.tool.terminal': ['Ctrl+Alt+1'],
+    'changes.commit': ['Ctrl+Alt+K'],
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
@@ -454,6 +467,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     'view.tool.services': [],
     'view.tool.commit': [],
     'view.tool.terminal': ['Ctrl+Meta+1'],
+    'changes.commit': ['Meta+Alt+Shift+K'],
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],

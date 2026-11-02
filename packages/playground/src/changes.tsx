@@ -8,11 +8,23 @@
 // A toolbar above the tree, as IntelliJ's: Refresh, Rollback, Show Diff, View Options (group by
 // directory, show ignored files), Select Opened File, Expand All and Collapse All. Opening a file
 // (double click, Enter, F4) opens the file; Ctrl/Cmd+D or the context menu opens its diff.
+//
+// Committing, as IntelliJ's Commit tool window: a checkbox on each uncommitted file, folder and
+// group says what goes in (Space flips the selected row's), then Amend, the message and Commit
+// below the tree. Ctrl/Cmd+K shows the window with the message focused; Ctrl+Enter commits.
 
 import { formatSequence } from '@cerebro-ide/commands';
 import type { Tab } from '@cerebro-ide/layout';
 import { onCleanup } from '@cerebro-ide/jsx';
-import { computed, signal, untracked } from '@cerebro-ide/reactive';
+import {
+  batch,
+  computed,
+  effect,
+  ObservableSet,
+  signal,
+  untracked,
+  type Signal,
+} from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
@@ -185,6 +197,8 @@ function tree(
 }
 
 interface Changes {
+  /** The worktree. */
+  path: string;
   model: TreeModel<Item>;
   /** Whether there's nothing to show: no changes, no turns. */
   empty: () => boolean;
@@ -192,6 +206,19 @@ interface Changes {
   refresh: (force?: boolean) => Promise<void>;
   /** The uncommitted files that are tracked: what can be rolled back. */
   tracked: () => readonly Change[];
+  /** The untracked files. */
+  unversioned: () => readonly Change[];
+  /**
+   * What goes into the next commit, as IntelliJ's: every tracked file unless taken out
+   * (`excluded`), untracked files only once put in (`included`).
+   */
+  excluded: ObservableSet<string>;
+  included: ObservableSet<string>;
+  /** The commit message being written, and whether it amends the last commit. */
+  message: Signal<string>;
+  amend: Signal<boolean>;
+  /** Amend's message, and the one it replaced: put back if Amend is turned off before an edit. */
+  amended: { before: string; message: string } | undefined;
 }
 
 const lists = new Map<string, Changes>();
@@ -266,9 +293,16 @@ function changesOf(worktree: string): Changes {
       return rows.length === 1 && first?.kind === 'group' && first.count === 0;
     });
     changes = {
+      path: worktree,
       model,
       empty: () => empty.get(),
       tracked: () => tracked,
+      unversioned: () => unversioned,
+      excluded: new ObservableSet<string>(),
+      included: new ObservableSet<string>(),
+      message: signal(''),
+      amend: signal(false),
+      amended: undefined,
       refresh: async (force = false) => {
         const ignoredToo = showIgnored.peek();
         const [readChanges, readTurns, readIgnored] = (await Promise.all([
@@ -348,6 +382,44 @@ function rollbackable(changes: Changes | undefined): Change[] {
     .map((item) => item.change);
 }
 
+/** The files a row's checkbox stands for: uncommitted ones, not a turn's or ignored ones. */
+function committable(item: Item, changes: Changes): Change[] {
+  if (item.kind === 'change') {
+    return item.turn || item.change.status === 'ignored' ? [] : [item.change];
+  }
+  if (item.kind === 'folder') return item.children.flatMap((child) => committable(child, changes));
+  if (item.kind === 'group') {
+    return item.group === 'changes'
+      ? [...changes.tracked()]
+      : item.group === 'unversioned'
+        ? [...changes.unversioned()]
+        : [];
+  }
+  return [];
+}
+
+/** Whether a file goes into the next commit. */
+function isIncluded(changes: Changes, change: Change): boolean {
+  return change.status === 'untracked'
+    ? changes.included.has(change.path)
+    : !changes.excluded.has(change.path);
+}
+
+/** Puts a row's files into the next commit, or takes them out if they're all in, as IntelliJ's. */
+function flipIncluded(changes: Changes, item: Item): void {
+  const files = committable(item, changes);
+  const include = !files.every((change) => isIncluded(changes, change));
+  batch(() => {
+    for (const { path, status } of files) {
+      if (status === 'untracked') {
+        if (include) changes.included.add(path);
+        else changes.included.delete(path);
+      } else if (include) changes.excluded.delete(path);
+      else changes.excluded.add(path);
+    }
+  });
+}
+
 /** A file to open: not one that's gone, nor a folder git ignores whole. */
 function openable(
   item: Extract<Item, { kind: 'change' }> | undefined,
@@ -366,6 +438,91 @@ export interface ChangesSetup {
   open: (tab: Tab) => void;
   /** The active editor tab's id: Select Opened File selects its file. */
   activeTab: () => string | undefined;
+  /** Shows the Commit tool window. */
+  show: () => void;
+}
+
+/** The commit message's field, if it shows. */
+const messageField = () =>
+  document.querySelector<HTMLTextAreaElement>('.playground-commit__message') ?? undefined;
+
+/** Why the last Commit didn't, as IntelliJ says it: under the message. */
+const commitError = signal('');
+/** While a commit is under way. */
+const committing = signal(false);
+
+/**
+ * Commits the files put in, with the message, as IntelliJ's Commit button: it says what's missing
+ * first. Amending needs no files: it can change only the message.
+ */
+async function commit(changes: Changes): Promise<void> {
+  if (committing.peek()) return;
+  const files = [...changes.tracked(), ...changes.unversioned()].filter((change) =>
+    isIncluded(changes, change),
+  );
+  const message = changes.message.peek();
+  const amend = changes.amend.peek();
+  const noFiles = files.length === 0 && !amend;
+  const noMessage = message.trim() === '';
+  if (noFiles || noMessage) {
+    commitError.set(
+      noFiles && noMessage
+        ? 'Select files to commit and specify commit message'
+        : noFiles
+          ? 'Select files to commit'
+          : 'Specify commit message',
+    );
+    return;
+  }
+  commitError.set('');
+  committing.set(true);
+  try {
+    await hostFor(changes.path)?.request('git.commit', {
+      path: changes.path,
+      files: files.map((change) => change.path),
+      message,
+      amend,
+    });
+    batch(() => {
+      changes.message.set('');
+      changes.amend.set(false);
+      changes.amended = undefined;
+    });
+    await changes.refresh(true);
+  } catch (error) {
+    openDialog({
+      title: 'Commit Failed',
+      content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+    });
+  } finally {
+    committing.set(false);
+  }
+}
+
+/**
+ * Turns Amend on or off, as IntelliJ's: on, the last commit's message replaces the one being
+ * written; off, that one comes back, unless the message was edited since.
+ */
+async function flipAmend(changes: Changes): Promise<void> {
+  const on = !changes.amend.peek();
+  changes.amend.set(on);
+  if (!on) {
+    const amended = changes.amended;
+    changes.amended = undefined;
+    if (amended && changes.message.peek() === amended.message) changes.message.set(amended.before);
+    return;
+  }
+  const last = (await hostFor(changes.path)?.request('git.lastMessage', {
+    path: changes.path,
+  })) as string;
+  // Turned off again meanwhile.
+  if (!changes.amend.peek()) return;
+  const before = changes.message.peek();
+  const same = (a: string, b: string) => a.replace(/\s/g, '') === b.replace(/\s/g, '');
+  if (last === '' || same(before, last)) return;
+  changes.amended = { before, message: last };
+  changes.message.set(last);
+  messageField()?.focus();
 }
 
 /** The Commit window's commands, shortcuts and menus. */
@@ -384,6 +541,27 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     setup.open({ id: item.change.path, title: item.change.path.split('/').at(-1) as string });
   };
 
+  commands.register({
+    id: 'changes.commit',
+    label: '&Commit',
+    icon: 'commit',
+    dialog: true,
+    enabled: () => active() !== undefined && currentHost() !== undefined && gitRepository.get(),
+    run: () => {
+      setup.show();
+      // Once the window has drawn, when it was hidden.
+      requestAnimationFrame(() => {
+        messageField()?.focus();
+      });
+    },
+  });
+  commands.register({
+    id: 'changes.amend',
+    label: '&Amend',
+    checked: () => current()?.amend.get() ?? false,
+    enabled: (c) => here(c) && current() !== undefined,
+    run: () => flipAmend(current() as Changes).catch(fail('Couldn’t Read the Last Commit')),
+  });
   commands.register({
     id: 'changes.refresh',
     label: '&Refresh',
@@ -470,6 +648,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   });
 
   // IntelliJ's shortcuts.
+  keymap?.bindDefault('Mod+K', 'changes.commit');
+  keymap?.bindDefault('Alt+M', 'changes.amend');
   keymap?.bindDefault('Mod+D', 'changes.showDiff');
   keymap?.bindDefault('F4', 'changes.jumpToSource');
   keymap?.bindDefault('Mod+Alt+Z', 'changes.rollback');
@@ -578,10 +758,47 @@ function turnLabel(turn: Turn): string {
 const files = (count: number) => (count === 1 ? '1 file' : `${String(count)} files`);
 
 /**
- * A row: a group's name and how many files it has; a folder's, the same; a turn's time and prompt;
- * a file's name in its status's colour, then its folder unless it's under it.
+ * A row's checkbox, for what it stands for to go into the next commit: checked when all of it
+ * does, partly when some.
  */
-function row(item: Item): Node[] {
+function Include(props: { changes: Changes; item: Item }): Node {
+  const { changes, item } = props;
+  const files = committable(item, changes);
+  const count = () => files.filter((change) => isIncluded(changes, change)).length;
+  return (
+    <input
+      type="checkbox"
+      class="playground-changes__include"
+      tabIndex={-1}
+      aria-label="Include in commit"
+      checked={() => count() === files.length}
+      indeterminate={() => count() > 0 && count() < files.length}
+      on:mousedown={(event) => {
+        // The tree keeps the keyboard.
+        event.preventDefault();
+      }}
+      on:dblclick={(event) => {
+        event.stopPropagation();
+      }}
+      on:change={() => {
+        flipIncluded(changes, item);
+      }}
+    />
+  );
+}
+
+/**
+ * A row: a group's name and how many files it has; a folder's, the same; a turn's time and prompt;
+ * a file's name in its status's colour, then its folder unless it's under it. Those that can go
+ * into a commit start with a checkbox.
+ */
+function row(changes: Changes, item: Item): Node[] {
+  const include =
+    committable(item, changes).length > 0 ? [<Include changes={changes} item={item} />] : [];
+  return [...include, ...content(item)] as Node[];
+}
+
+function content(item: Item): Node[] {
   if (item.kind === 'group') {
     return [
       <span class={`playground-changes__group playground-changes__group--${item.group}`}>
@@ -670,6 +887,79 @@ function Toolbar(props: { services: MenuServices }): Node {
   );
 }
 
+/** Below the tree, as IntelliJ's: Amend, the commit message, then Commit. */
+function CommitPanel(props: { changes: Changes; services: MenuServices }): Node {
+  const { changes } = props;
+  const mac = props.services.keymap?.platform === 'mac';
+  return (
+    <div class="playground-commit">
+      <label class="playground-commit__amend">
+        <input
+          type="checkbox"
+          checked={() => changes.amend.get()}
+          on:change={() => {
+            flipAmend(changes).catch((error: unknown) => {
+              console.error('Reading the last commit failed', error);
+            });
+          }}
+        />
+        Amend
+      </label>
+      <textarea
+        class={() =>
+          commitError.get() === ''
+            ? 'playground-commit__message'
+            : 'playground-commit__message playground-commit__message--invalid'
+        }
+        placeholder="Commit Message"
+        aria-label="Commit Message"
+        spellcheck={false}
+        ref={(field) => {
+          // Set from outside only when it differs: setting it moves the caret to the end.
+          const follow = effect(() => {
+            const message = changes.message.get();
+            if (field.value !== message) field.value = message;
+            return undefined;
+          });
+          onCleanup(() => {
+            follow.dispose();
+          });
+        }}
+        on:input={(event) => {
+          changes.message.set((event.currentTarget as HTMLTextAreaElement).value);
+          commitError.set('');
+        }}
+        on:keydown={(event) => {
+          // IntelliJ's: Ctrl+Enter, and on macOS Cmd+Enter too (CommitActionsPanel).
+          if (event.key !== 'Enter' || !(event.ctrlKey || (mac && event.metaKey))) return;
+          event.preventDefault();
+          event.stopPropagation();
+          void commit(changes);
+        }}
+      />
+      {() =>
+        commitError.get() === '' ? null : (
+          <p class="playground-commit__error" role="alert">
+            {commitError.get()}
+          </p>
+        )
+      }
+      <div class="playground-commit__buttons">
+        <button
+          type="button"
+          class="cerebro-dialog__button cerebro-dialog__button--primary"
+          disabled={() => committing.get()}
+          on:click={() => {
+            void commit(changes);
+          }}
+        >
+          Commit
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function ChangesView(props: { services: MenuServices; open: (tab: Tab) => void }): Node {
   return (
     <div
@@ -681,6 +971,17 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
         const next = event.relatedTarget as Node | null;
         if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(false);
       }}
+      on:keydown={(event) => {
+        // Space puts the selected row's files in the commit, or takes them out, as IntelliJ's.
+        if (event.key !== ' ' || !(event.target as Element).classList.contains('cerebro-tree')) {
+          return;
+        }
+        const changes = current();
+        const item = changes && selectedItem(changes);
+        if (!changes || !item) return;
+        event.preventDefault();
+        flipIncluded(changes, item);
+      }}
     >
       {() => {
         const env = active();
@@ -691,7 +992,8 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
         if (!gitRepository.get()) {
           return <p class="playground-project__empty">Not a git repository</p>;
         }
-        const { model, empty, refresh: read } = changesOf(env.id);
+        const changes = changesOf(env.id);
+        const { model, empty, refresh: read } = changes;
         const refresh = () => {
           read().catch((error: unknown) => {
             console.error('Reading the changes failed', error);
@@ -714,7 +1016,7 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
               <TreeView
                 model={model}
                 label={`${env.name} changes`}
-                row={row}
+                row={(item) => row(changes, item)}
                 onOpen={(item) => {
                   // Only files open, as IntelliJ's: the diff is Show Diff's.
                   const change = item as Extract<Item, { kind: 'change' }>;
@@ -730,6 +1032,7 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
                 }}
               />
             ),
+          <CommitPanel changes={changes} services={props.services} />,
         ];
       }}
     </div>
