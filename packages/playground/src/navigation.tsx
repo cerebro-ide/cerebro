@@ -13,6 +13,7 @@ import {
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import type { Mark, MarkerKind, Usage } from '@cerebro-ide/ui-editor';
+import { onEdited } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 
@@ -63,8 +64,18 @@ export const carets = new Map<string, Position>();
 /** Which line is at the top of each open file's editor, as it says. */
 export const tops = new Map<string, number>();
 
-/** Where each environment's Recent Files is kept between runs. */
+/** Where each environment's Recent Files is kept between runs, and its edited files. */
 const recentKey = (env: Environment) => `cerebro.recent:${env.id}`;
+const editedKey = (env: Environment) => `cerebro.recentEdited:${env.id}`;
+
+/** What was kept under `key` in an earlier run: nothing when it's unreadable. */
+function saved(key: string): unknown {
+  try {
+    return JSON.parse(localStorage.getItem(key) ?? '[]');
+  } catch {
+    return [];
+  }
+}
 
 /** Each environment's Back and Forward, following its editor area from when it opens. */
 const histories = new WeakMap<Environment, NavigationHistory>();
@@ -74,21 +85,23 @@ effect(() => {
   for (const env of workspace.open) {
     if (histories.has(env)) continue;
     const recent = new RecentTabs(env.editor);
-    try {
-      recent.restore(JSON.parse(localStorage.getItem(recentKey(env)) ?? '[]'));
-    } catch {
-      // Unreadable: it starts empty.
+    recent.restore(saved(recentKey(env)));
+    recent.restoreEdited(saved(editedKey(env)));
+    // Kept as they change, as IntelliJ keeps them.
+    for (const [key, list] of [
+      [recentKey(env), () => recent.tabs],
+      [editedKey(env), () => recent.edited],
+    ] as const) {
+      effect(() => {
+        const json = JSON.stringify(list());
+        try {
+          localStorage.setItem(key, json);
+        } catch {
+          // Storage may be full or blocked: it just isn't kept.
+        }
+        return undefined;
+      });
     }
-    // Kept as it changes, as IntelliJ keeps it.
-    effect(() => {
-      const json = JSON.stringify(recent.tabs);
-      try {
-        localStorage.setItem(recentKey(env), json);
-      } catch {
-        // Storage may be full or blocked: it just isn't kept.
-      }
-      return undefined;
-    });
     recents.set(env, recent);
     histories.set(
       env,
@@ -103,6 +116,13 @@ effect(() => {
     );
   }
   return undefined;
+});
+
+// A file edited goes first among its environment's edited files (the active one's, for a sample).
+onEdited((path) => {
+  const env = workspace.open.find((e) => path.startsWith(`${e.id}/`)) ?? active();
+  const recent = env && recents.get(env);
+  recent?.edit({ id: path, title: path.slice(path.lastIndexOf('/') + 1) });
 });
 
 /** The active environment's Recent Files. */

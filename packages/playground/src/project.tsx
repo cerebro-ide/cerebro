@@ -1,10 +1,14 @@
 // The Project tool window: the active environment's files as a tree. In the desktop app they come
 // from the host, folder by folder as they're opened, those git ignores in the ignored colour, as
 // IntelliJ shows them; in a browser, from the sample paths. Each
-// environment keeps its own tree, so switching back finds its folders as they were.
+// environment keeps its own tree, so switching back finds its folders as they were. While it shows,
+// its folders are read again as the window gets the focus and every so often while it has it, as
+// open files are, so files added or removed on disk show.
 
+import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
+import { RELOAD_EVERY } from './documents.js';
 import { active, currentHost, hostFor } from './environments.js';
 import { icon } from './icons.js';
 
@@ -88,9 +92,20 @@ export function ProjectTree(props: {
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
+        const model = modelFor(env.id, props.samples);
+        // A folder that can't be read shows why in the tree.
+        const refresh = () => void model.refresh();
+        const timer = setInterval(() => {
+          if (document.hasFocus()) refresh();
+        }, RELOAD_EVERY);
+        window.addEventListener('focus', refresh);
+        onCleanup(() => {
+          clearInterval(timer);
+          window.removeEventListener('focus', refresh);
+        });
         return (
           <TreeView
-            model={modelFor(env.id, props.samples)}
+            model={model}
             label={`${env.name} files`}
             row={(node) => [
               icon(node.kind === 'directory' ? 'folder' : 'file'),

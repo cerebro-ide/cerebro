@@ -60,7 +60,7 @@ export {
   writeTextFile,
   type Entry,
 } from './files.js';
-export { FRESH_FOR, IndexService } from './index-service.js';
+export { FRESH_FOR, IndexService, SAVE_AFTER } from './index-service.js';
 export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
 export {
   BadQuery,
@@ -90,3 +90,4 @@ export {
   type Run,
 } from './lsp.js';
 export { baseNames, markersOf, type Marker, type MarkerKind } from './markers.js';
+export { filesByRipgrep, folderFiles, notARepository } from './folder-files.js';

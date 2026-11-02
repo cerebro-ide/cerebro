@@ -127,6 +127,50 @@ it('saves a file on its own when the editor loses the focus', async () => {
     .toBe('const second = 3; // autosaved\n');
 });
 
+it('saves a file on its own after the idle time set in System Settings, or not when it’s off', async () => {
+  const system = async () => {
+    await page().keyboard.press(KEYS.settings);
+    await page().locator('[data-page="system"]').click();
+    await page().locator('[data-scope="global"]').click();
+  };
+  const ok = () => page().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+  const seconds = page().locator('[data-setting="system.idleSeconds"] input');
+  const idle = page().locator('[data-setting="system.saveWhenIdle"] input[type="checkbox"]');
+  await system();
+  // IntelliJ's default, 15 seconds; 1 here.
+  expect(await seconds.inputValue()).toBe('15');
+  await seconds.fill('1');
+  await ok();
+  try {
+    await open('second.ts');
+    await page().keyboard.type(' idle');
+    // The editor keeps the focus: saved for being idle, not for losing it.
+    await expect
+      .poll(() => disk(second), { timeout: 5_000 })
+      .toBe('const second = 3; // autosaved idle\n');
+    await system();
+    await idle.uncheck();
+    await ok();
+    await open('second.ts');
+    await page().keyboard.type('!');
+    await page().waitForTimeout(2_000);
+    expect(disk(second)).toBe('const second = 3; // autosaved idle\n');
+  } finally {
+    // As it was, for the tests after: on, 15 seconds; the edit saved.
+    await system();
+    await idle.check();
+    await seconds.fill('15');
+    await ok();
+    await page().keyboard.press('ControlOrMeta+S');
+  }
+  await expect
+    .poll(() => disk(second), { timeout: 5_000 })
+    .toBe('const second = 3; // autosaved idle!\n');
+  // The file as the tests after expect it, read again by the editor.
+  writeFileSync(second, 'const second = 3; // autosaved\n');
+  await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3; // autosaved\n');
+});
+
 it('asks about a file changed both in the editor and on disk: keep, load, or merge', async () => {
   const dialog = page().locator('.cerebro-dialog', { hasText: 'File Cache Conflict' });
   const button = (name: string) => dialog.getByRole('button', { name, exact: true });

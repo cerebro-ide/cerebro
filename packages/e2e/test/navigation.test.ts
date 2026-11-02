@@ -97,6 +97,33 @@ it('lists the recent files, the latest first, and goes to the one before with En
   await expect.poll(where).toMatchObject({ tab: 'b.ts' });
 });
 
+it('shows only the files edited with Show edited only, flipped by Recent Files’ key again', async () => {
+  // The last test left b.ts shown, after a.ts: an edit to b.ts, taken back so it isn't saved.
+  await page().locator('.cm-line').first().click();
+  await page().keyboard.press('End');
+  await page().keyboard.type(' ');
+  await page().keyboard.press('ControlOrMeta+z');
+  const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+  const edited = page().getByRole('checkbox', { name: 'Show edited only' });
+  await page().keyboard.press('ControlOrMeta+e');
+  await page().locator('.cerebro-popup').waitFor();
+  expect(await labels()).toEqual(['b.ts', 'a.ts']);
+  expect(await edited.isChecked()).toBe(false);
+  await page().keyboard.press('ControlOrMeta+e');
+  await expect.poll(labels).toEqual(['b.ts']);
+  expect(await edited.isChecked()).toBe(true);
+  // Its checkbox flips it too.
+  await edited.click();
+  await expect.poll(labels).toEqual(['b.ts', 'a.ts']);
+  expect(
+    await page()
+      .locator('.cerebro-popup input[type="text"]')
+      .evaluate((e) => e === document.activeElement),
+  ).toBe(true);
+  await page().keyboard.press('Escape');
+  await page().locator('.cerebro-popup').waitFor({ state: 'detached' });
+});
+
 it('focuses the editor of the file chosen in Go to File or Recent Files, as IntelliJ does', async () => {
   /** Whether the focus is in the shown editor's text: other tabs' editors are kept, hidden. */
   const inShownEditor = () =>
@@ -151,6 +178,26 @@ it('selects the opened file in the Project tool window, opening the folders down
   expect(await row.count()).toBe(0);
   await project.locator('[data-command="project.selectOpenedFile"]').click();
   await expect.poll(() => row.getAttribute('aria-selected')).toBe('true');
+});
+
+it('selects each file as its tab is chosen, with Always Select Opened File on', async () => {
+  const project = page().locator('.cerebro-tool-window[data-id="project"]');
+  const row = (path: string) =>
+    project.locator(`.cerebro-tree-row[data-key="${repo.replaceAll('\\', '/')}/${path}"]`);
+  const toggle = async () => {
+    await project.locator('[data-menu="project/options"]').click();
+    await page().locator('.cerebro-menu-item', { hasText: 'Always Select Opened File' }).click();
+  };
+  await toggle();
+  await open('b.ts');
+  await expect.poll(() => row('b.ts').getAttribute('aria-selected')).toBe('true');
+  await page().locator('.cerebro-editor-tab', { hasText: 'c.ts' }).click();
+  await expect.poll(() => row('src/deep/c.ts').getAttribute('aria-selected')).toBe('true');
+  // Off again: the tree stays where it is.
+  await toggle();
+  await page().locator('.cerebro-editor-tab', { hasText: 'b.ts' }).click();
+  await page().waitForTimeout(500);
+  expect(await row('src/deep/c.ts').getAttribute('aria-selected')).toBe('true');
 });
 
 it('goes back to a place as it was scrolled, not just to its caret', async () => {

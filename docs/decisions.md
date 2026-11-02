@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
 - [Window buttons in full screen on macOS (2026-10-27)](#window-buttons-in-full-screen-on-macos-2026-10-27): real ones kept in the window, as IntelliJ's
@@ -795,7 +796,15 @@ Claude's, open to change:
   between batches so its other requests aren't held up. The status bar shows "Indexing… n / total"
   with a bar, then "Indexed". (The status bar's contents are still Ido's to settle; this replaces
   its sample background task in the app.)
-- **Not yet:** persisting the index to disk (it's rebuilt per host run).
+- **Kept on disk between runs** (added 2026-11-01): the parsed blobs are saved as JSON in the app's
+  data folder (`index/`, a file per repository, named by a hash of its path), a second after an
+  indexing that parsed something, and loaded when the host starts. Blobs are keyed by content, so
+  a saved one stays right for as long as it's parsed the same way: the file names the parser
+  (a hash of the grammars, the queries and web-tree-sitter's version), and one from another parser
+  is ignored. Written beside its place and moved over it, so a crash leaves the old one whole.
+  Measured on ag-charts (5,231 files): the file is 14.4 MB; the first search after starting took
+  11.8 s without it and 0.62 s with it. Claude's choice of format and place, open to change; blobs
+  no worktree has any more aren't dropped yet.
 - **Measured in the app (e2e):** the tree-sitter WASM loads in the host on Electron's Node; Go to
   Symbol, Ctrl+click and Alt+F7 work on a throwaway repository, and fail without the index.
 
@@ -881,6 +890,14 @@ to change:
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
   text until the editor reads files.
+- **Files added or removed on disk show** (added 2026-11-01; a gap seen in QA). While the tree is
+  shown, its folders that were loaded are read again when the window gets the focus, and every 2 s
+  while it has it, the same timing as open files. IntelliJ refreshes on the window's activation too,
+  and otherwise from a file watcher. Polling is Claude's choice, open to change: a watcher would
+  need a dependency and per-platform limits. A folder that's read again keeps showing what it held,
+  with no "Loading…" flashing by, and keeps its list when the nodes read are the same, field by
+  field, so its rows aren't drawn again every 2 s, under the pointer. The Commit tool window's tree, also read every 2 s, marked its
+  folders as loading on each read too, by its code; this wasn't seen on screen.
 - **Tests:** the model (with a randomized test: the selection always shows, rows only under open
   folders), the view (virtualisation, keys, mouse, real input), the host listing a real folder, and
   e2e: a throwaway repository's tree, a folder opened, a file opened. Fails without the host's
@@ -1055,6 +1072,10 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   windows take header buttons through `ShellLayout`'s `actions`). It shows the Project tool window
   and selects the active file, opening the folders down to it (`TreeModel.reveal` in `ui-tree`);
   the focus stays in the editor.
+- **Always Select Opened File** (added 2026-11-01), as IntelliJ's option of that name: in the
+  Project tool window's Options (⋮) menu, under Behavior. While it's on, choosing a tab selects its
+  file in the tree, as the button does, without showing the tool window. Off by default, as in
+  IntelliJ; kept in the browser's storage.
 - **Back and Forward show a place as it was scrolled** (changed 2026-10-27, Ido's polish pick): a
   place keeps the line at the top of its editor, and going back puts that line at the top again,
   rather than centring the caret. The editor reports the line as it scrolls (`onScroll`), read
@@ -1067,9 +1088,52 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   the focus on the page. The editor takes a focus request (`focus` on `CodeEditor`) once: another
   editor of the file made later doesn't take it again. Opening from the Project tool window or the Commit tool window
   doesn't move the focus yet.
+- **Show edited only** (added 2026-11-01): a checkbox in Recent Files' header, as IntelliJ's
+  (`recent.files.checkbox.label`), lists the files edited instead, the latest edited first.
+  Recent Files' own key flips it while the popup is open, and the action Recently Changed Files
+  (no key, as IntelliJ's; found through Search Everywhere, not in a menu) opens with it on, both as
+  IntelliJ's Recent Files spec states. A file counts as edited when its text changes and is left
+  unsaved, so a file read again from disk doesn't. The
+  list is kept per environment between runs, as the other. IntelliJ waits for a pause in typing
+  before it moves a file up; here a file already first isn't moved, so typing changes nothing.
+  Claude's choice, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
-  Select Opened File" option and Alt+F1's Select In aren't there.
+  Recent Files lacks IntelliJ's tool windows column. Alt+F1's Select In isn't there, nor the
+  Options menu's other choices (Open Files with Single Click and the rest).
+
+## Changing keys on the Keymap page (2026-11-01)
+
+The rest of step 1 of the backlog's "Keymaps" (Ido: "not only should keymapping be configurable"):
+the user changes any action's shortcuts in Settings → Keymap, as in IntelliJ's page. The choices
+below, other than following IntelliJ, are Claude's and open to change.
+
+- **Under the keymap's dropdown, every command and its shortcuts,** as IntelliJ's tree: under Main
+  Menu, the main menu's menus as they're nested; the rest under Other, by name. A search field
+  keeps the commands whose name or shortcut matches. A command the user changed shows in the
+  accent colour, as IntelliJ shows it.
+- **What can be done to the selected command shows under the list as buttons:** Add Keyboard
+  Shortcut…, Remove each of its shortcuts, Reset Shortcuts. IntelliJ offers the same in a popup on
+  the action; buttons show what's possible without knowing to right-click. Enter or a double click
+  adds a shortcut, as in IntelliJ.
+- **The Keyboard Shortcut dialog is IntelliJ's** (its texts from `KeyMapBundle.properties`): a
+  field that takes the first stroke as it's pressed, a "Second stroke:" checkbox enabling a second
+  field, and "Already assigned to:" listing the commands it clashes with. As IntelliJ's
+  `ShortcutTextField`, the field takes every key but Tab, and Escape and Enter on their own (Enter
+  once it has a stroke), which go to the dialog. A clash is the same keys, or a sequence that starts
+  the other.
+- **OK on a clash asks, as IntelliJ:** "This shortcut is already assigned to other actions. Do you
+  want to remove the other assignments?" with Remove, Keep and Cancel.
+- **Changes are a draft until Apply or OK,** as the rest of Settings: the Settings dialog gained
+  pages' own views (`pages` in `openSettings`), each with its own draft, applied with the dialog's.
+- **Each ready-made keymap keeps its own changes.** IntelliJ makes a named copy of a keymap the user
+  changes; here, choosing another keymap shows that one's keys with its own changes, and the page
+  follows the dropdown before it's applied. The changes are saved in the browser's storage, as the
+  settings are (`cerebro.keymap.user`).
+- **In packages:** `@cerebro-ide/ui-keymap` has the editor, its draft (`KeymapDraft`) and the
+  dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
+- **Not yet:** IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
+  mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
+  Shortcut (the search field matches shortcuts as text).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 
@@ -1098,8 +1162,11 @@ too"), with arrows both ways (his choice).
   numbers (measured before); where in it is a claim.
 - **A click goes there;** several places offer a list to choose from. Its titles ("Implementations
   of", "Super methods of") are a claim, not measured.
-- **Not yet:** shell scripts (bash-language-server offers neither request, measured), and a
-  marker's tooltip naming where it goes (IntelliJ's "Implements method in Shape").
+- **Its tooltip names where it goes** (added 2026-11-01), after IntelliJ's "Implements method in
+  Shape": "Implements area in Shape", "area is implemented in Circle, Square". The types are the
+  bases' names going up, and going down the type each target is, or is a member of, from its file's
+  symbols. The words are a claim, not measured.
+- **Not yet:** shell scripts (bash-language-server offers neither request, measured).
 - **Rejected:** matching by name across the project, as the index does: it can't tell which `run`
   is meant, which is why the servers are asked.
 
@@ -1127,8 +1194,22 @@ colour and underlined.
   name match in the index when no server answers. In `CTRL_CLICKABLE`'s colour, underlined:
   `#548af7` dark, `#006dcc` light. Only while the pointer is over the word, not beside it at its
   line's end. Pressing Ctrl with the pointer still shows it too.
-- **Not yet:** the usages' marks on the scrollbar. (IntelliJ's gutter icons came next: "Gutter
-  markers".)
+- **Their marks on the scrollbar** (added 2026-11-01), as IntelliJ's error stripe: one per usage,
+  over the scrollbar's band, written apart from read, always shown (not only with the thumb). From
+  IntelliJ's source (`EditorMarkupModelImpl`): where the usage is in the whole text, scaled to the
+  scroll area's height when the text is taller than it, else beside its line; 2px high
+  (`ERROR_STRIPE_MARK_MIN_HEIGHT`'s default). Colours from the same attributes'
+  `ERROR_STRIPE_COLOR`: Islands Dark `#5b786a` and `#ba6387`, Light `#d0a1ff` and `#f0a8d2`.
+  IntelliJ's stripe is 14px beside its thumb. Cerebro's thumb is drawn over the content, so the
+  marks sit in the thumb's band (10px, 2px from the edge), under it. That's a claim, open to
+  change.
+- **Clicking a mark puts the caret on its usage** (added 2026-11-01), as clicking IntelliJ's error
+  stripe goes to its mark. A mark takes the click 2px above and below it too, since it's 2px high
+  (a claim; IntelliJ's own reach wasn't measured). The scrollbar's track is drawn over the marks,
+  so `ui-scrollbar` gives a press on a track to what's under it marked `data-scrollbar-through`;
+  over the thumb, a press drags it.
+- **Not yet:** a mark's tooltip, as IntelliJ's.
+  (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)
 
@@ -1173,7 +1254,11 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
 - **Each area's thumbs are in a layer of their own** (2026-10-28), added to the page when the area
   gets them. Before, all were in one layer, moved to the end of the page whenever an area got
   thumbs: a thumb fading out under a popup then came over it.
-- **Not yet:** the macOS widening; holding the press on a track doesn't repeat it (Swing's does: a claim, not checked).
+- **A press held on a track goes on paging** (added 2026-11-01), as IntelliJ's `DefaultScrollBarUI`
+  does (its source): after 300 ms, then every 60 ms, until the thumb reaches the pointer or the area
+  its end. Moving the held pointer past the thumb again starts it again after the pause.
+- **Not yet:** the macOS widening; IntelliJ's middle-button press on a track, which moves the thumb
+  there and drags it.
 
 ## Window buttons in full screen on macOS (2026-10-27)
 
@@ -1270,9 +1355,13 @@ in the Terminal tool window, as tabs, with a + button.
   otherwise.
 - **They look like IntelliJ's Terminal tabs** (Ido's screenshot, 2026-10-26): pills like the editor's,
   the active one outlined, a close button on every tab.
+- **A tab's context menu has Rename Session and Close Tab** (added 2026-11-01). Rename Session
+  asks for the name as IntelliJ's does ("Session name:", its `TerminalBundle` text), and the name
+  is kept with the tabs. Closing a tab drops its name: a new tab with its number is "Local (n)"
+  again. IntelliJ's tab menu has more (Close Other Tabs, Move to Editor); left out.
 - These are Claude's choices, open to change.
 - **Not yet:** several Claude sessions (Ido: to design later); IntelliJ's dropdown for choosing a
-  shell; renaming a tab.
+  shell.
 
 ## Islands Dark and Islands Light (2026-10-27)
 
@@ -1323,12 +1412,16 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
 - **The editor's own actions follow the keymap:** go to definition, find usages, Find and Replace
   run in CodeMirror, which now takes their keys as a prop (`keys`), read reactively. In VS Code's
   keymaps they are F12, Shift+F12, Ctrl+F (Cmd+F) and Ctrl+H (Cmd+Alt+F).
+- **VS Code's Linux keys on Linux** (added 2026-11-01): the VS Code keymap is for Windows and
+  Linux, and on Linux it takes where VS Code's Linux sheet (`keyboard-shortcuts-linux.pdf`) differs
+  from its Windows one, for Cerebro's commands. Go Back is Ctrl+Alt+- and Go Forward Ctrl+Shift+-,
+  not Alt+Left and Alt+Right. Close Editor is Ctrl+W only, without Ctrl+F4. Save All is Ctrl+S only,
+  without Ctrl+K S, which that sheet doesn't list.
 - **Not yet:**
   - the user changing a command's keys in the Keymap page (the rest of the backlog entry), and
     IntelliJ's other keymaps (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio);
   - CodeMirror's text editing keys (moving by word, duplicating a line) follow CodeMirror, not the
     keymap;
-  - VS Code's Linux differences (Go Back is Ctrl+Alt+-, its sheet says);
   - punctuation with Shift is named by the character it types (Ctrl+Shift+- arrives as
     Ctrl+Shift+_), so VS Code's macOS Go Forward is written for a US layout.
 
@@ -1364,9 +1457,13 @@ below, other than following IntelliJ, are Claude's and open to change.
     IntelliJ's keys are VS Code's New File and Open.
   - Go to Symbol's own popup is gone. Its "Name matches" header is gone too, since everything
     here is matched by name.
+- **"… more" in All** (added 2026-11-01), after a kind with more than it lists, as IntelliJ's
+  (its source: `SearchEverywhereUI`, `SEResultsListFactory`). Choosing it lists 15 more of that kind
+  (IntelliJ's `MULTIPLE_CONTRIBUTORS_ELEMENTS_LIMIT`) and keeps the popup open. A new query or
+  another tab starts over. The row is small and muted, as the group headers are. The popup's items
+  can now show more instead of being chosen (`PickerItem.more`).
 - **Not yet:**
   - "Include non-project items", the filter and "Open In Right Split" from IntelliJ's popup.
-  - "Show more" in All for a kind with more than 8 results.
   - Double Shift while the popup is open, which IntelliJ uses to include non-project items.
 
 ## Search (2026-10-26)
@@ -1432,8 +1529,19 @@ after IntelliJ, open to change.
   - Double click or Enter on a line opens it there.
   - It shows the active worktree's last search: a new one replaces it. IntelliJ keeps each in a
     tab.
+- **Preserve case** (added 2026-11-01): a toggle inside the Replace field, in the editor's bar and
+  in Replace in Files, with IntelliJ's icon and its mnemonic, Alt+E. Each replacement takes the case
+  of the text it replaces, word by word: a port of IntelliJ's `PreserveCaseUtil.applyCase` (its
+  default, registry `ide.find.word.based.preserve.case`), passing IntelliJ's own test cases. With
+  Regex, the case applies to what the expression gave, as IntelliJ's. In the editor, CodeMirror's
+  Replace still replaces, and a transaction filter changes the case of what it inserts (a
+  replacement whose length the case would change, `ß` to `SS`, is left as typed).
+  - Alt+E is also the Edit menu's mnemonic, and the menu bar took it first. Now an element claims
+    the letters it handles with Alt (`data-alt-keys`: the editor's bar and Find in Files' popup), and
+    the menu bar leaves those to it, as Swing gives the focused component its keys before the menu
+    bar's mnemonics.
 - **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
-  options; IntelliJ's Preserve Case; Replace All undone as one step across files.
+  options; Replace All undone as one step across files.
 
 ## Editing and saving (2026-10-26)
 
@@ -1505,8 +1613,12 @@ choices below are Claude's, after IntelliJ, open to change.
   - In a terminal, Cut, Undo and Redo are disabled (2026-10-28): its text is the shell's, so
     nothing is cut from it or undone; Paste stays, as typing does. Claude's choice, open to change.
 - **In a browser,** the samples can be edited, and aren't saved.
-- **Not yet:** the idle time isn't a setting; Undo's names in a text field (only the editor's are
-  known).
+- **The idle save is a setting** (added 2026-11-01), in Settings → System Settings, as IntelliJ's
+  "Save files if the IDE is idle for 15 seconds" (`GeneralSettingsConfigurable.kt`). It's on by
+  default (Ido asked for saving after a while; IntelliJ's is off), with the seconds 1 to 300 and 15
+  by default (`GeneralSettings.SAVE_FILES_AFTER_IDLE_SEC`). The seconds are on the checkbox's
+  row, after it, as Sync with OS is on the Theme's. A change counts from the next key or move.
+- **Not yet:** Undo's names in a text field (only the editor's are known).
 
 ## Opening a project (2026-10-26)
 
@@ -1552,8 +1664,12 @@ The first part of "A basic IDE before git and agent management": any folder, ope
 - **The samples stay only in a browser:** a project's window shows its own files, with no sample
   tabs. The layout is saved per project. The e2e tests that used the samples now run on a throwaway
   repository with two worktrees.
-- **Not yet:** Go to File and the index in a folder without git (they read git's file list; with
-  ripgrep, in the search step); the macOS menu bar with several windows (it's the menu of
+- **Go to File and the index in a folder without git** (changed 2026-11-01; they read git's file
+  list, and had nothing there): the folder's files are ripgrep's list (`rg --files
+  --no-require-git --hidden`, which respects `.gitignore` files and skips `.git`), and the index
+  hashes them with `git hash-object`, which works outside a repository (measured). Git's list
+  stays inside one: it knows what's tracked. Claude's choice, open to change.
+- **Not yet:** the macOS menu bar with several windows (it's the menu of
   the window that last sent one, not of the focused one).
 
 ## A basic IDE before git and agent management (2026-10-26)

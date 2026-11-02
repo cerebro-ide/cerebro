@@ -31,6 +31,8 @@ export interface ListedTab {
   active: boolean;
   select: () => void;
   close?: () => void;
+  /** Right-click on the tab: its context menu (IntelliJ's terminal tab has Rename Session). */
+  contextMenu?: (event: MouseEvent) => void;
 }
 
 /** How much of a cut tab shows, at least, past the edge it's scrolled to: a hint there are more. */
