@@ -1,5 +1,6 @@
 export {
   addWorktree,
+  commit,
   committedText,
   git,
   listChanges,
@@ -8,6 +9,7 @@ export {
   listIgnored,
   listFiles,
   listWorktrees,
+  lastMessage,
   parseNameStatus,
   parseStatus,
   parseWorktrees,

@@ -186,6 +186,9 @@ await setupProjects(services.commands, services.menus, closeActiveProject);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
+  show: () => {
+    layout.toolWindows.show('commit');
+  },
 });
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).

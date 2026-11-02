@@ -62,7 +62,8 @@ body,
   height: 100%;
 }
 
-.playground-changes > .cerebro-tree {
+.playground-changes > .cerebro-tree,
+.playground-changes > .playground-project__empty {
   flex: auto;
   min-height: 0;
 }
@@ -569,4 +570,59 @@ body,
 
 .playground-occurrences__match {
   font-weight: 600;
+}
+
+/* Below the Commit tool window's tree, as IntelliJ's: Amend, the message, then Commit. */
+.playground-commit {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px 8px;
+  border-top: 1px solid var(--cerebro-separator);
+}
+
+.playground-commit__amend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playground-commit__message {
+  height: 96px;
+  padding: 6px 8px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  resize: none;
+  user-select: text;
+}
+
+.playground-commit__message:focus {
+  outline: 2px solid var(--cerebro-accent);
+  outline-offset: -1px;
+}
+
+.playground-commit__message--invalid,
+.playground-commit__message--invalid:focus {
+  border-color: var(--cerebro-error);
+  outline-color: var(--cerebro-error);
+}
+
+.playground-commit__error {
+  margin: 0;
+  color: var(--cerebro-error);
+}
+
+.playground-commit__buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* A row's checkbox, for the next commit. */
+.playground-changes__include {
+  flex: none;
+  margin: 0 4px 0 0;
 }

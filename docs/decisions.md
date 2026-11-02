@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
@@ -1112,6 +1113,43 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
+## Committing from the Commit tool window (2026-11-02)
+
+The first item after the basic IDE (decision "A basic IDE before git and agent management"):
+committing from the Commit tool window, as IntelliJ's non-modal commit does.
+
+- **What goes in, by checkboxes** on each uncommitted file, folder and group: tracked files are in
+  until taken out, untracked ones out until put in; a folder or group is checked when all its files
+  are in, partly when some. Clicking a checkbox, or Space on the selected row, puts its files in, or
+  takes them out when they're all in. A turn's files and ignored files have none. Which files are in
+  is kept per worktree while the app runs, not between runs (Claude's choice, open to change).
+- **Below the tree:** Amend, the message (a plain text field, "Commit Message" as its placeholder),
+  then Commit. The order is a claim about IntelliJ's, from memory. Commit and Push, the commit
+  options (author, sign-off), the message's history and commit checks are later.
+- **Commit** says what's missing first, in IntelliJ's words (its `VcsBundle.properties`): "Select
+  files to commit", "Specify commit message", or both. Amending needs no files, to change only the
+  message. After it, the message is cleared and the list read again. A failure (a hook refusing, no
+  author set) shows git's message in a dialog.
+- **How it commits, as IntelliJ:** its `GitCheckinEnvironment` stages the files to commit, commits
+  the index, and puts back what else was staged. `git commit --only -- <paths>` does the same in one
+  step: measured, a file staged and changed again is committed as it is on disk, deletions (staged
+  or not) and a rename's both paths go in, and other staged files stay staged. `--only` refuses a
+  path git doesn't know (measured), so untracked files are added first, and unstaged again if the
+  commit fails. Paths are literal (`GIT_LITERAL_PATHSPECS`), so a file named `*.ts` is just that.
+  The message goes on git's input (`--file=-`). Amending with no paths and `--only` leaves staged
+  files out of it (measured).
+- **Amend, as IntelliJ's** (`AmendCommitHandlerImpl`): turned on, the last commit's message replaces
+  the one being written, unless they differ only in white space; turned off, the one written before
+  comes back, unless the message was edited since.
+- **Shortcuts, as IntelliJ's:** Commit (Ctrl+K, Cmd+K on macOS; IntelliJ declares it in
+  `VcsActions.xml`, not in its keymap files) shows the window and focuses the message. Ctrl+Enter
+  commits from the message, and Cmd+Enter too on macOS (`CommitActionsPanel`). Amend is Alt+M
+  (Ctrl+Alt+M on macOS and in IntelliJ IDEA Classic), only while the Commit window has the keyboard.
+  The other keymaps follow IntelliJ's files: Visual Studio's Commit is Ctrl+Alt+K (Cmd+Alt+Shift+K
+  on macOS); Eclipse, NetBeans and Sublime Text have none, nor has Emacs an Amend.
+- **Not yet:** IntelliJ's "N files committed" notification (there are no notifications yet), Commit
+  and Push, partial commits (lines or chunks), changelists, and keeping the message between runs.
+
 ## Changing keys on the Keymap page (2026-11-01)
 
 The rest of step 1 of the backlog's "Keymaps" (Ido: "not only should keymapping be configurable"):
@@ -1838,8 +1876,9 @@ The POC's second step: the worktree's changed files, each opening its diff in an
   shadow root. Diff colours and the status colours are theme tokens, not measured.
 - **A diff tab** is the file's path marked `diff:`; it reads both sides through the host when it
   shows (`git.diff`), so it's current each time it's switched to.
-- **Not done:** staging, committing, and refreshing a diff while it shows. Reverting came with the
-  toolbar (see "The Commit tool window's toolbar").
+- **Not done:** staging, and refreshing a diff while it shows. Reverting came with the toolbar (see
+  "The Commit tool window's toolbar"); committing later (see "Committing from the Commit tool
+  window", 2026-11-02).
 - **Changed 2026-10-26:** opening a file opens the file, not its diff, as IntelliJ's does (Ido);
   Show Diff opens the diff. See "The Commit tool window's toolbar".
 

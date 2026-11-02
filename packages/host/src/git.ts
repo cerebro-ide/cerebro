@@ -237,6 +237,51 @@ export async function rollback(
 }
 
 /**
+ * Commits the changes named, as they are in the worktree, and nothing else staged: what else the
+ * user staged stays staged. As IntelliJ's: it stages the files to commit, commits, and puts back
+ * what was staged besides (GitCheckinEnvironment). `git commit --only` does that in one step, given
+ * the paths (a renamed file's both); an untracked file is added first, since `--only` takes only
+ * paths git knows (measured). With `amend`, the last commit is replaced; with no changes too, to
+ * change only its message.
+ */
+export async function commit(
+  worktree: string,
+  changes: readonly Change[],
+  message: string,
+  amend: boolean,
+  run: Git = git,
+): Promise<void> {
+  // Paths as they are, not patterns: a file named `*.ts` is just that file.
+  const literal = { GIT_LITERAL_PATHSPECS: '1' };
+  const untracked = changes.filter((c) => c.status === 'untracked').map((c) => c.path);
+  if (untracked.length > 0) await run(worktree, ['add', '--', ...untracked], literal);
+  const paths = changes.flatMap((c) => (c.from === undefined ? [c.path] : [c.from, c.path]));
+  try {
+    await run(
+      worktree,
+      ['commit', '--only', '--file=-', ...(amend ? ['--amend'] : []), '--', ...paths],
+      literal,
+      message,
+    );
+  } catch (error) {
+    // Not committed (a hook refused, say): what was untracked is again.
+    if (untracked.length > 0) {
+      await run(worktree, ['rm', '--cached', '--quiet', '--', ...untracked], literal);
+    }
+    throw error;
+  }
+}
+
+/** The last commit's whole message, for amending it; empty if there's no commit yet. */
+export async function lastMessage(worktree: string, run: Git = git): Promise<string> {
+  try {
+    return (await run(worktree, ['log', '-1', '--format=%B'])).trimEnd();
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Reads `git diff --name-status -z`: a status letter (with a similarity score for a rename or a
  * copy), then the path, or the path before and after.
  */
