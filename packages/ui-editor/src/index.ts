@@ -7,7 +7,13 @@ export {
 } from './editor.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
-export { DiffEditor, type DiffEditorProps } from './diff.js';
+export {
+  DiffEditor,
+  diffSource,
+  transferLine,
+  type DiffEditorProps,
+  type LineRange,
+} from './diff.js';
 export { EditorDocument } from './document.js';
 export { formatLineColumn, parseLineColumn } from './line.js';
 export { MARKS_AFTER, type AskMarks, type Mark, type MarkerKind } from './markers.js';

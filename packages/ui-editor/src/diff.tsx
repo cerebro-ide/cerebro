@@ -2,10 +2,11 @@
 // current one on the right, changed lines marked and unchanged ones aligned. CodeMirror's merge
 // view, read-only, in the code editor's look and in a shadow root for the same reason (editor.tsx).
 // To merge, the right side can be edited, with an arrow by each change that takes the left's.
+// Jump to Source asks `diffSource` where the caret is in the file as it is now (the right side's).
 
-import { MergeView } from '@codemirror/merge';
+import { type Chunk, MergeView } from '@codemirror/merge';
 import { syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState, type Extension } from '@codemirror/state';
+import { Compartment, EditorState, type Extension, type Text } from '@codemirror/state';
 import { EditorView, lineNumbers } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
@@ -37,6 +38,66 @@ const diffTheme = EditorView.theme({
   '&.cm-merge-a .cm-changedLineGutter': { background: variable('diff-removed-text') },
   '&.cm-merge-b .cm-changedLineGutter': { background: variable('diff-added-text') },
 });
+
+/** A changed block's lines on the left (`start1` to `end1`) and right, zero-based, ends excluded. */
+export interface LineRange {
+  start1: number;
+  end1: number;
+  start2: number;
+  end2: number;
+}
+
+/** The merge view's changes as lines: each covers whole lines, ending where the next line starts. */
+function lineRanges(chunks: readonly Chunk[], a: Text, b: Text): LineRange[] {
+  const lines = (doc: Text, from: number, to: number) => {
+    const start = doc.lineAt(from).number - 1;
+    if (to === from) return [start, start] as const;
+    return [start, to > doc.length ? doc.lines : doc.lineAt(to).number - 1] as const;
+  };
+  return chunks.map((chunk) => {
+    const [start1, end1] = lines(a, chunk.fromA, chunk.toA);
+    const [start2, end2] = lines(b, chunk.fromB, chunk.toB);
+    return { start1, end1, start2, end2 };
+  });
+}
+
+/**
+ * A left line's line on the right, as IntelliJ's diff carries a position across
+ * (`BaseSyncScrollable.transferLine`): after a change, shifted by it; in one, as far into the
+ * right's lines, at most to their end.
+ */
+export function transferLine(line: number, ranges: readonly LineRange[]): number {
+  const range = ranges.findLast((r) => r.start1 <= line);
+  if (!range) return line;
+  if (range.start1 === line) return range.start2;
+  if (range.end1 <= line) return line - range.end1 + range.end2;
+  return Math.min(range.start2 + (line - range.start1), range.end2);
+}
+
+/** The diffs that show, by their element: for `diffSource`. */
+const diffs = new WeakMap<Element, { view: MergeView; side: () => 'a' | 'b' }>();
+
+/**
+ * Where Jump to Source goes from the diff `element` is in (the focused one, say): the caret's line
+ * and column, zero-based, in the file as it is now. From the left side, the last committed text,
+ * its line there, as IntelliJ's. Undefined outside a diff.
+ */
+export function diffSource(element: Element): { line: number; column: number } | undefined {
+  const container = element.closest('.cerebro-editor-diff');
+  const diff = container ? diffs.get(container) : undefined;
+  if (!diff) return undefined;
+  const { view } = diff;
+  const side = diff.side() === 'a' ? view.a : view.b;
+  const head = side.state.selection.main.head;
+  const line = side.state.doc.lineAt(head);
+  const at = { line: line.number - 1, column: head - line.from };
+  if (side === view.b) return at;
+  const ranges = lineRanges(view.chunks, view.a.state.doc, view.b.state.doc);
+  return {
+    line: Math.min(transferLine(at.line, ranges), view.b.state.doc.lines - 1),
+    column: at.column,
+  };
+}
 
 /** A diff of one file: read-only, or editable on the right to merge. */
 export function DiffEditor(props: DiffEditorProps): Node {
@@ -81,6 +142,15 @@ export function DiffEditor(props: DiffEditorProps): Node {
   // the page's Content-Security-Policy allows.
   view.dom.style.height = '100%';
   view.dom.style.overflow = 'auto';
+  // The side last focused is the current one, as IntelliJ's: the right one to start with.
+  let current: 'a' | 'b' = 'b';
+  view.a.contentDOM.addEventListener('focus', () => {
+    current = 'a';
+  });
+  view.b.contentDOM.addEventListener('focus', () => {
+    current = 'b';
+  });
+  diffs.set(container, { view, side: () => current });
   const watch = effect(() => {
     const settings = configure();
     view.a.dispatch({ effects: sides[0].reconfigure(settings) });

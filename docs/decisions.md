@@ -62,7 +62,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
 - [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn
 - [Agent status and resuming (2026-10-26)](#agent-status-and-resuming-2026-10-26): from Claude Code's hooks; sessions resumed
-- [Changes and diffs (2026-10-26)](#changes-and-diffs-2026-10-26): the Commit tool window, side-by-side diffs
+- [Changes and diffs (2026-10-26)](#changes-and-diffs-2026-10-26): the Commit tool window, side-by-side diffs; F4 from a diff to the code
 - [Terminals and the Claude tool window (2026-10-26)](#terminals-and-the-claude-tool-window-2026-10-26): xterm's headless core, Cerebro's renderer
 - [The look: WebStorm's Islands theme (2026-10-26)](#the-look-webstorms-islands-theme-2026-10-26): matched to WebStorm, pixel by pixel
 - [CI: quick, and few minutes (2026-10-26)](#ci-quick-and-few-minutes-2026-10-26): one Linux job first, then macOS and Windows
@@ -1876,6 +1876,16 @@ The POC's second step: the worktree's changed files, each opening its diff in an
   shadow root. Diff colours and the status colours are theme tokens, not measured.
 - **A diff tab** is the file's path marked `diff:`; it reads both sides through the host when it
   shows (`git.diff`), so it's current each time it's switched to.
+- **From a diff to the code** (added 2026-11-02, the next stage's second item): Jump to Source (F4,
+  or Cmd+Down on macOS, as IntelliJ's) in a diff opens the file where the caret is, as IntelliJ's
+  diff does (`TwosideTextDiffViewer.getNavigatable`): from the right side, at the caret; from the
+  left, which is no file, at the line it corresponds to on the right, carried across the changes as
+  IntelliJ's `BaseSyncScrollable.transferLine` does (a line after a change moves by the lines the
+  change gained; one in a change goes as far into the right's lines, at most to their end; a line
+  just after lines added goes to the first of them, as IntelliJ's). The side last focused is the
+  current one, the right to start with. A deleted file's diff goes nowhere. A turn's diff goes to the
+  file as it is now, at the snapshot's line: it may have changed since (a claim that this is what
+  IntelliJ's history diffs do).
 - **Not done:** staging, and refreshing a diff while it shows. Reverting came with the toolbar (see
   "The Commit tool window's toolbar"); committing later (see "Committing from the Commit tool
   window", 2026-11-02).
