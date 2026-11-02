@@ -37,3 +37,7 @@ History keeps each file's versions, labelled by what changed them, to compare an
 - **The Python e2e test's go to definition sometimes fails on Windows in CI** (#78 twice, #82 once):
   Ctrl+B never reaches lib.py in 30 s, while the host, asked directly then, answers the definition
   in 1 ms. The test now also prints where the page is (tab, line, focus, popup) when it fails.
+  #103's run showed it in lib.py at the definition, under a name-match popup: the answer came after
+  the test's check, and the test pressed Ctrl+B again from there. The test now checks before
+  pressing again (2026-11-02); that this was the whole cause is a claim until Windows runs stay
+  green.

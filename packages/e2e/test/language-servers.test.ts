@@ -36,10 +36,14 @@ async function openAt(name: string, text: string): Promise<void> {
  * Presses `keys` until a language server answers: while TypeScript's is still loading, the name
  * matches show instead, which this closes.
  */
-async function untilAnswered<T>(keys: string, answered: () => Promise<T>): Promise<void> {
+async function untilAnswered(keys: string, answered: () => Promise<boolean>): Promise<void> {
   await expect
     .poll(
       async () => {
+        // An answer can come after the check (the host waits up to 3 s for a server): pressing
+        // again from where it went asks something else (a Windows run ended in lib.py, with the
+        // name matches of a Ctrl+B pressed there).
+        if (await answered()) return true;
         await page().keyboard.press(keys);
         await page().waitForTimeout(500);
         const names = await popup().getByText('Name matches').count();
