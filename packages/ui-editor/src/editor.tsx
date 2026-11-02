@@ -232,6 +232,7 @@ export const theme = EditorView.theme({
     font: 'inherit',
   },
   '.cerebro-find__option': { fontFamily: variable('font-mono'), fontSize: '12px' },
+  '.cerebro-find__option svg': { display: 'block', margin: '0 auto' },
   '.cerebro-find__option:hover, .cerebro-find__button:hover': { background: variable('hover') },
   '.cerebro-find__option[aria-pressed="true"]': {
     borderColor: variable('accent'),
@@ -247,6 +248,29 @@ export const theme = EditorView.theme({
   // The symbol at the caret, where it's read and where it's written, as IntelliJ's.
   '.cerebro-usage': { backgroundColor: variable('editor-usage') },
   '.cerebro-usage--write': { backgroundColor: variable('editor-usage-write') },
+  // Their marks over the scrollbar's band: in the thumb's 10px, 2px from the edge (where in the band
+  // is a claim; IntelliJ's stripe is 14px beside its thumb), under the thumb, never in the way.
+  '.cerebro-usageStripe': {
+    position: 'absolute',
+    right: '2px',
+    width: '10px',
+    pointerEvents: 'none',
+  },
+  '.cerebro-usageMark': {
+    position: 'absolute',
+    left: '0',
+    right: '0',
+    backgroundColor: variable('editor-usage-stripe'),
+    // The stripe lets the pointer through to the scrollbar; its marks take clicks.
+    pointerEvents: 'auto',
+  },
+  // A mark is 2px high: easier to hit with 2px more on each side.
+  '.cerebro-usageMark::before': {
+    content: '""',
+    position: 'absolute',
+    inset: '-2px 0',
+  },
+  '.cerebro-usageMark--write': { backgroundColor: variable('editor-usage-stripe-write') },
   // A word with a definition, under the pointer with Ctrl or Cmd held: the link colour over the
   // syntax's, underlined.
   '.cerebro-link, .cerebro-link *': {

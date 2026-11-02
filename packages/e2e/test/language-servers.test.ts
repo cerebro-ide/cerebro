@@ -86,7 +86,27 @@ async function explain(
     },
     { asked, repo, methods },
   );
-  console.log('Asked directly:', answers, '\nConsole:', running.messages.join('\n'));
+  // And where the page is: the tab and line, what has the focus, and any popup.
+  const state = {
+    ...(await where()),
+    focus: await page().evaluate(() => {
+      let element = document.activeElement;
+      while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+      return element ? `${element.tagName}.${element.className}` : null;
+    }),
+    popup: await popup()
+      .first()
+      .textContent({ timeout: 1_000 })
+      .catch(() => null),
+  };
+  console.log(
+    'Asked directly:',
+    answers,
+    '\nThe page:',
+    state,
+    '\nConsole:',
+    running.messages.join('\n'),
+  );
   throw error;
 }
 
@@ -109,6 +129,18 @@ beforeAll(async () => {
       'export function b() {',
       '  const extra = 2;',
       '  return extra;',
+      '}',
+      '',
+    ].join('\n'),
+  );
+  // A variable declared at the top of a long file and read at its bottom: marks on the scrollbar.
+  writeFileSync(
+    join(repo, 'long.ts'),
+    [
+      'export function far() {',
+      '  const distant = 1;',
+      ...Array.from({ length: 300 }, (_, i) => `  // ${String(i)}`),
+      '  return distant;',
       '}',
       '',
     ].join('\n'),
@@ -242,6 +274,55 @@ it('highlights the symbol at the caret where it is, not another of its name', as
   }
 }, 60_000);
 
+it('goes to a usage when its mark on the scrollbar is clicked, through the scrollbar’s track', async () => {
+  await openAt('long.ts', 'const distant = 1;');
+  // Into the name.
+  await page().keyboard.press('End');
+  for (let i = 0; i < 7; i++) await page().keyboard.press('ArrowLeft');
+  // The read at the bottom, its mark low on the scrollbar, under the track while the pointer's there.
+  const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write)');
+  await mark.waitFor({ timeout: 30_000 });
+  // Where it stays: lines not drawn yet have estimated heights, so a mark can move once they're
+  // measured (a macOS run clicked beside it once).
+  type Box = { x: number; y: number; width: number; height: number };
+  let box = (await mark.boundingBox()) as Box;
+  await expect
+    .poll(
+      async () => {
+        const before = box;
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        box = (await mark.boundingBox()) as Box;
+        return JSON.stringify(box) === JSON.stringify(before);
+      },
+      { timeout: 10_000 },
+    )
+    .toBe(true);
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page().mouse.move(x, y);
+  await page().mouse.down();
+  await page().mouse.up();
+  try {
+    await expect
+      .poll(where, { timeout: 5_000 })
+      .toEqual({ tab: 'long.ts', line: '  return distant;' });
+  } catch (error) {
+    // What was under the pointer, and where the mark is now.
+    console.log(
+      await page().evaluate(
+        ([px, py]) =>
+          document
+            .elementsFromPoint(px as number, py as number)
+            .map((e) => `${e.tagName}.${e.className}`),
+        [x, y],
+      ),
+      box,
+      await mark.boundingBox(),
+    );
+    throw error;
+  }
+}, 60_000);
+
 it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
   await openAt('main.ts', 'run();');
   const box = (await page().locator('.cm-line', { hasText: 'run();' }).boundingBox()) as {
@@ -272,8 +353,8 @@ it('shows gutter markers between an interface and its implementations, and goes 
   await openAt('shape.ts', 'area(): number;');
   const marker = (label: string) => page().locator(`.cerebro-marker[aria-label="${label}"]`);
   // Asked as the file opens; TypeScript's server may still be loading.
-  await marker('Is implemented area').waitFor({ timeout: 30_000 });
-  await marker('Is implemented area').click();
+  await marker('area is implemented in Circle, Square').waitFor({ timeout: 30_000 });
+  await marker('area is implemented in Circle, Square').click();
   await expect
     .poll(() => popup().locator('.cerebro-popup-item__detail').allTextContents(), {
       timeout: 15_000,
@@ -281,8 +362,8 @@ it('shows gutter markers between an interface and its implementations, and goes 
     .toEqual(['circle.ts:3', 'square.ts:3']);
   await page().keyboard.press('Escape');
   await openAt('square.ts', 'area()');
-  await marker('Implements area').waitFor({ timeout: 30_000 });
-  await marker('Implements area').click();
+  await marker('Implements area in Shape').waitFor({ timeout: 30_000 });
+  await marker('Implements area in Shape').click();
   await expect
     .poll(where, { timeout: 15_000 })
     .toEqual({ tab: 'shape.ts', line: '  area(): number;' });

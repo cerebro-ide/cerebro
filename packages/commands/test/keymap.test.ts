@@ -54,6 +54,14 @@ describe('Keymap', () => {
     expect(keymap.shortcutsFor('save')).toEqual(['F3', 'Ctrl+S']);
   });
 
+  it('gives the bindings other user bindings and preset would, leaving its own', () => {
+    const { keymap } = setup();
+    const preset = { id: 'p', name: 'Preset', bindings: { save: ['F2'] } };
+    const draft = keymap.bindingsWith([{ key: 'F3', command: 'save' }], preset);
+    expect(draft.filter((b) => b.command === 'save').map((b) => b.key)).toEqual(['F3', 'F2']);
+    expect(keymap.shortcutsFor('save')).toEqual(['Ctrl+S']);
+  });
+
   it('removes a default on dispose, and is reactive', () => {
     const keymap = new Keymap('mac');
     const seen: string[][] = [];

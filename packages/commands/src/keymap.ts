@@ -75,14 +75,22 @@ export class Keymap {
    * it doesn't name; less those the user removes.
    */
   get bindings(): Binding[] {
-    const removed = new Set(this.user.filter((b) => b.remove).map((b) => `${b.key}\n${b.command}`));
-    const added = this.user.filter((b) => !b.remove).map(({ key, command }) => ({ key, command }));
-    const named = this.preset ? presetBindings(this.preset) : new Map<string, readonly string[]>();
-    const preset = [...named].flatMap(([command, keys]) =>
+    return this.bindingsWith(this.user, this.preset);
+  }
+
+  /**
+   * The bindings other user bindings and preset would give, as the Keymap page shows its draft
+   * before it's applied. `user`'s keys are normalized.
+   */
+  bindingsWith(user: readonly UserBinding[], preset: KeymapPreset | undefined): Binding[] {
+    const removed = new Set(user.filter((b) => b.remove).map((b) => `${b.key}\n${b.command}`));
+    const added = user.filter((b) => !b.remove).map(({ key, command }) => ({ key, command }));
+    const named = preset ? presetBindings(preset) : new Map<string, readonly string[]>();
+    const fromPreset = [...named].flatMap(([command, keys]) =>
       keys.map((key) => ({ key: normalizeSequence(key, this.platform), command })),
     );
     const defaults = this.defaults.toArray().filter((b) => !named.has(b.command));
-    return [...added, ...preset, ...defaults].filter(
+    return [...added, ...fromPreset, ...defaults].filter(
       (b, i) => i < added.length || !removed.has(`${b.key}\n${b.command}`),
     );
   }

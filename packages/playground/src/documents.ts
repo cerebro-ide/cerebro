@@ -7,17 +7,12 @@
 // it, and the user chooses between the two, or merges them. A file deleted on disk has its tabs
 // closed, its edits with them, as IntelliJ's FileEditorManagerImpl closes a deleted file's editors.
 
+import { effect, untracked } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor } from './environments.js';
 
 /** How often open files are read again for changes on disk, while the window has the focus. */
 export const RELOAD_EVERY = 2000;
-
-/**
- * How long without a key or the mouse before modified files are saved: IntelliJ's "Save files if
- * the IDE is idle for" default (GeneralSettings.kt: 15 seconds), there off by default.
- */
-export const SAVE_WHEN_IDLE = 15_000;
 
 /**
  * Asks how a conflict is resolved, and resolves it through `EditorDocument.resolve`: left as it is,
@@ -53,6 +48,25 @@ type Loaded = EditorDocument | { error: string };
 
 const documents = new Map<string, Promise<Loaded>>();
 
+/** Told of each change to a file's text that leaves it unsaved: an edit, not a read from disk. */
+const editListeners = new Set<(path: string) => void>();
+
+/** Calls `listener` with a file's path as its text is edited (Recent Files' edited ones). */
+export function onEdited(listener: (path: string) => void): void {
+  editListeners.add(listener);
+}
+
+/** Tells the listeners of `doc`'s edits. */
+function watchEdits(path: string, doc: EditorDocument): void {
+  effect(() => {
+    doc.text.get();
+    untracked(() => {
+      if (doc.modified.get()) for (const listener of editListeners) listener(path);
+    });
+    return undefined;
+  });
+}
+
 /**
  * A file's document, read the first time it's asked for, or why it can't be read; in a browser, a
  * document of the sample text, which isn't saved.
@@ -69,7 +83,8 @@ export function documentFor(path: string, sample: () => string): Promise<Loaded>
       : Promise.resolve(new EditorDocument(sample()));
     // A file that couldn't be read is tried again the next time.
     void loaded.then((result) => {
-      if (!(result instanceof EditorDocument)) documents.delete(path);
+      if (result instanceof EditorDocument) watchEdits(path, result);
+      else documents.delete(path);
     });
     documents.set(path, loaded);
   }
@@ -160,14 +175,16 @@ export async function reloadAll(): Promise<void> {
 }
 
 /**
- * Saves on its own, as IntelliJ: when the window loses the focus, and after `SAVE_WHEN_IDLE`
- * without a key or the mouse. Reads changed files when the window has the focus. Conflicts are
- * resolved through `resolver`; a deleted file's tabs are closed through `close`.
+ * Saves on its own, as IntelliJ: when the window loses the focus, and after `idle()` ms without a
+ * key or the mouse (none when it's undefined: the setting is off). Reads changed files when the
+ * window has the focus. Conflicts are resolved through `resolver`; a deleted file's tabs are closed
+ * through `close`.
  */
 export function setupSaving(
   report: (error: unknown) => void,
   resolver: ConflictResolver,
   close: (path: string) => void,
+  idle: () => number | undefined,
 ): void {
   resolveConflict = resolver;
   closeDeleted = close;
@@ -182,10 +199,12 @@ export function setupSaving(
   setInterval(() => {
     if (document.hasFocus()) reload();
   }, RELOAD_EVERY);
-  let idle: ReturnType<typeof setTimeout> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   const active = () => {
-    clearTimeout(idle);
-    idle = setTimeout(save, SAVE_WHEN_IDLE);
+    clearTimeout(timer);
+    // Read each time: a change in Settings counts from the next key or move.
+    const after = idle();
+    if (after !== undefined) timer = setTimeout(save, after);
   };
   for (const type of ['keydown', 'pointerdown', 'wheel']) {
     window.addEventListener(type, active, { capture: true, passive: true });

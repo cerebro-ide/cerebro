@@ -109,13 +109,28 @@ describe('gutter markers', () => {
       }),
     );
     expect(markers).toEqual([
-      { line: 1, kind: 'implements', name: 'run', targets: [place('a', 1, 2), place('a2', 1, 2)] },
-      { line: 2, kind: 'overrides', name: 'walk', targets: [place('b', 1, 2)] },
+      {
+        line: 1,
+        kind: 'implements',
+        name: 'run',
+        targets: [place('a', 1, 2), place('a2', 1, 2)],
+        owners: ['A', 'A2'],
+      },
+      { line: 2, kind: 'overrides', name: 'walk', targets: [place('b', 1, 2)], owners: ['B'] },
     ]);
   });
 
   it('marks what implements a member, itself left out, and nested types’ members', async () => {
+    // Where they're implemented: a type, a type in it, and its member.
+    const b = {
+      symbols: [
+        // And one with no members.
+        { name: 'Lone', kind: CLASS, selectionRange: { start: { line: 9, character: 0 } } },
+        symbol('Outer', CLASS, 0, 0, [symbol('Inner', CLASS, 1, 0, [symbol('run', METHOD, 2, 0)])]),
+      ],
+    };
     const files = {
+      b,
       a: {
         text: 'namespace N {\n  class A {\n    abstract run(): void;\n    @abstractmethod\n    walk() {}\n  }\n}\n',
         symbols: [
@@ -137,16 +152,35 @@ describe('gutter markers', () => {
         {},
         {
           'a:1:8': [place('a', 1, 8)],
-          'a:2:13': [place('a', 2, 13), place('b', 0, 0)],
-          'a:4:4': [place('b', 1, 0)],
+          // And somewhere in no type.
+          'a:2:13': [place('a', 2, 13), place('b', 0, 0), place('b', 3, 0)],
+          'a:4:4': [place('b', 1, 0), place('b', 2, 0)],
           'a:5:4': [place('b', 2, 0)],
         },
       ),
     );
     expect(markers).toEqual([
-      { line: 2, kind: 'implemented', name: 'run', targets: [place('b', 0, 0)] },
-      { line: 4, kind: 'implemented', name: 'walk', targets: [place('b', 1, 0)] },
-      { line: 5, kind: 'overridden', name: 'field', targets: [place('b', 2, 0)] },
+      {
+        line: 2,
+        kind: 'implemented',
+        name: 'run',
+        targets: [place('b', 0, 0), place('b', 3, 0)],
+        owners: ['Outer'],
+      },
+      {
+        line: 4,
+        kind: 'implemented',
+        name: 'walk',
+        targets: [place('b', 1, 0), place('b', 2, 0)],
+        owners: ['Inner'],
+      },
+      {
+        line: 5,
+        kind: 'overridden',
+        name: 'field',
+        targets: [place('b', 2, 0)],
+        owners: ['Inner'],
+      },
     ]);
   });
 
@@ -163,7 +197,7 @@ describe('gutter markers', () => {
     };
     // Its own text gone too: not abstract, as far as can be told.
     expect(await markersOf('a', fake(files, {}, { 'a:1:2': [place('z', 0, 0)] }))).toEqual([
-      { line: 1, kind: 'overridden', name: 'run', targets: [place('z', 0, 0)] },
+      { line: 1, kind: 'overridden', name: 'run', targets: [place('z', 0, 0)], owners: [] },
     ]);
     const c = {
       text: 'class C extends B, X {\n  run() {}\n}\n',
@@ -181,11 +215,13 @@ describe('gutter markers', () => {
           },
         ),
       ),
-    ).toEqual([{ line: 1, kind: 'overrides', name: 'run', targets: [place('b', 1, 2)] }]);
+    ).toEqual([
+      { line: 1, kind: 'overrides', name: 'run', targets: [place('b', 1, 2)], owners: ['B'] },
+    ]);
     // The base's text gone: not abstract, as far as can be told.
     const gone = { symbols: [symbol('G', CLASS, 0, 6, [symbol('run', METHOD, 1, 2)])] };
     expect(await markersOf('c', fake({ c, g: gone }, { 'c:0:16': [place('g', 0, 6)] }))).toEqual([
-      { line: 1, kind: 'overrides', name: 'run', targets: [place('g', 1, 2)] },
+      { line: 1, kind: 'overrides', name: 'run', targets: [place('g', 1, 2)], owners: ['G'] },
     ]);
   });
 
@@ -204,8 +240,8 @@ describe('gutter markers', () => {
       fake(files, {}, { 'a:0:6': [place('b', 0, 6)], 'a:9:2': [place('b', 1, 2)] }),
     );
     expect(markers).toEqual([
-      { line: 0, kind: 'overridden', name: 'A', targets: [place('b', 0, 6)] },
-      { line: 9, kind: 'overridden', name: 'run', targets: [place('b', 1, 2)] },
+      { line: 0, kind: 'overridden', name: 'A', targets: [place('b', 0, 6)], owners: [] },
+      { line: 9, kind: 'overridden', name: 'run', targets: [place('b', 1, 2)], owners: [] },
     ]);
   });
 });

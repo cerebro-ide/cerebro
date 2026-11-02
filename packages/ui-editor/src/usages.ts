@@ -3,7 +3,8 @@
 //
 // - **Usages at the caret:** where the symbol at the caret is in the file, each place behind the
 //   text: written apart from read. The symbol's, not the word's: another variable of the same name,
-//   in another function, isn't one (the language server tells them apart).
+//   in another function, isn't one (the language server tells them apart). Each is marked on the
+//   scrollbar's band too, as IntelliJ's error stripe marks them.
 // - **A link under the pointer** with Ctrl or Cmd held: the word under it, when it has a
 //   definition, in the link colour and underlined, as Ctrl+click goes there.
 
@@ -75,6 +76,86 @@ const usagesField = StateField.define<readonly { from: number; to: number; write
   },
 });
 
+/** A stripe mark's least height, in px: IntelliJ's (`ERROR_STRIPE_MARK_MIN_HEIGHT`, 2). */
+const MARK_HEIGHT = 2;
+
+/** Where the stripe is in the editor, and its marks in it, in px. */
+interface Stripe {
+  top: number;
+  height: number;
+  marks: { top: number; height: number; write: boolean; from: number }[];
+}
+
+/**
+ * The usages' marks over the scrollbar's band, as IntelliJ's error stripe: where each is in the
+ * whole text, scaled to the scroll area's height when the text is taller, else where it's shown
+ * (`EditorMarkupModelImpl.offsetsToYPositions`). Clicking one puts the caret on its usage.
+ */
+const stripe = ViewPlugin.define((view) => {
+  const element = document.createElement('div');
+  element.className = 'cerebro-usageStripe';
+  element.setAttribute('aria-hidden', 'true');
+  view.dom.append(element);
+  const measure = {
+    read: (): Stripe => {
+      const { scrollDOM } = view;
+      const height = scrollDOM.clientHeight;
+      const whole = view.contentHeight;
+      const y = (pos: number) => {
+        const top = view.lineBlockAt(pos).top + view.documentPadding.top;
+        return whole > height ? (top / whole) * height : top;
+      };
+      return {
+        top: scrollDOM.offsetTop,
+        height,
+        marks: view.state.field(usagesField).map((u) => {
+          const from = y(u.from);
+          const height = Math.max(MARK_HEIGHT, y(u.to) - from);
+          return { top: from, height, write: u.write, from: u.from };
+        }),
+      };
+    },
+    write: ({ top, height, marks }: Stripe) => {
+      element.style.top = `${String(top)}px`;
+      element.style.height = `${String(height)}px`;
+      element.replaceChildren(
+        ...marks.map((m) => {
+          const mark = document.createElement('div');
+          mark.className = m.write
+            ? 'cerebro-usageMark cerebro-usageMark--write'
+            : 'cerebro-usageMark';
+          mark.style.top = `${String(m.top)}px`;
+          mark.style.height = `${String(m.height)}px`;
+          // A click goes to the usage, as on IntelliJ's error stripe; not to the scrollbar under it,
+          // nor to its track over it (`@cerebro-ide/ui-scrollbar` passes it on).
+          mark.dataset['scrollbarThrough'] = '';
+          mark.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            view.dispatch({ selection: { anchor: m.from }, scrollIntoView: true });
+            view.focus();
+          });
+          return mark;
+        }),
+      );
+    },
+  };
+  view.requestMeasure(measure);
+  return {
+    update(update: ViewUpdate) {
+      if (
+        update.docChanged ||
+        update.geometryChanged ||
+        update.startState.field(usagesField) !== update.state.field(usagesField)
+      )
+        view.requestMeasure(measure);
+    },
+    destroy() {
+      element.remove();
+    },
+  };
+});
+
 /**
  * The usages of the symbol at the caret, asked of `ask` once the caret stays, and drawn as a layer
  * beneath the selection's, so a selection over one shows.
@@ -112,6 +193,7 @@ export function usageHighlights(ask: AskUsages, after = USAGES_AFTER): Extension
   return [
     usagesField,
     asker,
+    stripe,
     layer({
       above: false,
       class: 'cerebro-usageLayer',

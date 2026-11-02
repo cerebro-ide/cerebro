@@ -26,6 +26,8 @@ export interface Marker {
   kind: MarkerKind;
   name: string;
   targets: Place[];
+  /** The types the targets are in (a type's own name when it's a target), each once. */
+  owners: string[];
 }
 
 /** A symbol in a file, as a server's `documentSymbol` answers (LSP's DocumentSymbol). */
@@ -131,14 +133,17 @@ export async function markersOf(path: string, ask: Ask): Promise<Marker[]> {
     return known;
   };
   const symbolsOf = new Map<string, Promise<DocumentSymbol[]>>([[path, Promise.resolve(symbols)]]);
+  const typesOf = async (file: string) => {
+    let known = symbolsOf.get(file);
+    if (!known) {
+      known = ask.symbols(file).catch(() => []);
+      symbolsOf.set(file, known);
+    }
+    return typesIn(await known);
+  };
   /** The type defined at a place: where a base's name goes. */
   const typeAt = async (at: Place): Promise<Type | undefined> => {
-    let known = symbolsOf.get(at.path);
-    if (!known) {
-      known = ask.symbols(at.path).catch(() => []);
-      symbolsOf.set(at.path, known);
-    }
-    const symbol = typesIn(await known).find((t) => same(placeOf(at.path, t), at));
+    const symbol = (await typesOf(at.path)).find((t) => same(placeOf(at.path, t), at));
     return symbol && { path: at.path, symbol };
   };
   /** A type's bases: the types its header's names are defined as. */
@@ -151,11 +156,22 @@ export async function markersOf(path: string, ask: Ask): Promise<Marker[]> {
     return bases.filter((b): b is Type => b !== undefined);
   };
 
+  /** The type a place is in, or is: what a marker's tooltip names. */
+  const ownerOf = async (at: Place): Promise<string | undefined> => {
+    const types = await typesOf(at.path);
+    const is = (s: DocumentSymbol) => same(placeOf(at.path, s), at);
+    // A nested type is its own, not the one it's in.
+    return (types.find(is) ?? types.find((t) => (t.children ?? []).some(is)))?.name;
+  };
+
   const down = async (at: Place, interfaceLike: boolean, name: string): Promise<Marker[]> => {
     const targets = (await ask.implementations(at).catch(() => [])).filter((t) => !same(t, at));
     if (targets.length === 0) return [];
     const kind = interfaceLike || isAbstract(text, at) ? 'implemented' : 'overridden';
-    return [{ line: at.line, kind, name, targets }];
+    const owners = (await Promise.all(targets.map(ownerOf))).filter(
+      (o): o is string => o !== undefined,
+    );
+    return [{ line: at.line, kind, name, targets, owners: [...new Set(owners)] }];
   };
 
   const up = async (type: DocumentSymbol): Promise<Marker[]> => {
@@ -172,23 +188,34 @@ export async function markersOf(path: string, ask: Ask): Promise<Marker[]> {
         return true;
       });
       if (level.length === 0) break;
-      const found = new Map<string, { kind: MarkerKind; targets: Place[] }>();
+      const found = new Map<string, { kind: MarkerKind; targets: Place[]; owners: Set<string> }>();
       for (const base of level) {
         for (const member of membersOf(base.symbol)) {
           if (!left.has(member.name)) continue;
           const target = placeOf(base.path, member);
           const implemented =
             base.symbol.kind === INTERFACE || isAbstract(await textOf(base.path), target);
-          const entry = found.get(member.name) ?? { kind: 'overrides', targets: [] };
+          const entry = found.get(member.name) ?? {
+            kind: 'overrides',
+            targets: [],
+            owners: new Set(),
+          };
           if (implemented) entry.kind = 'implements';
           entry.targets.push(target);
+          entry.owners.add(base.symbol.name);
           found.set(member.name, entry);
         }
       }
-      for (const [name, { kind, targets }] of found) {
+      for (const [name, { kind, targets, owners }] of found) {
         const member = left.get(name) as DocumentSymbol;
         left.delete(name);
-        markers.push({ line: member.selectionRange.start.line, kind, name, targets });
+        markers.push({
+          line: member.selectionRange.start.line,
+          kind,
+          name,
+          targets,
+          owners: [...owners],
+        });
       }
       level = (await Promise.all(level.map(basesOf))).flat();
     }

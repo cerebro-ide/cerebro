@@ -46,6 +46,18 @@ it('runs only the language servers CEREBRO_LANGUAGE_SERVERS names, when it’s s
   );
 });
 
+it('keeps the index in the folder CEREBRO_INDEX_CACHE names', async () => {
+  vi.resetModules();
+  vi.stubEnv('CEREBRO_INDEX_CACHE', '/cache');
+  await import('../src/main.js');
+  vi.unstubAllEnvs();
+  expect(host.serve).toHaveBeenLastCalledWith(
+    process.stdin,
+    process.stdout,
+    expect.objectContaining({ indexCache: '/cache' }),
+  );
+});
+
 it('is an agent’s hook when asked: it tells the host what it read', async () => {
   vi.resetModules();
   host.serve.mockClear();
