@@ -441,6 +441,29 @@ describe('shortcuts', () => {
     await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', `${chord}+Comma`);
   });
 
+  it('takes Eclipse’s and Emacs’s keys, from IntelliJ’s files for them, when chosen', async () => {
+    const mac = process.platform === 'darwin';
+    /** The tab Search Everywhere opened on, then closed. */
+    const opened = async () => {
+      const tab = page().locator('.cerebro-popup [role="tab"][aria-selected="true"]');
+      const label = await tab.textContent();
+      await page().keyboard.press('Escape');
+      await page().locator('.cerebro-popup').waitFor({ state: 'detached' });
+      return label;
+    };
+    await useKeymap(mac ? 'Eclipse (macOS)' : 'Eclipse');
+    // Eclipse's Open Resource is Go to File.
+    await page().keyboard.press(mac ? 'Meta+Shift+R' : 'Control+Shift+R');
+    expect(await opened()).toBe('Files');
+    // Settings is IntelliJ's still: Eclipse's file doesn't name it.
+    await useKeymap('Emacs', mac ? 'Meta+Comma' : 'Control+Alt+S');
+    // A sequence: Ctrl+X Ctrl+F, Emacs's find-file.
+    await page().keyboard.press('Control+X');
+    await page().keyboard.press('Control+F');
+    expect(await opened()).toBe('Files');
+    await useKeymap(mac ? 'IntelliJ IDEA (macOS)' : 'IntelliJ IDEA', 'Control+Alt+S');
+  });
+
   it('takes a shortcut the user gives an action on the Keymap page, kept after a reload', async () => {
     /** Opens Settings → Keymap on Go to File's row. */
     const goToFileRow = async () => {

@@ -8,6 +8,13 @@
 //   (code.visualstudio.com/shortcuts/keyboard-shortcuts-windows.pdf and -macos.pdf); a command they
 //   don't name keeps IntelliJ's keys. On Linux, VS Code's keymap takes its Linux sheet's few
 //   differences (-linux.pdf): Go Back is Ctrl+Alt+-, as `VSCODE_LINUX` has them.
+// - The others: IntelliJ's own files for them, as it ships them (Eclipse, NetBeans and Visual Studio
+//   in plugins/keymaps, the rest beside `$default`), named as its Settings names them. Each takes
+//   its parent's keys for the commands it doesn't name, as IntelliJ: `$default` (here INTELLIJ) or
+//   `Mac OS X 10.5+` (INTELLIJ_MAC). A key other than a letter or digit is the character it types
+//   with Shift on a US keyboard (`Ctrl+Shift+_` for IntelliJ's `control shift MINUS`), as the
+//   browser names it. Emacs's sequences that start with Escape are left out: Escape closes popups
+//   and dialogs here.
 // A command none of them names (a plugin's) keeps the key its owner gives it.
 
 import type { Keymap, KeymapPreset } from '@cerebro-ide/commands';
@@ -196,7 +203,280 @@ export const VSCODE_MAC: KeymapPreset = {
   },
 };
 
-export const PRESETS: readonly KeymapPreset[] = [INTELLIJ, INTELLIJ_MAC, VSCODE, VSCODE_MAC];
+/**
+ * A keymap's keys with Ctrl and Meta swapped, as IntelliJ's `MacOSDefaultKeymap` takes `$default`'s
+ * for a keymap made for macOS from it.
+ */
+export function forMac(preset: KeymapPreset): KeymapPreset {
+  const swap = (sequence: string) =>
+    sequence.replace(/(Ctrl|Meta)\+/g, (modifier) => (modifier === 'Ctrl+' ? 'Meta+' : 'Ctrl+'));
+  return {
+    ...preset,
+    bindings: Object.fromEntries(
+      Object.entries(preset.bindings).map(([command, keys]) => [command, keys.map(swap)]),
+    ),
+  };
+}
+
+export const ECLIPSE: KeymapPreset = {
+  id: 'eclipse',
+  name: 'Eclipse',
+  parent: INTELLIJ,
+  bindings: {
+    'class.goTo': ['Ctrl+Shift+T'],
+    'file.goTo': ['Ctrl+Shift+R'],
+    'find.inFiles': ['Ctrl+H'],
+    'replace.inFiles': [],
+    'navigate.back': ['Alt+Left'],
+    'navigate.forward': ['Alt+Right'],
+    'navigate.goToLine': ['Ctrl+L'],
+    'edit.undo': ['Ctrl+Z'],
+    'edit.redo': ['Ctrl+Y'],
+    'changes.jumpToSource': ['F12', 'Ctrl+Shift+E'],
+    'changes.expandAll': ['Ctrl+Shift+*'],
+    'changes.collapseAll': ['Ctrl+Shift+/'],
+    [EDITOR_ACTIONS.goToDefinition]: ['F3'],
+    [EDITOR_ACTIONS.findUsages]: ['Ctrl+G'],
+    [EDITOR_ACTIONS.find]: [],
+    [EDITOR_ACTIONS.replace]: ['Ctrl+F'],
+  },
+};
+
+export const ECLIPSE_MAC: KeymapPreset = {
+  id: 'eclipse-mac',
+  name: 'Eclipse (macOS)',
+  parent: INTELLIJ_MAC,
+  bindings: {
+    'class.goTo': ['Meta+Shift+T'],
+    'file.goTo': ['Meta+Shift+R'],
+    'action.find': ['Meta+3'],
+    'find.inFiles': ['Ctrl+H'],
+    'replace.inFiles': [],
+    'navigate.back': ['Meta+['],
+    'navigate.forward': ['Meta+]'],
+    'navigate.goToLine': ['Meta+L'],
+    'edit.undo': ['Meta+Z'],
+    'edit.redo': ['Meta+Shift+Z'],
+    'view.tool.project': [],
+    'view.tool.bookmarks': [],
+    'changes.jumpToSource': ['F3'],
+    'changes.rollback': ['Ctrl+Alt+Shift+Z'],
+    'changes.expandAll': ['Meta+Shift+*'],
+    'changes.collapseAll': ['Meta+Shift+/'],
+    [EDITOR_ACTIONS.goToDefinition]: ['F3'],
+    [EDITOR_ACTIONS.findUsages]: ['Meta+Shift+G'],
+    [EDITOR_ACTIONS.find]: [],
+    [EDITOR_ACTIONS.replace]: [],
+  },
+};
+
+export const EMACS: KeymapPreset = {
+  id: 'emacs',
+  name: 'Emacs',
+  parent: INTELLIJ,
+  bindings: {
+    'class.goTo': ['Alt+Shift+G'],
+    'file.goTo': ['Ctrl+X Ctrl+F'],
+    'action.find': ['Alt+X'],
+    'navigate.goToLine': ['Alt+G'],
+    'view.recentFiles': [],
+    'file.saveAll': ['Ctrl+X Ctrl+S'],
+    'editor.close': ['Ctrl+F4', 'Ctrl+X K', 'Ctrl+X 0'],
+    'edit.undo': ['Ctrl+Shift+_', 'Ctrl+/'],
+    'edit.redo': ['Ctrl+Shift+Z', 'Alt+Shift+_'],
+    'edit.cut': ['Shift+Delete'],
+    'edit.copy': ['Ctrl+Insert', 'Alt+C'],
+    'edit.paste': ['Shift+Insert', 'Ctrl+Y'],
+    [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+Alt+G', 'Alt+.'],
+    [EDITOR_ACTIONS.findUsages]: ['Alt+F7', 'Alt+Shift+S'],
+    [EDITOR_ACTIONS.find]: ['Ctrl+Alt+S', 'Alt+F3', 'Ctrl+S'],
+    [EDITOR_ACTIONS.replace]: ['Alt+Shift+5'],
+  },
+};
+
+export const INTELLIJ_CLASSIC: KeymapPreset = {
+  id: 'intellij-classic',
+  name: 'IntelliJ IDEA Classic (macOS)',
+  parent: forMac(INTELLIJ),
+  bindings: {
+    'find.inFiles': ['Ctrl+Shift+F'],
+    'replace.inFiles': ['Ctrl+Shift+R'],
+    'file.new': ['Ctrl+Shift+N'],
+    'file.settings': ['Meta+,'],
+    'edit.undo': ['Meta+Z'],
+    'view.darkTheme': ['Ctrl+`'],
+    'view.tool.project': ['Meta+1'],
+    'view.tool.bookmarks': ['Meta+2'],
+    'view.tool.problems': ['Meta+6'],
+    'view.tool.structure': ['Meta+7'],
+    'view.tool.services': ['Meta+8'],
+    'view.tool.git': ['Meta+9'],
+    'view.tool.commit': ['Meta+0'],
+    'changes.groupByDirectory': ['Ctrl+P'],
+    [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
+  },
+};
+
+export const MACOS_SYSTEM: KeymapPreset = {
+  id: 'macos-system',
+  name: 'macOS System Shortcuts',
+  parent: INTELLIJ_MAC,
+  bindings: {
+    'action.find': ['Meta+Shift+P', 'Meta+Shift+A'],
+    'navigate.back': ['Meta+['],
+    'navigate.forward': ['Meta+]'],
+    'file.new': ['Ctrl+Shift+N'],
+    'view.tool.terminal': ['Ctrl+Meta+T', 'Alt+F12'],
+    'changes.jumpToSource': ['F4'],
+    [EDITOR_ACTIONS.findUsages]: ['Ctrl+U', 'Alt+F7'],
+  },
+};
+
+export const NETBEANS: KeymapPreset = {
+  id: 'netbeans',
+  name: 'NetBeans',
+  parent: INTELLIJ,
+  bindings: {
+    'symbol.goTo': ['Ctrl+Alt+Shift+O'],
+    'class.goTo': ['Ctrl+O'],
+    'file.goTo': ['Alt+Shift+O'],
+    'action.find': ['Ctrl+I'],
+    'replace.inFiles': ['Ctrl+Shift+H'],
+    'navigate.back': ['Alt+Left'],
+    'navigate.forward': ['Alt+Right'],
+    'view.recentFiles': ['Shift+F4'],
+    'file.saveAll': ['Ctrl+S', 'Ctrl+Shift+S'],
+    'editor.close': ['Ctrl+F4', 'Ctrl+W'],
+    'editor.copyPath': [],
+    'edit.redo': ['Ctrl+Shift+Z', 'Alt+Shift+Backspace', 'Ctrl+Y'],
+    'view.tool.project': ['Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Alt+1'],
+    'view.tool.bookmarks': [],
+    'view.tool.problems': ['Alt+6', 'Ctrl+6'],
+    'view.tool.structure': ['Ctrl+7', 'Alt+7'],
+    [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+  },
+};
+
+export const SUBLIME: KeymapPreset = {
+  id: 'sublime',
+  name: 'Sublime Text',
+  parent: INTELLIJ,
+  bindings: {
+    'symbol.goTo': ['Ctrl+Shift+R'],
+    'class.goTo': [],
+    'file.goTo': ['Ctrl+P'],
+    'action.find': ['Ctrl+Shift+P'],
+    'replace.inFiles': [],
+    'navigate.back': ['Alt+-'],
+    'navigate.forward': ['Alt+Shift+-', 'Alt+Shift+_'],
+    'editor.close': ['Ctrl+F4', 'Ctrl+W'],
+    'edit.redo': ['Ctrl+Shift+Z', 'Ctrl+Y'],
+    'edit.paste': ['Ctrl+Shift+V'],
+    [EDITOR_ACTIONS.goToDefinition]: ['F12'],
+    [EDITOR_ACTIONS.find]: ['Ctrl+F'],
+    [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+  },
+};
+
+export const SUBLIME_MAC: KeymapPreset = {
+  id: 'sublime-mac',
+  name: 'Sublime Text (macOS)',
+  parent: INTELLIJ_MAC,
+  bindings: {
+    'symbol.goTo': ['Meta+Shift+R'],
+    'class.goTo': [],
+    'file.goTo': ['Meta+P', 'Meta+T'],
+    'action.find': ['Meta+Shift+P'],
+    'replace.inFiles': [],
+    'navigate.back': ['Ctrl+-'],
+    'navigate.forward': ['Ctrl+Shift+-', 'Ctrl+Shift+_'],
+    'navigate.goToLine': ['Ctrl+G'],
+    'edit.redo': ['Meta+Y', 'Meta+Shift+Z'],
+    'edit.paste': ['Meta+Shift+V'],
+    'changes.jumpToSource': [],
+    [EDITOR_ACTIONS.goToDefinition]: ['F12', 'Meta+Alt+Down'],
+    [EDITOR_ACTIONS.replace]: ['Meta+Alt+F'],
+  },
+};
+
+export const VISUAL_STUDIO: KeymapPreset = {
+  id: 'visual-studio',
+  name: 'Visual Studio',
+  parent: INTELLIJ,
+  bindings: {
+    'symbol.goTo': ['Ctrl+Alt+Shift+T'],
+    'class.goTo': [],
+    'file.goTo': ['Ctrl+Shift+T'],
+    'replace.inFiles': ['Ctrl+Shift+H'],
+    'navigate.back': ['Ctrl+-'],
+    'navigate.forward': ['Ctrl+Shift+_', 'Ctrl+Shift+-'],
+    'navigate.goToLine': ['Ctrl+G'],
+    'view.recentFiles': ['Ctrl+,'],
+    'file.saveAll': ['Ctrl+Shift+S'],
+    'edit.redo': ['Ctrl+Y', 'Ctrl+Shift+Z', 'Alt+Shift+Backspace'],
+    'edit.cut': ['Ctrl+X', 'Shift+Delete'],
+    'edit.copy': ['Ctrl+C', 'Ctrl+Insert'],
+    'edit.paste': ['Ctrl+V', 'Shift+Insert'],
+    'view.darkTheme': [],
+    'view.tool.project': ['Ctrl+Alt+L', 'Alt+1'],
+    'view.tool.structure': ['Ctrl+Alt+F'],
+    'view.tool.services': [],
+    'view.tool.commit': [],
+    'view.tool.terminal': ['Ctrl+Alt+1'],
+    [EDITOR_ACTIONS.goToDefinition]: ['F12'],
+    [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
+    [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+  },
+};
+
+export const VISUAL_STUDIO_MAC: KeymapPreset = {
+  id: 'visual-studio-mac',
+  name: 'Visual Studio (macOS)',
+  parent: INTELLIJ_MAC,
+  bindings: {
+    'symbol.goTo': ['Meta+Alt+Shift+T'],
+    'class.goTo': [],
+    'file.goTo': ['Meta+Shift+T'],
+    'replace.inFiles': ['Meta+Shift+H'],
+    'navigate.back': ['Meta+-'],
+    'navigate.forward': ['Meta+Shift+_', 'Meta+Shift+-'],
+    'navigate.goToLine': ['Meta+G'],
+    'view.recentFiles': ['Ctrl+,'],
+    'file.saveAll': ['Meta+Shift+S'],
+    'editor.close': ['Meta+F4'],
+    'edit.redo': ['Meta+Y', 'Meta+Shift+Z', 'Alt+Shift+Backspace'],
+    'edit.cut': ['Meta+X', 'Shift+Delete', 'Meta+L'],
+    'edit.copy': ['Meta+C', 'Meta+Insert'],
+    'edit.paste': ['Meta+V', 'Shift+Insert'],
+    'view.darkTheme': [],
+    'view.tool.project': ['Meta+Alt+L', 'Meta+1'],
+    'view.tool.structure': ['Ctrl+Alt+F'],
+    'view.tool.services': [],
+    'view.tool.commit': [],
+    'view.tool.terminal': ['Ctrl+Meta+1'],
+    [EDITOR_ACTIONS.goToDefinition]: ['F12'],
+    [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
+    [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+  },
+};
+
+/** By name. */
+export const PRESETS: readonly KeymapPreset[] = [
+  ECLIPSE,
+  ECLIPSE_MAC,
+  EMACS,
+  INTELLIJ,
+  INTELLIJ_MAC,
+  INTELLIJ_CLASSIC,
+  MACOS_SYSTEM,
+  NETBEANS,
+  SUBLIME,
+  SUBLIME_MAC,
+  VISUAL_STUDIO,
+  VISUAL_STUDIO_MAC,
+  VSCODE,
+  VSCODE_MAC,
+];
 
 /** A sequence as CodeMirror writes it: `Ctrl+K Ctrl+T` is `Ctrl-k Ctrl-t`. */
 export function codeMirrorKey(sequence: string): string {
