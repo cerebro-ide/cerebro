@@ -1086,8 +1086,11 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   Files or Search Everywhere's files, the file's editor is focused, as IntelliJ's (a claim: not
   measured, as it focuses after navigating). Before, a file opened without a place to reveal left
   the focus on the page. The editor takes a focus request (`focus` on `CodeEditor`) once: another
-  editor of the file made later doesn't take it again. Opening from the Project tool window or the Commit tool window
-  doesn't move the focus yet.
+  editor of the file made later doesn't take it again. So does a file opened from the Project tool
+  window, by a double click or Enter: measured in IntelliJ's source, its Project view installs
+  `EditSourceOnDoubleClickHandler` and `EditSourceOnEnterKeyHandler`, which focus the editor (for
+  Enter, the advanced setting "Move focus to editor when Enter is pressed", on by default). Opening
+  from the Commit tool window doesn't move the focus yet.
 - **Show edited only** (added 2026-11-01): a checkbox in Recent Files' header, as IntelliJ's
   (`recent.files.checkbox.label`), lists the files edited instead, the latest edited first.
   Recent Files' own key flips it while the popup is open, and the action Recently Changed Files

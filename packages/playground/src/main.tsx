@@ -807,7 +807,7 @@ function Header() {
 function Files() {
   return (
     <div class="playground-files">
-      <ProjectTree samples={FILES} open={(tab) => editor()?.open(tab)} />
+      <ProjectTree samples={FILES} open={navigation.open} />
     </div>
   );
 }

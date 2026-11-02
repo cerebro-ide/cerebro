@@ -36,6 +36,9 @@ beforeAll(async () => {
   const lines = ['target();', ...Array.from({ length: 80 }, (_, i) => `// ${String(i)}`)];
   writeFileSync(join(repo, 'a.ts'), [...lines, 'export function target() {}', ''].join('\n'));
   writeFileSync(join(repo, 'b.ts'), 'export const b = 1;\n');
+  // Opened first from the Project tree.
+  writeFileSync(join(repo, 'd.ts'), 'export const d = 1;\n');
+  writeFileSync(join(repo, 'e.ts'), 'export const e = 1;\n');
   mkdirSync(join(repo, 'src', 'deep'), { recursive: true });
   writeFileSync(join(repo, 'src', 'deep', 'c.ts'), 'export const c = 1;\n');
   execFileSync('git', ['add', '.'], { cwd: repo });
@@ -124,7 +127,7 @@ it('shows only the files edited with Show edited only, flipped by Recent Filesâ€
   await page().locator('.cerebro-popup').waitFor({ state: 'detached' });
 });
 
-it('focuses the editor of the file chosen in Go to File or Recent Files, as IntelliJ does', async () => {
+it('focuses the editor of the file chosen in Go to File, Recent Files or the Project tree, as IntelliJ does', async () => {
   /** Whether the focus is in the shown editor's text: other tabs' editors are kept, hidden. */
   const inShownEditor = () =>
     page().evaluate(() => {
@@ -148,6 +151,19 @@ it('focuses the editor of the file chosen in Go to File or Recent Files, as Inte
   await page().locator('.cerebro-popup').waitFor();
   await page().keyboard.press('Enter');
   await expect.poll(where).toMatchObject({ tab: 'a.ts' });
+  await expect.poll(inShownEditor).toBe(true);
+  // In the Project tree: a double click, and Enter.
+  const row = (name: string) =>
+    page().locator(
+      `.cerebro-tool-window[data-id="project"] .cerebro-tree-row[data-key="${repo.replaceAll('\\', '/')}/${name}"]`,
+    );
+  await blur();
+  await row('d.ts').dblclick({ force: true });
+  await expect.poll(where).toMatchObject({ tab: 'd.ts' });
+  await expect.poll(inShownEditor).toBe(true);
+  await row('e.ts').click({ force: true });
+  await page().keyboard.press('Enter');
+  await expect.poll(where).toMatchObject({ tab: 'e.ts' });
   await expect.poll(inShownEditor).toBe(true);
 });
 
