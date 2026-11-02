@@ -16,11 +16,13 @@ import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
 import {
   addWorktree,
+  commit,
   committedText,
   git as runGit,
   listChanges,
   listChangesBetween,
   listIgnored,
+  lastMessage,
   rollback,
   textAt,
   listWorktrees,
@@ -301,6 +303,20 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await rollback(worktree, changes, p.deleteAdded === true, git);
     return listChanges(worktree, git);
   });
+  // Commits the files named, as changed now, with the message given; gives the changes left.
+  connection.onRequest('git.commit', async (params) => {
+    const worktree = text(params, 'path');
+    const message = text(params, 'message');
+    const p = params as { files?: unknown; amend?: unknown };
+    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    const files = new Set(p.files);
+    const changes = (await listChanges(worktree, git)).filter((c) => files.has(c.path));
+    await commit(worktree, changes, message, p.amend === true, git);
+    return listChanges(worktree, git);
+  });
+  connection.onRequest('git.lastMessage', (params) => lastMessage(text(params, 'path'), git));
   connection.onRequest('agent.turns', (params) => listTurns(text(params, 'path'), git));
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;

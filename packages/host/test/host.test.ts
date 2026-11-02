@@ -293,6 +293,44 @@ describe('ignored files and rolling back', () => {
       });
     }
   });
+
+  it('commits the files named, as changed now, and gives the changes left', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(
+        args[0] === 'status'
+          ? ' M a.ts\0R  n.ts\0o.ts\0?? u.ts\0'
+          : args[0] === 'log'
+            ? 'Last\n\n'
+            : '',
+      ),
+    );
+    const { ui } = connect(git);
+    const left = await ui.request('git.commit', {
+      path: '/w',
+      files: ['a.ts', 'n.ts', 'u.ts', 'gone.ts'],
+      message: 'Message',
+      amend: true,
+    });
+    expect(left).toHaveLength(3);
+    const literal = { GIT_LITERAL_PATHSPECS: '1' };
+    expect(git).toHaveBeenCalledWith('/w', ['add', '--', 'u.ts'], literal);
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['commit', '--only', '--file=-', '--amend', '--', 'a.ts', 'o.ts', 'n.ts', 'u.ts'],
+      literal,
+      'Message',
+    );
+    expect(await ui.request('git.lastMessage', { path: '/w' })).toBe('Last');
+    for (const params of [
+      { path: '/w', files: ['a.ts'] },
+      { path: '/w', files: 'a.ts', message: 'm' },
+      { path: '/w', message: 'm' },
+    ]) {
+      await expect(ui.request('git.commit', params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
 });
 
 describe('files', () => {

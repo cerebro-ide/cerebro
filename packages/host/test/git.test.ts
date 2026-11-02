@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   addWorktree,
+  commit,
   committedText,
   git,
   type Git,
@@ -21,6 +22,7 @@ import {
   ignoredAmong,
   listIgnored,
   listWorktrees,
+  lastMessage,
   parseNameStatus,
   parseStatus,
   parseWorktrees,
@@ -125,11 +127,20 @@ describe('parseNameStatus', () => {
   });
 });
 
+const IDENTITY = {
+  GIT_AUTHOR_NAME: 't',
+  GIT_AUTHOR_EMAIL: 't@t',
+  GIT_COMMITTER_NAME: 't',
+  GIT_COMMITTER_EMAIL: 't@t',
+};
+
 describe('with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-')));
   const repo = join(root, 'repo');
   const run = (cwd: string, ...args: string[]) =>
     execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf8' });
+  /** Git, as someone to commit as: a test machine may have no one set. */
+  const as: Git = (cwd, args, env, input) => git(cwd, args, { ...env, ...IDENTITY }, input);
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   writeFileSync(join(repo, 'a.txt'), 'a');
   run(repo, 'add', '.');
@@ -281,5 +292,64 @@ describe('with real git', () => {
     ]);
     // Nothing to roll back: git isn't run.
     await rollback(path, [], false);
+  });
+
+  it('commits the files named, as they are, leaving what else was staged staged', async () => {
+    const path = join(root, 'commit');
+    await addWorktree(repo, { path, branch: 'commit', create: true });
+    writeFileSync(join(path, 'b.txt'), 'b');
+    writeFileSync(join(path, 'c.txt'), 'c');
+    writeFileSync(join(path, 'd.txt'), 'd');
+    writeFileSync(join(path, 'e.txt'), 'e');
+    run(path, 'add', '.');
+    run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'more');
+    // Modified, staged and then changed again; deleted, staged and not; renamed; new, with a name
+    // that's a pattern; and another, staged, that isn't committed.
+    writeFileSync(join(path, 'a.txt'), 'staged');
+    run(path, 'add', 'a.txt');
+    writeFileSync(join(path, 'a.txt'), 'changed');
+    run(path, 'rm', '-q', 'b.txt');
+    rmSync(join(path, 'c.txt'));
+    run(path, 'mv', 'd.txt', 'moved.txt');
+    writeFileSync(join(path, '*.txt'), 'new');
+    writeFileSync(join(path, 'staged.txt'), 'staged');
+    run(path, 'add', 'staged.txt');
+    writeFileSync(join(path, 'e.txt'), 'not committed');
+    const named = ['a.txt', 'b.txt', 'c.txt', 'moved.txt', '*.txt'];
+    const changes = (await listChanges(path)).filter((c) => named.includes(c.path));
+    await commit(path, changes, 'Commit them\n\nAll of them.', false, as);
+    expect(await listChanges(path)).toEqual([
+      { path: 'e.txt', status: 'modified' },
+      { path: 'staged.txt', status: 'added' },
+    ]);
+    expect(run(path, 'diff', '--cached', '--name-only')).toBe('staged.txt\n');
+    expect(await committedText(path, 'a.txt')).toBe('changed');
+    expect(await committedText(path, '*.txt')).toBe('new');
+    expect(await committedText(path, 'moved.txt')).toBe('d');
+    expect(await committedText(path, 'd.txt')).toBe('');
+    expect(await lastMessage(path)).toBe('Commit them\n\nAll of them.');
+    // Amended, with no files: only its message changes, and what's staged stays out.
+    await commit(path, [], 'Reworded', true, as);
+    expect(await lastMessage(path)).toBe('Reworded');
+    expect(run(path, 'log', '--format=%s', '-2')).toBe('Reworded\nmore\n');
+    expect(await listChanges(path)).toHaveLength(2);
+  });
+
+  it('leaves an untracked file untracked when its commit fails', async () => {
+    const path = join(root, 'commit-fails');
+    await addWorktree(repo, { path, branch: 'commit-fails', create: true });
+    writeFileSync(join(path, 'new.txt'), 'new');
+    const changes = await listChanges(path);
+    // An empty message: git refuses it.
+    await expect(commit(path, changes, '', false, as)).rejects.toThrow();
+    expect(await listChanges(path)).toEqual([{ path: 'new.txt', status: 'untracked' }]);
+    // Nothing was added: nothing to take back.
+    await expect(commit(path, [], '', true, as)).rejects.toThrow();
+  });
+
+  it('gives no last message before the first commit', async () => {
+    const empty = join(root, 'empty');
+    run(root, 'init', '-q', empty);
+    expect(await lastMessage(empty)).toBe('');
   });
 });
