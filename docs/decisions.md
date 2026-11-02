@@ -1188,7 +1188,12 @@ colour and underlined.
   IntelliJ's stripe is 14px beside its thumb. Cerebro's thumb is drawn over the content, so the
   marks sit in the thumb's band (10px, 2px from the edge), under it. That's a claim, open to
   change.
-- **Not yet:** clicking a mark on the scrollbar to go there, and its tooltip, as IntelliJ's.
+- **Clicking a mark puts the caret on its usage** (added 2026-11-01), as clicking IntelliJ's error
+  stripe goes to its mark. A mark takes the click 2px above and below it too, since it's 2px high
+  (a claim; IntelliJ's own reach wasn't measured). The scrollbar's track is drawn over the marks,
+  so `ui-scrollbar` gives a press on a track to what's under it marked `data-scrollbar-through`;
+  over the thumb, a press drags it.
+- **Not yet:** a mark's tooltip, as IntelliJ's.
   (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)
