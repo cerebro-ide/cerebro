@@ -183,8 +183,6 @@ describe('usages at the caret', () => {
     const [w, r] = root.querySelectorAll('.cerebro-usageMark');
     expect(getComputedStyle(w as Element).backgroundColor).toBe('rgb(186, 99, 135)');
     expect(getComputedStyle(r as Element).backgroundColor).toBe('rgb(91, 120, 106)');
-    // Under the pointer's way: the scrollbar's thumb is over them.
-    expect(getComputedStyle(w as Element).pointerEvents).toBe('none');
   });
 
   it('scales the marks to the scroll area in a text taller than it, wherever it’s scrolled', async () => {
@@ -214,6 +212,23 @@ describe('usages at the caret', () => {
     scroller.scrollTop = 3_000;
     await wait(50);
     expect(share()).toEqual([first, middle, last]);
+  });
+
+  it('puts the caret on a usage when its mark is clicked, as IntelliJ’s stripe', async () => {
+    const text = Array.from({ length: 400 }, (_, i) => `line${String(i)}`).join('\n');
+    const root = mount({
+      document: new EditorDocument(text),
+      usages: () =>
+        Promise.resolve([
+          { from: { line: 0, column: 0 }, to: { line: 0, column: 4 }, write: false },
+          { from: { line: 300, column: 0 }, to: { line: 300, column: 4 }, write: false },
+        ]),
+    });
+    await expect.poll(() => root.querySelectorAll('.cerebro-usageMark').length).toBe(2);
+    const mark = root.querySelectorAll<HTMLElement>('.cerebro-usageMark')[1] as HTMLElement;
+    await userEvent.click(mark);
+    await expect.poll(() => root.querySelector('.cm-activeLine')?.textContent).toBe('line300');
+    expect(root.activeElement).toBe(root.querySelector('.cm-content'));
   });
 
   it('asks nothing without a way to ask', async () => {

@@ -160,6 +160,40 @@ describe('installScrollbars', () => {
     expect(scroller.scrollTop).toBe(0);
   });
 
+  it('passes a press on a track to what’s under it marked to take it, through shadow roots', async () => {
+    install();
+    const host = document.createElement('div');
+    document.body.append(host);
+    cleanup.push(() => {
+      host.remove();
+    });
+    const root = host.attachShadow({ mode: 'open' });
+    const scroller = area(100, 400, 'auto', root);
+    // A mark under the track, below the thumb, as an editor's usage marks.
+    const mark = document.createElement('div');
+    Object.assign(mark.style, {
+      position: 'fixed',
+      left: '288px',
+      top: '178px',
+      width: '10px',
+      height: '4px',
+    });
+    mark.dataset['scrollbarThrough'] = '';
+    const pressed: number[] = [];
+    mark.addEventListener('mousedown', (event) => pressed.push(event.clientY));
+    root.append(mark);
+    await userEvent.hover(scroller);
+    const rail = track('y') as HTMLElement;
+    await userEvent.click(rail, { position: { x: 5, y: 80 }, modifiers: [] });
+    expect(pressed).toEqual([180]);
+    expect(scroller.scrollTop).toBe(0);
+    expect(rail.style.pointerEvents).toBe('');
+    // Beside it: a page on.
+    await userEvent.click(rail, { position: { x: 5, y: 60 }, modifiers: [] });
+    expect(pressed).toHaveLength(1);
+    expect(scroller.scrollTop).toBe(100);
+  });
+
   it('goes on paging while a press on the track is held, until the thumb reaches the pointer', async () => {
     install();
     const scroller = area(100, 1000);
