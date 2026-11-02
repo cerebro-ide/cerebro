@@ -83,13 +83,13 @@ const MARK_HEIGHT = 2;
 interface Stripe {
   top: number;
   height: number;
-  marks: { top: number; height: number; write: boolean }[];
+  marks: { top: number; height: number; write: boolean; from: number }[];
 }
 
 /**
  * The usages' marks over the scrollbar's band, as IntelliJ's error stripe: where each is in the
  * whole text, scaled to the scroll area's height when the text is taller, else where it's shown
- * (`EditorMarkupModelImpl.offsetsToYPositions`).
+ * (`EditorMarkupModelImpl.offsetsToYPositions`). Clicking one puts the caret on its usage.
  */
 const stripe = ViewPlugin.define((view) => {
   const element = document.createElement('div');
@@ -110,7 +110,8 @@ const stripe = ViewPlugin.define((view) => {
         height,
         marks: view.state.field(usagesField).map((u) => {
           const from = y(u.from);
-          return { top: from, height: Math.max(MARK_HEIGHT, y(u.to) - from), write: u.write };
+          const height = Math.max(MARK_HEIGHT, y(u.to) - from);
+          return { top: from, height, write: u.write, from: u.from };
         }),
       };
     },
@@ -125,6 +126,15 @@ const stripe = ViewPlugin.define((view) => {
             : 'cerebro-usageMark';
           mark.style.top = `${String(m.top)}px`;
           mark.style.height = `${String(m.height)}px`;
+          // A click goes to the usage, as on IntelliJ's error stripe; not to the scrollbar under it,
+          // nor to its track over it (`@cerebro-ide/ui-scrollbar` passes it on).
+          mark.dataset['scrollbarThrough'] = '';
+          mark.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            view.dispatch({ selection: { anchor: m.from }, scrollIntoView: true });
+            view.focus();
+          });
           return mark;
         }),
       );

@@ -195,6 +195,30 @@ function page(bars: Bars, axis: Axis, back: boolean): void {
   else s.scrollLeft += back ? -s.clientWidth : s.clientWidth;
 }
 
+/**
+ * Gives a press on a track to what's under it marked `data-scrollbar-through`, as a mousedown: an
+ * editor's usage marks, which IntelliJ draws in its scrollbar and which go to the usage when
+ * clicked. Looks through shadow roots. Returns whether it did.
+ */
+function passThrough(event: PointerEvent): boolean {
+  const track = event.currentTarget as HTMLElement;
+  const { clientX: x, clientY: y } = event;
+  track.style.pointerEvents = 'none';
+  let under = document.elementFromPoint(x, y);
+  for (let inner = under?.shadowRoot?.elementFromPoint(x, y); inner && inner !== under;) {
+    under = inner;
+    inner = under.shadowRoot?.elementFromPoint(x, y);
+  }
+  track.style.pointerEvents = '';
+  const target = under?.closest('[data-scrollbar-through]');
+  if (!target) return false;
+  event.preventDefault();
+  target.dispatchEvent(
+    new MouseEvent('mousedown', { bubbles: true, cancelable: true, clientX: x, clientY: y }),
+  );
+  return true;
+}
+
 /** Shows Cerebro's scrollbars over the page, the browser's hidden; returns what removes them. */
 export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
   const shown = new Map<HTMLElement, Bars>();
@@ -322,7 +346,7 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     // its thumb is under the pointer).
     const bar = (axis: Axis) => ({
       rail: draw('cerebro-scrollbar-track', axis, (event) => {
-        press(bars, axis, event);
+        if (!passThrough(event)) press(bars, axis, event);
       }),
       thumb: draw('cerebro-scrollbar', axis, (event) => {
         drag(bars, axis, event);

@@ -486,6 +486,18 @@ body,
   background: var(--cerebro-selected);
 }
 
+.playground-recent__title {
+  font-weight: 600;
+}
+
+.playground-recent__edited {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
 .playground-find__mask {
   display: flex;
   align-items: center;

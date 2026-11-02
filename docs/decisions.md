@@ -1082,9 +1082,18 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   once CodeMirror has measured the lines: before, their heights are estimates.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
+- **Show edited only** (added 2026-11-01): a checkbox in Recent Files' header, as IntelliJ's
+  (`recent.files.checkbox.label`), lists the files edited instead, the latest edited first.
+  Recent Files' own key flips it while the popup is open, and the action Recently Changed Files
+  (no key, as IntelliJ's; found through Search Everywhere, not in a menu) opens with it on, both as
+  IntelliJ's Recent Files spec states. A file counts as edited when its text changes and is left
+  unsaved, so a file read again from disk doesn't. The
+  list is kept per environment between runs, as the other. IntelliJ waits for a pause in typing
+  before it moves a file up; here a file already first isn't moved, so typing changes nothing.
+  Claude's choice, open to change.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column and "Show edited only". Alt+F1's Select In
-  isn't there, nor the Options menu's other choices (Open Files with Single Click and the rest).
+  Recent Files lacks IntelliJ's tool windows column. Alt+F1's Select In isn't there, nor the
+  Options menu's other choices (Open Files with Single Click and the rest).
 
 ## Changing keys on the Keymap page (2026-11-01)
 
@@ -1187,7 +1196,12 @@ colour and underlined.
   IntelliJ's stripe is 14px beside its thumb. Cerebro's thumb is drawn over the content, so the
   marks sit in the thumb's band (10px, 2px from the edge), under it. That's a claim, open to
   change.
-- **Not yet:** clicking a mark on the scrollbar to go there, and its tooltip, as IntelliJ's.
+- **Clicking a mark puts the caret on its usage** (added 2026-11-01), as clicking IntelliJ's error
+  stripe goes to its mark. A mark takes the click 2px above and below it too, since it's 2px high
+  (a claim; IntelliJ's own reach wasn't measured). The scrollbar's track is drawn over the marks,
+  so `ui-scrollbar` gives a press on a track to what's under it marked `data-scrollbar-through`;
+  over the thumb, a press drags it.
+- **Not yet:** a mark's tooltip, as IntelliJ's.
   (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)

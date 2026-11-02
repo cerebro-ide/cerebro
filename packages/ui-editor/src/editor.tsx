@@ -246,6 +246,14 @@ export const theme = EditorView.theme({
     left: '0',
     right: '0',
     backgroundColor: variable('editor-usage-stripe'),
+    // The stripe lets the pointer through to the scrollbar; its marks take clicks.
+    pointerEvents: 'auto',
+  },
+  // A mark is 2px high: easier to hit with 2px more on each side.
+  '.cerebro-usageMark::before': {
+    content: '""',
+    position: 'absolute',
+    inset: '-2px 0',
   },
   '.cerebro-usageMark--write': { backgroundColor: variable('editor-usage-stripe-write') },
   // A word with a definition, under the pointer with Ctrl or Cmd held: the link colour over the
