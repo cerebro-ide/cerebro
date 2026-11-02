@@ -342,6 +342,15 @@ describe('CodeEditor', () => {
     expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('one');
     (document.activeElement as HTMLElement).blur();
+    // The same request, to another editor: taken already.
+    const again = focus.peek() as object;
+    const other = document.createElement('div');
+    document.body.append(other);
+    const shown = render(() => <CodeEditor path="b.txt" text="x" focus={() => again} />, other);
+    await new Promise((resolve) => setTimeout(resolve));
+    expect(document.activeElement).toBe(document.body);
+    shown.dispose();
+    other.remove();
 
     const detached = document.createElement('div');
     const handle = render(() => <CodeEditor path="a.txt" text="x" focus={() => ({})} />, detached);

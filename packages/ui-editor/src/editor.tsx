@@ -59,10 +59,10 @@ export interface CodeEditorProps {
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
   /**
-   * A request to take the focus, as after opening the file from a list: each value but `undefined`
-   * focuses the editor once it's in the page. Read reactively.
+   * A request to take the focus, as after opening the file from a list: each object focuses the
+   * editor once it's in the page, and only once, whichever editor takes it first. Read reactively.
    */
-  focus?: () => unknown;
+  focus?: () => object | undefined;
   /**
    * Go to definition of the word at the cursor, given where it is (zero-based): its keys (Mod+B in
    * IntelliJ) or Mod+click.
@@ -131,6 +131,9 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
   (action === 'undo' ? undo : redo)(view);
   return true;
 }
+
+/** Focus requests already taken (`focus`): a later editor given one again leaves the focus. */
+const taken = new WeakSet<object>();
 
 /** A position in the editor as a line and column, zero-based. */
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
@@ -519,10 +522,13 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return undefined;
   });
   const focusing = effect(() => {
-    if (props.focus?.() === undefined) return undefined;
+    const request = props.focus?.();
+    if (request === undefined) return undefined;
     // After the current task, as revealing: a new editor isn't in the document yet.
     queueMicrotask(() => {
-      if (container.isConnected) view.focus();
+      if (!container.isConnected || taken.has(request)) return;
+      taken.add(request);
+      view.focus();
     });
     return undefined;
   });

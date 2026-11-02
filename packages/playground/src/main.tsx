@@ -793,9 +793,6 @@ function Code(props: { path: string; env: string }) {
     <div
       class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
-      on:focusin={() => {
-        focusing.delete(props.path);
-      }}
       on:focusout={(event) => {
         // The editor's file is saved when the focus leaves it, for the window or somewhere else in it.
         const to = event.relatedTarget;

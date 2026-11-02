@@ -53,10 +53,7 @@ export const reveals = new ObservableMap<
   { line: number; column: number; top?: number | undefined }
 >();
 
-/**
- * Open files whose editor is to take the focus, by path: the editor follows them, and the request
- * goes once it has the focus.
- */
+/** Open files whose editor is to take the focus, by path: the editor takes each request once. */
 export const focusing = new ObservableMap<string, object>();
 
 const GROUP = 'Name matches';

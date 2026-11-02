@@ -1064,8 +1064,8 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **A file chosen from a list takes the focus** (changed 2026-11-01): after Go to File, Recent
   Files or Search Everywhere's files, the file's editor is focused, as IntelliJ's (a claim: not
   measured, as it focuses after navigating). Before, a file opened without a place to reveal left
-  the focus on the page. The editor takes a focus request (`focus` on `CodeEditor`), which goes
-  once the editor has the focus. Opening from the Project tool window or the Commit tool window
+  the focus on the page. The editor takes a focus request (`focus` on `CodeEditor`) once: another
+  editor of the file made later doesn't take it again. Opening from the Project tool window or the Commit tool window
   doesn't move the focus yet.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column and "Show edited only". IntelliJ's "Always
