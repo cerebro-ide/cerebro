@@ -45,6 +45,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
+- [Copy Path/Reference on a tab (2026-11-03)](#copy-pathreference-on-a-tab-2026-11-03): absolute path, file name, path from the content root, as IntelliJ's submenu
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
@@ -1113,6 +1114,24 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
+
+## Copy Path/Reference on a tab (2026-11-03)
+
+Ido: "when right clicking a file tab the copy path option should be a menu asking if you want to
+save the absolute, relative, or simply the name alone", as IntelliJ's.
+
+- **A submenu, Copy Path/Reference…,** in the tab's context menu where Copy Path was, with
+  IntelliJ's items and labels (`CopyReferencePopupGroup` in `PlatformActions.xml`,
+  `ActionsBundle.properties`): Absolute Path and File Name, then Path from Content Root (the
+  relative one).
+- **What each copies,** as IntelliJ's providers (`CopyPathProvider.kt`): the absolute path as the
+  system writes it (`presentableUrl`: backslashes on Windows, a claim from its name, not run
+  there), the file's name, and its path from the worktree's root with `/`
+  (`VfsUtilCore.getRelativePath`). A diff's tab copies its file's.
+- **Keys:** Absolute Path keeps Copy Path's (Ctrl/Cmd+Shift+C), as IntelliJ's takes CopyPaths'
+  (`use-shortcut-of`); the other two have none in IntelliJ's keymaps.
+- **Not yet:** IntelliJ's other items (Path with Line Number, Source Root, Toolbox URL, references
+  to symbols), and the value shown beside each item.
 
 ## Phase 1 is WebStorm's functionality (2026-11-03)
 
