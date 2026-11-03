@@ -44,3 +44,6 @@ are listed per worktree, whichever session they came from; with several Claude s
   pressing again (2026-11-02); that this was the whole cause is a claim until Windows runs stay
   green. #104's run showed the other side of it: a second press's late answer took the next test
   back to lib.sh. After more than one press, the test now waits out the host's 3 s (2026-11-03).
+  #111's run (and one of #109's) failed every test after the shell one on Windows: Go to File
+  never showed, after the shell test pressed Ctrl+B more than once. That a late name-match popup
+  was left open is a claim; the tests now print and close a popup left open before Go to File.

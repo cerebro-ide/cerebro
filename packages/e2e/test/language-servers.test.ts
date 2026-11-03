@@ -24,6 +24,14 @@ const where = async () => ({
 
 /** Opens a file with Go to File, the caret at the start of a line holding `text`. */
 async function openAt(name: string, text: string): Promise<void> {
+  // A popup left open (an earlier test's late name matches, a claim: two Windows runs failed every
+  // test after the shell one, Go to File never showing) is printed and closed first.
+  const left = await popup().count();
+  if (left > 0) {
+    console.log('A popup was left open:', await popup().first().textContent());
+    await page().keyboard.press('Escape');
+    await popup().first().waitFor({ state: 'detached' });
+  }
   await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
