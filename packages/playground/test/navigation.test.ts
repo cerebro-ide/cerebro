@@ -173,14 +173,27 @@ describe('what a language server says of a file', () => {
       'lsp.highlights': [{ from: 0, to: 1, kind: 'read' }],
       'lsp.markers': [{ line: 0 }],
       'lsp.problems': [{ message: 'no' }],
+      'lsp.completions': { incomplete: false, items: [{ label: 'a' }] },
+      'lsp.completionEdits': [{ text: 'import a;\n' }],
     };
     expect(await nav.usages(asked)).toEqual([{ from: 0, to: 1, kind: 'read' }]);
+    expect(await nav.completions(asked)).toEqual({ incomplete: false, items: [{ label: 'a' }] });
+    expect(await nav.completionEdits('/r/a.ts', { label: 'a', resolve: { data: 1 } })).toEqual([
+      { text: 'import a;\n' },
+    ]);
+    expect(host.params('lsp.completions')).toEqual([{ worktree: '/r', ...asked }]);
+    // Asked with the server's own item.
+    expect(host.params('lsp.completionEdits')).toEqual([
+      { worktree: '/r', path: '/r/a.ts', item: { data: 1 } },
+    ]);
     expect(await nav.markers('/r/a.ts', 'text')).toEqual([{ line: 0 }]);
     expect(await nav.problems('/r/a.ts', 'text')).toEqual([{ message: 'no' }]);
     expect(host.params('lsp.highlights')).toEqual([{ worktree: '/r', ...asked }]);
     expect(host.params('lsp.markers')).toEqual([{ worktree: '/r', path: '/r/a.ts', text: 'text' }]);
     answers = {};
     expect(await nav.usages(asked)).toBeNull();
+    expect(await nav.completions(asked)).toBeNull();
+    expect(await nav.completionEdits('/r/a.ts', { label: 'a' })).toBeNull();
     expect(await nav.markers('/r/a.ts', 'text')).toBeNull();
     expect(await nav.problems('/r/a.ts', 'text')).toBeNull();
   });
@@ -188,6 +201,7 @@ describe('what a language server says of a file', () => {
   it('is none outside the app', async () => {
     workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
     expect(await nav.usages(asked)).toBeNull();
+    expect(await nav.completionEdits('/s/a.ts', { label: 'a' })).toBeNull();
     expect(await nav.markers('/s/a.ts', 'text')).toBeNull();
     expect(await nav.problems('/s/a.ts', 'text')).toBeNull();
     expect(await nav.hasDefinition('a', asked)).toBe(false);
@@ -195,6 +209,7 @@ describe('what a language server says of a file', () => {
     workspace.close('/r');
     try {
       expect(await nav.usages(asked)).toBeNull();
+      expect(await nav.completionEdits('/r/a.ts', { label: 'a' })).toBeNull();
       expect(await nav.markers('/r/a.ts', 'text')).toBeNull();
       expect(await nav.problems('/r/a.ts', 'text')).toBeNull();
       nav.opened('/r/a.ts', 'text');

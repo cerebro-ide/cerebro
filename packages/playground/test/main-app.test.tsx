@@ -354,6 +354,40 @@ describe('context actions', () => {
   });
 });
 
+describe('completion', () => {
+  it('lists what can go at the caret as one types, and puts in the one chosen with its import', async () => {
+    answers.set('lsp.completions', {
+      incomplete: false,
+      items: [{ label: 'target', kind: 'function', description: './t', resolve: { data: 1 } }],
+    });
+    answers.set('lsp.completionEdits', [
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 0, column: 0 },
+        text: 'import { target } from "./t";\n',
+      },
+    ]);
+    env().editor.open({ id: '/r/src/g.ts', title: 'g.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{End}{/Control}ta');
+    const list = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cm-tooltip-autocomplete'),
+    );
+    expect(list.textContent).toBe('target./t');
+    // CodeMirror's list takes no keys for its first 75 ms.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => code()?.textContent).toContain('import { target } from "./t";');
+    expect(code()?.textContent).toContain('target');
+    expect(host('/r').params('lsp.completions')).toContainEqual(
+      expect.objectContaining({ worktree: '/r', path: '/r/src/g.ts' }),
+    );
+    expect(host('/r').params('lsp.completionEdits')).toEqual([
+      { worktree: '/r', path: '/r/src/g.ts', item: { data: 1 } },
+    ]);
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 

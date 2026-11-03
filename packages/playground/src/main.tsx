@@ -34,6 +34,7 @@ import {
   formatLineColumn,
   languageName,
   parseLineColumn,
+  type CompletionItem,
   type EditorDocument,
   type Mark,
 } from '@cerebro-ide/ui-editor';
@@ -1026,6 +1027,10 @@ function Code(props: { path: string; env: string }) {
                   ) => void navigation.contextActions(asked(state, at), caret, state),
                   usages: (at: { line: number; column: number }) =>
                     navigation.usages(asked(state, at)),
+                  completions: (text: string, at: { line: number; column: number }) =>
+                    navigation.completions({ path: props.path, text, ...at }),
+                  resolveCompletion: (item: CompletionItem) =>
+                    navigation.completionEdits(props.path, item),
                   canGoToDefinition: (name: string, at: { line: number; column: number }) =>
                     navigation.hasDefinition(name, asked(state, at)),
                   marks: (text: string) => navigation.markers(props.path, text),

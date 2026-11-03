@@ -31,6 +31,12 @@ import {
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
 import { tags } from '@lezer/highlight';
+import {
+  completionKeys,
+  completions,
+  type AskCompletions,
+  type ResolveCompletion,
+} from './completions.js';
 import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
@@ -101,6 +107,13 @@ export interface CodeEditorProps {
    * it opens, and once an edit has settled. None: no problems shown.
    */
   problems?: AskProblems;
+  /**
+   * What can go at the caret, given the text: listed as one types and on its keys (Ctrl+Space),
+   * as IntelliJ's code completion, when the document can be edited. None: no completion.
+   */
+  completions?: AskCompletions;
+  /** The other edits of a completion chosen, when it has them only by asking (an import). */
+  resolveCompletion?: ResolveCompletion;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
@@ -120,6 +133,8 @@ export interface EditorKeys {
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
+  /** Basic code completion: what can go at the caret. */
+  complete?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -136,6 +151,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
+  complete: ['Ctrl-Space'],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -324,6 +340,47 @@ export const theme = EditorView.theme({
     border: `1px solid ${variable('tooltip-border')}`,
     borderRadius: '4px',
     boxShadow: variable('shadow'),
+  },
+  // The completion list, as IntelliJ's: the popups' look, in the editor's font, a type to the right.
+  '.cm-tooltip.cm-tooltip-autocomplete': {
+    backgroundColor: variable('panel'),
+    color: variable('text'),
+    border: `1px solid ${variable('separator')}`,
+    borderRadius: '4px',
+    boxShadow: variable('shadow'),
+    overflow: 'hidden',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul': {
+    fontFamily: variable('font-mono'),
+    maxHeight: '300px',
+    minWidth: '300px',
+    padding: '4px 0',
+    // The page's own scrollbars don't reach the shadow root: a thin one, in their colour.
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${variable('scrollbar')} transparent`,
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '0 8px',
+    lineHeight: variable('menu-item-height'),
+  },
+  // More specific than CodeMirror's own, which is blue.
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+    backgroundColor: variable('menu-highlight'),
+    color: variable('text'),
+  },
+  '.cm-completionMatchedText': {
+    textDecoration: 'none',
+    color: variable('accent'),
+    fontWeight: '600',
+  },
+  '.cm-completionDetail': {
+    marginLeft: 'auto',
+    paddingLeft: '24px',
+    fontStyle: 'normal',
+    color: variable('text-muted'),
   },
   '.cerebro-problemTooltip': {
     padding: '8px 12px',
@@ -537,6 +594,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     const { onContextActions } = props;
     return [
       findAndReplace(doc !== undefined, keys),
+      doc && props.completions ? completionKeys(keys.complete) : [],
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
@@ -593,6 +651,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     // After the selection: a later layer beneath goes lower.
     props.usages ? usageHighlights(props.usages) : [],
     props.problems ? problemHighlights(props.problems, props.onShowProblems) : [],
+    doc && props.completions ? completions(props.completions, props.resolveCompletion) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),

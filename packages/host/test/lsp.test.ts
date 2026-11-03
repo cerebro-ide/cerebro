@@ -11,6 +11,7 @@ import {
   LanguageServer,
   LanguageServers,
   actionsOf,
+  completionsOf,
   highlighted,
   located,
   pathOf,
@@ -236,6 +237,59 @@ describe('context actions', () => {
   });
 });
 
+describe('completions', () => {
+  it('reads completion items: their kind, type and module, and what they put where', () => {
+    const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 2 } };
+    const span = { from: { line: 1, column: 0 }, to: { line: 1, column: 2 } };
+    const items = [
+      { label: 'alpha', kind: 10, detail: 'number', sortText: '11' },
+      { label: 'run', kind: 3, labelDetails: { description: './lib' }, data: 1 },
+      {
+        label: 'walk',
+        textEdit: { range, newText: 'walk' },
+        additionalTextEdits: [{ range, newText: 'x' }],
+      },
+      { label: 'odd', kind: 99, insertText: 'odd()' },
+    ];
+    expect(completionsOf({ isIncomplete: true, items }, true)).toEqual({
+      incomplete: true,
+      items: [
+        { label: 'alpha', kind: 'property', detail: 'number', sortText: '11', resolve: items[0] },
+        { label: 'run', kind: 'function', description: './lib', resolve: items[1] },
+        // Its other edits given: none to ask for.
+        { label: 'walk', edit: { ...span, text: 'walk' }, extraEdits: [{ ...span, text: 'x' }] },
+        { label: 'odd', insert: 'odd()', resolve: items[3] },
+      ],
+    });
+    // A server that tells no more of them: none to ask; a list on its own: all there is.
+    expect(completionsOf([items[0]], false)).toEqual({
+      incomplete: false,
+      items: [{ label: 'alpha', kind: 'property', detail: 'number', sortText: '11' }],
+    });
+    expect(completionsOf({ items: [] }, false)).toEqual({ incomplete: false, items: [] });
+    expect(completionsOf(null, false)).toEqual({ incomplete: false, items: [] });
+  });
+
+  it('asks the file’s server, and for a completion’s other edits when it gives them only then', async () => {
+    const servers = pool([fake('completes')]);
+    const found = await servers.completions(root, file, at(0, 1));
+    expect(found?.items.map((c) => c.label)).toEqual(['alpha', 'beta']);
+    const beta = found?.items[1]?.resolve;
+    expect(await servers.completionEdits(root, file.path, beta)).toEqual([
+      { from: { line: 0, column: 0 }, to: { line: 0, column: 0 }, text: 'import beta;\n' },
+    ]);
+    expect(await servers.completionEdits(root, file.path, found?.items[0]?.resolve)).toEqual([]);
+    // No server for the file: no answer.
+    expect(await servers.completions(root, { ...file, path: '/x.other' }, at(0, 0))).toBeNull();
+    expect(await servers.completionEdits(root, '/x.other', beta)).toBeNull();
+    // One that offers none, and can tell no more.
+    expect(await pool([fake('pulls')]).completions(root, file, at(0, 0))).toEqual({
+      incomplete: false,
+      items: [],
+    });
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -294,6 +348,37 @@ describe('TypeScript 7’s server', () => {
     );
     // Edited, not saved: none.
     expect(await servers.problems(project, { ...bad, text: 'export const n = 1;\n' })).toEqual([]);
+  }, 60_000);
+
+  it('completes a member, and a function from another file with its import', async () => {
+    const project = `${root}/ts`;
+    writeFileSync(join(project, 'values.ts'), 'export const value = { alpha: 1, beta: "b" };\n');
+    const main = {
+      path: `${project}/complete.ts`,
+      text: "import { value } from './values';\nvalue.al\ntarg\n",
+    };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const members = await servers.completions(project, main, at(1, 8));
+    // Every member: the client matches them to what's typed.
+    expect(members?.items.map((c) => [c.label, c.kind])).toEqual([
+      // LSP's Field: TypeScript's kind for an object's members (measured).
+      ['alpha', 'field'],
+      ['beta', 'field'],
+    ]);
+    const names = await servers.completions(project, main, at(2, 4));
+    const target = names?.items.find((c) => c.label === 'target');
+    expect(target).toMatchObject({ kind: 'function', description: './a' });
+    // Its import only when asked about it (measured).
+    expect(target?.extraEdits).toBeUndefined();
+    expect(await servers.completionEdits(project, main.path, target?.resolve)).toEqual([
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 0, column: 0 },
+        // In the file's quotes.
+        text: "import { target } from './a';\n",
+      },
+    ]);
   }, 60_000);
 
   it('offers the fixes for the problem at the caret, as edits', async () => {
@@ -521,6 +606,29 @@ describe('basedpyright, for Python', () => {
       }),
     ]);
     expect(await servers.problems(project, { ...bad, text: 'x: int = 1\n' })).toEqual([]);
+  }, 60_000);
+
+  it('completes a name from another file, with its import', async () => {
+    const project = `${root}/py`;
+    const main = { path: `${project}/complete.py`, text: 'targ\n' };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const found = await servers.completions(project, main, at(0, 4));
+    // Only what matches so far: asked again as typed.
+    expect(found?.incomplete).toBe(true);
+    expect(found?.items).toContainEqual(
+      expect.objectContaining({
+        label: 'target',
+        kind: 'function',
+        description: 'a',
+        edit: { from: { line: 0, column: 0 }, to: { line: 0, column: 4 }, text: 'target' },
+        extraEdits: [
+          expect.objectContaining({
+            text: expect.stringContaining('from a import target') as string,
+          }),
+        ],
+      }),
+    );
   }, 60_000);
 
   it('offers the fixes for the problem at the caret, as edits', async () => {

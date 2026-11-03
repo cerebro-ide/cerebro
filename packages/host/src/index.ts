@@ -94,6 +94,7 @@ export {
 } from './search.js';
 export {
   actionsOf,
+  completionsOf,
   IDLE_AFTER,
   LanguageServer,
   LanguageServers,
@@ -104,6 +105,8 @@ export {
   pathOf,
   referencesIn,
   uriOf,
+  type Completion,
+  type Completions,
   type ContextAction,
   type Highlight,
   type Located,

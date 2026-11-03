@@ -65,6 +65,63 @@ export interface ContextAction {
   edits: TextEdit[];
 }
 
+/** LSP's kinds of completion, by number, as its names. */
+const COMPLETION_KINDS = [
+  'text',
+  'method',
+  'function',
+  'constructor',
+  'field',
+  'variable',
+  'class',
+  'interface',
+  'module',
+  'property',
+  'unit',
+  'value',
+  'enum',
+  'keyword',
+  'snippet',
+  'color',
+  'file',
+  'reference',
+  'folder',
+  'enumMember',
+  'constant',
+  'struct',
+  'event',
+  'operator',
+  'typeParameter',
+] as const;
+
+/** What a language server offers to complete at a place. */
+export interface Completion {
+  label: string;
+  /** LSP's kind, by its name (`function`, `property`...). */
+  kind?: (typeof COMPLETION_KINDS)[number];
+  /** What it is (its type), and where it's from (a module), when the server says. */
+  detail?: string;
+  description?: string;
+  /** How the server ranks it among equally good matches. */
+  sortText?: string;
+  /**
+   * What it puts in place of the word being completed, when not its label: where the server says,
+   * or the word.
+   */
+  edit?: TextEdit;
+  insert?: string;
+  /** Other edits it makes (an import). */
+  extraEdits?: TextEdit[];
+  /** The server's own item, to ask it for the other edits when it gives them only then. */
+  resolve?: unknown;
+}
+
+/** What a server offers at a place: all of it, or only what matches so far (asked again as typed). */
+export interface Completions {
+  incomplete: boolean;
+  items: Completion[];
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -199,6 +256,57 @@ export function problemsOf(items: unknown): Problem[] {
   }));
 }
 
+interface CompletionItem {
+  label: string;
+  kind?: number;
+  detail?: string;
+  labelDetails?: { description?: string };
+  sortText?: string;
+  insertText?: string;
+  textEdit?: { range: Range; newText: string };
+  additionalTextEdits?: { range: Range; newText: string }[];
+}
+
+const edited = ({ range, newText }: { range: Range; newText: string }): TextEdit => ({
+  from: { line: range.start.line, column: range.start.character },
+  to: { line: range.end.line, column: range.end.character },
+  text: newText,
+});
+
+/**
+ * A server's completion items as completions. One that may have other edits it gives only when
+ * asked about the item (TypeScript's server, for an import: measured) keeps the item, to ask.
+ */
+export function completionsOf(result: unknown, resolves: boolean): Completions {
+  const list = Array.isArray(result)
+    ? { isIncomplete: false, items: result as CompletionItem[] }
+    : ((result ?? { isIncomplete: false, items: [] }) as {
+        isIncomplete?: boolean;
+        items: CompletionItem[];
+      });
+  return {
+    incomplete: list.isIncomplete ?? false,
+    items: list.items.map((item) => {
+      const { label, kind, detail, labelDetails, sortText, insertText, textEdit } = item;
+      const extra = item.additionalTextEdits;
+      const name = kind === undefined ? undefined : COMPLETION_KINDS[kind - 1];
+      // Text put where the word being completed is: the server's, or the label's.
+      const text = textEdit?.newText ?? insertText;
+      return {
+        label,
+        ...(name === undefined ? {} : { kind: name }),
+        ...(detail === undefined ? {} : { detail }),
+        ...(labelDetails?.description === undefined
+          ? {}
+          : { description: labelDetails.description }),
+        ...(sortText === undefined ? {} : { sortText }),
+        ...(textEdit ? { edit: edited(textEdit) } : text === undefined ? {} : { insert: text }),
+        ...(extra ? { extraEdits: extra.map(edited) } : resolves ? { resolve: item } : {}),
+      };
+    }),
+  };
+}
+
 interface CodeAction {
   title: string;
   kind?: string;
@@ -222,13 +330,7 @@ export function actionsOf(
     const changes = Object.entries(edit?.changes ?? {});
     if (command !== undefined || disabled !== undefined || changes.length === 0) return [];
     if (changes.some(([uri]) => pathOf(uri, platform) !== path)) return [];
-    const edits = changes.flatMap(([, list]) =>
-      list.map(({ range, newText }) => ({
-        from: { line: range.start.line, column: range.start.character },
-        to: { line: range.end.line, column: range.end.character },
-        text: newText,
-      })),
-    );
+    const edits = changes.flatMap(([, list]) => list.map(edited));
     return [{ title, ...(kind === undefined ? {} : { kind }), edits }];
   });
 }
@@ -267,6 +369,8 @@ export class LanguageServer {
   readonly #waiting = new Map<string, Set<() => void>>();
   /** Whether it answers when asked for a file's problems; if not, it sends them as they change. */
   #pulls = false;
+  /** Whether it tells more of a completion when asked about it: its other edits, for one. */
+  #resolves = false;
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
@@ -338,6 +442,8 @@ export class LanguageServer {
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
             // Actions as edits, not commands: without it, a server may give only commands (LSP).
             codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: KINDS } } },
+            // Plain text, not snippets; a module after the label, as IntelliJ shows one.
+            completion: { completionItem: { snippetSupport: false, labelDetailsSupport: true } },
             // Not registered as the server goes: basedpyright then exits (measured, 1.40.2). The
             // tags here too, or TypeScript's answers leave them out (measured).
             diagnostic: { dynamicRegistration: false, tagSupport: { valueSet: [1, 2] } },
@@ -346,9 +452,16 @@ export class LanguageServer {
         },
       })
       .then((result) => {
-        const capabilities = (result as { capabilities?: { diagnosticProvider?: unknown } } | null)
-          ?.capabilities;
+        const capabilities = (
+          result as {
+            capabilities?: {
+              diagnosticProvider?: unknown;
+              completionProvider?: { resolveProvider?: boolean };
+            };
+          } | null
+        )?.capabilities;
         this.#pulls = capabilities?.diagnosticProvider !== undefined;
+        this.#resolves = capabilities?.completionProvider?.resolveProvider === true;
         this.#connection.notify('initialized', {});
         return loaded;
       });
@@ -431,6 +544,25 @@ export class LanguageServer {
     return Array.isArray(answer)
       ? (answer as DocumentSymbol[]).filter((s) => 'selectionRange' in s)
       : [];
+  }
+
+  /** What it offers to complete at a place in a file, asked as invoked: after a `.` too (measured). */
+  async completions(file: OpenFile, languageId: string, at: Located): Promise<Completions> {
+    return completionsOf(
+      await this.#ask('textDocument/completion', file, languageId, at, {
+        context: { triggerKind: 1 },
+      }),
+      this.#resolves,
+    );
+  }
+
+  /** A completion's other edits (an import), as it gives them when asked about the item. */
+  async completionEdits(item: unknown): Promise<TextEdit[]> {
+    await this.ready;
+    const answer = (await this.#connection.request('completionItem/resolve', item)) as {
+      additionalTextEdits?: { range: Range; newText: string }[];
+    };
+    return (answer.additionalTextEdits ?? []).map(edited);
   }
 
   /** A file's problems, as it is now. */
@@ -615,19 +747,21 @@ export class LanguageServers {
 
   /** Where the symbol at a place is defined; null when no server answers in time. */
   definitions(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
-    return this.#ask(worktree, file, (server, languageId) =>
+    return this.#ask(worktree, file.path, (server, languageId) =>
       server.definitions(file, languageId, at),
     );
   }
 
   /** Where the symbol at a place is used; null when no server answers in time. */
   usages(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
-    return this.#ask(worktree, file, (server, languageId) => server.usages(file, languageId, at));
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.usages(file, languageId, at),
+    );
   }
 
   /** Where the symbol at a place is in its file; null when no server answers in time. */
   highlights(worktree: string, file: OpenFile, at: Located): Promise<Highlight[] | null> {
-    return this.#ask(worktree, file, (server, languageId) =>
+    return this.#ask(worktree, file.path, (server, languageId) =>
       server.highlights(file, languageId, at),
     );
   }
@@ -636,15 +770,27 @@ export class LanguageServers {
   problems(worktree: string, file: OpenFile): Promise<Problem[] | null> {
     return this.#ask(
       worktree,
-      file,
+      file.path,
       (server, languageId) => server.problems(file, languageId),
       this.options.problemsPatience ?? PROBLEMS_PATIENCE,
     );
   }
 
+  /** What a server offers to complete at a place; null when none answers in time. */
+  completions(worktree: string, file: OpenFile, at: Located): Promise<Completions | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.completions(file, languageId, at),
+    );
+  }
+
+  /** A completion's other edits, from the server of the file it was offered in; none in time: null. */
+  completionEdits(worktree: string, path: string, item: unknown): Promise<TextEdit[] | null> {
+    return this.#ask(worktree, path, (server) => server.completionEdits(item));
+  }
+
   /** What Alt+Enter offers at a place; null when no server answers in time. */
   contextActions(worktree: string, file: OpenFile, at: Located): Promise<ContextAction[] | null> {
-    return this.#ask(worktree, file, (server, languageId) =>
+    return this.#ask(worktree, file.path, (server, languageId) =>
       server.contextActions(file, languageId, at),
     );
   }
@@ -707,13 +853,14 @@ export class LanguageServers {
     );
   }
 
+  /** A question to the server of a file, given up on after `patience`, or if it fails: null. */
   async #ask<T>(
     worktree: string,
-    file: OpenFile,
-    question: (server: LanguageServer, languageId: string) => Promise<T[]>,
+    path: string,
+    question: (server: LanguageServer, languageId: string) => Promise<T>,
     patience = this.options.patience ?? PATIENCE,
-  ): Promise<T[] | null> {
-    const found = this.serverFor(worktree, file.path);
+  ): Promise<T | null> {
+    const found = this.serverFor(worktree, path);
     if (!found) return null;
     try {
       const answer = await within(question(found.server, found.languageId), patience);

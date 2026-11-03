@@ -4,7 +4,7 @@
 // `undoDepth` and `redoDepth`. A change joined to the one before (typing on) keeps that one's name.
 
 import { history, redoDepth, undoDepth } from '@codemirror/commands';
-import { StateField, type Extension, type Transaction } from '@codemirror/state';
+import { Annotation, StateField, type Extension, type Transaction } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { signal } from '@cerebro-ide/reactive';
 
@@ -71,10 +71,19 @@ export const historyNames = StateField.define<Names>({
 /** Changes as editors' histories change, for what reads them to be read again. */
 const changed = signal(0);
 
+/**
+ * Marks a change as part of the one before, undone with it: a completion's import, had after it
+ * went in. CodeMirror joins it only within its 500 ms and with no caret moved since (a claim, from
+ * its source).
+ */
+export const joinedToLast = Annotation.define<boolean>();
+
 /** CodeMirror's history, with names. */
 export function namedHistory(): Extension {
   return [
-    history(),
+    history({
+      joinToEvent: (tr, adjacent) => adjacent || tr.annotation(joinedToLast) === true,
+    }),
     historyNames,
     EditorView.updateListener.of((update) => {
       if (update.startState.field(historyNames) !== update.state.field(historyNames)) {

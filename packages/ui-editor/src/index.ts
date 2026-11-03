@@ -5,6 +5,13 @@ export {
   type CodeEditorProps,
   type EditorKeys,
 } from './editor.js';
+export {
+  type AskCompletions,
+  type CompletionEdit,
+  type CompletionItem,
+  type CompletionList,
+  type ResolveCompletion,
+} from './completions.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

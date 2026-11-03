@@ -203,6 +203,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.problems', (params) =>
     servers.problems(text(params, 'worktree'), fileOf(params)),
   );
+  connection.onRequest('lsp.completions', (params) =>
+    servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  // The item as the server gave it, kept by the UI: only the server reads it.
+  connection.onRequest('lsp.completionEdits', (params) =>
+    servers.completionEdits(
+      text(params, 'worktree'),
+      text(params, 'path'),
+      (params as { item?: unknown }).item,
+    ),
+  );
   connection.onRequest('lsp.contextActions', (params) =>
     servers.contextActions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );

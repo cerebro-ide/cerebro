@@ -25,6 +25,7 @@ import type { EditorKeys } from '@cerebro-ide/ui-editor';
 export const EDITOR_ACTIONS = {
   goToDefinition: 'editor.goToDefinition',
   findUsages: 'editor.findUsages',
+  complete: 'editor.codeCompletion',
   contextActions: 'editor.showContextActions',
   find: 'editor.find',
   replace: 'editor.replace',
@@ -79,6 +80,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Alt+Enter'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+R'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
   },
 };
 
@@ -130,6 +132,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Alt+Enter'],
     [EDITOR_ACTIONS.find]: ['Meta+F'],
     [EDITOR_ACTIONS.replace]: ['Meta+R'],
+    // Its file gives Ctrl+Space, over the swap's Meta+Space.
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
   },
 };
 
@@ -187,6 +191,7 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Ctrl+.'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+I'],
   },
 };
 
@@ -224,6 +229,7 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Meta+.'],
     [EDITOR_ACTIONS.find]: ['Meta+F'],
     [EDITOR_ACTIONS.replace]: ['Meta+Alt+F'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Meta+I'],
   },
 };
 
@@ -322,6 +328,7 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7', 'Alt+Shift+S'],
     [EDITOR_ACTIONS.find]: ['Ctrl+Alt+S', 'Alt+F3', 'Ctrl+S'],
     [EDITOR_ACTIONS.replace]: ['Alt+Shift+5'],
+    [EDITOR_ACTIONS.complete]: ['Alt+/'],
   },
 };
 
@@ -346,6 +353,8 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     'changes.groupByDirectory': ['Ctrl+P'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
+    // Its file gives Ctrl+Space, over the swap's Meta+Space.
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
   },
 };
 
@@ -388,6 +397,7 @@ export const NETBEANS: KeymapPreset = {
     'view.tool.structure': ['Ctrl+7', 'Alt+7'],
     'changes.commit': [],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+\\'],
   },
 };
 
@@ -465,6 +475,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.contextActions]: ['Alt+Enter', 'Ctrl+.', 'Alt+Shift+F10'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+J'],
   },
 };
 
@@ -497,6 +508,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+J'],
   },
 };
 
