@@ -4,6 +4,9 @@
 // logs other lines, then "Loaded", after it's initialized; "symbols" answers a.fake's and b.fake's
 // symbols (class A extends B, each with a method run), and goes from a.fake's B to b.fake's and to a
 // file that isn't there. The others answer no symbols, "fails" an error and "silent" nothing.
+// "pulls" answers a file's problems when asked (one error, its text in the message); "pushes"
+// sends them as the file changes, for its version; for text "late", the version before's, then
+// its own with no version; the others send none.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -22,7 +25,8 @@ const handle = (message) => {
   if (log) appendFileSync(log, `${JSON.stringify(message)}\n`);
   const { id, method } = message;
   if (method === 'initialize') {
-    send({ id, result: { capabilities: {} } });
+    const pulls = mode === 'pulls' ? { diagnosticProvider: { interFileDependencies: false } } : {};
+    send({ id, result: { capabilities: pulls } });
     // Asks what a server may ask of its client.
     send({ id: 'c1', method: 'workspace/configuration', params: { items: [{}, {}] } });
     send({ id: 'c2', method: 'workspace/configuration' });
@@ -34,6 +38,30 @@ const handle = (message) => {
     setTimeout(() => {
       send({ method: 'window/logMessage', params: { type: 3, message: 'Loaded 2 files' } });
     }, 300);
+  } else if (method === 'textDocument/diagnostic') {
+    const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+    send({ id, result: { kind: 'full', items: [{ range, severity: 1, message: 'pulled' }] } });
+  } else if (
+    mode === 'pushes' &&
+    (method === 'textDocument/didOpen' || method === 'textDocument/didChange')
+  ) {
+    const { uri, version } = message.params.textDocument;
+    const text = message.params.textDocument.text ?? message.params.contentChanges[0].text;
+    const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
+    const diagnostics = [{ range, severity: 2, message: text, tags: [1, 2], code: 7 }];
+    if (text === 'late') {
+      // First, the version before's, late: not this one's.
+      send({
+        method: 'textDocument/publishDiagnostics',
+        params: { uri, version: version - 1, diagnostics: [] },
+      });
+      setTimeout(
+        () => send({ method: 'textDocument/publishDiagnostics', params: { uri, diagnostics } }),
+        100,
+      );
+    } else {
+      send({ method: 'textDocument/publishDiagnostics', params: { uri, version, diagnostics } });
+    }
   } else if (method === 'textDocument/documentSymbol') {
     if (mode === 'silent') return;
     if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });

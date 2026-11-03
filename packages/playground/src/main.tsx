@@ -1020,6 +1020,7 @@ function Code(props: { path: string; env: string }) {
                     navigation.hasDefinition(name, asked(state, at)),
                   marks: (text: string) => navigation.markers(props.path, text),
                   onMark: (mark: Mark) => void navigation.goToMarked(mark),
+                  problems: (text: string) => navigation.problems(props.path, text),
                 }
               : {})}
             fontSize={() => settings.get('editor.fontSize') as number}

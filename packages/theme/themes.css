@@ -59,6 +59,23 @@
   --cerebro-editor-usage-stripe: #5b786a;
   --cerebro-editor-usage-stripe-write: #ba6387;
   --cerebro-editor-link: #548af7;
+  /* Problems: the scheme's ERRORS_, WARNING_ and INFO_ATTRIBUTES (a weak warning), wave underlines,
+     and their ERROR_STRIPE_COLOR; NOT_USED_ELEMENT_ and DEPRECATED_ATTRIBUTES (IslandSchemeDark.xml,
+     what it doesn't set from its parent, Darcula). */
+  --cerebro-editor-error: #fa6675;
+  --cerebro-editor-error-stripe: #d64d5b;
+  --cerebro-editor-warning: #f2c55c;
+  --cerebro-editor-warning-background: transparent;
+  --cerebro-editor-warning-stripe: #c29e4a;
+  --cerebro-editor-weak: #857042;
+  --cerebro-editor-weak-stripe: #756d56;
+  --cerebro-editor-unused: #6f737a;
+  --cerebro-editor-deprecated: #bcbec4;
+  /* Their counts' icons: IntelliJ's own (expui/status, its _dark files; inspectionsOK_dark). */
+  --cerebro-icon-error: #db5c5c;
+  --cerebro-icon-warning: #f2c55c;
+  --cerebro-icon-warning-mark: #5e4d33;
+  --cerebro-icon-ok: #57965c;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter, its _dark files). */
   --cerebro-editor-marker-i: #57965c;
   --cerebro-editor-marker-i-disc: #253627;
@@ -181,6 +198,21 @@
   --cerebro-editor-usage-stripe: #d0a1ff;
   --cerebro-editor-usage-stripe-write: #f0a8d2;
   --cerebro-editor-link: #006dcc;
+  /* Problems, as the dark theme's (expUI_lightScheme.xml, and its parent, Default): a warning's
+     background, with no underline. */
+  --cerebro-editor-error: #ff0000;
+  --cerebro-editor-error-stripe: #cf5b56;
+  --cerebro-editor-warning: transparent;
+  --cerebro-editor-warning-background: #fcf4d4;
+  --cerebro-editor-warning-stripe: #f2bf57;
+  --cerebro-editor-weak: #cccccc;
+  --cerebro-editor-weak-stripe: #d9cfad;
+  --cerebro-editor-unused: #808080;
+  --cerebro-editor-deprecated: #404040;
+  --cerebro-icon-error: #e55765;
+  --cerebro-icon-warning: #ffaf0f;
+  --cerebro-icon-warning-mark: #ffffff;
+  --cerebro-icon-ok: #55a76a;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter). */
   --cerebro-editor-marker-i: #208a3c;
   --cerebro-editor-marker-i-disc: #f2fcf3;

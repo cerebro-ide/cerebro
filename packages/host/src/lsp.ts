@@ -34,6 +34,24 @@ export interface Highlight extends Span {
   write: boolean;
 }
 
+/**
+ * How bad a problem is, as IntelliJ ranks its highlights: LSP's error, warning, information (a weak
+ * warning) and hint (shown only by its tags: unused, deprecated).
+ */
+export type Severity = 'error' | 'warning' | 'weak' | 'hint';
+
+/** A problem a language server finds in a file: an error, a warning. */
+export interface Problem extends Span {
+  severity: Severity;
+  message: string;
+  /** What found it ("ts", "basedpyright") and its name for it, when the server says. */
+  source?: string;
+  code?: string;
+  /** Code that does nothing (an unused variable), or that's deprecated: LSP's tags. */
+  unused: boolean;
+  deprecated: boolean;
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -49,6 +67,11 @@ export const PATIENCE = 3_000;
  * are in read (a claim: long enough for a server still loading its project).
  */
 export const MARKERS_PATIENCE = 30_000;
+/**
+ * How long a file's problems are waited for (a claim: long enough for a server still loading its
+ * project; an answer for text since edited is dropped by the UI anyway).
+ */
+export const PROBLEMS_PATIENCE = 30_000;
 /** How long a server is given to stop before it's killed. */
 const STOP_WAIT = 2_000;
 
@@ -132,6 +155,37 @@ export function referencesIn(
     }));
 }
 
+const SEVERITIES: Readonly<Record<number, Severity>> = {
+  1: 'error',
+  2: 'warning',
+  3: 'weak',
+  4: 'hint',
+};
+
+/** LSP's diagnostics as problems; none if there are none. One without a severity is an error. */
+export function problemsOf(items: unknown): Problem[] {
+  if (!Array.isArray(items)) return [];
+  return (
+    items as {
+      range: Range;
+      severity?: number;
+      message: string;
+      source?: string;
+      code?: string | number;
+      tags?: number[];
+    }[]
+  ).map(({ range, severity, message, source, code, tags }) => ({
+    from: { line: range.start.line, column: range.start.character },
+    to: { line: range.end.line, column: range.end.character },
+    severity: SEVERITIES[severity ?? 1] ?? 'error',
+    message,
+    ...(source === undefined ? {} : { source }),
+    ...(code === undefined ? {} : { code: String(code) }),
+    unused: tags?.includes(1) ?? false,
+    deprecated: tags?.includes(2) ?? false,
+  }));
+}
+
 /** One server's process, for one worktree. */
 export class LanguageServer {
   /** Resolves once the server has answered `initialize`. */
@@ -140,6 +194,12 @@ export class LanguageServer {
   readonly #process: ChildProcess;
   /** The files it has open, by URI: their version and text. */
   readonly #documents = new Map<string, { version: number; text: string }>();
+  /** The problems it last sent of each file, unasked, and for which of its versions. */
+  readonly #pushed = new Map<string, { version: number; problems: Problem[] }>();
+  /** Who waits for a file's problems to be sent. */
+  readonly #waiting = new Map<string, Set<() => void>>();
+  /** Whether it answers when asked for a file's problems; if not, it sends them as they change. */
+  #pulls = false;
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
@@ -172,6 +232,17 @@ export class LanguageServer {
     for (const method of ['client/registerCapability', 'window/workDoneProgress/create']) {
       this.#connection.onRequest(method, () => null);
     }
+    // Problems sent unasked: for the version given, or the file's latest if none is.
+    this.#connection.onNotification('textDocument/publishDiagnostics', (params) => {
+      const { uri, version, diagnostics } = params as {
+        uri: string;
+        version?: number;
+        diagnostics: unknown;
+      };
+      const latest = this.#documents.get(uri)?.version ?? 0;
+      this.#pushed.set(uri, { version: version ?? latest, problems: problemsOf(diagnostics) });
+      for (const wake of this.#waiting.get(uri) ?? []) wake();
+    });
     const folders = [{ uri: uriOf(root), name: root.slice(root.lastIndexOf('/') + 1) }];
     this.#connection.onRequest('workspace/workspaceFolders', () => folders);
     // A server that says when it's read the project is ready then; others once initialized.
@@ -197,11 +268,18 @@ export class LanguageServer {
             documentHighlight: {},
             documentSymbol: { hierarchicalDocumentSymbolSupport: true },
             implementation: { linkSupport: true },
+            publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
+            // Not registered as the server goes: basedpyright then exits (measured, 1.40.2). The
+            // tags here too, or TypeScript's answers leave them out (measured).
+            diagnostic: { dynamicRegistration: false, tagSupport: { valueSet: [1, 2] } },
           },
           workspace: { configuration: true, workspaceFolders: true },
         },
       })
-      .then(() => {
+      .then((result) => {
+        const capabilities = (result as { capabilities?: { diagnosticProvider?: unknown } } | null)
+          ?.capabilities;
+        this.#pulls = capabilities?.diagnosticProvider !== undefined;
         this.#connection.notify('initialized', {});
         return loaded;
       });
@@ -286,6 +364,41 @@ export class LanguageServer {
       : [];
   }
 
+  /**
+   * A file's problems, as it is now: asked for, of a server that answers (TypeScript's), or as the
+   * server sends them for this version of it (basedpyright's, bash-language-server's).
+   */
+  async problems(file: OpenFile, languageId: string): Promise<Problem[]> {
+    await this.ready;
+    this.sync(file, languageId);
+    const uri = uriOf(file.path);
+    if (this.#pulls) {
+      const answer = (await this.#connection.request('textDocument/diagnostic', {
+        textDocument: { uri },
+      })) as { kind?: string; items?: unknown } | null;
+      return problemsOf(answer?.items);
+    }
+    const version = (this.#documents.get(uri) as { version: number }).version;
+    const sent = () => {
+      const pushed = this.#pushed.get(uri);
+      return pushed && pushed.version >= version ? pushed.problems : undefined;
+    };
+    return (
+      sent() ??
+      new Promise<Problem[]>((resolve) => {
+        const waiting = this.#waiting.get(uri) ?? new Set();
+        this.#waiting.set(uri, waiting);
+        const wake = () => {
+          const problems = sent();
+          if (!problems) return;
+          waiting.delete(wake);
+          resolve(problems);
+        };
+        waiting.add(wake);
+      })
+    );
+  }
+
   /** Asks it to stop, and kills it if it doesn't; resolves once its process has exited. */
   async stop(): Promise<void> {
     if (this.#exited) return;
@@ -355,6 +468,7 @@ export class LanguageServers {
       idleAfter?: number;
       patience?: number;
       markersPatience?: number;
+      problemsPatience?: number;
     } = {},
   ) {}
 
@@ -424,6 +538,16 @@ export class LanguageServers {
     );
   }
 
+  /** A file's problems, from its server; null when there's none, or no answer in time. */
+  problems(worktree: string, file: OpenFile): Promise<Problem[] | null> {
+    return this.#ask(
+      worktree,
+      file,
+      (server, languageId) => server.problems(file, languageId),
+      this.options.problemsPatience ?? PROBLEMS_PATIENCE,
+    );
+  }
+
   /**
    * A file's gutter markers: what its types and members implement or override, and what implements
    * or overrides them. Other files are read from disk, or as the server has them when open.
@@ -486,14 +610,12 @@ export class LanguageServers {
     worktree: string,
     file: OpenFile,
     question: (server: LanguageServer, languageId: string) => Promise<T[]>,
+    patience = this.options.patience ?? PATIENCE,
   ): Promise<T[] | null> {
     const found = this.serverFor(worktree, file.path);
     if (!found) return null;
     try {
-      const answer = await within(
-        question(found.server, found.languageId),
-        this.options.patience ?? PATIENCE,
-      );
+      const answer = await within(question(found.server, found.languageId), patience);
       return answer ?? null;
     } catch {
       return null;

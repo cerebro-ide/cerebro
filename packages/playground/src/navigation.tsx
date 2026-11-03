@@ -12,7 +12,7 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import type { Mark, MarkerKind, Usage } from '@cerebro-ide/ui-editor';
+import type { Mark, MarkerKind, Problem, Usage } from '@cerebro-ide/ui-editor';
 import { onEdited } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
@@ -222,6 +222,19 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       try {
         return (await host.request('lsp.markers', { worktree: env.id, path, text })) as
           Marked[] | null;
+      } catch {
+        return null;
+      }
+    },
+
+    /** A file's errors and warnings, from its language server; none without one. */
+    async problems(path: string, text: string): Promise<Problem[] | null> {
+      const env = active();
+      const host = env ? hostFor(env.id) : undefined;
+      if (!env || !host) return null;
+      try {
+        return (await host.request('lsp.problems', { worktree: env.id, path, text })) as
+          Problem[] | null;
       } catch {
         return null;
       }

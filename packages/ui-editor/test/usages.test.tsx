@@ -236,7 +236,7 @@ describe('usages at the caret', () => {
     await clickAt(root, 'extra', 1);
     await settle();
     expect(root.querySelector('.cerebro-usageLayer')).toBeNull();
-    expect(root.querySelector('.cerebro-usageStripe')).toBeNull();
+    expect(root.querySelector('.cerebro-stripe')).toBeNull();
   });
 });
 

@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1325,6 +1326,47 @@ below, other than following IntelliJ, are Claude's and open to change.
   dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
 - **Not yet:** mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
   Shortcut (the search field matches shortcuts as text).
+
+## Errors and warnings in the editor (2026-11-03)
+
+Ido, "Yes" to code insight in the editor, its first part: errors and warnings as IntelliJ shows
+them.
+
+- **From the file's language server,** asked through the host (`lsp.problems`). TypeScript 7's
+  server answers when asked (`textDocument/diagnostic`: it lists `diagnosticProvider` in its
+  `initialize` answer, and pushes only empty lists; measured). basedpyright and
+  bash-language-server only push them (`textDocument/publishDiagnostics`), with the document's
+  version (measured), so the host keeps what each pushed and answers with the list for the text
+  asked about, waiting for it up to 30 s (a claim: a server still loading its project). A push
+  without a version is taken for the latest text.
+- **The client says it reads tags** (`tagSupport` for both requests): without it, TypeScript leaves
+  out which code is unused (measured). Dynamic registration is off: basedpyright 1.40.2 exits when
+  the client offers it for diagnostics (measured).
+- **Severities, as IntelliJ's (a claim):** LSP's error, warning and information are IntelliJ's error, warning
+  and weak warning; a hint shows only through its tags: unused code greyed (`NOT_USED_ELEMENT`),
+  deprecated struck out. A problem with no severity is an error (LSP leaves it to the client).
+- **IntelliJ's colours,** from its schemes' `ERRORS_ATTRIBUTES`, `WARNING_ATTRIBUTES`,
+  `INFO_ATTRIBUTES`, `NOT_USED_ELEMENT_ATTRIBUTES` and `DEPRECATED_ATTRIBUTES` (Islands Dark
+  `IslandSchemeDark.xml`, Light `expUI_lightScheme.xml`): wavy underlines `#fa6675`, `#f2c55c`,
+  `#857042` dark, `#ff0000` and `#cccccc` light, where a warning has a background (`#fcf4d4`)
+  instead; unused `#6f737a` / `#808080`; deprecated `#bcbec4` / `#404040`. Their stripe colours:
+  `#d64d5b`, `#c29e4a`, `#756d56` dark; `#cf5b56`, `#f2bf57`, `#d9cfad` light. Where two overlap,
+  the worse one is drawn inside.
+- **Marks on the error stripe,** as the usages' are (one stripe now, shared: `stripe.ts`), drawn
+  over them, the worse over the lighter; a click goes there. Hints have none.
+- **The file's status at the editor's top right,** as IntelliJ's: the number of errors and of
+  warnings (weak warnings counted with warnings, a claim), with IntelliJ's icons (`expui/status`,
+  Apache 2.0), or its green tick when there are none, and arrows to the previous and next. Shown
+  once a server has answered. Where it sits is a claim, not measured.
+- **The pointer over a problem shows its message,** the worst first when several are there.
+- **F2 and Shift+F2** go to the next and previous problem, only errors while there are any, round
+  the file (IntelliJ's Next/Previous Highlighted Error; that it skips warnings then is a claim).
+- **Asked as the file opens, and 300 ms after an edit** (a claim: typing isn't held up). An answer
+  for text since edited is dropped; what's shown moves with edits, and stays when no server
+  answers.
+- **Not yet:** the Problems tool window; the file's status in its tab and the Project tree; shell
+  scripts' problems, which bash-language-server gets from `shellcheck`, not bundled (a claim, from
+  its documentation); IntelliJ's quick fixes (Alt+Enter).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 
