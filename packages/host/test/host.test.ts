@@ -99,6 +99,7 @@ describe('language servers', () => {
       problems: vi.fn(() => Promise.resolve(null)),
       contextActions: vi.fn(() => Promise.resolve([])),
       completions: vi.fn(() => Promise.resolve(null)),
+      hover: vi.fn(() => Promise.resolve(null)),
       completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
@@ -126,6 +127,12 @@ describe('language servers', () => {
     expect(await ui.request('lsp.problems', file)).toBeNull();
     expect(servers.problems).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.contextActions', { ...file, line: 1, column: 0 })).toEqual([]);
+    expect(await ui.request('lsp.hover', { ...file, line: 0, column: 2 })).toBeNull();
+    expect(servers.hover).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 0, column: 2 },
+    );
     expect(await ui.request('lsp.completions', { ...file, line: 0, column: 1 })).toBeNull();
     expect(servers.completions).toHaveBeenCalledWith(
       '/w',

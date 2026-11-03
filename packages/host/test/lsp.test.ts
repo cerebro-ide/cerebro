@@ -12,6 +12,7 @@ import {
   LanguageServers,
   actionsOf,
   completionsOf,
+  hoverOf,
   highlighted,
   located,
   pathOf,
@@ -290,6 +291,26 @@ describe('completions', () => {
   });
 });
 
+describe('hovers', () => {
+  it('are Markdown: plain text escaped, code fenced, several parts apart', () => {
+    const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } };
+    expect(hoverOf({ contents: { kind: 'markdown', value: '**a**\n' }, range })).toEqual({
+      text: '**a**',
+      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 5 } },
+    });
+    expect(hoverOf({ contents: { kind: 'plaintext', value: 'a_b *c*' } })).toEqual({
+      text: 'a\\_b \\*c\\*',
+    });
+    expect(hoverOf({ contents: ['one', { language: 'ts', value: 'let a' }] })).toEqual({
+      text: 'one\n\n```ts\nlet a\n```',
+    });
+    // Nothing to say: none.
+    expect(hoverOf({ contents: [] })).toBeNull();
+    expect(hoverOf({ contents: '' })).toBeNull();
+    expect(hoverOf(null)).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -379,6 +400,26 @@ describe('TypeScript 7’s server', () => {
         text: "import { target } from './a';\n",
       },
     ]);
+  }, 60_000);
+
+  it('says what a symbol is: its definition, and its documentation, as Markdown', async () => {
+    const project = `${root}/ts`;
+    writeFileSync(
+      join(project, 'documented.ts'),
+      '/**\n * Counts the things.\n * @param count How many.\n */\nexport function tally(count: number) {\n  return count;\n}\n',
+    );
+    const main = {
+      path: `${project}/hover.ts`,
+      text: "import { tally } from './documented';\ntally(2);\n",
+    };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.hover(project, main, at(1, 2))).toEqual({
+      text: '```typescript\n(alias) function tally(count: number): number\n```\nCounts the things.\n\n*@param* `count` — How many.',
+      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 5 } },
+    });
+    // Nothing there: none.
+    expect(await servers.hover(project, main, at(2, 0))).toBeNull();
   }, 60_000);
 
   it('offers the fixes for the problem at the caret, as edits', async () => {
@@ -629,6 +670,21 @@ describe('basedpyright, for Python', () => {
         ],
       }),
     );
+  }, 60_000);
+
+  it('says what a symbol is: its definition, and its docstring, as Markdown', async () => {
+    const project = `${root}/py`;
+    writeFileSync(
+      join(project, 'documented.py'),
+      'def walk(n: int) -> str:\n    """Walks n steps."""\n    return ""\n',
+    );
+    const main = { path: `${project}/hover.py`, text: 'from documented import walk\nwalk(1)\n' };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.hover(project, main, at(1, 2))).toEqual({
+      text: '```python\n(function) def walk(n: int) -> str\n```\n---\nWalks n steps.',
+      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 4 } },
+    });
   }, 60_000);
 
   it('offers the fixes for the problem at the caret, as edits', async () => {
