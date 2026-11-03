@@ -35,6 +35,7 @@ import { EditorDocument, KEPT } from './document.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
+import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
 import { definitionLinks, usageHighlights, type AskDefinition, type AskUsages } from './usages.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
@@ -87,6 +88,11 @@ export interface CodeEditorProps {
    * implements or overrides them. Asked as it opens, and once an edit has settled. None: no markers.
    */
   marks?: AskMarks;
+  /**
+   * The file's problems, given its text: errors and warnings, highlighted as IntelliJ's. Asked as
+   * it opens, and once an edit has settled. None: no problems shown.
+   */
+  problems?: AskProblems;
   /** A gutter marker clicked: go where it says. */
   onMark?: (mark: Mark) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
@@ -104,6 +110,9 @@ export interface EditorKeys {
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
+  /** Next and Previous Highlighted Error: the next problem, or the previous. */
+  nextProblem?: readonly string[];
+  previousProblem?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -115,6 +124,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
+  nextProblem: ['F2'],
+  previousProblem: ['Shift-F2'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -250,27 +261,111 @@ export const theme = EditorView.theme({
   '.cerebro-usage--write': { backgroundColor: variable('editor-usage-write') },
   // Their marks over the scrollbar's band: in the thumb's 10px, 2px from the edge (where in the band
   // is a claim; IntelliJ's stripe is 14px beside its thumb), under the thumb, never in the way.
-  '.cerebro-usageStripe': {
+  '.cerebro-stripe': {
     position: 'absolute',
     right: '2px',
     width: '10px',
     pointerEvents: 'none',
   },
-  '.cerebro-usageMark': {
+  '.cerebro-stripeMark': {
     position: 'absolute',
     left: '0',
     right: '0',
-    backgroundColor: variable('editor-usage-stripe'),
     // The stripe lets the pointer through to the scrollbar; its marks take clicks.
     pointerEvents: 'auto',
   },
+  '.cerebro-usageMark': { backgroundColor: variable('editor-usage-stripe') },
   // A mark is 2px high: easier to hit with 2px more on each side.
-  '.cerebro-usageMark::before': {
+  '.cerebro-stripeMark::before': {
     content: '""',
     position: 'absolute',
     inset: '-2px 0',
   },
   '.cerebro-usageMark--write': { backgroundColor: variable('editor-usage-stripe-write') },
+  // Problems, as IntelliJ's: a wave under an error or a warning, a weak warning's paler; a light
+  // theme's warning a background instead; unused code greyed, deprecated code struck out.
+  '.cerebro-problem--error, .cerebro-problem--warning, .cerebro-problem--weak': {
+    textDecorationLine: 'underline',
+    textDecorationStyle: 'wavy',
+    textDecorationSkipInk: 'none',
+    textUnderlineOffset: '3px',
+  },
+  '.cerebro-problem--error': { textDecorationColor: variable('editor-error') },
+  '.cerebro-problem--warning': {
+    textDecorationColor: variable('editor-warning'),
+    backgroundColor: variable('editor-warning-background'),
+  },
+  '.cerebro-problem--weak': { textDecorationColor: variable('editor-weak') },
+  '.cerebro-problem--unused, .cerebro-problem--unused *': { color: variable('editor-unused') },
+  '.cerebro-problem--deprecated': {
+    textDecorationLine: 'line-through',
+    textDecorationColor: variable('editor-deprecated'),
+  },
+  '.cerebro-problemMark--error': { backgroundColor: variable('editor-error-stripe') },
+  '.cerebro-problemMark--warning': { backgroundColor: variable('editor-warning-stripe') },
+  '.cerebro-problemMark--weak': { backgroundColor: variable('editor-weak-stripe') },
+  // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`).
+  '.cm-tooltip.cm-tooltip-hover': {
+    backgroundColor: variable('tooltip'),
+    color: variable('text'),
+    border: `1px solid ${variable('tooltip-border')}`,
+    borderRadius: '4px',
+    boxShadow: variable('shadow'),
+  },
+  '.cerebro-problemTooltip': {
+    padding: '8px 12px',
+    maxWidth: '600px',
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+    whiteSpace: 'pre-wrap',
+  },
+  // IntelliJ's inspection widget: the counts, top right, over the text.
+  '.cerebro-problems': {
+    position: 'absolute',
+    top: '4px',
+    right: '16px',
+    zIndex: '5',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    padding: '2px 4px',
+    borderRadius: '4px',
+    backgroundColor: variable('background'),
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+    color: variable('text'),
+  },
+  '.cerebro-problems[hidden]': { display: 'none' },
+  '.cerebro-problems__count, .cerebro-problems__ok': {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '2px',
+  },
+  '.cerebro-problems__arrow': {
+    display: 'flex',
+    padding: '0',
+    border: 'none',
+    borderRadius: '4px',
+    background: 'none',
+    cursor: 'pointer',
+  },
+  '.cerebro-problems__arrow:hover': { backgroundColor: variable('hover') },
+  '.cerebro-problemIcon__error': { fill: variable('icon-error') },
+  '.cerebro-problemIcon__errorMark': { fill: '#ffffff' },
+  '.cerebro-problemIcon__warning': { fill: variable('icon-warning') },
+  '.cerebro-problemIcon__warningMark': { fill: variable('icon-warning-mark') },
+  '.cerebro-problemIcon__ok': {
+    fill: 'none',
+    stroke: variable('icon-ok'),
+    strokeWidth: '2',
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+  },
+  '.cerebro-problemIcon__chevron': {
+    fill: 'none',
+    stroke: variable('icon'),
+    strokeLinecap: 'round',
+  },
   // A word with a definition, under the pointer with Ctrl or Cmd held: the link colour over the
   // syntax's, underlined.
   '.cerebro-link, .cerebro-link *': {
@@ -418,6 +513,18 @@ export function CodeEditor(props: CodeEditorProps): Node {
           run: atCursor(() => props.onGoToDefinition),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
+        ...(props.problems
+          ? [
+              ...keys.nextProblem.map((key) => ({
+                key,
+                run: (v: EditorView) => goToProblem(v, true),
+              })),
+              ...keys.previousProblem.map((key) => ({
+                key,
+                run: (v: EditorView) => goToProblem(v, false),
+              })),
+            ]
+          : []),
         ...(doc
           ? [
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
@@ -446,6 +553,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     selection,
     // After the selection: a later layer beneath goes lower.
     props.usages ? usageHighlights(props.usages) : [],
+    props.problems ? problemHighlights(props.problems) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),

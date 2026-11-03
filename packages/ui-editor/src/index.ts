@@ -16,6 +16,7 @@ export {
 } from './diff.js';
 export { EditorDocument } from './document.js';
 export { formatLineColumn, parseLineColumn } from './line.js';
+export { PROBLEMS_AFTER, type AskProblems, type Problem, type Severity } from './problems.js';
 export { MARKS_AFTER, type AskMarks, type Mark, type MarkerKind } from './markers.js';
 export {
   placeAt,
