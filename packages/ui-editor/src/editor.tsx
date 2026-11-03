@@ -355,6 +355,9 @@ export const theme = EditorView.theme({
     maxHeight: '300px',
     minWidth: '300px',
     padding: '4px 0',
+    // The page's own scrollbars don't reach the shadow root: a thin one, in their colour.
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${variable('scrollbar')} transparent`,
   },
   '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
     display: 'flex',

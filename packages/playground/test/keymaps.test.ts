@@ -70,6 +70,7 @@ describe('the editor’s keys', () => {
     expect(editorKeys(keymap)).toEqual({
       goToDefinition: ['Ctrl-b'],
       findUsages: ['Alt-F7'],
+      complete: ['Ctrl-Space'],
       contextActions: ['Alt-Enter'],
       find: ['Ctrl-f'],
       replace: ['Ctrl-r'],
@@ -79,6 +80,7 @@ describe('the editor’s keys', () => {
     expect(Object.keys(EDITOR_ACTIONS)).toEqual([
       'goToDefinition',
       'findUsages',
+      'complete',
       'contextActions',
       'find',
       'replace',

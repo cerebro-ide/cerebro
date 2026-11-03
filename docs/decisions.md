@@ -45,6 +45,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
+- [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1448,6 +1449,49 @@ Problems tool window, then Alt+Enter).
   (Adjust code style settings); actions that are commands, and edits to other files; source
   actions (Organize Imports, Fix All); a fix's submenu (IntelliJ's arrow, to suppress an
   inspection).
+
+## Code completion (2026-11-03)
+
+After quick fixes, IntelliJ's code completion (Ido: "Yes", to "Completions … then hover and Quick
+Documentation").
+
+- **A list of what can go at the caret,** as IntelliJ's: shown as a name is typed (not a number)
+  or after a `.`, and on its keys (Basic Completion, Ctrl+Space), filtered by what's typed, the
+  letters matched in the accent colour. Enter or Tab puts the one chosen in; Escape closes it. Each
+  shows where it's from (an import's module) or else its type, to the right in grey, as
+  IntelliJ's. It's CodeMirror's autocompletion (`@codemirror/autocomplete`, already a dependency),
+  in the popups' look and the editor's font. Its list takes no keys for its first 75 ms (CodeMirror's
+  `interactionDelay`, measured in the tests): an Enter typed that soon is a new line.
+- **From the file's language server** (`lsp.completions`, LSP's `textDocument/completion`, asked as
+  invoked). Measured:
+  - TypeScript 7's server sends every name, unfiltered (1062 for a bare name), and says the list is
+    whole: it's asked once, and the list is filtered as one types.
+  - basedpyright filters by what's typed and says its list is incomplete: it's asked again at
+    each letter. Its first answer took about 1 s.
+  - Both answer the same after a `.` as when invoked.
+- **An import with it:** basedpyright gives a completion's import with it. TypeScript's gives it
+  only when the completion is asked about (`completionItem/resolve`), whatever the client says it
+  supports (measured). The completion goes in at once and its import is asked for then
+  (`lsp.completionEdits`), placed in the text as it is by then. Undo takes both back as one: the
+  import joins the completion's change in CodeMirror's history. It joins only within CodeMirror's
+  500 ms, with no caret move between (CodeMirror's source); past that, it's undone on its own.
+  Asking for it before it's chosen, as VS Code does for the selected item, was left out (Claude's
+  choice, open to change): every move in the list would be a request.
+- **Each keymap's keys for it,** from IntelliJ's files (`CodeCompletion`) and VS Code's sheets
+  (Trigger Suggest):
+  - IntelliJ IDEA, IntelliJ IDEA (macOS) and IntelliJ IDEA Classic (macOS): Ctrl+Space. The macOS
+    files give it over the swap, which would make it Cmd+Space.
+  - VS Code: Ctrl+Space and Ctrl+I; on macOS, Ctrl+Space and Cmd+I.
+  - Emacs: Alt+/. NetBeans: Ctrl+Space and Ctrl+\. Visual Studio, and Visual Studio (macOS): Ctrl+Space
+    and Ctrl+J.
+  - The others' files don't name it: they take their parents'.
+- **The list's scrollbar** is thin, in the scrollbars' colour: the app's own don't reach the
+  editor's shadow root (Claude's choice, open to change).
+- **Not yet:** IntelliJ's icons for each kind (CodeMirror's glyphs show, and none for some kinds,
+  a field's); a completion's type and documentation beside the list, which TypeScript's server
+  gives only when asked; signature help; snippets and placeholders; Tab replacing the word after
+  the caret, as IntelliJ's; IntelliJ's ranking (CodeMirror's match score, then the server's order);
+  Smart Completion (Ctrl+Shift+Space); completion in Python's e2e test, which the host's test covers.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

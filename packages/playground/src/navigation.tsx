@@ -12,7 +12,16 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import type { EditorDocument, Mark, MarkerKind, Problem, Usage } from '@cerebro-ide/ui-editor';
+import type {
+  CompletionEdit,
+  CompletionItem,
+  CompletionList,
+  EditorDocument,
+  Mark,
+  MarkerKind,
+  Problem,
+  Usage,
+} from '@cerebro-ide/ui-editor';
 import { onEdited } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
@@ -178,13 +187,13 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
   };
   /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
-  const ask = async <T = Located,>(method: string, asked: Asked | undefined) => {
+  const ask = async <T = Located[],>(method: string, asked: Asked | undefined) => {
     const env = active();
     if (!env || !asked) return null;
     const host = hostFor(env.id);
     if (!host) return null;
     try {
-      return (await host.request(method, { worktree: env.id, ...asked })) as T[] | null;
+      return (await host.request(method, { worktree: env.id, ...asked })) as T | null;
     } catch {
       return null;
     }
@@ -217,7 +226,28 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
 
     /** Where the symbol at a place is in its file, from its language server; none without one. */
     usages(asked: Asked): Promise<Usage[] | null> {
-      return ask<Usage>('lsp.highlights', asked);
+      return ask<Usage[]>('lsp.highlights', asked);
+    },
+
+    /** What can go at a place, from its file's language server; none without one. */
+    completions(asked: Asked): Promise<CompletionList | null> {
+      return ask<CompletionList>('lsp.completions', asked);
+    },
+
+    /** A completion's other edits (an import), from the language server that gave it. */
+    async completionEdits(path: string, item: CompletionItem): Promise<CompletionEdit[] | null> {
+      const env = active();
+      const host = env ? hostFor(env.id) : undefined;
+      if (!env || !host) return null;
+      try {
+        return (await host.request('lsp.completionEdits', {
+          worktree: env.id,
+          path,
+          item: item.resolve,
+        })) as CompletionEdit[] | null;
+      } catch {
+        return null;
+      }
     },
 
     /** A file's gutter markers, from its language server; none without one. */
@@ -257,7 +287,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       doc: EditorDocument,
     ) {
       const before = doc.text.peek();
-      const actions = (await ask<ContextAction>('lsp.contextActions', asked)) ?? [];
+      const actions = (await ask<ContextAction[]>('lsp.contextActions', asked)) ?? [];
       const items = actions.map((action) => ({
         label: action.title,
         icon: () => icon('bulb'),

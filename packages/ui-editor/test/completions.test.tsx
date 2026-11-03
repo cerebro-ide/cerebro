@@ -7,6 +7,7 @@ import {
   CodeEditor,
   EditorDocument,
   type CodeEditorProps,
+  type CompletionEdit,
   type CompletionItem,
   type CompletionList,
 } from '../src/index.js';
@@ -118,6 +119,8 @@ describe('completions', () => {
       return computed;
     };
     expect(getComputedStyle(tooltip).backgroundColor).toBe(colour(value('panel')));
+    const ul = tooltip.querySelector('ul') as HTMLElement;
+    expect(getComputedStyle(ul).scrollbarWidth).toBe('thin');
     const selected = root.querySelector('li[aria-selected]') as HTMLElement;
     expect(getComputedStyle(selected).backgroundColor).toBe(colour(value('menu-highlight')));
     const matched = root.querySelector('.cm-completionMatchedText') as HTMLElement;
@@ -257,11 +260,11 @@ describe('completions', () => {
   });
 
   it('asks for a chosen one’s other edits when it has them only by asking, placed in the text as it is', async () => {
-    let answer: (edits: unknown) => void = () => undefined;
+    let answer: (edits: CompletionEdit[]) => void = () => undefined;
     const item: CompletionItem = { label: 'target', resolve: { which: 'target' } };
     const resolveCompletion = vi.fn(
       () =>
-        new Promise<never>((resolve) => {
+        new Promise<CompletionEdit[]>((resolve) => {
           answer = resolve;
         }),
     );

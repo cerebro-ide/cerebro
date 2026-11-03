@@ -182,6 +182,9 @@ beforeAll(async () => {
   );
   // A function called, not imported: two files export one of that name, each a fix.
   writeFileSync(join(repo, 'needs.ts'), 'run();\nexport {};\n');
+  // An object's members, and a function from another file: completions, one with its import.
+  writeFileSync(join(repo, 'completes.ts'), 'export const shape = { width: 1 };\n// here\n');
+  writeFileSync(join(repo, 'tally.ts'), 'export function tally() {}\n');
   writeFileSync(join(repo, 'wrong.py'), 'count: int = "text"\n');
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
@@ -465,4 +468,42 @@ it('does the same for Python', async () => {
   } catch (error) {
     await explain(error, 'wrong.py', 1, 1, ['lsp.problems']);
   }
+}, 60_000);
+
+it('completes as one types, a member after a `.`, and a function from another file with its import', async () => {
+  await openAt('completes.ts', '// here');
+  await page().keyboard.press('End');
+  await page().keyboard.press('Enter');
+  const list = page().locator('.cm-tooltip-autocomplete');
+  /** Types `text`, waits for `label` in the list, and chooses it. */
+  const choose = async (text: string, label: string) => {
+    await page().keyboard.type(text);
+    try {
+      await list.locator('.cm-completionLabel', { hasText: label }).first().waitFor();
+    } catch (error) {
+      const { line } = await where();
+      await explain(error, 'completes.ts', 2, String(line).length, ['lsp.completions']);
+    }
+    // The first one, filtered by what's typed; CodeMirror's list takes no keys for 75 ms.
+    expect(await list.locator('li[aria-selected] .cm-completionLabel').textContent()).toBe(label);
+    await page().waitForTimeout(100);
+    await page().keyboard.press('Enter');
+  };
+  await choose('shape.wi', 'width');
+  await page().locator('.cm-line', { hasText: 'shape.width' }).waitFor();
+  await page().keyboard.press('End');
+  await page().keyboard.press('Enter');
+  await choose('tall', 'tally');
+  await page()
+    .locator('.cm-line', { hasText: /^import \{ tally \} from ["']\.\/tally["'];$/ })
+    .waitFor();
+  await page()
+    .locator('.cm-line', { hasText: /^tally$/ })
+    .waitFor();
+  // Undone as one: the import with the completion.
+  await page().keyboard.press(KEYS.undo);
+  await page()
+    .locator('.cm-line', { hasText: /^tall$/ })
+    .waitFor();
+  expect(await page().locator('.cm-line', { hasText: 'import' }).count()).toBe(0);
 }, 60_000);

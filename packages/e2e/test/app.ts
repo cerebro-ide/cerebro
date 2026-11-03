@@ -28,6 +28,7 @@ export const KEYS = {
   commit: mac ? 'Meta+K' : 'Control+K',
   amend: mac ? 'Control+Alt+M' : 'Alt+M',
   darkTheme: 'Control+Backquote',
+  undo: mac ? 'Meta+Z' : 'Control+Z',
 } as const;
 
 let runs = 0;
