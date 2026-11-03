@@ -29,6 +29,14 @@ let closeDeleted: (path: string) => void = () => undefined;
 const resolving = new Set<string>();
 
 /**
+ * The files being saved, and how many saves each has started. A read from disk made while a file
+ * is saved, or across a save, isn't news: it may find the save's own write before the document
+ * knows it's saved, which isn't a conflict, or the text from before it.
+ */
+const saving = new Set<string>();
+const saves = new Map<string, number>();
+
+/**
  * Whether the file changed on disk while it has edits, given what's on disk: if so, the conflict
  * is resolved first. Returns whether it's still unresolved, or being resolved.
  */
@@ -135,6 +143,8 @@ export async function saveFiles(paths?: readonly string[], label?: string): Prom
     if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
     if (!host || !doc.modified.peek()) continue;
+    saving.add(path);
+    saves.set(path, (saves.get(path) ?? 0) + 1);
     try {
       // Not over a change made on disk since it was read: that's a conflict.
       const disk = await host.request('fs.read', { path }).then(
@@ -155,6 +165,8 @@ export async function saveFiles(paths?: readonly string[], label?: string): Prom
       doc.saved(text);
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);
+    } finally {
+      saving.delete(path);
     }
   }
   if (failed.length > 0) throw new Error(`Couldn’t save ${failed.join('; ')}`);
@@ -168,7 +180,8 @@ export async function reloadAll(): Promise<void> {
   if (!currentHost()) return;
   for (const [path, doc] of await opened()) {
     const host = hostFor(path);
-    if (!host || resolving.has(path)) continue;
+    if (!host || resolving.has(path) || saving.has(path)) continue;
+    const before = saves.get(path);
     let text: string;
     try {
       ({ text } = (await host.request('fs.read', { path })) as { text: string });
@@ -177,6 +190,7 @@ export async function reloadAll(): Promise<void> {
       await deleted(path);
       continue;
     }
+    if (saving.has(path) || saves.get(path) !== before) continue;
     if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
   }
 }

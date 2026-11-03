@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
@@ -1137,6 +1138,40 @@ Change inspection should be based on intellij - which basically follows only unc
   plan's "since the session started" and per-commit views are dropped. The agent's turns stay, in
   a tool window of their own (Ido: "a nice feature, but it shouldn't be in the commit window"; see
   "Agent turns"), and he'll review them separately.
+
+## Local History (2026-11-03)
+
+Ido asked for Local History (2026-10-27, "yes", when asked whether to add it; and on 2026-11-03,
+"and Local History"), as IntelliJ's: what happened to files outside the editor's undo (saving,
+Replace in Files, Rollback, an agent's edits) can be compared with and taken back.
+
+- **As IntelliJ's:** Local History → Show History (File menu, the editor's and its tabs' context
+  menus) lists the file's versions, the latest first, with when and what changed them; the one
+  selected is compared with the file as it is, side by side, and Revert puts the file back as it
+  was then (deleted, if it wasn't there). Put Label… records the files under a name, listed in bold
+  in every file's history. It's a dialog, where IntelliJ opens a window of its own (Claude's
+  choice, open to change).
+- **What's recorded, and labelled:** a save (no label, as IntelliJ's edits), Replace in Files,
+  Rollback, Shelve Changes, Unshelve, Stash Changes, Unstash Changes and Revert; before each, and
+  when the window gets the focus, every 30 seconds while it has it, and when Show History opens,
+  what changed outside Cerebro since ("External change": an agent, git in a terminal). The first
+  record is the files as found. How often is Claude's choice, open to change.
+- **Kept as a chain of git commits** (Claude's choice, open to change): each record is a snapshot
+  of the worktree, as an agent's turns are (every file git doesn't ignore, through a copy of the
+  index), after the one before it, kept by one ref, `refs/worktree/cerebro/history`. A file's
+  versions are `git log` of that ref for the file (measured, in the host's tests); git stores each
+  version once. Nothing is recorded when nothing changed, but a label. Rejected: IntelliJ's own
+  store (claim: a binary file of changes in the IDE's system folder), which would need a format of
+  our own.
+- **Saving and reading files again, fixed:** a file was read from disk again (every 2 seconds) while
+  it was being saved, found the save's own write before the editor knew it was saved, and called
+  it a File Cache Conflict (seen in CI, #109's first run; a test, run without the fix, shows the
+  dialog). Reads made while a file is saved, or across a save, are now dropped; the next one counts.
+  Recording made saves slower, and so the race likelier.
+- **Not yet:** a folder's history, and a selection's (IntelliJ's Show History for Selection); a
+  file's versions across a rename; Revert for a whole record; files git ignores, and folders that
+  aren't git repositories; a limit on how long records are kept (IntelliJ: 5 working days, a
+  claim); one record for a Replace in Files across many files (each file's save is one).
 
 ## The shelf and the stash (2026-11-03)
 

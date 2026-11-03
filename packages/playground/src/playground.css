@@ -639,3 +639,41 @@ body,
   gap: 4px;
   margin: 0 0 12px;
 }
+
+/* The Local History dialog: the versions on the left, the selected one's diff on the right. */
+.playground-history {
+  display: flex;
+  height: 520px;
+  gap: 8px;
+}
+
+.playground-history__revisions {
+  flex: 0 0 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-right: 1px solid var(--cerebro-separator);
+}
+
+.playground-history__revision {
+  display: flex;
+  gap: 8px;
+  padding: 2px 8px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.playground-history__revision--selected {
+  background: var(--cerebro-selected);
+}
+
+.playground-history__label--put {
+  font-weight: 600;
+}
+
+.playground-history__diff {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}

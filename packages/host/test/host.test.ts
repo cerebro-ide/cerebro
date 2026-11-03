@@ -306,6 +306,7 @@ describe('ignored files and rolling back', () => {
     await ui.request('history.label', { path: dir, label: 'Mine' });
     // Outside a repository: written, with nothing recorded.
     const outside = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-plain-')));
+    writeFileSync(join(outside, 'x.txt'), '');
     await ui.request('fs.write', { path: join(outside, 'x.txt'), text: 'x' });
     expect(readFileSync(join(outside, 'x.txt'), 'utf8')).toBe('x');
     rmSync(outside, { recursive: true, force: true });
