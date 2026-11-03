@@ -97,7 +97,10 @@ it('amends the last commit, its message put in to edit', async () => {
   await page().locator('.playground-commit .cerebro-dialog__button--primary').click();
   await expect.poll(() => git('log', '--format=%s')).toBe('Reworded\nFirst\n');
   expect(git('status', '--porcelain')).toBe(' M b.ts\n');
-  expect(await page().locator('.playground-commit__amend input').isChecked()).toBe(false);
+  // Turned off once the host replies, which can be after git's log shows the commit (Windows).
+  await expect
+    .poll(() => page().locator('.playground-commit__amend input').isChecked())
+    .toBe(false);
 });
 
 it('goes from a diff to the file with F4, where the caret is, from either side', async () => {
