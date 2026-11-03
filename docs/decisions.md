@@ -44,6 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
+- [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): two differences only, worktrees and AI sessions; change inspection as IntelliJ's, uncommitted only
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
@@ -1113,6 +1114,24 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
+## Phase 1 is WebStorm's functionality (2026-11-03)
+
+Ido, after Claude built views from the plan he didn't recognise ("changes since the session
+started" and per commit, #104, closed): "Phase 1, I want a copy of WebStorm in terms of
+functionality. The only differences so far should be the separation of the worktrees from the
+project/branch into another standalone menu, and slightly better management of AI sessions.
+Change inspection should be based on intellij - which basically follows only uncommited".
+
+- **What phase 1 builds is what WebStorm does.** Where `plan-v1.md` or `architecture.md` asks for
+  something WebStorm doesn't have, this decision wins: ask Ido before building it.
+- **The only differences, so far:** worktrees in a standalone menu of their own, apart from the
+  project and branch; and somewhat better management of AI sessions (an agent per worktree, its
+  status, resuming its exact session after a restart).
+- **Change inspection is IntelliJ's:** the Commit tool window follows uncommitted changes. The
+  plan's "since the session started" and per-commit views are dropped. The agent's turns, already
+  in the Commit window, aren't IntelliJ's either: whether they stay is Ido's to say (asked
+  2026-11-03).
+
 ## Committing from the Commit tool window (2026-11-02)
 
 The first item after the basic IDE (decision "A basic IDE before git and agent management"):
@@ -1756,8 +1775,9 @@ wanted, after this.
     definition (Ido).
 - **Order** (Claude's, open to change): opening a project, editing, search, navigation, language
   servers. Each builds on the one before: any folder first, then working in it.
-- **After it:** committing from the Commit window, diffs to code (F4 from a diff line), the
-  plan's "since the session started" and per-commit views, then shelve and stash.
+- **After it:** committing from the Commit window, diffs to code (F4 from a diff line), then shelve
+  and stash. (Changed 2026-11-03: the plan's "since the session started" and per-commit views are
+  dropped; see "Phase 1 is WebStorm's functionality".)
 - **This departs from `plan-v1.md`'s order,** where agent sessions (6) and change inspection (7)
   came after language servers but were built first, as the POC's steps.
 
@@ -1832,8 +1852,9 @@ changed, in the Commit tool window.
 - **In the Commit tool window,** under the uncommitted changes, each turn, the latest first, with
   its time and prompt; expanded, the files it changed, each opening the diff between the two
   snapshots (a tab id `diff@from..to:path`).
-- **Not yet:** the plan's "since the session started" and per-commit views; a turn that's under way
-  when the app quits is lost.
+- **Not yet:** a turn that's under way when the app quits is lost. (The plan's "since the session
+  started" and per-commit views were dropped on 2026-11-03: see "Phase 1 is WebStorm's
+  functionality".)
 
 ## Agent status and resuming (2026-10-26)
 

@@ -94,6 +94,8 @@ target.
 ## 7. Change inspection
 
 - **Snapshots:** the base commit at session start, and a working-tree snapshot on each turn end.
-- **Views:** changes since the session started, per turn, and per commit. Each goes from the file
-  list to the diff, then to the code with full navigation. Diffs open as views (an editor tab or
-  their own window), as in IntelliJ, not in a modal.
+- **Views:** per turn. (The views since the session started and per commit were dropped on
+  2026-11-03: phase 1 follows IntelliJ, which shows uncommitted changes; see decision "Phase 1 is
+  WebStorm's functionality".) Each goes from the file list to the diff, then to the code with
+  full navigation. Diffs open as views (an editor tab or their own window), as in IntelliJ, not in
+  a modal.

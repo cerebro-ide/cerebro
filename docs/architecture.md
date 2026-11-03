@@ -126,5 +126,6 @@ There are no ports or tunnels to manage, and one transport covers all three mode
 - On each turn end (from a hook), the host snapshots the working tree as a git tree object
   (`git write-tree` with a temporary index). That makes no commits and changes nothing the agent
   sees.
-- Views are built on these snapshots: changes since the session started, per turn, and per commit.
-  Each goes from the file list to the diff, then to the code with full navigation.
+- Views are built on these snapshots: per turn. (Since the session started and per commit were
+  dropped on 2026-11-03: decision "Phase 1 is WebStorm's functionality".) Each goes from the file
+  list to the diff, then to the code with full navigation.
