@@ -13,13 +13,10 @@ beforeAll(async () => {
   // The sample indexing's timer, among others, steps as a test says.
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
   // Always Select Opened File is read from storage as the page loads, which may be blocked.
-  const getItem = Storage.prototype.getItem;
-  const blocked = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (
-    this: Storage,
-    key: string,
-  ) {
+  const read = (key: string) => localStorage[key] as string | undefined;
+  const blocked = vi.spyOn(Storage.prototype, 'getItem').mockImplementation((key: string) => {
     if (key === 'cerebro.project.alwaysSelectOpened') throw new Error('blocked');
-    return getItem.call(this, key);
+    return read(key) ?? null;
   });
   const app = document.createElement('div');
   app.id = 'app';
@@ -40,7 +37,7 @@ const stripe = (id: string) => q(`.cerebro-stripe-button[data-id="${id}"]`);
 const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textContent;
 const env = () => workspace.active as NonNullable<typeof workspace.active>;
 /** The active editor's text, in its shadow root. */
-const code = () => editorRoot()?.querySelector('.cm-content') as HTMLElement | null | undefined;
+const code = () => editorRoot()?.querySelector<HTMLElement>('.cm-content');
 const editorRoot = () =>
   document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
 
@@ -183,7 +180,7 @@ describe('the tool windows', () => {
     const shows = async (id: string, text: string) => {
       await userEvent.click(stripe(id));
       await expect
-        .poll(() => q(`.cerebro-tool-window[data-id="${id}"]`)?.textContent)
+        .poll(() => document.querySelector(`.cerebro-tool-window[data-id="${id}"]`)?.textContent)
         .toContain(text);
       await userEvent.click(stripe(id));
     };
@@ -331,7 +328,7 @@ describe('the environment tabs', () => {
     await userEvent.click(item);
     const labels = () =>
       [...document.querySelectorAll('.cerebro-env-tab__label')].map((l) => l.textContent);
-    const first = expect.stringMatching(/^cerebro-status-bar – /);
+    const first: unknown = expect.stringMatching(/^cerebro-status-bar – /);
     await expect.poll(labels).toEqual([first, 'cerebro – package.json']);
     // Without a file open, just its name.
     for (const tab of [...env().editor.activeGroup.tabs]) {
@@ -360,7 +357,7 @@ describe('the page with nothing open', () => {
     );
     await userEvent.click(stripe('structure'));
     await expect
-      .poll(() => q('.cerebro-tool-window[data-id="structure"]')?.textContent)
+      .poll(() => document.querySelector('.cerebro-tool-window[data-id="structure"]')?.textContent)
       .toContain('none · Structure item 1');
     // Nothing to go back or forward to, nor recent files.
     window.dispatchEvent(new MouseEvent('mouseup', { button: 3 }));

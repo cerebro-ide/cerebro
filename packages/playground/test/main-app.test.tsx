@@ -14,17 +14,39 @@ type Bridge = NonNullable<Window['cerebro']>;
 type Notify = (project: string, method: string, params: unknown) => void;
 
 /** What each host answers, by method, over the defaults; an Error fails it. */
-const answers: Record<string, unknown> = {};
+const answers = new Map<string, unknown>();
 let terminals = 0;
 const DEFAULTS: Record<string, (params: Record<string, unknown>) => unknown> = {
-  'git.worktrees': () => [
-    { path: '/r', branch: 'main', main: true, bare: false },
-    { path: '/r/w', branch: 'w', main: false, bare: false },
-  ],
   'fs.read': ({ path }) => ({ text: `// ${String(path)}\nconst a = 1;\n` }),
   'fs.exists': () => true,
   'git.diff': () => ({ original: 'a\n', text: 'b\n' }),
   'terminal.open': () => ({ id: ++terminals, buffer: '' }),
+  'search.text': () => ({ matches: [], limited: false }),
+};
+// What lists things lists nothing, unless a test says.
+for (const method of [
+  'fs.list',
+  'git.files',
+  'git.changes',
+  'git.ignored',
+  'git.shelves',
+  'git.stashes',
+  'agent.turns',
+  'index.definitions',
+  'index.usages',
+  'index.symbols',
+  'lsp.markers',
+  'lsp.problems',
+]) {
+  DEFAULTS[method] = () => [];
+}
+/** `/r` has a second worktree; `/n` isn't a repository; the others are, with one worktree. */
+const worktreesOf = (project: string) => {
+  if (project === '/n') throw new Error('not a repository');
+  const main = { path: project, branch: 'main', main: true, bare: false };
+  return project === '/r'
+    ? [main, { path: '/r/w', branch: 'w', main: false, bare: false }]
+    : [main];
 };
 /** A project's host: as `answers` says, else the defaults, else nothing. */
 const hostFor = (project: string) =>
@@ -33,8 +55,8 @@ const hostFor = (project: string) =>
       {},
       {
         get: (_, method: string) => (params: Record<string, unknown>) => {
-          if (project === '/n' && method === 'git.worktrees') throw new Error('not a repository');
-          const answer = method in answers ? answers[method] : DEFAULTS[method]?.(params);
+          if (method === 'git.worktrees') return worktreesOf(project);
+          const answer = answers.has(method) ? answers.get(method) : DEFAULTS[method]?.(params);
           if (answer instanceof Error) throw answer;
           return typeof answer === 'function'
             ? (answer as (p: unknown) => unknown)(params)
@@ -119,7 +141,7 @@ beforeAll(async () => {
 
 afterEach(async () => {
   await closeAll();
-  for (const method of Object.keys(answers)) delete answers[method];
+  answers.clear();
   vi.restoreAllMocks();
 });
 
@@ -131,7 +153,7 @@ const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textConten
 const env = () => workspace.active as NonNullable<typeof workspace.active>;
 const editorRoot = () =>
   document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
-const code = () => editorRoot()?.querySelector('.cm-content') as HTMLElement | null | undefined;
+const code = () => editorRoot()?.querySelector<HTMLElement>('.cm-content');
 
 describe('the page in the app', () => {
   it('opens the window’s project as it was left, named after it, in the app’s look', async () => {
@@ -170,7 +192,7 @@ describe('a diff tab', () => {
       )
       .toEqual(['a', 'b']);
     expect(host('/r').params('git.diff')).toContainEqual({ path: '/r', file: 'src/a.ts' });
-    answers['git.diff'] = new Error('no such file');
+    answers.set('git.diff', new Error('no such file'));
     env().editor.open(diffTab('src/b.ts'));
     await expect
       .poll(
@@ -184,7 +206,7 @@ describe('a diff tab', () => {
 
 describe('a file that can’t be read', () => {
   it('says why', async () => {
-    answers['fs.read'] = new Error('EACCES');
+    answers.set('fs.read', new Error('EACCES'));
     env().editor.open({ id: '/r/locked.ts', title: 'locked.ts' });
     await expect
       .poll(
@@ -193,5 +215,223 @@ describe('a file that can’t be read', () => {
             ?.textContent,
       )
       .toBe('Can’t open /r/locked.ts: EACCES');
+  });
+});
+
+describe('the terminals', () => {
+  const terminal = () => q('.cerebro-tool-window[data-id="terminal"]');
+  const tabs = () =>
+    [...terminal().querySelectorAll('.cerebro-tool-tab')].map((t) => t.textContent.trim());
+  const writes = () =>
+    host('/r')
+      .params('terminal.write')
+      .map((p) => (p as { data: string }).data)
+      .join('');
+
+  it('run the worktree’s agent and its shells, a tab each', async () => {
+    await expect.poll(() => host('/r').params('terminal.open').length).toBe(2);
+    expect(q('.cerebro-tool-window[data-id="claude"] .cerebro-terminal')).not.toBeNull();
+    expect(tabs()).toHaveLength(1);
+    await userEvent.click(q('.cerebro-tool-tabs__add[aria-label="New Tab"]'));
+    await expect.poll(tabs).toHaveLength(2);
+    expect(document.activeElement?.closest('.cerebro-terminal')).not.toBeNull();
+    await userEvent.click(terminal().querySelectorAll('.cerebro-tool-tab')[0] as HTMLElement);
+    await expect
+      .poll(() => terminal().querySelector('.cerebro-tool-tab--active'))
+      .toBe(terminal().querySelectorAll('.cerebro-tool-tab')[0]);
+  });
+
+  it('let the app’s shortcuts through, but not plain Ctrl+key, which programs use', async () => {
+    await userEvent.click(terminal().querySelector('.cerebro-terminal') as HTMLElement);
+    const before = writes();
+    await userEvent.keyboard('{Control>}c{/Control}');
+    await expect.poll(writes).toBe(`${before}\u0003`);
+    // A modifier alone, and a key bound to nothing, are the program's too.
+    await userEvent.keyboard('{Shift}{Alt>}q{/Alt}');
+    // Alt+1 is the Project tool window's.
+    const shown = () => stripe('project').classList.contains('cerebro-stripe-button--active');
+    const was = shown();
+    await userEvent.keyboard('{Alt>}1{/Alt}');
+    await expect.poll(shown).toBe(!was);
+    await userEvent.keyboard('{Alt>}1{/Alt}');
+    await expect.poll(shown).toBe(was);
+  });
+
+  it('are renamed and closed from a tab’s menu; the last one closed hides the window', async () => {
+    const tab = (i: number) => terminal().querySelectorAll('.cerebro-tool-tab')[i] as HTMLElement;
+    await userEvent.click(tab(1), { button: 'right' });
+    expect(await menuItems()).toEqual(['Rename Session…', 'Close Tab']);
+    await userEvent.click(q('.cerebro-menu-item'));
+    expect(await dialogText()).toContain('Session name:');
+    await press('Cancel');
+    await userEvent.click(tab(1), { button: 'right' });
+    await userEvent.click(q('.cerebro-menu-item'));
+    const field = (await dialog()).querySelector('input') as HTMLInputElement;
+    await userEvent.clear(field);
+    await userEvent.type(field, 'build{Enter}');
+    await expect.poll(tabs).toContain('build');
+    await userEvent.click(tab(1), { button: 'right' });
+    await userEvent.click(document.querySelectorAll('.cerebro-menu-item')[1] as HTMLElement);
+    await expect.poll(tabs).toHaveLength(1);
+    await userEvent.click(q('.cerebro-tool-window[data-id="terminal"] [aria-label^="Close "]'));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tool-window[data-id="terminal"]'))
+      .toBeNull();
+  });
+});
+
+describe('Find in Files', () => {
+  const button = (label: string) =>
+    [...document.querySelectorAll('.cerebro-popup button')].find(
+      (b) => b.textContent === label,
+    ) as HTMLElement;
+  const found = () => ({
+    matches: [{ path: '/r/src/a.ts', line: 1, text: 'const a = 1;', ranges: [[0, 5]] }],
+    limited: false,
+  });
+
+  it('shows what it finds in the Find window, which appears the first time', async () => {
+    answers.set('search.text', found);
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Shift>}f{/Shift}{/Control}');
+    await popupItems().catch(() => undefined);
+    await userEvent.keyboard('const');
+    await expect.poll(() => button('Open in Find Window')).toBeDefined();
+    await userEvent.click(button('Open in Find Window'));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tool-window[data-id="find"]')?.textContent)
+      .toContain('const');
+    // Replace in Files, from Search Everywhere's actions: the window's there already.
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Replace in Files');
+    await expect.poll(popupItems).toContain('Replace in Files…');
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => button('Open in Find Window')).toBeDefined();
+    await userEvent.keyboard('const');
+    await userEvent.click(button('Open in Find Window'));
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(document.querySelector('.cerebro-tool-window[data-id="find"]')).not.toBeNull();
+  });
+});
+
+describe('the Commit window', () => {
+  const row = (key: string) =>
+    [...document.querySelectorAll('.cerebro-tree-row')].find((r) =>
+      r.getAttribute('data-key')?.endsWith(key),
+    ) as HTMLElement;
+
+  it('is shown by Commit, its changes and shelved files opening their diffs', async () => {
+    answers.set('git.changes', ({ from }: { from?: string }) =>
+      from === undefined
+        ? [{ path: 'src/a.ts', status: 'modified' }]
+        : [{ path: 'src/s.ts', status: 'added' }],
+    );
+    answers.set('git.shelves', [{ id: 's1', commit: 'c', base: 'b', message: 'Aside', time: 0 }]);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}k{/Control}');
+    await expect.poll(() => row(':src/a.ts')).toBeDefined();
+    await userEvent.dblClick(row(':src/a.ts'));
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/a.ts');
+    await userEvent.click(row(':src/a.ts'));
+    await userEvent.keyboard('{Control>}d{/Control}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe(diffTab('src/a.ts').id);
+    // Show Shelf, from Search Everywhere's actions.
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Show Shelf');
+    await expect.poll(popupItems).toContain('Show Shelf');
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => row('shelf:s1')).toBeDefined();
+    await userEvent.dblClick(row('shelf:s1'));
+    await expect.poll(() => row('shelf:s1:src/s.ts')).toBeDefined();
+    await userEvent.click(row('shelf:s1:src/s.ts'));
+    await userEvent.keyboard('{Control>}d{/Control}');
+    await expect
+      .poll(() => env().editor.activeGroup.active)
+      .toBe(diffTab('src/s.ts', { from: 'b', to: 'c' }).id);
+  });
+});
+
+describe('Local History', () => {
+  it('shows the active file’s, from Search Everywhere', async () => {
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Show History');
+    await expect.poll(popupItems).toContain('Show History');
+    await userEvent.keyboard('{Escape}');
+  });
+});
+
+describe('saving', () => {
+  const tabs = () => env().editor.groups.flatMap((group) => group.tabs.map((tab) => tab.id));
+
+  it('says why it couldn’t, and closes the tabs of a file deleted on disk', async () => {
+    // Another environment, without the file.
+    workspace.openOrActivate({ id: '/r/w', name: 'w', branch: 'w' });
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('x');
+    answers.set('fs.write', new Error('EROFS'));
+    await userEvent.keyboard('{Control>}s{/Control}');
+    expect(await dialogText()).toContain('EROFS');
+    await closeAll();
+    // Before the window closes: there's no one to tell.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await (globalThis as unknown as { cerebroSaveAll: () => Promise<void> }).cerebroSaveAll();
+    expect(String(logged.mock.calls[0]?.[0])).toContain('EROFS');
+    answers.set('fs.read', new Error('ENOENT'));
+    answers.set('fs.exists', false);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}s{/Control}');
+    await expect.poll(tabs).not.toContain('/r/src/a.ts');
+  });
+});
+
+describe('the window’s projects', () => {
+  it('take in a project that joins, named on its tabs, a folder without git showing no branch', async () => {
+    added({ path: '/n', name: 'n' });
+    await expect.poll(() => env().id).toBe('/n');
+    expect(status()[0]).toBe('n');
+    await expect.poll(() => q('[aria-label^="Branch:"]')).toBeNull();
+    expect(document.querySelector('.cerebro-env-tab--active')?.textContent).toContain('n');
+    shownAgain('/r');
+    await expect.poll(() => env().id).toBe('/r');
+    await expect.poll(() => q('[aria-label^="Branch:"]')).not.toBeNull();
+  });
+
+  it('are listed in the Project popup, with the recent ones, which open', async () => {
+    await userEvent.click(q('[aria-label^="Project:"]'));
+    await expect.poll(popupItems).toEqual(['Open…', 'r', 'n', 'x']);
+    await userEvent.keyboard('x{Enter}');
+    await press('New Window');
+    await expect.poll(() => calls).toContainEqual(['open', '/x', 'new']);
+  });
+
+  it('take one opened in this window in the active one’s place', async () => {
+    shownAgain('/n');
+    added({ path: '/m', name: 'm', replaces: '/n' });
+    await expect.poll(() => env().id).toBe('/m');
+    await userEvent.click(q('[aria-label^="Project:"]'));
+    await expect.poll(popupItems).toEqual(['Open…', 'r', 'm', 'x']);
+  });
+
+  it('close, the last closing the window', async () => {
+    const closeProject = async () => {
+      await userEvent.keyboard('{Shift}{Shift}');
+      await popupItems();
+      await userEvent.keyboard('Close Project');
+      await expect.poll(popupItems).toContain('Close Project');
+      await userEvent.keyboard('{Enter}');
+    };
+    await closeProject();
+    // One of the project left: `/r`'s.
+    await expect.poll(() => env().id).toMatch(/^\/r/);
+    expect(calls).toContainEqual(['close', '/m']);
+    await closeProject();
+    await expect.poll(() => calls).toContainEqual(['close', '/r']);
   });
 });

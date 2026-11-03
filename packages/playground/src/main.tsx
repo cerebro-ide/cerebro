@@ -76,7 +76,7 @@ import {
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
-import { effect, signal, untracked } from '@cerebro-ide/reactive';
+import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
 import { documentFor, saveAll, saveFiles, setupSaving } from './documents.js';
@@ -237,7 +237,7 @@ const inFindWindow = (occurrences: Occurrences) => {
 };
 services.commands.register({
   id: 'find.inFiles',
-  label: 'Find in &Files…',
+  label: 'Find in &Files',
   dialog: true,
   enabled: navigation.available,
   run: () =>
@@ -256,7 +256,7 @@ services.menus.contribute({
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'find.inFiles' } });
 services.commands.register({
   id: 'replace.inFiles',
-  label: '&Replace in Files…',
+  label: '&Replace in Files',
   dialog: true,
   enabled: navigation.available,
   run: () =>
@@ -768,6 +768,8 @@ const nativeMenu = window.cerebro?.platform === 'darwin' ? window.cerebro.menu :
 if (nativeMenu) syncNativeMenu(services, nativeMenu, { context: activeTab });
 
 function Header() {
+  // Changes with the active project, not with each of its worktrees.
+  const git = computed(() => gitRepository.get());
   return (
     <MainToolbar
       left={() => [
@@ -789,15 +791,16 @@ function Header() {
           text={() => active()?.name ?? 'No worktree'}
         />,
         // A folder without git has no branches.
-        gitRepository.get() ? (
-          <ToolbarDropdown
-            services={services}
-            popup={environments.pickBranch}
-            label="Branch"
-            icon={icon('git')}
-            text={() => active()?.branch ?? '—'}
-          />
-        ) : null,
+        () =>
+          git.get() ? (
+            <ToolbarDropdown
+              services={services}
+              popup={environments.pickBranch}
+              label="Branch"
+              icon={icon('git')}
+              text={() => active()?.branch ?? '—'}
+            />
+          ) : null,
       ]}
       right={() => [
         <ToolbarButton
