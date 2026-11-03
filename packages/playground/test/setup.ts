@@ -21,3 +21,7 @@ import '../src/playground.css';
 // And the browser's storage keeps what an earlier file saved (a layout,
 // settings), which the playground's modules read as they load.
 localStorage.clear();
+
+// The page's wall clock runs on its monotonic one, as in ui-editor's tests (its setup says why).
+const origin = Date.now() - performance.now();
+Date.now = () => Math.floor(origin + performance.now());

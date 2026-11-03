@@ -8,6 +8,7 @@ export default defineProject({
   test: {
     name: 'ui-editor',
     include: ['test/**/*.test.{ts,tsx}'],
+    setupFiles: ['test/setup.ts'],
     browser: {
       enabled: true,
       headless: true,

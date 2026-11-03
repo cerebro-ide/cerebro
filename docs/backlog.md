@@ -51,3 +51,9 @@ are listed per worktree, whichever session they came from; with several Claude s
   #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
   of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
   the page and the host's answer too (2026-11-03).
+- **A browser test file sometimes never loads locally (WSL):** "The iframe … did not become ready
+  within 60000ms", or "Failed to fetch dynamically imported module" for every file of one worker.
+  Measured on 2026-11-03: 4 of 27 back-to-back `ui-editor` runs and one full `npm run check` (six
+  packages at once), then a rerun passed; 0 of 40 runs of two small packages. Not seen in CI. The
+  cause isn't found: the next step is the page's console and the failing request's status, which
+  Vitest doesn't print for a file that never loaded.

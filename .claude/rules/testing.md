@@ -23,6 +23,10 @@ paths:
   output.
 - **Time a test measures is `performance.now()`'s**, not `Date.now()`'s: the wall clock can step
   back while a test runs (measured under WSL: a wait came out as −840 ms).
+- **The browser tests' page runs its wall clock on the monotonic one** (`test/setup.ts` in
+  `ui-editor` and `playground`): under WSL the clock steps back about 2.4 s every 30 s (measured),
+  and CodeMirror times a hover and its completion list's first 75 ms with `Date.now()`. A package
+  with new CodeMirror tests that wait on either gets the same setup.
 - **A page that runs as it's imported** (`main.tsx`, `welcome.tsx`, `boot.ts`) has a test file
   for each way it starts (`main-browser`, `main-app`, `main-mac`, `main-reload`): each sets up
   `window.cerebro` and `#app`, then imports it. A module that reads something as it's imported
