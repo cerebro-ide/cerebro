@@ -34,5 +34,29 @@ it in the real app), `/decision` (record a decision).
   reporting problems (Ido, 2026-10-26).
 - No "Generated with Claude" footers or `Co-Authored-By` trailers in commits, PRs or issues.
 - Proof is a measurement or official documentation; anything else is labelled as a claim.
-- Every bug fix comes with a test that fails without the fix, so the bug can't come back unnoticed.
+- **Fix the cause, not the symptom.** Find out why it fails before changing anything: a log, a
+  measurement, or a test that fails. Then fix what's wrong, in the app or in the test, whichever it
+  is. A longer wait or a retry is a fix only when the measured cause is that something is slow. A
+  bug in a dependency may be worked around, labelled, with what was measured. When the cause can't
+  be found yet, adding output that will show it next time is the next step, and the gap goes in
+  `docs/backlog.md`. Don't present a guess as the cause. If the cause lies outside the task, say so
+  before fixing it.
+- **If a test can be added, it's added.** Every fix comes with a test that fails without it, a
+  workaround for a dependency's bug included. So does every change whose behaviour a test can
+  check. Tests are how we gain confidence that a change breaks nothing else. A fix that can't be
+  tested says why.
+- **When the plan stops holding, re-plan.** When a measurement disproves an assumption, or the same
+  approach fails twice, don't push on with it. Work out a new plan from what's now known and
+  continue. The new plan changes how, not what: if it would change what Ido gets (scope, behaviour,
+  a decision), that's his call (see the first rule). Say what changed when reporting, and in
+  `docs/decisions.md` when it changes a decision.
+- **The change that fits the whole, and no more.** Before calling a change done, check it against
+  the code around it: does it reuse what's there, follow the patterns already used, and sit where a
+  reader would look for it? Sometimes that's the smallest change. Sometimes it means reshaping
+  what's there so the new case isn't a special one, as the error stripe became one piece shared by
+  usages and problems. A special case, a flag, or a comment that explains a workaround is a sign to
+  look again. Don't over-engineer:
+  - no abstraction until there's a second real use;
+  - no options, hooks or layers for cases nobody has asked for;
+  - reshaping beyond what the task needs is proposed first, or goes in the backlog.
 - When a decision changes, update `docs/decisions.md` and say why.

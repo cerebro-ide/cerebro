@@ -8,8 +8,9 @@ paths:
 
 # Tests
 
-- **Every bug fix comes with a test that fails without the fix.** Run it before the fix to see it
-  fail, and say what it measured.
+- **If a test can be added, it's added** (CLAUDE.md): every change whose behaviour a test can
+  check. A fix's test fails without the fix: run it before the fix to see it fail, and say what it
+  measured.
 - **Coverage is 100% per file** (`vitest.config.ts`), for every package's `src/` but the
   playground's. A branch that can't be reached in a test is a design smell: pass the thing it
   depends on in (the host's functions take a `platform` or a `git` for this) rather than leaving it
