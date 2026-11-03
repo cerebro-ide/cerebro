@@ -75,7 +75,7 @@ type Item =
 const DIFF = 'diff';
 
 /** A changed file's own tab: named by its whole path, as files opened elsewhere are. */
-const fileTab = (worktree: string, path: string): Tab => ({
+export const fileTab = (worktree: string, path: string): Tab => ({
   id: `${worktree}/${path}`,
   title: path.split('/').at(-1) as string,
 });
@@ -99,7 +99,7 @@ export function diffRange(tabId: string): Range | undefined {
 }
 
 /** How often the list is read again while it shows. */
-const REFRESH_MS = 2000;
+export const REFRESH_MS = 2000;
 
 const GROUPS: Readonly<Record<Group, string>> = {
   changes: 'Changes',
@@ -453,6 +453,27 @@ function flipIncluded(changes: Changes, item: Item): void {
       else changes.excluded.add(path);
     }
   });
+}
+
+/**
+ * What Shelve Changes offers: the uncommitted files, and those it starts with: the Commit window's
+ * selection's, from its menu, else those going into the commit, as IntelliJ's. Undefined until the
+ * Commit window has read them.
+ */
+export function toShelve(context: unknown): { files: Change[]; chosen: Change[] } | undefined {
+  const changes = current();
+  if (!changes) return undefined;
+  const files = [...changes.tracked(), ...changes.unversioned()];
+  const item = viewOf(context) === 'changes' ? selectedItem(changes) : undefined;
+  const chosen = item
+    ? committable(item, changes)
+    : files.filter((change) => isIncluded(changes, change));
+  return { files, chosen };
+}
+
+/** Reads a worktree's changes again, if the Commit window has shown them: after shelving. */
+export async function refreshChanges(worktree: string): Promise<void> {
+  await lists.get(worktree)?.refresh(true);
 }
 
 /** A file to open: not one that's gone, nor a folder git ignores whole. */
@@ -904,7 +925,11 @@ function content(item: Item): Node[] {
       </span>,
     ] as Node[];
   }
-  const { change } = item;
+  return changeContent(item.change);
+}
+
+/** A changed file's row: its name in its status's colour, then its folder unless it's under it. */
+export function changeContent(change: Change): Node[] {
   const path = change.path.replace(/\/$/, '');
   const slash = path.lastIndexOf('/');
   const folder = slash < 0 ? '' : path.slice(0, slash);
