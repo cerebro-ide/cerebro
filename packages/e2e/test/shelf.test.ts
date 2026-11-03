@@ -12,7 +12,16 @@ let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
 const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-e2e-shelf-')));
 const repo = join(root, 'project');
-const git = (...args: string[]) => execFileSync('git', args, { cwd: repo, encoding: 'utf8' });
+/**
+ * Git, as the test reads the repository: with optional locks off, as the host runs it, or its
+ * `git status`, polled while the app stashes, takes the index's lock from under the stash.
+ */
+const git = (...args: string[]) =>
+  execFileSync('git', args, {
+    cwd: repo,
+    encoding: 'utf8',
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+  });
 /** Someone to stash as: a test machine may have no one set. */
 const IDENTITY = {
   GIT_AUTHOR_NAME: 't',
