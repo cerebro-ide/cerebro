@@ -1,3 +1,4 @@
+import { effect } from '@cerebro-ide/reactive';
 import { describe, expect, it } from 'vitest';
 import { TreeModel, type TreeSource } from '../src/index.js';
 
@@ -79,6 +80,17 @@ describe('TreeModel', () => {
     expect(shown(model)).toHaveLength(7);
     model.expand(find('README.md'));
     expect(shown(model)).toHaveLength(7);
+  });
+
+  it('can be made where what reads it runs again when it changes, which its loading doesn’t do', async () => {
+    let runs = 0;
+    const stop = effect(() => {
+      // Each run would make another, which would run it again: stopped, so the test ends.
+      if (++runs < 5) new TreeModel(source(FILES, { async: true }));
+    });
+    await settle();
+    stop.dispose();
+    expect(runs).toBe(1);
   });
 
   it('reveals a node by the keys down to it, expanding and loading the folders on the way', async () => {

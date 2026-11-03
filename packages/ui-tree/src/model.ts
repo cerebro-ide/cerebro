@@ -5,7 +5,7 @@
 // Children come from a source, synchronously or not, so a file tree can ask a host for a folder's
 // entries only when the folder is opened.
 
-import { makeObservable, ObservableMap, ObservableSet } from '@cerebro-ide/reactive';
+import { makeObservable, ObservableMap, ObservableSet, untracked } from '@cerebro-ide/reactive';
 
 export interface TreeSource<T> {
   /** A node's children; the roots for `undefined`. May be asynchronous. */
@@ -43,7 +43,8 @@ export class TreeModel<T> {
 
   constructor(private readonly source: TreeSource<T>) {
     makeObservable(this);
-    void this.load(undefined);
+    // Loading reads what it writes: not as part of whatever makes the model, which would run again.
+    void untracked(() => this.load(undefined));
   }
 
   /** The rows that show, in order: each loaded node under its expanded ancestors. */

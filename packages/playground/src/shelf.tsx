@@ -8,7 +8,7 @@
 // or are deleted; stashes pop, apply, drop, or are all cleared, as IntelliJ's. The host does the
 // work (`git.shelve`, `git.stash` and the rest).
 
-import type { Tab } from '@cerebro-ide/layout';
+import type { Environment, Tab } from '@cerebro-ide/layout';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { computed, ObservableMap, signal, untracked, type Signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
@@ -111,16 +111,21 @@ function listsOf(worktree: string): Lists {
     const shelfModel = model(() => shelves.peek().map((shelf) => ({ kind: 'shelf', shelf })));
     const stashModel = model(() => stashes.peek().map((stash) => ({ kind: 'stash', stash })));
     let last = '';
+    // Reads asked for: only the latest one's answer is shown.
+    let reads = 0;
     lists = {
       shelves,
       stashes,
       shelfModel,
       stashModel,
       refresh: async () => {
+        const asked = ++reads;
         const [readShelves, readStashes] = (await Promise.all([
           host.request('git.shelves', { path: worktree }),
           host.request('git.stashes', { path: worktree }),
         ])) as [Shelf[], Stash[]];
+        // A later read was asked for while this one ran: it has what's newer.
+        if (asked !== reads) return;
         const json = JSON.stringify([readShelves, readStashes]);
         if (json === last) return;
         last = json;
@@ -139,6 +144,9 @@ function current(): Lists | undefined {
   const env = active();
   return env && currentHost() && gitRepository.get() ? all.get(env.id) : undefined;
 }
+
+/** The active worktree: commands that act on one are enabled only while there is one. */
+const worktree = () => (active() as Environment).id;
 
 /** Whether the active environment is a git repository the host can work on. */
 const inRepository = () =>
@@ -350,14 +358,13 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     enabled: (c) => selectedShelf(c) !== undefined,
     run: async (c) => {
       const shelf = selectedShelf(c) as Shelf;
-      const env = active();
-      if (!env) return;
+      const path = worktree();
       const agreed = await confirm(
         'Unshelve Changes',
         `The changes shelved as “${shelf.message}” will be applied to the files, and leave the shelf.`,
         'Unshelve',
       );
-      if (agreed) await change(env.id, 'Couldn’t Unshelve', 'git.unshelve', { id: shelf.id });
+      if (agreed) await change(path, 'Couldn’t Unshelve', 'git.unshelve', { id: shelf.id });
     },
   });
   commands.register({
@@ -366,14 +373,13 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     enabled: (c) => selectedShelf(c) !== undefined,
     run: async (c) => {
       const shelf = selectedShelf(c) as Shelf;
-      const env = active();
-      if (!env) return;
+      const path = worktree();
       const agreed = await confirm(
         'Delete Shelved Changes',
         `Delete the changes shelved as “${shelf.message}”?`,
         'Delete',
       );
-      if (agreed) await change(env.id, 'Couldn’t Delete', 'git.deleteShelf', { id: shelf.id });
+      if (agreed) await change(path, 'Couldn’t Delete', 'git.deleteShelf', { id: shelf.id });
     },
   });
   const unstashing = (id: string, label: string, pop: boolean) => {
@@ -383,9 +389,7 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
       enabled: (c) => selectedStash(c) !== undefined,
       run: async (c) => {
         const { ref } = selectedStash(c) as Stash;
-        const env = active();
-        if (!env) return;
-        await change(env.id, 'Couldn’t Unstash', 'git.unstash', {
+        await change(worktree(), 'Couldn’t Unstash', 'git.unstash', {
           ref,
           pop,
           reinstateIndex: false,
@@ -401,10 +405,9 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     enabled: (c) => selectedStash(c) !== undefined,
     run: async (c) => {
       const { ref, message } = selectedStash(c) as Stash;
-      const env = active();
-      if (!env) return;
+      const path = worktree();
       const agreed = await confirm('Drop Stash', `Remove ${ref}, “${message}”?`, 'Drop');
-      if (agreed) await change(env.id, 'Couldn’t Drop the Stash', 'git.dropStash', { ref });
+      if (agreed) await change(path, 'Couldn’t Drop the Stash', 'git.dropStash', { ref });
     },
   });
   commands.register({
@@ -412,14 +415,13 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     label: '&Clear',
     enabled: (c) => viewOf(c) === 'stash' && (current()?.stashes.get().length ?? 0) > 0,
     run: async () => {
-      const env = active();
-      if (!env) return;
+      const path = worktree();
       const agreed = await confirm(
         'Clear Stashes',
         'Remove all stashes? They can’t be brought back.',
         'Clear',
       );
-      if (agreed) await change(env.id, 'Couldn’t Clear the Stashes', 'git.clearStashes', {});
+      if (agreed) await change(path, 'Couldn’t Clear the Stashes', 'git.clearStashes', {});
     },
   });
 
@@ -460,8 +462,7 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
  * chose start checked), and a comment, which names the shelved list.
  */
 async function shelve(offered: { files: Change[]; chosen: Change[] }): Promise<void> {
-  const env = active();
-  if (!env) return;
+  const path = worktree();
   const checked = signal(new Set(offered.chosen.map((change) => change.path)));
   const message = signal('');
   const files = await openDialog<string[]>({
@@ -514,13 +515,12 @@ async function shelve(offered: { files: Change[]; chosen: Change[] }): Promise<v
     ),
   }).result;
   if (!files) return;
-  await change(env.id, 'Couldn’t Shelve', 'git.shelve', { files, message: message.peek() });
+  await change(path, 'Couldn’t Shelve', 'git.shelve', { files, message: message.peek() });
 }
 
 /** IntelliJ's Stash dialog: a message, Keep index, Include untracked; then Create Stash. */
 async function stash(): Promise<void> {
-  const env = active();
-  if (!env) return;
+  const path = worktree();
   const message = signal('');
   const keepIndex = signal(false);
   const includeUntracked = signal(false);
@@ -563,7 +563,7 @@ async function stash(): Promise<void> {
     ),
   }).result;
   if (!agreed) return;
-  await change(env.id, 'Couldn’t Stash', 'git.stash', {
+  await change(path, 'Couldn’t Stash', 'git.stash', {
     message: message.peek(),
     keepIndex: keepIndex.peek(),
     includeUntracked: includeUntracked.peek(),
@@ -575,11 +575,10 @@ async function stash(): Promise<void> {
  * Stash, or Pop Stash, which drops it after.
  */
 async function unstash(): Promise<void> {
-  const env = active();
-  if (!env) return;
+  const path = worktree();
   let stashes: Stash[];
   try {
-    stashes = (await hostFor(env.id)?.request('git.stashes', { path: env.id })) as Stash[];
+    stashes = (await hostFor(path)?.request('git.stashes', { path })) as Stash[];
   } catch (error) {
     fail('Couldn’t Read the Stashes')(error);
     return;
@@ -627,52 +626,51 @@ async function unstash(): Promise<void> {
   }).result;
   const chosenRef = ref.peek();
   if (pop === undefined || chosenRef === undefined) return;
-  await change(env.id, 'Couldn’t Unstash', 'git.unstash', {
+  await change(path, 'Couldn’t Unstash', 'git.unstash', {
     ref: chosenRef,
     pop,
     reinstateIndex: reinstateIndex.peek(),
   });
 }
 
-/** A Shelf or Stash tab's tree. */
-function ListView(props: { view: View; services: MenuServices; open: (tab: Tab) => void }): Node {
-  const { view } = props;
+/** A Shelf or Stash tab's tree, of a worktree's lists. */
+function ListView(props: {
+  view: View;
+  worktree: Environment;
+  services: MenuServices;
+  open: (tab: Tab) => void;
+}): Node {
+  const { view, worktree } = props;
+  const lists = listsOf(worktree.id);
   return (
     <div
       class="playground-changes"
       on:focusin={() => {
         focused.set(view);
       }}
-      on:focusout={(event) => {
-        const next = event.relatedTarget as Node | null;
-        if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(undefined);
+      on:focusout={() => {
+        // Only its tree takes the focus.
+        focused.set(undefined);
       }}
     >
-      {() => {
-        const env = active();
-        if (!env) return null;
-        const lists = listsOf(env.id);
-        return (
-          <TreeView
-            model={view === 'shelf' ? lists.shelfModel : lists.stashModel}
-            label={`${env.name} ${view}`}
-            row={content}
-            onOpen={(item) => {
-              // A file opens its diff, as in IntelliJ's shelf.
-              const file = item as Extract<Item, { kind: 'file' }>;
-              props.open(diffTab(file.change.path, file.range));
-            }}
-            onContextMenu={(event) => {
-              openContextMenu(
-                props.services,
-                `${view}/item`,
-                event,
-                view === 'shelf' ? FROM_SHELF : FROM_STASH,
-              );
-            }}
-          />
-        );
-      }}
+      <TreeView
+        model={view === 'shelf' ? lists.shelfModel : lists.stashModel}
+        label={`${worktree.name} ${view}`}
+        row={content}
+        onOpen={(item) => {
+          // A file opens its diff, as in IntelliJ's shelf.
+          const file = item as Extract<Item, { kind: 'file' }>;
+          props.open(diffTab(file.change.path, file.range));
+        }}
+        onContextMenu={(event) => {
+          openContextMenu(
+            props.services,
+            `${view}/item`,
+            event,
+            view === 'shelf' ? FROM_SHELF : FROM_STASH,
+          );
+        }}
+      />
     </div>
   );
 }
@@ -707,7 +705,13 @@ export function CommitWindow(props: { services: MenuServices; open: (tab: Tab) =
         return tab === 'commit' ? (
           <ChangesView services={props.services} open={props.open} />
         ) : (
-          <ListView view={tab} services={props.services} open={props.open} />
+          <ListView
+            view={tab}
+            // Shelf and Stash show only while the active worktree's lists have something.
+            worktree={active() as Environment}
+            services={props.services}
+            open={props.open}
+          />
         );
       }}
     </>
