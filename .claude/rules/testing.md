@@ -11,10 +11,9 @@ paths:
 - **If a test can be added, it's added** (CLAUDE.md): every change whose behaviour a test can
   check. A fix's test fails without the fix: run it before the fix to see it fail, and say what it
   measured.
-- **Coverage is 100% per file** (`vitest.config.ts`), for every package's `src/` but the
-  playground's. A branch that can't be reached in a test is a design smell: pass the thing it
-  depends on in (the host's functions take a `platform` or a `git` for this) rather than leaving it
-  uncovered.
+- **Coverage is 100% per file** (`vitest.config.ts`), for every package's `src/`. A branch that
+  can't be reached in a test is a design smell: pass the thing it depends on in (the host's
+  functions take a `platform` or a `git` for this) rather than leaving it uncovered.
 - **Where each package runs:** the UI packages (`jsx`, `ui-*`) in a real browser (Vitest's browser
   mode, Chromium through Playwright; CI uses its runner's Chrome through
   `CEREBRO_BROWSER_CHANNEL`); the rest in Node. `npm run check` runs formatting, lint, types and
@@ -22,6 +21,12 @@ paths:
 - **Real git, not mocks, for git's behaviour:** a throwaway repository under `tmpdir()`, with
   `-c user.name=t -c user.email=t@t` on commits. Mock `git` only to test what's done with its
   output.
+- **Time a test measures is `performance.now()`'s**, not `Date.now()`'s: the wall clock can step
+  back while a test runs (measured under WSL: a wait came out as −840 ms).
+- **A page that runs as it's imported** (`main.tsx`, `welcome.tsx`, `boot.ts`) has a test file
+  for each way it starts (`main-browser`, `main-app`, `main-mac`, `main-reload`): each sets up
+  `window.cerebro` and `#app`, then imports it. A module that reads something as it's imported
+  (`navigator.platform`) needs it set in `vi.hoisted`.
 - **UI tests use real input** (`userEvent` from `vitest/browser`), not dispatched events, where
   the behaviour depends on it (focus, selection, keys).
 
