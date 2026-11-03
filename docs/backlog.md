@@ -40,4 +40,5 @@ History keeps each file's versions, labelled by what changed them, to compare an
   #103's run showed it in lib.py at the definition, under a name-match popup: the answer came after
   the test's check, and the test pressed Ctrl+B again from there. The test now checks before
   pressing again (2026-11-02); that this was the whole cause is a claim until Windows runs stay
-  green.
+  green. #104's run showed the other side of it: a second press's late answer took the next test
+  back to lib.sh. After more than one press, the test now waits out the host's 3 s (2026-11-03).
