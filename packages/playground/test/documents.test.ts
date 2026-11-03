@@ -84,7 +84,10 @@ describe('a file’s document', () => {
     });
     disk.set('/r/none.ts', 'there now');
     await expect
-      .poll(async () => ((await documentFor('/r/none.ts', () => '')) as EditorDocument).content?.())
+      .poll(async () => {
+        const loaded = await documentFor('/r/none.ts', () => '');
+        return loaded instanceof EditorDocument ? loaded.content() : loaded.error;
+      })
       .toBe('there now');
   });
 
@@ -155,7 +158,7 @@ describe('saving', () => {
       });
     const first = saveFiles(['/r/twice.ts']);
     await expect.poll(() => writes('/r/twice.ts').length).toBe(1);
-    host.answers['fs.write'] = answer as never;
+    host.answers['fs.write'] = answer;
     edit(doc, '2');
     const second = saveFiles(['/r/twice.ts']);
     write();
@@ -328,16 +331,16 @@ describe('reading again', () => {
     const hold = (method: string, now = false) => {
       const answer = host.answers[method] as (p: { path: string }) => unknown;
       let release: () => void = () => undefined;
-      host.answers[method] = ((params: { path: string }) => {
+      host.answers[method] = (params: { path: string }) => {
         if (params.path !== path) return answer(params);
-        host.answers[method] = answer as never;
+        host.answers[method] = answer;
         const answered = now ? answer(params) : undefined;
         return new Promise((resolve) => {
           release = () => {
             resolve(now ? answered : answer(params));
           };
         });
-      }) as never;
+      };
       return {
         release: () => {
           release();
