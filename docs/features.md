@@ -76,11 +76,13 @@ Skills and instructions defined once at the IDE level that every session loads a
 can reach when needed. Claude Code already loads user-level `CLAUDE.md`, skills and plugins;
 Cerebro's job is to manage and distribute them, and later to map them onto other agent CLIs.
 
-## 8. Agent change inspection views — first version (core)
+## 8. Agent change inspection views
 
-A view of what an agent changed in a worktree (since the session started, per turn, per commit),
-with fast movement between the high level (which files, which tasks) and the low level (the diff,
-then the code with full navigation).
+A view of what an agent changed in a worktree, with fast movement between the high level (which
+files, which tasks) and the low level (the diff, then the code with full navigation). Per turn, in
+its own tool window, Agent Changes (Ido, 2026-11-03: its own panel, not the Commit window's). Since
+the session started and per commit were dropped (decision "Phase 1 is WebStorm's functionality");
+more of this is phase 2's.
 
 ## 9. Kanban board for agents — later
 

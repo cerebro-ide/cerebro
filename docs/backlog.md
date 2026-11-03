@@ -12,6 +12,13 @@ Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as t
 something we can get to designing a bit later on". It needs a design before it's built; the
 Terminal tool window's tabs (decision "Several terminals") are the pieces to reuse.
 
+### Agent Changes, aware of several sessions
+
+From Ido (2026-11-03), on the Agent Changes tool window: "we could have multiple sessions per
+project/worktree and so the changes window needs to be aware of this". Not to work on now. Turns
+are listed per worktree, whichever session they came from; with several Claude sessions as tabs
+(above), the window needs to tell them apart.
+
 ### Local History
 
 From Ido (2026-10-27, "yes", when asked whether to add it): there's no undo for what happens to
