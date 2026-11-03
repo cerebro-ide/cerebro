@@ -112,6 +112,7 @@ export {
   fileHistory,
   HISTORY,
   record,
+  recordSave,
   recording,
   revert,
   textIn,

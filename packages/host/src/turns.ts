@@ -13,7 +13,7 @@ import type { Git } from './git.js';
 export const TURNS = 'refs/worktree/cerebro/turns/';
 
 /** Snapshots are commits; git wants a name for them, whoever the user is. */
-const IDENTITY = ['-c', 'user.name=Cerebro', '-c', 'user.email=cerebro@localhost'];
+export const IDENTITY = ['-c', 'user.name=Cerebro', '-c', 'user.email=cerebro@localhost'];
 
 /** The longest prompt kept with a turn, in characters. */
 const PROMPT_LIMIT = 200;

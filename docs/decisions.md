@@ -1156,6 +1156,13 @@ Replace in Files, Rollback, an agent's edits) can be compared with and taken bac
   when the window gets the focus, every 30 seconds while it has it, and when Show History opens,
   what changed outside Cerebro since ("External change": an agent, git in a terminal). The first
   record is the files as found. How often is Claude's choice, open to change.
+- **A save is recorded after it's answered** (changed 2026-11-03): recording before and after a
+  write took two snapshots of the whole worktree, about 15 git processes, and saves on Windows
+  took over a second (CI, #110: the editing tests found files not yet saved). The host now writes,
+  answers, then records the file as saved, and before it the file as it was, if the last record
+  hasn't that (it changed outside Cerebro since); a host test holds git up and sees the save
+  answered. Other files changed outside Cerebro meanwhile are in the save's record, not an
+  "External change" of their own.
 - **Kept as a chain of git commits** (Claude's choice, open to change): each record is a snapshot
   of the worktree, as an agent's turns are (every file git doesn't ignore, through a copy of the
   index), after the one before it, kept by one ref, `refs/worktree/cerebro/history`. A file's

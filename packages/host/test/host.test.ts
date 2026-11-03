@@ -343,6 +343,35 @@ describe('ignored files and rolling back', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it('answers a save before recording it in the Local History, which comes after', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-save-')));
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, 'first');
+    // Git held up until the save's answer: a save that waited for its record wouldn't answer.
+    let release: (value: undefined) => void = () => undefined;
+    const held = new Promise<undefined>((resolve) => {
+      release = resolve;
+    });
+    const { ui, stop } = connect(
+      vi.fn<Git>(async (...args) => {
+        await held;
+        return runGit(...args);
+      }),
+    );
+    await ui.request('fs.write', { path: file, text: 'saved' });
+    expect(readFileSync(file, 'utf8')).toBe('saved');
+    release(undefined);
+    type Version = { commit: string; label: string };
+    const versions = (await ui.request('history.file', { path: dir, file: 'a.txt' })) as Version[];
+    expect(versions.map((v) => v.label)).toEqual(['', '']);
+    expect(
+      await ui.request('history.text', { path: dir, file: 'a.txt', commit: versions[1]?.commit }),
+    ).toEqual({ text: 'first' });
+    stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('shelves, lists, unshelves and deletes shelved changes, and stashes', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-shelf-')));
     execFileSync('git', ['init', '-q', '-b', 'main', dir]);

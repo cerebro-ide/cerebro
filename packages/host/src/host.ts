@@ -2,14 +2,22 @@
 
 import { createHash } from 'node:crypto';
 import { chmodSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
-import { fileHistory, record as recordHistory, recording, revert, textIn } from './history.js';
+import {
+  fileHistory,
+  record as recordHistory,
+  recordSave,
+  recording,
+  revert,
+  textIn,
+} from './history.js';
 import {
   clearStashes,
   deleteShelf,
@@ -213,16 +221,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // Only the latest search's answer is used (the page searches as the user types): a new one stops
   // the one still running.
   let searching: AbortController | undefined;
-  /**
-   * Runs a change to files in `folder`, recorded in the Local History of the worktree it's
-   * in, if it's in one.
-   */
-  const recorded = async <T>(folder: string, label: string, change: () => Promise<T>) => {
-    const worktree = await git(folder, ['rev-parse', '--show-toplevel']).then(
-      (output) => output.trim(),
-      () => undefined,
-    );
-    return worktree === undefined ? change() : recording(worktree, label, git, change);
+
+  /** Saves' records, made after their answers, one after another. */
+  let saves: Promise<void> = Promise.resolve();
+  const recordSaved = async (
+    path: string,
+    texts: { before: string; after: string },
+    label: string,
+  ) => {
+    try {
+      const worktree = (await git(dirname(path), ['rev-parse', '--show-toplevel'])).trim();
+      const file = relative(worktree, path).split(sep).join('/');
+      await recordSave(worktree, file, texts, label, git);
+    } catch {
+      // Not in a git repository, or the record failed: the file's saved all the same.
+    }
   };
   connection.onRequest('search.text', async (params) => {
     const p = params as {
@@ -278,7 +291,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (label !== undefined && typeof label !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'label must be a string');
     }
-    await recorded(dirname(path), label ?? '', () => writeTextFile(path, content));
+    const before = await readFile(path, 'utf8');
+    await writeTextFile(path, content);
+    // Recorded after the answer: a record of the whole worktree takes a dozen git processes, over
+    // a second for a save on Windows (CI).
+    saves = saves.then(() => recordSaved(path, { before, after: content }, label ?? ''));
     return null;
   });
   /** A request's commits to compare (a turn's snapshots), if it names them. */
@@ -410,17 +427,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return null;
   });
   // Local History: a worktree's records, a file's versions in them, and reverting to one.
+  // After the saves' records: in the order they were asked for.
   connection.onRequest('history.record', async (params) => {
+    await saves;
     await recordHistory(text(params, 'path'), 'External change', git);
     return null;
   });
   connection.onRequest('history.label', async (params) => {
+    await saves;
     await recordHistory(text(params, 'path'), text(params, 'label'), git, { always: true });
     return null;
   });
-  connection.onRequest('history.file', (params) =>
-    fileHistory(text(params, 'path'), text(params, 'file'), git),
-  );
+  connection.onRequest('history.file', async (params) => {
+    await saves;
+    return fileHistory(text(params, 'path'), text(params, 'file'), git);
+  });
   connection.onRequest('history.text', async (params) => ({
     text:
       (await textIn(
@@ -434,6 +455,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = text(params, 'path');
     const file = text(params, 'file');
     const commit = named(params, 'commit', COMMIT);
+    await saves;
     await recording(worktree, 'Revert', git, () => revert(worktree, file, commit, git));
     return null;
   });

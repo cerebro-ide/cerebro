@@ -11,7 +11,16 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { fileHistory, git, HISTORY, record, recording, revert, textIn } from '../src/index.js';
+import {
+  fileHistory,
+  git,
+  HISTORY,
+  record,
+  recordSave,
+  recording,
+  revert,
+  textIn,
+} from '../src/index.js';
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-history-')));
 const run = (cwd: string, ...args: string[]) =>
@@ -84,6 +93,65 @@ describe('Local History', () => {
     expect((await fileHistory(repo, 'a.txt', git)).map((r) => r.label)).toEqual([
       'Replace in Files',
       'External change',
+      '',
+    ]);
+  });
+
+  it('records a save after it, with the text before it if the last record hasn’t that', async () => {
+    const repo = repository('saves');
+    const labels = async () => (await fileHistory(repo, 'a.txt', git)).map((r) => r.label);
+    const save = (text: string, label = '') => {
+      const before = read(repo, 'a.txt');
+      writeFileSync(join(repo, 'a.txt'), text);
+      return recordSave(repo, 'a.txt', { before, after: text }, label, git);
+    };
+    // No record yet: the file as found, then the save.
+    await save('a2');
+    expect(await labels()).toEqual(['', '']);
+    const [saved, found] = await fileHistory(repo, 'a.txt', git);
+    expect(await textIn(repo, found?.commit as string, 'a.txt', git)).toBe('a1');
+    expect(await textIn(repo, saved?.commit as string, 'a.txt', git)).toBe('a2');
+    // The last record has the text before: just the save.
+    await save('a3', 'Replace in Files');
+    expect(await labels()).toEqual(['Replace in Files', '', '']);
+    // Changed outside Cerebro since: that first.
+    writeFileSync(join(repo, 'a.txt'), 'outside');
+    await save('a4');
+    expect(await labels()).toEqual(['', 'External change', 'Replace in Files', '', '']);
+    const [, outside] = await fileHistory(repo, 'a.txt', git);
+    expect(await textIn(repo, outside?.commit as string, 'a.txt', git)).toBe('outside');
+    // Saved as it was, after a change outside: just that change.
+    writeFileSync(join(repo, 'a.txt'), 'again');
+    await save('again');
+    expect((await labels())[0]).toBe('External change');
+    // Nothing changed: nothing recorded.
+    await save('again');
+    expect(run(repo, 'rev-list', '--count', HISTORY).trim()).toBe('6');
+    // A file the last record hasn't: as it was, then as saved.
+    writeFileSync(join(repo, 'c.txt'), 'c1');
+    writeFileSync(join(repo, 'c.txt'), 'c2');
+    await recordSave(repo, 'c.txt', { before: 'c1', after: 'c2' }, '', git);
+    expect((await fileHistory(repo, 'c.txt', git)).map((r) => r.label)).toEqual([
+      '',
+      'External change',
+    ]);
+  });
+
+  it('records a save of a file git ignores without it', async () => {
+    const repo = repository('ignored');
+    writeFileSync(join(repo, '.gitignore'), 'secret.txt\n');
+    writeFileSync(join(repo, 'secret.txt'), 'new');
+    await recordSave(repo, 'secret.txt', { before: 'old', after: 'new' }, '', git);
+    // The first record: the files as found, without the ignored one.
+    expect(run(repo, 'rev-list', '--count', HISTORY).trim()).toBe('1');
+    expect(run(repo, 'ls-tree', '--name-only', HISTORY)).not.toContain('secret.txt');
+    // Nothing else changed: nothing recorded.
+    await recordSave(repo, 'secret.txt', { before: 'new', after: 'new' }, '', git);
+    expect(run(repo, 'rev-list', '--count', HISTORY).trim()).toBe('1');
+    writeFileSync(join(repo, 'b.txt'), 'b2');
+    await recordSave(repo, 'secret.txt', { before: 'new', after: 'new' }, 'Replace in Files', git);
+    expect((await fileHistory(repo, 'b.txt', git)).map((r) => r.label)).toEqual([
+      'Replace in Files',
       '',
     ]);
   });
