@@ -2,7 +2,7 @@
   "name": "@cerebro-ide/playground",
   "version": "0.0.0",
   "private": true,
-  "description": "A dev page for trying Cerebro's UI in a browser: npm run dev from the repo root.",
+  "description": "The app's page: it assembles the packages; npm run dev from the repo root runs it in a browser.",
   "type": "module",
   "scripts": {
     "dev": "vite",
