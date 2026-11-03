@@ -1,4 +1,5 @@
-// Committing from the Commit tool window end to end: what goes in, the message, Commit and Amend.
+// The Commit tool window end to end: what goes in, the message, Commit and Amend; and going from a
+// diff to the file with F4.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -28,6 +29,7 @@ beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
   writeFileSync(join(repo, 'a.ts'), 'a\n');
   writeFileSync(join(repo, 'b.ts'), 'b\n');
+  writeFileSync(join(repo, 'shape.ts'), '// Shapes.\nexport class Shape {}\n');
   git('add', '.');
   git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'First');
   writeFileSync(join(repo, 'a.ts'), 'a changed\n');
@@ -96,4 +98,25 @@ it('amends the last commit, its message put in to edit', async () => {
   await expect.poll(() => git('log', '--format=%s')).toBe('Reworded\nFirst\n');
   expect(git('status', '--porcelain')).toBe(' M b.ts\n');
   expect(await page().locator('.playground-commit__amend input').isChecked()).toBe(false);
+});
+
+it('goes from a diff to the file with F4, where the caret is, from either side', async () => {
+  // The committed first line becomes two.
+  writeFileSync(join(repo, 'shape.ts'), '// Shapes, longer\n// and more.\nexport class Shape {}\n');
+  await row('changes:shape.ts').click();
+  await page().keyboard.press('ControlOrMeta+d');
+  const side = (n: 0 | 1) => page().locator('.cerebro-editor-diff .cm-mergeViewEditor').nth(n);
+  const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
+  // From the left, the committed text: the line after the change, one further down in the file.
+  await side(0).locator('.cm-line', { hasText: 'export class Shape {}' }).click();
+  await page().keyboard.press('F4');
+  await expect
+    .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
+    .toBe('shape.ts');
+  await expect.poll(shown).toBe('export class Shape {}');
+  // From the right: the line itself. The diff is read again as its tab shows.
+  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
+  await side(1).locator('.cm-line', { hasText: '// and more.' }).click();
+  await page().keyboard.press('F4');
+  await expect.poll(shown).toBe('// and more.');
 });

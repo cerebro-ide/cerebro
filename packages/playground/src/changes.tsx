@@ -7,7 +7,8 @@
 //
 // A toolbar above the tree, as IntelliJ's: Refresh, Rollback, Show Diff, View Options (group by
 // directory, show ignored files), Select Opened File, Expand All and Collapse All. Opening a file
-// (double click, Enter, F4) opens the file; Ctrl/Cmd+D or the context menu opens its diff.
+// (double click, Enter, F4) opens the file; Ctrl/Cmd+D or the context menu opens its diff. F4 in a
+// diff opens the file where its caret is, as IntelliJ's.
 //
 // Committing, as IntelliJ's Commit tool window: a checkbox on each uncommitted file, folder and
 // group says what goes in (Space flips the selected row's), then Amend, the message and Commit
@@ -29,6 +30,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
+import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
@@ -440,6 +442,8 @@ export interface ChangesSetup {
   activeTab: () => string | undefined;
   /** Shows the Commit tool window. */
   show: () => void;
+  /** Opens a file at a line and column, zero-based. */
+  openAt: (at: { path: string; line: number; column: number }) => void;
 }
 
 /** The commit message's field, if it shows. */
@@ -590,12 +594,33 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.open(diffTab(change.path, turn && { from: turn.start, to: turn.end }));
     },
   });
+  /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
+  const fromDiff = () => {
+    const tab = setup.activeTab();
+    const path = tab === undefined ? undefined : diffPath(tab);
+    const focused = document.activeElement;
+    const at = path !== undefined && focused ? diffSource(focused) : undefined;
+    return at && { path: path as string, ...at };
+  };
   commands.register({
     id: 'changes.jumpToSource',
     label: '&Jump to Source',
-    enabled: (c) => here(c) && openable(selectedChange(current())),
-    run: () => {
-      openFile(selectedChange(current()) as Extract<Item, { kind: 'change' }>);
+    enabled: (c) => (here(c) && openable(selectedChange(current()))) || fromDiff() !== undefined,
+    run: async () => {
+      const at = fromDiff();
+      if (!at) {
+        openFile(selectedChange(current()) as Extract<Item, { kind: 'change' }>);
+        return;
+      }
+      const env = active();
+      // A deleted file's diff: there's no file to go to.
+      if (
+        !env ||
+        !(await hostFor(env.id)?.request('fs.exists', { path: `${env.id}/${at.path}` }))
+      ) {
+        return;
+      }
+      setup.openAt(at);
     },
   });
   commands.register({

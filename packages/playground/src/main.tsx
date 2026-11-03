@@ -189,6 +189,7 @@ setupChanges(services, {
   show: () => {
     layout.toolWindows.show('commit');
   },
+  openAt: navigation.openAt,
 });
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
