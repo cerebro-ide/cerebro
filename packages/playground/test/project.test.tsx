@@ -1,9 +1,11 @@
+import '../src/playground.css';
 import { render } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { RELOAD_EVERY } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { fileProblems } from '../src/problems.js';
 import { ProjectTree, selectInTree, type FileNode } from '../src/project.js';
 import { FakeHost, project } from './fakes.js';
 
@@ -68,6 +70,25 @@ describe('the Project tool window', () => {
     await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
     await userEvent.dblClick(row('/r/src/main.ts'));
     expect(opened).toEqual([{ id: '/r/src/main.ts', title: 'main.ts' }]);
+  });
+
+  it('marks a file with errors, and the folders it’s in, with the error’s wave', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    // As the test before left it: src open.
+    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    const marked = () =>
+      [...document.querySelectorAll('.playground-problem-file')].map((m) => m.textContent);
+    expect(marked()).toEqual([]);
+    const error = { from: { line: 0, column: 0 }, to: { line: 0, column: 1 }, message: 'x' };
+    fileProblems.set('/r/src/main.ts', [{ ...error, severity: 'warning' }]);
+    expect(marked()).toEqual([]);
+    fileProblems.set('/r/src/main.ts', [{ ...error, severity: 'error' }]);
+    expect(marked()).toEqual(['src', 'main.ts']);
+    const style = getComputedStyle(document.querySelector('.playground-problem-file') as Element);
+    expect([style.textDecorationLine, style.textDecorationStyle]).toEqual(['underline', 'wavy']);
+    fileProblems.clear();
+    expect(marked()).toEqual([]);
   });
 
   it('reads the folders again as the window gets the focus, and now and then while it has it', async () => {

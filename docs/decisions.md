@@ -43,7 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
-- [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2
+- [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1389,9 +1389,27 @@ them.
 - **Asked as the file opens, and 300 ms after an edit** (a claim: typing isn't held up). An answer
   for text since edited is dropped; what's shown moves with edits, and stays when no server
   answers.
-- **Not yet:** the Problems tool window; the file's status in its tab and the Project tree; shell
-  scripts' problems, which bash-language-server gets from `shellcheck`, not bundled (a claim, from
-  its documentation); IntelliJ's quick fixes (Alt+Enter).
+- **The Problems tool window's File tab (added 2026-11-03),** as IntelliJ's (Ido: "go ahead",
+  after the errors and warnings): the active file's errors, warnings and weak warnings, in a tree
+  under the file, the worst first, then in order (IntelliJ's default, `sortBySeverity`). From
+  IntelliJ's source (`ProblemsViewBundle.properties`, `ProblemNode.kt`, `FileNode.kt`): a problem's
+  row is its icon, its message and ` :line` in grey; the file's, its name, its folder and "N
+  problems" in grey; and it says "Open file in editor to see problems", "Analyzing a.ts" until the
+  first answer, or "No problems in a.ts". Double-click, Enter, F4 (Jump to Source, with the keys the
+  keymaps give the Commit window's) or its context menu go there, the editor focused (JetBrains'
+  help: F4 or a double-click). A click on the editor's counts shows the window (JetBrains' help).
+  The page keeps each file's latest answer, so the window follows the active tab and new answers,
+  the selected problem kept.
+- **Files with errors are marked,** as IntelliJ marks problem files: in their tabs and in the
+  Project tree, and the folders they're in, their names underlined with the error colour's wave.
+  Warnings don't mark them, and a file closed keeps its mark until it's asked again (Claude's
+  choices, open to change; how IntelliJ does it is a claim).
+- **Weak warnings have the warning's icon** (a claim: IntelliJ's own wasn't found among its status
+  icons). The icons carry their colours, so they show outside the editor's shadow root too.
+- **The folder is the full path:** IntelliJ shortens it under the home folder (`~/...`).
+- **Not yet:** the Problems window's Project Errors tab, its View Options (filtering by severity,
+  grouping) and its preview; shell scripts' problems, which bash-language-server gets from
+  `shellcheck`, not bundled (a claim, from its documentation); IntelliJ's quick fixes (Alt+Enter).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

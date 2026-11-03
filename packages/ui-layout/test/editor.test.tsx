@@ -1,6 +1,7 @@
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { onCleanup, render } from '@cerebro-ide/jsx';
+import { ObservableSet } from '@cerebro-ide/reactive';
 import { EditorArea, EditorGroup, type EditorNode } from '@cerebro-ide/layout';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
@@ -21,7 +22,10 @@ function shape(node: EditorNode): string {
   return `${node.orientation === 'horizontal' ? 'h' : 'v'}(${node.children.map(shape).join(' ')})`;
 }
 
-function mount(tabs: string[] = ['a', 'b', 'c'], options: { empty?: boolean } = {}) {
+function mount(
+  tabs: string[] = ['a', 'b', 'c'],
+  options: { empty?: boolean; errors?: ObservableSet<string> } = {},
+) {
   const area = new EditorArea();
   for (const id of tabs) area.open(tab(id));
   const disposed: string[] = [];
@@ -38,6 +42,11 @@ function mount(tabs: string[] = ['a', 'b', 'c'], options: { empty?: boolean } = 
         area={area}
         content={content}
         {...(options.empty === false ? {} : { empty: () => <p class="test-empty">empty</p> })}
+        {...(options.errors
+          ? {
+              hasErrors: (t: { id: string }) => (options.errors as ObservableSet<string>).has(t.id),
+            }
+          : {})}
       />
     ),
     container,
@@ -115,6 +124,25 @@ describe('rendering', () => {
     expect($('.cerebro-editor-group').classList.contains('cerebro-editor-group--active')).toBe(
       true,
     );
+  });
+
+  it('marks the title of a tab whose file has errors with the error colour’s wave', () => {
+    const errors = new ObservableSet<string>(['b']);
+    const { tabEl } = mount(['a', 'b'], { errors });
+    const title = (id: string) =>
+      tabEl(id).querySelector('.cerebro-editor-tab__title') as HTMLElement;
+    const style = getComputedStyle(title('b'));
+    expect([style.textDecorationLine, style.textDecorationStyle]).toEqual(['underline', 'wavy']);
+    const probe = document.createElement('i');
+    probe.style.color = 'var(--cerebro-editor-error)';
+    document.body.append(probe);
+    expect(style.textDecorationColor).toBe(getComputedStyle(probe).color);
+    probe.remove();
+    expect(getComputedStyle(title('a')).textDecorationLine).toBe('none');
+    errors.delete('b');
+    errors.add('a');
+    expect(getComputedStyle(title('b')).textDecorationLine).toBe('none');
+    expect(getComputedStyle(title('a')).textDecorationStyle).toBe('wavy');
   });
 
   it('shows the empty content without tabs, or nothing without one', () => {

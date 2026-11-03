@@ -38,6 +38,7 @@ import {
   type Mark,
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
+import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { setupHistory } from './history.js';
@@ -205,6 +206,12 @@ setupShelf(services, {
   },
 });
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
+/** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
+const jumpTo = (at: { path: string; line: number; column: number }) => {
+  navigation.openAt(at);
+  focusing.set(at.path, {});
+};
+setupProblems(services, { openAt: jumpTo });
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
 setTerminalKeys((event) => {
@@ -930,6 +937,11 @@ function Content(props: { id: string }) {
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
+  if (props.id === 'problems') {
+    return (
+      <ProblemsView services={services} file={() => editor()?.activeGroup.active} openAt={jumpTo} />
+    );
+  }
   const view = views.get(props.id);
   if (view) return <PluginView view={view} />;
   // Content is drawn only for the windows registered.
@@ -1014,7 +1026,11 @@ function Code(props: { path: string; env: string }) {
                     navigation.hasDefinition(name, asked(state, at)),
                   marks: (text: string) => navigation.markers(props.path, text),
                   onMark: (mark: Mark) => void navigation.goToMarked(mark),
-                  problems: (text: string) => navigation.problems(props.path, text),
+                  problems: (text: string) =>
+                    askProblems(props.path, () => navigation.problems(props.path, text)),
+                  onShowProblems: () => {
+                    layout.toolWindows.show('problems');
+                  },
                 }
               : {})}
             fontSize={() => settings.get('editor.fontSize') as number}
@@ -1123,6 +1139,7 @@ render(
                 );
               }}
               icon={(tab) => icon(diffPath(tab.id) === undefined ? 'file' : 'diff')}
+              hasErrors={(tab) => hasErrors(tab.id)}
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
                 openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })

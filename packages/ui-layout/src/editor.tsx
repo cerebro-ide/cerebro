@@ -28,6 +28,11 @@ export interface EditorAreaViewProps {
   empty?: () => Child;
   /** A tab's icon, before its title and in the list of hidden tabs: its file's type. */
   icon?: (tab: Tab) => Child;
+  /**
+   * Whether a tab's file has errors: its title is underlined with a wave in the error colour, as
+   * IntelliJ marks problem files. Read reactively.
+   */
+  hasErrors?: (tab: Tab) => boolean;
   /** A tab was right-clicked (or the context-menu key pressed on it): open its context menu. */
   onTabContextMenu?: (event: MouseEvent, group: EditorGroup, tab: Tab) => void;
 }
@@ -296,7 +301,16 @@ function TabView(props: { ctx: Context; group: EditorGroup; tab: Tab }): Node {
       }}
     >
       {ctx.props.icon ? <span class="cerebro-editor-tab__icon">{ctx.props.icon(tab)}</span> : null}
-      <span class="cerebro-editor-tab__title">{tab.title}</span>
+      <span
+        class={() =>
+          cls(
+            'cerebro-editor-tab__title',
+            ctx.props.hasErrors?.(tab) === true && 'cerebro-editor-tab__title--errors',
+          )
+        }
+      >
+        {tab.title}
+      </span>
       <button
         type="button"
         class="cerebro-editor-tab__close"

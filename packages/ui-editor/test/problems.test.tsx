@@ -6,6 +6,7 @@ import { userEvent } from 'vitest/browser';
 import {
   CodeEditor,
   EditorDocument,
+  problemIcon,
   PROBLEMS_AFTER,
   type CodeEditorProps,
   type Problem,
@@ -184,6 +185,54 @@ describe('problems', () => {
     await expect.poll(caretLine).toBe('const n: number = "x";');
     // Clicking the arrow left the focus in the editor.
     expect(root.activeElement).toBe(root.querySelector('.cm-content'));
+  });
+
+  it('shows the Problems tool window from its counts, not from its arrows', async () => {
+    const onShowProblems = vi.fn<() => void>();
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      problems: () => Promise.resolve(PROBLEMS),
+      onShowProblems,
+    });
+    const count = () => root.querySelector<HTMLElement>('.cerebro-problems__count');
+    await expect.poll(count).not.toBeNull();
+    expect(getComputedStyle(count() as HTMLElement).cursor).toBe('pointer');
+    await userEvent.click(count() as HTMLElement);
+    expect(onShowProblems).toHaveBeenCalledTimes(1);
+    await userEvent.click(root.querySelector('.cerebro-problems__arrow') as HTMLElement);
+    expect(onShowProblems).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the tick that opens the Problems tool window too', async () => {
+    const onShowProblems = vi.fn<() => void>();
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      problems: () => Promise.resolve([]),
+      onShowProblems,
+    });
+    const ok = () => root.querySelector<HTMLElement>('.cerebro-problems__ok');
+    await expect.poll(ok).not.toBeNull();
+    await userEvent.click(ok() as HTMLElement);
+    expect(onShowProblems).toHaveBeenCalledTimes(1);
+  });
+
+  it('gives its icons to draw elsewhere, in the theme’s colours', () => {
+    document.documentElement.dataset['cerebroTheme'] = 'dark';
+    const icons = (['error', 'warning', 'weak'] as const).map((s) => problemIcon(s));
+    document.body.append(...icons);
+    const theme = getComputedStyle(document.documentElement);
+    const fill = (svg: SVGSVGElement) => getComputedStyle(svg.firstElementChild as Element).fill;
+    const rgb = (name: string) => {
+      const probe = document.createElement('i');
+      probe.style.color = `var(--cerebro-${name})`;
+      document.body.append(probe);
+      const colour = getComputedStyle(probe).color;
+      probe.remove();
+      return colour;
+    };
+    expect(theme.getPropertyValue('--cerebro-icon-error')).not.toBe('');
+    expect(icons.map(fill)).toEqual([rgb('icon-error'), rgb('icon-warning'), rgb('icon-warning')]);
+    for (const icon of icons) icon.remove();
   });
 
   it('goes through warnings when there are no errors, wrapping around', async () => {
