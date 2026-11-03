@@ -137,20 +137,20 @@ export async function saveAll(): Promise<void> {
 let saved: Promise<unknown> = Promise.resolve();
 
 /**
- * Saves these files' documents, if modified (all of them without `paths`), as Save All does. After
- * the saves asked for before: two at once would each find the other's write on disk, and call it a
- * conflict.
+ * Saves these files' documents, if modified (all of them without `paths`), as Save All does; with
+ * `label`, the Local History records the change as that. After the saves asked for before: two at
+ * once would each find the other's write on disk, and call it a conflict.
  */
-export function saveFiles(paths?: readonly string[]): Promise<void> {
+export function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
   const next = saved.then(
-    () => save(paths),
-    () => save(paths),
+    () => save(paths, label),
+    () => save(paths, label),
   );
   saved = next.catch(() => undefined);
   return next;
 }
 
-async function save(paths?: readonly string[]): Promise<void> {
+async function save(paths?: readonly string[], label?: string): Promise<void> {
   if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
@@ -171,7 +171,11 @@ async function save(paths?: readonly string[]): Promise<void> {
       if (!doc.modified.peek()) continue;
       // What's written, which the editor may change while it's being written.
       const text = doc.text.peek();
-      await host.request('fs.write', { path, text: doc.content() });
+      await host.request('fs.write', {
+        path,
+        text: doc.content(),
+        ...(label === undefined ? {} : { label }),
+      });
       doc.saved(text);
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);

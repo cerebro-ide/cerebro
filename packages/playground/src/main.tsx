@@ -40,6 +40,7 @@ import {
 import { ProjectTree, selectInTree } from './project.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
+import { setupHistory } from './history.js';
 import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
@@ -200,6 +201,7 @@ setupShelf(services, {
     layout.toolWindows.show('commit');
   },
 });
+setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
 setTerminalKeys((event) => {

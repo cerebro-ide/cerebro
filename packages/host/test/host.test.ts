@@ -294,6 +294,84 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('records saves and replacing in the Local History, and lists, shows and reverts a file’s versions', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-history-')));
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    const { ui, stop } = connect(vi.fn<Git>(runGit));
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, 'first');
+    await ui.request('history.record', { path: dir });
+    await ui.request('fs.write', { path: file, text: 'saved' });
+    await ui.request('fs.write', { path: file, text: 'replaced', label: 'Replace in Files' });
+    await ui.request('history.label', { path: dir, label: 'Mine' });
+    // Outside a repository: written, with nothing recorded.
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-plain-')));
+    writeFileSync(join(outside, 'x.txt'), '');
+    await ui.request('fs.write', { path: join(outside, 'x.txt'), text: 'x' });
+    expect(readFileSync(join(outside, 'x.txt'), 'utf8')).toBe('x');
+    rmSync(outside, { recursive: true, force: true });
+    type Version = { commit: string; label: string };
+    const versions = (await ui.request('history.file', { path: dir, file: 'a.txt' })) as Version[];
+    expect(versions.map((v) => v.label)).toEqual(['Mine', 'Replace in Files', '', '']);
+    const first = versions.at(-1) as Version;
+    expect(
+      await ui.request('history.text', { path: dir, file: 'a.txt', commit: first.commit }),
+    ).toEqual({
+      text: 'first',
+    });
+    expect(
+      await ui.request('history.text', { path: dir, file: 'b.txt', commit: first.commit }),
+    ).toEqual({
+      text: null,
+    });
+    await ui.request('history.revert', { path: dir, file: 'a.txt', commit: first.commit });
+    expect(readFileSync(file, 'utf8')).toBe('first');
+    expect(
+      ((await ui.request('history.file', { path: dir, file: 'a.txt' })) as Version[])[0]?.label,
+    ).toBe('Revert');
+    for (const [method, params] of [
+      ['history.text', { path: dir, file: 'a.txt', commit: 'HEAD' }],
+      ['history.revert', { path: dir, file: 'a.txt', commit: '--help' }],
+      ['history.label', { path: dir }],
+      ['fs.write', { path: file, text: '', label: 1 }],
+    ] as const) {
+      await expect(ui.request(method, params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+    stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('answers a save before recording it in the Local History, which comes after', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-save-')));
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, 'first');
+    // Git held up until the save's answer: a save that waited for its record wouldn't answer.
+    let release: (value: undefined) => void = () => undefined;
+    const held = new Promise<undefined>((resolve) => {
+      release = resolve;
+    });
+    const { ui, stop } = connect(
+      vi.fn<Git>(async (...args) => {
+        await held;
+        return runGit(...args);
+      }),
+    );
+    await ui.request('fs.write', { path: file, text: 'saved' });
+    expect(readFileSync(file, 'utf8')).toBe('saved');
+    release(undefined);
+    type Version = { commit: string; label: string };
+    const versions = (await ui.request('history.file', { path: dir, file: 'a.txt' })) as Version[];
+    expect(versions.map((v) => v.label)).toEqual(['', '']);
+    expect(
+      await ui.request('history.text', { path: dir, file: 'a.txt', commit: versions[1]?.commit }),
+    ).toEqual({ text: 'first' });
+    stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('shelves, lists, unshelves and deletes shelved changes, and stashes', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-shelf-')));
     execFileSync('git', ['init', '-q', '-b', 'main', dir]);

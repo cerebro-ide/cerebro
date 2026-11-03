@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
@@ -1158,6 +1159,44 @@ Change inspection should be based on intellij - which basically follows only unc
   a tool window of their own (Ido: "a nice feature, but it shouldn't be in the commit window"; see
   "Agent turns"), and he'll review them separately.
 
+## Local History (2026-11-03)
+
+Ido asked for Local History (2026-10-27, "yes", when asked whether to add it; and on 2026-11-03,
+"and Local History"), as IntelliJ's: what happened to files outside the editor's undo (saving,
+Replace in Files, Rollback, an agent's edits) can be compared with and taken back.
+
+- **As IntelliJ's:** Local History → Show History (File menu, the editor's and its tabs' context
+  menus) lists the file's versions, the latest first, with when and what changed them; the one
+  selected is compared with the file as it is, side by side, and Revert puts the file back as it
+  was then (deleted, if it wasn't there). Put Label… records the files under a name, listed in bold
+  in every file's history. It's a dialog, where IntelliJ opens a window of its own (Claude's
+  choice, open to change).
+- **What's recorded, and labelled:** a save (no label, as IntelliJ's edits), Replace in Files,
+  Rollback, Shelve Changes, Unshelve, Stash Changes, Unstash Changes and Revert; before each, and
+  when the window gets the focus, every 30 seconds while it has it, and when Show History opens,
+  what changed outside Cerebro since ("External change": an agent, git in a terminal). The first
+  record is the files as found. How often is Claude's choice, open to change.
+- **A save is recorded after it's answered** (changed 2026-11-03): recording before and after a
+  write took two snapshots of the whole worktree, about 15 git processes, and saves on Windows
+  took over a second (CI, #110: the editing tests found files not yet saved). The host now writes,
+  answers, then records the file as saved, and before it the file as it was, if the last record
+  hasn't that (it changed outside Cerebro since); a host test holds git up and sees the save
+  answered. Other files changed outside Cerebro meanwhile are in the save's record, not an
+  "External change" of their own.
+- **Kept as a chain of git commits** (Claude's choice, open to change): each record is a snapshot
+  of the worktree, as an agent's turns are (every file git doesn't ignore, through a copy of the
+  index), after the one before it, kept by one ref, `refs/worktree/cerebro/history`. A file's
+  versions are `git log` of that ref for the file (measured, in the host's tests); git stores each
+  version once. Nothing is recorded when nothing changed, but a label. Rejected: IntelliJ's own
+  store (claim: a binary file of changes in the IDE's system folder), which would need a format of
+  our own.
+- **Saving, fixed underneath:** the File Cache Conflicts seen while saving are decision "Saving:
+  one save at a time". Recording made saves slower, and so the race likelier, until saves were
+  recorded after they're answered.
+- **Not yet:** a folder's history, and a selection's (IntelliJ's Show History for Selection); a
+  file's versions across a rename; Revert for a whole record; files git ignores, and folders that
+  aren't git repositories; a limit on how long records are kept (IntelliJ: 5 working days, a
+  claim); one record for a Replace in Files across many files (each file's save is one).
 ## Saving: one save at a time (2026-11-03)
 
 A bug fix, seen in CI (#109, the editing e2e test on Linux): a File Cache Conflict over a file
@@ -1932,6 +1971,11 @@ changed, in a tool window of its own (the Commit tool window's, until 2026-11-03
   Cerebro as its author, whoever the user is. Each turn's end is kept by a ref under
   `refs/worktree/cerebro/turns/`: git keeps the commits, and other worktrees don't see them
   (measured). The prompt, cut to 200 characters, is the commit's message. Nothing removes them yet.
+- **The index's copy keeps the index's time** (fixed 2026-11-03): git trusts a file's size and
+  time as the index has them unless the file's time isn't before the index's own; it then reads
+  the file ("racy git"). A copy made later hid that, so a file changed in the second the index was
+  written, keeping its size, was snapshotted as it was before (seen as a flaky Local History test;
+  a host test with the times set shows it, and fails without the fix).
 - **The prompt's hook waits for the snapshot** (the hook client waits for the host's reply), so the
   agent can't change a file before it's taken; the other hooks don't wait.
 - **In a tool window of its own, Agent Changes** (changed 2026-11-03, Ido: "it shouldn't be in

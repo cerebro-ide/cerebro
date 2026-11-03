@@ -19,13 +19,6 @@ project/worktree and so the changes window needs to be aware of this". Not to wo
 are listed per worktree, whichever session they came from; with several Claude sessions as tabs
 (above), the window needs to tell them apart.
 
-### Local History
-
-From Ido (2026-10-27, "yes", when asked whether to add it): there's no undo for what happens to
-files outside the editor. The editor's undo is per file and lives only while its document does.
-Saving, Replace in Files, Rollback and an agent's edits can't be taken back. IntelliJ's Local
-History keeps each file's versions, labelled by what changed them, to compare and revert to.
-
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

@@ -2,13 +2,22 @@
 
 import { createHash } from 'node:crypto';
 import { chmodSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
+import {
+  fileHistory,
+  record as recordHistory,
+  recordSave,
+  recording,
+  revert,
+  textIn,
+} from './history.js';
 import {
   clearStashes,
   deleteShelf,
@@ -212,6 +221,22 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // Only the latest search's answer is used (the page searches as the user types): a new one stops
   // the one still running.
   let searching: AbortController | undefined;
+
+  /** Saves' records, made after their answers, one after another. */
+  let saves: Promise<void> = Promise.resolve();
+  const recordSaved = async (
+    path: string,
+    texts: { before: string; after: string },
+    label: string,
+  ) => {
+    try {
+      const worktree = (await git(dirname(path), ['rev-parse', '--show-toplevel'])).trim();
+      const file = relative(worktree, path).split(sep).join('/');
+      await recordSave(worktree, file, texts, label, git);
+    } catch {
+      // Not in a git repository, or the record failed: the file's saved all the same.
+    }
+  };
   connection.onRequest('search.text', async (params) => {
     const p = params as {
       matchCase?: unknown;
@@ -260,7 +285,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (typeof content !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'text must be a string');
     }
-    await writeTextFile(text(params, 'path'), content);
+    const path = text(params, 'path');
+    // What made the change, for the Local History: Replace in Files; a plain save has none.
+    const label = (params as { label?: unknown }).label;
+    if (label !== undefined && typeof label !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'label must be a string');
+    }
+    const before = await readFile(path, 'utf8');
+    await writeTextFile(path, content);
+    // Recorded after the answer: a record of the whole worktree takes a dozen git processes, over
+    // a second for a save on Windows (CI).
+    saves = saves.then(() => recordSaved(path, { before, after: content }, label ?? ''));
     return null;
   });
   /** A request's commits to compare (a turn's snapshots), if it names them. */
@@ -311,7 +346,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     const files = new Set(p.files);
     const changes = (await listChanges(worktree, git)).filter((c) => files.has(c.path));
-    await rollback(worktree, changes, p.deleteAdded === true, git);
+    await recording(worktree, 'Rollback', git, () =>
+      rollback(worktree, changes, p.deleteAdded === true, git),
+    );
     return listChanges(worktree, git);
   });
   // Commits the files named, as changed now, with the message given; gives the changes left.
@@ -335,13 +372,15 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     return new Set(p.files);
   };
-  /** A request's shelved list or stash, as the lists name them. */
-  const named = (params: unknown, key: 'id' | 'ref', pattern: RegExp): string => {
+  /** A request's shelved list, stash or record, as the lists name them. */
+  const named = (params: unknown, key: 'id' | 'ref' | 'commit', pattern: RegExp): string => {
     const value = text(params, key);
     if (!pattern.test(value)) throw new ResponseError(ErrorCodes.InvalidParams, `bad ${key}`);
     return value;
   };
   const SHELF_ID = /^\d+-\d+$/;
+  /** A commit's full hash: the Local History's records. */
+  const COMMIT = /^[0-9a-f]{40,64}$/;
   const STASH_REF = /^stash@\{\d+\}$/;
   const flag = (params: unknown, key: string) => (params as Record<string, unknown>)[key] === true;
   // Shelves the files named, as changed now, under the message given; gives the changes left.
@@ -350,36 +389,76 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const message = text(params, 'message');
     const named = files(params);
     const changes = (await listChanges(worktree, git)).filter((c) => named.has(c.path));
-    await shelve(worktree, changes, message, git);
+    await recording(worktree, 'Shelve Changes', git, () => shelve(worktree, changes, message, git));
     return listChanges(worktree, git);
   });
   connection.onRequest('git.shelves', (params) => listShelves(text(params, 'path'), git));
-  connection.onRequest('git.unshelve', (params) =>
-    unshelve(text(params, 'path'), named(params, 'id', SHELF_ID), git).then(() => null),
-  );
+  connection.onRequest('git.unshelve', async (params) => {
+    const worktree = text(params, 'path');
+    const id = named(params, 'id', SHELF_ID);
+    await recording(worktree, 'Unshelve', git, () => unshelve(worktree, id, git));
+    return null;
+  });
   connection.onRequest('git.deleteShelf', (params) =>
     deleteShelf(text(params, 'path'), named(params, 'id', SHELF_ID), git).then(() => null),
   );
   connection.onRequest('git.stashes', (params) => listStashes(text(params, 'path'), git));
   connection.onRequest('git.stash', (params) =>
-    stash(
-      text(params, 'path'),
-      // A stash may have no message: git names it after the last commit.
-      typeof (params as { message?: unknown }).message === 'string'
-        ? (params as { message: string }).message
-        : '',
-      { keepIndex: flag(params, 'keepIndex'), includeUntracked: flag(params, 'includeUntracked') },
-      git,
+    recording(text(params, 'path'), 'Stash Changes', git, () =>
+      stash(
+        text(params, 'path'),
+        // A stash may have no message: git names it after the last commit.
+        typeof (params as { message?: unknown }).message === 'string'
+          ? (params as { message: string }).message
+          : '',
+        {
+          keepIndex: flag(params, 'keepIndex'),
+          includeUntracked: flag(params, 'includeUntracked'),
+        },
+        git,
+      ),
     ).then(() => null),
   );
-  connection.onRequest('git.unstash', (params) =>
-    unstash(
-      text(params, 'path'),
-      named(params, 'ref', STASH_REF),
-      { pop: flag(params, 'pop'), reinstateIndex: flag(params, 'reinstateIndex') },
-      git,
-    ).then(() => null),
-  );
+  connection.onRequest('git.unstash', async (params) => {
+    const worktree = text(params, 'path');
+    const ref = named(params, 'ref', STASH_REF);
+    const options = { pop: flag(params, 'pop'), reinstateIndex: flag(params, 'reinstateIndex') };
+    await recording(worktree, 'Unstash Changes', git, () => unstash(worktree, ref, options, git));
+    return null;
+  });
+  // Local History: a worktree's records, a file's versions in them, and reverting to one.
+  // After the saves' records: in the order they were asked for.
+  connection.onRequest('history.record', async (params) => {
+    await saves;
+    await recordHistory(text(params, 'path'), 'External change', git);
+    return null;
+  });
+  connection.onRequest('history.label', async (params) => {
+    await saves;
+    await recordHistory(text(params, 'path'), text(params, 'label'), git, { always: true });
+    return null;
+  });
+  connection.onRequest('history.file', async (params) => {
+    await saves;
+    return fileHistory(text(params, 'path'), text(params, 'file'), git);
+  });
+  connection.onRequest('history.text', async (params) => ({
+    text:
+      (await textIn(
+        text(params, 'path'),
+        named(params, 'commit', COMMIT),
+        text(params, 'file'),
+        git,
+      )) ?? null,
+  }));
+  connection.onRequest('history.revert', async (params) => {
+    const worktree = text(params, 'path');
+    const file = text(params, 'file');
+    const commit = named(params, 'commit', COMMIT);
+    await saves;
+    await recording(worktree, 'Revert', git, () => revert(worktree, file, commit, git));
+    return null;
+  });
   connection.onRequest('git.dropStash', (params) =>
     dropStash(text(params, 'path'), named(params, 'ref', STASH_REF), git).then(() => null),
   );
