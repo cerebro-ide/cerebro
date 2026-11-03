@@ -599,3 +599,34 @@ it('groups the Commit tool window’s files or not, collapses and expands them, 
   expect(readFileSync(join(repo, 'src', 'shape.ts'), 'utf8')).not.toContain('changed');
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });
+
+it('opens a changed file of the worktree it’s in, from the Commit window and from its diff', async () => {
+  const page = running.page;
+  const worktree = join(root, 'project-e2e');
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(worktree)}"]`).click();
+  writeFileSync(
+    join(worktree, 'src', 'shape.ts'),
+    '// In the other worktree.\nexport class Shape {}\n',
+  );
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+  const shape = page.locator('.cerebro-tree-row[data-key$="changes:src/shape.ts"]');
+  await shape.dblclick();
+  // Its own copy, not the main worktree's, in a tab named by its whole path, as other files' are.
+  const active = page.locator('.cerebro-editor-tab--active:visible');
+  await expect
+    .poll(() => active.getAttribute('data-tab'))
+    .toBe(gitPath(worktree, 'src', 'shape.ts'));
+  await expect
+    .poll(() => page.locator('.cerebro-editor-code:visible .cm-line').first().textContent())
+    .toBe('// In the other worktree.');
+  // Jump to Source from its diff goes to the same tab.
+  await shape.click();
+  await page.keyboard.press('ControlOrMeta+d');
+  const changed = page.locator('.cerebro-editor-diff:visible .cm-merge-b .cm-changedLine');
+  await changed.first().click();
+  await page.keyboard.press('F4');
+  await expect
+    .poll(() => active.getAttribute('data-tab'))
+    .toBe(gitPath(worktree, 'src', 'shape.ts'));
+  await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
+});
