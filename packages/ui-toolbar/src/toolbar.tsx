@@ -143,6 +143,10 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
       on:pointerdown={(event) => {
         if (event.button === 0) toggle(false);
       }}
+      on:mousedown={(event) => {
+        // A popup takes the focus as it opens (its search field): the button doesn't take it back.
+        if (props.popup) event.preventDefault();
+      }}
       on:keydown={(event) => {
         if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
           event.preventDefault();

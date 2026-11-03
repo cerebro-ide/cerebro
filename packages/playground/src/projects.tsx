@@ -23,7 +23,8 @@ export function windowProjects(): readonly Project[] {
   return opened;
 }
 
-let activePath: () => string | undefined = () => undefined;
+// Set by a project's window as it loads; the Welcome window, with none, opens each in a new one.
+let activePath!: () => string | undefined;
 
 /** How the active project is found: This Window opens a project in its place. */
 export function setActiveProject(find: () => string | undefined): void {

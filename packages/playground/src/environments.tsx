@@ -70,7 +70,7 @@ export const projects = signal<ProjectState[]>([SAMPLES]);
 function toSpec(w: HostWorktree): EnvironmentSpec {
   return {
     id: w.path,
-    name: w.path.split(/[\\/]/).at(-1) ?? w.path,
+    name: w.path.replace(/^.*[\\/]/, ''),
     branch: w.branch ?? 'detached',
   };
 }
@@ -229,7 +229,7 @@ export function setupEnvironments(
   };
   const dropWorktree = (id: string) => {
     workspace.close(id);
-    for (const d of registered.get(id) ?? []) d.dispose();
+    for (const d of registered.get(id) as Disposable[]) d.dispose();
     registered.delete(id);
   };
   /** Takes a project's worktrees from its host after a change: new ones added, gone ones dropped. */

@@ -63,6 +63,11 @@ export function tabFile(
   };
 }
 
+/** The keymap's platform, for the system the page runs on (`navigator.platform`). */
+export function keymapPlatform(platform: string): Platform {
+  return platform.includes('Mac') ? 'mac' : 'other';
+}
+
 /** The theme, from the global settings: chosen, or the system's. */
 export const dark = computed(() => themeIsDark(globalSettings));
 
@@ -112,8 +117,8 @@ export function setupCommands(
     /** Whether the host's index can be searched. */
     available: () => boolean;
   },
-): MenuServices {
-  const platform: Platform = navigator.platform.includes('Mac') ? 'mac' : 'other';
+): MenuServices & { keymap: Keymap } {
+  const platform = keymapPlatform(navigator.platform);
   const commands = new CommandRegistry();
   const menus = new MenuRegistry();
   const keymap = new Keymap(platform);
@@ -173,11 +178,11 @@ export function setupCommands(
       () => undefined,
     );
   };
-  /** The files to search: the active worktree's in the app, the samples in a browser. */
+  /** The files to search: the active worktree's in the app (none with none open), the samples in a browser. */
   const fileItems = () => {
+    if (!currentHost()) return sampleItems;
     const env = active();
-    if (!currentHost() || !env) return sampleItems;
-    return worktreeItems.get(env.id)?.get() ?? [];
+    return (env && worktreeItems.get(env.id)?.get()) ?? [];
   };
   /** Enabled commands as popup items, with their shortcuts. */
   const actionItems = () =>

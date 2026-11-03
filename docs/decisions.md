@@ -17,7 +17,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Platforms (2026-10-25)](#platforms-2026-10-25): macOS, Windows, Linux, and repos in WSL
 - [Remote mode soon after the shell (2026-10-25)](#remote-mode-soon-after-the-shell-2026-10-25): repos on another machine, after the shell
 - [Modular means usable in isolation (2026-10-25)](#modular-means-usable-in-isolation-2026-10-25): each package works on its own
-- [Testing in layers (2026-10-25)](#testing-in-layers-2026-10-25): unit, browser and end-to-end; CI
+- [Testing in layers (2026-10-25)](#testing-in-layers-2026-10-25): unit, browser and end-to-end; CI; the playground at 100% too (changed 2026-11-03)
 - [Pull requests (2026-10-25)](#pull-requests-2026-10-25): changes through PRs, Ido merges
 - [Minimal dependencies: Cerebro writes its own components (2026-10-25)](#minimal-dependencies-cerebro-writes-its-own-components-2026-10-25): few dependencies
 - [No UI framework: own reactive core, MobX-style (2026-10-25)](#no-ui-framework-own-reactive-core-mobx-style-2026-10-25): plain DOM and Cerebro's reactive core
@@ -176,6 +176,17 @@ each stand on their own, with their own tests and no hidden dependency on the re
 1. **Unit tests with full coverage**, first, for every part.
 2. **Integration and end-to-end tests** after that, defined later, probably on real browsers with
    Playwright.
+
+**The playground too (changed 2026-11-03).** The playground (the app's page) had been left out of
+the unit tests and coverage, tested only end to end. Ido, asked how far its tests should go: "100%
+like the rest". Every file of its `src/` is now unit-tested in the browser at 100%, with fake hosts
+(`FakeHost`) and a fake desktop bridge (`test/app-bridge.ts`).
+- **The page itself** (`main.tsx`, `welcome.tsx`, `boot.ts`) runs as it's imported, so it has a
+  test file for each way it starts: in a browser, in the app, on macOS, after a reload.
+- **Why:** the tests found bugs the end-to-end tests hadn't, each test failing without its fix:
+  stale answers taken over newer ones, a tree model loading twice, a dropdown giving its popup's
+  focus back to its button, a dialog opened from a popup drawn under it, the Branch dropdown kept
+  for a folder without git, and two ellipses on Find in Files and Replace in Files.
 
 **CI (2026-10-25):** GitHub Actions, one Linux job running `npm run check` and the build. Per-OS
 runs (macOS, Windows) are only needed for the end-to-end browser tests, so they come with those

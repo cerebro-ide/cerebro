@@ -20,10 +20,11 @@ export const RELOAD_EVERY = 2000;
  */
 export type ConflictResolver = (path: string, doc: EditorDocument, disk: string) => Promise<void>;
 
-let resolveConflict: ConflictResolver = () => Promise.resolve();
+// Both set by `setupSaving`, which the page calls before any file is read.
+let resolveConflict!: ConflictResolver;
 
 /** Closes a deleted file's tabs. */
-let closeDeleted: (path: string) => void = () => undefined;
+let closeDeleted!: (path: string) => void;
 
 /** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
 const resolving = new Set<string>();
@@ -78,9 +79,9 @@ function watchEdits(path: string, doc: EditorDocument): void {
 
 /**
  * A file's document, read the first time it's asked for, or why it can't be read; in a browser, a
- * document of the sample text, which isn't saved.
+ * document of the sample text, which isn't saved (empty without one).
  */
-export function documentFor(path: string, sample: () => string): Promise<Loaded> {
+export function documentFor(path: string, sample?: () => string): Promise<Loaded> {
   let loaded = documents.get(path);
   if (!loaded) {
     const host = hostFor(path);
@@ -89,7 +90,7 @@ export function documentFor(path: string, sample: () => string): Promise<Loaded>
           (result) => new EditorDocument((result as { text: string }).text),
           (error: unknown) => ({ error: (error as Error).message }),
         )
-      : Promise.resolve(new EditorDocument(sample()));
+      : Promise.resolve(new EditorDocument(sample?.() ?? ''));
     // A file that couldn't be read is tried again the next time.
     void loaded.then((result) => {
       if (result instanceof EditorDocument) watchEdits(path, result);
@@ -142,10 +143,8 @@ let saved: Promise<unknown> = Promise.resolve();
  * once would each find the other's write on disk, and call it a conflict.
  */
 export function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
-  const next = saved.then(
-    () => save(paths, label),
-    () => save(paths, label),
-  );
+  const next = saved.then(() => save(paths, label));
+  // A save that fails doesn't stop the next.
   saved = next.catch(() => undefined);
   return next;
 }

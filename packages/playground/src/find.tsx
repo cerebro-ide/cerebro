@@ -56,7 +56,8 @@ export function choiceOf(match: TextMatch): Choice {
   return {
     label,
     highlight,
-    shortcut: `${match.path.split('/').at(-1) ?? match.path} ${String(match.line + 1)}`,
+    // A split has a last part, even of a path without a slash.
+    shortcut: `${match.path.split('/').at(-1) as string} ${String(match.line + 1)}`,
     match,
   };
 }
@@ -96,7 +97,7 @@ export async function replaceLines(
   let skipped = 0;
   const changed: string[] = [];
   for (const [path, matches] of byFile) {
-    const doc = await documentFor(path, () => '');
+    const doc = await documentFor(path);
     if ('error' in doc) {
       skipped += matches.length;
       continue;
@@ -192,7 +193,7 @@ export interface Place {
 /** A file, read-only, scrolled to a place and its match selected, as IntelliJ's previews. */
 export function Preview(props: { at: Place }) {
   const text = signal<string | undefined>(undefined);
-  void documentFor(props.at.path, () => '').then((doc) => {
+  void documentFor(props.at.path).then((doc) => {
     text.set('error' in doc ? '' : doc.content());
   });
   return (

@@ -141,15 +141,15 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
     const limit = ALL_LIMIT + MORE * (mores.get()[group] ?? 0);
     const shown = grouped(results.slice(0, limit), group);
     if (results.length <= limit) return shown;
-    const more: Result = {
+    // Never run: choosing it lists more, and the popup stays open.
+    const more = {
       label: '\u2026 more',
       group,
-      run: () => undefined,
       more: () => {
         const was = mores.peek();
         mores.set({ ...was, [group]: (was[group] ?? 0) + 1 });
       },
-    };
+    } as Result;
     return [...shown, more];
   };
   const files = (q: string) =>
@@ -169,7 +169,8 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
       case 'all': {
         const typed = q.trim() !== '';
         // Classes are symbols too: listed once, as classes.
-        const others = symbols.get().filter((s) => !CLASS_KINDS.includes(s.shortcut ?? ''));
+        // A symbol's shortcut is its kind.
+        const others = symbols.get().filter((s) => !CLASS_KINDS.includes(s.shortcut as string));
         return [
           ...some(classes.get(), 'Classes'),
           ...some(files(q), typed ? 'Files' : 'Recent Files'),

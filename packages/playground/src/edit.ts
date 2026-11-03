@@ -43,15 +43,21 @@ function follow(): void {
   if (active && !inMenu(active)) lastFocused.set(active);
 }
 
+/** What last had the focus outside a menu, while it's still on the page (a closed editor isn't). */
+function last(): Element | undefined {
+  const focused = lastFocused.get();
+  return focused?.isConnected ? focused : undefined;
+}
+
 /** What the command acts on: what has the focus, or had it before a menu took it. */
 function target(): Element | undefined {
   const active = deepActive();
-  return active && !inMenu(active) ? active : lastFocused.peek();
+  return active && !inMenu(active) ? active : last();
 }
 
 /** Where text is typed: a text field, or an editable code editor. */
 function editable(element: Element | undefined): boolean {
-  if (!element?.isConnected) return false;
+  if (!element) return false;
   if (element instanceof HTMLTextAreaElement) return !element.readOnly && !element.disabled;
   if (element instanceof HTMLInputElement) {
     const text = ['text', 'search', 'url', 'email', 'tel', 'password', 'number'];
@@ -67,14 +73,14 @@ function changeable(element: Element | undefined): boolean {
 
 /** Whether there's text to copy: somewhere to type, a read-only editor, or a selection. */
 function copyable(): boolean {
-  const focused = lastFocused.get();
+  const focused = last();
   if (editable(focused) || focused?.closest('.cm-content')) return true;
   return (document.getSelection()?.toString() ?? '') !== '';
 }
 
 /** What Undo or Redo would do in the editor that last had the focus; undefined outside one. */
 function history(action: 'undo' | 'redo'): { name: string | undefined } | undefined {
-  const focused = lastFocused.get();
+  const focused = last();
   const names = focused && historyNamesIn(focused);
   return names && { name: names[action] };
 }
@@ -82,7 +88,7 @@ function history(action: 'undo' | 'redo'): { name: string | undefined } | undefi
 /** Runs an edit action on what last had the focus. */
 function run(action: EditAction): void {
   const focused = target();
-  if (focused instanceof HTMLElement && focused.isConnected) focused.focus();
+  if (focused instanceof HTMLElement) focused.focus();
   if ((action === 'undo' || action === 'redo') && focused && editorHistory(focused, action)) return;
   const app = window.cerebro?.menu;
   if (app) app.edit(action);
@@ -96,9 +102,9 @@ export function setupEdit(commands: CommandRegistry): void {
     window.addEventListener(type, follow, true);
   }
   const entries: [EditAction, string, () => boolean][] = [
-    ['cut', 'Cu&t', () => changeable(lastFocused.get())],
+    ['cut', 'Cu&t', () => changeable(last())],
     ['copy', '&Copy', copyable],
-    ['paste', '&Paste', () => editable(lastFocused.get())],
+    ['paste', '&Paste', () => editable(last())],
   ];
   for (const [action, label, enabled] of entries) {
     commands.register({
@@ -124,7 +130,7 @@ export function setupEdit(commands: CommandRegistry): void {
       },
       enabled: () => {
         const editor = history(action);
-        return editor ? editor.name !== undefined : changeable(lastFocused.get());
+        return editor ? editor.name !== undefined : changeable(last());
       },
       run: () => {
         run(action);

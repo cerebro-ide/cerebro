@@ -12,7 +12,8 @@ const STORAGE_KEY = 'cerebro.keymap.user';
 
 type UserKeymaps = Readonly<Record<string, readonly UserBinding[]>>;
 
-function load(): UserKeymaps {
+/** The user's bindings as saved, or none where they can't be read. */
+export function loadUserKeymaps(): UserKeymaps {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) return JSON.parse(saved) as UserKeymaps;
@@ -23,7 +24,7 @@ function load(): UserKeymaps {
 }
 
 /** The user's bindings, by keymap id. */
-export const userKeymaps = signal<UserKeymaps>(load());
+export const userKeymaps = signal<UserKeymaps>(loadUserKeymaps());
 
 const presetOf = (id: string) => PRESETS.find((preset) => preset.id === id);
 

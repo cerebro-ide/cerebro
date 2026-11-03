@@ -1,0 +1,132 @@
+import { render } from '@cerebro-ide/jsx';
+import type { Tab } from '@cerebro-ide/layout';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import { RELOAD_EVERY } from '../src/documents.js';
+import { useProjects, workspace } from '../src/environments.js';
+import { ProjectTree, selectInTree, type FileNode } from '../src/project.js';
+import { FakeHost, project } from './fakes.js';
+
+/** The host's folders, as it lists them. */
+const folders: Record<string, FileNode[]> = {
+  '/r': [
+    { path: '/r/src', name: 'src', kind: 'directory' },
+    { path: '/r/dist', name: 'dist', kind: 'directory', ignored: true },
+    { path: '/r/README.md', name: 'README.md', kind: 'file' },
+  ],
+  '/r/src': [{ path: '/r/src/main.ts', name: 'main.ts', kind: 'file' }],
+};
+const host = new FakeHost({ 'fs.list': ({ path }: { path: string }) => folders[path] ?? [] });
+const SAMPLES = ['src/main.ts', 'README.md', 'src/lib/x.ts', 'docs/', 'src/a.ts'];
+
+const opened: Tab[] = [];
+let dispose: (() => void) | undefined;
+
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  useProjects([project('/r', host), project('/s', undefined)]);
+});
+
+afterEach(() => {
+  dispose?.();
+  document.body.replaceChildren();
+  opened.length = 0;
+  host.asked.length = 0;
+  vi.restoreAllMocks();
+});
+
+function mount(): void {
+  const handle = render(
+    () => <ProjectTree samples={SAMPLES} open={(tab) => void opened.push(tab)} />,
+    document.body,
+  );
+  dispose = () => {
+    handle.dispose();
+  };
+}
+
+const rows = () =>
+  [...document.querySelectorAll('.cerebro-tree-row')].map((row) => row.textContent);
+const row = (key: string) => document.querySelector(`[data-key="${key}"]`) as HTMLElement;
+const selected = (key: string) =>
+  document.querySelector(`[data-key="${key}"]`)?.getAttribute('aria-selected');
+const lists = () => host.params('fs.list').length;
+
+describe('the Project tool window', () => {
+  it('says there’s no environment open', () => {
+    mount();
+    expect(document.querySelector('.playground-project')?.textContent).toBe('No environment open');
+  });
+
+  it('shows the worktree’s files from the host, folders first, what git ignores dimmed', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).toEqual(['src', 'dist', 'README.md']);
+    expect(host.params('fs.list')).toEqual([{ path: '/r' }]);
+    expect(row('/r/dist').querySelector('.playground-change--ignored')?.textContent).toBe('dist');
+    await userEvent.dblClick(row('/r/src'));
+    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    await userEvent.dblClick(row('/r/src/main.ts'));
+    expect(opened).toEqual([{ id: '/r/src/main.ts', title: 'main.ts' }]);
+  });
+
+  it('reads the folders again as the window gets the focus, and now and then while it has it', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).not.toEqual([]);
+    const before = lists();
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(lists).toBeGreaterThan(before);
+    const focused = vi.spyOn(document, 'hasFocus').mockReturnValue(false);
+    await expect.poll(() => Promise.resolve(lists())).toBe(lists());
+    const now = lists();
+    vi.advanceTimersByTime(RELOAD_EVERY);
+    expect(lists()).toBe(now);
+    focused.mockReturnValue(true);
+    vi.advanceTimersByTime(RELOAD_EVERY);
+    await expect.poll(lists).toBeGreaterThan(now);
+    // Not once it's gone.
+    dispose?.();
+    dispose = undefined;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const after = lists();
+    window.dispatchEvent(new Event('focus'));
+    vi.advanceTimersByTime(RELOAD_EVERY);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(lists()).toBe(after);
+  });
+
+  it('shows the samples as a tree in a browser, each environment’s its own', async () => {
+    workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
+    mount();
+    await expect.poll(rows).toEqual(['docs', 'src', 'README.md']);
+    await userEvent.dblClick(row('src'));
+    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    await userEvent.dblClick(row('docs'));
+    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    // Its folders as they were left, src open.
+    workspace.activate('/r');
+    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    workspace.activate('/s');
+    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+  });
+});
+
+describe('selecting a file in the tree', () => {
+  it('opens the folders down to it, in the app or the samples', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    expect(await selectInTree('/r/src/main.ts', SAMPLES)).toBe(true);
+    await expect.poll(() => selected('/r/src/main.ts')).toBe('true');
+    // Not a file of the worktree.
+    expect(await selectInTree('/elsewhere/a.ts', SAMPLES)).toBe(false);
+    workspace.activate('/s');
+    expect(await selectInTree('src/lib/x.ts', SAMPLES)).toBe(true);
+    await expect.poll(() => selected('src/lib/x.ts')).toBe('true');
+  });
+
+  it('selects nothing with no environment', async () => {
+    for (const id of ['/r', '/s']) workspace.close(id);
+    expect(await selectInTree('src/main.ts', SAMPLES)).toBe(false);
+  });
+});

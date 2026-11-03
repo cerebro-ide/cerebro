@@ -112,7 +112,8 @@ const groupKey = (group: Group) => `\u0000${group}`;
 /** The view options, as IntelliJ's View Options menu: kept in the browser's storage. */
 const OPTIONS_KEY = 'cerebro.changes.view';
 
-function readOptions(): { byDirectory: boolean; showIgnored: boolean } {
+/** The view options as kept, or the defaults where they can't be read. */
+export function readOptions(): { byDirectory: boolean; showIgnored: boolean } {
   try {
     const stored = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? '{}') as Record<string, unknown>;
     return { byDirectory: stored.byDirectory !== false, showIgnored: stored.showIgnored === true };
@@ -235,7 +236,14 @@ interface Changes {
 
 const lists = new Map<string, Changes>();
 
+/** A worktree's lists, made the first time they're asked for. */
 function changesOf(worktree: string): Changes {
+  // Made where they're shown, which needn't run again when they are: making them writes what it
+  // reads, and the view would run twice, reading them twice.
+  return untracked(() => made(worktree));
+}
+
+function made(worktree: string): Changes {
   let changes = lists.get(worktree);
   if (!changes) {
     const host = hostFor(worktree) as NonNullable<ReturnType<typeof hostFor>>;
@@ -248,6 +256,8 @@ function changesOf(worktree: string): Changes {
     // What was last read, as JSON: the tree is reloaded only when it changes. Reloading draws the
     // rows again: not while nothing changed, under the user's pointer.
     let last = '';
+    // Reads asked for: only the latest one's answer is shown.
+    let reads = 0;
     // Folders and groups are expanded when they first show, as IntelliJ's changes are; after
     // that, as the user left them.
     const seen = new Set<string>();
@@ -331,12 +341,15 @@ function changesOf(worktree: string): Changes {
       amend: signal(false),
       amended: undefined,
       refresh: async (force = false) => {
+        const asked = ++reads;
         const ignoredToo = showIgnored.peek();
         const [readChanges, readTurns, readIgnored] = (await Promise.all([
           host.request('git.changes', { path: worktree }),
           host.request('agent.turns', { path: worktree }),
           ignoredToo ? host.request('git.ignored', { path: worktree }) : [],
         ])) as [Change[], Turn[], string[]];
+        // A later read was asked for while this one ran: it has what's newer.
+        if (asked !== reads) return;
         const json = JSON.stringify([readChanges, readTurns, readIgnored, byDirectory.peek()]);
         if (json === last && !force) return;
         last = json;
@@ -423,14 +436,13 @@ function committable(item: Item, changes: Changes): Change[] {
     return item.turn || item.change.status === 'ignored' ? [] : [item.change];
   }
   if (item.kind === 'folder') return item.children.flatMap((child) => committable(child, changes));
-  if (item.kind === 'group') {
-    return item.group === 'changes'
-      ? [...changes.tracked()]
-      : item.group === 'unversioned'
-        ? [...changes.unversioned()]
-        : [];
-  }
-  return [];
+  // A group: a turn's window has no checkboxes, and never asks.
+  const { group } = item as Extract<Item, { kind: 'group' }>;
+  return group === 'changes'
+    ? [...changes.tracked()]
+    : group === 'unversioned'
+      ? [...changes.unversioned()]
+      : [];
 }
 
 /** Whether a file goes into the next commit. */
@@ -682,8 +694,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
         openFile(selected);
         return;
       }
-      const at = fromDiff();
-      if (!at) return;
+      // Enabled: if not for a file selected, for the focused diff.
+      const at = fromDiff() as NonNullable<ReturnType<typeof fromDiff>>;
       const env = active();
       // A deleted file's diff: there's no file to go to.
       if (
@@ -844,7 +856,8 @@ async function reveal(changes: Changes, path: string): Promise<void> {
       else continue;
       model.expanded.add(key);
       await model.load(item);
-      if (await find(model.loaded.get(key) ?? [])) return true;
+      // Loaded: the Commit window's children are there at once.
+      if (await find(model.loaded.get(key) as Item[])) return true;
     }
     return false;
   };
@@ -854,7 +867,7 @@ async function reveal(changes: Changes, path: string): Promise<void> {
 /** A turn's label: when it ended, and its prompt's first line. */
 function turnLabel(turn: Turn): string {
   const time = new Date(turn.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const prompt = turn.prompt.split('\n')[0] ?? '';
+  const prompt = turn.prompt.split('\n')[0] as string;
   return prompt === '' ? `Turn at ${time}` : `${time} ${prompt}`;
 }
 
@@ -1152,9 +1165,9 @@ export function AgentChangesView(props: {
       on:focusin={() => {
         focused.set('agent');
       }}
-      on:focusout={(event) => {
-        const next = event.relatedTarget as Node | null;
-        if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(undefined);
+      on:focusout={() => {
+        // Only its tree takes the focus: leaving it leaves the window.
+        focused.set(undefined);
       }}
     >
       {() => {

@@ -1,8 +1,10 @@
 /* Popups. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
 
+/* The dialogs' layer: of a popup and a dialog, the one opened later is on top (a popup in a dialog,
+   or a dialog a popup opens). */
 .cerebro-popup {
   position: fixed;
-  z-index: 950;
+  z-index: 900;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;

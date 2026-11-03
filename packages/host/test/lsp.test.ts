@@ -598,9 +598,9 @@ describe('LanguageServers', () => {
   it('waits for a server to say it’s loaded, when it can say so, before asking it', async () => {
     const loads: ServerSpec = { ...fake('loads'), readyWhen: /^Loaded \d+ files/ };
     const servers = pool([loads]);
-    const started = Date.now();
+    const started = performance.now();
     expect(await servers.definitions(root, file, at(0, 0))).toEqual([]);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(250);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(250);
     // Not loaded in time: no answer, so the name matches show.
     const slow = pool([loads], { patience: 100 });
     expect(await slow.definitions(root, file, at(0, 0))).toBeNull();

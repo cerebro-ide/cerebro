@@ -7,6 +7,11 @@ import { PRESETS } from './keymaps.js';
 
 export const registry = new SettingsRegistry();
 
+/** As IntelliJ: its own keymap for the system it runs on (`navigator.platform`). */
+export function defaultKeymap(platform: string): string {
+  return platform.includes('Mac') ? 'intellij-mac' : 'intellij';
+}
+
 registry.registerPage({ id: 'appearance', title: 'Appearance', order: 1 });
 registry.registerPage({ id: 'editor', title: 'Editor', order: 2 });
 registry.registerPage({ id: 'editor/general', title: 'General', parent: 'editor', order: 1 });
@@ -61,8 +66,7 @@ registry.register({
   description: 'The keys of the commands, as in IntelliJ or VS Code.',
   page: 'keymap',
   type: 'enum',
-  // As IntelliJ: its own keymap for the system it runs on.
-  default: navigator.platform.includes('Mac') ? 'intellij-mac' : 'intellij',
+  default: defaultKeymap(navigator.platform),
   options: PRESETS.map((preset) => ({ value: preset.id, label: preset.name })),
   scopes: ['global'],
 });
