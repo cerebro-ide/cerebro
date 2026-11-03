@@ -138,7 +138,18 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   'file.saveAll': ['Ctrl+S'],
 };
 
-export const VSCODE: KeymapPreset = {
+/** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
+export function vscode(platform: string): KeymapPreset {
+  return {
+    ...VSCODE_WINDOWS,
+    bindings: {
+      ...VSCODE_WINDOWS.bindings,
+      ...(platform.startsWith('Linux') ? VSCODE_LINUX : {}),
+    },
+  };
+}
+
+const VSCODE_WINDOWS: KeymapPreset = {
   id: 'vscode',
   name: 'VS Code',
   parent: INTELLIJ,
@@ -170,9 +181,10 @@ export const VSCODE: KeymapPreset = {
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
-    ...(navigator.platform.startsWith('Linux') ? VSCODE_LINUX : {}),
   },
 };
+
+export const VSCODE = vscode(navigator.platform);
 
 export const VSCODE_MAC: KeymapPreset = {
   id: 'vscode-mac',
