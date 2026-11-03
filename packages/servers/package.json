@@ -21,6 +21,7 @@
   "dependencies": {
     "basedpyright": "1.40.2",
     "bash-language-server": "5.8.1",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "yaml-language-server": "2.0.0"
   }
 }

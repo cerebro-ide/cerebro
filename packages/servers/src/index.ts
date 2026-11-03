@@ -149,12 +149,32 @@ export function bashServer(
 }
 
 /**
+ * yaml-language-server, for YAML: Red Hat's, run by the Node the host runs in.
+ */
+export function yamlServer(
+  node: string = process.execPath,
+  resolve: Resolve = fromHere,
+): ServerSpec {
+  return {
+    id: 'yaml',
+    languageOf: (path) => {
+      const ext = extension(path);
+      return ext === '.yaml' || ext === '.yml' ? 'yaml' : undefined;
+    },
+    command: () => ({
+      command: node,
+      args: [resolve('yaml-language-server/bin/yaml-language-server'), '--stdio'],
+    }),
+  };
+}
+
+/**
  * The servers that run, in the order they're asked whether they serve a file: every one, or those
  * named in `only` (ids, comma-separated; empty for none), as CEREBRO_LANGUAGE_SERVERS says, for
  * tests of what shows without them, and to rule a server out when something's wrong.
  */
 export function servers(only?: string): ServerSpec[] {
-  const all = [typescriptServer(), pythonServer(), bashServer()];
+  const all = [typescriptServer(), pythonServer(), bashServer(), yamlServer()];
   if (only === undefined) return all;
   const ids = new Set(only.split(',').map((id) => id.trim()));
   return all.filter((spec) => ids.has(spec.id));
