@@ -36,6 +36,12 @@ are listed per worktree, whichever session they came from; with several Claude s
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
+- **A save failed on Windows in CI** (#113, once in the last 60 failed runs): "saves a file twice
+  at once, and while it's read again" got `UNKNOWN: unknown error, ftruncate` from the host's
+  `writeTextFile`, and the tests after it timed out behind the Couldn't Save dialog. Measured from
+  libuv's source: a lock or sharing violation would have been `EBUSY`. Microsoft's `SetEndOfFile`
+  docs: a file can't be resized while it's mapped. That something (git, run on focus, or Defender)
+  had it mapped is a claim: libuv drops Windows' code. Next: measure it on the Windows runner.
 - **The Python e2e test's go to definition sometimes fails on Windows in CI** (#78 twice, #82 once):
   Ctrl+B never reaches lib.py in 30 s, while the host, asked directly then, answers the definition
   in 1 ms. The test now also prints where the page is (tab, line, focus, popup) when it fails.
