@@ -973,10 +973,9 @@ function Code(props: { path: string; env: string }) {
     <div
       class="playground-code"
       on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
-      on:focusout={(event) => {
-        // The editor's file is saved when the focus leaves it, for the window or somewhere else in it.
-        const to = event.relatedTarget;
-        if (to instanceof Node && (event.currentTarget as HTMLElement).contains(to)) return;
+      on:focusout={() => {
+        // The editor's file is saved when the focus leaves it, for the window or somewhere else in
+        // it. A move inside the editor stays in its shadow root: it doesn't come out as a focusout.
         saveFiles([props.path]).catch(reportSaving);
       }}
     >

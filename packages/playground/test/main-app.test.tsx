@@ -1,132 +1,19 @@
 import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import type { Project, RecentProject } from '../src/bridge.js';
 import { diffTab } from '../src/changes.js';
 import { workspace } from '../src/environments.js';
 import { loadProjects } from '../src/projects.js';
-import { closeAll, dialog, dialogText, FakeHost, menuItems, popupItems, press } from './fakes.js';
+import { globalSettings } from '../src/settings.js';
+import { added, answers, calls, host, installBridge, notify, shownAgain } from './app-bridge.js';
+import { closeAll, dialog, dialogText, menuItems, popupItems, press } from './fakes.js';
 
 // The page, as the desktop app shows it: a window with a project, its host answering through the
 // app's bridge. It's made once, as it's imported: each test goes on from where the last left it.
 
-type Bridge = NonNullable<Window['cerebro']>;
-type Notify = (project: string, method: string, params: unknown) => void;
-
-/** What each host answers, by method, over the defaults; an Error fails it. */
-const answers = new Map<string, unknown>();
-let terminals = 0;
-const DEFAULTS: Record<string, (params: Record<string, unknown>) => unknown> = {
-  'fs.read': ({ path }) => ({ text: `// ${String(path)}\nconst a = 1;\n` }),
-  'fs.exists': () => true,
-  'git.diff': () => ({ original: 'a\n', text: 'b\n' }),
-  'terminal.open': () => ({ id: ++terminals, buffer: '' }),
-  'search.text': () => ({ matches: [], limited: false }),
-};
-// What lists things lists nothing, unless a test says.
-for (const method of [
-  'fs.list',
-  'git.files',
-  'git.changes',
-  'git.ignored',
-  'git.shelves',
-  'git.stashes',
-  'agent.turns',
-  'index.definitions',
-  'index.usages',
-  'index.symbols',
-  'lsp.markers',
-  'lsp.problems',
-]) {
-  DEFAULTS[method] = () => [];
-}
-/** `/r` has a second worktree; `/n` isn't a repository; the others are, with one worktree. */
-const worktreesOf = (project: string) => {
-  if (project === '/n') throw new Error('not a repository');
-  const main = { path: project, branch: 'main', main: true, bare: false };
-  return project === '/r'
-    ? [main, { path: '/r/w', branch: 'w', main: false, bare: false }]
-    : [main];
-};
-/** A project's host: as `answers` says, else the defaults, else nothing. */
-const hostFor = (project: string) =>
-  new FakeHost(
-    new Proxy(
-      {},
-      {
-        get: (_, method: string) => (params: Record<string, unknown>) => {
-          if (method === 'git.worktrees') return worktreesOf(project);
-          const answer = answers.has(method) ? answers.get(method) : DEFAULTS[method]?.(params);
-          if (answer instanceof Error) throw answer;
-          return typeof answer === 'function'
-            ? (answer as (p: unknown) => unknown)(params)
-            : answer;
-        },
-      },
-    ),
-  );
-const hosts = new Map<string, FakeHost>();
-const host = (project: string) => {
-  let found = hosts.get(project);
-  if (!found) {
-    found = hostFor(project);
-    hosts.set(project, found);
-  }
-  return found;
-};
-const listeners = new Set<Notify>();
-const notify: Notify = (project, method, params) => {
-  for (const listener of listeners) listener(project, method, params);
-};
-const calls: unknown[][] = [];
-let added: (project: Project & { replaces?: string }) => void = () => undefined;
-let shownAgain: (path: string) => void = () => undefined;
-const recent: RecentProject[] = [
-  { path: '/r', name: 'r', opened: 3, exists: true },
-  { path: '/x', name: 'x', opened: 2, exists: true },
-  { path: '/gone', name: 'gone', opened: 1, exists: false },
-];
-
 beforeAll(async () => {
   vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
-  window.cerebro = {
-    app: true,
-    platform: 'linux',
-    display: { setScale: (scale: string) => void calls.push(['scale', scale]) },
-    shell: { reveal: (path: string) => void calls.push(['reveal', path]) },
-    window: { setColours: () => undefined },
-    menu: {},
-    project: {
-      current: () => Promise.resolve([{ path: '/r', name: 'r' }]),
-      recent: () => Promise.resolve(recent),
-      pick: () => Promise.resolve(null),
-      open: (path: string, where: string) => {
-        calls.push(['open', path, where]);
-        return Promise.resolve();
-      },
-      close: (path: string) => {
-        calls.push(['close', path]);
-        return Promise.resolve();
-      },
-      forget: () => Promise.resolve(),
-      onAdded: (listener: typeof added) => {
-        added = listener;
-        return () => undefined;
-      },
-      onShow: (listener: typeof shownAgain) => {
-        shownAgain = listener;
-        return () => undefined;
-      },
-    },
-    host: {
-      request: (project: string, method: string, params?: unknown) =>
-        host(project).request(method, params),
-      onNotification: (listener: Notify) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    },
-  } as unknown as Bridge;
+  installBridge('linux');
   // The layout the window was left with: the main worktree, a file open.
   const saved = new Environments();
   saved.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
@@ -154,6 +41,10 @@ const env = () => workspace.active as NonNullable<typeof workspace.active>;
 const editorRoot = () =>
   document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
 const code = () => editorRoot()?.querySelector<HTMLElement>('.cm-content');
+const row = (key: string) =>
+  [...document.querySelectorAll('.cerebro-tree-row')].find((r) =>
+    r.getAttribute('data-key')?.endsWith(key),
+  ) as HTMLElement;
 
 describe('the page in the app', () => {
   it('opens the window’s project as it was left, named after it, in the app’s look', async () => {
@@ -317,11 +208,6 @@ describe('Find in Files', () => {
 });
 
 describe('the Commit window', () => {
-  const row = (key: string) =>
-    [...document.querySelectorAll('.cerebro-tree-row')].find((r) =>
-      r.getAttribute('data-key')?.endsWith(key),
-    ) as HTMLElement;
-
   it('is shown by Commit, its changes and shelved files opening their diffs', async () => {
     answers.set('git.changes', ({ from }: { from?: string }) =>
       from === undefined
@@ -354,6 +240,22 @@ describe('the Commit window', () => {
   });
 });
 
+describe('the Agent Changes window', () => {
+  it('opens a file a turn changed', async () => {
+    answers.set('agent.turns', [{ id: 't2', start: 'b', end: 'c', prompt: 'Fix it', time: 0 }]);
+    answers.set('git.changes', ({ from }: { from?: string }) =>
+      from === undefined ? [] : [{ path: 'src/t.ts', status: 'modified' }],
+    );
+    await userEvent.click(stripe('agentChanges'));
+    await expect.poll(() => row('turn:t2')).toBeDefined();
+    await userEvent.dblClick(row('turn:t2'));
+    await expect.poll(() => row('turn:t2:src/t.ts')).toBeDefined();
+    await userEvent.dblClick(row('turn:t2:src/t.ts'));
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/t.ts');
+    await userEvent.click(stripe('agentChanges'));
+  });
+});
+
 describe('Local History', () => {
   it('shows the active file’s, from Search Everywhere', async () => {
     env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
@@ -362,6 +264,74 @@ describe('Local History', () => {
     await userEvent.keyboard('Show History');
     await expect.poll(popupItems).toContain('Show History');
     await userEvent.keyboard('{Escape}');
+  });
+});
+
+describe('navigation in the editor', () => {
+  const b = { path: '/r/src/b.ts', line: 0, column: 0, name: 'a' };
+  const active = () => env().editor.activeGroup.active;
+  /** Back to c.ts, the caret on its `a`. */
+  const onA = async () => {
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{End}');
+    await userEvent.keyboard('{ArrowLeft}'.repeat(6));
+  };
+
+  it('goes to a definition, finds usages, and goes where a gutter mark says', async () => {
+    answers.set('index.definitions', [b]);
+    answers.set('lsp.markers', [{ line: 1, kind: 'implemented', name: 'a', targets: [b] }]);
+    await onA();
+    await userEvent.keyboard('{Control>}b{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+    await onA();
+    await userEvent.keyboard('{Alt>}{F7}{/Alt}');
+    await expect
+      .poll(() => host('/r').params('index.usages'))
+      .toContainEqual({ worktree: '/r', name: 'a' });
+    await closeAll();
+    // Ctrl over a name asks whether it has a definition, to show it as a link.
+    const asked = host('/r').params('index.definitions').length;
+    const line = editorRoot()?.querySelectorAll<HTMLElement>('.cm-line')[1] as HTMLElement;
+    await userEvent.keyboard('{Control>}');
+    await userEvent.hover(line, { position: { x: 3, y: 3 } });
+    await expect.poll(() => host('/r').params('index.definitions').length).toBeGreaterThan(asked);
+    await userEvent.keyboard('{/Control}');
+    const mark = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cerebro-marker'),
+    );
+    await userEvent.click(mark);
+    await expect.poll(active).toBe('/r/src/b.ts');
+  });
+});
+
+describe('the editor’s file', () => {
+  const writes = () => host('/r').params('fs.write').length;
+
+  it('is selected in the file manager, and listed in Recent Files by its folder', async () => {
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Alt>}{F1}{/Alt}');
+    expect(await menuItems()).toEqual(['1. Project', '2. Show in File Manager']);
+    await userEvent.keyboard('2');
+    await expect.poll(() => calls).toContainEqual(['reveal', '/r/src/c.ts']);
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    expect(q('.cerebro-popup').textContent).toContain('c.tssrc');
+  });
+
+  it('is saved as the focus leaves the editor, not as it moves inside it', async () => {
+    globalSettings.layers.global.set('system.saveWhenIdle', false);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('y');
+    const before = writes();
+    // Its find bar.
+    await userEvent.keyboard('{Control>}f{/Control}');
+    await expect.poll(() => editorRoot()?.activeElement?.className).toBe('cerebro-find__field');
+    expect(writes()).toBe(before);
+    await userEvent.click(q('.cerebro-statusbar'));
+    await expect.poll(writes).toBe(before + 1);
+    globalSettings.layers.global.reset('system.saveWhenIdle');
   });
 });
 
@@ -407,8 +377,8 @@ describe('the window’s projects', () => {
     await userEvent.click(q('[aria-label^="Project:"]'));
     await expect.poll(popupItems).toEqual(['Open…', 'r', 'n', 'x']);
     await userEvent.keyboard('x{Enter}');
-    await press('New Window');
-    await expect.poll(() => calls).toContainEqual(['open', '/x', 'new']);
+    await press('This Window');
+    await expect.poll(() => calls).toContainEqual(['open', '/x', 'this', '/r']);
   });
 
   it('take one opened in this window in the active one’s place', async () => {
@@ -433,5 +403,13 @@ describe('the window’s projects', () => {
     expect(calls).toContainEqual(['close', '/m']);
     await closeProject();
     await expect.poll(() => calls).toContainEqual(['close', '/r']);
+  });
+});
+
+describe('a window with no environment open', () => {
+  it('says so in the status bar, with no index to show', async () => {
+    for (const open of [...workspace.open]) workspace.close(open.id);
+    await expect.poll(() => status()[0]).toBe('No environment');
+    expect(status()[2]).toBe('Indexed');
   });
 });
