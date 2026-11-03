@@ -7,6 +7,7 @@ import { render, type Child } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import {
   badgeColour,
   initials,
@@ -273,6 +274,24 @@ describe('ToolbarDropdown', () => {
     });
     press(button);
     expect(popup).toHaveBeenCalledTimes(3);
+  });
+
+  it('leaves the focus in a popup that takes it as it opens, when clicked', async () => {
+    const field = document.createElement('input');
+    const popup = () => {
+      document.body.append(field);
+      field.focus();
+      return { close: () => undefined, result: new Promise<void>(() => undefined) };
+    };
+    const { button } = dropdown({ popup });
+    await userEvent.click(button);
+    expect(document.activeElement).toBe(field);
+    field.remove();
+    cleanup?.();
+    // A menu's takes it, as a button does: the menu's keys come from the window.
+    const menu = dropdown();
+    await userEvent.click(menu.button);
+    expect(document.activeElement).toBe(menu.button);
   });
 
   it('names what is chosen in its tooltip', () => {
