@@ -6,8 +6,8 @@
 // The caller gives the items for each query, so it decides how to search (fuzzyFilter for a list in
 // hand, the host for a repo's files). Items may be grouped, with a header over each group.
 
-import { render, type Child } from '@cerebro-ide/jsx';
-import { computed, makeObservable } from '@cerebro-ide/reactive';
+import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
+import { computed, makeObservable, signal, type Signal } from '@cerebro-ide/reactive';
 
 export interface PickerItem {
   label: string;
@@ -124,6 +124,31 @@ class PickerState {
   }
 }
 
+/**
+ * A drawn row, kept while the list has an item that reads the same: results that come in later
+ * (Search Everywhere's, one kind at a time) move it instead of replacing it, so a press on it
+ * still lands on it. Its item is the latest that reads so.
+ */
+interface Row<T> {
+  node: Node;
+  index: Signal<number>;
+  item: T;
+  dispose: () => void;
+}
+
+/** What a row shows of its item: items that read the same share a row. */
+function rowKey(item: PickerItem): string {
+  return JSON.stringify([
+    item.group,
+    item.label,
+    item.detail,
+    item.shortcut,
+    item.highlight,
+    item.more !== undefined,
+    item.close?.label,
+  ]);
+}
+
 function cls(...names: (string | false | undefined)[]): string {
   return names.filter(Boolean).join(' ');
 }
@@ -160,6 +185,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private readonly element: HTMLElement;
   private readonly restoreFocus: HTMLElement;
   private readonly dispose: () => void;
+  private rows = new Map<string, Row<T>>();
 
   constructor(private readonly options: PickerOptions<T>) {
     this.result = new Promise((resolve) => {
@@ -291,8 +317,83 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     else if (item) this.finish(item);
   }
 
+  /** Draws a row for an item, at an index that changes as items come in before it. */
+  private row(item: T, at: number): Row<T> {
+    const { state } = this;
+    const index = signal(at);
+    const fragment = new DocumentFragment();
+    const rendered = render(
+      () => (
+        <div
+          class={() =>
+            cls(
+              'cerebro-popup-item',
+              item.more && 'cerebro-popup-item--more',
+              state.index === index.get() && 'cerebro-popup-item--highlighted',
+            )
+          }
+          role="option"
+          aria-selected={() => String(state.index === index.get())}
+          data-index={() => index.get()}
+          on:pointermove={(event) => {
+            // Only a pointer that really moves takes over from the keyboard.
+            if (pointerMoved(event)) state.index = index.peek();
+          }}
+          on:mousedown={(event) => {
+            // Keeps the focus in the search field.
+            event.preventDefault();
+          }}
+          on:click={() => {
+            this.choose(index.peek());
+          }}
+        >
+          <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
+          <span class="cerebro-popup-item__label">{highlighted(item.label, item.highlight)}</span>
+          <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
+          <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
+          {item.close ? (
+            <button
+              type="button"
+              class="cerebro-popup-item__close"
+              aria-label={item.close.label}
+              tabIndex={-1}
+              on:click={(event) => {
+                // Closes the item, not the popup.
+                event.stopPropagation();
+                row.item.close?.run();
+              }}
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+                <path
+                  d="M4.5 4.5l7 7M11.5 4.5l-7 7"
+                  stroke="currentColor"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+            </button>
+          ) : null}
+        </div>
+      ),
+      fragment,
+    );
+    const row: Row<T> = {
+      // The fragment keeps render's markers; the row itself goes in the list.
+      node: fragment.querySelector('.cerebro-popup-item') as Node,
+      index,
+      item,
+      dispose: () => {
+        rendered.dispose();
+      },
+    };
+    return row;
+  }
+
   private view(): Child {
     const { options, state } = this;
+    onCleanup(() => {
+      for (const row of this.rows.values()) row.dispose();
+    });
     const input = (
       <input
         class="cerebro-popup__search"
@@ -328,66 +429,31 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           }
           const limit = options.limit ?? LIMIT;
           const more = items.length - limit;
-          return [
-            ...items.slice(0, limit).map((item, index) => [
+          const kept = new Map<string, Row<T>>();
+          const rows = items.slice(0, limit).map((item, index) => {
+            const key = rowKey(item);
+            // Items that read the same as an earlier one get rows of their own.
+            let unique = key;
+            for (let n = 1; kept.has(unique); n++) unique = `${key}#${String(n)}`;
+            let row = this.rows.get(unique);
+            if (row) {
+              row.item = item;
+              row.index.set(index);
+            } else row = this.row(item, index);
+            kept.set(unique, row);
+            return [
               item.group !== undefined && item.group !== items[index - 1]?.group ? (
                 <div class="cerebro-popup__group" role="presentation">
                   {item.group}
                 </div>
               ) : null,
-              <div
-                class={() =>
-                  cls(
-                    'cerebro-popup-item',
-                    item.more && 'cerebro-popup-item--more',
-                    state.index === index && 'cerebro-popup-item--highlighted',
-                  )
-                }
-                role="option"
-                aria-selected={() => String(state.index === index)}
-                data-index={index}
-                on:pointermove={(event) => {
-                  // Only a pointer that really moves takes over from the keyboard.
-                  if (pointerMoved(event)) state.index = index;
-                }}
-                on:mousedown={(event) => {
-                  // Keeps the focus in the search field.
-                  event.preventDefault();
-                }}
-                on:click={() => {
-                  this.choose(index);
-                }}
-              >
-                <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
-                <span class="cerebro-popup-item__label">
-                  {highlighted(item.label, item.highlight)}
-                </span>
-                <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
-                <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
-                {item.close ? (
-                  <button
-                    type="button"
-                    class="cerebro-popup-item__close"
-                    aria-label={item.close.label}
-                    tabIndex={-1}
-                    on:click={(event) => {
-                      // Closes the item, not the popup.
-                      event.stopPropagation();
-                      item.close?.run();
-                    }}
-                  >
-                    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-                      <path
-                        d="M4.5 4.5l7 7M11.5 4.5l-7 7"
-                        stroke="currentColor"
-                        stroke-width="1.4"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </button>
-                ) : null}
-              </div>,
-            ]),
+              row.node,
+            ];
+          });
+          for (const [key, row] of this.rows) if (!kept.has(key)) row.dispose();
+          this.rows = kept;
+          return [
+            ...rows,
             more > 0 ? (
               <div class="cerebro-popup__more">
                 {String(more)} more; type more to narrow them down

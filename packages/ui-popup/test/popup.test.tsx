@@ -251,6 +251,38 @@ describe('openPicker', () => {
     ).toBe('R');
   });
 
+  it('keeps the rows its items had when others come in, a press on one choosing it', async () => {
+    // Search Everywhere's results arrive one kind at a time; a row held across one (Playwright's
+    // click in CI) was a row no longer in the page.
+    const late = signal<PickerItem[]>([]);
+    const handle = picker({ items: () => [...late.get(), ...FILES] });
+    const row = () =>
+      [...document.querySelectorAll('.cerebro-popup-item')].find((r) =>
+        r.textContent.includes('shell.tsx'),
+      ) as HTMLElement;
+    const held = row();
+    key('ArrowDown');
+    key('ArrowDown');
+    expect(held.classList).toContain('cerebro-popup-item--highlighted');
+    late.set([{ label: 'Layout', group: 'Classes' }]);
+    expect(row()).toBe(held);
+    expect(held.dataset['index']).toBe('3');
+    // The highlight stays at its index, as before.
+    expect(highlightedLabel()).toBe('main.ts');
+    expect(held.getAttribute('aria-selected')).toBe('false');
+    // A row that's gone goes, and the same item again is a row again.
+    late.set([]);
+    late.set([{ label: 'Layout', group: 'Classes' }]);
+    expect(labels()).toEqual(['Layout', 'README.md', 'main.ts', 'shell.tsx']);
+    await userEvent.click(held);
+    expect(await handle.result).toEqual(FILES[2]);
+  });
+
+  it('keeps a row for each of two items that read the same', () => {
+    picker({ items: () => [{ label: 'a' }, { label: 'a' }] });
+    expect(labels()).toEqual(['a', 'a']);
+  });
+
   it('shows more of a group with its “more” item, by Enter or a click, staying open', async () => {
     const shown = signal(1);
     const handle = picker({
