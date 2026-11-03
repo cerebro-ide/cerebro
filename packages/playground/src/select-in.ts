@@ -54,7 +54,7 @@ export function setupSelectIn(
       label: target.label,
       // Only from the popup, which gives the file: not among Search Everywhere's actions.
       enabled: (context?: SelectInContext) => context !== undefined,
-      text: (context) => numbered(context.numbers.get(target.id) ?? 0, target.label),
+      text: (context) => numbered(context.numbers.get(target.id) as number, target.label),
       run: (context) => target.show(context.path),
     });
   }
