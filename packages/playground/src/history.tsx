@@ -5,6 +5,7 @@
 // git in a terminal) are recorded when the window gets the focus, and every half minute while it
 // has it.
 
+import type { Environment } from '@cerebro-ide/layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
@@ -12,7 +13,7 @@ import { DiffEditor } from '@cerebro-ide/ui-editor';
 import { diffPath } from './changes.js';
 import type { TabContext } from './commands.js';
 import { reloadAll } from './documents.js';
-import { active, currentHost, gitRepository, hostFor } from './environments.js';
+import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { settingsFor } from './settings.js';
 
 /** A file's version, as the host gives it. */
@@ -26,14 +27,24 @@ interface Revision {
 /** How often changes made outside Cerebro are recorded, while the window has the focus. */
 const RECORD_EVERY = 30_000;
 
+/** A file in a worktree, and the host it's on. */
+interface HistoryFile {
+  host: Host;
+  worktree: string;
+  path: string;
+}
+
 /** The file a command acts on: its tab's, or the active editor's; in the active worktree. */
-function fileOf(tab: string | undefined): { worktree: string; path: string } | undefined {
+function fileOf(tab: string | undefined): HistoryFile | undefined {
   const env = active();
-  if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
+  const host = env && hostFor(env.id);
+  if (!env || !host || tab === undefined || !gitRepository.get()) return undefined;
   const diff = diffPath(tab);
-  if (diff !== undefined) return { worktree: env.id, path: diff };
+  if (diff !== undefined) return { host, worktree: env.id, path: diff };
   const prefix = `${env.id}/`;
-  return tab.startsWith(prefix) ? { worktree: env.id, path: tab.slice(prefix.length) } : undefined;
+  return tab.startsWith(prefix)
+    ? { host, worktree: env.id, path: tab.slice(prefix.length) }
+    : undefined;
 }
 
 /** When a version was recorded, as IntelliJ lists it: the date and time. */
@@ -61,9 +72,9 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
     id: 'history.show',
     label: 'Show &History',
     enabled: (c) => target(c) !== undefined,
+    // Enabled only with a file to show.
     run: (c) => {
-      const file = target(c);
-      if (file) showHistory(file.worktree, file.path).catch(fail('Couldn’t Read the History'));
+      showHistory(target(c) as HistoryFile).catch(fail('Couldn’t Read the History'));
     },
   });
   commands.register({
@@ -71,7 +82,7 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
     label: 'Put &Label',
     dialog: true,
     enabled: () => active() !== undefined && currentHost() !== undefined && gitRepository.get(),
-    run: () => putLabel(),
+    run: () => putLabel(active() as Environment),
   });
 
   // In the File menu before Settings and Exit, as IntelliJ's; last in the editor's menus.
@@ -109,9 +120,7 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
  * IntelliJ's Local History window for a file, as a dialog: its versions, the latest first, and the
  * selected one compared with the file as it is. Revert puts the file back as it was then.
  */
-async function showHistory(worktree: string, path: string): Promise<void> {
-  const host = hostFor(worktree);
-  if (!host) return;
+async function showHistory({ host, worktree, path }: HistoryFile): Promise<void> {
   // What's changed outside Cerebro since: recorded first, so it's listed.
   await host.request('history.record', { path: worktree });
   const revisions = (await host.request('history.file', {
@@ -220,9 +229,7 @@ async function showHistory(worktree: string, path: string): Promise<void> {
 }
 
 /** IntelliJ's Put Label dialog: the files recorded as they are, under a name. */
-async function putLabel(): Promise<void> {
-  const env = active();
-  if (!env) return;
+async function putLabel(env: Environment): Promise<void> {
   const label = signal('');
   const name = await openDialog<string>({
     title: 'Put Label',
