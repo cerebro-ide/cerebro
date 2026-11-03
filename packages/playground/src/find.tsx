@@ -123,7 +123,8 @@ export async function replaceLines(
     doc.edit(edits);
     changed.push(path);
   }
-  await saveFiles(changed);
+  // Labelled in the Local History, as IntelliJ labels it.
+  await saveFiles(changed, 'Replace in Files');
   return { replaced, skipped };
 }
 

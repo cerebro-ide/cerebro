@@ -108,3 +108,12 @@ export {
 } from './lsp.js';
 export { baseNames, markersOf, type Marker, type MarkerKind } from './markers.js';
 export { filesByRipgrep, folderFiles, notARepository } from './folder-files.js';
+export {
+  fileHistory,
+  HISTORY,
+  record,
+  recording,
+  revert,
+  textIn,
+  type Revision,
+} from './history.js';

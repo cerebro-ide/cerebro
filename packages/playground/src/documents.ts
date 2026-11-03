@@ -124,8 +124,11 @@ export async function saveAll(): Promise<void> {
   await saveFiles();
 }
 
-/** Saves these files' documents, if modified (all of them without `paths`), as Save All does. */
-export async function saveFiles(paths?: readonly string[]): Promise<void> {
+/**
+ * Saves these files' documents, if modified (all of them without `paths`), as Save All does; with
+ * `label`, the Local History records the change as that.
+ */
+export async function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
   if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
@@ -144,7 +147,11 @@ export async function saveFiles(paths?: readonly string[]): Promise<void> {
       if (!doc.modified.peek()) continue;
       // What's written, which the editor may change while it's being written.
       const text = doc.text.peek();
-      await host.request('fs.write', { path, text: doc.content() });
+      await host.request('fs.write', {
+        path,
+        text: doc.content(),
+        ...(label === undefined ? {} : { label }),
+      });
       doc.saved(text);
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);
