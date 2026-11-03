@@ -30,8 +30,9 @@ const resolving = new Set<string>();
 
 /**
  * The files being saved, and how many saves each has started. A read from disk made while a file
- * is saved, or across a save, isn't news: it may find the save's own write before the document
- * knows it's saved, which isn't a conflict, or the text from before it.
+ * is saved, or across a save, isn't news: the host writes a file over in place, so a read may find
+ * the save's write, whole or in part, before the document knows it's saved, which isn't a conflict;
+ * or the text from before it.
  */
 const saving = new Set<string>();
 const saves = new Map<string, number>();

@@ -44,6 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
+- [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
@@ -1170,17 +1171,29 @@ Replace in Files, Rollback, an agent's edits) can be compared with and taken bac
   version once. Nothing is recorded when nothing changed, but a label. Rejected: IntelliJ's own
   store (claim: a binary file of changes in the IDE's system folder), which would need a format of
   our own.
-- **Saving and reading files again, fixed:** a file was read from disk again (every 2 seconds) while
-  it was being saved, found the save's own write before the editor knew it was saved, and called
-  it a File Cache Conflict (seen in CI, #109's first run; a test, run without the fix, shows the
-  dialog). Reads made while a file is saved, or across a save, are now dropped; the next one counts.
-  Two saves at once had the same trouble (the idle save, then the editor losing the focus, in the
-  editing e2e test once saves were recorded): each found the other's write. Saves now run one after
-  another. Recording made saves slower, and so both races likelier.
+- **Saving, fixed underneath:** the File Cache Conflicts seen while saving are decision "Saving:
+  one save at a time". Recording made saves slower, and so the race likelier, until saves were
+  recorded after they're answered.
 - **Not yet:** a folder's history, and a selection's (IntelliJ's Show History for Selection); a
   file's versions across a rename; Revert for a whole record; files git ignores, and folders that
   aren't git repositories; a limit on how long records are kept (IntelliJ: 5 working days, a
   claim); one record for a Replace in Files across many files (each file's save is one).
+## Saving: one save at a time (2026-11-03)
+
+A bug fix, seen in CI (#109, the editing e2e test on Linux): a File Cache Conflict over a file
+that only Cerebro had changed.
+
+- **The cause:** the host writes a file over in place (truncated, then written), so a read of it
+  meanwhile finds the save's write, whole or in part, before the editor knows it's saved, and that's
+  taken for a change on disk. Two saves at once (the idle save, then the editor losing the focus)
+  each read the file before writing it, and the reads every 2 seconds, and when the window gets the
+  focus, read it too. An e2e test saves a 2 MB file twice at once, while it's read again: the
+  conflict showed in 3 runs of 3 without the fix, and in none of 3 with it (measured locally).
+- **The fix:** saves run one after another, and a read made while a file is saved, or across a
+  save, is dropped; the next one counts (Claude's choice, open to change).
+- **Rejected for now:** writing to a temporary file and renaming it over (IntelliJ's "safe write",
+  a claim), which other readers wouldn't see half done either, but which makes a new file: links
+  and the file's owner and permissions would need keeping.
 
 ## The shelf and the stash (2026-11-03)
 
@@ -1939,6 +1952,11 @@ changed, in a tool window of its own (the Commit tool window's, until 2026-11-03
   Cerebro as its author, whoever the user is. Each turn's end is kept by a ref under
   `refs/worktree/cerebro/turns/`: git keeps the commits, and other worktrees don't see them
   (measured). The prompt, cut to 200 characters, is the commit's message. Nothing removes them yet.
+- **The index's copy keeps the index's time** (fixed 2026-11-03): git trusts a file's size and
+  time as the index has them unless the file's time isn't before the index's own; it then reads
+  the file ("racy git"). A copy made later hid that, so a file changed in the second the index was
+  written, keeping its size, was snapshotted as it was before (seen as a flaky Local History test;
+  a host test with the times set shows it, and fails without the fix).
 - **The prompt's hook waits for the snapshot** (the hook client waits for the host's reply), so the
   agent can't change a file before it's taken; the other hooks don't wait.
 - **In a tool window of its own, Agent Changes** (changed 2026-11-03, Ido: "it shouldn't be in

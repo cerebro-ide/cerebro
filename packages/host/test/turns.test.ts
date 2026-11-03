@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -50,6 +50,23 @@ describe('snapshots', () => {
     ]);
     expect(run(repo, 'rev-parse', `${commit}^`).trim()).toBe(head);
     expect(run(repo, 'status', '--porcelain')).toBe('A  staged.txt\n?? .gitignore\n?? b.txt\n');
+  });
+
+  it('find a file changed as soon as the index was written, keeping its size and time', async () => {
+    // Git trusts a file's size and time as the index has them, unless the file's time isn't before
+    // the index's own ("racy git"): then it reads it. The index's copy must keep the index's time.
+    const repo = repository('racy');
+    run(repo, 'config', 'core.trustctime', 'false');
+    run(repo, 'config', 'core.checkStat', 'minimal');
+    const file = join(repo, 'a.txt');
+    const time = 1_700_000_000;
+    utimesSync(file, time, time);
+    run(repo, 'add', 'a.txt');
+    utimesSync(join(repo, '.git', 'index'), time, time);
+    writeFileSync(file, 'b');
+    utimesSync(file, time, time);
+    const commit = await snapshot(repo, undefined, 'message', git);
+    expect(run(repo, 'show', `${commit}:a.txt`)).toBe('b');
   });
 
   it('work in a repository without commits or an index', async () => {

@@ -1,6 +1,5 @@
 // Local History end to end: a file's versions, saved and changed outside the app, shown with what
-// changed them; reverting to one; a label put; and saving while open files are read again, which
-// isn't a conflict.
+// changed them; reverting to one; and a label put.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -22,11 +21,6 @@ const page = () => running.page;
 /** A file's text, with LF line ends: git may check files out with CRLF. */
 const disk = () => readFileSync(file, 'utf8').replace(/\r/g, '');
 const button = (text: string) => page().locator('.cerebro-dialog__button', { hasText: text });
-const save = mac() ? 'Meta+S' : 'Control+S';
-
-function mac(): boolean {
-  return process.platform === 'darwin';
-}
 
 /** The versions Show History lists: their labels. */
 const labels = () =>
@@ -58,24 +52,11 @@ afterAll(async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-it('saves while the open files are read again, with no conflict', async () => {
-  // A read of the file while it's being saved finds the save's own write: not a change on disk.
-  for (let round = 0; round < 5; round++) {
-    await page().keyboard.type('x');
-    await page().evaluate(() => {
-      const reads = setInterval(() => window.dispatchEvent(new Event('focus')), 5);
-      setTimeout(() => {
-        clearInterval(reads);
-      }, 1500);
-    });
-    await page().keyboard.press(save);
-    await page().waitForTimeout(1500);
-    expect(await page().locator('.cerebro-dialog').count()).toBe(0);
-  }
-  await expect.poll(disk, HOST).toBe('firstxxxxx\n');
-});
-
 it('lists a file’s versions with what changed them, and reverts to one', async () => {
+  // Saved: recorded after the file as found.
+  await page().keyboard.type('x');
+  await page().keyboard.press('ControlOrMeta+s');
+  await expect.poll(disk, HOST).toBe('firstx\n');
   // Changed outside the app: recorded when Show History opens.
   writeFileSync(file, 'outside\n');
   await expect.poll(() => page().locator('.cm-line').first().textContent(), HOST).toBe('outside');

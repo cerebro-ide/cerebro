@@ -4,7 +4,7 @@
 // index (the real one, and so what's staged, is untouched), and kept by a ref in the worktree's own
 // namespace (refs/worktree/), so git keeps it and other worktrees don't see it.
 
-import { copyFile, rm } from 'node:fs/promises';
+import { copyFile, rm, stat, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import type { Git } from './git.js';
@@ -44,8 +44,16 @@ export async function snapshot(
     (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim(),
   );
   const temp = join(tmpdir(), `cerebro-index-${String(process.pid)}-${String(++indexes)}`);
-  // A repository with nothing added yet has no index: the copy starts empty.
-  await copyFile(index, temp).catch(() => undefined);
+  // A repository with nothing added yet has no index: the copy starts empty. The copy keeps the
+  // index's time, down to the second: git reads a file changed as late as the index was written
+  // rather than trust its size and time ("racy git"), which a copy made later would hide.
+  await copyFile(index, temp).then(
+    async () => {
+      const { atime, mtimeMs } = await stat(index);
+      await utimes(temp, atime, Math.floor(mtimeMs / 1000));
+    },
+    () => undefined,
+  );
   try {
     const env = { GIT_INDEX_FILE: temp };
     await run(worktree, ['add', '--all'], env);
