@@ -43,6 +43,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
@@ -1137,6 +1138,23 @@ Change inspection should be based on intellij - which basically follows only unc
   plan's "since the session started" and per-commit views are dropped. The agent's turns stay, in
   a tool window of their own (Ido: "a nice feature, but it shouldn't be in the commit window"; see
   "Agent turns"), and he'll review them separately.
+
+## Saving: one save at a time (2026-11-03)
+
+A bug fix, seen in CI (#109, the editing e2e test on Linux): a File Cache Conflict over a file
+that only Cerebro had changed.
+
+- **The cause:** the host writes a file over in place (truncated, then written), so a read of it
+  meanwhile finds the save's write, whole or in part, before the editor knows it's saved, and that's
+  taken for a change on disk. Two saves at once (the idle save, then the editor losing the focus)
+  each read the file before writing it, and the reads every 2 seconds, and when the window gets the
+  focus, read it too. An e2e test saves a 2 MB file twice at once, while it's read again: the
+  conflict showed in 3 runs of 3 without the fix, and in none of 3 with it (measured locally).
+- **The fix:** saves run one after another, and a read made while a file is saved, or across a
+  save, is dropped; the next one counts (Claude's choice, open to change).
+- **Rejected for now:** writing to a temporary file and renaming it over (IntelliJ's "safe write",
+  a claim), which other readers wouldn't see half done either, but which makes a new file: links
+  and the file's owner and permissions would need keeping.
 
 ## The shelf and the stash (2026-11-03)
 
