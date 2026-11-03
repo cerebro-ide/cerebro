@@ -26,6 +26,7 @@ export const EDITOR_ACTIONS = {
   goToDefinition: 'editor.goToDefinition',
   findUsages: 'editor.findUsages',
   complete: 'editor.codeCompletion',
+  quickDocumentation: 'editor.quickDocumentation',
   contextActions: 'editor.showContextActions',
   find: 'editor.find',
   replace: 'editor.replace',
@@ -81,6 +82,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+R'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+Q'],
   },
 };
 
@@ -134,6 +136,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.replace]: ['Meta+R'],
     // Its file gives Ctrl+Space, over the swap's Meta+Space.
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['F1', 'Ctrl+J'],
   },
 };
 
@@ -192,6 +195,7 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+I'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+K Ctrl+I'],
   },
 };
 
@@ -230,6 +234,7 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.find]: ['Meta+F'],
     [EDITOR_ACTIONS.replace]: ['Meta+Alt+F'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Meta+I'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Meta+K Meta+I'],
   },
 };
 
@@ -272,6 +277,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Ctrl+1', 'Alt+Enter'],
     [EDITOR_ACTIONS.find]: [],
     [EDITOR_ACTIONS.replace]: ['Ctrl+F'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+Shift+Space', 'F2'],
   },
 };
 
@@ -303,6 +309,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Meta+1'],
     [EDITOR_ACTIONS.find]: [],
     [EDITOR_ACTIONS.replace]: [],
+    [EDITOR_ACTIONS.quickDocumentation]: ['F2'],
   },
 };
 
@@ -355,6 +362,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     // Its file gives Ctrl+Space, over the swap's Meta+Space.
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+J'],
   },
 };
 
@@ -371,6 +379,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     'changes.jumpToSource': ['F4'],
     'problems.jumpToSource': ['F4'],
     [EDITOR_ACTIONS.findUsages]: ['Ctrl+U', 'Alt+F7'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Meta+I', 'F1'],
   },
 };
 
@@ -420,6 +429,7 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
+    [EDITOR_ACTIONS.quickDocumentation]: [],
   },
 };
 
@@ -443,6 +453,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     'changes.commit': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F12', 'Meta+Alt+Down'],
     [EDITOR_ACTIONS.replace]: ['Meta+Alt+F'],
+    [EDITOR_ACTIONS.quickDocumentation]: [],
   },
 };
 
@@ -476,6 +487,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.contextActions]: ['Alt+Enter', 'Ctrl+.', 'Alt+Shift+F10'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+J'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+K I', 'Ctrl+K Ctrl+I', 'Ctrl+Shift+F1'],
   },
 };
 
@@ -509,6 +521,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.findUsages]: ['Shift+F12'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+J'],
+    [EDITOR_ACTIONS.quickDocumentation]: ['Meta+K I', 'Meta+K Meta+I', 'Ctrl+Shift+F1'],
   },
 };
 

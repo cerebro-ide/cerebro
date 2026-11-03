@@ -38,6 +38,7 @@ import {
   type ResolveCompletion,
 } from './completions.js';
 import { EditorDocument, KEPT } from './document.js';
+import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -114,6 +115,11 @@ export interface CodeEditorProps {
   completions?: AskCompletions;
   /** The other edits of a completion chosen, when it has them only by asking (an import). */
   resolveCompletion?: ResolveCompletion;
+  /**
+   * The documentation of the symbol at a place: shown with the pointer resting on it, and for the
+   * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
+   */
+  documentation?: AskDocumentation;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
@@ -135,6 +141,8 @@ export interface EditorKeys {
   replace?: readonly string[];
   /** Basic code completion: what can go at the caret. */
   complete?: readonly string[];
+  /** Quick Documentation: what the symbol at the caret is. */
+  quickDocumentation?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -152,6 +160,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   find: ['Mod-f'],
   replace: ['Mod-r'],
   complete: ['Ctrl-Space'],
+  quickDocumentation: ['Ctrl-q'],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -333,8 +342,9 @@ export const theme = EditorView.theme({
   '.cerebro-problemMark--error': { backgroundColor: variable('editor-error-stripe') },
   '.cerebro-problemMark--warning': { backgroundColor: variable('editor-warning-stripe') },
   '.cerebro-problemMark--weak': { backgroundColor: variable('editor-weak-stripe') },
-  // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`).
-  '.cm-tooltip.cm-tooltip-hover': {
+  // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`). The
+  // Quick Documentation at the caret looks the same.
+  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc': {
     backgroundColor: variable('tooltip'),
     color: variable('text'),
     border: `1px solid ${variable('tooltip-border')}`,
@@ -382,6 +392,41 @@ export const theme = EditorView.theme({
     fontStyle: 'normal',
     color: variable('text-muted'),
   },
+  // A problem's message and the documentation, in one tooltip: a line between.
+  '.cm-tooltip-section:not(:first-child)': {
+    borderTop: `1px solid ${variable('tooltip-border')}`,
+  },
+  // Documentation, as IntelliJ's: its definition as code, a line, then what its comments say.
+  '.cerebro-doc': {
+    maxWidth: '600px',
+    maxHeight: '400px',
+    overflow: 'auto',
+    padding: '8px 12px',
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+    lineHeight: '1.5',
+    scrollbarWidth: 'thin',
+    scrollbarColor: `${variable('scrollbar')} transparent`,
+  },
+  '.cerebro-doc__definition': {
+    paddingBottom: '6px',
+    marginBottom: '6px',
+    borderBottom: `1px solid ${variable('tooltip-border')}`,
+  },
+  '.cerebro-doc pre, .cerebro-doc code': { fontFamily: variable('font-mono') },
+  '.cerebro-doc pre': { margin: '0', whiteSpace: 'pre-wrap' },
+  '.cerebro-doc p, .cerebro-doc ul, .cerebro-doc ol, .cerebro-doc blockquote': {
+    margin: '0 0 6px',
+  },
+  '.cerebro-doc__content > :last-child': { marginBottom: '0' },
+  '.cerebro-doc ul, .cerebro-doc ol': { paddingLeft: '20px' },
+  '.cerebro-doc hr': {
+    border: 'none',
+    borderTop: `1px solid ${variable('tooltip-border')}`,
+    margin: '6px 0',
+  },
+  '.cerebro-doc__heading': { fontWeight: '600' },
+  '.cerebro-doc__link': { color: variable('editor-link') },
   '.cerebro-problemTooltip': {
     padding: '8px 12px',
     maxWidth: '600px',
@@ -595,6 +640,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return [
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
+      props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
@@ -652,6 +698,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
     props.usages ? usageHighlights(props.usages) : [],
     props.problems ? problemHighlights(props.problems, props.onShowProblems) : [],
     doc && props.completions ? completions(props.completions, props.resolveCompletion) : [],
+    // After the problems: below a problem's message, in the same tooltip, as IntelliJ's.
+    props.documentation ? documentation(props.documentation) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),

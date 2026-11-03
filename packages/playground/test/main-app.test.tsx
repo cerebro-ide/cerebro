@@ -388,6 +388,22 @@ describe('completion', () => {
   });
 });
 
+describe('quick documentation', () => {
+  it('shows what the symbol at the caret is on Ctrl+Q, from its language server', async () => {
+    answers.set('lsp.hover', { text: '```typescript\nconst a: 1\n```\nThe first.' });
+    env().editor.open({ id: '/r/src/h.ts', title: 'h.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Control>}q{/Control}');
+    const shown = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cerebro-quickDoc'),
+    );
+    expect(shown.textContent).toBe('const a: 1The first.');
+    expect(host('/r').params('lsp.hover')).toContainEqual(
+      expect.objectContaining({ worktree: '/r', path: '/r/src/h.ts', line: 0, column: 0 }),
+    );
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 

@@ -174,10 +174,13 @@ describe('what a language server says of a file', () => {
       'lsp.markers': [{ line: 0 }],
       'lsp.problems': [{ message: 'no' }],
       'lsp.completions': { incomplete: false, items: [{ label: 'a' }] },
+      'lsp.hover': { text: 'Counts.' },
       'lsp.completionEdits': [{ text: 'import a;\n' }],
     };
     expect(await nav.usages(asked)).toEqual([{ from: 0, to: 1, kind: 'read' }]);
     expect(await nav.completions(asked)).toEqual({ incomplete: false, items: [{ label: 'a' }] });
+    expect(await nav.documentation(asked)).toEqual({ text: 'Counts.' });
+    expect(host.params('lsp.hover')).toEqual([{ worktree: '/r', ...asked }]);
     expect(await nav.completionEdits('/r/a.ts', { label: 'a', resolve: { data: 1 } })).toEqual([
       { text: 'import a;\n' },
     ]);
@@ -193,6 +196,7 @@ describe('what a language server says of a file', () => {
     answers = {};
     expect(await nav.usages(asked)).toBeNull();
     expect(await nav.completions(asked)).toBeNull();
+    expect(await nav.documentation(asked)).toBeNull();
     expect(await nav.completionEdits('/r/a.ts', { label: 'a' })).toBeNull();
     expect(await nav.markers('/r/a.ts', 'text')).toBeNull();
     expect(await nav.problems('/r/a.ts', 'text')).toBeNull();

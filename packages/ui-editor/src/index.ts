@@ -12,6 +12,7 @@ export {
   type CompletionList,
   type ResolveCompletion,
 } from './completions.js';
+export { type AskDocumentation, type Documentation } from './documentation.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

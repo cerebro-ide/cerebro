@@ -46,6 +46,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
 - [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
+- [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1492,6 +1493,46 @@ Documentation").
   gives only when asked; signature help; snippets and placeholders; Tab replacing the word after
   the caret, as IntelliJ's; IntelliJ's ranking (CodeMirror's match score, then the server's order);
   Smart Completion (Ctrl+Shift+Space); completion in Python's e2e test, which the host's test covers.
+
+## Quick Documentation (2026-11-03)
+
+After code completion, IntelliJ's Quick Documentation (Ido: "Yes", to "Completions … then hover
+and Quick Documentation").
+
+- **What a symbol is, as IntelliJ shows it:** its definition, highlighted as code in the editor's
+  colours, a line, then what its comments say. It shows with the pointer resting on the symbol
+  (IntelliJ's "Show quick documentation on hover"), below a problem's message there in the same
+  tooltip, as IntelliJ's. It also shows for the symbol at the caret on its keys (Ctrl+Q), until
+  Escape, an edit, or a caret move. One at a time: Ctrl+Q closes the pointer's, and none shows
+  beside it.
+- **From the file's language server** (`lsp.hover`, LSP's `textDocument/hover`, Markdown asked
+  for). Measured:
+  - TypeScript 7 gives the signature as a `typescript` code block, then the JSDoc, with `*@param*`
+    and `` `name` ``, and links.
+  - basedpyright gives a `python` code block, a rule (`---`), then the docstring, with `&nbsp;`
+    and hard line breaks.
+  - TypeScript answered in 1–54 ms. basedpyright took 534 ms the first time, then 3 ms.
+- **The Markdown is drawn as DOM nodes** from `@lezer/markdown`'s tree. It was already a
+  dependency, so marked (rejected) wasn't added. HTML in a comment shows as text, so a file's
+  comments can't put markup in the page. Code blocks are highlighted by the editor's languages,
+  when the block's name is one of them.
+- **Links show in the link colour, with their address on the pointer;** clicking one does nothing
+  yet. The app has no way to open a page in the browser, and following it in the page would
+  replace the app.
+- **Each keymap's keys,** from IntelliJ's files (`QuickJavaDoc`) and VS Code's sheets (Show
+  Hover):
+  - IntelliJ IDEA: Ctrl+Q. IntelliJ IDEA (macOS): F1 and Ctrl+J. IntelliJ IDEA Classic (macOS):
+    Ctrl+J.
+  - VS Code: Ctrl+K Ctrl+I; on macOS, Cmd+K Cmd+I.
+  - Eclipse: Ctrl+Shift+Space and F2. Eclipse (macOS): F2.
+  - Visual Studio: Ctrl+K I, Ctrl+K Ctrl+I and Ctrl+Shift+F1; on macOS, Cmd+K I, Cmd+K Cmd+I and
+    Ctrl+Shift+F1.
+  - macOS System Shortcuts: Cmd+I and F1. Sublime Text, and Sublime Text (macOS): none (their files
+    take it away).
+  - Emacs and NetBeans: their files don't name it, so they keep IntelliJ IDEA's Ctrl+Q.
+- **Not yet:** opening links, and going to a symbol's definition from its documentation;
+  IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
+  documentation of the completion chosen in the completion list; signature help.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

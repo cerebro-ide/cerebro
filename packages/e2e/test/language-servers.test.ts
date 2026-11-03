@@ -470,6 +470,30 @@ it('does the same for Python', async () => {
   }
 }, 60_000);
 
+it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async () => {
+  await openAt('main.ts', 'run();');
+  const quick = page().locator('.cerebro-quickDoc');
+  try {
+    await untilAnswered(KEYS.quickDocumentation, async () => (await quick.count()) > 0);
+  } catch (error) {
+    await explain(error, 'main.ts', 2, 0, ['lsp.hover']);
+  }
+  expect(await quick.locator('.cerebro-doc__definition').textContent()).toBe(
+    // Imported here: TypeScript calls it an alias.
+    '(alias) function run(): void',
+  );
+  await page().keyboard.press('Escape');
+  await quick.waitFor({ state: 'detached' });
+  await page()
+    .locator('.cm-line', { hasText: 'run();' })
+    .hover({ position: { x: 8, y: 8 } });
+  await expect
+    .poll(() => page().locator('.cm-tooltip-hover .cerebro-doc__definition').textContent(), {
+      timeout: 10_000,
+    })
+    .toBe('(alias) function run(): void');
+}, 60_000);
+
 it('completes as one types, a member after a `.`, and a function from another file with its import', async () => {
   await openAt('completes.ts', '// here');
   await page().keyboard.press('End');

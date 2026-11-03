@@ -1027,6 +1027,8 @@ function Code(props: { path: string; env: string }) {
                   ) => void navigation.contextActions(asked(state, at), caret, state),
                   usages: (at: { line: number; column: number }) =>
                     navigation.usages(asked(state, at)),
+                  documentation: (at: { line: number; column: number }) =>
+                    navigation.documentation(asked(state, at)),
                   completions: (text: string, at: { line: number; column: number }) =>
                     navigation.completions({ path: props.path, text, ...at }),
                   resolveCompletion: (item: CompletionItem) =>
