@@ -1167,7 +1167,9 @@ Replace in Files, Rollback, an agent's edits) can be compared with and taken bac
   it was being saved, found the save's own write before the editor knew it was saved, and called
   it a File Cache Conflict (seen in CI, #109's first run; a test, run without the fix, shows the
   dialog). Reads made while a file is saved, or across a save, are now dropped; the next one counts.
-  Recording made saves slower, and so the race likelier.
+  Two saves at once had the same trouble (the idle save, then the editor losing the focus, in the
+  editing e2e test once saves were recorded): each found the other's write. Saves now run one after
+  another. Recording made saves slower, and so both races likelier.
 - **Not yet:** a folder's history, and a selection's (IntelliJ's Show History for Selection); a
   file's versions across a rename; Revert for a whole record; files git ignores, and folders that
   aren't git repositories; a limit on how long records are kept (IntelliJ: 5 working days, a

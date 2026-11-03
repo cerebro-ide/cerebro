@@ -132,11 +132,24 @@ export async function saveAll(): Promise<void> {
   await saveFiles();
 }
 
+/** The saves asked for, one after another. */
+let saved: Promise<unknown> = Promise.resolve();
+
 /**
  * Saves these files' documents, if modified (all of them without `paths`), as Save All does; with
- * `label`, the Local History records the change as that.
+ * `label`, the Local History records the change as that. After the saves asked for before: two at
+ * once would each find the other's write on disk, and call it a conflict.
  */
-export async function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
+export function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
+  const next = saved.then(
+    () => save(paths, label),
+    () => save(paths, label),
+  );
+  saved = next.catch(() => undefined);
+  return next;
+}
+
+async function save(paths?: readonly string[], label?: string): Promise<void> {
   if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
