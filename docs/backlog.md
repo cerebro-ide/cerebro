@@ -47,3 +47,6 @@ are listed per worktree, whichever session they came from; with several Claude s
   #111's run (and one of #109's) failed every test after the shell one on Windows: Go to File
   never showed, after the shell test pressed Ctrl+B more than once. That a late name-match popup
   was left open is a claim; the tests now print and close a popup left open before Go to File.
+  #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
+  of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
+  the page and the host's answer too (2026-11-03).
