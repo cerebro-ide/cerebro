@@ -71,6 +71,14 @@ export interface CodeEditorProps {
   onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Show what can be done at the caret, given where it is and its place on the screen, for a list
+   * there: its keys (Alt+Enter in IntelliJ, its Show Context Actions).
+   */
+  onContextActions?: (
+    at: { line: number; column: number },
+    caret: Pick<Element, 'getBoundingClientRect'>,
+  ) => void;
   /** The line at the top of the editor, zero-based: each time it scrolls. */
   onScroll?: (top: number) => void;
   /**
@@ -112,6 +120,8 @@ export interface EditorKeys {
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
+  /** Show Context Actions: what can be done at the caret (a problem's fixes). */
+  contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
   nextProblem?: readonly string[];
   previousProblem?: readonly string[];
@@ -126,6 +136,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
+  contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
   undo: ['Mod-z'],
@@ -502,8 +513,28 @@ export function CodeEditor(props: CodeEditorProps): Node {
       run(word, placeOf(v.state, head));
       return true;
     };
+  /** Asks for what can be done at the caret, with where the list goes: below the caret's line. */
+  const contextActions = (
+    v: EditorView,
+    show: NonNullable<CodeEditorProps['onContextActions']>,
+  ) => {
+    const head = v.state.selection.main.head;
+    const caret = {
+      // Measured as the list opens. Scrolled out of view, the editor's top left (a claim:
+      // IntelliJ's goes in the editor then).
+      getBoundingClientRect: () => {
+        const box = v.scrollDOM.getBoundingClientRect();
+        const at = v.coordsAtPos(head) ?? box;
+        return at.top >= box.top && at.bottom <= box.bottom
+          ? new DOMRect(at.left, at.top, 0, at.bottom - at.top)
+          : box;
+      },
+    };
+    show(placeOf(v.state, head), caret);
+  };
   const actions = () => {
     const keys = { ...DEFAULT_KEYS, ...props.keys?.() };
+    const { onContextActions } = props;
     return [
       findAndReplace(doc !== undefined, keys),
       keymap.of([
@@ -512,6 +543,15 @@ export function CodeEditor(props: CodeEditorProps): Node {
           run: atCursor(() => props.onGoToDefinition),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
+        ...(onContextActions
+          ? keys.contextActions.map((key) => ({
+              key,
+              run: (v: EditorView) => {
+                contextActions(v, onContextActions);
+                return true;
+              },
+            }))
+          : []),
         ...(props.problems
           ? [
               ...keys.nextProblem.map((key) => ({

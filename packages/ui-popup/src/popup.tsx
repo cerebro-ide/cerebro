@@ -32,8 +32,11 @@ export interface PickerItem {
   more?: () => void;
 }
 
-/** Where a popup opens: below an element (a toolbar button), or at the top centre of the window. */
-export type PopupPosition = { below: Element } | 'top';
+/**
+ * Where a popup opens: below an element (a toolbar button) or a place (an editor's caret), or at
+ * the top centre of the window.
+ */
+export type PopupPosition = { below: Pick<Element, 'getBoundingClientRect'> } | 'top';
 
 export interface PickerOptions<T extends PickerItem> {
   /** What is being chosen, for screen readers. */

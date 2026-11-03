@@ -203,6 +203,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.problems', (params) =>
     servers.problems(text(params, 'worktree'), fileOf(params)),
   );
+  connection.onRequest('lsp.contextActions', (params) =>
+    servers.contextActions(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
   connection.onRequest('lsp.markers', (params) =>
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );

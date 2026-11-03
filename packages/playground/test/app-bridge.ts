@@ -31,6 +31,7 @@ for (const method of [
   'index.symbols',
   'lsp.markers',
   'lsp.problems',
+  'lsp.contextActions',
 ]) {
   DEFAULTS[method] = () => [];
 }

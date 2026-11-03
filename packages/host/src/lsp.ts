@@ -52,6 +52,19 @@ export interface Problem extends Span {
   deprecated: boolean;
 }
 
+/** A change to a file's text: what's between `from` and `to` becomes `text`. */
+export interface TextEdit extends Span {
+  text: string;
+}
+
+/** What Alt+Enter offers at a place, as IntelliJ's context actions: a server's fix, as its edits. */
+export interface ContextAction {
+  title: string;
+  /** LSP's kind of it (`quickfix`, `refactor.extract`...), when the server says. */
+  kind?: string;
+  edits: TextEdit[];
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -186,6 +199,60 @@ export function problemsOf(items: unknown): Problem[] {
   }));
 }
 
+interface CodeAction {
+  title: string;
+  kind?: string;
+  edit?: { changes?: Record<string, { range: Range; newText: string }[]> };
+  command?: unknown;
+  disabled?: unknown;
+}
+
+/**
+ * A server's code actions as context actions: those made by edits to the file asked about alone.
+ * Left out: commands, which have the server make the change (neither TypeScript's server nor
+ * basedpyright gave one, measured), actions it says are disabled, and edits to other files.
+ */
+export function actionsOf(
+  path: string,
+  result: unknown,
+  platform: NodeJS.Platform = process.platform,
+): ContextAction[] {
+  if (!Array.isArray(result)) return [];
+  return (result as CodeAction[]).flatMap(({ title, kind, edit, command, disabled }) => {
+    const changes = Object.entries(edit?.changes ?? {});
+    if (command !== undefined || disabled !== undefined || changes.length === 0) return [];
+    if (changes.some(([uri]) => pathOf(uri, platform) !== path)) return [];
+    const edits = changes.flatMap(([, list]) =>
+      list.map(({ range, newText }) => ({
+        from: { line: range.start.line, column: range.start.character },
+        to: { line: range.end.line, column: range.end.character },
+        text: newText,
+      })),
+    );
+    return [{ title, ...(kind === undefined ? {} : { kind }), edits }];
+  });
+}
+
+/** Whether a place is in a range, its ends included. */
+function contains(range: Range, at: Located): boolean {
+  const from = (end: { line: number; character: number }) =>
+    end.line - at.line || end.character - at.column;
+  return from(range.start) <= 0 && from(range.end) >= 0;
+}
+
+/** The kinds of action asked for: LSP's own. */
+const KINDS = [
+  '',
+  'quickfix',
+  'refactor',
+  'refactor.extract',
+  'refactor.inline',
+  'refactor.rewrite',
+  'source',
+  'source.organizeImports',
+  'source.fixAll',
+];
+
 /** One server's process, for one worktree. */
 export class LanguageServer {
   /** Resolves once the server has answered `initialize`. */
@@ -194,8 +261,8 @@ export class LanguageServer {
   readonly #process: ChildProcess;
   /** The files it has open, by URI: their version and text. */
   readonly #documents = new Map<string, { version: number; text: string }>();
-  /** The problems it last sent of each file, unasked, and for which of its versions. */
-  readonly #pushed = new Map<string, { version: number; problems: Problem[] }>();
+  /** The diagnostics it last sent of each file, unasked, and for which of its versions. */
+  readonly #pushed = new Map<string, { version: number; diagnostics: unknown[] }>();
   /** Who waits for a file's problems to be sent. */
   readonly #waiting = new Map<string, Set<() => void>>();
   /** Whether it answers when asked for a file's problems; if not, it sends them as they change. */
@@ -237,10 +304,10 @@ export class LanguageServer {
       const { uri, version, diagnostics } = params as {
         uri: string;
         version?: number;
-        diagnostics: unknown;
+        diagnostics: unknown[];
       };
       const latest = this.#documents.get(uri)?.version ?? 0;
-      this.#pushed.set(uri, { version: version ?? latest, problems: problemsOf(diagnostics) });
+      this.#pushed.set(uri, { version: version ?? latest, diagnostics });
       for (const wake of this.#waiting.get(uri) ?? []) wake();
     });
     const folders = [{ uri: uriOf(root), name: root.slice(root.lastIndexOf('/') + 1) }];
@@ -269,6 +336,8 @@ export class LanguageServer {
             documentSymbol: { hierarchicalDocumentSymbolSupport: true },
             implementation: { linkSupport: true },
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
+            // Actions as edits, not commands: without it, a server may give only commands (LSP).
+            codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: KINDS } } },
             // Not registered as the server goes: basedpyright then exits (measured, 1.40.2). The
             // tags here too, or TypeScript's answers leave them out (measured).
             diagnostic: { dynamicRegistration: false, tagSupport: { valueSet: [1, 2] } },
@@ -364,35 +433,60 @@ export class LanguageServer {
       : [];
   }
 
-  /**
-   * A file's problems, as it is now: asked for, of a server that answers (TypeScript's), or as the
-   * server sends them for this version of it (basedpyright's, bash-language-server's).
-   */
+  /** A file's problems, as it is now. */
   async problems(file: OpenFile, languageId: string): Promise<Problem[]> {
+    return problemsOf(await this.#diagnostics(file, languageId));
+  }
+
+  /**
+   * What Alt+Enter offers at a place in a file: the server's fixes for the problems there, and its
+   * other actions. TypeScript's server offers fixes only for the diagnostics it's given (measured).
+   */
+  async contextActions(file: OpenFile, languageId: string, at: Located): Promise<ContextAction[]> {
+    const there = (await this.#diagnostics(file, languageId)).filter((d) =>
+      contains((d as { range: Range }).range, at),
+    );
+    const place = { line: at.line, character: at.column };
+    const answer = await this.#connection.request('textDocument/codeAction', {
+      textDocument: { uri: uriOf(file.path) },
+      range: { start: place, end: place },
+      // Invoked, as by Alt+Enter.
+      context: { diagnostics: there, triggerKind: 1 },
+    });
+    return actionsOf(file.path, answer);
+  }
+
+  /**
+   * A file's diagnostics, as it is now and as the server gave them: asked for, of a server that
+   * answers (TypeScript's), or as the server sends them for this version of it (basedpyright's,
+   * bash-language-server's).
+   */
+  async #diagnostics(file: OpenFile, languageId: string): Promise<unknown[]> {
     await this.ready;
     this.sync(file, languageId);
     const uri = uriOf(file.path);
     if (this.#pulls) {
+      // A full report, with its items: no earlier one is named, to answer as unchanged (LSP).
       const answer = (await this.#connection.request('textDocument/diagnostic', {
         textDocument: { uri },
-      })) as { kind?: string; items?: unknown } | null;
-      return problemsOf(answer?.items);
+      })) as { items: unknown[] };
+      return answer.items;
     }
     const version = (this.#documents.get(uri) as { version: number }).version;
     const sent = () => {
       const pushed = this.#pushed.get(uri);
-      return pushed && pushed.version >= version ? pushed.problems : undefined;
+      return pushed && pushed.version >= version ? pushed.diagnostics : undefined;
     };
     return (
       sent() ??
-      new Promise<Problem[]>((resolve) => {
+      new Promise<unknown[]>((resolve) => {
         const waiting = this.#waiting.get(uri) ?? new Set();
         this.#waiting.set(uri, waiting);
         const wake = () => {
-          const problems = sent();
-          if (!problems) return;
+          const diagnostics = sent();
+          if (!diagnostics) return;
           waiting.delete(wake);
-          resolve(problems);
+          resolve(diagnostics);
         };
         waiting.add(wake);
       })
@@ -545,6 +639,13 @@ export class LanguageServers {
       file,
       (server, languageId) => server.problems(file, languageId),
       this.options.problemsPatience ?? PROBLEMS_PATIENCE,
+    );
+  }
+
+  /** What Alt+Enter offers at a place; null when no server answers in time. */
+  contextActions(worktree: string, file: OpenFile, at: Located): Promise<ContextAction[] | null> {
+    return this.#ask(worktree, file, (server, languageId) =>
+      server.contextActions(file, languageId, at),
     );
   }
 

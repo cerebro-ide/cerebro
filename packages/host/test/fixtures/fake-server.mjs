@@ -6,7 +6,8 @@
 // file that isn't there. The others answer no symbols, "fails" an error and "silent" nothing.
 // "pulls" answers a file's problems when asked (one error, its text in the message); "pushes"
 // sends them as the file changes, for its version; for text "late", the version before's, then
-// its own with no version; the others send none.
+// its own with no version; the others send none. Each answers code actions with one per diagnostic
+// it's given, named by its message.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -62,6 +63,15 @@ const handle = (message) => {
     } else {
       send({ method: 'textDocument/publishDiagnostics', params: { uri, version, diagnostics } });
     }
+  } else if (method === 'textDocument/codeAction') {
+    const { uri } = message.params.textDocument;
+    send({
+      id,
+      result: message.params.context.diagnostics.map(({ range, message: title }) => ({
+        title,
+        edit: { changes: { [uri]: [{ range, newText: title }] } },
+      })),
+    });
   } else if (method === 'textDocument/documentSymbol') {
     if (mode === 'silent') return;
     if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });

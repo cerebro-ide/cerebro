@@ -10,6 +10,7 @@ import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import {
   LanguageServer,
   LanguageServers,
+  actionsOf,
   highlighted,
   located,
   pathOf,
@@ -173,6 +174,68 @@ describe('problems', () => {
   });
 });
 
+describe('context actions', () => {
+  it('reads code actions made by edits to the file asked about, as context actions', () => {
+    const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } };
+    const here = { 'file:///a.ts': [{ range, newText: 'x' }] };
+    expect(
+      actionsOf(
+        '/a.ts',
+        [
+          { title: 'Fix', kind: 'quickfix', edit: { changes: here } },
+          {
+            title: 'Two',
+            edit: {
+              changes: {
+                'file:///a.ts': [
+                  { range, newText: 'a' },
+                  { range, newText: 'b' },
+                ],
+              },
+            },
+          },
+          // A command, alone or after its edit: the server would make the change.
+          { title: 'Command', command: 'do.it' },
+          { title: 'Both', edit: { changes: here }, command: { title: 'c', command: 'do.it' } },
+          { title: 'Disabled', edit: { changes: here }, disabled: { reason: 'no' } },
+          { title: 'Elsewhere', edit: { changes: { ...here, 'file:///b.ts': [] } } },
+          { title: 'Nothing', edit: {} },
+        ],
+        'linux',
+      ),
+    ).toEqual([
+      {
+        title: 'Fix',
+        kind: 'quickfix',
+        edits: [{ from: { line: 1, column: 2 }, to: { line: 1, column: 5 }, text: 'x' }],
+      },
+      {
+        title: 'Two',
+        edits: [
+          { from: { line: 1, column: 2 }, to: { line: 1, column: 5 }, text: 'a' },
+          { from: { line: 1, column: 2 }, to: { line: 1, column: 5 }, text: 'b' },
+        ],
+      },
+    ]);
+    expect(actionsOf('/a.ts', null)).toEqual([]);
+  });
+
+  it('gives the server the problems at the place, as it sent them, pulled or pushed', async () => {
+    // Each fake's problem spans line 0's first character: at either end of it, and not after.
+    const pulls = pool([fake('pulls')]);
+    expect(await pulls.contextActions(root, file, at(0, 1))).toEqual([
+      { title: 'pulled', edits: [expect.objectContaining({ text: 'pulled' })] },
+    ]);
+    expect(await pulls.contextActions(root, file, at(0, 2))).toEqual([]);
+    const pushes = pool([fake('pushes')]);
+    expect((await pushes.contextActions(root, file, at(0, 0)))?.map((a) => a.title)).toEqual(['x']);
+    expect(await pushes.contextActions(root, file, at(1, 0))).toEqual([]);
+    expect(
+      await pool([fake('pushes')]).contextActions(root, { ...file, path: '/x.other' }, at(0, 0)),
+    ).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -231,6 +294,26 @@ describe('TypeScript 7’s server', () => {
     );
     // Edited, not saved: none.
     expect(await servers.problems(project, { ...bad, text: 'export const n = 1;\n' })).toEqual([]);
+  }, 60_000);
+
+  it('offers the fixes for the problem at the caret, as edits', async () => {
+    const project = `${root}/ts`;
+    const main = { path: `${project}/fix.ts`, text: "target();\nconst n: number = 'x';\n" };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.contextActions(project, main, at(0, 2))).toContainEqual({
+      title: 'Add import from "./a"',
+      kind: 'quickfix',
+      edits: [
+        {
+          from: { line: 0, column: 0 },
+          to: { line: 0, column: 0 },
+          text: 'import { target } from "./a";\n\n',
+        },
+      ],
+    });
+    // Where there's no problem, none (measured: it offers fixes only for the problems it's given).
+    expect(await servers.contextActions(project, main, at(1, 0))).toEqual([]);
   }, 60_000);
 
   it('highlights a symbol where it is in its file, not another of the same name', async () => {
@@ -438,6 +521,26 @@ describe('basedpyright, for Python', () => {
       }),
     ]);
     expect(await servers.problems(project, { ...bad, text: 'x: int = 1\n' })).toEqual([]);
+  }, 60_000);
+
+  it('offers the fixes for the problem at the caret, as edits', async () => {
+    const project = `${root}/py`;
+    const main = { path: `${project}/fix.py`, text: 'target()\n' };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.contextActions(project, main, at(0, 2))).toContainEqual({
+      title: 'from a import target',
+      kind: 'quickfix',
+      edits: [
+        { from: { line: 0, column: 0 }, to: { line: 0, column: 6 }, text: 'target' },
+        {
+          from: { line: 0, column: 0 },
+          to: { line: 0, column: 0 },
+          // Two blank lines after it, as PEP 8 has after imports.
+          text: 'from a import target\n\n\n',
+        },
+      ],
+    });
   }, 60_000);
 
   it('highlights a symbol where it is in its file, not another of the same name', async () => {

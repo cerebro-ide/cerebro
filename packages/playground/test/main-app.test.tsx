@@ -333,6 +333,27 @@ describe('errors and warnings', () => {
   });
 });
 
+describe('context actions', () => {
+  it('list a fix at the caret with Alt+Enter, and make the one chosen in the editor', async () => {
+    answers.set('lsp.contextActions', [
+      {
+        title: 'Declare z',
+        edits: [{ from: { line: 1, column: 0 }, to: { line: 1, column: 0 }, text: 'let z;\n' }],
+      },
+    ]);
+    env().editor.open({ id: '/r/src/f.ts', title: 'f.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Alt>}{Enter}{/Alt}');
+    expect(await popupItems()).toEqual(['Declare z']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => code()?.textContent).toContain('let z;const a = 1;');
+    await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    expect(host('/r').params('lsp.contextActions')).toContainEqual(
+      expect.objectContaining({ worktree: '/r', path: '/r/src/f.ts' }),
+    );
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 
