@@ -317,6 +317,25 @@ describe('TreeModel, all at once', () => {
     expect(shown(model)).toEqual(['src', '  a.ts', 'docs']);
   });
 
+  it('loads, with a folder’s children, those marked expanded before they showed', async () => {
+    const model = new TreeModel(source(FILES, { async: true }));
+    await settle();
+    // As a view marks a folder to open when it first shows: before its parent's children load.
+    model.expanded.add('src/ui');
+    model.expand(find('src'));
+    await settle();
+    await settle();
+    expect(shown(model)).toEqual([
+      'src',
+      '  ui',
+      '    tree.tsx',
+      '    menu.tsx',
+      '  main.ts',
+      'docs',
+      'README.md',
+    ]);
+  });
+
   it('refreshes a tree whose roots can’t be read', async () => {
     const model = new TreeModel<Item>({
       ...source([]),

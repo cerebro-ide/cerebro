@@ -85,6 +85,13 @@ export class TreeModel<T> {
       try {
         const children = await this.source.children(node);
         if (!before || !sameNodes(before, children)) this.loaded.set(key, [...children]);
+        // Children marked expanded before they showed (a view opening folders as they first
+        // show) load too, or they'd show open and empty.
+        for (const child of children) {
+          if (!this.source.isLeaf(child) && this.expanded.has(this.source.key(child))) {
+            void this.load(child);
+          }
+        }
       } catch (error) {
         this.errors.set(key, error instanceof Error ? error.message : String(error));
       } finally {

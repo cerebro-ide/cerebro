@@ -84,10 +84,16 @@ export async function popupItems(): Promise<string[]> {
   return [...document.querySelectorAll('.cerebro-popup-item__label')].map((l) => l.textContent);
 }
 
+/** The open menu's items' labels. */
+export async function menuItems(): Promise<string[]> {
+  await expect.poll(() => document.querySelector('.cerebro-menu')).not.toBeNull();
+  return [...document.querySelectorAll('.cerebro-menu-item__label')].map((l) => l.textContent);
+}
+
 /** Closes whatever dialog or popup a test left open. */
 export async function closeAll(): Promise<void> {
   for (let i = 0; i < 5; i++) {
-    if (!document.querySelector('.cerebro-dialog, .cerebro-popup')) return;
+    if (!document.querySelector('.cerebro-dialog, .cerebro-popup, .cerebro-menu')) return;
     await userEvent.keyboard('{Escape}');
   }
 }
