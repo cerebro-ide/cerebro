@@ -44,6 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
+- [Since the session started, and per commit (2026-11-03)](#since-the-session-started-and-per-commit-2026-11-03): the agent's session from its turns; the files since its first turn, and the commits since, in the Commit window
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
@@ -1113,6 +1114,36 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
+## Since the session started, and per commit (2026-11-03)
+
+The plan's other two change-inspection views (`plan-v1.md` milestone 7, `architecture.md` "Change
+inspection"): "changes since the session started, per turn, and per commit". Not IntelliJ's: it
+has no agent sessions. Ido asked to build it after #103; the reading below is Claude's, from the
+architecture's own words, and open to change.
+
+- **The session is the agent's Claude Code session,** as its hooks name it (`session_id`). Each
+  turn now keeps its session with its prompt, in the snapshot's message. The current session is the
+  latest turn's; turns kept before this have none, so no session shows until the next prompt.
+- **It started at the snapshot before its first turn,** rather than the architecture's "base
+  commit": a commit leaves out what was uncommitted then, which would show as the session's
+  change. A session resumed after a restart is the same one if Claude Code's `--resume` keeps its
+  id (a claim: not measured with the real `claude`; the e2e test's pretend one keeps it).
+- **Since Session Started** is a row under the uncommitted groups, its files compared from that
+  snapshot to the files as they are, untracked ones too: the host takes a tree of the worktree
+  through a copy of its index, as snapshots are taken (`worktreeTree`), and diffs the two
+  (`git diff --name-status -M`). It's read with the rest every 2 seconds. It starts collapsed, as
+  turns do (open to change).
+- **The commits made since:** each a row after the turns, the latest first, with its subject, then
+  its author and date; expanded, the files it changed against its first parent (a first commit
+  against git's empty tree), each opening its diff (Ctrl/Cmd+D). They're the commits reachable
+  from the worktree's `HEAD` and not from the commit checked out when the session started (`git
+  log start..HEAD`). After a checkout of another branch, that's that branch's commits since they
+  parted (a claim that this is what's wanted).
+- **A diff since the session started** is the file at the snapshot and as it is now: a tab id
+  `diff@from..:path`, with no second commit.
+- **Not yet:** listing earlier sessions, or choosing one; a turn's or commit's files don't take
+  checkboxes or Rollback (they're not uncommitted); IntelliJ's Git Log, with every commit.
+
 ## Committing from the Commit tool window (2026-11-02)
 
 The first item after the basic IDE (decision "A basic IDE before git and agent management"):
@@ -1832,8 +1863,9 @@ changed, in the Commit tool window.
 - **In the Commit tool window,** under the uncommitted changes, each turn, the latest first, with
   its time and prompt; expanded, the files it changed, each opening the diff between the two
   snapshots (a tab id `diff@from..to:path`).
-- **Not yet:** the plan's "since the session started" and per-commit views; a turn that's under way
-  when the app quits is lost.
+- **Not yet:** a turn that's under way when the app quits is lost. The plan's "since the session
+  started" and per-commit views came later (see "Since the session started, and per commit",
+  2026-11-03).
 
 ## Agent status and resuming (2026-10-26)
 

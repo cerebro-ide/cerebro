@@ -149,6 +149,8 @@ body,
 
 .playground-change__folder {
   overflow: hidden;
+  /* Gives way first: a commit's subject keeps its room before its author and date. */
+  flex-shrink: 100;
   min-width: 0;
   margin-left: 4px;
   color: var(--cerebro-text-muted);

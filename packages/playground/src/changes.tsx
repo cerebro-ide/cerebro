@@ -1,8 +1,9 @@
 // The Commit tool window's changes, as IntelliJ's: the active worktree's files changed since its last
 // commit ("Changes"), its untracked files ("Unversioned Files"), its ignored ones when asked for
-// ("Ignored Files"), then each of its agent's turns (the host keeps a snapshot before and after
-// each), the latest first, with the files the turn changed. Files are grouped by directory unless
-// that's turned off. Read through the host every few seconds (an agent changes files without
+// ("Ignored Files"); then, from its agent's current session, what's changed since the session
+// started, each of the agent's turns (the host keeps a snapshot before and after each) and each
+// commit made since, the latest first, with the files each changed. Files are grouped by directory
+// unless that's turned off. Read through the host every few seconds (an agent changes files without
 // telling). Each environment keeps its own.
 //
 // A toolbar above the tree, as IntelliJ's: Refresh, Rollback, Show Diff, View Options (group by
@@ -51,43 +52,74 @@ export interface Turn {
   time: number;
 }
 
-/** Two commits to compare: a turn's snapshots. */
+/** A commit made in the session, as the host lists it. */
+export interface Commit {
+  hash: string;
+  /** Its first parent, or the empty tree: what its changes are against. */
+  parent: string;
+  subject: string;
+  author: string;
+  time: number;
+}
+
+/**
+ * The agent's current session, as the host tells it: the snapshot taken when it started, what's
+ * changed since, and the commits made since.
+ */
+interface Session {
+  id: string;
+  start: string;
+  changes: Change[];
+  commits: Commit[];
+}
+
+/**
+ * Two commits to compare (a turn's snapshots, a commit and its parent), or one and the files as
+ * they are (`to` left out: since the session started).
+ */
 export interface Range {
   from: string;
-  to: string;
+  to?: string;
 }
 
 type Group = 'changes' | 'unversioned' | 'ignored';
 
-/** A row: a group of files, a folder in one, a turn, or a file changed in any of them. */
+/**
+ * A row: a group of files, a folder in one, what's changed since the session started, a turn, a
+ * commit, or a file changed in any of them (with what it's compared across, unless uncommitted).
+ */
 type Item =
   | { kind: 'group'; group: Group; count: number }
   | { kind: 'folder'; key: string; name: string; count: number; children: Item[] }
+  | { kind: 'session'; count: number }
   | { kind: 'turn'; turn: Turn }
-  | { kind: 'change'; key: string; change: Change; turn?: Turn };
+  | { kind: 'commit'; commit: Commit }
+  | { kind: 'change'; key: string; change: Change; range?: Range };
 
 /**
  * A diff tab's id: the file's path in the worktree, marked as a diff, against its last commit
- * (`diff:path`) or between two commits (`diff@from..to:path`).
+ * (`diff:path`), between two commits (`diff@from..to:path`), or from one to the file as it is
+ * (`diff@from..:path`).
  */
 const DIFF = 'diff';
 
 export const diffTab = (path: string, range?: Range): Tab => ({
-  id: range ? `${DIFF}@${range.from}..${range.to}:${path}` : `${DIFF}:${path}`,
+  id: range ? `${DIFF}@${range.from}..${range.to ?? ''}:${path}` : `${DIFF}:${path}`,
   title: path.split('/').at(-1) as string,
 });
 
-const DIFF_ID = /^diff(?:@([^.:]+)\.\.([^:]+))?:(.*)$/s;
+const DIFF_ID = /^diff(?:@([^.:]+)\.\.([^:]*))?:(.*)$/s;
 
 /** The file a diff tab shows, if it's one. */
 export function diffPath(tabId: string): string | undefined {
   return DIFF_ID.exec(tabId)?.[3];
 }
 
-/** The commits a diff tab compares, if it compares two. */
+/** The commits a diff tab compares, if it isn't against the last commit. */
 export function diffRange(tabId: string): Range | undefined {
   const match = DIFF_ID.exec(tabId);
-  return match?.[1] === undefined ? undefined : { from: match[1], to: match[2] as string };
+  if (match?.[1] === undefined) return undefined;
+  return match[2] ? { from: match[1], to: match[2] } : { from: match[1] };
 }
 
 /** How often the list is read again while it shows. */
@@ -100,6 +132,9 @@ const GROUPS: Readonly<Record<Group, string>> = {
 };
 
 const groupKey = (group: Group) => `\u0000${group}`;
+
+/** The row of what's changed since the session started. */
+const SESSION_KEY = '\u0000session';
 
 /** The view options, as IntelliJ's View Options menu: kept in the browser's storage. */
 const OPTIONS_KEY = 'cerebro.changes.view';
@@ -129,7 +164,7 @@ function saveOptions(): void {
   }
 }
 
-/** A row's key, unique in the tree: files and folders are under their group or turn. */
+/** A row's key, unique in the tree: files and folders are under their group, turn or commit. */
 const fileKey = (scope: string, path: string) => `${scope}:${path}`;
 
 const isDirectory = (change: Change) => change.path.endsWith('/');
@@ -142,14 +177,14 @@ const isDirectory = (change: Change) => change.path.endsWith('/');
 function tree(
   scope: string,
   changes: readonly Change[],
-  turn: Turn | undefined,
+  range: Range | undefined,
   opened: (key: string) => void,
 ): Item[] {
   const file = (change: Change): Item => ({
     kind: 'change',
     key: fileKey(scope, change.path),
     change,
-    ...(turn ? { turn } : {}),
+    ...(range ? { range } : {}),
   });
   const sorted = [...changes].sort((a, b) => a.path.localeCompare(b.path));
   if (!byDirectory.peek()) return sorted.map(file);
@@ -233,8 +268,18 @@ function changesOf(worktree: string): Changes {
     let unversioned: Change[] = [];
     let ignored: Change[] = [];
     let turns: Turn[] = [];
-    /** A turn's changes never change: read once, when it's first expanded. */
-    const turnChanges = new Map<string, Promise<Change[]>>();
+    let session: Session | null = null;
+    /** A turn's or commit's changes never change: read once, when it's first expanded. */
+    const fixedChanges = new Map<string, Promise<Change[]>>();
+    const changesAcross = (key: string, range: Required<Range>) => {
+      let read = fixedChanges.get(key);
+      if (!read) {
+        read = host.request('git.changes', { path: worktree, ...range }) as Promise<Change[]>;
+        fixedChanges.set(key, read);
+        read.catch(() => fixedChanges.delete(key));
+      }
+      return read;
+    };
     // What was last read, as JSON: the tree is reloaded only when it changes. Reloading draws the
     // rows again: not while nothing changed, under the user's pointer.
     let last = '';
@@ -256,32 +301,42 @@ function changesOf(worktree: string): Changes {
           if (ignored.length > 0) {
             groups.push({ kind: 'group', group: 'ignored', count: ignored.length });
           }
-          return [...groups, ...turns.map((turn): Item => ({ kind: 'turn', turn }))];
+          if (session) groups.push({ kind: 'session', count: session.changes.length });
+          return [
+            ...groups,
+            ...turns.map((turn): Item => ({ kind: 'turn', turn })),
+            ...(session?.commits ?? []).map((commit): Item => ({ kind: 'commit', commit })),
+          ];
         }
         if (item.kind === 'group') {
           const files = { changes: tracked, unversioned, ignored }[item.group];
           return tree(groupKey(item.group), files, undefined, opened);
         }
         if (item.kind === 'folder') return item.children;
-        const { turn } = item as { turn: Turn };
-        let read = turnChanges.get(turn.id);
-        if (!read) {
-          read = host.request('git.changes', {
-            path: worktree,
-            from: turn.start,
-            to: turn.end,
-          }) as Promise<Change[]>;
-          turnChanges.set(turn.id, read);
-          read.catch(() => turnChanges.delete(turn.id));
+        if (item.kind === 'session') {
+          const { changes, start } = session as Session;
+          return tree(SESSION_KEY, changes, { from: start }, opened);
         }
-        return tree(`turn:${turn.id}`, await read, turn, opened);
+        if (item.kind === 'turn') {
+          const range = { from: item.turn.start, to: item.turn.end };
+          const key = `turn:${item.turn.id}`;
+          return tree(key, await changesAcross(key, range), range, opened);
+        }
+        const { commit } = item as { commit: Commit };
+        const range = { from: commit.parent, to: commit.hash };
+        const key = `commit:${commit.hash}`;
+        return tree(key, await changesAcross(key, range), range, opened);
       },
       key: (item) =>
         item.kind === 'group'
           ? groupKey(item.group)
-          : item.kind === 'turn'
-            ? `turn:${item.turn.id}`
-            : item.key,
+          : item.kind === 'session'
+            ? SESSION_KEY
+            : item.kind === 'turn'
+              ? `turn:${item.turn.id}`
+              : item.kind === 'commit'
+                ? `commit:${item.commit.hash}`
+                : item.key,
       isLeaf: (item) => item.kind === 'change',
     });
     opened(groupKey('changes'));
@@ -307,18 +362,26 @@ function changesOf(worktree: string): Changes {
       amended: undefined,
       refresh: async (force = false) => {
         const ignoredToo = showIgnored.peek();
-        const [readChanges, readTurns, readIgnored] = (await Promise.all([
+        const [readChanges, readTurns, readSession, readIgnored] = (await Promise.all([
           host.request('git.changes', { path: worktree }),
           host.request('agent.turns', { path: worktree }),
+          host.request('agent.session', { path: worktree }),
           ignoredToo ? host.request('git.ignored', { path: worktree }) : [],
-        ])) as [Change[], Turn[], string[]];
-        const json = JSON.stringify([readChanges, readTurns, readIgnored, byDirectory.peek()]);
+        ])) as [Change[], Turn[], Session | null, string[]];
+        const json = JSON.stringify([
+          readChanges,
+          readTurns,
+          readSession,
+          readIgnored,
+          byDirectory.peek(),
+        ]);
         if (json === last && !force) return;
         last = json;
         tracked = readChanges.filter((change) => change.status !== 'untracked');
         unversioned = readChanges.filter((change) => change.status === 'untracked');
         ignored = readIgnored.map((path) => ({ path, status: 'ignored' }));
         turns = readTurns;
+        session = readSession;
         await model.refresh();
       },
     };
@@ -362,7 +425,7 @@ function selectedChange(
 
 /** The files a selected row stands for: itself, or all of its folder's or group's. */
 function filesUnder(item: Item | undefined, changes: Changes): Extract<Item, { kind: 'change' }>[] {
-  if (!item || item.kind === 'turn') return [];
+  if (!item || item.kind === 'session' || item.kind === 'turn' || item.kind === 'commit') return [];
   if (item.kind === 'change') return [item];
   const children =
     item.kind === 'folder'
@@ -379,15 +442,18 @@ function rollbackable(changes: Changes | undefined): Change[] {
   return filesUnder(selectedItem(changes), changes)
     .filter(
       (item) =>
-        !item.turn && item.change.status !== 'untracked' && item.change.status !== 'ignored',
+        !item.range && item.change.status !== 'untracked' && item.change.status !== 'ignored',
     )
     .map((item) => item.change);
 }
 
-/** The files a row's checkbox stands for: uncommitted ones, not a turn's or ignored ones. */
+/**
+ * The files a row's checkbox stands for: uncommitted ones, not ignored ones, nor those of the
+ * session, a turn or a commit.
+ */
 function committable(item: Item, changes: Changes): Change[] {
   if (item.kind === 'change') {
-    return item.turn || item.change.status === 'ignored' ? [] : [item.change];
+    return item.range || item.change.status === 'ignored' ? [] : [item.change];
   }
   if (item.kind === 'folder') return item.children.flatMap((child) => committable(child, changes));
   if (item.kind === 'group') {
@@ -590,8 +656,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       return here(c) && item !== undefined && item.change.status !== 'ignored';
     },
     run: () => {
-      const { change, turn } = selectedChange(current()) as Extract<Item, { kind: 'change' }>;
-      setup.open(diffTab(change.path, turn && { from: turn.start, to: turn.end }));
+      const { change, range } = selectedChange(current()) as Extract<Item, { kind: 'change' }>;
+      setup.open(diffTab(change.path, range));
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
@@ -782,6 +848,14 @@ function turnLabel(turn: Turn): string {
 
 const files = (count: number) => (count === 1 ? '1 file' : `${String(count)} files`);
 
+/** A commit's author and when it was made, as a row's detail. */
+function commitDetail(commit: Commit): string {
+  const date = new Date(commit.time);
+  const day = date.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' });
+  const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return `${commit.author}, ${day} ${time}`;
+}
+
 /**
  * A row's checkbox, for what it stands for to go into the next commit: checked when all of it
  * does, partly when some.
@@ -813,8 +887,8 @@ function Include(props: { changes: Changes; item: Item }): Node {
 }
 
 /**
- * A row: a group's name and how many files it has; a folder's, the same; a turn's time and prompt;
- * a file's name in its status's colour, then its folder unless it's under it. Those that can go
+ * A row: a group's name and how many files it has; a folder's, the same, and what's changed since
+ * the session started; a turn's time and prompt; a commit's subject, author and date; a file's name in its status's colour, then its folder unless it's under it. Those that can go
  * into a commit start with a checkbox.
  */
 function row(changes: Changes, item: Item): Node[] {
@@ -839,12 +913,29 @@ function content(item: Item): Node[] {
       <span class="playground-change__folder">{files(item.count)}</span>,
     ] as Node[];
   }
+  if (item.kind === 'session') {
+    return [
+      <span class="playground-changes__group playground-changes__group--session">
+        Since Session Started
+      </span>,
+      <span class="playground-change__folder">{item.count === 0 ? '' : files(item.count)}</span>,
+    ] as Node[];
+  }
   if (item.kind === 'turn') {
     return [
       icon('agent'),
       <span class="playground-turn" title={item.turn.prompt}>
         {turnLabel(item.turn)}
       </span>,
+    ] as Node[];
+  }
+  if (item.kind === 'commit') {
+    return [
+      icon('commit'),
+      <span class="playground-turn" title={item.commit.subject}>
+        {item.commit.subject}
+      </span>,
+      <span class="playground-change__folder">{commitDetail(item.commit)}</span>,
     ] as Node[];
   }
   const { change } = item;

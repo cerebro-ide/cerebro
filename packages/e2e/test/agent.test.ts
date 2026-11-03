@@ -92,4 +92,38 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
     await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
   });
+
+  it('lists what’s changed since the session started, and the commits made since', async () => {
+    const page = running.page;
+    execFileSync('git', ['add', 'agent.txt'], { cwd: repo });
+    execFileSync(
+      'git',
+      ['-c', 'user.name=Ann', '-c', 'user.email=t@t', 'commit', '-qm', 'Keep the agent’s file'],
+      { cwd: repo },
+    );
+    writeFileSync(join(repo, 'later.txt'), 'written later\n');
+    // Both runs' turns are the same session's: it started before the agent wrote its file.
+    const session = page.locator('.cerebro-tree-row', { hasText: 'Since Session Started' });
+    await expect.poll(() => session.innerText(), { timeout: 15_000 }).toContain('2 files');
+    const commit = page.locator('.cerebro-tree-row', { hasText: 'Keep the agent’s file' });
+    expect(await commit.innerText()).toContain('Ann');
+    // A commit's file, and its diff against the commit before.
+    await commit.dblclick();
+    const committed = page.locator(
+      '.cerebro-tree-row[data-key^="commit:"][data-key$=":agent.txt"]',
+    );
+    await expect.poll(() => committed.count()).toBe(1);
+    await committed.click();
+    await page.keyboard.press('ControlOrMeta+d');
+    const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+    await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
+    // A file since the session started, after the uncommitted one of the same name: its diff
+    // from then to as it is.
+    await session.dblclick();
+    const later = page.locator('.cerebro-tree-row[data-key$=":later.txt"]');
+    await expect.poll(() => later.count()).toBe(2);
+    await later.last().click();
+    await page.keyboard.press('ControlOrMeta+d');
+    await expect.poll(() => added.allTextContents()).toEqual(['written later']);
+  });
 });
