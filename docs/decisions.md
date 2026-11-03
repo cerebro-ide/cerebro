@@ -44,7 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
-- [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): two differences only, worktrees and AI sessions; change inspection as IntelliJ's, uncommitted only
+- [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
 - [Gutter markers: what a member implements or overrides (2026-10-28)](#gutter-markers-what-a-member-implements-or-overrides-2026-10-28): worked out from the servers' symbols, definitions and implementations; IntelliJ's icons
 - [Scrollbars over the content (2026-10-27)](#scrollbars-over-the-content-2026-10-27): Cerebro's own thumbs, as IntelliJ's; the browser's hidden; tracks clear of the corner and the gutters, shown faintly under the pointer, pressed to page
@@ -1122,11 +1122,16 @@ functionality. The only differences so far should be the separation of the workt
 project/branch into another standalone menu, and slightly better management of AI sessions.
 Change inspection should be based on intellij - which basically follows only uncommited".
 
-- **What phase 1 builds is what WebStorm does.** Where `plan-v1.md` or `architecture.md` asks for
-  something WebStorm doesn't have, this decision wins: ask Ido before building it.
-- **The only differences, so far:** worktrees in a standalone menu of their own, apart from the
-  project and branch; and somewhat better management of AI sessions (an agent per worktree, its
-  status, resuming its exact session after a restart).
+- **Three phases** (Ido, the same day): "Phase 1, clone the important parts of Intellij and make
+  sure the GUI holds, phase 2 is to bake more AI specific features into it, and phase 3 will be to
+  review and refactor UI/UX based on actual experience with the software".
+- **What phase 1 builds is what WebStorm does,** its important parts; not all of it, and some of it
+  not yet. Where `plan-v1.md` or `architecture.md` asks for something WebStorm doesn't have, this
+  decision wins: ask Ido before building it, since it may be phase 2's.
+- **The differences, in the gist** (Ido: "maybe more than 2, maybe I forgot something"):
+  worktrees in a standalone menu of their own, apart from the project and branch; and somewhat
+  better management of AI sessions (an agent per worktree, its status, resuming its exact session
+  after a restart).
 - **Change inspection is IntelliJ's:** the Commit tool window follows uncommitted changes. The
   plan's "since the session started" and per-commit views are dropped. The agent's turns, already
   in the Commit window, aren't IntelliJ's either: whether they stay is Ido's to say (asked
