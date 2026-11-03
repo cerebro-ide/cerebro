@@ -13,6 +13,7 @@ import {
   highlighted,
   located,
   pathOf,
+  problemsOf,
   referencesIn,
   uriOf,
   type Located,
@@ -111,6 +112,67 @@ describe('paths and locations', () => {
   });
 });
 
+describe('problems', () => {
+  it('reads diagnostics as problems: how bad, what found them, unused or deprecated', () => {
+    const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } };
+    const span = { from: { line: 1, column: 2 }, to: { line: 1, column: 5 } };
+    expect(
+      problemsOf([
+        { range, severity: 1, message: 'e', source: 'ts', code: 2322 },
+        { range, severity: 2, message: 'w', code: 'reportX' },
+        { range, severity: 3, message: 'i' },
+        { range, severity: 4, message: 'h', tags: [1, 2] },
+        // None, or one LSP doesn't have: an error.
+        { range, message: 'n' },
+        { range, severity: 9, message: 'odd' },
+      ]),
+    ).toEqual([
+      {
+        ...span,
+        severity: 'error',
+        message: 'e',
+        source: 'ts',
+        code: '2322',
+        unused: false,
+        deprecated: false,
+      },
+      {
+        ...span,
+        severity: 'warning',
+        message: 'w',
+        code: 'reportX',
+        unused: false,
+        deprecated: false,
+      },
+      { ...span, severity: 'weak', message: 'i', unused: false, deprecated: false },
+      { ...span, severity: 'hint', message: 'h', unused: true, deprecated: true },
+      { ...span, severity: 'error', message: 'n', unused: false, deprecated: false },
+      { ...span, severity: 'error', message: 'odd', unused: false, deprecated: false },
+    ]);
+    expect(problemsOf(undefined)).toEqual([]);
+  });
+
+  it('asks a server that answers for them, and waits for one that sends them unasked', async () => {
+    const pulls = pool([fake('pulls')]);
+    expect(await pulls.problems(root, file)).toEqual([
+      expect.objectContaining({ severity: 'error', message: 'pulled' }),
+    ]);
+    const pushes = pool([fake('pushes')]);
+    // Sent for the version it has.
+    expect(await pushes.problems(root, file)).toEqual([
+      expect.objectContaining({ severity: 'warning', message: 'x', code: '7', unused: true }),
+    ]);
+    expect((await pushes.problems(root, { ...file, text: 'y' }))?.[0]?.message).toBe('y');
+    // Asked again with the same text: what was sent.
+    expect((await pushes.problems(root, { ...file, text: 'y' }))?.[0]?.message).toBe('y');
+    // Sent later, with no version: taken as the latest's.
+    expect((await pushes.problems(root, { ...file, text: 'late' }))?.[0]?.message).toBe('late');
+    // A server that sends none: no answer in time.
+    const silent = pool([fake('links')], { problemsPatience: 100 });
+    expect(await silent.problems(root, file)).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -144,6 +206,31 @@ describe('TypeScript 7’s server', () => {
     expect(usages).not.toContainEqual({ path: `${project}/a.ts`, line: 1, column: 16 });
     // One server for the worktree, whatever the file.
     expect(servers.size).toBe(1);
+  }, 60_000);
+
+  it('finds a file’s problems, in unsaved text too', async () => {
+    const project = `${root}/ts`;
+    const bad = { path: `${project}/bad.ts`, text: 'const n: number = "x";\nexport {};\n' };
+    writeFileSync(bad.path, bad.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.problems(project, bad)).toEqual(
+      expect.arrayContaining([
+        {
+          from: { line: 0, column: 6 },
+          to: { line: 0, column: 7 },
+          severity: 'error',
+          message: "Type 'string' is not assignable to type 'number'.",
+          source: 'ts',
+          code: '2322',
+          unused: false,
+          deprecated: false,
+        },
+        // Declared, never read: a hint, shown as unused.
+        expect.objectContaining({ severity: 'hint', code: '6133', unused: true }),
+      ]),
+    );
+    // Edited, not saved: none.
+    expect(await servers.problems(project, { ...bad, text: 'export const n = 1;\n' })).toEqual([]);
   }, 60_000);
 
   it('highlights a symbol where it is in its file, not another of the same name', async () => {
@@ -334,6 +421,23 @@ describe('basedpyright, for Python', () => {
       ]),
     );
     expect(usages).not.toContainEqual({ path: `${project}/a.py`, line: 3, column: 4 });
+  }, 60_000);
+
+  it('finds a file’s problems, in unsaved text too', async () => {
+    const project = `${root}/py`;
+    const bad = { path: `${project}/bad.py`, text: 'x: int = "s"\n' };
+    writeFileSync(bad.path, bad.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.problems(project, bad)).toEqual([
+      expect.objectContaining({
+        from: { line: 0, column: 9 },
+        to: { line: 0, column: 12 },
+        severity: 'error',
+        source: 'basedpyright',
+        code: 'reportAssignmentType',
+      }),
+    ]);
+    expect(await servers.problems(project, { ...bad, text: 'x: int = 1\n' })).toEqual([]);
   }, 60_000);
 
   it('highlights a symbol where it is in its file, not another of the same name', async () => {
