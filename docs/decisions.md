@@ -45,7 +45,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
-- [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
+- [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
@@ -1225,6 +1225,20 @@ that only Cerebro had changed.
 - **Rejected for now:** writing to a temporary file and renaming it over (IntelliJ's "safe write",
   a claim), which other readers wouldn't see half done either, but which makes a new file: links
   and the file's owner and permissions would need keeping.
+- **Windows: a save waits for git to let go of the file (added 2026-11-03).** Seen in CI (#113):
+  a save failed with `UNKNOWN: unknown error, ftruncate`, and Couldn't Save. Windows doesn't
+  resize a file another process has mapped into memory (Microsoft's `SetEndOfFile` docs), and git
+  maps a file over 32 KB while it reads it, as the Local History's `git add --all` does on every
+  record. Measured on Windows with the host's code, saving a 2 MB file 300 times beside the
+  records: 37 failed; alone, or beside `git status`, none. libuv has no name for that error, so on
+  Windows a save tries an `UNKNOWN` again for up to 2 seconds; then none failed. An agent's or a
+  terminal's git is waited out the same way. Claude's choice, open to change: the save waits only
+  while the file is mapped, rather than for a whole record.
+- **Records wait for a save under way (added 2026-11-03):** git reading a file while a save
+  writes it over fails ("mmap failed", 15 times in the same measurement), so a
+  record asked during a save starts after it (Ido: "Do both", with the waiting saves above).
+  **Not yet:** a save that starts during a record can still make that record fail; the next one,
+  on the next focus or a few seconds later, records the change.
 
 ## The shelf and the stash (2026-11-03)
 
