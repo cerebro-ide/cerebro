@@ -61,7 +61,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
 - [Instructions for Claude: rules and skills (2026-10-26)](#instructions-for-claude-rules-and-skills-2026-10-26): CLAUDE.md, rules by path, skills
-- [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn
+- [Agent turns (2026-10-26)](#agent-turns-2026-10-26): a snapshot before and after each turn; listed in the Agent Changes tool window
 - [Agent status and resuming (2026-10-26)](#agent-status-and-resuming-2026-10-26): from Claude Code's hooks; sessions resumed
 - [Changes and diffs (2026-10-26)](#changes-and-diffs-2026-10-26): the Commit tool window, side-by-side diffs; F4 from a diff to the code
 - [Terminals and the Claude tool window (2026-10-26)](#terminals-and-the-claude-tool-window-2026-10-26): xterm's headless core, Cerebro's renderer
@@ -1133,9 +1133,9 @@ Change inspection should be based on intellij - which basically follows only unc
   better management of AI sessions (an agent per worktree, its status, resuming its exact session
   after a restart).
 - **Change inspection is IntelliJ's:** the Commit tool window follows uncommitted changes. The
-  plan's "since the session started" and per-commit views are dropped. The agent's turns, already
-  in the Commit window, aren't IntelliJ's either: whether they stay is Ido's to say (asked
-  2026-11-03).
+  plan's "since the session started" and per-commit views are dropped. The agent's turns stay, in
+  a tool window of their own (Ido: "a nice feature, but it shouldn't be in the commit window"; see
+  "Agent turns"), and he'll review them separately.
 
 ## Committing from the Commit tool window (2026-11-02)
 
@@ -1842,7 +1842,7 @@ Ido: CLAUDE.md will grow out of control; split it into skills and rules files.
 ## Agent turns (2026-10-26)
 
 Milestone 7's first part (change inspection, `docs/plan-v1.md`): what each of the agent's turns
-changed, in the Commit tool window.
+changed, in a tool window of its own (the Commit tool window's, until 2026-11-03).
 
 - **A snapshot before and after each turn,** not only at its end as the plan said: the difference
   between the two is what the turn changed, even when the user (or another tool) changed files
@@ -1854,9 +1854,14 @@ changed, in the Commit tool window.
   (measured). The prompt, cut to 200 characters, is the commit's message. Nothing removes them yet.
 - **The prompt's hook waits for the snapshot** (the hook client waits for the host's reply), so the
   agent can't change a file before it's taken; the other hooks don't wait.
-- **In the Commit tool window,** under the uncommitted changes, each turn, the latest first, with
-  its time and prompt; expanded, the files it changed, each opening the diff between the two
-  snapshots (a tab id `diff@from..to:path`).
+- **In a tool window of its own, Agent Changes** (changed 2026-11-03, Ido: "it shouldn't be in
+  the commit window, it should have it's own panel", "similar to the FS and the git panels"), on
+  the left stripe after Commit: each turn, the latest first, with its time and prompt; expanded,
+  the files it changed, each opening the file (double click, Enter, F4) or the diff between the two
+  snapshots (Ctrl/Cmd+D; a tab id `diff@from..to:path`). The Commit window's Show Diff, Jump to
+  Source, Refresh, Expand All and Collapse All act on whichever of the two has the keyboard. Its
+  name and place are Claude's, open to change. It was in the Commit window, under the uncommitted
+  changes, before.
 - **Not yet:** a turn that's under way when the app quits is lost. (The plan's "since the session
   started" and per-commit views were dropped on 2026-11-03: see "Phase 1 is WebStorm's
   functionality".)

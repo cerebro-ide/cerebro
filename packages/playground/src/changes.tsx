@@ -1,9 +1,11 @@
 // The Commit tool window's changes, as IntelliJ's: the active worktree's files changed since its last
-// commit ("Changes"), its untracked files ("Unversioned Files"), its ignored ones when asked for
-// ("Ignored Files"), then each of its agent's turns (the host keeps a snapshot before and after
-// each), the latest first, with the files the turn changed. Files are grouped by directory unless
-// that's turned off. Read through the host every few seconds (an agent changes files without
-// telling). Each environment keeps its own.
+// commit ("Changes"), its untracked files ("Unversioned Files"), and its ignored ones when asked for
+// ("Ignored Files"). Files are grouped by directory unless that's turned off. Read through the host
+// every few seconds (an agent changes files without telling). Each environment keeps its own.
+//
+// The Agent Changes tool window, Cerebro's own: each of the agent's turns (the host keeps a
+// snapshot before and after each), the latest first, with the files the turn changed; each file
+// opens, or opens its diff, as in the Commit window.
 //
 // A toolbar above the tree, as IntelliJ's: Refresh, Rollback, Show Diff, View Options (group by
 // directory, show ignored files), Select Opened File, Expand All and Collapse All. Opening a file
@@ -202,7 +204,9 @@ interface Changes {
   /** The worktree. */
   path: string;
   model: TreeModel<Item>;
-  /** Whether there's nothing to show: no changes, no turns. */
+  /** The agent's turns, for the Agent Changes window. */
+  turnsModel: TreeModel<Item>;
+  /** Whether there's nothing to show: no changes. */
   empty: () => boolean;
   /** Reads the lists again; the tree is redrawn only if they changed, or if `force`. */
   refresh: (force?: boolean) => Promise<void>;
@@ -241,13 +245,35 @@ function changesOf(worktree: string): Changes {
     // Folders and groups are expanded when they first show, as IntelliJ's changes are; after
     // that, as the user left them.
     const seen = new Set<string>();
-    const opened = (key: string) => {
+    const openedIn = (tree: TreeModel<Item>) => (key: string) => {
       if (seen.has(key)) return;
       seen.add(key);
-      model.expanded.add(key);
+      tree.expanded.add(key);
     };
+    const opened = (key: string) => {
+      openedIn(model)(key);
+    };
+    const turnFiles = async (turn: Turn) => {
+      let read = turnChanges.get(turn.id);
+      if (!read) {
+        read = host.request('git.changes', {
+          path: worktree,
+          from: turn.start,
+          to: turn.end,
+        }) as Promise<Change[]>;
+        turnChanges.set(turn.id, read);
+        read.catch(() => turnChanges.delete(turn.id));
+      }
+      return tree(`turn:${turn.id}`, await read, turn, openedIn(turnsModel));
+    };
+    const key = (item: Item) =>
+      item.kind === 'group'
+        ? groupKey(item.group)
+        : item.kind === 'turn'
+          ? `turn:${item.turn.id}`
+          : item.key;
     const model: TreeModel<Item> = new TreeModel<Item>({
-      children: async (item) => {
+      children: (item) => {
         if (item === undefined) {
           const groups: Item[] = [{ kind: 'group', group: 'changes', count: tracked.length }];
           if (unversioned.length > 0) {
@@ -256,39 +282,31 @@ function changesOf(worktree: string): Changes {
           if (ignored.length > 0) {
             groups.push({ kind: 'group', group: 'ignored', count: ignored.length });
           }
-          return [...groups, ...turns.map((turn): Item => ({ kind: 'turn', turn }))];
+          return groups;
         }
         if (item.kind === 'group') {
           const files = { changes: tracked, unversioned, ignored }[item.group];
           return tree(groupKey(item.group), files, undefined, opened);
         }
-        if (item.kind === 'folder') return item.children;
-        const { turn } = item as { turn: Turn };
-        let read = turnChanges.get(turn.id);
-        if (!read) {
-          read = host.request('git.changes', {
-            path: worktree,
-            from: turn.start,
-            to: turn.end,
-          }) as Promise<Change[]>;
-          turnChanges.set(turn.id, read);
-          read.catch(() => turnChanges.delete(turn.id));
-        }
-        return tree(`turn:${turn.id}`, await read, turn, opened);
+        return (item as Extract<Item, { kind: 'folder' }>).children;
       },
-      key: (item) =>
-        item.kind === 'group'
-          ? groupKey(item.group)
-          : item.kind === 'turn'
-            ? `turn:${item.turn.id}`
-            : item.key,
+      key,
+      isLeaf: (item) => item.kind === 'change',
+    });
+    const turnsModel: TreeModel<Item> = new TreeModel<Item>({
+      children: (item) => {
+        if (item === undefined) return turns.map((turn): Item => ({ kind: 'turn', turn }));
+        if (item.kind === 'turn') return turnFiles(item.turn);
+        return (item as Extract<Item, { kind: 'folder' }>).children;
+      },
+      key,
       isLeaf: (item) => item.kind === 'change',
     });
     opened(groupKey('changes'));
     opened(groupKey('unversioned'));
     // Ignored files can be many: their group starts closed.
     seen.add(groupKey('ignored'));
-    // No changes and no turns: the groups' rows would show nothing.
+    // No changes: the group's row would show nothing.
     const empty = computed(() => {
       const rows = model.rows;
       const first = rows[0]?.node;
@@ -297,6 +315,7 @@ function changesOf(worktree: string): Changes {
     changes = {
       path: worktree,
       model,
+      turnsModel,
       empty: () => empty.get(),
       tracked: () => tracked,
       unversioned: () => unversioned,
@@ -319,7 +338,7 @@ function changesOf(worktree: string): Changes {
         unversioned = readChanges.filter((change) => change.status === 'untracked');
         ignored = readIgnored.map((path) => ({ path, status: 'ignored' }));
         turns = readTurns;
-        await model.refresh();
+        await Promise.all([model.refresh(), turnsModel.refresh()]);
       },
     };
     lists.set(worktree, changes);
@@ -346,17 +365,25 @@ function refreshAll(): void {
   }
 }
 
-/** The selected row's item. */
-function selectedItem(changes: Changes): Item | undefined {
-  const { model } = changes;
+/** The two windows listing changes: Commit's, and Agent Changes'. */
+type View = 'changes' | 'agent';
+
+/** A window's tree. */
+const modelOf = (changes: Changes, view: View) =>
+  view === 'agent' ? changes.turnsModel : changes.model;
+
+/** The selected row's item, in a window's tree (the Commit window's by default). */
+function selectedItem(changes: Changes, view: View = 'changes'): Item | undefined {
+  const model = modelOf(changes, view);
   return model.rows.find((row) => row.key === model.selected)?.node;
 }
 
 /** The selected file, if a file is selected. */
 function selectedChange(
   changes: Changes | undefined,
+  view: View = 'changes',
 ): Extract<Item, { kind: 'change' }> | undefined {
-  const item = changes && selectedItem(changes);
+  const item = changes && selectedItem(changes, view);
   return item?.kind === 'change' ? item : undefined;
 }
 
@@ -429,11 +456,16 @@ function openable(
   return item !== undefined && item.change.status !== 'deleted' && !isDirectory(item.change);
 }
 
-/** What the Commit window's commands get from its toolbar and menus: they act on it. */
+/** What a window's commands get from its toolbar and menus: they act on it. */
 const FROM_VIEW = { source: 'changes' };
+const FROM_AGENT = { source: 'agent' };
 
-/** Whether the Commit window has the keyboard: its shortcuts only work then. */
-const focused = signal(false);
+/** Which window has the keyboard, if either: its shortcuts only work then. */
+const focused = signal<View | undefined>(undefined);
+
+/** The window a command acts on: the one it came from, else the one with the keyboard. */
+const viewOf = (context: unknown): View | undefined =>
+  ((context as { source?: string } | undefined)?.source as View | undefined) ?? focused.get();
 
 export interface ChangesSetup {
   /** Opens a tab in the active editor. */
@@ -533,8 +565,8 @@ async function flipAmend(changes: Changes): Promise<void> {
 export function setupChanges(services: MenuServices, setup: ChangesSetup): void {
   const { commands, menus, keymap } = services;
   /** From the window's toolbar or menus, or a shortcut while it has the keyboard. */
-  const here = (context: unknown) =>
-    (context as { source?: string } | undefined)?.source === 'changes' || focused.get();
+  /** Whether a command acts on the Commit window. */
+  const here = (context: unknown) => viewOf(context) === 'changes';
   const fail = (title: string) => (error: unknown) => {
     openDialog({
       title,
@@ -570,7 +602,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'changes.refresh',
     label: '&Refresh',
     icon: 'refresh',
-    enabled: (c) => here(c) && current() !== undefined,
+    enabled: (c) => viewOf(c) !== undefined && current() !== undefined,
     run: () => current()?.refresh(true).catch(fail('Couldn’t Read the Changes')),
   });
   commands.register({
@@ -586,11 +618,15 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     label: 'Show &Diff',
     icon: 'diff',
     enabled: (c) => {
-      const item = selectedChange(current());
-      return here(c) && item !== undefined && item.change.status !== 'ignored';
+      const view = viewOf(c);
+      const item = view && selectedChange(current(), view);
+      return item !== undefined && item.change.status !== 'ignored';
     },
-    run: () => {
-      const { change, turn } = selectedChange(current()) as Extract<Item, { kind: 'change' }>;
+    run: (c) => {
+      const { change, turn } = selectedChange(current(), viewOf(c)) as Extract<
+        Item,
+        { kind: 'change' }
+      >;
       setup.open(diffTab(change.path, turn && { from: turn.start, to: turn.end }));
     },
   });
@@ -605,13 +641,22 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   commands.register({
     id: 'changes.jumpToSource',
     label: '&Jump to Source',
-    enabled: (c) => (here(c) && openable(selectedChange(current()))) || fromDiff() !== undefined,
-    run: async () => {
-      const at = fromDiff();
-      if (!at) {
-        openFile(selectedChange(current()) as Extract<Item, { kind: 'change' }>);
+    enabled: (c) => {
+      const view = viewOf(c);
+      return (
+        (view !== undefined && openable(selectedChange(current(), view))) ||
+        fromDiff() !== undefined
+      );
+    },
+    run: async (c) => {
+      const view = viewOf(c);
+      const selected = view && selectedChange(current(), view);
+      if (openable(selected)) {
+        openFile(selected);
         return;
       }
+      const at = fromDiff();
+      if (!at) return;
       const env = active();
       // A deleted file's diff: there's no file to go to.
       if (
@@ -659,16 +704,16 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'changes.expandAll',
     label: '&Expand All',
     icon: 'expandAll',
-    enabled: (c) => here(c) && current() !== undefined,
-    run: () => current()?.model.expandAll(),
+    enabled: (c) => viewOf(c) !== undefined && current() !== undefined,
+    run: (c) => modelOf(current() as Changes, viewOf(c) as View).expandAll(),
   });
   commands.register({
     id: 'changes.collapseAll',
     label: '&Collapse All',
     icon: 'collapseAll',
-    enabled: (c) => here(c) && current() !== undefined,
-    run: () => {
-      current()?.model.collapseAll();
+    enabled: (c) => viewOf(c) !== undefined && current() !== undefined,
+    run: (c) => {
+      modelOf(current() as Changes, viewOf(c) as View).collapseAll();
     },
   });
 
@@ -696,6 +741,9 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.refresh' }, group: 'c' });
+  menus.contribute({ menu: 'agent/item', item: { command: 'changes.showDiff' }, group: 'a' });
+  menus.contribute({ menu: 'agent/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
+  menus.contribute({ menu: 'agent/item', item: { command: 'changes.refresh' }, group: 'b' });
 
   /** Asks, as IntelliJ's Rollback Changes dialog, then rolls the selection's files back. */
   async function rollback(changes: Changes): Promise<void> {
@@ -990,11 +1038,11 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
     <div
       class="playground-changes"
       on:focusin={() => {
-        focused.set(true);
+        focused.set('changes');
       }}
       on:focusout={(event) => {
         const next = event.relatedTarget as Node | null;
-        if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(false);
+        if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(undefined);
       }}
       on:keydown={(event) => {
         // Space puts the selected row's files in the commit, or takes them out, as IntelliJ's.
@@ -1059,6 +1107,72 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
             ),
           <CommitPanel changes={changes} services={props.services} />,
         ];
+      }}
+    </div>
+  );
+}
+
+/** The Agent Changes tool window: each of the agent's turns, with the files it changed. */
+export function AgentChangesView(props: {
+  services: MenuServices;
+  open: (tab: Tab) => void;
+}): Node {
+  return (
+    <div
+      class="playground-changes"
+      on:focusin={() => {
+        focused.set('agent');
+      }}
+      on:focusout={(event) => {
+        const next = event.relatedTarget as Node | null;
+        if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(undefined);
+      }}
+    >
+      {() => {
+        const env = active();
+        if (!env) return <p class="playground-project__empty">No environment open</p>;
+        if (!currentHost()) {
+          return <p class="playground-project__empty">Agent changes show in the desktop app.</p>;
+        }
+        if (!gitRepository.get()) {
+          return <p class="playground-project__empty">Not a git repository</p>;
+        }
+        const changes = changesOf(env.id);
+        const { turnsModel, refresh: read } = changes;
+        const refresh = () => {
+          read().catch((error: unknown) => {
+            console.error('Reading the changes failed', error);
+          });
+        };
+        refresh();
+        const timer = setInterval(refresh, REFRESH_MS);
+        window.addEventListener('focus', refresh);
+        onCleanup(() => {
+          clearInterval(timer);
+          window.removeEventListener('focus', refresh);
+        });
+        return () =>
+          turnsModel.rows.length === 0 ? (
+            <p class="playground-project__empty">No turns yet</p>
+          ) : (
+            <TreeView
+              model={turnsModel}
+              label={`${env.name} agent changes`}
+              row={(item) => content(item)}
+              onOpen={(item) => {
+                const change = item as Extract<Item, { kind: 'change' }>;
+                if (openable(change)) {
+                  props.open({
+                    id: change.change.path,
+                    title: change.change.path.split('/').at(-1) as string,
+                  });
+                }
+              }}
+              onContextMenu={(event) => {
+                openContextMenu(props.services, 'agent/item', event, FROM_AGENT);
+              }}
+            />
+          );
       }}
     </div>
   );

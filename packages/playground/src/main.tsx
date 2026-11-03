@@ -39,7 +39,14 @@ import {
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
-import { ChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
+import {
+  AgentChangesView,
+  ChangesView,
+  diffPath,
+  diffRange,
+  setupChanges,
+  type Range,
+} from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
   carets,
@@ -126,6 +133,7 @@ const layout = new Layout();
 const windows: ToolWindowSpec[] = [
   { id: 'project', title: 'Project', anchor: 'left', icon: 'folder' },
   { id: 'commit', title: 'Commit', anchor: 'left', icon: 'commit' },
+  { id: 'agentChanges', title: 'Agent Changes', anchor: 'left', icon: 'agent' },
   { id: 'structure', title: 'Structure', anchor: 'left', slot: 'secondary', icon: 'structure' },
   { id: 'bookmarks', title: 'Bookmarks', anchor: 'left', slot: 'secondary', icon: 'bookmark' },
   { id: 'terminal', title: 'Terminal', anchor: 'bottom', icon: 'terminal' },
@@ -913,6 +921,8 @@ function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
   if (props.id === 'commit')
     return <ChangesView services={services} open={(tab) => editor()?.open(tab)} />;
+  if (props.id === 'agentChanges')
+    return <AgentChangesView services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
