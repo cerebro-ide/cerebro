@@ -305,6 +305,34 @@ describe('navigation in the editor', () => {
   });
 });
 
+describe('errors and warnings', () => {
+  it('mark the file’s tab, and show in the Problems tool window from the editor’s counts', async () => {
+    answers.set('lsp.problems', [
+      {
+        from: { line: 1, column: 2 },
+        to: { line: 1, column: 3 },
+        severity: 'error',
+        message: "Cannot find name 'z'.",
+      },
+    ]);
+    env().editor.open({ id: '/r/src/e.ts', title: 'e.ts' });
+    const count = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cerebro-problems__count'),
+    );
+    expect(q('[data-tab="/r/src/e.ts"] .cerebro-editor-tab__title--errors')).not.toBeNull();
+    await userEvent.click(count);
+    const window = () => q('.cerebro-tool-window[data-id="problems"]');
+    await expect.poll(() => window().textContent).toContain("Cannot find name 'z'.:2");
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await expect.poll(() => window().textContent).not.toContain("Cannot find name 'z'.");
+    env().editor.open({ id: '/r/src/e.ts', title: 'e.ts' });
+    await userEvent.dblClick(await vi.waitUntil(() => row("#error:1:2:Cannot find name 'z'.")));
+    // Gone to, the editor focused.
+    await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    expect(env().editor.activeGroup.active).toBe('/r/src/e.ts');
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 

@@ -236,13 +236,18 @@ it('does the same for Python', async () => {
   } catch (error) {
     await explain(error, 'main.py', 2, 1, ['lsp.definitions', 'lsp.markers', 'lsp.definitions']);
   }
-  await untilAnswered(
-    'Alt+F7',
-    async () =>
-      (await popup()
-        .getAttribute('aria-label', { timeout: 1_000 })
-        .catch(() => null)) === 'Usages of walk',
-  );
+  try {
+    await untilAnswered(
+      'Alt+F7',
+      async () =>
+        (await popup()
+          .getAttribute('aria-label', { timeout: 1_000 })
+          .catch(() => null)) === 'Usages of walk',
+    );
+  } catch (error) {
+    // A Windows run (#115) never showed them, from lib.py's walk.
+    await explain(error, 'lib.py', 0, 5, ['lsp.usages', 'lsp.usages']);
+  }
   // The import, and the call; not other.py's call to its own walk.
   expect(await popup().locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
     'main.py:1',

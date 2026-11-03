@@ -625,6 +625,13 @@
   outline-offset: -2px;
 }
 
+/* A file with errors, as IntelliJ marks problem files: the editor's error wave under its name. */
+.cerebro-editor-tab__title--errors {
+  text-decoration: underline wavy var(--cerebro-editor-error);
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+}
+
 .cerebro-editor-tab--dragged {
   opacity: 0.35;
 }

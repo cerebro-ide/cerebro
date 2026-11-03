@@ -3,7 +3,8 @@
 // IntelliJ shows them; in a browser, from the sample paths. Each
 // environment keeps its own tree, so switching back finds its folders as they were. While it shows,
 // its folders are read again as the window gets the focus and every so often while it has it, as
-// open files are, so files added or removed on disk show.
+// open files are, so files added or removed on disk show. A file with errors, and the folders it's
+// in, have their names underlined with the error's wave, as IntelliJ marks problem files.
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
@@ -11,6 +12,7 @@ import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { RELOAD_EVERY } from './documents.js';
 import { active, currentHost, hostFor } from './environments.js';
 import { icon } from './icons.js';
+import { hasErrors, hasErrorsBeneath } from './problems.js';
 
 export interface FileNode {
   path: string;
@@ -109,11 +111,20 @@ export function ProjectTree(props: {
             label={`${env.name} files`}
             row={(node) => [
               icon(node.kind === 'directory' ? 'folder' : 'file'),
-              node.ignored ? (
-                <span class="playground-change--ignored">{node.name}</span>
-              ) : (
-                node.name
-              ),
+              <span
+                class={() =>
+                  [
+                    node.ignored && 'playground-change--ignored',
+                    (node.kind === 'directory'
+                      ? hasErrorsBeneath(node.path)
+                      : hasErrors(node.path)) && 'playground-problem-file',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+              >
+                {node.name}
+              </span>,
             ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });

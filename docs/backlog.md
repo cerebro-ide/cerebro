@@ -30,7 +30,7 @@ are listed per worktree, whichever session they came from; with several Claude s
 
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decision "Errors and warnings in the editor" (the
-  Problems tool window, the file's status in its tab and the Project tree, shell scripts).
+  Problems window's Project Errors tab and View Options, shell scripts, quick fixes).
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
@@ -47,3 +47,6 @@ are listed per worktree, whichever session they came from; with several Claude s
   #111's run (and one of #109's) failed every test after the shell one on Windows: Go to File
   never showed, after the shell test pressed Ctrl+B more than once. That a late name-match popup
   was left open is a claim; the tests now print and close a popup left open before Go to File.
+  #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
+  of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
+  the page and the host's answer too (2026-11-03).

@@ -207,12 +207,12 @@ const SVG = 'http://www.w3.org/2000/svg';
  */
 const ICONS = {
   error: [
-    ['circle', { cx: '8', cy: '8', r: '7', class: 'cerebro-problemIcon__error' }],
+    ['circle', { cx: '8', cy: '8', r: '7', fill: 'var(--cerebro-icon-error)' }],
     [
       'path',
       {
         d: 'M9 5C9 4.44772 8.55228 4 8 4C7.44772 4 7 4.44772 7 5V7.5C7 8.05229 7.44772 8.5 8 8.5C8.55229 8.5 9 8.05228 9 7.5L9 5Z M8 12C8.55228 12 9 11.5523 9 11C9 10.4477 8.55228 10 8 10C7.44772 10 7 10.4477 7 11C7 11.5523 7.44772 12 8 12Z',
-        class: 'cerebro-problemIcon__errorMark',
+        fill: '#ffffff',
       },
     ],
   ],
@@ -221,14 +221,14 @@ const ICONS = {
       'path',
       {
         d: 'M1.27603 10.8634L6.3028 1.98903C7.04977 0.670323 8.94893 0.670326 9.69589 1.98903L14.7227 10.8634C15.516 12.2639 14.5047 14 12.8956 14H3.10308C1.494 14 0.482737 12.2639 1.27603 10.8634Z',
-        class: 'cerebro-problemIcon__warning',
+        fill: 'var(--cerebro-icon-warning)',
       },
     ],
     [
       'path',
       {
         d: 'M9 5C9 4.44772 8.55228 4 8 4C7.44772 4 7 4.44772 7 5V7.5C7 8.05229 7.44772 8.5 8 8.5C8.55229 8.5 9 8.05228 9 7.5L9 5Z M8 12C8.55228 12 9 11.5523 9 11C9 10.4477 8.55228 10 8 10C7.44772 10 7 10.4477 7 11C7 11.5523 7.44772 12 8 12Z',
-        class: 'cerebro-problemIcon__warningMark',
+        fill: 'var(--cerebro-icon-warning-mark)',
       },
     ],
   ],
@@ -245,10 +245,23 @@ function icon(name: keyof typeof ICONS): SVGSVGElement {
   svg.setAttribute('aria-hidden', 'true');
   for (const [tag, attributes] of ICONS[name]) {
     const part = document.createElementNS(SVG, tag);
-    for (const [key, value] of Object.entries(attributes)) part.setAttribute(key, value);
+    for (const [key, value] of Object.entries(attributes)) {
+      // A colour through the style object: a theme variable, which an attribute can't take, without
+      // a rule for it, so the icon shows outside the editor's shadow root too.
+      if (key === 'fill') part.style.fill = value;
+      else part.setAttribute(key, value);
+    }
     svg.append(part);
   }
   return svg;
+}
+
+/**
+ * A problem's icon, as the Problems tool window lists it: IntelliJ's error or warning, a weak
+ * warning's the warning's (a claim: IntelliJ's own wasn't found among its status icons).
+ */
+export function problemIcon(severity: 'error' | 'warning' | 'weak'): SVGSVGElement {
+  return icon(severity === 'error' ? 'error' : 'warning');
 }
 
 /**
@@ -256,66 +269,86 @@ function icon(name: keyof typeof ICONS): SVGSVGElement {
  * warnings (weak ones counted with them), or a tick for none, and arrows to the previous and next.
  * Not shown before the first answer.
  */
-const widget = ViewPlugin.define((view) => {
-  const element = document.createElement('div');
-  element.className = 'cerebro-problems';
-  element.hidden = true;
-  view.dom.append(element);
-  const arrow = (forward: boolean) => {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'cerebro-problems__arrow';
-    button.title = forward ? 'Next Highlighted Error' : 'Previous Highlighted Error';
-    button.append(icon(forward ? 'down' : 'up'));
-    // The editor keeps the focus, as IntelliJ's.
-    button.addEventListener('mousedown', (event) => {
-      event.preventDefault();
-      goToProblem(view, forward);
-    });
-    return button;
-  };
-  const draw = (problems: readonly Placed[]) => {
-    const errors = problems.filter((p) => p.severity === 'error').length;
-    const warnings = problems.filter(
-      (p) => p.severity === 'warning' || p.severity === 'weak',
-    ).length;
-    const counts: Node[] = [];
-    const count = (name: 'error' | 'warning', n: number, title: string) => {
-      const item = document.createElement('span');
-      item.className = `cerebro-problems__count cerebro-problems__count--${name}`;
-      item.title = title;
-      item.append(icon(name), String(n));
-      counts.push(item);
+const widget = (onShow: (() => void) | undefined) =>
+  ViewPlugin.define((view) => {
+    const element = document.createElement('div');
+    element.className = 'cerebro-problems';
+    element.hidden = true;
+    view.dom.append(element);
+    const arrow = (forward: boolean) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'cerebro-problems__arrow';
+      button.title = forward ? 'Next Highlighted Error' : 'Previous Highlighted Error';
+      button.append(icon(forward ? 'down' : 'up'));
+      // The editor keeps the focus, as IntelliJ's.
+      button.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        goToProblem(view, forward);
+      });
+      return button;
     };
-    if (errors > 0)
-      count('error', errors, `${String(errors)} ${errors === 1 ? 'error' : 'errors'}`);
-    if (warnings > 0) {
-      count('warning', warnings, `${String(warnings)} ${warnings === 1 ? 'warning' : 'warnings'}`);
-    }
-    if (counts.length === 0) {
-      const ok = document.createElement('span');
-      ok.className = 'cerebro-problems__ok';
-      ok.title = 'No problems found';
-      ok.append(icon('ok'));
-      counts.push(ok);
-    } else counts.push(arrow(false), arrow(true));
-    element.replaceChildren(...counts);
-  };
-  return {
-    update(update: ViewUpdate) {
-      const problems = update.state.field(problemsField);
-      if (!update.transactions.some((tr) => tr.effects.some((e) => e.is(setProblems)))) return;
-      element.hidden = false;
-      draw(problems);
-    },
-    destroy() {
-      element.remove();
-    },
-  };
-});
+    const draw = (problems: readonly Placed[]) => {
+      const errors = problems.filter((p) => p.severity === 'error').length;
+      const warnings = problems.filter(
+        (p) => p.severity === 'warning' || p.severity === 'weak',
+      ).length;
+      const counts: Node[] = [];
+      const count = (name: 'error' | 'warning', n: number, title: string) => {
+        const item = document.createElement('span');
+        item.className = `cerebro-problems__count cerebro-problems__count--${name}`;
+        item.title = title;
+        item.append(icon(name), String(n));
+        if (onShow) {
+          item.classList.add('cerebro-problems__count--opens');
+          item.addEventListener('click', onShow);
+        }
+        counts.push(item);
+      };
+      if (errors > 0)
+        count('error', errors, `${String(errors)} ${errors === 1 ? 'error' : 'errors'}`);
+      if (warnings > 0) {
+        count(
+          'warning',
+          warnings,
+          `${String(warnings)} ${warnings === 1 ? 'warning' : 'warnings'}`,
+        );
+      }
+      if (counts.length === 0) {
+        const ok = document.createElement('span');
+        ok.className = 'cerebro-problems__ok';
+        ok.title = 'No problems found';
+        ok.append(icon('ok'));
+        if (onShow) {
+          ok.classList.add('cerebro-problems__count--opens');
+          ok.addEventListener('click', onShow);
+        }
+        counts.push(ok);
+      } else counts.push(arrow(false), arrow(true));
+      element.replaceChildren(...counts);
+    };
+    return {
+      update(update: ViewUpdate) {
+        const problems = update.state.field(problemsField);
+        if (!update.transactions.some((tr) => tr.effects.some((e) => e.is(setProblems)))) return;
+        element.hidden = false;
+        draw(problems);
+      },
+      destroy() {
+        element.remove();
+      },
+    };
+  });
 
-/** The file's problems, asked of `ask` as it opens and once an edit has settled, and shown. */
-export function problemHighlights(ask: AskProblems, after = PROBLEMS_AFTER): Extension {
+/**
+ * The file's problems, asked of `ask` as it opens and once an edit has settled, and shown. A click
+ * on the corner's counts runs `onShow`: IntelliJ's shows the Problems tool window.
+ */
+export function problemHighlights(
+  ask: AskProblems,
+  onShow?: () => void,
+  after = PROBLEMS_AFTER,
+): Extension {
   const asker = ViewPlugin.define((view) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const schedule = (wait: number) => {
@@ -352,5 +385,5 @@ export function problemHighlights(ask: AskProblems, after = PROBLEMS_AFTER): Ext
       },
     };
   });
-  return [problemsField, decorations, asker, stripe, errorStripe, tooltip, widget];
+  return [problemsField, decorations, asker, stripe, errorStripe, tooltip, widget(onShow)];
 }

@@ -93,6 +93,8 @@ export interface CodeEditorProps {
    * it opens, and once an edit has settled. None: no problems shown.
    */
   problems?: AskProblems;
+  /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
+  onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
   onMark?: (mark: Mark) => void;
   /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
@@ -350,10 +352,7 @@ export const theme = EditorView.theme({
     cursor: 'pointer',
   },
   '.cerebro-problems__arrow:hover': { backgroundColor: variable('hover') },
-  '.cerebro-problemIcon__error': { fill: variable('icon-error') },
-  '.cerebro-problemIcon__errorMark': { fill: '#ffffff' },
-  '.cerebro-problemIcon__warning': { fill: variable('icon-warning') },
-  '.cerebro-problemIcon__warningMark': { fill: variable('icon-warning-mark') },
+  '.cerebro-problems__count--opens': { cursor: 'pointer' },
   '.cerebro-problemIcon__ok': {
     fill: 'none',
     stroke: variable('icon-ok'),
@@ -553,7 +552,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     selection,
     // After the selection: a later layer beneath goes lower.
     props.usages ? usageHighlights(props.usages) : [],
-    props.problems ? problemHighlights(props.problems) : [],
+    props.problems ? problemHighlights(props.problems, props.onShowProblems) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
