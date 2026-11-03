@@ -74,6 +74,12 @@ type Item =
  */
 const DIFF = 'diff';
 
+/** A changed file's own tab: named by its whole path, as files opened elsewhere are. */
+const fileTab = (worktree: string, path: string): Tab => ({
+  id: `${worktree}/${path}`,
+  title: path.split('/').at(-1) as string,
+});
+
 export const diffTab = (path: string, range?: Range): Tab => ({
   id: range ? `${DIFF}@${range.from}..${range.to}:${path}` : `${DIFF}:${path}`,
   title: path.split('/').at(-1) as string,
@@ -574,7 +580,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     });
   };
   const openFile = (item: Extract<Item, { kind: 'change' }>) => {
-    setup.open({ id: item.change.path, title: item.change.path.split('/').at(-1) as string });
+    setup.open(fileTab((current() as Changes).path, item.change.path));
   };
 
   commands.register({
@@ -665,7 +671,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       ) {
         return;
       }
-      setup.openAt(at);
+      setup.openAt({ ...at, path: `${env.id}/${at.path}` });
     },
   });
   commands.register({
@@ -697,7 +703,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     enabled: (c) => here(c) && current() !== undefined && setup.activeTab() !== undefined,
     run: () => {
       const tab = setup.activeTab() as string;
-      void reveal(current() as Changes, diffPath(tab) ?? tab);
+      const changes = current() as Changes;
+      const path = diffPath(tab) ?? tab;
+      const root = `${changes.path}/`;
+      void reveal(changes, path.startsWith(root) ? path.slice(root.length) : path);
     },
   });
   commands.register({
@@ -1093,12 +1102,7 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
                 onOpen={(item) => {
                   // Only files open, as IntelliJ's: the diff is Show Diff's.
                   const change = item as Extract<Item, { kind: 'change' }>;
-                  if (openable(change)) {
-                    props.open({
-                      id: change.change.path,
-                      title: change.change.path.split('/').at(-1) as string,
-                    });
-                  }
+                  if (openable(change)) props.open(fileTab(env.id, change.change.path));
                 }}
                 onContextMenu={(event) => {
                   openContextMenu(props.services, 'changes/item', event, FROM_VIEW);
@@ -1161,12 +1165,7 @@ export function AgentChangesView(props: {
               row={(item) => content(item)}
               onOpen={(item) => {
                 const change = item as Extract<Item, { kind: 'change' }>;
-                if (openable(change)) {
-                  props.open({
-                    id: change.change.path,
-                    title: change.change.path.split('/').at(-1) as string,
-                  });
-                }
+                if (openable(change)) props.open(fileTab(env.id, change.change.path));
               }}
               onContextMenu={(event) => {
                 openContextMenu(props.services, 'agent/item', event, FROM_AGENT);
