@@ -1,6 +1,9 @@
 // Git, through its command line: the host runs next to the repos, so git is local to them.
 
 import { execFile } from 'node:child_process';
+import { copyFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import type { Writable } from 'node:stream';
 
 export interface Worktree {
@@ -311,6 +314,93 @@ export async function listChangesBetween(
   run: Git = git,
 ): Promise<Change[]> {
   return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', from, to]));
+}
+
+/** Git's empty tree: what a first commit is compared with. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+let indexes = 0;
+
+/**
+ * A tree of the worktree's files as they are, every one git doesn't ignore, made through a copy of
+ * its index: the real one, and so what's staged, is untouched.
+ */
+export async function worktreeTree(worktree: string, run: Git = git): Promise<string> {
+  const index = resolve(
+    worktree,
+    (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim(),
+  );
+  const temp = join(tmpdir(), `cerebro-index-${String(process.pid)}-${String(++indexes)}`);
+  // A repository with nothing added yet has no index: the copy starts empty.
+  await copyFile(index, temp).catch(() => undefined);
+  try {
+    const env = { GIT_INDEX_FILE: temp };
+    await run(worktree, ['add', '--all'], env);
+    return (await run(worktree, ['write-tree'], env)).trim();
+  } finally {
+    await rm(temp, { force: true });
+  }
+}
+
+/** The changes from a commit to the worktree's files as they are, untracked ones included. */
+export async function listChangesSince(
+  worktree: string,
+  from: string,
+  run: Git = git,
+): Promise<Change[]> {
+  return listChangesBetween(worktree, from, await worktreeTree(worktree, run), run);
+}
+
+/** A commit, as listed. */
+export interface Commit {
+  hash: string;
+  /** Its first parent, or the empty tree for a first commit: what its changes are against. */
+  parent: string;
+  subject: string;
+  author: string;
+  /** When it was committed, in milliseconds. */
+  time: number;
+}
+
+/**
+ * The commits reachable from the worktree's last commit but not from `since` (all of them, without
+ * it), the latest first. None before the first commit.
+ */
+export async function listCommits(
+  worktree: string,
+  since: string | undefined,
+  run: Git = git,
+): Promise<Commit[]> {
+  let output: string;
+  try {
+    output = await run(worktree, [
+      'log',
+      '-z',
+      '--format=%H%x1f%P%x1f%ct%x1f%an%x1f%s',
+      since === undefined ? 'HEAD' : `${since}..HEAD`,
+    ]);
+  } catch {
+    return [];
+  }
+  return output
+    .split('\0')
+    .filter(Boolean)
+    .map((record) => {
+      const [hash, parents, time, author, subject] = record.split('\x1f') as [
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      return {
+        hash,
+        parent: parents.split(' ')[0] || EMPTY_TREE,
+        subject,
+        author,
+        time: Number(time) * 1000,
+      };
+    });
 }
 
 /** A file's text at a commit; empty if it isn't in it (or there's no such commit yet). */

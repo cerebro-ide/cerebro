@@ -8,7 +8,7 @@ import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
-import { listTurns, TurnRecorder } from './turns.js';
+import { currentSession, listTurns, TurnRecorder } from './turns.js';
 import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
 import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
@@ -17,10 +17,11 @@ import { LanguageServers } from './lsp.js';
 import {
   addWorktree,
   commit,
-  committedText,
   git as runGit,
   listChanges,
   listChangesBetween,
+  listChangesSince,
+  listCommits,
   listIgnored,
   lastMessage,
   rollback,
@@ -252,40 +253,46 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await writeTextFile(text(params, 'path'), content);
     return null;
   });
-  /** A request's commits to compare (a turn's snapshots), if it names them. */
-  const range = (params: unknown): { from: string; to: string } | undefined => {
+  /**
+   * A request's commits to compare (a turn's snapshots, a commit and its parent), if it names
+   * them; `to` left out is the worktree's files as they are (since a session started).
+   */
+  const range = (params: unknown): { from: string; to: string | undefined } | undefined => {
     const p = params as { from?: unknown; to?: unknown };
-    return typeof p.from === 'string' && typeof p.to === 'string'
-      ? { from: p.from, to: p.to }
-      : undefined;
+    if (typeof p.from !== 'string') return undefined;
+    return { from: p.from, to: typeof p.to === 'string' ? p.to : undefined };
   };
-  // A worktree's changes since its last commit, or from one commit to another.
+  // A worktree's changes since its last commit, or from one commit to another, or to its files.
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);
-    return between
-      ? listChangesBetween(worktree, between.from, between.to, git)
-      : listChanges(worktree, git);
+    if (!between) return listChanges(worktree, git);
+    return between.to === undefined
+      ? listChangesSince(worktree, between.from, git)
+      : listChangesBetween(worktree, between.from, between.to, git);
   });
   // A file's two sides for its diff: as last committed (where it was, if renamed), and as it is;
-  // or at one commit and another.
+  // at one commit and another; or at a commit and as it is.
   connection.onRequest('git.diff', async (params) => {
     const worktree = text(params, 'path');
     const file = text(params, 'file');
     const between = range(params);
-    if (between) {
-      const change = (await listChangesBetween(worktree, between.from, between.to, git)).find(
+    if (between?.to !== undefined) {
+      const { from, to } = between;
+      const change = (await listChangesBetween(worktree, from, to, git)).find(
         (c) => c.path === file,
       );
       const [original, current] = await Promise.all([
-        textAt(worktree, between.from, change?.from ?? file, git),
-        textAt(worktree, between.to, file, git),
+        textAt(worktree, from, change?.from ?? file, git),
+        textAt(worktree, to, file, git),
       ]);
       return { original, text: current };
     }
-    const change = (await listChanges(worktree, git)).find((c) => c.path === file);
+    const change = (
+      await (between ? listChangesSince(worktree, between.from, git) : listChanges(worktree, git))
+    ).find((c) => c.path === file);
     const [original, current] = await Promise.all([
-      committedText(worktree, change?.from ?? file, git),
+      textAt(worktree, between?.from ?? 'HEAD', change?.from ?? file, git),
       change?.status === 'deleted' ? '' : read(join(worktree, file)),
     ]);
     return { original, text: current };
@@ -318,6 +325,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   connection.onRequest('git.lastMessage', (params) => lastMessage(text(params, 'path'), git));
   connection.onRequest('agent.turns', (params) => listTurns(text(params, 'path'), git));
+  // The worktree's current agent session: where it started, what changed since, and the commits
+  // made since; null with none.
+  connection.onRequest('agent.session', async (params) => {
+    const worktree = text(params, 'path');
+    const session = await currentSession(worktree, git);
+    if (!session) return null;
+    const parent = (await git(worktree, ['rev-list', '--parents', '-n', '1', session.start]))
+      .trim()
+      .split(' ')[1];
+    const [changes, commits] = await Promise.all([
+      listChangesSince(worktree, session.start, git),
+      listCommits(worktree, parent, git),
+    ]);
+    return { ...session, changes, commits };
+  });
   connection.onRequest('git.addWorktree', (params) => {
     const p = params as { create?: unknown; from?: unknown } | null;
     return addWorktree(
@@ -367,7 +389,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = agents.get(status.key);
     // The agent waits for the snapshot before its turn, so the turn's changes come after it.
     if (status.event === 'UserPromptSubmit' && worktree !== undefined) {
-      return record(turns.started(status.key, worktree, status.prompt ?? ''));
+      return record(turns.started(status.key, worktree, status.prompt ?? '', status.sessionId));
     }
     if (status.event === 'Stop') void record(turns.ended(status.key));
     return undefined;

@@ -611,11 +611,13 @@ describe('terminals', () => {
     const statuses = vi.fn();
     ui.onNotification('agent.status', statuses);
     const failed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // No turn yet, so no session.
+    expect(await ui.request('agent.session', { path: dir })).toBeNull();
     // The hook returns once the snapshot before the turn is taken.
     await sendHook(socket, {
       key: 'claude:a',
       event: 'UserPromptSubmit',
-      input: { prompt: 'Change a' },
+      input: { prompt: 'Change a', session_id: 's' },
     });
     // Not an agent the host started; and one outside a repository, which can't be kept.
     await sendHook(socket, { key: 'other', event: 'UserPromptSubmit', input: {} });
@@ -639,6 +641,43 @@ describe('terminals', () => {
     ).toEqual({
       original: 'before',
       text: 'after',
+    });
+    // The session: what changed since it started, and the commits since, none before any.
+    writeFileSync(join(dir, 'b.txt'), 'b');
+    const session = (await ui.request('agent.session', { path: dir })) as {
+      id: string;
+      start: string;
+      changes: unknown[];
+      commits: { subject: string }[];
+    };
+    expect(session).toEqual({
+      id: 's',
+      start: turn.start,
+      changes: [
+        { path: 'a.txt', status: 'modified' },
+        { path: 'b.txt', status: 'added' },
+      ],
+      commits: [],
+    });
+    execFileSync('git', ['add', '.'], { cwd: dir });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Both'], {
+      cwd: dir,
+    });
+    rmSync(join(dir, 'b.txt'));
+    const later = (await ui.request('agent.session', { path: dir })) as typeof session;
+    expect(later.commits.map((c) => c.subject)).toEqual(['Both']);
+    expect(await ui.request('git.changes', { path: dir, from: turn.start })).toEqual([
+      { path: 'a.txt', status: 'modified' },
+    ]);
+    // A file's diff since: as it was then, and as it is; one that's gone is empty.
+    expect(await ui.request('git.diff', { path: dir, file: 'a.txt', from: turn.start })).toEqual({
+      original: 'before',
+      text: 'after',
+    });
+    rmSync(join(dir, 'a.txt'));
+    expect(await ui.request('git.diff', { path: dir, file: 'a.txt', from: turn.start })).toEqual({
+      original: 'before',
+      text: '',
     });
     stop();
     rmSync(dir, { recursive: true, force: true });

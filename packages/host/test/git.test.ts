@@ -15,9 +15,13 @@ import {
   addWorktree,
   commit,
   committedText,
+  EMPTY_TREE,
   git,
   type Git,
   listChanges,
+  listChangesBetween,
+  listChangesSince,
+  listCommits,
   listFiles,
   ignoredAmong,
   listIgnored,
@@ -28,6 +32,7 @@ import {
   parseWorktrees,
   removeWorktree,
   rollback,
+  textAt,
 } from '../src/index.js';
 
 describe('parseWorktrees', () => {
@@ -345,6 +350,65 @@ describe('with real git', () => {
     expect(await listChanges(path)).toEqual([{ path: 'new.txt', status: 'untracked' }]);
     // Nothing was added: nothing to take back.
     await expect(commit(path, [], '', true, as)).rejects.toThrow();
+  });
+
+  it('lists the changes from a commit to the files as they are, untracked ones too', async () => {
+    const path = join(root, 'since');
+    await addWorktree(repo, { path, branch: 'since', create: true });
+    writeFileSync(join(path, 'b.txt'), 'b');
+    writeFileSync(join(path, 'gone.txt'), 'gone');
+    run(path, 'add', '.');
+    run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'more');
+    const from = run(path, 'rev-parse', 'HEAD').trim();
+    writeFileSync(join(path, 'a.txt'), 'changed');
+    writeFileSync(join(path, 'new.txt'), 'new');
+    writeFileSync(join(path, 'staged.txt'), 'staged');
+    run(path, 'add', 'staged.txt');
+    rmSync(join(path, 'gone.txt'));
+    run(path, 'mv', 'b.txt', 'moved.txt');
+    expect(await listChangesSince(path, from)).toEqual([
+      { path: 'a.txt', status: 'modified' },
+      { path: 'gone.txt', status: 'deleted' },
+      { path: 'moved.txt', status: 'renamed', from: 'b.txt' },
+      { path: 'new.txt', status: 'added' },
+      { path: 'staged.txt', status: 'added' },
+    ]);
+    // What's staged is as it was.
+    expect(run(path, 'diff', '--cached', '--name-only')).toBe('moved.txt\nstaged.txt\n');
+  });
+
+  it('lists the commits since one, the latest first, each with its first parent', async () => {
+    const path = join(root, 'commits');
+    await addWorktree(repo, { path, branch: 'commits', create: true });
+    const since = run(path, 'rev-parse', 'HEAD').trim();
+    expect(await listCommits(path, since)).toEqual([]);
+    for (const name of ['b', 'c']) {
+      writeFileSync(join(path, `${name}.txt`), name);
+      run(path, 'add', '.');
+      run(path, '-c', 'user.name=Ann', '-c', 'user.email=t@t', 'commit', '-qm', `Add ${name}`);
+    }
+    const [c, b] = await listCommits(path, since);
+    expect([c?.subject, b?.subject, b?.parent, c?.parent, c?.author]).toEqual([
+      'Add c',
+      'Add b',
+      since,
+      b?.hash,
+      'Ann',
+    ]);
+    expect(Math.abs((c?.time ?? 0) - Date.now())).toBeLessThan(60_000);
+    // Without one: every commit; the first is against the empty tree, which git knows.
+    const all = await listCommits(path, undefined);
+    expect(all).toHaveLength(3);
+    const first = all.at(-1) as (typeof all)[0];
+    expect(first.parent).toBe(EMPTY_TREE);
+    expect(await listChangesBetween(path, first.parent, first.hash)).toEqual([
+      { path: 'a.txt', status: 'added' },
+    ]);
+    expect(await textAt(path, first.parent, 'a.txt')).toBe('');
+    // None before the first commit.
+    const empty = join(root, 'no-commits');
+    run(root, 'init', '-q', empty);
+    expect(await listCommits(empty, undefined)).toEqual([]);
   });
 
   it('gives no last message before the first commit', async () => {

@@ -4,10 +4,7 @@
 // index (the real one, and so what's staged, is untouched), and kept by a ref in the worktree's own
 // namespace (refs/worktree/), so git keeps it and other worktrees don't see it.
 
-import { copyFile, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import type { Git } from './git.js';
+import { worktreeTree, type Git } from './git.js';
 
 /** Where a worktree's turns are kept, a ref each. */
 export const TURNS = 'refs/worktree/cerebro/turns/';
@@ -28,9 +25,9 @@ export interface Turn {
   prompt: string;
   /** When it ended, in milliseconds. */
   time: number;
+  /** The agent's session it was in, as Claude Code's hooks name it; unknown for older turns. */
+  session?: string;
 }
-
-let indexes = 0;
 
 /** A commit of the worktree's files as they are, after `parent` (if any). */
 export async function snapshot(
@@ -39,24 +36,11 @@ export async function snapshot(
   message: string,
   run: Git,
 ): Promise<string> {
-  const index = resolve(
-    worktree,
-    (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim(),
-  );
-  const temp = join(tmpdir(), `cerebro-index-${String(process.pid)}-${String(++indexes)}`);
-  // A repository with nothing added yet has no index: the copy starts empty.
-  await copyFile(index, temp).catch(() => undefined);
-  try {
-    const env = { GIT_INDEX_FILE: temp };
-    await run(worktree, ['add', '--all'], env);
-    const tree = (await run(worktree, ['write-tree'], env)).trim();
-    const parents = parent === undefined ? [] : ['-p', parent];
-    return (
-      await run(worktree, [...IDENTITY, 'commit-tree', tree, ...parents, '-m', message])
-    ).trim();
-  } finally {
-    await rm(temp, { force: true });
-  }
+  const tree = await worktreeTree(worktree, run);
+  const parents = parent === undefined ? [] : ['-p', parent];
+  return (
+    await run(worktree, [...IDENTITY, 'commit-tree', tree, ...parents, '-m', message])
+  ).trim();
 }
 
 /** The worktree's last commit; undefined before the first. */
@@ -81,15 +65,34 @@ export async function listTurns(worktree: string, run: Git): Promise<Turn[]> {
     .map((line) => {
       const [ref, end, start, subject] = line.split('\t') as [string, string, string, string];
       const id = ref.slice(TURNS.length);
-      let prompt = '';
+      let kept: { prompt?: unknown; session?: unknown } = {};
       try {
-        prompt = (JSON.parse(subject) as { prompt?: string }).prompt ?? '';
+        kept = JSON.parse(subject) as typeof kept;
       } catch {
         // Not one of ours: no prompt to show.
       }
-      return { id, start, end, prompt, time: Number(id.split('-')[0]) };
+      const prompt = typeof kept.prompt === 'string' ? kept.prompt : '';
+      const time = Number(id.split('-')[0]);
+      return typeof kept.session === 'string'
+        ? { id, start, end, prompt, time, session: kept.session }
+        : { id, start, end, prompt, time };
     })
     .sort((a, b) => b.time - a.time);
+}
+
+/**
+ * The worktree's current agent session, as its turns tell: the latest turn's, and the snapshot
+ * before its first turn, where the session started. None if the latest turn has no session.
+ */
+export async function currentSession(
+  worktree: string,
+  run: Git,
+): Promise<{ id: string; start: string } | undefined> {
+  const turns = await listTurns(worktree, run);
+  const id = turns[0]?.session;
+  if (id === undefined) return undefined;
+  const first = turns.findLast((turn) => turn.session === id) as Turn;
+  return { id, start: first.start };
 }
 
 /** Records each agent's turns: a snapshot when it's sent a prompt, another when it's done. */
@@ -97,7 +100,7 @@ export class TurnRecorder {
   /** Each agent's turn under way: its snapshot is taken, or being taken, by its queue. */
   private readonly starts = new Map<
     string,
-    { worktree: string; commit: Promise<string>; prompt: string }
+    { worktree: string; commit: Promise<string>; prompt: string; session: string | undefined }
   >();
   /** Each worktree's snapshots, one after the other. */
   private readonly queues = new Map<string, Promise<unknown>>();
@@ -108,13 +111,13 @@ export class TurnRecorder {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** The agent `key`, in `worktree`, was sent `prompt`. */
-  started(key: string, worktree: string, prompt: string): Promise<void> {
+  /** The agent `key`, in `worktree`, was sent `prompt`, in its session `session`. */
+  started(key: string, worktree: string, prompt: string, session?: string): Promise<void> {
     const commit = this.queue(worktree, async () =>
       snapshot(worktree, await head(worktree, this.run), 'Cerebro: before a turn', this.run),
     );
     // Known at once, so a turn that ends before its snapshot is taken is still kept.
-    this.starts.set(key, { worktree, commit, prompt: prompt.slice(0, PROMPT_LIMIT) });
+    this.starts.set(key, { worktree, commit, prompt: prompt.slice(0, PROMPT_LIMIT), session });
     return commit.then(() => undefined);
   }
 
@@ -124,7 +127,7 @@ export class TurnRecorder {
     if (!start) return Promise.resolve();
     this.starts.delete(key);
     return this.queue(start.worktree, async () => {
-      const message = JSON.stringify({ prompt: start.prompt });
+      const message = JSON.stringify({ prompt: start.prompt, session: start.session });
       const end = await snapshot(start.worktree, await start.commit, message, this.run);
       const id = `${String(this.now())}-${String(++this.count)}`;
       await this.run(start.worktree, ['update-ref', `${TURNS}${id}`, end]);

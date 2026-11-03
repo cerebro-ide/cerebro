@@ -2,9 +2,12 @@ export {
   addWorktree,
   commit,
   committedText,
+  EMPTY_TREE,
   git,
   listChanges,
   listChangesBetween,
+  listChangesSince,
+  listCommits,
   ignoredAmong,
   listIgnored,
   listFiles,
@@ -16,7 +19,9 @@ export {
   removeWorktree,
   rollback,
   textAt,
+  worktreeTree,
   type Change,
+  type Commit,
   type Git,
   type NewWorktree,
   type Worktree,
@@ -63,7 +68,7 @@ export {
   type Entry,
 } from './files.js';
 export { FRESH_FOR, IndexService, SAVE_AFTER } from './index-service.js';
-export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
+export { currentSession, listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
 export {
   BadQuery,
   byPlace,

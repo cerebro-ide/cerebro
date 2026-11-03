@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  currentSession,
   git,
   listChangesBetween,
   listTurns,
@@ -110,6 +111,29 @@ describe('turns', () => {
     // Only this worktree sees them.
     run(repo, 'worktree', 'add', '-q', '-b', 'other', join(root, 'other'));
     expect(await listTurns(join(root, 'other'), git)).toEqual([]);
+  });
+
+  it('keep their session; the current one is the latest turn’s, from its first turn', async () => {
+    const repo = repository('sessions');
+    let time = 1000;
+    const recorder = new TurnRecorder(git, () => time);
+    expect(await currentSession(repo, git)).toBeUndefined();
+    // A turn without a session (an older one), then two sessions' turns.
+    await recorder.started('claude', repo, 'none');
+    await recorder.ended('claude');
+    expect(await currentSession(repo, git)).toBeUndefined();
+    for (const session of ['s1', 's2', 's2']) {
+      time += 1000;
+      writeFileSync(join(repo, 'a.txt'), String(time));
+      await recorder.started('claude', repo, 'p', session);
+      await recorder.ended('claude');
+    }
+    const turns = await listTurns(repo, git);
+    expect(turns.map((t) => t.session)).toEqual(['s2', 's2', 's1', undefined]);
+    expect(await currentSession(repo, git)).toEqual({
+      id: 's2',
+      start: (turns[1] as (typeof turns)[0]).start,
+    });
   });
 
   it('go on after a snapshot fails, and are kept however soon they end', async () => {
