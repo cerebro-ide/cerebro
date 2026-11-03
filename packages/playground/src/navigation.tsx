@@ -16,6 +16,7 @@ import type {
   CompletionEdit,
   CompletionItem,
   CompletionList,
+  Documentation,
   EditorDocument,
   Mark,
   MarkerKind,
@@ -227,6 +228,11 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** Where the symbol at a place is in its file, from its language server; none without one. */
     usages(asked: Asked): Promise<Usage[] | null> {
       return ask<Usage[]>('lsp.highlights', asked);
+    },
+
+    /** What the symbol at a place is, from its file's language server: its hover; none without. */
+    documentation(asked: Asked): Promise<Documentation | null> {
+      return ask<Documentation>('lsp.hover', asked);
     },
 
     /** What can go at a place, from its file's language server; none without one. */

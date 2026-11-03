@@ -29,6 +29,7 @@ export const KEYS = {
   amend: mac ? 'Control+Alt+M' : 'Alt+M',
   darkTheme: 'Control+Backquote',
   undo: mac ? 'Meta+Z' : 'Control+Z',
+  quickDocumentation: mac ? 'F1' : 'Control+Q',
 } as const;
 
 let runs = 0;

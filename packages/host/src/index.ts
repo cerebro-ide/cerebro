@@ -95,6 +95,7 @@ export {
 export {
   actionsOf,
   completionsOf,
+  hoverOf,
   IDLE_AFTER,
   LanguageServer,
   LanguageServers,
@@ -107,6 +108,7 @@ export {
   uriOf,
   type Completion,
   type Completions,
+  type Hover,
   type ContextAction,
   type Highlight,
   type Located,

@@ -8,7 +8,7 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
-import { StreamLanguage } from '@codemirror/language';
+import { Language, LanguageSupport, StreamLanguage } from '@codemirror/language';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
 import type { Extension } from '@codemirror/state';
 
@@ -51,4 +51,19 @@ export function languageFor(path: string): Extension | undefined {
 /** A file's language's name, as the status bar shows it: Plain Text for one without. */
 export function languageName(path: string): string {
   return languageOf(path)?.name ?? 'Plain Text';
+}
+
+/** Code blocks' names for the languages that aren't their extensions (Markdown's fences). */
+const FENCES: Readonly<Record<string, string>> = {
+  typescript: 'ts',
+  javascript: 'js',
+  python: 'py',
+  shell: 'sh',
+};
+
+/** The language of a code block, by the name it's given (`typescript`, `py`); undefined if unknown. */
+export function codeLanguage(name: string): Language | undefined {
+  const key = name.toLowerCase();
+  const support = LANGUAGES[FENCES[key] ?? key]?.support();
+  return support instanceof LanguageSupport ? support.language : (support as Language | undefined);
 }

@@ -122,6 +122,12 @@ export interface Completions {
   items: Completion[];
 }
 
+/** What a server says of the symbol at a place, as its hover: its definition and documentation. */
+export interface Hover {
+  /** Markdown. */
+  text: string;
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -307,6 +313,30 @@ export function completionsOf(result: unknown, resolves: boolean): Completions {
   };
 }
 
+type MarkedString = string | { language: string; value: string };
+
+/** Characters Markdown would read as more than text. */
+const MARKDOWN = /[\\`*_{}[\]()#+\-.!<>|~&]/g;
+
+/** A hover's contents as Markdown: plain text escaped, code fenced, several parts apart. */
+function markdownOf(
+  contents: MarkedString | MarkedString[] | { kind: string; value: string },
+): string {
+  if (Array.isArray(contents)) return contents.map(markdownOf).join('\n\n');
+  if (typeof contents === 'string') return contents;
+  if ('kind' in contents) {
+    return contents.kind === 'markdown' ? contents.value : contents.value.replace(MARKDOWN, '\\$&');
+  }
+  return `\`\`\`${contents.language}\n${contents.value}\n\`\`\``;
+}
+
+/** A server's hover; null for none, or none with anything to say. */
+export function hoverOf(result: unknown): Hover | null {
+  const hover = result as { contents: Parameters<typeof markdownOf>[0] } | null;
+  const text = hover ? markdownOf(hover.contents).trim() : '';
+  return text === '' ? null : { text };
+}
+
 interface CodeAction {
   title: string;
   kind?: string;
@@ -437,6 +467,8 @@ export class LanguageServer {
             definition: { linkSupport: true },
             references: {},
             documentHighlight: {},
+            // Markdown first: the servers' definitions as code, their documentation's links.
+            hover: { contentFormat: ['markdown', 'plaintext'] },
             documentSymbol: { hierarchicalDocumentSymbolSupport: true },
             implementation: { linkSupport: true },
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
@@ -526,6 +558,11 @@ export class LanguageServer {
         context: { includeDeclaration: true },
       }),
     );
+  }
+
+  /** What the server says of the symbol at a place: its definition and documentation. */
+  async hover(file: OpenFile, languageId: string, at: Located): Promise<Hover | null> {
+    return hoverOf(await this.#ask('textDocument/hover', file, languageId, at));
   }
 
   /** What a symbol at a place in a file is implemented or overridden by. */
@@ -773,6 +810,13 @@ export class LanguageServers {
       file.path,
       (server, languageId) => server.problems(file, languageId),
       this.options.problemsPatience ?? PROBLEMS_PATIENCE,
+    );
+  }
+
+  /** What a server says of the symbol at a place; null when it says nothing, or not in time. */
+  hover(worktree: string, file: OpenFile, at: Located): Promise<Hover | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.hover(file, languageId, at),
     );
   }
 
