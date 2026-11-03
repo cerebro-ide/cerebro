@@ -37,6 +37,8 @@ async function openAt(name: string, text: string): Promise<void> {
  * matches show instead, which this closes.
  */
 async function untilAnswered(keys: string, answered: () => Promise<boolean>): Promise<void> {
+  let presses = 0;
+  let pressed = 0;
   await expect
     .poll(
       async () => {
@@ -44,6 +46,8 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
         // again from where it went asks something else (a Windows run ended in lib.py, with the
         // name matches of a Ctrl+B pressed there).
         if (await answered()) return true;
+        presses++;
+        pressed = Date.now();
         await page().keyboard.press(keys);
         await page().waitForTimeout(500);
         const names = await popup().getByText('Name matches').count();
@@ -56,6 +60,9 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
       { timeout: 30_000, interval: 1_000 },
     )
     .toBeTruthy();
+  // An earlier press's answer may still come, and go there again after the next test has moved on
+  // (a Windows run went back to lib.sh from scope.ts): it's waited for, as long as the host waits.
+  if (presses > 1) await page().waitForTimeout(Math.max(0, pressed + 3_500 - Date.now()));
 }
 
 /**
