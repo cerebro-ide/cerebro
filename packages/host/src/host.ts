@@ -225,7 +225,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // the one still running.
   let searching: AbortController | undefined;
 
-  /** Saves' records, made after their answers, one after another. */
+  /** Saves under way and their records, made after their answers, one after another. */
   let saves: Promise<void> = Promise.resolve();
   const recordSaved = async (
     path: string,
@@ -294,11 +294,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (label !== undefined && typeof label !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'label must be a string');
     }
-    const before = await readFile(path, 'utf8');
-    await writeTextFile(path, content);
+    const write = (async () => {
+      const before = await readFile(path, 'utf8');
+      await writeTextFile(path, content);
+      return before;
+    })();
     // Recorded after the answer: a record of the whole worktree takes a dozen git processes, over
-    // a second for a save on Windows (CI).
-    saves = saves.then(() => recordSaved(path, { before, after: content }, label ?? ''));
+    // a second for a save on Windows (CI). Records wait for the write too: git reading a file as
+    // it's written over fails ("mmap failed", measured on Windows).
+    saves = saves.then(() =>
+      write.then(
+        (before) => recordSaved(path, { before, after: content }, label ?? ''),
+        () => undefined,
+      ),
+    );
+    await write;
     return null;
   });
   /** A request's commits to compare (a turn's snapshots), if it names them. */

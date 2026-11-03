@@ -1,8 +1,16 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
-import { exists, listFolder, MAX_FILE_SIZE, readTextFile, toSlashes } from '../src/index.js';
+import { afterAll, describe, expect, it, vi } from 'vitest';
+import {
+  empty,
+  exists,
+  listFolder,
+  MAPPED_WAIT,
+  MAX_FILE_SIZE,
+  readTextFile,
+  toSlashes,
+} from '../src/index.js';
 
 describe('listFolder', () => {
   const root = mkdtempSync(join(tmpdir(), 'cerebro-files-'));
@@ -74,5 +82,37 @@ describe('listFolder', () => {
 
   it('fails for a folder that isn’t there', async () => {
     await expect(listFolder(join(root, 'missing'))).rejects.toThrow(/ENOENT/);
+  });
+});
+
+describe('empty', () => {
+  const mapped = () =>
+    Object.assign(new Error('UNKNOWN: unknown error, ftruncate'), { code: 'UNKNOWN' });
+
+  it('waits on Windows while another process has the file mapped', async () => {
+    const truncate = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(mapped())
+      .mockRejectedValueOnce(mapped())
+      .mockResolvedValue(undefined);
+    await empty({ truncate }, 'win32');
+    expect(truncate).toHaveBeenCalledTimes(3);
+    expect(truncate).toHaveBeenCalledWith(0);
+  });
+
+  it('gives up after its wait, and at once elsewhere or for another error', async () => {
+    const always = vi.fn<() => Promise<void>>().mockRejectedValue(mapped());
+    const started = performance.now();
+    await expect(empty({ truncate: always }, 'win32', 50)).rejects.toThrow('UNKNOWN');
+    expect(performance.now() - started).toBeGreaterThanOrEqual(50);
+    expect(MAPPED_WAIT).toBe(2000);
+    for (const [platform, error] of [
+      ['linux', mapped()],
+      ['win32', Object.assign(new Error('EBADF'), { code: 'EBADF' })],
+    ] as const) {
+      const truncate = vi.fn<() => Promise<void>>().mockRejectedValue(error);
+      await expect(empty({ truncate }, platform)).rejects.toBe(error);
+      expect(truncate).toHaveBeenCalledTimes(1);
+    }
   });
 });

@@ -1,7 +1,8 @@
 // The file system, next to the repos: listing a folder for the project tree, reading and writing a
 // file for the editor.
 
-import { open, readdir, stat } from 'node:fs/promises';
+import { open, readdir, stat, type FileHandle } from 'node:fs/promises';
+import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface Entry {
   name: string;
@@ -88,12 +89,47 @@ export async function exists(path: string): Promise<boolean> {
 }
 
 /** Saves a text file as UTF-8, over what's there; the file must exist, so a typo makes none. */
-export async function writeTextFile(path: string, text: string): Promise<void> {
+export async function writeTextFile(
+  path: string,
+  text: string,
+  platform: NodeJS.Platform = process.platform,
+): Promise<void> {
   const file = await open(path, 'r+');
   try {
-    await file.truncate(0);
+    await empty(file, platform);
     await file.writeFile(text);
   } finally {
     await file.close();
+  }
+}
+
+/** How long a save waits for another process to let go of the file's mapping, in milliseconds. */
+export const MAPPED_WAIT = 2000;
+
+/** How often a save tries again while the file is mapped, in milliseconds. */
+const MAPPED_RETRY = 10;
+
+/**
+ * Empties a file to save over it. Windows doesn't resize a file another process has mapped into
+ * memory (Microsoft's SetEndOfFile docs), and git maps a file over 32 KB while it reads it: the
+ * Local History's `git add --all`, or an agent's. Measured on Windows: 37 saves of 300 of a 2 MB
+ * file failed beside the Local History's records. Node calls that error UNKNOWN (libuv has no
+ * name for ERROR_USER_MAPPED_FILE), so on Windows an UNKNOWN is tried again until `wait` is over.
+ */
+export async function empty(
+  file: Pick<FileHandle, 'truncate'>,
+  platform: NodeJS.Platform = process.platform,
+  wait = MAPPED_WAIT,
+): Promise<void> {
+  const until = performance.now() + wait;
+  for (;;) {
+    try {
+      await file.truncate(0);
+      return;
+    } catch (error) {
+      const mapped = platform === 'win32' && (error as NodeJS.ErrnoException).code === 'UNKNOWN';
+      if (!mapped || performance.now() >= until) throw error;
+      await sleep(MAPPED_RETRY);
+    }
   }
 }

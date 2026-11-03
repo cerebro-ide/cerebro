@@ -496,6 +496,23 @@ describe('files', () => {
     rmSync(dir, { recursive: true });
   });
 
+  it('records the Local History after a save under way, not while it writes', async () => {
+    // Git reading a file while it's written over fails on Windows ("mmap failed", measured).
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-during-')));
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    const git = vi.fn<Git>(runGit);
+    const { ui } = connect(git);
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, 'first');
+    await Promise.all([
+      ui.request('fs.write', { path: file, text: 'saved' }),
+      ui.request('history.record', { path: dir }),
+    ]);
+    // The save's record finds its worktree first.
+    expect(git.mock.calls[0]?.[1]).toEqual(['rev-parse', '--show-toplevel']);
+    rmSync(dir, { recursive: true });
+  });
+
   it('saves a file that exists, all of it, refusing to make one', async () => {
     const { ui } = connect();
     const dir = mkdtempSync(join(tmpdir(), 'cerebro-write-'));
