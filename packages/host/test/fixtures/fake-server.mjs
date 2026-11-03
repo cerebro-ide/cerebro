@@ -7,7 +7,8 @@
 // "pulls" answers a file's problems when asked (one error, its text in the message); "pushes"
 // sends them as the file changes, for its version; for text "late", the version before's, then
 // its own with no version; the others send none. Each answers code actions with one per diagnostic
-// it's given, named by its message.
+// it's given, named by its message. "completes" offers two completions, the second's import
+// given only when it's asked about (as TypeScript's server); the others offer none.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -27,7 +28,8 @@ const handle = (message) => {
   const { id, method } = message;
   if (method === 'initialize') {
     const pulls = mode === 'pulls' ? { diagnosticProvider: { interFileDependencies: false } } : {};
-    send({ id, result: { capabilities: pulls } });
+    const completes = mode === 'completes' ? { completionProvider: { resolveProvider: true } } : {};
+    send({ id, result: { capabilities: { ...pulls, ...completes } } });
     // Asks what a server may ask of its client.
     send({ id: 'c1', method: 'workspace/configuration', params: { items: [{}, {}] } });
     send({ id: 'c2', method: 'workspace/configuration' });
@@ -63,6 +65,22 @@ const handle = (message) => {
     } else {
       send({ method: 'textDocument/publishDiagnostics', params: { uri, version, diagnostics } });
     }
+  } else if (method === 'textDocument/completion') {
+    if (mode !== 'completes') {
+      send({ id, result: null });
+      return;
+    }
+    send({
+      id,
+      result: [
+        { label: 'alpha', kind: 10 },
+        { label: 'beta', kind: 3, data: { which: 'beta' } },
+      ],
+    });
+  } else if (method === 'completionItem/resolve') {
+    const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
+    const edits = message.params.data ? [{ range, newText: 'import beta;\n' }] : undefined;
+    send({ id, result: { ...message.params, additionalTextEdits: edits } });
   } else if (method === 'textDocument/codeAction') {
     const { uri } = message.params.textDocument;
     send({

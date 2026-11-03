@@ -98,6 +98,8 @@ describe('language servers', () => {
       markers: vi.fn(() => Promise.resolve([])),
       problems: vi.fn(() => Promise.resolve(null)),
       contextActions: vi.fn(() => Promise.resolve([])),
+      completions: vi.fn(() => Promise.resolve(null)),
+      completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
     const { ui, stop } = connect(undefined, undefined, servers as unknown as LanguageServers);
@@ -124,6 +126,17 @@ describe('language servers', () => {
     expect(await ui.request('lsp.problems', file)).toBeNull();
     expect(servers.problems).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.contextActions', { ...file, line: 1, column: 0 })).toEqual([]);
+    expect(await ui.request('lsp.completions', { ...file, line: 0, column: 1 })).toBeNull();
+    expect(servers.completions).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 0, column: 1 },
+    );
+    const item = { label: 'a', data: 1 };
+    expect(
+      await ui.request('lsp.completionEdits', { worktree: '/w', path: '/w/b.ts', item }),
+    ).toEqual([]);
+    expect(servers.completionEdits).toHaveBeenCalledWith('/w', '/w/b.ts', item);
     expect(servers.contextActions).toHaveBeenCalledWith(
       '/w',
       { path: '/w/b.ts', text: 'x' },
