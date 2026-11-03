@@ -126,6 +126,8 @@ describe('Edit → Cut, Copy and Paste', () => {
   it('copy a selection anywhere, but don’t cut from a terminal', async () => {
     const paragraph = add(document.createElement('p'));
     paragraph.textContent = 'some words';
+    // Text the app lets be selected, as its base styles say.
+    paragraph.className = 'cerebro-selectable';
     await userEvent.click(paragraph);
     expect(enabled('copy')).toBe(false);
     document.getSelection()?.selectAllChildren(paragraph);
