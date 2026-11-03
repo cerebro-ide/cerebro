@@ -3,6 +3,7 @@ import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { Text } from '@codemirror/state';
+import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import {
@@ -558,6 +559,48 @@ describe('CodeEditor', () => {
     expect(onFindUsages).toHaveBeenLastCalledWith('answer', within(6, 12));
     await clickWord(root, 'compute', ['Control']);
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
+  });
+
+  it('asks what can be done at the caret with Alt+Enter, saying where the caret is on screen', async () => {
+    const onContextActions = vi.fn();
+    const lines = Array.from({ length: 200 }, (_, n) => `line ${String(n)}`).join('\n');
+    const root = mount({ path: 'a.ts', text: `const answer = 1;\n${lines}`, onContextActions });
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Alt>}{Enter}{/Alt}');
+    const [at, caret] = onContextActions.mock.lastCall as [
+      { line: number; column: number },
+      Pick<Element, 'getBoundingClientRect'>,
+    ];
+    expect(at.line).toBe(0);
+    // The caret's own line: the list goes below it.
+    const line = (root.querySelector('.cm-line') as HTMLElement).getBoundingClientRect();
+    const rect = caret.getBoundingClientRect();
+    expect(rect.top).toBeGreaterThanOrEqual(line.top);
+    expect(rect.bottom).toBeLessThanOrEqual(line.bottom);
+    expect(rect.left).toBeGreaterThan(line.left);
+    // Scrolled out of view: the editor's corner.
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    scroller.scrollTop = scroller.scrollHeight;
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(caret.getBoundingClientRect().top).toBe(scroller.getBoundingClientRect().top);
+    // Its line still drawn there (measured); one CodeMirror has no place for: the same.
+    const none = vi.spyOn(EditorView.prototype, 'coordsAtPos').mockReturnValue(null);
+    scroller.scrollTop = 0;
+    expect(caret.getBoundingClientRect().top).toBe(scroller.getBoundingClientRect().top);
+    none.mockRestore();
+  });
+
+  it('leaves Alt+Enter alone without a handler for it', async () => {
+    const root = mount({ path: 'a.txt', document: new EditorDocument('a') });
+    const taken: boolean[] = [];
+    // Seen after the editor's own handlers.
+    window.addEventListener('keydown', (event) => taken.push(event.defaultPrevented), {
+      once: true,
+    });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Alt>}{Enter}{/Alt}');
+    expect(taken).toEqual([false]);
   });
 
   it('takes its actions’ keys from the keymap, as they change', async () => {

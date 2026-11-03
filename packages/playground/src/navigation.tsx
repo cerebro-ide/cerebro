@@ -12,7 +12,7 @@ import {
 } from '@cerebro-ide/layout';
 import { effect, ObservableMap } from '@cerebro-ide/reactive';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import type { Mark, MarkerKind, Problem, Usage } from '@cerebro-ide/ui-editor';
+import type { EditorDocument, Mark, MarkerKind, Problem, Usage } from '@cerebro-ide/ui-editor';
 import { onEdited } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
@@ -39,6 +39,12 @@ const MARKED: Record<MarkerKind, string> = {
   implemented: 'Implementations of',
   overridden: 'Overriding methods of',
 };
+
+/** What Alt+Enter offers, as the host gives it: a server's fix, made by its edits. */
+interface ContextAction {
+  title: string;
+  edits: { from: Position; to: Position; text: string }[];
+}
 
 /** A place in a file as the editor has it, unsaved edits and all: what a language server is asked. */
 export interface Asked {
@@ -238,6 +244,45 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       } catch {
         return null;
       }
+    },
+
+    /**
+     * What can be done at the caret, from the file's language server, listed below it, as
+     * IntelliJ's Show Context Actions (Alt+Enter). The one chosen is made in the document, as an
+     * edit undo takes back, and the editor has the focus again.
+     */
+    async contextActions(
+      asked: Asked,
+      caret: Pick<Element, 'getBoundingClientRect'>,
+      doc: EditorDocument,
+    ) {
+      const before = doc.text.peek();
+      const actions = (await ask<ContextAction>('lsp.contextActions', asked)) ?? [];
+      const items = actions.map((action) => ({
+        label: action.title,
+        icon: () => icon('bulb'),
+        action,
+      }));
+      const chosen = await openPicker({
+        label: 'Context actions',
+        placeholder: 'Filter',
+        position: { below: caret },
+        // IntelliJ's words (LangBundle).
+        empty: 'No context actions available at this location',
+        items: (query) => fuzzyFilter(items, query),
+      }).result;
+      // Made in the text it was found for: the server's places are in it.
+      if (chosen && doc.text.peek() === before) {
+        const offset = (at: Position) => before.line(at.line + 1).from + at.column;
+        doc.edit(
+          chosen.action.edits.map((e) => ({
+            from: offset(e.from),
+            to: offset(e.to),
+            insert: e.text,
+          })),
+        );
+      }
+      focusing.set(asked.path, {});
     },
 
     /** Goes where a gutter marker says: there, or to the one chosen of several. */

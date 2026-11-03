@@ -303,6 +303,83 @@ describe('Go to Definition', () => {
   });
 });
 
+describe('context actions', () => {
+  const caret = () => {
+    const place = document.createElement('div');
+    place.style.cssText = 'position: fixed; left: 100px; top: 200px; width: 0; height: 20px;';
+    document.body.append(place);
+    return place;
+  };
+  const fix = {
+    title: 'from lib import walk',
+    edits: [
+      { from: { line: 0, column: 0 }, to: { line: 0, column: 4 }, text: 'walk' },
+      { from: { line: 0, column: 0 }, to: { line: 0, column: 0 }, text: 'from lib import walk\n' },
+    ],
+  };
+  const ignore = {
+    title: 'Add `# pyright: ignore`',
+    edits: [{ from: { line: 0, column: 6 }, to: { line: 0, column: 6 }, text: '  # ignore' }],
+  };
+
+  it('lists the server’s below the caret, and makes the one chosen in the document', async () => {
+    const doc = new EditorDocument('walk()\n');
+    const here = { path: '/r/a.py', text: 'walk()\n', line: 0, column: 2 };
+    answers = { 'lsp.contextActions': [fix, ignore] };
+    const focused = focusing.get('/r/a.py');
+    const place = caret();
+    const done = nav.contextActions(here, place, doc);
+    expect(await popupItems()).toEqual(['from lib import walk', 'Add `# pyright: ignore`']);
+    expect(host.params('lsp.contextActions')).toEqual([{ worktree: '/r', ...here }]);
+    const popup = document.querySelector('.cerebro-popup') as HTMLElement;
+    expect(popup.getBoundingClientRect().top).toBeGreaterThanOrEqual(220);
+    expect(popup.getBoundingClientRect().left).toBe(100);
+    // Filtered as typed, as IntelliJ's list.
+    await userEvent.keyboard('ignore');
+    expect(await popupItems()).toEqual(['Add `# pyright: ignore`']);
+    await userEvent.keyboard('{Backspace>6/}{Enter}');
+    await done;
+    expect(doc.content()).toBe('from lib import walk\nwalk()\n');
+    // Undone as one edit.
+    expect(doc.lastEdit?.before.toString()).toBe('walk()\n');
+    // The editor has the focus again.
+    expect(focusing.get('/r/a.py')).not.toBe(focused);
+    place.remove();
+  });
+
+  it('makes none in text changed since, or when none is chosen', async () => {
+    const doc = new EditorDocument('walk()\n');
+    const here = { path: '/r/a.py', text: 'walk()\n', line: 0, column: 2 };
+    answers = { 'lsp.contextActions': [fix] };
+    const place = caret();
+    let done = nav.contextActions(here, place, doc);
+    await popupItems();
+    doc.edit([{ from: 0, to: 0, insert: '#' }]);
+    await userEvent.keyboard('{Enter}');
+    await done;
+    expect(doc.content()).toBe('#walk()\n');
+    done = nav.contextActions({ ...here, text: '#walk()\n' }, place, doc);
+    await popupItems();
+    await userEvent.keyboard('{Escape}');
+    await done;
+    expect(doc.content()).toBe('#walk()\n');
+    place.remove();
+  });
+
+  it('says there are none, as IntelliJ, with no server to ask', async () => {
+    const doc = new EditorDocument('x');
+    const place = caret();
+    const done = nav.contextActions({ ...asked, text: 'x' }, place, doc);
+    await vi.waitUntil(() => document.querySelector('.cerebro-popup__empty'));
+    expect(document.querySelector('.cerebro-popup__empty')?.textContent).toBe(
+      'No context actions available at this location',
+    );
+    await userEvent.keyboard('{Escape}');
+    await done;
+    place.remove();
+  });
+});
+
 describe('Find Usages', () => {
   it('lists the language server’s usages, or else the index’s by name', async () => {
     answers = { 'lsp.usages': [at('/r/src/u1.ts', 1)] };

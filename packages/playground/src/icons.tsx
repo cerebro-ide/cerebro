@@ -10,6 +10,8 @@ const PATHS: Record<string, string> = {
   note: 'M3.5 2.5h9v11h-9zM5.5 5.5h5M5.5 8h5M5.5 10.5h3',
   terminal: 'M2.5 3.5h11v9h-11zM5 6.5l2 1.5-2 1.5M8.5 10h2.5',
   problems: 'M8 2.5l6 10.5H2zM8 6.5v3M8 11.2v.3',
+  // A light bulb: a context action, as IntelliJ's.
+  bulb: 'M8 2a4 4 0 0 0-2.5 7.1v1.9h5V9.1A4 4 0 0 0 8 2zM6 13.5h4',
   git: 'M5 3v10M5 9c0-2 6-1 6-4M11 5a1.5 1.5 0 1 0 0-.01M5 13a1.5 1.5 0 1 0 0-.01',
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
   database:

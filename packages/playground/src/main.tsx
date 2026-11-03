@@ -1020,6 +1020,10 @@ function Code(props: { path: string; env: string }) {
                     void navigation.goToDefinition(name, asked(state, at)),
                   onFindUsages: (name: string, at: { line: number; column: number }) =>
                     void navigation.findUsages(name, asked(state, at)),
+                  onContextActions: (
+                    at: { line: number; column: number },
+                    caret: Pick<Element, 'getBoundingClientRect'>,
+                  ) => void navigation.contextActions(asked(state, at), caret, state),
                   usages: (at: { line: number; column: number }) =>
                     navigation.usages(asked(state, at)),
                   canGoToDefinition: (name: string, at: { line: number; column: number }) =>

@@ -466,10 +466,11 @@ export class LanguageServer {
     this.sync(file, languageId);
     const uri = uriOf(file.path);
     if (this.#pulls) {
+      // A full report, with its items: no earlier one is named, to answer as unchanged (LSP).
       const answer = (await this.#connection.request('textDocument/diagnostic', {
         textDocument: { uri },
-      })) as { kind?: string; items?: unknown[] } | null;
-      return answer?.items ?? [];
+      })) as { items: unknown[] };
+      return answer.items;
     }
     const version = (this.#documents.get(uri) as { version: number }).version;
     const sent = () => {

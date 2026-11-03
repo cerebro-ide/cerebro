@@ -180,6 +180,8 @@ beforeAll(async () => {
     join(repo, 'wrong.ts'),
     'export function f(): number {\n  const idle = 1;\n  return "text";\n}\n',
   );
+  // A function called, not imported: two files export one of that name, each a fix.
+  writeFileSync(join(repo, 'needs.ts'), 'run();\nexport {};\n');
   writeFileSync(join(repo, 'wrong.py'), 'count: int = "text"\n');
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
@@ -430,6 +432,28 @@ it('underlines errors, greys what is never read, and goes to the error with F2',
   }
   await page().keyboard.press('F2');
   expect(await where()).toEqual({ tab: 'wrong.ts', line: '  return "text";' });
+}, 60_000);
+
+it('fixes an error with Alt+Enter, with the fix chosen of those its server offers', async () => {
+  await openAt('needs.ts', 'run();');
+  try {
+    await expect
+      .poll(async () => (await problems()).errors, { timeout: 30_000, interval: 500 })
+      .toEqual(['run']);
+  } catch (error) {
+    await explain(error, 'needs.ts', 0, 1, ['lsp.problems', 'lsp.contextActions']);
+  }
+  await page().keyboard.press('Alt+Enter');
+  const items = popup().locator('.cerebro-popup-item');
+  await items.first().waitFor();
+  expect(await items.allTextContents()).toEqual(
+    expect.arrayContaining(['Add import from "./lib"', 'Add import from "./other"']),
+  );
+  await page().keyboard.type('lib');
+  await expect.poll(() => items.allTextContents()).toEqual(['Add import from "./lib"']);
+  await page().keyboard.press('Enter');
+  await page().locator('.cm-line', { hasText: 'import { run } from "./lib";' }).waitFor();
+  expect((await where()).tab).toBe('needs.ts');
 }, 60_000);
 
 it('does the same for Python', async () => {

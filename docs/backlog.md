@@ -29,8 +29,9 @@ are listed per worktree, whichever session they came from; with several Claude s
 ## Known gaps
 
 - **Editing:** see "Not yet" in the decision "Editing and saving".
-- **Errors and warnings:** see "Not yet" in the decision "Errors and warnings in the editor" (the
-  Problems window's Project Errors tab and View Options, shell scripts, quick fixes).
+- **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
+  Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
+  Alt+Enter" (the bulb, commands, fixes across files).
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never

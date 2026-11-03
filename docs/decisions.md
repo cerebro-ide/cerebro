@@ -44,6 +44,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
+- [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1409,7 +1410,44 @@ them.
 - **The folder is the full path:** IntelliJ shortens it under the home folder (`~/...`).
 - **Not yet:** the Problems window's Project Errors tab, its View Options (filtering by severity,
   grouping) and its preview; shell scripts' problems, which bash-language-server gets from
-  `shellcheck`, not bundled (a claim, from its documentation); IntelliJ's quick fixes (Alt+Enter).
+  `shellcheck`, not bundled (a claim, from its documentation). Quick fixes have their own entry
+  ("Quick fixes: Alt+Enter").
+
+## Quick fixes: Alt+Enter (2026-11-03)
+
+After the errors and warnings, quick fixes, as WebStorm's (Ido: "go ahead", on "1, then 2": the
+Problems tool window, then Alt+Enter).
+
+- **Alt+Enter lists what can be done at the caret,** as IntelliJ's Show Context Actions: below the
+  caret's line, filtered as typed, each with a bulb. Enter makes the one chosen, as one edit that
+  undo takes back, and the editor has the focus again. With none, IntelliJ's words, "No context
+  actions available at this location" (`LangBundle.properties`), where the list would be. IntelliJ
+  shows them as a hint (Claude's choice, open to change: as the other empty lists here). With the
+  caret scrolled out of view, the list goes at the editor's top left (a claim: IntelliJ's goes in
+  the editor then).
+- **From the file's language server** (`lsp.contextActions`, LSP's `textDocument/codeAction`),
+  given the server's own diagnostics at the caret. TypeScript 7's server offers fixes only for the
+  diagnostics it's given; basedpyright finds its own (both measured). The fixes measured:
+  TypeScript's "Add import from "./lib"", one per file that exports the name; basedpyright's "from
+  lib import walk" and "Add `# pyright: ignore[rule]`".
+- **Only actions made by edits to the file:** both servers' fixes are edits (`changes`, measured).
+  Left out (Claude's choice, open to change): an action that is a command (the server makes the
+  change itself, through `workspace/applyEdit`), one with a command after its edit, one the server
+  says is disabled, and edits to other files.
+- **Made only in the text it was found for:** if the text was edited meanwhile, the fix isn't made,
+  as the server's places would be off.
+- **Each keymap's keys for it,** from IntelliJ's files (`ShowIntentionActions`) and VS Code's sheets
+  (Quick Fix):
+  - VS Code: Ctrl+. (Cmd+. on macOS).
+  - Eclipse: Ctrl+1 and Alt+Enter. Its file names the action twice; IntelliJ takes the last
+    (`KeymapImpl.kt`). Eclipse (macOS): Cmd+1.
+  - Visual Studio: Alt+Enter, Ctrl+. and Alt+Shift+F10.
+  - All the others: Alt+Enter. It's IntelliJ IDEA's, and their files don't name the action, so
+    they take it from their parents.
+- **Not yet:** IntelliJ's bulb beside the line; its own intentions, which the servers don't give
+  (Adjust code style settings); actions that are commands, and edits to other files; source
+  actions (Organize Imports, Fix All); a fix's submenu (IntelliJ's arrow, to suppress an
+  inspection).
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 
