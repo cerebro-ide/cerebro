@@ -103,6 +103,14 @@ describe('a file’s document', () => {
     projects.set(list);
   });
 
+  it('is empty in a browser for a file with no sample', async () => {
+    const list = projects.get();
+    projects.set([project('cerebro', undefined)]);
+    const doc = (await documentFor('cerebro/none.md')) as EditorDocument;
+    expect(doc.content()).toBe('');
+    projects.set(list);
+  });
+
   it('tells of its edits, not of what’s read from disk', async () => {
     const edited: string[] = [];
     onEdited((path) => edited.push(path));

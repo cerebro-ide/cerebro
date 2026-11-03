@@ -79,9 +79,9 @@ function watchEdits(path: string, doc: EditorDocument): void {
 
 /**
  * A file's document, read the first time it's asked for, or why it can't be read; in a browser, a
- * document of the sample text, which isn't saved.
+ * document of the sample text, which isn't saved (empty without one).
  */
-export function documentFor(path: string, sample: () => string): Promise<Loaded> {
+export function documentFor(path: string, sample?: () => string): Promise<Loaded> {
   let loaded = documents.get(path);
   if (!loaded) {
     const host = hostFor(path);
@@ -90,7 +90,7 @@ export function documentFor(path: string, sample: () => string): Promise<Loaded>
           (result) => new EditorDocument((result as { text: string }).text),
           (error: unknown) => ({ error: (error as Error).message }),
         )
-      : Promise.resolve(new EditorDocument(sample()));
+      : Promise.resolve(new EditorDocument(sample?.() ?? ''));
     // A file that couldn't be read is tried again the next time.
     void loaded.then((result) => {
       if (result instanceof EditorDocument) watchEdits(path, result);
