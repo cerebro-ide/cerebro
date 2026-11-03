@@ -169,7 +169,8 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
       case 'all': {
         const typed = q.trim() !== '';
         // Classes are symbols too: listed once, as classes.
-        const others = symbols.get().filter((s) => !CLASS_KINDS.includes(s.shortcut ?? ''));
+        // A symbol's shortcut is its kind.
+        const others = symbols.get().filter((s) => !CLASS_KINDS.includes(s.shortcut as string));
         return [
           ...some(classes.get(), 'Classes'),
           ...some(files(q), typed ? 'Files' : 'Recent Files'),

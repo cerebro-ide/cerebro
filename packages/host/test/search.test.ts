@@ -105,9 +105,9 @@ describe('searchText', () => {
         const searching = searchText(dir, { query: 'x' }, script, controller.signal);
         if (ms > 0) await new Promise((done) => setTimeout(done, ms));
         controller.abort();
-        const started = Date.now();
+        const started = performance.now();
         expect(await searching).toEqual({ matches: [], limited: true });
-        expect(Date.now() - started).toBeLessThan(5000);
+        expect(performance.now() - started).toBeLessThan(5000);
       };
       // While ripgrep runs, and before it started.
       await abortedAfter(200);

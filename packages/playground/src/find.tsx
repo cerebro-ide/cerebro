@@ -56,7 +56,8 @@ export function choiceOf(match: TextMatch): Choice {
   return {
     label,
     highlight,
-    shortcut: `${match.path.split('/').at(-1) ?? match.path} ${String(match.line + 1)}`,
+    // A split has a last part, even of a path without a slash.
+    shortcut: `${match.path.split('/').at(-1) as string} ${String(match.line + 1)}`,
     match,
   };
 }

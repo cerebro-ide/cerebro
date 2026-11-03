@@ -1,5 +1,5 @@
 import { EditorDocument } from '@cerebro-ide/ui-editor';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { documentFor, setupSaving } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
@@ -243,6 +243,23 @@ describe('Find in Files', () => {
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await done;
     expect(opened).toEqual([{ path: '/r/src/a.ts', line: 1, column: 2 }]);
+  });
+
+  it('opens a line whose matches the host dropped at its start', async () => {
+    // As the host drops a match past the end of its line.
+    const request = host.request.bind(host);
+    const spy = vi.spyOn(host, 'request').mockImplementation(async (method, params) => {
+      const answer = await request(method, params);
+      if (method !== 'search.text') return answer;
+      const { matches, limited } = answer as { matches: TextMatch[]; limited: boolean };
+      return { matches: matches.map((m) => ({ ...m, ranges: [] })), limited };
+    });
+    const { done } = await find('alpha');
+    await expect.poll(labels).toContain('const alpha = 1;');
+    await userEvent.keyboard('{Enter}');
+    await done;
+    expect(opened[0]).toMatchObject({ column: 0 });
+    spy.mockRestore();
   });
 
   it('lists nothing, and counts nothing, when the field is emptied', async () => {
