@@ -127,7 +127,9 @@ function Results(props: {
   const { occurrences } = props;
   const roots = occurrencesTree(occurrences.worktree, occurrences.matches);
   const model = new TreeModel<Item>({
-    children: (item) => (item === undefined ? roots : 'children' in item ? item.children : []),
+    // Lines are leaves, never asked for children.
+    children: (item) =>
+      item === undefined ? roots : (item as Exclude<Item, { kind: 'line' }>).children,
     key: (item) => item.key,
     isLeaf: (item) => item.kind === 'line',
   });
