@@ -2,6 +2,7 @@ export {
   addWorktree,
   commit,
   committedText,
+  EMPTY_TREE,
   git,
   listChanges,
   listChangesBetween,
@@ -63,6 +64,20 @@ export {
   type Entry,
 } from './files.js';
 export { FRESH_FOR, IndexService, SAVE_AFTER } from './index-service.js';
+export {
+  clearStashes,
+  deleteShelf,
+  dropStash,
+  listShelves,
+  listStashes,
+  SHELF,
+  shelve,
+  stash,
+  unshelve,
+  unstash,
+  type Shelf,
+  type Stash,
+} from './shelf.js';
 export { listTurns, snapshot, TurnRecorder, TURNS, type Turn } from './turns.js';
 export {
   BadQuery,

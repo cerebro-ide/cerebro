@@ -294,6 +294,69 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('shelves, lists, unshelves and deletes shelved changes, and stashes', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-shelf-')));
+    execFileSync('git', ['init', '-q', '-b', 'main', dir]);
+    writeFileSync(join(dir, 'a.txt'), 'a');
+    execFileSync('git', ['add', '.'], { cwd: dir });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first'], {
+      cwd: dir,
+    });
+    // Someone to stash as: a test machine may have no one set.
+    const git = vi.fn<Git>((cwd, args, env, input) =>
+      runGit(cwd, args, { ...env, GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' }, input),
+    );
+    const { ui, stop } = connect(git);
+    writeFileSync(join(dir, 'a.txt'), 'changed');
+    writeFileSync(join(dir, 'b.txt'), 'b');
+    // Only the files named; what's left is given back.
+    expect(
+      await ui.request('git.shelve', { path: dir, files: ['a.txt'], message: 'Aside' }),
+    ).toEqual([{ path: 'b.txt', status: 'untracked' }]);
+    const [shelf] = (await ui.request('git.shelves', { path: dir })) as { id: string }[];
+    await ui.request('git.unshelve', { path: dir, id: shelf?.id });
+    expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('changed');
+    await ui.request('git.shelve', { path: dir, files: ['a.txt'], message: 'Again' });
+    const [again] = (await ui.request('git.shelves', { path: dir })) as { id: string }[];
+    await ui.request('git.deleteShelf', { path: dir, id: again?.id });
+    expect(await ui.request('git.shelves', { path: dir })).toEqual([]);
+    // The stash, with and without a message.
+    writeFileSync(join(dir, 'a.txt'), 'stashed');
+    await ui.request('git.stash', { path: dir, message: 'Mine', includeUntracked: true });
+    expect(existsSync(join(dir, 'b.txt'))).toBe(false);
+    writeFileSync(join(dir, 'a.txt'), 'stashed again');
+    await ui.request('git.stash', { path: dir, keepIndex: true });
+    const stashes = (await ui.request('git.stashes', { path: dir })) as { message: string }[];
+    expect(stashes.map((s) => s.message)).toEqual([
+      expect.stringMatching(/^WIP on main/) as string,
+      'On main: Mine',
+    ]);
+    await ui.request('git.dropStash', { path: dir, ref: 'stash@{0}' });
+    await ui.request('git.unstash', {
+      path: dir,
+      ref: 'stash@{0}',
+      pop: true,
+      reinstateIndex: false,
+    });
+    expect(readFileSync(join(dir, 'b.txt'), 'utf8')).toBe('b');
+    await ui.request('git.stash', { path: dir, message: 'Last' });
+    await ui.request('git.clearStashes', { path: dir });
+    expect(await ui.request('git.stashes', { path: dir })).toEqual([]);
+    for (const [method, params] of [
+      ['git.shelve', { path: dir, files: 'a.txt', message: 'm' }],
+      ['git.unshelve', { path: dir, id: '../x' }],
+      ['git.deleteShelf', { path: dir }],
+      ['git.unstash', { path: dir, ref: 'HEAD' }],
+      ['git.dropStash', { path: dir, ref: 'stash@{x}' }],
+    ] as const) {
+      await expect(ui.request(method, params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+    stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('commits the files named, as changed now, and gives the changes left', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(

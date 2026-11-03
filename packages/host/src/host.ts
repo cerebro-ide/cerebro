@@ -9,6 +9,17 @@ import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
 import { listTurns, TurnRecorder } from './turns.js';
+import {
+  clearStashes,
+  deleteShelf,
+  dropStash,
+  listShelves,
+  listStashes,
+  shelve,
+  stash,
+  unshelve,
+  unstash,
+} from './shelf.js';
 import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
 import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
@@ -316,6 +327,65 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await commit(worktree, changes, message, p.amend === true, git);
     return listChanges(worktree, git);
   });
+  /** A request's list of files, by path. */
+  const files = (params: unknown): Set<string> => {
+    const p = params as { files?: unknown };
+    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    return new Set(p.files);
+  };
+  /** A request's shelved list or stash, as the lists name them. */
+  const named = (params: unknown, key: 'id' | 'ref', pattern: RegExp): string => {
+    const value = text(params, key);
+    if (!pattern.test(value)) throw new ResponseError(ErrorCodes.InvalidParams, `bad ${key}`);
+    return value;
+  };
+  const SHELF_ID = /^\d+-\d+$/;
+  const STASH_REF = /^stash@\{\d+\}$/;
+  const flag = (params: unknown, key: string) => (params as Record<string, unknown>)[key] === true;
+  // Shelves the files named, as changed now, under the message given; gives the changes left.
+  connection.onRequest('git.shelve', async (params) => {
+    const worktree = text(params, 'path');
+    const message = text(params, 'message');
+    const named = files(params);
+    const changes = (await listChanges(worktree, git)).filter((c) => named.has(c.path));
+    await shelve(worktree, changes, message, git);
+    return listChanges(worktree, git);
+  });
+  connection.onRequest('git.shelves', (params) => listShelves(text(params, 'path'), git));
+  connection.onRequest('git.unshelve', (params) =>
+    unshelve(text(params, 'path'), named(params, 'id', SHELF_ID), git).then(() => null),
+  );
+  connection.onRequest('git.deleteShelf', (params) =>
+    deleteShelf(text(params, 'path'), named(params, 'id', SHELF_ID), git).then(() => null),
+  );
+  connection.onRequest('git.stashes', (params) => listStashes(text(params, 'path'), git));
+  connection.onRequest('git.stash', (params) =>
+    stash(
+      text(params, 'path'),
+      // A stash may have no message: git names it after the last commit.
+      typeof (params as { message?: unknown }).message === 'string'
+        ? (params as { message: string }).message
+        : '',
+      { keepIndex: flag(params, 'keepIndex'), includeUntracked: flag(params, 'includeUntracked') },
+      git,
+    ).then(() => null),
+  );
+  connection.onRequest('git.unstash', (params) =>
+    unstash(
+      text(params, 'path'),
+      named(params, 'ref', STASH_REF),
+      { pop: flag(params, 'pop'), reinstateIndex: flag(params, 'reinstateIndex') },
+      git,
+    ).then(() => null),
+  );
+  connection.onRequest('git.dropStash', (params) =>
+    dropStash(text(params, 'path'), named(params, 'ref', STASH_REF), git).then(() => null),
+  );
+  connection.onRequest('git.clearStashes', (params) =>
+    clearStashes(text(params, 'path'), git).then(() => null),
+  );
   connection.onRequest('git.lastMessage', (params) => lastMessage(text(params, 'path'), git));
   connection.onRequest('agent.turns', (params) => listTurns(text(params, 'path'), git));
   connection.onRequest('git.addWorktree', (params) => {

@@ -313,6 +313,9 @@ export async function listChangesBetween(
   return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', from, to]));
 }
 
+/** Git's empty tree: what changes made before any commit are compared with. */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
 /** A file's text at a commit; empty if it isn't in it (or there's no such commit yet). */
 export async function textAt(
   worktree: string,
