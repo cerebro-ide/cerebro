@@ -296,7 +296,6 @@ describe('hovers', () => {
     const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 5 } };
     expect(hoverOf({ contents: { kind: 'markdown', value: '**a**\n' }, range })).toEqual({
       text: '**a**',
-      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 5 } },
     });
     expect(hoverOf({ contents: { kind: 'plaintext', value: 'a_b *c*' } })).toEqual({
       text: 'a\\_b \\*c\\*',
@@ -416,7 +415,6 @@ describe('TypeScript 7’s server', () => {
     const servers = pool(undefined, { patience: 60_000 });
     expect(await servers.hover(project, main, at(1, 2))).toEqual({
       text: '```typescript\n(alias) function tally(count: number): number\n```\nCounts the things.\n\n*@param* `count` — How many.',
-      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 5 } },
     });
     // Nothing there: none.
     expect(await servers.hover(project, main, at(2, 0))).toBeNull();
@@ -683,7 +681,6 @@ describe('basedpyright, for Python', () => {
     const servers = pool(undefined, { patience: 60_000 });
     expect(await servers.hover(project, main, at(1, 2))).toEqual({
       text: '```python\n(function) def walk(n: int) -> str\n```\n---\nWalks n steps.',
-      span: { from: { line: 1, column: 0 }, to: { line: 1, column: 4 } },
     });
   }, 60_000);
 

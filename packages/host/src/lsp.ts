@@ -122,13 +122,10 @@ export interface Completions {
   items: Completion[];
 }
 
-/**
- * What a server says of the symbol at a place, as its hover: its definition and documentation, as
- * Markdown, and where the symbol is, when it says.
- */
+/** What a server says of the symbol at a place, as its hover: its definition and documentation. */
 export interface Hover {
+  /** Markdown. */
   text: string;
-  span?: Span;
 }
 
 /** A file as the UI has it, edits and all. */
@@ -335,24 +332,9 @@ function markdownOf(
 
 /** A server's hover; null for none, or none with anything to say. */
 export function hoverOf(result: unknown): Hover | null {
-  const hover = result as {
-    contents: Parameters<typeof markdownOf>[0];
-    range?: Range;
-  } | null;
+  const hover = result as { contents: Parameters<typeof markdownOf>[0] } | null;
   const text = hover ? markdownOf(hover.contents).trim() : '';
-  if (!hover || text === '') return null;
-  const { range } = hover;
-  return {
-    text,
-    ...(range
-      ? {
-          span: {
-            from: { line: range.start.line, column: range.start.character },
-            to: { line: range.end.line, column: range.end.character },
-          },
-        }
-      : {}),
-  };
+  return text === '' ? null : { text };
 }
 
 interface CodeAction {
