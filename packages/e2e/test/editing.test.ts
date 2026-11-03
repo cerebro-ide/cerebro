@@ -43,6 +43,8 @@ beforeAll(async () => {
   writeFileSync(second, 'const second = 2;\n');
   writeFileSync(join(repo, 'bom.txt'), '\uFEFFmarked\n');
   writeFileSync(join(repo, 'gone.txt'), 'deleted soon\n');
+  // Big enough that writing it takes a while.
+  writeFileSync(join(repo, 'races.txt'), 'race\n' + 'more\n'.repeat(400_000));
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   // More than the editor and the Project tool window show.
   writeFileSync(join(repo, 'long.ts'), 'export {};\n'.repeat(300));
@@ -125,6 +127,33 @@ it('saves a file on its own when the editor loses the focus', async () => {
   await expect
     .poll(() => disk(second), { timeout: 15_000 })
     .toBe('const second = 3; // autosaved\n');
+});
+
+it('saves a file twice at once, and while it’s read again, with no conflict', async () => {
+  // Each save read the file first, and found the other's write; a read made while the file was
+  // saved found the save's own: both were called a File Cache Conflict.
+  await open('races.txt');
+  for (let round = 0; round < 5; round++) {
+    await page().keyboard.type('x');
+    // Read again when the window gets the focus.
+    await page().evaluate(() => {
+      const reads = setInterval(() => window.dispatchEvent(new Event('focus')), 5);
+      setTimeout(() => {
+        clearInterval(reads);
+      }, 1000);
+    });
+    await page().keyboard.press('ControlOrMeta+s');
+    await page().keyboard.press('ControlOrMeta+s');
+    await page().waitForTimeout(1000);
+    expect(await page().locator('.cerebro-dialog').allTextContents()).toEqual([]);
+  }
+  await expect
+    .poll(() => disk(join(repo, 'races.txt')).slice(0, 11), { timeout: 15_000 })
+    .toBe('racexxxxx\nm');
+  // Leaves the tabs as they were: the middle button's event, as the tabs test does.
+  const tab = page().locator('.cerebro-editor-tab', { hasText: 'races.txt' });
+  await tab.dispatchEvent('auxclick', { button: 1 });
+  await tab.waitFor({ state: 'detached' });
 });
 
 it('saves a file on its own after the idle time set in System Settings, or not when it’s off', async () => {

@@ -6,6 +6,7 @@ import {
   readFileSync,
   realpathSync,
   rmSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -149,6 +150,20 @@ describe('with real git', () => {
 
   afterAll(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('reads the changes without writing the index, which would lock out a stash run meanwhile', async () => {
+    const quiet = join(root, 'quiet');
+    execFileSync('git', ['init', '-q', '-b', 'main', quiet]);
+    writeFileSync(join(quiet, 'a.txt'), 'a');
+    run(quiet, 'add', '.');
+    run(quiet, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+    // The file's times change, its text doesn't: refreshing the index would write it, under a lock.
+    const later = new Date(Date.now() + 60_000);
+    utimesSync(join(quiet, 'a.txt'), later, later);
+    const index = readFileSync(join(quiet, '.git', 'index'));
+    expect(await listChanges(quiet)).toEqual([]);
+    expect(readFileSync(join(quiet, '.git', 'index')).equals(index)).toBe(true);
   });
 
   it('lists a repository’s worktrees, from any of them', async () => {

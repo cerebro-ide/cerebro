@@ -39,14 +39,8 @@ import {
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
-import {
-  AgentChangesView,
-  ChangesView,
-  diffPath,
-  diffRange,
-  setupChanges,
-  type Range,
-} from './changes.js';
+import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
+import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
   carets,
@@ -195,9 +189,16 @@ setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
   show: () => {
+    showCommitTab();
     layout.toolWindows.show('commit');
   },
   openAt: navigation.openAt,
+});
+setupShelf(services, {
+  open: (tab) => editor()?.open(tab),
+  show: () => {
+    layout.toolWindows.show('commit');
+  },
 });
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
@@ -920,7 +921,7 @@ function TerminalTabs() {
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
   if (props.id === 'commit')
-    return <ChangesView services={services} open={(tab) => editor()?.open(tab)} />;
+    return <CommitWindow services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'agentChanges')
     return <AgentChangesView services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
@@ -1169,7 +1170,9 @@ render(
           }}
         />
       )}
-      tabs={(id) => (id === 'terminal' ? <TerminalTabs /> : null)}
+      tabs={(id) =>
+        id === 'terminal' ? <TerminalTabs /> : id === 'commit' ? <CommitTabs /> : null
+      }
       actions={(id) =>
         id === 'project'
           ? [

@@ -43,6 +43,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
+- [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk
+- [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
 - [Copy Path/Reference on a tab (2026-11-03)](#copy-pathreference-on-a-tab-2026-11-03): absolute path, file name, path from the content root, as IntelliJ's submenu
@@ -1155,6 +1157,65 @@ Change inspection should be based on intellij - which basically follows only unc
   plan's "since the session started" and per-commit views are dropped. The agent's turns stay, in
   a tool window of their own (Ido: "a nice feature, but it shouldn't be in the commit window"; see
   "Agent turns"), and he'll review them separately.
+
+## Saving: one save at a time (2026-11-03)
+
+A bug fix, seen in CI (#109, the editing e2e test on Linux): a File Cache Conflict over a file
+that only Cerebro had changed.
+
+- **The cause:** the host writes a file over in place (truncated, then written), so a read of it
+  meanwhile finds the save's write, whole or in part, before the editor knows it's saved, and that's
+  taken for a change on disk. Two saves at once (the idle save, then the editor losing the focus)
+  each read the file before writing it, and the reads every 2 seconds, and when the window gets the
+  focus, read it too. An e2e test saves a 2 MB file twice at once, while it's read again: the
+  conflict showed in 3 runs of 3 without the fix, and in none of 3 with it (measured locally).
+- **The fix:** saves run one after another, and a read made while a file is saved, or across a
+  save, is dropped; the next one counts (Claude's choice, open to change).
+- **Rejected for now:** writing to a temporary file and renaming it over (IntelliJ's "safe write",
+  a claim), which other readers wouldn't see half done either, but which makes a new file: links
+  and the file's owner and permissions would need keeping.
+
+## The shelf and the stash (2026-11-03)
+
+Ido: "work on that and then also on shelve and stash", as IntelliJ's: putting uncommitted changes
+aside, and back.
+
+- **The shelf, as IntelliJ's:** Shelve Changes… (the Git menu's Uncommitted Changes, and the Commit
+  window's context menu) opens IntelliJ's Shelve Changes dialog: the uncommitted files, each with a
+  checkbox, and a Comment that names the shelved list. It starts with the files right-clicked
+  checked, or else those going into the commit. Shelving keeps the files' changes and takes them
+  back to their last commit; added and untracked files are deleted, as IntelliJ's. Unshelve…
+  (Ctrl/Cmd+Shift+U) applies them again and takes the list off the shelf; Delete deletes it.
+- **Kept as git commits, not IntelliJ's patch files** (Claude's choice, open to change): each
+  shelved list is a commit of the last commit's files with the shelved ones as they were, made
+  through a temporary index (the real one is untouched), kept by a ref under
+  `refs/worktree/cerebro/shelf/`, where Cerebro keeps its refs. Git keeps it from
+  garbage collection, other worktrees don't see it, and renames and binary files come back
+  whole (`git diff --binary -M`, then `git apply`; renames measured, binary files a claim). If it doesn't apply (a file changed since in the
+  same place), nothing changes and the list stays shelved (measured, in the host's tests).
+  IntelliJ keeps patches in the project's `.idea/shelf` (a claim, not checked: its
+  shelf's location is a setting); rejected: they'd need a patch format of our own to apply.
+- **The stash is git's,** as IntelliJ's Stash Changes… and Unstash Changes… run it: the Stash
+  dialog (Message, Keep index, Include untracked; Create Stash), and the Unstash Changes dialog
+  (the stashes, Reinstate index; Apply Stash, or Pop Stash, which drops it after).
+- **Shelf and Stash tabs** in the Commit tool window's header, after Commit, while there's
+  something in them, as IntelliJ's. Each lists its lists or stashes, the latest first, with when
+  they were made; each expands to its files, which open their diff (double click, Enter,
+  Ctrl/Cmd+D). A stash's context menu has Pop, Apply, Drop and Clear; the last two ask first
+  (IntelliJ's do too: a claim).
+- **A Git menu** in the main menu, after View, with Commit… and Uncommitted Changes (Shelve
+  Changes…, Show Shelf, Stash Changes…, Unstash Changes…), as IntelliJ's.
+- **Git's optional locks are off** for every git command the host runs (`GIT_OPTIONAL_LOCKS=0`, as
+  git's documentation describes it): `git status`, which the Commit window runs every few seconds,
+  otherwise refreshes the index as it reads, under the index's lock, and a stash or commit run
+  meanwhile fails with "Unable to create '.git/index.lock': File exists" (git's documentation; the
+  host's test measures that reading the changes now leaves the index as it was). Seen in CI (#109),
+  though there the `git status` was the e2e test's own, polled while the app stashed: it runs with
+  optional locks off too.
+- **Not yet:** merging when an unshelve or unstash conflicts (it fails, and says why); unshelving
+  some of a list's files; renaming a list; IntelliJ's Unshelve dialog's options (it asks to confirm
+  instead); a stash's untracked files in its file list; Unstash's "As new branch", and Drop and
+  Clear in its dialog (they're in the Stash tab's menu); the Shelf and Stash tabs' toolbars.
 
 ## Committing from the Commit tool window (2026-11-02)
 

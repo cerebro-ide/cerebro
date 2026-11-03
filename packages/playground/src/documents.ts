@@ -29,6 +29,15 @@ let closeDeleted: (path: string) => void = () => undefined;
 const resolving = new Set<string>();
 
 /**
+ * The files being saved, and how many saves each has started. A read from disk made while a file
+ * is saved, or across a save, isn't news: the host writes a file over in place, so a read may find
+ * the save's write, whole or in part, before the document knows it's saved, which isn't a conflict;
+ * or the text from before it.
+ */
+const saving = new Set<string>();
+const saves = new Map<string, number>();
+
+/**
  * Whether the file changed on disk while it has edits, given what's on disk: if so, the conflict
  * is resolved first. Returns whether it's still unresolved, or being resolved.
  */
@@ -124,14 +133,32 @@ export async function saveAll(): Promise<void> {
   await saveFiles();
 }
 
-/** Saves these files' documents, if modified (all of them without `paths`), as Save All does. */
-export async function saveFiles(paths?: readonly string[]): Promise<void> {
+/** The saves asked for, one after another. */
+let saved: Promise<unknown> = Promise.resolve();
+
+/**
+ * Saves these files' documents, if modified (all of them without `paths`), as Save All does. After
+ * the saves asked for before: two at once would each find the other's write on disk, and call it a
+ * conflict.
+ */
+export function saveFiles(paths?: readonly string[]): Promise<void> {
+  const next = saved.then(
+    () => save(paths),
+    () => save(paths),
+  );
+  saved = next.catch(() => undefined);
+  return next;
+}
+
+async function save(paths?: readonly string[]): Promise<void> {
   if (!currentHost()) return;
   const failed: string[] = [];
   for (const [path, doc] of await opened()) {
     if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
     if (!host || !doc.modified.peek()) continue;
+    saving.add(path);
+    saves.set(path, (saves.get(path) ?? 0) + 1);
     try {
       // Not over a change made on disk since it was read: that's a conflict.
       const disk = await host.request('fs.read', { path }).then(
@@ -148,6 +175,8 @@ export async function saveFiles(paths?: readonly string[]): Promise<void> {
       doc.saved(text);
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);
+    } finally {
+      saving.delete(path);
     }
   }
   if (failed.length > 0) throw new Error(`Couldn’t save ${failed.join('; ')}`);
@@ -161,7 +190,8 @@ export async function reloadAll(): Promise<void> {
   if (!currentHost()) return;
   for (const [path, doc] of await opened()) {
     const host = hostFor(path);
-    if (!host || resolving.has(path)) continue;
+    if (!host || resolving.has(path) || saving.has(path)) continue;
+    const before = saves.get(path);
     let text: string;
     try {
       ({ text } = (await host.request('fs.read', { path })) as { text: string });
@@ -170,6 +200,7 @@ export async function reloadAll(): Promise<void> {
       await deleted(path);
       continue;
     }
+    if (saving.has(path) || saves.get(path) !== before) continue;
     if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
   }
 }
