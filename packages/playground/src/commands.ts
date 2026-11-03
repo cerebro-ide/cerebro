@@ -15,6 +15,7 @@ import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openSettings } from '@cerebro-ide/ui-settings';
+import { diffPath } from './changes.js';
 import { active, currentHost, hostFor } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
@@ -30,6 +31,36 @@ import { themeIsDark } from './theme.js';
 export interface TabContext {
   group: string;
   tab: string;
+}
+
+/** A tab's file, its paths as Copy Path/Reference copies them; none for a tab of no file. */
+interface TabFile {
+  system: string | undefined;
+  name: string | undefined;
+  relative: string | undefined;
+}
+
+/**
+ * The file a tab shows (its diff's too), from its id: a path, absolute or (as the Commit window
+ * opens them) the active worktree's.
+ */
+export function tabFile(
+  tab: string,
+  worktree: string | undefined = active()?.id,
+  platform: string | undefined = window.cerebro?.platform,
+): TabFile {
+  const path = diffPath(tab) ?? tab;
+  const absolute = /^(\/|[A-Za-z]:\/)/.test(path);
+  const full = absolute ? path : worktree === undefined ? undefined : `${worktree}/${path}`;
+  if (full === undefined || (!absolute && path.startsWith('untitled-'))) {
+    return { system: undefined, name: undefined, relative: undefined };
+  }
+  const root = worktree === undefined ? undefined : `${worktree}/`;
+  return {
+    system: platform === 'win32' ? full.replaceAll('/', '\\') : full,
+    name: full.split('/').at(-1),
+    relative: root !== undefined && full.startsWith(root) ? full.slice(root.length) : undefined,
+  };
 }
 
 /** The theme, from the global settings: chosen, or the system's. */
@@ -203,12 +234,23 @@ export function setupCommands(
     });
     menus.contribute({ menu: 'editor/tab/split', item: { command: `editor.split.${direction}` } });
   }
-  commands.register<TabContext>({
-    id: 'editor.copyPath',
-    label: 'Copy &Path',
-    enabled: (c?: TabContext) => c !== undefined,
-    run: (c) => navigator.clipboard.writeText(c.tab),
-  });
+  // Copy Path/Reference, as IntelliJ's (CopyReferencePopupGroup): the file's absolute path, as the
+  // system writes it (`presentableUrl`), its name, or its path from the worktree's root, with `/`
+  // (`VfsUtilCore.getRelativePath`). Absolute Path has the keys Copy Path had, as IntelliJ's takes
+  // CopyPaths' (`use-shortcut-of`).
+  const copies = [
+    ['editor.copyPath', '&Absolute Path', (file: TabFile) => file.system],
+    ['editor.copyFileName', '&File Name', (file: TabFile) => file.name],
+    ['editor.copyContentRootPath', 'Path from &Content Root', (file: TabFile) => file.relative],
+  ] as const;
+  for (const [id, label, text] of copies) {
+    commands.register<TabContext>({
+      id,
+      label,
+      enabled: (c?: TabContext) => c !== undefined && text(tabFile(c.tab)) !== undefined,
+      run: (c) => navigator.clipboard.writeText(text(tabFile(c.tab)) as string),
+    });
+  }
   commands.register({
     id: 'view.darkTheme',
     label: 'Dark &Theme',
@@ -411,7 +453,26 @@ export function setupCommands(
     item: { submenu: 'editor/tab/split', label: '&Split' },
     group: 'b-split',
   });
-  menus.contribute({ menu: 'editor/tab', item: { command: 'editor.copyPath' }, group: 'c-path' });
+  menus.contribute({
+    menu: 'editor/tab',
+    item: { submenu: 'editor/tab/copyPath', label: 'Copy Path/Reference…' },
+    group: 'c-path',
+  });
+  menus.contribute({
+    menu: 'editor/tab/copyPath',
+    item: { command: 'editor.copyPath' },
+    group: 'a',
+  });
+  menus.contribute({
+    menu: 'editor/tab/copyPath',
+    item: { command: 'editor.copyFileName' },
+    group: 'a',
+  });
+  menus.contribute({
+    menu: 'editor/tab/copyPath',
+    item: { command: 'editor.copyContentRootPath' },
+    group: 'b',
+  });
   menus.contribute({ menu: 'editor/content', item: { command: 'file.goTo' }, group: 'a' });
   menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
 

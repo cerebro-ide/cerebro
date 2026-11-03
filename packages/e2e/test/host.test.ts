@@ -540,6 +540,30 @@ it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });
 
+it('copies a tab’s path from its context menu: absolute, its name, or from the content root', async () => {
+  const page = running.page;
+  await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();
+  await page.keyboard.press(KEYS.goToFile);
+  await page.keyboard.type('app.ts');
+  await page.locator('.cerebro-popup-item', { hasText: 'app.ts' }).first().waitFor();
+  await page.keyboard.press('Enter');
+  const tab = page.locator('.cerebro-editor-tab--active', { hasText: 'app.ts' });
+  await tab.waitFor();
+  const clipboard = () => running.app.evaluate(({ clipboard }) => clipboard.readText());
+  const copy = async (item: string) => {
+    await tab.click({ button: 'right', force: true });
+    await page.locator('.cerebro-menu-item', { hasText: 'Copy Path/Reference…' }).click();
+    await page.locator('.cerebro-menu-item', { hasText: item }).click();
+  };
+  // As the system writes it.
+  await copy('Absolute Path');
+  await expect.poll(clipboard).toBe(join(repo, 'src', 'app.ts'));
+  await copy('File Name');
+  await expect.poll(clipboard).toBe('app.ts');
+  await copy('Path from Content Root');
+  await expect.poll(clipboard).toBe('src/app.ts');
+});
+
 it('groups the Commit tool window’s files or not, collapses and expands them, and rolls one back', async () => {
   const page = running.page;
   await page.locator(`.cerebro-env-tab[data-env="${gitPath(repo)}"]`).click();
