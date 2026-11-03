@@ -167,6 +167,12 @@ beforeAll(async () => {
       `import { Shape } from './shape';\nexport class ${name} implements Shape {\n  area() { return ${String(n)}; }\n}\n`,
     );
   }
+  // A type error, and a variable never read: an underline, and greyed.
+  writeFileSync(
+    join(repo, 'wrong.ts'),
+    'export function f(): number {\n  const idle = 1;\n  return "text";\n}\n',
+  );
+  writeFileSync(join(repo, 'wrong.py'), 'count: int = "text"\n');
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
@@ -379,3 +385,47 @@ it('shows gutter markers between an interface and its implementations, and goes 
     .poll(where, { timeout: 15_000 })
     .toEqual({ tab: 'shape.ts', line: '  area(): number;' });
 });
+
+/** What the editor shows of its problems: the underlined text, and the file's status. */
+const problems = () =>
+  page().evaluate(() => {
+    const root = document.querySelector('.cerebro-editor-code')?.shadowRoot;
+    const shown = (name: string) =>
+      [...(root?.querySelectorAll(`.cerebro-problem--${name}`) ?? [])].map((e) => e.textContent);
+    return {
+      errors: shown('error'),
+      unused: shown('unused'),
+      status: [...(root?.querySelectorAll('.cerebro-problems [title]') ?? [])].map((e) =>
+        e.getAttribute('title'),
+      ),
+      stripe: root?.querySelectorAll('.cerebro-problemMark--error').length ?? 0,
+    };
+  });
+
+it('underlines errors, greys what is never read, and goes to the error with F2', async () => {
+  await openAt('wrong.ts', 'export function');
+  // Asked as the file opens; TypeScript's server may still be loading.
+  try {
+    await expect.poll(problems, { timeout: 30_000, interval: 500 }).toEqual({
+      errors: ['return'],
+      unused: ['idle'],
+      status: ['1 error', 'Previous Highlighted Error', 'Next Highlighted Error'],
+      stripe: 1,
+    });
+  } catch (error) {
+    await explain(error, 'wrong.ts', 1, 1, ['lsp.problems']);
+  }
+  await page().keyboard.press('F2');
+  expect(await where()).toEqual({ tab: 'wrong.ts', line: '  return "text";' });
+}, 60_000);
+
+it('does the same for Python', async () => {
+  await openAt('wrong.py', 'count');
+  try {
+    await expect
+      .poll(async () => (await problems()).errors, { timeout: 30_000, interval: 500 })
+      .toEqual(['"text"']);
+  } catch (error) {
+    await explain(error, 'wrong.py', 1, 1, ['lsp.problems']);
+  }
+}, 60_000);
