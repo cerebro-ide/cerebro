@@ -26,12 +26,20 @@ export type Git = (
   input?: string,
 ) => Promise<string>;
 
+/**
+ * Git's optional locks off: reading (`git status`) doesn't refresh and write the index as it goes,
+ * under a lock that makes a stash or commit run meanwhile fail ("Unable to create
+ * '.git/index.lock': File exists"; git's documentation of GIT_OPTIONAL_LOCKS). The Commit window
+ * reads the changes every few seconds.
+ */
+const NO_OPTIONAL_LOCKS = { GIT_OPTIONAL_LOCKS: '0' };
+
 export const git: Git = (cwd, args, env, input) =>
   new Promise((resolve, reject) => {
     const child = execFile(
       'git',
       [...args],
-      { cwd, maxBuffer: 64 * 1024 * 1024, ...(env ? { env: { ...process.env, ...env } } : {}) },
+      { cwd, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ...NO_OPTIONAL_LOCKS, ...env } },
       (error, stdout, stderr) => {
         if (error) reject(new Error(stderr.trim() || error.message));
         else resolve(stdout);
