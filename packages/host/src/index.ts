@@ -93,6 +93,7 @@ export {
   type TextSearch,
 } from './search.js';
 export {
+  actionsOf,
   IDLE_AFTER,
   LanguageServer,
   LanguageServers,
@@ -103,10 +104,12 @@ export {
   pathOf,
   referencesIn,
   uriOf,
+  type ContextAction,
   type Highlight,
   type Located,
   type OpenFile,
   type Run,
+  type TextEdit,
 } from './lsp.js';
 export { baseNames, markersOf, type Marker, type MarkerKind } from './markers.js';
 export { filesByRipgrep, folderFiles, notARepository } from './folder-files.js';
