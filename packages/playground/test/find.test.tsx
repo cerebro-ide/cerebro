@@ -277,6 +277,11 @@ describe('Find in Files', () => {
     await userEvent.keyboard('{Alt>}x{/Alt}');
     await expect.poll(labels).toEqual(['alpha(Alpha);']);
     expect(searches().at(-1)).toMatchObject({ matchCase: false, words: false, regex: false });
+    // Each says what it is, and its key, in a tooltip.
+    await userEvent.hover(toggle('Regex (Alt+X)'));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Regex (Alt+X)');
   });
 
   it('takes only the latest search’s answer', async () => {

@@ -20,12 +20,11 @@ import { globalSettings } from './settings.js';
 import { applyTheme, themeIsDark } from './theme.js';
 import './playground.css';
 
-const bridge = (window.cerebro as NonNullable<Window['cerebro']>).project;
+// The Welcome window is only the app's (boot.ts).
+const app = window.cerebro as NonNullable<Window['cerebro']>;
+const bridge = app.project;
 
-document.documentElement.classList.add(
-  'cerebro-app',
-  `cerebro-platform-${window.cerebro?.platform ?? ''}`,
-);
+document.documentElement.classList.add('cerebro-app', `cerebro-platform-${app.platform}`);
 document.title = 'Welcome to Cerebro';
 effect(() => {
   applyTheme(themeIsDark(globalSettings));

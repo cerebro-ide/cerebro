@@ -141,15 +141,15 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
     const limit = ALL_LIMIT + MORE * (mores.get()[group] ?? 0);
     const shown = grouped(results.slice(0, limit), group);
     if (results.length <= limit) return shown;
-    const more: Result = {
+    // Never run: choosing it lists more, and the popup stays open.
+    const more = {
       label: '\u2026 more',
       group,
-      run: () => undefined,
       more: () => {
         const was = mores.peek();
         mores.set({ ...was, [group]: (was[group] ?? 0) + 1 });
       },
-    };
+    } as Result;
     return [...shown, more];
   };
   const files = (q: string) =>
