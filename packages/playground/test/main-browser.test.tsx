@@ -1,0 +1,380 @@
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import { diffTab } from '../src/changes.js';
+import { workspace } from '../src/environments.js';
+import { carets } from '../src/navigation.js';
+import { globalSettings } from '../src/settings.js';
+import { closeAll, dialog, menuItems, popupItems } from './fakes.js';
+
+// The page, as a browser shows it: the samples, without the app's hosts. It's made once, as it's
+// imported: each test leaves it as it found it, or goes on from where the last left it.
+
+beforeAll(async () => {
+  // The sample indexing's timer, among others, steps as a test says.
+  vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+  // Always Select Opened File is read from storage as the page loads, which may be blocked.
+  const getItem = Storage.prototype.getItem;
+  const blocked = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(function (
+    this: Storage,
+    key: string,
+  ) {
+    if (key === 'cerebro.project.alwaysSelectOpened') throw new Error('blocked');
+    return getItem.call(this, key);
+  });
+  const app = document.createElement('div');
+  app.id = 'app';
+  document.body.append(app);
+  await import('../src/main.js');
+  blocked.mockRestore();
+});
+
+afterEach(async () => {
+  await closeAll();
+  vi.restoreAllMocks();
+});
+
+const q = (selector: string) => document.querySelector(selector) as HTMLElement;
+const status = () =>
+  [...document.querySelectorAll('.cerebro-statusbar__text')].map((t) => t.textContent);
+const stripe = (id: string) => q(`.cerebro-stripe-button[data-id="${id}"]`);
+const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textContent;
+const env = () => workspace.active as NonNullable<typeof workspace.active>;
+/** The active editor's text, in its shadow root. */
+const code = () => editorRoot()?.querySelector('.cm-content') as HTMLElement | null | undefined;
+const editorRoot = () =>
+  document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
+
+describe('the page in a browser', () => {
+  it('starts with the samples: a worktree’s files, and the windows shown by default', () => {
+    expect(document.documentElement.classList).not.toContain('cerebro-app');
+    expect(env().id).toBe('cerebro-status-bar');
+    expect(status()).toEqual([
+      'cerebro-status-bar · feat/status-bar',
+      'src/styles.css',
+      'Indexing…',
+      expect.any(String),
+      '1:1',
+      'LF',
+      'UTF-8',
+      '2 spaces',
+      'CSS',
+    ]);
+    expect(q('.cerebro-tool-window[data-id="terminal"]').textContent).toContain(
+      'Terminals run in the desktop app.',
+    );
+  });
+
+  it('indexes, as a sample task, in the status bar', async () => {
+    vi.advanceTimersByTime(20_000);
+    await expect.poll(() => status()[2]).toBe('Indexed');
+  });
+
+  it('says what each item on the status bar is', async () => {
+    const tips: (string | undefined)[] = [];
+    for (const item of document.querySelectorAll('.cerebro-statusbar__item')) {
+      await userEvent.hover(item);
+      await expect.poll(tooltipText).toBeDefined();
+      tips.push(tooltipText());
+      await userEvent.unhover(item);
+      await expect.poll(tooltipText).toBeUndefined();
+    }
+    expect(tips).toEqual([
+      'Environment: worktree and branch (sample)',
+      'The active file',
+      'A background task (sample)',
+      'The worktree’s agent, in the Claude tool window',
+      expect.stringContaining('Go to File'),
+      'Line Separator',
+      'File Encoding',
+      'Indent',
+      'File Type',
+    ]);
+  });
+});
+
+describe('the editor', () => {
+  it('shows a sample file’s pretend contents, and its menus', async () => {
+    await expect.poll(() => code()?.textContent).toContain('// src/styles.css');
+    const editor = q('.cerebro-editor-group--active .playground-code');
+    await userEvent.click(editor, { button: 'right' });
+    expect(await menuItems()).toEqual(['Go to File…', 'Local History']);
+    await closeAll();
+    await userEvent.click(q('.cerebro-editor-tab--active'), { button: 'right' });
+    expect(await menuItems()).toEqual(expect.arrayContaining(['Close']));
+  });
+
+  it('says diffs show in the desktop app', async () => {
+    env().editor.open(diffTab('src/main.ts'));
+    await expect
+      .poll(() => document.querySelector('.playground-code__note')?.textContent)
+      .toBe('Diffs show in the desktop app.');
+    // The status bar names its file.
+    expect(status()[1]).toBe('src/main.ts');
+    env().editor.close(env().editor.activeGroupId, diffTab('src/main.ts').id);
+  });
+});
+
+describe('the Project popup', () => {
+  it('lists the window’s projects, the active one checked, and shows the one chosen', async () => {
+    await userEvent.click(q('[aria-label^="Project:"]'));
+    expect(await popupItems()).toEqual(['Open…', 'cerebro']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(env().id).toBe('cerebro-status-bar');
+  });
+});
+
+describe('Recent Files', () => {
+  it('lists the files shown, the one before highlighted, and opens the one chosen', async () => {
+    await userEvent.keyboard('{Control>}e{/Control}');
+    expect(await popupItems()).toEqual(expect.arrayContaining(['styles.css', 'shell.tsx']));
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => status()[1]).not.toBe('src/styles.css');
+  });
+
+  it('lists the files edited, by its own key or the option', async () => {
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await expect
+      .poll(() => document.querySelector('.cerebro-popup')?.textContent)
+      .toContain('No recent files');
+    await userEvent.click(q('.playground-recent__edited input'));
+    expect(await popupItems()).not.toEqual([]);
+    // Other keys are the search field's.
+    await userEvent.keyboard('{Shift}x');
+    expect(
+      (
+        q(
+          '.cerebro-popup input[type="text"], .cerebro-popup input[type="search"]',
+        ) as HTMLInputElement
+      ).value,
+    ).toBe('x');
+  });
+
+  it('lists the files edited at once, as Recently Changed Files', async () => {
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Recently Changed');
+    await expect.poll(popupItems).toContain('Recently Changed Files…');
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .poll(() => document.querySelector('.cerebro-popup')?.textContent)
+      .toContain('No recent files');
+  });
+});
+
+describe('Go to Line', () => {
+  it('moves the caret to the line and column typed', async () => {
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}g{/Control}');
+    const field = (await dialog()).querySelector('input') as HTMLInputElement;
+    expect(field.value).toMatch(/^\d+:\d+$/);
+    await userEvent.clear(field);
+    await userEvent.type(field, 'x');
+    expect((await dialog()).textContent).toContain('Not a line or column');
+    await userEvent.clear(field);
+    await userEvent.type(field, '5:3{Enter}');
+  });
+});
+
+describe('the tool windows', () => {
+  it('show their content: the Commit window, Agent Changes, a plugin’s, and samples', async () => {
+    const shows = async (id: string, text: string) => {
+      await userEvent.click(stripe(id));
+      await expect
+        .poll(() => q(`.cerebro-tool-window[data-id="${id}"]`)?.textContent)
+        .toContain(text);
+      await userEvent.click(stripe(id));
+    };
+    await shows('commit', 'Commit');
+    await shows('agentChanges', 'Agent Changes');
+    await shows('notes', 'Notes');
+    await shows('structure', 'cerebro-status-bar · Structure item 1');
+    // Commit's and Agent Changes' took the Project window's place.
+    await userEvent.click(stripe('project'));
+  });
+
+  it('show their shortcut in their tooltip', async () => {
+    await userEvent.hover(stripe('commit'));
+    await expect.poll(tooltipText).toBe('CommitAlt+0');
+    await userEvent.unhover(stripe('commit'));
+    await userEvent.hover(q('[aria-label^="Search Everywhere"]'));
+    await expect.poll(tooltipText).toContain('Search Everywhere');
+    await userEvent.unhover(q('[aria-label^="Search Everywhere"]'));
+    await userEvent.hover(q('[aria-label^="Settings"]'));
+    await expect.poll(tooltipText).toContain('Settings');
+    await userEvent.unhover(q('[aria-label^="Settings"]'));
+  });
+});
+
+describe('the Project tool window', () => {
+  const selected = () =>
+    document.querySelector('.playground-files .cerebro-tree-row--selected')?.textContent;
+
+  it('selects the opened file, by its button', async () => {
+    await userEvent.click(
+      q('.cerebro-tool-window[data-id="project"] [aria-label^="Select Opened File"]'),
+    );
+    await expect.poll(selected).toBe(status()[1]?.split('/').at(-1));
+  });
+
+  it('selects the opened file as tabs change, if its Options say, kept if storage allows', async () => {
+    const options = q('.cerebro-tool-window[data-id="project"] [aria-label="Options"]');
+    await userEvent.hover(options);
+    await expect.poll(tooltipText).toBe('Options');
+    await userEvent.click(options);
+    expect(await menuItems()).toEqual(['Always Select Opened File']);
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    await userEvent.click(q('.cerebro-menu-item'));
+    env().editor.open({ id: 'package.json', title: 'package.json' });
+    await expect.poll(selected).toBe('package.json');
+    vi.restoreAllMocks();
+    await userEvent.click(options);
+    await userEvent.click(q('.cerebro-menu-item'));
+    expect(localStorage.getItem('cerebro.project.alwaysSelectOpened')).toBe('false');
+  });
+});
+
+describe('Select In', () => {
+  it('selects the file in the Project tool window, from the caret or the window', async () => {
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Alt>}{F1}{/Alt}');
+    expect(await menuItems()).toEqual(['1. Project']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => document.querySelector('.cerebro-menu')).toBeNull();
+    (document.activeElement as HTMLElement).blur();
+    await userEvent.keyboard('{Alt>}{F1}{/Alt}');
+    expect(await menuItems()).toEqual(['1. Project']);
+  });
+});
+
+describe('Go to Line, cancelled', () => {
+  it('starts from the file’s start when its caret hasn’t moved, and moves nothing', async () => {
+    // Asked as it opens, before its editor has said where its caret is.
+    env().editor.open({ id: 'src/layout.ts', title: 'layout.ts' });
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', code: 'KeyG', ctrlKey: true }));
+    const field = (await dialog()).querySelector('input') as HTMLInputElement;
+    expect(field.value).toBe('1:1');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(carets.get('src/layout.ts')).toEqual({ line: 0, column: 0 });
+  });
+});
+
+describe('the main menu', () => {
+  it('opens at File, its commands for the active tab', async () => {
+    await userEvent.click(q('[aria-label="Main Menu"]'));
+    expect(await menuItems()).toEqual(expect.arrayContaining(['Close Tab']));
+  });
+});
+
+describe('Save when idle', () => {
+  it('is asked how long to wait at each key, as Settings says', async () => {
+    globalSettings.layers.global.set('system.saveWhenIdle', true);
+    await userEvent.keyboard('{Shift}');
+    globalSettings.layers.global.reset('system.saveWhenIdle');
+  });
+});
+
+describe('Back and Forward', () => {
+  it('go by the mouse’s own buttons, when there’s somewhere to go', async () => {
+    const button = (which: number) => {
+      window.dispatchEvent(new MouseEvent('mouseup', { button: which }));
+    };
+    const path = env().editor.activeGroup.active as string;
+    const line = () => carets.get(path)?.line;
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}g{/Control}');
+    await userEvent.keyboard('{Control>}a{/Control}30{Enter}');
+    await expect.poll(line).toBe(29);
+    // Not another button, nor Forward with nowhere to go.
+    button(0);
+    button(4);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(line()).toBe(29);
+    button(3);
+    await expect.poll(line).not.toBe(29);
+    button(4);
+    await expect.poll(line).toBe(29);
+  });
+});
+
+describe('saving', () => {
+  it('saves every file, by Save All, and as the app asks before it closes', async () => {
+    await userEvent.keyboard('{Control>}s{/Control}');
+    await (globalThis as unknown as { cerebroSaveAll: () => Promise<void> }).cerebroSaveAll();
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+  });
+});
+
+describe('the Project popup’s Open…', () => {
+  it('opens a sample file, in a browser', async () => {
+    await userEvent.click(q('[aria-label^="Project:"]'));
+    expect(await popupItems()).toEqual(['Open…', 'cerebro']);
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .poll(() => document.querySelector('.cerebro-popup')?.getAttribute('aria-label'))
+      .toBe('Search Everywhere');
+  });
+});
+
+describe('the environment tabs', () => {
+  it('show once there are two, each named with its file, with their menus', async () => {
+    await userEvent.click(q('[aria-label^="Worktree:"]'));
+    expect(await popupItems()).toEqual(expect.arrayContaining(['cerebro']));
+    const item = [...document.querySelectorAll('.cerebro-popup-item')].find((i) =>
+      i.textContent.startsWith('cerebro'),
+    ) as HTMLElement;
+    await userEvent.click(item);
+    const labels = () =>
+      [...document.querySelectorAll('.cerebro-env-tab__label')].map((l) => l.textContent);
+    const first = expect.stringMatching(/^cerebro-status-bar – /);
+    await expect.poll(labels).toEqual([first, 'cerebro – package.json']);
+    // Without a file open, just its name.
+    for (const tab of [...env().editor.activeGroup.tabs]) {
+      env().editor.close(env().editor.activeGroupId, tab.id);
+    }
+    await expect.poll(labels).toEqual([first, 'cerebro']);
+    expect(q('.playground-editor h1').textContent).toBe('No files open');
+    expect(status()[1]).toBe('No file open');
+    await userEvent.click(q('.cerebro-env-tab--active'), { button: 'right' });
+    expect(await menuItems()).toEqual(expect.arrayContaining(['Close']));
+    await closeAll();
+    await userEvent.click(q('[aria-label="Open Environment"]'));
+    expect(await menuItems()).toEqual(expect.arrayContaining(['cerebro', 'cerebro-status-bar']));
+  });
+});
+
+describe('the page with nothing open', () => {
+  it('says so, in the editor, the tool windows and the status bar', async () => {
+    for (const open of [...workspace.open]) workspace.close(open.id);
+    await expect
+      .poll(() => document.querySelector('.cerebro-env-empty h1')?.textContent)
+      .toBe('No environment open');
+    expect(status()[0]).toBe('No environment');
+    expect(q('.cerebro-tool-window[data-id="terminal"]').textContent).toContain(
+      'No environment open',
+    );
+    await userEvent.click(stripe('structure'));
+    await expect
+      .poll(() => q('.cerebro-tool-window[data-id="structure"]')?.textContent)
+      .toContain('none · Structure item 1');
+    // Nothing to go back or forward to, nor recent files.
+    window.dispatchEvent(new MouseEvent('mouseup', { button: 3 }));
+    window.dispatchEvent(new MouseEvent('mouseup', { button: 4 }));
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await expect
+      .poll(() => document.querySelector('.cerebro-popup')?.textContent)
+      .toContain('No recent files');
+    await closeAll();
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await closeAll();
+    // The main menu's commands, with no tab to act on.
+    await userEvent.click(q('[aria-label="Main Menu"]'));
+    expect(await menuItems()).toEqual(expect.arrayContaining(['Close Tab']));
+  });
+});

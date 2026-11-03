@@ -117,7 +117,7 @@ export function setupCommands(
     /** Whether the host's index can be searched. */
     available: () => boolean;
   },
-): MenuServices {
+): MenuServices & { keymap: Keymap } {
   const platform = keymapPlatform(navigator.platform);
   const commands = new CommandRegistry();
   const menus = new MenuRegistry();

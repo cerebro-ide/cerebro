@@ -1,7 +1,7 @@
-import { onCleanup, render } from '@cerebro-ide/jsx';
+import { render } from '@cerebro-ide/jsx';
 import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
-import type { Keymap } from '@cerebro-ide/commands';
 import { notesPlugin } from './notes-plugin.js';
+import { PluginView } from './plugin-view.js';
 import { Layout, type Tab, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
@@ -71,6 +71,7 @@ import {
   useProjects,
   workspace,
   type Host,
+  type ProjectState,
 } from './environments.js';
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
@@ -160,6 +161,9 @@ const FILES = [
 
 const tabOf = (path: string) => ({ id: path, title: path.split('/').at(-1) as string });
 
+/** The active project: a window always has one, the samples or its own. */
+const shownProject = () => activeProject() as ProjectState;
+
 /** The active environment's editor area, if an environment is open. */
 const editor = () => active()?.editor;
 
@@ -176,8 +180,7 @@ const services = setupCommands(editor, layout.toolWindows, FILES, tabOf, {
  * saves the files first.
  */
 async function closeActiveProject(): Promise<void> {
-  const project = activeProject();
-  if (!project) return;
+  const project = shownProject();
   if (projects.get().length > 1) {
     await saveAll().catch(reportSaving);
     environments.removeProject(project.path);
@@ -207,7 +210,7 @@ setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setTerminalKeys((event) => {
   const keymap = services.keymap;
   const chord = chordFromEvent(event);
-  if (!keymap || chord === undefined) return false;
+  if (chord === undefined) return false;
   const bare = event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
   if (bare && keymap.platform !== 'mac') return false;
   return keymap.commandsFor(chord).length > 0 || keymap.isPrefix(chord);
@@ -218,7 +221,7 @@ const views = new ViewRegistry(layout.toolWindows);
 const plugins = new PluginRegistry({
   commands: services.commands,
   menus: services.menus,
-  keymap: services.keymap as Keymap,
+  keymap: services.keymap,
   views,
 });
 await plugins.add(notesPlugin);
@@ -244,7 +247,7 @@ services.commands.register({
       file: editor()?.activeGroup.active,
     }),
 });
-services.keymap?.bindDefault('Mod+Shift+F', 'find.inFiles');
+services.keymap.bindDefault('Mod+Shift+F', 'find.inFiles');
 services.menus.contribute({
   menu: 'main/edit',
   item: { submenu: 'main/edit/find', label: '&Find' },
@@ -264,7 +267,7 @@ services.commands.register({
       replacing: true,
     }),
 });
-services.keymap?.bindDefault('Mod+Shift+R', 'replace.inFiles');
+services.keymap.bindDefault('Mod+Shift+R', 'replace.inFiles');
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'replace.inFiles' } });
 // Back and Forward through the places the caret was, as IntelliJ's Navigate menu, its shortcuts,
 // and the mouse's own back and forward buttons.
@@ -280,9 +283,9 @@ services.commands.register({
   enabled: () => history()?.canGoForward ?? false,
   run: () => history()?.goForward(),
 });
-const mac = services.keymap?.platform === 'mac';
-services.keymap?.bindDefault(mac ? 'Mod+[' : 'Ctrl+Alt+Left', 'navigate.back');
-services.keymap?.bindDefault(mac ? 'Mod+]' : 'Ctrl+Alt+Right', 'navigate.forward');
+const mac = services.keymap.platform === 'mac';
+services.keymap.bindDefault(mac ? 'Mod+[' : 'Ctrl+Alt+Left', 'navigate.back');
+services.keymap.bindDefault(mac ? 'Mod+]' : 'Ctrl+Alt+Right', 'navigate.forward');
 services.menus.contribute({
   menu: 'main',
   item: { submenu: 'main/navigate', label: '&Navigate' },
@@ -349,10 +352,7 @@ async function recentFiles(editedOnly: boolean): Promise<void> {
     items: (query) => fuzzyFilter(edited.get() ? changed : shown, query),
     onKey: (event) => {
       const chord = chordFromEvent(event);
-      if (
-        chord === undefined ||
-        !services.keymap?.commandsFor(chord).includes('view.recentFiles')
-      ) {
+      if (chord === undefined || !services.keymap.commandsFor(chord).includes('view.recentFiles')) {
         return false;
       }
       flip();
@@ -373,7 +373,7 @@ services.commands.register({
   dialog: true,
   run: () => recentFiles(true),
 });
-services.keymap?.bindDefault('Mod+E', 'view.recentFiles');
+services.keymap.bindDefault('Mod+E', 'view.recentFiles');
 services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff). */
@@ -387,8 +387,7 @@ services.commands.register({
   dialog: true,
   enabled: () => activeFile() !== undefined,
   run: async () => {
-    const file = activeFile();
-    if (!file) return;
+    const file = activeFile() as Tab;
     const current = carets.get(file.id) ?? { line: 0, column: 0 };
     const typed = await prompt({
       title: 'Go to Line:Column',
@@ -397,13 +396,14 @@ services.commands.register({
       validate: (text) =>
         parseLineColumn(text, current) === undefined ? 'Not a line or column' : undefined,
     });
-    const at = typed === undefined ? undefined : parseLineColumn(typed, current);
-    if (!at) return;
+    if (typed === undefined) return;
+    // The dialog takes only what parses.
+    const at = parseLineColumn(typed, current) as NonNullable<ReturnType<typeof parseLineColumn>>;
     history()?.record();
     reveals.set(file.id, at);
   },
 });
-services.keymap?.bindDefault(mac ? 'Mod+L' : 'Ctrl+G', 'navigate.goToLine');
+services.keymap.bindDefault(mac ? 'Mod+L' : 'Ctrl+G', 'navigate.goToLine');
 services.menus.contribute({
   menu: 'main/navigate',
   item: { command: 'navigate.goToLine' },
@@ -416,8 +416,7 @@ services.commands.register({
   icon: 'locate',
   enabled: () => activeFile() !== undefined,
   run: async () => {
-    const file = activeFile();
-    if (!file) return;
+    const file = activeFile() as Tab;
     layout.toolWindows.show('project');
     await selectInTree(file.id, FILES);
   },
@@ -462,7 +461,7 @@ setupSelectIn(
   () => activeFile()?.id,
   caretPoint,
 );
-services.keymap?.bindDefault('Alt+F1', 'navigate.selectIn');
+services.keymap.bindDefault('Alt+F1', 'navigate.selectIn');
 services.menus.contribute({
   menu: 'main/navigate',
   item: { command: 'navigate.selectIn' },
@@ -524,7 +523,7 @@ services.commands.register({
   label: 'Save &All',
   run: () => saveAll().catch(reportSaving),
 });
-services.keymap?.bindDefault('Mod+S', 'file.saveAll');
+services.keymap.bindDefault('Mod+S', 'file.saveAll');
 services.menus.contribute({ menu: 'main/file', item: { command: 'file.saveAll' }, group: 'b' });
 (globalThis as { cerebroSaveAll?: () => Promise<void> }).cerebroSaveAll = () =>
   saveAll().catch((error: unknown) => {
@@ -593,10 +592,12 @@ const status = new StatusBar();
 const indexing = signal<Progress>(0);
 if (currentHost()) {
   // Indexing and agents are known by their worktree, whichever host they come from.
+  // Only the app's projects have hosts.
+  const app = window.cerebro as NonNullable<Window['cerebro']>;
   const notifications = (listener: (method: string, params: unknown) => void) =>
-    window.cerebro?.host.onNotification((_project, method, params) => {
+    app.host.onNotification((_project, method, params) => {
       listener(method, params);
-    }) ?? (() => undefined);
+    });
   setupIndexing(notifications);
   setupAgents(notifications);
 } else {
@@ -697,8 +698,7 @@ function envName(id: string, name: string): string {
 
 // The window is named after the active project.
 effect(() => {
-  const project = activeProject();
-  if (window.cerebro && project) document.title = project.name;
+  if (window.cerebro) document.title = shownProject().name;
   return undefined;
 });
 
@@ -723,9 +723,7 @@ function pickProject(button: HTMLElement) {
       const open = projects.get();
       return [
         ...fuzzyFilter(
-          services.commands.isEnabled('file.open')
-            ? [{ label: 'Open…', run: () => services.commands.execute('file.open') }]
-            : [],
+          [{ label: 'Open…', run: () => services.commands.execute('file.open') }],
           query,
         ),
         ...fuzzyFilter(
@@ -761,8 +759,8 @@ function pickProject(button: HTMLElement) {
 
 /** The shortcut bound to a command, formatted for this platform. */
 function shortcutOf(command: string): string | undefined {
-  const key = services.keymap?.shortcutsFor(command)[0];
-  return key === undefined ? undefined : formatSequence(key, services.keymap?.platform ?? 'other');
+  const key = services.keymap.shortcutsFor(command)[0];
+  return key === undefined ? undefined : formatSequence(key, services.keymap.platform);
 }
 
 /** On macOS the desktop app shows the menu in the system menu bar, not in the window. */
@@ -780,8 +778,8 @@ function Header() {
           services={services}
           popup={pickProject}
           label="Project"
-          badge={() => activeProject()?.name ?? ''}
-          text={() => activeProject()?.name ?? 'No project'}
+          badge={() => shownProject().name}
+          text={() => shownProject().name}
         />,
         <ToolbarDropdown
           services={services}
@@ -929,16 +927,10 @@ function Content(props: { id: string }) {
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
-  // A plugin's view fills a container element, however it likes.
   const view = views.get(props.id);
-  if (view) {
-    const container = document.createElement('div');
-    container.className = 'playground-view';
-    const cleanup = view.mount(container);
-    if (cleanup) onCleanup(cleanup);
-    return container;
-  }
-  const title = layout.toolWindows.windows.get(props.id)?.title ?? props.id;
+  if (view) return <PluginView view={view} />;
+  // Content is drawn only for the windows registered.
+  const { title } = layout.toolWindows.windows.get(props.id) as ToolWindowSpec;
   return () => (
     <ul class="playground-list">
       {Array.from({ length: 12 }, (_, i) => (
@@ -1026,7 +1018,7 @@ function Code(props: { path: string; env: string }) {
             fontSize={() => settings.get('editor.fontSize') as number}
             softWrap={() => settings.get('editor.softWrap') as boolean}
             tabSize={() => settings.get('editor.tabSize') as number}
-            {...(services.keymap ? { keys: () => editorKeys(services.keymap as Keymap) } : {})}
+            keys={() => editorKeys(services.keymap)}
           />
         );
       }}
@@ -1165,12 +1157,7 @@ render(
           bar={status}
           commands={services.commands}
           icon={icon}
-          shortcut={(id) => {
-            const key = services.keymap?.shortcutsFor(id)[0];
-            return key === undefined
-              ? undefined
-              : formatSequence(key, services.keymap?.platform ?? 'other');
-          }}
+          shortcut={shortcutOf}
         />
       )}
       tabs={(id) =>
@@ -1205,12 +1192,7 @@ render(
             ]
           : null
       }
-      shortcut={(id) => {
-        const key = services.keymap?.shortcutsFor(`view.tool.${id}`)[0];
-        return key === undefined
-          ? undefined
-          : formatSequence(key, services.keymap?.platform ?? 'other');
-      }}
+      shortcut={(id) => shortcutOf(`view.tool.${id}`)}
     />
   ),
   document.getElementById('app') as HTMLElement,
