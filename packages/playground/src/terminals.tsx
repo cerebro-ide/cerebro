@@ -4,7 +4,7 @@
 // process.
 
 import { makeObservable } from '@cerebro-ide/reactive';
-import { TerminalView, type TerminalBackend } from '@cerebro-ide/ui-terminal';
+import { TerminalView, type TerminalBackend, type TerminalOptions } from '@cerebro-ide/ui-terminal';
 import { agentArgs, agentEnded } from './agents.js';
 
 type Listener<T extends unknown[]> = (...args: T) => void;
@@ -54,12 +54,10 @@ function backend(host: NonNullable<Window['cerebro']>['host'], project: string):
   };
 }
 
-export type TerminalKind = 'shell' | 'claude';
-
-const host = window.cerebro?.host;
 /** Each project's terminals, by its path. */
 const backends = new Map<string, TerminalBackend>();
-let projectOf: (worktree: string) => string | undefined = () => undefined;
+// Set by the environments as they load, before any terminal is made.
+let projectOf!: (worktree: string) => string | undefined;
 
 /** How a worktree's project is found: its terminals run on that project's host. */
 export function setTerminalProject(resolve: (worktree: string) => string | undefined): void {
@@ -68,6 +66,7 @@ export function setTerminalProject(resolve: (worktree: string) => string | undef
 
 /** The terminals of a worktree's project, in the desktop app. */
 function backendFor(worktree: string): TerminalBackend | undefined {
+  const host = window.cerebro?.host;
   const project = projectOf(worktree);
   if (!host || project === undefined) return undefined;
   let found = backends.get(project);
@@ -79,23 +78,19 @@ function backendFor(worktree: string): TerminalBackend | undefined {
 }
 
 const views = new Map<string, TerminalView>();
-let passKey: (event: KeyboardEvent) => boolean = () => false;
+// Set by the page as it loads, before any terminal is made.
+let passKey!: (event: KeyboardEvent) => boolean;
 
 /** Which keys terminals let through to the app: its shortcuts. */
 export function setTerminalKeys(pass: (event: KeyboardEvent) => boolean): void {
   passKey = pass;
 }
 
-/**
- * The worktree's terminal under this key, made the first time it's asked for. A shell's `onExit`
- * runs when it ends.
- */
-function terminal(
-  kind: TerminalKind,
-  worktree: string,
-  key: string,
-  onExit?: () => void,
-): TerminalView | undefined {
+/** What runs in a terminal, and what its ending does: a shell's, or the agent's. */
+type Program = Pick<TerminalOptions, 'command' | 'args' | 'agent' | 'onExit'>;
+
+/** The worktree's terminal under this key, made the first time it's asked for. */
+function terminal(worktree: string, key: string, program: Program): TerminalView | undefined {
   let view = views.get(key);
   if (!view) {
     const shared = backendFor(worktree);
@@ -105,19 +100,7 @@ function terminal(
       cwd: worktree,
       mac: window.cerebro?.platform === 'darwin',
       passKey: (event) => passKey(event),
-      // The agent runs with the host's hooks, and resumes its last session.
-      ...(kind === 'claude'
-        ? {
-            command: 'claude',
-            args: () => agentArgs(worktree),
-            agent: true,
-            onExit: (exitCode: number) => {
-              agentEnded(worktree, exitCode);
-            },
-          }
-        : onExit
-          ? { onExit }
-          : {}),
+      ...program,
     });
     views.set(key, view);
   }
@@ -126,7 +109,15 @@ function terminal(
 
 /** The worktree's agent, in the Claude tool window. */
 export function agentTerminal(worktree: string): TerminalView | undefined {
-  return terminal('claude', worktree, `claude:${worktree}`);
+  // The agent runs with the host's hooks, and resumes its last session.
+  return terminal(worktree, `claude:${worktree}`, {
+    command: 'claude',
+    args: () => agentArgs(worktree),
+    agent: true,
+    onExit: (exitCode) => {
+      agentEnded(worktree, exitCode);
+    },
+  });
 }
 
 /** Where the Terminal tool window's tabs are kept between runs, by worktree. */
@@ -203,8 +194,10 @@ export class Shells {
   /** The terminal of a tab, made when first shown. */
   view(number: number): TerminalView | undefined {
     // A shell that ends closes its tab, as IntelliJ's do.
-    return terminal('shell', this.worktree, this.key(number), () => {
-      this.close(number);
+    return terminal(this.worktree, this.key(number), {
+      onExit: () => {
+        this.close(number);
+      },
     });
   }
 
@@ -265,7 +258,8 @@ export class Shells {
 }
 
 const shells = new Map<string, Shells>();
-let lastClosed: () => void = () => undefined;
+// Set by the page as it loads, before any shell is closed.
+let lastClosed!: () => void;
 
 /** What closing a worktree's last shell does: hides the Terminal tool window. */
 export function setLastShellClosed(handler: () => void): void {
