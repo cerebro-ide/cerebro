@@ -10,6 +10,7 @@ export default defineProject({
   test: {
     name: 'playground',
     include: ['test/**/*.test.{ts,tsx}'],
+    setupFiles: ['test/setup.ts'],
     browser: {
       enabled: true,
       headless: true,
