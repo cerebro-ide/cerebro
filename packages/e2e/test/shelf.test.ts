@@ -29,6 +29,8 @@ const button = (text: string) => page().locator('.cerebro-dialog__button', { has
 const read = (file: string) => readFileSync(join(repo, file), 'utf8').replace(/\r/g, '');
 /** Git's status, without the line ends Windows may give. */
 const status = () => git('status', '--porcelain', '--untracked-files=all');
+/** Through the host, which runs git: longer than `expect.poll`'s second (rule "End-to-end"). */
+const HOST = { timeout: 15_000 };
 
 /** Runs an action by its name, from Find Action. */
 async function action(name: string): Promise<void> {
@@ -71,7 +73,7 @@ it('shelves the file chosen, shows it in the Shelf tab with its diff, and unshel
   expect(await button('Shelve Changes').isDisabled()).toBe(true);
   await page().keyboard.type('Aside');
   await button('Shelve Changes').click();
-  await expect.poll(status).toBe(' M b.ts\n?? new.ts\n');
+  await expect.poll(status, HOST).toBe(' M b.ts\n?? new.ts\n');
   expect(read('a.ts')).toBe('a\n');
   // The Shelf tab, after Commit; its list opens to the file, whose diff opens.
   await tab('shelf').click();
@@ -85,7 +87,7 @@ it('shelves the file chosen, shows it in the Shelf tab with its diff, and unshel
   await shelf.click();
   await page().keyboard.press('ControlOrMeta+Shift+U');
   await button('Unshelve').click();
-  await expect.poll(() => read('a.ts')).toBe('a changed\n');
+  await expect.poll(() => read('a.ts'), HOST).toBe('a changed\n');
   await tab('shelf').waitFor({ state: 'detached' });
   await row('changes:a.ts').waitFor();
 });
@@ -95,14 +97,14 @@ it('stashes with a message and untracked files, and pops it from the Stash tab',
   await page().keyboard.type('Mine');
   await page().locator('.cerebro-dialog label', { hasText: 'Include untracked' }).click();
   await button('Create Stash').click();
-  await expect.poll(status).toBe('');
+  await expect.poll(status, HOST).toBe('');
   expect(git('stash', 'list', '--format=%gs')).toBe('On main: Mine\n');
   await tab('stash').click();
   await page()
     .locator('.cerebro-tree-row', { hasText: 'On main: Mine' })
     .click({ button: 'right' });
   await page().locator('.cerebro-menu-item', { hasText: 'Pop' }).click();
-  await expect.poll(status).toBe(' M a.ts\n M b.ts\n?? new.ts\n');
+  await expect.poll(status, HOST).toBe(' M a.ts\n M b.ts\n?? new.ts\n');
   expect(git('stash', 'list')).toBe('');
   await tab('stash').waitFor({ state: 'detached' });
 });
@@ -114,6 +116,6 @@ it('unstashes the stash chosen, popping it', async () => {
   await action('Unstash Changes');
   await page().locator('.cerebro-dialog label', { hasText: 'On main: First' }).click();
   await button('Pop Stash').click();
-  await expect.poll(() => git('stash', 'list', '--format=%gs')).toBe('On main: Second\n');
+  await expect.poll(() => git('stash', 'list', '--format=%gs'), HOST).toBe('On main: Second\n');
   expect(read('b.ts')).toBe('b changed\n');
 });
