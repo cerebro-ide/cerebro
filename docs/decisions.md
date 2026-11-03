@@ -1170,9 +1170,11 @@ aside, and back.
   Changes…, Show Shelf, Stash Changes…, Unstash Changes…), as IntelliJ's.
 - **Git's optional locks are off** for every git command the host runs (`GIT_OPTIONAL_LOCKS=0`, as
   git's documentation describes it): `git status`, which the Commit window runs every few seconds,
-  otherwise refreshes the index as it reads, under the index's lock, and a stash run meanwhile
-  failed with "Unable to create '.git/index.lock': File exists" (seen in CI, #109; the host's test
-  measures that reading the changes leaves the index as it was).
+  otherwise refreshes the index as it reads, under the index's lock, and a stash or commit run
+  meanwhile fails with "Unable to create '.git/index.lock': File exists" (git's documentation; the
+  host's test measures that reading the changes now leaves the index as it was). Seen in CI (#109),
+  though there the `git status` was the e2e test's own, polled while the app stashed: it runs with
+  optional locks off too.
 - **Not yet:** merging when an unshelve or unstash conflicts (it fails, and says why); unshelving
   some of a list's files; renaming a list; IntelliJ's Unshelve dialog's options (it asks to confirm
   instead); a stash's untracked files in its file list; Unstash's "As new branch", and Drop and
