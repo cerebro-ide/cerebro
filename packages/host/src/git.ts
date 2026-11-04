@@ -352,12 +352,14 @@ export interface LogCommit {
   /** When it was authored, in milliseconds since the epoch. */
   time: number;
   subject: string;
+  /** Its message after the subject, without the blank line between; empty if there's none. */
+  body: string;
   /** The refs at it, as git names them in full (`refs/heads/main`, `HEAD`, `tag: refs/tags/v1`). */
   refs: string[];
 }
 
 /** The fields of a commit in `git log`'s output, a unit separator between them. */
-const LOG_FORMAT = ['%H', '%P', '%an', '%ae', '%at', '%D', '%s'].join('%x1f');
+const LOG_FORMAT = ['%H', '%P', '%an', '%ae', '%at', '%D', '%s', '%b'].join('%x1f');
 
 /** Reads `git log -z` in LOG_FORMAT: a commit per NUL-ended record. */
 export function parseLog(output: string): LogCommit[] {
@@ -365,7 +367,7 @@ export function parseLog(output: string): LogCommit[] {
     .split('\0')
     .filter((record) => record !== '')
     .map((record) => {
-      const [hash, parents, author, email, time, refs, subject] = record.split('\x1f') as [
+      const [hash, parents, author, email, time, refs, subject, ...body] = record.split('\x1f') as [
         string,
         string,
         string,
@@ -373,6 +375,7 @@ export function parseLog(output: string): LogCommit[] {
         string,
         string,
         string,
+        ...string[],
       ];
       return {
         hash,
@@ -381,6 +384,8 @@ export function parseLog(output: string): LogCommit[] {
         email,
         time: Number(time) * 1000,
         subject,
+        // The body last: a unit separator in it is its own.
+        body: body.join('\x1f').trimEnd(),
         refs: refs === '' ? [] : refs.split(', '),
       };
     });

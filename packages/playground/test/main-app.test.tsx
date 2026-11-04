@@ -1,11 +1,13 @@
 import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import type { Tab } from '@cerebro-ide/layout';
 import { diffTab } from '../src/changes.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
+import { EMPTY_TREE } from '../src/git-log.js';
 import { added, answers, calls, host, installBridge, notify, shownAgain } from './app-bridge.js';
 import { closeAll, dialog, dialogText, menuItems, popupItems, press } from './fakes.js';
 
@@ -230,6 +232,25 @@ describe('the Git window', () => {
       )
       .toBe('First');
     expect(host('/r').params('git.log')).toContainEqual({ worktree: '/r', skip: 0, max: 1000 });
+    // A commit's file opens its diff in the editor.
+    const group = env().editor.activeGroup;
+    const before = group.tabs.find((tab) => tab.id === group.active) as Tab;
+    answers.set('git.changes', [{ path: 'src/a.ts', status: 'added' }]);
+    answers.set('git.diff', { original: '', text: 'const a = 1;\n' });
+    const window = '.cerebro-tool-window[data-id="git"]';
+    await userEvent.click(
+      document.querySelector(`${window} .playground-log__commits .cerebro-tree-row`) as Element,
+    );
+    const file = await vi.waitUntil(() =>
+      document.querySelector(`${window} .playground-log__files .cerebro-tree-row`),
+    );
+    await userEvent.dblClick(file);
+    await expect
+      .poll(() => env().editor.activeGroup.active)
+      .toBe(`diff@${EMPTY_TREE}..c0:src/a.ts`);
+    // As it was, the tab active before active again, for the tests after.
+    env().editor.close(env().editor.activeGroup.id, `diff@${EMPTY_TREE}..c0:src/a.ts`);
+    env().editor.open(before);
     await userEvent.keyboard('{Alt>}9{/Alt}');
   });
 });

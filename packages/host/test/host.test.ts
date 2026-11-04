@@ -312,7 +312,16 @@ describe('changes', () => {
       vi.fn(() => Promise.resolve('a\x1f\x1fAnn\x1fa@x\x1f1\x1f\x1fone\0')),
     );
     expect(await ui.request('git.log', { worktree: '/w', skip: 0, max: 5 })).toEqual([
-      { hash: 'a', parents: [], author: 'Ann', email: 'a@x', time: 1000, subject: 'one', refs: [] },
+      {
+        hash: 'a',
+        parents: [],
+        author: 'Ann',
+        email: 'a@x',
+        time: 1000,
+        subject: 'one',
+        body: '',
+        refs: [],
+      },
     ]);
     expect(git).toHaveBeenCalledWith('/w', expect.arrayContaining(['--skip=0', '--max-count=5']));
     for (const bad of [{ skip: 0 }, { skip: 'a', max: 1 }]) {

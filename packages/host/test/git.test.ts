@@ -34,7 +34,7 @@ import {
 } from '../src/index.js';
 
 describe('parseLog', () => {
-  it('reads a commit per record: its parents, refs and subject, which may hold commas', () => {
+  it('reads a commit per record: its parents, refs, subject (which may hold commas) and body', () => {
     const record = (...fields: string[]) => `${fields.join('\x1f')}\0`;
     expect(
       parseLog(
@@ -46,7 +46,8 @@ describe('parseLog', () => {
           '10',
           'HEAD -> refs/heads/main, tag: refs/tags/v1',
           'x, y',
-        ) + record('a', '', 'Bo', 'b@x', '5', '', 'first'),
+          'Why.\n\nMore\x1fstill.\n',
+        ) + record('a', '', 'Bo', 'b@x', '5', '', 'first', ''),
       ),
     ).toEqual([
       {
@@ -56,6 +57,7 @@ describe('parseLog', () => {
         email: 'a@x',
         time: 10_000,
         subject: 'x, y',
+        body: 'Why.\n\nMore\x1fstill.',
         refs: ['HEAD -> refs/heads/main', 'tag: refs/tags/v1'],
       },
       {
@@ -65,6 +67,7 @@ describe('parseLog', () => {
         email: 'b@x',
         time: 5000,
         subject: 'first',
+        body: '',
         refs: [],
       },
     ]);
@@ -209,7 +212,7 @@ describe('with real git', () => {
     expect(await log(history, 0, 10)).toEqual([]);
     commitAt(1, 'first');
     run(history, 'checkout', '-q', '-b', 'side');
-    commitAt(2, 'on side');
+    commitAt(2, 'on side\n\nWhy it was made.\n\nAnd more.');
     run(history, 'checkout', '-q', 'main');
     commitAt(3, 'on main');
     gitAt(4, 'merge', '-q', '--no-ff', '--no-edit', 'side');
@@ -234,11 +237,13 @@ describe('with real git', () => {
     expect(merge.parents).toHaveLength(2);
     expect(merge.refs).toEqual(['HEAD -> refs/heads/main']);
     expect(side.refs).toEqual(['tag: refs/tags/v1', 'refs/heads/side']);
+    expect(side.body).toBe('Why it was made.\n\nAnd more.');
     expect(first).toMatchObject({
       parents: [],
       author: 't',
       email: 't@t',
       time: 1_700_000_001_000,
+      body: '',
       refs: [],
     });
     expect((await log(history, 1, 2)).map((c) => c.subject)).toEqual(['on main', 'on side']);
