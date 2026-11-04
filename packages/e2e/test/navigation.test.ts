@@ -286,3 +286,26 @@ it('keeps the recent files when the app restarts', async () => {
   await page().locator('.cm-line').first().waitFor();
   expect(await labels()).toEqual(before);
 });
+
+it('switches to the tab shown before with Ctrl+Tab, and moves on with Tab while Ctrl is held', async () => {
+  await open('b.ts');
+  await open('e.ts');
+  // Ctrl on every platform, as IntelliJ's macOS keymap has it too.
+  await page().keyboard.down('Control');
+  await page().keyboard.press('Tab');
+  const switcher = page().locator('.cerebro-switcher');
+  await switcher.waitFor();
+  const selected = switcher.locator('.cerebro-popup-item--highlighted .cerebro-popup-item__label');
+  expect(await selected.textContent()).toBe('b.ts');
+  await page().keyboard.up('Control');
+  await switcher.waitFor({ state: 'detached' });
+  expect((await where()).tab).toBe('b.ts');
+  // Back to e.ts, the one shown before b.ts, then on past it.
+  await page().keyboard.down('Control');
+  await page().keyboard.press('Tab');
+  expect(await selected.textContent()).toBe('e.ts');
+  await page().keyboard.press('Tab');
+  const third = await selected.textContent();
+  await page().keyboard.up('Control');
+  expect((await where()).tab).toBe(third);
+});

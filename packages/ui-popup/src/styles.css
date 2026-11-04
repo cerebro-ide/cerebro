@@ -185,3 +185,49 @@
   background: var(--cerebro-hover);
   color: var(--cerebro-text);
 }
+
+/* The Switcher: its title, the tool windows beside the files, then the selected file's folder. */
+.cerebro-switcher {
+  outline: none;
+}
+
+.cerebro-switcher__title {
+  flex: none;
+  padding: 8px 12px 4px;
+  font-weight: 600;
+}
+
+.cerebro-switcher__lists {
+  display: flex;
+  min-height: 0;
+}
+
+.cerebro-switcher__list {
+  min-height: 0;
+  max-height: 60vh;
+  padding: 4px;
+  overflow-y: auto;
+}
+
+/* The tool windows, a line between them and the files (IntelliJ's popup separator). */
+.cerebro-switcher__list--left {
+  flex: none;
+  border-right: 1px solid var(--cerebro-separator);
+}
+
+/* The files: at least 250px, as IntelliJ's. */
+.cerebro-switcher__list--right {
+  flex: auto;
+  min-width: 250px;
+}
+
+.cerebro-switcher__status {
+  flex: none;
+  min-height: 1lh;
+  padding: 4px 12px 6px;
+  overflow: hidden;
+  border-top: 1px solid var(--cerebro-separator);
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

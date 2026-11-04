@@ -6,3 +6,11 @@ export {
   type PickerOptions,
   type PopupPosition,
 } from './popup.js';
+export {
+  openSwitcher,
+  type Modifier,
+  type SwitcherHandle,
+  type SwitcherItem,
+  type SwitcherOptions,
+  type SwitcherSide,
+} from './switcher.js';

@@ -796,6 +796,111 @@ describe('the editor’s file', () => {
   });
 });
 
+describe('the Switcher', () => {
+  const active = () => env().editor.activeGroup.active;
+  const labels = (side: string) =>
+    [...document.querySelectorAll(`[data-side="${side}"] .cerebro-popup-item`)].map((row) =>
+      [...row.querySelectorAll('span')].map((part) => part.textContent).join('|'),
+    );
+  const selected = () =>
+    document.querySelector(
+      '.cerebro-switcher .cerebro-popup-item--highlighted .cerebro-popup-item__label',
+    )?.textContent;
+  const open = (path: string) => {
+    env().editor.open({ id: path, title: path.split('/').at(-1) as string });
+  };
+  const closeTabs = () => {
+    for (const group of env().editor.groups) {
+      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+    }
+  };
+
+  it('goes back to the tab shown before on a press and a release of Ctrl+Tab, or to the last with Shift', async () => {
+    closeTabs();
+    for (const path of ['/r/src/a.ts', '/r/src/b.ts', '/r/src/c.ts']) open(path);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Tab}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-switcher'));
+    expect(labels('right')).toEqual(['|c.ts||', '|b.ts||', '|a.ts||']);
+    expect(selected()).toBe('b.ts');
+    expect(q('.cerebro-switcher__status').textContent).toBe('/r/src');
+    // The tool windows by name, each with its number, or a capital of its name, or the next free.
+    expect(labels('left')).toEqual([
+      '|Agent Changes||A',
+      '|Bookmarks||2',
+      '|Claude||C',
+      '|Commit||0',
+      '|Database||D',
+      // Find in Files' window, there since it ran.
+      '|Find||F',
+      '|Git||9',
+      // A plugin's: its capital is free, so Notifications takes the first free of 0-9 and A-Z.
+      '|Notes||N',
+      '|Notifications||3',
+      '|Problems||6',
+      '|Project||1',
+      '|Services||8',
+      '|Structure||7',
+      '|Terminal||T',
+    ]);
+    await userEvent.keyboard('{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+    expect(document.querySelector('.cerebro-switcher')).toBeNull();
+    await userEvent.keyboard('{Control>}{Shift>}{Tab}{/Shift}');
+    expect(selected()).toBe('a.ts');
+    await userEvent.keyboard('{/Control}');
+    await expect.poll(active).toBe('/r/src/a.ts');
+  });
+
+  it('opens a tool window by its mnemonic, with Ctrl held, and closes a tab or hides a window with Delete', async () => {
+    const project = () => document.querySelector('.cerebro-tool-window[data-id="project"]');
+    if (project()) await userEvent.click(stripe('project'));
+    await userEvent.keyboard('{Control>}{Tab}1{/Control}');
+    await expect.poll(project).not.toBeNull();
+    await expect
+      .poll(() => document.activeElement?.closest('.cerebro-tool-window')?.getAttribute('data-id'))
+      .toBe('project');
+    // Delete closes the selected tab: b.ts, the one before a.ts.
+    open('/r/src/a.ts');
+    await userEvent.keyboard('{Control>}{Tab}');
+    expect(selected()).toBe('b.ts');
+    await userEvent.keyboard('{Delete}');
+    expect(labels('right')).toEqual(['|a.ts||', '|c.ts||']);
+    expect(env().editor.groups.flatMap((g) => g.tabs.map((t) => t.id))).not.toContain(
+      '/r/src/b.ts',
+    );
+    // A tool window hides, and stays listed.
+    await userEvent.keyboard('{ArrowLeft}');
+    while (selected() !== 'Project') await userEvent.keyboard('{ArrowDown}');
+    await userEvent.keyboard('{Delete}');
+    expect(project()).toBeNull();
+    expect(selected()).toBe('Project');
+    await userEvent.keyboard('{Escape}{/Control}');
+    expect(active()).toBe('/r/src/a.ts');
+    await userEvent.click(stripe('project'));
+  });
+
+  it('lists the recent files with fewer than two tabs open, a name shared by its folder, and opens from Find Action', async () => {
+    closeTabs();
+    open('/r/lib/a.ts');
+    await userEvent.click(q('.cerebro-statusbar'));
+    await userEvent.keyboard('{Control>}{Shift>}a{/Shift}{/Control}');
+    await popupItems();
+    await userEvent.keyboard('Switcher');
+    await expect
+      .poll(() => document.querySelector('.cerebro-popup-item__label')?.textContent)
+      .toBe('Switcher');
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-switcher'));
+    // Closing a.ts showed c.ts, so it comes first among the closed.
+    expect(labels('right').slice(0, 3)).toEqual(['|a.ts|lib|', '|c.ts||', '|a.ts|src|']);
+    // Opened without Ctrl held, it stays until Enter.
+    expect(selected()).toBe('c.ts');
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(active).toBe('/r/src/a.ts');
+  });
+});
+
 describe('saving', () => {
   const tabs = () => env().editor.groups.flatMap((group) => group.tabs.map((tab) => tab.id));
 

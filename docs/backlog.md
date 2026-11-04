@@ -6,16 +6,10 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### The Switcher (Ctrl+Tab)
-
-From Ido (2026-11-04): "the next feature i want implemented is intellij switcher. (ctrl+tab) for
-switching between tabs". Next after the Git Log's third PR (the branches pane, the Branch filter
-and Refresh), before the image viewer.
-
 ### The Git Log's other filters
 
 The text search, User, Date and Paths, as IntelliJ's Log toolbar has them (decision "The Git
-Log"). After the Switcher and the image viewer, unless Ido says otherwise.
+Log"). Next, unless Ido says otherwise.
 
 ### The status bar's file items are samples
 
