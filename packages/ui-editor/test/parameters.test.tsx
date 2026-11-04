@@ -150,17 +150,17 @@ describe('Parameter Info', () => {
 
   it('hides on Escape though a completion was asked as one typed, with no list shown', async () => {
     const ask = vi.fn<AskSignatures>(() => Promise.resolve(ADD));
-    const completions = vi.fn(() =>
-      Promise.resolve({ incomplete: false, items: [{ label: 'add' }] }),
-    );
+    // Never answered: CodeMirror's completion stays asked, whatever the time between keys.
+    const completions = vi.fn(() => new Promise<never>(() => undefined));
     const root = mount({ document: new EditorDocument(''), parameterInfo: ask, completions });
     await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
-    await userEvent.keyboard('add');
-    await expect.poll(() => root.querySelector('.cm-tooltip-autocomplete')).not.toBeNull();
-    await userEvent.keyboard('(1, {Control>}p{/Control}');
+    await userEvent.keyboard('add(1, b{Control>}p{/Control}');
     await expect.poll(() => info(root)).not.toBeNull();
-    // Not a list: CodeMirror keeps one disabled, with nothing to choose, once `(` is typed.
-    expect(root.querySelector('.cm-tooltip-autocomplete-disabled')).not.toBeNull();
+    // Asked once 100 ms have passed after a key (once: CodeMirror waits for its answer).
+    await vi.waitFor(() => {
+      expect(completions).toHaveBeenCalled();
+    });
+    expect(root.querySelector('.cm-tooltip-autocomplete')).toBeNull();
     await userEvent.keyboard('{Escape}');
     expect(info(root)).toBeNull();
   });
