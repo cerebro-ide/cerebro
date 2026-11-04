@@ -18,6 +18,7 @@ import {
   pathOf,
   problemsOf,
   referencesIn,
+  signaturesOf,
   uriOf,
   type Located,
 } from '../src/lsp.js';
@@ -310,6 +311,57 @@ describe('hovers', () => {
   });
 });
 
+describe('signatures', () => {
+  it('are where each parameter is in its signature, given there or as its text; one is active', () => {
+    expect(
+      signaturesOf({
+        signatures: [
+          {
+            label: 'add(a: number, b: number): number',
+            parameters: [{ label: 'a: number' }, { label: 'b: number' }],
+            activeParameter: 1,
+          },
+          { label: '(x, x)', parameters: [{ label: 'x' }, { label: 'x' }, { label: 'gone' }] },
+          { label: '(n: int)', parameters: [{ label: [1, 7] }] },
+          { label: 'none()' },
+        ],
+        activeSignature: 2,
+        activeParameter: 0,
+      }),
+    ).toEqual({
+      signatures: [
+        {
+          label: 'add(a: number, b: number): number',
+          parameters: [
+            { from: 4, to: 13 },
+            { from: 15, to: 24 },
+          ],
+          active: 1,
+        },
+        // The second `x` after the first; one not there, at the start.
+        {
+          label: '(x, x)',
+          parameters: [
+            { from: 1, to: 2 },
+            { from: 4, to: 5 },
+            { from: 0, to: 4 },
+          ],
+          active: 0,
+        },
+        { label: '(n: int)', parameters: [{ from: 1, to: 7 }], active: 0 },
+        // Past its parameters: none active.
+        { label: 'none()', parameters: [] },
+      ],
+      active: 2,
+    });
+    expect(
+      signaturesOf({ signatures: [{ label: 'f()', activeParameter: null }], activeSignature: 3 }),
+    ).toEqual({ signatures: [{ label: 'f()', parameters: [] }], active: 0 });
+    expect(signaturesOf({ signatures: [] })).toBeNull();
+    expect(signaturesOf(null)).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -418,6 +470,31 @@ describe('TypeScript 7’s server', () => {
     });
     // Nothing there: none.
     expect(await servers.hover(project, main, at(2, 0))).toBeNull();
+  }, 60_000);
+
+  it('says what’s called at a place: its signature, and the parameter the place is at', async () => {
+    const project = `${root}/ts`;
+    const main = {
+      path: `${project}/called.ts`,
+      text: 'function add(a: number, b = 2) { return a + b; }\nadd(1, \n',
+    };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.signatures(project, main, at(1, 7))).toEqual({
+      signatures: [
+        {
+          label: 'add(a: number, b?: number): number',
+          parameters: [
+            { from: 4, to: 13 },
+            { from: 15, to: 25 },
+          ],
+          active: 1,
+        },
+      ],
+      active: 0,
+    });
+    // Outside the call: nothing.
+    expect(await servers.signatures(project, main, at(0, 0))).toBeNull();
   }, 60_000);
 
   it('offers the fixes for the problem at the caret, as edits', async () => {
@@ -681,6 +758,29 @@ describe('basedpyright, for Python', () => {
     const servers = pool(undefined, { patience: 60_000 });
     expect(await servers.hover(project, main, at(1, 2))).toEqual({
       text: '```python\n(function) def walk(n: int) -> str\n```\n---\nWalks n steps.',
+    });
+  }, 60_000);
+
+  it('says what’s called at a place: its signature, and the parameter the place is at', async () => {
+    const project = `${root}/py`;
+    const main = {
+      path: `${project}/called.py`,
+      text: 'def walk(n: int, fast: bool = False) -> str:\n    return ""\n\nwalk(1, \n',
+    };
+    writeFileSync(main.path, main.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.signatures(project, main, at(3, 8))).toEqual({
+      signatures: [
+        {
+          label: '(n: int, fast: bool = False) -> str',
+          parameters: [
+            { from: 1, to: 7 },
+            { from: 9, to: 27 },
+          ],
+          active: 1,
+        },
+      ],
+      active: 0,
     });
   }, 60_000);
 
