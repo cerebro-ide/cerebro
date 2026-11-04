@@ -73,7 +73,8 @@ export class ImageView {
   }
 
   private get minimum(): number {
-    return Math.max(this.width > 0 ? 1 / this.width : 0, MICRO_LIMIT);
+    // One pixel wide, at least; before it has loaded, 1:1.
+    return Math.max(1 / Math.max(this.width, 1), MICRO_LIMIT);
   }
 
   get canZoomIn(): boolean {

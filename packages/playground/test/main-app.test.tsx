@@ -769,6 +769,18 @@ describe('the editor’s file', () => {
     expect(q('.cerebro-popup').textContent).toContain('c.tssrc');
   });
 
+  it('opens in the image viewer when it’s an image, its tab with a picture', async () => {
+    const canvas = document.createElement('canvas');
+    answers.set('fs.readBytes', { data: canvas.toDataURL('image/png').split(',')[1] });
+    env().editor.open({ id: '/r/logo.png', title: 'logo.png' });
+    await expect
+      .poll(() => q('.playground-image__info').textContent)
+      .toMatch(/^300x150 PNG \(32-bit color\) /);
+    const tab = q('.cerebro-editor-tab--active .cerebro-editor-tab__icon path');
+    expect(tab.getAttribute('d')).toMatch(/^M2\.5 3\.5h11v9h-11zM2\.5 10\.5/);
+    env().editor.close(env().editor.activeGroupId, '/r/logo.png');
+  });
+
   it('is saved as the focus leaves the editor, not as it moves inside it', async () => {
     globalSettings.layers.global.set('system.saveWhenIdle', false);
     await userEvent.click(await vi.waitUntil(code));

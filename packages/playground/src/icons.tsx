@@ -32,6 +32,15 @@ const PATHS: Record<string, string> = {
   // A box with its lid: the shelf; a stack: the stash.
   shelf: 'M2.5 6.5h11v6.5h-11zM2 3.5h12v3H2zM6.5 9h3',
   stash: 'M3 3.5h10v3H3zM3 6.5h10v3H3zM3 9.5h10v3H3z',
+  // A picture: an image file's tab.
+  image: 'M2.5 3.5h11v9h-11zM2.5 10.5l3-3 2.5 2.5 2-2 3.5 3.5M10.5 6a.75.75 0 1 0 0 .01',
+  // The image viewer's toolbar, as IntelliJ's: the chessboard, the grid, zoom, 1:1 and fit.
+  chessboard: 'M2.5 2.5h11v11h-11zM8 2.5v11M2.5 8h11M4 4h2.5v2.5H4zM9.5 9.5H12V12H9.5z',
+  grid: 'M2.5 2.5h11v11h-11zM6.17 2.5v11M9.83 2.5v11M2.5 6.17h11M2.5 9.83h11',
+  zoomIn: 'M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5M5 7h4M7 5v4',
+  zoomOut: 'M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5M5 7h4',
+  actualSize: 'M2.5 3.5h11v9h-11zM5.5 6v4M10.5 6v4M8 6.8v.2M8 9.2v.2',
+  fit: 'M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 5.5h5v5h-5z',
   services:
     'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4',
 };

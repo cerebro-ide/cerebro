@@ -163,6 +163,45 @@ body,
   height: 100%;
 }
 
+.playground-image {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* As the Log's toolbar; the image's line at its right, as IntelliJ's. */
+.playground-image__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+}
+
+.playground-image__toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
+.playground-image__toolbar .cerebro-toolbar-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playground-image__info {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playground-image .cerebro-image {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
 .playground-code__note {
   /* A paragraph's margins would reach past the editor area, which would scroll. */
   margin: 0;
