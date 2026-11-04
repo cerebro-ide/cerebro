@@ -28,9 +28,15 @@ static const CGFloat CIRCLE = 12;
 @property(nonatomic) BOOL hovered;
 /** Its window's "will exit full screen" observer. */
 @property(nonatomic, strong) id leaving;
+/** The row the buttons are in, filling it. */
+@property(nonatomic, readonly) NSView *row;
 @end
 
 @implementation CerebroFullScreenButtons
+
+- (NSView *)row {
+  return self.subviews.firstObject;
+}
 
 - (void)mouseEntered:(NSEvent *)event {
   [self show:YES];
@@ -43,7 +49,7 @@ static const CGFloat CIRCLE = 12;
 /** Shows close and zoom as themselves, or all three as grey circles. */
 - (void)show:(BOOL)hovered {
   self.hovered = hovered;
-  NSArray<NSView *> *buttons = self.subviews;
+  NSArray<NSView *> *buttons = self.row.subviews;
   if (buttons.count == 3) {
     buttons[0].hidden = !hovered;
     buttons[1].hidden = YES;
@@ -53,7 +59,7 @@ static const CGFloat CIRCLE = 12;
 }
 
 - (void)drawRect:(NSRect)dirty {
-  NSArray<NSView *> *buttons = self.subviews;
+  NSArray<NSView *> *buttons = self.row.subviews;
   if (buttons.count != 3) return;
   [(self.colour ?: [NSColor grayColor]) setFill];
   for (NSUInteger i = 0; i < 3; i++) {
@@ -167,10 +173,18 @@ static napi_value Show(napi_env env, napi_callback_info info) {
       [NSWindow standardWindowButton:NSWindowMiniaturizeButton forStyleMask:mask],
       [NSWindow standardWindowButton:NSWindowZoomButton forStyleMask:mask],
   };
+  // The buttons in a row inside the view, not in it: Electron hides "the window's close button's
+  // superview's superview" as leaving full screen starts, taking it for the title bar's container
+  // (window_buttons_proxy.mm), and AppKit gives ours as the window's close button while they're in
+  // it. In a row, that's this view, which then hides as JetBrains Runtime hides its buttons;
+  // without one, it was the window's frame view, left hidden: a transparent window.
+  NSView *row = [[NSView alloc] initWithFrame:view.bounds];
+  row.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
+  [view addSubview:row];
   CGFloat offsets[3] = {0, step, zoomStep};
   for (int i = 0; i < 3; i++) {
     [buttons[i] setFrame:NSMakeRect(offsets[i], 0, NSWidth(close), height)];
-    [view addSubview:buttons[i]];
+    [row addSubview:buttons[i]];
   }
   [view addTrackingArea:[[NSTrackingArea alloc]
                             initWithRect:NSZeroRect
@@ -262,8 +276,12 @@ static napi_value State(napi_env env, napi_callback_info info) {
   napi_create_object(env, &result);
   napi_set_named_property(env, result, "buttons", buttons);
   napi_set_named_property(env, result, "reached", boolean(env, reached(view)));
+  // Whether AppKit gives ours as the window's own close button.
+  NSView *own = [window standardWindowButton:NSWindowCloseButton];
+  napi_set_named_property(env, result, "theWindows",
+                          boolean(env, own != nil && own == view.row.subviews.firstObject));
   uint32_t i = 0;
-  for (NSView *button in view.subviews) {
+  for (NSView *button in view.row.subviews) {
     napi_value entry = frameOf(env, button);
     napi_value kind;
     const char *name = NSStringFromClass([button class]).UTF8String;
@@ -283,9 +301,9 @@ static napi_value Press(napi_env env, napi_callback_info info) {
   CerebroFullScreenButtons *view = window ? buttonsIn(window) : nil;
   uint32_t index = 0;
   if (!view || napi_get_value_uint32(env, args[1], &index) != napi_ok) return boolean(env, false);
-  if (index >= view.subviews.count) return boolean(env, false);
+  if (index >= view.row.subviews.count) return boolean(env, false);
   [view show:YES];
-  [(NSButton *)view.subviews[index] performClick:nil];
+  [(NSButton *)view.row.subviews[index] performClick:nil];
   return boolean(env, true);
 }
 
