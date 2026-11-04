@@ -50,6 +50,7 @@ Read the index, then the entries that bear on the work at hand.
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
 - [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh
+- [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1642,6 +1643,31 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## The Switcher (2026-11-04)
+
+Ido: "the next feature i want implemented is intellij switcher. (ctrl+tab) for switching between
+tabs". As IntelliJ's, from its source (`Switcher.kt`, `SwitcherActions.kt`,
+`SwitcherRendering.kt`).
+
+- **A popup in the window's centre** (`openSwitcher` in `ui-popup`), on Ctrl+Tab, Ctrl+Shift+Tab
+  starting from the end: the tool windows on the left, by name; the open tabs on the right, the
+  latest shown first, up to 30; the selected file's folder below. With fewer than two tabs open,
+  the recent files fill the list, as many as there are tool windows.
+- **Its keys are IntelliJ's:** opened with Ctrl held, letting Ctrl go opens what's selected, so a
+  press and a release go back to the tab shown before; Tab moves on (Shift+Tab back), from one
+  list's end into the other; Up and Down within a list, Left and Right between them; Enter opens,
+  Escape closes; Delete or Backspace closes the selected tab, or hides the selected tool window.
+  Opened from a menu, it stays until Enter or Escape.
+- **Mnemonics are IntelliJ's:** a tool window's number (Alt+1's 1), else the first capital of its
+  name not taken, else the first of 0-9 and A-Z not taken; pressed with Ctrl held, a mnemonic
+  opens its window. Keys are matched by where they are (`Digit1`, `KeyA`), whatever the layout.
+- **The keymaps:** Ctrl+Tab and Ctrl+Shift+Tab in IntelliJ's, on macOS too, as IntelliJ has them.
+  The VS Code keymaps keep Ctrl+Tab for Recent Files, as before.
+- **Claims:** a tab open in two groups is listed once, and Delete closes it in both; a file's
+  folder shows after its name only when another listed file has its name, from the project's
+  folder where IntelliJ shows it whole; a chosen tool window's content takes the focus.
+- **Not yet:** speed search, IntelliJ's narrowing of the lists as one types.
 
 ## The Git Log (2026-11-04)
 

@@ -57,6 +57,7 @@ export const INTELLIJ: KeymapPreset = {
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Ctrl+F12'],
     'view.recentFiles': ['Ctrl+E'],
+    'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.new': ['Ctrl+Alt+Shift+Insert'],
     'file.saveAll': ['Ctrl+S'],
     'file.settings': ['Ctrl+Alt+S'],
@@ -123,6 +124,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'navigate.goToLine': ['Meta+L'],
     'navigate.fileStructure': ['Meta+F12'],
     'view.recentFiles': ['Meta+E'],
+    'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.new': ['Meta+Shift+N'],
     'file.saveAll': ['Meta+S'],
     'file.settings': ['Meta+,'],
@@ -213,6 +215,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Ctrl+Shift+O'],
     'view.recentFiles': ['Ctrl+Tab'],
+    // Ctrl+Tab is Recent Files here, as before the Switcher.
+    'view.switcher': [],
     'file.new': ['Ctrl+N'],
     'file.saveAll': ['Ctrl+S', 'Ctrl+K S'],
     'editor.close': ['Ctrl+F4', 'Ctrl+W'],
@@ -266,6 +270,8 @@ export const VSCODE_MAC: KeymapPreset = {
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Meta+Shift+O'],
     'view.recentFiles': ['Ctrl+Tab'],
+    // Ctrl+Tab is Recent Files here, as before the Switcher.
+    'view.switcher': [],
     'file.new': ['Meta+N'],
     'file.saveAll': ['Meta+S', 'Meta+Alt+S'],
     'editor.close': ['Meta+W'],
