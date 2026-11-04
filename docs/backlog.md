@@ -43,6 +43,13 @@ on it:
 - shfmt, which bash-language-server formats with: without it, Reformat Code leaves bash files
   as they are.
 
+### Search Everywhere's "… more" e2e test failed once on macOS
+
+On 2026-11-04 (PR #124's CI), the list didn't grow after "… more" was clicked, and the test
+printed nothing more. A guess, not measured: the list was drawn again as another kind's results
+came in, between finding the row and clicking it. The test now prints the rows, the popups and
+the query when it fails; read them the next time.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

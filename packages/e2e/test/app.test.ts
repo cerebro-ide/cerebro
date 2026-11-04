@@ -263,7 +263,21 @@ describe('popups', () => {
     // Forced, as the other clicks in these tests: under xvfb in CI a click can wait forever for
     // the element to be "stable".
     await page().locator('.cerebro-popup-item--more').last().click({ force: true });
-    await expect.poll(async () => (await actions()).length).toBeGreaterThan(9);
+    try {
+      await expect.poll(async () => (await actions()).length).toBeGreaterThan(9);
+    } catch (error) {
+      // Once on macOS in CI (2026-11-04), the list stayed as it was: what it showed then.
+      console.log('Search Everywhere after "… more":', {
+        actions: await actions(),
+        popups: await page().locator('.cerebro-popup').count(),
+        query: await page()
+          .locator('.cerebro-popup input')
+          .first()
+          .inputValue()
+          .catch(() => null),
+      });
+      throw error;
+    }
     expect(await page().locator('.cerebro-popup').count()).toBe(1);
     // Another query: the first few again.
     await page().keyboard.press('Backspace');
