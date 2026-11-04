@@ -90,4 +90,7 @@ on it:
   editor, the page focused, and the editor focused; the file was saved later, before the next test
   looked. The cause isn't found: the timer set with the old 15 s, or the save waiting behind
   another, would both fit. The test now also prints the settings the page stored and how long the
-  save took (up to 35 s).
+  save took (up to 35 s). Measured in CI on #136 (2026-11-04): the stored setting was 1 s, and the
+  file was saved 7 s after the edit, the editor focused. So it isn't the old 15 s. The test now
+  also prints the keys and mouse events after the edit, which start the idle time again, and the
+  page's long tasks.
