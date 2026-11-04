@@ -336,6 +336,19 @@ describe('Search Everywhere', () => {
     projects.set(list);
   });
 
+  it('names the repository Settings are for: the active worktree’s project', async () => {
+    const list = projects.get();
+    useProjects([project('/r/charts', new FakeHost())]);
+    workspace.openOrActivate({ id: '/r/charts', name: 'charts', branch: 'main' });
+    commands().execute('file.settings');
+    await dialog();
+    expect(document.body.textContent).toContain('Repository: charts');
+    expect(document.body.textContent).toContain('Worktree: charts');
+    await press('Cancel');
+    workspace.close('/r/charts');
+    projects.set(list);
+  });
+
   it('lists no files in the app with no worktree open', async () => {
     const list = projects.get();
     useProjects([project('/r/w', new FakeHost())]);
