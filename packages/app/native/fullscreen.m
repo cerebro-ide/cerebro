@@ -84,8 +84,13 @@ static NSView *frameViewOf(NSWindow *window) {
   return window.contentView.superview;
 }
 
+/** Variant A: the buttons in the content view. */
+static NSView *holderOf(NSWindow *window) {
+  return window.contentView;
+}
+
 static CerebroFullScreenButtons *buttonsIn(NSWindow *window) {
-  for (NSView *view in frameViewOf(window).subviews) {
+  for (NSView *view in holderOf(window).subviews) {
     if ([view isKindOfClass:[CerebroFullScreenButtons class]]) {
       return (CerebroFullScreenButtons *)view;
     }
@@ -139,7 +144,7 @@ static napi_value Show(napi_env env, napi_callback_info info) {
   if (arguments(env, info, args, 2) < 2) return boolean(env, false);
   NSWindow *window = windowOf(env, args[0]);
   if (!window || buttonsIn(window)) return boolean(env, false);
-  NSView *frame = frameViewOf(window);
+  NSView *frame = holderOf(window);
   NSButton *original = [window standardWindowButton:NSWindowCloseButton];
   NSRect close = original.frame;
   NSRect miniaturize = [window standardWindowButton:NSWindowMiniaturizeButton].frame;
