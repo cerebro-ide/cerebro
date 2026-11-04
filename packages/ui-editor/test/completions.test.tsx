@@ -82,7 +82,13 @@ describe('completions', () => {
       ),
     );
     const { doc, root } = await editing('const x = 1;\n', { completions: ask });
-    await userEvent.keyboard('ta');
+    // Asked once CodeMirror's 100 ms after a key have passed: `t`, then `a` after the answer, as
+    // keys more than 100 ms apart would be (it asked at `t` once, in a full run).
+    await userEvent.keyboard('t');
+    await vi.waitFor(() => {
+      expect(ask).toHaveBeenCalled();
+    });
+    await userEvent.keyboard('a');
     await shown(root);
     // Filtered by what's typed; where it's from over its type, as IntelliJ's.
     expect(rows(root)).toEqual([
@@ -92,7 +98,7 @@ describe('completions', () => {
     expect(root.querySelector('.cm-completionIcon-function')).not.toBeNull();
     // Asked once, at the caret: a whole list is filtered as one types.
     expect(ask).toHaveBeenCalledTimes(1);
-    expect(ask).toHaveBeenCalledWith('const x = 1;\nta', { line: 1, column: 2 });
+    expect(ask).toHaveBeenCalledWith('const x = 1;\nt', { line: 1, column: 1 });
     await userEvent.keyboard('{ArrowDown}{Enter}');
     expect(doc.text.peek().toString()).toBe('const x = 1;\ntarget');
     expect(root.querySelector('.cm-tooltip-autocomplete')).toBeNull();
