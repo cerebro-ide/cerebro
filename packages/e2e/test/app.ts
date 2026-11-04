@@ -32,7 +32,9 @@ export const KEYS = {
   quickDocumentation: mac ? 'F1' : 'Control+Q',
   parameterInfo: mac ? 'Meta+P' : 'Control+P',
   fileStructure: mac ? 'Meta+F12' : 'Control+F12',
-  reformat: mac ? 'Meta+Alt+L' : 'Control+Alt+L',
+  // The letter as a keyboard sends it with Ctrl+Alt held, not Playwright's `L` (a claim): with Ctrl
+  // and Alt, CodeMirror finds a key on Windows by the letter only (AltGr's there), measured.
+  reformat: mac ? 'Meta+Alt+l' : 'Control+Alt+l',
 } as const;
 
 let runs = 0;
