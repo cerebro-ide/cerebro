@@ -31,7 +31,14 @@ import {
 } from './shelf.js';
 import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
-import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
+import {
+  exists,
+  listFolder,
+  readFileBytes,
+  readTextFile,
+  UnreadableFile,
+  writeTextFile,
+} from './files.js';
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
 import { formatWithPrettier } from './prettier.js';
@@ -283,10 +290,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );
   connection.onRequest('git.files', (params) => folderFiles(text(params, 'path'), git, options.rg));
-  /** A file's text; binary and oversized files are refused with the reason, for the UI to show. */
-  const read = async (path: string): Promise<string> => {
+  /** A file's text or bytes; binary (for text) and oversized files are refused with the reason. */
+  const refusing = async <T>(reading: Promise<T>): Promise<T> => {
     try {
-      return await readTextFile(path);
+      return await reading;
     } catch (error) {
       if (error instanceof UnreadableFile) {
         throw new ResponseError(ErrorCodes.InvalidParams, error.message, { reason: error.reason });
@@ -294,7 +301,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       throw error;
     }
   };
+  const read = (path: string) => refusing(readTextFile(path));
   connection.onRequest('fs.read', async (params) => ({ text: await read(text(params, 'path')) }));
+  // An image's bytes, in base64: JSON carries no bytes.
+  connection.onRequest('fs.readBytes', async (params) => ({
+    data: Buffer.from(await refusing(readFileBytes(text(params, 'path')))).toString('base64'),
+  }));
   // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
   connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
   // Only the latest search's answer is used (the page searches as the user types): a new one stops

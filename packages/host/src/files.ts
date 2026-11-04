@@ -54,23 +54,29 @@ export class UnreadableFile extends Error {
   }
 }
 
-/**
- * A text file's contents, as UTF-8, with its byte order mark if it has one, so it's saved with it.
- * A file with a NUL byte in its first 8 KB is binary, as git decides; one over MAX_FILE_SIZE isn't
- * read.
- */
-export async function readTextFile(path: string): Promise<string> {
+/** A file's bytes, as an image viewer shows them; one over MAX_FILE_SIZE isn't read. */
+export async function readFileBytes(path: string): Promise<Uint8Array> {
   const file = await open(path, 'r');
   try {
     const { size } = await file.stat();
     if (size > MAX_FILE_SIZE) throw new UnreadableFile('too large', path);
     const bytes = new Uint8Array(size);
     await file.read(bytes, 0, size, 0);
-    if (bytes.subarray(0, 8000).includes(0)) throw new UnreadableFile('binary', path);
-    return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+    return bytes;
   } finally {
     await file.close();
   }
+}
+
+/**
+ * A text file's contents, as UTF-8, with its byte order mark if it has one, so it's saved with it.
+ * A file with a NUL byte in its first 8 KB is binary, as git decides; one over MAX_FILE_SIZE isn't
+ * read.
+ */
+export async function readTextFile(path: string): Promise<string> {
+  const bytes = await readFileBytes(path);
+  if (bytes.subarray(0, 8000).includes(0)) throw new UnreadableFile('binary', path);
+  return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
 }
 
 /**
