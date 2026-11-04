@@ -8,7 +8,8 @@
 // sends them as the file changes, for its version; for text "late", the version before's, then
 // its own with no version; the others send none. Each answers code actions with one per diagnostic
 // it's given, named by its message. "completes" offers two completions, the second's import
-// given only when it's asked about (as TypeScript's server); the others offer none.
+// given only when it's asked about (as TypeScript's server); the others offer none. A rename is
+// refused by "fails", and "dies" exits as it's asked; the others answer none.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -31,7 +32,11 @@ const handle = (message) => {
     const completes = mode === 'completes' ? { completionProvider: { resolveProvider: true } } : {};
     send({ id, result: { capabilities: { ...pulls, ...completes } } });
     // Asks what a server may ask of its client.
-    send({ id: 'c1', method: 'workspace/configuration', params: { items: [{}, {}] } });
+    send({
+      id: 'c1',
+      method: 'workspace/configuration',
+      params: { items: [{}, { section: 'fake' }, { section: 'other' }] },
+    });
     send({ id: 'c2', method: 'workspace/configuration' });
     send({ id: 'c3', method: 'client/registerCapability', params: {} });
     send({ id: 'c4', method: 'workspace/workspaceFolders' });
@@ -103,6 +108,10 @@ const handle = (message) => {
     const type = { name, kind: 5, range: at(0, 0), selectionRange: at(0, 6), children: [run] };
     // And one flat, as SymbolInformation: left out.
     send({ id, result: [type, { name: 'flat', kind: 12, location: {} }] });
+  } else if (method === 'textDocument/prepareRename' || method === 'textDocument/rename') {
+    if (mode === 'dies') process.exit(1);
+    if (mode === 'fails') send({ id, error: { code: -32803, message: 'Not here.' } });
+    else send({ id, result: null });
   } else if (method === 'textDocument/implementation') {
     send({ id, result: null });
   } else if (method === 'textDocument/definition') {

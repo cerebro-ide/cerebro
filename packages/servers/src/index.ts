@@ -31,6 +31,8 @@ export interface ServerSpec {
    * files: questions wait for it.
    */
   readyWhen?: RegExp;
+  /** Its settings, by section, for when it asks (`workspace/configuration`); none otherwise. */
+  settings?: Readonly<Record<string, unknown>>;
 }
 
 /** Resolves a module, as Node would: what tests replace. */
@@ -54,6 +56,12 @@ const TYPESCRIPT: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Rename renames what's renamed, everywhere, as IntelliJ's does: without it, renaming an imported
+ * name at a usage gives the import an alias (`tally as count`), as VS Code's default (measured).
+ */
+const TYPESCRIPT_SETTINGS = { preferences: { useAliasesForRenames: false } };
+
+/**
  * TypeScript 7's own language server (`tsc --lsp --stdio`): the native compiler, which serves
  * JavaScript too. Its executable comes in a package per platform, found as TypeScript's own
  * launcher finds it (lib/getExePath.js).
@@ -72,6 +80,9 @@ export function typescriptServer(
     // Without one, TypeScript's server makes a project of the open files alone: no usages in the
     // others (measured: "No usages" where main.ts calls lib.ts's run, main.ts not open).
     projectFiles: ['tsconfig.json', 'jsconfig.json'],
+    settings: Object.fromEntries(
+      ['typescript', 'javascript'].map((section) => [section, TYPESCRIPT_SETTINGS]),
+    ),
     command: () => {
       const platformPackage = resolve(`@typescript/typescript-${platform}-${arch}/package.json`);
       const exe = join(dirname(platformPackage), 'lib', platform === 'win32' ? 'tsc.exe' : 'tsc');

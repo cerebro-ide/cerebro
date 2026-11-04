@@ -23,6 +23,9 @@ describe('typescriptServer', () => {
     expect(spec.languageOf('/a/Makefile')).toBeUndefined();
     // Only in a project: without one, its server sees only the open files.
     expect(spec.projectFiles).toEqual(['tsconfig.json', 'jsconfig.json']);
+    // Rename renames the name, not an alias for it in the import.
+    const renames = { preferences: { useAliasesForRenames: false } };
+    expect(spec.settings).toEqual({ typescript: renames, javascript: renames });
   });
 
   it('runs TypeScript 7’s compiler for this platform, installed with it, as a language server', () => {

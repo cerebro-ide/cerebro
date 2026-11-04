@@ -138,6 +138,8 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
         referencesProvider: true,
         documentHighlightProvider: true,
         codeActionProvider: true,
+        // Style sheets' names: custom properties, variables, mixins, classes.
+        renameProvider: { prepareProvider: true },
       },
     };
   });
@@ -225,6 +227,20 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
       return sheet.findDocumentHighlights(document, position, sheet.parseStylesheet(document));
     }
     return html.findDocumentHighlights(document, position, html.parseHTMLDocument(document));
+  });
+
+  connection.onPrepareRename(({ textDocument, position }) => {
+    const document = documents.get(textDocument.uri);
+    const sheet = document && sheets[document.languageId];
+    if (!document || !sheet) return null;
+    return sheet.prepareRename(document, position, sheet.parseStylesheet(document)) ?? null;
+  });
+
+  connection.onRenameRequest(({ textDocument, position, newName }) => {
+    const document = documents.get(textDocument.uri);
+    const sheet = document && sheets[document.languageId];
+    if (!document || !sheet) return null;
+    return sheet.doRename(document, position, newName, sheet.parseStylesheet(document));
   });
 
   connection.onCodeAction(({ textDocument, range, context }) => {
