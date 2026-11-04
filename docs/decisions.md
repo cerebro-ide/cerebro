@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
@@ -1626,6 +1627,49 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## Reformat Code (2026-11-04)
+
+After File Structure, IntelliJ's Reformat Code (Ido: "do them all"). Claude's choices, open to
+change.
+
+- **The file, or the selection, as IntelliJ's:** Ctrl+Alt+L formats the whole file when nothing is
+  selected, and the selected text when something is. It's one change, which undo takes back as one
+  ("Reformat Code" in Local History). If the text changes before the server answers, the answer is
+  dropped.
+- **A hint at the caret, in IntelliJ's words** (from its source): "Formatted 3 lines"
+  (`hint.text.formatted.line`), or "No lines changed: content is already properly formatted". It
+  is Rename's hint, now in its own module (`hint.ts`) for both. The count is of the lines the
+  changes touch, as they are after formatting. That's a claim: IntelliJ counts the lines of its
+  diff.
+- **From the file's language server** (`lsp.format`, LSP's `textDocument/formatting` and
+  `rangeFormatting`), with the editor's tab size and spaces for indents (always spaces, a claim:
+  Cerebro has no tabs setting yet). Measured:
+  - TypeScript 7 formats whole files and ranges, as does YAML's server.
+  - bash-language-server formats whole files only, through shfmt; with no shfmt on the PATH, it
+    answers with no edits, so the hint says the file's already formatted.
+  - basedpyright doesn't format: the hint says "Its language server doesn't format it."
+  - A server that formats only whole files, given a selection: "Its language server formats only
+    whole files: select nothing to format all of it."
+  - Cerebro's own server now formats JSON, CSS (with SCSS and Less) and HTML, whole or a range,
+    through Microsoft's libraries.
+- **Each keymap's keys,** from IntelliJ's files (`ReformatCode`) and VS Code's documentation of
+  its default keys (Format Document, Format Selection):
+  - IntelliJ IDEA: Ctrl+Alt+L; on macOS, Cmd+Alt+L. Emacs: none (IntelliJ's Emacs keymap removes
+    it).
+  - VS Code: Shift+Alt+F on Windows and macOS, Ctrl+Shift+I on Linux, and Ctrl+K Ctrl+F (Cmd+K
+    Cmd+F on macOS) for the selection.
+  - Eclipse: Ctrl+Shift+F (and Ctrl+Alt+L); on macOS, Cmd+Shift+F.
+  - NetBeans: Alt+Shift+F.
+  - Visual Studio: Ctrl+K Ctrl+D and Ctrl+K Ctrl+F, with their one-Ctrl forms and Ctrl+Alt+Enter;
+    on macOS, the same with Cmd.
+- **Not yet:**
+  - A formatter for bash without shfmt, and for Python: the installer could bring them (backlog,
+    "Binaries with the installer").
+  - Formatting on save, IntelliJ's Reformat File dialog (optimize imports, rearrange), and
+    formatting as one types.
+  - Reformat Code in a menu: no editor action is in one yet.
+  - Prettier: a plugin, later (backlog).
 
 ## File Structure (2026-11-04)
 

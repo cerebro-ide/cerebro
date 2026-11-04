@@ -34,6 +34,7 @@ import {
   formatLineColumn,
   languageName,
   parseLineColumn,
+  type AskFormat,
   type CompletionItem,
   type EditorDocument,
   type Mark,
@@ -1056,6 +1057,12 @@ function Code(props: { path: string; env: string }) {
                     navigation.renaming(asked(state, at)),
                   onRename: (at: { line: number; column: number }, name: string) =>
                     navigation.rename(asked(state, at), name),
+                  format: (range?: Parameters<AskFormat>[0]) =>
+                    navigation.format(
+                      { path: props.path, text: state.text.peek().toString() },
+                      settings.get('editor.tabSize') as number,
+                      range,
+                    ),
                   completions: (text: string, at: { line: number; column: number }) =>
                     navigation.completions({ path: props.path, text, ...at }),
                   resolveCompletion: (item: CompletionItem) =>

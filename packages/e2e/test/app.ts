@@ -32,6 +32,7 @@ export const KEYS = {
   quickDocumentation: mac ? 'F1' : 'Control+Q',
   parameterInfo: mac ? 'Meta+P' : 'Control+P',
   fileStructure: mac ? 'Meta+F12' : 'Control+F12',
+  reformat: mac ? 'Meta+Alt+L' : 'Control+Alt+L',
 } as const;
 
 let runs = 0;

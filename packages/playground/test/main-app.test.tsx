@@ -493,6 +493,37 @@ describe('File Structure', () => {
   });
 });
 
+describe('Reformat Code', () => {
+  it('formats the file on Ctrl+Alt+L by its language server’s edits, or says why not', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('lsp.format', [
+      { from: { line: 1, column: 7 }, to: { line: 1, column: 8 }, text: '  ' },
+    ]);
+    env().editor.open({ id: '/r/src/fmt.ts', title: 'fmt.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/fmt.ts');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}{Alt>}l{/Alt}{/Control}');
+    await expect.poll(() => code()?.textContent).toContain('const a  = 1;');
+    expect(host('/r').params('lsp.format')).toContainEqual({
+      worktree: '/r',
+      path: '/r/src/fmt.ts',
+      text: '// /r/src/fmt.ts\nconst a = 1;\n',
+      tabSize: 2,
+      insertSpaces: true,
+    });
+    const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
+    await expect.poll(hint).toBe('Formatted 1 line');
+    // The selection, and no answer.
+    answers.set('lsp.format', null);
+    await userEvent.keyboard('{Control>}a{/Control}{Control>}{Alt>}l{/Alt}{/Control}');
+    await expect.poll(hint).toBe('No language server answered.');
+    expect(host('/r').params('lsp.format').at(-1)).toMatchObject({
+      from: { line: 0, column: 0 },
+      to: { line: 2, column: 0 },
+    });
+  });
+});
+
 describe('rename', () => {
   it('renames the name at the caret on Shift+F6 in every file its server says, saved', async () => {
     // Each file's text is `// <path>` then `const a = 1;`: `a` on line 1.

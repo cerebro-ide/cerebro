@@ -56,6 +56,7 @@ describe('the history’s names', () => {
       ['input.paste', 'Paste'],
       ['input.replace.all', 'Replace'],
       ['input.indent', 'Indent Selection'],
+      ['input.format', 'Reformat Code'],
       ['delete.cut', 'Cut'],
       ['delete.backward', 'Backspace'],
       ['delete.forward', 'Delete'],

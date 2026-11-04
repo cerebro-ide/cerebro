@@ -150,6 +150,7 @@ describe('language servers', () => {
       { tabSize: 'two', insertSpaces: true },
       { tabSize: 2, insertSpaces: 'yes' },
       { ...options, from: range.from },
+      { ...options, to: range.to },
     ]) {
       await expect(ui.request('lsp.format', { ...file, ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,

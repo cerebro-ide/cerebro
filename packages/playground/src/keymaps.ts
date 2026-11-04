@@ -29,6 +29,7 @@ export const EDITOR_ACTIONS = {
   quickDocumentation: 'editor.quickDocumentation',
   parameterInfo: 'editor.parameterInfo',
   rename: 'editor.rename',
+  format: 'editor.reformatCode',
   nextProblem: 'editor.nextProblem',
   previousProblem: 'editor.previousProblem',
   contextActions: 'editor.showContextActions',
@@ -90,6 +91,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+Q'],
     [EDITOR_ACTIONS.parameterInfo]: ['Ctrl+P'],
     [EDITOR_ACTIONS.rename]: ['Shift+F6'],
+    [EDITOR_ACTIONS.format]: ['Ctrl+Alt+L'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
   },
@@ -149,6 +151,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['F1', 'Ctrl+J'],
     [EDITOR_ACTIONS.parameterInfo]: ['Meta+P'],
     [EDITOR_ACTIONS.rename]: ['Shift+F6'],
+    [EDITOR_ACTIONS.format]: ['Meta+Alt+L'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
   },
@@ -162,6 +165,8 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   // Without Windows' Ctrl+F4, and its Save All, Ctrl+K S.
   'editor.close': ['Ctrl+W'],
   'file.saveAll': ['Ctrl+S'],
+  // Format Document; Format Selection is Ctrl+K Ctrl+F, as on Windows.
+  [EDITOR_ACTIONS.format]: ['Ctrl+Shift+I', 'Ctrl+K Ctrl+F'],
 };
 
 /** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
@@ -215,6 +220,7 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Ctrl+Shift+Space'],
     // Rename Symbol, and Go to Next and Previous Problem: its sheets.
     [EDITOR_ACTIONS.rename]: ['F2'],
+    [EDITOR_ACTIONS.format]: ['Shift+Alt+F', 'Ctrl+K Ctrl+F'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
   },
@@ -259,6 +265,7 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['Meta+K Meta+I'],
     [EDITOR_ACTIONS.parameterInfo]: ['Meta+Shift+Space'],
     [EDITOR_ACTIONS.rename]: ['F2'],
+    [EDITOR_ACTIONS.format]: ['Shift+Alt+F', 'Meta+K Meta+F'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
   },
@@ -307,6 +314,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+Shift+Space', 'F2'],
     [EDITOR_ACTIONS.parameterInfo]: [],
     [EDITOR_ACTIONS.rename]: ['Alt+Shift+R'],
+    [EDITOR_ACTIONS.format]: ['Ctrl+Alt+L', 'Ctrl+Shift+F'],
     [EDITOR_ACTIONS.nextProblem]: [],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F1'],
   },
@@ -345,6 +353,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Ctrl+Shift+Space'],
     [EDITOR_ACTIONS.nextProblem]: ['Meta+.'],
     [EDITOR_ACTIONS.previousProblem]: ['Meta+Shift+>'],
+    [EDITOR_ACTIONS.format]: ['Meta+Shift+F'],
   },
 };
 
@@ -374,6 +383,7 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Alt+Shift+P'],
     [EDITOR_ACTIONS.nextProblem]: ['F2', 'Ctrl+X `'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2', 'Ctrl+Shift+X `'],
+    [EDITOR_ACTIONS.format]: [],
   },
 };
 
@@ -450,6 +460,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+\\'],
     [EDITOR_ACTIONS.rename]: ['Ctrl+R'],
+    [EDITOR_ACTIONS.format]: ['Alt+Shift+F'],
     [EDITOR_ACTIONS.nextProblem]: ['F2', 'Ctrl+.'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2', 'Ctrl+,'],
     'navigate.fileStructure': ['Ctrl+F12', 'Ctrl+Shift+F12'],
@@ -545,6 +556,13 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+K I', 'Ctrl+K Ctrl+I', 'Ctrl+Shift+F1'],
     [EDITOR_ACTIONS.parameterInfo]: ['Ctrl+Shift+Space'],
     [EDITOR_ACTIONS.rename]: ['Ctrl+R R', 'Ctrl+R Ctrl+R'],
+    [EDITOR_ACTIONS.format]: [
+      'Ctrl+Alt+Enter',
+      'Ctrl+K F',
+      'Ctrl+K Ctrl+F',
+      'Ctrl+K D',
+      'Ctrl+K Ctrl+D',
+    ],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
   },
@@ -583,6 +601,13 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space', 'Ctrl+J'],
     [EDITOR_ACTIONS.quickDocumentation]: ['Meta+K I', 'Meta+K Meta+I', 'Ctrl+Shift+F1'],
     [EDITOR_ACTIONS.rename]: ['Meta+R R', 'Meta+R Meta+R'],
+    [EDITOR_ACTIONS.format]: [
+      'Meta+Alt+Enter',
+      'Meta+K F',
+      'Meta+K Meta+F',
+      'Meta+K D',
+      'Meta+K Meta+D',
+    ],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
   },

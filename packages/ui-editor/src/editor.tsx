@@ -41,6 +41,7 @@ import { EditorDocument, KEPT } from './document.js';
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
+import { formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -133,6 +134,11 @@ export interface CodeEditorProps {
    * its keys (Shift+F6), as IntelliJ's, when the document can be edited. None: no Rename.
    */
   renaming?: AskRenaming;
+  /**
+   * The edits that format the text, or the selection: Reformat Code on its keys (Ctrl+Alt+L), as
+   * IntelliJ's, when the document can be edited. None: no Reformat Code.
+   */
+  format?: AskFormat;
   onRename?: Rename;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
@@ -161,6 +167,8 @@ export interface EditorKeys {
   parameterInfo?: readonly string[];
   /** Rename: the name at the caret, everywhere it's used. */
   rename?: readonly string[];
+  /** Reformat Code: the text, or the selection, formatted. */
+  format?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -181,6 +189,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   quickDocumentation: ['Ctrl-q'],
   parameterInfo: ['Ctrl-p'],
   rename: ['Shift-F6'],
+  format: ['Mod-Alt-l'],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -451,7 +460,7 @@ export const theme = EditorView.theme({
   // The name being renamed, boxed (a claim: IntelliJ's box, in the accent colour, not measured).
   '.cerebro-rename': { outline: `1px solid ${variable('accent')}`, borderRadius: '2px' },
   '.cerebro-rename--empty': { display: 'inline-block', width: '2px', height: '1em' },
-  // Why there's nothing to rename.
+  // A hint at the caret: why there's nothing to rename, the lines Reformat Code changed.
   '.cerebro-hint': {
     padding: '6px 10px',
     maxWidth: '500px',
@@ -686,6 +695,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
       props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
       props.parameterInfo ? parameterKeys(keys.parameterInfo) : [],
       doc && props.renaming && props.onRename ? renameKeys(keys.rename) : [],
+      doc && props.format ? formatting(keys.format, props.format) : [],
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
