@@ -28,6 +28,8 @@ import {
   type CompletionItem,
   type CompletionList,
   type Diagnostic,
+  type FormattingOptions,
+  type Range,
   type TextEdit,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
@@ -139,6 +141,8 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
         documentHighlightProvider: true,
         codeActionProvider: true,
         documentSymbolProvider: true,
+        documentFormattingProvider: true,
+        documentRangeFormattingProvider: true,
         // Style sheets' names: custom properties, variables, mixins, classes.
         renameProvider: { prepareProvider: true },
       },
@@ -216,6 +220,22 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
     if (sheet) return sheet.findDocumentSymbols2(document, sheet.parseStylesheet(document));
     return html.findDocumentSymbols2(document, html.parseHTMLDocument(document));
   });
+
+  /** A file's formatting edits, or a range's, by its language's library. */
+  const format = (uri: string, range: Range | undefined, options: FormattingOptions) => {
+    const document = documents.get(uri);
+    if (!document) return null;
+    const sheet = sheets[document.languageId];
+    if (isJSON(document)) return json.format(document, range, options);
+    if (sheet) return sheet.format(document, range, options);
+    return html.format(document, range, options);
+  };
+  connection.onDocumentFormatting(({ textDocument, options }) =>
+    format(textDocument.uri, undefined, options),
+  );
+  connection.onDocumentRangeFormatting(({ textDocument, range, options }) =>
+    format(textDocument.uri, range, options),
+  );
 
   connection.onDefinition(({ textDocument, position }) => {
     const document = documents.get(textDocument.uri);

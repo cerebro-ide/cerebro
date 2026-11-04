@@ -610,6 +610,18 @@ function refusal(error: unknown): { refused: string } {
   throw error;
 }
 
+/** How a file is formatted: LSP's FormattingOptions, the editor's. */
+export interface FormatOptions {
+  tabSize: number;
+  insertSpaces: boolean;
+}
+
+/** Why a file isn't formatted, by a server that doesn't format (Claude's words, open to change). */
+export const NO_FORMATTING = 'Its language server doesn’t format it.';
+/** Why a selection isn't, by one that formats only whole files. */
+export const NO_RANGE_FORMATTING =
+  'Its language server formats only whole files: select nothing to format all of it.';
+
 /** One server's process, for one worktree. */
 export class LanguageServer {
   /** Resolves once the server has answered `initialize`. */
@@ -626,6 +638,9 @@ export class LanguageServer {
   #pulls = false;
   /** Whether it tells more of a completion when asked about it: its other edits, for one. */
   #resolves = false;
+  /** Whether it formats a file, and a part of one. */
+  #formats = false;
+  #formatsRanges = false;
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
@@ -694,6 +709,8 @@ export class LanguageServer {
             definition: { linkSupport: true },
             references: {},
             documentHighlight: {},
+            formatting: {},
+            rangeFormatting: {},
             // Markdown first: the servers' definitions as code, their documentation's links.
             hover: { contentFormat: ['markdown', 'plaintext'] },
             // Parameters as where they are in the signature; the active one per signature.
@@ -729,11 +746,16 @@ export class LanguageServer {
             capabilities?: {
               diagnosticProvider?: unknown;
               completionProvider?: { resolveProvider?: boolean };
+              documentFormattingProvider?: unknown;
+              documentRangeFormattingProvider?: unknown;
             };
           } | null
         )?.capabilities;
         this.#pulls = capabilities?.diagnosticProvider !== undefined;
         this.#resolves = capabilities?.completionProvider?.resolveProvider === true;
+        // `true`, or its options.
+        this.#formats = Boolean(capabilities?.documentFormattingProvider);
+        this.#formatsRanges = Boolean(capabilities?.documentRangeFormattingProvider);
         this.#connection.notify('initialized', {});
         return loaded;
       });
@@ -840,6 +862,39 @@ export class LanguageServer {
       return fileEditsOf(
         await this.#ask('textDocument/rename', file, languageId, at, { newName: name }),
       );
+    } catch (error) {
+      return refusal(error);
+    }
+  }
+
+  /**
+   * The edits that format a file, or the part of it from `from` to `to`; why not, from a server
+   * that doesn't (basedpyright, measured) or formats only whole files.
+   */
+  async format(
+    file: OpenFile,
+    languageId: string,
+    options: FormatOptions,
+    range?: Span,
+  ): Promise<TextEdit[] | { refused: string }> {
+    await this.ready;
+    if (!this.#formats) return { refused: NO_FORMATTING };
+    if (range && !this.#formatsRanges) return { refused: NO_RANGE_FORMATTING };
+    this.sync(file, languageId);
+    const position = (place: { line: number; column: number }) => ({
+      line: place.line,
+      character: place.column,
+    });
+    try {
+      const answer = await this.#connection.request(
+        range ? 'textDocument/rangeFormatting' : 'textDocument/formatting',
+        {
+          textDocument: { uri: uriOf(file.path) },
+          options,
+          ...(range ? { range: { start: position(range.from), end: position(range.to) } } : {}),
+        },
+      );
+      return ((answer ?? []) as { range: Range; newText: string }[]).map(edited);
     } catch (error) {
       return refusal(error);
     }
@@ -1131,6 +1186,18 @@ export class LanguageServers {
   structure(worktree: string, file: OpenFile): Promise<FileSymbol[] | null> {
     return this.#ask(worktree, file.path, async (server, languageId) =>
       structureOf(await server.symbols(file, languageId)),
+    );
+  }
+
+  /** The edits that format a file, or a part of it, or why not; null when none answers in time. */
+  format(
+    worktree: string,
+    file: OpenFile,
+    options: FormatOptions,
+    range?: Span,
+  ): Promise<TextEdit[] | { refused: string } | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.format(file, languageId, options, range),
     );
   }
 

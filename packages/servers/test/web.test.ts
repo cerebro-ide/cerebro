@@ -9,7 +9,9 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   type MessageConnection,
+  type TextEdit,
 } from 'vscode-languageserver/node';
+import { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   CATALOG,
   catalogSchemas,
@@ -382,6 +384,35 @@ describe('symbols', () => {
     const html = await server.open('s.html', 'html', '<div><span></span></div>\n');
     expect(names((await symbols(server, html.uri)) ?? [])).toEqual(['div', 'div > span']);
     expect(await symbols(server, 'file:///nowhere.css')).toBeNull();
+  });
+});
+
+describe('formatting', () => {
+  const options = { tabSize: 2, insertSpaces: true };
+  /** A file's text with the server's edits made, last first. */
+  const applied = (text: string, edits: TextEdit[]) => {
+    const document = TextDocument.create('file:///x', 'x', 1, text);
+    return TextDocument.applyEdits(document, edits);
+  };
+
+  it('formats a JSON file, a style sheet and an HTML file, or a part of one', async () => {
+    const server = await start();
+    const format = (uri: string, more = {}) =>
+      server.client.sendRequest<TextEdit[] | null>(
+        Object.keys(more).length ? 'textDocument/rangeFormatting' : 'textDocument/formatting',
+        { textDocument: { uri }, options, ...more },
+      );
+    const json = await server.open('f.json', 'json', '{"a":1}');
+    expect(applied('{"a":1}', (await format(json.uri)) ?? [])).toBe('{\n  "a": 1\n}');
+    const css = await server.open('f.css', 'css', '.a{color:red}');
+    expect(applied('.a{color:red}', (await format(css.uri)) ?? [])).toBe('.a {\n  color: red\n}');
+    const text = '<div><p>a</p></div>\n<div><p>b</p></div>\n';
+    const html = await server.open('f.html', 'html', text);
+    const range = { start: { line: 1, character: 0 }, end: { line: 1, character: 19 } };
+    const edits = (await format(html.uri, { range })) ?? [];
+    expect(applied(text, edits).startsWith('<div><p>a</p></div>\n')).toBe(true);
+    expect(applied(text, edits)).not.toBe(text);
+    expect(await format('file:///nowhere.css')).toBeNull();
   });
 });
 

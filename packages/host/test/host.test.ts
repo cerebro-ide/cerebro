@@ -97,6 +97,7 @@ describe('language servers', () => {
       highlights: vi.fn(() => Promise.resolve([])),
       markers: vi.fn(() => Promise.resolve([])),
       structure: vi.fn(() => Promise.resolve(null)),
+      format: vi.fn(() => Promise.resolve([])),
       problems: vi.fn(() => Promise.resolve(null)),
       contextActions: vi.fn(() => Promise.resolve([])),
       completions: vi.fn(() => Promise.resolve(null)),
@@ -129,6 +130,31 @@ describe('language servers', () => {
     expect(await ui.request('lsp.markers', file)).toEqual([]);
     expect(await ui.request('lsp.structure', file)).toBeNull();
     expect(servers.structure).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
+    const options = { tabSize: 2, insertSpaces: true };
+    expect(await ui.request('lsp.format', { ...file, ...options })).toEqual([]);
+    expect(servers.format).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      options,
+      undefined,
+    );
+    const range = { from: { line: 0, column: 1 }, to: { line: 2, column: 0 } };
+    await ui.request('lsp.format', { ...file, ...options, ...range });
+    expect(servers.format).toHaveBeenLastCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      options,
+      range,
+    );
+    for (const bad of [
+      { tabSize: 'two', insertSpaces: true },
+      { tabSize: 2, insertSpaces: 'yes' },
+      { ...options, from: range.from },
+    ]) {
+      await expect(ui.request('lsp.format', { ...file, ...bad })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
     expect(servers.markers).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.problems', file)).toBeNull();
     expect(servers.problems).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });

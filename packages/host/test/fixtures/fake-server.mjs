@@ -9,7 +9,9 @@
 // its own with no version; the others send none. Each answers code actions with one per diagnostic
 // it's given, named by its message. "completes" offers two completions, the second's import
 // given only when it's asked about (as TypeScript's server); the others offer none. A rename is
-// refused by "fails", and "dies" exits as it's asked; the others answer none.
+// refused by "fails", and "dies" exits as it's asked; the others answer none. "formats" formats
+// whole files, an edit that indents the first line; "fails" says it formats parts of them too, and
+// refuses a whole file, and answers a part with none; the others don't format.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -30,7 +32,13 @@ const handle = (message) => {
   if (method === 'initialize') {
     const pulls = mode === 'pulls' ? { diagnosticProvider: { interFileDependencies: false } } : {};
     const completes = mode === 'completes' ? { completionProvider: { resolveProvider: true } } : {};
-    send({ id, result: { capabilities: { ...pulls, ...completes } } });
+    const formats =
+      mode === 'formats'
+        ? { documentFormattingProvider: true }
+        : mode === 'fails'
+          ? { documentFormattingProvider: true, documentRangeFormattingProvider: {} }
+          : {};
+    send({ id, result: { capabilities: { ...pulls, ...completes, ...formats } } });
     // Asks what a server may ask of its client.
     send({
       id: 'c1',
@@ -111,6 +119,15 @@ const handle = (message) => {
     if (mode === 'dies') process.exit(1);
     if (mode === 'fails') send({ id, error: { code: -32803, message: 'Not here.' } });
     else send({ id, result: null });
+  } else if (method === 'textDocument/formatting') {
+    if (mode === 'fails') {
+      send({ id, error: { code: -32603, message: 'Not formatted.' } });
+      return;
+    }
+    const at = { line: 0, character: 0 };
+    send({ id, result: [{ range: { start: at, end: at }, newText: '  ' }] });
+  } else if (method === 'textDocument/rangeFormatting') {
+    send({ id, result: null });
   } else if (method === 'textDocument/implementation') {
     send({ id, result: null });
   } else if (method === 'textDocument/definition') {
