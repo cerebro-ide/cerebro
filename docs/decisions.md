@@ -2021,7 +2021,9 @@ screen, which left the room kept for them empty.
 - **Real buttons, made by AppKit, put in the window where the traffic lights were** (changed
   2026-10-27, from buttons drawn in the page), as JetBrains Runtime does for IntelliJ (`setWindowFullScreenControls` in
   `AWTWindow.m`, on in the new UI through `apple.awt.newFullScreenControls`): close, minimize and
-  zoom from `[NSWindow standardWindowButton:forStyleMask:]`, in a view over the window's content.
+  zoom from `[NSWindow standardWindowButton:forStyleMask:]`, in a view in the window's frame view,
+  over its content (changed 2026-11-04: they were in the content view, where clicks never reached
+  them; see below).
   Until the pointer is over them they're three 12px grey circles; under it, close and zoom show as
   themselves, minimize staying grey (it does nothing in full screen). The grey is the theme's
   `MainWindow.FullScreeControl.Background` (Islands: `#575A5C` dark, `#7A7B80` light), sent by the
@@ -2044,6 +2046,14 @@ screen, which left the room kept for them empty.
   (14, 13), where the traffic lights sit out of full screen. **Claims, not measured:** that the green button keeps its
   window-layout menu under the pointer (it's the same AppKit button; JetBrains Runtime relies on
   it), and how they look; Ido to check on his Mac.
+- **Why they moved to the frame view (2026-11-04):** Ido: "trying to use them to get out of it or
+  to close the app does nothing", with "Window move completed without beginning" in the log for
+  each click. Chromium's content view answers no hit test in the page's draggable regions
+  (`-[BridgedContentView hitTest:]` returns nil for them, in `bridged_content_view.mm`), and the
+  toolbar under the buttons is one: the click went to the frame view, which made it a window drag
+  (`cr_mouseDownOnFrameView:`), and a full-screen window can't move. The frame view asks its own
+  subviews first. The e2e test now checks that a hit test at the buttons' middle, as AppKit finds
+  a click's view, reaches them; the click itself is still Ido's to check on his Mac.
 - **Not yet:** the Welcome window in full screen has them too, over no toolbar; leaving full screen
   takes them out when it's done, not as it starts, as JetBrains Runtime does (Electron has no
   "will leave" event).

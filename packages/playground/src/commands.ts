@@ -16,7 +16,7 @@ import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { diffPath } from './changes.js';
-import { active, currentHost, hostFor } from './environments.js';
+import { active, activeProject, currentHost, hostFor, type ProjectState } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
@@ -315,7 +315,13 @@ export function setupCommands(
       openSettings({
         settings,
         ...(env
-          ? { scopeLabels: { repo: 'Repository: cerebro', worktree: `Worktree: ${env.name}` } }
+          ? {
+              scopeLabels: {
+                // There's always a project: the samples, without the window's own.
+                repo: `Repository: ${(activeProject() as ProjectState).name}`,
+                worktree: `Worktree: ${env.name}`,
+              },
+            }
           : { scopes: ['global'] }),
         onApply: (scopes) => {
           save(settings, scopes);
