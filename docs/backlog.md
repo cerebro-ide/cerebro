@@ -51,3 +51,7 @@ are listed per worktree, whichever session they came from; with several Claude s
   #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
   of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
   the page and the host's answer too (2026-11-03).
+- **The e2e test of saving when idle once didn't save** (a full local run on 2026-11-04; 3 reruns
+  of its file passed): `second.ts` wasn't saved within 5 s of an edit, with the idle time set to
+  1 s, and the next test failed from it. The cause isn't found. The test now prints the editor's
+  text, whether the page had the focus, and what had it, when it fails.
