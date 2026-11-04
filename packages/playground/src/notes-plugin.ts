@@ -7,6 +7,7 @@ import type { Plugin } from '@cerebro-ide/plugin-api';
 export const notesPlugin: Plugin = {
   id: 'cerebro.notes',
   name: 'Notes',
+  description: 'A sample: a Notes tool window, and a command in the View menu that clears it.',
   activate(context) {
     const notes: string[] = [];
     let list: HTMLUListElement | undefined;

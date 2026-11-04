@@ -210,6 +210,39 @@ describe('language servers', () => {
   });
 });
 
+describe('Prettier', () => {
+  it('formats a file as the UI has it, or a part, and checks what it’s given', async () => {
+    const folder = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-prettier-')));
+    // A package that says what it was asked.
+    writeFileSync(join(folder, 'package.json'), '{ "main": "index.mjs" }');
+    writeFileSync(
+      join(folder, 'index.mjs'),
+      [
+        'export const format = (text, o) => JSON.stringify([text, o.rangeStart, o.rangeEnd]);',
+        'export const resolveConfig = () => Promise.resolve(null);',
+        "export const getFileInfo = () => Promise.resolve({ ignored: false, inferredParser: 'x' });",
+      ].join('\n'),
+    );
+    const { ui, stop } = connect();
+    const file = { path: join(folder, 'a.ts'), text: 'x', package: folder };
+    expect(await ui.request('prettier.format', file)).toEqual({ text: '["x",null,null]' });
+    expect(await ui.request('prettier.format', { ...file, from: 0, to: 1 })).toEqual({
+      text: '["x",0,1]',
+    });
+    // Without a package, the closest above the file: none here.
+    expect(await ui.request('prettier.format', { ...file, package: undefined })).toEqual({
+      refused: 'Prettier: package is not installed',
+    });
+    for (const bad of [{ from: 0 }, { to: 'end' }, { package: 3 }, { text: 3 }]) {
+      await expect(ui.request('prettier.format', { ...file, ...bad })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+    stop();
+    rmSync(folder, { recursive: true, force: true });
+  });
+});
+
 describe('adding and removing worktrees', () => {
   it('runs git with what the request says, answering with the worktrees after', async () => {
     const { ui, git } = connect();

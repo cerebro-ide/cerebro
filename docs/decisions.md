@@ -39,7 +39,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
-- [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
+- [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
@@ -1001,6 +1002,9 @@ Milestone 1's plugin registry and first contribution points: views, commands, me
   (state `failed`); the others are unaffected.
 - **Not yet:** loading plugins from disk, manifests, versions, permissions, and running plugins in
   isolation. Plugins are added in code for now.
+- **More contribution points** (changed 2026-11-04, for Prettier): settings and their pages, a
+  file's settings and host, the editor that has the focus (its file, and formatting it as Reformat
+  Code does) and a step before files are saved. See "Prettier, the first plugin".
 - **In the playground:** a sample Notes plugin written in plain DOM, as a third party would: a
   tool window, a Clear Notes command in the View menu and in Search Everywhere, and a shortcut
   (Ctrl+Alt+Shift+K; it was Ctrl+Alt+Shift+N until Go to Symbol took that, as in IntelliJ). An
@@ -1628,6 +1632,52 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
+
+Ido: "a good start would be prettier, which similar to intellij plugin will add settings menu to
+configure it, including "run on save" functionality, add a context menu option, and a keyboard
+shortcut that could be mapped", and "We also need a plugins screen similar to intellij, but for now
+all plugins we create should be enabled by default". As IntelliJ's Prettier plugin (prettierJS, its
+`plugin.xml`, `PrettierConfiguration` and `PrettierBundle`, and WebStorm's help). Claude's choices
+are open to change.
+
+- **Reformat with Prettier,** IntelliJ's action: the focused editor's file, or its selection, as one
+  change undo takes back ("Reformat Code With Prettier"), with a hint at the caret in IntelliJ's
+  words ("Prettier: formatted 3 lines", "Prettier: no lines changed. Content is already properly
+  formatted"; one line is "line", a claim). It's last in the editor's context menu, as IntelliJ
+  adds it, and on Ctrl+Alt+Shift+P (Cmd+Alt+Shift+P on macOS), from `plugin.xml`; Settings →
+  Keymap changes it as any command's.
+- **The project's own Prettier,** run by the host: the closest `node_modules/prettier` above the
+  file, as IntelliJ's automatic configuration, or the folder the Prettier package setting names.
+  The file's Prettier configuration applies, and the closest `.prettierignore` above it. Refusals
+  are IntelliJ's ("Prettier: package is not installed", "File a.xyz has unsupported type",
+  "Prettier: file a.ts was ignored with .prettierignore"); a syntax error says Prettier's first
+  line. The package is loaded into the host process, where IntelliJ runs a Node process of its own:
+  a claim that it's safe enough, open to change.
+- **Settings on Languages & Frameworks → JavaScript → Prettier,** where IntelliJ has them: Prettier
+  package, Run for files (IntelliJ's default, `**/*.{js,ts,jsx,tsx,cjs,cts,mjs,mts,json,vue,astro}`)
+  and Run on save (off, as IntelliJ's). The glob matches from any folder down, since the plugin
+  doesn't know the project's root (a claim that it's close enough). IntelliJ's three modes
+  (Disabled, Automatic, Manual) are one setting less here: an empty package is automatic.
+- **Run on save, on every save,** autosave too: JetBrains' help says Actions on Save run "on every
+  save (autosave, explicit save invoked with Ctrl+S or by selecting File | Save All)". What it
+  formats is an edit undo takes back; text typed while Prettier runs is saved as typed, unformatted.
+  A file Prettier can't format is saved as it is.
+- **A plugin, through the plugin API alone** (`prettier-plugin.ts`), with its host half in the host
+  (`prettier.format`) until plugins can bring host code of their own. The API gains settings and
+  their pages, a file's settings and host, the focused editor (`fileIn`, `formatIn` in `ui-editor`:
+  Reformat Code's machinery, for a formatter that gives the whole text) and a step before saving.
+- **Settings → Plugins,** after Keymap as IntelliJ's: its Installed list, each plugin's name, what it
+  does, and a checkbox. Every plugin is on until it's turned off (Ido). Off removes it and what it
+  added at once, where IntelliJ mostly asks to restart; which are off is kept in the browser's
+  storage, as the settings are. One that failed to start says why, and is tried again when Apply is
+  pressed.
+- **Not yet:**
+  - Run on 'Reformat Code' action, Run on paste, and Reformat with Prettier on a file or folder in
+    the Project tool window.
+  - IntelliJ's Prettier status bar widget, and its check of the package's version.
+  - The Plugins page's Marketplace tab, a search field, and plugins loaded from disk.
 
 ## Code folding (2026-11-04)
 

@@ -38,6 +38,7 @@ export const KEYS = {
   // By the key: Playwright then sends `_` and `+` with Shift held, as a keyboard does.
   collapseAll: mac ? 'Meta+Shift+Minus' : 'Control+Shift+Minus',
   expandAll: mac ? 'Meta+Shift+Equal' : 'Control+Shift+Equal',
+  prettier: mac ? 'Meta+Alt+Shift+P' : 'Control+Alt+Shift+P',
 } as const;
 
 let runs = 0;

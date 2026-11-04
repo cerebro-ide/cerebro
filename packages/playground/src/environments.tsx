@@ -115,16 +115,27 @@ export function projectOf(worktree: string): ProjectState | undefined {
   return projects.get().find((p) => p.worktrees.get().some((w) => w.id === worktree));
 }
 
-/** The project a file is in: the one with the worktree holding it (the deepest, if nested). */
-function projectHolding(path: string): ProjectState | undefined {
-  let found: { project: ProjectState; length: number } | undefined;
+/** The worktree a file is in, and its project: the deepest, if worktrees are nested. */
+function holding(path: string): { project: ProjectState; worktree: string } | undefined {
+  let found: { project: ProjectState; worktree: string } | undefined;
   for (const project of projects.get()) {
     for (const w of project.worktrees.get()) {
       const holds = path === w.id || path.startsWith(`${w.id}/`);
-      if (holds && w.id.length > (found?.length ?? -1)) found = { project, length: w.id.length };
+      if (holds && w.id.length > (found?.worktree.length ?? -1))
+        found = { project, worktree: w.id };
     }
   }
-  return found?.project;
+  return found;
+}
+
+/** The project a file is in. */
+function projectHolding(path: string): ProjectState | undefined {
+  return holding(path)?.project;
+}
+
+/** The worktree a file is in: its settings are the file's. */
+export function worktreeHolding(path: string): string | undefined {
+  return holding(path)?.worktree;
 }
 
 /** The active environment's project, else the first. */

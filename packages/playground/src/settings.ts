@@ -17,9 +17,14 @@ registry.registerPage({ id: 'editor', title: 'Editor', order: 2 });
 registry.registerPage({ id: 'editor/general', title: 'General', parent: 'editor', order: 1 });
 registry.registerPage({ id: 'editor/font', title: 'Font', parent: 'editor', order: 2 });
 registry.registerPage({ id: 'keymap', title: 'Keymap', order: 3 });
-registry.registerPage({ id: 'system', title: 'System Settings', order: 4 });
-registry.registerPage({ id: 'vcs', title: 'Version Control', order: 5 });
+// The plugins, theirs to turn on or off, after Keymap as IntelliJ's.
+registry.registerPage({ id: 'plugins', title: 'Plugins', order: 4 });
+registry.registerPage({ id: 'system', title: 'System Settings', order: 5 });
+registry.registerPage({ id: 'vcs', title: 'Version Control', order: 6 });
 registry.registerPage({ id: 'vcs/git', title: 'Git', parent: 'vcs' });
+// Where plugins for languages put their pages (Prettier's), as IntelliJ's.
+registry.registerPage({ id: 'languages', title: 'Languages & Frameworks', order: 7 });
+registry.registerPage({ id: 'languages/javascript', title: 'JavaScript', parent: 'languages' });
 
 registry.register({
   id: 'appearance.theme',

@@ -1,7 +1,16 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { ToolWindows } from '@cerebro-ide/layout';
+import { Settings, SettingsLayer, SettingsRegistry } from '@cerebro-ide/settings';
 import { describe, expect, it, vi } from 'vitest';
-import { PluginRegistry, ViewRegistry, type Plugin, type ViewContribution } from '../src/index.js';
+import {
+  PluginRegistry,
+  ViewRegistry,
+  type BeforeSave,
+  type Editors,
+  type Host,
+  type Plugin,
+  type ViewContribution,
+} from '../src/index.js';
 
 function setup() {
   const commands = new CommandRegistry();
@@ -9,8 +18,53 @@ function setup() {
   const keymap = new Keymap('other');
   const toolWindows = new ToolWindows();
   const views = new ViewRegistry(toolWindows);
-  const plugins = new PluginRegistry({ commands, menus, keymap, views });
-  return { commands, menus, keymap, toolWindows, views, plugins };
+  const settings = new SettingsRegistry();
+  const values = new Settings(settings, {
+    global: new SettingsLayer(settings, 'global'),
+    repo: new SettingsLayer(settings, 'repo'),
+    worktree: new SettingsLayer(settings, 'worktree'),
+  });
+  const hooks = new Set<BeforeSave>();
+  const editors = {
+    focused: vi.fn(() => '/r/a.ts'),
+    format: vi.fn<Editors['format']>(),
+    beforeSave: (hook: BeforeSave) => {
+      hooks.add(hook);
+      return {
+        dispose: () => {
+          hooks.delete(hook);
+        },
+      };
+    },
+  };
+  const host: Host = { request: () => Promise.resolve(null) };
+  const settingsOf = vi.fn(() => values);
+  const hostOf = vi.fn(() => host);
+  const plugins = new PluginRegistry({
+    commands,
+    menus,
+    keymap,
+    views,
+    settings,
+    settingsOf,
+    hostOf,
+    editors,
+  });
+  return {
+    commands,
+    menus,
+    keymap,
+    toolWindows,
+    views,
+    plugins,
+    settings,
+    values,
+    hooks,
+    editors,
+    host,
+    settingsOf,
+    hostOf,
+  };
 }
 
 const view = (id: string): ViewContribution => ({
@@ -85,6 +139,46 @@ describe('PluginRegistry', () => {
     // Removing again, or something never added, does nothing.
     plugins.remove('cerebro.notes');
     plugins.remove('unknown');
+  });
+
+  it('adds settings and their page, a step before saving, and reaches settings, hosts and editors', async () => {
+    const { plugins, settings, values, hooks, editors, host, settingsOf, hostOf } = setup();
+    const hook: BeforeSave = () => Promise.resolve(undefined);
+    const formatter = () => Promise.resolve({ text: '' });
+    const words = { name: 'Format', formatted: String, unchanged: 'None' };
+    const seen: unknown[] = [];
+    await plugins.add({
+      id: 'cerebro.format',
+      name: 'Format',
+      activate(context) {
+        context.registerSettingsPage({ id: 'format', title: 'Format' });
+        context.registerSetting({
+          id: 'format.onSave',
+          title: 'Run on save',
+          page: 'format',
+          type: 'boolean',
+          default: false,
+        });
+        context.beforeSave(hook);
+        seen.push(
+          context.settings('/r/a.ts').get('format.onSave'),
+          context.host('/r/a.ts'),
+          context.editors.focused(),
+        );
+        context.editors.format(formatter, words);
+      },
+    });
+    expect(settings.pages.get('format')?.title).toBe('Format');
+    expect(seen).toEqual([false, host, '/r/a.ts']);
+    expect(settingsOf).toHaveBeenCalledWith('/r/a.ts');
+    expect(hostOf).toHaveBeenCalledWith('/r/a.ts');
+    expect(values.get('format.onSave')).toBe(false);
+    expect(editors.format).toHaveBeenCalledWith(formatter, words);
+    expect([...hooks]).toEqual([hook]);
+    plugins.remove('cerebro.format');
+    expect(settings.pages.has('format')).toBe(false);
+    expect(settings.get('format.onSave')).toBeUndefined();
+    expect(hooks.size).toBe(0);
   });
 
   it('waits for an async activation', async () => {

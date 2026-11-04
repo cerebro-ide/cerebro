@@ -7,7 +7,10 @@ import {
   ALREADY_FORMATTED,
   CodeEditor,
   EditorDocument,
+  fileIn,
+  formatIn,
   formattedLines,
+  type FormatWords,
   historyNamesIn,
   type AskFormat,
   type CodeEditorProps,
@@ -117,5 +120,33 @@ describe('Reformat Code', () => {
     await userEvent.click(readOnly.querySelector('.cm-content') as HTMLElement);
     await userEvent.keyboard('{Control>}{Alt>}l{/Alt}{/Control}');
     expect(format).toHaveBeenCalledTimes(1);
+  });
+
+  it('formats an editor for a plugin, from the whole text formatted, in its own words', async () => {
+    const words: FormatWords = {
+      name: 'Reformat Code With Prettier',
+      formatted: (lines) => `Prettier: formatted ${String(lines)} lines`,
+      unchanged: 'Prettier: no lines changed',
+    };
+    const format = vi.fn<AskFormat>(() => Promise.resolve({ text: '\n\n\nf(a);\ng( b );\n' }));
+    const { doc, root } = await editing(() => Promise.resolve([]));
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    expect(fileIn(content)).toBe('a.ts');
+    expect(formatIn(content, format, words)).toBe(true);
+    await expect.poll(() => doc.text.peek().toString()).toBe('\n\n\nf(a);\ng( b );\n');
+    expect(format).toHaveBeenCalledWith(undefined);
+    await expect.poll(() => hint(root)).toBe('Prettier: formatted 1 lines');
+    expect(historyNamesIn(content)?.undo).toBe('Reformat Code With Prettier');
+    formatIn(content, format, words);
+    await expect.poll(() => hint(root)).toBe('Prettier: no lines changed');
+    // Not in an editor, or in one that can't be edited.
+    expect(fileIn(document.body)).toBeUndefined();
+    expect(formatIn(document.body, format)).toBe(false);
+    cleanup?.();
+    const readOnly = mount({ text: TEXT });
+    const shown = readOnly.querySelector('.cm-content') as HTMLElement;
+    expect(fileIn(shown)).toBeUndefined();
+    expect(formatIn(shown, format)).toBe(false);
+    expect(format).toHaveBeenCalledTimes(2);
   });
 });

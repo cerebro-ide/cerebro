@@ -49,8 +49,8 @@ function last(): Element | undefined {
   return focused?.isConnected ? focused : undefined;
 }
 
-/** What the command acts on: what has the focus, or had it before a menu took it. */
-function target(): Element | undefined {
+/** What a command acts on: what has the focus, or had it before a menu took it. */
+export function target(): Element | undefined {
   const active = deepActive();
   return active && !inMenu(active) ? active : last();
 }

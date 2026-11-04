@@ -10,6 +10,7 @@ import {
   firstWorktree,
   gitRepository,
   hostFor,
+  worktreeHolding,
   loadProject,
   projectOf,
   projects,
@@ -107,6 +108,10 @@ describe('the window’s projects', () => {
     expect(hostFor('/r/a')).toBe(outer);
     // Not a worktree's: the active project's, the first with none active.
     expect(hostFor('/elsewhere/x.ts')).toBe(outer);
+    // Its settings are its worktree's.
+    expect(worktreeHolding('/r/a/nested/x.ts')).toBe('/r/a/nested');
+    expect(worktreeHolding('/r/a/src/x.ts')).toBe('/r/a');
+    expect(worktreeHolding('/elsewhere/x.ts')).toBeUndefined();
     expect(activeProject()).toBe(a);
     expect(existingWorktree({ id: '/r/a', name: 'a', branch: 'main' })).toBeDefined();
     expect(existingWorktree({ id: '/gone', name: 'gone', branch: 'main' })).toBeUndefined();

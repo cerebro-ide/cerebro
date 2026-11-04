@@ -21,7 +21,15 @@ export {
 } from './parameters.js';
 export { NOTHING_TO_RENAME, type AskRenaming, type Rename, type Renaming } from './rename.js';
 export { FOLDS_AFTER, type AskFolds, type Fold, type FoldKeys } from './folding.js';
-export { ALREADY_FORMATTED, formattedLines, type AskFormat, type FormatEdit } from './format.js';
+export {
+  ALREADY_FORMATTED,
+  fileIn,
+  formatIn,
+  formattedLines,
+  type AskFormat,
+  type FormatEdit,
+  type FormatWords,
+} from './format.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

@@ -6,7 +6,7 @@ import { effect } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { CodeEditor, editorHistory, EditorDocument, historyNamesIn } from '../src/index.js';
-import { historyNames } from '../src/history.js';
+import { historyName, historyNames } from '../src/history.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -56,7 +56,6 @@ describe('the history’s names', () => {
       ['input.paste', 'Paste'],
       ['input.replace.all', 'Replace'],
       ['input.indent', 'Indent Selection'],
-      ['input.format', 'Reformat Code'],
       ['delete.cut', 'Cut'],
       ['delete.backward', 'Backspace'],
       ['delete.forward', 'Delete'],
@@ -76,6 +75,21 @@ describe('the history’s names', () => {
     // A new change: nothing to redo.
     change(view, 'input.paste');
     expect(historyNamesIn(content)).toEqual({ undo: 'Paste', redo: undefined });
+  });
+
+  it('names a change by its own name, as a formatter, or a document’s edit, gives it', () => {
+    const doc = new EditorDocument('ab');
+    const { content, view } = mount(doc);
+    view.dispatch({
+      changes: { from: 0, insert: 'x' },
+      userEvent: 'input.format',
+      annotations: historyName.of('Reformat Code'),
+    });
+    expect(historyNamesIn(content)?.undo).toBe('Reformat Code');
+    doc.replace('y', 'Reformat Code With Prettier');
+    expect(historyNamesIn(content)?.undo).toBe('Reformat Code With Prettier');
+    doc.replace('z');
+    expect(historyNamesIn(content)?.undo).toBe('Replace');
   });
 
   it('keeps a name per change the history keeps, which drops its oldest', () => {

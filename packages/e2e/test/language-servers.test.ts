@@ -3,9 +3,18 @@
 // name matches would list every function of that name.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { KEYS, launch, type Running } from './app.js';
 
@@ -204,8 +213,16 @@ beforeAll(async () => {
     join(repo, 'regions.ts'),
     '// #region Setup\nconst a = 1;\n// #endregion\nexport function f() {\n  return a;\n}\n',
   );
-  // A file to format.
+  // A file to format, and one to format with Prettier: this repo's, as `npm install` puts it.
   writeFileSync(join(repo, 'unformatted.ts'), 'const  x=1;\n');
+  writeFileSync(join(repo, 'pretty.js'), "const  y = 'a'\n");
+  mkdirSync(join(repo, 'node_modules'));
+  symlinkSync(
+    dirname(createRequire(import.meta.url).resolve('prettier/package.json')),
+    join(repo, 'node_modules', 'prettier'),
+    'junction',
+  );
+  writeFileSync(join(repo, '.gitignore'), 'node_modules/\n');
   // A call to write: what's called, and the parameter the caret's at.
   writeFileSync(
     join(repo, 'calls.ts'),
@@ -642,6 +659,19 @@ it('formats a file on Ctrl+Alt+L by its language server, and says how many lines
   await page().keyboard.press(KEYS.undo);
   await page()
     .locator('.cm-line', { hasText: /^const {2}x=1;$/ })
+    .waitFor();
+}, 60_000);
+
+it('formats a file with the project’s Prettier on Ctrl+Alt+Shift+P, and says how many lines changed', async () => {
+  await openAt('pretty.js', 'const');
+  await page().keyboard.press(KEYS.prettier);
+  await page()
+    .locator('.cm-line', { hasText: /^const y = "a";$/ })
+    .waitFor();
+  expect(await page().locator('.cerebro-hint').textContent()).toBe('Prettier: formatted 1 line');
+  await page().keyboard.press(KEYS.undo);
+  await page()
+    .locator('.cm-line', { hasText: /^const {2}y = 'a'$/ })
     .waitFor();
 }, 60_000);
 

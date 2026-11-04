@@ -2,6 +2,7 @@ import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   documentFor,
+  onBeforeSave,
   onEdited,
   RELOAD_EVERY,
   reloadAll,
@@ -270,6 +271,46 @@ describe('saving', () => {
     await saving;
     expect(asked).toBe(1);
     expect(writes('/r/asking.ts')).toEqual([]);
+  });
+
+  it('saves what a hook makes of the text first, as an edit, unless it was typed into', async () => {
+    const doc = await file('/r/hooked.ts', 'one');
+    const asked: { path: string; text: string }[] = [];
+    let typing = false;
+    const stop = onBeforeSave((file) => {
+      asked.push(file);
+      if (typing) edit(doc, '?');
+      return Promise.resolve(
+        file.path.endsWith('.ts') ? { text: file.text.toUpperCase(), name: 'Upper' } : undefined,
+      );
+    });
+    const failing = onBeforeSave(() => Promise.reject(new Error('broken')));
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    edit(doc, '!');
+    await saveFiles(['/r/hooked.ts']);
+    expect(asked).toEqual([{ path: '/r/hooked.ts', text: 'one!' }]);
+    expect(writes('/r/hooked.ts').at(-1)).toMatchObject({ text: 'ONE!' });
+    expect(doc.lastEdit?.name).toBe('Upper');
+    expect(doc.modified.peek()).toBe(false);
+    // A hook that fails leaves the text, and says why.
+    expect(errors).toHaveBeenCalledWith(new Error('broken'));
+    // Typed into while the hook was asked: saved as typed.
+    typing = true;
+    edit(doc, '!');
+    await saveFiles(['/r/hooked.ts']);
+    expect(writes('/r/hooked.ts').at(-1)).toMatchObject({ text: 'ONE!!?' });
+    typing = false;
+    // Left as it is.
+    const md = await file('/r/hooked.md', 'one');
+    edit(md, '!');
+    await saveFiles(['/r/hooked.md']);
+    expect(writes('/r/hooked.md').at(-1)).toMatchObject({ text: 'one!' });
+    stop();
+    failing();
+    errors.mockRestore();
+    edit(doc, 'x');
+    await saveFiles(['/r/hooked.ts']);
+    expect(writes('/r/hooked.ts').at(-1)).toMatchObject({ text: 'ONE!!?x' });
   });
 
   it('does nothing in a browser', async () => {

@@ -18,7 +18,6 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['input.paste', 'Paste'],
   ['input.replace', 'Replace'],
   ['input.indent', 'Indent Selection'],
-  ['input.format', 'Reformat Code'],
   ['delete.cut', 'Cut'],
   ['delete.backward', 'Backspace'],
   ['delete.forward', 'Delete'],
@@ -26,8 +25,11 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['delete.dedent', 'Unindent Line or Selection'],
 ];
 
+/** A change's own name, over its user event's: Reformat Code's, or a plugin's formatter's. */
+export const historyName = Annotation.define<string>();
+
 function nameOf(tr: Transaction): string {
-  return NAMES.find(([event]) => tr.isUserEvent(event))?.[1] ?? '';
+  return tr.annotation(historyName) ?? NAMES.find(([event]) => tr.isUserEvent(event))?.[1] ?? '';
 }
 
 export interface Names {
