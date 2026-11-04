@@ -143,6 +143,7 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
         documentSymbolProvider: true,
         documentFormattingProvider: true,
         documentRangeFormattingProvider: true,
+        foldingRangeProvider: true,
         // Style sheets' names: custom properties, variables, mixins, classes.
         renameProvider: { prepareProvider: true },
       },
@@ -219,6 +220,15 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
     }
     if (sheet) return sheet.findDocumentSymbols2(document, sheet.parseStylesheet(document));
     return html.findDocumentSymbols2(document, html.parseHTMLDocument(document));
+  });
+
+  connection.onFoldingRanges(({ textDocument }) => {
+    const document = documents.get(textDocument.uri);
+    if (!document) return null;
+    const sheet = sheets[document.languageId];
+    if (isJSON(document)) return json.getFoldingRanges(document);
+    if (sheet) return sheet.getFoldingRanges(document);
+    return html.getFoldingRanges(document);
   });
 
   /** A file's formatting edits, or a range's, by its language's library. */

@@ -172,6 +172,7 @@ describe('what a language server says of a file', () => {
     answers = {
       'lsp.highlights': [{ from: 0, to: 1, kind: 'read' }],
       'lsp.markers': [{ line: 0 }],
+      'lsp.folds': [{ from: { line: 0, column: 1 }, to: { line: 2, column: 0 } }],
       'lsp.problems': [{ message: 'no' }],
       'lsp.completions': { incomplete: false, items: [{ label: 'a' }] },
       'lsp.hover': { text: 'Counts.' },
@@ -190,6 +191,10 @@ describe('what a language server says of a file', () => {
       { worktree: '/r', path: '/r/a.ts', item: { data: 1 } },
     ]);
     expect(await nav.markers('/r/a.ts', 'text')).toEqual([{ line: 0 }]);
+    expect(await nav.folds('/r/a.ts', 'text')).toEqual([
+      { from: { line: 0, column: 1 }, to: { line: 2, column: 0 } },
+    ]);
+    expect(host.params('lsp.folds')).toEqual([{ worktree: '/r', path: '/r/a.ts', text: 'text' }]);
     expect(await nav.problems('/r/a.ts', 'text')).toEqual([{ message: 'no' }]);
     expect(host.params('lsp.highlights')).toEqual([{ worktree: '/r', ...asked }]);
     expect(host.params('lsp.markers')).toEqual([{ worktree: '/r', path: '/r/a.ts', text: 'text' }]);
@@ -199,6 +204,7 @@ describe('what a language server says of a file', () => {
     expect(await nav.documentation(asked)).toBeNull();
     expect(await nav.completionEdits('/r/a.ts', { label: 'a' })).toBeNull();
     expect(await nav.markers('/r/a.ts', 'text')).toBeNull();
+    expect(await nav.folds('/r/a.ts', 'text')).toBeNull();
     expect(await nav.problems('/r/a.ts', 'text')).toBeNull();
   });
 
@@ -207,6 +213,7 @@ describe('what a language server says of a file', () => {
     expect(await nav.usages(asked)).toBeNull();
     expect(await nav.completionEdits('/s/a.ts', { label: 'a' })).toBeNull();
     expect(await nav.markers('/s/a.ts', 'text')).toBeNull();
+    expect(await nav.folds('/s/a.ts', 'text')).toBeNull();
     expect(await nav.problems('/s/a.ts', 'text')).toBeNull();
     expect(await nav.hasDefinition('a', asked)).toBe(false);
     workspace.close('/s');
@@ -215,6 +222,7 @@ describe('what a language server says of a file', () => {
       expect(await nav.usages(asked)).toBeNull();
       expect(await nav.completionEdits('/r/a.ts', { label: 'a' })).toBeNull();
       expect(await nav.markers('/r/a.ts', 'text')).toBeNull();
+      expect(await nav.folds('/r/a.ts', 'text')).toBeNull();
       expect(await nav.problems('/r/a.ts', 'text')).toBeNull();
       nav.opened('/r/a.ts', 'text');
       expect(host.asked).toEqual([]);

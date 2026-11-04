@@ -493,6 +493,32 @@ describe('File Structure', () => {
   });
 });
 
+describe('folding', () => {
+  it('folds where the language server says, all on the keymap’s Ctrl+Shift+-, and back on Ctrl+Shift+=', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('lsp.folds', [
+      { from: { line: 0, column: 0 }, to: { line: 1, column: 12 }, collapsedText: 'Both lines' },
+    ]);
+    env().editor.open({ id: '/r/src/fold.ts', title: 'fold.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/fold.ts');
+    expect(host('/r').params('lsp.folds')).toContainEqual({
+      worktree: '/r',
+      path: '/r/src/fold.ts',
+      text: '// /r/src/fold.ts\nconst a = 1;\n',
+    });
+    await userEvent.click(code() as HTMLElement);
+    // The keys a keyboard sends: `_` and `+`, Shift held.
+    await expect
+      .poll(async () => {
+        await userEvent.keyboard('{Control>}{Shift>}{Minus}{/Shift}{/Control}');
+        return code()?.textContent;
+      })
+      .toContain('Both lines');
+    await userEvent.keyboard('{Control>}{Shift>}{Equal}{/Shift}{/Control}');
+    await expect.poll(() => code()?.textContent).toContain('const a = 1;');
+  });
+});
+
 describe('Reformat Code', () => {
   it('formats the file on Ctrl+Alt+L by its language server’s edits, or says why not', async () => {
     // Each file's text is `// <path>` then `const a = 1;`.

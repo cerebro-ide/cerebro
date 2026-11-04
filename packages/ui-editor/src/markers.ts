@@ -175,6 +175,9 @@ export function gutterMarkers(
     gutter({
       class: 'cerebro-markers',
       markers: (view) => view.state.field(marksField),
+      // Its width kept with no element on a line in view (its markers, the caret's line's): as
+      // they're scrolled or folded away, the text doesn't move.
+      initialSpacer: () => new LineMarks([]),
       domEventHandlers: {
         mousedown(view, line, event) {
           const target = (event.target as Element).closest<HTMLElement>('[data-marker]');

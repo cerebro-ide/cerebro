@@ -18,6 +18,7 @@ import type {
   CompletionList,
   Documentation,
   EditorDocument,
+  Fold,
   FormatEdit,
   Mark,
   MarkerKind,
@@ -352,6 +353,18 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       try {
         return (await host.request('lsp.markers', { worktree: env.id, path, text })) as
           Marked[] | null;
+      } catch {
+        return null;
+      }
+    },
+
+    /** Where a file folds, from its language server; none without one, and its grammar's then. */
+    async folds(path: string, text: string): Promise<Fold[] | null> {
+      const env = active();
+      const host = env ? hostFor(env.id) : undefined;
+      if (!env || !host) return null;
+      try {
+        return (await host.request('lsp.folds', { worktree: env.id, path, text })) as Fold[] | null;
       } catch {
         return null;
       }

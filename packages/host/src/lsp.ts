@@ -479,6 +479,36 @@ interface SymbolInformation {
   location: { range: Range };
 }
 
+/** A part of a file that folds, as the editor folds it; what it shows folded, if the server says. */
+export interface Fold extends Span {
+  /** `comment`, `imports`, `region`, or none (LSP's FoldingRangeKind). */
+  kind?: string;
+  collapsedText?: string;
+}
+
+/** LSP's FoldingRange: a character left out is its line's end. */
+interface FoldingRange {
+  startLine: number;
+  startCharacter?: number;
+  endLine: number;
+  endCharacter?: number;
+  kind?: string;
+  collapsedText?: string;
+}
+
+/** A server's folding ranges in a file with `text`, each character it leaves out its line's end. */
+export function foldsOf(result: unknown, text: string): Fold[] {
+  if (!Array.isArray(result)) return [];
+  const lines = text.split('\n');
+  const end = (line: number) => lines[line]?.length ?? 0;
+  return (result as FoldingRange[]).map((r) => ({
+    from: { line: r.startLine, column: r.startCharacter ?? end(r.startLine) },
+    to: { line: r.endLine, column: r.endCharacter ?? end(r.endLine) },
+    ...(r.kind === undefined ? {} : { kind: r.kind }),
+    ...(r.collapsedText === undefined ? {} : { collapsedText: r.collapsedText }),
+  }));
+}
+
 /**
  * A server's symbols, nested: as the server nests them (DocumentSymbol), or, given flat
  * (SymbolInformation), each in the one before it whose range holds it. Its range is then its name's
@@ -641,6 +671,8 @@ export class LanguageServer {
   /** Whether it formats a file, and a part of one. */
   #formats = false;
   #formatsRanges = false;
+  /** Whether it says where a file folds. */
+  #folds = false;
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
@@ -711,6 +743,11 @@ export class LanguageServer {
             documentHighlight: {},
             formatting: {},
             rangeFormatting: {},
+            // Characters too, not lines only: TypeScript's then fold from a block's brace.
+            foldingRange: {
+              foldingRangeKind: { valueSet: ['comment', 'imports', 'region'] },
+              foldingRange: { collapsedText: true },
+            },
             // Markdown first: the servers' definitions as code, their documentation's links.
             hover: { contentFormat: ['markdown', 'plaintext'] },
             // Parameters as where they are in the signature; the active one per signature.
@@ -748,6 +785,7 @@ export class LanguageServer {
               completionProvider?: { resolveProvider?: boolean };
               documentFormattingProvider?: unknown;
               documentRangeFormattingProvider?: unknown;
+              foldingRangeProvider?: unknown;
             };
           } | null
         )?.capabilities;
@@ -756,6 +794,7 @@ export class LanguageServer {
         // `true`, or its options.
         this.#formats = Boolean(capabilities?.documentFormattingProvider);
         this.#formatsRanges = Boolean(capabilities?.documentRangeFormattingProvider);
+        this.#folds = Boolean(capabilities?.foldingRangeProvider);
         this.#connection.notify('initialized', {});
         return loaded;
       });
@@ -898,6 +937,17 @@ export class LanguageServer {
     } catch (error) {
       return refusal(error);
     }
+  }
+
+  /** Where a file folds; null from a server that doesn't say (basedpyright, bash's: measured). */
+  async folds(file: OpenFile, languageId: string): Promise<Fold[] | null> {
+    await this.ready;
+    if (!this.#folds) return null;
+    this.sync(file, languageId);
+    const answer = await this.#connection.request('textDocument/foldingRange', {
+      textDocument: { uri: uriOf(file.path) },
+    });
+    return foldsOf(answer, file.text);
   }
 
   /** What a symbol at a place in a file is implemented or overridden by. */
@@ -1199,6 +1249,11 @@ export class LanguageServers {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.format(file, languageId, options, range),
     );
+  }
+
+  /** Where a file folds; null when its server doesn't say, or none answers in time. */
+  folds(worktree: string, file: OpenFile): Promise<Fold[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) => server.folds(file, languageId));
   }
 
   /** What a server offers to complete at a place; null when none answers in time. */

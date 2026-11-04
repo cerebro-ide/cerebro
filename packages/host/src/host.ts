@@ -257,6 +257,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.structure', (params) =>
     servers.structure(text(params, 'worktree'), fileOf(params)),
   );
+  connection.onRequest('lsp.folds', (params) =>
+    servers.folds(text(params, 'worktree'), fileOf(params)),
+  );
   connection.onRequest('lsp.markers', (params) =>
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );

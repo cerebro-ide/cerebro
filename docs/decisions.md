@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -1627,6 +1628,52 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## Code folding (2026-11-04)
+
+After Reformat Code, IntelliJ's code folding (Ido: "do them all"). Claude's choices, open to
+change.
+
+- **The language server's folds, or the grammar's** (`lsp.folds`, LSP's
+  `textDocument/foldingRange`, asked with character positions): where a server folds, its ranges
+  are what folds; where it doesn't, CodeMirror's grammar does. Measured:
+  - TypeScript 7 folds imports, comments, blocks and `// #region` regions (with their name as the
+    collapsed text). YAML's server folds too.
+  - basedpyright and bash-language-server don't fold: Python gets the grammar's folds, bash none.
+  - Cerebro's own server now folds JSON, CSS and HTML, through Microsoft's libraries.
+- **Placeholders as IntelliJ's:** a fold with a collapsed text shows that text in place of the
+  whole range (a region's name); one inside a pair (`/** */`, `/* */`, `{}`, `[]`, `()`) shows
+  `...` between them; anything else shows `...` from the end of its first line. That it's
+  IntelliJ's is a claim, not measured. Where several folds start on a
+  line, the gutter folds the biggest; the keys fold the innermost around the caret.
+- **The look, from IntelliJ's sources:** the chevrons are its new UI's `fold.svg` and
+  `unfold.svg` (9×9, stroke #A8ADBD light, #6F737A dark); the placeholder is `FOLDED_TEXT`
+  (dark: #868991 on #393B40, border #2B2D30, from `IslandSchemeDark.xml`; light: #414D41 on
+  #E9F5E6, border #ADD9C7, from `expUI_lightScheme.xml`), as theme tokens. Open folds' chevrons
+  show only while the pointer is over the gutter, and the placeholder's 3px corners: claims.
+- **Each keymap's keys,** from IntelliJ's keymap files (CollapseRegion, ExpandRegion,
+  CollapseAllRegions, ExpandAllRegions) and VS Code's documentation (Fold, Unfold, Fold All,
+  Unfold All):
+  - IntelliJ IDEA: Ctrl+- and Ctrl+=, Ctrl+Shift+- and Ctrl+Shift+= for all; Cmd on macOS.
+  - VS Code: Ctrl+Shift+[ and Ctrl+Shift+], Ctrl+K Ctrl+0 and Ctrl+K Ctrl+J; on macOS, Cmd+Alt+[
+    and Cmd+Alt+], Cmd+K Cmd+0 and Cmd+K Cmd+J.
+  - Eclipse: Ctrl+- and Ctrl++, Ctrl+Shift+/ and Ctrl+*; Cmd on macOS. Sublime Text and Visual
+    Studio: their files' keys (Ctrl+M S, E, A, X with their one-Ctrl forms for Visual Studio).
+    Emacs: no Collapse All, as IntelliJ's Emacs keymap removes it.
+- **A Shift key CodeMirror never matched, fixed:** for a typed character CodeMirror looks a key up
+  without Shift (`Ctrl-_`), then by its key's base with Shift (`Ctrl-Shift--`), so a binding
+  written `Ctrl-Shift-_` never fired (measured from its source, and with a test). The keymaps now
+  write such keys as the base with Shift. This also fixes Eclipse Mac's `Cmd+Shift+>` and macOS
+  System Shortcuts' `Ctrl+Shift+<`, which never fired before.
+- **The gutter markers' column keeps its width** with no marker in view (the caret's line folded
+  or scrolled away): it had dropped to nothing and moved the text (measured: 0px, now 36px).
+- **Not yet:**
+  - IntelliJ's numpad + and -: CodeMirror can't tell the numpad's + from Ctrl+Shift+=, and Shift
+    with a numpad key doesn't reach the editor's actions.
+  - macOS System Shortcuts' Alt+Shift keys for all: CodeMirror's base fallback is skipped on macOS
+    with Alt, so they can't match.
+  - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
+    the folded text on hover, folds kept across reopening a file, and a menu for the actions.
 
 ## Reformat Code (2026-11-04)
 

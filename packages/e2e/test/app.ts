@@ -35,6 +35,9 @@ export const KEYS = {
   // The letter as a keyboard sends it with Ctrl+Alt held, not Playwright's `L` (a claim): with Ctrl
   // and Alt, CodeMirror finds a key on Windows by the letter only (AltGr's there), measured.
   reformat: mac ? 'Meta+Alt+l' : 'Control+Alt+l',
+  // By the key: Playwright then sends `_` and `+` with Shift held, as a keyboard does.
+  collapseAll: mac ? 'Meta+Shift+Minus' : 'Control+Shift+Minus',
+  expandAll: mac ? 'Meta+Shift+Equal' : 'Control+Shift+Equal',
 } as const;
 
 let runs = 0;

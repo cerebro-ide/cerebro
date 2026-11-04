@@ -1070,6 +1070,7 @@ function Code(props: { path: string; env: string }) {
                   canGoToDefinition: (name: string, at: { line: number; column: number }) =>
                     navigation.hasDefinition(name, asked(state, at)),
                   marks: (text: string) => navigation.markers(props.path, text),
+                  folds: (text: string) => navigation.folds(props.path, text),
                   onMark: (mark: Mark) => void navigation.goToMarked(mark),
                   problems: (text: string) =>
                     askProblems(props.path, () => navigation.problems(props.path, text)),

@@ -49,7 +49,11 @@ function drawn(root: ShadowRoot) {
     text: e.textContent,
     top: e.getBoundingClientRect().top,
   }));
-  return [...root.querySelectorAll('.cerebro-markers__line')].map((line) => {
+  // Not in CodeMirror's spacer, which keeps the gutter's width.
+  const lines = [...root.querySelectorAll('.cerebro-markers__line')].filter(
+    (line) => line.closest<HTMLElement>('.cm-gutterElement')?.style.visibility !== 'hidden',
+  );
+  return lines.map((line) => {
     const { top } = line.getBoundingClientRect();
     const near = numbers.find((n) => Math.abs(n.top - top) < 8);
     return `${String(near?.text)}: ${[...line.querySelectorAll('.cerebro-marker')].map((m) => m.getAttribute('aria-label')).join(', ')}`;
@@ -178,10 +182,25 @@ describe('gutter markers', () => {
       .toEqual(['2: Implements run in S', '3: walk is implemented']);
   });
 
+  it('keeps their room with none in view: the gutter doesn’t move as they come and go', async () => {
+    const marks = vi.fn(() => Promise.resolve([]));
+    const root = mount({ text: TEXT, marks });
+    await vi.waitFor(() => {
+      expect(marks).toHaveBeenCalled();
+    });
+    // The caret's line folded away: the gutter has no element on a line in view then.
+    await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
+    await userEvent.keyboard('{Control>}{Shift>}{Minus}{/Shift}{/Control}');
+    await expect.poll(() => root.querySelector('.cerebro-folded')).not.toBeNull();
+    expect((root.querySelector('.cerebro-markers') as HTMLElement).offsetWidth).toBe(36);
+  });
+
   it('leaves the room after the numbers as it is without them', () => {
     const root = mount({ text: TEXT });
     expect(root.querySelector('.cerebro-markers')).toBeNull();
+    // WebStorm's room (measured): the numbers' padding, then the folding chevrons' column.
     const number = root.querySelector('.cm-lineNumbers .cm-gutterElement') as HTMLElement;
-    expect(getComputedStyle(number).paddingRight).toBe('42px');
+    const folds = root.querySelector('.cm-foldGutter') as HTMLElement;
+    expect(parseFloat(getComputedStyle(number).paddingRight) + folds.offsetWidth).toBe(42);
   });
 });

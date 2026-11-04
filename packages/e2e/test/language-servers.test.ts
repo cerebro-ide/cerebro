@@ -199,6 +199,11 @@ beforeAll(async () => {
   // A function to rename where it's used: renamed where it's defined too.
   writeFileSync(join(repo, 'measures.ts'), 'export function measure() {}\n');
   writeFileSync(join(repo, 'measured.ts'), "import { measure } from './measures';\nmeasure();\n");
+  // A file to fold: a region, which only its server folds, by its name.
+  writeFileSync(
+    join(repo, 'regions.ts'),
+    '// #region Setup\nconst a = 1;\n// #endregion\nexport function f() {\n  return a;\n}\n',
+  );
   // A file to format.
   writeFileSync(join(repo, 'unformatted.ts'), 'const  x=1;\n');
   // A call to write: what's called, and the parameter the caret's at.
@@ -637,6 +642,25 @@ it('formats a file on Ctrl+Alt+L by its language server, and says how many lines
   await page().keyboard.press(KEYS.undo);
   await page()
     .locator('.cm-line', { hasText: /^const {2}x=1;$/ })
+    .waitFor();
+}, 60_000);
+
+it('folds a file where its language server says on Ctrl+Shift+-, a region by its name, and unfolds it', async () => {
+  await openAt('regions.ts', 'export');
+  const region = page().locator('.cerebro-folded', { hasText: /^Setup$/ });
+  try {
+    await untilAnswered(KEYS.collapseAll, async () => (await region.count()) > 0);
+  } catch (error) {
+    await explain(error, 'regions.ts', 0, 0, ['lsp.folds']);
+  }
+  expect(
+    await page()
+      .locator('.cm-line', { hasText: /^export function f\(\) \{\.\.\.\}$/ })
+      .count(),
+  ).toBe(1);
+  await page().keyboard.press(KEYS.expandAll);
+  await page()
+    .locator('.cm-line', { hasText: /^const a = 1;$/ })
     .waitFor();
 }, 60_000);
 

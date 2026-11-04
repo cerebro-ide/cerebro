@@ -41,6 +41,7 @@ import { EditorDocument, KEPT } from './document.js';
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
+import { foldKeys, folding, type AskFolds } from './folding.js';
 import { formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
@@ -139,6 +140,11 @@ export interface CodeEditorProps {
    * IntelliJ's, when the document can be edited. None: no Reformat Code.
    */
   format?: AskFormat;
+  /**
+   * Where the text folds, given it: asked as it opens, and once an edit has settled. Where it says
+   * nothing on a line, or with none, the language's grammar says.
+   */
+  folds?: AskFolds;
   onRename?: Rename;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
@@ -169,6 +175,12 @@ export interface EditorKeys {
   rename?: readonly string[];
   /** Reformat Code: the text, or the selection, formatted. */
   format?: readonly string[];
+  /** Collapse and Expand: the part around the caret, folded; the one on its line, unfolded. */
+  fold?: readonly string[];
+  unfold?: readonly string[];
+  /** Collapse All and Expand All. */
+  foldAll?: readonly string[];
+  unfoldAll?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -190,6 +202,11 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   parameterInfo: ['Ctrl-p'],
   rename: ['Shift-F6'],
   format: ['Mod-Alt-l'],
+  // Shift with a character as CodeMirror finds it: the key's own, Shift held (`-` for `_`).
+  fold: ['Mod--'],
+  unfold: ['Mod-='],
+  foldAll: ['Mod-Shift--'],
+  unfoldAll: ['Mod-Shift-='],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -252,6 +269,32 @@ export const theme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
   // With markers, they take the room after the numbers (their place in it is a claim).
   '.cm-lineNumbers:has(+ .cerebro-markers) .cm-gutterElement': { paddingRight: '6px' },
+  // The chevrons, last, in the room after the numbers (or the markers: wider then, a claim).
+  '.cm-lineNumbers:has(+ .cm-foldGutter) .cm-gutterElement': { paddingRight: '28px' },
+  '.cm-foldGutter .cm-gutterElement': {
+    width: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  '.cerebro-fold': {
+    display: 'flex',
+    fill: 'none',
+    stroke: variable('editor-fold'),
+    cursor: 'pointer',
+  },
+  // An open one shows with the pointer over the gutter, as IntelliJ's new UI (a claim).
+  '.cerebro-fold--open': { opacity: '0' },
+  '.cm-gutters:hover .cerebro-fold--open': { opacity: '1' },
+  // What's folded, boxed: FOLDED_TEXT_ATTRIBUTES and its border (the box's corners a claim).
+  '.cerebro-folded': {
+    color: variable('editor-folded'),
+    backgroundColor: variable('editor-folded-background'),
+    border: `1px solid ${variable('editor-folded-border')}`,
+    borderRadius: '3px',
+    margin: '0 1px',
+    cursor: 'pointer',
+  },
   '.cerebro-markers .cm-gutterElement': {
     width: '36px',
     display: 'flex',
@@ -696,6 +739,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
       props.parameterInfo ? parameterKeys(keys.parameterInfo) : [],
       doc && props.renaming && props.onRename ? renameKeys(keys.rename) : [],
       doc && props.format ? formatting(keys.format, props.format) : [],
+      foldKeys(keys),
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
@@ -746,6 +790,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
+    folding(props.folds),
     gutterObstacle,
     fullWidth,
     selection,

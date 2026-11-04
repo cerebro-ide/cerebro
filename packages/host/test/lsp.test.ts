@@ -21,6 +21,7 @@ import {
   signaturesOf,
   renamingOf,
   fileEditsOf,
+  foldsOf,
   structureOf,
   symbolsOf,
   NO_FORMATTING,
@@ -548,6 +549,37 @@ describe('formatting', () => {
   });
 });
 
+describe('folds', () => {
+  it('are the server’s ranges, a character left out its line’s end', () => {
+    const text = 'a {\n  b\n}\n';
+    expect(
+      foldsOf(
+        [
+          { startLine: 0, startCharacter: 2, endLine: 2, endCharacter: 1 },
+          { startLine: 0, endLine: 1, kind: 'region', collapsedText: 'R' },
+          // Past the text's end: the server's, as it is.
+          { startLine: 7, endLine: 8 },
+        ],
+        text,
+      ),
+    ).toEqual([
+      { from: { line: 0, column: 2 }, to: { line: 2, column: 1 } },
+      {
+        from: { line: 0, column: 3 },
+        to: { line: 1, column: 3 },
+        kind: 'region',
+        collapsedText: 'R',
+      },
+      { from: { line: 7, column: 0 }, to: { line: 8, column: 0 } },
+    ]);
+    expect(foldsOf(null, text)).toEqual([]);
+  });
+
+  it('are none from a server that doesn’t fold', async () => {
+    expect(await pool([fake('links')]).folds(root, file)).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -905,6 +937,54 @@ describe('formatting, by the real servers', () => {
     const shfmt =
       spawnSync(process.platform === 'win32' ? 'where' : 'which', ['shfmt']).status === 0;
     expect(applied(script.text, edits)).toBe(shfmt ? 'f() {\n  echo hi\n}\n' : script.text);
+  }, 60_000);
+});
+
+describe('folds, by the real servers', () => {
+  it('fold a TypeScript file’s imports, comments, blocks and regions; a YAML file’s too', async () => {
+    const project = `${root}/tsf`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(join(project, 'tsconfig.json'), '{}');
+    const text = [
+      "import { a } from './a';",
+      "import { b } from './b';",
+      '/**',
+      ' * Docs.',
+      ' */',
+      'export function run() {',
+      '  return 1;',
+      '}',
+      '// #region Setup',
+      'const z = 1;',
+      '// #endregion',
+      '',
+    ].join('\n');
+    const servers = pool(undefined, { patience: 60_000 });
+    // As measured: the block from the space before its brace, the region named.
+    expect(await servers.folds(project, { path: `${project}/f.ts`, text })).toEqual([
+      { from: { line: 0, column: 0 }, to: { line: 1, column: 24 }, kind: 'imports' },
+      { from: { line: 2, column: 0 }, to: { line: 4, column: 3 }, kind: 'comment' },
+      { from: { line: 5, column: 21 }, to: { line: 7, column: 1 } },
+      {
+        from: { line: 8, column: 0 },
+        to: { line: 10, column: 13 },
+        kind: 'region',
+        collapsedText: 'Setup',
+      },
+    ]);
+    mkdirSync(`${root}/yaml`, { recursive: true });
+    const yaml = { path: `${root}/yaml/f.yaml`, text: 'a:\n  b: 1\n' };
+    expect(await servers.folds(`${root}/yaml`, yaml)).toEqual([
+      { from: { line: 0, column: 0 }, to: { line: 1, column: 6 } },
+    ]);
+  }, 60_000);
+
+  it('are none for a Python file: basedpyright doesn’t fold', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(`${root}/py`, { recursive: true });
+    const python = { path: `${root}/py/f.py`, text: 'def f():\n    pass\n' };
+    expect(await pool(undefined, { patience: 60_000 }).folds(`${root}/py`, python)).toBeNull();
   }, 60_000);
 });
 
