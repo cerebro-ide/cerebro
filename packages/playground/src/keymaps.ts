@@ -30,6 +30,10 @@ export const EDITOR_ACTIONS = {
   parameterInfo: 'editor.parameterInfo',
   rename: 'editor.rename',
   format: 'editor.reformatCode',
+  fold: 'editor.collapseRegion',
+  unfold: 'editor.expandRegion',
+  foldAll: 'editor.collapseAllRegions',
+  unfoldAll: 'editor.expandAllRegions',
   nextProblem: 'editor.nextProblem',
   previousProblem: 'editor.previousProblem',
   contextActions: 'editor.showContextActions',
@@ -92,6 +96,12 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Ctrl+P'],
     [EDITOR_ACTIONS.rename]: ['Shift+F6'],
     [EDITOR_ACTIONS.format]: ['Ctrl+Alt+L'],
+    // Not the numpad's + (`control ADD`): CodeMirror takes Ctrl and + for Expand, Shift or not, and
+    // Ctrl+Shift+= would expand one, not all (measured, its keymap's lookup). Its - is the same key.
+    [EDITOR_ACTIONS.fold]: ['Ctrl+-'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl+='],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+Shift+_'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+Shift++'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
   },
@@ -152,6 +162,10 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Meta+P'],
     [EDITOR_ACTIONS.rename]: ['Shift+F6'],
     [EDITOR_ACTIONS.format]: ['Meta+Alt+L'],
+    [EDITOR_ACTIONS.fold]: ['Meta+-'],
+    [EDITOR_ACTIONS.unfold]: ['Meta+='],
+    [EDITOR_ACTIONS.foldAll]: ['Meta+Shift+_'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Meta+Shift++'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
   },
@@ -221,6 +235,11 @@ const VSCODE_WINDOWS: KeymapPreset = {
     // Rename Symbol, and Go to Next and Previous Problem: its sheets.
     [EDITOR_ACTIONS.rename]: ['F2'],
     [EDITOR_ACTIONS.format]: ['Shift+Alt+F', 'Ctrl+K Ctrl+F'],
+    // Its documentation's default keys (Fold, Unfold, Fold All, Unfold All), as Linux's.
+    [EDITOR_ACTIONS.fold]: ['Ctrl+Shift+{'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl+Shift+}'],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+K Ctrl+0'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+K Ctrl+J'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
   },
@@ -266,6 +285,10 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: ['Meta+Shift+Space'],
     [EDITOR_ACTIONS.rename]: ['F2'],
     [EDITOR_ACTIONS.format]: ['Shift+Alt+F', 'Meta+K Meta+F'],
+    [EDITOR_ACTIONS.fold]: ['Meta+Alt+['],
+    [EDITOR_ACTIONS.unfold]: ['Meta+Alt+]'],
+    [EDITOR_ACTIONS.foldAll]: ['Meta+K Meta+0'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Meta+K Meta+J'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
   },
@@ -315,6 +338,11 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: [],
     [EDITOR_ACTIONS.rename]: ['Alt+Shift+R'],
     [EDITOR_ACTIONS.format]: ['Ctrl+Alt+L', 'Ctrl+Shift+F'],
+    // The numpad's: -, +, Shift and /, *.
+    [EDITOR_ACTIONS.fold]: ['Ctrl+-'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl++'],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+Shift+/'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+*'],
     [EDITOR_ACTIONS.nextProblem]: [],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F1'],
   },
@@ -354,6 +382,10 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['Meta+.'],
     [EDITOR_ACTIONS.previousProblem]: ['Meta+Shift+>'],
     [EDITOR_ACTIONS.format]: ['Meta+Shift+F'],
+    [EDITOR_ACTIONS.fold]: ['Meta+-'],
+    [EDITOR_ACTIONS.unfold]: ['Meta++'],
+    [EDITOR_ACTIONS.foldAll]: ['Meta+Shift+/'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Meta+*'],
   },
 };
 
@@ -384,6 +416,7 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['F2', 'Ctrl+X `'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2', 'Ctrl+Shift+X `'],
     [EDITOR_ACTIONS.format]: [],
+    [EDITOR_ACTIONS.foldAll]: [],
   },
 };
 
@@ -432,6 +465,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['Ctrl+,', 'F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Ctrl+Shift+<', 'Shift+F2'],
     'navigate.fileStructure': ['Meta+Shift+7', 'Meta+F12'],
+    [EDITOR_ACTIONS.foldAll]: ['Alt+Shift+_'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Alt+Shift++'],
   },
 };
 
@@ -491,6 +526,10 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: [],
     [EDITOR_ACTIONS.previousProblem]: [],
     'navigate.fileStructure': ['Ctrl+R'],
+    [EDITOR_ACTIONS.fold]: ['Ctrl+Shift+{'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl+Shift+}'],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+K Ctrl+1'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+K Ctrl+J', 'Ctrl+K Ctrl+0'],
   },
 };
 
@@ -519,6 +558,10 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.parameterInfo]: [],
     [EDITOR_ACTIONS.nextProblem]: [],
     [EDITOR_ACTIONS.previousProblem]: [],
+    [EDITOR_ACTIONS.fold]: ['Meta+Alt+['],
+    [EDITOR_ACTIONS.unfold]: ['Meta+Alt+]'],
+    [EDITOR_ACTIONS.foldAll]: ['Meta+K Meta+1'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Meta+K Meta+J', 'Meta+K Meta+0'],
   },
 };
 
@@ -563,6 +606,10 @@ export const VISUAL_STUDIO: KeymapPreset = {
       'Ctrl+K D',
       'Ctrl+K Ctrl+D',
     ],
+    [EDITOR_ACTIONS.fold]: ['Ctrl+M S', 'Ctrl+M Ctrl+S'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl+M E', 'Ctrl+M Ctrl+E'],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+M A', 'Ctrl+M Ctrl+A'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+M X', 'Ctrl+M Ctrl+X'],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
   },
@@ -608,6 +655,11 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
       'Meta+K D',
       'Meta+K Meta+D',
     ],
+    // Its file's own, with Ctrl (`control M`), as Visual Studio's on Windows.
+    [EDITOR_ACTIONS.fold]: ['Ctrl+M S', 'Ctrl+M Ctrl+S'],
+    [EDITOR_ACTIONS.unfold]: ['Ctrl+M E', 'Ctrl+M Ctrl+E'],
+    [EDITOR_ACTIONS.foldAll]: ['Ctrl+M A', 'Ctrl+M Ctrl+A'],
+    [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+M X', 'Ctrl+M Ctrl+X'],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
   },
@@ -631,6 +683,31 @@ export const PRESETS: readonly KeymapPreset[] = [
   VSCODE_MAC,
 ];
 
+/** The key each character is typed with Shift on, on a US keyboard. */
+const UNSHIFTED: Readonly<Record<string, string>> = {
+  '~': '`',
+  '!': '1',
+  '@': '2',
+  '#': '3',
+  $: '4',
+  '%': '5',
+  '^': '6',
+  '&': '7',
+  '*': '8',
+  '(': '9',
+  ')': '0',
+  _: '-',
+  '+': '=',
+  '{': '[',
+  '}': ']',
+  '|': '\\',
+  ':': ';',
+  '"': "'",
+  '<': ',',
+  '>': '.',
+  '?': '/',
+};
+
 /** A sequence as CodeMirror writes it: `Ctrl+K Ctrl+T` is `Ctrl-k Ctrl-t`. */
 export function codeMirrorKey(sequence: string): string {
   return sequence
@@ -639,7 +716,10 @@ export function codeMirrorKey(sequence: string): string {
       const plus = chord.endsWith('++');
       const parts = plus ? [...chord.slice(0, -2).split('+'), '+'] : chord.split('+');
       const key = parts.pop() as string;
-      const name = key.length === 1 ? key.toLowerCase() : key;
+      // With Shift, a character's key, as CodeMirror finds it: by the character without Shift
+      // (`Ctrl-_`), then by its key with (`Ctrl-Shift--`), measured. Its key, as the other keys.
+      const shifted = parts.includes('Shift') ? UNSHIFTED[key] : undefined;
+      const name = shifted ?? (key.length === 1 ? key.toLowerCase() : key);
       return [...parts, name].join('-');
     })
     .join(' ');

@@ -181,7 +181,9 @@ describe('gutter markers', () => {
   it('leaves the room after the numbers as it is without them', () => {
     const root = mount({ text: TEXT });
     expect(root.querySelector('.cerebro-markers')).toBeNull();
+    // WebStorm's room (measured): the numbers' padding, then the folding chevrons' column.
     const number = root.querySelector('.cm-lineNumbers .cm-gutterElement') as HTMLElement;
-    expect(getComputedStyle(number).paddingRight).toBe('42px');
+    const folds = root.querySelector('.cm-foldGutter') as HTMLElement;
+    expect(parseFloat(getComputedStyle(number).paddingRight) + folds.offsetWidth).toBe(42);
   });
 });

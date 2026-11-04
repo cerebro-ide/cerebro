@@ -63,7 +63,12 @@ describe('the editor’s keys', () => {
     expect(codeMirrorKey('Ctrl+K Ctrl+T')).toBe('Ctrl-k Ctrl-t');
     expect(codeMirrorKey('Shift+F12')).toBe('Shift-F12');
     expect(codeMirrorKey('Ctrl++')).toBe('Ctrl-+');
-    expect(codeMirrorKey('Ctrl+Shift+_')).toBe('Ctrl-Shift-_');
+    // Shift with a character: its key, as CodeMirror finds it; a letter's, as it is.
+    expect(codeMirrorKey('Ctrl+Shift+_')).toBe('Ctrl-Shift--');
+    expect(codeMirrorKey('Meta+Shift+>')).toBe('Meta-Shift-.');
+    expect(codeMirrorKey('Ctrl+Shift++')).toBe('Ctrl-Shift-=');
+    expect(codeMirrorKey('Ctrl+Shift+/')).toBe('Ctrl-Shift-/');
+    expect(codeMirrorKey('Ctrl+Shift+Z')).toBe('Ctrl-Shift-z');
   });
 
   it('are the keymap’s for the editor’s actions; Undo and Redo are the Edit commands’', () => {
@@ -77,6 +82,10 @@ describe('the editor’s keys', () => {
       parameterInfo: ['Ctrl-p'],
       rename: ['Shift-F6'],
       format: ['Ctrl-Alt-l'],
+      fold: ['Ctrl--'],
+      unfold: ['Ctrl-='],
+      foldAll: ['Ctrl-Shift--'],
+      unfoldAll: ['Ctrl-Shift-='],
       nextProblem: ['F2'],
       previousProblem: ['Shift-F2'],
       contextActions: ['Alt-Enter'],
@@ -93,6 +102,10 @@ describe('the editor’s keys', () => {
       'parameterInfo',
       'rename',
       'format',
+      'fold',
+      'unfold',
+      'foldAll',
+      'unfoldAll',
       'nextProblem',
       'previousProblem',
       'contextActions',

@@ -78,6 +78,12 @@
   --cerebro-icon-ok: #57965c;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter, its _dark files). */
   --cerebro-editor-marker-i: #57965c;
+  /* Folding: the chevrons' stroke (expui/gutter/fold_dark.svg), and what's folded,
+     FOLDED_TEXT_ATTRIBUTES and FOLDED_TEXT_BORDER_COLOR (IslandSchemeDark.xml). */
+  --cerebro-editor-fold: #6f737a;
+  --cerebro-editor-folded: #868991;
+  --cerebro-editor-folded-background: #393b40;
+  --cerebro-editor-folded-border: #2b2d30;
   --cerebro-editor-marker-i-disc: #253627;
   --cerebro-editor-marker-o: #548af7;
   --cerebro-editor-marker-o-disc: #25324d;
@@ -215,6 +221,11 @@
   --cerebro-icon-ok: #55a76a;
   /* Gutter markers: IntelliJ's icons' own colours (expui/gutter). */
   --cerebro-editor-marker-i: #208a3c;
+  /* Folding: expui/gutter/fold.svg; expUI_lightScheme.xml. */
+  --cerebro-editor-fold: #a8adbd;
+  --cerebro-editor-folded: #414d41;
+  --cerebro-editor-folded-background: #e9f5e6;
+  --cerebro-editor-folded-border: #add9c7;
   --cerebro-editor-marker-i-disc: #f2fcf3;
   --cerebro-editor-marker-o: #3574f0;
   --cerebro-editor-marker-o-disc: #edf3ff;
