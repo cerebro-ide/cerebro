@@ -51,6 +51,7 @@ import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { setupHistory } from './history.js';
 import { GitLogView } from './git-log.js';
+import { setupSwitcher } from './switcher.js';
 import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
@@ -422,6 +423,7 @@ services.commands.register({
   run: () => recentFiles(true),
 });
 services.keymap.bindDefault('Mod+E', 'view.recentFiles');
+setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
 services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff). */
