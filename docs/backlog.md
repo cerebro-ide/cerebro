@@ -64,7 +64,14 @@ Rename, File Structure, Reformat Code and folding.
   #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
   of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
   the page and the host's answer too (2026-11-03).
-- **The e2e test of saving when idle once didn't save** (a full local run on 2026-11-04; 3 reruns
-  of its file passed): `second.ts` wasn't saved within 5 s of an edit, with the idle time set to
-  1 s, and the next test failed from it. The cause isn't found. The test now prints the editor's
-  text, whether the page had the focus, and what had it, when it fails.
+- **The e2e completion test once showed no list on Windows** (CI on #121, 2026-11-04): after
+  `shape.wi` was typed, with the editor focused and no popup open, the list never showed. The cause
+  isn't found. The test's output asked the server again with the file as on disk, not as typed, so
+  it showed nothing useful. It now asks with the editor's text (checked locally: `width`).
+- **The e2e test of saving when idle sometimes doesn't save in time** (a full local run and CI on
+  #121, both 2026-11-04; reruns pass): `second.ts` wasn't saved within 5 s of an edit, with the
+  idle time set to 1 s, and the next test failed from it. In CI the page printed the edit in the
+  editor, the page focused, and the editor focused; the file was saved later, before the next test
+  looked. The cause isn't found: the timer set with the old 15 s, or the save waiting behind
+  another, would both fit. The test now also prints the settings the page stored and how long the
+  save took (up to 35 s).

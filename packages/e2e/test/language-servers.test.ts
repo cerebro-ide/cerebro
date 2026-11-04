@@ -75,7 +75,8 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
 
 /**
  * Prints what the host answers about a place, asked directly, and the page's console, then throws
- * `error`: CI's log is all there is.
+ * `error`: CI's log is all there is. Asked with the file as the focused editor has it, edits
+ * included; as it is on disk without one.
  */
 async function explain(
   error: unknown,
@@ -84,7 +85,8 @@ async function explain(
   column: number,
   methods: string[],
 ): Promise<never> {
-  const text = readFileSync(join(repo, file), 'utf8');
+  const lines = await page().locator('.cm-editor.cm-focused .cm-line').allTextContents();
+  const text = lines.length > 0 ? lines.join('\n') : readFileSync(join(repo, file), 'utf8');
   const asked = { worktree: repo, path: join(repo, file), text, line, column };
   const answers = await page().evaluate(
     async ({ asked, repo, methods }) => {
@@ -185,6 +187,11 @@ beforeAll(async () => {
   // An object's members, and a function from another file: completions, one with its import.
   writeFileSync(join(repo, 'completes.ts'), 'export const shape = { width: 1 };\n// here\n');
   writeFileSync(join(repo, 'tally.ts'), 'export function tally() {}\n');
+  // A call to write: what's called, and the parameter the caret's at.
+  writeFileSync(
+    join(repo, 'calls.ts'),
+    'function add(a: number, b = 2) {\n  return a + b;\n}\n// call\n',
+  );
   writeFileSync(join(repo, 'wrong.py'), 'count: int = "text"\n');
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
@@ -552,6 +559,29 @@ it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async
       timeout: 10_000,
     })
     .toBe('(alias) function run(): void');
+}, 60_000);
+
+it('shows what’s called as its arguments are typed, the parameter the caret is at in bold, and on Ctrl+P', async () => {
+  await openAt('calls.ts', '// call');
+  await page().keyboard.press('End');
+  await page().keyboard.press('Enter');
+  const bold = page().locator('.cerebro-parameterInfo strong');
+  await page().keyboard.type('add(');
+  try {
+    await expect.poll(() => bold.textContent(), { timeout: 15_000 }).toBe('a: number');
+  } catch (error) {
+    await explain(error, 'calls.ts', 4, 4, ['lsp.signatures']);
+  }
+  expect(await page().locator('.cerebro-parameterInfo').textContent()).toBe(
+    'a: number, b?: number',
+  );
+  await page().keyboard.type('1, ');
+  await expect.poll(() => bold.textContent(), { timeout: 10_000 }).toBe('b?: number');
+  await page().keyboard.press('Escape');
+  await bold.waitFor({ state: 'detached' });
+  await page().keyboard.press(KEYS.parameterInfo);
+  await expect.poll(() => bold.textContent(), { timeout: 10_000 }).toBe('b?: number');
+  await page().keyboard.press('Escape');
 }, 60_000);
 
 it('completes as one types, a member after a `.`, and a function from another file with its import', async () => {

@@ -128,6 +128,20 @@ export interface Hover {
   text: string;
 }
 
+/** A signature of what's called at a place: its text, and where each parameter is in it. */
+export interface Signature {
+  label: string;
+  parameters: { from: number; to: number }[];
+  /** The parameter the place is at, when it's one of them. */
+  active?: number;
+}
+
+/** What's called at a place: its signatures (an overloaded function's several), one of them active. */
+export interface Signatures {
+  signatures: Signature[];
+  active: number;
+}
+
 /** A file as the UI has it, edits and all. */
 export interface OpenFile {
   path: string;
@@ -337,6 +351,44 @@ export function hoverOf(result: unknown): Hover | null {
   return text === '' ? null : { text };
 }
 
+interface SignatureInformation {
+  label: string;
+  parameters?: { label: string | [number, number] }[];
+  activeParameter?: number | null;
+}
+
+/** A server's signature help; null for none. */
+export function signaturesOf(result: unknown): Signatures | null {
+  const help = result as {
+    signatures?: SignatureInformation[];
+    activeSignature?: number;
+    activeParameter?: number | null;
+  } | null;
+  if (!help?.signatures?.length) return null;
+  const signatures = help.signatures.map(({ label, parameters = [], activeParameter }) => {
+    // A parameter given as its text is found in the label, after the one before it.
+    let at = label.indexOf('(') + 1;
+    const found = parameters.map((parameter) => {
+      if (typeof parameter.label !== 'string') {
+        const [from, to] = parameter.label;
+        return { from, to };
+      }
+      const from = Math.max(label.indexOf(parameter.label, at), 0);
+      at = from + parameter.label.length;
+      return { from, to: at };
+    });
+    // The signature's own, or the help's for all; outside the parameters, none (LSP).
+    const active = activeParameter ?? help.activeParameter;
+    return {
+      label,
+      parameters: found,
+      ...(typeof active === 'number' && active < found.length ? { active } : {}),
+    };
+  });
+  const active = help.activeSignature ?? 0;
+  return { signatures, active: active < signatures.length ? active : 0 };
+}
+
 interface CodeAction {
   title: string;
   kind?: string;
@@ -469,6 +521,13 @@ export class LanguageServer {
             documentHighlight: {},
             // Markdown first: the servers' definitions as code, their documentation's links.
             hover: { contentFormat: ['markdown', 'plaintext'] },
+            // Parameters as where they are in the signature; the active one per signature.
+            signatureHelp: {
+              signatureInformation: {
+                parameterInformation: { labelOffsetSupport: true },
+                activeParameterSupport: true,
+              },
+            },
             documentSymbol: { hierarchicalDocumentSymbolSupport: true },
             implementation: { linkSupport: true },
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
@@ -563,6 +622,11 @@ export class LanguageServer {
   /** What the server says of the symbol at a place: its definition and documentation. */
   async hover(file: OpenFile, languageId: string, at: Located): Promise<Hover | null> {
     return hoverOf(await this.#ask('textDocument/hover', file, languageId, at));
+  }
+
+  /** What's called at a place in a file: its signatures, and the parameter the place is at. */
+  async signatures(file: OpenFile, languageId: string, at: Located): Promise<Signatures | null> {
+    return signaturesOf(await this.#ask('textDocument/signatureHelp', file, languageId, at));
   }
 
   /** What a symbol at a place in a file is implemented or overridden by. */
@@ -817,6 +881,13 @@ export class LanguageServers {
   hover(worktree: string, file: OpenFile, at: Located): Promise<Hover | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.hover(file, languageId, at),
+    );
+  }
+
+  /** What's called at a place; null when it's in no call, or no server answers in time. */
+  signatures(worktree: string, file: OpenFile, at: Located): Promise<Signatures | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.signatures(file, languageId, at),
     );
   }
 

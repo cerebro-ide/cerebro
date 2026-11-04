@@ -48,6 +48,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
+- [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1546,7 +1547,8 @@ and Quick Documentation").
   - Emacs and NetBeans: their files don't name it, so they keep IntelliJ IDEA's Ctrl+Q.
 - **Not yet:** opening links, and going to a symbol's definition from its documentation;
   IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
-  documentation of the completion chosen in the completion list; signature help.
+  documentation of the completion chosen in the completion list. (Signature help: see "Parameter
+  Info".)
 
 ## JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)
 
@@ -1586,6 +1588,42 @@ editor, they give more. Claude's choices, open to change.
   - Markdown, for which no server is on npm (marksman isn't).
   - The caret placed inside a completion's quotes, as a snippet would place it.
   - Images in documentation (the CSS hover's "Baseline" icon): their text shows instead.
+
+## Parameter Info (2026-11-04)
+
+After Quick Documentation, IntelliJ's Parameter Info: signature help, in LSP's words (Ido: "do them
+all", to a list that ended with it). Claude's choices, open to change.
+
+- **What's called at the caret, as IntelliJ shows it:** a line for each signature, only its
+  parameters (`a: number, b?: number`, or `<no parameters>`), the one the caret is at in bold. With
+  more than one signature, the others are dimmed (a claim: IntelliJ dims those the arguments rule
+  out). It shows above the caret, in the tooltips' look.
+- **When:** on its keys (Ctrl+P), and 1 second after a `(` or a `,` is typed (IntelliJ's "Show
+  parameter info popup in 1000 ms", a claim from its settings). While it shows, it asks again
+  after each edit and caret move, so the bold parameter follows. It goes when the server says the
+  caret is no longer in a call, and on Escape. Only the latest answer counts, and only for the text
+  and caret it was asked for.
+- **From the file's language server** (`lsp.signatures`, LSP's `textDocument/signatureHelp`). The
+  host turns each parameter into where it is in the signature's text, whether the server gives
+  that or the parameter's text. Measured, for `add(1, ` and Python's `walk(1, `:
+  - TypeScript 7 gives the parameters as text (`a: number`), the active one for the whole answer.
+    It answered in 56 ms.
+  - basedpyright gives them as offsets, and the active one per signature too. It answered in 555 ms
+    the first time.
+  - Outside a call, both answer nothing.
+- **Escape goes to Parameter Info unless a completion list shows.** CodeMirror's `closeCompletion`
+  takes the key whenever a completion is being asked, or kept disabled after `add(` (its source,
+  and measured: the first Escape didn't reach Parameter Info). Cerebro's binding still closes such
+  a completion, so its answer is dropped, but lets the key go on.
+- **Each keymap's keys,** from IntelliJ's files (`ParameterInfo`) and VS Code's documentation
+  (Trigger Parameter Hints, code.visualstudio.com/docs/editing/intellisense):
+  - IntelliJ IDEA and NetBeans: Ctrl+P. IntelliJ IDEA (macOS), IntelliJ IDEA Classic (macOS), macOS
+    System Shortcuts and Visual Studio (macOS): Cmd+P.
+  - VS Code and Visual Studio: Ctrl+Shift+Space. VS Code (macOS): Cmd+Shift+Space.
+  - Eclipse (macOS): Ctrl+Shift+Space. Emacs: Alt+Shift+P.
+  - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
+- **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
+  IntelliJ's parameter name hints in the text.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

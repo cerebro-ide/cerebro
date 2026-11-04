@@ -39,6 +39,7 @@ import {
 } from './completions.js';
 import { EditorDocument, KEPT } from './document.js';
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
+import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -120,6 +121,12 @@ export interface CodeEditorProps {
    * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
    */
   documentation?: AskDocumentation;
+  /**
+   * What's called at a place: its signatures and the parameter the place is at, shown above the
+   * caret on its keys (Ctrl+P) and as a call's arguments are typed, as IntelliJ's Parameter Info.
+   * None: no Parameter Info.
+   */
+  parameterInfo?: AskSignatures;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
@@ -143,6 +150,8 @@ export interface EditorKeys {
   complete?: readonly string[];
   /** Quick Documentation: what the symbol at the caret is. */
   quickDocumentation?: readonly string[];
+  /** Parameter Info: what's called at the caret. */
+  parameterInfo?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -161,6 +170,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   replace: ['Mod-r'],
   complete: ['Ctrl-Space'],
   quickDocumentation: ['Ctrl-q'],
+  parameterInfo: ['Ctrl-p'],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -343,8 +353,8 @@ export const theme = EditorView.theme({
   '.cerebro-problemMark--warning': { backgroundColor: variable('editor-warning-stripe') },
   '.cerebro-problemMark--weak': { backgroundColor: variable('editor-weak-stripe') },
   // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`). The
-  // Quick Documentation at the caret looks the same.
-  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc': {
+  // Quick Documentation and Parameter Info at the caret look the same.
+  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc, .cm-tooltip.cerebro-parameterInfo': {
     backgroundColor: variable('tooltip'),
     color: variable('text'),
     border: `1px solid ${variable('tooltip-border')}`,
@@ -427,6 +437,18 @@ export const theme = EditorView.theme({
   },
   '.cerebro-doc__heading': { fontWeight: '600' },
   '.cerebro-doc__link': { color: variable('editor-link') },
+  // Parameter Info, as IntelliJ's: a line per signature, in the editor's font.
+  '.cerebro-parameterInfo': {
+    padding: '4px 8px',
+    fontFamily: variable('font-mono'),
+    fontSize: variable('font-size'),
+    lineHeight: '1.5',
+    whiteSpace: 'pre',
+  },
+  // With more than one, the call's own apart from the others (a claim: IntelliJ's shows the others
+  // dimmed when the arguments rule them out).
+  '.cerebro-parameterInfo:has(.cerebro-parameterInfo__signature--current) .cerebro-parameterInfo__signature:not(.cerebro-parameterInfo__signature--current)':
+    { color: variable('text-muted') },
   '.cerebro-problemTooltip': {
     padding: '8px 12px',
     maxWidth: '600px',
@@ -641,6 +663,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
       props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
+      props.parameterInfo ? parameterKeys(keys.parameterInfo) : [],
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
@@ -700,6 +723,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     doc && props.completions ? completions(props.completions, props.resolveCompletion) : [],
     // After the problems: below a problem's message, in the same tooltip, as IntelliJ's.
     props.documentation ? documentation(props.documentation) : [],
+    props.parameterInfo ? parameterInfo(props.parameterInfo) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),

@@ -206,6 +206,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.hover', (params) =>
     servers.hover(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
+  connection.onRequest('lsp.signatures', (params) =>
+    servers.signatures(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
   connection.onRequest('lsp.completions', (params) =>
     servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );

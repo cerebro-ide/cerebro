@@ -173,16 +173,33 @@ it('saves a file on its own after the idle time set in System Settings, or not w
   try {
     await open('second.ts');
     await page().keyboard.type(' idle');
+    const typed = performance.now();
     // The editor keeps the focus: saved for being idle, not for losing it.
-    // Not saved once in a full local run (2026-11-04; cause not found): what the page had then.
+    // Not saved in time once locally and once in CI (2026-11-04; cause not found), though the editor
+    // had the text and the focus, and it was saved later: what the settings were, and when it was.
     await expect
       .poll(() => disk(second), { timeout: 5_000 })
       .toBe('const second = 3; // autosaved idle\n')
       .catch(async (error: unknown) => {
+        const settings = await page().evaluate(() =>
+          Object.fromEntries(
+            Object.keys(localStorage)
+              .filter((key) => key.includes('settings'))
+              .map((key) => [key, localStorage.getItem(key)]),
+          ),
+        );
+        await expect
+          .poll(() => disk(second), { timeout: 30_000 })
+          .toBe('const second = 3; // autosaved idle\n')
+          .catch(() => undefined);
         console.log('Not saved when idle:', {
           editor: await shown(),
           focused: await page().evaluate(() => document.hasFocus()),
           active: await page().evaluate(() => document.activeElement?.className),
+          settings,
+          savedAfter: disk(second).includes('idle')
+            ? `${String(Math.round(performance.now() - typed))} ms`
+            : 'not in 35 s',
         });
         throw error;
       });
@@ -207,7 +224,7 @@ it('saves a file on its own after the idle time set in System Settings, or not w
   // The file as the tests after expect it, read again by the editor.
   writeFileSync(second, 'const second = 3; // autosaved\n');
   await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3; // autosaved\n');
-});
+}, 60_000);
 
 it('asks about a file changed both in the editor and on disk: keep, load, or merge', async () => {
   const dialog = page().locator('.cerebro-dialog', { hasText: 'File Cache Conflict' });

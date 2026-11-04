@@ -100,6 +100,7 @@ describe('language servers', () => {
       contextActions: vi.fn(() => Promise.resolve([])),
       completions: vi.fn(() => Promise.resolve(null)),
       hover: vi.fn(() => Promise.resolve(null)),
+      signatures: vi.fn(() => Promise.resolve(null)),
       completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
@@ -132,6 +133,12 @@ describe('language servers', () => {
       '/w',
       { path: '/w/b.ts', text: 'x' },
       { path: '', line: 0, column: 2 },
+    );
+    expect(await ui.request('lsp.signatures', { ...file, line: 0, column: 3 })).toBeNull();
+    expect(servers.signatures).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 0, column: 3 },
     );
     expect(await ui.request('lsp.completions', { ...file, line: 0, column: 1 })).toBeNull();
     expect(servers.completions).toHaveBeenCalledWith(

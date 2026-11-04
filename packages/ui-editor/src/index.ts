@@ -13,6 +13,12 @@ export {
   type ResolveCompletion,
 } from './completions.js';
 export { type AskDocumentation, type Documentation } from './documentation.js';
+export {
+  PARAMETERS_AFTER,
+  type AskSignatures,
+  type Signature,
+  type Signatures,
+} from './parameters.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {
