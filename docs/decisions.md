@@ -885,6 +885,15 @@ Choices of Claude's, open to change:
   version at least two weeks old. Three packages pulled in by them were newer, so they're pinned too
   (`@codemirror/autocomplete` 6.20.3, `@lezer/common` 1.5.3, `@lezer/markdown` 1.8.0), as
   `ui-editor` dependencies and root `overrides`.
+- **npm and yarn alike** (changed 2026-11-04). Ido: "at work i'm using yarn, you are using npm. it
+  should potentially work with both". Yarn reads `resolutions`, not npm's `overrides` or its
+  lockfile, so the root has both, with the same pins. CodeMirror's shared packages (`state`, `view`,
+  `language`, `autocomplete`, `@lezer/common`, `@lezer/highlight`, `@lezer/markdown`) are pinned
+  there to the editor's versions: one copy of each, whatever installs them. Measured: yarn 1.22
+  without them installed a second `@codemirror/view` (6.43.15 at the root beside the editor's
+  6.43.14) and `@lezer/common`, and the editor highlighted nothing, on any file type; with them,
+  one copy of each, and highlighting. A test checks that the two fields agree with the editor's
+  versions. `yarn.lock` is ignored: npm's lockfile is the one kept.
 - The bundle grew past 500 kB with the grammars; loading languages on demand can come later.
 
 ## The project tree (2026-10-26)
