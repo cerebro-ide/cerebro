@@ -50,6 +50,7 @@ Read the index, then the entries that bear on the work at hand.
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
 - [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh
+- [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1642,6 +1643,45 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## The image viewer (2026-11-04)
+
+Ido, after opening a PNG: "it should've just displayed it as an image, as intellij does (with some
+basic controls like zoom and grid)". As IntelliJ's image editor, from its source
+(`images/src/org/intellij/images`: `ImageEditorUI`, `ImageComponentUI`, `ImageZoomModel`,
+`ZoomOptions`, `plugin.xml`, `ImagesBundle`).
+
+- **Image files open in an image viewer**, a package of its own (`ui-image`), in place of the
+  code editor: PNG, JPEG, GIF, BMP, WebP, ICO and AVIF, the formats the page can show. The host
+  gives the file's bytes (`fs.readBytes`, in base64, up to the editor's 10 MB). **Claims:** the
+  list of formats (IntelliJ's are what Java's ImageIO reads); SVG stays text, where IntelliJ shows
+  its text beside a preview.
+- **The zoom is IntelliJ's:** an image is fitted as it opens and as its area is resized, until the
+  zoom is changed by hand. A small one (under 128x128) is enlarged to about that size, a large one
+  shrunk to the area less 2px each side, else shown at 1:1. Zoom In doubles above 1:1 and goes up
+  by 1.5 below it, up to 32; Zoom Out the reverse, down to one pixel's width or 1.5⁻⁸. Ctrl and
+  the wheel zoom about the pointer. Enlarged, pixels are squares; shrunk, they're smoothed.
+- **The toolbar is IntelliJ's** (`Images.EditorToolbar`): Transparency Chessboard and Grid, both
+  toggles ("Show Grid", "Hide Grid"), then Zoom In, Zoom Out, Actual Size and Fit Zoom to Window.
+  At its right is the image's line, in IntelliJ's words: "800x600 PNG (32-bit color) 41.44 kB".
+  The format and colour depth are read from the file's header, as ImageIO's format name and
+  colour model give them to IntelliJ: PNG, JPEG, GIF and BMP have a depth; WebP, ICO and AVIF
+  have none here (a claim). Sizes are in metric units, as IntelliJ's `formatFileSize`.
+- **The chessboard and the grid are IntelliJ's defaults:** both off; the chessboard's cells 5px,
+  white and light grey, under the image; the grid's lines between the pixels from a zoom of 3,
+  JBColor.DARK_GRAY. Turning one on or off makes it the default for images opened next, as
+  IntelliJ's toggles do. Here that's kept in the browser's storage, where IntelliJ keeps it in its
+  registry.
+- **Keys:** IntelliJ's. Zoom In and Zoom Out take Expand All's and Collapse All's keys
+  (`use-shortcut-of`): Ctrl+= and Ctrl+-, Cmd on macOS. Eclipse's keymaps have their own Expand
+  All keys. Grid is Ctrl+' and Actual Size is Ctrl+/. The keys work while the image has the
+  keyboard. The viewer takes the keyboard when it's opened from a list, as a code editor does,
+  and the toolbar leaves it there.
+- **A pressed toggle in a toolbar** has the stripe buttons' selected colour (a claim, not
+  measured).
+- **Not yet:** Show Color Picker and Change Background, the toolbar's two others (IntelliJ shows
+  Change Background only with a registry key set); the right-click menu; an image changed on disk
+  read again; the Settings page for the chessboard's cell size and the grid's zoom.
 
 ## The Git Log (2026-11-04)
 

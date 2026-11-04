@@ -17,14 +17,11 @@ and Refresh), before the image viewer.
 The text search, User, Date and Paths, as IntelliJ's Log toolbar has them (decision "The Git
 Log"). After the Switcher and the image viewer, unless Ido says otherwise.
 
-### Images open in an image viewer
+### The status bar's file items are samples
 
-From Ido (2026-11-04), after opening a PNG: "it should've just displayed it as an image, as
-intellij does (with some basic controls like zoom and grid)". Opening a binary file now fails: the
-host refuses to read it ("is a binary file"). IntelliJ's image editor has a toolbar (transparency
-chessboard, grid, zoom in, zoom out, actual size 1:1, fit, colour picker) and, in its status bar,
-the size, colour depth and file size ("800x600 PNG (32-bit color) 41.44 kB"). Next after the
-Switcher.
+Seen with the image viewer (2026-11-04): the caret's position, the line separator, the encoding
+and the indent are fixed texts ("1:1", "LF", "UTF-8", "2 spaces"), shown for every tab, an
+image's, a diff's and none. IntelliJ shows the file's own, and none of them for an image.
 
 ### Several Claude sessions, as tabs (to design later)
 
