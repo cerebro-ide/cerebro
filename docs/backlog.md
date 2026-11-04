@@ -39,7 +39,9 @@ installer for the app, and in it we could also automatically install binaries". 
 as a binary rather than an npm package isn't ruled out; the installer can put it in place. Waiting
 on it:
 - Markdown's language server, marksman (the plan's), left out as it isn't on npm;
-- a formatter for Python (basedpyright doesn't format), when Reformat Code comes.
+- a formatter for Python (basedpyright doesn't format);
+- shfmt, which bash-language-server formats with: without it, Reformat Code leaves bash files
+  as they are.
 
 ### Polish
 

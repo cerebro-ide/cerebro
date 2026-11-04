@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -23,6 +23,8 @@ import {
   fileEditsOf,
   structureOf,
   symbolsOf,
+  NO_FORMATTING,
+  NO_RANGE_FORMATTING,
   uriOf,
   type FileEdits,
   type FileSymbol,
@@ -524,6 +526,28 @@ const outline = (symbols: readonly FileSymbol[], owner = ''): string[] =>
     ...outline(s.children, `${owner}${s.name}.`),
   ]);
 
+describe('formatting', () => {
+  const options = { tabSize: 2, insertSpaces: true };
+  const range = { from: { line: 0, column: 0 }, to: { line: 0, column: 1 } };
+
+  it('is the server’s edits, or why it won’t: it doesn’t format, or not a part', async () => {
+    const formats = pool([fake('formats')]);
+    expect(await formats.format(root, file, options)).toEqual([
+      { from: { line: 0, column: 0 }, to: { line: 0, column: 0 }, text: '  ' },
+    ]);
+    expect(await formats.format(root, file, options, range)).toEqual({
+      refused: NO_RANGE_FORMATTING,
+    });
+    expect(await pool([fake('links')]).format(root, file, options)).toEqual({
+      refused: NO_FORMATTING,
+    });
+    const fails = pool([fake('fails')]);
+    expect(await fails.format(root, file, options)).toEqual({ refused: 'Not formatted.' });
+    expect(await fails.format(root, file, options, range)).toEqual([]);
+    expect(await fails.format(root, { path: `${root}/a.txt`, text: '' }, options)).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -825,6 +849,62 @@ describe('file structure, from the real servers', () => {
       'greet.who variable',
       'bye function',
     ]);
+  }, 60_000);
+});
+
+describe('formatting, by the real servers', () => {
+  const options = { tabSize: 2, insertSpaces: true };
+  /** `text` with `edits` made, the last first. */
+  const applied = (text: string, edits: FileEdits['edits']) => {
+    const lines = text.split('\n');
+    const offset = (at: { line: number; column: number }) =>
+      lines.slice(0, at.line).reduce((n, line) => n + line.length + 1, 0) + at.column;
+    return [...edits]
+      .sort((a, b) => offset(b.from) - offset(a.from))
+      .reduce((t, e) => t.slice(0, offset(e.from)) + e.text + t.slice(offset(e.to)), text);
+  };
+
+  it('formats a TypeScript file, or the lines selected', async () => {
+    const project = `${root}/ts`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const text = 'function f( a:number ){\nreturn a+1}\nconst x={a:1}\n';
+    const messy = { path: `${project}/messy.ts`, text };
+    const servers = pool(undefined, { patience: 60_000 });
+    const all = (await servers.format(project, messy, options)) as FileEdits['edits'];
+    expect(applied(text, all)).toBe(
+      'function f(a: number) {\n  return a + 1\n}\nconst x = { a: 1 }\n',
+    );
+    const third = { from: { line: 2, column: 0 }, to: { line: 2, column: 13 } };
+    const part = (await servers.format(project, messy, options, third)) as FileEdits['edits'];
+    expect(applied(text, part)).toBe('function f( a:number ){\nreturn a+1}\nconst x = { a: 1 }\n');
+  }, 60_000);
+
+  it('formats a YAML file; a Python file not, basedpyright doesn’t format', async () => {
+    const yaml = { path: `${root}/yaml/messy.yaml`, text: 'a:   1\nb:\n    - x\n' };
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(`${root}/yaml`, { recursive: true });
+    mkdirSync(`${root}/py`, { recursive: true });
+    const servers = pool(undefined, { patience: 60_000 });
+    const edits = (await servers.format(`${root}/yaml`, yaml, options)) as FileEdits['edits'];
+    expect(applied(yaml.text, edits)).toBe('a: 1\nb:\n  - x\n');
+    const python = { path: `${root}/py/messy.py`, text: 'x  =  1\n' };
+    expect(await servers.format(`${root}/py`, python, options)).toEqual({
+      refused: NO_FORMATTING,
+    });
+  }, 60_000);
+
+  it('formats a script through shfmt, and nothing without it', async () => {
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(`${root}/sh`, { recursive: true });
+    const script = { path: `${root}/sh/messy.sh`, text: 'f() {\necho  hi\n}\n' };
+    const servers = pool(undefined, { patience: 60_000 });
+    const edits = (await servers.format(`${root}/sh`, script, options)) as FileEdits['edits'];
+    // Without shfmt on the PATH, bash-language-server answers no edits (measured).
+    const shfmt =
+      spawnSync(process.platform === 'win32' ? 'where' : 'which', ['shfmt']).status === 0;
+    expect(applied(script.text, edits)).toBe(shfmt ? 'f() {\n  echo hi\n}\n' : script.text);
   }, 60_000);
 });
 

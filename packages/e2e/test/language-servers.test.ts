@@ -87,7 +87,16 @@ async function explain(
 ): Promise<never> {
   const lines = await page().locator('.cm-editor.cm-focused .cm-line').allTextContents();
   const text = lines.length > 0 ? lines.join('\n') : readFileSync(join(repo, file), 'utf8');
-  const asked = { worktree: repo, path: join(repo, file), text, line, column };
+  // With what formatting takes too; the others take no notice of it.
+  const asked = {
+    worktree: repo,
+    path: join(repo, file),
+    text,
+    line,
+    column,
+    tabSize: 2,
+    insertSpaces: true,
+  };
   const answers = await page().evaluate(
     async ({ asked, repo, methods }) => {
       const host = (
@@ -190,6 +199,8 @@ beforeAll(async () => {
   // A function to rename where it's used: renamed where it's defined too.
   writeFileSync(join(repo, 'measures.ts'), 'export function measure() {}\n');
   writeFileSync(join(repo, 'measured.ts'), "import { measure } from './measures';\nmeasure();\n");
+  // A file to format.
+  writeFileSync(join(repo, 'unformatted.ts'), 'const  x=1;\n');
   // A call to write: what's called, and the parameter the caret's at.
   writeFileSync(
     join(repo, 'calls.ts'),
@@ -608,6 +619,24 @@ it('renames a function in place with Shift+F6, where it’s defined too, saved; 
   await page().keyboard.press(KEYS.undo);
   await page()
     .locator('.cm-line', { hasText: /^measure\(\);$/ })
+    .waitFor();
+}, 60_000);
+
+it('formats a file on Ctrl+Alt+L by its language server, and says how many lines changed', async () => {
+  await openAt('unformatted.ts', 'const');
+  const formatted = page().locator('.cm-line', { hasText: /^const x = 1;$/ });
+  try {
+    await untilAnswered(KEYS.reformat, async () => (await formatted.count()) > 0);
+  } catch (error) {
+    await explain(error, 'unformatted.ts', 0, 0, ['lsp.format']);
+  }
+  // Pressed again while the server was loading: already formatted, then.
+  expect(['Formatted 1 line', 'No lines changed: content is already properly formatted']).toContain(
+    await page().locator('.cerebro-hint').textContent(),
+  );
+  await page().keyboard.press(KEYS.undo);
+  await page()
+    .locator('.cm-line', { hasText: /^const {2}x=1;$/ })
     .waitFor();
 }, 60_000);
 

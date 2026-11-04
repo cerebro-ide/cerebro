@@ -16,12 +16,11 @@ import {
   Decoration,
   EditorView,
   keymap,
-  showTooltip,
   ViewPlugin,
-  type Tooltip,
   type ViewUpdate,
   WidgetType,
 } from '@codemirror/view';
+import { hinted, showHint } from './hint.js';
 import { placeAt, type Place } from './usages.js';
 
 /** The name at a place that Rename renames: where it is, and what it is. */
@@ -91,34 +90,6 @@ const session = StateField.define<Session | null>({
       );
     }),
 });
-
-/** Why there's nothing to rename, at the caret, until the text or the caret changes. */
-const hint = StateEffect.define<Tooltip | null>();
-const hinted = StateField.define<Tooltip | null>({
-  create: () => null,
-  update(value, tr) {
-    for (const effect of tr.effects) if (effect.is(hint)) return effect.value;
-    return tr.docChanged || tr.selection ? null : value;
-  },
-  provide: (field) => showTooltip.from(field),
-});
-
-/** Shows `message` at the caret. */
-function showHint(view: EditorView, message: string): void {
-  const pos = view.state.selection.main.head;
-  view.dispatch({
-    effects: hint.of({
-      pos,
-      above: true,
-      create: () => {
-        const dom = document.createElement('div');
-        dom.className = 'cerebro-hint';
-        dom.textContent = message;
-        return { dom };
-      },
-    }),
-  });
-}
 
 /** The offset of a place in the text, if it's in it. */
 function offsetOf(state: EditorState, at: Place): number | undefined {

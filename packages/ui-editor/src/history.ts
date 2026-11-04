@@ -18,6 +18,7 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['input.paste', 'Paste'],
   ['input.replace', 'Replace'],
   ['input.indent', 'Indent Selection'],
+  ['input.format', 'Reformat Code'],
   ['delete.cut', 'Cut'],
   ['delete.backward', 'Backspace'],
   ['delete.forward', 'Delete'],

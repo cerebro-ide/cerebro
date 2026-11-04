@@ -18,6 +18,7 @@ import type {
   CompletionList,
   Documentation,
   EditorDocument,
+  FormatEdit,
   Mark,
   MarkerKind,
   Problem,
@@ -301,6 +302,25 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       const symbols = await ask<FileSymbol[]>('lsp.structure', { path, text });
       const chosen = await openStructure(path.split('/').at(-1) as string, symbols, caret);
       if (chosen) openAt({ path, ...chosen.at });
+    },
+
+    /**
+     * The edits that format a file as the editor has it, or the part from `from` to `to`, from its
+     * language server, indented with spaces (Settings has no tabs, a claim: IntelliJ's default);
+     * why not, if it won't.
+     */
+    async format(
+      file: { path: string; text: string },
+      tabSize: number,
+      range?: { from: Position; to: Position },
+    ): Promise<FormatEdit[] | { refused: string }> {
+      const answer = await ask<FormatEdit[] | { refused: string }>('lsp.format', {
+        ...file,
+        tabSize,
+        insertSpaces: true,
+        ...range,
+      });
+      return answer ?? { refused: 'No language server answered.' };
     },
 
     /** What can go at a place, from its file's language server; none without one. */

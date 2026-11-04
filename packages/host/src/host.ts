@@ -187,6 +187,27 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     return { path: '', line: line as number, column: column as number };
   };
+  /** How to format, and the part to: all of it unless `from` and `to` are given. */
+  const formatOf = (params: unknown) => {
+    const { tabSize, insertSpaces, from, to } = params as Record<string, unknown>;
+    if (!Number.isInteger(tabSize) || typeof insertSpaces !== 'boolean') {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'tabSize must be an integer, insertSpaces a boolean',
+      );
+    }
+    const options = { tabSize: tabSize as number, insertSpaces };
+    if (from === undefined && to === undefined) return { options };
+    // Both, or neither.
+    const [start, end] = [placeOf(from ?? {}), placeOf(to ?? {})];
+    return {
+      options,
+      range: {
+        from: { line: start.line, column: start.column },
+        to: { line: end.line, column: end.column },
+      },
+    };
+  };
   connection.onRequest('lsp.open', (params) => {
     servers.open(text(params, 'worktree'), fileOf(params));
     return null;
@@ -215,6 +236,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.rename', (params) =>
     servers.rename(text(params, 'worktree'), fileOf(params), placeOf(params), text(params, 'name')),
   );
+  connection.onRequest('lsp.format', (params) => {
+    const { options, range } = formatOf(params);
+    return servers.format(text(params, 'worktree'), fileOf(params), options, range);
+  });
   connection.onRequest('lsp.completions', (params) =>
     servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );

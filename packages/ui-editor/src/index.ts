@@ -20,6 +20,7 @@ export {
   type Signatures,
 } from './parameters.js';
 export { NOTHING_TO_RENAME, type AskRenaming, type Rename, type Renaming } from './rename.js';
+export { ALREADY_FORMATTED, formattedLines, type AskFormat, type FormatEdit } from './format.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

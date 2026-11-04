@@ -41,6 +41,8 @@ describe('the ready-made keymaps', () => {
     expect(linux.bindings['navigate.back']).toEqual(VSCODE_LINUX['navigate.back']);
     expect(windows.bindings['navigate.back']).toEqual(['Alt+Left']);
     expect(windows.bindings['editor.close']).toEqual(['Ctrl+F4', 'Ctrl+W']);
+    expect(linux.bindings[EDITOR_ACTIONS.format]).toEqual(['Ctrl+Shift+I', 'Ctrl+K Ctrl+F']);
+    expect(windows.bindings[EDITOR_ACTIONS.format]).toEqual(['Shift+Alt+F', 'Ctrl+K Ctrl+F']);
     expect([linux.id, windows.id]).toEqual(['vscode', 'vscode']);
   });
 
@@ -74,6 +76,7 @@ describe('the editor’s keys', () => {
       quickDocumentation: ['Ctrl-q'],
       parameterInfo: ['Ctrl-p'],
       rename: ['Shift-F6'],
+      format: ['Ctrl-Alt-l'],
       nextProblem: ['F2'],
       previousProblem: ['Shift-F2'],
       contextActions: ['Alt-Enter'],
@@ -89,6 +92,7 @@ describe('the editor’s keys', () => {
       'quickDocumentation',
       'parameterInfo',
       'rename',
+      'format',
       'nextProblem',
       'previousProblem',
       'contextActions',

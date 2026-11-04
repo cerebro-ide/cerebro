@@ -260,9 +260,9 @@ describe('popups', () => {
     await page().keyboard.type('o');
     await expect.poll(async () => (await actions()).length).toBe(9);
     expect((await actions()).at(-1)).toBe('\u2026 more');
-    // Forced, as the other clicks in these tests: under xvfb in CI a click can wait forever for
-    // the element to be "stable".
-    await page().locator('.cerebro-popup-item--more').last().click({ force: true });
+    // To the row itself, wherever it is by then: another kind's results coming in move it down,
+    // and a click by place then ran the action now there (Close, measured on Windows).
+    await page().locator('.cerebro-popup-item--more').last().dispatchEvent('click');
     await expect.poll(async () => (await actions()).length).toBeGreaterThan(9);
     expect(await page().locator('.cerebro-popup').count()).toBe(1);
     // Another query: the first few again.
