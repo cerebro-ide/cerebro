@@ -1,7 +1,10 @@
 // The window buttons in full screen on macOS, as JetBrains Runtime keeps them for IntelliJ
 // (AWTWindow.m, setWindowFullScreenControls): macOS hides the window's own until the pointer
 // reaches the top of the screen, so real buttons, made by AppKit as the window's own are, go in
-// the window's content where the window's sat. Until the pointer is over them they're grey circles
+// the window where the window's sat: in its frame view, over the content. Not in the content view:
+// Chromium's answers no hit test in the page's draggable regions (-[BridgedContentView hitTest:]),
+// the toolbar under the buttons is one, and a click there becomes a window drag, which can't move a
+// window in full screen ("Window move completed without beginning"). Until the pointer is over them they're grey circles
 // (macOS's own look for an inactive window's), then close and zoom show as themselves; minimize
 // stays grey, as it does nothing in full screen. The copies macOS shows with the menu bar are
 // hidden, so they don't show twice.
@@ -72,8 +75,13 @@ static NSWindow *windowOf(napi_env env, napi_value handle) {
   return view.window;
 }
 
+/** The view the buttons go in: the window's frame view, the content view's superview. */
+static NSView *frameViewOf(NSWindow *window) {
+  return window.contentView.superview;
+}
+
 static CerebroFullScreenButtons *buttonsIn(NSWindow *window) {
-  for (NSView *view in window.contentView.subviews) {
+  for (NSView *view in frameViewOf(window).subviews) {
     if ([view isKindOfClass:[CerebroFullScreenButtons class]]) {
       return (CerebroFullScreenButtons *)view;
     }
@@ -127,7 +135,7 @@ static napi_value Show(napi_env env, napi_callback_info info) {
   if (arguments(env, info, args, 2) < 2) return boolean(env, false);
   NSWindow *window = windowOf(env, args[0]);
   if (!window || buttonsIn(window)) return boolean(env, false);
-  NSView *content = window.contentView;
+  NSView *frame = frameViewOf(window);
   NSButton *original = [window standardWindowButton:NSWindowCloseButton];
   NSRect close = original.frame;
   NSRect miniaturize = [window standardWindowButton:NSWindowMiniaturizeButton].frame;
@@ -142,9 +150,9 @@ static napi_value Show(napi_env env, napi_callback_info info) {
   CGFloat step = NSMinX(miniaturize) - NSMinX(close);
   CGFloat zoomStep = NSMinX(zoom) - NSMinX(close);
 
-  // Chromium's content view is flipped: y from the top.
-  BOOL flipped = content.isFlipped;
-  CGFloat y = flipped ? TOP : NSHeight(content.bounds) - TOP - height;
+  // Either way up: y from the top if it's flipped, else from the bottom.
+  BOOL flipped = frame.isFlipped;
+  CGFloat y = flipped ? TOP : NSHeight(frame.bounds) - TOP - height;
   CerebroFullScreenButtons *view = [[CerebroFullScreenButtons alloc]
       initWithFrame:NSMakeRect(LEFT, y, zoomStep + NSWidth(zoom), height)];
   view.autoresizingMask = flipped ? NSViewMaxYMargin : NSViewMinYMargin;
@@ -167,7 +175,7 @@ static napi_value Show(napi_env env, napi_callback_info info) {
                                    owner:view
                                 userInfo:nil]];
   [view show:NO];
-  [content addSubview:view positioned:NSWindowAbove relativeTo:nil];
+  [frame addSubview:view positioned:NSWindowAbove relativeTo:nil];
   hideMenuBarButtons(YES);
   return boolean(env, true);
 }
@@ -215,7 +223,18 @@ static napi_value frameOf(napi_env env, NSView *view) {
   return result;
 }
 
-/** state(handle): the buttons' frames and classes, or null; for the end-to-end tests. */
+/** Whether a click at the middle of the buttons reaches them, as AppKit finds a click's view. */
+static bool reached(CerebroFullScreenButtons *view) {
+  NSRect bounds = [view convertRect:view.bounds toView:nil];
+  NSPoint middle = NSMakePoint(NSMidX(bounds), NSMidY(bounds));
+  NSView *hit = [frameViewOf(view.window) hitTest:middle];
+  return hit != nil && [hit isDescendantOf:view];
+}
+
+/**
+ * state(handle): the buttons' frames and classes, and whether a click reaches them; or null. For
+ * the end-to-end tests.
+ */
 static napi_value State(napi_env env, napi_callback_info info) {
   napi_value args[1];
   napi_value result;
@@ -224,7 +243,11 @@ static napi_value State(napi_env env, napi_callback_info info) {
   NSWindow *window = windowOf(env, args[0]);
   CerebroFullScreenButtons *view = window ? buttonsIn(window) : nil;
   if (!view) return result;
-  napi_create_array(env, &result);
+  napi_value buttons;
+  napi_create_array(env, &buttons);
+  napi_create_object(env, &result);
+  napi_set_named_property(env, result, "buttons", buttons);
+  napi_set_named_property(env, result, "reached", boolean(env, reached(view)));
   uint32_t i = 0;
   for (NSView *button in view.subviews) {
     napi_value entry = frameOf(env, button);
@@ -233,7 +256,7 @@ static napi_value State(napi_env env, napi_callback_info info) {
     napi_create_string_utf8(env, name, NAPI_AUTO_LENGTH, &kind);
     napi_set_named_property(env, entry, "class", kind);
     napi_set_named_property(env, entry, "hidden", boolean(env, button.hidden));
-    napi_set_element(env, result, i++, entry);
+    napi_set_element(env, buttons, i++, entry);
   }
   return result;
 }

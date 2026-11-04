@@ -176,16 +176,20 @@ describe('the window', () => {
       await fullScreen(true);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
       await expect.poll(buttons, { timeout: 15_000 }).not.toBeNull();
-      const shown = (await buttons()) as {
-        class: string;
-        hidden: boolean;
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }[];
+      const state = (await buttons()) as {
+        buttons: {
+          class: string;
+          hidden: boolean;
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+        }[];
+        reached: boolean;
+      };
       // For CI's log.
-      console.log('Full-screen buttons:', JSON.stringify(shown));
+      console.log('Full-screen buttons:', JSON.stringify(state));
+      const shown = state.buttons;
       // AppKit's own close, minimize and zoom buttons (their classes, as seen on CI's macOS), grey
       // until the pointer is over them.
       expect(shown.map((button) => button.class)).toEqual([
@@ -196,6 +200,8 @@ describe('the window', () => {
       expect(shown.every((button) => button.hidden)).toBe(true);
       // Where the traffic lights sit out of full screen (window.ts).
       expect(shown[0]).toMatchObject({ x: 14, y: 13 });
+      // A click on them reaches them, over the toolbar that drags the window.
+      expect(state.reached).toBe(true);
       await fullScreen(false);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
       await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
