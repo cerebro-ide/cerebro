@@ -1,7 +1,18 @@
 import { render } from '@cerebro-ide/jsx';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useProjects, workspace } from '../src/environments.js';
-import { formatCommitDate, GitLogView, PAGE, refsOf, type LogCommit } from '../src/git-log.js';
+import type { Tab } from '@cerebro-ide/layout';
+import { userEvent } from 'vitest/browser';
+import type { Change } from '../src/changes.js';
+import {
+  EMPTY_TREE,
+  formatCommitDate,
+  GitLogView,
+  PAGE,
+  rangeOf,
+  refsOf,
+  type LogCommit,
+} from '../src/git-log.js';
 import { FakeHost, project } from './fakes.js';
 
 /** A line of `count` commits, newest first, the first with `refs`. */
@@ -13,6 +24,7 @@ function history(count: number, refs: string[] = [], prefix = 'c'): LogCommit[] 
     email: 'ada@example.com',
     time: new Date(2026, 0, 2, 10, 15).getTime(),
     subject: `Change ${String(i)}`,
+    body: i === 0 ? 'Why it changed.' : '',
     refs: i === 0 ? refs : [],
   }));
 }
@@ -23,6 +35,8 @@ const git = {
   failing: undefined as string | undefined,
   /** A page held until it resolves. */
   hold: undefined as Promise<void> | undefined,
+  /** A commit's changes, by its range. */
+  changes: {} as Record<string, Change[]>,
 };
 const host = new FakeHost({
   'git.log': async ({ skip, max }: { skip: number; max: number }) => {
@@ -33,7 +47,12 @@ const host = new FakeHost({
     if (git.failing !== undefined) throw new Error(git.failing);
     return log.slice(skip, skip + max);
   },
+  'git.changes': ({ from, to }: { from: string; to: string }) => {
+    if (git.failing !== undefined) throw new Error(git.failing);
+    return git.changes[`${from}..${to}`] ?? [];
+  },
 });
+const opened: Tab[] = [];
 
 let dispose: (() => void) | undefined;
 
@@ -54,6 +73,7 @@ afterEach(() => {
   dispose = undefined;
   document.body.replaceChildren();
   host.asked.length = 0;
+  opened.length = 0;
   git.failing = undefined;
   for (const id of ['/r', '/s', '/n']) workspace.close(id);
 });
@@ -64,17 +84,30 @@ function mount() {
   box.style.display = 'flex';
   box.style.flexDirection = 'column';
   document.body.append(box);
-  const handle = render(() => <GitLogView />, box);
+  const handle = render(() => <GitLogView open={(tab) => void opened.push(tab)} />, box);
   dispose = () => {
     handle.dispose();
   };
 }
 
-const rows = () => [...document.querySelectorAll<HTMLElement>('.cerebro-tree-row')];
+const rows = () => [
+  ...document.querySelectorAll<HTMLElement>('.playground-log__commits .cerebro-tree-row'),
+];
+const fileRows = () => [
+  ...document.querySelectorAll<HTMLElement>('.playground-log__files .cerebro-tree-row'),
+];
+const files = () => fileRows().map((row) => row.textContent.trim());
+const details = () =>
+  [...document.querySelectorAll('.playground-log__details p')].map((p) => p.textContent);
+const pane = () => document.querySelector('.playground-log__pane') as HTMLElement;
 const subjects = () =>
   rows().map((row) => row.querySelector('.playground-log__message')?.textContent);
-const note = () => document.querySelector('.playground-project__empty')?.textContent;
-const tree = () => document.querySelector('.cerebro-tree') as HTMLElement;
+/** Why the Log shows no commits. */
+const note = () =>
+  document.querySelector(
+    '.playground-log > .playground-project__empty, .playground-log__commits > .playground-project__empty',
+  )?.textContent;
+const tree = () => document.querySelector('.playground-log__commits .cerebro-tree') as HTMLElement;
 const skips = () => host.params('git.log').map((p) => (p as { skip: number }).skip);
 
 describe('a commit’s refs', () => {
@@ -245,5 +278,87 @@ describe('the Log', () => {
     git.failing = 'git log failed';
     tree().scrollTop = tree().scrollHeight;
     await expect.poll(note).toBe('git log failed');
+  });
+});
+
+describe('a commit’s pane', () => {
+  it('compares a commit with its first parent, or a root commit with the empty tree', () => {
+    const root = history(1)[0] as LogCommit;
+    expect(rangeOf({ ...root, hash: 'm', parents: ['a', 'b'] })).toEqual({ from: 'a', to: 'm' });
+    expect(rangeOf(root)).toEqual({ from: EMPTY_TREE, to: 'c0' });
+  });
+
+  it('shows the selected commit’s files and details, and opens a file’s diff or the file', async () => {
+    git.log = history(2);
+    git.changes['c1..c0'] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'gone.ts', status: 'deleted' },
+    ];
+    git.changes[`${EMPTY_TREE}..c1`] = [{ path: 'first.ts', status: 'added' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    expect(pane().querySelector('.playground-project__empty')?.textContent).toBe(
+      'No commits selected',
+    );
+    await userEvent.click(rows()[0] as HTMLElement);
+    // The file's folder after its name, as a flat list has it.
+    await expect.poll(files).toEqual(['a.tssrc', 'gone.ts']);
+    expect(host.params('git.changes')).toEqual([{ path: '/r', from: 'c1', to: 'c0' }]);
+    const commit = git.log[0] as LogCommit;
+    const when = new Date(commit.time).toLocaleString(undefined, {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    expect(details()).toEqual([
+      'Change 0',
+      'Why it changed.',
+      `c0 Ada <ada@example.com> on ${when}`,
+    ]);
+    // A double click opens the file's diff, between the two commits.
+    const file = (name: string) =>
+      fileRows().find((row) => row.textContent.includes(name)) as HTMLElement;
+    await userEvent.dblClick(file('a.ts'));
+    expect(opened).toEqual([{ id: 'diff@c1..c0:src/a.ts', title: 'a.ts' }]);
+    // F4 opens the file itself; not one that's deleted, nor on other keys.
+    await userEvent.keyboard('{F4}');
+    expect(opened.at(-1)).toEqual({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.keyboard('x');
+    await userEvent.click(file('gone.ts'));
+    await userEvent.keyboard('{F4}');
+    expect(opened).toHaveLength(2);
+    // The root commit, compared with the empty tree; with no body, no paragraph for it.
+    await userEvent.click(rows()[1] as HTMLElement);
+    await expect.poll(files).toEqual(['first.ts']);
+    expect(details()).toHaveLength(2);
+  });
+
+  it('says why a commit’s files couldn’t be read', async () => {
+    git.log = history(1);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    git.failing = 'bad object';
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect
+      .poll(() => pane().querySelector('.playground-project__empty')?.textContent)
+      .toBe('bad object');
+  });
+
+  it('is as wide as the splitter is dragged, never less than nothing', async () => {
+    git.log = history(1);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    expect(pane().style.width).toBe('400px');
+    const splitter = document.querySelector('.playground-log .cerebro-splitter') as HTMLElement;
+    const box = splitter.getBoundingClientRect();
+    const drag = (by: number) => {
+      const at = (x: number) => ({ clientX: x, clientY: box.top + 10, bubbles: true, button: 0 });
+      splitter.dispatchEvent(new PointerEvent('pointerdown', at(box.left)));
+      window.dispatchEvent(new PointerEvent('pointermove', at(box.left + by)));
+      window.dispatchEvent(new PointerEvent('pointerup', at(box.left + by)));
+    };
+    drag(-100);
+    expect(pane().style.width).toBe('500px');
+    drag(10_000);
+    expect(pane().style.width).toBe('0px');
   });
 });

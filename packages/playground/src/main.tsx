@@ -996,7 +996,7 @@ function Content(props: { id: string }) {
     return <CommitWindow services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'agentChanges')
     return <AgentChangesView services={services} open={(tab) => editor()?.open(tab)} />;
-  if (props.id === 'git') return <GitLogView />;
+  if (props.id === 'git') return <GitLogView open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;

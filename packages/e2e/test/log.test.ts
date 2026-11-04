@@ -75,3 +75,15 @@ it('lists the commits newest first, with the graph and the refs at each', async 
     .poll(subjects, HOST)
     .toEqual(['Later', 'Merge side', 'On main', 'On the side', 'First']);
 });
+
+it('shows a commit’s files and message, and opens a file’s diff between it and its parent', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  await log.locator('.cerebro-tree-row', { hasText: 'On the side' }).click({ force: true });
+  const file = log.locator('.playground-log__files .cerebro-tree-row', { hasText: 'file.txt' });
+  await file.waitFor(HOST);
+  expect(await log.locator('.playground-log__details-subject').textContent()).toBe('On the side');
+  await file.dblclick({ force: true });
+  // The diff: the first commit's text on the left, the side's on the right.
+  const added = page().locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+  await expect.poll(() => added.allTextContents(), HOST).toEqual(['On the side']);
+});

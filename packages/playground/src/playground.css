@@ -751,22 +751,60 @@ body,
  */
 .playground-log {
   display: flex;
-  flex-direction: column;
   height: 100%;
 }
 
-.playground-log > .cerebro-tree,
-.playground-log > .playground-project__empty {
+/* The commits, then the selected one's pane: its files over its details. */
+.playground-log__commits {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-log__pane {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-log__commits > .cerebro-tree,
+.playground-log__files,
+.playground-log__pane > .playground-project__empty {
   flex: auto;
   min-height: 0;
 }
 
-.playground-log .cerebro-tree-row__arrow {
+/* The details: as much as they need, up to half the pane, then they scroll (a claim). */
+.playground-log__details {
+  overflow: auto;
+  flex: none;
+  max-height: 50%;
+  padding: 8px 12px;
+  border-top: 1px solid var(--cerebro-border);
+  color: var(--cerebro-text);
+}
+
+.playground-log__details p {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+
+.playground-log__details-subject {
+  font-weight: 600;
+}
+
+.playground-log__details-signature {
+  color: var(--cerebro-text-muted);
+}
+
+.playground-log__commits .cerebro-tree-row__arrow {
   display: none;
 }
 
 /* The row's content takes its width: the author and date in columns at its end. */
-.playground-log .cerebro-tree-row__content {
+.playground-log__commits .cerebro-tree-row__content {
   flex: auto;
 }
 

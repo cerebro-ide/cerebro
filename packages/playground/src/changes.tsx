@@ -941,12 +941,12 @@ function content(item: Item): Node[] {
   return changeContent(item.change);
 }
 
-/** A changed file's row: its name in its status's colour, then its folder unless it's under it. */
-export function changeContent(change: Change): Node[] {
+/** A changed file's row: its name in its status's colour, then its folder if the list is flat. */
+export function changeContent(change: Change, flat = !untracked(() => byDirectory.get())): Node[] {
   const path = change.path.replace(/\/$/, '');
   const slash = path.lastIndexOf('/');
   const folder = slash < 0 ? '' : path.slice(0, slash);
-  const after = untracked(() => byDirectory.get()) ? '' : folder;
+  const after = flat ? folder : '';
   return [
     icon(isDirectory(change) ? 'folder' : 'file'),
     <span class={`playground-change playground-change--${change.status}`}>

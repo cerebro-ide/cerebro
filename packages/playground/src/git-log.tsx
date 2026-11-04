@@ -1,7 +1,9 @@
 // The Git tool window's Log, as IntelliJ's: the commits of every branch, remote branch and tag,
 // newest first, each with its place in the graph, its subject and the refs at it, its author and
 // date. Commits load a page at a time, the next as the list scrolls near its end; the list is read
-// again when the window shows and when the app gets the focus back, as files on disk are.
+// again when the window shows and when the app gets the focus back, as files on disk are. Beside
+// it, the selected commit's changed files (a double click or Enter opens a file's diff, F4 the file)
+// and its details: its message, hash, author and date.
 //
 // From IntelliJ: the refs' colours (VcsLogStandardColors: the current branch and HEAD in the tip's
 // yellow, local branches green, remote ones purple, tags grey) and the graph's (DefaultColorGenerator,
@@ -10,7 +12,10 @@
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import { computed, signal } from '@cerebro-ide/reactive';
+import type { Tab } from '@cerebro-ide/layout';
+import { Splitter } from '@cerebro-ide/ui-layout';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
+import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
 
@@ -22,6 +27,7 @@ export interface LogCommit {
   email: string;
   time: number;
   subject: string;
+  body: string;
   refs: string[];
 }
 
@@ -189,6 +195,11 @@ class Log {
       });
   }
 
+  /** A commit loaded, by its hash. */
+  commit(hash: string): LogCommit | undefined {
+    return this.commits.peek().find((commit) => commit.hash === hash);
+  }
+
   /** Where a commit is among those loaded. */
   indexOf(hash: string): number {
     return this.commits.peek().findIndex((commit) => commit.hash === hash);
@@ -215,8 +226,86 @@ function CommitRow(props: { commit: LogCommit; log: Log }) {
   ];
 }
 
+/** Git's empty tree: what a commit with no parent is compared with (the host's EMPTY_TREE). */
+export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+
+/** The commits a commit's changes are between: its first parent's, as IntelliJ shows a merge's. */
+export const rangeOf = (commit: LogCommit) => ({
+  from: commit.parents[0] ?? EMPTY_TREE,
+  to: commit.hash,
+});
+
+/** A commit's author and when, as IntelliJ's details give them, after its short hash. */
+const signature = (commit: LogCommit) =>
+  `${commit.hash.slice(0, 8)} ${commit.author} <${commit.email}> on ${new Date(
+    commit.time,
+  ).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
+
+/** The selected commit's changed files, then its details. */
+function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab: Tab) => void }) {
+  const { log } = props;
+  return () => {
+    const hash = log.model.selected;
+    const commit = hash === undefined ? undefined : log.commit(hash);
+    if (!commit) return <p class="playground-project__empty">No commits selected</p>;
+    const range = rangeOf(commit);
+    const changes = signal<readonly Change[]>([]);
+    const files = new TreeModel<Change>({
+      children: () => changes.peek(),
+      key: (change) => change.path,
+      isLeaf: () => true,
+    });
+    const failed = signal<string | undefined>(undefined);
+    void props.host.request('git.changes', { path: props.worktree, ...range }).then(
+      (listed) => {
+        changes.set(listed as Change[]);
+        void files.load(undefined, true);
+      },
+      (error: unknown) => {
+        failed.set((error as Error).message);
+      },
+    );
+    return [
+      () => {
+        const error = failed.get();
+        return error === undefined ? (
+          <div
+            class="playground-log__files"
+            on:keydown={(event) => {
+              // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
+              const selected = changes.peek().find((c) => c.path === files.selected);
+              if (event.key !== 'F4' || !selected || selected.status === 'deleted') return;
+              event.preventDefault();
+              props.open(fileTab(props.worktree, selected.path));
+            }}
+          >
+            <TreeView
+              model={files}
+              label={`${commit.subject} changes`}
+              row={(change) => changeContent(change, true)}
+              onOpen={(change) => {
+                props.open(diffTab(change.path, range));
+              }}
+            />
+          </div>
+        ) : (
+          <p class="playground-project__empty">{error}</p>
+        );
+      },
+      <div class="playground-log__details cerebro-selectable">
+        <p class="playground-log__details-subject">{commit.subject}</p>
+        {commit.body === '' ? null : <p class="playground-log__details-body">{commit.body}</p>}
+        <p class="playground-log__details-signature">{signature(commit)}</p>
+      </div>,
+    ];
+  };
+}
+
+/** How wide the commit's pane is to start with, in pixels (a claim). */
+const PANE_WIDTH = 400;
+
 /** The Git tool window's Log, of the active environment's repository. */
-export function GitLogView(): Node {
+export function GitLogView(props: { open: (tab: Tab) => void }): Node {
   return (
     <div class="playground-log">
       {() => {
@@ -239,7 +328,7 @@ export function GitLogView(): Node {
         });
         // Only whether there are any: the tree itself follows the commits.
         const empty = computed(() => log.loaded.get() && log.commits.get().length === 0);
-        return () => {
+        const list = () => {
           const error = log.error.get();
           if (error !== undefined) return <p class="playground-project__empty">{error}</p>;
           if (empty.get()) return <p class="playground-project__empty">No commits</p>;
@@ -251,6 +340,23 @@ export function GitLogView(): Node {
             />
           );
         };
+        const pane = (
+          <div class="playground-log__pane">
+            <CommitPane log={log} host={host} worktree={env.id} open={props.open} />
+          </div>
+        ) as HTMLElement;
+        pane.style.width = `${String(PANE_WIDTH)}px`;
+        return [
+          <div class="playground-log__commits">{list}</div>,
+          <Splitter
+            line="vertical"
+            start={() => pane.offsetWidth}
+            onDrag={(width, delta) => {
+              pane.style.width = `${String(Math.max(0, width - delta))}px`;
+            }}
+          />,
+          pane,
+        ];
       }}
     </div>
   );
