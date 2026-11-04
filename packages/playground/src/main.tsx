@@ -1029,6 +1029,8 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
+                  parameterInfo: (at: { line: number; column: number }) =>
+                    navigation.signatures(asked(state, at)),
                   completions: (text: string, at: { line: number; column: number }) =>
                     navigation.completions({ path: props.path, text, ...at }),
                   resolveCompletion: (item: CompletionItem) =>

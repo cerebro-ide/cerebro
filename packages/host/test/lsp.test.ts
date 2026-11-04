@@ -357,6 +357,11 @@ describe('signatures', () => {
     expect(
       signaturesOf({ signatures: [{ label: 'f()', activeParameter: null }], activeSignature: 3 }),
     ).toEqual({ signatures: [{ label: 'f()', parameters: [] }], active: 0 });
+    // Which one not said: the first.
+    expect(signaturesOf({ signatures: [{ label: 'g()' }] })).toEqual({
+      signatures: [{ label: 'g()', parameters: [] }],
+      active: 0,
+    });
     expect(signaturesOf({ signatures: [] })).toBeNull();
     expect(signaturesOf(null)).toBeNull();
   });

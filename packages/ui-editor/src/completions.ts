@@ -8,6 +8,7 @@ import {
   acceptCompletion,
   autocompletion,
   closeCompletion,
+  currentCompletions,
   moveCompletionSelection,
   pickedCompletion,
   startCompletion,
@@ -199,7 +200,16 @@ export function completionKeys(keys: readonly string[]): Extension {
   return Prec.highest(
     keymap.of([
       ...keys.map((key) => ({ key, run: startCompletion })),
-      { key: 'Escape', run: closeCompletion },
+      {
+        key: 'Escape',
+        run: (view: EditorView) => {
+          // One being asked, or kept disabled once what's typed doesn't fit it (`add(`), is dropped
+          // too; but the key goes on to the next (Parameter Info) unless a list showed.
+          const showing = currentCompletions(view.state).length > 0;
+          closeCompletion(view);
+          return showing;
+        },
+      },
       { key: 'ArrowDown', run: moveCompletionSelection(true) },
       { key: 'ArrowUp', run: moveCompletionSelection(false) },
       { key: 'PageDown', run: moveCompletionSelection(true, 'page') },

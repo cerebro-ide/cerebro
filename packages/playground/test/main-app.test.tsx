@@ -404,6 +404,25 @@ describe('quick documentation', () => {
   });
 });
 
+describe('parameter info', () => {
+  it('shows what’s called at the caret on Ctrl+P, from its language server', async () => {
+    answers.set('lsp.signatures', {
+      signatures: [{ label: 'f(a: number)', parameters: [{ from: 2, to: 11 }], active: 0 }],
+      active: 0,
+    });
+    env().editor.open({ id: '/r/src/p.ts', title: 'p.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{End}{/Control}{Control>}p{/Control}');
+    const shown = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cerebro-parameterInfo strong'),
+    );
+    expect(shown.textContent).toBe('a: number');
+    expect(host('/r').params('lsp.signatures')).toContainEqual(
+      expect.objectContaining({ worktree: '/r', path: '/r/src/p.ts' }),
+    );
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 

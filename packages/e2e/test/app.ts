@@ -30,6 +30,7 @@ export const KEYS = {
   darkTheme: 'Control+Backquote',
   undo: mac ? 'Meta+Z' : 'Control+Z',
   quickDocumentation: mac ? 'F1' : 'Control+Q',
+  parameterInfo: mac ? 'Meta+P' : 'Control+P',
 } as const;
 
 let runs = 0;

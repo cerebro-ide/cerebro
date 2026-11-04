@@ -21,6 +21,7 @@ import type {
   Mark,
   MarkerKind,
   Problem,
+  Signatures,
   Usage,
 } from '@cerebro-ide/ui-editor';
 import { onEdited } from './documents.js';
@@ -233,6 +234,11 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** What the symbol at a place is, from its file's language server: its hover; none without. */
     documentation(asked: Asked): Promise<Documentation | null> {
       return ask<Documentation>('lsp.hover', asked);
+    },
+
+    /** What's called at a place, from its file's language server: Parameter Info; none without. */
+    signatures(asked: Asked): Promise<Signatures | null> {
+      return ask<Signatures>('lsp.signatures', asked);
     },
 
     /** What can go at a place, from its file's language server; none without one. */
