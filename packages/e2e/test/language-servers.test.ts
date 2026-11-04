@@ -75,7 +75,8 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
 
 /**
  * Prints what the host answers about a place, asked directly, and the page's console, then throws
- * `error`: CI's log is all there is.
+ * `error`: CI's log is all there is. Asked with the file as the focused editor has it, edits
+ * included; as it is on disk without one.
  */
 async function explain(
   error: unknown,
@@ -84,7 +85,8 @@ async function explain(
   column: number,
   methods: string[],
 ): Promise<never> {
-  const text = readFileSync(join(repo, file), 'utf8');
+  const lines = await page().locator('.cm-editor.cm-focused .cm-line').allTextContents();
+  const text = lines.length > 0 ? lines.join('\n') : readFileSync(join(repo, file), 'utf8');
   const asked = { worktree: repo, path: join(repo, file), text, line, column };
   const answers = await page().evaluate(
     async ({ asked, repo, methods }) => {
