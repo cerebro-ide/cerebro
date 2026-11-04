@@ -112,6 +112,15 @@ describe('the zoom', () => {
     expect(view.zoom).toBeCloseTo(0.5);
   });
 
+  it('is 1:1 when the image loads before its area is measured, then fitted to it', () => {
+    // The image's load can come before the area's first resize: their order is the browser's.
+    const view = new ImageView();
+    view.load(800, 600);
+    expect(view.zoom).toBe(1);
+    view.resize(404, 404);
+    expect(view.zoom).toBe(0.5);
+  });
+
   it('can’t zoom before the image has loaded; Fit makes it 1:1', () => {
     const view = new ImageView();
     expect(view.canZoomIn).toBe(false);
