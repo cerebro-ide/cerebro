@@ -205,9 +205,12 @@ describe('the window', () => {
       expect(shown[0]).toMatchObject({ x: 14, y: 13 });
       // A click on them reaches them, over the toolbar that drags the window.
       expect(state.reached).toBe(true);
+      // The window's state at each step, for CI's log.
+      const states: Record<string, unknown> = { inFullScreen: await native('window') };
       await fullScreen(false);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
       await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
+      states.leftBySetFullScreen = await native('window');
       // Its green button leaves full screen, and the window shows as it did.
       await fullScreen(true);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
@@ -215,10 +218,14 @@ describe('the window', () => {
       expect(await native('press', 2)).toBe(true);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
       await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
-      const after = await native('window');
-      // For CI's log.
-      console.log('After leaving full screen:', JSON.stringify(after));
-      expect(after).toEqual({ visible: true, alpha: 1, contentHidden: false, frameHidden: false });
+      states.leftByGreenButton = await native('window');
+      console.log('The window:', JSON.stringify(states));
+      const shows = { visible: true, alpha: 1, contentHidden: false, frameHidden: false };
+      expect(states).toEqual({
+        inFullScreen: shows,
+        leftBySetFullScreen: shows,
+        leftByGreenButton: shows,
+      });
     },
   );
 
