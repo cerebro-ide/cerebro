@@ -137,7 +137,7 @@ describe('ToolbarButton', () => {
     expect(seen).toContain('here');
   });
 
-  it('shows a toggle pressed while it’s on, named as its command says now', () => {
+  it('shows a toggle pressed while it’s on, named as its command says now', async () => {
     const { commands } = setup();
     const on = signal(false);
     commands.register({
@@ -161,6 +161,15 @@ describe('ToolbarButton', () => {
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(button.classList.contains('cerebro-toolbar-button--pressed')).toBe(true);
     expect(button.getAttribute('aria-label')).toBe('Hide Grid');
+    // Pressed, hovered or not.
+    await userEvent.hover(button);
+    const stripe = getComputedStyle(document.documentElement).getPropertyValue(
+      '--cerebro-stripe-selected',
+    );
+    const probe = document.createElement('i');
+    probe.style.background = stripe;
+    container.append(probe);
+    expect(getComputedStyle(button).backgroundColor).toBe(getComputedStyle(probe).backgroundColor);
     // Not a toggle: never pressed.
     expect(plain?.hasAttribute('aria-pressed')).toBe(false);
   });

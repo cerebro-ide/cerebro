@@ -19,6 +19,11 @@ const second = join(repo, 'src', 'second.ts');
 
 const page = () => running.page;
 const disk = (path: string) => readFileSync(path, 'utf8');
+/** A PNG of one red pixel, with an alpha channel. */
+const DOT = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+  'base64',
+);
 /** The active editor's text, its lines joined. */
 const shown = () =>
   page()
@@ -46,6 +51,7 @@ beforeAll(async () => {
   // Big enough that writing it takes a while.
   writeFileSync(join(repo, 'races.txt'), 'race\n' + 'more\n'.repeat(400_000));
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
+  writeFileSync(join(repo, 'dot.png'), DOT);
   // More than the editor and the Project tool window show.
   writeFileSync(join(repo, 'long.ts'), 'export {};\n'.repeat(300));
   for (let i = 0; i < 40; i++) writeFileSync(join(repo, `file${String(i)}.txt`), '');
@@ -382,6 +388,25 @@ it('shows no scrollbar where nothing overflows: the Project tool window, a file 
       .map((e) => `${e.className}: ${String(e.scrollHeight)} > ${String(e.clientHeight)}`),
   );
   expect(overflowing).toEqual([]);
+});
+
+it('opens an image in the image viewer, which takes the keyboard and zooms on its keys', async () => {
+  await page().keyboard.press(KEYS.goToFile);
+  await page().keyboard.type('dot.png');
+  await page().locator('.cerebro-popup-item', { hasText: 'dot.png' }).waitFor();
+  await page().keyboard.press('Enter');
+  const info = page().locator('.playground-image__info');
+  await expect
+    .poll(() => info.textContent())
+    .toBe(`1x1 PNG (32-bit color) ${String(DOT.length)} B`);
+  const width = () =>
+    page()
+      .locator('.cerebro-image__img')
+      .evaluate((img) => (img as HTMLImageElement).width);
+  // Enlarged to about 128 pixels, as IntelliJ's; Zoom Out halves it.
+  expect(await width()).toBe(128);
+  await page().keyboard.press(KEYS.zoomOut);
+  expect(await width()).toBe(64);
 });
 
 it('draws scrollbars over the content, taking no room: the Project tool window, the editor', async () => {

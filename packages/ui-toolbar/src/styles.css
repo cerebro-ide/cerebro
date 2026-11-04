@@ -80,8 +80,9 @@
   background: var(--cerebro-hover);
 }
 
-/* A toggle that's on, as a tool window's stripe button (not measured). */
-.cerebro-toolbar-button--pressed {
+/* A toggle that's on, as a tool window's stripe button, hovered or not (not measured). */
+.cerebro-toolbar-button--pressed,
+.cerebro-toolbar-button--pressed:not(:disabled):hover {
   background: var(--cerebro-stripe-selected);
 }
 
