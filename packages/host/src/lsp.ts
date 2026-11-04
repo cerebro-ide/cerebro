@@ -11,7 +11,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { Connection } from '@cerebro-ide/protocol';
+import { Connection, ErrorCodes, ResponseError } from '@cerebro-ide/protocol';
 import { frame, FrameReader } from './framing.js';
 import { serverFor, servers, type ServerSpec } from '@cerebro-ide/servers';
 import { markersOf, type DocumentSymbol, type Marker } from './markers.js';
@@ -140,6 +140,17 @@ export interface Signature {
 export interface Signatures {
   signatures: Signature[];
   active: number;
+}
+
+/** The name at a place that Rename renames: where it is, and what it is. */
+export interface Renaming extends Span {
+  name: string;
+}
+
+/** A file's edits, of several files' (a rename's). */
+export interface FileEdits {
+  path: string;
+  edits: TextEdit[];
 }
 
 /** A file as the UI has it, edits and all. */
@@ -287,9 +298,14 @@ interface CompletionItem {
   additionalTextEdits?: { range: Range; newText: string }[];
 }
 
-const edited = ({ range, newText }: { range: Range; newText: string }): TextEdit => ({
+/** A range as a span. */
+const spanOf = (range: Range): Span => ({
   from: { line: range.start.line, column: range.start.character },
   to: { line: range.end.line, column: range.end.character },
+});
+
+const edited = ({ range, newText }: { range: Range; newText: string }): TextEdit => ({
+  ...spanOf(range),
   text: newText,
 });
 
@@ -398,6 +414,59 @@ interface CodeAction {
 }
 
 /**
+ * Where the name at a place is that Rename renames, from a server's answer: its range with the name
+ * (TypeScript's), or its range alone (basedpyright's, bash-language-server's), the name then read
+ * from the text there. None for none, or for a server that leaves it to the client
+ * (`defaultBehavior`), which none here does.
+ */
+export function renamingOf(result: unknown, text: string): Renaming | null {
+  const answer = result as { range?: Range; placeholder?: string } | Range | null;
+  const range = answer && ('range' in answer ? answer.range : 'start' in answer ? answer : null);
+  if (!range) return null;
+  const lines = text.split('\n');
+  const name =
+    (answer as { placeholder?: string }).placeholder ??
+    (range.start.line === range.end.line
+      ? (lines[range.start.line] ?? '').slice(range.start.character, range.end.character)
+      : '');
+  return { ...spanOf(range), name };
+}
+
+/**
+ * A server's edits to files, as a map of files to edits or as edits per version of a file
+ * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
+ * files: Rename doesn't do part of it.
+ */
+export function fileEditsOf(
+  result: unknown,
+  platform: NodeJS.Platform = process.platform,
+): FileEdits[] | null {
+  const edit = result as {
+    changes?: Record<string, { range: Range; newText: string }[]>;
+    documentChanges?: (
+      | { textDocument: { uri: string }; edits: { range: Range; newText: string }[] }
+      | { kind: string }
+    )[];
+  } | null;
+  if (!edit) return null;
+  if (edit.documentChanges) {
+    const files: FileEdits[] = [];
+    for (const change of edit.documentChanges) {
+      if (!('edits' in change)) return null;
+      files.push({
+        path: pathOf(change.textDocument.uri, platform),
+        edits: change.edits.map(edited),
+      });
+    }
+    return files;
+  }
+  return Object.entries(edit.changes ?? {}).map(([uri, edits]) => ({
+    path: pathOf(uri, platform),
+    edits: edits.map(edited),
+  }));
+}
+
+/**
  * A server's code actions as context actions: those made by edits to the file asked about alone.
  * Left out: commands, which have the server make the change (neither TypeScript's server nor
  * basedpyright gave one, measured), actions it says are disabled, and edits to other files.
@@ -436,6 +505,15 @@ const KINDS = [
   'source.organizeImports',
   'source.fixAll',
 ];
+
+/** Why a server won't do what it was asked, as it says; anything else is thrown again. */
+function refusal(error: unknown): { refused: string } {
+  // A server that's gone refuses nothing.
+  if (error instanceof ResponseError && error.code !== ErrorCodes.ConnectionClosed) {
+    return { refused: error.message };
+  }
+  throw error;
+}
 
 /** One server's process, for one worktree. */
 export class LanguageServer {
@@ -478,9 +556,11 @@ export class LanguageServer {
     };
     this.#process.on('exit', exited);
     this.#process.on('error', exited);
-    // What servers ask of their client: settings (none), and leave to register and report.
+    // What servers ask of their client: settings (its spec's), and leave to register and report.
     this.#connection.onRequest('workspace/configuration', (params) =>
-      ((params as { items?: unknown[] } | null)?.items ?? []).map(() => null),
+      ((params as { items?: { section?: string }[] } | null)?.items ?? []).map(
+        ({ section }) => (section === undefined ? undefined : spec.settings?.[section]) ?? null,
+      ),
     );
     for (const method of ['client/registerCapability', 'window/workDoneProgress/create']) {
       this.#connection.onRequest(method, () => null);
@@ -529,6 +609,8 @@ export class LanguageServer {
               },
             },
             documentSymbol: { hierarchicalDocumentSymbolSupport: true },
+            // Where a rename would go, asked before it's typed.
+            rename: { prepareSupport: true },
             implementation: { linkSupport: true },
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
             // Actions as edits, not commands: without it, a server may give only commands (LSP).
@@ -539,7 +621,11 @@ export class LanguageServer {
             // tags here too, or TypeScript's answers leave them out (measured).
             diagnostic: { dynamicRegistration: false, tagSupport: { valueSet: [1, 2] } },
           },
-          workspace: { configuration: true, workspaceFolders: true },
+          workspace: {
+            configuration: true,
+            workspaceFolders: true,
+            workspaceEdit: { documentChanges: true },
+          },
         },
       })
       .then((result) => {
@@ -627,6 +713,41 @@ export class LanguageServer {
   /** What's called at a place in a file: its signatures, and the parameter the place is at. */
   async signatures(file: OpenFile, languageId: string, at: Located): Promise<Signatures | null> {
     return signaturesOf(await this.#ask('textDocument/signatureHelp', file, languageId, at));
+  }
+
+  /**
+   * The name at a place that Rename renames; none where there's none, or why it can't be renamed
+   * (TypeScript's "You cannot rename this element.").
+   */
+  async renaming(
+    file: OpenFile,
+    languageId: string,
+    at: Located,
+  ): Promise<Renaming | { refused: string } | null> {
+    try {
+      return renamingOf(
+        await this.#ask('textDocument/prepareRename', file, languageId, at),
+        file.text,
+      );
+    } catch (error) {
+      return refusal(error);
+    }
+  }
+
+  /** The edits that rename the name at a place, in every file it's in; none if it can't be. */
+  async rename(
+    file: OpenFile,
+    languageId: string,
+    at: Located,
+    name: string,
+  ): Promise<FileEdits[] | { refused: string } | null> {
+    try {
+      return fileEditsOf(
+        await this.#ask('textDocument/rename', file, languageId, at, { newName: name }),
+      );
+    } catch (error) {
+      return refusal(error);
+    }
   }
 
   /** What a symbol at a place in a file is implemented or overridden by. */
@@ -888,6 +1009,29 @@ export class LanguageServers {
   signatures(worktree: string, file: OpenFile, at: Located): Promise<Signatures | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.signatures(file, languageId, at),
+    );
+  }
+
+  /** The name at a place that Rename renames, or why it can't be; null without an answer. */
+  renaming(
+    worktree: string,
+    file: OpenFile,
+    at: Located,
+  ): Promise<Renaming | { refused: string } | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.renaming(file, languageId, at),
+    );
+  }
+
+  /** The edits that rename the name at a place to `name`, or why not; null without an answer. */
+  rename(
+    worktree: string,
+    file: OpenFile,
+    at: Located,
+    name: string,
+  ): Promise<FileEdits[] | { refused: string } | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.rename(file, languageId, at, name),
     );
   }
 

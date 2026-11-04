@@ -101,6 +101,8 @@ describe('language servers', () => {
       completions: vi.fn(() => Promise.resolve(null)),
       hover: vi.fn(() => Promise.resolve(null)),
       signatures: vi.fn(() => Promise.resolve(null)),
+      renaming: vi.fn(() => Promise.resolve(null)),
+      rename: vi.fn(() => Promise.resolve(null)),
       completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
@@ -135,6 +137,14 @@ describe('language servers', () => {
       { path: '', line: 0, column: 2 },
     );
     expect(await ui.request('lsp.signatures', { ...file, line: 0, column: 3 })).toBeNull();
+    expect(await ui.request('lsp.renaming', { ...file, line: 0, column: 3 })).toBeNull();
+    expect(await ui.request('lsp.rename', { ...file, line: 0, column: 3, name: 'y' })).toBeNull();
+    expect(servers.rename).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 0, column: 3 },
+      'y',
+    );
     expect(servers.signatures).toHaveBeenCalledWith(
       '/w',
       { path: '/w/b.ts', text: 'x' },

@@ -19,7 +19,10 @@ import {
   problemsOf,
   referencesIn,
   signaturesOf,
+  renamingOf,
+  fileEditsOf,
   uriOf,
+  type FileEdits,
   type Located,
 } from '../src/lsp.js';
 
@@ -367,6 +370,64 @@ describe('signatures', () => {
   });
 });
 
+describe('rename', () => {
+  const range = (line: number, from: number, to: number) => ({
+    start: { line, character: from },
+    end: { line, character: to },
+  });
+  const span = (line: number, from: number, to: number) => ({
+    from: { line, column: from },
+    to: { line, column: to },
+  });
+
+  it('is where the name is, with the name given or read from the text there', () => {
+    const text = 'const n = 1;\nn;\n';
+    expect(renamingOf({ range: range(0, 6, 7), placeholder: 'n' }, text)).toEqual({
+      ...span(0, 6, 7),
+      name: 'n',
+    });
+    expect(renamingOf(range(1, 0, 1), text)).toEqual({ ...span(1, 0, 1), name: 'n' });
+    // Across lines (none measured): no name to read; on a line that isn't there, none either.
+    expect(
+      renamingOf({ start: { line: 0, character: 6 }, end: { line: 1, character: 1 } }, text)?.name,
+    ).toBe('');
+    expect(renamingOf(range(5, 0, 1), text)?.name).toBe('');
+    expect(renamingOf({ defaultBehavior: true }, text)).toBeNull();
+    expect(renamingOf(null, text)).toBeNull();
+  });
+
+  it('is edits by file, as a map or per version of a file; none with a file made, moved or deleted', () => {
+    const edit = { range: range(0, 0, 1), newText: 'm' };
+    const edited = { ...span(0, 0, 1), text: 'm' };
+    expect(fileEditsOf({ changes: { [uriOf('/r/a.ts')]: [edit] } })).toEqual([
+      { path: pathOf(uriOf('/r/a.ts')), edits: [edited] },
+    ]);
+    expect(
+      fileEditsOf({
+        documentChanges: [
+          { textDocument: { uri: uriOf('/r/b.py'), version: null }, edits: [edit] },
+        ],
+      }),
+    ).toEqual([{ path: pathOf(uriOf('/r/b.py')), edits: [edited] }]);
+    expect(
+      fileEditsOf({ documentChanges: [{ kind: 'rename', oldUri: 'a', newUri: 'b' }] }),
+    ).toBeNull();
+    expect(fileEditsOf({})).toEqual([]);
+    expect(fileEditsOf(null)).toBeNull();
+  });
+
+  it('says why a server won’t rename, and nothing when it’s gone', async () => {
+    const fails = pool([fake('fails')]);
+    expect(await fails.renaming(root, file, at(0, 0))).toEqual({ refused: 'Not here.' });
+    expect(await fails.rename(root, file, at(0, 0), 'y')).toEqual({ refused: 'Not here.' });
+    const links = pool([fake('links')]);
+    expect(await links.renaming(root, file, at(0, 0))).toBeNull();
+    expect(await links.rename(root, file, at(0, 0), 'y')).toBeNull();
+    expect(await pool([fake('dies')]).renaming(root, file, at(0, 0))).toBeNull();
+    expect(await pool([fake('dies')]).rename(root, file, at(0, 0), 'y')).toBeNull();
+  });
+});
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -475,6 +536,36 @@ describe('TypeScript 7’s server', () => {
     });
     // Nothing there: none.
     expect(await servers.hover(project, main, at(2, 0))).toBeNull();
+  }, 60_000);
+
+  it('renames a function everywhere from where it’s used, not with an alias in the import', async () => {
+    const project = `${root}/ts`;
+    writeFileSync(`${project}/tally.ts`, 'export function tally(n: number) {\n  return n;\n}\n');
+    const user = {
+      path: `${project}/counts.ts`,
+      text: "import { tally } from './tally';\ntally(1);\nconst s = 'x';\n",
+    };
+    writeFileSync(user.path, user.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.renaming(project, user, at(1, 2))).toEqual({
+      from: { line: 1, column: 0 },
+      to: { line: 1, column: 5 },
+      name: 'tally',
+    });
+    const edits = await servers.rename(project, user, at(1, 2), 'count');
+    const columns = (path: string) =>
+      (edits as FileEdits[])
+        .find((file) => file.path === path)
+        ?.edits.map((edit) => [edit.from.line, edit.from.column, edit.text]);
+    expect(columns(`${project}/tally.ts`)).toEqual([[0, 16, 'count']]);
+    expect(columns(user.path)).toEqual([
+      [0, 9, 'count'],
+      [1, 0, 'count'],
+    ]);
+    // A string: TypeScript's words for why not.
+    expect(await servers.renaming(project, user, at(2, 11))).toEqual({
+      refused: 'You cannot rename this element.',
+    });
   }, 60_000);
 
   it('says what’s called at a place: its signature, and the parameter the place is at', async () => {
@@ -766,6 +857,29 @@ describe('basedpyright, for Python', () => {
     });
   }, 60_000);
 
+  it('renames a function where it’s defined and imported, as edits per file', async () => {
+    const project = `${root}/py`;
+    writeFileSync(`${project}/strolls.py`, 'def stroll():\n    pass\n');
+    const user = { path: `${project}/walks.py`, text: 'from strolls import stroll\n\nstroll()\n' };
+    writeFileSync(user.path, user.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.renaming(project, user, at(2, 1))).toEqual({
+      from: { line: 2, column: 0 },
+      to: { line: 2, column: 6 },
+      name: 'stroll',
+    });
+    const edits = (await servers.rename(project, user, at(2, 1), 'amble')) as FileEdits[];
+    expect(
+      Object.fromEntries(edits.map((file) => [file.path, file.edits.map((e) => e.from)])),
+    ).toEqual({
+      [`${project}/strolls.py`]: [{ line: 0, column: 4 }],
+      [user.path]: [
+        { line: 0, column: 20 },
+        { line: 2, column: 0 },
+      ],
+    });
+  }, 60_000);
+
   it('says what’s called at a place: its signature, and the parameter the place is at', async () => {
     const project = `${root}/py`;
     const main = {
@@ -929,6 +1043,30 @@ describe('bash-language-server, for shell scripts', () => {
     );
   }, 60_000);
 
+  it('renames a function in the scripts that source its own', async () => {
+    const project = `${root}/sh`;
+    const main = { path: `${project}/main.sh`, text: 'source ./lib.sh\n\ngreet\n' };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.renaming(project, main, at(2, 1))).toEqual({
+      from: { line: 2, column: 0 },
+      to: { line: 2, column: 5 },
+      name: 'greet',
+    });
+    const edits = (await servers.rename(project, main, at(2, 1), 'hello')) as FileEdits[];
+    // In one never opened too (measured).
+    expect(Object.fromEntries(edits.map((file) => [file.path, file.edits]))).toEqual({
+      [`${project}/lib.sh`]: [
+        { from: { line: 0, column: 0 }, to: { line: 0, column: 5 }, text: 'hello' },
+      ],
+      [`${project}/main.sh`]: [
+        { from: { line: 2, column: 0 }, to: { line: 2, column: 5 }, text: 'hello' },
+      ],
+      [`${project}/other.sh`]: [
+        { from: { line: 1, column: 0 }, to: { line: 1, column: 5 }, text: 'hello' },
+      ],
+    });
+  }, 60_000);
+
   it('highlights a name where it is in its script', async () => {
     const project = `${root}/sh`;
     const main = { path: `${project}/main.sh`, text: 'source ./lib.sh\n\ngreet\ngreet\n' };
@@ -1025,6 +1163,20 @@ describe('LanguageServers', () => {
     expect(await slow.definitions(root, file, at(0, 0))).toBeNull();
   });
 
+  it('gives a server the settings its spec has, by section, when it asks', async () => {
+    writeFileSync(log, '');
+    const servers = pool([{ ...fake('links'), settings: { fake: { on: true } } }]);
+    await servers.serverFor(root, file.path)?.server.ready;
+    await vi.waitFor(() => {
+      expect(readFileSync(log, 'utf8')).toContain('"id":"c1"');
+    });
+    const answers = readFileSync(log, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { id?: string; result?: unknown });
+    expect(answers.find((m) => m.id === 'c1')?.result).toEqual([null, { on: true }, null]);
+  });
+
   it('opens a file in its server ahead of a question, answering what the server asks', async () => {
     writeFileSync(log, '');
     const servers = pool([fake('links')]);
@@ -1039,7 +1191,7 @@ describe('LanguageServers', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line) as { id?: string; result?: unknown });
-    expect(answers.find((m) => m.id === 'c1')?.result).toEqual([null, null]);
+    expect(answers.find((m) => m.id === 'c1')?.result).toEqual([null, null, null]);
     expect(answers.find((m) => m.id === 'c2')?.result).toEqual([]);
     expect(answers.find((m) => m.id === 'c3')?.result).toBeNull();
     expect(answers.find((m) => m.id === 'c4')?.result).toEqual([

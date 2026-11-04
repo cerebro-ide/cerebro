@@ -187,6 +187,9 @@ beforeAll(async () => {
   // An object's members, and a function from another file: completions, one with its import.
   writeFileSync(join(repo, 'completes.ts'), 'export const shape = { width: 1 };\n// here\n');
   writeFileSync(join(repo, 'tally.ts'), 'export function tally() {}\n');
+  // A function to rename where it's used: renamed where it's defined too.
+  writeFileSync(join(repo, 'measures.ts'), 'export function measure() {}\n');
+  writeFileSync(join(repo, 'measured.ts'), "import { measure } from './measures';\nmeasure();\n");
   // A call to write: what's called, and the parameter the caret's at.
   writeFileSync(
     join(repo, 'calls.ts'),
@@ -582,6 +585,30 @@ it('shows what’s called as its arguments are typed, the parameter the caret is
   await page().keyboard.press(KEYS.parameterInfo);
   await expect.poll(() => bold.textContent(), { timeout: 10_000 }).toBe('b?: number');
   await page().keyboard.press('Escape');
+}, 60_000);
+
+it('renames a function in place with Shift+F6, where it’s defined too, saved; undone as one', async () => {
+  await openAt('measured.ts', 'measure();');
+  await page().keyboard.press('ArrowRight');
+  const box = page().locator('.cerebro-rename');
+  try {
+    await untilAnswered('Shift+F6', async () => (await box.count()) > 0);
+  } catch (error) {
+    await explain(error, 'measured.ts', 1, 1, ['lsp.renaming']);
+  }
+  expect(await box.textContent()).toBe('measure');
+  await page().keyboard.type('gauge');
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(() => readFileSync(join(repo, 'measures.ts'), 'utf8'), { timeout: 15_000 })
+    .toBe('export function gauge() {}\n');
+  expect(readFileSync(join(repo, 'measured.ts'), 'utf8')).toBe(
+    "import { gauge } from './measures';\ngauge();\n",
+  );
+  await page().keyboard.press(KEYS.undo);
+  await page()
+    .locator('.cm-line', { hasText: /^measure\(\);$/ })
+    .waitFor();
 }, 60_000);
 
 it('completes as one types, a member after a `.`, and a function from another file with its import', async () => {

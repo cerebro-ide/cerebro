@@ -278,6 +278,26 @@ describe('CSS', () => {
     expect(highlights).toHaveLength(2);
   });
 
+  it('renames a custom property where it’s defined and used, saying where its name is first', async () => {
+    const server = await start();
+    const { uri } = await server.open('r.css', 'css', text);
+    const at = (line: number) => ({ line, character: 16 });
+    expect(await server.ask('textDocument/prepareRename', uri, 1, 18)).toEqual({
+      start: at(1),
+      end: { line: 1, character: 19 },
+    });
+    const edit = await server.ask<{ changes: Record<string, { newText: string }[]> }>(
+      'textDocument/rename',
+      uri,
+      1,
+      18,
+      { newName: '--y' },
+    );
+    expect(edit.changes[uri]?.map((change) => change.newText)).toEqual(['--y', '--y']);
+    // Not on a name: none.
+    expect(await server.ask('textDocument/prepareRename', uri, 0, 3)).toBeNull();
+  });
+
   it('says what a property is, and completes properties, as plain text', async () => {
     const server = await start();
     const { uri } = await server.open('c.less', 'less', '.a { width: 1px; }\n');
@@ -318,6 +338,8 @@ describe('HTML', () => {
     const { uri } = await server.open('e.html', 'html', '<div></div>\n');
     expect(await server.ask('textDocument/definition', uri, 0, 2)).toBeNull();
     expect(await server.ask('textDocument/references', uri, 0, 2, { context: {} })).toBeNull();
+    expect(await server.ask('textDocument/prepareRename', uri, 0, 2)).toBeNull();
+    expect(await server.ask('textDocument/rename', uri, 0, 2, { newName: 'p' })).toBeNull();
     expect(
       await server.client.sendRequest('textDocument/codeAction', {
         textDocument: { uri },

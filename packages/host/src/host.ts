@@ -209,6 +209,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.signatures', (params) =>
     servers.signatures(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
+  connection.onRequest('lsp.renaming', (params) =>
+    servers.renaming(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.rename', (params) =>
+    servers.rename(text(params, 'worktree'), fileOf(params), placeOf(params), text(params, 'name')),
+  );
   connection.onRequest('lsp.completions', (params) =>
     servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );

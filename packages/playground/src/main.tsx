@@ -1031,6 +1031,10 @@ function Code(props: { path: string; env: string }) {
                     navigation.documentation(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>
                     navigation.signatures(asked(state, at)),
+                  renaming: (at: { line: number; column: number }) =>
+                    navigation.renaming(asked(state, at)),
+                  onRename: (at: { line: number; column: number }, name: string) =>
+                    navigation.rename(asked(state, at), name),
                   completions: (text: string, at: { line: number; column: number }) =>
                     navigation.completions({ path: props.path, text, ...at }),
                   resolveCompletion: (item: CompletionItem) =>

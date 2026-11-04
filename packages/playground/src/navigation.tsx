@@ -21,10 +21,11 @@ import type {
   Mark,
   MarkerKind,
   Problem,
+  Renaming,
   Signatures,
   Usage,
 } from '@cerebro-ide/ui-editor';
-import { onEdited } from './documents.js';
+import { documentFor, onEdited, saveAll, saveFiles } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 
@@ -63,6 +64,12 @@ export interface Asked {
   text: string;
   line: number;
   column: number;
+}
+
+/** A file's edits, of a rename's. */
+interface FileEdits {
+  path: string;
+  edits: { from: Position; to: Position; text: string }[];
 }
 
 /** Positions to reveal in open files, by path: the editor follows them. */
@@ -189,7 +196,11 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
   };
   /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
-  const ask = async <T = Located[],>(method: string, asked: Asked | undefined) => {
+  // A rename's new name with the place.
+  const ask = async <T = Located[],>(
+    method: string,
+    asked: (Asked & { name?: string }) | undefined,
+  ) => {
     const env = active();
     if (!env || !asked) return null;
     const host = hostFor(env.id);
@@ -239,6 +250,49 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** What's called at a place, from its file's language server: Parameter Info; none without. */
     signatures(asked: Asked): Promise<Signatures | null> {
       return ask<Signatures>('lsp.signatures', asked);
+    },
+
+    /** Where the name at a place is that Rename renames, from its language server, or why not. */
+    renaming(asked: Asked): Promise<Renaming | { refused: string } | null> {
+      return ask<Renaming | { refused: string }>('lsp.renaming', asked);
+    },
+
+    /**
+     * Renames the name at a place everywhere, from its language server: the edits made in each
+     * file's document, as one edit undo takes back, and saved, labelled in the Local History as
+     * IntelliJ labels it. The files are saved first: the server reads those not open from disk.
+     * Says why not, if it can't be (a file that can't be saved first), and which files it couldn't
+     * be renamed in.
+     */
+    async rename(asked: Asked, name: string): Promise<string | undefined> {
+      const unsaved = await saveAll().then(
+        () => undefined,
+        (error: unknown) => (error as Error).message,
+      );
+      if (unsaved !== undefined) return `Not renamed: ${unsaved}`;
+      const answer = await ask<FileEdits[] | { refused: string }>('lsp.rename', {
+        ...asked,
+        name,
+      });
+      if (!answer) return 'No language server answered the rename.';
+      if ('refused' in answer) return answer.refused;
+      const changed: string[] = [];
+      const failed: string[] = [];
+      for (const file of answer) {
+        const doc = await documentFor(file.path);
+        if ('error' in doc) {
+          failed.push(`${relative(file.path)}: ${doc.error}`);
+          continue;
+        }
+        const text = doc.text.peek();
+        const offset = (place: Position) => text.line(place.line + 1).from + place.column;
+        doc.edit(
+          file.edits.map((e) => ({ from: offset(e.from), to: offset(e.to), insert: e.text })),
+        );
+        changed.push(file.path);
+      }
+      await saveFiles(changed, 'Rename');
+      return failed.length > 0 ? `Not renamed in ${failed.join(', ')}` : undefined;
     },
 
     /** What can go at a place, from its file's language server; none without one. */
