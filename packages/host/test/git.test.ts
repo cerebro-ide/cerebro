@@ -24,12 +24,52 @@ import {
   listIgnored,
   listWorktrees,
   lastMessage,
+  log,
+  parseLog,
   parseNameStatus,
   parseStatus,
   parseWorktrees,
   removeWorktree,
   rollback,
 } from '../src/index.js';
+
+describe('parseLog', () => {
+  it('reads a commit per record: its parents, refs and subject, which may hold commas', () => {
+    const record = (...fields: string[]) => `${fields.join('\x1f')}\0`;
+    expect(
+      parseLog(
+        record(
+          'b',
+          'a c',
+          'Ann',
+          'a@x',
+          '10',
+          'HEAD -> refs/heads/main, tag: refs/tags/v1',
+          'x, y',
+        ) + record('a', '', 'Bo', 'b@x', '5', '', 'first'),
+      ),
+    ).toEqual([
+      {
+        hash: 'b',
+        parents: ['a', 'c'],
+        author: 'Ann',
+        email: 'a@x',
+        time: 10_000,
+        subject: 'x, y',
+        refs: ['HEAD -> refs/heads/main', 'tag: refs/tags/v1'],
+      },
+      {
+        hash: 'a',
+        parents: [],
+        author: 'Bo',
+        email: 'b@x',
+        time: 5000,
+        subject: 'first',
+        refs: [],
+      },
+    ]);
+  });
+});
 
 describe('parseWorktrees', () => {
   it('reads each worktree: path, commit, branch, and which is the main one', () => {
@@ -150,6 +190,59 @@ describe('with real git', () => {
 
   afterAll(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('lists the log: every branch, remote and tag, and HEAD, newest first, a page at a time', async () => {
+    const history = join(root, 'history');
+    execFileSync('git', ['init', '-q', '-b', 'main', history]);
+    const at = (n: number) => ({
+      ...IDENTITY,
+      GIT_AUTHOR_DATE: `${String(1_700_000_000 + n)} +0000`,
+    });
+    const gitAt = (n: number, ...args: string[]) =>
+      execFileSync('git', args, {
+        cwd: history,
+        env: { ...process.env, ...at(n), GIT_COMMITTER_DATE: `${String(1_700_000_000 + n)} +0000` },
+      });
+    const commitAt = (n: number, message: string) =>
+      gitAt(n, 'commit', '-q', '--allow-empty', '-m', message);
+    expect(await log(history, 0, 10)).toEqual([]);
+    commitAt(1, 'first');
+    run(history, 'checkout', '-q', '-b', 'side');
+    commitAt(2, 'on side');
+    run(history, 'checkout', '-q', 'main');
+    commitAt(3, 'on main');
+    gitAt(4, 'merge', '-q', '--no-ff', '--no-edit', 'side');
+    run(history, 'tag', 'v1', 'side');
+    // Cerebro's own refs aren't listed.
+    commitAt(5, 'kept');
+    run(history, 'update-ref', 'refs/worktree/cerebro/kept', 'HEAD');
+    run(history, 'reset', '-q', '--hard', 'HEAD~1');
+    const commits = await log(history, 0, 10);
+    expect(commits.map((c) => c.subject)).toEqual([
+      "Merge branch 'side'",
+      'on main',
+      'on side',
+      'first',
+    ]);
+    const [merge, , side, first] = commits as [
+      (typeof commits)[0],
+      unknown,
+      (typeof commits)[0],
+      (typeof commits)[0],
+    ];
+    expect(merge.parents).toHaveLength(2);
+    expect(merge.refs).toEqual(['HEAD -> refs/heads/main']);
+    expect(side.refs).toEqual(['tag: refs/tags/v1', 'refs/heads/side']);
+    expect(first).toMatchObject({
+      parents: [],
+      author: 't',
+      email: 't@t',
+      time: 1_700_000_001_000,
+      refs: [],
+    });
+    expect((await log(history, 1, 2)).map((c) => c.subject)).toEqual(['on main', 'on side']);
+    await expect(log(join(root, 'none'), 0, 1)).rejects.toThrow();
   });
 
   it('reads the changes without writing the index, which would lock out a stash run meanwhile', async () => {

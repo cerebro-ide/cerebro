@@ -744,3 +744,130 @@ body,
 .playground-plugins__note--error {
   color: var(--cerebro-error);
 }
+
+/*
+ * The Git tool window's Log, as IntelliJ's: a row per commit, its graph and subject (the refs at
+ * it after), then its author and date in columns. The columns' widths are claims.
+ */
+.playground-log {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playground-log > .cerebro-tree,
+.playground-log > .playground-project__empty {
+  flex: auto;
+  min-height: 0;
+}
+
+.playground-log .cerebro-tree-row__arrow {
+  display: none;
+}
+
+.playground-log__graph {
+  flex: none;
+}
+
+.playground-log__line {
+  stroke: currentcolor;
+  stroke-width: 1.5;
+}
+
+.playground-log__dot {
+  fill: currentcolor;
+}
+
+.playground-log__subject {
+  display: flex;
+  flex: auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.playground-log__message {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playground-log__ref {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--cerebro-text-muted);
+}
+
+/* A ref's mark in its kind's colour, before its name (the mark's shape is a claim). */
+.playground-log__ref::before {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  content: '';
+}
+
+.playground-log__ref--head::before {
+  background: var(--cerebro-log-ref-head);
+}
+
+.playground-log__ref--local::before {
+  background: var(--cerebro-log-ref-local);
+}
+
+.playground-log__ref--remote::before {
+  background: var(--cerebro-log-ref-remote);
+}
+
+.playground-log__ref--tag::before {
+  background: var(--cerebro-log-ref-tag);
+}
+
+.playground-log__author,
+.playground-log__date {
+  overflow: hidden;
+  flex: none;
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+}
+
+.playground-log__author {
+  width: 140px;
+}
+
+.playground-log__date {
+  width: 130px;
+}
+
+/* A branch's colour, by its number. */
+.playground-log__color-0 {
+  color: var(--cerebro-log-graph-0);
+}
+
+.playground-log__color-1 {
+  color: var(--cerebro-log-graph-1);
+}
+
+.playground-log__color-2 {
+  color: var(--cerebro-log-graph-2);
+}
+
+.playground-log__color-3 {
+  color: var(--cerebro-log-graph-3);
+}
+
+.playground-log__color-4 {
+  color: var(--cerebro-log-graph-4);
+}
+
+.playground-log__color-5 {
+  color: var(--cerebro-log-graph-5);
+}
+
+.playground-log__color-6 {
+  color: var(--cerebro-log-graph-6);
+}
+
+.playground-log__color-7 {
+  color: var(--cerebro-log-graph-7);
+}

@@ -11,6 +11,8 @@ export {
   listFiles,
   listWorktrees,
   lastMessage,
+  log,
+  parseLog,
   parseNameStatus,
   parseStatus,
   parseWorktrees,
@@ -19,6 +21,7 @@ export {
   textAt,
   type Change,
   type Git,
+  type LogCommit,
   type NewWorktree,
   type Worktree,
 } from './git.js';
