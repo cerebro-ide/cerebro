@@ -161,17 +161,20 @@ describe('the window', () => {
           if (value !== undefined) window.setFullScreen(value);
           return window.isFullScreen();
         }, value);
-      /** The buttons in the window, from the native module's own report. */
-      const buttons = () =>
+      /** One of the native module's functions, on the window. */
+      const native = (name: 'state' | 'press' | 'window', ...args: unknown[]) =>
         running.app.evaluate(
-          ({ BrowserWindow }, module) => {
+          ({ BrowserWindow }, [module, name, args]) => {
             const window = BrowserWindow.getAllWindows()[0] as Electron.BrowserWindow;
-            const loaded = { exports: {} as { state(handle: Buffer): unknown } };
+            type Call = (handle: Buffer, ...args: unknown[]) => unknown;
+            const loaded = { exports: {} as Record<string, Call> };
             process.dlopen(loaded, module);
-            return loaded.exports.state(window.getNativeWindowHandle());
+            return (loaded.exports[name] as Call)(window.getNativeWindowHandle(), ...args);
           },
-          join(APP, 'dist', 'fullscreen.node'),
+          [join(APP, 'dist', 'fullscreen.node'), name, args] as const,
         );
+      /** The buttons in the window, from the native module's own report. */
+      const buttons = () => native('state');
       expect(await buttons()).toBeNull();
       await fullScreen(true);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
@@ -202,9 +205,27 @@ describe('the window', () => {
       expect(shown[0]).toMatchObject({ x: 14, y: 13 });
       // A click on them reaches them, over the toolbar that drags the window.
       expect(state.reached).toBe(true);
+      // The window's state at each step, for CI's log.
+      const states: Record<string, unknown> = { inFullScreen: await native('window') };
       await fullScreen(false);
       await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
       await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
+      states.leftBySetFullScreen = await native('window');
+      // Its green button leaves full screen, and the window shows as it did.
+      await fullScreen(true);
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(true);
+      await expect.poll(buttons, { timeout: 15_000 }).not.toBeNull();
+      expect(await native('press', 2)).toBe(true);
+      await expect.poll(() => fullScreen(), { timeout: 15_000 }).toBe(false);
+      await expect.poll(buttons, { timeout: 15_000 }).toBeNull();
+      states.leftByGreenButton = await native('window');
+      console.log('The window:', JSON.stringify(states));
+      const shows = { visible: true, alpha: 1, contentHidden: false, frameHidden: false };
+      expect(states).toEqual({
+        inFullScreen: shows,
+        leftBySetFullScreen: shows,
+        leftByGreenButton: shows,
+      });
     },
   );
 

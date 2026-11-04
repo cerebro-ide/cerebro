@@ -2063,9 +2063,22 @@ screen, which left the room kept for them empty.
   (`cr_mouseDownOnFrameView:`), and a full-screen window can't move. The frame view asks its own
   subviews first. The e2e test now checks that a hit test at the buttons' middle, as AppKit finds
   a click's view, reaches them; the click itself is still Ido's to check on his Mac.
-- **Not yet:** the Welcome window in full screen has them too, over no toolbar; leaving full screen
-  takes them out when it's done, not as it starts, as JetBrains Runtime does (Electron has no
-  "will leave" event).
+- **Leaving full screen** (changed 2026-11-04). Ido, once the buttons took clicks (#128): leaving
+  full screen left "the transparent window, that's the app". **Measured on CI's macOS:** after
+  leaving, by `setFullScreen(false)` or the green button, the window's frame view was hidden. The
+  cause, from Electron's source and measured: as leaving starts, Electron hides "the window's close
+  button's superview's superview", taking it for the title bar's container, and shows it again
+  once leaving is done (`window_buttons_proxy.mm`, `NotifyWindowWillLeaveFullScreen`). While ours
+  are in the window, AppKit gives ours as the window's close button (measured: `theWindows`), so
+  Electron hid our view's superview, the frame view; by the time it showed the container again,
+  ours were gone and it showed the real one's, leaving the frame view hidden. **Now** the buttons
+  sit in a row inside their view, so what Electron hides is their own view: they hide as leaving
+  starts, as JetBrains Runtime hides its own (`windowWillExitFullScreen:`). The module also hides
+  them and gives macOS's copies back to the menu bar's window as leaving starts, as JetBrains
+  Runtime does, watching for `NSWindowWillExitFullScreenNotification` itself, since Electron has no
+  "will leave" event. The e2e test leaves full screen both ways and checks the window shows as
+  before (visible, opaque, its content and frame views not hidden).
+- **Not yet:** the Welcome window in full screen has them too, over no toolbar.
 
 ## The window's colours follow the theme (2026-10-27)
 
