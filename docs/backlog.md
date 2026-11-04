@@ -32,6 +32,15 @@ shortcut that could be mapped." As IntelliJ's Prettier plugin:
 It's built on the plugin registry and its contribution points (decision "Plugins"). It comes after
 Rename, File Structure, Reformat Code and folding.
 
+### Binaries with the installer (later)
+
+From Ido (2026-11-04): "regarding binary installs, remember that eventually we'll build an
+installer for the app, and in it we could also automatically install binaries". A tool that ships
+as a binary rather than an npm package isn't ruled out; the installer can put it in place. Waiting
+on it:
+- Markdown's language server, marksman (the plan's), left out as it isn't on npm;
+- a formatter for Python (basedpyright doesn't format), when Reformat Code comes.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
