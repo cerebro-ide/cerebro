@@ -7,7 +7,9 @@
 // window in full screen ("Window move completed without beginning"). Until the pointer is over them they're grey circles
 // (macOS's own look for an inactive window's), then close and zoom show as themselves; minimize
 // stays grey, as it does nothing in full screen. The copies macOS shows with the menu bar are
-// hidden, so they don't show twice.
+// hidden, so they don't show twice. As leaving full screen starts, the buttons hide and macOS's
+// copies come back, as JetBrains Runtime does it (windowWillExitFullScreen:); they're taken out
+// once it's done.
 //
 // A Node-API module, loaded by the main process (fullscreen.ts); the window is given as Electron's
 // getNativeWindowHandle(), a buffer holding its NSView. Built on macOS only (scripts/native.mjs).
@@ -24,6 +26,8 @@ static const CGFloat CIRCLE = 12;
 @interface CerebroFullScreenButtons : NSView
 @property(nonatomic, strong) NSColor *colour;
 @property(nonatomic) BOOL hovered;
+/** Its window's "will exit full screen" observer. */
+@property(nonatomic, strong) id leaving;
 @end
 
 @implementation CerebroFullScreenButtons
@@ -177,6 +181,15 @@ static napi_value Show(napi_env env, napi_callback_info info) {
   [view show:NO];
   [frame addSubview:view positioned:NSWindowAbove relativeTo:nil];
   hideMenuBarButtons(YES);
+  __weak CerebroFullScreenButtons *weak = view;
+  view.leaving = [NSNotificationCenter.defaultCenter
+      addObserverForName:NSWindowWillExitFullScreenNotification
+                  object:window
+                   queue:nil
+              usingBlock:^(NSNotification *notification) {
+                weak.hidden = YES;
+                hideMenuBarButtons(NO);
+              }];
   return boolean(env, true);
 }
 
@@ -188,6 +201,7 @@ static napi_value Hide(napi_env env, napi_callback_info info) {
   CerebroFullScreenButtons *view = window ? buttonsIn(window) : nil;
   hideMenuBarButtons(NO);
   if (!view) return boolean(env, false);
+  if (view.leaving) [NSNotificationCenter.defaultCenter removeObserver:view.leaving];
   [view removeFromSuperview];
   return boolean(env, true);
 }
@@ -261,12 +275,47 @@ static napi_value State(napi_env env, napi_callback_info info) {
   return result;
 }
 
+/** press(handle, index): clicks a button, as the pointer over it would; for the end-to-end tests. */
+static napi_value Press(napi_env env, napi_callback_info info) {
+  napi_value args[2];
+  if (arguments(env, info, args, 2) < 2) return boolean(env, false);
+  NSWindow *window = windowOf(env, args[0]);
+  CerebroFullScreenButtons *view = window ? buttonsIn(window) : nil;
+  uint32_t index = 0;
+  if (!view || napi_get_value_uint32(env, args[1], &index) != napi_ok) return boolean(env, false);
+  if (index >= view.subviews.count) return boolean(env, false);
+  [view show:YES];
+  [(NSButton *)view.subviews[index] performClick:nil];
+  return boolean(env, true);
+}
+
+/**
+ * window(handle): whether the window and its content show, for the end-to-end tests: its content
+ * and frame views hidden or not, its alpha, and whether it's visible.
+ */
+static napi_value WindowState(napi_env env, napi_callback_info info) {
+  napi_value args[1];
+  napi_value result;
+  napi_get_null(env, &result);
+  if (arguments(env, info, args, 1) < 1) return result;
+  NSWindow *window = windowOf(env, args[0]);
+  if (!window) return result;
+  napi_create_object(env, &result);
+  napi_set_named_property(env, result, "visible", boolean(env, window.visible));
+  napi_set_named_property(env, result, "alpha", number(env, window.alphaValue));
+  napi_set_named_property(env, result, "contentHidden", boolean(env, window.contentView.hidden));
+  napi_set_named_property(env, result, "frameHidden", boolean(env, frameViewOf(window).hidden));
+  return result;
+}
+
 NAPI_MODULE_INIT() {
   napi_property_descriptor properties[] = {
       {"show", NULL, Show, NULL, NULL, NULL, napi_default, NULL},
       {"hide", NULL, Hide, NULL, NULL, NULL, napi_default, NULL},
       {"colour", NULL, Colour, NULL, NULL, NULL, napi_default, NULL},
       {"state", NULL, State, NULL, NULL, NULL, napi_default, NULL},
+      {"press", NULL, Press, NULL, NULL, NULL, napi_default, NULL},
+      {"window", NULL, WindowState, NULL, NULL, NULL, napi_default, NULL},
   };
   napi_define_properties(env, exports, sizeof(properties) / sizeof(properties[0]), properties);
   return exports;

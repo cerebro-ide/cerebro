@@ -2054,9 +2054,16 @@ screen, which left the room kept for them empty.
   (`cr_mouseDownOnFrameView:`), and a full-screen window can't move. The frame view asks its own
   subviews first. The e2e test now checks that a hit test at the buttons' middle, as AppKit finds
   a click's view, reaches them; the click itself is still Ido's to check on his Mac.
-- **Not yet:** the Welcome window in full screen has them too, over no toolbar; leaving full screen
-  takes them out when it's done, not as it starts, as JetBrains Runtime does (Electron has no
-  "will leave" event).
+- **Leaving full screen** (changed 2026-11-04): as it starts, the buttons hide and macOS's own come
+  back to the menu bar's window, as JetBrains Runtime does (`windowWillExitFullScreen:`); once it's
+  done, they're taken out. The native module watches for it itself
+  (`NSWindowWillExitFullScreenNotification`), since Electron has no "will leave" event. Before,
+  both waited for the end. Ido, once the buttons took clicks (#128): leaving full screen with them
+  left "the transparent window, that's the app". **Claim, not measured:** that macOS's menu-bar
+  window, its content still hidden through the exit, is why. The e2e test now leaves full screen
+  with the green button and checks the window shows as before (visible, opaque, its views not
+  hidden); Ido to check on his Mac.
+- **Not yet:** the Welcome window in full screen has them too, over no toolbar.
 
 ## The window's colours follow the theme (2026-10-27)
 
