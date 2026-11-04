@@ -54,6 +54,9 @@ on it:
   Alt+Enter" (the bulb, commands, fixes across files).
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
+- **The editor test "edits its document by real typing, with undo" failed once in CI** (Linux,
+  2026-11-04, run 41836677496, on a change to the macOS native module alone): expected `'one'`,
+  got `'one '`. Cause not found yet; not reproduced locally.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
