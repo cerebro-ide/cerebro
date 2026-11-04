@@ -124,6 +124,11 @@
   --cerebro-log-ref-local: #3cb45c;
   --cerebro-log-ref-remote: #9f79b5;
   --cerebro-log-ref-tag: #999999;
+  /* The image viewer's chessboard (Color.WHITE and LIGHT_GRAY) and grid (JBColor.DARK_GRAY), from
+     IntelliJ's source (TransparencyChessboardOptions, GridOptions), not measured. */
+  --cerebro-image-chessboard-white: #ffffff;
+  --cerebro-image-chessboard-black: #c0c0c0;
+  --cerebro-image-grid: #c0c0c0;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #548af7;
   --cerebro-agent-waiting: #e5a345;
@@ -269,6 +274,8 @@
   /* The Git Log's refs, where IntelliJ's light colours differ (VcsLogStandardColors). */
   --cerebro-log-ref-head: #ffd100;
   --cerebro-log-ref-tag: #7a7a7a;
+  /* The image viewer's grid, JBColor.DARK_GRAY's light colour. */
+  --cerebro-image-grid: #404040;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #3574f0;
   --cerebro-agent-waiting: #c77d0e;

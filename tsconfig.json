@@ -68,6 +68,9 @@
       "path": "packages/ui-toolbar/tsconfig.build.json"
     },
     {
+      "path": "packages/ui-image/tsconfig.build.json"
+    },
+    {
       "path": "packages/servers/tsconfig.build.json"
     },
     {
