@@ -181,15 +181,7 @@ static napi_value Show(napi_env env, napi_callback_info info) {
   [view show:NO];
   [frame addSubview:view positioned:NSWindowAbove relativeTo:nil];
   hideMenuBarButtons(YES);
-  __weak CerebroFullScreenButtons *weak = view;
-  view.leaving = [NSNotificationCenter.defaultCenter
-      addObserverForName:NSWindowWillExitFullScreenNotification
-                  object:window
-                   queue:nil
-              usingBlock:^(NSNotification *notification) {
-                weak.hidden = YES;
-                hideMenuBarButtons(NO);
-              }];
+  // Variant B: no will-exit observer.
   return boolean(env, true);
 }
 
