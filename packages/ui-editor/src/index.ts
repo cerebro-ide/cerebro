@@ -19,6 +19,7 @@ export {
   type Signature,
   type Signatures,
 } from './parameters.js';
+export { NOTHING_TO_RENAME, type AskRenaming, type Rename, type Renaming } from './rename.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

@@ -40,6 +40,7 @@ import {
 import { EditorDocument, KEPT } from './document.js';
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
+import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { findAndReplace } from './find.js';
 import { namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -127,6 +128,12 @@ export interface CodeEditorProps {
    * None: no Parameter Info.
    */
   parameterInfo?: AskSignatures;
+  /**
+   * Where the name at a place is that Rename renames, and what renames it everywhere: in place on
+   * its keys (Shift+F6), as IntelliJ's, when the document can be edited. None: no Rename.
+   */
+  renaming?: AskRenaming;
+  onRename?: Rename;
   /** The counts of problems in the corner clicked: IntelliJ's shows the Problems tool window. */
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
@@ -152,6 +159,8 @@ export interface EditorKeys {
   quickDocumentation?: readonly string[];
   /** Parameter Info: what's called at the caret. */
   parameterInfo?: readonly string[];
+  /** Rename: the name at the caret, everywhere it's used. */
+  rename?: readonly string[];
   /** Show Context Actions: what can be done at the caret (a problem's fixes). */
   contextActions?: readonly string[];
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
@@ -171,6 +180,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   complete: ['Ctrl-Space'],
   quickDocumentation: ['Ctrl-q'],
   parameterInfo: ['Ctrl-p'],
+  rename: ['Shift-F6'],
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
@@ -353,14 +363,15 @@ export const theme = EditorView.theme({
   '.cerebro-problemMark--warning': { backgroundColor: variable('editor-warning-stripe') },
   '.cerebro-problemMark--weak': { backgroundColor: variable('editor-weak-stripe') },
   // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`). The
-  // Quick Documentation and Parameter Info at the caret look the same.
-  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc, .cm-tooltip.cerebro-parameterInfo': {
-    backgroundColor: variable('tooltip'),
-    color: variable('text'),
-    border: `1px solid ${variable('tooltip-border')}`,
-    borderRadius: '4px',
-    boxShadow: variable('shadow'),
-  },
+  // Quick Documentation, Parameter Info and hints at the caret look the same.
+  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc, .cm-tooltip.cerebro-parameterInfo, .cm-tooltip.cerebro-hint':
+    {
+      backgroundColor: variable('tooltip'),
+      color: variable('text'),
+      border: `1px solid ${variable('tooltip-border')}`,
+      borderRadius: '4px',
+      boxShadow: variable('shadow'),
+    },
   // The completion list, as IntelliJ's: the popups' look, in the editor's font, a type to the right.
   '.cm-tooltip.cm-tooltip-autocomplete': {
     backgroundColor: variable('panel'),
@@ -437,6 +448,16 @@ export const theme = EditorView.theme({
   },
   '.cerebro-doc__heading': { fontWeight: '600' },
   '.cerebro-doc__link': { color: variable('editor-link') },
+  // The name being renamed, boxed (a claim: IntelliJ's box, in the accent colour, not measured).
+  '.cerebro-rename': { outline: `1px solid ${variable('accent')}`, borderRadius: '2px' },
+  '.cerebro-rename--empty': { display: 'inline-block', width: '2px', height: '1em' },
+  // Why there's nothing to rename.
+  '.cerebro-hint': {
+    padding: '6px 10px',
+    maxWidth: '500px',
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+  },
   // Parameter Info, as IntelliJ's: a line per signature, in the editor's font.
   '.cerebro-parameterInfo': {
     padding: '4px 8px',
@@ -664,6 +685,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
       doc && props.completions ? completionKeys(keys.complete) : [],
       props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
       props.parameterInfo ? parameterKeys(keys.parameterInfo) : [],
+      doc && props.renaming && props.onRename ? renameKeys(keys.rename) : [],
       keymap.of([
         ...keys.goToDefinition.map((key) => ({
           key,
@@ -724,6 +746,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     // After the problems: below a problem's message, in the same tooltip, as IntelliJ's.
     props.documentation ? documentation(props.documentation) : [],
     props.parameterInfo ? parameterInfo(props.parameterInfo) : [],
+    doc && props.renaming && props.onRename ? renaming(props.renaming, props.onRename) : [],
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),

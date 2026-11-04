@@ -294,6 +294,8 @@ describe('CSS', () => {
       { newName: '--y' },
     );
     expect(edit.changes[uri]?.map((change) => change.newText)).toEqual(['--y', '--y']);
+    // Not on a name: none.
+    expect(await server.ask('textDocument/prepareRename', uri, 0, 3)).toBeNull();
   });
 
   it('says what a property is, and completes properties, as plain text', async () => {

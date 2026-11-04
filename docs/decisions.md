@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1624,6 +1625,57 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## Rename (2026-11-04)
+
+After Parameter Info, IntelliJ's Rename (Ido: "do them all", to Rename, File Structure, Reformat
+Code and folding). Claude's choices, open to change.
+
+- **In place, as IntelliJ's:** Shift+F6 boxes the name at the caret and selects it, and the new
+  one is typed over it. Enter, or the caret leaving the box, renames it everywhere; Escape puts it
+  back. The box is in the accent colour (a claim: IntelliJ's isn't measured). Where there's nothing
+  to rename, a hint at the caret says why: IntelliJ's words ("Cannot perform refactoring. Caret
+  should be positioned at the name of element to be refactored."), or the server's ("You cannot
+  rename this element.", TypeScript's).
+- **One change, undone as one:** the typing in the box isn't kept in the undo history. The name is
+  put back, and the server's edits are made in each file's document as one edit, as Replace in
+  Files does. They're saved, labelled "Rename" in the Local History.
+- **The files are saved before the server is asked:** it reads the files not open in it from disk,
+  so a file with unsaved edits would get edits in the wrong places.
+- **From the file's language server** (`lsp.renaming` and `lsp.rename`, LSP's
+  `textDocument/prepareRename` and `textDocument/rename`). Measured:
+  - TypeScript 7 gives the name's range and the name. Renaming an imported function where it's
+    used gave the import an alias (`tally as count`), VS Code's default; with
+    `preferences.useAliasesForRenames` off, which Cerebro now gives it when it asks for its
+    settings (`workspace/configuration`), it renames the function where it's defined too.
+  - basedpyright gives the range alone, and its edits per version of a file (`documentChanges`),
+    which the host takes as well.
+  - bash-language-server renames in the scripts that source the function's, one never opened too.
+  - Cerebro's own server for JSON, CSS and HTML now renames style sheets' names (custom
+    properties, variables) through Microsoft's CSS library. HTML's library renames only a tag's
+    pair, without saying where first, so HTML is left out.
+  - An edit that makes, moves or deletes a file isn't made: none of these servers gave one.
+- **Each keymap's keys,** from IntelliJ's files (`RenameElement`) and VS Code's sheets (Rename
+  Symbol):
+  - Shift+F6: IntelliJ IDEA and its macOS keymaps, Emacs, Sublime Text (both), Eclipse (macOS).
+  - VS Code (both): F2. Eclipse: Alt+Shift+R. NetBeans: Ctrl+R.
+  - Visual Studio: Ctrl+R R and Ctrl+R Ctrl+R; on macOS, Cmd+R R and Cmd+R Cmd+R.
+  - macOS System Shortcuts: Cmd+Alt+R and Shift+F6.
+- **Next and Previous Highlighted Error are in the keymaps now** (`GotoNextError`,
+  `GotoPreviousError`). They were F2 and Shift+F2 in every keymap, which would have taken VS
+  Code's F2 from Rename. VS Code's are F8 and Shift+F8 (its sheets). The others' are their files':
+  - Eclipse: none, and Shift+F1. Eclipse (macOS): Cmd+. and Cmd+Shift+. (written Cmd+Shift+>).
+  - Emacs: F2 and Ctrl+X `, with Shift for the previous one.
+  - NetBeans: F2 and Ctrl+.; Shift+F2 and Ctrl+,.
+  - Visual Studio (both): Alt+PageDown and Alt+PageUp.
+  - macOS System Shortcuts: Ctrl+, and F2; Ctrl+Shift+, (written Ctrl+Shift+<) and Shift+F2.
+  - Sublime Text (both): none.
+- **Not yet:**
+  - Undo in one file takes the rename back there only. IntelliJ's takes it back in every file at
+    once, which needs an undo shared between documents.
+  - The other places the name is in the file don't change as it's typed, as IntelliJ's do.
+  - Renaming files, and IntelliJ's Rename dialog (Shift+F6 again), with its options for comments
+    and strings.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

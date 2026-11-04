@@ -423,6 +423,97 @@ describe('parameter info', () => {
   });
 });
 
+describe('rename', () => {
+  it('renames the name at the caret on Shift+F6 in every file its server says, saved', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`: `a` on line 1.
+    answers.set('lsp.renaming', {
+      from: { line: 1, column: 6 },
+      to: { line: 1, column: 7 },
+      name: 'a',
+    });
+    const at = (line: number, column: number) => ({ line, column });
+    answers.set('lsp.rename', [
+      { path: '/r/src/n.ts', edits: [{ from: at(1, 6), to: at(1, 7), text: 'b' }] },
+      { path: '/r/src/m.ts', edits: [{ from: at(1, 6), to: at(1, 7), text: 'b' }] },
+    ]);
+    env().editor.open({ id: '/r/src/n.ts', title: 'n.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{End}');
+    for (let n = 0; n < 6; n++) await userEvent.keyboard('{ArrowLeft}');
+    await userEvent.keyboard('{Shift>}{F6}{/Shift}');
+    await vi.waitUntil(() => editorRoot()?.querySelector('.cerebro-rename'));
+    await userEvent.keyboard('b{Enter}');
+    await expect
+      .poll(() => host('/r').params('fs.write'))
+      .toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: '/r/src/n.ts', text: '// /r/src/n.ts\nconst b = 1;\n' }),
+          expect.objectContaining({ path: '/r/src/m.ts', text: '// /r/src/m.ts\nconst b = 1;\n' }),
+        ]),
+      );
+    expect(host('/r').params('lsp.rename')).toContainEqual(
+      expect.objectContaining({
+        worktree: '/r',
+        path: '/r/src/n.ts',
+        text: '// /r/src/n.ts\nconst a = 1;\n',
+        line: 1,
+        column: 6,
+        name: 'b',
+      }),
+    );
+  });
+
+  it('says why when its server refuses, or there’s no answer', async () => {
+    answers.set('lsp.renaming', {
+      from: { line: 1, column: 6 },
+      to: { line: 1, column: 7 },
+      name: 'a',
+    });
+    answers.set('lsp.rename', { refused: 'Not a name.' });
+    env().editor.open({ id: '/r/src/o.ts', title: 'o.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{End}');
+    for (let n = 0; n < 6; n++) await userEvent.keyboard('{ArrowLeft}');
+    const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
+    const rename = async () => {
+      await userEvent.keyboard('{Shift>}{F6}{/Shift}');
+      await vi.waitUntil(() => editorRoot()?.querySelector('.cerebro-rename'));
+      await userEvent.keyboard('b{Enter}');
+    };
+    await rename();
+    await expect.poll(hint).toBe('Not a name.');
+    answers.set('lsp.rename', null);
+    await userEvent.keyboard('{ArrowLeft}{ArrowRight}');
+    await rename();
+    await expect.poll(hint).toBe('No language server answered the rename.');
+    // A file it can't read is named; the others are renamed.
+    const at = (line: number, column: number) => ({ line, column });
+    const edit = { from: at(1, 6), to: at(1, 7), text: 'b' };
+    answers.set('lsp.rename', [
+      { path: '/r/src/o.ts', edits: [edit] },
+      { path: '/r/src/gone.ts', edits: [edit] },
+    ]);
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path === '/r/src/gone.ts') throw new Error('No such file');
+      return { text: `// ${path}\nconst a = 1;\n` };
+    });
+    await userEvent.keyboard('{ArrowLeft}{ArrowRight}');
+    await rename();
+    await expect.poll(hint).toBe('Not renamed in src/gone.ts: No such file');
+    expect(code()?.textContent).toContain('const b = 1;');
+    // Not saved first: not renamed. A file not renamed before: the fake disk keeps no writes.
+    answers.set('fs.write', new Error('Read-only'));
+    answers.set('lsp.rename', [{ path: '/r/src/q.ts', edits: [edit] }]);
+    env().editor.open({ id: '/r/src/q.ts', title: 'q.ts' });
+    await userEvent.click(await vi.waitUntil(() => editorRoot()?.querySelector('.cm-content')));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{End}x{ArrowDown}{End}');
+    for (let n = 0; n < 6; n++) await userEvent.keyboard('{ArrowLeft}');
+    await rename();
+    await expect.poll(hint).toBe('Not renamed: Couldn’t save /r/src/q.ts: Read-only');
+    answers.delete('fs.write');
+  });
+});
+
 describe('the editor’s file', () => {
   const writes = () => host('/r').params('fs.write').length;
 
