@@ -50,7 +50,7 @@ import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { setupHistory } from './history.js';
-import { GitLogView } from './git-log.js';
+import { GitLogView, setupLog } from './git-log.js';
 import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
@@ -200,6 +200,7 @@ async function closeActiveProject(): Promise<void> {
   await closeProject(project.path);
 }
 await setupProjects(services.commands, services.menus, closeActiveProject);
+setupLog(services);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
@@ -996,7 +997,8 @@ function Content(props: { id: string }) {
     return <CommitWindow services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'agentChanges')
     return <AgentChangesView services={services} open={(tab) => editor()?.open(tab)} />;
-  if (props.id === 'git') return <GitLogView open={(tab) => editor()?.open(tab)} />;
+  if (props.id === 'git')
+    return <GitLogView services={services} open={(tab) => editor()?.open(tab)} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;

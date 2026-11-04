@@ -1,4 +1,6 @@
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { useProjects, workspace } from '../src/environments.js';
 import type { Tab } from '@cerebro-ide/layout';
@@ -11,8 +13,10 @@ import {
   PAGE,
   rangeOf,
   refsOf,
+  setupLog,
   type LogCommit,
 } from '../src/git-log.js';
+import { branchTree, type Branch } from '../src/log-branches.js';
 import { FakeHost, project } from './fakes.js';
 
 /** A line of `count` commits, newest first, the first with `refs`. */
@@ -37,10 +41,22 @@ const git = {
   hold: undefined as Promise<void> | undefined,
   /** A commit's changes, by its range. */
   changes: {} as Record<string, Change[]>,
+  /** The log of a branch the Log is filtered by. */
+  byBranch: {} as Record<string, LogCommit[]>,
+  branches: [] as Branch[],
+  branchesFailing: undefined as string | undefined,
 };
 const host = new FakeHost({
-  'git.log': async ({ skip, max }: { skip: number; max: number }) => {
-    const log = git.log;
+  'git.log': async ({
+    skip,
+    max,
+    branches,
+  }: {
+    skip: number;
+    max: number;
+    branches?: string[];
+  }) => {
+    const log = branches ? (git.byBranch[branches[0] as string] ?? []) : git.log;
     const hold = git.hold;
     git.hold = undefined;
     await hold;
@@ -51,12 +67,19 @@ const host = new FakeHost({
     if (git.failing !== undefined) throw new Error(git.failing);
     return git.changes[`${from}..${to}`] ?? [];
   },
+  'git.branches': () => {
+    if (git.branchesFailing !== undefined) throw new Error(git.branchesFailing);
+    return git.branches;
+  },
 });
+const commands = new CommandRegistry();
+const services: MenuServices = { commands, menus: new MenuRegistry(), keymap: new Keymap('other') };
 const opened: Tab[] = [];
 
 let dispose: (() => void) | undefined;
 
 beforeAll(() => {
+  setupLog(services);
   useProjects([
     project('/r', host),
     project('/s', undefined),
@@ -75,16 +98,21 @@ afterEach(() => {
   host.asked.length = 0;
   opened.length = 0;
   git.failing = undefined;
+  git.branchesFailing = undefined;
+  git.branches = [];
   for (const id of ['/r', '/s', '/n']) workspace.close(id);
 });
 
-function mount() {
+function mount(withServices: MenuServices = services) {
   const box = document.createElement('div');
   box.style.height = '600px';
   box.style.display = 'flex';
   box.style.flexDirection = 'column';
   document.body.append(box);
-  const handle = render(() => <GitLogView open={(tab) => void opened.push(tab)} />, box);
+  const handle = render(
+    () => <GitLogView services={withServices} open={(tab) => void opened.push(tab)} />,
+    box,
+  );
   dispose = () => {
     handle.dispose();
   };
@@ -105,7 +133,7 @@ const subjects = () =>
 /** Why the Log shows no commits. */
 const note = () =>
   document.querySelector(
-    '.playground-log > .playground-project__empty, .playground-log__commits > .playground-project__empty',
+    '.playground-log > .playground-project__empty, .playground-log__list > .playground-project__empty',
   )?.textContent;
 const tree = () => document.querySelector('.playground-log__commits .cerebro-tree') as HTMLElement;
 const skips = () => host.params('git.log').map((p) => (p as { skip: number }).skip);
@@ -348,7 +376,9 @@ describe('a commit’s pane', () => {
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     expect(pane().style.width).toBe('400px');
-    const splitter = document.querySelector('.playground-log .cerebro-splitter') as HTMLElement;
+    const splitter = document.querySelectorAll(
+      '.playground-log .cerebro-splitter',
+    )[1] as HTMLElement;
     const box = splitter.getBoundingClientRect();
     const drag = (by: number) => {
       const at = (x: number) => ({ clientX: x, clientY: box.top + 10, bubbles: true, button: 0 });
@@ -360,5 +390,219 @@ describe('a commit’s pane', () => {
     expect(pane().style.width).toBe('500px');
     drag(10_000);
     expect(pane().style.width).toBe('0px');
+  });
+});
+
+describe('the branches', () => {
+  const branch = (ref: string, current = false): Branch => ({ ref, hash: 'h', current });
+
+  it('are HEAD, then the local ones and the remote ones, by directory, as IntelliJ orders them', () => {
+    const names = (nodes: ReturnType<typeof branchTree>): unknown[] =>
+      nodes.map((node) =>
+        node.kind === 'head'
+          ? 'HEAD'
+          : node.kind === 'branch'
+            ? node.name
+            : { [node.name]: names(node.children) },
+      );
+    expect(
+      names(
+        branchTree([
+          branch('refs/heads/main'),
+          branch('refs/heads/feat/b10'),
+          branch('refs/heads/feat/b9'),
+          branch('refs/heads/Zed', true),
+          branch('refs/heads/alpha'),
+          branch('refs/remotes/origin/main'),
+          branch('refs/remotes/origin/fix/x'),
+          branch('refs/remotes/up/main'),
+        ]),
+      ),
+    ).toEqual([
+      'HEAD',
+      { Local: ['Zed', { feat: ['b9', 'b10'] }, 'alpha', 'main'] },
+      { Remote: [{ origin: [{ fix: ['x'] }, 'main'] }, { up: ['main'] }] },
+    ]);
+    // No branches yet: HEAD alone.
+    expect(names(branchTree([]))).toEqual(['HEAD']);
+  });
+
+  const branchRows = () => [
+    ...document.querySelectorAll<HTMLElement>('.playground-log__branches .cerebro-tree-row'),
+  ];
+  const branchNames = () => branchRows().map((row) => row.textContent.trim());
+  const filterText = () =>
+    document.querySelector('.playground-log__toolbar .cerebro-toolbar-dropdown__text')?.textContent;
+  const popupItems = () =>
+    [...document.querySelectorAll('.cerebro-popup-item__label')].map((label) => label.textContent);
+
+  it('show in a pane, and filter the Log by the one double-clicked, or chosen in the toolbar', async () => {
+    git.log = history(3);
+    git.byBranch['refs/heads/feat/x'] = history(2, [], 'f');
+    git.byBranch.HEAD = history(1, [], 'h');
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/feat/x'),
+      branch('refs/remotes/origin/main'),
+    ];
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'Remote', 'origin']);
+    expect(filterText()).toBe('Branch: All');
+    // The branch checked out, marked.
+    expect(document.querySelector('.playground-branches__name--current')?.textContent).toBe('main');
+    await userEvent.click(branchRows()[3] as HTMLElement);
+    await userEvent.keyboard('{ArrowRight}');
+    await expect.poll(branchNames).toContain('x');
+    await userEvent.dblClick(
+      branchRows().find((row) => row.textContent.trim() === 'x') as HTMLElement,
+    );
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    expect(rows()[0]?.getAttribute('data-key')).toBe('f0');
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: PAGE,
+      branches: ['refs/heads/feat/x'],
+    });
+    expect(filterText()).toBe('Branch: feat/x');
+    // A branch with none listed (the host's answer, here): none.
+    await userEvent.dblClick(
+      branchRows().find((row) => row.textContent.trim() === 'origin') as HTMLElement,
+    );
+    await expect.poll(branchNames).toContain('main');
+    await userEvent.dblClick(branchRows().at(-1) as HTMLElement);
+    await expect.poll(note).toBe('No commits');
+    // HEAD, by Enter.
+    await userEvent.click(branchRows()[0] as HTMLElement);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('h0');
+    expect(filterText()).toBe('Branch: HEAD');
+    // All again, from the toolbar's Branch filter: the one in use is checked.
+    const dropdown = document.querySelector(
+      '.playground-log__toolbar .cerebro-toolbar-dropdown',
+    ) as HTMLElement;
+    await userEvent.click(dropdown);
+    await expect
+      .poll(popupItems)
+      .toEqual(['All', 'HEAD (Current Branch)', 'main', 'feat/x', 'origin/main']);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
+    ).toEqual(['Local', 'Remote']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    expect(filterText()).toBe('Branch: All');
+    expect(host.params('git.log').at(-1)).toEqual({ worktree: '/r', skip: 0, max: PAGE });
+    // Closed without a choice, the filter stays.
+    await userEvent.click(dropdown);
+    await expect.poll(popupItems).toHaveLength(5);
+    await userEvent.keyboard('{Escape}');
+    expect(filterText()).toBe('Branch: All');
+  });
+
+  it('drop a list read before the filter changed', async () => {
+    git.log = history(3);
+    git.byBranch['refs/heads/main'] = history(1, [], 'm');
+    git.branches = [branch('refs/heads/main', true)];
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    let release: () => void = () => undefined;
+    git.hold = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(skips).toEqual([0, 0]);
+    await userEvent.dblClick(
+      branchRows().find((row) => row.textContent.trim() === 'main') as HTMLElement,
+    );
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('m0');
+    release();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(rows().map((row) => row.getAttribute('data-key'))).toEqual(['m0']);
+  });
+
+  it('say why they couldn’t be read', async () => {
+    git.log = history(1);
+    git.branchesFailing = 'no refs';
+    mount();
+    await expect
+      .poll(
+        () =>
+          document.querySelector('.playground-branches .playground-project__empty')?.textContent,
+      )
+      .toBe('no refs');
+  });
+
+  it('are as wide as their splitter is dragged, never less than nothing', () => {
+    git.log = history(1);
+    mount();
+    const side = document.querySelector('.playground-log__branches') as HTMLElement;
+    expect(side.style.width).toBe('200px');
+    const splitter = document.querySelector('.playground-log .cerebro-splitter') as HTMLElement;
+    const box = splitter.getBoundingClientRect();
+    const drag = (by: number) => {
+      const at = (x: number) => ({ clientX: x, clientY: box.top + 10, bubbles: true, button: 0 });
+      splitter.dispatchEvent(new PointerEvent('pointerdown', at(box.left)));
+      window.dispatchEvent(new PointerEvent('pointermove', at(box.left + by)));
+      window.dispatchEvent(new PointerEvent('pointerup', at(box.left + by)));
+    };
+    drag(50);
+    expect(side.style.width).toBe('250px');
+    drag(-10_000);
+    expect(side.style.width).toBe('0px');
+  });
+});
+
+describe('Refresh', () => {
+  it('reads the Log and its branches again: from the toolbar, or while the Log has the keyboard', async () => {
+    git.log = history(1);
+    expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    const asked = () => [host.params('git.log').length, host.params('git.branches').length];
+    expect(asked()).toEqual([1, 1]);
+    const button = document.querySelector(
+      '.playground-log__toolbar [data-command="log.refresh"]',
+    ) as HTMLElement;
+    expect(button.getAttribute('aria-label')).toBe('Refresh');
+    // Its tooltip names its shortcut.
+    await userEvent.hover(button);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('RefreshCtrl+F5');
+    await userEvent.click(button);
+    await expect.poll(asked).toEqual([2, 2]);
+    // From the keyboard only while the Log has the focus.
+    expect(services.keymap?.shortcutsFor('log.refresh')).toEqual(['Ctrl+F5']);
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(commands.isEnabled('log.refresh')).toBe(false);
+    await userEvent.click(rows()[0] as HTMLElement);
+    expect(commands.isEnabled('log.refresh')).toBe(true);
+    commands.execute('log.refresh');
+    await expect.poll(asked).toEqual([3, 3]);
+    // Gone with the window.
+    dispose?.();
+    dispose = undefined;
+    expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
+  });
+
+  it('names no shortcut with no keymap', async () => {
+    git.log = history(1);
+    mount({ commands, menus: new MenuRegistry() });
+    await userEvent.hover(
+      document.querySelector(
+        '.playground-log__toolbar [data-command="log.refresh"]',
+      ) as HTMLElement,
+    );
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Refresh');
+  });
+
+  it('is IntelliJ’s Cmd+R on macOS', () => {
+    const keymap = new Keymap('mac');
+    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
+    expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
   });
 });

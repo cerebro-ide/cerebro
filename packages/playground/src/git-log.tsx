@@ -3,20 +3,28 @@
 // date. Commits load a page at a time, the next as the list scrolls near its end; the list is read
 // again when the window shows and when the app gets the focus back, as files on disk are. Beside
 // it, the selected commit's changed files (a double click or Enter opens a file's diff, F4 the file)
-// and its details: its message, hash, author and date.
+// and its details: its message, hash, author and date. On its left, the branches; a double click
+// on one, or the toolbar's Branch filter, shows that branch's commits alone. Refresh reads it all
+// again.
 //
 // From IntelliJ: the refs' colours (VcsLogStandardColors: the current branch and HEAD in the tip's
 // yellow, local branches green, remote ones purple, tags grey) and the graph's (DefaultColorGenerator,
 // its first eight). Claims: the lane's width, the dot's size, the columns' widths, and the dates
 // as "Today 10:15" or the system's short date and time.
 
+import { formatSequence } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { computed, signal } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
+import { icon } from './icons.js';
+import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
 
 /** A commit, as the host's `git.log` gives it. */
@@ -125,6 +133,8 @@ class Log {
   /** Why it couldn't be read. */
   readonly error = signal<string | undefined>(undefined);
   readonly loaded = signal(false);
+  /** The branch it shows the commits of; all, if none. */
+  readonly branch = signal<BranchFilter | undefined>(undefined);
   private layout = new GraphLayout();
   /** All there are, loaded. */
   private done = false;
@@ -147,6 +157,7 @@ class Log {
       worktree: this.worktree,
       skip,
       max: PAGE,
+      ...(this.branch.peek() === undefined ? {} : { branches: [this.branch.peek()] }),
     }) as Promise<LogCommit[]>;
   }
 
@@ -159,14 +170,20 @@ class Log {
     void this.model.load(undefined, true);
   }
 
-  /** Reads the first page again; what's loaded beyond it goes, unless it's all the same. */
-  async reload(): Promise<void> {
+  /**
+   * Reads the first page again; what's loaded beyond it goes, unless it's all the same. A new
+   * filter's commits replace the old whatever they are.
+   */
+  async reload(replace = false): Promise<void> {
+    const branch = this.branch.peek();
     try {
       const page = await this.ask(0);
+      // Asked for before the filter changed: the new filter's is on its way.
+      if (this.branch.peek() !== branch) return;
       this.error.set(undefined);
       const before = this.commits.peek();
       const same = page.every((commit, i) => before[i]?.hash === commit.hash);
-      if (!(same && before.length >= page.length && this.loaded.peek())) {
+      if (replace || !(same && before.length >= page.length && this.loaded.peek())) {
         this.layout = new GraphLayout();
         this.graph.clear();
         this.take(page, []);
@@ -175,6 +192,13 @@ class Log {
       this.error.set((error as Error).message);
     }
     this.loaded.set(true);
+  }
+
+  /** Shows a branch's commits alone, or all (undefined). */
+  async filter(branch: BranchFilter | undefined): Promise<void> {
+    this.branch.set(branch);
+    // A page on its way, of the filter before, is dropped as these replace the list.
+    await this.reload(true);
   }
 
   /** Loads the next page, once, unless all are loaded; dropped if the list is read again first. */
@@ -301,11 +325,108 @@ function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab:
   };
 }
 
-/** How wide the commit's pane is to start with, in pixels (a claim). */
+/** How wide the commit's pane and the branches are to start with, in pixels (claims). */
 const PANE_WIDTH = 400;
+const BRANCHES_WIDTH = 200;
+
+/** The Log shown, for its commands. */
+const shown = signal<{ log: Log; branches: Branches } | undefined>(undefined);
+
+/** Where the toolbar's commands come from. */
+const FROM_LOG = { source: 'log' };
+
+/** From the Log's toolbar, or a shortcut while it has the keyboard. */
+const here = (context: unknown) =>
+  (context as { source?: string } | undefined)?.source === 'log' ||
+  document.activeElement?.closest('.playground-log') != null;
+
+/** Reads the Log and its branches again. */
+function refresh(log: Log, branches: Branches) {
+  void log.reload();
+  void branches.reload();
+}
+
+/** The Log's commands and shortcuts. */
+export function setupLog(services: MenuServices): void {
+  const { commands, keymap } = services;
+  commands.register({
+    id: 'log.refresh',
+    label: '&Refresh',
+    icon: 'refresh',
+    enabled: (c) => here(c) && shown.get() !== undefined,
+    run: () => {
+      const { log, branches } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
+      refresh(log, branches);
+    },
+  });
+  // IntelliJ's Refresh, in its macOS keymap and the others.
+  keymap?.bindDefault(keymap.platform === 'mac' ? 'Mod+R' : 'Ctrl+F5', 'log.refresh');
+}
+
+type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
+
+/** The Branch filter's popup: All, HEAD, then the local and remote branches. */
+function pickBranch(button: HTMLElement, log: Log, branches: Branches) {
+  const chosen = (branch: BranchFilter | undefined) =>
+    log.branch.peek() === branch ? { icon: () => icon('check') } : {};
+  const handle = openPicker<BranchChoice>({
+    label: 'Branch',
+    placeholder: 'Search',
+    position: { below: button },
+    owner: button,
+    items: (query) =>
+      fuzzyFilter(
+        [
+          { label: 'All', branch: undefined, ...chosen(undefined) },
+          { label: 'HEAD (Current Branch)', branch: 'HEAD', ...chosen('HEAD') },
+          ...branches.branches.get().map((b) => ({
+            label: branchName(b.ref),
+            group: b.ref.startsWith('refs/heads/') ? 'Local' : 'Remote',
+            branch: b.ref,
+            ...chosen(b.ref),
+          })),
+        ],
+        query,
+      ),
+  });
+  void handle.result.then((choice) => {
+    if (choice) void log.filter(choice.branch);
+  });
+  return handle;
+}
+
+/** Above the commits, as IntelliJ's: the Branch filter, then Refresh. */
+function LogToolbar(props: { services: MenuServices; log: Log; branches: Branches }): Node {
+  const { services, log, branches } = props;
+  const shortcut = () => {
+    const keymap = services.keymap;
+    const key = keymap?.shortcutsFor('log.refresh')[0];
+    return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);
+  };
+  return (
+    <div class="playground-log__toolbar" role="toolbar" aria-label="Log">
+      <ToolbarDropdown
+        services={services}
+        label="Branch"
+        text={() => {
+          const branch = log.branch.get();
+          return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
+        }}
+        popup={(button) => pickBranch(button, log, branches)}
+      />
+      <ToolbarButton
+        commands={services.commands}
+        command="log.refresh"
+        icon={icon('refresh')}
+        shortcut={shortcut}
+        context={() => FROM_LOG}
+      />
+    </div>
+  );
+}
 
 /** The Git tool window's Log, of the active environment's repository. */
-export function GitLogView(props: { open: (tab: Tab) => void }): Node {
+export function GitLogView(props: { services: MenuServices; open: (tab: Tab) => void }): Node {
   return (
     <div class="playground-log">
       {() => {
@@ -318,13 +439,16 @@ export function GitLogView(props: { open: (tab: Tab) => void }): Node {
           return <p class="playground-project__empty">Not a git repository</p>;
         }
         const log = new Log(host, env.id);
+        const branches = new Branches(host, env.id);
         const reload = () => {
-          void log.reload();
+          refresh(log, branches);
         };
         reload();
+        shown.set({ log, branches });
         window.addEventListener('focus', reload);
         onCleanup(() => {
           window.removeEventListener('focus', reload);
+          shown.set(undefined);
         });
         // Only whether there are any: the tree itself follows the commits.
         const empty = computed(() => log.loaded.get() && log.commits.get().length === 0);
@@ -346,8 +470,30 @@ export function GitLogView(props: { open: (tab: Tab) => void }): Node {
           </div>
         ) as HTMLElement;
         pane.style.width = `${String(PANE_WIDTH)}px`;
+        const side = (
+          <div class="playground-log__branches">
+            <BranchesPane
+              branches={branches}
+              filter={(branch) => {
+                void log.filter(branch);
+              }}
+            />
+          </div>
+        ) as HTMLElement;
+        side.style.width = `${String(BRANCHES_WIDTH)}px`;
         return [
-          <div class="playground-log__commits">{list}</div>,
+          side,
+          <Splitter
+            line="vertical"
+            start={() => side.offsetWidth}
+            onDrag={(width, delta) => {
+              side.style.width = `${String(Math.max(0, width + delta))}px`;
+            }}
+          />,
+          <div class="playground-log__commits">
+            <LogToolbar services={props.services} log={log} branches={branches} />
+            <div class="playground-log__list">{list}</div>
+          </div>,
           <Splitter
             line="vertical"
             start={() => pane.offsetWidth}

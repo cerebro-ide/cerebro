@@ -769,11 +769,51 @@ body,
   min-width: 0;
 }
 
-.playground-log__commits > .cerebro-tree,
+/* The branches, then the toolbar over the commits, then the selected one's pane. */
+.playground-log__branches {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-log__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px 4px;
+}
+
+.playground-log__toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
+.playground-log__toolbar .cerebro-toolbar-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playground-log__list,
+.playground-branches {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.playground-log__list > .cerebro-tree,
+.playground-branches > .cerebro-tree,
 .playground-log__files,
 .playground-log__pane > .playground-project__empty {
   flex: auto;
   min-height: 0;
+}
+
+/* The branch checked out, in bold (a claim: IntelliJ marks it with an icon of its own). */
+.playground-branches__name--current {
+  font-weight: 600;
 }
 
 /* The details: as much as they need, up to half the pane, then they scroll (a claim). */
