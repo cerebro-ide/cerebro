@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1646,7 +1646,8 @@ all", to a list that ended with it). Claude's choices, open to change.
 ## The Git Log (2026-11-04)
 
 The Git tool window's Log tab, as IntelliJ's (Ido: "yes, go ahead"), in three PRs: the commit list
-and graph (this one); a commit's details, files and diffs; the branches pane and filters.
+and graph; a commit's details, files and diffs; the branches pane and filters. The third covers the
+branches pane, the Branch filter and Refresh; the other filters are left for later (below).
 
 - **The host's `git.log`** lists a page of commits (`skip`, `max`): every local branch, remote
   branch and tag, and HEAD, in date order (`--date-order`, as IntelliJ's default); each with its
@@ -1677,10 +1678,28 @@ and graph (this one); a commit's details, files and diffs; the branches pane and
   also offers the others. `git.log` gives each commit's message whole, so the details need no
   request of their own. **Claims:** the pane's starting width (400px), the details' share (up to
   half the pane), the date's format, and "No commits selected".
-- **Not yet:** the toolbar (Refresh, filters) and the branches pane (the third PR); grouping the
-  files by directory; the right-click menu (Copy Revision Number,
-  Checkout Revision); IntelliJ's Log is a tab beside Console in the Git window, here it's all the
-  window holds.
+- **The branches pane** (the third PR), on the Log's left as IntelliJ's, a splitter between: HEAD
+  (Current Branch), then Local and Remote (each remote's under its name), grouped by directory (a
+  name's parts before a slash), each level in IntelliJ's order (the branch checked out, then
+  directories, then branches, by name). From IntelliJ's source (BranchesTreeModel,
+  BranchTreeNodeComparator, intellij.vcs.git.backend.xml): the groups, their names and order, and a
+  double click or Enter on a branch setting the Branch filter to it (IntelliJ's default single
+  click does nothing). The host's `git.branches` lists them (`for-each-ref`, not a remote's HEAD);
+  `git.log` takes the branches to list (`--end-of-options` before them, so a name is never an
+  option). **Claims:** the order of names (the system's, ignoring case, numbers by value), Local
+  and Remote starting expanded, the branch checked out in bold (IntelliJ gives it an icon of its
+  own), and the pane's starting width (200px).
+- **The toolbar** over the commits: the Branch filter (All, HEAD, or a branch, chosen in a popup
+  as the main toolbar's branch popup, the one in use checked), then Refresh (IntelliJ's Refresh
+  shortcut: Ctrl+F5, Cmd+R on macOS, measured from its keymaps; while the Log has the keyboard),
+  which reads the commits and the branches again. A page asked for under one filter is dropped
+  once the filter changes.
+- **Not yet:** the toolbar's other filters (the text search, User, Date, Paths) and its other
+  actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the branches pane's toolbar (New
+  Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and its own search; tags in the
+  pane; grouping the files by directory; the right-click menu (Copy Revision Number, Checkout
+  Revision); IntelliJ's Log is a tab beside Console in the Git window, here it's all the window
+  holds.
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 

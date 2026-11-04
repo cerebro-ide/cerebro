@@ -324,11 +324,32 @@ describe('changes', () => {
       },
     ]);
     expect(git).toHaveBeenCalledWith('/w', expect.arrayContaining(['--skip=0', '--max-count=5']));
-    for (const bad of [{ skip: 0 }, { skip: 'a', max: 1 }]) {
+    await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, branches: ['HEAD'] });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      expect.arrayContaining(['--end-of-options', 'HEAD']),
+    );
+    for (const bad of [
+      { skip: 0 },
+      { skip: 'a', max: 1 },
+      { skip: 0, max: 1, branches: 'main' },
+      { skip: 0, max: 1, branches: [''] },
+    ]) {
       await expect(ui.request('git.log', { worktree: '/w', ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,
       });
     }
+  });
+
+  it('lists the branches', async () => {
+    const { ui, git } = connect(
+      vi.fn(() => Promise.resolve('refs/heads/main\tabc\t*\t\nrefs/heads/b\tdef\t \t\n')),
+    );
+    expect(await ui.request('git.branches', { worktree: '/w' })).toEqual([
+      { ref: 'refs/heads/main', hash: 'abc', current: true },
+      { ref: 'refs/heads/b', hash: 'def', current: false },
+    ]);
+    expect(git).toHaveBeenCalledWith('/w', expect.arrayContaining(['for-each-ref']));
   });
 
   it('gives a file’s two sides: as committed, where it was, and as it is', async () => {

@@ -44,6 +44,7 @@ import {
   listChangesBetween,
   listIgnored,
   lastMessage,
+  listBranches,
   log,
   rollback,
   textAt,
@@ -394,14 +395,29 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       : undefined;
   };
   // A worktree's changes since its last commit, or from one commit to another.
-  // The Git tool window's Log: a page of commits, `max` after the first `skip`.
+  // The Git tool window's Log: a page of commits, `max` after the first `skip`; of the branches
+  // given, or of all.
   connection.onRequest('git.log', (params) => {
-    const { skip, max } = params as { skip?: unknown; max?: unknown };
+    const { skip, max, branches } = params as { skip?: unknown; max?: unknown; branches?: unknown };
     if (!Number.isInteger(skip) || !Number.isInteger(max)) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'skip and max must be integers');
     }
-    return log(text(params, 'worktree'), skip as number, max as number, git);
+    if (
+      branches !== undefined &&
+      !(Array.isArray(branches) && branches.every((b) => typeof b === 'string' && b !== ''))
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'branches must be names');
+    }
+    return log(
+      text(params, 'worktree'),
+      skip as number,
+      max as number,
+      git,
+      branches as string[] | undefined,
+    );
   });
+  // The Log's branches pane: the local and remote branches.
+  connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);
