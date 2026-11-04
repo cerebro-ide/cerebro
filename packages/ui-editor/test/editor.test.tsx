@@ -773,6 +773,20 @@ describe('EditorDocument', () => {
     expect(change).toEqual([{ from: 4, to: 5, insert: 'two' }]);
   });
 
+  it('becomes another text as an edit of each part that differs, so a caret between stays', () => {
+    const doc = new EditorDocument('const  a=1;\nkeep\nconst b  =2;');
+    doc.replace('const  a=1;\nkeep\nconst b  =2;');
+    expect(doc.lastEdit).toBeUndefined();
+    doc.replace('const a = 1;\nkeep\nconst b = 2;');
+    expect(doc.content()).toBe('const a = 1;\nkeep\nconst b = 2;');
+    const changed: string[] = [];
+    doc.lastEdit?.changes.iterChangedRanges((from, to) => {
+      changed.push(doc.lastEdit?.before.sliceString(from, to) ?? '');
+    });
+    // Not one change from the first line to the last, over "keep".
+    expect(changed.every((text) => !text.includes('keep'))).toBe(true);
+  });
+
   it('takes the text changed on disk, unless it’s modified or the same', () => {
     const doc = new EditorDocument('a');
     expect(doc.changedOnDisk('a')).toBe(false);

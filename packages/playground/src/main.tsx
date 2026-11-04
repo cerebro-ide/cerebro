@@ -1,6 +1,9 @@
 import { render } from '@cerebro-ide/jsx';
 import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
 import { notesPlugin } from './notes-plugin.js';
+import { prettierPlugin } from './prettier-plugin.js';
+import { addPlugins } from './plugins-page.js';
+import { target } from './edit.js';
 import { PluginView } from './plugin-view.js';
 import { Layout, type Tab, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/fonts.css';
@@ -31,6 +34,8 @@ import '@cerebro-ide/ui-editor/styles.css';
 import {
   CodeEditor,
   DiffEditor,
+  fileIn,
+  formatIn,
   formatLineColumn,
   languageName,
   parseLineColumn,
@@ -38,6 +43,7 @@ import {
   type CompletionItem,
   type EditorDocument,
   type Mark,
+  type Place,
 } from '@cerebro-ide/ui-editor';
 import { ProjectTree, selectInTree } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
@@ -73,6 +79,7 @@ import {
   gitRepository,
   useProjects,
   workspace,
+  worktreeHolding,
   type Host,
   type ProjectState,
 } from './environments.js';
@@ -82,7 +89,7 @@ import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
-import { documentFor, saveAll, saveFiles, setupSaving } from './documents.js';
+import { documentFor, onBeforeSave, saveAll, saveFiles, setupSaving } from './documents.js';
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
@@ -96,7 +103,7 @@ import {
   windowProjects,
 } from './projects.js';
 import type { RecentProject } from './bridge.js';
-import { globalSettings, settingsFor } from './settings.js';
+import { globalSettings, registry as settingsRegistry, settingsFor } from './settings.js';
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -225,15 +232,46 @@ setTerminalKeys((event) => {
   return keymap.commandsFor(chord).length > 0 || keymap.isPrefix(chord);
 });
 
-// Plugins: the sample Notes plugin, added as any plugin would be.
+// Plugins: the sample Notes plugin, and Prettier, added as any plugin would be; Settings → Plugins
+// turns them off. They reach the editor that has the focus (or had it before a menu took it), and
+// a file's settings and host.
 const views = new ViewRegistry(layout.toolWindows);
 const plugins = new PluginRegistry({
   commands: services.commands,
   menus: services.menus,
   keymap: services.keymap,
   views,
+  settings: settingsRegistry,
+  settingsOf: (path) => settingsFor(worktreeHolding(path)),
+  hostOf: hostFor,
+  editors: {
+    focused: () => {
+      const at = target();
+      return at && fileIn(at);
+    },
+    // Run only while `focused` is a file: the command is enabled by it.
+    format: (formatter, words) => {
+      const at = target() as Element;
+      formatIn(
+        at,
+        async (range) => {
+          const path = fileIn(at) as string;
+          // Shown in the editor, so read.
+          const text = ((await documentFor(path)) as EditorDocument).text.peek();
+          const offset = (place: Place) => text.line(place.line + 1).from + place.column;
+          return formatter({
+            path,
+            text: text.toString(),
+            ...(range ? { range: { from: offset(range.from), to: offset(range.to) } } : {}),
+          });
+        },
+        words,
+      );
+    },
+    beforeSave: (hook) => ({ dispose: onBeforeSave(hook) }),
+  },
 });
-await plugins.add(notesPlugin);
+await addPlugins(plugins, [notesPlugin, prettierPlugin]);
 
 // Find in Files and Replace in Files, through the host: Edit → Find, as IntelliJ's. What's found
 // can go to the Find tool window, which appears the first time, as IntelliJ's.

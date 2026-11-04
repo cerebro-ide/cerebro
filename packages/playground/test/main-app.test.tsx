@@ -550,6 +550,72 @@ describe('Reformat Code', () => {
   });
 });
 
+describe('the Prettier plugin', () => {
+  const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
+
+  it('reformats the file with the project’s Prettier on Ctrl+Alt+Shift+P and from the editor’s menu', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('prettier.format', { text: '// /r/src/pretty.ts\nconst a = 2;\n' });
+    env().editor.open({ id: '/r/src/pretty.ts', title: 'pretty.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/pretty.ts');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}{Alt>}{Shift>}P{/Shift}{/Alt}{/Control}');
+    await expect.poll(() => code()?.textContent).toContain('const a = 2;');
+    expect(host('/r').params('prettier.format')).toEqual([
+      { path: '/r/src/pretty.ts', text: '// /r/src/pretty.ts\nconst a = 1;\n' },
+    ]);
+    await expect.poll(hint).toBe('Prettier: formatted 1 line');
+    // The selection, from the editor's context menu, last in it as IntelliJ adds it.
+    answers.set('prettier.format', { refused: 'Prettier: package is not installed' });
+    await userEvent.keyboard('{Control>}a{/Control}');
+    await userEvent.click(code() as HTMLElement, { button: 'right' });
+    expect((await menuItems()).at(-1)).toBe('Reformat with Prettier');
+    await userEvent.click(
+      [...document.querySelectorAll('.cerebro-menu-item')].find((item) =>
+        item.textContent.includes('Reformat with Prettier'),
+      ) as HTMLElement,
+    );
+    await expect.poll(hint).toBe('Prettier: package is not installed');
+  });
+
+  it('formats a file as it’s saved when Run on save is on', async () => {
+    answers.set('prettier.format', { text: '// /r/src/saved.ts\nconst a = 3;\n' });
+    globalSettings.layers.global.set('prettier.onSave', true);
+    env().editor.open({ id: '/r/src/saved.ts', title: 'saved.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/saved.ts');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('x');
+    await userEvent.keyboard('{Control>}s{/Control}');
+    await expect
+      .poll(() => host('/r').params('fs.write').at(-1))
+      .toMatchObject({ path: '/r/src/saved.ts', text: '// /r/src/saved.ts\nconst a = 3;\n' });
+    expect(host('/r').params('prettier.format').at(-1)).toMatchObject({ path: '/r/src/saved.ts' });
+    expect(code()?.textContent).toContain('const a = 3;');
+    globalSettings.layers.global.reset('prettier.onSave');
+  });
+
+  it('has its page in Settings, and Settings → Plugins lists it with Notes, on', async () => {
+    await userEvent.keyboard('{Control>}{Alt>}s{/Alt}{/Control}');
+    const settings = await dialog();
+    (settings.querySelector('[data-page="languages/javascript/prettier"]') as HTMLElement).click();
+    await expect
+      .poll(() => settings.querySelector('.cerebro-settings__page')?.textContent)
+      .toContain('Run on save');
+    (settings.querySelector('[data-page="plugins"]') as HTMLElement).click();
+    await expect
+      .poll(() =>
+        [...settings.querySelectorAll('.playground-plugins__item')].map((item) => [
+          item.querySelector('.playground-plugins__name')?.textContent,
+          item.querySelector('input')?.checked,
+        ]),
+      )
+      .toEqual([
+        ['Notes', true],
+        ['Prettier', true],
+      ]);
+  });
+});
+
 describe('rename', () => {
   it('renames the name at the caret on Shift+F6 in every file its server says, saved', async () => {
     // Each file's text is `// <path>` then `const a = 1;`: `a` on line 1.

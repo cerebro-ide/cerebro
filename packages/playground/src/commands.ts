@@ -23,6 +23,7 @@ import { searchEverywhere, type Result, type SearchTab } from './search-everywhe
 import { setupEdit } from './edit.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
+import { pluginsPage } from './plugins-page.js';
 import { PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 import { themeIsDark } from './theme.js';
@@ -319,7 +320,7 @@ export function setupCommands(
         onApply: (scopes) => {
           save(settings, scopes);
         },
-        pages: { keymap: keymapPage(keymap, commands, menus) },
+        pages: { keymap: keymapPage(keymap, commands, menus), plugins: pluginsPage() },
       });
     },
   });

@@ -712,3 +712,35 @@ body,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Settings → Plugins: a row per plugin, its checkbox at the end, as IntelliJ's Installed list. */
+.playground-plugins {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.playground-plugins__item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cerebro-border);
+}
+
+.playground-plugins__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.playground-plugins__name {
+  font-weight: 600;
+}
+
+.playground-plugins__note {
+  margin-top: 2px;
+  color: var(--cerebro-text-muted);
+}
+
+.playground-plugins__note--error {
+  color: var(--cerebro-error);
+}

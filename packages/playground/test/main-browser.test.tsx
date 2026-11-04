@@ -94,7 +94,7 @@ describe('the editor', () => {
     await expect.poll(() => code()?.textContent).toContain('// src/styles.css');
     const editor = q('.cerebro-editor-group--active .playground-code');
     await userEvent.click(editor, { button: 'right' });
-    expect(await menuItems()).toEqual(['Go to File…', 'Local History']);
+    expect(await menuItems()).toEqual(['Go to File…', 'Local History', 'Reformat with Prettier']);
     await closeAll();
     await userEvent.click(q('.cerebro-editor-tab--active'), { button: 'right' });
     expect(await menuItems()).toEqual(expect.arrayContaining(['Close']));

@@ -42,9 +42,9 @@ import { documentation, documentationKeys, type AskDocumentation } from './docum
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { foldKeys, folding, type AskFolds } from './folding.js';
-import { formatting, type AskFormat } from './format.js';
+import { formattable, formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
-import { namedHistory } from './history.js';
+import { historyName, namedHistory } from './history.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
 import { definitionLinks, usageHighlights, type AskDefinition, type AskUsages } from './usages.js';
@@ -805,7 +805,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
-    doc ? [namedHistory(), keymap.of([indentWithTab])] : EditorState.readOnly.of(true),
+    doc
+      ? [namedHistory(), keymap.of([indentWithTab]), formattable(props.path)]
+      : EditorState.readOnly.of(true),
     // The document follows the edits.
     doc
       ? EditorView.updateListener.of((update) => {
@@ -861,7 +863,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       view.dispatch({
         changes: edit.changes,
         userEvent: 'input.replace',
-        annotations: isolateHistory.of('full'),
+        annotations: [
+          isolateHistory.of('full'),
+          ...(edit.name === undefined ? [] : [historyName.of(edit.name)]),
+        ],
       });
       return undefined;
     }

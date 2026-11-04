@@ -6,6 +6,8 @@
 // changed in the editor is a conflict, as IntelliJ's File Cache Conflict: nothing is written over
 // it, and the user chooses between the two, or merges them. A file deleted on disk has its tabs
 // closed, its edits with them, as IntelliJ's FileEditorManagerImpl closes a deleted file's editors.
+// What's saved may first be changed by a plugin, as IntelliJ's Actions on Save (Prettier's Run on
+// save), on every save: Save All's and the ones made on their own.
 
 import { effect, untracked } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
@@ -129,6 +131,41 @@ async function deleted(path: string): Promise<boolean> {
   return true;
 }
 
+/**
+ * Changes a file's text as it's saved: the text it becomes, and the change's name for undo; or
+ * undefined, to leave it as it is.
+ */
+export type BeforeSave = (file: {
+  path: string;
+  text: string;
+}) => Promise<{ text: string; name: string } | undefined>;
+
+const beforeSave = new Set<BeforeSave>();
+
+/** Calls `hook` before each file is saved; returns what stops it. */
+export function onBeforeSave(hook: BeforeSave): () => void {
+  beforeSave.add(hook);
+  return () => {
+    beforeSave.delete(hook);
+  };
+}
+
+/** Lets the hooks change what's saved: an edit undo takes back, unless it was typed into meanwhile. */
+async function changeBeforeSave(path: string, doc: EditorDocument): Promise<void> {
+  for (const hook of beforeSave) {
+    const asked = doc.text.peek();
+    let changed: Awaited<ReturnType<BeforeSave>>;
+    try {
+      changed = await hook({ path, text: asked.toString() });
+    } catch (error) {
+      // A hook that fails leaves the text as it is: it's still saved.
+      console.error(error);
+      continue;
+    }
+    if (changed && doc.text.peek() === asked) doc.replace(changed.text, changed.name);
+  }
+}
+
 /** Saves every modified document; a file that can't be saved is reported, and stays modified. */
 export async function saveAll(): Promise<void> {
   await saveFiles();
@@ -168,6 +205,7 @@ async function save(paths?: readonly string[], label?: string): Promise<void> {
       if (disk === undefined && (await deleted(path))) continue;
       if (disk !== undefined && (await conflicts(path, doc, disk))) continue;
       if (!doc.modified.peek()) continue;
+      await changeBeforeSave(path, doc);
       // What's written, which the editor may change while it's being written.
       const text = doc.text.peek();
       await host.request('fs.write', {

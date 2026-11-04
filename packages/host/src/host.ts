@@ -34,6 +34,7 @@ import { filesByRipgrep, folderFiles } from './folder-files.js';
 import { exists, listFolder, readTextFile, UnreadableFile, writeTextFile } from './files.js';
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
+import { formatWithPrettier } from './prettier.js';
 import {
   addWorktree,
   commit,
@@ -260,6 +261,22 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.folds', (params) =>
     servers.folds(text(params, 'worktree'), fileOf(params)),
   );
+  // Prettier, for its plugin: the file as the UI has it, or the part from `from` to `to` (offsets).
+  connection.onRequest('prettier.format', (params) => {
+    const { from, to, package: folder } = params as Record<string, unknown>;
+    const range = from === undefined && to === undefined ? undefined : { from, to };
+    if (range && !(Number.isInteger(range.from) && Number.isInteger(range.to))) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'from and to must be integers');
+    }
+    if (folder !== undefined && typeof folder !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'package must be a path');
+    }
+    return formatWithPrettier({
+      ...fileOf(params),
+      ...(range ? { range: range as { from: number; to: number } } : {}),
+      ...(folder ? { package: folder } : {}),
+    });
+  });
   connection.onRequest('lsp.markers', (params) =>
     servers.markers(text(params, 'worktree'), fileOf(params)),
   );

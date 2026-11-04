@@ -5,6 +5,7 @@
 // shown, and is saved as it was read, as IntelliJ keeps one.
 
 import { historyField } from '@codemirror/commands';
+import { diff } from '@codemirror/merge';
 import { ChangeSet, Text } from '@codemirror/state';
 import { computed, signal, type Computed, type Signal } from '@cerebro-ide/reactive';
 import { historyNames } from './history.js';
@@ -25,8 +26,11 @@ export class EditorDocument {
   readonly bom: boolean;
   /** The last editor's state (selection, history), for the next one; undefined before any. */
   state: unknown;
-  /** The last change made through `edit`: an editor showing the text it was made to takes it as an edit. */
-  lastEdit: { before: Text; changes: ChangeSet } | undefined;
+  /**
+   * The last change made through `edit`: an editor showing the text it was made to takes it as an
+   * edit, by its name for undo (Replace without one).
+   */
+  lastEdit: { before: Text; changes: ChangeSet; name?: string } | undefined;
 
   constructor(content: string) {
     this.lineSeparator = content.includes('\r\n') ? '\r\n' : '\n';
@@ -49,12 +53,12 @@ export class EditorDocument {
 
   /**
    * Changes the text from outside an editor (Replace in Files), at offsets into the text as it is.
-   * An editor showing it takes the change as an edit, which undo takes back.
+   * An editor showing it takes the change as an edit, which undo takes back, as `name`.
    */
-  edit(changes: readonly { from: number; to: number; insert: string }[]): void {
+  edit(changes: readonly { from: number; to: number; insert: string }[], name?: string): void {
     const before = this.text.peek();
     const set = ChangeSet.of(changes, before.length);
-    this.lastEdit = { before, changes: set };
+    this.lastEdit = { before, changes: set, ...(name === undefined ? {} : { name }) };
     this.text.set(set.apply(before));
   }
 
@@ -69,23 +73,18 @@ export class EditorDocument {
    * takes back, and the disk's is `disk`, so the next save writes the text over it.
    */
   resolve(content: string, disk: string): void {
-    const before = this.text.peek().toString();
-    const text = textOf(content).toString();
-    // Only the part that differs is replaced, so a caret outside it stays where it was.
-    let from = 0;
-    while (from < before.length && from < text.length && before[from] === text[from]) from++;
-    let end = 0;
-    while (
-      end < before.length - from &&
-      end < text.length - from &&
-      before[before.length - 1 - end] === text[text.length - 1 - end]
-    ) {
-      end++;
-    }
-    if (before !== text) {
-      this.edit([{ from, to: before.length - end, insert: text.slice(from, text.length - end) }]);
-    }
+    this.replace(content);
     this.disk.set(textOf(disk));
+  }
+
+  /**
+   * The text becomes `content` from outside an editor (a formatter's, as it's saved), as an edit
+   * undo takes back as `name`: only the parts that differ are replaced, so a caret outside them
+   * stays.
+   */
+  replace(content: string, name?: string): void {
+    const changes = changesTo(this.text.peek(), content);
+    if (changes.length > 0) this.edit(changes, name);
   }
 
   /**
@@ -103,6 +102,19 @@ export class EditorDocument {
 }
 
 const BOM = '\uFEFF';
+
+/** The changes that make `text` into `content`: only the parts that differ. */
+export function changesTo(
+  text: Text,
+  content: string,
+): { from: number; to: number; insert: string }[] {
+  const after = textOf(content).toString();
+  return diff(text.toString(), after).map((c) => ({
+    from: c.fromA,
+    to: c.toA,
+    insert: after.slice(c.fromB, c.toB),
+  }));
+}
 
 /** A file's content as CodeMirror's text, its lines split on either separator, without a BOM. */
 function textOf(content: string): Text {
