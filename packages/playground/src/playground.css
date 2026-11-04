@@ -487,7 +487,7 @@ body,
   background: var(--cerebro-selected);
 }
 
-.playground-recent__title {
+.playground-popup__title {
   font-weight: 600;
 }
 

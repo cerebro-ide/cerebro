@@ -28,6 +28,7 @@ import type {
 import { documentFor, onEdited, saveAll, saveFiles } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
+import { openStructure, type FileSymbol } from './structure.js';
 
 interface Located {
   path: string;
@@ -196,11 +197,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     return (await host.request(method, { worktree: env.id, ...params })) as Located[];
   };
   /** A language server's answer; null when there's none (no server, or it didn't answer in time). */
-  // A rename's new name with the place.
-  const ask = async <T = Located[],>(
-    method: string,
-    asked: (Asked & { name?: string }) | undefined,
-  ) => {
+  // A file, a place in it, and a rename's new name.
+  const ask = async <T = Located[],>(method: string, asked: object | undefined) => {
     const env = active();
     if (!env || !asked) return null;
     const host = hostFor(env.id);
@@ -293,6 +291,16 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       }
       await saveFiles(changed, 'Rename');
       return failed.length > 0 ? `Not renamed in ${failed.join(', ')}` : undefined;
+    },
+
+    /**
+     * File Structure (structure.tsx) for a file as the editor has it, from its language server,
+     * the symbol at the caret highlighted; goes to the one chosen.
+     */
+    async fileStructure(path: string, text: string, caret: Position): Promise<void> {
+      const symbols = await ask<FileSymbol[]>('lsp.structure', { path, text });
+      const chosen = await openStructure(path.split('/').at(-1) as string, symbols, caret);
+      if (chosen) openAt({ path, ...chosen.at });
     },
 
     /** What can go at a place, from its file's language server; none without one. */

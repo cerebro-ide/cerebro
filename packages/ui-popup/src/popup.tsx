@@ -15,6 +15,8 @@ export interface PickerItem {
   detail?: string;
   /** Shown at the right, muted: a command's shortcut. */
   shortcut?: string;
+  /** How deep in a tree it is, indented as deep: File Structure's members under their types. */
+  depth?: number;
   icon?: () => Child;
   /** Items of one group are listed together, under a header with its name. */
   group?: string;
@@ -68,8 +70,12 @@ export interface PickerOptions<T extends PickerItem> {
   preview?: (item: T | undefined) => Child;
   /** Keys pressed in the search field, before the popup's own; returns whether it handled one. */
   onKey?: (event: KeyboardEvent) => boolean;
-  /** The item highlighted as it opens, until the query changes (Recent Files': the second). */
-  initial?: number;
+  /**
+   * The item highlighted as it opens, until the query changes (Recent Files': the second); or, as a
+   * function, chosen from the items listed as it opens and for each query (File Structure's: the
+   * symbol at the caret, then the first that matches).
+   */
+  initial?: number | ((items: readonly T[]) => number);
   /**
    * Letters the popup handles with Alt (its options': Find in Files' Alt+C), which the menu bar then
    * leaves to it (`data-alt-keys`).
@@ -146,6 +152,7 @@ function rowKey(item: PickerItem): string {
     item.label,
     item.detail,
     item.shortcut,
+    item.depth,
     item.highlight,
     item.more !== undefined,
     item.close?.label,
@@ -195,7 +202,9 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       this.resolve = resolve;
     });
     this.items = computed(() => options.items(this.state.query));
-    this.state.index = Math.max(0, Math.min(options.initial ?? 0, this.items.get().length - 1));
+    this.state.index = this.initial(
+      typeof options.initial === 'function' ? undefined : options.initial,
+    );
     // At least the body: a document always has a focused element.
     this.restoreFocus = document.activeElement as HTMLElement;
     this.element = document.createElement('div');
@@ -219,6 +228,14 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   close(): void {
     this.finish(undefined);
+  }
+
+  /** The item to highlight in the list as it is: `at`, or the one `initial` chooses, if it's there. */
+  private initial(at = 0): number {
+    const items = this.items.get();
+    const { initial } = this.options;
+    const index = typeof initial === 'function' ? initial(items) : at;
+    return Math.max(0, Math.min(index, items.length - 1));
   }
 
   highlighted(): T | undefined {
@@ -380,6 +397,12 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       ),
       fragment,
     );
+    if (item.depth) {
+      (fragment.querySelector('.cerebro-popup-item') as HTMLElement).style.setProperty(
+        '--cerebro-popup-depth',
+        String(item.depth),
+      );
+    }
     const row: Row<T> = {
       // The fragment keeps render's markers; the row itself goes in the list.
       node: fragment.querySelector('.cerebro-popup-item') as Node,
@@ -407,7 +430,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
         aria-controls="cerebro-popup-list"
         on:input={(event) => {
           state.query = (event.currentTarget as HTMLInputElement).value;
-          state.index = 0;
+          state.index = this.initial();
           options.onQueryChange?.(state.query);
         }}
         on:keydown={this.onKey}

@@ -611,6 +611,41 @@ it('renames a function in place with Shift+F6, where it’s defined too, saved; 
     .waitFor();
 }, 60_000);
 
+it('lists a file’s structure on Ctrl+F12, the symbol at the caret highlighted, and goes to the one chosen', async () => {
+  await openAt('square.ts', 'area()');
+  const highlighted = popup().locator(
+    '.cerebro-popup-item--highlighted .cerebro-popup-item__label',
+  );
+  // The server's answer: the name imported (as TypeScript's server lists it, measured), Square,
+  // and its area in it.
+  const listed = async () =>
+    (await popup().locator('.cerebro-popup-item__label').allTextContents()).join(',') ===
+    'Shape,Square,area';
+  try {
+    await expect
+      .poll(
+        async () => {
+          if (await listed()) return true;
+          if ((await popup().count()) > 0) await page().keyboard.press('Escape');
+          await page().keyboard.press(KEYS.fileStructure);
+          await popup().waitFor();
+          return listed();
+        },
+        { timeout: 30_000, interval: 1_000 },
+      )
+      .toBe(true);
+  } catch (error) {
+    await explain(error, 'square.ts', 0, 0, ['lsp.structure']);
+  }
+  expect(await highlighted.textContent()).toBe('area');
+  await page().keyboard.type('Squ');
+  expect(await highlighted.textContent()).toBe('Square');
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(async () => (await where()).line)
+    .toBe('export class Square implements Shape {');
+}, 60_000);
+
 it('completes as one types, a member after a `.`, and a function from another file with its import', async () => {
   await openAt('completes.ts', '// here');
   await page().keyboard.press('End');

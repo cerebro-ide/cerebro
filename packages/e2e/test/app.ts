@@ -31,6 +31,7 @@ export const KEYS = {
   undo: mac ? 'Meta+Z' : 'Control+Z',
   quickDocumentation: mac ? 'F1' : 'Control+Q',
   parameterInfo: mac ? 'Meta+P' : 'Control+P',
+  fileStructure: mac ? 'Meta+F12' : 'Control+F12',
 } as const;
 
 let runs = 0;
