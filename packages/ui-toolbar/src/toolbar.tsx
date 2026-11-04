@@ -34,19 +34,30 @@ export interface ToolbarButtonProps {
   context?: () => unknown;
 }
 
-/** An icon button that runs a command; disabled while the command is. */
+/**
+ * An icon button that runs a command; disabled while the command is. A toggle's (a command that's
+ * checked or not) shows pressed while it's on, as IntelliJ's toggle actions in a toolbar.
+ */
 export function ToolbarButton(props: ToolbarButtonProps): Node {
   const { commands, command } = props;
   const spec = commands.get(command);
-  const label = spec ? displayText(spec.label, spec.dialog) : command;
+  // What the command says now (IntelliJ's "Show Grid", "Hide Grid"), else its name.
+  const label = () =>
+    spec ? displayText(spec.text?.(props.context?.()) ?? spec.label, spec.dialog) : command;
+  const pressed = () => commands.isChecked(command, props.context?.()) === true;
   return (
     <button
       type="button"
-      class="cerebro-toolbar-button"
+      class={() =>
+        pressed()
+          ? 'cerebro-toolbar-button cerebro-toolbar-button--pressed'
+          : 'cerebro-toolbar-button'
+      }
       aria-label={label}
+      {...(spec?.checked ? { 'aria-pressed': () => String(pressed()) } : {})}
       disabled={() => !commands.isEnabled(command, props.context?.())}
       data-command={command}
-      ref={tooltip({ text: () => label, shortcut: () => props.shortcut?.(), placement: 'below' })}
+      ref={tooltip({ text: label, shortcut: () => props.shortcut?.(), placement: 'below' })}
       on:click={() => {
         commands.execute(command, props.context?.());
       }}

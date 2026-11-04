@@ -8,6 +8,7 @@ import {
   listFolder,
   MAPPED_WAIT,
   MAX_FILE_SIZE,
+  readFileBytes,
   readTextFile,
   toSlashes,
 } from '../src/index.js';
@@ -69,6 +70,15 @@ describe('listFolder', () => {
       message: expect.stringContaining('too large') as unknown,
     });
     await expect(readTextFile(join(root, 'missing.txt'))).rejects.toThrow(/ENOENT/);
+  });
+
+  it('reads a file’s bytes, binary or not, refusing an oversized one', async () => {
+    expect(await readFileBytes(join(root, 'image.png'))).toEqual(
+      new Uint8Array([137, 80, 78, 71, 0, 1, 2]),
+    );
+    await expect(readFileBytes(join(root, 'huge.log'))).rejects.toMatchObject({
+      reason: 'too large',
+    });
   });
 
   it('tells whether a file is there, and fails when it can’t tell', async () => {

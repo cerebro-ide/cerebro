@@ -1,0 +1,65 @@
+/* The image viewer. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-image {
+  position: relative;
+  height: 100%;
+  overflow: auto;
+  background: var(--cerebro-background);
+  outline: none;
+}
+
+/* At least the area's size, so a small image is centred in it; larger, it scrolls. */
+.cerebro-image__pane {
+  display: flex;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 100%;
+  min-height: 100%;
+}
+
+.cerebro-image__canvas {
+  position: relative;
+  flex: none;
+  margin: auto;
+  padding: 2px;
+  line-height: 0;
+}
+
+/* IntelliJ's: 5px cells, white and light grey, under the image alone. */
+.cerebro-image__canvas--chessboard {
+  background-color: var(--cerebro-image-chessboard-white);
+  background-image: conic-gradient(
+    var(--cerebro-image-chessboard-black) 25%,
+    var(--cerebro-image-chessboard-white) 0 50%,
+    var(--cerebro-image-chessboard-black) 0 75%,
+    var(--cerebro-image-chessboard-white) 0
+  );
+  background-size: 10px 10px;
+  background-origin: content-box;
+  background-clip: content-box;
+}
+
+.cerebro-image__img {
+  display: block;
+}
+
+/* Enlarged, a pixel is a square, as IntelliJ draws it; shrunk, it's smoothed. */
+.cerebro-image__img--pixels {
+  image-rendering: pixelated;
+}
+
+/* A line at each cell's left and top; the cells are sized to the image's pixels. */
+.cerebro-image__grid {
+  position: absolute;
+  background-image:
+    linear-gradient(to right, var(--cerebro-image-grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--cerebro-image-grid) 1px, transparent 1px);
+  pointer-events: none;
+}
+
+.cerebro-image__error {
+  margin: 0;
+  padding: 16px;
+  color: var(--cerebro-text-muted);
+  text-align: center;
+}

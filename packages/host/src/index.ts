@@ -64,6 +64,7 @@ export {
   listFolder,
   MAPPED_WAIT,
   MAX_FILE_SIZE,
+  readFileBytes,
   readTextFile,
   toSlashes,
   UnreadableFile,

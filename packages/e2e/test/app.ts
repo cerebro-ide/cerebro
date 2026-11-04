@@ -39,6 +39,7 @@ export const KEYS = {
   collapseAll: mac ? 'Meta+Shift+Minus' : 'Control+Shift+Minus',
   expandAll: mac ? 'Meta+Shift+Equal' : 'Control+Shift+Equal',
   prettier: mac ? 'Meta+Alt+Shift+P' : 'Control+Alt+Shift+P',
+  zoomOut: mac ? 'Meta+Minus' : 'Control+Minus',
 } as const;
 
 let runs = 0;

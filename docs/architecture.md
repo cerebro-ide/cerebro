@@ -29,7 +29,7 @@ One TypeScript monorepo. Each package is a library with its own tests:
 |---|---|
 | `reactive` | signal, computed, effect, batch; a MobX-style layer; observable collections and nested objects |
 | `jsx` | the JSX runtime: builds DOM directly, binds reactive functions |
-| `ui-*` | components: docking, menus, tree, list, tabs, dialogs, diff and merge views |
+| `ui-*` | components: docking, menus, tree, list, tabs, dialogs, diff and merge views, an image viewer |
 | `protocol` | message types and the JSON-RPC transport between UI and host |
 | `plugin-api` | contribution points: views, commands, menus, language support, agent CLIs, index backends |
 | `host` | the host process, assembled from host-side packages (git, files, index, LSP pool, terminals, sessions) |

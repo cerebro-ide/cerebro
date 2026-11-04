@@ -66,6 +66,8 @@ import {
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
+import '@cerebro-ide/ui-image/styles.css';
+import { ImageTab, isImage, setupImages } from './images.js';
 import {
   active,
   activeProject,
@@ -202,6 +204,7 @@ async function closeActiveProject(): Promise<void> {
 }
 await setupProjects(services.commands, services.menus, closeActiveProject);
 setupLog(services);
+setupImages(services);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
@@ -1222,13 +1225,18 @@ render(
               area={env.editor}
               content={(tab) => {
                 const diff = diffPath(tab.id);
-                return diff === undefined ? (
-                  <Code path={tab.id} env={env.id} />
+                if (diff !== undefined) {
+                  return <Diff path={diff} env={env.id} range={diffRange(tab.id)} />;
+                }
+                return isImage(tab.id) ? (
+                  <ImageTab path={tab.id} services={services} />
                 ) : (
-                  <Diff path={diff} env={env.id} range={diffRange(tab.id)} />
+                  <Code path={tab.id} env={env.id} />
                 );
               }}
-              icon={(tab) => icon(diffPath(tab.id) === undefined ? 'file' : 'diff')}
+              icon={(tab) =>
+                icon(diffPath(tab.id) !== undefined ? 'diff' : isImage(tab.id) ? 'image' : 'file')
+              }
               hasErrors={(tab) => hasErrors(tab.id)}
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
