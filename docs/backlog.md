@@ -19,19 +19,6 @@ project/worktree and so the changes window needs to be aware of this". Not to wo
 are listed per worktree, whichever session they came from; with several Claude sessions as tabs
 (above), the window needs to tell them apart.
 
-### A first example plugin: Prettier (later)
-
-From Ido (2026-11-04): "somewhere down the line i'd also want to see an example of a plugin. maybe
-a good start would be prettier, which similar to intellij plugin will add settings menu to
-configure it, including "run on save" functionality, add a context menu option, and a keyboard
-shortcut that could be mapped." As IntelliJ's Prettier plugin:
-- a Settings page to configure it, with "Run on save";
-- Reformat with Prettier in the editor's context menu;
-- a keyboard shortcut for it, which the keymap can change.
-
-It's built on the plugin registry and its contribution points (decision "Plugins"). It comes after
-Rename, File Structure, Reformat Code and folding.
-
 ### Binaries with the installer (later)
 
 From Ido (2026-11-04): "regarding binary installs, remember that eventually we'll build an
