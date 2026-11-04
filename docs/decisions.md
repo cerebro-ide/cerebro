@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1632,6 +1633,36 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## The Git Log (2026-11-04)
+
+The Git tool window's Log tab, as IntelliJ's (Ido: "yes, go ahead"), in three PRs: the commit list
+and graph (this one); a commit's details, files and diffs; the branches pane and filters.
+
+- **The host's `git.log`** lists a page of commits (`skip`, `max`): every local branch, remote
+  branch and tag, and HEAD, in date order (`--date-order`, as IntelliJ's default); each with its
+  parents, author, time, subject and refs as git decorates them in full. Cerebro's own refs
+  (`refs/worktree/cerebro/`) aren't listed. A repository with no commits has an empty log.
+- **The graph is laid out in the page, a page at a time** (`log-graph.ts`), newest first: a commit
+  takes the first lane waiting for it, its first parent its lane on down, other parents a free lane
+  and a new colour; lines waiting for the same commit run side by side and join at it, as IntelliJ
+  draws two heads on one base. Each row is as wide as its own lanes, its text after them, as
+  IntelliJ's. Claude's design, open to change: IntelliJ's own layout (its graph's "long edges" cut
+  short with arrows, and its order within a day) isn't copied.
+- **Colours are IntelliJ's:** the graph's from DefaultColorGenerator (saturation 0.4, brightness
+  0.65), its first eight, the same in both themes; the refs' from VcsLogStandardColors (the branch
+  checked out yellow, local green, remote purple, tags grey). Computed from IntelliJ's source, not
+  measured on screen. **Claims:** the lane's width (14px), the dot's size, the refs' marks (a
+  square before the name), the author's and date's column widths, and dates as "Today 10:15",
+  "Yesterday 10:15" or the system's short date and time.
+- **Loading:** 1000 commits a page, the next as the list scrolls within 100 rows of its end. The
+  list is read again when the window is shown and when the app gets the focus back, as open files
+  are re-read; it's kept as it is when the first page is the same. A page asked for before the list
+  was read again is dropped. Claude's choices, open to change.
+- **Not yet:** the toolbar (Refresh, filters) and the branches pane (the third PR); a commit's
+  details, changed files and their diffs (the second); the right-click menu (Copy Revision Number,
+  Checkout Revision); IntelliJ's Log is a tab beside Console in the Git window, here it's all the
+  window holds.
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 

@@ -44,6 +44,7 @@ import {
   listChangesBetween,
   listIgnored,
   lastMessage,
+  log,
   rollback,
   textAt,
   listWorktrees,
@@ -393,6 +394,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       : undefined;
   };
   // A worktree's changes since its last commit, or from one commit to another.
+  // The Git tool window's Log: a page of commits, `max` after the first `skip`.
+  connection.onRequest('git.log', (params) => {
+    const { skip, max } = params as { skip?: unknown; max?: unknown };
+    if (!Number.isInteger(skip) || !Number.isInteger(max)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'skip and max must be integers');
+    }
+    return log(text(params, 'worktree'), skip as number, max as number, git);
+  });
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);

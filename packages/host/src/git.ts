@@ -342,3 +342,81 @@ export async function textAt(
 export function committedText(worktree: string, path: string, run: Git = git): Promise<string> {
   return textAt(worktree, 'HEAD', path, run);
 }
+
+/** A commit, as the Git tool window's Log lists it. */
+export interface LogCommit {
+  hash: string;
+  parents: string[];
+  author: string;
+  email: string;
+  /** When it was authored, in milliseconds since the epoch. */
+  time: number;
+  subject: string;
+  /** The refs at it, as git names them in full (`refs/heads/main`, `HEAD`, `tag: refs/tags/v1`). */
+  refs: string[];
+}
+
+/** The fields of a commit in `git log`'s output, a unit separator between them. */
+const LOG_FORMAT = ['%H', '%P', '%an', '%ae', '%at', '%D', '%s'].join('%x1f');
+
+/** Reads `git log -z` in LOG_FORMAT: a commit per NUL-ended record. */
+export function parseLog(output: string): LogCommit[] {
+  return output
+    .split('\0')
+    .filter((record) => record !== '')
+    .map((record) => {
+      const [hash, parents, author, email, time, refs, subject] = record.split('\x1f') as [
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+        string,
+      ];
+      return {
+        hash,
+        parents: parents === '' ? [] : parents.split(' '),
+        author,
+        email,
+        time: Number(time) * 1000,
+        subject,
+        refs: refs === '' ? [] : refs.split(', '),
+      };
+    });
+}
+
+/**
+ * The commits of every branch, remote branch and tag, and HEAD, as IntelliJ's Log shows them
+ * (Branch: All), newest first with each after its children (`--date-order`); `max` of them after
+ * the first `skip`. None in a repository with no commits yet. Cerebro's own refs aren't among them.
+ */
+export async function log(
+  worktree: string,
+  skip: number,
+  max: number,
+  run: Git = git,
+): Promise<LogCommit[]> {
+  let output: string;
+  try {
+    output = await run(worktree, [
+      'log',
+      '-z',
+      '--date-order',
+      '--decorate=full',
+      `--format=${LOG_FORMAT}`,
+      `--skip=${String(skip)}`,
+      `--max-count=${String(max)}`,
+      '--branches',
+      '--remotes',
+      '--tags',
+      'HEAD',
+      '--',
+    ]);
+  } catch (error) {
+    // HEAD names a branch with no commits yet.
+    if (/bad revision 'HEAD'/.test((error as Error).message)) return [];
+    throw error;
+  }
+  return parseLog(output);
+}

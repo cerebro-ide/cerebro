@@ -107,6 +107,23 @@
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
   --cerebro-vcs-ignored: #a8a35a;
+  /*
+   * The Git Log's graph, a branch's colour by its number, the same in both themes: IntelliJ's
+   * DefaultColorGenerator's first eight (saturation 0.4, brightness 0.65). Its refs' labels:
+   * VcsLogStandardColors (the current branch's tip, local and remote branches, tags).
+   */
+  --cerebro-log-graph-0: #639ba6;
+  --cerebro-log-graph-1: #7663a6;
+  --cerebro-log-graph-2: #6374a6;
+  --cerebro-log-graph-3: #63a695;
+  --cerebro-log-graph-4: #8b63a6;
+  --cerebro-log-graph-5: #6363a6;
+  --cerebro-log-graph-6: #63a663;
+  --cerebro-log-graph-7: #6da663;
+  --cerebro-log-ref-head: #e1c731;
+  --cerebro-log-ref-local: #3cb45c;
+  --cerebro-log-ref-remote: #9f79b5;
+  --cerebro-log-ref-tag: #999999;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #548af7;
   --cerebro-agent-waiting: #e5a345;
@@ -249,6 +266,9 @@
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;
   --cerebro-vcs-ignored: #7d7a2a;
+  /* The Git Log's refs, where IntelliJ's light colours differ (VcsLogStandardColors). */
+  --cerebro-log-ref-head: #ffd100;
+  --cerebro-log-ref-tag: #7a7a7a;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #3574f0;
   --cerebro-agent-waiting: #c77d0e;
