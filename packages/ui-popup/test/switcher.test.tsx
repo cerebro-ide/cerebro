@@ -4,7 +4,12 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { userEvent } from 'vitest/browser';
 import { afterEach, describe, expect, it } from 'vitest';
-import { openSwitcher, type SwitcherHandle, type SwitcherItem, type SwitcherOptions } from '../src/index.js';
+import {
+  openSwitcher,
+  type SwitcherHandle,
+  type SwitcherItem,
+  type SwitcherOptions,
+} from '../src/index.js';
 
 const open: SwitcherHandle<unknown>[] = [];
 
@@ -78,7 +83,7 @@ describe('the Switcher', () => {
     expect(status()).toBe('');
     await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
     expect(selected()).toBe('right:c.ts');
-    await userEvent.keyboard('{Tab}{Tab}{Tab}{Tab}');
+    await userEvent.keyboard('{Tab}{Tab}{Tab}');
     expect(selected()).toBe('right:a.ts');
     // Other keys going up don't choose.
     await userEvent.keyboard('{Shift}');
@@ -158,9 +163,9 @@ describe('the Switcher', () => {
 
   it('chooses an item clicked, and closes on a press outside or as the window loses the focus', async () => {
     let handle = switcher();
-    const row = [...document.querySelectorAll<HTMLElement>('.cerebro-switcher .cerebro-popup-item')].at(
-      -1,
-    ) as HTMLElement;
+    const row = [
+      ...document.querySelectorAll<HTMLElement>('.cerebro-switcher .cerebro-popup-item'),
+    ].at(-1) as HTMLElement;
     await userEvent.click(row);
     expect(await handle.result).toBe(FILES[2]);
     handle = switcher();
@@ -177,6 +182,23 @@ describe('the Switcher', () => {
     switcher({ left: [], right: FILES, initial: { side: 'right', index: 0 } });
     expect(document.querySelector('[data-side="left"]')).toBeNull();
     expect(selected()).toBe('right:a.ts');
+  });
+
+  it('goes round one list when the other is empty, and does nothing with both empty', async () => {
+    switcher({ left: [], right: FILES.slice(0, 1), initial: { side: 'right', index: 0 } });
+    await userEvent.keyboard('{Tab}');
+    expect(selected()).toBe('right:a.ts');
+    await userEvent.keyboard('{Escape}');
+    const handle = switcher({
+      left: TOOLS.slice(0, 1),
+      right: [],
+      initial: { side: 'left', index: 0 },
+      close: () => true,
+    });
+    await userEvent.keyboard('{Delete}');
+    expect(labels('left')).toEqual([]);
+    await userEvent.keyboard('{ArrowDown}{Tab}{Enter}');
+    expect(await handle.result).toBeUndefined();
   });
 
   it('keeps keys from the app’s shortcuts while it’s open', async () => {

@@ -44,7 +44,8 @@ function toolEntries(services: MenuServices, tools: ToolWindows): Entry[] {
   let next = 0;
   for (const window of windows) {
     if (mnemonics.has(window.id)) continue;
-    let mnemonic = [...window.title].find((c) => c !== c.toLowerCase() && !taken.has(c));
+    // A to Z only: keys are matched by where they are, as Digit1 or KeyA.
+    let mnemonic = window.title.match(/[A-Z]/g)?.find((c) => !taken.has(c));
     while (mnemonic === undefined && next < 36) {
       const candidate = next.toString(36).toUpperCase();
       next++;
@@ -158,9 +159,11 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
             setup.tools.hide(entry.id);
             return false;
           }
-          for (const group of area?.groups ?? []) {
+          // Listed from the area: there's one.
+          const tabs = area as EditorArea;
+          for (const group of tabs.groups) {
             if (group.tabs.some((tab) => tab.id === entry.tab.id))
-              area?.close(group.id, entry.tab.id);
+              tabs.close(group.id, entry.tab.id);
           }
           return true;
         },
