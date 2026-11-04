@@ -59,7 +59,7 @@ it('lists the commits newest first, with the graph and the refs at each', async 
   await expect.poll(subjects, HOST).toEqual(['Merge side', 'On main', 'On the side', 'First']);
   const refs = (row: number) =>
     page()
-      .locator('.cerebro-tool-window[data-id="git"] .cerebro-tree-row')
+      .locator('.cerebro-tool-window[data-id="git"] .playground-log__list .cerebro-tree-row')
       .nth(row)
       .locator('.playground-log__ref')
       .allTextContents();
@@ -86,4 +86,22 @@ it('shows a commit’s files and message, and opens a file’s diff between it a
   // The diff: the first commit's text on the left, the side's on the right.
   const added = page().locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
   await expect.poll(() => added.allTextContents(), HOST).toEqual(['On the side']);
+});
+
+it('filters by the branch double-clicked in its pane, or chosen in the toolbar, and refreshes', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  const branch = log.locator('.playground-log__branches .cerebro-tree-row', { hasText: /^side$/ });
+  await branch.waitFor(HOST);
+  await branch.dblclick({ force: true });
+  await expect.poll(subjects, HOST).toEqual(['On the side', 'First']);
+  const filter = log.locator('.playground-log__toolbar .cerebro-toolbar-dropdown');
+  expect(await filter.textContent()).toBe('Branch: side');
+  await filter.click({ force: true });
+  await page().locator('.cerebro-popup-item', { hasText: 'All' }).first().waitFor();
+  await page().keyboard.press('Enter');
+  await expect.poll(subjects, HOST).toHaveLength(5);
+  // A commit made outside the app shows on Refresh.
+  commit('After refresh');
+  await log.locator('[data-command="log.refresh"]').click({ force: true });
+  await expect.poll(async () => (await subjects())[0], HOST).toBe('After refresh');
 });

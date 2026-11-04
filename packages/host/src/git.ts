@@ -395,12 +395,14 @@ export function parseLog(output: string): LogCommit[] {
  * The commits of every branch, remote branch and tag, and HEAD, as IntelliJ's Log shows them
  * (Branch: All), newest first with each after its children (`--date-order`); `max` of them after
  * the first `skip`. None in a repository with no commits yet. Cerebro's own refs aren't among them.
+ * Given `branches` (refs in full, or HEAD), only theirs: the Log's Branch filter.
  */
 export async function log(
   worktree: string,
   skip: number,
   max: number,
   run: Git = git,
+  branches?: readonly string[],
 ): Promise<LogCommit[]> {
   let output: string;
   try {
@@ -412,10 +414,9 @@ export async function log(
       `--format=${LOG_FORMAT}`,
       `--skip=${String(skip)}`,
       `--max-count=${String(max)}`,
-      '--branches',
-      '--remotes',
-      '--tags',
-      'HEAD',
+      ...(branches
+        ? ['--end-of-options', ...branches]
+        : ['--branches', '--remotes', '--tags', 'HEAD']),
       '--',
     ]);
   } catch (error) {
@@ -424,4 +425,30 @@ export async function log(
     throw error;
   }
   return parseLog(output);
+}
+
+/** A local or remote branch, for the Log's branches. */
+export interface Branch {
+  /** In full: `refs/heads/main`, `refs/remotes/origin/main`. */
+  ref: string;
+  /** The commit it's at. */
+  hash: string;
+  /** Checked out in this worktree. */
+  current: boolean;
+}
+
+/** The repository's local and remote branches, but not a remote's HEAD, which names another. */
+export async function listBranches(worktree: string, run: Git = git): Promise<Branch[]> {
+  const output = await run(worktree, [
+    'for-each-ref',
+    '--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)',
+    'refs/heads',
+    'refs/remotes',
+  ]);
+  return output
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split('\t') as [string, string, string, string])
+    .filter(([, , , symref]) => symref === '')
+    .map(([ref, hash, head]) => ({ ref, hash, current: head === '*' }));
 }

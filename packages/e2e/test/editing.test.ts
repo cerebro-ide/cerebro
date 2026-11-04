@@ -172,11 +172,35 @@ it('saves a file on its own after the idle time set in System Settings, or not w
   await ok();
   try {
     await open('second.ts');
+    // What could put the save off: a key or the mouse after the edit, which starts the idle time
+    // again, or the page busy (a long task).
+    await page().evaluate(() => {
+      const probe = { events: [] as string[], busy: [] as string[] };
+      const at = (t: number) => `${String(Math.round(t))} ms`;
+      for (const type of ['keydown', 'pointerdown', 'wheel']) {
+        window.addEventListener(
+          type,
+          (event) => {
+            probe.events.push(
+              `${type} ${event instanceof KeyboardEvent ? event.key : ''} at ${at(event.timeStamp)}`,
+            );
+          },
+          { capture: true },
+        );
+      }
+      new PerformanceObserver((list) => {
+        for (const task of list.getEntries())
+          probe.busy.push(`${at(task.duration)} at ${at(task.startTime)}`);
+      }).observe({ type: 'longtask' });
+      (window as { idleProbe?: typeof probe }).idleProbe = probe;
+    });
     await page().keyboard.type(' idle');
     const typed = performance.now();
+    const typedInPage = await page().evaluate(() => Math.round(performance.now()));
     // The editor keeps the focus: saved for being idle, not for losing it.
-    // Not saved in time once locally and once in CI (2026-11-04; cause not found), though the editor
-    // had the text and the focus, and it was saved later: what the settings were, and when it was.
+    // Not saved in time locally and in CI (2026-11-04; cause not found), though the editor had the
+    // text and the focus, the setting was 1 s, and it was saved 7 s after the edit: what started the
+    // idle time again, or kept the page busy, and when it was saved.
     await expect
       .poll(() => disk(second), { timeout: 5_000 })
       .toBe('const second = 3; // autosaved idle\n')
@@ -197,6 +221,8 @@ it('saves a file on its own after the idle time set in System Settings, or not w
           focused: await page().evaluate(() => document.hasFocus()),
           active: await page().evaluate(() => document.activeElement?.className),
           settings,
+          typedAt: `${String(typedInPage)} ms`,
+          probe: await page().evaluate(() => (window as { idleProbe?: unknown }).idleProbe),
           savedAfter: disk(second).includes('idle')
             ? `${String(Math.round(performance.now() - typed))} ms`
             : 'not in 35 s',
