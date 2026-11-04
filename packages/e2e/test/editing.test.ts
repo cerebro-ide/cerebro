@@ -174,9 +174,18 @@ it('saves a file on its own after the idle time set in System Settings, or not w
     await open('second.ts');
     await page().keyboard.type(' idle');
     // The editor keeps the focus: saved for being idle, not for losing it.
+    // Not saved once in a full local run (2026-11-04; cause not found): what the page had then.
     await expect
       .poll(() => disk(second), { timeout: 5_000 })
-      .toBe('const second = 3; // autosaved idle\n');
+      .toBe('const second = 3; // autosaved idle\n')
+      .catch(async (error: unknown) => {
+        console.log('Not saved when idle:', {
+          editor: await shown(),
+          focused: await page().evaluate(() => document.hasFocus()),
+          active: await page().evaluate(() => document.activeElement?.className),
+        });
+        throw error;
+      });
     await system();
     await idle.uncheck();
     await ok();

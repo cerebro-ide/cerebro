@@ -21,7 +21,7 @@ it('serves over stdio, for CEREBRO_REPO or the folder it started in', async () =
   vi.unstubAllEnvs();
   expect(host.serve).toHaveBeenCalledWith(process.stdin, process.stdout, {
     repo: '/chosen',
-    languageServers: { ids: ['typescript', 'python', 'bash', 'yaml'] },
+    languageServers: { ids: ['typescript', 'python', 'bash', 'yaml', 'web'] },
   });
   vi.resetModules();
   vi.stubEnv('CEREBRO_REPO', undefined);

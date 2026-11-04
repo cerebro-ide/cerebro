@@ -47,6 +47,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
 - [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
+- [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
@@ -1068,7 +1069,8 @@ change.
   server's answer shows without that heading. Find usages leaves the declaration out, as
   IntelliJ's.
 - **Not yet:**
-  - **HTML, CSS, JSON and Markdown:** they gain little for navigation. With diagnostics,
+  - **HTML, CSS, JSON and Markdown:** (changed 2026-11-04: JSON, CSS and HTML have a server of
+    Cerebro's own; see "JSON, CSS and HTML: a language server of Cerebro's own".) They gain little for navigation. With diagnostics,
     completions and hover, Cerebro would wrap Microsoft's maintained libraries
     (`vscode-css-languageservice` and the others) itself. vscode-langservers-extracted, last
     released in 2024 with TypeScript 4, wraps the same libraries, and marksman isn't on npm.
@@ -1545,6 +1547,45 @@ and Quick Documentation").
 - **Not yet:** opening links, and going to a symbol's definition from its documentation;
   IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
   documentation of the completion chosen in the completion list; signature help.
+
+## JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)
+
+The plan's milestone 5: its other languages. Ido: "do them all", on JSON, CSS and HTML with a
+server of Cerebro's own. This changes part of "Language servers, first part", which left these out
+because they gave little for navigation. With errors, completion and Quick Documentation now in the
+editor, they give more. Claude's choices, open to change.
+
+- **One server of Cerebro's own** (`web.ts` in `servers`), on Microsoft's libraries, the ones VS
+  Code's own servers for these languages are made of: `vscode-json-languageservice` 5.7.2,
+  `vscode-css-languageservice` 6.3.10 and `vscode-html-languageservice` 5.6.2, behind
+  `vscode-languageserver` 10.1.2. Each is the newest stable release out for two weeks. JSON's
+  `latest` tag names a prerelease (6.0.0-next.3), so it's 5.7.2.
+  - **Rejected: vscode-langservers-extracted,** whose last release was in 2024 (4.10.0, per npm).
+  - **It's run by the host's Node** from its own entry, `web-main.js`, built beside the package's
+    index. The servers that are JavaScript (basedpyright, bash-language-server) run the same way.
+- **What it gives, measured with tests against the server itself:**
+  - JSON: syntax errors (no comments, or trailing commas, except in `.jsonc`, `tsconfig*.json`
+    and `jsconfig.json`, which VS Code also reads as JSON with comments); errors against a
+    schema; hover from the schema; completion of its keys.
+  - CSS, SCSS and Less: unknown properties, with "Rename to" fixes on Alt+Enter; hover;
+    completion; going from a variable's use to its definition, its usages, and highlights.
+  - HTML: hover, completion, and highlighting an element's other tag. The library finds no
+    errors in HTML.
+- **Schemas:** the one a file names (`"$schema"`), or SchemaStore's for its name, from
+  schemastore.org's catalog, as the YAML server does. Measured: `package.json`'s `"version": 1`
+  got "Incorrect type. Expected "string"", and `tsconfig.json`'s `"strict": "yes"` "Expected
+  "boolean"". A schema's reference to another beside it is resolved against its address. Before
+  that fix, one failed with "Unable to load schema from '/nodemon.json'" (measured).
+- **Answered as the client takes them:** the libraries write completions as snippets (`"name":
+  "$1"`), and the CSS fixes as versioned edits, whatever the client says it takes. VS Code takes
+  both. The server turns them into plain text, and into edits per file, when the client doesn't
+  take them, as Cerebro's doesn't.
+- **Not yet:**
+  - CSS and JavaScript inside HTML (`<style>`, `<script>`), which VS Code's HTML server serves
+    by handing them to the other services.
+  - Markdown, for which no server is on npm (marksman isn't).
+  - The caret placed inside a completion's quotes, as a snippet would place it.
+  - Images in documentation (the CSS hover's "Baseline" icon): their text shows instead.
 
 ## Gutter markers: what a member implements or overrides (2026-10-28)
 

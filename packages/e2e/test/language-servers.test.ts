@@ -198,6 +198,16 @@ beforeAll(async () => {
     join(repo, 'config.yaml'),
     '# yaml-language-server: $schema=./schema.json\nname: x\nnmae: y\n',
   );
+  // A value its schema doesn't allow, and a property CSS doesn't have.
+  writeFileSync(
+    join(repo, 'settings.schema.json'),
+    JSON.stringify({ type: 'object', properties: { name: { type: 'string' } } }),
+  );
+  writeFileSync(
+    join(repo, 'settings.json'),
+    '{\n  "$schema": "./settings.schema.json",\n  "name": 1\n}\n',
+  );
+  writeFileSync(join(repo, 'style.css'), '.a {\n  colr: red;\n}\n');
   writeFileSync(join(repo, 'lib.sh'), 'greet() {\n  echo hi\n}\n');
   writeFileSync(join(repo, 'other.sh'), 'greet() {\n  echo hello\n}\n\ngreet\n');
   writeFileSync(join(repo, 'main.sh'), 'source ./lib.sh\n\ngreet\n');
@@ -421,6 +431,7 @@ const problems = () =>
       [...(root?.querySelectorAll(`.cerebro-problem--${name}`) ?? [])].map((e) => e.textContent);
     return {
       errors: shown('error'),
+      warnings: shown('warning'),
       unused: shown('unused'),
       status: [...(root?.querySelectorAll('.cerebro-problems [title]') ?? [])].map((e) =>
         e.getAttribute('title'),
@@ -435,6 +446,7 @@ it('underlines errors, greys what is never read, and goes to the error with F2',
   try {
     await expect.poll(problems, { timeout: 30_000, interval: 500 }).toEqual({
       errors: ['return'],
+      warnings: [],
       unused: ['idle'],
       status: ['1 error', 'Previous Highlighted Error', 'Next Highlighted Error'],
       stripe: 1,
@@ -488,6 +500,34 @@ it('does the same for YAML, against its schema', async () => {
   } catch (error) {
     await explain(error, 'config.yaml', 2, 1, ['lsp.problems']);
   }
+}, 60_000);
+
+it('does the same for JSON, against its schema', async () => {
+  await openAt('settings.json', '"name"');
+  try {
+    await expect
+      .poll(async () => (await problems()).warnings, { timeout: 30_000, interval: 500 })
+      .toEqual(['1']);
+  } catch (error) {
+    await explain(error, 'settings.json', 2, 3, ['lsp.problems']);
+  }
+}, 60_000);
+
+it('fixes a CSS property’s name with Alt+Enter', async () => {
+  await openAt('style.css', 'colr');
+  try {
+    await expect
+      .poll(async () => (await problems()).warnings, { timeout: 30_000, interval: 500 })
+      .toEqual(['colr']);
+  } catch (error) {
+    await explain(error, 'style.css', 1, 3, ['lsp.problems', 'lsp.contextActions']);
+  }
+  await page().keyboard.press('Alt+Enter');
+  const items = popup().locator('.cerebro-popup-item');
+  await items.first().waitFor();
+  expect((await items.allTextContents())[0]).toBe("Rename to 'color'");
+  await page().keyboard.press('Enter');
+  await page().locator('.cm-line', { hasText: 'color: red;' }).waitFor();
 }, 60_000);
 
 it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async () => {

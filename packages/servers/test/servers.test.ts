@@ -8,6 +8,7 @@ import {
   servers,
   typescriptServer,
   withoutWindowsFolders,
+  webServer,
   yamlServer,
 } from '../src/index.js';
 
@@ -135,9 +136,39 @@ describe('yamlServer', () => {
   });
 });
 
+describe('webServer', () => {
+  it('serves JSON, CSS, SCSS, Less and HTML, by extension; JSON with comments where its tools read them', () => {
+    const spec = webServer();
+    expect(spec.languageOf('/a/b.json')).toBe('json');
+    expect(spec.languageOf('/a/b.jsonc')).toBe('jsonc');
+    expect(spec.languageOf('/a/tsconfig.json')).toBe('jsonc');
+    expect(spec.languageOf('C:\\a\\tsconfig.build.json')).toBe('jsonc');
+    expect(spec.languageOf('/a/jsconfig.json')).toBe('jsonc');
+    expect(spec.languageOf('/a/my-tsconfig.json')).toBe('json');
+    expect(spec.languageOf('/a/B.CSS')).toBe('css');
+    expect(spec.languageOf('/a/b.scss')).toBe('scss');
+    expect(spec.languageOf('/a/b.less')).toBe('less');
+    expect(spec.languageOf('/a/b.html')).toBe('html');
+    expect(spec.languageOf('/a/b.htm')).toBe('html');
+    expect(spec.languageOf('/a/b.ts')).toBeUndefined();
+    expect(spec.languageOf('/a/Makefile')).toBeUndefined();
+  });
+
+  it('runs its entry, built beside this package’s, with the host’s Node', () => {
+    const { command, args } = webServer().command();
+    expect(command).toBe(process.execPath);
+    // From the source here, web-main.ts; from the build, web-main.js beside it.
+    expect(existsSync((args[0] as string).replace(/\.js$/, '.ts'))).toBe(true);
+    expect(webServer('/node', '/s/web-main.js').command()).toEqual({
+      command: '/node',
+      args: ['/s/web-main.js'],
+    });
+  });
+});
+
 describe('servers', () => {
   it('runs every server, or only those named, or none', () => {
-    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml']);
+    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml', 'web']);
     expect(servers('python').map((s) => s.id)).toEqual(['python']);
     expect(servers(' python , typescript').map((s) => s.id)).toEqual(['typescript', 'python']);
     expect(servers('')).toEqual([]);
@@ -150,7 +181,8 @@ describe('serverFor', () => {
     expect(serverFor('/a/b.ts')?.languageId).toBe('typescript');
     expect(serverFor('/a/b.py')?.spec.id).toBe('python');
     expect(serverFor('/a/b.yml')?.spec.id).toBe('yaml');
+    expect(serverFor('/a/b.css')?.spec.id).toBe('web');
     expect(serverFor('/a/b.txt')).toBeUndefined();
-    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml']);
+    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml', 'web']);
   });
 });
