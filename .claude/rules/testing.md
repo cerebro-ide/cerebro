@@ -27,6 +27,11 @@ paths:
   `ui-editor` and `playground`): under WSL the clock steps back about 2.4 s every 30 s (measured),
   and CodeMirror times a hover and its completion list's first 75 ms with `Date.now()`. A package
   with new CodeMirror tests that wait on either gets the same setup.
+- **A browser test file that never loads** ("Failed to fetch dynamically imported module", or an
+  iframe that never becomes ready) can be Chrome cancelling requests in flight when the machine's
+  network changes (`ERR_NETWORK_CHANGED` in its net log, `--log-net-log`). Measured on 2026-11-03:
+  a Docker container restarting in a loop added an interface each minute. `ip monitor address`
+  shows such changes.
 - **A page that runs as it's imported** (`main.tsx`, `welcome.tsx`, `boot.ts`) has a test file
   for each way it starts (`main-browser`, `main-app`, `main-mac`, `main-reload`): each sets up
   `window.cerebro` and `#app`, then imports it. A module that reads something as it's imported

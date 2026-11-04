@@ -8,6 +8,7 @@ import {
   servers,
   typescriptServer,
   withoutWindowsFolders,
+  yamlServer,
 } from '../src/index.js';
 
 describe('typescriptServer', () => {
@@ -115,9 +116,28 @@ describe('bashServer', () => {
   });
 });
 
+describe('yamlServer', () => {
+  it('serves YAML, by extension', () => {
+    const spec = yamlServer();
+    expect(spec.languageOf('/a/b.yaml')).toBe('yaml');
+    expect(spec.languageOf('/a/B.YML')).toBe('yaml');
+    expect(spec.languageOf('/a/b.json')).toBeUndefined();
+  });
+
+  it('runs yaml-language-server, installed with it, with the host’s Node', () => {
+    const { command, args } = yamlServer().command();
+    expect(command).toBe(process.execPath);
+    expect(existsSync(args[0] as string)).toBe(true);
+    expect(yamlServer('/node', (id) => `/m/${id}`).command()).toEqual({
+      command: '/node',
+      args: ['/m/yaml-language-server/bin/yaml-language-server', '--stdio'],
+    });
+  });
+});
+
 describe('servers', () => {
   it('runs every server, or only those named, or none', () => {
-    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash']);
+    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml']);
     expect(servers('python').map((s) => s.id)).toEqual(['python']);
     expect(servers(' python , typescript').map((s) => s.id)).toEqual(['typescript', 'python']);
     expect(servers('')).toEqual([]);
@@ -129,7 +149,8 @@ describe('serverFor', () => {
     expect(serverFor('/a/b.ts')?.spec.id).toBe('typescript');
     expect(serverFor('/a/b.ts')?.languageId).toBe('typescript');
     expect(serverFor('/a/b.py')?.spec.id).toBe('python');
+    expect(serverFor('/a/b.yml')?.spec.id).toBe('yaml');
     expect(serverFor('/a/b.txt')).toBeUndefined();
-    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash']);
+    expect(servers().map((s) => s.id)).toEqual(['typescript', 'python', 'bash', 'yaml']);
   });
 });

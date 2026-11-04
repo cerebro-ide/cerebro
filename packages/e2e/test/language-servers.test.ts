@@ -189,6 +189,15 @@ beforeAll(async () => {
   writeFileSync(join(repo, 'lib.py'), 'def walk():\n    pass\n');
   writeFileSync(join(repo, 'other.py'), 'def walk():\n    pass\n\nwalk()\n');
   writeFileSync(join(repo, 'main.py'), 'from lib import walk\n\nwalk()\n');
+  // A key its schema doesn't have.
+  writeFileSync(
+    join(repo, 'schema.json'),
+    JSON.stringify({ type: 'object', properties: { name: {} }, additionalProperties: false }),
+  );
+  writeFileSync(
+    join(repo, 'config.yaml'),
+    '# yaml-language-server: $schema=./schema.json\nname: x\nnmae: y\n',
+  );
   writeFileSync(join(repo, 'lib.sh'), 'greet() {\n  echo hi\n}\n');
   writeFileSync(join(repo, 'other.sh'), 'greet() {\n  echo hello\n}\n\ngreet\n');
   writeFileSync(join(repo, 'main.sh'), 'source ./lib.sh\n\ngreet\n');
@@ -467,6 +476,17 @@ it('does the same for Python', async () => {
       .toEqual(['"text"']);
   } catch (error) {
     await explain(error, 'wrong.py', 1, 1, ['lsp.problems']);
+  }
+}, 60_000);
+
+it('does the same for YAML, against its schema', async () => {
+  await openAt('config.yaml', 'name');
+  try {
+    await expect
+      .poll(async () => (await problems()).errors, { timeout: 30_000, interval: 500 })
+      .toEqual(['nmae']);
+  } catch (error) {
+    await explain(error, 'config.yaml', 2, 1, ['lsp.problems']);
   }
 }, 60_000);
 

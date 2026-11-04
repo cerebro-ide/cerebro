@@ -833,6 +833,56 @@ describe('bash-language-server, for shell scripts', () => {
   }, 60_000);
 });
 
+describe('yaml-language-server, for YAML', () => {
+  const project = `${root}/yaml`;
+  // A schema of its own, named in the file (SchemaStore's come from the network).
+  const SCHEMA = JSON.stringify({
+    type: 'object',
+    properties: {
+      name: { type: 'string', description: 'What it’s called.' },
+      count: { type: 'number' },
+    },
+    additionalProperties: false,
+  });
+  const header = '# yaml-language-server: $schema=./schema.json\n';
+
+  it('finds a file’s problems: its syntax, and against its schema', async () => {
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'schema.json'), SCHEMA);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(
+      await servers.problems(project, { path: `${project}/a.yaml`, text: 'a: [1, 2\n' }),
+    ).toEqual([expect.objectContaining({ severity: 'error', source: 'YAML' })]);
+    const typo = { path: `${project}/b.yaml`, text: `${header}name: x\nnmae: y\n` };
+    expect(await servers.problems(project, typo)).toEqual([
+      expect.objectContaining({
+        from: { line: 2, column: 0 },
+        to: { line: 2, column: 4 },
+        severity: 'error',
+        message: 'Property nmae is not allowed.',
+      }),
+    ]);
+  }, 60_000);
+
+  it('says what a key is, and completes the keys its schema has', async () => {
+    const main = { path: `${project}/c.yml`, text: `${header}name: x\n` };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect((await servers.hover(project, main, at(1, 1)))?.text).toContain('What it’s called.');
+    const found = await servers.completions(project, { ...main, text: `${main.text}co` }, at(2, 2));
+    expect(found?.items.map((item) => item.label)).toEqual(['count']);
+  }, 60_000);
+
+  it('goes from an alias to its anchor', async () => {
+    const main = { path: `${project}/d.yaml`, text: 'a: &shared 1\nb: *shared\n' };
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.definitions(project, main, at(1, 5))).toEqual([
+      { path: main.path, line: 0, column: 11 },
+    ]);
+  }, 60_000);
+});
+
 describe('LanguageServers', () => {
   it('has no answer for a language without a server', async () => {
     const servers = pool([fake('links')]);

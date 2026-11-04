@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points
-- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, a lazy pool in the host, name matches meanwhile
+- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
@@ -1026,13 +1026,26 @@ change.
   - **Under WSL it gets a PATH without the Windows folders** (`/mnt/c/...`). It lists the PATH's
     programs before answering anything: measured 5.8 s to start with them, 257 ms without. Those
     programs only matter for completions.
+- **YAML: yaml-language-server 2.0.0** (changed 2026-11-03; published 2026-10-16, per npm), Red
+  Hat's, run by the host's Node. It waited until it had been out for two weeks. Its dependencies
+  were installed with `npm install --before=2026-10-20`, so none of them is newer than that.
+  Measured, with real-server tests: errors in the syntax and against a schema, hover from a
+  schema's descriptions, and completion of a schema's keys. From an alias, go to definition goes
+  to the anchored value, not to its `&` mark. It gives no usages, so Find Usages shows the name
+  matches.
+  - **SchemaStore's schemas, from the network:** with no settings, it fetches schemastore.org's
+    catalog and checks files whose names the catalog knows. Measured: a GitHub workflow's
+    misspelt key got "Property stepz is not allowed", from "yaml-schema: GitHub Workflow". IntelliJ
+    also uses SchemaStore by default (a claim). Claude's choice, open to change. The tests use a
+    schema named in the file instead (`# yaml-language-server: $schema=./schema.json`), so they
+    don't depend on the network.
 - **A server is asked once it's read the project,** when it says so. basedpyright reports no
   progress, but logs "Found N source files". Asked before then, it answers as if only the open
   files existed (measured: no usages in an unopened file at once; found 3 s later). Questions wait
   for that line, within the 3 seconds, and the name matches show meanwhile. bash-language-server
   likewise, on "BackgroundAnalysis: Completed" (measured the same way: no usages at once).
 - **`CEREBRO_LANGUAGE_SERVERS`** names the servers that run (`typescript`, `python`, `bash`,
-  comma-separated; empty for none; all when unset). The end-to-end tests of the name matches turn
+  `yaml`, comma-separated; empty for none; all when unset). The end-to-end tests of the name matches turn
   them off with it, since every language the index reads now has a server. It's also a way to rule
   a server out when something's wrong.
 - **A new package, `servers`,** says which server reads which file and how it's started.
@@ -1055,7 +1068,6 @@ change.
   server's answer shows without that heading. Find usages leaves the declaration out, as
   IntelliJ's.
 - **Not yet:**
-  - **YAML:** yaml-language-server 2.0.0 is under two weeks old, so it waits.
   - **HTML, CSS, JSON and Markdown:** they gain little for navigation. With diagnostics,
     completions and hover, Cerebro would wrap Microsoft's maintained libraries
     (`vscode-css-languageservice` and the others) itself. vscode-langservers-extracted, last
