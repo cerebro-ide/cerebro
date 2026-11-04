@@ -11,6 +11,7 @@ import {
   masksOf,
   placeOf,
   replaceLines,
+  SEARCH_DELAY,
   WHOLE_LIMIT,
   type TextMatch,
 } from '../src/find.js';
@@ -225,14 +226,25 @@ describe('Find in Files', () => {
   });
 
   it('searches as the user types, and opens a line at its match', async () => {
-    const { done } = await find('alpha');
+    const { done } = await find('');
+    // When each key's text came: a pause as long as the delay is a search (one came in CI).
+    const typed: { query: string; at: number }[] = [];
+    search().addEventListener('input', () => {
+      typed.push({ query: search().value, at: performance.now() });
+    });
+    await userEvent.type(search(), 'alpha');
+    await expect.poll(() => searches().at(-1)?.query).toBe('alpha');
     await expect
       .poll(labels)
       .toEqual(['const alpha = 1;', 'alpha(Alpha);', 'alpha test', 'Alphabet']);
     expect(count()).toBe('5 matches in 3 files');
-    // Once typing paused, not for each key.
-    expect(searches().map((s) => s.query)).toEqual(['alpha']);
-    expect(searches()[0]).toEqual({
+    // Once typing paused, not for each key: a search for less only after a pause.
+    for (const { query } of searches().slice(0, -1)) {
+      const i = typed.findIndex((t) => t.query === query);
+      const pause = (typed[i + 1]?.at ?? Infinity) - (typed[i]?.at ?? 0);
+      expect(pause).toBeGreaterThanOrEqual(SEARCH_DELAY);
+    }
+    expect(searches().at(-1)).toEqual({
       path: '/r',
       masks: [],
       query: 'alpha',
