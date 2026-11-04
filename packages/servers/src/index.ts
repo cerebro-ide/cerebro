@@ -4,6 +4,7 @@
 
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 /** A program to run, speaking LSP on its stdin and stdout. */
 export interface ServerCommand {
@@ -168,13 +169,45 @@ export function yamlServer(
   };
 }
 
+const WEB: Readonly<Record<string, string>> = {
+  '.json': 'json',
+  '.jsonc': 'jsonc',
+  '.css': 'css',
+  '.scss': 'scss',
+  '.less': 'less',
+  '.html': 'html',
+  '.htm': 'html',
+};
+
+/** JSON files whose tools read comments in them, as VS Code takes them. */
+const JSONC = /(^|[/\\])(tsconfig|jsconfig)(\.[^/\\]*)?\.json$/i;
+
+/**
+ * Cerebro's own server for JSON, CSS, SCSS, Less and HTML (`web.ts`), run by the host's Node from
+ * the entry built beside this file.
+ */
+export function webServer(
+  node: string = process.execPath,
+  entry: string = fileURLToPath(new URL('./web-main.js', import.meta.url)),
+): ServerSpec {
+  return {
+    id: 'web',
+    languageOf: (path) => {
+      const ext = extension(path);
+      const id = ext === undefined ? undefined : WEB[ext];
+      return id === 'json' && JSONC.test(path) ? 'jsonc' : id;
+    },
+    command: () => ({ command: node, args: [entry] }),
+  };
+}
+
 /**
  * The servers that run, in the order they're asked whether they serve a file: every one, or those
  * named in `only` (ids, comma-separated; empty for none), as CEREBRO_LANGUAGE_SERVERS says, for
  * tests of what shows without them, and to rule a server out when something's wrong.
  */
 export function servers(only?: string): ServerSpec[] {
-  const all = [typescriptServer(), pythonServer(), bashServer(), yamlServer()];
+  const all = [typescriptServer(), pythonServer(), bashServer(), yamlServer(), webServer()];
   if (only === undefined) return all;
   const ids = new Set(only.split(',').map((id) => id.trim()));
   return all.filter((spec) => ids.has(spec.id));
