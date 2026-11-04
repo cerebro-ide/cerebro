@@ -24,6 +24,7 @@ import {
   listIgnored,
   listWorktrees,
   lastMessage,
+  listBranches,
   log,
   parseLog,
   parseNameStatus,
@@ -247,7 +248,22 @@ describe('with real git', () => {
       refs: [],
     });
     expect((await log(history, 1, 2)).map((c) => c.subject)).toEqual(['on main', 'on side']);
+    // A branch's alone, as the Branch filter asks; a branch named as an option is a name.
+    expect((await log(history, 0, 10, git, ['refs/heads/side'])).map((c) => c.subject)).toEqual([
+      'on side',
+      'first',
+    ]);
+    await expect(log(history, 0, 10, git, ['--all'])).rejects.toThrow(/--all/);
     await expect(log(join(root, 'none'), 0, 1)).rejects.toThrow();
+    // The branches: local and remote, the one checked out marked; not a remote's HEAD.
+    run(history, 'update-ref', 'refs/remotes/origin/main', 'main');
+    run(history, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+    const hash = (ref: string) => run(history, 'rev-parse', ref).trim();
+    expect(await listBranches(history)).toEqual([
+      { ref: 'refs/heads/main', hash: hash('main'), current: true },
+      { ref: 'refs/heads/side', hash: hash('side'), current: false },
+      { ref: 'refs/remotes/origin/main', hash: hash('main'), current: false },
+    ]);
   });
 
   it('reads the changes without writing the index, which would lock out a stash run meanwhile', async () => {
