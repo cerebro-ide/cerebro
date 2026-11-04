@@ -106,8 +106,7 @@ const handle = (message) => {
     const name = message.params.textDocument.uri.endsWith('a.fake') ? 'A' : 'B';
     const run = { name: 'run', kind: 6, range: at(1, 2), selectionRange: at(1, 2) };
     const type = { name, kind: 5, range: at(0, 0), selectionRange: at(0, 6), children: [run] };
-    // And one flat, as SymbolInformation: left out.
-    send({ id, result: [type, { name: 'flat', kind: 12, location: {} }] });
+    send({ id, result: [type] });
   } else if (method === 'textDocument/prepareRename' || method === 'textDocument/rename') {
     if (mode === 'dies') process.exit(1);
     if (mode === 'fails') send({ id, error: { code: -32803, message: 'Not here.' } });

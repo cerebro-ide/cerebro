@@ -11,7 +11,13 @@ const symbol = (
   line: number,
   character: number,
   children: DocumentSymbol[] = [],
-): DocumentSymbol => ({ name, kind, selectionRange: { start: { line, character } }, children });
+): DocumentSymbol => ({
+  name,
+  kind,
+  range: { start: { line, character }, end: { line, character } },
+  selectionRange: { start: { line, character } },
+  children,
+});
 
 const place = (path: string, line: number, column: number): Place => ({ path, line, column });
 

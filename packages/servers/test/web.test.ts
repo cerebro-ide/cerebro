@@ -360,6 +360,31 @@ describe('HTML', () => {
   });
 });
 
+describe('symbols', () => {
+  /** A file's symbols as names, nested ones after `>`. */
+  const names = (symbols: { name: string; children?: unknown[] }[], owner = ''): string[] =>
+    symbols.flatMap((s) => [
+      `${owner}${s.name}`,
+      ...names((s.children ?? []) as typeof symbols, `${owner}${s.name} > `),
+    ]);
+  const symbols = (server: Awaited<ReturnType<typeof start>>, uri: string) =>
+    server.client.sendRequest<{ name: string }[] | null>('textDocument/documentSymbol', {
+      textDocument: { uri },
+    });
+
+  it('are a JSON file’s keys and an HTML file’s elements, nested, and a style sheet’s rules', async () => {
+    const server = await start();
+    const json = await server.open('s.json', 'json', '{ "a": { "b": 1 } }');
+    expect(names((await symbols(server, json.uri)) ?? [])).toEqual(['a', 'a > b']);
+    const css = await server.open('s.css', 'css', '.a { color: red; }\n:root { --x: 1; }\n');
+    // Its rules only, not the custom properties in them (measured).
+    expect(names((await symbols(server, css.uri)) ?? [])).toEqual(['.a', ':root']);
+    const html = await server.open('s.html', 'html', '<div><span></span></div>\n');
+    expect(names((await symbols(server, html.uri)) ?? [])).toEqual(['div', 'div > span']);
+    expect(await symbols(server, 'file:///nowhere.css')).toBeNull();
+  });
+});
+
 describe('withoutSnippet', () => {
   it('puts in plain text, where it’s put or as its edit, and leaves plain text alone', () => {
     const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
