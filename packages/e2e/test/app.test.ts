@@ -270,7 +270,11 @@ describe('popups', () => {
       console.log('Search Everywhere after "… more":', {
         actions: await actions(),
         popups: await page().locator('.cerebro-popup').count(),
-        query: await page().locator('.cerebro-popup input').first().inputValue().catch(() => null),
+        query: await page()
+          .locator('.cerebro-popup input')
+          .first()
+          .inputValue()
+          .catch(() => null),
       });
       throw error;
     }
