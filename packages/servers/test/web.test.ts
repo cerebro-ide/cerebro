@@ -416,6 +416,39 @@ describe('formatting', () => {
   });
 });
 
+describe('folding', () => {
+  it('folds a JSON file’s objects, a style sheet’s rules and an HTML file’s elements', async () => {
+    const server = await start();
+    /** Each fold's first and last lines, by its first (HTML's innermost come first, measured). */
+    const folds = async (uri: string) =>
+      (
+        await server.client.sendRequest<{ startLine: number; endLine: number }[] | null>(
+          'textDocument/foldingRange',
+          { textDocument: { uri } },
+        )
+      )
+        ?.map((r) => [r.startLine, r.endLine])
+        .sort((a, b) => (a[0] as number) - (b[0] as number));
+    const json = await server.open('g.json', 'json', '{\n  "a": {\n    "b": 1\n  }\n}\n');
+    expect(await folds(json.uri)).toEqual([
+      [0, 3],
+      [1, 2],
+    ]);
+    const css = await server.open('g.css', 'css', '.a {\n  color: red;\n}\n');
+    expect(await folds(css.uri)).toEqual([[0, 1]]);
+    const html = await server.open('g.html', 'html', '<div>\n  <p>\n    x\n  </p>\n</div>\n');
+    expect(await folds(html.uri)).toEqual([
+      [0, 3],
+      [1, 2],
+    ]);
+    expect(
+      await server.client.sendRequest('textDocument/foldingRange', {
+        textDocument: { uri: 'file:///nowhere.css' },
+      }),
+    ).toBeNull();
+  });
+});
+
 describe('withoutSnippet', () => {
   it('puts in plain text, where it’s put or as its edit, and leaves plain text alone', () => {
     const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } };
