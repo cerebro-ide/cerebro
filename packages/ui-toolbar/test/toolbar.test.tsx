@@ -137,6 +137,34 @@ describe('ToolbarButton', () => {
     expect(seen).toContain('here');
   });
 
+  it('shows a toggle pressed while it’s on, named as its command says now', () => {
+    const { commands } = setup();
+    const on = signal(false);
+    commands.register({
+      id: 'grid',
+      label: 'Grid',
+      text: (context) => `${on.get() ? 'Hide' : 'Show'} ${String(context)}`,
+      checked: () => on.get(),
+      run: () => {
+        on.set(!on.get());
+      },
+    });
+    const container = mount(() => [
+      <ToolbarButton commands={commands} command="grid" icon="g" context={() => 'Grid'} />,
+      <ToolbarButton commands={commands} command="one" icon="1" />,
+    ]);
+    const [button, plain] = container.querySelectorAll('button');
+    if (!button) throw new Error('no button');
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(button.getAttribute('aria-label')).toBe('Show Grid');
+    button.click();
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(button.classList.contains('cerebro-toolbar-button--pressed')).toBe(true);
+    expect(button.getAttribute('aria-label')).toBe('Hide Grid');
+    // Not a toggle: never pressed.
+    expect(plain?.hasAttribute('aria-pressed')).toBe(false);
+  });
+
   it('falls back to the command id for an unknown command', () => {
     const { commands } = setup();
     const container = mount(() => <ToolbarButton commands={commands} command="missing" icon="?" />);

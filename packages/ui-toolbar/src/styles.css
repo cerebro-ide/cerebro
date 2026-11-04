@@ -80,6 +80,11 @@
   background: var(--cerebro-hover);
 }
 
+/* A toggle that's on, as a tool window's stripe button (not measured). */
+.cerebro-toolbar-button--pressed {
+  background: var(--cerebro-stripe-selected);
+}
+
 .cerebro-toolbar-button:focus-visible,
 .cerebro-toolbar-dropdown:focus-visible {
   outline: 2px solid var(--cerebro-accent);
