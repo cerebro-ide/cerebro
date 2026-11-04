@@ -61,7 +61,9 @@ export function refsOf(decorations: readonly string[]): Ref[] {
 }
 
 const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  a.getFullYear() === b.getFullYear() &&
+  a.getMonth() === b.getMonth() &&
+  a.getDate() === b.getDate();
 
 /** A commit's date as IntelliJ's Log shows it: today's and yesterday's by name, with the time. */
 export function formatCommitDate(time: number, now = Date.now()): string {
@@ -81,7 +83,7 @@ const ROW = 24;
 const x = (lane: number) => lane * LANE + LANE / 2;
 
 /** A row's graph: its lines, then its dot over them. */
-function Graph(props: { row: GraphRow; width: number }) {
+function Graph(props: { row: GraphRow }) {
   const line = (edge: Edge, top: number) => (
     <line
       class={`playground-log__line playground-log__color-${String(edge.color)}`}
@@ -94,7 +96,7 @@ function Graph(props: { row: GraphRow; width: number }) {
   return (
     <svg
       class="playground-log__graph"
-      width={String(props.width * LANE)}
+      width={String(props.row.width * LANE)}
       height={String(ROW)}
       aria-hidden="true"
     >
@@ -114,8 +116,6 @@ function Graph(props: { row: GraphRow; width: number }) {
 class Log {
   readonly commits = signal<readonly LogCommit[]>([]);
   readonly graph = new Map<string, GraphRow>();
-  /** The widest row so far, in lanes. */
-  readonly width = signal(0);
   /** Why it couldn't be read. */
   readonly error = signal<string | undefined>(undefined);
   readonly loaded = signal(false);
@@ -149,14 +149,12 @@ class Log {
       this.graph.set((page[i] as LogCommit).hash, row);
     }
     this.done = page.length < PAGE;
-    this.width.set(this.layout.width);
     this.commits.set([...from, ...page]);
     void this.model.load(undefined, true);
   }
 
   /** Reads the first page again; what's loaded beyond it goes, unless it's all the same. */
   async reload(): Promise<void> {
-    await this.loading;
     try {
       const page = await this.ask(0);
       this.error.set(undefined);
@@ -173,14 +171,14 @@ class Log {
     this.loaded.set(true);
   }
 
-  /** Loads the next page, once, unless all are loaded. */
+  /** Loads the next page, once, unless all are loaded; dropped if the list is read again first. */
   more(): void {
-    if (this.done || this.loading || !this.loaded.peek()) return;
+    if (this.done || this.loading) return;
     const before = this.commits.peek();
     this.loading = this.ask(before.length)
       .then(
         (page) => {
-          this.take(page, before);
+          if (this.commits.peek() === before) this.take(page, before);
         },
         (error: unknown) => {
           this.error.set((error as Error).message);
@@ -203,7 +201,7 @@ function CommitRow(props: { commit: LogCommit; log: Log }) {
   // Drawn near the end of what's loaded: the next page loads.
   if (log.indexOf(commit.hash) >= log.commits.peek().length - AHEAD) log.more();
   return [
-    () => <Graph row={log.graph.get(commit.hash) as GraphRow} width={log.width.get()} />,
+    <Graph row={log.graph.get(commit.hash) as GraphRow} />,
     <span class="playground-log__subject">
       <span class="playground-log__message">{commit.subject}</span>
       {refsOf(commit.refs).map((ref) => (
@@ -225,7 +223,8 @@ export function GitLogView(): Node {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
         const host = hostFor(env.id);
-        if (!host) return <p class="playground-project__empty">The log shows in the desktop app.</p>;
+        if (!host)
+          return <p class="playground-project__empty">The log shows in the desktop app.</p>;
         if (!gitRepository.get()) {
           return <p class="playground-project__empty">Not a git repository</p>;
         }

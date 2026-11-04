@@ -25,6 +25,8 @@ export interface GraphRow {
   up: Edge[];
   /** From its dot (or straight through) to the row's bottom. */
   down: Edge[];
+  /** How many lanes it spans: its text starts after them, as IntelliJ's. */
+  width: number;
 }
 
 /** How many colours there are: a branch's is its number, round these. */
@@ -39,8 +41,6 @@ interface Lane {
 export class GraphLayout {
   private lanes: (Lane | undefined)[] = [];
   private colors = 0;
-  /** The widest a row has been: the graph's width, in lanes. */
-  width = 0;
 
   private newColor(): number {
     return this.colors++ % COLORS;
@@ -88,8 +88,7 @@ export class GraphLayout {
       });
       while (this.lanes.length > 0 && this.lanes.at(-1) === undefined) this.lanes.pop();
       const lanes = [lane, ...up.map((e) => e.from), ...down.map((e) => e.to)];
-      this.width = Math.max(this.width, ...lanes.map((l) => l + 1));
-      return { lane, color, up, down };
+      return { lane, color, up, down, width: Math.max(...lanes) + 1 };
     });
   }
 }

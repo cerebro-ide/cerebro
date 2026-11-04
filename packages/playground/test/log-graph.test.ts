@@ -6,7 +6,7 @@ const c = (hash: string, ...parents: string[]) => ({ hash, parents });
 describe('the Log’s graph', () => {
   it('runs a line of commits down one lane, in one colour', () => {
     const layout = new GraphLayout();
-    expect(layout.add([c('c', 'b'), c('b', 'a'), c('a')])).toEqual([
+    expect(layout.add([c('c', 'b'), c('b', 'a'), c('a')])).toMatchObject([
       { lane: 0, color: 0, up: [], down: [{ from: 0, to: 0, color: 0 }] },
       {
         lane: 0,
@@ -16,14 +16,13 @@ describe('the Log’s graph', () => {
       },
       { lane: 0, color: 0, up: [{ from: 0, to: 0, color: 0 }], down: [] },
     ]);
-    expect(layout.width).toBe(1);
   });
 
   it('gives a merge’s second parent a lane and colour of its own, until it joins', () => {
     // m merges s into b; s and b both come from a.
     const layout = new GraphLayout();
     const [m, b, s, a] = layout.add([c('m', 'b', 's'), c('b', 'a'), c('s', 'a'), c('a')]);
-    expect(m).toEqual({
+    expect(m).toMatchObject({
       lane: 0,
       color: 0,
       up: [],
@@ -33,7 +32,7 @@ describe('the Log’s graph', () => {
       ],
     });
     // The side branch's line runs straight on past b.
-    expect(b).toEqual({
+    expect(b).toMatchObject({
       lane: 0,
       color: 0,
       up: [
@@ -46,7 +45,7 @@ describe('the Log’s graph', () => {
       ],
     });
     // s is in its own lane, and its line runs on down it to a, where the two lines join.
-    expect(s).toEqual({
+    expect(s).toMatchObject({
       lane: 1,
       color: 1,
       up: [
@@ -58,7 +57,7 @@ describe('the Log’s graph', () => {
         { from: 1, to: 1, color: 1 },
       ],
     });
-    expect(a).toEqual({
+    expect(a).toMatchObject({
       lane: 0,
       color: 0,
       up: [
@@ -67,7 +66,8 @@ describe('the Log’s graph', () => {
       ],
       down: [],
     });
-    expect(layout.width).toBe(2);
+    // Each row as wide as the lanes it has lines in: the merge's two, the root's two.
+    expect([m, b, s, a].map((row) => row?.width)).toEqual([2, 2, 2, 2]);
   });
 
   it('joins two heads’ lines at the commit both wait for, and frees the lane', () => {
@@ -101,6 +101,12 @@ describe('the Log’s graph', () => {
     ]);
   });
 
+  it('makes each row as wide as its own lanes, narrower once lines join', () => {
+    const layout = new GraphLayout();
+    const rows = layout.add([c('x', 'base'), c('y', 'base'), c('base', 'root'), c('root')]);
+    expect(rows.map((row) => row.width)).toEqual([1, 2, 2, 1]);
+  });
+
   it('gives each of an octopus merge’s parents a lane', () => {
     const layout = new GraphLayout();
     const [m] = layout.add([c('m', 'p', 'q', 'r')]);
@@ -109,7 +115,7 @@ describe('the Log’s graph', () => {
       { from: 0, to: 1, color: 1 },
       { from: 0, to: 2, color: 2 },
     ]);
-    expect(layout.width).toBe(3);
+    expect(m?.width).toBe(3);
   });
 
   it('takes a gap left by a line that ended before a new lane at the end', () => {

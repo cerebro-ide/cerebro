@@ -208,6 +208,32 @@ describe('Find in Files', () => {
   });
 });
 
+describe('the Git window', () => {
+  it('shows the Log, on Alt+9', async () => {
+    answers.set('git.log', [
+      {
+        hash: 'c0',
+        parents: [],
+        author: 'Ada',
+        email: 'ada@example.com',
+        time: 0,
+        subject: 'First',
+        refs: ['HEAD -> refs/heads/main'],
+      },
+    ]);
+    await userEvent.keyboard('{Alt>}9{/Alt}');
+    await expect
+      .poll(
+        () =>
+          document.querySelector('.cerebro-tool-window[data-id="git"] .playground-log__message')
+            ?.textContent,
+      )
+      .toBe('First');
+    expect(host('/r').params('git.log')).toContainEqual({ worktree: '/r', skip: 0, max: 1000 });
+    await userEvent.keyboard('{Alt>}9{/Alt}');
+  });
+});
+
 describe('the Commit window', () => {
   it('is shown by Commit, its changes and shelved files opening their diffs', async () => {
     answers.set('git.changes', ({ from }: { from?: string }) =>

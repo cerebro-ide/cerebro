@@ -765,6 +765,11 @@ body,
   display: none;
 }
 
+/* The row's content takes its width: the author and date in columns at its end. */
+.playground-log .cerebro-tree-row__content {
+  flex: auto;
+}
+
 .playground-log__graph {
   flex: none;
 }
