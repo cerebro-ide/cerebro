@@ -11,7 +11,13 @@ const symbol = (
   line: number,
   character: number,
   children: DocumentSymbol[] = [],
-): DocumentSymbol => ({ name, kind, selectionRange: { start: { line, character } }, children });
+): DocumentSymbol => ({
+  name,
+  kind,
+  range: { start: { line, character }, end: { line, character } },
+  selectionRange: { start: { line, character } },
+  children,
+});
 
 const place = (path: string, line: number, column: number): Place => ({ path, line, column });
 
@@ -125,7 +131,12 @@ describe('gutter markers', () => {
     const b = {
       symbols: [
         // And one with no members.
-        { name: 'Lone', kind: CLASS, selectionRange: { start: { line: 9, character: 0 } } },
+        {
+          name: 'Lone',
+          kind: CLASS,
+          range: { start: { line: 9, character: 0 }, end: { line: 9, character: 0 } },
+          selectionRange: { start: { line: 9, character: 0 } },
+        },
         symbol('Outer', CLASS, 0, 0, [symbol('Inner', CLASS, 1, 0, [symbol('run', METHOD, 2, 0)])]),
       ],
     };
@@ -230,7 +241,12 @@ describe('gutter markers', () => {
       a: {
         text: 'class A {}\n',
         symbols: [
-          { name: 'A', kind: CLASS, selectionRange: { start: { line: 0, character: 6 } } },
+          {
+            name: 'A',
+            kind: CLASS,
+            range: { start: { line: 0, character: 6 }, end: { line: 0, character: 6 } },
+            selectionRange: { start: { line: 0, character: 6 } },
+          },
           symbol('B', CLASS, 1, 6, [symbol('run', METHOD, 9, 2)]),
         ],
       },

@@ -75,6 +75,28 @@ describe('openPicker', () => {
     expect(highlightedLabel()).toBe(labels()[0]);
   });
 
+  it('highlights the item chosen from those listed, as it opens and for each query', () => {
+    picker({ initial: (items) => items.findIndex((item) => item.label === 'main.ts') });
+    expect(highlightedLabel()).toBe('main.ts');
+    // Not listed: the first.
+    type('e');
+    expect(labels()).not.toContain('main.ts');
+    expect(highlightedLabel()).toBe(labels()[0]);
+    type('t');
+    expect(highlightedLabel()).toBe('main.ts');
+  });
+
+  it('indents an item by its depth in a tree', () => {
+    picker({
+      items: () => [{ label: 'Square' }, { label: 'area', depth: 1 }],
+    });
+    const [type, member] = [...document.querySelectorAll('.cerebro-popup-item')] as HTMLElement[];
+    expect(
+      parseFloat(getComputedStyle(member as HTMLElement).paddingLeft) -
+        parseFloat(getComputedStyle(type as HTMLElement).paddingLeft),
+    ).toBe(19);
+  });
+
   it('highlights what there is, asked for more than there is', () => {
     picker({ initial: 9 });
     expect(highlightedLabel()).toBe('shell.tsx');

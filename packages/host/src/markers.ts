@@ -34,6 +34,9 @@ export interface Marker {
 export interface DocumentSymbol {
   name: string;
   kind: number;
+  /** All of it: its body too. */
+  range: { start: { line: number; character: number }; end: { line: number; character: number } };
+  /** Its name. */
   selectionRange: { start: { line: number; character: number } };
   children?: DocumentSymbol[];
 }

@@ -345,7 +345,7 @@ async function recentFiles(editedOnly: boolean): Promise<void> {
     empty: 'No recent files',
     initial: 1,
     header: () => [
-      <span class="playground-recent__title">Recent Files</span>,
+      <span class="playground-popup__title">Recent Files</span>,
       <label
         class="playground-recent__edited"
         // Keeps the focus in the search field, as the options' toggles do.
@@ -415,6 +415,27 @@ services.keymap.bindDefault(mac ? 'Mod+L' : 'Ctrl+G', 'navigate.goToLine');
 services.menus.contribute({
   menu: 'main/navigate',
   item: { command: 'navigate.goToLine' },
+  group: 'b',
+});
+// File Structure, as IntelliJ's Navigate → File Structure: the active file's symbols, from its
+// language server.
+services.commands.register({
+  id: 'navigate.fileStructure',
+  label: 'File &Structure',
+  dialog: true,
+  enabled: () => navigation.available() && activeFile() !== undefined,
+  run: async () => {
+    const file = activeFile() as Tab;
+    const caret = carets.get(file.id) ?? { line: 0, column: 0 };
+    const doc = await documentFor(file.id);
+    if ('error' in doc) return;
+    await navigation.fileStructure(file.id, doc.text.peek().toString(), caret);
+  },
+});
+services.keymap.bindDefault('Mod+F12', 'navigate.fileStructure');
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.fileStructure' },
   group: 'b',
 });
 // Select Opened File, as IntelliJ's button in the Project tool window's header.

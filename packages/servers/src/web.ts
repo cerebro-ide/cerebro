@@ -138,6 +138,7 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
         referencesProvider: true,
         documentHighlightProvider: true,
         codeActionProvider: true,
+        documentSymbolProvider: true,
         // Style sheets' names: custom properties, variables, mixins, classes.
         renameProvider: { prepareProvider: true },
       },
@@ -203,6 +204,17 @@ export function serveWeb(input: Readable, output: Writable, options: WebOptions 
     }
     if (!list || snippets) return list;
     return { ...list, items: list.items.map(withoutSnippet) };
+  });
+
+  connection.onDocumentSymbol(({ textDocument }) => {
+    const document = documents.get(textDocument.uri);
+    if (!document) return null;
+    const sheet = sheets[document.languageId];
+    if (isJSON(document)) {
+      return json.findDocumentSymbols2(document, json.parseJSONDocument(document));
+    }
+    if (sheet) return sheet.findDocumentSymbols2(document, sheet.parseStylesheet(document));
+    return html.findDocumentSymbols2(document, html.parseHTMLDocument(document));
   });
 
   connection.onDefinition(({ textDocument, position }) => {

@@ -49,6 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
+- [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
@@ -1625,6 +1626,43 @@ all", to a list that ended with it). Claude's choices, open to change.
   - Eclipse, Sublime Text and Sublime Text (macOS): none (their files take it away).
 - **Not yet:** a signature's documentation, which IntelliJ doesn't show here either;
   IntelliJ's parameter name hints in the text.
+
+## File Structure (2026-11-04)
+
+After Rename, IntelliJ's File Structure (Ido: "do them all"). Claude's choices, open to change.
+
+- **A popup, as IntelliJ's:** Ctrl+F12 lists the file's symbols as a tree, titled with the
+  file's name, the innermost symbol holding the caret highlighted. Typing narrows it to the
+  symbols whose names match and what they're in, the first match highlighted; Enter goes to the
+  symbol's name. It's the popups' search field over a list (`ui-popup`), its items now indented by
+  their depth (19px a level, as the Project tree, measured from WebStorm), and its `initial` item
+  now chosen from the items for each query as well.
+- **Each symbol's icon is its letter in a circle** (C for a class, m for a method, f for a
+  function or field...), drawn in the text's colour: IntelliJ's are coloured badges (a claim: not
+  measured).
+- **From the file's language server** (`lsp.structure`, LSP's `textDocument/documentSymbol`, which
+  the gutter markers already ask). Measured:
+  - TypeScript 7 and basedpyright nest their symbols, with no detail (no signature) to show after
+    a name. TypeScript's lists an imported name too, as a variable; IntelliJ's leaves imports out.
+  - bash-language-server answers flat (SymbolInformation), each with the function it's in: the
+    host nests them by their ranges, so a function's `local` variables are in it. The gutter
+    markers get them nested too.
+  - Cerebro's own server for JSON, CSS and HTML now answers it, through Microsoft's libraries: a
+    JSON file's keys and an HTML file's elements, nested, and a style sheet's rules (not the
+    custom properties in them).
+  - With no server's answer in time, the popup says so: "No language server answered".
+- **Each keymap's keys,** from IntelliJ's files (`FileStructurePopup`) and VS Code's sheets (Go to
+  Symbol in Editor):
+  - Ctrl+F12: IntelliJ IDEA, Emacs. Cmd+F12: IntelliJ IDEA (macOS), IntelliJ IDEA Classic.
+  - VS Code: Ctrl+Shift+O; on macOS, Cmd+Shift+O.
+  - Eclipse: Ctrl+F3 and Ctrl+O; on macOS, Cmd+O.
+  - NetBeans: Ctrl+F12 and Ctrl+Shift+F12. Sublime Text: Ctrl+R; on macOS, Cmd+R.
+  - Visual Studio (both): Alt+\.
+  - macOS System Shortcuts: Cmd+Shift+7 and Cmd+F12.
+- **Not yet:**
+  - IntelliJ's options (inherited members, fields shown or not) and its sorting by name.
+  - A big file's symbols past the popup's 200 rows are counted, not listed.
+  - The Structure tool window (Alt+7) doesn't list them yet.
 
 ## Rename (2026-11-04)
 

@@ -3,6 +3,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffTab } from '../src/changes.js';
 import { workspace } from '../src/environments.js';
+import { carets } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { added, answers, calls, host, installBridge, notify, shownAgain } from './app-bridge.js';
@@ -420,6 +421,75 @@ describe('parameter info', () => {
     expect(host('/r').params('lsp.signatures')).toContainEqual(
       expect.objectContaining({ worktree: '/r', path: '/r/src/p.ts' }),
     );
+  });
+});
+
+describe('File Structure', () => {
+  const caret = () => carets.get('/r/src/s.ts');
+
+  it('lists the file’s symbols on Ctrl+F12, from its language server, and goes to the one chosen', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        kind: 'constant',
+        from: { line: 1, column: 0 },
+        to: { line: 1, column: 12 },
+        at: { line: 1, column: 6 },
+        children: [],
+      },
+    ]);
+    env().editor.open({ id: '/r/src/s.ts', title: 's.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    await expect.poll(caret).toEqual({ line: 0, column: 0 });
+    await userEvent.keyboard('{Control>}{F12}{/Control}');
+    expect(await popupItems()).toEqual(['a']);
+    expect(host('/r').params('lsp.structure')).toContainEqual({
+      worktree: '/r',
+      path: '/r/src/s.ts',
+      text: '// /r/src/s.ts\nconst a = 1;\n',
+    });
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(caret).toEqual({ line: 1, column: 6 });
+  });
+
+  it('starts from the file’s start when its caret hasn’t moved, and goes nowhere when closed', async () => {
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        kind: 'constant',
+        from: { line: 1, column: 0 },
+        to: { line: 1, column: 12 },
+        at: { line: 1, column: 6 },
+        children: [],
+      },
+    ]);
+    // Asked as it opens, before its editor has said where its caret is.
+    env().editor.open({ id: '/r/src/fresh.ts', title: 'fresh.ts' });
+    expect(carets.get('/r/src/fresh.ts')).toBeUndefined();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F12', code: 'F12', ctrlKey: true }));
+    expect(await popupItems()).toEqual(['a']);
+    // The caret at the start is in no symbol: the first highlighted.
+    expect(
+      document.querySelector('.cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        ?.textContent,
+    ).toBe('a');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(carets.get('/r/src/fresh.ts')).toEqual({ line: 0, column: 0 });
+  });
+
+  it('isn’t shown for a file that couldn’t be read', async () => {
+    answers.set('fs.read', new Error('No such file'));
+    env().editor.open({ id: '/r/src/unread.ts', title: 'unread.ts' });
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/unread.ts');
+    const asked = host('/r').params('lsp.structure').length;
+    await userEvent.keyboard('{Control>}{F12}{/Control}');
+    // Nothing to wait for: what it would have asked by now.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.querySelector('.cerebro-popup')).toBeNull();
+    expect(host('/r').params('lsp.structure')).toHaveLength(asked);
   });
 });
 

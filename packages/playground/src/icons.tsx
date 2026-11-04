@@ -50,3 +50,50 @@ export function icon(name: string): Node {
     </svg>
   );
 }
+
+/**
+ * The letter on a symbol's icon, by its LSP kind, as IntelliJ's nodes: C for a class, m for a
+ * method... (a claim: IntelliJ's are coloured badges, these are outlines in the text's colour).
+ */
+const SYMBOL_LETTERS: Record<string, string> = {
+  class: 'C',
+  interface: 'I',
+  enum: 'E',
+  struct: 'S',
+  module: 'M',
+  namespace: 'N',
+  package: 'P',
+  typeParameter: 'T',
+  method: 'm',
+  constructor: 'm',
+  function: 'f',
+  field: 'f',
+  property: 'p',
+  key: 'p',
+  variable: 'v',
+  constant: 'c',
+  enumMember: 'e',
+  event: 'e',
+  operator: 'o',
+};
+
+/** A symbol's icon, by its LSP kind: its letter in a circle; the structure's icon for another. */
+export function symbolIcon(kind: string | undefined): Node {
+  const letter = kind === undefined ? undefined : SYMBOL_LETTERS[kind];
+  if (letter === undefined) return icon('structure');
+  return (
+    <svg viewBox="1.5 1.5 13 13" width="16" height="16" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.8" fill="none" stroke="currentColor" stroke-width="0.95" />
+      <text
+        x="8"
+        y="8"
+        text-anchor="middle"
+        dominant-baseline="central"
+        font-size="8"
+        fill="currentColor"
+      >
+        {letter}
+      </text>
+    </svg>
+  );
+}

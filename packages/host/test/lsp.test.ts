@@ -21,8 +21,11 @@ import {
   signaturesOf,
   renamingOf,
   fileEditsOf,
+  structureOf,
+  symbolsOf,
   uriOf,
   type FileEdits,
+  type FileSymbol,
   type Located,
 } from '../src/lsp.js';
 
@@ -428,6 +431,99 @@ describe('rename', () => {
   });
 });
 
+describe('file structure', () => {
+  const range = (line: number, from: number, to: number) => ({
+    start: { line, character: from },
+    end: { line, character: to },
+  });
+
+  it('is the symbols as the server nests them, or nested by their ranges when flat', () => {
+    const nested = [
+      { name: 'A', kind: 5, range: range(0, 0, 9), selectionRange: range(0, 6, 7), children: [] },
+    ];
+    expect(symbolsOf(nested)).toBe(nested);
+    const flat = (name: string, line: number, from: number, to: number) => ({
+      name,
+      kind: 12,
+      location: { uri: 'file:///a.sh', range: range(line, from, to) },
+    });
+    const symbol = (name: string, line: number, from: number, to: number, children = []) => ({
+      name,
+      kind: 12,
+      range: range(line, from, to),
+      selectionRange: range(line, from, to),
+      children,
+    });
+    expect(
+      symbolsOf([
+        flat('greet', 0, 0, 30),
+        flat('who', 0, 10, 16),
+        flat('inner', 0, 18, 24),
+        flat('bye', 1, 0, 20),
+      ]),
+    ).toEqual([
+      {
+        ...symbol('greet', 0, 0, 30),
+        children: [symbol('who', 0, 10, 16), symbol('inner', 0, 18, 24)],
+      },
+      symbol('bye', 1, 0, 20),
+    ]);
+    expect(symbolsOf(null)).toEqual([]);
+  });
+
+  it('is each symbol’s name, kind by name, extent and name’s place', () => {
+    expect(
+      structureOf([
+        {
+          name: 'A',
+          kind: 5,
+          range: range(0, 0, 9),
+          selectionRange: range(0, 6, 7),
+          children: [
+            { name: 'x', kind: 99, range: range(0, 2, 3), selectionRange: range(0, 2, 3) },
+          ],
+        },
+      ]),
+    ).toEqual([
+      {
+        name: 'A',
+        kind: 'class',
+        from: { line: 0, column: 0 },
+        to: { line: 0, column: 9 },
+        at: { line: 0, column: 6 },
+        children: [
+          {
+            name: 'x',
+            from: { line: 0, column: 2 },
+            to: { line: 0, column: 3 },
+            at: { line: 0, column: 2 },
+            children: [],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('is asked of the file’s server; none without one', async () => {
+    const a = { path: `${root}/a.fake`, text: 'class A {\n  run() {}\n}\n' };
+    const found = await pool([fake('symbols')]).structure(root, a);
+    expect(found?.map((s) => [s.name, s.kind, s.children.map((c) => c.name)])).toEqual([
+      ['A', 'class', ['run']],
+    ]);
+    expect(await pool([fake('links')]).structure(root, a)).toEqual([]);
+    expect(
+      await pool([fake('symbols')]).structure(root, { path: `${root}/a.txt`, text: '' }),
+    ).toBeNull();
+  });
+});
+
+/** A file's structure as names, a member as `Owner.name`, each with its kind. */
+const outline = (symbols: readonly FileSymbol[], owner = ''): string[] =>
+  symbols.flatMap((s) => [
+    `${owner}${s.name} ${s.kind ?? ''}`,
+    ...outline(s.children, `${owner}${s.name}.`),
+  ]);
+
 describe('TypeScript 7’s server', () => {
   it('goes to a definition and finds usages, precisely, in unsaved text too', async () => {
     const project = `${root}/ts`;
@@ -665,6 +761,69 @@ describe('highlights a name reached through a module’s exports', () => {
     expect(await servers.highlights(project, main, at(1, 9))).toEqual([
       { from: { line: 1, column: 7 }, to: { line: 1, column: 14 }, write: false },
       { from: { line: 2, column: 7 }, to: { line: 2, column: 14 }, write: false },
+    ]);
+  }, 60_000);
+});
+
+describe('file structure, from the real servers', () => {
+  it('is a TypeScript file’s types, their members, and its functions', async () => {
+    const project = `${root}/ts`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const shapes = {
+      path: `${project}/shapes.ts`,
+      text: [
+        'export class Square {',
+        '  side = 1;',
+        '  area(): number { return this.side ** 2; }',
+        '}',
+        'export function make(): Square { return new Square(); }',
+        '',
+      ].join('\n'),
+    };
+    const found = await pool(undefined, { patience: 60_000 }).structure(project, shapes);
+    expect(outline(found ?? [])).toEqual([
+      'Square class',
+      'Square.side property',
+      'Square.area method',
+      'make function',
+    ]);
+    expect(found?.[0]).toMatchObject({
+      from: { line: 0, column: 0 },
+      to: { line: 3, column: 1 },
+      at: { line: 0, column: 13 },
+    });
+  }, 60_000);
+
+  it('is a Python file’s classes, their methods, and its functions', async () => {
+    const project = `${root}/py`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    const shapes = {
+      path: `${project}/shapes.py`,
+      text: 'class Square:\n    def area(self):\n        return 1\n\ndef make():\n    return Square()\n',
+    };
+    const found = await pool(undefined, { patience: 60_000 }).structure(project, shapes);
+    expect(outline(found ?? [])).toEqual(
+      expect.arrayContaining(['Square class', 'Square.area method', 'make function']),
+    );
+  }, 60_000);
+
+  it('is a script’s functions, their variables in them, though the server lists them flat', async () => {
+    const project = `${root}/sh`;
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project, { recursive: true });
+    const script = {
+      path: `${project}/structure.sh`,
+      text: 'NAME=1\ngreet() { local who=$1; echo hi; }\nfunction bye { echo bye; }\n',
+    };
+    const found = await pool(undefined, { patience: 60_000 }).structure(project, script);
+    expect(outline(found ?? [])).toEqual([
+      'NAME variable',
+      'greet function',
+      'greet.who variable',
+      'bye function',
     ]);
   }, 60_000);
 });

@@ -121,7 +121,8 @@
   align-items: center;
   gap: 6px;
   height: var(--cerebro-menu-item-height);
-  padding: 0 8px 0 4px;
+  /* A tree's items indented by their depth, as WebStorm's trees (19px a level, ui-tree's). */
+  padding: 0 8px 0 calc(4px + var(--cerebro-popup-depth, 0) * 19px);
   border-radius: 4px;
   white-space: nowrap;
 }

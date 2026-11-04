@@ -432,6 +432,101 @@ export function renamingOf(result: unknown, text: string): Renaming | null {
   return { ...spanOf(range), name };
 }
 
+/** LSP's kinds of symbol, by number, as its names. */
+const SYMBOL_KINDS = [
+  'file',
+  'module',
+  'namespace',
+  'package',
+  'class',
+  'method',
+  'property',
+  'field',
+  'constructor',
+  'enum',
+  'interface',
+  'function',
+  'variable',
+  'constant',
+  'string',
+  'number',
+  'boolean',
+  'array',
+  'object',
+  'key',
+  'null',
+  'enumMember',
+  'struct',
+  'event',
+  'operator',
+  'typeParameter',
+] as const;
+
+/** A symbol in a file, as File Structure lists it: all of it, where its name is, what's in it. */
+export interface FileSymbol extends Span {
+  name: string;
+  /** LSP's kind, by its name (`class`, `method`...). */
+  kind?: (typeof SYMBOL_KINDS)[number];
+  /** Where its name starts: where going to it puts the caret. */
+  at: { line: number; column: number };
+  children: FileSymbol[];
+}
+
+/** Flat SymbolInformation, as bash-language-server answers (measured). */
+interface SymbolInformation {
+  name: string;
+  kind: number;
+  location: { range: Range };
+}
+
+/**
+ * A server's symbols, nested: as the server nests them (DocumentSymbol), or, given flat
+ * (SymbolInformation), each in the one before it whose range holds it. Its range is then its name's
+ * too: SymbolInformation has no other.
+ */
+export function symbolsOf(result: unknown): DocumentSymbol[] {
+  if (!Array.isArray(result)) return [];
+  const answer = result as (DocumentSymbol | SymbolInformation)[];
+  if (answer.every((s) => 'selectionRange' in s)) return answer;
+  const top: DocumentSymbol[] = [];
+  const open: DocumentSymbol[] = [];
+  const before = (a: Range['start'], b: Range['start']) =>
+    a.line < b.line || (a.line === b.line && a.character <= b.character);
+  for (const s of answer as SymbolInformation[]) {
+    const { range } = s.location;
+    const symbol: DocumentSymbol = {
+      name: s.name,
+      kind: s.kind,
+      range,
+      selectionRange: range,
+      children: [],
+    };
+    while (open.length) {
+      const last = open[open.length - 1] as DocumentSymbol;
+      if (before(last.range.start, range.start) && before(range.end, last.range.end)) break;
+      open.pop();
+    }
+    const parent = open[open.length - 1];
+    (parent ? (parent.children as DocumentSymbol[]) : top).push(symbol);
+    open.push(symbol);
+  }
+  return top;
+}
+
+/** A file's symbols as File Structure lists them. */
+export function structureOf(symbols: readonly DocumentSymbol[]): FileSymbol[] {
+  return symbols.map((s) => {
+    const kind = SYMBOL_KINDS[s.kind - 1];
+    return {
+      name: s.name,
+      ...(kind === undefined ? {} : { kind }),
+      ...spanOf(s.range),
+      at: { line: s.selectionRange.start.line, column: s.selectionRange.start.character },
+      children: structureOf(s.children ?? []),
+    };
+  });
+}
+
 /**
  * A server's edits to files, as a map of files to edits or as edits per version of a file
  * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
@@ -762,10 +857,7 @@ export class LanguageServer {
     const answer = await this.#connection.request('textDocument/documentSymbol', {
       textDocument: { uri: uriOf(file.path) },
     });
-    // Flat SymbolInformation, from a server that ignores the client's nesting: none to use.
-    return Array.isArray(answer)
-      ? (answer as DocumentSymbol[]).filter((s) => 'selectionRange' in s)
-      : [];
+    return symbolsOf(answer);
   }
 
   /** What it offers to complete at a place in a file, asked as invoked: after a `.` too (measured). */
@@ -1032,6 +1124,13 @@ export class LanguageServers {
   ): Promise<FileEdits[] | { refused: string } | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.rename(file, languageId, at, name),
+    );
+  }
+
+  /** A file's symbols, for File Structure; null when no server answers in time. */
+  structure(worktree: string, file: OpenFile): Promise<FileSymbol[] | null> {
+    return this.#ask(worktree, file.path, async (server, languageId) =>
+      structureOf(await server.symbols(file, languageId)),
     );
   }
 

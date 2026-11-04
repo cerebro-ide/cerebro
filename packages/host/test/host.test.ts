@@ -96,6 +96,7 @@ describe('language servers', () => {
       usages: vi.fn(() => Promise.resolve(null)),
       highlights: vi.fn(() => Promise.resolve([])),
       markers: vi.fn(() => Promise.resolve([])),
+      structure: vi.fn(() => Promise.resolve(null)),
       problems: vi.fn(() => Promise.resolve(null)),
       contextActions: vi.fn(() => Promise.resolve([])),
       completions: vi.fn(() => Promise.resolve(null)),
@@ -126,6 +127,8 @@ describe('language servers', () => {
       { path: '', line: 2, column: 1 },
     );
     expect(await ui.request('lsp.markers', file)).toEqual([]);
+    expect(await ui.request('lsp.structure', file)).toBeNull();
+    expect(servers.structure).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(servers.markers).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.problems', file)).toBeNull();
     expect(servers.problems).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
