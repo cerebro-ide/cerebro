@@ -293,8 +293,7 @@ describe('ToolbarDropdown', () => {
             }
           : undefined,
     });
-    const x = () =>
-      document.querySelector('.cerebro-toolbar-dropdown__clear') as HTMLElement | null;
+    const x = () => document.querySelector<HTMLElement>('.cerebro-toolbar-dropdown__clear');
     expect(button.querySelector('.cerebro-toolbar-dropdown__chevron')).toBeNull();
     expect(x()?.getAttribute('aria-label')).toBe('Clear Choice');
     await userEvent.click(x() as HTMLElement);

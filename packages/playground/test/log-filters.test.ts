@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { periodText, recentChoices, rememberChoice } from '../src/log-filters.js';
+import { userEvent } from 'vitest/browser';
+import { periodText, pickUser, recentChoices, rememberChoice } from '../src/log-filters.js';
 
 afterEach(() => {
   localStorage.clear();
@@ -40,5 +41,25 @@ describe('the Date filter’s text', () => {
     expect(periodText({ after: a })).toBe(`Since ${day(a)}`);
     expect(periodText({ before: b })).toBe(`Until ${day(b)}`);
     expect(periodText({ after: a, before: b })).toBe(`${day(a)}-${day(b)}`);
+  });
+});
+
+describe('the User filter’s popup', () => {
+  it('finds no one, and no "me", while the authors are still being read', async () => {
+    const button = document.createElement('button');
+    document.body.append(button);
+    const handle = pickUser(button, {
+      worktree: '/repo',
+      authors: () => undefined,
+      current: () => undefined,
+      choose: () => undefined,
+    });
+    const labels = () =>
+      [...document.querySelectorAll('.cerebro-popup-item__label')].map((l) => l.textContent);
+    expect(labels()).toEqual(['Select…']);
+    await userEvent.keyboard('m');
+    expect(labels()).toEqual([]);
+    handle.close();
+    button.remove();
   });
 });

@@ -33,6 +33,19 @@ const HOST = { timeout: 15_000 };
 
 const page = () => running.page;
 const subjects = () => page().locator('.playground-log__message').allTextContents();
+/**
+ * One of the Log toolbar's filters and actions, in the popup its » shows them in when pointed at:
+ * the popup lies over the », so a click there would land on what's in it.
+ */
+const inToolbar = async (selector: string) => {
+  const popup = page().locator('.cerebro-toolbar-row__popup');
+  if ((await popup.count()) === 0) {
+    await page()
+      .locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more')
+      .hover({ force: true });
+  }
+  return popup.locator(selector);
+};
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
@@ -46,6 +59,11 @@ beforeAll(async () => {
   git('merge', '-q', '--no-ff', '-m', 'Merge side', 'side');
   git('tag', 'v1');
   running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
+  // As narrow as CI's macOS and Windows windows came out: the Log's toolbar hides its filters and
+  // Refresh behind its » here, on every platform.
+  await running.app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1024, 768);
+  });
 });
 
 afterAll(async () => {
@@ -94,7 +112,7 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await branch.waitFor(HOST);
   await branch.dblclick({ force: true });
   await expect.poll(subjects, HOST).toEqual(['On the side', 'First']);
-  const filter = log.locator('.cerebro-toolbar-dropdown[aria-label^="Branch:"]');
+  const filter = await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Branch:"]');
   expect(await filter.textContent()).toBe('Branch: side');
   await filter.click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'All' }).first().waitFor();
@@ -102,8 +120,11 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await expect.poll(subjects, HOST).toHaveLength(5);
   // A commit made outside the app shows on Refresh.
   commit('After refresh');
-  await log.locator('[data-command="log.refresh"]').click({ force: true });
+  await (await inToolbar('[data-command="log.refresh"]')).click({ force: true });
   await expect.poll(async () => (await subjects())[0], HOST).toBe('After refresh');
+  // Away from the popup: it goes.
+  await page().locator('.cerebro-statusbar').click({ force: true });
+  await expect.poll(() => page().locator('.cerebro-toolbar-row__popup').count()).toBe(0);
 });
 
 it('filters by text on Enter, in any case or as typed, and by a hash', async () => {
@@ -126,7 +147,6 @@ it('filters by text on Enter, in any case or as typed, and by a hash', async () 
 });
 
 it('filters by user and by date, each cleared with its X', async () => {
-  const log = page().locator('.cerebro-tool-window[data-id="git"]');
   git(
     '-c',
     'user.name=Bob',
@@ -138,21 +158,21 @@ it('filters by user and by date, each cleared with its X', async () => {
     '-m',
     'By Bob',
   );
-  await log.locator('[data-command="log.refresh"]').click({ force: true });
+  await (await inToolbar('[data-command="log.refresh"]')).click({ force: true });
   await expect.poll(async () => (await subjects())[0], HOST).toBe('By Bob');
-  await log.locator('.cerebro-toolbar-dropdown[aria-label^="User:"]').click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="User:"]')).click({ force: true });
   await page().keyboard.type('bob');
   await page().locator('.cerebro-popup-item', { hasText: 'Bob' }).first().waitFor(HOST);
   await page().keyboard.press('Enter');
   await expect.poll(subjects, HOST).toEqual(['By Bob']);
-  await log.locator('[aria-label="Clear User"]').click({ force: true });
+  await (await inToolbar('[aria-label="Clear User"]')).click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(7);
   // The commits here were made in 2023: none in the last 24 hours.
-  await log.locator('.cerebro-toolbar-dropdown[aria-label^="Date:"]').click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Date:"]')).click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'Last 24 hours' }).waitFor();
   await page().keyboard.press('ArrowDown');
   await page().keyboard.press('Enter');
   await expect.poll(subjects, HOST).toEqual([]);
-  await log.locator('[aria-label="Clear Date"]').click({ force: true });
+  await (await inToolbar('[aria-label="Clear Date"]')).click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(7);
 });

@@ -23,8 +23,8 @@ const PRINTABLE = /^[ -~]*$/;
 /** In lower case, if it's printable ASCII; else as it is. */
 const lower = (name: string) => (PRINTABLE.test(name) ? name.toLowerCase() : name);
 
-const capitalized = (name: string) =>
-  PRINTABLE.test(name) ? name.charAt(0).toUpperCase() + name.slice(1) : name;
+/** A first or last name, which is ASCII (NAME's `\w`), with its first letter in upper case. */
+const capitalized = (name: string) => name.charAt(0).toUpperCase() + name.slice(1);
 
 /** A name's first and last parts, if it's two words. */
 const firstAndLast = (name: string) => NAME.exec(name)?.slice(1, 3) as [string, string] | undefined;

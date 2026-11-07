@@ -20,7 +20,7 @@ import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
@@ -606,7 +606,7 @@ const clearing = (value: unknown, clear: () => void) => (value === undefined ? u
 
 /**
  * Above the commits, as IntelliJ's: the text filter; the Branch, User and Date filters, each with
- * an X that clears it while it's on; then Refresh.
+ * an X that clears it while it's on; then Refresh; those that don't fit are hidden behind a ».
  */
 function LogToolbar(props: {
   services: MenuServices;
@@ -619,47 +619,52 @@ function LogToolbar(props: {
   return (
     <div class="playground-log__toolbar" role="toolbar" aria-label="Log">
       <TextFilterField services={services} log={log} name={props.name} />
-      <ToolbarDropdown
-        services={services}
-        label="Branch"
-        text={() => filterText('Branch', log.branch.get(), branchName)}
-        popup={(button) => pickBranch(button, log, branches)}
-        clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
-      />
-      <ToolbarDropdown
-        services={services}
-        label="User"
-        text={() => filterText('User', log.users.get(), usersText)}
-        popup={(button) => {
-          void log.readAuthors();
-          return pickUser(button, {
-            worktree: props.worktree,
-            authors: () => log.authors.get(),
-            current: () => log.users.peek(),
-            choose: (users) => void log.filterUsers(users),
-          });
-        }}
-        clear={() => clearing(log.users.get(), () => void log.filterUsers(undefined))}
-      />
-      <ToolbarDropdown
-        services={services}
-        label="Date"
-        text={() => filterText('Date', log.period.get(), periodText)}
-        popup={(button) =>
-          pickDate(
-            button,
-            () => log.period.peek(),
-            (period) => void log.filterPeriod(period),
-          )
-        }
-        clear={() => clearing(log.period.get(), () => void log.filterPeriod(undefined))}
-      />
-      <ToolbarButton
-        commands={services.commands}
-        command="log.refresh"
-        icon={icon('refresh')}
-        shortcut={shortcutOf(services, 'log.refresh')}
-        context={() => FROM_LOG}
+      <ToolbarRow
+        label="Filters and actions"
+        items={() => [
+          <ToolbarDropdown
+            services={services}
+            label="Branch"
+            text={() => filterText('Branch', log.branch.get(), branchName)}
+            popup={(button) => pickBranch(button, log, branches)}
+            clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
+          />,
+          <ToolbarDropdown
+            services={services}
+            label="User"
+            text={() => filterText('User', log.users.get(), usersText)}
+            popup={(button) => {
+              void log.readAuthors();
+              return pickUser(button, {
+                worktree: props.worktree,
+                authors: () => log.authors.get(),
+                current: () => log.users.peek(),
+                choose: (users) => void log.filterUsers(users),
+              });
+            }}
+            clear={() => clearing(log.users.get(), () => void log.filterUsers(undefined))}
+          />,
+          <ToolbarDropdown
+            services={services}
+            label="Date"
+            text={() => filterText('Date', log.period.get(), periodText)}
+            popup={(button) =>
+              pickDate(
+                button,
+                () => log.period.peek(),
+                (period) => void log.filterPeriod(period),
+              )
+            }
+            clear={() => clearing(log.period.get(), () => void log.filterPeriod(undefined))}
+          />,
+          <ToolbarButton
+            commands={services.commands}
+            command="log.refresh"
+            icon={icon('refresh')}
+            shortcut={shortcutOf(services, 'log.refresh')}
+            context={() => FROM_LOG}
+          />,
+        ]}
       />
     </div>
   );

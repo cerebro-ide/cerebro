@@ -124,6 +124,8 @@ afterEach(() => {
 
 function mount(withServices: MenuServices = services) {
   const box = document.createElement('div');
+  // Wide enough for the whole toolbar, past the test page's own width.
+  box.style.width = '1400px';
   box.style.height = '600px';
   box.style.display = 'flex';
   box.style.flexDirection = 'column';
@@ -135,6 +137,7 @@ function mount(withServices: MenuServices = services) {
   dispose = () => {
     handle.dispose();
   };
+  return box;
 }
 
 const rows = () => [
@@ -606,6 +609,24 @@ describe('Refresh', () => {
     expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
   });
 
+  it('hides behind a » with the Branch filter when the Log is narrow, as IntelliJ’s toolbar', async () => {
+    git.log = history(1);
+    const box = mount();
+    box.style.width = '800px';
+    await expect.poll(subjects).toEqual(['Change 0']);
+    const toolbar = document.querySelector('.playground-log__toolbar') as HTMLElement;
+    const more = toolbar.querySelector('.cerebro-toolbar-row__more') as HTMLElement;
+    await expect.poll(() => more.hidden).toBe(false);
+    // Nothing past the toolbar's edge, over what's beside it.
+    expect(toolbar.scrollWidth).toBeLessThanOrEqual(toolbar.clientWidth);
+    more.click();
+    const popup = document.querySelector('.cerebro-toolbar-row__popup') as HTMLElement;
+    popup.querySelector<HTMLElement>('[data-command="log.refresh"]')?.click();
+    await expect.poll(() => host.params('git.log').length).toBe(2);
+    await userEvent.click(popup.querySelector('.cerebro-toolbar-dropdown') as HTMLElement);
+    await expect.poll(() => document.querySelector('.cerebro-popup')).not.toBeNull();
+  });
+
   it('names no shortcut with no keymap', async () => {
     git.log = history(1);
     mount({ commands, menus: new MenuRegistry() });
@@ -724,7 +745,7 @@ describe('the User and Date filters', () => {
   const text = (label: string) =>
     dropdown(label).querySelector('.cerebro-toolbar-dropdown__text')?.textContent;
   const clear = (label: string) =>
-    document.querySelector(`[aria-label="Clear ${label}"]`) as HTMLElement | null;
+    document.querySelector<HTMLElement>(`[aria-label="Clear ${label}"]`);
   const items = () =>
     [...document.querySelectorAll('.cerebro-popup-item__label')].map((label) => label.textContent);
   const asked = () =>

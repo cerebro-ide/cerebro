@@ -8,3 +8,4 @@ export {
   type ToolbarButtonProps,
   type ToolbarDropdownProps,
 } from './toolbar.js';
+export { ToolbarRow, type ToolbarRowProps } from './toolbar-row.js';
