@@ -158,7 +158,7 @@ export function folderOf(worktree: string, directory: string): string {
 }
 
 /** An option's toggle, as IntelliJ's beside the field. */
-function Toggle(props: {
+export function Toggle(props: {
   label: string;
   text: string | Node;
   on: () => boolean;

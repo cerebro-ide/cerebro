@@ -993,3 +993,52 @@ body,
 .playground-log__color-7 {
   color: var(--cerebro-log-graph-7);
 }
+
+/* The text filter, first in the Log's toolbar, as IntelliJ's: its options inside it, at its end. */
+.playground-log__search {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  width: 240px;
+  height: 26px;
+  margin-right: 4px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-icon);
+}
+
+.playground-log__search:focus-within {
+  border-color: var(--cerebro-accent);
+}
+
+.playground-log__search > svg {
+  flex: none;
+}
+
+.playground-log__search-field {
+  flex: auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
+
+.playground-log__search-clear {
+  display: flex;
+  flex: none;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-icon);
+}
+
+.playground-log__search-clear:hover {
+  background: var(--cerebro-hover);
+}

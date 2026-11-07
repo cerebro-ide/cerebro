@@ -25,8 +25,10 @@ import {
   listWorktrees,
   lastMessage,
   listBranches,
+  hashesIn,
   log,
   parseLog,
+  rewriteParents,
   parseNameStatus,
   parseStatus,
   parseWorktrees,
@@ -264,6 +266,111 @@ describe('with real git', () => {
       { ref: 'refs/heads/side', hash: hash('side'), current: false },
       { ref: 'refs/remotes/origin/main', hash: hash('main'), current: false },
     ]);
+  });
+
+  it('filters the log by text, as IntelliJ’s, its graph joined across what it hides', async () => {
+    const texts = join(root, 'texts');
+    execFileSync('git', ['init', '-q', '-b', 'main', texts]);
+    const commitAt = (n: number, message: string) =>
+      execFileSync('git', ['commit', '-q', '--allow-empty', '-m', message], {
+        cwd: texts,
+        env: {
+          ...process.env,
+          ...IDENTITY,
+          GIT_AUTHOR_DATE: `${String(1_700_000_000 + n)} +0000`,
+          GIT_COMMITTER_DATE: `${String(1_700_000_000 + n)} +0000`,
+        },
+      });
+    const subjects = (commits: { subject: string }[]) => commits.map((c) => c.subject);
+    const text = (t: string, options: { regex?: boolean; matchCase?: boolean } = {}) => ({
+      text: t,
+      regex: options.regex ?? false,
+      matchCase: options.matchCase ?? false,
+    });
+    expect(await log(texts, 0, 10, git, undefined, text('Fix'))).toEqual([]);
+    commitAt(1, 'Fix the start');
+    commitAt(2, 'between');
+    const between = run(texts, 'rev-parse', 'HEAD').trim();
+    commitAt(3, 'fix (the end)');
+    run(texts, 'checkout', '-q', '-b', 'side', 'HEAD~2');
+    commitAt(4, `fix aside, after ${between.slice(0, 7)}`);
+    run(texts, 'checkout', '-q', 'main');
+    const hash = (ref: string) => run(texts, 'rev-parse', ref).trim();
+    // Any case, as typed; the parents of those shown are the nearest of them.
+    const fixes = await log(texts, 0, 10, git, undefined, text('fix'));
+    expect(subjects(fixes)).toEqual([
+      'fix aside, after ' + between.slice(0, 7),
+      'fix (the end)',
+      'Fix the start',
+    ]);
+    expect(fixes.map((c) => c.parents)).toEqual([[hash('main~2')], [hash('main~2')], []]);
+    expect(subjects(await log(texts, 1, 1, git, undefined, text('fix')))).toEqual([
+      'fix (the end)',
+    ]);
+    expect(
+      subjects(await log(texts, 0, 10, git, undefined, text('fix', { matchCase: true }))),
+    ).toEqual(['fix aside, after ' + between.slice(0, 7), 'fix (the end)']);
+    // A regular expression, or the text as it is.
+    expect(
+      subjects(await log(texts, 0, 10, git, undefined, text('^fix \\(', { regex: true }))),
+    ).toEqual(['fix (the end)']);
+    expect(subjects(await log(texts, 0, 10, git, undefined, text('(the')))).toEqual([
+      'fix (the end)',
+    ]);
+    await expect(
+      log(texts, 0, 10, git, undefined, text('(the', { regex: true })),
+    ).rejects.toThrow();
+    // Of the branches chosen.
+    expect(subjects(await log(texts, 0, 10, git, ['refs/heads/main'], text('fix')))).toEqual([
+      'fix (the end)',
+      'Fix the start',
+    ]);
+    // Hashes find their commits, and those naming them, in any branch; any case, a prefix will do.
+    expect(
+      subjects(
+        await log(texts, 0, 10, git, ['refs/heads/main'], text(between.slice(0, 7).toUpperCase())),
+      ),
+    ).toEqual(['fix aside, after ' + between.slice(0, 7), 'between']);
+    expect(
+      subjects(await log(texts, 0, 10, git, undefined, text(`${hash('main~2')}, ${hash('main')}`))),
+    ).toEqual(['fix (the end)', 'Fix the start']);
+    // Hex that's no commit's: the messages naming it, else what the text finds.
+    commitAt(5, 'add cafe1234');
+    expect(subjects(await log(texts, 0, 10, git, undefined, text('cafe1234')))).toEqual([
+      'add cafe1234',
+    ]);
+    expect(await log(texts, 0, 10, git, undefined, text('beefbeef'))).toEqual([]);
+  });
+
+  it('joins a filtered log’s commits to their nearest ancestors shown, through merges', () => {
+    const commit = (hash: string, parents: string[]) => ({
+      hash,
+      parents,
+      author: '',
+      email: '',
+      time: 0,
+      subject: hash,
+      body: '',
+      refs: [],
+    });
+    // m merges b and c, both from a; only m and a are shown, and a's parent isn't known.
+    const parents = new Map([
+      ['m', ['b', 'c']],
+      ['b', ['a']],
+      ['c', ['a']],
+      ['a', ['z']],
+    ]);
+    expect(rewriteParents([commit('m', ['b', 'c']), commit('a', ['z'])], parents)).toEqual([
+      commit('m', ['a']),
+      commit('a', []),
+    ]);
+  });
+
+  it('reads hashes as IntelliJ does: 7 to 64 hex digits, between spaces, commas or semicolons', () => {
+    expect(hashesIn('abc1234, DEF5678;0123456 ')).toEqual(['abc1234', 'DEF5678', '0123456']);
+    expect(hashesIn('abc123')).toBeUndefined();
+    expect(hashesIn('abc1234 fix')).toBeUndefined();
+    expect(hashesIn('  ')).toBeUndefined();
   });
 
   it('reads the changes without writing the index, which would lock out a stash run meanwhile', async () => {

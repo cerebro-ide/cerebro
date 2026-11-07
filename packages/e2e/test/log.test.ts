@@ -105,3 +105,22 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await log.locator('[data-command="log.refresh"]').click({ force: true });
   await expect.poll(async () => (await subjects())[0], HOST).toBe('After refresh');
 });
+
+it('filters by text on Enter, in any case or as typed, and by a hash', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  const field = log.locator('.playground-log__search-field');
+  await field.click({ force: true });
+  await field.fill('on');
+  await page().keyboard.press('Enter');
+  // In any case, in the messages of every branch.
+  await expect.poll(subjects, HOST).toEqual(['On main', 'On the side']);
+  await log.locator('.playground-log__search [aria-label="Match Case"]').click({ force: true });
+  await expect.poll(subjects, HOST).toEqual([]);
+  await log.locator('.playground-log__search [aria-label="Match Case"]').click({ force: true });
+  const hash = git('rev-parse', '--short', 'HEAD~1').trim();
+  await field.fill(hash);
+  await page().keyboard.press('Enter');
+  await expect.poll(subjects, HOST).toEqual(['Later']);
+  await log.locator('.playground-log__search-clear').click({ force: true });
+  await expect.poll(subjects, HOST).toHaveLength(6);
+});
