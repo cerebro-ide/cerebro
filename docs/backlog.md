@@ -6,13 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### Go to Line takes Cmd+L from the Log on macOS
-
-Seen with the Log's text filter (2026-11-07): on macOS, Cmd+L is both Go to Line and the Log's
-Focus Text Filter. Go to Line is enabled whenever a file's tab is active, wherever the keyboard is,
-and comes first, so in the Log it goes to a line. In IntelliJ, Go to Line needs an editor in the
-context: from a tool window it's off, and the Log's action runs. Not fixed: it's Go to Line's.
-
 ### The status bar's file items are samples
 
 Seen with the image viewer (2026-11-04): the caret's position, the line separator, the encoding
@@ -66,6 +59,10 @@ on it:
   it expects one, and "opens what it finds in the Find window" failed after it. That the keys
   came further apart than the search's 150 ms delay under the run's load is a claim, not measured;
   the earlier fix (ed7bffc) measured that for the test of typing.
+- **The Log e2e tests failed once in a full local run** (2026-11-07, on fix/go-to-line-focus;
+  they passed alone twice and in the next full run): the toolbar's » was hidden when a test
+  hovered it (`Element is not visible`), so the toolbar's filters seemed to fit. Cause not found;
+  the tests now print the window's and the toolbar's sizes when the » is hidden.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
