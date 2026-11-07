@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User and Date filters; a toolbar that keeps to its width (changed 2026-11-07)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1797,9 +1797,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - **Date:** Select… (IntelliJ's Select Period: After and Before, each a day, each on when
     checked), Last 24 hours, Last 7 days; shown "Since 11/1/26", "Until …", or "11/1/26-11/5/26",
     the system's short date. `git.log` takes the times and gives git `--after` and `--before`.
-  - **Claims:** Select… for users is a line of text, names between bars, where IntelliJ's is a
-    multi-line field with completion; a day chosen in Select Period is its start, in local time;
-    no author known by a name shows no commits; the popups' search fields.
+  - **Select…** is IntelliJ's multi-line field of values (MultilinePopupBuilder), below the
+    button: names between bars or a line each, Ctrl+Enter (Cmd+Enter on macOS, CommonShortcuts)
+    to finish, with its line "Select one or more values separated with | or new lines, use
+    Ctrl+Enter to finish"; Escape or a click outside cancels; emptied, the filter goes.
+  - **Claims:** the field for users has no completion, where IntelliJ's completes the authors'
+    names; a day chosen in Select Period is its start, in local time; no author known by a name
+    shows no commits; the popups' search fields.
   - **Not yet:** the popups' line "Press Delete to clear the filter".
 - **A narrow toolbar** (changed 2026-11-07) keeps to its width as IntelliJ's toolbars do, from
   ActionToolbarImpl and its NOWRAP layout: the filters and actions that don't fit are hidden, from
@@ -1810,12 +1814,30 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   to show it) the toolbar ran past the commits column, and Refresh lay over the commit's pane.
   `ToolbarRow` in `ui-toolbar` does it. **Claims:** the »'s look and its name ("Show Hidden
   Items"; IntelliJ paints it, with no name).
-- **Not yet:** the toolbar's other filter (Paths) and its other
-  actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the branches pane's toolbar (New
-  Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and its own search; tags in the
-  pane; grouping the files by directory; the right-click menu (Copy Revision Number, Checkout
-  Revision); IntelliJ's Log is a tab beside Console in the Git window, here it's all the window
-  holds.
+- **The Paths filter** (changed 2026-11-07), after Date, as IntelliJ's
+  (StructureFilterPopupComponent, VcsStructureChooser, SelectionManager, GitLogProvider): Select… (the same multi-line field, a
+  path a line), Select in Tree…, then the last ten choices under Recent. A path is from the
+  repository's top, a folder's ending in `/`; one typed in full, in the repository, is made so. The
+  button shows the first path, cut to 30 characters as IntelliJ's StringUtil does, and how many
+  more ("Paths: docs/ + 1").
+  - **Select in Tree…** ("Select Paths to Filter by"): the repository's files and folders, each with
+    a checkbox, as IntelliJ's: a folder checked checks what's in it, which can't be unchecked
+    alone; a folder with something checked in it shows checked and can't be checked itself; Space
+    checks the selected row; a hundred at most ("You have added 100 elements. No more is
+    allowed."); OK needs one. Ignored files are left out.
+  - **`git.log`** takes the paths and gives git `--full-history --simplify-merges -- <paths>`, as
+    IntelliJ's GitLogProvider does; each as named (`:(literal)`), not as a pattern. Measured (git
+    2.43): a merge that brings a path no change of its own is left out; one that joins changes to
+    two paths from either side is kept.
+  - **Claims:** paths show with `/` on Windows too (IntelliJ shows the system's separator); the
+    tree shows unversioned files, which IntelliJ leaves out; `:(literal)` (IntelliJ's own pathspecs
+    weren't checked); no roots section, as Cerebro opens one repository per environment.
+  - **Not yet:** the button's tooltip listing the paths.
+- **Not yet:** the toolbar's other actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the
+  branches pane's toolbar (New Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and
+  its own search; tags in the pane; grouping the files by directory; the right-click menu (Copy
+  Revision Number, Checkout Revision); IntelliJ's Log is a tab beside Console in the Git window,
+  here it's all the window holds.
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 

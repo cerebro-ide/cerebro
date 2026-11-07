@@ -84,23 +84,27 @@ export interface HostOptions {
 
 /** Whether a request's `filter` is a log filter: its text, authors and dates, as given. */
 function isLogFilter(filter: Partial<Record<keyof LogFilter, unknown>>): boolean {
-  const { text, authors, after, before } = filter as {
+  const { text, authors, after, before, paths } = filter as {
     text?: Partial<Record<keyof TextFilter, unknown>>;
     authors?: unknown;
     after?: unknown;
     before?: unknown;
+    paths?: unknown;
   };
   const time = (value: unknown) => value === undefined || Number.isInteger(value);
+  const strings = (value: unknown) =>
+    value === undefined ||
+    (Array.isArray(value) && value.every((v) => typeof v === 'string' && v !== ''));
   return (
     (text === undefined ||
       (typeof text.text === 'string' &&
         text.text.trim() !== '' &&
         typeof text.regex === 'boolean' &&
         typeof text.matchCase === 'boolean')) &&
-    (authors === undefined ||
-      (Array.isArray(authors) && authors.every((a) => typeof a === 'string' && a !== ''))) &&
+    strings(authors) &&
     time(after) &&
-    time(before)
+    time(before) &&
+    strings(paths)
   );
 }
 

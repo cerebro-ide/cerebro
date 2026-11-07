@@ -47,6 +47,8 @@ const git = {
   byText: {} as Record<string, LogCommit[]>,
   /** The log the User filter's authors have, by the authors between commas. */
   byAuthors: {} as Record<string, LogCommit[]>,
+  /** The log the Paths filter's paths have, by the paths between commas, in order. */
+  byPaths: {} as Record<string, LogCommit[]>,
   authors: {
     authors: [] as { name: string; email: string }[],
     me: undefined as undefined | { name: string; email: string },
@@ -64,17 +66,19 @@ const host = new FakeHost({
     skip: number;
     max: number;
     branches?: string[];
-    filter?: { text?: { text: string }; authors?: string[]; after?: number };
+    filter?: { text?: { text: string }; authors?: string[]; after?: number; paths?: string[] };
   }) => {
-    const log = filter?.text
-      ? (git.byText[filter.text.text] ?? [])
-      : filter?.authors
-        ? (git.byAuthors[filter.authors.join(', ')] ?? [])
-        : filter
-          ? git.log.slice(0, 1)
-          : branches
-            ? (git.byBranch[branches[0] as string] ?? [])
-            : git.log;
+    const log = filter?.paths
+      ? (git.byPaths[[...filter.paths].sort().join(', ')] ?? [])
+      : filter?.text
+        ? (git.byText[filter.text.text] ?? [])
+        : filter?.authors
+          ? (git.byAuthors[filter.authors.join(', ')] ?? [])
+          : filter
+            ? git.log.slice(0, 1)
+            : branches
+              ? (git.byBranch[branches[0] as string] ?? [])
+              : git.log;
     const hold = git.hold;
     git.hold = undefined;
     await hold;
@@ -86,6 +90,14 @@ const host = new FakeHost({
     return git.changes[`${from}..${to}`] ?? [];
   },
   'git.authors': () => git.authors,
+  'fs.list': ({ path }: { path: string }) =>
+    path === '/r'
+      ? [
+          { path: '/r/src', name: 'src', kind: 'directory' },
+          { path: '/r/a.txt', name: 'a.txt', kind: 'file' },
+          { path: '/r/out', name: 'out', kind: 'directory', ignored: true },
+        ]
+      : [{ path: '/r/src/main.ts', name: 'main.ts', kind: 'file' }],
   'git.branches': () => {
     if (git.branchesFailing !== undefined) throw new Error(git.branchesFailing);
     return git.branches;
@@ -737,7 +749,7 @@ describe('the text filter', () => {
   });
 });
 
-describe('the User and Date filters', () => {
+describe('the User, Date and Paths filters', () => {
   const dropdown = (label: string) =>
     document.querySelector(
       `.playground-log__toolbar .cerebro-toolbar-dropdown[aria-label^="${label}:"]`,
@@ -750,7 +762,7 @@ describe('the User and Date filters', () => {
     [...document.querySelectorAll('.cerebro-popup-item__label')].map((label) => label.textContent);
   const asked = () =>
     host.params('git.log').at(-1) as {
-      filter?: { authors?: string[]; after?: number; before?: number };
+      filter?: { authors?: string[]; after?: number; before?: number; paths?: string[] };
     };
 
   beforeEach(() => {
@@ -800,10 +812,12 @@ describe('the User and Date filters', () => {
     await expect.poll(items).toEqual(['Select…', 'me', 'me', 'Ada Lovelace']);
     await userEvent.keyboard('{Enter}');
     const field = await vi.waitUntil(() =>
-      document.querySelector<HTMLInputElement>('.cerebro-dialog-field__input'),
+      document.querySelector<HTMLTextAreaElement>('.playground-values__field'),
     );
     expect(field.value).toBe('me');
-    await userEvent.keyboard('{End}|ada lovelace{Enter}');
+    await vi.waitUntil(() => document.activeElement === field);
+    // Enter starts a line; Ctrl+Enter takes them.
+    await userEvent.keyboard('{End}{Enter}ada lovelace{Control>}{Enter}{/Control}');
     await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('m0');
     expect(text('User')).toBe('User: me|ada lovelace');
     // Cleared with its X, or Delete on it.
@@ -821,16 +835,27 @@ describe('the User and Date filters', () => {
     await userEvent.click(dropdown('User'));
     await expect.poll(items).toEqual(['Select…']);
     await userEvent.keyboard('{Enter}');
-    await vi.waitUntil(() => document.querySelector('.cerebro-dialog-field__input'));
-    await userEvent.keyboard('me|nobody{Enter}');
+    await vi.waitUntil(() => document.activeElement?.matches('.playground-values__field'));
+    await userEvent.keyboard('me|nobody{Control>}{Enter}{/Control}');
     await expect.poll(() => asked().filter?.authors).toEqual([]);
     // Cancelled, it stays.
     await userEvent.click(dropdown('User'));
     await expect.poll(items).toEqual(['Select…', 'me|nobody']);
     await userEvent.keyboard('{Enter}');
-    await vi.waitUntil(() => document.querySelector('.cerebro-dialog-field__input'));
+    await vi.waitUntil(() => document.activeElement?.matches('.playground-values__field'));
     await userEvent.keyboard('{Escape}');
     expect(text('User')).toBe('User: me|nobody');
+    // Emptied, the filter goes.
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me|nobody']);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() => document.activeElement?.matches('.playground-values__field'));
+    await userEvent.keyboard('{Control>}a{/Control}{Backspace}{Control>}{Enter}{/Control}');
+    await expect.poll(() => text('User')).toBe('User');
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me|nobody']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('User')).toBe('User: me|nobody');
     dropdown('User').focus();
     await userEvent.keyboard('{Delete}');
     await expect.poll(() => text('User')).toBe('User');
@@ -915,6 +940,62 @@ describe('the User and Date filters', () => {
     await userEvent.keyboard('{Escape}');
     await userEvent.click(clear('Date') as HTMLElement);
     await expect.poll(() => text('Date')).toBe('Date');
+    expect(asked().filter).toBeUndefined();
+  });
+
+  it('Paths: typed, a line each, or checked in the tree; remembered; cleared with its X', async () => {
+    git.log = history(3);
+    git.byPaths['a.txt, src/'] = history(1, [], 'p');
+    git.byPaths['src/main.ts'] = history(1, [], 'q');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    expect(text('Paths')).toBe('Paths');
+    await userEvent.click(dropdown('Paths'));
+    await expect.poll(items).toEqual(['Select…', 'Select in Tree…']);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() => document.activeElement?.matches('.playground-values__field'));
+    // Given in full, from the repository's top.
+    await userEvent.keyboard('src/{Enter}/r/a.txt{Control>}{Enter}{/Control}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('p0');
+    expect(asked().filter?.paths).toEqual(['src/', 'a.txt']);
+    expect(text('Paths')).toBe('Paths: a.txt + 1');
+    // In the tree: the repository's files and folders, the ignored left out.
+    await userEvent.click(dropdown('Paths'));
+    await expect.poll(items).toEqual(['Select…', 'Select in Tree…', 'a.txt + 1']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    const box = (name: string) =>
+      document.querySelector<HTMLInputElement>(`.playground-paths input[aria-label="${name}"]`);
+    await vi.waitUntil(() => box('src'));
+    expect(
+      [...document.querySelectorAll('.playground-paths .cerebro-tree-row')].map(
+        (r) => r.textContent,
+      ),
+    ).toEqual(['src', 'a.txt']);
+    expect(box('src')?.checked).toBe(true);
+    await userEvent.click(box('src') as HTMLElement);
+    await userEvent.click(box('a.txt') as HTMLElement);
+    expect(
+      document.querySelector<HTMLButtonElement>('.cerebro-dialog__button--primary')?.disabled,
+    ).toBe(true);
+    await userEvent.dblClick(
+      document.querySelector('.playground-paths .cerebro-tree-row') as HTMLElement,
+    );
+    await vi.waitUntil(() => box('main.ts'));
+    await userEvent.click(box('main.ts') as HTMLElement);
+    await userEvent.click(
+      document.querySelector('.cerebro-dialog__button--primary') as HTMLElement,
+    );
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('q0');
+    expect(asked().filter?.paths).toEqual(['src/main.ts']);
+    expect(text('Paths')).toBe('Paths: src/main.ts');
+    expect(host.params('fs.list')).toEqual([{ path: '/r' }, { path: '/r/src' }]);
+    // A recent choice, then cleared with its X.
+    await userEvent.click(dropdown('Paths'));
+    await expect.poll(items).toEqual(['Select…', 'Select in Tree…', 'src/main.ts', 'a.txt + 1']);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowDown}{Enter}');
+    await expect.poll(() => text('Paths')).toBe('Paths: a.txt + 1');
+    await userEvent.click(clear('Paths') as HTMLElement);
+    await expect.poll(() => text('Paths')).toBe('Paths');
     expect(asked().filter).toBeUndefined();
   });
 

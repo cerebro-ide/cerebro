@@ -176,3 +176,27 @@ it('filters by user and by date, each cleared with its X', async () => {
   await (await inToolbar('[aria-label="Clear Date"]')).click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(7);
 });
+
+it('filters by paths typed or checked in the tree, cleared with its X', async () => {
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths:"]')).click({ force: true });
+  await page().locator('.cerebro-popup-item', { hasText: 'Select…' }).waitFor();
+  await page().keyboard.press('Enter');
+  await page().locator('.playground-values__field:focus').waitFor();
+  await page().keyboard.type('other.txt');
+  await page().keyboard.press('ControlOrMeta+Enter');
+  await expect.poll(subjects, HOST).toEqual(['On main']);
+  // In the tree: other.txt unchecked, file.txt checked.
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths:"]')).click({ force: true });
+  await page().locator('.cerebro-popup-item', { hasText: 'Select in Tree…' }).waitFor();
+  await page().keyboard.press('ArrowDown');
+  await page().keyboard.press('Enter');
+  const box = (name: string) => page().locator(`.playground-paths input[aria-label="${name}"]`);
+  await box('other.txt').waitFor(HOST);
+  await box('other.txt').click({ force: true });
+  await box('file.txt').click({ force: true });
+  await page().locator('.cerebro-dialog__button--primary').click({ force: true });
+  // The merge leaves file.txt as the side has it: git simplifies it away.
+  await expect.poll(subjects, HOST).toEqual(['After refresh', 'Later', 'On the side', 'First']);
+  await (await inToolbar('[aria-label="Clear Paths"]')).click({ force: true });
+  await expect.poll(subjects, HOST).toHaveLength(7);
+});

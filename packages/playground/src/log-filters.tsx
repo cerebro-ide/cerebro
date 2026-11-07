@@ -3,11 +3,14 @@
 // - User: Select… (names typed, between bars), me, then the recent choices; typing searches me and
 //   every author. A choice is remembered, the latest first, ten of them per filter and repository.
 // - Date: Select… (a period: after a day, before one, or both), Last 24 hours, Last 7 days.
-// Claims: Select… for users is a line of text, where IntelliJ's is a multi-line field with
-// completion; a day chosen in Select Period is its start, in local time.
+// Select… for users, and for paths (log-paths.tsx), is IntelliJ's multi-line field of values.
+// Claims: the field for users has no completion, where IntelliJ's completes the authors' names; a
+// day chosen in Select Period is its start, in local time.
 
+import { chordFromEvent, formatChord, normalizeChord, type Platform } from '@cerebro-ide/commands';
+import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
+import { openDialog } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { displayable, ME, ME_LABEL, read, shown, userNames, type Author } from './log-users.js';
 
@@ -54,27 +57,115 @@ type UserChoice = PickerItem & { values?: string[] };
 /** What the User popup needs: the authors, and what to do with a choice. */
 export interface UserSource {
   worktree: string;
+  /** For the shortcut that finishes Select…. */
+  platform: Platform;
   /** The authors and "me", once they're read. */
   authors: () => { authors: Author[]; me: Author | undefined } | undefined;
   current: () => readonly string[] | undefined;
-  choose: (values: string[]) => void;
+  /** The names chosen, or undefined for anyone's. */
+  choose: (values: string[] | undefined) => void;
 }
 
-/** Asks for users by name, between bars, starting with those chosen. */
-async function selectUsers(source: UserSource): Promise<void> {
-  const typed = await prompt({
-    title: 'Select Users',
-    label: 'Users, separated with |:',
+/** What `selectValues` asks for. */
+export interface ValuesOptions {
+  /** The filter's button: the field opens below it. */
+  below: HTMLElement;
+  /** For screen readers: the filter's name. */
+  label: string;
+  value: string;
+  /** What separates the values: `|`, a new line. */
+  separators: readonly string[];
+  /** Whose shortcut finishes: Cmd+Enter on macOS, else Ctrl+Enter. */
+  platform: Platform;
+}
+
+/**
+ * IntelliJ's MultilinePopupBuilder: a field of values below a filter's button, which Ctrl+Enter
+ * (Cmd+Enter on macOS) takes, and Escape or a click outside cancels. Resolves with the values,
+ * trimmed, the blank ones left out (none: the filter goes); or undefined, cancelled.
+ */
+export function selectValues(options: ValuesOptions): Promise<string[] | undefined> {
+  const { platform } = options;
+  const finish = normalizeChord('Mod+Enter', platform);
+  const separated = options.separators
+    .map((separator) => (separator === '\n' ? 'new lines' : separator))
+    .join(' or ');
+  const element = document.createElement('div');
+  element.className = 'playground-values';
+  element.setAttribute('role', 'dialog');
+  element.setAttribute('aria-label', options.label);
+  document.body.append(element);
+  return new Promise((resolve) => {
+    const done = (values: string[] | undefined) => {
+      window.removeEventListener('pointerdown', outside, true);
+      handle.dispose();
+      element.remove();
+      options.below.focus();
+      resolve(values);
+    };
+    const outside = (event: PointerEvent) => {
+      if (!element.contains(event.target as Node)) done(undefined);
+    };
+    const split = (text: string) =>
+      options.separators
+        .reduce<string[]>(
+          (parts, separator) => parts.flatMap((part) => part.split(separator)),
+          [text],
+        )
+        .map((value) => value.trim())
+        .filter(Boolean);
+    const handle = render(
+      () => (
+        <>
+          <textarea
+            class="playground-values__field"
+            aria-label={options.label}
+            rows={4}
+            value={options.value}
+            ref={(field) => {
+              requestAnimationFrame(() => {
+                field.focus();
+              });
+            }}
+            on:keydown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                done(undefined);
+              } else if (chordFromEvent(event) === finish) {
+                event.preventDefault();
+                done(split((event.currentTarget as HTMLTextAreaElement).value));
+              }
+            }}
+          />
+          <p class="playground-values__hint">
+            {`Select one or more values separated with ${separated}, use ${formatChord(finish, platform)} to finish`}
+          </p>
+        </>
+      ),
+      element,
+    );
+    const at = options.below.getBoundingClientRect();
+    element.style.left = `${String(Math.max(0, Math.min(at.left, window.innerWidth - element.offsetWidth)))}px`;
+    element.style.top = `${String(at.bottom + 2)}px`;
+    window.addEventListener('pointerdown', outside, true);
+  });
+}
+
+/** Asks for users by name, between bars or a line each, starting with those chosen. */
+async function selectUsers(button: HTMLElement, source: UserSource): Promise<void> {
+  const typed = await selectValues({
+    below: button,
+    label: 'User',
     value: shown(source.current() ?? []).join('|'),
+    separators: ['|', '\n'],
+    platform: source.platform,
   });
   if (typed === undefined) return;
-  const values = read(
-    typed
-      .split(/[|\n]/)
-      .map((value) => value.trim())
-      .filter(Boolean),
-  );
-  // The prompt takes no blank text: there's always one.
+  if (typed.length === 0) {
+    source.choose(undefined);
+    return;
+  }
+  const values = read(typed);
   source.choose(values);
   rememberChoice(source.worktree, 'User', values);
 }
@@ -110,7 +201,7 @@ export function pickUser(button: HTMLElement, source: UserSource) {
   void handle.result.then((choice) => {
     if (!choice) return;
     if (!choice.values) {
-      void selectUsers(source);
+      void selectUsers(button, source);
       return;
     }
     source.choose(choice.values);

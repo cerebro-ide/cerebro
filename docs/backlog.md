@@ -6,11 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### The Git Log's Paths filter
-
-Paths, as IntelliJ's Log toolbar has it (decision "The Git Log"); the text, User and Date
-filters are done. Next, unless Ido says otherwise.
-
 ### Go to Line takes Cmd+L from the Log on macOS
 
 Seen with the Log's text filter (2026-11-07): on macOS, Cmd+L is both Go to Line and the Log's

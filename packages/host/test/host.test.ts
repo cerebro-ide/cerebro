@@ -337,11 +337,15 @@ describe('changes', () => {
       undefined,
     );
     // Filtered: by the text, as given.
-    const filter = { text: { text: 'fix', regex: true, matchCase: true }, after: 0 };
+    const filter = {
+      text: { text: 'fix', regex: true, matchCase: true },
+      after: 0,
+      paths: ['src'],
+    };
     await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, filter });
     expect(git).toHaveBeenCalledWith(
       '/w',
-      expect.arrayContaining(['--grep=fix', '--extended-regexp', '--after=@0']),
+      expect.arrayContaining(['--grep=fix', '--extended-regexp', '--after=@0', ':(literal)src']),
       undefined,
       undefined,
     );
@@ -356,6 +360,8 @@ describe('changes', () => {
       { skip: 0, max: 1, filter: { text: { regex: false, matchCase: false } } },
       { skip: 0, max: 1, filter: { authors: 'Ann' } },
       { skip: 0, max: 1, filter: { authors: [''] } },
+      { skip: 0, max: 1, filter: { paths: 'src' } },
+      { skip: 0, max: 1, filter: { paths: [''] } },
       { skip: 0, max: 1, filter: { after: 1.5 } },
       { skip: 0, max: 1, filter: { before: '1' } },
     ]) {

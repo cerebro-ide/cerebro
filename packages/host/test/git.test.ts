@@ -10,7 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   addWorktree,
@@ -405,6 +405,41 @@ describe('with real git', () => {
     expect((await listAuthors(people, isolated)).me).toBeUndefined();
     run(people, 'config', 'user.email', 'me@x');
     expect((await listAuthors(people, isolated)).me).toEqual({ name: '', email: 'me@x' });
+  });
+
+  it('filters the log by paths, files or folders, as named, through a merge', async () => {
+    const tree = join(root, 'paths');
+    execFileSync('git', ['init', '-q', '-b', 'main', tree]);
+    /** Git, as a user: none is set on CI's runners. */
+    const as = (...args: string[]) =>
+      run(tree, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
+    const change = (file: string, message: string) => {
+      mkdirSync(dirname(join(tree, file)), { recursive: true });
+      writeFileSync(join(tree, file), `${message}\n`);
+      run(tree, 'add', '.');
+      as('commit', '-qm', message);
+    };
+    change('a.txt', 'a');
+    change('src/b.ts', 'b');
+    change('[ab].txt', 'brackets');
+    run(tree, 'checkout', '-qb', 'side');
+    change('src/c.ts', 'c on the side');
+    run(tree, 'checkout', '-q', 'main');
+    change('a.txt', 'a again');
+    as('merge', '-q', '--no-ff', '-m', 'merge', 'side');
+    const found = async (paths: string[]) =>
+      (await log(tree, 0, 10, git, undefined, { paths })).map((c) => c.subject);
+    expect(await found(['a.txt'])).toEqual(['a again', 'a']);
+    // A folder, with its slash or without; the merge that brings it a change is simplified away.
+    expect(await found(['src/'])).toEqual(['c on the side', 'b']);
+    expect(await found(['src'])).toEqual(['c on the side', 'b']);
+    // As named, not as a pattern: the brackets are the file's name.
+    expect(await found(['[ab].txt'])).toEqual(['brackets']);
+    // The merge joins changes to both: it's kept.
+    expect(await found(['a.txt', 'src/c.ts'])).toEqual(['merge', 'a again', 'c on the side', 'a']);
+    // The graph joins what's shown: the side's change comes after b.
+    const commits = await log(tree, 0, 10, git, undefined, { paths: ['src'] });
+    expect(commits[0]?.parents).toEqual([commits[1]?.hash]);
   });
 
   it('joins a filtered log’s commits to their nearest ancestors shown, through merges', () => {

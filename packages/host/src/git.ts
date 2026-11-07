@@ -451,13 +451,18 @@ export interface LogFilter {
   /** Made after or before these times, in milliseconds: the Date filter's. */
   after?: number;
   before?: number;
+  /** Files and folders, from the worktree: the Paths filter's. Only the commits that change them. */
+  paths?: readonly string[];
 }
 
 /** An author exactly, as an extended regular expression: IntelliJ's UserNameRegex. */
 const exactly = (author: string) =>
   `^${author.replaceAll('\\', '\\\\').replace(/[.^$*+\-?()[\]{}|]/g, '\\$&')}$`;
 
-/** Git's options for a filter's text, authors and dates, as IntelliJ's GitLogProvider gives them. */
+/**
+ * Git's options for a filter's text, authors, dates and paths, as IntelliJ's GitLogProvider gives
+ * them.
+ */
 function filterOptions(filter: LogFilter): string[] {
   const { text, authors } = filter;
   // Without text, as with Regex: the authors are matched as expressions, in any case.
@@ -471,8 +476,12 @@ function filterOptions(filter: LogFilter): string[] {
     ...(authors && !regex ? authors.map((author) => `--author=${author}`) : []),
     ...(filter.after === undefined ? [] : [`--after=${seconds(filter.after)}`]),
     ...(filter.before === undefined ? [] : [`--before=${seconds(filter.before)}`]),
+    ...(filter.paths ? ['--full-history', '--simplify-merges'] : []),
   ];
 }
+
+/** The pathspecs after `--`: the paths as they're named, not as patterns. */
+const pathspecs = (filter: LogFilter) => (filter.paths ?? []).map((path) => `:(literal)${path}`);
 
 /** The hashes a filter's text is, as IntelliJ reads it: 7 to 64 hex digits each; else none. */
 export function hashesIn(text: string): string[] | undefined {
@@ -554,7 +563,7 @@ async function filtered(
   const commits = parseLog(
     await readLog(
       worktree,
-      [...DETAILS, ...filterOptions(filter), ...revs, '--'],
+      [...DETAILS, ...filterOptions(filter), ...revs, '--', ...pathspecs(filter)],
       run,
       undefined,
       // The authors as written in the commits, as IntelliJ asks for them: not as a mailmap has them.
