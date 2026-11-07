@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text filter; a toolbar that keeps to its width (changed 2026-11-07)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User and Date filters; a toolbar that keeps to its width (changed 2026-11-07)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1777,6 +1777,30 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     **Claims:** lines to an ancestor drawn as any other (IntelliJ may draw them otherwise; not
     compared), and the field's width (240px).
   - **Not yet:** the field's history, matches highlighted in the list.
+- **The User and Date filters** (changed 2026-11-07), after Branch, as IntelliJ's
+  (UserFilterPopupComponent, DateFilterPopupComponent, MultipleValueFilterPopupComponent,
+  VcsLogUserResolverBase, VcsUserUtil, UserNameRegex, FilterComponent):
+  - **A filter's button** shows its name alone while it's off ("User"), its name and value while
+    it's on ("User: me"), with an X in its arrow's place that clears it ("Clear"; Delete or
+    Backspace on the button too). The Branch filter changed to match: it showed "Branch: All".
+    The values show between bars, cut short with an ellipsis past 20 characters.
+  - **User:** Select…, me (when git has a user), then the last ten choices under Recent, per
+    repository; typing searches me and every author, by short name (the name, else the email
+    before the @), a first and last name capitalized. A name stands for every author whose name, or
+    email before the @, is the same in IntelliJ's standard form (a first and last name in lower
+    case); me for the user git commits as (`user.name`, `user.email`), as IntelliJ resolves it.
+    The host's `git.authors` lists the authors and the user. `git.log` takes the authors exactly
+    (`Name <email>`) and gives git `--author` as IntelliJ's GitLogProvider does: one extended
+    regular expression, `^…$` around each escaped author, between bars, or each as text when the
+    text filter matches as typed; in any case unless Match Case is on; with `log.mailmap=false`, as
+    written in the commits (measured: with a mailmap, git finds none by the name written).
+  - **Date:** Select… (IntelliJ's Select Period: After and Before, each a day, each on when
+    checked), Last 24 hours, Last 7 days; shown "Since 11/1/26", "Until …", or "11/1/26-11/5/26",
+    the system's short date. `git.log` takes the times and gives git `--after` and `--before`.
+  - **Claims:** Select… for users is a line of text, names between bars, where IntelliJ's is a
+    multi-line field with completion; a day chosen in Select Period is its start, in local time;
+    no author known by a name shows no commits; the popups' search fields.
+  - **Not yet:** the popups' line "Press Delete to clear the filter".
 - **A narrow toolbar** (changed 2026-11-07) keeps to its width as IntelliJ's toolbars do, from
   ActionToolbarImpl and its NOWRAP layout: the filters and actions that don't fit are hidden, from
   the last, with a » at the row's end; pointing at it (or pressing it) shows the whole row in a
@@ -1786,7 +1810,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   to show it) the toolbar ran past the commits column, and Refresh lay over the commit's pane.
   `ToolbarRow` in `ui-toolbar` does it. **Claims:** the »'s look and its name ("Show Hidden
   Items"; IntelliJ paints it, with no name).
-- **Not yet:** the toolbar's other filters (User, Date, Paths) and its other
+- **Not yet:** the toolbar's other filter (Paths) and its other
   actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the branches pane's toolbar (New
   Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and its own search; tags in the
   pane; grouping the files by directory; the right-click menu (Copy Revision Number, Checkout

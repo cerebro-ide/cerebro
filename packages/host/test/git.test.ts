@@ -26,7 +26,9 @@ import {
   lastMessage,
   listBranches,
   hashesIn,
+  listAuthors,
   log,
+  type LogFilter,
   parseLog,
   rewriteParents,
   parseNameStatus,
@@ -283,9 +285,7 @@ describe('with real git', () => {
       });
     const subjects = (commits: { subject: string }[]) => commits.map((c) => c.subject);
     const text = (t: string, options: { regex?: boolean; matchCase?: boolean } = {}) => ({
-      text: t,
-      regex: options.regex ?? false,
-      matchCase: options.matchCase ?? false,
+      text: { text: t, regex: options.regex ?? false, matchCase: options.matchCase ?? false },
     });
     expect(await log(texts, 0, 10, git, undefined, text('Fix'))).toEqual([]);
     commitAt(1, 'Fix the start');
@@ -340,6 +340,71 @@ describe('with real git', () => {
       'add cafe1234',
     ]);
     expect(await log(texts, 0, 10, git, undefined, text('beefbeef'))).toEqual([]);
+  });
+
+  it('filters the log by authors exactly, as written, and by date', async () => {
+    const people = join(root, 'people');
+    execFileSync('git', ['init', '-q', '-b', 'main', people]);
+    writeFileSync(join(people, '.mailmap'), 'Ann Other <ann@x> <a.n+1@x>\n');
+    run(people, 'add', '.');
+    const commitAs = (n: number, name: string, email: string) =>
+      execFileSync('git', ['commit', '-q', '--allow-empty', '-m', `by ${name} ${String(n)}`], {
+        cwd: people,
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: name,
+          GIT_AUTHOR_EMAIL: email,
+          GIT_COMMITTER_NAME: name,
+          GIT_COMMITTER_EMAIL: email,
+          GIT_AUTHOR_DATE: `${String(1_700_000_000 + n * 1000)} +0000`,
+          GIT_COMMITTER_DATE: `${String(1_700_000_000 + n * 1000)} +0000`,
+        },
+      });
+    commitAs(1, 'Ann', 'a.n+1@x');
+    commitAs(2, 'Bob (B)', 'bob@x');
+    commitAs(3, 'Annie', 'annie@x');
+    commitAs(4, 'Bob (B)', 'bob@x');
+    const subjects = async (filter: LogFilter) =>
+      (await log(people, 0, 10, git, undefined, filter)).map((c) => c.subject);
+    // Exactly, not by a name's start; as written, not as the mailmap has them; characters a
+    // regular expression would read are themselves.
+    expect(await subjects({ authors: ['Ann <a.n+1@x>'] })).toEqual(['by Ann 1']);
+    expect(await subjects({ authors: ['bob (b) <BOB@x>', 'Annie <annie@x>'] })).toEqual([
+      'by Bob (B) 4',
+      'by Annie 3',
+      'by Bob (B) 2',
+    ]);
+    // With text as typed, the authors are too; with Match Case, in their case.
+    const typed = { text: 'by', regex: false, matchCase: true };
+    expect(await subjects({ text: typed, authors: ['Ann <a.n+1@x>'] })).toEqual(['by Ann 1']);
+    expect(await subjects({ text: typed, authors: ['ann <a.n+1@x>'] })).toEqual([]);
+    // None known by the names asked for: none.
+    expect(await subjects({ authors: [] })).toEqual([]);
+    // After or before a time, or between.
+    const at = (n: number) => (1_700_000_000 + n * 1000) * 1000;
+    expect(await subjects({ after: at(3) - 1 })).toEqual(['by Bob (B) 4', 'by Annie 3']);
+    expect(await subjects({ before: at(2) + 1 })).toEqual(['by Bob (B) 2', 'by Ann 1']);
+    expect(await subjects({ after: at(2) - 1, before: at(3) + 1 })).toEqual([
+      'by Annie 3',
+      'by Bob (B) 2',
+    ]);
+    // The authors, each once, and who commits here: none, until it's set.
+    const { authors } = await listAuthors(people);
+    expect(authors).toEqual([
+      { name: 'Bob (B)', email: 'bob@x' },
+      { name: 'Annie', email: 'annie@x' },
+      { name: 'Ann', email: 'a.n+1@x' },
+    ]);
+    const isolated: Git = (cwd, args, env, input) =>
+      git(
+        cwd,
+        args,
+        { ...env, GIT_CONFIG_GLOBAL: join(root, 'none'), GIT_CONFIG_NOSYSTEM: '1' },
+        input,
+      );
+    expect((await listAuthors(people, isolated)).me).toBeUndefined();
+    run(people, 'config', 'user.email', 'me@x');
+    expect((await listAuthors(people, isolated)).me).toEqual({ name: '', email: 'me@x' });
   });
 
   it('joins a filtered log’s commits to their nearest ancestors shown, through merges', () => {

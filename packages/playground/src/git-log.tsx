@@ -28,6 +28,8 @@ import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
 import { icon } from './icons.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
+import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
+import { resolveUsers, type Author } from './log-users.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
 
 /** A commit, as the host's `git.log` gives it. */
@@ -129,11 +131,25 @@ function Graph(props: { row: GraphRow }) {
   );
 }
 
-/** What the Log's text filter asks the host for (its `git.log` filter). */
+/** What the Log's text filter asks the host for (its `git.log` filter's `text`). */
 export interface TextFilter {
   text: string;
   regex: boolean;
   matchCase: boolean;
+}
+
+/** What the Log's filters ask the host for, beyond the branch (`git.log`'s `filter`). */
+export interface LogFilter {
+  text?: TextFilter;
+  authors?: string[];
+  after?: number;
+  before?: number;
+}
+
+/** The authors, and who "me" is: the host's `git.authors`. */
+export interface Authors {
+  authors: Author[];
+  me: Author | undefined;
 }
 
 /** What the Log has loaded, and loads. */
@@ -150,6 +166,13 @@ class Log {
   /** How the text is matched, as IntelliJ's text filter settings (both off to start with). */
   readonly regex = signal(false);
   readonly matchCase = signal(false);
+  /** The User filter's names (ME for "me"); anyone's, if none. */
+  readonly users = signal<readonly string[] | undefined>(undefined);
+  /** The Date filter's period; any time, if none. */
+  readonly period = signal<Period | undefined>(undefined);
+  /** The authors, once read: what the User filter's names stand for, and its popup lists. */
+  readonly authors = signal<Authors | undefined>(undefined);
+  private reading: Promise<Authors> | undefined;
   /** Counts the filters' changes: what was asked for under an earlier one is dropped. */
   private filtering = 0;
   private layout = new GraphLayout();
@@ -169,19 +192,47 @@ class Log {
     });
   }
 
-  private ask(skip: number): Promise<LogCommit[]> {
+  /** Reads the authors again, for the User filter. */
+  readAuthors(): Promise<Authors> {
+    this.reading = (
+      this.host.request('git.authors', { worktree: this.worktree }) as Promise<Authors>
+    ).then((authors) => {
+      this.authors.set(authors);
+      return authors;
+    });
+    return this.reading;
+  }
+
+  /** Reads the authors anew when next they're needed: the Log is read again. */
+  forgetAuthors(): void {
+    this.reading = undefined;
+  }
+
+  /** What the filters ask for, the User filter's names as the authors they stand for. */
+  private async filters(): Promise<LogFilter | undefined> {
+    const filter: LogFilter = {};
     const text = this.text.peek();
-    const filter: TextFilter | undefined =
-      text === undefined
-        ? undefined
-        : { text, regex: this.regex.peek(), matchCase: this.matchCase.peek() };
-    return this.host.request('git.log', {
+    if (text !== undefined) {
+      filter.text = { text, regex: this.regex.peek(), matchCase: this.matchCase.peek() };
+    }
+    const users = this.users.peek();
+    if (users) {
+      const { authors, me } = await (this.reading ?? this.readAuthors());
+      filter.authors = resolveUsers(users, authors, me);
+    }
+    Object.assign(filter, this.period.peek());
+    return Object.keys(filter).length === 0 ? undefined : filter;
+  }
+
+  private async ask(skip: number): Promise<LogCommit[]> {
+    const filter = await this.filters();
+    return (await this.host.request('git.log', {
       worktree: this.worktree,
       skip,
       max: PAGE,
       ...(this.branch.peek() === undefined ? {} : { branches: [this.branch.peek()] }),
       ...(filter ? { filter } : {}),
-    }) as Promise<LogCommit[]>;
+    })) as LogCommit[];
   }
 
   private take(page: readonly LogCommit[], from: readonly LogCommit[]): void {
@@ -226,6 +277,18 @@ class Log {
   /** Shows the commits a text matches, or all (undefined, or blank, as IntelliJ's). */
   search(text: string | undefined): Promise<void> {
     this.text.set(text?.trim() === '' ? undefined : text);
+    return this.refilter();
+  }
+
+  /** Shows the commits of these users alone, or anyone's (undefined). */
+  filterUsers(users: readonly string[] | undefined): Promise<void> {
+    this.users.set(users);
+    return this.refilter();
+  }
+
+  /** Shows the commits made in a period alone, or at any time (undefined). */
+  filterPeriod(period: Period | undefined): Promise<void> {
+    this.period.set(period);
     return this.refilter();
   }
 
@@ -382,6 +445,7 @@ const here = (context: unknown) =>
 
 /** Reads the Log and its branches again. */
 function refresh(log: Log, branches: Branches) {
+  log.forgetAuthors();
   void log.reload();
   void branches.reload();
 }
@@ -533,15 +597,23 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
   );
 }
 
+/** A filter's text, as IntelliJ's: its name alone while it's off, else its name and value. */
+const filterText = <T,>(name: string, value: T | undefined, text: (value: T) => string) =>
+  value === undefined ? name : `${name}: ${text(value)}`;
+
+/** What clears a filter, while it's on. */
+const clearing = (value: unknown, clear: () => void) => (value === undefined ? undefined : clear);
+
 /**
- * Above the commits, as IntelliJ's: the text filter, the Branch filter, then Refresh; those that
- * don't fit are hidden behind a ».
+ * Above the commits, as IntelliJ's: the text filter; the Branch, User and Date filters, each with
+ * an X that clears it while it's on; then Refresh; those that don't fit are hidden behind a ».
  */
 function LogToolbar(props: {
   services: MenuServices;
   log: Log;
   branches: Branches;
   name: string;
+  worktree: string;
 }): Node {
   const { services, log, branches } = props;
   return (
@@ -553,11 +625,37 @@ function LogToolbar(props: {
           <ToolbarDropdown
             services={services}
             label="Branch"
-            text={() => {
-              const branch = log.branch.get();
-              return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
-            }}
+            text={() => filterText('Branch', log.branch.get(), branchName)}
             popup={(button) => pickBranch(button, log, branches)}
+            clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
+          />,
+          <ToolbarDropdown
+            services={services}
+            label="User"
+            text={() => filterText('User', log.users.get(), usersText)}
+            popup={(button) => {
+              void log.readAuthors();
+              return pickUser(button, {
+                worktree: props.worktree,
+                authors: () => log.authors.get(),
+                current: () => log.users.peek(),
+                choose: (users) => void log.filterUsers(users),
+              });
+            }}
+            clear={() => clearing(log.users.get(), () => void log.filterUsers(undefined))}
+          />,
+          <ToolbarDropdown
+            services={services}
+            label="Date"
+            text={() => filterText('Date', log.period.get(), periodText)}
+            popup={(button) =>
+              pickDate(
+                button,
+                () => log.period.peek(),
+                (period) => void log.filterPeriod(period),
+              )
+            }
+            clear={() => clearing(log.period.get(), () => void log.filterPeriod(undefined))}
           />,
           <ToolbarButton
             commands={services.commands}
@@ -638,7 +736,13 @@ export function GitLogView(props: { services: MenuServices; open: (tab: Tab) => 
             }}
           />,
           <div class="playground-log__commits">
-            <LogToolbar services={props.services} log={log} branches={branches} name={env.name} />
+            <LogToolbar
+              services={props.services}
+              log={log}
+              branches={branches}
+              name={env.name}
+              worktree={env.id}
+            />
             <div class="playground-log__list">{list}</div>
           </div>,
           <Splitter

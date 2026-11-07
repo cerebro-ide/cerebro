@@ -52,6 +52,7 @@ import {
   listIgnored,
   lastMessage,
   listBranches,
+  listAuthors,
   log,
   rollback,
   textAt,
@@ -59,6 +60,7 @@ import {
   removeWorktree,
   type Git,
   type LogFilter,
+  type TextFilter,
   ignoredAmong,
 } from './git.js';
 
@@ -78,6 +80,28 @@ export interface HostOptions {
   rg?: string;
   /** A folder to keep the index in between runs, a file per repository; without it, none is kept. */
   indexCache?: string;
+}
+
+/** Whether a request's `filter` is a log filter: its text, authors and dates, as given. */
+function isLogFilter(filter: Partial<Record<keyof LogFilter, unknown>>): boolean {
+  const { text, authors, after, before } = filter as {
+    text?: Partial<Record<keyof TextFilter, unknown>>;
+    authors?: unknown;
+    after?: unknown;
+    before?: unknown;
+  };
+  const time = (value: unknown) => value === undefined || Number.isInteger(value);
+  return (
+    (text === undefined ||
+      (typeof text.text === 'string' &&
+        text.text.trim() !== '' &&
+        typeof text.regex === 'boolean' &&
+        typeof text.matchCase === 'boolean')) &&
+    (authors === undefined ||
+      (Array.isArray(authors) && authors.every((a) => typeof a === 'string' && a !== ''))) &&
+    time(after) &&
+    time(before)
+  );
 }
 
 /** The repository's index file in the cache folder: named by a hash of its path. */
@@ -422,16 +446,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       throw new ResponseError(ErrorCodes.InvalidParams, 'branches must be names');
     }
     const { filter } = params as { filter?: Partial<Record<keyof LogFilter, unknown>> };
-    if (
-      filter !== undefined &&
-      !(
-        typeof filter.text === 'string' &&
-        filter.text.trim() !== '' &&
-        typeof filter.regex === 'boolean' &&
-        typeof filter.matchCase === 'boolean'
-      )
-    ) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'filter must be text, regex and matchCase');
+    if (filter !== undefined && !isLogFilter(filter)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'filter must be a log filter');
     }
     return log(
       text(params, 'worktree'),
@@ -442,6 +458,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       filter as LogFilter | undefined,
     );
   });
+  // The User filter's choices: the commits' authors, and who "me" is.
+  connection.onRequest('git.authors', (params) => listAuthors(text(params, 'worktree'), git));
   // The Log's branches pane: the local and remote branches.
   connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
   connection.onRequest('git.changes', (params) => {
