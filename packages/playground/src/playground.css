@@ -1061,3 +1061,69 @@ body,
   align-items: center;
   gap: 6px;
 }
+
+/* Select… of the User and Paths filters, as IntelliJ's: a field of values below the button. */
+.playground-values {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  flex-direction: column;
+  width: 320px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 8px;
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+}
+
+.playground-values__field {
+  min-height: 72px;
+  margin: 6px;
+  padding: 4px 6px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  resize: vertical;
+}
+
+.playground-values__field:focus {
+  border-color: var(--cerebro-accent);
+  outline: none;
+}
+
+/* IntelliJ's popup advertisement: below the field, muted. */
+.playground-values__hint {
+  margin: 0;
+  padding: 4px 8px 6px;
+  border-top: 1px solid var(--cerebro-separator);
+  color: var(--cerebro-text-muted);
+  font-size: 11px;
+}
+
+/* Select in Tree…: the repository's files and folders, each with a checkbox. */
+.playground-paths__tree {
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+  border: 1px solid var(--cerebro-separator);
+}
+
+.playground-paths__row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.playground-paths__row > input {
+  margin: 0;
+}
+
+.playground-paths__limit {
+  min-height: 1.4em;
+  margin: 4px 0 0;
+  color: var(--cerebro-error);
+}

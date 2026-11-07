@@ -29,6 +29,8 @@ import { Toggle } from './find.js';
 import { icon } from './icons.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
+import { pathsText, pickPaths } from './log-paths.js';
+import type { FileNode } from './project.js';
 import { resolveUsers, type Author } from './log-users.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
 
@@ -144,6 +146,7 @@ export interface LogFilter {
   authors?: string[];
   after?: number;
   before?: number;
+  paths?: readonly string[];
 }
 
 /** The authors, and who "me" is: the host's `git.authors`. */
@@ -170,6 +173,8 @@ class Log {
   readonly users = signal<readonly string[] | undefined>(undefined);
   /** The Date filter's period; any time, if none. */
   readonly period = signal<Period | undefined>(undefined);
+  /** The Paths filter's files and folders, from the repository's top; any, if none. */
+  readonly paths = signal<readonly string[] | undefined>(undefined);
   /** The authors, once read: what the User filter's names stand for, and its popup lists. */
   readonly authors = signal<Authors | undefined>(undefined);
   private reading: Promise<Authors> | undefined;
@@ -182,7 +187,7 @@ class Log {
   readonly model: TreeModel<LogCommit>;
 
   constructor(
-    private readonly host: Host,
+    readonly host: Host,
     private readonly worktree: string,
   ) {
     this.model = new TreeModel<LogCommit>({
@@ -221,6 +226,8 @@ class Log {
       filter.authors = resolveUsers(users, authors, me);
     }
     Object.assign(filter, this.period.peek());
+    const paths = this.paths.peek();
+    if (paths) filter.paths = paths;
     return Object.keys(filter).length === 0 ? undefined : filter;
   }
 
@@ -289,6 +296,12 @@ class Log {
   /** Shows the commits made in a period alone, or at any time (undefined). */
   filterPeriod(period: Period | undefined): Promise<void> {
     this.period.set(period);
+    return this.refilter();
+  }
+
+  /** Shows the commits that change these paths alone, or every commit (undefined). */
+  filterPaths(paths: readonly string[] | undefined): Promise<void> {
+    this.paths.set(paths);
     return this.refilter();
   }
 
@@ -605,7 +618,7 @@ const filterText = <T,>(name: string, value: T | undefined, text: (value: T) => 
 const clearing = (value: unknown, clear: () => void) => (value === undefined ? undefined : clear);
 
 /**
- * Above the commits, as IntelliJ's: the text filter; the Branch, User and Date filters, each with
+ * Above the commits, as IntelliJ's: the text filter; the Branch, User, Date and Paths filters, each with
  * an X that clears it while it's on; then Refresh; those that don't fit are hidden behind a ».
  */
 function LogToolbar(props: {
@@ -616,6 +629,7 @@ function LogToolbar(props: {
   worktree: string;
 }): Node {
   const { services, log, branches } = props;
+  const platform = services.keymap?.platform ?? 'other';
   return (
     <div class="playground-log__toolbar" role="toolbar" aria-label="Log">
       <TextFilterField services={services} log={log} name={props.name} />
@@ -637,6 +651,7 @@ function LogToolbar(props: {
               void log.readAuthors();
               return pickUser(button, {
                 worktree: props.worktree,
+                platform,
                 authors: () => log.authors.get(),
                 current: () => log.users.peek(),
                 choose: (users) => void log.filterUsers(users),
@@ -656,6 +671,24 @@ function LogToolbar(props: {
               )
             }
             clear={() => clearing(log.period.get(), () => void log.filterPeriod(undefined))}
+          />,
+          <ToolbarDropdown
+            services={services}
+            label="Paths"
+            text={() => filterText('Paths', log.paths.get(), pathsText)}
+            popup={(button) =>
+              pickPaths(button, {
+                worktree: props.worktree,
+                platform,
+                list: async (folder) =>
+                  (await log.host.request('fs.list', {
+                    path: folder ?? props.worktree,
+                  })) as FileNode[],
+                current: () => log.paths.peek(),
+                choose: (paths) => void log.filterPaths(paths),
+              })
+            }
+            clear={() => clearing(log.paths.get(), () => void log.filterPaths(undefined))}
           />,
           <ToolbarButton
             commands={services.commands}

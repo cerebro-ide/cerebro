@@ -50,6 +50,7 @@ describe('the User filter’s popup', () => {
     document.body.append(button);
     const handle = pickUser(button, {
       worktree: '/repo',
+      platform: 'other',
       authors: () => undefined,
       current: () => undefined,
       choose: () => undefined,
