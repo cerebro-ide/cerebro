@@ -20,7 +20,7 @@ import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
@@ -533,7 +533,10 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
   );
 }
 
-/** Above the commits, as IntelliJ's: the text filter, the Branch filter, then Refresh. */
+/**
+ * Above the commits, as IntelliJ's: the text filter, the Branch filter, then Refresh; those that
+ * don't fit are hidden behind a ».
+ */
 function LogToolbar(props: {
   services: MenuServices;
   log: Log;
@@ -544,21 +547,26 @@ function LogToolbar(props: {
   return (
     <div class="playground-log__toolbar" role="toolbar" aria-label="Log">
       <TextFilterField services={services} log={log} name={props.name} />
-      <ToolbarDropdown
-        services={services}
-        label="Branch"
-        text={() => {
-          const branch = log.branch.get();
-          return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
-        }}
-        popup={(button) => pickBranch(button, log, branches)}
-      />
-      <ToolbarButton
-        commands={services.commands}
-        command="log.refresh"
-        icon={icon('refresh')}
-        shortcut={shortcutOf(services, 'log.refresh')}
-        context={() => FROM_LOG}
+      <ToolbarRow
+        label="Filters and actions"
+        items={() => [
+          <ToolbarDropdown
+            services={services}
+            label="Branch"
+            text={() => {
+              const branch = log.branch.get();
+              return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
+            }}
+            popup={(button) => pickBranch(button, log, branches)}
+          />,
+          <ToolbarButton
+            commands={services.commands}
+            command="log.refresh"
+            icon={icon('refresh')}
+            shortcut={shortcutOf(services, 'log.refresh')}
+            context={() => FROM_LOG}
+          />,
+        ]}
       />
     </div>
   );

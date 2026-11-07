@@ -122,3 +122,64 @@
 .cerebro-toolbar-dropdown__chevron {
   color: var(--cerebro-text-muted);
 }
+
+/* A row of toolbar items that keeps to its width: those that don't fit hidden, a » at its end. */
+/* No narrower than the »: the items give way, not it. */
+.cerebro-toolbar-row {
+  display: flex;
+  flex: auto;
+  align-items: center;
+}
+
+/* As wide as the row leaves it, whatever its items: they're hidden when it's too narrow for them. */
+.cerebro-toolbar-row__items {
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  gap: inherit;
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cerebro-toolbar-row__items > [hidden] {
+  display: none;
+}
+
+.cerebro-toolbar-row__more {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--cerebro-radius);
+  background: transparent;
+  color: var(--cerebro-text-secondary);
+}
+
+.cerebro-toolbar-row__more[hidden] {
+  display: none;
+}
+
+.cerebro-toolbar-row__more:hover {
+  background: var(--cerebro-hover);
+}
+
+/* The whole row, over it, while some of it is hidden. */
+.cerebro-toolbar-row__popup {
+  position: fixed;
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 8px;
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  white-space: nowrap;
+}

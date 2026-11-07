@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text filter (changed 2026-11-07)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text filter; a toolbar that keeps to its width (changed 2026-11-07)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1777,6 +1777,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     **Claims:** lines to an ancestor drawn as any other (IntelliJ may draw them otherwise; not
     compared), and the field's width (240px).
   - **Not yet:** the field's history, matches highlighted in the list.
+- **A narrow toolbar** (changed 2026-11-07) keeps to its width as IntelliJ's toolbars do, from
+  ActionToolbarImpl and its NOWRAP layout: the filters and actions that don't fit are hidden, from
+  the last, with a » at the row's end; pointing at it (or pressing it) shows the whole row in a
+  popup over the row, which goes when the pointer leaves it, on a click outside or on Escape, but
+  not while a filter's popup is open. Only then does the text field narrow. Why: at 1024 pixels
+  wide (CI's macOS and Windows windows, a claim from the failure there; the width measured locally
+  to show it) the toolbar ran past the commits column, and Refresh lay over the commit's pane.
+  `ToolbarRow` in `ui-toolbar` does it. **Claims:** the »'s look and its name ("Show Hidden
+  Items"; IntelliJ paints it, with no name).
 - **Not yet:** the toolbar's other filters (User, Date, Paths) and its other
   actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the branches pane's toolbar (New
   Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and its own search; tags in the

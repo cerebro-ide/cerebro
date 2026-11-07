@@ -124,6 +124,7 @@ function mount(withServices: MenuServices = services) {
   dispose = () => {
     handle.dispose();
   };
+  return box;
 }
 
 const rows = () => [
@@ -593,6 +594,24 @@ describe('Refresh', () => {
     dispose?.();
     dispose = undefined;
     expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
+  });
+
+  it('hides behind a » with the Branch filter when the Log is narrow, as IntelliJ’s toolbar', async () => {
+    git.log = history(1);
+    const box = mount();
+    box.style.width = '800px';
+    await expect.poll(subjects).toEqual(['Change 0']);
+    const toolbar = document.querySelector('.playground-log__toolbar') as HTMLElement;
+    const more = toolbar.querySelector('.cerebro-toolbar-row__more') as HTMLElement;
+    await expect.poll(() => more.hidden).toBe(false);
+    // Nothing past the toolbar's edge, over what's beside it.
+    expect(toolbar.scrollWidth).toBeLessThanOrEqual(toolbar.clientWidth);
+    more.click();
+    const popup = document.querySelector('.cerebro-toolbar-row__popup') as HTMLElement;
+    popup.querySelector<HTMLElement>('[data-command="log.refresh"]')?.click();
+    await expect.poll(() => host.params('git.log').length).toBe(2);
+    await userEvent.click(popup.querySelector('.cerebro-toolbar-dropdown') as HTMLElement);
+    await expect.poll(() => document.querySelector('.cerebro-popup')).not.toBeNull();
   });
 
   it('names no shortcut with no keymap', async () => {
