@@ -410,11 +410,14 @@ describe('with real git', () => {
   it('filters the log by paths, files or folders, as named, through a merge', async () => {
     const tree = join(root, 'paths');
     execFileSync('git', ['init', '-q', '-b', 'main', tree]);
+    /** Git, as a user: none is set on CI's runners. */
+    const as = (...args: string[]) =>
+      run(tree, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
     const change = (file: string, message: string) => {
       mkdirSync(dirname(join(tree, file)), { recursive: true });
       writeFileSync(join(tree, file), `${message}\n`);
       run(tree, 'add', '.');
-      run(tree, 'commit', '-qm', message);
+      as('commit', '-qm', message);
     };
     change('a.txt', 'a');
     change('src/b.ts', 'b');
@@ -423,7 +426,7 @@ describe('with real git', () => {
     change('src/c.ts', 'c on the side');
     run(tree, 'checkout', '-q', 'main');
     change('a.txt', 'a again');
-    run(tree, 'merge', '-q', '--no-ff', '-m', 'merge', 'side');
+    as('merge', '-q', '--no-ff', '-m', 'merge', 'side');
     const found = async (paths: string[]) =>
       (await log(tree, 0, 10, git, undefined, { paths })).map((c) => c.subject);
     expect(await found(['a.txt'])).toEqual(['a again', 'a']);
