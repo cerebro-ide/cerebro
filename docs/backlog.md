@@ -8,8 +8,15 @@ basic IDE before git and agent management").
 
 ### The Git Log's other filters
 
-The text search, User, Date and Paths, as IntelliJ's Log toolbar has them (decision "The Git
-Log"). Next, unless Ido says otherwise.
+User, Date and Paths, as IntelliJ's Log toolbar has them (decision "The Git Log"); the text
+filter is done. Next, unless Ido says otherwise.
+
+### Go to Line takes Cmd+L from the Log on macOS
+
+Seen with the Log's text filter (2026-11-07): on macOS, Cmd+L is both Go to Line and the Log's
+Focus Text Filter. Go to Line is enabled whenever a file's tab is active, wherever the keyboard is,
+and comes first, so in the Log it goes to a line. In IntelliJ, Go to Line needs an editor in the
+context: from a tool window it's off, and the Log's action runs. Not fixed: it's Go to Line's.
 
 ### The status bar's file items are samples
 
@@ -59,6 +66,11 @@ on it:
 - **The editor test "edits its document by real typing, with undo" failed once in CI** (Linux,
   2026-11-04, run 41836677496, on a change to the macOS native module alone): expected `'one'`,
   got `'one '`. Cause not found yet; not reproduced locally.
+- **Two Find in Files tests failed in a full local run** (2026-11-07, on feat/log-filters; they
+  pass alone): "searches only files the File mask takes" saw a search for each of three keys where
+  it expects one, and "opens what it finds in the Find window" failed after it. That the keys
+  came further apart than the search's 150 ms delay under the run's load is a claim, not measured;
+  the earlier fix (ed7bffc) measured that for the test of typing.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.

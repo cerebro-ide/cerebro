@@ -824,6 +824,11 @@ body,
   padding: 0 8px 4px;
 }
 
+/* The filters and actions give way first: their items go behind the » before the field narrows. */
+.playground-log__toolbar .cerebro-toolbar-row {
+  flex-shrink: 1000;
+}
+
 .playground-log__toolbar .cerebro-toolbar-button {
   width: 26px;
   height: 26px;
@@ -992,4 +997,55 @@ body,
 
 .playground-log__color-7 {
   color: var(--cerebro-log-graph-7);
+}
+
+/* The text filter, first in the Log's toolbar, as IntelliJ's: its options inside it, at its end. */
+/* Narrower, once the filters and actions after it are all behind their ». */
+.playground-log__search {
+  display: flex;
+  flex: 0 1 240px;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+  height: 26px;
+  margin-right: 4px;
+  padding: 0 2px 0 6px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-icon);
+}
+
+.playground-log__search:focus-within {
+  border-color: var(--cerebro-accent);
+}
+
+.playground-log__search > svg {
+  flex: none;
+}
+
+.playground-log__search-field {
+  flex: auto;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+  user-select: text;
+}
+
+.playground-log__search-clear {
+  display: flex;
+  flex: none;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-icon);
+}
+
+.playground-log__search-clear:hover {
+  background: var(--cerebro-hover);
 }

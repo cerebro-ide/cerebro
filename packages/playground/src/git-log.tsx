@@ -4,8 +4,9 @@
 // again when the window shows and when the app gets the focus back, as files on disk are. Beside
 // it, the selected commit's changed files (a double click or Enter opens a file's diff, F4 the file)
 // and its details: its message, hash, author and date. On its left, the branches; a double click
-// on one, or the toolbar's Branch filter, shows that branch's commits alone. Refresh reads it all
-// again.
+// on one, or the toolbar's Branch filter, shows that branch's commits alone. The toolbar's text
+// filter shows the commits whose messages have the text, or the commits a hash names (Enter
+// applies it, Ctrl+L focuses it); Refresh reads it all again.
 //
 // From IntelliJ: the refs' colours (VcsLogStandardColors: the current branch and HEAD in the tip's
 // yellow, local branches green, remote ones purple, tags grey) and the graph's (DefaultColorGenerator,
@@ -19,10 +20,12 @@ import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
+import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
+import { Toggle } from './find.js';
 import { icon } from './icons.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
@@ -126,6 +129,13 @@ function Graph(props: { row: GraphRow }) {
   );
 }
 
+/** What the Log's text filter asks the host for (its `git.log` filter). */
+export interface TextFilter {
+  text: string;
+  regex: boolean;
+  matchCase: boolean;
+}
+
 /** What the Log has loaded, and loads. */
 class Log {
   readonly commits = signal<readonly LogCommit[]>([]);
@@ -135,6 +145,13 @@ class Log {
   readonly loaded = signal(false);
   /** The branch it shows the commits of; all, if none. */
   readonly branch = signal<BranchFilter | undefined>(undefined);
+  /** The text its commits' messages have, or a hash; any, if none. */
+  readonly text = signal<string | undefined>(undefined);
+  /** How the text is matched, as IntelliJ's text filter settings (both off to start with). */
+  readonly regex = signal(false);
+  readonly matchCase = signal(false);
+  /** Counts the filters' changes: what was asked for under an earlier one is dropped. */
+  private filtering = 0;
   private layout = new GraphLayout();
   /** All there are, loaded. */
   private done = false;
@@ -153,11 +170,17 @@ class Log {
   }
 
   private ask(skip: number): Promise<LogCommit[]> {
+    const text = this.text.peek();
+    const filter: TextFilter | undefined =
+      text === undefined
+        ? undefined
+        : { text, regex: this.regex.peek(), matchCase: this.matchCase.peek() };
     return this.host.request('git.log', {
       worktree: this.worktree,
       skip,
       max: PAGE,
       ...(this.branch.peek() === undefined ? {} : { branches: [this.branch.peek()] }),
+      ...(filter ? { filter } : {}),
     }) as Promise<LogCommit[]>;
   }
 
@@ -175,11 +198,11 @@ class Log {
    * filter's commits replace the old whatever they are.
    */
   async reload(replace = false): Promise<void> {
-    const branch = this.branch.peek();
+    const filtering = this.filtering;
     try {
       const page = await this.ask(0);
-      // Asked for before the filter changed: the new filter's is on its way.
-      if (this.branch.peek() !== branch) return;
+      // Asked for before a filter changed: the new filter's is on its way.
+      if (this.filtering !== filtering) return;
       this.error.set(undefined);
       const before = this.commits.peek();
       const same = page.every((commit, i) => before[i]?.hash === commit.hash);
@@ -195,8 +218,25 @@ class Log {
   }
 
   /** Shows a branch's commits alone, or all (undefined). */
-  async filter(branch: BranchFilter | undefined): Promise<void> {
+  filter(branch: BranchFilter | undefined): Promise<void> {
     this.branch.set(branch);
+    return this.refilter();
+  }
+
+  /** Shows the commits a text matches, or all (undefined, or blank, as IntelliJ's). */
+  search(text: string | undefined): Promise<void> {
+    this.text.set(text?.trim() === '' ? undefined : text);
+    return this.refilter();
+  }
+
+  /** Turns Regex or Match Case on or off; the text filter, if any, applies with it. */
+  setOption(option: 'regex' | 'matchCase', on: boolean): Promise<void> {
+    this[option].set(on);
+    return this.text.peek() === undefined ? Promise.resolve() : this.refilter();
+  }
+
+  private async refilter(): Promise<void> {
+    this.filtering++;
     // A page on its way, of the filter before, is dropped as these replace the list.
     await this.reload(true);
   }
@@ -361,6 +401,19 @@ export function setupLog(services: MenuServices): void {
   });
   // IntelliJ's Refresh, in its macOS keymap and the others.
   keymap?.bindDefault(keymap.platform === 'mac' ? 'Mod+R' : 'Ctrl+F5', 'log.refresh');
+  commands.register({
+    id: 'log.focusTextFilter',
+    label: 'Focus Text Filter',
+    enabled: (c) => here(c) && shown.get() !== undefined,
+    run: () => {
+      // The text filter, or from it back to the commits, as IntelliJ's.
+      const field = document.querySelector<HTMLElement>('.playground-log__search-field');
+      const list = document.querySelector<HTMLElement>('.playground-log__list .cerebro-tree');
+      (document.activeElement === field ? list : field)?.focus();
+    },
+  });
+  // IntelliJ's, Ctrl+L in its default keymap: Cmd+L on macOS, which takes it with Ctrl as Cmd.
+  keymap?.bindDefault('Mod+L', 'log.focusTextFilter');
 }
 
 type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
@@ -395,31 +448,125 @@ function pickBranch(button: HTMLElement, log: Log, branches: Branches) {
   return handle;
 }
 
-/** Above the commits, as IntelliJ's: the Branch filter, then Refresh. */
-function LogToolbar(props: { services: MenuServices; log: Log; branches: Branches }): Node {
-  const { services, log, branches } = props;
-  const shortcut = () => {
-    const keymap = services.keymap;
-    const key = keymap?.shortcutsFor('log.refresh')[0];
-    return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);
+/** A command's first shortcut, as menus show it. */
+const shortcutOf = (services: MenuServices, command: string) => () => {
+  const keymap = services.keymap;
+  const key = keymap?.shortcutsFor(command)[0];
+  return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);
+};
+
+/**
+ * The text filter, as IntelliJ's: the text typed applies on Enter, or as the field loses the focus
+ * changed; emptied, or cleared with its button, it's off. Regex and Match Case sit in it.
+ */
+function TextFilterField(props: { services: MenuServices; log: Log; name: string }): Node {
+  const { log } = props;
+  const typed = signal(log.text.peek() ?? '');
+  // As IntelliJ's isSameFilterAs: blank is the same as none.
+  const same = () => {
+    const applied = log.text.peek() ?? '';
+    return typed.peek().trim() === '' ? applied === '' : typed.peek() === applied;
   };
+  const apply = () => {
+    void log.search(typed.peek());
+  };
+  let field: HTMLInputElement | undefined;
+  const option = (label: string, text: string, name: 'regex' | 'matchCase') => (
+    <Toggle
+      label={label}
+      text={text}
+      on={() => log[name].get()}
+      toggle={() => {
+        void log.setOption(name, !log[name].peek());
+      }}
+    />
+  );
+  return (
+    <div class="playground-log__search">
+      {icon('search')}
+      <input
+        class="playground-log__search-field"
+        type="text"
+        spellcheck={false}
+        placeholder="Text or hash"
+        aria-label={`${props.name} log text or hash filter`}
+        value={typed.peek()}
+        ref={(input: HTMLInputElement) => {
+          field = input;
+          tooltip({
+            text: () => 'Filter by Commit Message or Hashes',
+            shortcut: shortcutOf(props.services, 'log.focusTextFilter'),
+          })(input);
+        }}
+        on:input={(event) => {
+          typed.set((event.currentTarget as HTMLInputElement).value);
+        }}
+        on:keydown={(event) => {
+          if (event.key === 'Enter') apply();
+        }}
+        on:blur={() => {
+          if (!same()) apply();
+        }}
+      />
+      {() =>
+        typed.get() === '' ? null : (
+          <button
+            type="button"
+            class="playground-log__search-clear"
+            aria-label="Clear"
+            on:mousedown={(event) => {
+              event.preventDefault();
+            }}
+            on:click={() => {
+              (field as HTMLInputElement).value = '';
+              typed.set('');
+              void log.search(undefined);
+            }}
+          >
+            {icon('clear')}
+          </button>
+        )
+      }
+      {option('Regex', '.*', 'regex')}
+      {option('Match Case', 'Cc', 'matchCase')}
+    </div>
+  );
+}
+
+/**
+ * Above the commits, as IntelliJ's: the text filter, the Branch filter, then Refresh; those that
+ * don't fit are hidden behind a ».
+ */
+function LogToolbar(props: {
+  services: MenuServices;
+  log: Log;
+  branches: Branches;
+  name: string;
+}): Node {
+  const { services, log, branches } = props;
   return (
     <div class="playground-log__toolbar" role="toolbar" aria-label="Log">
-      <ToolbarDropdown
-        services={services}
-        label="Branch"
-        text={() => {
-          const branch = log.branch.get();
-          return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
-        }}
-        popup={(button) => pickBranch(button, log, branches)}
-      />
-      <ToolbarButton
-        commands={services.commands}
-        command="log.refresh"
-        icon={icon('refresh')}
-        shortcut={shortcut}
-        context={() => FROM_LOG}
+      <TextFilterField services={services} log={log} name={props.name} />
+      <ToolbarRow
+        label="Filters and actions"
+        items={() => [
+          <ToolbarDropdown
+            services={services}
+            label="Branch"
+            text={() => {
+              const branch = log.branch.get();
+              return `Branch: ${branch === undefined ? 'All' : branchName(branch)}`;
+            }}
+            popup={(button) => pickBranch(button, log, branches)}
+          />,
+          <ToolbarButton
+            commands={services.commands}
+            command="log.refresh"
+            icon={icon('refresh')}
+            shortcut={shortcutOf(services, 'log.refresh')}
+            context={() => FROM_LOG}
+          />,
+        ]}
       />
     </div>
   );
@@ -491,7 +638,7 @@ export function GitLogView(props: { services: MenuServices; open: (tab: Tab) => 
             }}
           />,
           <div class="playground-log__commits">
-            <LogToolbar services={props.services} log={log} branches={branches} />
+            <LogToolbar services={props.services} log={log} branches={branches} name={env.name} />
             <div class="playground-log__list">{list}</div>
           </div>,
           <Splitter

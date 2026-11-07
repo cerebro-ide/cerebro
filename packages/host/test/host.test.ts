@@ -323,17 +323,37 @@ describe('changes', () => {
         refs: [],
       },
     ]);
-    expect(git).toHaveBeenCalledWith('/w', expect.arrayContaining(['--skip=0', '--max-count=5']));
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      expect.arrayContaining(['--skip=0', '--max-count=5']),
+      undefined,
+      undefined,
+    );
     await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, branches: ['HEAD'] });
     expect(git).toHaveBeenLastCalledWith(
       '/w',
       expect.arrayContaining(['--end-of-options', 'HEAD']),
+      undefined,
+      undefined,
+    );
+    // Filtered: by the text, as given.
+    const filter = { text: 'fix', regex: true, matchCase: true };
+    await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, filter });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      expect.arrayContaining(['--grep=fix', '--extended-regexp']),
+      undefined,
+      undefined,
     );
     for (const bad of [
       { skip: 0 },
       { skip: 'a', max: 1 },
       { skip: 0, max: 1, branches: 'main' },
       { skip: 0, max: 1, branches: [''] },
+      { skip: 0, max: 1, filter: { text: ' ', regex: false, matchCase: false } },
+      { skip: 0, max: 1, filter: { text: 'a', regex: 'no', matchCase: false } },
+      { skip: 0, max: 1, filter: { text: 'a', regex: false } },
+      { skip: 0, max: 1, filter: { regex: false, matchCase: false } },
     ]) {
       await expect(ui.request('git.log', { worktree: '/w', ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,

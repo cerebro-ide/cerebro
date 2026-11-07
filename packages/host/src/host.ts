@@ -58,6 +58,7 @@ import {
   listWorktrees,
   removeWorktree,
   type Git,
+  type LogFilter,
   ignoredAmong,
 } from './git.js';
 
@@ -408,7 +409,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   };
   // A worktree's changes since its last commit, or from one commit to another.
   // The Git tool window's Log: a page of commits, `max` after the first `skip`; of the branches
-  // given, or of all.
+  // given, or of all; those a filter matches, if it's given.
   connection.onRequest('git.log', (params) => {
     const { skip, max, branches } = params as { skip?: unknown; max?: unknown; branches?: unknown };
     if (!Number.isInteger(skip) || !Number.isInteger(max)) {
@@ -420,12 +421,25 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     ) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'branches must be names');
     }
+    const { filter } = params as { filter?: Partial<Record<keyof LogFilter, unknown>> };
+    if (
+      filter !== undefined &&
+      !(
+        typeof filter.text === 'string' &&
+        filter.text.trim() !== '' &&
+        typeof filter.regex === 'boolean' &&
+        typeof filter.matchCase === 'boolean'
+      )
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'filter must be text, regex and matchCase');
+    }
     return log(
       text(params, 'worktree'),
       skip as number,
       max as number,
       git,
       branches as string[] | undefined,
+      filter as LogFilter | undefined,
     );
   });
   // The Log's branches pane: the local and remote branches.

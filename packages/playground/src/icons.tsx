@@ -17,6 +17,8 @@ const PATHS: Record<string, string> = {
   database:
     'M3 4c0-1 2.2-1.5 5-1.5s5 .5 5 1.5v8c0 1-2.2 1.5-5 1.5S3 13 3 12zM3 4c0 1 2.2 1.5 5 1.5S13 5 13 4M3 8c0 1 2.2 1.5 5 1.5S13 9 13 8',
   search: 'M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5',
+  // A search field's clear button.
+  clear: 'M5 5l6 6M11 5l-6 6',
   file: 'M4 2.5h5l3 3v8H4zM9 2.5v3h3',
   check: 'M3.5 8.5l3 3 6-7',
   agent: 'M8 2v12M2 8h12M3.8 3.8l8.4 8.4M3.8 12.2l8.4-8.4',

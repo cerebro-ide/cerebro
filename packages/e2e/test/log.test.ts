@@ -33,6 +33,19 @@ const HOST = { timeout: 15_000 };
 
 const page = () => running.page;
 const subjects = () => page().locator('.playground-log__message').allTextContents();
+/**
+ * One of the Log toolbar's filters and actions, in the popup its » shows them in when pointed at:
+ * the popup lies over the », so a click there would land on what's in it.
+ */
+const inToolbar = async (selector: string) => {
+  const popup = page().locator('.cerebro-toolbar-row__popup');
+  if ((await popup.count()) === 0) {
+    await page()
+      .locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more')
+      .hover({ force: true });
+  }
+  return popup.locator(selector);
+};
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
@@ -46,6 +59,11 @@ beforeAll(async () => {
   git('merge', '-q', '--no-ff', '-m', 'Merge side', 'side');
   git('tag', 'v1');
   running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
+  // As narrow as CI's macOS and Windows windows came out: the Log's toolbar hides its filters and
+  // Refresh behind its » here, on every platform.
+  await running.app.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1024, 768);
+  });
 });
 
 afterAll(async () => {
@@ -94,7 +112,7 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await branch.waitFor(HOST);
   await branch.dblclick({ force: true });
   await expect.poll(subjects, HOST).toEqual(['On the side', 'First']);
-  const filter = log.locator('.playground-log__toolbar .cerebro-toolbar-dropdown');
+  const filter = await inToolbar('.cerebro-toolbar-dropdown');
   expect(await filter.textContent()).toBe('Branch: side');
   await filter.click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'All' }).first().waitFor();
@@ -102,6 +120,28 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await expect.poll(subjects, HOST).toHaveLength(5);
   // A commit made outside the app shows on Refresh.
   commit('After refresh');
-  await log.locator('[data-command="log.refresh"]').click({ force: true });
+  await (await inToolbar('[data-command="log.refresh"]')).click({ force: true });
   await expect.poll(async () => (await subjects())[0], HOST).toBe('After refresh');
+  // Away from the popup: it goes.
+  await page().locator('.cerebro-statusbar').click({ force: true });
+  await expect.poll(() => page().locator('.cerebro-toolbar-row__popup').count()).toBe(0);
+});
+
+it('filters by text on Enter, in any case or as typed, and by a hash', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  const field = log.locator('.playground-log__search-field');
+  await field.click({ force: true });
+  await field.fill('on');
+  await page().keyboard.press('Enter');
+  // In any case, in the messages of every branch.
+  await expect.poll(subjects, HOST).toEqual(['On main', 'On the side']);
+  await log.locator('.playground-log__search [aria-label="Match Case"]').click({ force: true });
+  await expect.poll(subjects, HOST).toEqual([]);
+  await log.locator('.playground-log__search [aria-label="Match Case"]').click({ force: true });
+  const hash = git('rev-parse', '--short', 'HEAD~1').trim();
+  await field.fill(hash);
+  await page().keyboard.press('Enter');
+  await expect.poll(subjects, HOST).toEqual(['Later']);
+  await log.locator('.playground-log__search-clear').click({ force: true });
+  await expect.poll(subjects, HOST).toHaveLength(6);
 });

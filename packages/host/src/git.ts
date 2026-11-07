@@ -391,11 +391,151 @@ export function parseLog(output: string): LogCommit[] {
     });
 }
 
+/** Every branch, remote branch and tag, and HEAD: the Log's commits when no branch is chosen. */
+const ALL = ['--branches', '--remotes', '--tags', 'HEAD'];
+
+/** The commits to list: the branches given (refs in full, or HEAD), else all. */
+const revisions = (branches?: readonly string[]) =>
+  branches ? ['--end-of-options', ...branches] : ALL;
+
+/** A commit's details, newest first with each after its children, as the Log lists them. */
+const DETAILS = ['-z', '--date-order', '--decorate=full', `--format=${LOG_FORMAT}`];
+
+/** Runs `git log`; nothing in a repository with no commits yet. */
+async function readLog(worktree: string, args: readonly string[], run: Git, input?: string) {
+  try {
+    return await run(worktree, ['log', ...args], undefined, input);
+  } catch (error) {
+    // HEAD names a branch with no commits yet.
+    if (/bad revision 'HEAD'/.test((error as Error).message)) return '';
+    throw error;
+  }
+}
+
+/** Each commit's parents, the commits in the Log's order (a commit before its parents). */
+async function ancestry(worktree: string, revs: readonly string[], run: Git) {
+  const output = await readLog(
+    worktree,
+    ['-z', '--date-order', '--format=%H%x1f%P', ...revs, '--'],
+    run,
+  );
+  return new Map(
+    output
+      .split('\0')
+      .filter((record) => record !== '')
+      .map((record) => {
+        const [hash, parents] = record.split('\x1f') as [string, string];
+        return [hash, parents === '' ? [] : parents.split(' ')];
+      }),
+  );
+}
+
+/** What the Log's text filter asks for, as IntelliJ's: in commits' messages, or their hashes. */
+export interface LogFilter {
+  text: string;
+  regex: boolean;
+  matchCase: boolean;
+}
+
+/** The hashes a filter's text is, as IntelliJ reads it: 7 to 64 hex digits each; else none. */
+export function hashesIn(text: string): string[] | undefined {
+  const words = text.split(/[\s,;]+/).filter(Boolean);
+  return words.length > 0 && words.every((word) => /^[a-fA-F0-9]{7,64}$/.test(word))
+    ? words
+    : undefined;
+}
+
+const unique = (hashes: readonly string[]) => [...new Set(hashes)];
+
+/**
+ * The commits listed, each one's parents the nearest of its ancestors among them: the graph of a
+ * filtered log joins what it shows, where git gives the parents it hides.
+ */
+export function rewriteParents(
+  commits: readonly LogCommit[],
+  parents: ReadonlyMap<string, readonly string[]>,
+): LogCommit[] {
+  const shown = new Set(commits.map((commit) => commit.hash));
+  // For each commit not shown: the shown ones nearest below it.
+  const nearest = new Map<string, string[]>();
+  const below = (hash: string) => (shown.has(hash) ? [hash] : (nearest.get(hash) ?? []));
+  // Parents come after their children: from the last, each one's parents are done before it.
+  for (const [hash, its] of [...parents].reverse()) {
+    if (!shown.has(hash)) nearest.set(hash, unique(its.flatMap(below)));
+  }
+  return commits.map((commit) => ({ ...commit, parents: unique(commit.parents.flatMap(below)) }));
+}
+
+/**
+ * The commits a text filter matches, as IntelliJ's: hashes find their commits, and the commits
+ * whose messages name them, in any branch; if none, their text is searched for as any other. Text
+ * is searched for in the messages of the commits listed.
+ */
+async function filtered(
+  worktree: string,
+  branches: readonly string[] | undefined,
+  filter: LogFilter,
+  run: Git,
+): Promise<LogCommit[]> {
+  const words = hashesIn(filter.text);
+  if (words) {
+    const all = await ancestry(worktree, ALL, run);
+    const prefixes = words.map((word) => word.toLowerCase());
+    const hashes = [...all.keys()].filter((hash) => prefixes.some((p) => hash.startsWith(p)));
+    const named =
+      hashes.length === 0
+        ? []
+        : parseLog(
+            await readLog(worktree, [...DETAILS, '--no-walk', '--stdin'], run, hashes.join('\n')),
+          );
+    const naming = parseLog(
+      await readLog(
+        worktree,
+        [
+          ...DETAILS,
+          ...words.map((word) => `--grep=${word}`),
+          '--fixed-strings',
+          '--regexp-ignore-case',
+          ...ALL,
+          '--',
+        ],
+        run,
+      ),
+    );
+    const found = new Map([...named, ...naming].map((commit) => [commit.hash, commit]));
+    if (found.size > 0) {
+      const order = [...all.keys()];
+      return rewriteParents(
+        order.flatMap((hash) => found.get(hash) ?? []),
+        all,
+      );
+    }
+  }
+  const revs = revisions(branches);
+  const commits = parseLog(
+    await readLog(
+      worktree,
+      [
+        ...DETAILS,
+        `--grep=${filter.text}`,
+        filter.regex ? '--extended-regexp' : '--fixed-strings',
+        ...(filter.matchCase ? [] : ['--regexp-ignore-case']),
+        ...revs,
+        '--',
+      ],
+      run,
+    ),
+  );
+  return rewriteParents(commits, await ancestry(worktree, revs, run));
+}
+
 /**
  * The commits of every branch, remote branch and tag, and HEAD, as IntelliJ's Log shows them
  * (Branch: All), newest first with each after its children (`--date-order`); `max` of them after
  * the first `skip`. None in a repository with no commits yet. Cerebro's own refs aren't among them.
- * Given `branches` (refs in full, or HEAD), only theirs: the Log's Branch filter.
+ * Given `branches` (refs in full, or HEAD), only theirs: the Log's Branch filter. Given a `filter`,
+ * those it matches: the whole history is read for each page, to join the graph (a claim that it's
+ * quick enough).
  */
 export async function log(
   worktree: string,
@@ -403,28 +543,22 @@ export async function log(
   max: number,
   run: Git = git,
   branches?: readonly string[],
+  filter?: LogFilter,
 ): Promise<LogCommit[]> {
-  let output: string;
-  try {
-    output = await run(worktree, [
-      'log',
-      '-z',
-      '--date-order',
-      '--decorate=full',
-      `--format=${LOG_FORMAT}`,
-      `--skip=${String(skip)}`,
-      `--max-count=${String(max)}`,
-      ...(branches
-        ? ['--end-of-options', ...branches]
-        : ['--branches', '--remotes', '--tags', 'HEAD']),
-      '--',
-    ]);
-  } catch (error) {
-    // HEAD names a branch with no commits yet.
-    if (/bad revision 'HEAD'/.test((error as Error).message)) return [];
-    throw error;
-  }
-  return parseLog(output);
+  if (filter) return (await filtered(worktree, branches, filter, run)).slice(skip, skip + max);
+  return parseLog(
+    await readLog(
+      worktree,
+      [
+        ...DETAILS,
+        `--skip=${String(skip)}`,
+        `--max-count=${String(max)}`,
+        ...revisions(branches),
+        '--',
+      ],
+      run,
+    ),
+  );
 }
 
 /** A local or remote branch, for the Log's branches. */

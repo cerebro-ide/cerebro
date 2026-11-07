@@ -43,6 +43,8 @@ const git = {
   changes: {} as Record<string, Change[]>,
   /** The log of a branch the Log is filtered by. */
   byBranch: {} as Record<string, LogCommit[]>,
+  /** The log a text filter matches, by its text. */
+  byText: {} as Record<string, LogCommit[]>,
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
 };
@@ -51,12 +53,18 @@ const host = new FakeHost({
     skip,
     max,
     branches,
+    filter,
   }: {
     skip: number;
     max: number;
     branches?: string[];
+    filter?: { text: string };
   }) => {
-    const log = branches ? (git.byBranch[branches[0] as string] ?? []) : git.log;
+    const log = filter
+      ? (git.byText[filter.text] ?? [])
+      : branches
+        ? (git.byBranch[branches[0] as string] ?? [])
+        : git.log;
     const hold = git.hold;
     git.hold = undefined;
     await hold;
@@ -116,6 +124,7 @@ function mount(withServices: MenuServices = services) {
   dispose = () => {
     handle.dispose();
   };
+  return box;
 }
 
 const rows = () => [
@@ -587,6 +596,24 @@ describe('Refresh', () => {
     expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
   });
 
+  it('hides behind a » with the Branch filter when the Log is narrow, as IntelliJ’s toolbar', async () => {
+    git.log = history(1);
+    const box = mount();
+    box.style.width = '800px';
+    await expect.poll(subjects).toEqual(['Change 0']);
+    const toolbar = document.querySelector('.playground-log__toolbar') as HTMLElement;
+    const more = toolbar.querySelector('.cerebro-toolbar-row__more') as HTMLElement;
+    await expect.poll(() => more.hidden).toBe(false);
+    // Nothing past the toolbar's edge, over what's beside it.
+    expect(toolbar.scrollWidth).toBeLessThanOrEqual(toolbar.clientWidth);
+    more.click();
+    const popup = document.querySelector('.cerebro-toolbar-row__popup') as HTMLElement;
+    popup.querySelector<HTMLElement>('[data-command="log.refresh"]')?.click();
+    await expect.poll(() => host.params('git.log').length).toBe(2);
+    await userEvent.click(popup.querySelector('.cerebro-toolbar-dropdown') as HTMLElement);
+    await expect.poll(() => document.querySelector('.cerebro-popup')).not.toBeNull();
+  });
+
   it('names no shortcut with no keymap', async () => {
     git.log = history(1);
     mount({ commands, menus: new MenuRegistry() });
@@ -604,5 +631,94 @@ describe('Refresh', () => {
     const keymap = new Keymap('mac');
     setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
     expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
+  });
+});
+
+describe('the text filter', () => {
+  const field = () => document.querySelector('.playground-log__search-field') as HTMLInputElement;
+  const filters = () => host.params('git.log').map((p) => (p as { filter?: unknown }).filter);
+  const option = (label: string) =>
+    document.querySelector(`.playground-log__search [aria-label="${label}"]`) as HTMLElement;
+
+  it('shows the commits its text matches once Enter applies it, with Regex and Match Case', async () => {
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    expect(field().placeholder).toBe('Text or hash');
+    expect(field().getAttribute('aria-label')).toBe('r log text or hash filter');
+    await userEvent.click(field());
+    await userEvent.keyboard('fix');
+    // Not as it's typed, as IntelliJ's.
+    expect(filters()).toEqual([undefined]);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    expect(filters()).toEqual([undefined, { text: 'fix', regex: false, matchCase: false }]);
+    // An option applies the text again with it.
+    await userEvent.click(option('Regex'));
+    expect(option('Regex').getAttribute('aria-pressed')).toBe('true');
+    await userEvent.click(option('Match Case'));
+    await expect
+      .poll(() => filters().at(-1))
+      .toEqual({ text: 'fix', regex: true, matchCase: true });
+    expect(document.activeElement).toBe(field());
+    // Emptied, it's off.
+    await userEvent.clear(field());
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(subjects).toHaveLength(3);
+    expect(filters().at(-1)).toBeUndefined();
+    // Then an option alone reads nothing again.
+    const asked = filters().length;
+    await userEvent.click(option('Regex'));
+    expect(filters()).toHaveLength(asked);
+  });
+
+  it('applies as it loses the focus, if changed; its button clears it', async () => {
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    await userEvent.click(field());
+    await userEvent.keyboard('fix');
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    // The same text, or blank for none: nothing to apply.
+    const asked = filters().length;
+    await userEvent.click(field());
+    await userEvent.click(rows()[0] as HTMLElement);
+    expect(filters()).toHaveLength(asked);
+    const clear = document.querySelector('.playground-log__search-clear') as HTMLElement;
+    await userEvent.click(clear);
+    await expect.poll(subjects).toHaveLength(3);
+    expect(field().value).toBe('');
+    expect(document.querySelector('.playground-log__search-clear')).toBeNull();
+    await userEvent.click(field());
+    await userEvent.keyboard('  ');
+    await userEvent.click(rows()[0] as HTMLElement);
+    expect(filters()).toHaveLength(asked + 1);
+  });
+
+  it('is focused with Ctrl+L while the Log has the keyboard, and gives it back to the list', async () => {
+    git.log = history(1);
+    mount();
+    await expect.poll(subjects).toHaveLength(1);
+    expect(services.keymap?.shortcutsFor('log.focusTextFilter')).toEqual(['Ctrl+L']);
+    await userEvent.hover(field());
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Filter by Commit Message or HashesCtrl+L');
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(commands.isEnabled('log.focusTextFilter')).toBe(false);
+    await userEvent.click(rows()[0] as HTMLElement);
+    commands.execute('log.focusTextFilter');
+    expect(document.activeElement).toBe(field());
+    commands.execute('log.focusTextFilter');
+    expect(document.activeElement).toBe(tree());
+  });
+
+  it('is focused with Cmd+L on macOS, as IntelliJ’s keymaps take Ctrl there', () => {
+    const keymap = new Keymap('mac');
+    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
+    expect(keymap.shortcutsFor('log.focusTextFilter')).toEqual(['Meta+L']);
   });
 });
