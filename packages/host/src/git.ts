@@ -401,10 +401,16 @@ const revisions = (branches?: readonly string[]) =>
 /** A commit's details, newest first with each after its children, as the Log lists them. */
 const DETAILS = ['-z', '--date-order', '--decorate=full', `--format=${LOG_FORMAT}`];
 
-/** Runs `git log`; nothing in a repository with no commits yet. */
-async function readLog(worktree: string, args: readonly string[], run: Git, input?: string) {
+/** Runs `git log`, after `config` (`-c` options); nothing in a repository with no commits yet. */
+async function readLog(
+  worktree: string,
+  args: readonly string[],
+  run: Git,
+  input?: string,
+  config: readonly string[] = [],
+) {
   try {
-    return await run(worktree, ['log', ...args], undefined, input);
+    return await run(worktree, [...config, 'log', ...args], undefined, input);
   } catch (error) {
     // HEAD names a branch with no commits yet.
     if (/bad revision 'HEAD'/.test((error as Error).message)) return '';
@@ -431,10 +437,41 @@ async function ancestry(worktree: string, revs: readonly string[], run: Git) {
 }
 
 /** What the Log's text filter asks for, as IntelliJ's: in commits' messages, or their hashes. */
-export interface LogFilter {
+export interface TextFilter {
   text: string;
   regex: boolean;
   matchCase: boolean;
+}
+
+/** What the Log's filters ask for, beyond the branches: each that's given narrows it. */
+export interface LogFilter {
+  text?: TextFilter;
+  /** The authors exactly, `Name <email>`: the User filter's, as the page resolves them. */
+  authors?: readonly string[];
+  /** Made after or before these times, in milliseconds: the Date filter's. */
+  after?: number;
+  before?: number;
+}
+
+/** An author exactly, as an extended regular expression: IntelliJ's UserNameRegex. */
+const exactly = (author: string) =>
+  `^${author.replaceAll('\\', '\\\\').replace(/[.^$*+\-?()[\]{}|]/g, '\\$&')}$`;
+
+/** Git's options for a filter's text, authors and dates, as IntelliJ's GitLogProvider gives them. */
+function filterOptions(filter: LogFilter): string[] {
+  const { text, authors } = filter;
+  // Without text, as with Regex: the authors are matched as expressions, in any case.
+  const regex = text?.regex ?? true;
+  const seconds = (time: number) => `@${String(Math.floor(time / 1000))}`;
+  return [
+    ...(text ? [`--grep=${text.text}`] : []),
+    regex ? '--extended-regexp' : '--fixed-strings',
+    ...(text?.matchCase ? [] : ['--regexp-ignore-case']),
+    ...(authors && regex ? [`--author=${authors.map(exactly).join('|')}`] : []),
+    ...(authors && !regex ? authors.map((author) => `--author=${author}`) : []),
+    ...(filter.after === undefined ? [] : [`--after=${seconds(filter.after)}`]),
+    ...(filter.before === undefined ? [] : [`--before=${seconds(filter.before)}`]),
+  ];
 }
 
 /** The hashes a filter's text is, as IntelliJ reads it: 7 to 64 hex digits each; else none. */
@@ -477,7 +514,7 @@ async function filtered(
   filter: LogFilter,
   run: Git,
 ): Promise<LogCommit[]> {
-  const words = hashesIn(filter.text);
+  const words = filter.text && hashesIn(filter.text.text);
   if (words) {
     const all = await ancestry(worktree, ALL, run);
     const prefixes = words.map((word) => word.toLowerCase());
@@ -511,19 +548,17 @@ async function filtered(
       );
     }
   }
+  // No author is known by the names asked for: none of the commits are theirs.
+  if (filter.authors?.length === 0) return [];
   const revs = revisions(branches);
   const commits = parseLog(
     await readLog(
       worktree,
-      [
-        ...DETAILS,
-        `--grep=${filter.text}`,
-        filter.regex ? '--extended-regexp' : '--fixed-strings',
-        ...(filter.matchCase ? [] : ['--regexp-ignore-case']),
-        ...revs,
-        '--',
-      ],
+      [...DETAILS, ...filterOptions(filter), ...revs, '--'],
       run,
+      undefined,
+      // The authors as written in the commits, as IntelliJ asks for them: not as a mailmap has them.
+      filter.authors ? ['-c', 'log.mailmap=false'] : [],
     ),
   );
   return rewriteParents(commits, await ancestry(worktree, revs, run));
@@ -559,6 +594,38 @@ export async function log(
       run,
     ),
   );
+}
+
+/** A commit's author, or the user git commits as. */
+export interface Author {
+  name: string;
+  email: string;
+}
+
+/**
+ * The authors of the commits of every branch, remote branch and tag, each once, as git has them;
+ * and the user git commits as (`user.name`, `user.email`), if it's set: the User filter's "me".
+ */
+export async function listAuthors(
+  worktree: string,
+  run: Git = git,
+): Promise<{ authors: Author[]; me: Author | undefined }> {
+  const output = await readLog(worktree, ['--format=%an%x1f%ae', ...ALL, '--'], run, undefined, [
+    '-c',
+    'log.mailmap=false',
+  ]);
+  const authors = [...new Set(output.split('\n').filter(Boolean))].map((line) => {
+    const [name, email] = line.split('\x1f') as [string, string];
+    return { name, email };
+  });
+  // Unset, git config fails.
+  const config = (key: string) =>
+    run(worktree, ['config', key]).then(
+      (v) => v.trim(),
+      () => '',
+    );
+  const me = { name: await config('user.name'), email: await config('user.email') };
+  return { authors, me: me.name === '' && me.email === '' ? undefined : me };
 }
 
 /** A local or remote branch, for the Log's branches. */

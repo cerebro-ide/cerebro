@@ -96,6 +96,11 @@ export interface ToolbarDropdownProps {
   badge?: () => string;
   /** Passed to the menu's commands. */
   context?: () => unknown;
+  /**
+   * What clears the choice, while there's one to clear: a filter's, as IntelliJ's. An X takes the
+   * arrow's place, and Delete or Backspace on the dropdown clears it too. Read reactively.
+   */
+  clear?: () => (() => void) | undefined;
 }
 
 export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
@@ -135,7 +140,7 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
     if (handle) handle.close();
     else open(fromKeyboard);
   };
-  return (
+  const button = (
     <button
       type="button"
       class={() =>
@@ -163,6 +168,11 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
           event.preventDefault();
           toggle(true);
         }
+        const clear = props.clear?.();
+        if ((event.key === 'Delete' || event.key === 'Backspace') && clear) {
+          event.preventDefault();
+          clear();
+        }
       }}
     >
       {badge ? (
@@ -175,23 +185,45 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
       ) : null}
       {props.icon ? <span class="cerebro-toolbar-dropdown__icon">{props.icon}</span> : null}
       <span class="cerebro-toolbar-dropdown__text">{props.text}</span>
-      <svg
-        class="cerebro-toolbar-dropdown__chevron"
-        viewBox="0 0 16 16"
-        width="12"
-        height="12"
-        aria-hidden="true"
-      >
-        <path
-          d="M4 6l4 4 4-4"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        />
-      </svg>
+      {() => (props.clear?.() ? null : glyph('cerebro-toolbar-dropdown__chevron', 'M4 6l4 4 4-4'))}
     </button>
+  ) as HTMLElement;
+  if (!props.clear) return button;
+  const { clear } = props;
+  return (
+    <span class="cerebro-toolbar-filter">
+      {button}
+      {() => {
+        const run = clear();
+        return run ? (
+          <button
+            type="button"
+            class="cerebro-toolbar-dropdown__clear"
+            aria-label={`Clear ${props.label}`}
+            ref={tooltip({ text: () => 'Clear', placement: 'below' })}
+            on:click={run}
+          >
+            {glyph('', 'M5 5l6 6M11 5l-6 6')}
+          </button>
+        ) : null;
+      }}
+    </span>
+  );
+}
+
+/** A small line drawing: the dropdown's arrow, or its X. */
+function glyph(className: string, path: string) {
+  return (
+    <svg class={className} viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+      <path
+        d={path}
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
   );
 }
 

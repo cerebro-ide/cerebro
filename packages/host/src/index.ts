@@ -12,6 +12,7 @@ export {
   listWorktrees,
   lastMessage,
   listBranches,
+  listAuthors,
   hashesIn,
   log,
   parseLog,
@@ -27,6 +28,8 @@ export {
   type Branch,
   type LogCommit,
   type LogFilter,
+  type TextFilter,
+  type Author,
   type NewWorktree,
   type Worktree,
 } from './git.js';

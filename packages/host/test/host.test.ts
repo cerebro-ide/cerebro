@@ -337,11 +337,11 @@ describe('changes', () => {
       undefined,
     );
     // Filtered: by the text, as given.
-    const filter = { text: 'fix', regex: true, matchCase: true };
+    const filter = { text: { text: 'fix', regex: true, matchCase: true }, after: 0 };
     await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, filter });
     expect(git).toHaveBeenCalledWith(
       '/w',
-      expect.arrayContaining(['--grep=fix', '--extended-regexp']),
+      expect.arrayContaining(['--grep=fix', '--extended-regexp', '--after=@0']),
       undefined,
       undefined,
     );
@@ -350,15 +350,31 @@ describe('changes', () => {
       { skip: 'a', max: 1 },
       { skip: 0, max: 1, branches: 'main' },
       { skip: 0, max: 1, branches: [''] },
-      { skip: 0, max: 1, filter: { text: ' ', regex: false, matchCase: false } },
-      { skip: 0, max: 1, filter: { text: 'a', regex: 'no', matchCase: false } },
-      { skip: 0, max: 1, filter: { text: 'a', regex: false } },
-      { skip: 0, max: 1, filter: { regex: false, matchCase: false } },
+      { skip: 0, max: 1, filter: { text: { text: ' ', regex: false, matchCase: false } } },
+      { skip: 0, max: 1, filter: { text: { text: 'a', regex: 'no', matchCase: false } } },
+      { skip: 0, max: 1, filter: { text: { text: 'a', regex: false } } },
+      { skip: 0, max: 1, filter: { text: { regex: false, matchCase: false } } },
+      { skip: 0, max: 1, filter: { authors: 'Ann' } },
+      { skip: 0, max: 1, filter: { authors: [''] } },
+      { skip: 0, max: 1, filter: { after: 1.5 } },
+      { skip: 0, max: 1, filter: { before: '1' } },
     ]) {
       await expect(ui.request('git.log', { worktree: '/w', ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,
       });
     }
+  });
+
+  it('lists the authors, and who commits', async () => {
+    const { ui } = connect(
+      vi.fn((_cwd: string, args: readonly string[]) =>
+        Promise.resolve(args[0] === 'config' ? 'x\n' : 'Ann\x1fa@x\nAnn\x1fa@x\n'),
+      ),
+    );
+    expect(await ui.request('git.authors', { worktree: '/w' })).toEqual({
+      authors: [{ name: 'Ann', email: 'a@x' }],
+      me: { name: 'x', email: 'x' },
+    });
   });
 
   it('lists the branches', async () => {

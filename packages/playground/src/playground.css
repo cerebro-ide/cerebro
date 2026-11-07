@@ -1042,3 +1042,15 @@ body,
 .playground-log__search-clear:hover {
   background: var(--cerebro-hover);
 }
+
+/* Select Period, as IntelliJ's: After and Before, each a day beside its checkbox. */
+.playground-period {
+  display: flex;
+  gap: 16px;
+}
+
+.playground-period__side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

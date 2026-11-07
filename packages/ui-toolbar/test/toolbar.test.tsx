@@ -281,6 +281,36 @@ describe('ToolbarDropdown', () => {
     expect(withIcon.button.querySelector('.cerebro-toolbar-dropdown__badge')).toBeNull();
   });
 
+  it('clears its choice with an X in its arrow’s place, or Delete or Backspace, while it has one', async () => {
+    const cleared: string[] = [];
+    const chosen = signal(true);
+    const { button } = dropdown({
+      clear: () =>
+        chosen.get()
+          ? () => {
+              cleared.push('x');
+              chosen.set(false);
+            }
+          : undefined,
+    });
+    const x = () =>
+      document.querySelector('.cerebro-toolbar-dropdown__clear') as HTMLElement | null;
+    expect(button.querySelector('.cerebro-toolbar-dropdown__chevron')).toBeNull();
+    expect(x()?.getAttribute('aria-label')).toBe('Clear Choice');
+    await userEvent.click(x() as HTMLElement);
+    expect(cleared).toEqual(['x']);
+    expect(menus()).toEqual([]);
+    expect(x()).toBeNull();
+    expect(button.querySelector('.cerebro-toolbar-dropdown__chevron')).not.toBeNull();
+    // Nothing to clear: the keys do nothing.
+    expect(key(button, 'Delete').defaultPrevented).toBe(false);
+    for (const k of ['Delete', 'Backspace']) {
+      chosen.set(true);
+      expect(key(button, k).defaultPrevented).toBe(true);
+    }
+    expect(cleared).toEqual(['x', 'x', 'x']);
+  });
+
   it('opens a popup instead of a menu, closing it on a second press', async () => {
     let settle: () => void = () => undefined;
     const close = vi.fn(() => {

@@ -1,7 +1,7 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useProjects, workspace } from '../src/environments.js';
 import type { Tab } from '@cerebro-ide/layout';
 import { userEvent } from 'vitest/browser';
@@ -45,6 +45,12 @@ const git = {
   byBranch: {} as Record<string, LogCommit[]>,
   /** The log a text filter matches, by its text. */
   byText: {} as Record<string, LogCommit[]>,
+  /** The log the User filter's authors have, by the authors between commas. */
+  byAuthors: {} as Record<string, LogCommit[]>,
+  authors: {
+    authors: [] as { name: string; email: string }[],
+    me: undefined as undefined | { name: string; email: string },
+  },
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
 };
@@ -58,13 +64,17 @@ const host = new FakeHost({
     skip: number;
     max: number;
     branches?: string[];
-    filter?: { text: string };
+    filter?: { text?: { text: string }; authors?: string[]; after?: number };
   }) => {
-    const log = filter
-      ? (git.byText[filter.text] ?? [])
-      : branches
-        ? (git.byBranch[branches[0] as string] ?? [])
-        : git.log;
+    const log = filter?.text
+      ? (git.byText[filter.text.text] ?? [])
+      : filter?.authors
+        ? (git.byAuthors[filter.authors.join(', ')] ?? [])
+        : filter
+          ? git.log.slice(0, 1)
+          : branches
+            ? (git.byBranch[branches[0] as string] ?? [])
+            : git.log;
     const hold = git.hold;
     git.hold = undefined;
     await hold;
@@ -75,6 +85,7 @@ const host = new FakeHost({
     if (git.failing !== undefined) throw new Error(git.failing);
     return git.changes[`${from}..${to}`] ?? [];
   },
+  'git.authors': () => git.authors,
   'git.branches': () => {
     if (git.branchesFailing !== undefined) throw new Error(git.branchesFailing);
     return git.branches;
@@ -401,9 +412,9 @@ describe('a commit’s pane', () => {
   });
 });
 
-describe('the branches', () => {
-  const branch = (ref: string, current = false): Branch => ({ ref, hash: 'h', current });
+const branch = (ref: string, current = false): Branch => ({ ref, hash: 'h', current });
 
+describe('the branches', () => {
   it('are HEAD, then the local ones and the remote ones, by directory, as IntelliJ orders them', () => {
     const names = (nodes: ReturnType<typeof branchTree>): unknown[] =>
       nodes.map((node) =>
@@ -457,7 +468,7 @@ describe('the branches', () => {
     await expect
       .poll(branchNames)
       .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'Remote', 'origin']);
-    expect(filterText()).toBe('Branch: All');
+    expect(filterText()).toBe('Branch');
     // The branch checked out, marked.
     expect(document.querySelector('.playground-branches__name--current')?.textContent).toBe('main');
     await userEvent.click(branchRows()[3] as HTMLElement);
@@ -500,13 +511,13 @@ describe('the branches', () => {
     ).toEqual(['Local', 'Remote']);
     await userEvent.keyboard('{Enter}');
     await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
-    expect(filterText()).toBe('Branch: All');
+    expect(filterText()).toBe('Branch');
     expect(host.params('git.log').at(-1)).toEqual({ worktree: '/r', skip: 0, max: PAGE });
     // Closed without a choice, the filter stays.
     await userEvent.click(dropdown);
     await expect.poll(popupItems).toHaveLength(5);
     await userEvent.keyboard('{Escape}');
-    expect(filterText()).toBe('Branch: All');
+    expect(filterText()).toBe('Branch');
   });
 
   it('drop a list read before the filter changed', async () => {
@@ -617,7 +628,8 @@ describe('Refresh', () => {
 
 describe('the text filter', () => {
   const field = () => document.querySelector('.playground-log__search-field') as HTMLInputElement;
-  const filters = () => host.params('git.log').map((p) => (p as { filter?: unknown }).filter);
+  const filters = () =>
+    host.params('git.log').map((p) => (p as { filter?: { text?: unknown } }).filter?.text);
   const option = (label: string) =>
     document.querySelector(`.playground-log__search [aria-label="${label}"]`) as HTMLElement;
 
@@ -701,5 +713,220 @@ describe('the text filter', () => {
     const keymap = new Keymap('mac');
     setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
     expect(keymap.shortcutsFor('log.focusTextFilter')).toEqual(['Meta+L']);
+  });
+});
+
+describe('the User and Date filters', () => {
+  const dropdown = (label: string) =>
+    document.querySelector(
+      `.playground-log__toolbar .cerebro-toolbar-dropdown[aria-label^="${label}:"]`,
+    ) as HTMLElement;
+  const text = (label: string) =>
+    dropdown(label).querySelector('.cerebro-toolbar-dropdown__text')?.textContent;
+  const clear = (label: string) =>
+    document.querySelector(`[aria-label="Clear ${label}"]`) as HTMLElement | null;
+  const items = () =>
+    [...document.querySelectorAll('.cerebro-popup-item__label')].map((label) => label.textContent);
+  const asked = () =>
+    host.params('git.log').at(-1) as {
+      filter?: { authors?: string[]; after?: number; before?: number };
+    };
+
+  beforeEach(() => {
+    localStorage.clear();
+    git.authors = {
+      authors: [
+        { name: 'ada lovelace', email: 'ada@x' },
+        { name: 'Ada Lovelace', email: 'ada@work' },
+        { name: '', email: 'bob@x' },
+      ],
+      me: { name: 'Bob', email: 'bob@x' },
+    };
+  });
+
+  it('User: chosen from the authors, "me", or names typed; remembered; cleared with its X', async () => {
+    git.log = history(3);
+    git.byAuthors['ada lovelace <ada@x>, Ada Lovelace <ada@work>'] = history(1, [], 'a');
+    git.byAuthors['bob@x'] = history(1, [], 'b');
+    git.byAuthors['bob@x, ada lovelace <ada@x>, Ada Lovelace <ada@work>'] = history(2, [], 'm');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    expect(text('User')).toBe('User');
+    expect(clear('User')).toBeNull();
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me']);
+    // Typing searches "me" and each author, by short name, first and last capitalized.
+    await userEvent.keyboard('o');
+    await expect.poll(items).toEqual(['bob', 'Ada Lovelace']);
+    await userEvent.keyboard('{Backspace}a');
+    await expect.poll(items).toEqual(['Ada Lovelace']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('a0');
+    // Every author by that name, exactly.
+    expect(asked().filter?.authors).toEqual(['ada lovelace <ada@x>', 'Ada Lovelace <ada@work>']);
+    expect(text('User')).toBe('User: Ada Lovelace');
+    // "me", and the last choice under Recent.
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me', 'Ada Lovelace']);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
+    ).toEqual(['Recent']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('b0');
+    expect(text('User')).toBe('User: me');
+    // Names typed, between bars.
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me', 'me', 'Ada Lovelace']);
+    await userEvent.keyboard('{Enter}');
+    const field = await vi.waitUntil(() =>
+      document.querySelector<HTMLInputElement>('.cerebro-dialog-field__input'),
+    );
+    expect(field.value).toBe('me');
+    await userEvent.keyboard('{End}|ada lovelace{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('m0');
+    expect(text('User')).toBe('User: me|ada lovelace');
+    // Cleared with its X, or Delete on it.
+    await userEvent.click(clear('User') as HTMLElement);
+    await expect.poll(subjects).toHaveLength(3);
+    expect(asked().filter).toBeUndefined();
+    expect(text('User')).toBe('User');
+  });
+
+  it('User: none for a name no author has, and none for "me" when git has no user', async () => {
+    git.log = history(3);
+    git.authors = { authors: [{ name: 'Ada', email: 'ada@x' }], me: undefined };
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…']);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog-field__input'));
+    await userEvent.keyboard('me|nobody{Enter}');
+    await expect.poll(() => asked().filter?.authors).toEqual([]);
+    // Cancelled, it stays.
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me|nobody']);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog-field__input'));
+    await userEvent.keyboard('{Escape}');
+    expect(text('User')).toBe('User: me|nobody');
+    dropdown('User').focus();
+    await userEvent.keyboard('{Delete}');
+    await expect.poll(() => text('User')).toBe('User');
+  });
+
+  it('Date: the last 24 hours, the last 7 days, or a period; cleared with its X', async () => {
+    git.log = history(3);
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    expect(text('Date')).toBe('Date');
+    const day = (time: number) =>
+      new Date(time).toLocaleDateString(undefined, { dateStyle: 'short' });
+    await userEvent.click(dropdown('Date'));
+    await expect.poll(items).toEqual(['Select…', 'Last 24 hours', 'Last 7 days']);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    await expect.poll(() => asked().filter?.after).toBeDefined();
+    const week = Date.now() - 7 * 24 * 3_600_000;
+    expect(Math.abs((asked().filter?.after as number) - week)).toBeLessThan(2 * 3_600_000);
+    expect(text('Date')).toBe(`Date: Since ${day(week)}`);
+    await userEvent.click(dropdown('Date'));
+    await expect.poll(items).toHaveLength(3);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('Date')).toBe(`Date: Since ${day(Date.now() - 24 * 3_600_000)}`);
+    // A period: After and Before, each on when checked; the dialog starts with the filter's.
+    await userEvent.click(dropdown('Date'));
+    await expect.poll(items).toHaveLength(3);
+    await userEvent.keyboard('{Enter}');
+    const sides = await vi.waitUntil(() => {
+      const found = document.querySelectorAll<HTMLInputElement>('.playground-period input');
+      return found.length === 4 ? [...found] : undefined;
+    });
+    const [afterOn, after, beforeOn, before] = sides as [
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    expect(afterOn.checked).toBe(true);
+    expect(before.disabled).toBe(true);
+    await userEvent.click(beforeOn);
+    expect(before.disabled).toBe(false);
+    await userEvent.fill(after, '2026-01-02');
+    await userEvent.fill(before, '2026-01-05');
+    await userEvent.click(
+      document.querySelector('.cerebro-dialog__button--primary') as HTMLElement,
+    );
+    await expect
+      .poll(() => asked().filter)
+      .toEqual({
+        after: new Date(2026, 0, 2).getTime(),
+        before: new Date(2026, 0, 5).getTime(),
+      });
+    expect(text('Date')).toBe(
+      `Date: ${day(new Date(2026, 0, 2).getTime())}-${day(new Date(2026, 0, 5).getTime())}`,
+    );
+    // Before alone; then neither, which leaves it as it was.
+    for (const off of [true, false]) {
+      await userEvent.click(dropdown('Date'));
+      await expect.poll(items).toHaveLength(3);
+      await userEvent.keyboard('{Enter}');
+      const checks = await vi.waitUntil(() => {
+        const found = document.querySelectorAll<HTMLInputElement>(
+          '.playground-period input[type="checkbox"]',
+        );
+        return found.length === 2 ? [...found] : undefined;
+      });
+      if (checks[0]?.checked) await userEvent.click(checks[0]);
+      if (!off) await userEvent.click(checks[1] as HTMLElement);
+      await userEvent.click(
+        document.querySelector('.cerebro-dialog__button--primary') as HTMLElement,
+      );
+      if (off) {
+        await expect
+          .poll(() => text('Date'))
+          .toBe(`Date: Until ${day(new Date(2026, 0, 5).getTime())}`);
+      }
+    }
+    expect(text('Date')).toBe(`Date: Until ${day(new Date(2026, 0, 5).getTime())}`);
+    // Closed without a choice: as it was.
+    await userEvent.click(dropdown('Date'));
+    await expect.poll(items).toHaveLength(3);
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(clear('Date') as HTMLElement);
+    await expect.poll(() => text('Date')).toBe('Date');
+    expect(asked().filter).toBeUndefined();
+  });
+
+  it('Branch: cleared with its X', async () => {
+    git.log = history(3);
+    git.byBranch['refs/heads/main'] = history(1, [], 'm');
+    git.branches = [branch('refs/heads/main', true)];
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    await userEvent.dblClick(
+      await vi.waitUntil(() =>
+        [...document.querySelectorAll<HTMLElement>('.playground-branches .cerebro-tree-row')].find(
+          (row) => row.textContent.trim() === 'main',
+        ),
+      ),
+    );
+    await expect.poll(() => text('Branch')).toBe('Branch: main');
+    await userEvent.click(clear('Branch') as HTMLElement);
+    await expect.poll(subjects).toHaveLength(3);
+    expect(text('Branch')).toBe('Branch');
+  });
+
+  it('read the authors again after the Log is', async () => {
+    git.log = history(3);
+    git.byAuthors['bob@x'] = history(1, [], 'b');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('b0');
+    const read = host.params('git.authors').length;
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(() => host.params('git.authors').length).toBe(read + 1);
   });
 });

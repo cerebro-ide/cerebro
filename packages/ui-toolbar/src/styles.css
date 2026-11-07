@@ -122,3 +122,41 @@
 .cerebro-toolbar-dropdown__chevron {
   color: var(--cerebro-text-muted);
 }
+
+/* A filter that's set: its X in the arrow's place, the two hovered as one. */
+.cerebro-toolbar-filter {
+  display: flex;
+  align-items: center;
+  border-radius: var(--cerebro-radius);
+}
+
+.cerebro-toolbar-filter:has(.cerebro-toolbar-dropdown__clear) > .cerebro-toolbar-dropdown {
+  padding-right: 2px;
+}
+
+.cerebro-toolbar-filter:hover,
+.cerebro-toolbar-filter:has(.cerebro-toolbar-dropdown--open) {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-toolbar-filter > .cerebro-toolbar-dropdown:hover,
+.cerebro-toolbar-filter > .cerebro-toolbar-dropdown--open {
+  background: transparent;
+}
+
+.cerebro-toolbar-dropdown__clear {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-toolbar-dropdown__clear:hover {
+  color: var(--cerebro-text);
+}

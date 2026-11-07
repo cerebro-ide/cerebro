@@ -94,7 +94,7 @@ it('filters by the branch double-clicked in its pane, or chosen in the toolbar, 
   await branch.waitFor(HOST);
   await branch.dblclick({ force: true });
   await expect.poll(subjects, HOST).toEqual(['On the side', 'First']);
-  const filter = log.locator('.playground-log__toolbar .cerebro-toolbar-dropdown');
+  const filter = log.locator('.cerebro-toolbar-dropdown[aria-label^="Branch:"]');
   expect(await filter.textContent()).toBe('Branch: side');
   await filter.click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'All' }).first().waitFor();
@@ -123,4 +123,36 @@ it('filters by text on Enter, in any case or as typed, and by a hash', async () 
   await expect.poll(subjects, HOST).toEqual(['Later']);
   await log.locator('.playground-log__search-clear').click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(6);
+});
+
+it('filters by user and by date, each cleared with its X', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  git(
+    '-c',
+    'user.name=Bob',
+    '-c',
+    'user.email=bob@example.com',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'By Bob',
+  );
+  await log.locator('[data-command="log.refresh"]').click({ force: true });
+  await expect.poll(async () => (await subjects())[0], HOST).toBe('By Bob');
+  await log.locator('.cerebro-toolbar-dropdown[aria-label^="User:"]').click({ force: true });
+  await page().keyboard.type('bob');
+  await page().locator('.cerebro-popup-item', { hasText: 'Bob' }).first().waitFor(HOST);
+  await page().keyboard.press('Enter');
+  await expect.poll(subjects, HOST).toEqual(['By Bob']);
+  await log.locator('[aria-label="Clear User"]').click({ force: true });
+  await expect.poll(subjects, HOST).toHaveLength(7);
+  // The commits here were made in 2023: none in the last 24 hours.
+  await log.locator('.cerebro-toolbar-dropdown[aria-label^="Date:"]').click({ force: true });
+  await page().locator('.cerebro-popup-item', { hasText: 'Last 24 hours' }).waitFor();
+  await page().keyboard.press('ArrowDown');
+  await page().keyboard.press('Enter');
+  await expect.poll(subjects, HOST).toEqual([]);
+  await log.locator('[aria-label="Clear Date"]').click({ force: true });
+  await expect.poll(subjects, HOST).toHaveLength(7);
 });
