@@ -674,6 +674,44 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('checks for a diverged remote, and fetches the push’s target', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(args[0] === 'rev-parse' ? 'abc\n' : args[0] === 'rev-list' ? '1\t2\n' : ''),
+    );
+    const { ui } = connect(git);
+    const to = { path: '/w', remote: 'origin', target: 'main' };
+    expect(await ui.request('git.divergence', to)).toEqual({
+      kind: 'diverged',
+      remoteCommits: 2,
+      lease: 'abc',
+    });
+    // Not asked unless told.
+    expect(git.mock.calls.some(([, args]) => args[0] === 'ls-remote')).toBe(false);
+    await ui.request('git.divergence', { ...to, checkRemote: true });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['ls-remote', '--end-of-options', 'origin', 'refs/heads/main'],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
+    await ui.request('git.fetchTarget', to);
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [
+        'fetch',
+        '--quiet',
+        '--end-of-options',
+        'origin',
+        '+refs/heads/main:refs/remotes/origin/main',
+      ],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
+    for (const method of ['git.divergence', 'git.fetchTarget']) {
+      await expect(ui.request(method, { path: '/w', remote: 'origin' })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
@@ -742,6 +780,29 @@ describe('ignored files and rolling back', () => {
       code: ErrorCodes.InvalidParams,
       message: 'tags must be all or follow',
     });
+    // A force push, expecting the remote's branch where it's told, else where it was fetched.
+    await ui.request('git.push', {
+      path: '/w',
+      remote: 'origin',
+      target: 'main',
+      force: true,
+      lease: 'abc',
+    });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [
+        'push',
+        '--porcelain',
+        '--set-upstream',
+        '--force-with-lease=refs/heads/main:abc',
+        '--end-of-options',
+        'origin',
+        'HEAD:refs/heads/main',
+      ],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
+    await ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', force: true });
+    expect(git.mock.lastCall?.[1]).toContain('--force-with-lease=refs/heads/main:');
     // Failing: the refs it refused, from its output, before its words; else its words alone.
     for (const [error, message] of [
       [

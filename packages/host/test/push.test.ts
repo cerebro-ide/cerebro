@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { addRemote, checkRemote, outgoing, push } from '../src/index.js';
+import { addRemote, checkRemote, divergence, fetchTarget, outgoing, push } from '../src/index.js';
 
 describe('pushing, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-push-')));
@@ -45,6 +45,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      forced: false,
       tags: [],
     });
     commit(repo, 'second');
@@ -56,6 +57,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      forced: false,
       tags: [],
     });
     expect(run(remote, 'log', '-1', '--format=%s', 'main').trim()).toBe('third');
@@ -80,6 +82,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'feature',
       isNew: true,
+      forced: false,
       tags: [],
     });
     expect(run(remote, 'log', '-1', '--format=%s', 'feature').trim()).toBe('mine');
@@ -119,6 +122,7 @@ describe('pushing, with real git', () => {
       remote: 'second',
       target: 'review',
       isNew: true,
+      forced: false,
       tags: [],
     });
     expect(run(second, 'log', '-1', '--format=%s', 'review').trim()).toBe('mine');
@@ -174,6 +178,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      forced: false,
       tags: ['annotated'],
     });
     commit(repo, 'more');
@@ -182,9 +187,82 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      forced: false,
       tags: ['light'],
     });
     expect(run(remote, 'tag').trim().split('\n')).toEqual(['annotated', 'light']);
+  });
+
+  it('says when the remote has diverged, fetches it to count, and force pushes, as IntelliJ’s', async () => {
+    const { repo, remote } = cloned('diverged');
+    const to = { remote: 'origin', target: 'main' };
+    // Nothing in the way, nor for a branch the push makes.
+    expect(await divergence(repo, to, true)).toBeUndefined();
+    expect(await divergence(repo, { remote: 'origin', target: 'new' }, true)).toBeUndefined();
+    // Someone else pushed two commits, not fetched yet.
+    const other = join(root, 'other-diverged');
+    run(root, 'clone', '-q', remote, other);
+    commit(other, 'theirs');
+    commit(other, 'theirs again');
+    run(other, 'push', '-q');
+    const fetched = run(repo, 'rev-parse', 'origin/main').trim();
+    commit(repo, 'ours');
+    // Where it was last fetched, without asking the remote: nothing in the way yet.
+    expect(await divergence(repo, to, false)).toBeUndefined();
+    // Asked, the remote has commits only a fetch can count.
+    expect(await divergence(repo, to, true)).toEqual({ kind: 'fetchRequired', lease: fetched });
+    await fetchTarget(repo, to);
+    const theirs = run(other, 'rev-parse', 'HEAD').trim();
+    expect(run(repo, 'rev-parse', 'origin/main').trim()).toBe(theirs);
+    expect(await divergence(repo, to, true)).toEqual({
+      kind: 'diverged',
+      remoteCommits: 2,
+      lease: theirs,
+    });
+    // A force push expecting another commit there is rejected (stale info).
+    await expect(push(repo, undefined, { ...to, force: { lease: fetched } })).rejects.toThrow(
+      '[rejected] (stale info)',
+    );
+    expect(await push(repo, undefined, { ...to, force: { lease: theirs } })).toEqual({
+      commits: 1,
+      remote: 'origin',
+      target: 'main',
+      isNew: false,
+      forced: true,
+      tags: [],
+    });
+    expect(run(remote, 'log', '--format=%s', 'main').trim().split('\n')).toEqual(['ours', 'first']);
+    // Without a lease, where it was fetched: the push just made it there.
+    commit(repo, 'more');
+    expect(await push(repo, undefined, { ...to, force: {} })).toMatchObject({
+      commits: 1,
+      forced: false,
+    });
+    // Behind it: a push sends nothing, so nothing's in its way.
+    run(repo, 'reset', '-q', '--hard', 'HEAD~1');
+    expect(await divergence(repo, to, true)).toBeUndefined();
+    // A remote that can't be asked: where it was fetched.
+    commit(repo, 'instead');
+    run(repo, 'remote', 'set-url', 'origin', join(root, 'nowhere.git'));
+    expect(await divergence(repo, to, true)).toEqual({
+      kind: 'diverged',
+      remoteCommits: 1,
+      lease: run(repo, 'rev-parse', 'origin/main').trim(),
+    });
+    await expect(fetchTarget(repo, to)).rejects.toThrow();
+  });
+
+  it('says the remote has diverged when its branch is gone, and force pushes a new one', async () => {
+    const { repo, remote } = cloned('gone');
+    commit(repo, 'ours');
+    run(remote, 'branch', '-m', 'main', 'renamed');
+    // Gone from the remote: the push makes it again.
+    expect(await divergence(repo, { remote: 'origin', target: 'main' }, true)).toBeUndefined();
+    // A new branch: the lease expects none there.
+    run(repo, 'checkout', '-q', '-b', 'feature');
+    expect(
+      await push(repo, undefined, { remote: 'origin', target: 'feature', force: {} }),
+    ).toMatchObject({ isNew: true, forced: false });
   });
 
   it('defines a remote whose URL answers, fetched when asked, as IntelliJ’s Define Remote', async () => {
