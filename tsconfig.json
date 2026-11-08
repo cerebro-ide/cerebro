@@ -59,6 +59,9 @@
       "path": "packages/ui-statusbar/tsconfig.build.json"
     },
     {
+      "path": "packages/ui-notifications/tsconfig.build.json"
+    },
+    {
       "path": "packages/ui-keymap/tsconfig.build.json"
     },
     {

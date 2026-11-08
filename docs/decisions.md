@@ -54,6 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
+- [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
@@ -1385,8 +1386,9 @@ committing from the Commit tool window, as IntelliJ's non-modal commit does.
   (Ctrl+Alt+M on macOS and in IntelliJ IDEA Classic), only while the Commit window has the keyboard.
   The other keymaps follow IntelliJ's files: Visual Studio's Commit is Ctrl+Alt+K (Cmd+Alt+Shift+K
   on macOS); Eclipse, NetBeans and Sublime Text have none, nor has Emacs an Amend.
-- **Not yet:** IntelliJ's "N files committed" notification (there are no notifications yet), Commit
-  and Push, partial commits (lines or chunks), changelists, and keeping the message between runs.
+- **How it went is a notification (changed 2026-11-08),** as IntelliJ's: see "Notifications".
+- **Not yet:** Commit and Push, partial commits (lines or chunks), changelists, and keeping the
+  message between runs.
 
 ## Changing keys on the Keymap page (2026-11-01)
 
@@ -1961,6 +1963,41 @@ change.
     with Alt, so they can't match.
   - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
     the folded text on hover, folds kept across reopening a file, and a menu for the actions.
+
+## Notifications (2026-11-08)
+
+From the backlog (Ido, 2026-11-08: "All of these. Go."): IntelliJ's notifications, from its source
+(NotificationsManagerImpl, NotificationDisplayType, NotificationsToolWindow, NotificationsPanel,
+ApplicationNotificationsModel, DateFormatUtil, ShowNotificationCommitResultHandler) and its Islands
+themes. A package of its own, `ui-notifications`. Claude's choices, open to change.
+
+- **A notification** has a title (bold), text, a type (information, warning or error, with
+  IntelliJ's status icons) and links under its text. It shows as it comes as a balloon that fades
+  after 10 seconds, a sticky one after 5 minutes, or none, as IntelliJ's display types. A
+  notification of a group closes the last one's balloon, as IntelliJ's `expirePreviousAndNotify`.
+- **Balloons** sit in the window's bottom right corner, above the status bar, newest lowest; each
+  closes with its × (shown while the pointer is over it) or a link. Their time starts once the
+  window is active, as IntelliJ's, so one that comes while the user is in another app waits for
+  them.
+  - **A claim:** the time starts again when the pointer leaves a balloon, from IntelliJ's "smart
+    fadeout" holding it while the pointer is over it. The balloons' size, padding and corners are
+    a claim too, not measured.
+- **The Notifications tool window** shows IntelliJ's Timeline: every notification, newest first,
+  with when it came in IntelliJ's words (`Moments ago`, `5 minutes ago`, `Today 14:05`, kept up to
+  date each minute), and Clear all. With none, IntelliJ's "Suggestions, events, and errors will
+  appear here". The ones not seen yet have IntelliJ's background for new ones, and its stripe
+  button shows a dot; they're seen once the window was shown and hides again, as IntelliJ's.
+  - **A claim:** IntelliJ's dot is coloured by what's unread; Cerebro's icons are one colour.
+- **Colours from the Islands themes** (`ManyIslandsDark`/`Light.theme.json`, measured): the
+  balloon's (Notification.background, borderColor), its links (Notification.linkForeground), and
+  the new ones' (NotificationsToolwindow.newNotification.background); the info icon's from
+  IntelliJ's `expui/status/info` icons.
+- **A commit says how it went in one,** as IntelliJ's ShowNotificationCommitResultHandler, sticky,
+  each replacing the last: `2 files committed` with the message, or `Commit failed with error` with
+  why. A failed commit was a dialog before (changed 2026-11-08).
+- **Not yet:** Settings → Notifications (each group's display type, turning balloons off);
+  Suggestions, the timeline's other section; a notification's menu (Don't Show Again); search in
+  the tool window; other events as notifications.
 
 ## Code Style: the indent (2026-11-08)
 

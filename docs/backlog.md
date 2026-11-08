@@ -8,9 +8,7 @@ basic IDE before git and agent management").
 
 ### Next, in this order (Ido, 2026-11-08: "All of these. Go.")
 
-1. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
-   notice after a commit waits on them.
-2. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
+1. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
    Push dialog with the commits to push, and pushes.
 
 ### Several Claude sessions, as tabs (to design later)

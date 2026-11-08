@@ -6,6 +6,7 @@ import { diffTab } from '../src/changes.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
+import { notifications } from '../src/notifications.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
@@ -306,6 +307,31 @@ describe('the status bar’s file items', () => {
     ).toContain('Code Style');
     await userEvent.keyboard('{Escape}');
     env().editor.open(was);
+  });
+});
+
+describe('notifications', () => {
+  it('show as balloons, and in the Notifications tool window, unread until it was shown', async () => {
+    const dot = () => stripe('notifications').querySelector('path')?.getAttribute('d');
+    const bell = dot();
+    notifications.notify({ title: '1 file committed', content: 'Fix it' });
+    await expect
+      .poll(() => q('.cerebro-balloons .cerebro-notification__title').textContent)
+      .toBe('1 file committed');
+    await expect.poll(dot).not.toBe(bell);
+    await userEvent.click(stripe('notifications'));
+    await expect
+      .poll(
+        () =>
+          document.querySelector(
+            '.cerebro-tool-window[data-id="notifications"] .cerebro-notification__content',
+          )?.textContent,
+      )
+      .toBe('Fix it');
+    expect(dot()).not.toBe(bell);
+    await userEvent.click(stripe('notifications'));
+    await expect.poll(dot).toBe(bell);
+    notifications.clear();
   });
 });
 

@@ -36,6 +36,7 @@ import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
+import { notifications } from './notifications.js';
 
 export interface Change {
   path: string;
@@ -528,7 +529,9 @@ const committing = signal(false);
 
 /**
  * Commits the files put in, with the message, as IntelliJ's Commit button: it says what's missing
- * first. Amending needs no files: it can change only the message.
+ * first. Amending needs no files: it can change only the message. How it went is a notification,
+ * as IntelliJ's ShowNotificationCommitResultHandler: "2 files committed" with the message, or
+ * "Commit failed with error" with why, each replacing the last.
  */
 async function commit(changes: Changes): Promise<void> {
   if (committing.peek()) return;
@@ -563,11 +566,20 @@ async function commit(changes: Changes): Promise<void> {
       changes.amend.set(false);
       changes.amended = undefined;
     });
+    notifications.notify({
+      title: `${files.length === 0 ? 'No' : String(files.length)} ${files.length === 1 ? 'file' : 'files'} committed`,
+      content: message,
+      display: 'sticky',
+      group: 'commit',
+    });
     await changes.refresh(true);
   } catch (error) {
-    openDialog({
-      title: 'Commit Failed',
-      content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+    notifications.notify({
+      title: 'Commit failed with error',
+      content: (error as Error).message,
+      type: 'error',
+      display: 'sticky',
+      group: 'commit',
     });
   } finally {
     committing.set(false);

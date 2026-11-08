@@ -1,0 +1,182 @@
+/* Notifications. Every value comes from the --cerebro-* theme variables (@cerebro-ide/theme). */
+
+.cerebro-notification-icon {
+  flex: none;
+}
+
+.cerebro-notification-icon__mark {
+  fill: #ffffff;
+}
+
+.cerebro-notification-icon--information .cerebro-notification-icon__shape {
+  fill: var(--cerebro-icon-info);
+}
+
+.cerebro-notification-icon--warning .cerebro-notification-icon__shape {
+  fill: var(--cerebro-icon-warning);
+}
+
+.cerebro-notification-icon--warning .cerebro-notification-icon__mark {
+  fill: var(--cerebro-icon-warning-mark);
+}
+
+.cerebro-notification-icon--error .cerebro-notification-icon__shape {
+  fill: var(--cerebro-icon-error);
+}
+
+.cerebro-notification__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cerebro-notification__header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.cerebro-notification__title {
+  flex: 1;
+  font-weight: 600;
+}
+
+.cerebro-notification__content {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+  user-select: text;
+}
+
+.cerebro-notification__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.cerebro-notification__action {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cerebro-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.cerebro-notification__action:hover {
+  text-decoration: underline;
+}
+
+.cerebro-notification__time {
+  flex: none;
+  color: var(--cerebro-text-muted);
+  font-size: 11px;
+}
+
+/* The balloons: above the status bar, left of the right stripe. */
+.cerebro-balloons {
+  position: fixed;
+  right: calc(var(--cerebro-stripe-size) + 8px);
+  bottom: calc(var(--cerebro-statusbar-height) + 8px);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 360px;
+  pointer-events: none;
+}
+
+.cerebro-balloon {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  padding: 12px 32px 12px 12px;
+  border: 1px solid var(--cerebro-notification-border);
+  border-radius: 8px;
+  background: var(--cerebro-notification);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  line-height: 1.4;
+  pointer-events: auto;
+}
+
+.cerebro-balloon__close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-icon);
+  visibility: hidden;
+}
+
+.cerebro-balloon:hover .cerebro-balloon__close {
+  visibility: visible;
+}
+
+.cerebro-balloon__close:hover {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-balloon__close path {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+}
+
+/* The tool window's Timeline. */
+.cerebro-notifications {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+  color: var(--cerebro-text);
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
+  line-height: 1.4;
+}
+
+.cerebro-notifications__empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-notifications__header {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 20px 8px 18px;
+}
+
+.cerebro-notifications__heading {
+  color: var(--cerebro-text-muted);
+  font-weight: 500;
+}
+
+.cerebro-notifications__list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 10px 0 8px;
+}
+
+.cerebro-notification {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.cerebro-notification--new {
+  background: var(--cerebro-notification-new);
+}

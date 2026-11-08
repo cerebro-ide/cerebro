@@ -5,7 +5,7 @@ import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
 import { target } from './edit.js';
 import { PluginView } from './plugin-view.js';
-import { Layout, type Tab, type ToolWindowSpec } from '@cerebro-ide/layout';
+import { Layout, type Tab, type ToolWindow, type ToolWindowSpec } from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -29,6 +29,9 @@ import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
+import { NotificationBalloons, NotificationsTimeline } from '@cerebro-ide/ui-notifications';
+import '@cerebro-ide/ui-notifications/styles.css';
+import { notifications } from './notifications.js';
 import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
 import {
@@ -175,6 +178,24 @@ const windows: ToolWindowSpec[] = [
   { id: 'services', title: 'Services', anchor: 'bottom', slot: 'secondary', icon: 'services' },
 ];
 for (const spec of windows) layout.toolWindows.register(spec);
+// Notifications, as IntelliJ's: the stripe button shows a dot while some weren't seen, and they're
+// seen once the window was shown and hides again.
+const notificationsWindow = layout.toolWindows.windows.get('notifications') as ToolWindow;
+effect(() => {
+  notificationsWindow.icon = notifications.unread.get().length > 0 ? 'bellNew' : 'bell';
+  return undefined;
+});
+let notificationsShown = false;
+effect(() => {
+  const shown = layout.toolWindows.isVisible('notifications');
+  if (notificationsShown && !shown) {
+    untracked(() => {
+      notifications.markAllRead();
+    });
+  }
+  notificationsShown = shown;
+  return undefined;
+});
 layout.toolWindows.show('project');
 layout.toolWindows.show('terminal');
 layout.toolWindows.show('claude');
@@ -1267,6 +1288,7 @@ function Content(props: { id: string }) {
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
+  if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
   if (props.id === 'problems') {
     return (
       <ProblemsView services={services} file={() => editor()?.activeGroup.active} openAt={jumpTo} />
@@ -1589,3 +1611,5 @@ render(
   ),
   document.getElementById('app') as HTMLElement,
 );
+// Balloons show over the window, in its bottom right corner.
+render(() => <NotificationBalloons notifications={notifications} />, document.body);
