@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1978,7 +1978,7 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   instead (Cerebro's words, open to change: IntelliJ offers Define remote).
 - **Its two panes (changed 2026-11-08),** as IntelliJ's `PushLog`:
   - on the left, the repository's row (the branch and where it goes, "main → origin : main", with
-    "New" when the push makes the branch there), and under it the commits that aren't there yet,
+    a label: "New", "Upstream" or "New & Upstream"), and under it the commits that aren't there yet,
     newest first, by subject. A commit's tooltip is IntelliJ's: its short hash, date and author, then
     its message;
   - on the right, the selected row's files, as the Log's: the repository's row, selected to start
@@ -1987,10 +1987,23 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
 - **Pushing… (changed 2026-11-08):** while a push is under way, the status bar shows "Pushing…" with
   a moving bar, as IntelliJ's background task, beside the indexing; Push can't start another
   meanwhile (open to change: IntelliJ queues them).
+- **Choosing where it goes (changed 2026-11-08),** as IntelliJ's `GitPushTargetPanel`: in the
+  repository's row, the remote is a link to a list of the remotes when there's more than one (the
+  current one highlighted, Cerebro's choice, open to change), and the branch there is a link that
+  becomes a field. The field suggests the remote's branches that start with what's typed (Up and
+  Down through them); Enter, or leaving the field, takes it, and Escape puts back what was there.
+  What git refuses in a name goes as it's typed, as IntelliJ's `GitRefNameValidator`, and a space
+  becomes "-" (its `git.branch.cleanup.symbol`). Another target asks again what the push sends.
+  While the branch is typed, "Set upstream" shows when the branch has an upstream and the target
+  isn't it: ticked, the push makes the target the upstream, and Push is enabled even with nothing
+  to send. The label is IntelliJ's ("New" when the push makes the branch, "Upstream" when it sets
+  the upstream, "New & Upstream" both), in its colours (`--cerebro-push-label`, on
+  `--cerebro-push-label-background`, from its `BranchLabels`).
 - **Where it goes, as IntelliJ's:** the branch's upstream, else the branch of the same name on
   `origin`, or on the only remote. The commits are those the target doesn't have; for a new branch,
   those no branch of that remote has. The push is `git push <remote> HEAD:refs/heads/<target>`, with
-  `--set-upstream` for a new branch, so the next push goes to the same place. It doesn't ask for a
+  `--set-upstream` for a new branch with no upstream, or when Set upstream is ticked, so the next
+  push goes to the same place. It doesn't ask for a
   password (`GIT_TERMINAL_PROMPT=0`): a remote that needs one fails, and says git's message.
 - **Opened from** Git → Push… (Ctrl+Shift+K, Cmd+Shift+K on macOS; IntelliJ gives it in the keymap
   its dvcs-impl adds to `$default`, and Sublime Text's keymap takes it away), and from the Commit
@@ -2003,7 +2016,7 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   notifications.
 - **Measured on real git** (`push.test.ts`): `--porcelain` puts `! [rejected]` on git's output, which
   is lost when git fails, so the push runs without it and the line comes on its error output.
-- **Not yet:** choosing another target branch or remote in the dialog, Force Push, pushing tags,
+- **Not yet:** Define remote (in the list of remotes, and when there's none), Force Push, pushing tags,
   several repositories at once, IntelliJ's check for a diverged remote before pushing, and asking
   for credentials. In the dialog: selecting several commits, Show Details (the selected commit's
   message under its files), and opening a file's diff.

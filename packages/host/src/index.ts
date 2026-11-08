@@ -26,6 +26,7 @@ export {
   outgoing,
   push,
   type Outgoing,
+  type PushTarget,
   type Pushed,
   type Change,
   type Git,

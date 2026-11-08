@@ -5,7 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import type { LogCommit } from '../src/git-log.js';
 import { notifications } from '../src/notifications.js';
-import { openPush, pushing, setupPush } from '../src/push.js';
+import { cleanUpBranchName, isBranchName, openPush, pushing, setupPush } from '../src/push.js';
 import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
 const commit = (subject: string, parent?: string): LogCommit => ({
@@ -26,11 +26,29 @@ const git = {
   pushed: 0 as number | Error,
   /** Held until it resolves: a push under way. */
   hold: undefined as Promise<void> | undefined,
+  branchesFail: false,
 };
+/** The remotes' branches there are. */
+const BRANCHES = ['origin/HEAD', 'origin/main', 'origin/feature-x', 'origin/fix', 'second/main'];
 const host = new FakeHost({
-  'git.outgoing': () => {
+  'git.outgoing': ({ remote, target }: { remote?: string; target?: string }) => {
     if (git.outgoing instanceof Error) throw git.outgoing;
-    return git.outgoing;
+    if (remote === undefined || target === undefined) return git.outgoing;
+    if (remote === 'gone') throw new Error('There’s no remote named gone');
+    // Another target: new unless it's there.
+    return {
+      ...git.outgoing,
+      remote,
+      target,
+      isNew: !BRANCHES.includes(`${remote}/${target}`),
+    };
+  },
+  'git.branches': () => {
+    if (git.branchesFail) throw new Error('git.branches failed');
+    return [
+      { ref: 'refs/heads/main', hash: 'a', current: true },
+      ...BRANCHES.map((b) => ({ ref: `refs/remotes/${b}`, hash: 'b', current: false })),
+    ];
   },
   'git.push': async () => {
     await git.hold;
@@ -61,8 +79,11 @@ beforeEach(() => {
     target: 'main',
     isNew: false,
     commits: [commit('Second', 'First-hash'), commit('First', 'base')],
+    remotes: ['origin'],
+    upstream: { remote: 'origin', target: 'main' },
   };
   git.pushed = 2;
+  git.branchesFail = false;
 });
 
 afterEach(async () => {
@@ -78,16 +99,36 @@ const pushButton = async () =>
 const texts = (selector: string) =>
   [...document.querySelectorAll(selector)].map((e) => e.textContent);
 const last = () => notifications.all.get(0);
+/** Where the push goes, as the repository's row says it, without its label. */
+const where = () =>
+  [...document.querySelectorAll('.playground-push__target')].map((target) =>
+    [...target.childNodes]
+      .filter((node) => !(node instanceof Element && node.matches('.playground-push__label')))
+      .map((node) => node.textContent)
+      .join(''),
+  );
+/** The target's link with this text: the remote, or the branch there. */
+const link = (text: string) =>
+  [...document.querySelectorAll<HTMLElement>('.playground-push__link')].find(
+    (l) => l.textContent === text,
+  ) as HTMLElement;
+/** The branch being typed, once it shows. */
+const editor = async () => {
+  await expect.poll(() => document.querySelector('.playground-push__field')).not.toBeNull();
+  return document.querySelector('.playground-push__field') as HTMLInputElement;
+};
 
 describe('Push', () => {
   it('shows where the branch goes and its commits, as IntelliJ’s, and pushes them', async () => {
     commands.execute('vcs.push');
     const shown = await dialog();
     expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Push Commits to r');
-    expect(texts('.playground-push__target')).toEqual(['main→origin : main']);
+    expect(where()).toEqual(['main→origin:main']);
     expect(texts('.playground-push__commit')).toEqual(['Second', 'First']);
     await press('Push');
-    await expect.poll(() => host.params('git.push')).toEqual([{ path: '/r' }]);
+    await expect
+      .poll(() => host.params('git.push'))
+      .toEqual([{ path: '/r', remote: 'origin', target: 'main', setUpstream: false }]);
     await expect.poll(last).toMatchObject({
       title: 'Pushed 2 commits to origin/main',
       type: 'information',
@@ -152,7 +193,7 @@ describe('Push', () => {
     git.pushed = 0;
     commands.execute('vcs.push');
     await dialog();
-    expect(texts('.playground-push__new')).toEqual(['New']);
+    expect(texts('.playground-push__label')).toEqual(['New']);
     expect((await pushButton()).disabled).toBe(false);
     await press('Push');
     await expect.poll(() => last()?.title).toBe('Pushed feat to new branch origin/feat');
@@ -170,7 +211,7 @@ describe('Push', () => {
       git.outgoing = { ...git.outgoing, ...outgoing };
       commands.execute('vcs.push');
       expect((await pushButton()).disabled).toBe(true);
-      expect(texts('.playground-push__target')).toEqual([why]);
+      expect(where()).toEqual([why]);
       await closeAll();
     }
     expect(host.params('git.push')).toEqual([]);
@@ -222,9 +263,152 @@ describe('Push', () => {
     workspace.close('/s');
   });
 
+  it('pushes to another remote, chosen from the list of them', async () => {
+    git.outgoing = { ...git.outgoing, remotes: ['origin', 'second'] };
+    commands.execute('vcs.push');
+    await dialog();
+    await userEvent.click(link('origin'));
+    await expect.poll(() => texts('.cerebro-popup-item__label')).toEqual(['origin', 'second']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => where()).toEqual(['main→second:main']);
+    expect(host.params('git.outgoing').at(-1)).toEqual({
+      path: '/r',
+      remote: 'second',
+      target: 'main',
+    });
+    // The same one again: nothing to ask.
+    await userEvent.click(link('second'));
+    await userEvent.keyboard('{Enter}');
+    await press('Push');
+    await expect
+      .poll(() => host.params('git.push'))
+      .toEqual([{ path: '/r', remote: 'second', target: 'main', setUpstream: false }]);
+    expect(host.params('git.outgoing')).toHaveLength(2);
+  });
+
+  it('pushes to another branch there, typed with the remote’s branches suggested', async () => {
+    commands.execute('vcs.push');
+    await dialog();
+    await userEvent.click(link('main'));
+    const field = await editor();
+    await expect.poll(() => document.activeElement).toBe(field);
+    // What git refuses goes as it's typed; a space becomes IntelliJ's -.
+    await userEvent.keyboard('{Control>}a{/Control}f~e');
+    expect(field.value).toBe('fe');
+    expect(texts('.playground-push__suggestion')).toEqual(['feature-x']);
+    // Around the suggestions, back to none, and to the last from none.
+    await userEvent.keyboard('{ArrowDown}');
+    expect(texts('.playground-push__suggestion--highlighted')).toEqual(['feature-x']);
+    await userEvent.keyboard('{ArrowDown}');
+    expect(texts('.playground-push__suggestion--highlighted')).toEqual([]);
+    await userEvent.keyboard('{ArrowUp}');
+    expect(texts('.playground-push__suggestion--highlighted')).toEqual(['feature-x']);
+    await userEvent.keyboard('{ArrowUp}{ArrowUp}');
+    expect(texts('.playground-push__suggestion--highlighted')).toEqual(['feature-x']);
+    // The dialog's Enter doesn't push meanwhile.
+    expect((await pushButton()).disabled).toBe(true);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => where()).toEqual(['main→origin:feature-x']);
+    expect(texts('.playground-push__label')).toEqual([]);
+    expect(host.params('git.push')).toEqual([]);
+    // Typed, and taken on leaving the field: new there.
+    await userEvent.click(link('feature-x'));
+    await userEvent.keyboard('{Control>}a{/Control}my work');
+    expect((await editor()).value).toBe('my-work');
+    await userEvent.click(document.querySelector('.playground-push__commit') as HTMLElement);
+    await expect.poll(() => where()).toEqual(['main→origin:my-work']);
+    expect(texts('.playground-push__label')).toEqual(['New']);
+  });
+
+  it('chooses a suggestion with the pointer, and puts back what was there on Escape', async () => {
+    commands.execute('vcs.push');
+    await dialog();
+    await userEvent.click(link('main'));
+    await editor();
+    await userEvent.keyboard('{Control>}a{/Control}f');
+    await userEvent.click(
+      [...document.querySelectorAll<HTMLElement>('.playground-push__suggestion')].find(
+        (s) => s.textContent === 'fix',
+      ) as HTMLElement,
+    );
+    await expect.poll(() => where()).toEqual(['main→origin:fix']);
+    await userEvent.click(link('fix'));
+    await editor();
+    await userEvent.keyboard('{Control>}a{/Control}other{Escape}');
+    expect(document.querySelector('.playground-push__field')).toBeNull();
+    expect(where()).toEqual(['main→origin:fix']);
+    // The dialog stays, with the focus back in its tree.
+    expect(document.activeElement?.getAttribute('role')).toBe('tree');
+    expect(document.querySelector('.cerebro-dialog')).not.toBeNull();
+    // Not a branch name, or the same: nothing to ask.
+    const asked = host.params('git.outgoing').length;
+    for (const typed of ['fix.', 'fix']) {
+      await userEvent.click(link('fix'));
+      await editor();
+      await userEvent.keyboard(`{Control>}a{/Control}${typed}{Enter}`);
+    }
+    expect(host.params('git.outgoing')).toHaveLength(asked);
+  });
+
+  it('sets the upstream when asked, as IntelliJ’s, with its label', async () => {
+    git.outgoing = { ...git.outgoing, commits: [] };
+    commands.execute('vcs.push');
+    await dialog();
+    expect((await pushButton()).disabled).toBe(true);
+    await userEvent.click(link('main'));
+    await editor();
+    // Its own upstream: nothing to set.
+    expect(document.querySelector('.playground-push__upstream')).toBeNull();
+    await userEvent.keyboard('{Control>}a{/Control}fix');
+    await userEvent.click(document.querySelector('.playground-push__upstream input') as Element);
+    expect(document.activeElement).toBe(await editor());
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => texts('.playground-push__label')).toEqual(['Upstream']);
+    // Nothing to send, but the upstream to set.
+    expect((await pushButton()).disabled).toBe(false);
+    await userEvent.click(link('fix'));
+    await editor();
+    await userEvent.keyboard('{Control>}a{/Control}brand-new{Enter}');
+    await expect.poll(() => texts('.playground-push__label')).toEqual(['New & Upstream']);
+    await press('Push');
+    await expect
+      .poll(() => host.params('git.push'))
+      .toEqual([{ path: '/r', remote: 'origin', target: 'brand-new', setUpstream: true }]);
+  });
+
+  it('logs why it couldn’t read the branches, or what another target sends', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.branchesFail = true;
+    git.outgoing = { ...git.outgoing, remotes: ['origin', 'gone'] };
+    commands.execute('vcs.push');
+    await dialog();
+    await vi.waitFor(() => {
+      expect(logged).toHaveBeenCalledWith('Reading the branches failed', expect.any(Error));
+    });
+    await userEvent.click(link('origin'));
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await vi.waitFor(() => {
+      expect(logged).toHaveBeenCalledWith('Reading what to push failed', expect.any(Error));
+    });
+    expect(where()).toEqual(['main→origin:main']);
+  });
+
   it('is in the Git menu, after Commit…, with IntelliJ’s Ctrl+Shift+K', () => {
     expect(menus.entries('main/git')).toEqual([{ command: 'vcs.push' }]);
     expect(keymap.shortcutsFor('vcs.push')).toEqual(['Ctrl+Shift+K']);
+  });
+});
+
+describe('branch names, as IntelliJ’s GitRefNameValidator', () => {
+  it('drops what git refuses as they’re typed, and makes spaces -', () => {
+    expect(cleanUpBranchName('.a~b:c^d?e*f"g[h\\i@{j//k..l./m/.n o\u0001p')).toBe(
+      'abcdefghij/k.l/m/n-o-p',
+    );
+  });
+
+  it('takes a name git takes', () => {
+    expect(isBranchName('feature/x')).toBe(true);
+    for (const name of ['', 'a b', 'a.', 'a/', 'a.lock']) expect(isBranchName(name)).toBe(false);
   });
 });
 

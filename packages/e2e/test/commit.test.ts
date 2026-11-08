@@ -135,7 +135,7 @@ it('commits and pushes, with Commit and Push…, to the branch’s upstream', as
   const shown = page().locator('.cerebro-dialog');
   await expect
     .poll(() => shown.locator('.playground-push__target').textContent())
-    .toBe('main→origin : main');
+    .toBe('main→origin:main');
   expect(await shown.locator('.playground-push__commit').allTextContents()).toEqual(['Push it']);
   await shown.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
   await expect

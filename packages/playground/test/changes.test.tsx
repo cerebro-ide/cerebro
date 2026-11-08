@@ -70,7 +70,15 @@ const host = new FakeHost({
   'fs.exists': ({ path }: { path: string }) => !path.endsWith('gone.ts'),
   'git.outgoing': () => {
     fails('git.outgoing');
-    return { branch: 'main', remote: 'origin', target: 'main', isNew: false, commits: [] };
+    return {
+      branch: 'main',
+      remote: 'origin',
+      target: 'main',
+      isNew: false,
+      commits: [],
+      remotes: ['origin'],
+      upstream: { remote: 'origin', target: 'main' },
+    };
   },
 });
 

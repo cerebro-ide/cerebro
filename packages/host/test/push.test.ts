@@ -96,6 +96,38 @@ describe('pushing, with real git', () => {
     expect(await outgoing(repo)).toMatchObject({ remote: 'mine', target: 'other', isNew: true });
   });
 
+  it('pushes where it’s told, keeping the upstream unless asked to change it, as IntelliJ’s', async () => {
+    const { repo, remote } = cloned('chosen');
+    const second = join(root, 'chosen-second.git');
+    run(root, 'init', '-q', '--bare', '-b', 'main', second);
+    run(repo, 'remote', 'add', 'second', second);
+    commit(repo, 'mine');
+    expect(await outgoing(repo, undefined, { remote: 'second', target: 'review' })).toMatchObject({
+      branch: 'main',
+      remote: 'second',
+      target: 'review',
+      isNew: true,
+      remotes: ['origin', 'second'],
+      upstream: { remote: 'origin', target: 'main' },
+    });
+    // New there, but the branch has an upstream: it stays.
+    expect(await push(repo, undefined, { remote: 'second', target: 'review' })).toEqual({
+      commits: 2,
+      remote: 'second',
+      target: 'review',
+      isNew: true,
+    });
+    expect(run(second, 'log', '-1', '--format=%s', 'review').trim()).toBe('mine');
+    expect(run(repo, 'rev-parse', '--abbrev-ref', 'main@{u}').trim()).toBe('origin/main');
+    // Asked to: Set upstream, even with nothing to send.
+    await push(repo, undefined, { remote: 'second', target: 'review', setUpstream: true });
+    expect(run(repo, 'rev-parse', '--abbrev-ref', 'main@{u}').trim()).toBe('second/review');
+    expect(run(remote, 'log', '-1', '--format=%s', 'main').trim()).toBe('first');
+    await expect(outgoing(repo, undefined, { remote: 'nowhere', target: 'main' })).rejects.toThrow(
+      'There’s no remote named nowhere',
+    );
+  });
+
   it('says why it can’t: no branch, no remote, or rejected', async () => {
     const { repo, remote } = cloned('fails');
     run(repo, 'checkout', '-q', '--detach');
@@ -105,6 +137,8 @@ describe('pushing, with real git', () => {
       target: undefined,
       isNew: false,
       commits: [],
+      remotes: ['origin'],
+      upstream: undefined,
     });
     await expect(push(repo)).rejects.toThrow('No branch is checked out');
     run(repo, 'checkout', '-q', 'main');
