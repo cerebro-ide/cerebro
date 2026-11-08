@@ -52,6 +52,8 @@ import {
   listIgnored,
   lastMessage,
   listBranches,
+  outgoing,
+  push,
   listAuthors,
   log,
   rollback,
@@ -466,6 +468,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.authors', (params) => listAuthors(text(params, 'worktree'), git));
   // The Log's branches pane: the local and remote branches.
   connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
+  // What a push would send, and the push, of the checked-out branch.
+  connection.onRequest('git.outgoing', (params) => outgoing(text(params, 'path'), git));
+  connection.onRequest('git.push', (params) => push(text(params, 'path'), git));
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);
