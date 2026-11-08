@@ -40,9 +40,24 @@ const subjects = () => page().locator('.playground-log__message').allTextContent
 const inToolbar = async (selector: string) => {
   const popup = page().locator('.cerebro-toolbar-row__popup');
   if ((await popup.count()) === 0) {
-    await page()
-      .locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more')
-      .hover({ force: true });
+    const more = page().locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more');
+    // It was hidden once in a full local run (backlog): what was seen, for next time.
+    if (!(await more.isVisible()))
+      console.log(
+        'The » is hidden:',
+        await page().evaluate(() => ({
+          window: [innerWidth, innerHeight],
+          toolbar: document.querySelector('.playground-log__toolbar')?.getBoundingClientRect()
+            .width,
+          row: document
+            .querySelector('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row')
+            ?.getBoundingClientRect().width,
+        })),
+        await running.app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows().map((window) => window.getBounds()),
+        ),
+      );
+    await more.hover({ force: true });
   }
   return popup.locator(selector);
 };

@@ -1123,7 +1123,10 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **Go to Line** (Navigate → Line/Column, Ctrl+G, Cmd+L on macOS), as IntelliJ's "Go to
   Line:Column" dialog: `[Line] [:column]`, counted from 1, filled with the caret's place and
   selected. A column alone stays on the line; a line alone goes to its start. It's a place left,
-  for Back. Not in a diff.
+  for Back. Not in a diff. It needs an editor with the focus, or its find bar (changed 2026-11-07),
+  as IntelliJ's GotoLineAction (`EDITOR_EVEN_IF_INACTIVE`, "editor even if focus currently is in
+  find bar"): it was on whenever a file's tab was active, and on macOS took Cmd+L from the Log's
+  Focus Text Filter.
 - **Select Opened File:** IntelliJ's crosshair button in the Project tool window's header (tool
   windows take header buttons through `ShellLayout`'s `actions`). It shows the Project tool window
   and selects the active file, opening the folders down to it (`TreeModel.reveal` in `ui-tree`);

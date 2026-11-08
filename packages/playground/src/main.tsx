@@ -238,6 +238,11 @@ setTerminalKeys((event) => {
   return keymap.commandsFor(chord).length > 0 || keymap.isPrefix(chord);
 });
 
+/** The file of the editor that has the focus, or had it before a menu took it: IntelliJ's EDITOR. */
+function focusedFile(): string | undefined {
+  const at = target();
+  return at && fileIn(at);
+}
 // Plugins: the sample Notes plugin, and Prettier, added as any plugin would be; Settings → Plugins
 // turns them off. They reach the editor that has the focus (or had it before a menu took it), and
 // a file's settings and host.
@@ -251,10 +256,7 @@ const plugins = new PluginRegistry({
   settingsOf: (path) => settingsFor(worktreeHolding(path)),
   hostOf: hostFor,
   editors: {
-    focused: () => {
-      const at = target();
-      return at && fileIn(at);
-    },
+    focused: focusedFile,
     // Run only while `focused` is a file: the command is enabled by it.
     format: (formatter, words) => {
       const at = target() as Element;
@@ -435,14 +437,18 @@ const activeFile = () => {
   const tab = editor()?.activeGroup.activeTab;
   return tab && diffPath(tab.id) === undefined ? tab : undefined;
 };
+// It needs an editor with the focus, or its find bar, as IntelliJ's GotoLineAction
+// (EDITOR_EVEN_IF_INACTIVE): elsewhere, as in the Log, its key is free for others (Cmd+L there is
+// Focus Text Filter).
 services.commands.register({
   id: 'navigate.goToLine',
   label: '&Line/Column',
   dialog: true,
-  enabled: () => activeFile() !== undefined,
+  enabled: () => focusedFile() !== undefined,
   run: async () => {
-    const file = activeFile() as Tab;
-    const current = carets.get(file.id) ?? { line: 0, column: 0 };
+    const file = focusedFile() as string;
+    // An editor says where its caret is as it opens.
+    const current = carets.get(file) as { line: number; column: number };
     const typed = await prompt({
       title: 'Go to Line:Column',
       label: '[Line] [:column]:',
@@ -454,7 +460,7 @@ services.commands.register({
     // The dialog takes only what parses.
     const at = parseLineColumn(typed, current) as NonNullable<ReturnType<typeof parseLineColumn>>;
     history()?.record();
-    reveals.set(file.id, at);
+    reveals.set(file, at);
   },
 });
 services.keymap.bindDefault(mac ? 'Mod+L' : 'Ctrl+G', 'navigate.goToLine');

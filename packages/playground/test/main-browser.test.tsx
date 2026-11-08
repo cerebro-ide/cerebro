@@ -173,6 +173,25 @@ describe('Go to Line', () => {
     await userEvent.clear(field);
     await userEvent.type(field, '5:3{Enter}');
   });
+
+  it('is off without an editor’s focus, as IntelliJ’s: its key goes to others', async () => {
+    await userEvent.click(q('.playground-files .cerebro-tree-row'));
+    await userEvent.keyboard('{Control>}g{/Control}');
+    // Nothing asked: no dialog opens.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    // From the main menu, it's off too.
+    await userEvent.click(q('[aria-label="Main Menu"]'));
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}');
+    await expect
+      .poll(() =>
+        [...document.querySelectorAll('.cerebro-menu-item')]
+          .find((item) => item.textContent.startsWith('Line/Column'))
+          ?.getAttribute('aria-disabled'),
+      )
+      .toBe('true');
+    await userEvent.keyboard('{Escape}{Escape}');
+  });
 });
 
 describe('the tool windows', () => {
@@ -250,8 +269,9 @@ describe('Select In', () => {
 
 describe('Go to Line, cancelled', () => {
   it('starts from the file’s start when its caret hasn’t moved, and moves nothing', async () => {
-    // Asked as it opens, before its editor has said where its caret is.
+    // Asked as it opens, its editor focused.
     env().editor.open({ id: 'src/layout.ts', title: 'layout.ts' });
+    (await vi.waitUntil(code)).focus();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'g', code: 'KeyG', ctrlKey: true }));
     const field = (await dialog()).querySelector('input') as HTMLInputElement;
     expect(field.value).toBe('1:1');
