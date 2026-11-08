@@ -179,7 +179,7 @@ body,
 }
 
 .playground-push__field {
-  width: 160px;
+  width: 110px;
   padding: 0 4px;
   border: 1px solid var(--cerebro-accent);
   border-radius: 4px;
