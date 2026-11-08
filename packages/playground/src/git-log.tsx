@@ -381,6 +381,64 @@ const signature = (commit: LogCommit) =>
     commit.time,
   ).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
 
+/**
+ * The files changed between two commits, as a tree: the Log's selected commit's, and the Push
+ * dialog's. With `open`, Enter or a double click opens a file's diff, and F4 the file itself, as
+ * IntelliJ's Jump to Source.
+ */
+export function CommitFiles(props: {
+  host: Host;
+  worktree: string;
+  range: { from: string; to: string };
+  /** What the tree is, for a screen reader. */
+  label: string;
+  open?: (tab: Tab) => void;
+}) {
+  const { range, open } = props;
+  const changes = signal<readonly Change[]>([]);
+  const files = new TreeModel<Change>({
+    children: () => changes.peek(),
+    key: (change) => change.path,
+    isLeaf: () => true,
+  });
+  const failed = signal<string | undefined>(undefined);
+  void props.host.request('git.changes', { path: props.worktree, ...range }).then(
+    (listed) => {
+      changes.set(listed as Change[]);
+      void files.load(undefined, true);
+    },
+    (error: unknown) => {
+      failed.set((error as Error).message);
+    },
+  );
+  return () => {
+    const error = failed.get();
+    return error === undefined ? (
+      <div
+        class="playground-log__files"
+        on:keydown={(event) => {
+          // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
+          const selected = changes.peek().find((c) => c.path === files.selected);
+          if (event.key !== 'F4' || !open || !selected || selected.status === 'deleted') return;
+          event.preventDefault();
+          open(fileTab(props.worktree, selected.path));
+        }}
+      >
+        <TreeView
+          model={files}
+          label={props.label}
+          row={(change) => changeContent(change, true)}
+          onOpen={(change) => {
+            open?.(diffTab(change.path, range));
+          }}
+        />
+      </div>
+    ) : (
+      <p class="playground-project__empty">{error}</p>
+    );
+  };
+}
+
 /** The selected commit's changed files, then its details. */
 function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab: Tab) => void }) {
   const { log } = props;
@@ -388,50 +446,14 @@ function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab:
     const hash = log.model.selected;
     const commit = hash === undefined ? undefined : log.commit(hash);
     if (!commit) return <p class="playground-project__empty">No commits selected</p>;
-    const range = rangeOf(commit);
-    const changes = signal<readonly Change[]>([]);
-    const files = new TreeModel<Change>({
-      children: () => changes.peek(),
-      key: (change) => change.path,
-      isLeaf: () => true,
-    });
-    const failed = signal<string | undefined>(undefined);
-    void props.host.request('git.changes', { path: props.worktree, ...range }).then(
-      (listed) => {
-        changes.set(listed as Change[]);
-        void files.load(undefined, true);
-      },
-      (error: unknown) => {
-        failed.set((error as Error).message);
-      },
-    );
     return [
-      () => {
-        const error = failed.get();
-        return error === undefined ? (
-          <div
-            class="playground-log__files"
-            on:keydown={(event) => {
-              // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
-              const selected = changes.peek().find((c) => c.path === files.selected);
-              if (event.key !== 'F4' || !selected || selected.status === 'deleted') return;
-              event.preventDefault();
-              props.open(fileTab(props.worktree, selected.path));
-            }}
-          >
-            <TreeView
-              model={files}
-              label={`${commit.subject} changes`}
-              row={(change) => changeContent(change, true)}
-              onOpen={(change) => {
-                props.open(diffTab(change.path, range));
-              }}
-            />
-          </div>
-        ) : (
-          <p class="playground-project__empty">{error}</p>
-        );
-      },
+      <CommitFiles
+        host={props.host}
+        worktree={props.worktree}
+        range={rangeOf(commit)}
+        label={`${commit.subject} changes`}
+        open={props.open}
+      />,
       <div class="playground-log__details cerebro-selectable">
         <p class="playground-log__details-subject">{commit.subject}</p>
         {commit.body === '' ? null : <p class="playground-log__details-body">{commit.body}</p>}

@@ -7,6 +7,7 @@ import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
+import { pushing } from '../src/push.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
@@ -73,6 +74,20 @@ describe('the page in a browser', () => {
   it('indexes, as a sample task, in the status bar', async () => {
     vi.advanceTimersByTime(20_000);
     await expect.poll(() => status()[2]).toBe('Indexed');
+  });
+
+  it('shows Pushing… while a push is under way, as IntelliJ’s background task', async () => {
+    const item = q('.cerebro-statusbar__item[data-id="push"]');
+    expect(item.hidden).toBe(true);
+    pushing.set(true);
+    await expect.poll(() => item.hidden).toBe(false);
+    expect(item.textContent).toBe('Pushing…');
+    expect(item.querySelector('.cerebro-statusbar__progress--indeterminate')).not.toBeNull();
+    await userEvent.hover(item);
+    await expect.poll(tooltipText).toBe('Pushing the branch');
+    await userEvent.unhover(item);
+    pushing.set(false);
+    await expect.poll(() => item.hidden).toBe(true);
   });
 
   it('says what each item on the status bar is', async () => {
