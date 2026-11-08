@@ -173,10 +173,12 @@ describe('pushing, with real git', () => {
       'origin',
       'unfetched',
     ]);
-    expect(run(repo, 'branch', '-r', '--format=%(refname:short)').trim().split('\n')).toEqual([
-      'fetched/main',
-      'origin/main',
-    ]);
+    // Its branches, not the HEAD git 2.48 and later also make on fetching (followRemoteHEAD).
+    const branches = run(repo, 'for-each-ref', '--format=%(refname)', 'refs/remotes')
+      .trim()
+      .split('\n')
+      .filter((ref) => !ref.endsWith('/HEAD'));
+    expect(branches).toEqual(['refs/remotes/fetched/main', 'refs/remotes/origin/main']);
     await expect(addRemote(repo, { name: 'fetched', url: remote, fetch: false })).rejects.toThrow(
       'remote fetched already exists',
     );
