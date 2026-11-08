@@ -26,6 +26,7 @@ export const KEYS = {
   goToSymbol: mac ? 'Meta+Alt+O' : 'Control+Alt+Shift+N',
   groupByDirectory: mac ? 'Control+P' : 'Control+Alt+P',
   commit: mac ? 'Meta+K' : 'Control+K',
+  push: mac ? 'Meta+Shift+K' : 'Control+Shift+K',
   amend: mac ? 'Control+Alt+M' : 'Alt+M',
   darkTheme: 'Control+Backquote',
   undo: mac ? 'Meta+Z' : 'Control+Z',

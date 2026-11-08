@@ -1,11 +1,12 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// and going from a diff to the file with F4.
+// going from a diff to the file with F4; and logging in to push.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
+import { gitServer, hasHttpBackend } from '../../host/test/git-server.js';
 import { KEYS, launch, type Running } from './app.js';
 
 let running: Running;
@@ -153,4 +154,39 @@ it('commits and pushes, with Commit and Push…, to the branch’s upstream', as
   await expect
     .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents())
     .toContain('Pushed 1 commit to origin/main');
+});
+
+// Git for Windows and macOS's git have git's HTTP backend; a git without it can't serve the test.
+it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password', async () => {
+  // The remote, now behind a login.
+  const { url, server } = await gitServer(root, 'ido', 'secret');
+  git('remote', 'set-url', 'origin', `${url}/remote.git`);
+  const push = async (subject: string) => {
+    writeFileSync(join(repo, 'pushed.txt'), subject);
+    git('add', 'pushed.txt');
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', subject);
+    await page().keyboard.press(KEYS.push);
+    const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
+    await expect
+      .poll(() => dialog.locator('.playground-push__commit').allTextContents())
+      .toEqual([subject]);
+    await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
+  };
+  const pushed = () =>
+    execFileSync('git', ['log', '-1', '--format=%s', 'main'], {
+      cwd: join(root, 'remote.git'),
+      encoding: 'utf8',
+    });
+  await push('Logged in');
+  const login = page().locator('.cerebro-dialog', { hasText: 'Log In to' });
+  await login.waitFor({ timeout: 15_000 });
+  await page().keyboard.type('ido');
+  await login.locator('input[type=password]').fill('secret');
+  await login.locator('.cerebro-dialog__button', { hasText: 'Log In' }).click();
+  await expect.poll(pushed, { timeout: 15_000 }).toBe('Logged in\n');
+  // Again: the login and password kept answer, unasked.
+  await push('Kept');
+  await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
+  expect(await login.count()).toBe(0);
+  server.close();
 });
