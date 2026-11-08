@@ -168,7 +168,9 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
     await page().keyboard.press(KEYS.push);
     const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
     await expect
-      .poll(() => dialog.locator('.playground-push__commit').allTextContents())
+      .poll(() => dialog.locator('.playground-push__commit').allTextContents(), {
+        timeout: 15_000,
+      })
       .toEqual([subject]);
     await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
   };
@@ -184,6 +186,12 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
   await login.locator('input[type=password]').fill('secret');
   await login.locator('.cerebro-dialog__button', { hasText: 'Log In' }).click();
   await expect.poll(pushed, { timeout: 15_000 }).toBe('Logged in\n');
+  // The remote has it before git is done (seen on Windows in CI): Push waits for the push to end.
+  await expect
+    .poll(() => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible(), {
+      timeout: 15_000,
+    })
+    .toBe(false);
   // Again: the login and password kept answer, unasked.
   await push('Kept');
   await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
