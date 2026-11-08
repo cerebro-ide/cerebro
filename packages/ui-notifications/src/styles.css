@@ -75,10 +75,10 @@
   font-size: 11px;
 }
 
-/* The balloons: above the status bar, at the window's right. */
+/* The balloons: above the status bar, left of the right stripe. */
 .cerebro-balloons {
   position: fixed;
-  right: 12px;
+  right: calc(var(--cerebro-stripe-size) + 8px);
   bottom: calc(var(--cerebro-statusbar-height) + 8px);
   z-index: 1000;
   display: flex;
