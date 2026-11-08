@@ -468,9 +468,22 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.authors', (params) => listAuthors(text(params, 'worktree'), git));
   // The Log's branches pane: the local and remote branches.
   connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
-  // What a push would send, and the push, of the checked-out branch.
-  connection.onRequest('git.outgoing', (params) => outgoing(text(params, 'path'), git));
-  connection.onRequest('git.push', (params) => push(text(params, 'path'), git));
+  /** Where a request's push goes, if it says: a remote and a branch there. */
+  const destination = (params: unknown) => {
+    const p = params as { remote?: unknown; target?: unknown };
+    return typeof p.remote === 'string' && typeof p.target === 'string'
+      ? { remote: p.remote, target: p.target }
+      : undefined;
+  };
+  // What a push would send, and the push, of the checked-out branch: where it says, or by default.
+  connection.onRequest('git.outgoing', (params) =>
+    outgoing(text(params, 'path'), git, destination(params)),
+  );
+  connection.onRequest('git.push', (params) => {
+    const to = destination(params);
+    const setUpstream = (params as { setUpstream?: unknown }).setUpstream === true;
+    return push(text(params, 'path'), git, to && { ...to, setUpstream });
+  });
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);

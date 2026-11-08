@@ -137,10 +137,84 @@ body,
   font-weight: 600;
 }
 
-.playground-push__arrow,
-.playground-push__new {
+.playground-push__arrow {
   color: var(--cerebro-text-muted);
   font-weight: normal;
+}
+
+/* The remote and the branch there, to change, as IntelliJ's links in the push target. */
+.playground-push__link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--cerebro-link);
+  font: inherit;
+  cursor: pointer;
+}
+
+.playground-push__link:hover {
+  text-decoration: underline;
+}
+
+/* New, Upstream, or New & Upstream after the target, as IntelliJ's small rounded labels. */
+.playground-push__label {
+  padding: 0 4px;
+  border-radius: 4px;
+  background: var(--cerebro-push-label-background);
+  color: var(--cerebro-push-label);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.playground-push__upstream {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: normal;
+}
+
+/* The branch being typed, its suggestions below it. */
+.playground-push__editor {
+  position: relative;
+}
+
+.playground-push__field {
+  width: 110px;
+  padding: 0 4px;
+  border: 1px solid var(--cerebro-accent);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+  font-weight: normal;
+  outline: none;
+}
+
+.playground-push__suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1;
+  min-width: 160px;
+  max-height: 160px;
+  overflow: auto;
+  margin: 2px 0 0;
+  padding: 4px 0;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  font-weight: normal;
+  list-style: none;
+}
+
+.playground-push__suggestion {
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.playground-push__suggestion--highlighted {
+  background: var(--cerebro-menu-highlight);
 }
 
 .playground-push__commit {

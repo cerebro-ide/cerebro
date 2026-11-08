@@ -673,23 +673,47 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('says what a push would send, and pushes', async () => {
+  it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
-    const { ui } = connect(vi.fn(() => Promise.reject(new Error('detached'))));
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      args[0] === 'symbolic-ref'
+        ? Promise.reject(new Error('detached'))
+        : Promise.resolve(args[0] === 'remote' ? 'origin\n' : ''),
+    );
+    const { ui } = connect(git);
     expect(await ui.request('git.outgoing', { path: '/w' })).toEqual({
       branch: undefined,
       remote: undefined,
       target: undefined,
       isNew: false,
       commits: [],
+      remotes: ['origin'],
+      upstream: undefined,
     });
-    await expect(ui.request('git.push', { path: '/w' })).rejects.toMatchObject({
+    await expect(
+      ui.request('git.push', { path: '/w', remote: 'origin', target: 't', setUpstream: true }),
+    ).rejects.toMatchObject({
       code: ErrorCodes.InternalError,
       message: 'No branch is checked out',
     });
     await expect(ui.request('git.push', {})).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
+    // A branch: where it's told.
+    git.mockImplementation((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(
+        args[0] === 'remote' ? 'origin\n' : args[0] === 'symbolic-ref' ? 'main\n' : '',
+      ),
+    );
+    expect(
+      await ui.request('git.outgoing', { path: '/w', remote: 'origin', target: 'review' }),
+    ).toMatchObject({ remote: 'origin', target: 'review', isNew: true });
+    expect(await ui.request('git.push', { path: '/w' })).toMatchObject({ target: 'main' });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['push', '--set-upstream', '--end-of-options', 'origin', 'HEAD:refs/heads/main'],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
   });
 });
 
