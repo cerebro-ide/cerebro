@@ -38,7 +38,11 @@ import {
   type ResolveCompletion,
 } from './completions.js';
 import { EditorDocument, KEPT } from './document.js';
+import { detectIndent, indentUnitOf, type Indent } from './indent.js';
 import type { Selected } from './line.js';
+
+/** IntelliJ's: 4 spaces. */
+const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
@@ -65,6 +69,15 @@ export interface CodeEditorProps {
   softWrap?: () => boolean;
   /** Read reactively. Default: 4. */
   tabSize?: () => number;
+  /** How lines are indented, as the settings say. Read reactively. Default: 4 spaces. */
+  indent?: () => Indent;
+  /**
+   * Whether the file's own indent is used instead, when its lines tell one, as IntelliJ's "Detect
+   * and use existing file indents for editing". Read reactively. Default: off.
+   */
+  detectIndent?: () => boolean;
+  /** The indent used, and whether it's the file's own: as the editor opens, and as it changes. */
+  onIndent?: (indent: Indent, detected: boolean) => void;
   /** A position to show and select: where a definition is. Read reactively; zero-based. */
   reveal?: () =>
     | { line: number; column: number; end?: number | undefined; top?: number | undefined }
@@ -235,9 +248,6 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
 const taken = new WeakSet<object>();
 
 /** A position in the editor as a line and column, zero-based. */
-/** How a line is indented: CodeMirror's default, which no language here changes, set to say so. */
-export const INDENT = '  ';
-
 /** What the main selection holds, if it holds anything. */
 function selectedIn(state: EditorState): Selected | undefined {
   const { from, to, empty } = state.selection.main;
@@ -804,6 +814,25 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const caret = (state: EditorState) => {
     props.onCaret?.(placeOf(state, state.selection.main.head), selectedIn(state));
   };
+  const indenting = new Compartment();
+  /** The indent last told, as `unit detected`. */
+  let told: string | undefined;
+  /** Indents as the settings say, or as the file does when it tells and that's asked for. */
+  const reindent = () => {
+    const set = props.indent?.() ?? DEFAULT_INDENT;
+    const found = props.detectIndent?.()
+      ? detectIndent(view.state, set, view.state.tabSize)
+      : undefined;
+    const indent = found ?? set;
+    const unit = indentUnitOf(indent);
+    if (unit !== view.state.facet(indentUnit)) {
+      view.dispatch({ effects: indenting.reconfigure(indentUnit.of(unit)) });
+    }
+    const now = `${unit} ${String(found !== undefined)}`;
+    if (now === told) return;
+    told = now;
+    props.onIndent?.(indent, found !== undefined);
+  };
   const extensions: Extension[] = [
     lineNumbers(),
     highlightActiveLineGutter(),
@@ -823,7 +852,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
-    indentUnit.of(INDENT),
+    indenting.of(indentUnit.of(indentUnitOf(props.indent?.() ?? DEFAULT_INDENT))),
+    // The file's indent is looked at again after an edit, once the edit's update is over.
+    EditorView.updateListener.of((update) => {
+      if (update.docChanged && props.detectIndent?.()) queueMicrotask(reindent);
+    }),
     doc
       ? [namedHistory(), keymap.of([indentWithTab]), formattable(props.path)]
       : EditorState.readOnly.of(true),
@@ -898,6 +931,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   // The settings apply as they change, without rebuilding the editor.
   const watch = effect(() => {
     view.dispatch({ effects: [settings.reconfigure(configure()), keyed.reconfigure(actions())] });
+    reindent();
     return undefined;
   });
   // A position to reveal: selected, scrolled to the middle of the editor (or with the line `top`

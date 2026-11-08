@@ -37,13 +37,14 @@ import {
   fileIn,
   formatIn,
   formatLineColumn,
-  INDENT,
+  indentText,
   languageName,
   parseLineColumn,
   positionText,
   type AskFormat,
   type CompletionItem,
   type EditorDocument,
+  type Indent,
   type Mark,
   type Place,
 } from '@cerebro-ide/ui-editor';
@@ -93,7 +94,7 @@ import {
 import { openMenu } from '@cerebro-ide/ui-menu';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
-import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
+import { computed, effect, ObservableMap, signal, untracked } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
 import {
@@ -763,7 +764,7 @@ status.add({
 });
 // The active editor's file, as IntelliJ's widgets for it: shown for a text editor's file once it's
 // read (PositionPanel, LineSeparatorPanel, EncodingPanel, the indent's CodeStyleStatusBarWidget),
-// not for a diff's or an image's. Files are read as UTF-8, and indented as the editor indents.
+// not for a diff's or an image's. Files are read as UTF-8, and indented as their editor says.
 /** The active tab's file, when it's shown as text. */
 const activeText = () => {
   const tab = activeFile();
@@ -773,7 +774,8 @@ const activeDocument = () => {
   const path = activeText();
   return path === undefined ? undefined : documentRead(path);
 };
-const indent = `${String(INDENT.length)} spaces`;
+/** The indent each open file's editor uses, by path, and whether it's the file's own. */
+const indents = new ObservableMap<string, { indent: Indent; detected: boolean }>();
 status.add({
   id: 'position',
   order: 1,
@@ -808,9 +810,16 @@ status.add({
 status.add({
   id: 'indent',
   order: 4,
-  text: () => indent,
-  tooltip: () => `Indent: ${indent}`,
-  hidden: () => activeDocument() === undefined,
+  text: () => {
+    const used = indents.get(activeText() as string);
+    return used ? indentText(used.indent) : '';
+  },
+  // Asked while it's shown. IntelliJ's hint, Detected, is grey beside it.
+  tooltip: () => {
+    const used = indents.get(activeText() as string) as { indent: Indent; detected: boolean };
+    return `Indent: ${indentText(used.indent)}${used.detected ? ' (detected)' : ''}`;
+  },
+  hidden: () => activeDocument() === undefined || indents.get(activeText() as string) === undefined,
 });
 status.add({
   id: 'type',
@@ -1103,6 +1112,10 @@ installScrollbars();
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {
   const settings = settingsFor(props.env);
+  const indent = (): Indent => ({
+    tabs: settings.get('editor.useTabCharacter') as boolean,
+    size: settings.get('editor.indent') as number,
+  });
   const loaded = signal<EditorDocument | { error: string } | undefined>(undefined);
   void documentFor(props.path, () => sampleText(props.path)).then((result) => {
     loaded.set(result);
@@ -1167,9 +1180,13 @@ function Code(props: { path: string; env: string }) {
                     navigation.renaming(asked(state, at)),
                   onRename: (at: { line: number; column: number }, name: string) =>
                     navigation.rename(asked(state, at), name),
+                  // The whole file as the settings say, a part as the file's indent, as IntelliJ's
+                  // (DetectableIndentOptionsProvider.useOnFullReformat); its editor says which as
+                  // it opens.
                   format: (range?: Parameters<AskFormat>[0]) =>
                     navigation.format(
                       { path: props.path, text: state.text.peek().toString() },
+                      range ? (indents.get(props.path) as { indent: Indent }).indent : indent(),
                       settings.get('editor.tabSize') as number,
                       range,
                     ),
@@ -1192,6 +1209,9 @@ function Code(props: { path: string; env: string }) {
             fontSize={() => settings.get('editor.fontSize') as number}
             softWrap={() => settings.get('editor.softWrap') as boolean}
             tabSize={() => settings.get('editor.tabSize') as number}
+            indent={indent}
+            detectIndent={() => settings.get('editor.detectIndent') as boolean}
+            onIndent={(used, detected) => indents.set(props.path, { indent: used, detected })}
             keys={() => editorKeys(services.keymap)}
           />
         );

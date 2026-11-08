@@ -49,19 +49,18 @@ describe('the page in a browser', () => {
     expect(document.documentElement.classList).not.toContain('cerebro-app');
     expect(env().id).toBe('cerebro-status-bar');
     // The file's items once it's read.
-    await expect
-      .poll(status)
-      .toEqual([
-        'cerebro-status-bar · feat/status-bar',
-        'src/styles.css',
-        'Indexing…',
-        expect.any(String),
-        '1:1',
-        'LF',
-        'UTF-8',
-        '2 spaces',
-        'CSS',
-      ]);
+    await expect.poll(status).toEqual([
+      'cerebro-status-bar · feat/status-bar',
+      'src/styles.css',
+      'Indexing…',
+      expect.any(String),
+      '1:1',
+      'LF',
+      'UTF-8',
+      // The sample's lines are indented with tabs.
+      'Tab',
+      'CSS',
+    ]);
     expect(q('.cerebro-tool-window[data-id="terminal"]').textContent).toContain(
       'Terminals run in the desktop app.',
     );
@@ -89,7 +88,7 @@ describe('the page in a browser', () => {
       expect.stringMatching(/^Go to Line/),
       'Line Separator: \\n',
       'File Encoding: UTF-8',
-      'Indent: 2 spaces',
+      'Indent: Tab (detected)',
       'File Type',
     ]);
   });
@@ -224,6 +223,25 @@ describe('the status bar’s file items', () => {
     await expect.poll(shown).toEqual([]);
     env().editor.close(env().editor.activeGroupId, 'src/logo.png');
     await expect.poll(shown).toEqual(items);
+  });
+
+  it('show the indent the settings’ Code Style says, or the file’s own', async () => {
+    const global = globalSettings.layers.global;
+    const indent = () => q('.cerebro-statusbar__item[data-id="indent"]').textContent;
+    expect(indent()).toBe('Tab');
+    global.set('editor.detectIndent', false);
+    await expect.poll(indent).toBe('4 spaces');
+    await userEvent.hover(q('.cerebro-statusbar__item[data-id="indent"]'));
+    await expect.poll(tooltipText).toBe('Indent: 4 spaces');
+    await userEvent.unhover(q('.cerebro-statusbar__item[data-id="indent"]'));
+    global.set('editor.indent', 2);
+    await expect.poll(indent).toBe('2 spaces');
+    global.set('editor.useTabCharacter', true);
+    await expect.poll(indent).toBe('Tab');
+    global.reset('editor.useTabCharacter');
+    global.reset('editor.indent');
+    global.reset('editor.detectIndent');
+    await expect.poll(indent).toBe('Tab');
   });
 });
 

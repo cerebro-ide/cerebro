@@ -54,6 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
+- [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -571,11 +572,10 @@ new UI.
   - the line separator is the file's: LF or CRLF. Its tooltip is IntelliJ's, `Line Separator: \n`;
   - the encoding is always UTF-8: the host reads and writes files as UTF-8, and keeps a byte order
     mark. IntelliJ shows UTF-8 for a file with one too (its charset's name);
-  - the indent is the editor's: CodeMirror's default of 2 spaces, which no language here changes.
-    The editor now sets it, so the status bar reads the same value.
-- **Not yet:** the separator's, encoding's and indent's popups, which change them in IntelliJ; an
-  indent from the file (IntelliJ detects it) or from the tab size setting; a file with only `\r`
-  line breaks, which is read as LF.
+  - the indent is the one the editor uses (changed 2026-11-08): the Code Style's, or the file's
+    own, detected; see "Code Style: the indent".
+- **Not yet:** the separator's, encoding's and indent's popups, which change them in IntelliJ; a
+  file with only `\r` line breaks, which is read as LF.
 
 ## The Electron app (2026-10-25)
 
@@ -1951,6 +1951,38 @@ change.
   - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
     the folded text on hover, folds kept across reopening a file, and a menu for the actions.
 
+## Code Style: the indent (2026-11-08)
+
+From the backlog (Ido, 2026-11-08: "All of these. Go."): typing indented by CodeMirror's 2 spaces,
+while Reformat Code indented by the tab size setting. IntelliJ's Code Style instead, from its source
+(CodeStyleDefaults, CodeStyleSettings, ApplicationBundle, DetectableIndentOptionsProvider,
+IndentOptionsDetectorImpl, IndentUsageStatisticsImpl, IndentOptionsAdjusterImpl,
+IndentStatusBarUIContributor). Claude's choices, open to change.
+
+- **Settings → Editor → Code Style,** with IntelliJ's options and defaults: Use tab character
+  (off), Tab size (4), Indent (4), and Detect and use existing file indents for editing (on). The
+  tab size moved there from General, and its default went from 2 (a sample's) to IntelliJ's 4.
+  IntelliJ has these per language too; here they're for every file.
+- **Typing indents with them:** Tab, Shift+Tab and new lines indent by the Indent's spaces, or by a
+  tab with Use tab character.
+- **A file's own indent, detected as IntelliJ's:** from the first 500 lines that start with code,
+  each line's indent counted relative to the line it's nested in. Tabs when more lines start with a
+  tab than with spaces; spaces when more than 80% of the indented lines do, as many as most lines
+  add when that's at most 8 and more than 80% of them add it (else the Indent's). A file under 3
+  lines, or over 1 MB, isn't looked at. It's looked at again after each edit, as IntelliJ's is when
+  its document changes.
+  - **A claim:** IntelliJ counts the lines its formatter starts a block on, leaving out comments
+    and continuation lines. Cerebro has no such formatter: it leaves out lines that start in a
+    comment (from the language's grammar), and counts continuation lines.
+- **The status bar shows the indent used:** `4 spaces`, `2 spaces` or `Tab`, as IntelliJ's; its
+  tooltip `Indent: 2 spaces (detected)` when it's the file's. IntelliJ shows "Detected" in grey
+  beside it.
+- **Reformat Code** formats the whole file with the settings' indent, and a selection with the
+  file's, as IntelliJ's (DetectableIndentOptionsProvider.useOnFullReformat is false). LSP's
+  `tabSize` is the indent in spaces, or the tab size with tabs (`insertSpaces` false).
+- **Not yet:** per-language code style; continuation indent and Keep indents on empty lines; the
+  indent's popup on the status bar (next in the backlog); EditorConfig.
+
 ## Reformat Code (2026-11-04)
 
 After File Structure, IntelliJ's Reformat Code (Ido: "do them all"). Claude's choices, open to
@@ -1966,8 +1998,8 @@ change.
   changes touch, as they are after formatting. That's a claim: IntelliJ counts the lines of its
   diff.
 - **From the file's language server** (`lsp.format`, LSP's `textDocument/formatting` and
-  `rangeFormatting`), with the editor's tab size and spaces for indents (always spaces, a claim:
-  Cerebro has no tabs setting yet). Measured:
+  `rangeFormatting`), with the Code Style's indent (changed 2026-11-08: it was the tab size, in
+  spaces; see "Code Style: the indent"). Measured:
   - TypeScript 7 formats whole files and ranges, as does YAML's server.
   - bash-language-server formats whole files only, through shfmt; with no shfmt on the PATH, it
     answers with no edits, so the hint says the file's already formatted.

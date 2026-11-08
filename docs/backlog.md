@@ -8,15 +8,11 @@ basic IDE before git and agent management").
 
 ### Next, in this order (Ido, 2026-11-08: "All of these. Go.")
 
-1. **The indent, as IntelliJ's:** typing indents by 2 spaces, while Reformat Code indents by the
-   tab size setting. An indent setting, as IntelliJ's Code Style, and a file's own indent detected
-   (IntelliJ's "Detect and use existing file indents for editing", on by default), shown on the
-   status bar.
-2. **The status bar's popups:** clicking the line separator, the encoding or the indent opens
+1. **The status bar's popups:** clicking the line separator, the encoding or the indent opens
    IntelliJ's menu to change it (convert the line separators, remove a BOM, the indent's options).
-3. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
+2. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
    notice after a commit waits on them.
-4. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
+3. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
    Push dialog with the commits to push, and pushes.
 
 ### Several Claude sessions, as tabs (to design later)
@@ -66,6 +62,8 @@ on it:
   it expects one, and "opens what it finds in the Find window" failed after it. That the keys
   came further apart than the search's 150 ms delay under the run's load is a claim, not measured;
   the earlier fix (ed7bffc) measured that for the test of typing.
+  Again on 2026-11-08 (feat/indent, a full run while the machine's network kept changing): 4
+  searches where 2 were expected; it passed alone 3 times.
 - **The Log e2e tests failed once in a full local run** (2026-11-07, on fix/go-to-line-focus;
   they passed alone twice and in the next full run): the toolbar's » was hidden when a test
   hovered it (`Element is not visible`), so the toolbar's filters seemed to fit. Cause not found;
