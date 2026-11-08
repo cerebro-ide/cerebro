@@ -158,8 +158,12 @@ describe('asking for credentials, with real git over HTTP', () => {
         })
       ).stdout;
     expect(await askPass.git(sshKeygen)(root, [])).toMatch(/^ssh-ed25519 /);
+    // OpenSSH 9.6's words; later ones name the key (CI's: `Enter passphrase for "/k": `).
     expect(prompts).toEqual([
-      expect.objectContaining({ kind: 'ssh', prompt: 'Enter passphrase: ' }),
+      expect.objectContaining({
+        kind: 'ssh',
+        prompt: expect.stringMatching(/^Enter passphrase(?: for "[^"]*")?: $/) as string,
+      }),
     ]);
   });
 

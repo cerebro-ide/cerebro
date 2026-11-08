@@ -97,7 +97,9 @@ function httpKey(url: string, login: string): string {
 /** IntelliJ's SshPrompts: what OpenSSH asks for, and the dialog that asks the user. */
 const SSH_PROMPTS = [
   {
-    pattern: /^\r?Enter passphrase for(?: key)? '?([^']*)'?:\s?$/,
+    // IntelliJ's, with double quotes too: later OpenSSH quotes the key so (ssh-keygen's, seen in
+    // CI).
+    pattern: /^\r?Enter passphrase for(?: key)? ['"]?([^'"]*)['"]?:\s?$/,
     title: 'SSH Key Passphrase',
     label: (subject: string) => `Password for the SSH key "${subject}":`,
     service: 'SSH Key Passphrase',

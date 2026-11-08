@@ -1985,7 +1985,8 @@ for SSH passphrases and for fetch). IntelliJ's behaviour and words are from its 
   Measured on real git (`askpass.test.ts`): over HTTP against `git http-backend` behind a login, git
   asks "Username for 'http://host':", then "Password for 'http://user@host':"; and OpenSSH asks the
   ssh script for a key's passphrase (with `ssh-keygen -y`, there being no SSH server to test
-  against). After a cancelled username, git still asks for the password (measured): the rest of
+  against: "Enter passphrase: " on OpenSSH 9.6; CI's later one says `Enter passphrase for "/key": `,
+  so the key's name is read inside double quotes too, where IntelliJ reads single ones). After a cancelled username, git still asks for the password (measured): the rest of
   that command is answered nothing, unasked, as IntelliJ's. On Windows (measured with the portable
   setup, git 2.56 against a server in WSL): the `.bat` script and a named pipe, with both prompts,
   a failed login caught and asked again. The client's question is a line, not the end of its

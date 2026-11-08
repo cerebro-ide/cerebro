@@ -256,6 +256,7 @@ describe('over SSH', () => {
       ["ido@h's password: ", 'SSH Password Login', 'Password for user ido@h:'],
       ["Enter PIN for 'token': ", 'SSH Pin Passphrase', 'PIN for "token":'],
       ['Enter passphrase for /k: ', 'SSH Key Passphrase', 'Password for the SSH key "/k":'],
+      ['Enter passphrase for "/q": ', 'SSH Key Passphrase', 'Password for the SSH key "/q":'],
     ]) {
       const asking = credentials.answer('/p', ssh(text as string));
       expect(await title()).toBe(heading);
