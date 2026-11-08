@@ -715,6 +715,29 @@ describe('ignored files and rolling back', () => {
       { GIT_TERMINAL_PROMPT: '0' },
     );
   });
+
+  it('checks a remote’s URL, and adds it, fetched when asked', async () => {
+    const git = vi.fn(() => Promise.resolve(''));
+    const { ui } = connect(git);
+    await ui.request('git.checkRemote', { path: '/w', url: 'u' });
+    expect(git).toHaveBeenLastCalledWith('/w', ['ls-remote', '--heads', '--end-of-options', 'u'], {
+      GIT_TERMINAL_PROMPT: '0',
+    });
+    await ui.request('git.addRemote', { path: '/w', name: 'n', url: 'u' });
+    expect(git).toHaveBeenLastCalledWith('/w', ['remote', 'add', '--end-of-options', 'n', 'u']);
+    await ui.request('git.addRemote', { path: '/w', name: 'f', url: 'u', fetch: true });
+    expect(git).toHaveBeenLastCalledWith('/w', ['fetch', '--quiet', '--end-of-options', 'f'], {
+      GIT_TERMINAL_PROMPT: '0',
+    });
+    for (const [method, params] of [
+      ['git.checkRemote', { path: '/w' }],
+      ['git.addRemote', { path: '/w', url: 'u' }],
+    ] as const) {
+      await expect(ui.request(method, params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
 });
 
 describe('files', () => {

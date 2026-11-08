@@ -54,6 +54,56 @@ describe('openDialog', () => {
     expect(title?.textContent).toBe('Settings');
   });
 
+  it('checks before accepting, with OK disabled meanwhile, and stays open when it fails', async () => {
+    let answer!: (passed: boolean) => void;
+    const check = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const applied = vi.fn();
+    const handle = dialog<string>({
+      ok: { check, accept: () => 'yes' },
+      apply: { run: applied },
+    });
+    button('OK').click();
+    expect(button('OK').disabled).toBe(true);
+    // Nothing more while it runs.
+    key(element(), 'Enter');
+    expect(check).toHaveBeenCalledTimes(1);
+    answer(false);
+    await vi.waitFor(() => {
+      expect(button('OK').disabled).toBe(false);
+    });
+    expect(handle.open).toBe(true);
+    expect(applied).not.toHaveBeenCalled();
+    key(element(), 'Enter');
+    answer(true);
+    expect(await handle.result).toBe('yes');
+    expect(applied).toHaveBeenCalledTimes(1);
+  });
+
+  it('doesn’t accept when cancelled while it checks', async () => {
+    let answer!: (passed: boolean) => void;
+    const accept = vi.fn(() => 'yes');
+    const handle = dialog<string>({
+      ok: {
+        check: () =>
+          new Promise<boolean>((resolve) => {
+            answer = resolve;
+          }),
+        accept,
+      },
+    });
+    button('OK').click();
+    button('Cancel').click();
+    answer(true);
+    expect(await handle.result).toBeUndefined();
+    await Promise.resolve();
+    expect(accept).not.toHaveBeenCalled();
+  });
+
   it('accepts with OK, giving what it accepts, and gives the focus back', async () => {
     const before = document.createElement('button');
     document.body.append(before);

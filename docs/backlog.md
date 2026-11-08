@@ -43,6 +43,13 @@ on it:
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
+- **The host's errors reach the page with Electron's wrapping** (seen 2026-11-08 in QA of Define
+  Remote): "Error invoking remote method 'cerebro:host:request': ResponseError: fatal: …", where
+  git's words alone were meant. `ipcRenderer.invoke` puts that in front of an error thrown in
+  `ipcMain.handle` (`packages/app/src/host.ts`). Every place that shows a host error's message has
+  it in the app (Push failed's notification, Define Remote's URL), not in the browser tests,
+  whose fake host throws plain errors. A fix would pass the error back as a value and rethrow it in
+  the preload, with an e2e test that reads a shown message.
 - **A tree doesn't widen when a row's own content does** (`ui-tree`'s fit runs when its rows
   change, it's resized or scrolled): measured 2026-11-08, the Push dialog's row grew from 359 to
   407 pixels while its branch was typed (field and "Set upstream"), and was cut at the pane's
@@ -66,7 +73,9 @@ on it:
   launch took effect, the window went back to 1440×900 a millisecond later, and WSLg's window
   manager placed it 2.8 s later (moved off-screen, then to its centred place). Depending on that
   last step the window ended at 1440×900 (the toolbar's filters fit, so its » never showed) or
-  1024×768, and a click before it was lost (the Git stripe button's, once). The tests print the
+  1024×768, and a click before it was lost (the Git stripe button's: once, and again on
+  2026-11-08 on feat/push-remote, where all 6 failed with the window at 1024×768 and no Git tool
+  window open; the file passed alone twice right after). The tests print the
   window's, the screen's and the toolbar's sizes when the » is hidden. Fixing it needs the e2e
   harness (and `qa.mjs`, which resizes the same way) to wait until the window is placed, or the
   app to take its size at launch, as IntelliJ restores a project's window bounds; neither is done

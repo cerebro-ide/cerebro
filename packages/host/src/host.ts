@@ -52,6 +52,8 @@ import {
   listIgnored,
   lastMessage,
   listBranches,
+  addRemote,
+  checkRemote,
   outgoing,
   push,
   listAuthors,
@@ -484,6 +486,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const setUpstream = (params as { setUpstream?: unknown }).setUpstream === true;
     return push(text(params, 'path'), git, to && { ...to, setUpstream });
   });
+  // Define Remote: whether its URL answers, and adding it.
+  connection.onRequest('git.checkRemote', (params) =>
+    checkRemote(text(params, 'path'), text(params, 'url'), git),
+  );
+  connection.onRequest('git.addRemote', (params) =>
+    addRemote(
+      text(params, 'path'),
+      {
+        name: text(params, 'name'),
+        url: text(params, 'url'),
+        fetch: (params as { fetch?: unknown }).fetch === true,
+      },
+      git,
+    ),
+  );
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);

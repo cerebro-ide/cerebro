@@ -23,6 +23,8 @@ export {
   rewriteParents,
   rollback,
   textAt,
+  addRemote,
+  checkRemote,
   outgoing,
   push,
   type Outgoing,

@@ -716,8 +716,8 @@ export async function outgoing(
     upstreamRemote === ''
       ? undefined
       : { remote: upstreamRemote, target: upstreamRef.replace(/^refs\/heads\//, '') };
-  const only = remotes.length === 1 ? remotes[0] : undefined;
-  const fallback = remotes.includes('origin') ? 'origin' : only;
+  // IntelliJ's `getDefaultOrFirstRemote`: origin, else the first.
+  const fallback = remotes.includes('origin') ? 'origin' : remotes[0];
   const { remote, target } = to ?? upstream ?? { remote: fallback, target: branch };
   if (remote === undefined) return { branch, ...nothing, upstream };
   if (!remotes.includes(remote)) throw new Error(`There’s no remote named ${remote}`);
@@ -729,6 +729,30 @@ export async function outgoing(
     await readLog(worktree, [...DETAILS, 'HEAD', '--not', ...base, '--'], run),
   );
   return { branch, remote, target, isNew, commits, remotes, upstream };
+}
+
+/**
+ * Whether a remote's URL answers, as IntelliJ's Define Remote checks before adding it: `git
+ * ls-remote`, which fails with git's words. It never asks for a password (see `push`).
+ */
+export async function checkRemote(worktree: string, url: string, run: Git = git): Promise<void> {
+  await run(worktree, ['ls-remote', '--heads', '--end-of-options', url], {
+    GIT_TERMINAL_PROMPT: '0',
+  });
+}
+
+/** Adds a remote, and fetches it when asked (IntelliJ's Define Remote's Fetch remote). */
+export async function addRemote(
+  worktree: string,
+  remote: { name: string; url: string; fetch: boolean },
+  run: Git = git,
+): Promise<void> {
+  await run(worktree, ['remote', 'add', '--end-of-options', remote.name, remote.url]);
+  if (remote.fetch) {
+    await run(worktree, ['fetch', '--quiet', '--end-of-options', remote.name], {
+      GIT_TERMINAL_PROMPT: '0',
+    });
+  }
 }
 
 /** How a push went: the commits sent, where to, and whether it made the branch there. */
