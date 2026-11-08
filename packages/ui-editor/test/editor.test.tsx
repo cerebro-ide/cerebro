@@ -774,6 +774,25 @@ describe('EditorDocument', () => {
     expect(crlf.text.get().lines).toBe(2);
     expect(crlf.content()).toBe('a\r\nb');
     expect(new EditorDocument('a\nb\n').content()).toBe('a\nb\n');
+    // The first, as IntelliJ detects it; classic Mac OS's too.
+    expect(new EditorDocument('a\rb\r\nc').lineSeparator).toBe('\r');
+    expect(new EditorDocument('a\rb').content()).toBe('a\rb');
+    expect(new EditorDocument('a').lineSeparator).toBe('\n');
+  });
+
+  it('changes its line separator and byte order mark, modified until saved', () => {
+    const doc = new EditorDocument('a\nb');
+    doc.format.set({ lineSeparator: '\r\n', bom: true });
+    expect(doc.modified.get()).toBe(true);
+    expect(doc.content()).toBe('\uFEFFa\r\nb');
+    doc.saved();
+    expect(doc.modified.get()).toBe(false);
+    // Changed back on disk: taken, the text as it was.
+    const text = doc.text.get();
+    expect(doc.changedOnDisk('a\nb')).toBe(true);
+    expect(doc.format.get()).toEqual({ lineSeparator: '\n', bom: false });
+    expect(doc.text.get()).toBe(text);
+    expect(doc.changedOnDisk('a\nb')).toBe(false);
   });
 
   it('saves with the file’s byte order mark, which isn’t shown', () => {

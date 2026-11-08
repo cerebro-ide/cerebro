@@ -21,6 +21,11 @@ export interface CommandSpec<C = unknown> {
   run: (context: C) => unknown;
   /** Read reactively: views update when what it reads changes. */
   enabled?: (context: C) => boolean;
+  /**
+   * Whether menus show it, for what it acts on: left out where it doesn't apply, as IntelliJ's
+   * Add BOM for a file that has one. Read reactively. Default: shown.
+   */
+  visible?: (context: C) => boolean;
   /** For toggles, such as "Show Menu Bar": shown as a check mark. */
   checked?: (context: C) => boolean;
 }

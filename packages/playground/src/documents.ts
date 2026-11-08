@@ -219,12 +219,13 @@ async function save(paths?: readonly string[], label?: string): Promise<void> {
       await changeBeforeSave(path, doc);
       // What's written, which the editor may change while it's being written.
       const text = doc.text.peek();
+      const format = doc.format.peek();
       await host.request('fs.write', {
         path,
         text: doc.content(),
         ...(label === undefined ? {} : { label }),
       });
-      doc.saved(text);
+      doc.saved(text, format);
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);
     } finally {

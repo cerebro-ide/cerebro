@@ -20,7 +20,12 @@ export interface StatusItemSpec {
   tooltip?: () => string;
   /** Run when the item is clicked; the item is a button only with one. */
   command?: string;
-  /** What the command is run on, as a menu item's context. */
+  /**
+   * A menu opened when the item is clicked, above it, as IntelliJ's widgets that change what they
+   * show (the line separator's); the item is a button with one too.
+   */
+  menu?: string;
+  /** What the command or the menu's commands are run on, as a menu item's context. */
   context?: () => unknown;
   /** Whether the item is hidden for now. Default: shown. */
   hidden?: () => boolean;
@@ -64,6 +69,8 @@ export interface StatusBarViewProps {
   bar: StatusBar;
   /** Runs items' commands; without it, items are not clickable. */
   commands?: CommandRegistry;
+  /** Opens an item's menu by `anchor`; without it, items' menus don't open. */
+  openMenu?: (menu: string, anchor: HTMLElement, context: unknown) => void;
   /** The shortcut for a command, shown in its item's tooltip. */
   shortcut?: (command: string) => string | undefined;
   /** Draws an item's icon. */
@@ -87,7 +94,10 @@ function Item(p: { props: StatusBarViewProps; item: StatusItemSpec }): Node {
   const { props, item } = p;
   const commands = props.commands;
   const command = item.command;
-  const clickable = commands !== undefined && command !== undefined;
+  const { menu } = item;
+  const openMenu = props.openMenu;
+  const runs = commands !== undefined && command !== undefined;
+  const opens = openMenu !== undefined && menu !== undefined;
   const hidden = () => item.hidden?.() ?? false;
   const content = [
     item.icon !== undefined && props.icon ? (
@@ -101,15 +111,18 @@ function Item(p: { props: StatusBarViewProps; item: StatusItemSpec }): Node {
     shortcut: () => (command === undefined ? undefined : props.shortcut?.(command)),
     placement: 'above',
   });
-  return clickable ? (
+  return runs || opens ? (
     <button
       type="button"
       class="cerebro-statusbar__item cerebro-statusbar__item--action"
       data-id={item.id}
       ref={tip}
       hidden={hidden}
-      on:click={() => {
-        commands.execute(command, item.context?.());
+      on:click={(event) => {
+        const context = item.context?.();
+        if (opens) openMenu(menu, event.currentTarget as HTMLElement, context);
+        // A button only with a menu or a command.
+        else (commands as CommandRegistry).execute(command as string, context);
       }}
     >
       {content}

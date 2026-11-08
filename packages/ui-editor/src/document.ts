@@ -1,8 +1,10 @@
 // A file's text while it's open, as IntelliJ's documents: it outlives the editors that show it, so
 // switching tabs keeps the edits, the selection and the undo history. It knows the text last read
-// from or saved to disk, and so whether it's modified. Lines are joined as the file joined them:
-// CodeMirror reads either separator, and writes `\n` unless told otherwise. A byte order mark isn't
-// shown, and is saved as it was read, as IntelliJ keeps one.
+// from or saved to disk, and so whether it's modified. Lines are joined as the file joined them,
+// with the first line separator it has, as IntelliJ detects it: CodeMirror reads any, and writes
+// `\n` unless told otherwise. A byte order mark isn't shown, and is saved as it was read, as
+// IntelliJ keeps one. Both can be changed, as IntelliJ's status bar changes them: the file is then
+// modified until it's saved.
 
 import { historyField } from '@codemirror/commands';
 import { diff } from '@codemirror/merge';
@@ -20,10 +22,10 @@ export class EditorDocument {
   readonly disk: Signal<Text>;
   /** Whether the text differs from what's on disk. */
   readonly modified: Computed<boolean>;
-  /** How the file joins its lines. */
-  readonly lineSeparator: '\n' | '\r\n';
-  /** Whether the file starts with a byte order mark. */
-  readonly bom: boolean;
+  /** How the file is written: its line separator and byte order mark. Read reactively. */
+  readonly format: Signal<FileFormat>;
+  /** How the file on disk is written, as last read or saved. */
+  private readonly diskFormat: Signal<FileFormat>;
   /** The last editor's state (selection, history), for the next one; undefined before any. */
   state: unknown;
   /**
@@ -33,22 +35,39 @@ export class EditorDocument {
   lastEdit: { before: Text; changes: ChangeSet; name?: string } | undefined;
 
   constructor(content: string) {
-    this.lineSeparator = content.includes('\r\n') ? '\r\n' : '\n';
-    this.bom = content.startsWith(BOM);
+    const format = formatOf(content);
+    this.format = signal(format);
+    this.diskFormat = signal(format);
     const text = textOf(content);
     this.text = signal(text);
     this.disk = signal(text);
-    this.modified = computed(() => !this.text.get().eq(this.disk.get()));
+    this.modified = computed(
+      () =>
+        !this.text.get().eq(this.disk.get()) ||
+        !sameFormat(this.format.get(), this.diskFormat.get()),
+    );
+  }
+
+  /** How the file joins its lines. Read reactively. */
+  get lineSeparator(): LineSeparator {
+    return this.format.get().lineSeparator;
+  }
+
+  /** Whether the file starts with a byte order mark. Read reactively. */
+  get bom(): boolean {
+    return this.format.get().bom;
   }
 
   /** The text as the file holds it, with its line separator and byte order mark. */
   content(): string {
-    return (this.bom ? BOM : '') + this.text.peek().sliceString(0, undefined, this.lineSeparator);
+    const { lineSeparator, bom } = this.format.peek();
+    return (bom ? BOM : '') + this.text.peek().sliceString(0, undefined, lineSeparator);
   }
 
-  /** The text was saved: it's what's on disk now. */
-  saved(text: Text = this.text.peek()): void {
+  /** The text was saved, as `format` says: it's what's on disk now. */
+  saved(text: Text = this.text.peek(), format: FileFormat = this.format.peek()): void {
     this.disk.set(text);
+    this.diskFormat.set(format);
   }
 
   /**
@@ -88,20 +107,43 @@ export class EditorDocument {
   }
 
   /**
-   * The file changed on disk: its text replaces the document's unless that's modified, in which
-   * case the edits are kept. Returns whether the text was replaced.
+   * The file changed on disk: its text and format replace the document's unless that's modified,
+   * in which case the edits are kept. Returns whether they were replaced.
    */
   changedOnDisk(content: string): boolean {
     if (this.modified.peek()) return false;
     const text = textOf(content);
-    if (text.eq(this.disk.peek())) return false;
+    const format = formatOf(content);
+    if (text.eq(this.disk.peek()) && sameFormat(format, this.diskFormat.peek())) return false;
     this.disk.set(text);
-    this.text.set(text);
+    this.diskFormat.set(format);
+    this.format.set(format);
+    if (!text.eq(this.text.peek())) this.text.set(text);
     return true;
   }
 }
 
 const BOM = '\uFEFF';
+
+/** A line separator: Unix's and macOS's, Windows', or classic Mac OS's. */
+export type LineSeparator = '\n' | '\r\n' | '\r';
+
+/** How a file is written, beyond its text. */
+export interface FileFormat {
+  lineSeparator: LineSeparator;
+  bom: boolean;
+}
+
+/** A file's format, from its content: its first line separator (`\n` with none), and its BOM. */
+function formatOf(content: string): FileFormat {
+  return {
+    lineSeparator: (/\r\n|\r|\n/.exec(content)?.[0] ?? '\n') as LineSeparator,
+    bom: content.startsWith(BOM),
+  };
+}
+
+const sameFormat = (a: FileFormat, b: FileFormat) =>
+  a.lineSeparator === b.lineSeparator && a.bom === b.bom;
 
 /** The changes that make `text` into `content`: only the parts that differ. */
 export function changesTo(

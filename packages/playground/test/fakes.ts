@@ -90,6 +90,15 @@ export async function menuItems(): Promise<string[]> {
   return [...document.querySelectorAll('.cerebro-menu-item__label')].map((l) => l.textContent);
 }
 
+/** The open menu's item labelled `label`. */
+export function menuItem(label: string): HTMLElement {
+  const item = [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')].find(
+    (i) => i.querySelector('.cerebro-menu-item__label')?.textContent === label,
+  );
+  if (!item) throw new Error(`No item ${label} in the menu`);
+  return item;
+}
+
 /** Closes whatever dialog or popup a test left open. */
 export async function closeAll(): Promise<void> {
   for (let i = 0; i < 5; i++) {

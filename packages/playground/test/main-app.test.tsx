@@ -9,7 +9,7 @@ import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
 import { added, answers, calls, host, installBridge, notify, shownAgain } from './app-bridge.js';
-import { closeAll, dialog, dialogText, menuItems, popupItems, press } from './fakes.js';
+import { closeAll, dialog, dialogText, menuItem, menuItems, popupItems, press } from './fakes.js';
 
 // The page, as the desktop app shows it: a window with a project, its host answering through the
 // app's bridge. It's made once, as it's imported: each test goes on from where the last left it.
@@ -127,6 +127,57 @@ describe('a file with Windows’ line breaks', () => {
     await userEvent.hover(item);
     await expect.poll(tooltipText).toBe('Line Separator: \\r\\n');
     await userEvent.unhover(item);
+  });
+
+  it('converts them from the status bar, as IntelliJ’s, and saves the file', async () => {
+    answers.set('fs.read', { text: 'one\r\ntwo\r\n' });
+    env().editor.open({ id: '/r/convert.txt', title: 'convert.txt' });
+    const item = q('.cerebro-statusbar__item[data-id="separator"]');
+    await expect.poll(() => item.textContent).toBe('CRLF');
+    await userEvent.click(item);
+    expect(q('.cerebro-menu-heading').textContent).toBe('Line Separator');
+    expect(await menuItems()).toEqual([
+      'CRLF - Windows (\\r\\n)',
+      'LF - Unix and macOS (\\n)',
+      'CR - Classic Mac OS (\\r)',
+    ]);
+    // The file's own can't be chosen.
+    expect(
+      [...document.querySelectorAll('.cerebro-menu-item--disabled')].map((i) => i.textContent),
+    ).toEqual(['CRLF - Windows (\\r\\n)']);
+    await userEvent.click(menuItem('CR - Classic Mac OS (\\r)'));
+    await expect
+      .poll(() => host('/r').params('fs.write').at(-1))
+      .toEqual({ path: '/r/convert.txt', text: 'one\rtwo\r' });
+    expect(item.textContent).toBe('CR');
+    await userEvent.click(item);
+    await userEvent.click(menuItem('LF - Unix and macOS (\\n)'));
+    await expect
+      .poll(() => host('/r').params('fs.write').at(-1))
+      .toEqual({ path: '/r/convert.txt', text: 'one\ntwo\n' });
+    expect(item.textContent).toBe('LF');
+  });
+});
+
+describe('a file’s byte order mark', () => {
+  it('is added or removed from the status bar’s encoding, as IntelliJ’s, and the file saved', async () => {
+    answers.set('fs.read', { text: '\uFEFFone\n' });
+    env().editor.open({ id: '/r/bom.txt', title: 'bom.txt' });
+    const item = q('.cerebro-statusbar__item[data-id="encoding"]');
+    await expect.poll(() => item.hidden).toBe(false);
+    await userEvent.click(item);
+    expect(q('.cerebro-menu-heading').textContent).toBe('File Encoding');
+    expect(await menuItems()).toEqual(['Remove BOM']);
+    await userEvent.click(menuItem('Remove BOM'));
+    await expect
+      .poll(() => host('/r').params('fs.write').at(-1))
+      .toEqual({ path: '/r/bom.txt', text: 'one\n' });
+    await userEvent.click(item);
+    expect(await menuItems()).toEqual(['Add BOM']);
+    await userEvent.click(menuItem('Add BOM'));
+    await expect
+      .poll(() => host('/r').params('fs.write').at(-1))
+      .toEqual({ path: '/r/bom.txt', text: '\uFEFFone\n' });
   });
 });
 

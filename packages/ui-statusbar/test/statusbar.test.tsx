@@ -118,11 +118,26 @@ describe('StatusBarView', () => {
     expect(run).toHaveBeenCalledWith({ file: 'a.ts' });
   });
 
+  it('opens an item’s menu by it, on its context, when it can', () => {
+    const bar = new StatusBar();
+    const opened: unknown[] = [];
+    bar.add({ id: 'separator', text: () => 'LF', menu: 'status/separator', context: () => 'a.ts' });
+    const { item } = mount(bar, {
+      openMenu: (menu, anchor, context) => opened.push([menu, anchor.dataset['id'], context]),
+    });
+    expect(item('separator').tagName).toBe('BUTTON');
+    item('separator').click();
+    expect(opened).toEqual([['status/separator', 'separator', 'a.ts']]);
+  });
+
   it('is not clickable without a command registry', () => {
     const bar = new StatusBar();
     bar.add({ id: 'encoding', text: () => 'UTF-8', command: 'encoding.change' });
+    bar.add({ id: 'indent', text: () => '4 spaces', menu: 'status/indent' });
     const { item } = mount(bar);
     expect(item('encoding').tagName).toBe('SPAN');
+    // Nor with a menu and nothing to open it.
+    expect(item('indent').tagName).toBe('SPAN');
   });
 
   it('draws icons through the icon prop only', () => {

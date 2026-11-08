@@ -10,6 +10,7 @@ import {
   fileIn,
   formatIn,
   formattedLines,
+  reindentIn,
   type FormatWords,
   historyNamesIn,
   type AskFormat,
@@ -148,5 +149,15 @@ describe('Reformat Code', () => {
     expect(fileIn(shown)).toBeUndefined();
     expect(formatIn(shown, format)).toBe(false);
     expect(format).toHaveBeenCalledTimes(2);
+  });
+
+  it('reindents every line as the language does with the editor’s indent, undone as one', () => {
+    const doc = new EditorDocument('if (a) {\n    b();\n  if (c) {\n d();\n  }\n}\n');
+    const root = mount({ document: doc, indent: () => ({ tabs: false, size: 2 }) });
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    expect(reindentIn(content, 'Reindent File with 2 Spaces')).toBe(true);
+    expect(doc.text.peek().toString()).toBe('if (a) {\n  b();\n  if (c) {\n    d();\n  }\n}\n');
+    expect(historyNamesIn(content)?.undo).toBe('Reindent File with 2 Spaces');
+    expect(reindentIn(document.body, 'Reindent')).toBe(false);
   });
 });

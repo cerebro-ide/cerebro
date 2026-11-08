@@ -105,19 +105,23 @@ export function openContextMenu(
 }
 
 /**
- * A menu's visible entries, their labels for `context`: hidden items removed, and no leading,
- * trailing or doubled separators.
+ * A menu's visible entries, their labels and headings for `context`: hidden items removed (a
+ * command not visible for it, an empty submenu), and no leading, trailing or doubled separators.
  */
 export function visibleEntries(services: MenuServices, menu: string, context?: unknown): Entry[] {
   const items: Entry[] = services.menus.entries(menu).flatMap((entry: MenuEntry): Entry[] => {
-    if ('separator' in entry || 'heading' in entry) return [entry];
+    if ('separator' in entry) return [entry];
+    if ('heading' in entry) {
+      const { heading } = entry;
+      return [{ heading: typeof heading === 'string' ? heading : heading(context) }];
+    }
     if ('submenu' in entry) {
       return visibleEntries(services, entry.submenu, context).some((e) => !('separator' in e))
         ? [entry]
         : [];
     }
     const command = services.commands.get(entry.command);
-    if (!command) return [];
+    if (!command || command.visible?.(context) === false) return [];
     const item: Item = {
       command: command.id,
       label: command.text?.(context) ?? command.label,

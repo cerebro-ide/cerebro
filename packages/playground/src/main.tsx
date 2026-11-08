@@ -41,10 +41,13 @@ import {
   languageName,
   parseLineColumn,
   positionText,
+  reindentIn,
   type AskFormat,
   type CompletionItem,
   type EditorDocument,
+  type FileFormat,
   type Indent,
+  type LineSeparator,
   type Mark,
   type Place,
 } from '@cerebro-ide/ui-editor';
@@ -118,8 +121,14 @@ import {
   windowProjects,
 } from './projects.js';
 import type { RecentProject } from './bridge.js';
-import { globalSettings, registry as settingsRegistry, settingsFor } from './settings.js';
-import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
+import {
+  globalSettings,
+  registry as settingsRegistry,
+  save as saveSettings,
+  settingsFor,
+} from './settings.js';
+import { chordFromEvent, formatSequence, type CommandSpec } from '@cerebro-ide/commands';
+import type { Settings } from '@cerebro-ide/settings';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
@@ -796,8 +805,12 @@ status.add({
 status.add({
   id: 'separator',
   order: 2,
-  text: () => (activeDocument()?.lineSeparator === '\r\n' ? 'CRLF' : 'LF'),
-  tooltip: () => `Line Separator: ${activeDocument()?.lineSeparator === '\r\n' ? '\\r\\n' : '\\n'}`,
+  // Read while it's hidden too, before a file is; its tooltip only while it's shown.
+  text: () => SEPARATORS[activeDocument()?.lineSeparator ?? '\n'].name,
+  tooltip: () =>
+    `Line Separator: ${SEPARATORS[(activeDocument() as EditorDocument).lineSeparator].escaped}`,
+  menu: 'status/separator',
+  context: activeText,
   hidden: () => activeDocument() === undefined,
 });
 status.add({
@@ -805,6 +818,8 @@ status.add({
   order: 3,
   text: () => 'UTF-8',
   tooltip: () => 'File Encoding: UTF-8',
+  menu: 'status/encoding',
+  context: activeText,
   hidden: () => activeDocument() === undefined,
 });
 status.add({
@@ -819,6 +834,8 @@ status.add({
     const used = indents.get(activeText() as string) as { indent: Indent; detected: boolean };
     return `Indent: ${indentText(used.indent)}${used.detected ? ' (detected)' : ''}`;
   },
+  menu: 'status/indent',
+  context: activeText,
   hidden: () => activeDocument() === undefined || indents.get(activeText() as string) === undefined,
 });
 status.add({
@@ -827,6 +844,181 @@ status.add({
   text: () => languageName(activePath() ?? ''),
   tooltip: () => 'File Type',
 });
+
+// The status bar's menus, as IntelliJ's widgets' popups, for the active editor's file, given as
+// their context. The line separator and the byte order mark change as IntelliJ's
+// (AbstractConvertLineSeparatorsAction, RemoveBomAction): the file is saved with them at once.
+/** IntelliJ's names for line separators, and how its tooltip writes them. */
+const SEPARATORS: Record<LineSeparator, { name: string; label: string; escaped: string }> = {
+  '\r\n': { name: 'CRLF', label: 'CRLF - Windows (\\r\\n)', escaped: '\\r\\n' },
+  '\n': { name: 'LF', label: 'LF - Unix and macOS (\\n)', escaped: '\\n' },
+  '\r': { name: 'CR', label: 'CR - Classic Mac OS (\\r)', escaped: '\\r' },
+};
+/** The file a status bar menu acts on: its context, when that's a file that's been read. */
+const formatted = (context: unknown) =>
+  typeof context === 'string' ? documentRead(context) : undefined;
+/** Writes the file `context` names, as `format` says. */
+const reformat = (context: unknown, format: Partial<FileFormat>) => {
+  const doc = formatted(context) as EditorDocument;
+  doc.format.set({ ...doc.format.peek(), ...format });
+  saveFiles([context as string]).catch(reportSaving);
+};
+services.menus.contribute({ menu: 'status/separator', item: { heading: 'Line Separator' } });
+for (const [separator, { name, label }] of Object.entries(SEPARATORS)) {
+  services.commands.register({
+    id: `file.lineSeparator.${name}`,
+    label,
+    enabled: (context) => {
+      const doc = formatted(context);
+      return doc !== undefined && doc.lineSeparator !== separator;
+    },
+    run: (context) => {
+      reformat(context, { lineSeparator: separator as LineSeparator });
+    },
+  });
+  services.menus.contribute({
+    menu: 'status/separator',
+    item: { command: `file.lineSeparator.${name}` },
+  });
+}
+services.menus.contribute({ menu: 'status/encoding', item: { heading: 'File Encoding' } });
+for (const [id, label, bom] of [
+  ['file.removeBom', 'Remove BOM', false],
+  ['file.addBom', 'Add BOM', true],
+] as const) {
+  services.commands.register({
+    id,
+    label,
+    // Shown where it applies, as IntelliJ's.
+    enabled: (context) => formatted(context) !== undefined,
+    visible: (context) => formatted(context)?.bom !== bom,
+    run: (context) => {
+      reformat(context, { bom });
+    },
+  });
+  services.menus.contribute({ menu: 'status/encoding', item: { command: id } });
+}
+
+// The indent's menu, as IntelliJ's IndentStatusBarUIContributor's: while a file's own indent is
+// used, new lines can be indented as the settings say instead, for that file until the window is
+// reloaded, or the file reindented that way; while it's not, its own is offered again. Detection
+// is turned off or on for every file, and Configure Indents opens Code Style in Settings.
+/** Files whose own indent was turned down, by path, with that indent. */
+const declined = new ObservableMap<string, Indent>();
+/** The settings of the file at `path`: its worktree's. */
+const fileSettings = (path: string) => settingsFor(worktreeHolding(path));
+/** The indent `settings` say. */
+const settingsIndent = (settings: Settings): Indent => ({
+  tabs: settings.get('editor.useTabCharacter') as boolean,
+  size: settings.get('editor.indent') as number,
+});
+/** An indent in a menu item, as IntelliJ's: `4 Spaces`, `Tab`. */
+const indentTitle = (indent: Indent) =>
+  indentText(indent).replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
+/** The indent the file `context` names uses, when its editor has said. */
+const usedIndent = (context: unknown) =>
+  typeof context === 'string' ? indents.get(context) : undefined;
+/** Whether the file `context` names has an indent of its own, used or turned down. */
+const hasOwnIndent = (context: unknown) =>
+  usedIndent(context)?.detected === true || declined.has(context as string);
+/** The editing area of the editor showing `path`, when one does. */
+const editorShowing = (path: string) =>
+  [...document.querySelectorAll('.cerebro-editor-code')]
+    .map((host) => (host.shadowRoot as ShadowRoot).querySelector('.cm-content') as Element)
+    .find((content) => fileIn(content) === path);
+services.menus.contribute({
+  menu: 'status/indent',
+  group: 'a',
+  order: -1,
+  item: {
+    heading: (context) =>
+      hasOwnIndent(context) ? 'Indents Detection' : `${languageName(context as string)} Code Style`,
+  },
+});
+/** An item on the indent's menu, shown once the file's editor has said how it indents. */
+const indentItem = (command: CommandSpec, group: string) => {
+  services.commands.register({
+    ...command,
+    enabled: (context) => usedIndent(context) !== undefined,
+  });
+  services.menus.contribute({ menu: 'status/indent', item: { command: command.id }, group });
+};
+indentItem(
+  {
+    id: 'codeStyle.indentNewLines',
+    label: 'Indent New Lines with Settings',
+    text: (context) =>
+      `Indent New Lines with ${indentTitle(settingsIndent(fileSettings(context as string)))}`,
+    visible: (context) => usedIndent(context)?.detected === true,
+    run: (context) => {
+      const path = context as string;
+      declined.set(path, (indents.get(path) as { indent: Indent }).indent);
+    },
+  },
+  'a',
+);
+indentItem(
+  {
+    id: 'codeStyle.reindentFile',
+    label: 'Reindent File with Settings',
+    text: (context) =>
+      `Reindent File with ${indentTitle(settingsIndent(fileSettings(context as string)))}`,
+    visible: (context) => usedIndent(context)?.detected === true,
+    run: (context) => {
+      const path = context as string;
+      // Its editor indents as the settings say while it's reindented, then looks again.
+      declined.set(path, (indents.get(path) as { indent: Indent }).indent);
+      // The active editor's file: it's showing.
+      reindentIn(editorShowing(path) as Element, 'Reindent File');
+      declined.delete(path);
+    },
+  },
+  'a',
+);
+indentItem(
+  {
+    id: 'codeStyle.indentDetected',
+    label: 'Indent New Lines as Detected',
+    text: (context) =>
+      `Indent New Lines with ${indentTitle(declined.get(context as string) as Indent)} (detected)`,
+    visible: (context) => declined.has(context as string),
+    run: (context) => {
+      declined.delete(context as string);
+    },
+  },
+  'a',
+);
+// Below a line, as IntelliJ's.
+indentItem(
+  {
+    id: 'codeStyle.configureIndents',
+    label: 'Configure Indents…',
+    text: (context) => `Configure Indents for ${languageName(context as string)}…`,
+    run: () => services.commands.execute('file.settings', { page: 'editor/codeStyle' }),
+  },
+  'b',
+);
+indentItem(
+  {
+    id: 'codeStyle.detectIndents',
+    label: 'Indents Detection',
+    text: (context) =>
+      `${detecting(fileSettings(context as string)) ? 'Disable' : 'Enable'} Indents Detection`,
+    // Turned off only while it's done something, as IntelliJ's.
+    visible: (context) => !detecting(fileSettings(context as string)) || hasOwnIndent(context),
+    run: (context) => {
+      const settings = fileSettings(context as string);
+      const scope = settings.scopeOf('editor.detectIndent') ?? 'global';
+      settings.layers[scope].set('editor.detectIndent', !detecting(settings));
+      saveSettings(settings, [scope]);
+    },
+  },
+  'b',
+);
+/** Whether files' own indents are used, as `settings` say. */
+function detecting(settings: Settings): boolean {
+  return settings.get('editor.detectIndent') as boolean;
+}
 
 /**
  * An environment's name on its tab: with its project's once the window has two, unless it's the
@@ -1112,10 +1304,7 @@ installScrollbars();
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {
   const settings = settingsFor(props.env);
-  const indent = (): Indent => ({
-    tabs: settings.get('editor.useTabCharacter') as boolean,
-    size: settings.get('editor.indent') as number,
-  });
+  const indent = () => settingsIndent(settings);
   const loaded = signal<EditorDocument | { error: string } | undefined>(undefined);
   void documentFor(props.path, () => sampleText(props.path)).then((result) => {
     loaded.set(result);
@@ -1210,7 +1399,7 @@ function Code(props: { path: string; env: string }) {
             softWrap={() => settings.get('editor.softWrap') as boolean}
             tabSize={() => settings.get('editor.tabSize') as number}
             indent={indent}
-            detectIndent={() => settings.get('editor.detectIndent') as boolean}
+            detectIndent={() => detecting(settings) && !declined.has(props.path)}
             onIndent={(used, detected) => indents.set(props.path, { indent: used, detected })}
             keys={() => editorKeys(services.keymap)}
           />
@@ -1356,6 +1545,9 @@ render(
         <StatusBarView
           bar={status}
           commands={services.commands}
+          openMenu={(menu, anchor, context) => {
+            openMenu(services, menu, { anchor, placement: 'below' }, { context });
+          }}
           icon={icon}
           shortcut={shortcutOf}
         />

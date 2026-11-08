@@ -6,10 +6,12 @@ import { makeObservable, ObservableArray, type Disposable } from '@cerebro-ide/r
 
 /**
  * A command; a submenu; or a heading, a group's title that isn't an item (IntelliJ's "Group By" in a
- * view options menu).
+ * view options menu), which can depend on what the menu acts on (read reactively).
  */
 export type MenuItemSpec =
-  { command: string } | { submenu: string; label: string } | { heading: string };
+  | { command: string }
+  | { submenu: string; label: string }
+  | { heading: string | ((context: unknown) => string) };
 
 export interface Contribution {
   menu: string;
