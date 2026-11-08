@@ -169,6 +169,16 @@ registry.register({
   max: 72,
   integer: true,
 });
+// IntelliJ's (Version Control → Git), off by default: git's own credential helpers answer instead
+// of Cerebro's login dialog.
+registry.register({
+  id: 'git.useCredentialHelper',
+  title: 'Use credential helper',
+  page: 'vcs/git',
+  type: 'boolean',
+  default: false,
+  scopes: ['global'],
+});
 registry.register({
   id: 'git.branchPrefix',
   title: 'New branch prefix',

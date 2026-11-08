@@ -150,9 +150,9 @@ const newest = () =>
   [...document.querySelectorAll<HTMLElement>('.cerebro-dialog')].at(-1) as HTMLElement;
 /** Define Remote's fields: the name and the URL. */
 const fields = () => [
-  ...document.querySelectorAll<HTMLInputElement>('.playground-remote .cerebro-dialog-field__input'),
+  ...document.querySelectorAll<HTMLInputElement>('.playground-form .cerebro-dialog-field__input'),
 ];
-const errors = () => texts('.playground-remote .cerebro-dialog-field__error');
+const errors = () => texts('.playground-form .cerebro-dialog-field__error');
 const ok = () => newest().querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
 /** Where the push goes, as the repository's row says it, without its label. */
 const where = () =>
@@ -391,7 +391,7 @@ describe('Push', () => {
     // Typing again clears it.
     await userEvent.fill(url as HTMLInputElement, ' https://example.com/r.git ');
     expect(errors()).toEqual(['', '']);
-    await userEvent.click(newest().querySelector('.playground-remote__fetch input') as Element);
+    await userEvent.click(newest().querySelector('.playground-form__check input') as Element);
     await userEvent.click(ok());
     await expect.poll(() => where()).toEqual(['main→upstream:main']);
     expect(host.params('git.addRemote')).toEqual([

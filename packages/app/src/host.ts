@@ -18,6 +18,8 @@ export const FORWARDED = [
   'terminal.data',
   'terminal.exit',
   'agent.status',
+  'askpass.prompt',
+  'askpass.done',
 ] as const;
 
 /** The host's entry point, built beside this app. */

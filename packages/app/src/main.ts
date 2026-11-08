@@ -20,6 +20,7 @@ import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
+import { installPasswords, PasswordStore } from './passwords.js';
 import { installReveal } from './reveal.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
 import { WELCOME_SIZE, windowOptions } from './window.js';
@@ -243,6 +244,8 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
       hosts,
       new ProjectStore(join(app.getPath('userData'), 'projects.json')),
     );
+    // Once ready: the keychain isn't known before (safeStorage's documentation).
+    installPasswords(new PasswordStore(join(app.getPath('userData'), 'passwords.json')));
     windows.start(repo);
   });
 }

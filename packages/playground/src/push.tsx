@@ -624,7 +624,7 @@ function askForRemote(
     return remotes.includes(typed) ? `Remote name '${typed}' is already used` : undefined;
   };
   const field = (label: string, value: Signal<string>, error: () => string | undefined) => (
-    <label class="playground-remote__row">
+    <label class="playground-form__row">
       <span>{label}</span>
       <input
         class={() =>
@@ -678,10 +678,10 @@ function askForRemote(
       accept: () => ({ name: name.peek().trim(), url: url.peek().trim(), fetch: fetch.peek() }),
     },
     content: () => (
-      <div class="playground-remote">
+      <div class="playground-form">
         {field('Name:', name, nameError)}
         {field('URL:', url, () => unreachable.get())}
-        <label class="playground-remote__fetch">
+        <label class="playground-form__check">
           <input
             type="checkbox"
             checked={fetch.peek()}

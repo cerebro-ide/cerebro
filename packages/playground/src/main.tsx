@@ -63,6 +63,7 @@ import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
 import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
+import { setupCredentials } from './credentials.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
   carets,
@@ -726,6 +727,7 @@ if (currentHost()) {
     });
   setupIndexing(notifications);
   setupAgents(notifications);
+  setupCredentials(app);
 } else {
   const timer = setInterval(() => {
     const value = indexing.get();
