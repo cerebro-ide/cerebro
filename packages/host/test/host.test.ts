@@ -18,6 +18,7 @@ import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   defaultHookCommand,
   git as runGit,
+  GitError,
   hookSettings,
   makeSpawnHelperExecutable,
   nodePty,
@@ -711,9 +712,57 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.push', { path: '/w' })).toMatchObject({ target: 'main' });
     expect(git).toHaveBeenCalledWith(
       '/w',
-      ['push', '--set-upstream', '--end-of-options', 'origin', 'HEAD:refs/heads/main'],
+      [
+        'push',
+        '--porcelain',
+        '--set-upstream',
+        '--end-of-options',
+        'origin',
+        'HEAD:refs/heads/main',
+      ],
       { GIT_TERMINAL_PROMPT: '0' },
     );
+    await ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', tags: 'follow' });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [
+        'push',
+        '--porcelain',
+        '--set-upstream',
+        '--follow-tags',
+        '--end-of-options',
+        'origin',
+        'HEAD:refs/heads/main',
+      ],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
+    await expect(
+      ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', tags: 'some' }),
+    ).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+      message: 'tags must be all or follow',
+    });
+    // Failing: the refs it refused, from its output, before its words; else its words alone.
+    for (const [error, message] of [
+      [
+        new GitError(
+          'error: failed to push',
+          'To r\n!\tHEAD:refs/heads/main\t[rejected] (fetch first)\nDone\n',
+        ),
+        '!\tHEAD:refs/heads/main\t[rejected] (fetch first)\nerror: failed to push',
+      ],
+      [new GitError('fatal: no access', ''), 'fatal: no access'],
+      [new Error('spawn git ENOENT'), 'spawn git ENOENT'],
+    ] as const) {
+      git.mockImplementation((_cwd: string, args: readonly string[]) =>
+        args[0] === 'push'
+          ? Promise.reject(error)
+          : Promise.resolve(
+              args[0] === 'remote' ? 'origin\n' : args[0] === 'symbolic-ref' ? 'main\n' : '',
+            ),
+      );
+      await expect(ui.request('git.push', { path: '/w' })).rejects.toMatchObject({ message });
+    }
   });
 
   it('checks a remote’s URL, and adds it, fetched when asked', async () => {

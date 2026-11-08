@@ -27,6 +27,8 @@ const git = {
   /** Held until it resolves: a push under way. */
   hold: undefined as Promise<void> | undefined,
   branchesFail: false,
+  /** The tags a push made there. */
+  tags: [] as string[],
   /** Held until it resolves: checking a remote's URL. */
   checking: undefined as Promise<void> | undefined,
 };
@@ -56,7 +58,7 @@ const host = new FakeHost({
     await git.hold;
     if (git.pushed instanceof Error) throw git.pushed;
     const { remote, target, isNew } = git.outgoing;
-    return { commits: git.pushed, remote, target, isNew };
+    return { commits: git.pushed, remote, target, isNew, tags: git.tags };
   },
   'git.checkRemote': async ({ url }: { url: string }) => {
     await git.checking;
@@ -96,6 +98,8 @@ beforeEach(() => {
   git.pushed = 2;
   git.branchesFail = false;
   git.checking = undefined;
+  git.tags = [];
+  localStorage.removeItem('cerebro.push.tags:/r');
 });
 
 afterEach(async () => {
@@ -507,6 +511,82 @@ describe('Push', () => {
       expect(logged).toHaveBeenCalledWith('Reading what to push failed', expect.any(Error));
     });
     expect(where()).toEqual(['main→origin:main']);
+  });
+
+  it('pushes tags when asked, all or the branch’s, as IntelliJ’s, kept for next time', async () => {
+    git.outgoing = { ...git.outgoing, commits: [] };
+    git.pushed = 0;
+    git.tags = ['v1'];
+    commands.execute('vcs.push');
+    await dialog();
+    const box = () => document.querySelector('.playground-push__tags input') as HTMLInputElement;
+    const mode = () => document.querySelector('.playground-push__tag-mode') as HTMLSelectElement;
+    // Beside the buttons; off, and All to choose from.
+    expect(document.querySelector('.cerebro-dialog__footer')?.textContent).toContain('Push tags:');
+    expect(box().checked).toBe(false);
+    expect(mode().disabled).toBe(true);
+    expect(mode().value).toBe('all');
+    expect((await pushButton()).disabled).toBe(true);
+    // Tags alone can go.
+    await userEvent.click(box());
+    expect(mode().disabled).toBe(false);
+    expect((await pushButton()).disabled).toBe(false);
+    await userEvent.selectOptions(mode(), 'Current Branch');
+    await press('Push');
+    await expect.poll(() => last()?.title).toBe('Pushed tag v1 to origin');
+    expect(host.params('git.push')).toEqual([
+      { path: '/r', remote: 'origin', target: 'main', setUpstream: false, tags: 'follow' },
+    ]);
+    // As it was pushed with, next time; off again, nor sent.
+    git.tags = [];
+    git.outgoing = { ...git.outgoing, commits: [commit('One')] };
+    commands.execute('vcs.push');
+    await dialog();
+    expect(box().checked).toBe(true);
+    expect(mode().value).toBe('follow');
+    await userEvent.click(box());
+    await press('Push');
+    await expect.poll(() => host.params('git.push')).toHaveLength(2);
+    expect(host.params('git.push')[1]).toEqual({
+      path: '/r',
+      remote: 'origin',
+      target: 'main',
+      setUpstream: false,
+    });
+    expect(localStorage.getItem('cerebro.push.tags:/r')).toBeNull();
+  });
+
+  it('says the tags it pushed with the rest, in IntelliJ’s words', async () => {
+    for (const [pushed, tags, isNew, title] of [
+      [2, ['v1'], false, 'Pushed 2 commits to origin/main, and tag v1 to origin'],
+      [1, ['v1', 'v2'], false, 'Pushed 1 commit to origin/main, and 2 tags to origin'],
+      [0, ['v1', 'v2'], false, 'Pushed 2 tags to origin'],
+      [1, ['v1'], true, 'Pushed main to new branch origin/main, and tag v1 to origin'],
+    ] as const) {
+      git.pushed = pushed;
+      git.tags = [...tags];
+      git.outgoing = { ...git.outgoing, isNew };
+      commands.execute('vcs.push');
+      await dialog();
+      await press('Push');
+      await expect.poll(() => last()?.title).toBe(title);
+    }
+  });
+
+  it('starts with Push tags off when its storage can’t be read, and pushes when it can’t keep it', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    commands.execute('vcs.push');
+    await dialog();
+    const box = document.querySelector('.playground-push__tags input') as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    await userEvent.click(box);
+    await press('Push');
+    await expect.poll(() => host.params('git.push')).toHaveLength(1);
   });
 
   it('is in the Git menu, after Commit…, with IntelliJ’s Ctrl+Shift+K', () => {

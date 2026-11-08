@@ -64,6 +64,7 @@ import {
   removeWorktree,
   type Git,
   type LogFilter,
+  type PushTags,
   type TextFilter,
   ignoredAmong,
 } from './git.js';
@@ -483,8 +484,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   connection.onRequest('git.push', (params) => {
     const to = destination(params);
-    const setUpstream = (params as { setUpstream?: unknown }).setUpstream === true;
-    return push(text(params, 'path'), git, to && { ...to, setUpstream });
+    const p = params as { setUpstream?: unknown; tags?: unknown };
+    const setUpstream = p.setUpstream === true;
+    if (p.tags !== undefined && p.tags !== 'all' && p.tags !== 'follow') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'tags must be all or follow');
+    }
+    const tags: { tags?: PushTags } = p.tags === undefined ? {} : { tags: p.tags };
+    return push(text(params, 'path'), git, to && { ...to, setUpstream, ...tags });
   });
   // Define Remote: whether its URL answers, and adding it.
   connection.onRequest('git.checkRemote', (params) =>

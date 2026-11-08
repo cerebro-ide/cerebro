@@ -34,6 +34,16 @@ export type Git = (
  */
 const NO_OPTIONAL_LOCKS = { GIT_OPTIONAL_LOCKS: '0' };
 
+/** Git failing: its error output as the message, and its output, where some commands say why. */
+export class GitError extends Error {
+  constructor(
+    message: string,
+    readonly output: string,
+  ) {
+    super(message);
+  }
+}
+
 export const git: Git = (cwd, args, env, input) =>
   new Promise((resolve, reject) => {
     const child = execFile(
@@ -41,7 +51,7 @@ export const git: Git = (cwd, args, env, input) =>
       [...args],
       { cwd, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ...NO_OPTIONAL_LOCKS, ...env } },
       (error, stdout, stderr) => {
-        if (error) reject(new Error(stderr.trim() || error.message));
+        if (error) reject(new GitError(stderr.trim() || error.message, stdout));
         else resolve(stdout);
       },
     );
@@ -755,45 +765,70 @@ export async function addRemote(
   }
 }
 
-/** How a push went: the commits sent, where to, and whether it made the branch there. */
+/** How a push went: the commits sent, where to, whether it made the branch there, and its tags. */
 export interface Pushed {
   commits: number;
   remote: string;
   target: string;
   isNew: boolean;
+  /** The tags it made there. */
+  tags: string[];
 }
+
+/**
+ * Which tags a push sends, as IntelliJ's `GitPushTagMode`: all of them (`--tags`), or the
+ * annotated ones on the branch pushed (`--follow-tags`, its Current Branch).
+ */
+export type PushTags = 'all' | 'follow';
 
 /**
  * Pushes the checked-out branch where `outgoing` says (to `to`, if given). It becomes the branch's
  * upstream as IntelliJ's (`GitPushTarget.shouldSetUpstream`): when the push makes the target and the
- * branch has no upstream yet ("New & Upstream"), or when asked (its Set upstream). Git never asks
+ * branch has no upstream yet ("New & Upstream"), or when asked (its Set upstream). Tags go too when
+ * asked, even with nothing else to send; the ones it made there are named. Git never asks
  * for a password here, with no terminal to ask in: it fails instead, unless a credential helper
  * answers. Fails with git's words, which say when the push was rejected (`[rejected]`).
  */
 export async function push(
   worktree: string,
   run: Git = git,
-  to?: PushTarget & { setUpstream?: boolean },
+  to?: PushTarget & { setUpstream?: boolean; tags?: PushTags },
 ): Promise<Pushed> {
   const out = await outgoing(worktree, run, to && { remote: to.remote, target: to.target });
   if (out.branch === undefined) throw new Error('No branch is checked out');
   if (out.remote === undefined) throw new Error('The repository has no remote');
   const target = out.target as string;
   const setUpstream = (out.isNew && out.upstream === undefined) || to?.setUpstream === true;
-  if (out.commits.length > 0 || out.isNew || setUpstream) {
-    await run(
-      worktree,
-      [
-        // Its refs' lines, `! [rejected]` among them, on its error output: `--porcelain` puts them
-        // on its output.
-        'push',
-        ...(setUpstream ? ['--set-upstream'] : []),
-        '--end-of-options',
-        out.remote,
-        `HEAD:refs/heads/${target}`,
-      ],
-      { GIT_TERMINAL_PROMPT: '0' },
-    );
+  const tags = to?.tags;
+  let lines: string[] = [];
+  if (out.commits.length > 0 || out.isNew || setUpstream || tags !== undefined) {
+    try {
+      lines = (
+        await run(
+          worktree,
+          [
+            // A line per ref, on its output: the tags it made there ("*" and "[new tag]").
+            'push',
+            '--porcelain',
+            ...(setUpstream ? ['--set-upstream'] : []),
+            ...(tags === undefined ? [] : [tags === 'all' ? '--tags' : '--follow-tags']),
+            '--end-of-options',
+            out.remote,
+            `HEAD:refs/heads/${target}`,
+          ],
+          { GIT_TERMINAL_PROMPT: '0' },
+        )
+      ).split('\n');
+    } catch (error) {
+      // The refs it couldn't push ("!", with "[rejected]") are on its output, not in its message.
+      const refused = error instanceof GitError ? refusedRefs(error.output) : [];
+      if (refused.length === 0) throw error;
+      throw new Error([...refused, (error as GitError).message].join('\n'), { cause: error });
+    }
   }
-  return { commits: out.commits.length, remote: out.remote, target, isNew: out.isNew };
+  const made = lines.flatMap((line) => /^\*\trefs\/tags\/([^:]+):/.exec(line)?.[1] ?? []);
+  return { commits: out.commits.length, remote: out.remote, target, isNew: out.isNew, tags: made };
 }
+
+/** The refs `git push --porcelain` couldn't push, as it says them. */
+const refusedRefs = (output: string) => output.split('\n').filter((line) => line.startsWith('!\t'));

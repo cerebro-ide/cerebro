@@ -3,7 +3,7 @@
 // and the commits that aren't there yet, with the selected row's files beside them (PushLog). Where
 // it goes can be changed, as IntelliJ's GitPushTargetPanel: the remote from a list, the branch
 // there typed, with the remote's branches suggested, and Set upstream; or a remote defined, as
-// IntelliJ's GitDefineRemoteDialog. Push pushes them,
+// IntelliJ's GitDefineRemoteDialog. Push tags, beside the buttons, sends tags too. Push pushes them,
 // "Pushing…" on the status bar meanwhile. How it went is a notification, as
 // IntelliJ's GitPushResultNotification: "Pushed 2 commits to origin/main", "Pushed main to new
 // branch origin/main", "Everything is up to date", or "Push rejected" or "Push failed", which stay.
@@ -44,6 +44,48 @@ interface Pushed {
   remote: string;
   target: string;
   isNew: boolean;
+  tags: string[];
+}
+
+/** Which tags go too, as IntelliJ's Push tags: all, or the branch's annotated ones. */
+type PushTags = 'all' | 'follow';
+
+/** Where a repository's Push tags is kept, as IntelliJ keeps it per project (`GitVcsSettings`). */
+const tagsKey = (worktree: string) => `cerebro.push.tags:${worktree}`;
+
+/** The Push tags last pushed with in a repository, or undefined when it was off. */
+function readPushTags(worktree: string): PushTags | undefined {
+  try {
+    const kept = localStorage.getItem(tagsKey(worktree));
+    return kept === 'all' || kept === 'follow' ? kept : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Keeps the Push tags pushed with, as IntelliJ's `GitPusher` does with each push. */
+function keepPushTags(worktree: string, tags: PushTags | undefined): void {
+  try {
+    if (tags === undefined) localStorage.removeItem(tagsKey(worktree));
+    else localStorage.setItem(tagsKey(worktree), tags);
+  } catch {
+    // Not kept: the next push starts with it off.
+  }
+}
+
+/** How a push went, in IntelliJ's words (`push.notification.description.*`). */
+function pushedText(pushed: Pushed, branch: string): string {
+  const where = `${pushed.remote}/${pushed.target}`;
+  const n = pushed.commits;
+  const sent = pushed.isNew
+    ? `Pushed ${branch} to new branch ${where}`
+    : n === 0
+      ? undefined
+      : `Pushed ${String(n)} ${n === 1 ? 'commit' : 'commits'} to ${where}`;
+  const [tag, ...more] = pushed.tags;
+  if (tag === undefined) return sent ?? 'Everything is up to date';
+  const tags = more.length === 0 ? `tag ${tag}` : `${String(pushed.tags.length)} tags`;
+  return sent ? `${sent}, and ${tags} to ${pushed.remote}` : `Pushed ${tags} to ${pushed.remote}`;
 }
 
 /** Why nothing can be pushed, if so (Cerebro's words). */
@@ -98,6 +140,9 @@ interface PushState {
   defineRemote: () => void;
   /** The remotes' branches, for suggestions. */
   branches: Signal<readonly string[]>;
+  /** Push tags, and which. */
+  tags: Signal<boolean>;
+  tagMode: Signal<PushTags>;
 }
 
 /** Whether Set upstream applies: the branch has one, and the target isn't it (IntelliJ's). */
@@ -327,6 +372,37 @@ function TargetRow(props: { state: PushState }): Node {
   );
 }
 
+/** IntelliJ's Push tags, beside the buttons: whether tags go too, and which. */
+function TagsOption(props: { state: PushState }): Node {
+  const { state } = props;
+  return (
+    <span class="playground-push__tags">
+      <label>
+        <input
+          type="checkbox"
+          checked={state.tags.peek()}
+          on:change={(event) => {
+            state.tags.set((event.currentTarget as HTMLInputElement).checked);
+          }}
+        />
+        Push tags:
+      </label>
+      <select
+        class="playground-push__tag-mode"
+        aria-label="Tags to push"
+        disabled={() => !state.tags.get()}
+        prop:value={state.tagMode.peek()}
+        on:change={(event) => {
+          state.tagMode.set((event.currentTarget as HTMLSelectElement).value as PushTags);
+        }}
+      >
+        <option value="all">All</option>
+        <option value="follow">Current Branch</option>
+      </select>
+    </span>
+  );
+}
+
 /** The dialog's two panes: the repository and its commits, and the selected row's files. */
 function PushLog(props: { worktree: string; state: PushState; host: Host }): Node {
   const { state } = props;
@@ -513,6 +589,9 @@ export async function openPush(worktree: string): Promise<void> {
     setUpstream: signal(false),
     editing: signal<string | undefined>(undefined),
     branches: signal<readonly string[]>([]),
+    // As last pushed with, IntelliJ's; All to choose from when it was off.
+    tags: signal(readPushTags(worktree) !== undefined),
+    tagMode: signal(readPushTags(worktree) ?? 'all'),
     retarget: (to) => {
       host.request('git.outgoing', { path: worktree, ...to }).then(
         (out) => {
@@ -568,12 +647,15 @@ export async function openPush(worktree: string): Promise<void> {
           state.editing.get() === undefined &&
           (out.commits.length > 0 ||
             out.isNew ||
-            (state.setUpstream.get() && otherThanUpstream(out, out.target as string)))
+            (state.setUpstream.get() && otherThanUpstream(out, out.target as string)) ||
+            // Tags alone (Cerebro's: IntelliJ's Push is enabled whenever there's a target).
+            (state.tags.get() && out.remote !== undefined))
         );
       },
       accept: () => true,
     },
     width: 800,
+    footer: () => (why === undefined ? <TagsOption state={state} /> : null),
     content: () => (
       <div class="playground-push">
         {why === undefined ? (
@@ -589,6 +671,8 @@ export async function openPush(worktree: string): Promise<void> {
   const remote = out.remote as string;
   const target = out.target as string;
   const where = `${remote}/${target}`;
+  const tags = state.tags.peek() ? state.tagMode.peek() : undefined;
+  keepPushTags(worktree, tags);
   pushing.set(true);
   try {
     const pushed = (await host.request('git.push', {
@@ -596,16 +680,9 @@ export async function openPush(worktree: string): Promise<void> {
       remote,
       target,
       setUpstream: state.setUpstream.peek() && otherThanUpstream(out, target),
+      ...(tags === undefined ? {} : { tags }),
     })) as Pushed;
-    const n = pushed.commits;
-    notifications.notify({
-      title: pushed.isNew
-        ? `Pushed ${out.branch as string} to new branch ${pushed.remote}/${pushed.target}`
-        : n === 0
-          ? 'Everything is up to date'
-          : `Pushed ${String(n)} ${n === 1 ? 'commit' : 'commits'} to ${pushed.remote}/${pushed.target}`,
-      group: 'push',
-    });
+    notifications.notify({ title: pushedText(pushed, out.branch as string), group: 'push' });
   } catch (error) {
     const rejected = (error as Error).message.includes('[rejected]');
     notifications.notify({

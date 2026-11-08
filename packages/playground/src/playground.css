@@ -1261,3 +1261,30 @@ body,
   align-items: center;
   gap: 6px;
 }
+
+/* Push tags, beside the dialog's buttons. */
+.playground-push__tags {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playground-push__tags label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.playground-push__tag-mode {
+  height: 24px;
+  padding: 0 4px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.playground-push__tag-mode:disabled {
+  opacity: 0.5;
+}

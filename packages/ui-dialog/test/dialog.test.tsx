@@ -104,6 +104,14 @@ describe('openDialog', () => {
     expect(accept).not.toHaveBeenCalled();
   });
 
+  it('shows options at the buttons’ left', () => {
+    dialog({ ok: { accept: () => 1 }, footer: () => <label>Push tags</label>, platform: 'other' });
+    const row = element().querySelector('.cerebro-dialog__buttons') as HTMLElement;
+    expect(row.firstElementChild?.textContent).toBe('Push tags');
+    const options = (row.firstElementChild as HTMLElement).getBoundingClientRect();
+    expect(options.left).toBeLessThan(button('OK').getBoundingClientRect().left - 100);
+  });
+
   it('accepts with OK, giving what it accepts, and gives the focus back', async () => {
     const before = document.createElement('button');
     document.body.append(before);

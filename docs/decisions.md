@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -2028,9 +2028,20 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   that fades; "Push rejected" (a warning: "Push to origin/main was rejected") when git's message
   has `[rejected]`, else "Push failed" with git's message, which stay, as IntelliJ's important VCS
   notifications.
-- **Measured on real git** (`push.test.ts`): `--porcelain` puts `! [rejected]` on git's output, which
-  is lost when git fails, so the push runs without it and the line comes on its error output.
-- **Not yet:** Force Push, pushing tags,
+- **Push tags (changed 2026-11-08),** as IntelliJ's `GitPushOptionsPanel`, at the buttons' left:
+  "Push tags:" (off to start with) and All (`--tags`) or Current Branch (`--follow-tags`, the
+  branch's annotated tags; measured on git 2.43). It starts as the last push in the repository left
+  it, as IntelliJ's `GitPusher` keeps it in the project's settings (Cerebro keeps it in the
+  browser's storage, as its other options). Ticked, Push is enabled with only tags to send
+  (Cerebro's: IntelliJ's Push is enabled whenever there's a target, `GitPushSupport.canBePushed`).
+  The notification names the tags made there, in IntelliJ's words: "Pushed 2 commits to origin/main,
+  and tag v1 to origin", "… and 2 tags to origin", "Pushed tag v1 to origin", "Pushed 2 tags to
+  origin". IntelliJ's Run Git hooks beside it isn't done.
+- **Measured on real git** (`push.test.ts`; changed 2026-11-08): the push runs with `--porcelain`, a
+  line per ref on its output, which names the tags it made ("*" and "[new tag]"). When git fails,
+  those lines are on its output, not its error output: the refused ones ("!", with "[rejected]") are
+  put before git's message, so a rejection still says so.
+- **Not yet:** Force Push,
   several repositories at once, IntelliJ's check for a diverged remote before pushing, and asking
   for credentials. In the dialog: selecting several commits, Show Details (the selected commit's
   message under its files), and opening a file's diff.
