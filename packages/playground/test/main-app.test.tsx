@@ -36,8 +36,11 @@ afterEach(async () => {
 });
 
 const q = (selector: string) => document.querySelector(selector) as HTMLElement;
+/** The status bar's texts, of the items shown. */
 const status = () =>
-  [...document.querySelectorAll('.cerebro-statusbar__text')].map((t) => t.textContent);
+  [
+    ...document.querySelectorAll('.cerebro-statusbar__item:not([hidden]) .cerebro-statusbar__text'),
+  ].map((t) => t.textContent);
 const stripe = (id: string) => q(`.cerebro-stripe-button[data-id="${id}"]`);
 const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textContent;
 const env = () => workspace.active as NonNullable<typeof workspace.active>;
@@ -109,6 +112,20 @@ describe('a file that can’t be read', () => {
             ?.textContent,
       )
       .toBe('Can’t open /r/locked.ts: EACCES');
+    // Nothing of its own on the status bar.
+    expect(status()).not.toContain('UTF-8');
+  });
+});
+
+describe('a file with Windows’ line breaks', () => {
+  it('says so on the status bar', async () => {
+    answers.set('fs.read', { text: 'one\r\ntwo\r\n' });
+    env().editor.open({ id: '/r/crlf.txt', title: 'crlf.txt' });
+    await expect.poll(status).toEqual(expect.arrayContaining(['1:1', 'CRLF', 'UTF-8', '2 spaces']));
+    const item = q('.cerebro-statusbar__item[data-id="separator"]');
+    await userEvent.hover(item);
+    await expect.poll(tooltipText).toBe('Line Separator: \\r\\n');
+    await userEvent.unhover(item);
   });
 });
 

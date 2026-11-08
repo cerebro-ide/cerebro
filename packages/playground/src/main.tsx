@@ -37,8 +37,10 @@ import {
   fileIn,
   formatIn,
   formatLineColumn,
+  INDENT,
   languageName,
   parseLineColumn,
+  positionText,
   type AskFormat,
   type CompletionItem,
   type EditorDocument,
@@ -60,6 +62,7 @@ import {
   history,
   recentTabs,
   reveals,
+  selections,
   setupNavigation,
   tops,
 } from './navigation.js';
@@ -93,7 +96,14 @@ import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { restoreLayout, saveLayout } from './persist.js';
 import { applyTheme } from './theme.js';
-import { documentFor, onBeforeSave, saveAll, saveFiles, setupSaving } from './documents.js';
+import {
+  documentFor,
+  documentRead,
+  onBeforeSave,
+  saveAll,
+  saveFiles,
+  setupSaving,
+} from './documents.js';
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
@@ -439,14 +449,16 @@ const activeFile = () => {
 };
 // It needs an editor with the focus, or its find bar, as IntelliJ's GotoLineAction
 // (EDITOR_EVEN_IF_INACTIVE): elsewhere, as in the Log, its key is free for others (Cmd+L there is
-// Focus Text Filter).
+// Focus Text Filter). The status bar's position runs it on the active editor's file, given as its
+// context, focused or not, as IntelliJ's PositionPanel.
+const lineFile = (context: unknown) => (typeof context === 'string' ? context : focusedFile());
 services.commands.register({
   id: 'navigate.goToLine',
   label: '&Line/Column',
   dialog: true,
-  enabled: () => focusedFile() !== undefined,
-  run: async () => {
-    const file = focusedFile() as string;
+  enabled: (context) => lineFile(context) !== undefined,
+  run: async (context) => {
+    const file = lineFile(context) as string;
     // An editor says where its caret is as it opens.
     const current = carets.get(file) as { line: number; column: number };
     const typed = await prompt({
@@ -749,16 +761,57 @@ status.add({
   tooltip: () => 'The worktree’s agent, in the Claude tool window',
   command: 'view.tool.claude',
 });
+// The active editor's file, as IntelliJ's widgets for it: shown for a text editor's file once it's
+// read (PositionPanel, LineSeparatorPanel, EncodingPanel, the indent's CodeStyleStatusBarWidget),
+// not for a diff's or an image's. Files are read as UTF-8, and indented as the editor indents.
+/** The active tab's file, when it's shown as text. */
+const activeText = () => {
+  const tab = activeFile();
+  return tab && !isImage(tab.id) ? tab.id : undefined;
+};
+const activeDocument = () => {
+  const path = activeText();
+  return path === undefined ? undefined : documentRead(path);
+};
+const indent = `${String(INDENT.length)} spaces`;
 status.add({
   id: 'position',
   order: 1,
-  text: () => '1:1',
-  tooltip: () => 'Go to File',
-  command: 'file.goTo',
+  text: () => {
+    const path = activeText();
+    const at = path === undefined ? undefined : carets.get(path);
+    return at ? positionText(at, selections.get(path as string)) : '';
+  },
+  tooltip: () => 'Go to Line',
+  command: 'navigate.goToLine',
+  context: activeText,
+  // Until its editor says where its caret is, as it opens.
+  hidden: () => {
+    const path = activeText();
+    return path === undefined || carets.get(path) === undefined;
+  },
 });
-status.add({ id: 'separator', order: 2, text: () => 'LF', tooltip: () => 'Line Separator' });
-status.add({ id: 'encoding', order: 3, text: () => 'UTF-8', tooltip: () => 'File Encoding' });
-status.add({ id: 'indent', order: 4, text: () => '2 spaces', tooltip: () => 'Indent' });
+status.add({
+  id: 'separator',
+  order: 2,
+  text: () => (activeDocument()?.lineSeparator === '\r\n' ? 'CRLF' : 'LF'),
+  tooltip: () => `Line Separator: ${activeDocument()?.lineSeparator === '\r\n' ? '\\r\\n' : '\\n'}`,
+  hidden: () => activeDocument() === undefined,
+});
+status.add({
+  id: 'encoding',
+  order: 3,
+  text: () => 'UTF-8',
+  tooltip: () => 'File Encoding: UTF-8',
+  hidden: () => activeDocument() === undefined,
+});
+status.add({
+  id: 'indent',
+  order: 4,
+  text: () => indent,
+  tooltip: () => `Indent: ${indent}`,
+  hidden: () => activeDocument() === undefined,
+});
 status.add({
   id: 'type',
   order: 5,
@@ -1088,7 +1141,11 @@ function Code(props: { path: string; env: string }) {
             document={state}
             reveal={() => reveals.get(props.path)}
             focus={() => focusing.get(props.path)}
-            onCaret={(at) => carets.set(props.path, at)}
+            onCaret={(at, selected) => {
+              carets.set(props.path, at);
+              if (selected) selections.set(props.path, selected);
+              else selections.delete(props.path);
+            }}
             onScroll={(top) => tops.set(props.path, top)}
             {...(navigation.available()
               ? {

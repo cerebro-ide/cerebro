@@ -10,6 +10,7 @@ import {
   CodeEditor,
   editorHistory,
   EditorDocument,
+  INDENT,
   languageFor,
   languageName,
   type CodeEditorProps,
@@ -425,13 +426,27 @@ describe('CodeEditor', () => {
     expect(document.text.get().toString()).toBe('    indented');
   });
 
-  it('says where the caret is as it opens and as it moves', async () => {
+  it('says where the caret is and what’s selected, as it opens and as either changes', async () => {
     const onCaret = vi.fn();
-    const root = mount({ path: 'a.txt', text: 'first\nsecond line', onCaret });
-    expect(onCaret).toHaveBeenLastCalledWith({ line: 0, column: 0 });
+    const root = mount({ path: 'a.txt', text: 'first 😀\nsecond line', onCaret });
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 0, column: 0 }, undefined);
     await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
     await userEvent.keyboard('{End}');
-    expect(onCaret).toHaveBeenLastCalledWith({ line: 1, column: 11 });
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 1, column: 11 }, undefined);
+    await userEvent.keyboard('{Shift>}{Home}{/Shift}');
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 1, column: 0 }, { chars: 11, lineBreaks: 0 });
+    // The emoji is one character, as IntelliJ counts them, though two in JavaScript.
+    await userEvent.keyboard('{Control>}a{/Control}');
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 1, column: 11 }, { chars: 19, lineBreaks: 1 });
+  });
+
+  it('indents by two spaces, whatever the tab size', async () => {
+    const document = new EditorDocument('line');
+    const root = mount({ path: 'a.txt', document, tabSize: () => 4 });
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Home}{Tab}');
+    expect(document.text.get().toString()).toBe(`${INDENT}line`);
+    expect(INDENT).toBe('  ');
   });
 
   it('reveals a position without taking the focus, when asked', async () => {

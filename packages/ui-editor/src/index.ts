@@ -2,6 +2,7 @@ export {
   CodeEditor,
   DEFAULT_KEYS,
   editorHistory,
+  INDENT,
   type CodeEditorProps,
   type EditorKeys,
 } from './editor.js';
@@ -40,7 +41,7 @@ export {
   type LineRange,
 } from './diff.js';
 export { EditorDocument } from './document.js';
-export { formatLineColumn, parseLineColumn } from './line.js';
+export { formatLineColumn, parseLineColumn, positionText, type Selected } from './line.js';
 export {
   problemIcon,
   PROBLEMS_AFTER,
