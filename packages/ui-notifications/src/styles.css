@@ -75,12 +75,13 @@
   font-size: 11px;
 }
 
-/* The balloons: above the status bar, left of the right stripe. */
+/* The balloons: above the status bar, left of the right stripe. Under dialogs and popups (900), as
+   IntelliJ's modal dialogs and popups are over its window, balloons and all. */
 .cerebro-balloons {
   position: fixed;
   right: calc(var(--cerebro-stripe-size) + 8px);
   bottom: calc(var(--cerebro-statusbar-height) + 8px);
-  z-index: 1000;
+  z-index: 800;
   display: flex;
   flex-direction: column;
   gap: 8px;

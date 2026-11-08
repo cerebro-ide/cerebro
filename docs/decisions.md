@@ -2150,6 +2150,10 @@ themes. A package of its own, `ui-notifications`. Claude's choices, open to chan
   - **A claim:** the time starts again when the pointer leaves a balloon, from IntelliJ's "smart
     fadeout" holding it while the pointer is over it. The balloons' size, padding and corners are
     a claim too, not measured.
+- **Under dialogs and popups (changed 2026-11-08):** balloons were over them, and covered a
+  dialog's buttons in a smaller window (CI's e2e on macOS and Windows, the Push dialog's Push).
+  IntelliJ's modal dialogs and popups are windows over its frame, balloons and all (a claim from
+  how Swing shows them, not measured).
 - **The Notifications tool window** shows IntelliJ's Timeline: every notification, newest first,
   with when it came in IntelliJ's words (`Moments ago`, `5 minutes ago`, `Today 14:05`, kept up to
   date each minute), and Clear all. With none, IntelliJ's "Suggestions, events, and errors will

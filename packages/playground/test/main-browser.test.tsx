@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import type { Tab } from '@cerebro-ide/layout';
+import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { diffTab } from '../src/changes.js';
 import { documentRead } from '../src/documents.js';
@@ -361,6 +362,21 @@ describe('notifications', () => {
     expect(dot()).not.toBe(bell);
     await userEvent.click(stripe('notifications'));
     await expect.poll(dot).toBe(bell);
+    notifications.clear();
+  });
+
+  it('shows balloons under a dialog, as IntelliJ’s modal dialogs are over its window', async () => {
+    notifications.notify({ title: 'Pushed', content: '' });
+    await expect.poll(() => q('.cerebro-balloon')).not.toBeNull();
+    const box = q('.cerebro-balloon').getBoundingClientRect();
+    const open = openDialog({ title: 'Over', content: () => 'x' });
+    await dialog();
+    // The dialog's layer, which covers the window, is what's under the pointer there.
+    const under = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+    expect(under?.closest('.cerebro-dialog-layer, .cerebro-balloons')?.className).toBe(
+      'cerebro-dialog-layer',
+    );
+    open.close();
     notifications.clear();
   });
 });
