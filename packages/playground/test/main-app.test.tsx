@@ -121,7 +121,8 @@ describe('a file with Windows’ line breaks', () => {
   it('says so on the status bar', async () => {
     answers.set('fs.read', { text: 'one\r\ntwo\r\n' });
     env().editor.open({ id: '/r/crlf.txt', title: 'crlf.txt' });
-    await expect.poll(status).toEqual(expect.arrayContaining(['1:1', 'CRLF', 'UTF-8', '2 spaces']));
+    // Too few lines to tell its indent: the settings', IntelliJ's 4 spaces.
+    await expect.poll(status).toEqual(expect.arrayContaining(['1:1', 'CRLF', 'UTF-8', '4 spaces']));
     const item = q('.cerebro-statusbar__item[data-id="separator"]');
     await userEvent.hover(item);
     await expect.poll(tooltipText).toBe('Line Separator: \\r\\n');
@@ -598,7 +599,7 @@ describe('Reformat Code', () => {
       worktree: '/r',
       path: '/r/src/fmt.ts',
       text: '// /r/src/fmt.ts\nconst a = 1;\n',
-      tabSize: 2,
+      tabSize: 4,
       insertSpaces: true,
     });
     const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
@@ -611,6 +612,42 @@ describe('Reformat Code', () => {
       from: { line: 0, column: 0 },
       to: { line: 2, column: 0 },
     });
+  });
+});
+
+describe('Reformat Code’s indent', () => {
+  it('is the settings’ for the whole file, the file’s own for a part, as IntelliJ’s', async () => {
+    // Other files as they are, or they'd have changed on disk.
+    answers.set('fs.read', ({ path }: { path: string }) => ({
+      text:
+        path === '/r/src/two.ts' ? 'if (a) {\n  b();\n  c();\n}\n' : `// ${path}\nconst a = 1;\n`,
+    }));
+    answers.set('lsp.format', []);
+    env().editor.open({ id: '/r/src/two.ts', title: 'two.ts' });
+    await expect.poll(() => code()?.textContent).toContain('c();');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}{Alt>}l{/Alt}{/Control}');
+    await expect
+      .poll(() => host('/r').params('lsp.format').at(-1))
+      .toMatchObject({ path: '/r/src/two.ts', tabSize: 4, insertSpaces: true });
+    const asked = host('/r').params('lsp.format').length;
+    await userEvent.keyboard('{Control>}a{/Control}{Control>}{Alt>}l{/Alt}{/Control}');
+    await expect.poll(() => host('/r').params('lsp.format').length).toBe(asked + 1);
+    expect(host('/r').params('lsp.format').at(-1)).toMatchObject({
+      tabSize: 2,
+      insertSpaces: true,
+    });
+    // With tabs, the tab size's.
+    globalSettings.layers.global.set('editor.useTabCharacter', true);
+    globalSettings.layers.global.set('editor.tabSize', 3);
+    await userEvent.keyboard('{ArrowDown}{Control>}{Alt>}l{/Alt}{/Control}');
+    await expect.poll(() => host('/r').params('lsp.format').length).toBe(asked + 2);
+    expect(host('/r').params('lsp.format').at(-1)).toMatchObject({
+      tabSize: 3,
+      insertSpaces: false,
+    });
+    globalSettings.layers.global.reset('editor.useTabCharacter');
+    globalSettings.layers.global.reset('editor.tabSize');
   });
 });
 

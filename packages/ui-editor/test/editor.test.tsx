@@ -10,7 +10,6 @@ import {
   CodeEditor,
   editorHistory,
   EditorDocument,
-  INDENT,
   languageFor,
   languageName,
   type CodeEditorProps,
@@ -440,13 +439,47 @@ describe('CodeEditor', () => {
     expect(onCaret).toHaveBeenLastCalledWith({ line: 1, column: 11 }, { chars: 19, lineBreaks: 1 });
   });
 
-  it('indents by two spaces, whatever the tab size', async () => {
+  it('indents as the settings say, or as the file does, and says which', async () => {
+    const document = new EditorDocument('a\n  b\n  c\nd');
+    const detect = signal(false);
+    const indent = signal({ tabs: false, size: 4 });
+    const onIndent = vi.fn();
+    const root = mount({
+      path: 'a.txt',
+      document,
+      tabSize: () => 8,
+      indent: () => indent.get(),
+      detectIndent: () => detect.get(),
+      onIndent,
+    });
+    expect(onIndent).toHaveBeenLastCalledWith({ tabs: false, size: 4 }, false);
+    await userEvent.click(root.querySelectorAll('.cm-line')[3] as HTMLElement);
+    await userEvent.keyboard('{Home}{Tab}');
+    expect(document.text.get().toString()).toBe('a\n  b\n  c\n    d');
+    // The file's: 2 spaces, looked at again after the edit.
+    detect.set(true);
+    expect(onIndent).toHaveBeenLastCalledWith({ tabs: false, size: 2 }, true);
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}{Home}{Tab}');
+    expect(document.text.get().toString()).toBe('a\n  b\n  c\n    d');
+    const told = onIndent.mock.calls.length;
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+    await Promise.resolve();
+    // The same: not told again.
+    expect(onIndent).toHaveBeenCalledTimes(told);
+    // Tabs, at the tab size.
+    detect.set(false);
+    indent.set({ tabs: true, size: 4 });
+    expect(onIndent).toHaveBeenLastCalledWith({ tabs: true, size: 4 }, false);
+    await userEvent.keyboard('{Home}{Tab}');
+    expect(document.text.get().toString()).toBe('a\n  b\n  c\n\t  d');
+  });
+
+  it('indents by 4 spaces without settings, as IntelliJ', async () => {
     const document = new EditorDocument('line');
-    const root = mount({ path: 'a.txt', document, tabSize: () => 4 });
+    const root = mount({ path: 'a.txt', document });
     await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
     await userEvent.keyboard('{Home}{Tab}');
-    expect(document.text.get().toString()).toBe(`${INDENT}line`);
-    expect(INDENT).toBe('  ');
+    expect(document.text.get().toString()).toBe('    line');
   });
 
   it('reveals a position without taking the focus, when asked', async () => {

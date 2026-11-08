@@ -20,6 +20,7 @@ import type {
   EditorDocument,
   Fold,
   FormatEdit,
+  Indent,
   Mark,
   MarkerKind,
   Problem,
@@ -310,18 +311,19 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
 
     /**
      * The edits that format a file as the editor has it, or the part from `from` to `to`, from its
-     * language server, indented with spaces (Settings has no tabs, a claim: IntelliJ's default);
-     * why not, if it won't.
+     * language server, indented with `indent`; why not, if it won't.
      */
     async format(
       file: { path: string; text: string },
+      indent: Indent,
       tabSize: number,
       range?: { from: Position; to: Position },
     ): Promise<FormatEdit[] | { refused: string }> {
+      // LSP's tabSize is the indent's, in spaces; a tab's with tabs.
       const answer = await ask<FormatEdit[] | { refused: string }>('lsp.format', {
         ...file,
-        tabSize,
-        insertSpaces: true,
+        tabSize: indent.tabs ? tabSize : indent.size,
+        insertSpaces: !indent.tabs,
         ...range,
       });
       return answer ?? { refused: 'No language server answered.' };

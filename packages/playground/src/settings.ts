@@ -16,6 +16,8 @@ registry.registerPage({ id: 'appearance', title: 'Appearance', order: 1 });
 registry.registerPage({ id: 'editor', title: 'Editor', order: 2 });
 registry.registerPage({ id: 'editor/general', title: 'General', parent: 'editor', order: 1 });
 registry.registerPage({ id: 'editor/font', title: 'Font', parent: 'editor', order: 2 });
+// IntelliJ's Code Style, for every language (IntelliJ has a page per language too).
+registry.registerPage({ id: 'editor/codeStyle', title: 'Code Style', parent: 'editor', order: 3 });
 registry.registerPage({ id: 'keymap', title: 'Keymap', order: 3 });
 // The plugins, theirs to turn on or off, after Keymap as IntelliJ's.
 registry.registerPage({ id: 'plugins', title: 'Plugins', order: 4 });
@@ -122,15 +124,40 @@ registry.register({
   type: 'boolean',
   default: false,
 });
+// IntelliJ's, with its defaults (CodeStyleDefaults, CodeStyleSettings).
+registry.register({
+  id: 'editor.useTabCharacter',
+  title: 'Use tab character',
+  page: 'editor/codeStyle',
+  type: 'boolean',
+  default: false,
+});
 registry.register({
   id: 'editor.tabSize',
   title: 'Tab size',
-  page: 'editor/general',
+  page: 'editor/codeStyle',
   type: 'number',
-  default: 2,
+  default: 4,
   min: 1,
   max: 8,
   integer: true,
+});
+registry.register({
+  id: 'editor.indent',
+  title: 'Indent',
+  page: 'editor/codeStyle',
+  type: 'number',
+  default: 4,
+  min: 1,
+  max: 16,
+  integer: true,
+});
+registry.register({
+  id: 'editor.detectIndent',
+  title: 'Detect and use existing file indents for editing',
+  page: 'editor/codeStyle',
+  type: 'boolean',
+  default: true,
 });
 registry.register({
   id: 'editor.fontSize',
