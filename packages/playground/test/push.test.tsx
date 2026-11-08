@@ -538,13 +538,13 @@ describe('Push', () => {
       { path: '/r', remote: 'origin', target: 'main', setUpstream: false, tags: 'follow' },
     ]);
     // As it was pushed with, next time; off again, nor sent.
+    git.tags = [];
+    git.outgoing = { ...git.outgoing, commits: [commit('One')] };
     commands.execute('vcs.push');
     await dialog();
     expect(box().checked).toBe(true);
     expect(mode().value).toBe('follow');
     await userEvent.click(box());
-    git.tags = [];
-    git.outgoing = { ...git.outgoing, commits: [commit('One')] };
     await press('Push');
     await expect.poll(() => host.params('git.push')).toHaveLength(2);
     expect(host.params('git.push')[1]).toEqual({

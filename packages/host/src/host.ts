@@ -64,6 +64,7 @@ import {
   removeWorktree,
   type Git,
   type LogFilter,
+  type PushTags,
   type TextFilter,
   ignoredAmong,
 } from './git.js';
@@ -488,7 +489,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (p.tags !== undefined && p.tags !== 'all' && p.tags !== 'follow') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'tags must be all or follow');
     }
-    const tags = p.tags === undefined ? {} : { tags: p.tags };
+    const tags: { tags?: PushTags } = p.tags === undefined ? {} : { tags: p.tags };
     return push(text(params, 'path'), git, to && { ...to, setUpstream, ...tags });
   });
   // Define Remote: whether its URL answers, and adding it.

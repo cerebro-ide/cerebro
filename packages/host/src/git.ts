@@ -823,7 +823,7 @@ export async function push(
       // The refs it couldn't push ("!", with "[rejected]") are on its output, not in its message.
       const refused = error instanceof GitError ? refusedRefs(error.output) : [];
       if (refused.length === 0) throw error;
-      throw new Error([...refused, (error as GitError).message].join('\n'));
+      throw new Error([...refused, (error as GitError).message].join('\n'), { cause: error });
     }
   }
   const made = lines.flatMap((line) => /^\*\trefs\/tags\/([^:]+):/.exec(line)?.[1] ?? []);
