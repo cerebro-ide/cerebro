@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -2041,9 +2041,32 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   line per ref on its output, which names the tags it made ("*" and "[new tag]"). When git fails,
   those lines are on its output, not its error output: the refused ones ("!", with "[rejected]") are
   put before git's message, so a rejection still says so.
-- **Not yet:** Force Push,
-  several repositories at once, IntelliJ's check for a diverged remote before pushing, and asking
-  for credentials. In the dialog: selecting several commits, Show Details (the selected commit's
+- **When the remote has diverged (changed 2026-11-08),** as IntelliJ's `GitPushDivergenceDetector`
+  and `PushDivergenceBanner` (read from its source): not for a branch the push makes, the remote's
+  branch is taken from where it was last fetched, then asked of the remote (`git ls-remote`, which
+  never asks for a password; where it was fetched when it can't be asked). When it has commits the
+  branch hasn't, a warning banner over the tree says so in IntelliJ's words ("Push will be
+  rejected, branch 'main' has diverged from the remote: 2 remote commits are not in your local
+  branch. …"); when they aren't fetched (`git cat-file` can't find the commit), only a fetch can
+  count them, and the button is Fetch (`+refs/heads/<t>:refs/remotes/<r>/<t>`, "Fetching Remote
+  Commits…" on the status bar), which reads what's pushed again; a Fetch that fails says why in a
+  row of the tree, with Retry, and the push is left to the remote. A branch only behind sends
+  nothing, so nothing's in its way. Measured on real git (`push.test.ts`). The banner's colours are
+  the Islands themes' `Banner.warningBackground` and `warningBorderColor`. IntelliJ's banner links,
+  Update project… and Show divergence in Git log, aren't there: Cerebro has neither yet.
+- **Force Push (changed 2026-11-08),** as IntelliJ's: on the arrow of Push, which is an option
+  button (`ui-dialog`'s OK options, as IntelliJ's `JBOptionButton`: the button does the first one
+  enabled, so never Force Push). It's disabled while a fetch is needed, and to a protected branch
+  ("Force push to origin/main is prohibited"; IntelliJ's default protected branches, main and
+  master; no setting for them yet). It asks first, as IntelliJ's: "You're going to force push to
+  'main'. It replaces 2 commits on the remote. Are you sure you want to proceed?", with Don't warn
+  about this target (kept per repository in the browser's storage). It pushes with
+  `--force-with-lease`, expecting the remote's branch where the check saw it, else where it was
+  fetched (IntelliJ's `git.use.push.force.with.lease`, on by default); "Force pushed main to
+  origin/main" when it replaced commits (git's "+"), and "Force-with-lease push main to origin/main
+  was rejected" when the remote's branch had moved ("stale info"). Measured on real git.
+- **Not yet:** several repositories at once, and asking for credentials. IntelliJ's actions on a
+  rejected push's notification (Force push…, Force push anyway). In the dialog: selecting several commits, Show Details (the selected commit's
   message under its files), and opening a file's diff.
 
 ## Notifications (2026-11-08)

@@ -54,6 +54,8 @@ import {
   listBranches,
   addRemote,
   checkRemote,
+  divergence,
+  fetchTarget,
   outgoing,
   push,
   listAuthors,
@@ -484,14 +486,33 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   connection.onRequest('git.push', (params) => {
     const to = destination(params);
-    const p = params as { setUpstream?: unknown; tags?: unknown };
+    const p = params as { setUpstream?: unknown; tags?: unknown; force?: unknown; lease?: unknown };
     const setUpstream = p.setUpstream === true;
     if (p.tags !== undefined && p.tags !== 'all' && p.tags !== 'follow') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'tags must be all or follow');
     }
     const tags: { tags?: PushTags } = p.tags === undefined ? {} : { tags: p.tags };
-    return push(text(params, 'path'), git, to && { ...to, setUpstream, ...tags });
+    // A force push, expecting the remote's branch at `lease` when given.
+    const force =
+      p.force === true ? { force: typeof p.lease === 'string' ? { lease: p.lease } : {} } : {};
+    return push(text(params, 'path'), git, to && { ...to, setUpstream, ...tags, ...force });
   });
+  // IntelliJ's check for a diverged remote, and its Fetch of the target to count what it has.
+  connection.onRequest('git.divergence', (params) =>
+    divergence(
+      text(params, 'path'),
+      { remote: text(params, 'remote'), target: text(params, 'target') },
+      (params as { checkRemote?: unknown }).checkRemote === true,
+      git,
+    ),
+  );
+  connection.onRequest('git.fetchTarget', (params) =>
+    fetchTarget(
+      text(params, 'path'),
+      { remote: text(params, 'remote'), target: text(params, 'target') },
+      git,
+    ),
+  );
   // Define Remote: whether its URL answers, and adding it.
   connection.onRequest('git.checkRemote', (params) =>
     checkRemote(text(params, 'path'), text(params, 'url'), git),

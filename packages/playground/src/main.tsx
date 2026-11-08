@@ -58,7 +58,7 @@ import { ProjectTree, selectInTree } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
-import { pushing, setupPush } from './push.js';
+import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -793,6 +793,16 @@ status.add({
   text: () => 'Pushing…',
   tooltip: () => 'Pushing the branch',
   hidden: () => !pushing.get(),
+  progress: () => 'indeterminate',
+});
+// The Push dialog's Fetch, as IntelliJ's "Fetching Remote Commits…".
+status.add({
+  id: 'push-fetch',
+  side: 'left',
+  order: 2,
+  text: () => 'Fetching Remote Commits…',
+  tooltip: () => 'Fetching the remote’s commits, to count what a push replaces',
+  hidden: () => !fetchingRemote.get(),
   progress: () => 'indeterminate',
 });
 status.add({

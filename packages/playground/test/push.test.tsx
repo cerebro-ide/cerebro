@@ -5,7 +5,14 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import type { LogCommit } from '../src/git-log.js';
 import { notifications } from '../src/notifications.js';
-import { cleanUpBranchName, isBranchName, openPush, pushing, setupPush } from '../src/push.js';
+import {
+  cleanUpBranchName,
+  fetchingRemote,
+  isBranchName,
+  openPush,
+  pushing,
+  setupPush,
+} from '../src/push.js';
 import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
 const commit = (subject: string, parent?: string): LogCommit => ({
@@ -31,6 +38,14 @@ const git = {
   tags: [] as string[],
   /** Held until it resolves: checking a remote's URL. */
   checking: undefined as Promise<void> | undefined,
+  /** Why a push will be rejected: from where the remote's branch was fetched, and as it says. */
+  local: null as unknown,
+  remote: null as unknown,
+  /** Held until it resolves: checking for a diverged remote. */
+  diverging: undefined as Promise<void> | undefined,
+  /** Held until it resolves: the Push dialog's Fetch; its error, if it fails. */
+  fetching: undefined as Promise<void> | undefined,
+  fetchFails: undefined as Error | undefined,
 };
 /** The remotes' branches there are. */
 const BRANCHES = ['origin/HEAD', 'origin/main', 'origin/feature-x', 'origin/fix', 'second/main'];
@@ -54,11 +69,23 @@ const host = new FakeHost({
       ...BRANCHES.map((b) => ({ ref: `refs/remotes/${b}`, hash: 'b', current: false })),
     ];
   },
-  'git.push': async () => {
+  'git.push': async ({ force }: { force?: boolean }) => {
     await git.hold;
     if (git.pushed instanceof Error) throw git.pushed;
     const { remote, target, isNew } = git.outgoing;
-    return { commits: git.pushed, remote, target, isNew, tags: git.tags };
+    return { commits: git.pushed, remote, target, isNew, forced: force === true, tags: git.tags };
+  },
+  'git.divergence': async ({ checkRemote }: { checkRemote: boolean }) => {
+    await git.diverging;
+    const divergence = checkRemote ? git.remote : git.local;
+    if (divergence instanceof Error) throw divergence;
+    return divergence;
+  },
+  'git.fetchTarget': async () => {
+    await git.fetching;
+    if (git.fetchFails) throw git.fetchFails;
+    // Fetched: counted.
+    git.local = git.remote = { kind: 'diverged', remoteCommits: 1, lease: 'theirs' };
   },
   'git.checkRemote': async ({ url }: { url: string }) => {
     await git.checking;
@@ -99,7 +126,10 @@ beforeEach(() => {
   git.branchesFail = false;
   git.checking = undefined;
   git.tags = [];
+  git.local = git.remote = null;
+  git.diverging = git.fetching = git.fetchFails = undefined;
   localStorage.removeItem('cerebro.push.tags:/r');
+  localStorage.removeItem('cerebro.push.silent:/r');
 });
 
 afterEach(async () => {
@@ -587,6 +617,265 @@ describe('Push', () => {
     await userEvent.click(box);
     await press('Push');
     await expect.poll(() => host.params('git.push')).toHaveLength(1);
+  });
+
+  describe('when the remote has diverged, as IntelliJ’s', () => {
+    const banner = () => document.querySelector('.playground-push__banner')?.textContent ?? '';
+    const main = () =>
+      document.querySelector<HTMLButtonElement>(
+        '.cerebro-dialog__option-button > .cerebro-dialog__button--primary',
+      ) as HTMLButtonElement;
+    const arrow = () => document.querySelector('.cerebro-dialog__arrow') as HTMLButtonElement;
+    /** OK's options, as its arrow lists them: label, disabled, and tooltip. */
+    const options = async () => {
+      await userEvent.click(arrow());
+      const listed = [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__option')].map(
+        (o) => [o.textContent, o.getAttribute('aria-disabled'), o.title],
+      );
+      await userEvent.keyboard('{Escape}');
+      return listed;
+    };
+    const forcePush = async () => {
+      await userEvent.click(arrow());
+      const option = [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__option')].find(
+        (o) => o.textContent === 'Force Push',
+      ) as HTMLElement;
+      await userEvent.click(option);
+    };
+    const toFeature = () => {
+      git.outgoing = {
+        ...git.outgoing,
+        target: 'fix',
+        upstream: { remote: 'origin', target: 'fix' },
+      };
+    };
+
+    it('says so, and force pushes after asking, expecting the remote’s branch where it was seen', async () => {
+      toFeature();
+      git.remote = { kind: 'diverged', remoteCommits: 2, lease: 'theirs' };
+      commands.execute('vcs.push');
+      await expect
+        .poll(banner)
+        .toBe(
+          "Push will be rejected, branch 'main' has diverged from the remote: 2 remote commits are not in your local branch. To keep them, update the project first. To replace them, use Force Push.",
+        );
+      // Where it was fetched first, then the remote, asked.
+      expect(host.params('git.divergence')).toEqual([
+        { path: '/r', remote: 'origin', target: 'fix', checkRemote: false },
+        { path: '/r', remote: 'origin', target: 'fix', checkRemote: true },
+      ]);
+      // Push is the button's: Force Push is never.
+      expect(main().textContent).toBe('Push');
+      expect(await options()).toEqual([['Force Push', 'false', '']]);
+      await forcePush();
+      await expect
+        .poll(() => newest().querySelector('.cerebro-dialog__title')?.textContent)
+        .toBe('Force Push');
+      expect(newest().querySelector('.playground-force p')?.textContent).toBe(
+        "You're going to force push to 'fix'. It replaces 2 commits on the remote. Are you sure you want to proceed?",
+      );
+      // Cancelled: nothing pushed, and the Push dialog stays.
+      await userEvent.keyboard('{Escape}');
+      expect(document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
+      expect(host.params('git.push')).toEqual([]);
+      await forcePush();
+      await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(2);
+      await userEvent.click(newest().querySelector('.playground-force input') as HTMLElement);
+      await userEvent.click(
+        [...newest().querySelectorAll('.cerebro-dialog__button')].find(
+          (b) => b.textContent === 'Force Push',
+        ) as HTMLElement,
+      );
+      await expect
+        .poll(() => host.params('git.push'))
+        .toEqual([
+          {
+            path: '/r',
+            remote: 'origin',
+            target: 'fix',
+            setUpstream: false,
+            force: true,
+            lease: 'theirs',
+          },
+        ]);
+      await expect.poll(() => last()?.title).toBe('Force pushed main to origin/fix');
+      // Not warned about that target again; and without a divergence, no lease: where it was
+      // fetched, the host's.
+      git.remote = null;
+      commands.execute('vcs.push');
+      await dialog();
+      await forcePush();
+      await expect.poll(() => host.params('git.push')).toHaveLength(2);
+      expect(host.params('git.push')[1]).toEqual({
+        path: '/r',
+        remote: 'origin',
+        target: 'fix',
+        setUpstream: false,
+        force: true,
+      });
+      expect(document.querySelector('.playground-force')).toBeNull();
+    });
+
+    it('says one commit, and asks without a count when there’s none', async () => {
+      toFeature();
+      git.remote = { kind: 'diverged', remoteCommits: 1, lease: 'theirs' };
+      commands.execute('vcs.push');
+      await expect
+        .poll(banner)
+        .toBe(
+          "Push will be rejected, branch 'main' has diverged from the remote: 1 remote commit is not in your local branch. To keep it, update the project first. To replace it, use Force Push.",
+        );
+      await forcePush();
+      await expect
+        .poll(() => newest().querySelector('.playground-force p')?.textContent)
+        .toBe(
+          "You're going to force push to 'fix'. It replaces 1 commit on the remote. Are you sure you want to proceed?",
+        );
+      git.remote = null;
+      await closeAll();
+      // Stored wrong, the targets not to warn about are none.
+      localStorage.setItem('cerebro.push.silent:/r', '{}');
+      commands.execute('vcs.push');
+      await dialog();
+      await forcePush();
+      await expect
+        .poll(() => newest().querySelector('.playground-force p')?.textContent)
+        .toBe(
+          "You're going to force push to 'fix'. It may overwrite commits at the remote. Are you sure you want to proceed?",
+        );
+    });
+
+    it('doesn’t force push to a protected branch', async () => {
+      git.remote = { kind: 'diverged', remoteCommits: 2, lease: 'theirs' };
+      commands.execute('vcs.push');
+      await expect
+        .poll(banner)
+        .toMatch(
+          /not in your local branch\. The target branch is protected, so update the project first\.$/,
+        );
+      expect(await options()).toEqual([
+        ['Force Push', 'true', 'Force push to origin/main is prohibited'],
+      ]);
+    });
+
+    it('fetches first when the remote’s commits aren’t fetched, and says when that fails', async () => {
+      toFeature();
+      git.remote = { kind: 'fetchRequired', lease: 'fetched' };
+      commands.execute('vcs.push');
+      await expect
+        .poll(banner)
+        .toBe(
+          "Push will be rejected, branch 'main' has diverged from the remote, and there are unfetched remote commits. Fetch them to review them before a force push.",
+        );
+      // Fetch is the button's, and Push and Force Push wait for it.
+      expect(main().textContent).toBe('Fetch');
+      expect(main().title).toBe('Fetch the remote commits to review them before a push');
+      const first = 'Fetch first. The remote has commits that are not fetched.';
+      expect(await options()).toEqual([
+        ['Push', 'true', first],
+        ['Force Push', 'true', first],
+      ]);
+      let finish!: () => void;
+      git.fetching = new Promise((resolve) => (finish = resolve));
+      git.fetchFails = new Error('fatal: unable to access the remote');
+      await userEvent.click(main());
+      await expect.poll(() => fetchingRemote.get()).toBe(true);
+      expect(main().disabled).toBe(true);
+      finish();
+      await expect.poll(() => fetchingRemote.get()).toBe(false);
+      expect(host.params('git.fetchTarget')).toEqual([
+        { path: '/r', remote: 'origin', target: 'fix' },
+      ]);
+      // Failed: the remote decides, as IntelliJ's.
+      await expect
+        .poll(banner)
+        .toBe(
+          "Push may be rejected, branch 'main' has diverged from the remote, and the fetch of the remote commits failed.",
+        );
+      expect(texts('.playground-push__fetch-error')).toEqual([
+        'Fetch failed: fatal: unable to access the remote Retry',
+      ]);
+      expect(main().textContent).toBe('Push');
+      expect(main().disabled).toBe(false);
+      // Again, fetched: counted, and what's pushed read again.
+      git.fetchFails = undefined;
+      git.fetching = undefined;
+      const reads = host.params('git.outgoing').length;
+      await userEvent.click(link('Retry'));
+      await expect.poll(banner).toMatch(/: 1 remote commit is not in your local branch\./);
+      expect(host.params('git.outgoing')).toHaveLength(reads + 1);
+      expect(texts('.playground-push__fetch-error')).toEqual([]);
+    });
+
+    it('says when a force push was rejected because the remote’s branch moved', async () => {
+      toFeature();
+      git.pushed = new Error('!\tHEAD:refs/heads/fix\t[rejected] (stale info)');
+      commands.execute('vcs.push');
+      await dialog();
+      await forcePush();
+      await userEvent.click(
+        [...newest().querySelectorAll('.cerebro-dialog__button')].find(
+          (b) => b.textContent === 'Force Push',
+        ) as HTMLElement,
+      );
+      await expect.poll(last).toMatchObject({
+        title: 'Push rejected',
+        content: 'Force-with-lease push main to origin/fix was rejected',
+        type: 'warning',
+      });
+    });
+
+    it('doesn’t check a branch the push makes, and drops what was checked for another target', async () => {
+      git.outgoing = { ...git.outgoing, isNew: true };
+      commands.execute('vcs.push');
+      await dialog();
+      expect(host.params('git.divergence')).toEqual([]);
+      await closeAll();
+      git.outgoing = { ...git.outgoing, isNew: false };
+      // Its answer comes after another target was chosen: not for that one.
+      let finish!: () => void;
+      git.diverging = new Promise((resolve) => (finish = resolve));
+      git.local = { kind: 'diverged', remoteCommits: 2, lease: 'theirs' };
+      commands.execute('vcs.push');
+      await dialog();
+      await userEvent.click(link('main'));
+      await userEvent.keyboard('feature-x{Enter}');
+      await expect.poll(() => where()).toEqual(['main→origin:feature-x']);
+      git.local = null;
+      finish();
+      await expect.poll(() => host.params('git.divergence').length).toBeGreaterThanOrEqual(3);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(banner()).toBe('');
+    });
+
+    it('logs why it couldn’t check, and keeps no target when its storage can’t be written', async () => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      git.local = new Error('git.divergence failed');
+      commands.execute('vcs.push');
+      await vi.waitFor(() => {
+        expect(logged).toHaveBeenCalledWith('Checking the remote failed', expect.any(Error));
+      });
+      await closeAll();
+      git.local = null;
+      toFeature();
+      // Not JSON: no targets not to warn about.
+      localStorage.setItem('cerebro.push.silent:/r', '{');
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+        throw new Error('full');
+      });
+      commands.execute('vcs.push');
+      await dialog();
+      await forcePush();
+      await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(2);
+      await userEvent.click(newest().querySelector('.playground-force input') as HTMLElement);
+      await userEvent.click(
+        [...newest().querySelectorAll('.cerebro-dialog__button')].find(
+          (b) => b.textContent === 'Force Push',
+        ) as HTMLElement,
+      );
+      await expect.poll(() => last()?.title).toBe('Force pushed main to origin/fix');
+      expect(localStorage.getItem('cerebro.push.silent:/r')).toBe('{');
+    });
   });
 
   it('is in the Git menu, after Commit…, with IntelliJ’s Ctrl+Shift+K', () => {

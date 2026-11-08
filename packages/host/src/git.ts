@@ -765,12 +765,96 @@ export async function addRemote(
   }
 }
 
-/** How a push went: the commits sent, where to, whether it made the branch there, and its tags. */
+/**
+ * Why a push will be rejected, as IntelliJ's `PushDivergence`: the remote's branch has commits the
+ * branch hasn't (`diverged`, counted), or has commits not fetched yet, which only a fetch can count
+ * (`fetchRequired`). `lease` is where a force push expects the remote's branch to be.
+ */
+export type PushDivergence =
+  | { kind: 'diverged'; remoteCommits: number; lease: string }
+  | { kind: 'fetchRequired'; lease: string };
+
+/**
+ * Whether the push of the checked-out branch to `to` has diverged from the remote, as IntelliJ's
+ * `GitPushDivergenceDetector`: not for a branch the push makes. With `checkRemote`, the remote is
+ * asked where its branch is (`git ls-remote`, which never asks for a password); without it, or when
+ * it can't be asked, where it was last fetched is taken. Undefined when nothing stands in the way,
+ * or when the branch is behind it (a push sends nothing then).
+ */
+export async function divergence(
+  worktree: string,
+  to: PushTarget,
+  checkRemote: boolean,
+  run: Git = git,
+): Promise<PushDivergence | undefined> {
+  const tracked = await hashOf(worktree, `refs/remotes/${to.remote}/${to.target}`, run);
+  if (tracked === undefined) return undefined;
+  let remote = tracked;
+  if (checkRemote) {
+    try {
+      const line = await run(
+        worktree,
+        ['ls-remote', '--end-of-options', to.remote, `refs/heads/${to.target}`],
+        { GIT_TERMINAL_PROMPT: '0' },
+      );
+      const asked = line.split('\t')[0]?.trim();
+      // Gone from the remote: the push makes it again.
+      if (!asked) return undefined;
+      remote = asked;
+    } catch {
+      // Not asked: where it was last fetched.
+    }
+  }
+  if (remote !== tracked && (await hashOf(worktree, `${remote}^{commit}`, run)) === undefined) {
+    // Only a fetch can count them; a force push expects where it was fetched, and is rejected.
+    return { kind: 'fetchRequired', lease: tracked };
+  }
+  const counts = await run(worktree, ['rev-list', '--left-right', '--count', `HEAD...${remote}`]);
+  const [outgoing = 0, remoteOnly = 0] = counts.trim().split('\t').map(Number);
+  if (outgoing === 0 || remoteOnly === 0) return undefined;
+  return { kind: 'diverged', remoteCommits: remoteOnly, lease: remote };
+}
+
+/** The commit a ref or revision names, or undefined when there's none. */
+async function hashOf(worktree: string, rev: string, run: Git): Promise<string | undefined> {
+  try {
+    return (
+      await run(worktree, ['rev-parse', '--verify', '--quiet', '--end-of-options', rev])
+    ).trim();
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Fetches the push's target branch, as IntelliJ's Fetch in the Push dialog
+ * (`GitPushDivergenceDetector.fetchTarget`), so its commits can be counted. Fails with git's words.
+ */
+export async function fetchTarget(worktree: string, to: PushTarget, run: Git = git): Promise<void> {
+  await run(
+    worktree,
+    [
+      'fetch',
+      '--quiet',
+      '--end-of-options',
+      to.remote,
+      `+refs/heads/${to.target}:refs/remotes/${to.remote}/${to.target}`,
+    ],
+    { GIT_TERMINAL_PROMPT: '0' },
+  );
+}
+
+/**
+ * How a push went: the commits sent, where to, whether it made the branch there or replaced what
+ * was there (a force push's), and its tags.
+ */
 export interface Pushed {
   commits: number;
   remote: string;
   target: string;
   isNew: boolean;
+  /** Whether it replaced the remote's commits: a force push that wasn't a fast-forward. */
+  forced: boolean;
   /** The tags it made there. */
   tags: string[];
 }
@@ -792,7 +876,7 @@ export type PushTags = 'all' | 'follow';
 export async function push(
   worktree: string,
   run: Git = git,
-  to?: PushTarget & { setUpstream?: boolean; tags?: PushTags },
+  to?: PushTarget & { setUpstream?: boolean; tags?: PushTags; force?: { lease?: string } },
 ): Promise<Pushed> {
   const out = await outgoing(worktree, run, to && { remote: to.remote, target: to.target });
   if (out.branch === undefined) throw new Error('No branch is checked out');
@@ -800,8 +884,14 @@ export async function push(
   const target = out.target as string;
   const setUpstream = (out.isNew && out.upstream === undefined) || to?.setUpstream === true;
   const tags = to?.tags;
+  const force = to?.force;
   let lines: string[] = [];
-  if (out.commits.length > 0 || out.isNew || setUpstream || tags !== undefined) {
+  if (out.commits.length > 0 || out.isNew || setUpstream || tags !== undefined || force) {
+    // A force push expects the remote's branch where it was seen, else where it was fetched, else
+    // that there's none (IntelliJ's `git.use.push.force.with.lease`, on by default).
+    const lease =
+      force &&
+      (force.lease ?? (await hashOf(worktree, `refs/remotes/${out.remote}/${target}`, run)) ?? '');
     try {
       lines = (
         await run(
@@ -812,6 +902,7 @@ export async function push(
             '--porcelain',
             ...(setUpstream ? ['--set-upstream'] : []),
             ...(tags === undefined ? [] : [tags === 'all' ? '--tags' : '--follow-tags']),
+            ...(lease === undefined ? [] : [`--force-with-lease=refs/heads/${target}:${lease}`]),
             '--end-of-options',
             out.remote,
             `HEAD:refs/heads/${target}`,
@@ -827,7 +918,16 @@ export async function push(
     }
   }
   const made = lines.flatMap((line) => /^\*\trefs\/tags\/([^:]+):/.exec(line)?.[1] ?? []);
-  return { commits: out.commits.length, remote: out.remote, target, isNew: out.isNew, tags: made };
+  // "+", a forced update.
+  const forced = lines.some((line) => line.startsWith('+\t'));
+  return {
+    commits: out.commits.length,
+    remote: out.remote,
+    target,
+    isNew: out.isNew,
+    forced,
+    tags: made,
+  };
 }
 
 /** The refs `git push --porcelain` couldn't push, as it says them. */

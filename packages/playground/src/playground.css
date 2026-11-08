@@ -113,6 +113,51 @@ body,
 }
 
 /* The Push dialog: the repository and its commits, and beside them the selected row's files. */
+/* IntelliJ's warning banner over the tree, while the push will be rejected. */
+.playground-push__banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--cerebro-banner-warning-border);
+  border-radius: 8px;
+  background: var(--cerebro-banner-warning);
+  user-select: text;
+}
+
+.playground-push__banner > svg,
+.playground-force > svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+.playground-push__fetch-error {
+  color: var(--cerebro-text-muted);
+}
+
+/* Force Push's confirmation, as IntelliJ's message dialog: its icon beside the text. */
+.playground-force {
+  display: flex;
+  gap: 12px;
+}
+
+.playground-force__text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playground-force__text p {
+  margin: 0;
+}
+
+.playground-force__text label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .playground-push__panes {
   display: flex;
   height: 360px;

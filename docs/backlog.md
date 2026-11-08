@@ -68,7 +68,8 @@ on it:
   Again on 2026-11-08 (feat/indent, a full run while the machine's network kept changing): 4
   searches where 2 were expected; it passed alone 3 times.
 - **The Log e2e tests fail in some full local runs: the window manager places the window late**
-  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; never alone, never in CI).
+  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; again on feat/push-force,
+  the » hidden, passing alone right after; never alone, never in CI).
   Measured with the window's `resize` and `move` events: the test's resize to 1024×768 right after
   launch took effect, the window went back to 1440×900 a millisecond later, and WSLg's window
   manager placed it 2.8 s later (moved off-screen, then to its centred place). Depending on that
