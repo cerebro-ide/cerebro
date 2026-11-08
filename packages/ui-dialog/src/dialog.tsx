@@ -7,12 +7,19 @@
 // A dialog may open another; the newest one is on top and has the keyboard.
 
 import { render, type Child } from '@cerebro-ide/jsx';
+import { signal } from '@cerebro-ide/reactive';
 
 export interface DialogOk<T> {
   /** Default: OK. */
   label?: string;
   /** Read reactively: the OK button is disabled, and Enter does nothing, while this is false. */
   enabled?: () => boolean;
+  /**
+   * Checked when OK is pressed, before accepting, as IntelliJ's Define Remote checks its URL: OK is
+   * disabled while it runs, and the dialog stays open when it gives false (showing why is the
+   * content's). It doesn't reject.
+   */
+  check?: () => Promise<boolean>;
   /** What accepting the dialog gives. */
   accept: () => T;
 }
@@ -97,9 +104,27 @@ class Dialog<T> implements DialogHandle<T> {
     this.resolve(result);
   }
 
+  /** While OK's check runs. */
+  private readonly checking = signal(false);
+
   private accept(): void {
     const { ok } = this.options;
-    if (!ok || !(ok.enabled?.() ?? true)) return;
+    if (!ok || !this.okEnabled()) return;
+    if (ok.check) {
+      this.checking.set(true);
+      void ok.check().then((passed) => {
+        this.checking.set(false);
+        // Not if it was cancelled meanwhile.
+        if (passed && this.open) this.finish(ok);
+      });
+    } else this.finish(ok);
+  }
+
+  private okEnabled(): boolean {
+    return !this.checking.get() && (this.options.ok?.enabled?.() ?? true);
+  }
+
+  private finish(ok: DialogOk<T>): void {
     const { apply } = this.options;
     if (apply && (apply.enabled?.() ?? true)) apply.run();
     this.close(ok.accept());
@@ -196,7 +221,7 @@ class Dialog<T> implements DialogHandle<T> {
       <button
         type="button"
         class="cerebro-dialog__button cerebro-dialog__button--primary"
-        disabled={() => !(ok.enabled?.() ?? true)}
+        disabled={() => !this.okEnabled()}
         on:click={() => {
           this.accept();
         }}

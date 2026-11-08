@@ -166,7 +166,7 @@ export function existingWorktree(spec: EnvironmentSpec): EnvironmentSpec | undef
 }
 
 /** Shows why something failed, in a dialog. */
-function showError(title: string, message: string): void {
+export function showError(title: string, message: string): void {
   openDialog({ title, content: () => <p class="cerebro-selectable">{message}</p> });
 }
 

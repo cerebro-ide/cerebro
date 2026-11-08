@@ -2,7 +2,8 @@
 // checked-out branch, where it goes ("main → origin : main", "New" when the push makes it there),
 // and the commits that aren't there yet, with the selected row's files beside them (PushLog). Where
 // it goes can be changed, as IntelliJ's GitPushTargetPanel: the remote from a list, the branch
-// there typed, with the remote's branches suggested, and Set upstream. Push pushes them,
+// there typed, with the remote's branches suggested, and Set upstream; or a remote defined, as
+// IntelliJ's GitDefineRemoteDialog. Push pushes them,
 // "Pushing…" on the status bar meanwhile. How it went is a notification, as
 // IntelliJ's GitPushResultNotification: "Pushed 2 commits to origin/main", "Pushed main to new
 // branch origin/main", "Everything is up to date", or "Push rejected" or "Push failed", which stay.
@@ -19,6 +20,7 @@ import {
   currentHost,
   gitRepository,
   hostFor,
+  showError,
   type Host,
   type ProjectState,
 } from './environments.js';
@@ -44,11 +46,9 @@ interface Pushed {
   isNew: boolean;
 }
 
-/** Why nothing can be pushed, if so (Cerebro's words: IntelliJ's dialog offers Define remote). */
+/** Why nothing can be pushed, if so (Cerebro's words). */
 function unpushable(out: Outgoing): string | undefined {
-  if (out.branch === undefined) return 'No branch is checked out';
-  if (out.remote === undefined) return 'The repository has no remote';
-  return undefined;
+  return out.branch === undefined ? 'No branch is checked out' : undefined;
 }
 
 /** While a push is under way: one at a time. */
@@ -92,8 +92,10 @@ interface PushState {
   setUpstream: Signal<boolean>;
   /** The branch being typed, while it is. */
   editing: Signal<string | undefined>;
-  /** Asks again what a push to another target sends. */
-  retarget: (remote: string, target: string) => void;
+  /** Asks again what a push sends: to another target, or where it goes by default. */
+  retarget: (to?: { remote: string; target: string }) => void;
+  /** Asks for a remote, as IntelliJ's Define Remote, and adds it. */
+  defineRemote: () => void;
   /** The remotes' branches, for suggestions. */
   branches: Signal<readonly string[]>;
 }
@@ -229,6 +231,8 @@ function TargetRow(props: { state: PushState }): Node {
   const { state } = props;
   const pickRemote = (button: HTMLElement) => {
     const out = state.out.peek();
+    // IntelliJ's list: the remotes, then Define remote under a line.
+    const define = { label: 'Define remote', group: '' };
     const handle = openPicker({
       label: 'Remote',
       placeholder: 'Search',
@@ -237,15 +241,12 @@ function TargetRow(props: { state: PushState }): Node {
       width: 240,
       // The remote it goes to, highlighted.
       initial: (items) => items.findIndex((item) => item.label === out.remote),
-      items: (query) =>
-        fuzzyFilter(
-          out.remotes.map((label) => ({ label })),
-          query,
-        ),
+      items: (query) => fuzzyFilter([...out.remotes.map((label) => ({ label })), define], query),
     });
     void handle.result.then((choice) => {
-      if (choice && choice.label !== out.remote) {
-        state.retarget(choice.label, out.target as string);
+      if (choice === define) state.defineRemote();
+      else if (choice && choice.label !== out.remote) {
+        state.retarget({ remote: choice.label, target: out.target as string });
       }
     });
   };
@@ -255,27 +256,22 @@ function TargetRow(props: { state: PushState }): Node {
     <span class="playground-push__target">
       <span>{() => state.out.get().branch}</span>
       <span class="playground-push__arrow">→</span>
-      {() => {
-        const out = state.out.get();
-        // IntelliJ's list shows with more than one remote to choose from.
-        return out.remotes.length > 1 ? (
-          <button
-            type="button"
-            class="playground-push__link"
-            on:click={(event) => {
-              event.stopPropagation();
-              pickRemote(event.currentTarget as HTMLElement);
-            }}
-          >
-            {out.remote}
-          </button>
-        ) : (
-          <span>{out.remote}</span>
-        );
-      }}
-      <span>:</span>
+      {/* One link, so it keeps the focus as what it says changes. */}
+      <button
+        type="button"
+        class="playground-push__link"
+        on:click={(event) => {
+          event.stopPropagation();
+          // No remote: IntelliJ's link says Define remote, and there's no branch there.
+          if (state.out.peek().remote === undefined) state.defineRemote();
+          else pickRemote(event.currentTarget as HTMLElement);
+        }}
+      >
+        {() => state.out.get().remote ?? 'Define remote'}
+      </button>
+      {() => (state.out.get().remote === undefined ? null : <span>:</span>)}
       {() =>
-        !editing.get() ? (
+        state.out.get().remote === undefined ? null : !editing.get() ? (
           <button
             type="button"
             class="playground-push__link"
@@ -293,7 +289,7 @@ function TargetRow(props: { state: PushState }): Node {
               state.editing.set(undefined);
               const out = state.out.peek();
               if (target !== undefined && isBranchName(target) && target !== out.target) {
-                state.retarget(out.remote as string, target);
+                state.retarget({ remote: out.remote as string, target });
               }
             }}
           />
@@ -401,6 +397,111 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
   );
 }
 
+/** A remote to add: its name and URL, and whether to fetch it. */
+interface NewRemote {
+  name: string;
+  url: string;
+  fetch: boolean;
+}
+
+/**
+ * Asks for a remote, as IntelliJ's Define Remote: a name (origin to start with) and a URL, and
+ * Fetch remote. OK checks that the URL answers (`git ls-remote`), and says git's words under it
+ * when it doesn't. A name git refuses, or one already used, says so as it's typed; OK waits for
+ * both (Cerebro's, as its prompts: IntelliJ says so on OK).
+ */
+function askForRemote(
+  host: Host,
+  worktree: string,
+  remotes: readonly string[],
+): Promise<NewRemote | undefined> {
+  const name = signal('origin');
+  const url = signal('');
+  const fetch = signal(true);
+  const checking = signal(false);
+  /** Why the URL can't be used, from checking it. */
+  const unreachable = signal<string | undefined>(undefined);
+  let urlField!: HTMLInputElement;
+  /** IntelliJ's words for a name it can't take. */
+  const nameError = () => {
+    const typed = name.get().trim();
+    if (typed === '') return undefined;
+    if (!isBranchName(typed)) return 'Remote name contains illegal characters';
+    return remotes.includes(typed) ? `Remote name '${typed}' is already used` : undefined;
+  };
+  const field = (label: string, value: Signal<string>, error: () => string | undefined) => (
+    <label class="playground-remote__row">
+      <span>{label}</span>
+      <input
+        class={() =>
+          error() === undefined
+            ? 'cerebro-dialog-field__input'
+            : 'cerebro-dialog-field__input cerebro-dialog-field__input--invalid'
+        }
+        type="text"
+        spellcheck={false}
+        value={value.peek()}
+        disabled={() => checking.get()}
+        aria-invalid={() => String(error() !== undefined)}
+        ref={(input) => {
+          if (value !== url) return;
+          urlField = input;
+          // IntelliJ's: the URL first, as the name is filled in.
+          queueMicrotask(() => {
+            input.focus();
+          });
+        }}
+        on:input={(event) => {
+          value.set((event.currentTarget as HTMLInputElement).value);
+          // Checked again on OK.
+          if (value === url) unreachable.set(undefined);
+        }}
+      />
+      <span class="cerebro-dialog-field__error" role="alert">
+        {() => error() ?? ''}
+      </span>
+    </label>
+  );
+  return openDialog<NewRemote>({
+    title: 'Define Remote',
+    width: 500,
+    ok: {
+      enabled: () =>
+        name.get().trim() !== '' && url.get().trim() !== '' && nameError() === undefined,
+      check: async () => {
+        checking.set(true);
+        try {
+          await host.request('git.checkRemote', { path: worktree, url: url.peek().trim() });
+          return true;
+        } catch (error) {
+          unreachable.set((error as Error).message);
+          return false;
+        } finally {
+          checking.set(false);
+          urlField.focus();
+        }
+      },
+      accept: () => ({ name: name.peek().trim(), url: url.peek().trim(), fetch: fetch.peek() }),
+    },
+    content: () => (
+      <div class="playground-remote">
+        {field('Name:', name, nameError)}
+        {field('URL:', url, () => unreachable.get())}
+        <label class="playground-remote__fetch">
+          <input
+            type="checkbox"
+            checked={fetch.peek()}
+            on:change={(event) => {
+              fetch.set((event.currentTarget as HTMLInputElement).checked);
+            }}
+          />
+          Fetch remote
+        </label>
+      </div>
+    ),
+  }).result;
+}
+
 /** Opens the Push dialog for a worktree's branch, and pushes when its Push is pressed. */
 export async function openPush(worktree: string): Promise<void> {
   const host = hostFor(worktree);
@@ -412,8 +513,8 @@ export async function openPush(worktree: string): Promise<void> {
     setUpstream: signal(false),
     editing: signal<string | undefined>(undefined),
     branches: signal<readonly string[]>([]),
-    retarget: (remote, target) => {
-      host.request('git.outgoing', { path: worktree, remote, target }).then(
+    retarget: (to) => {
+      host.request('git.outgoing', { path: worktree, ...to }).then(
         (out) => {
           state.out.set(out as Outgoing);
         },
@@ -422,20 +523,38 @@ export async function openPush(worktree: string): Promise<void> {
         },
       );
     },
+    defineRemote: () => {
+      void askForRemote(host, worktree, state.out.peek().remotes).then(async (remote) => {
+        if (!remote) return;
+        try {
+          await host.request('git.addRemote', { path: worktree, ...remote });
+        } catch (error) {
+          // IntelliJ's words.
+          showError('Add Remote', `Could not add remote: ${(error as Error).message}`);
+          return;
+        }
+        // Where the push goes by default now, as IntelliJ's; and the new remote's branches.
+        state.retarget();
+        loadBranches();
+      });
+    },
   };
-  // The remotes' branches, for the target's suggestions.
-  void host.request('git.branches', { worktree }).then(
-    (branches) => {
-      state.branches.set(
-        (branches as { ref: string }[])
-          .filter((b) => b.ref.startsWith('refs/remotes/'))
-          .map((b) => b.ref.slice('refs/remotes/'.length)),
-      );
-    },
-    (error: unknown) => {
-      console.error('Reading the branches failed', error);
-    },
-  );
+  /** The remotes' branches, for the target's suggestions. */
+  const loadBranches = () => {
+    host.request('git.branches', { worktree }).then(
+      (branches) => {
+        state.branches.set(
+          (branches as { ref: string }[])
+            .filter((b) => b.ref.startsWith('refs/remotes/'))
+            .map((b) => b.ref.slice('refs/remotes/'.length)),
+        );
+      },
+      (error: unknown) => {
+        console.error('Reading the branches failed', error);
+      },
+    );
+  };
+  loadBranches();
   // A host means a project is open.
   const project = activeProject() as ProjectState;
   const accepted = await openDialog<true>({

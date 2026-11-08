@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1974,8 +1974,8 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
 `DvcsBundle.properties`, `GitBundle.properties`, `VcsBundle.properties`).
 
 - **The Push dialog,** "Push Commits to {project}", 800 pixels wide as IntelliJ's. Push, with
-  Cancel; Push is disabled when there's nothing to send. A detached HEAD, or no remote, says so
-  instead (Cerebro's words, open to change: IntelliJ offers Define remote).
+  Cancel; Push is disabled when there's nothing to send. A detached HEAD says so instead
+  (Cerebro's words, open to change). No remote: see "Defining a remote".
 - **Its two panes (changed 2026-11-08),** as IntelliJ's `PushLog`:
   - on the left, the repository's row (the branch and where it goes, "main → origin : main", with
     a label: "New", "Upstream" or "New & Upstream"), and under it the commits that aren't there yet,
@@ -1999,8 +1999,22 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   to send. The label is IntelliJ's ("New" when the push makes the branch, "Upstream" when it sets
   the upstream, "New & Upstream" both), in its colours (`--cerebro-push-label`, on
   `--cerebro-push-label-background`, from its `BranchLabels`).
+- **Defining a remote (changed 2026-11-08),** as IntelliJ's `GitPushTargetPanel` and
+  `GitDefineRemoteDialog`: with no remote, the row's remote link says "Define remote" and there's no
+  branch there; with remotes, their list ends with Define remote under a line. Define Remote asks a
+  Name (origin to start with) and a URL (focused), with Fetch remote (ticked). Its words are
+  IntelliJ's: "Remote name contains illegal characters" (a name git refuses as a branch name) and
+  "Remote name '{0}' is already used", shown as the name is typed, with OK disabled while the name
+  or the URL is blank (Cerebro's, as its prompts: IntelliJ says so on OK, with "… cannot be empty").
+  OK checks that the URL answers (`git ls-remote`), the fields disabled meanwhile, and shows git's
+  words under the URL when it doesn't. Then `git remote add`, and a fetch when ticked (IntelliJ's
+  push dialog reads only the name and URL, so it never fetches, whatever the box says; Cerebro does
+  what the box says, open to change), and the row shows where the push goes by default; failing,
+  IntelliJ's "Could not add remote: {git's words}" in an Add Remote dialog. Not yet: IntelliJ's
+  "Adding Remote…" progress meanwhile.
 - **Where it goes, as IntelliJ's:** the branch's upstream, else the branch of the same name on
-  `origin`, or on the only remote. The commits are those the target doesn't have; for a new branch,
+  `origin`, or on the first remote (`getDefaultOrFirstRemote`; changed 2026-11-08, it was the only
+  remote). The commits are those the target doesn't have; for a new branch,
   those no branch of that remote has. The push is `git push <remote> HEAD:refs/heads/<target>`, with
   `--set-upstream` for a new branch with no upstream, or when Set upstream is ticked, so the next
   push goes to the same place. It doesn't ask for a
@@ -2016,7 +2030,7 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   notifications.
 - **Measured on real git** (`push.test.ts`): `--porcelain` puts `! [rejected]` on git's output, which
   is lost when git fails, so the push runs without it and the line comes on its error output.
-- **Not yet:** Define remote (in the list of remotes, and when there's none), Force Push, pushing tags,
+- **Not yet:** Force Push, pushing tags,
   several repositories at once, IntelliJ's check for a diverged remote before pushing, and asking
   for credentials. In the dialog: selecting several commits, Show Details (the selected commit's
   message under its files), and opening a file's diff.

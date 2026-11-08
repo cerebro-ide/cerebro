@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { outgoing, push } from '../src/index.js';
+import { addRemote, checkRemote, outgoing, push } from '../src/index.js';
 
 describe('pushing, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-push-')));
@@ -152,9 +152,33 @@ describe('pushing, with real git', () => {
     run(repo, 'remote', 'remove', 'origin');
     expect(await outgoing(repo)).toMatchObject({ branch: 'main', remote: undefined, commits: [] });
     await expect(push(repo)).rejects.toThrow('The repository has no remote');
-    // Two remotes, neither origin: which isn't known.
-    run(repo, 'remote', 'add', 'a', remote);
+    // Two remotes, neither origin: the first, as IntelliJ's.
     run(repo, 'remote', 'add', 'b', remote);
-    expect((await outgoing(repo)).remote).toBeUndefined();
+    run(repo, 'remote', 'add', 'a', remote);
+    expect((await outgoing(repo)).remote).toBe('a');
+  });
+
+  it('defines a remote whose URL answers, fetched when asked, as IntelliJ’s Define Remote', async () => {
+    const { repo, remote } = cloned('defined');
+    await checkRemote(repo, remote);
+    await expect(checkRemote(repo, join(root, 'nowhere.git'))).rejects.toThrow(
+      'does not appear to be a git repository',
+    );
+    // Not taken as an option.
+    await expect(checkRemote(repo, '--upload-pack=touch')).rejects.toThrow('strange pathname');
+    await addRemote(repo, { name: 'unfetched', url: remote, fetch: false });
+    await addRemote(repo, { name: 'fetched', url: remote, fetch: true });
+    expect(run(repo, 'remote').split('\n').filter(Boolean)).toEqual([
+      'fetched',
+      'origin',
+      'unfetched',
+    ]);
+    expect(run(repo, 'branch', '-r', '--format=%(refname:short)').trim().split('\n')).toEqual([
+      'fetched/main',
+      'origin/main',
+    ]);
+    await expect(addRemote(repo, { name: 'fetched', url: remote, fetch: false })).rejects.toThrow(
+      'remote fetched already exists',
+    );
   });
 });

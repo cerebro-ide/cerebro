@@ -27,6 +27,8 @@ const git = {
   /** Held until it resolves: a push under way. */
   hold: undefined as Promise<void> | undefined,
   branchesFail: false,
+  /** Held until it resolves: checking a remote's URL. */
+  checking: undefined as Promise<void> | undefined,
 };
 /** The remotes' branches there are. */
 const BRANCHES = ['origin/HEAD', 'origin/main', 'origin/feature-x', 'origin/fix', 'second/main'];
@@ -56,6 +58,15 @@ const host = new FakeHost({
     const { remote, target, isNew } = git.outgoing;
     return { commits: git.pushed, remote, target, isNew };
   },
+  'git.checkRemote': async ({ url }: { url: string }) => {
+    await git.checking;
+    if (url === 'bad') throw new Error('fatal: bad does not appear to be a git repository');
+  },
+  'git.addRemote': ({ name }: { name: string }) => {
+    if (name === 'broken') throw new Error('error: could not lock config file');
+    // There now: where the push goes by default.
+    git.outgoing = { ...git.outgoing, remote: name, target: 'main', remotes: [name] };
+  },
   'git.changes': ({ from, to }: { from: string; to: string }) => [
     { path: `${from}..${to}.ts`, status: 'modified' },
   ],
@@ -84,6 +95,7 @@ beforeEach(() => {
   };
   git.pushed = 2;
   git.branchesFail = false;
+  git.checking = undefined;
 });
 
 afterEach(async () => {
@@ -99,6 +111,15 @@ const pushButton = async () =>
 const texts = (selector: string) =>
   [...document.querySelectorAll(selector)].map((e) => e.textContent);
 const last = () => notifications.all.get(0);
+/** The newest dialog: Define Remote over Push. */
+const newest = () =>
+  [...document.querySelectorAll<HTMLElement>('.cerebro-dialog')].at(-1) as HTMLElement;
+/** Define Remote's fields: the name and the URL. */
+const fields = () => [
+  ...document.querySelectorAll<HTMLInputElement>('.playground-remote .cerebro-dialog-field__input'),
+];
+const errors = () => texts('.playground-remote .cerebro-dialog-field__error');
+const ok = () => newest().querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
 /** Where the push goes, as the repository's row says it, without its label. */
 const where = () =>
   [...document.querySelectorAll('.playground-push__target')].map((target) =>
@@ -199,14 +220,13 @@ describe('Push', () => {
     await expect.poll(() => last()?.title).toBe('Pushed feat to new branch origin/feat');
   });
 
-  it('can’t push with nothing to send, no branch, or no remote', async () => {
+  it('can’t push with nothing to send, or no branch', async () => {
     git.outgoing = { ...git.outgoing, commits: [] };
     commands.execute('vcs.push');
     expect((await pushButton()).disabled).toBe(true);
     await closeAll();
     for (const [outgoing, why] of [
       [{ branch: undefined, remote: undefined }, 'No branch is checked out'],
-      [{ branch: 'main', remote: undefined }, 'The repository has no remote'],
     ] as const) {
       git.outgoing = { ...git.outgoing, ...outgoing };
       commands.execute('vcs.push');
@@ -268,7 +288,9 @@ describe('Push', () => {
     commands.execute('vcs.push');
     await dialog();
     await userEvent.click(link('origin'));
-    await expect.poll(() => texts('.cerebro-popup-item__label')).toEqual(['origin', 'second']);
+    await expect
+      .poll(() => texts('.cerebro-popup-item__label'))
+      .toEqual(['origin', 'second', 'Define remote']);
     await userEvent.keyboard('{ArrowDown}{Enter}');
     await expect.poll(() => where()).toEqual(['main→second:main']);
     expect(host.params('git.outgoing').at(-1)).toEqual({
@@ -284,6 +306,100 @@ describe('Push', () => {
       .poll(() => host.params('git.push'))
       .toEqual([{ path: '/r', remote: 'second', target: 'main', setUpstream: false }]);
     expect(host.params('git.outgoing')).toHaveLength(2);
+  });
+
+  it('defines a remote when there’s none, as IntelliJ’s, checking its URL first', async () => {
+    git.outgoing = {
+      ...git.outgoing,
+      remote: undefined,
+      target: undefined,
+      commits: [],
+      remotes: [],
+      upstream: undefined,
+    };
+    commands.execute('vcs.push');
+    await dialog();
+    expect(where()).toEqual(['main→Define remote']);
+    expect((await pushButton()).disabled).toBe(true);
+    await userEvent.click(link('Define remote'));
+    await expect
+      .poll(() => newest().querySelector('.cerebro-dialog__title')?.textContent)
+      .toBe('Define Remote');
+    const [name, url] = fields();
+    expect(name?.value).toBe('origin');
+    // The URL first, as IntelliJ's; OK once there's one.
+    await expect.poll(() => document.activeElement).toBe(url);
+    expect(ok().disabled).toBe(true);
+    await userEvent.fill(name as HTMLInputElement, 'a b');
+    await userEvent.fill(url as HTMLInputElement, 'bad');
+    expect(errors()).toEqual(['Remote name contains illegal characters', '']);
+    expect(ok().disabled).toBe(true);
+    // Blank: nothing to say, but no OK.
+    await userEvent.fill(name as HTMLInputElement, ' ');
+    expect(errors()).toEqual(['', '']);
+    expect(ok().disabled).toBe(true);
+    await userEvent.fill(name as HTMLInputElement, ' upstream ');
+    expect(ok().disabled).toBe(false);
+    // Checked on OK: git's words under the URL, and the dialog stays, with the URL focused.
+    let answer!: () => void;
+    git.checking = new Promise((resolve) => {
+      answer = resolve;
+    });
+    await userEvent.click(ok());
+    await expect.poll(() => url?.disabled).toBe(true);
+    expect(name?.disabled).toBe(true);
+    answer();
+    await expect.poll(errors).toEqual(['', 'fatal: bad does not appear to be a git repository']);
+    expect(url?.disabled).toBe(false);
+    expect(document.activeElement).toBe(url);
+    expect(host.params('git.checkRemote')).toEqual([{ path: '/r', url: 'bad' }]);
+    expect(host.params('git.addRemote')).toEqual([]);
+    // Typing again clears it.
+    await userEvent.fill(url as HTMLInputElement, ' https://example.com/r.git ');
+    expect(errors()).toEqual(['', '']);
+    await userEvent.click(newest().querySelector('.playground-remote__fetch input') as Element);
+    await userEvent.click(ok());
+    await expect.poll(() => where()).toEqual(['main→upstream:main']);
+    expect(host.params('git.addRemote')).toEqual([
+      { path: '/r', name: 'upstream', url: 'https://example.com/r.git', fetch: false },
+    ]);
+    // Asked again where it goes by default, and the branches there.
+    expect(host.params('git.outgoing').at(-1)).toEqual({ path: '/r' });
+    expect(host.params('git.branches')).toHaveLength(2);
+    expect(document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
+    // Back on the link: the dialog's keys work.
+    expect(document.activeElement).toBe(link('upstream'));
+  });
+
+  it('defines a remote from the list of them, with a name not used, and says when it fails', async () => {
+    git.outgoing = { ...git.outgoing, remotes: ['origin', 'second'] };
+    commands.execute('vcs.push');
+    await dialog();
+    await userEvent.click(link('origin'));
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    await expect.poll(() => fields()).toHaveLength(2);
+    const [name, url] = fields();
+    expect(errors()).toEqual(["Remote name 'origin' is already used", '']);
+    await userEvent.fill(url as HTMLInputElement, 'u');
+    expect(ok().disabled).toBe(true);
+    // Cancelled: nothing added.
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => fields()).toHaveLength(0);
+    await userEvent.click(link('origin'));
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    await expect.poll(() => fields()).toHaveLength(2);
+    await userEvent.fill(fields()[0] as HTMLInputElement, 'broken');
+    await userEvent.fill(fields()[1] as HTMLInputElement, 'u');
+    await userEvent.click(ok());
+    // IntelliJ's words, with git's.
+    await expect
+      .poll(() => newest().textContent)
+      .toContain('Could not add remote: error: could not lock config file');
+    expect(newest().querySelector('.cerebro-dialog__title')?.textContent).toBe('Add Remote');
+    expect(host.params('git.addRemote')).toEqual([
+      { path: '/r', name: 'broken', url: 'u', fetch: true },
+    ]);
+    expect(name?.isConnected).toBe(false);
   });
 
   it('pushes to another branch there, typed with the remote’s branches suggested', async () => {
