@@ -27,7 +27,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
 - [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
 - [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors
-- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's
+- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them
 - [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
 - [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
 - [Popups (2026-10-25)](#popups-2026-10-25): a search field over a list, not modal
@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar
+- [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -569,13 +569,24 @@ new UI.
   - the position is the caret's `line:column`, with what's selected: `12:5 (10 chars, 1 line
     break)`, counting code points, as IntelliJ does. Clicking it opens Go to Line on the active
     editor, focused or not, as IntelliJ's;
-  - the line separator is the file's: LF or CRLF. Its tooltip is IntelliJ's, `Line Separator: \n`;
+  - the line separator is the file's first: LF, CRLF or CR (a file with only `\r` was read as LF
+    before, changed 2026-11-08). Its tooltip is IntelliJ's, `Line Separator: \n`;
   - the encoding is always UTF-8: the host reads and writes files as UTF-8, and keeps a byte order
     mark. IntelliJ shows UTF-8 for a file with one too (its charset's name);
   - the indent is the one the editor uses (changed 2026-11-08): the Code Style's, or the file's
     own, detected; see "Code Style: the indent".
-- **Not yet:** the separator's, encoding's and indent's popups, which change them in IntelliJ; a
-  file with only `\r` line breaks, which is read as LF.
+- **Their menus change them, as IntelliJ's popups (changed 2026-11-08),** opened above the item
+  with the active editor's file as their context (a status item takes a menu, as it takes a
+  command; a menu's heading can depend on its context, and a command can be left out of a menu
+  where it doesn't apply, as IntelliJ's Add BOM for a file that has one):
+  - **Line Separator:** IntelliJ's three items, `CRLF - Windows (\r\n)`, `LF - Unix and macOS
+    (\n)` and `CR - Classic Mac OS (\r)`, the file's own disabled. The file is converted and saved
+    at once, as IntelliJ's AbstractConvertLineSeparatorsAction writes it (from its source);
+  - **File Encoding:** Remove BOM, or Add BOM, whichever applies, saved at once, as IntelliJ's
+    RemoveBomAction and AddBomAction;
+  - **the indent's:** see "Code Style: the indent".
+- **Not yet:** choosing another encoding (the host reads and writes UTF-8 only); Settings' line
+  separator for new files.
 
 ## The Electron app (2026-10-25)
 
@@ -1980,8 +1991,23 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Reformat Code** formats the whole file with the settings' indent, and a selection with the
   file's, as IntelliJ's (DetectableIndentOptionsProvider.useOnFullReformat is false). LSP's
   `tabSize` is the indent in spaces, or the tab size with tabs (`insertSpaces` false).
-- **Not yet:** per-language code style; continuation indent and Keep indents on empty lines; the
-  indent's popup on the status bar (next in the backlog); EditorConfig.
+- **The indent's menu on the status bar (changed 2026-11-08),** as IntelliJ's
+  IndentStatusBarUIContributor (its titles and items from its source and bundle):
+  - while the file's own indent is used, titled Indents Detection: Indent New Lines with 4 Spaces
+    (the settings', for that file until the window is reloaded), Reindent File with 4 Spaces (every
+    line indented again by its language, as one change undo takes back; then that's the file's
+    own), and, below a line, Configure Indents for TypeScript… (Settings at Code Style) and Disable
+    Indents Detection;
+  - after Indent New Lines: Indent New Lines with Tab (detected), which uses the file's again.
+    IntelliJ shows "detected" in grey;
+  - while detection is off, titled `TypeScript Code Style`: Configure Indents and Enable Indents
+    Detection. Detection is turned off or on where Settings set it, global unless a repository or
+    worktree did.
+  - **A claim:** IntelliJ's Reindent File reformats the indent with its formatter; Cerebro uses the
+    language's indentation from its grammar (CodeMirror's `indentRange`), which leaves a line
+    alone when its language can't tell.
+- **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
+  EditorConfig.
 
 ## Reformat Code (2026-11-04)
 

@@ -8,11 +8,9 @@ basic IDE before git and agent management").
 
 ### Next, in this order (Ido, 2026-11-08: "All of these. Go.")
 
-1. **The status bar's popups:** clicking the line separator, the encoding or the indent opens
-   IntelliJ's menu to change it (convert the line separators, remove a BOM, the indent's options).
-2. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
+1. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
    notice after a commit waits on them.
-3. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
+2. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
    Push dialog with the commits to push, and pushes.
 
 ### Several Claude sessions, as tabs (to design later)
