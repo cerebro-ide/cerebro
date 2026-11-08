@@ -3,11 +3,11 @@
 //
 // Over HTTP, as IntelliJ's GitHttpGuiAuthenticator: git asks for a username, then a password. The
 // username's prompt shows the login dialog ("Log In to host", Username, Password, Remember), whose
-// password then answers the password's prompt; a login remembered for the URL, with its password
-// kept, answers both without asking. A password kept by Remember is in the app's keychain-backed
-// store (packages/app/src/passwords.ts), else in memory until the app quits (IntelliJ's
-// PasswordSafe, not remembered). When git has a credential helper, the dialog offers it (Use
-// credentials helper), which turns on the setting; a login that failed forgets its password.
+// password then answers the password's prompt. The login is remembered for the URL; with its
+// password kept, it answers both without asking. Remember keeps the password in the app's
+// keychain-backed store (packages/app/src/passwords.ts), as IntelliJ's PasswordSafe; its last
+// choice is its default. When git has a credential helper, the dialog offers it (Use credentials
+// helper), which turns on the setting; a login that failed forgets its password.
 //
 // Over SSH, as IntelliJ's NativeSshGuiAuthenticator: a key's passphrase, a user's password, or a
 // PIN, each in its dialog with Remember; asked for the same again in one command, what was kept is
@@ -48,8 +48,6 @@ interface Session {
   password?: { key: string; value: string };
   /** The keys of the HTTP passwords given, forgotten if the login fails. */
   given: string[];
-  /** The login to remember for a URL, once it works. */
-  login?: { url: string; login: string };
   /** The SSH prompt asked last, by its key. */
   lastKey?: string;
 }
@@ -64,6 +62,11 @@ function logins(): Record<string, string> {
     return {};
   }
 }
+
+/** PasswordSafe's remember-by-default: Remember as it was last left, ticked to start with. */
+const REMEMBER = 'cerebro.rememberPasswords';
+
+const rememberByDefault = () => localStorage.getItem(REMEMBER) !== 'false';
 
 /** The URL in git's prompt, as IntelliJ's GitHttpAuthService reads it: its third word. */
 export function promptUrl(prompt: string): string {
@@ -123,8 +126,6 @@ type Login = { login: string; password: string; remember: boolean } | 'helper';
  * setting, chosen in the login dialog.
  */
 export class Credentials {
-  /** Passwords given without Remember: until the app quits. */
-  private readonly memory = new Map<string, string>();
   private readonly sessions = new Map<string, Session>();
 
   constructor(
@@ -152,14 +153,8 @@ export class Credentials {
     const id = `${project}\n${session}`;
     const state = this.sessions.get(id);
     this.sessions.delete(id);
-    if (!state) return;
-    if (failed) {
-      for (const key of state.given) await this.forget(key);
-    } else if (state.login) {
-      localStorage.setItem(
-        LOGINS,
-        JSON.stringify({ ...logins(), [state.login.url]: state.login.login }),
-      );
+    if (state && failed) {
+      for (const key of state.given) await this.passwords.set(key, null);
     }
   }
 
@@ -208,8 +203,9 @@ export class Credentials {
       this.useCredentialHelper();
       return { answer: null, useCredentialHelper: true };
     }
-    const key = httpKey(url, result.login);
-    await this.keep(key, result.password, result.remember);
+    // IntelliJ's savePassword: the login, remembered for the URL at once; the password if asked.
+    localStorage.setItem(LOGINS, JSON.stringify({ ...logins(), [url]: result.login }));
+    await this.keep(httpKey(url, result.login), result.password, result.remember);
     this.give(session, url, result.login, result.password);
     return { answer: asked === 'login' ? result.login : result.password };
   }
@@ -218,7 +214,6 @@ export class Credentials {
     const key = httpKey(url, login);
     session.password = { key, value: password };
     session.given.push(key);
-    session.login = { url, login };
   }
 
   private async ssh(session: Session, prompt: Prompt): Promise<string | null> {
@@ -233,36 +228,29 @@ export class Credentials {
       const subject = match[1] as string;
       const key = `${known.service}:${subject}`;
       // Asked again: what was kept didn't do.
-      if (session.lastKey === key) await this.forget(key);
+      if (session.lastKey === key) await this.passwords.set(key, null);
       session.lastKey = key;
       const kept = await this.kept(key);
       if (kept !== null) return kept;
       if (prompt.silent) return null;
       const result = await passwordDialog(known.title, known.label(subject), true);
-      if (result === undefined) return null;
+      // An empty password is none, as IntelliJ's.
+      if (result === undefined || result.password === '') return null;
       await this.keep(key, result.password, result.remember);
       return result.password;
     }
     if (prompt.silent) return null;
-    return (await passwordDialog('SSH Keyboard Interactive', text.trim(), false))?.password ?? null;
+    return (await passwordDialog('SSH Keyboard Interactive', text.trim(), false))?.password || null;
   }
 
-  private async kept(key: string): Promise<string | null> {
-    return this.memory.get(key) ?? (await this.passwords.get(key));
+  private kept(key: string): Promise<string | null> {
+    return this.passwords.get(key);
   }
 
+  /** Remember's choice: the password kept, or not at all; and the default from now on. */
   private async keep(key: string, password: string, remember: boolean): Promise<void> {
-    if (remember) {
-      this.memory.delete(key);
-      await this.passwords.set(key, password);
-    } else {
-      this.memory.set(key, password);
-    }
-  }
-
-  private async forget(key: string): Promise<void> {
-    this.memory.delete(key);
-    await this.passwords.set(key, null);
+    localStorage.setItem(REMEMBER, String(remember));
+    if (remember) await this.passwords.set(key, password);
   }
 }
 
@@ -279,7 +267,7 @@ function loginDialog(
 ): Promise<Login | undefined> {
   const login = signal(initialLogin);
   const password = signal('');
-  const remember = signal(true);
+  const remember = signal(rememberByDefault());
   const useHelper = signal(false);
   const loginError = signal<string | undefined>(undefined);
   const passwordError = signal<string | undefined>(undefined);
@@ -373,22 +361,25 @@ function loginDialog(
   }).result;
 }
 
-/** IntelliJ's askPassword (credentialPromt.kt): the prompt, a password field, and Remember. */
+/**
+ * IntelliJ's askPassword (credentialPromt.kt): the prompt over a password field, and Remember
+ * under it.
+ */
 function passwordDialog(
   title: string,
   label: string,
   rememberable: boolean,
 ): Promise<{ password: string; remember: boolean } | undefined> {
   const password = signal('');
-  const remember = signal(true);
+  const remember = signal(rememberByDefault());
   return openDialog<{ password: string; remember: boolean }>({
     title,
     width: 420,
     ok: { accept: () => ({ password: password.peek(), remember: remember.peek() }) },
     content: () => (
-      <div class="playground-form">
-        <label class="playground-form__row">
-          <span>{label}</span>
+      <div class="playground-password">
+        <label class="cerebro-dialog-field">
+          <span class="cerebro-dialog-field__label">{label}</span>
           <input
             class="cerebro-dialog-field__input"
             type="password"
@@ -404,7 +395,7 @@ function passwordDialog(
         </label>
         {rememberable ? (
           <label
-            class="playground-form__check"
+            class="playground-password__remember"
             title="The password will be stored between application sessions."
           >
             <input

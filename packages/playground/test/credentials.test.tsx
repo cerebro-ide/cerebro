@@ -49,13 +49,14 @@ const field = async (label: string) =>
 const errors = async () =>
   [...(await dialog()).querySelectorAll('.cerebro-dialog-field__error')].map((e) => e.textContent);
 const check = async (label: string) =>
-  [...(await dialog()).querySelectorAll('.playground-form__check')]
+  [...(await dialog()).querySelectorAll('label')]
     .find((row) => row.textContent === label)
     ?.querySelector('input') as HTMLInputElement;
 
 beforeEach(() => {
   sessions++;
   localStorage.removeItem('cerebro.git.logins');
+  localStorage.removeItem('cerebro.rememberPasswords');
 });
 
 afterEach(async () => {
@@ -89,6 +90,8 @@ describe('over HTTP', () => {
     expect((await check('Remember')).checked).toBe(true);
     await press('Log In');
     expect(await asking).toEqual({ answer: 'ido' });
+    // The login remembered for the URL at once, as IntelliJ's.
+    expect(localStorage.getItem('cerebro.git.logins')).toBe('{"https://h:8080":"ido"}');
     // The password given with it, unasked; kept, as Remember was ticked.
     expect(await credentials.answer('/p', prompt(PASSWORD))).toEqual({ answer: 'secret' });
     expect(passwords.kept.get(KEY)).toBe('secret');
@@ -119,10 +122,15 @@ describe('over HTTP', () => {
     await userEvent.click(await check('Remember'));
     await press('Log In');
     expect(await asking).toEqual({ answer: 'ido' });
-    // Not remembered: kept until the app quits, not in the app's store.
-    expect(passwords.kept.has(KEY)).toBe(false);
-    sessions++;
+    // Given to the password's prompt that follows, but not kept.
     expect(await credentials.answer('/p', prompt(PASSWORD))).toEqual({ answer: 'new' });
+    expect(passwords.kept.has(KEY)).toBe(false);
+    // Asked again next time, Remember left as it was last.
+    sessions++;
+    const again = credentials.answer('/p', prompt(PASSWORD));
+    expect((await check('Remember')).checked).toBe(false);
+    await press('Cancel');
+    expect(await again).toEqual({ answer: null });
   });
 
   it('asks for a password with the login git gave it, not to be changed', async () => {
@@ -226,7 +234,7 @@ describe('over SSH', () => {
     expect(passwords.kept.size).toBe(0);
     await press('Cancel');
     expect(await again).toEqual({ answer: null });
-    // Not remembered: until the app quits.
+    // Not remembered: not kept, and Remember unticked from then on.
     sessions++;
     const once = credentials.answer('/p', ssh(PASSPHRASE));
     await userEvent.type((await inputs())[0] as HTMLInputElement, 'other');
@@ -235,7 +243,11 @@ describe('over SSH', () => {
     expect(await once).toEqual({ answer: 'other' });
     expect(passwords.kept.size).toBe(0);
     sessions++;
-    expect(await credentials.answer('/p', ssh(PASSPHRASE))).toEqual({ answer: 'other' });
+    const next = credentials.answer('/p', ssh(PASSPHRASE));
+    expect((await check('Remember')).checked).toBe(false);
+    // Empty: no password, as IntelliJ's.
+    await press('OK');
+    expect(await next).toEqual({ answer: null });
   });
 
   it('asks for a user’s password, or a PIN, in their own dialogs', async () => {

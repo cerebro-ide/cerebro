@@ -1309,6 +1309,19 @@ body,
   gap: 6px;
 }
 
+/* A password asked for SSH: the prompt over the field, and Remember. */
+.playground-password {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playground-password__remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* SSH's question about a host, as OpenSSH words it, on several lines. */
 .playground-ssh-question {
   margin: 0;

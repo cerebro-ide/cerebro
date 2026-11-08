@@ -54,6 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
+- [Logging in to remotes (2026-11-08)](#logging-in-to-remotes-2026-11-08): git's and ssh's prompts asked of the page through askpass, as IntelliJ's; its login dialog and SSH dialogs, Remember in the system's keychain, Use credential helper (off by default)
 - [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
@@ -1966,6 +1967,61 @@ change.
   - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
     the folded text on hover, folds kept across reopening a file, and a menu for the actions.
 
+## Logging in to remotes (2026-11-08)
+
+The last of the Push items (Ido, 2026-11-08, asked how: "Same as intellij does", and again "Same"
+for SSH passphrases and for fetch). IntelliJ's behaviour and words are from its source
+(`GitHandlerAuthenticationManager`, `GitImplBase`, `GitAskPassApp`, `GitHttpAuthService`,
+`GitHttpGuiAuthenticator`, `GitHttpLoginDialog`, `NativeSshGuiAuthenticator`, `SshPrompts`,
+`credentialPromt.kt`, `GitVcsApplicationSettings`).
+
+- **Asked through askpass,** as IntelliJ's: git's remote commands (push, fetch, the check of a
+  remote's URL, the check for a diverged remote) run with `GIT_ASKPASS` and `SSH_ASKPASS` set to
+  scripts the host writes (a `.bat` on Windows, else a shell script), which run the host's own entry
+  as Node (`main.js askpass git|ssh <prompt>`). That client asks the host over a local socket,
+  naming the command; the host asks the page (`askpass.prompt`), and gives git the answer, or
+  nothing when it was cancelled ("Authentication request was cancelled"). `SSH_ASKPASS_REQUIRE=force`
+  and a `DISPLAY` (`:0.0` when there's none) make ssh use it without a terminal, as IntelliJ's.
+  Measured on real git (`askpass.test.ts`): over HTTP against `git http-backend` behind a login, git
+  asks "Username for 'http://host':", then "Password for 'http://user@host':"; and OpenSSH asks the
+  ssh script for a key's passphrase (with `ssh-keygen -y`, there being no SSH server to test
+  against). After a cancelled username, git still asks for the password (measured): the rest of
+  that command is answered nothing, unasked, as IntelliJ's.
+- **Git's credential helpers are left out** (`-c credential.helper=`), as IntelliJ's "Use credential
+  helper", off by default: a setting under Version Control → Git. When git has one configured
+  (`git config --get credential.helper`), the login dialog offers Enter credentials or Use
+  credentials helper; choosing the helper turns the setting on, and the command runs again with it.
+- **A failed login,** by git's words as IntelliJ reads them ("authentication failed", "403
+  forbidden", "fatal: repository … not found" and others), forgets the password it was given, and
+  the command runs once more, asking again; the second failure is git's error. Not when it was
+  cancelled, and not for the silent check of a diverged remote, which takes only what's kept and
+  never shows a dialog (IntelliJ's `AuthenticationMode.SILENT`).
+- **The login dialog,** as IntelliJ's `GitHttpLoginDialog`: "Log In to {host}", Username, Password
+  and Remember, with Log In and Cancel. Log In says "Username cannot be empty" or "Password cannot
+  be empty" under the field. The focus starts in the username while it's blank, else the password;
+  a login git gave in the URL can't be changed. The username's prompt shows it, and its password
+  answers the password's prompt that follows. The login is remembered for the URL as Log In is
+  pressed (IntelliJ's `GitRememberedInputs`, kept in the browser's storage), so the next prompt for
+  it fills it in; with its password kept, nothing is asked.
+- **SSH,** as IntelliJ's `NativeSshGuiAuthenticator`: a key's passphrase ("SSH Key Passphrase",
+  `Password for the SSH key "{key}":`), a user's password ("SSH Password Login"), a PIN ("SSH Pin
+  Passphrase"), each a password field with Remember (its tooltip, "The password will be stored
+  between application sessions."), answered from what's kept when there is one; asked for the same
+  again in one command, what was kept is forgotten. A host's authenticity is "SSH Confirmation",
+  Yes or No, OpenSSH's options left out of the question. Anything else is "SSH Keyboard
+  Interactive", a password field alone. An empty password answers nothing, as IntelliJ's.
+- **Remember** keeps the password, as IntelliJ's PasswordSafe, in the app's store
+  (`packages/app/src/passwords.ts`): a file in the app's data folder, each password encrypted by
+  Electron's `safeStorage` (macOS's Keychain, Windows' DPAPI, a secret service on Linux). Unticked,
+  the password isn't kept; Remember starts as it was last left, ticked at first, as IntelliJ's
+  remember-by-default. Where `safeStorage` has no keychain (on Linux, its `basic_text`, which
+  Electron's documentation names for a desktop it doesn't recognise), passwords are kept in the
+  app's memory until it quits (Claude's choice, open to change: IntelliJ's own fallbacks weren't
+  read). Measured under WSLg: `basic_text`, so memory only there.
+- **Not yet:** IntelliJ's hosting services' own logins in the dialog (GitHub's, GitLab's tokens);
+  its saved answers to SSH's confirmation within one operation; measured on Windows and macOS (CI
+  runs the unit tests on Linux only).
+
 ## Pushing (2026-11-08)
 
 From the backlog (Ido, 2026-11-08: "All of these. Go."): "the Commit window's second button, as
@@ -2017,8 +2073,8 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   remote). The commits are those the target doesn't have; for a new branch,
   those no branch of that remote has. The push is `git push <remote> HEAD:refs/heads/<target>`, with
   `--set-upstream` for a new branch with no upstream, or when Set upstream is ticked, so the next
-  push goes to the same place. It doesn't ask for a
-  password (`GIT_TERMINAL_PROMPT=0`): a remote that needs one fails, and says git's message.
+  push goes to the same place. A remote that needs a login asks for it (changed 2026-11-08: it
+  failed with git's message; see "Logging in to remotes").
 - **Opened from** Git → Push… (Ctrl+Shift+K, Cmd+Shift+K on macOS; IntelliJ gives it in the keymap
   its dvcs-impl adds to `$default`, and Sublime Text's keymap takes it away), and from the Commit
   window's **Commit and Push…** button beside Commit ("Amend Commit and Push…" while amending): it
@@ -2043,8 +2099,9 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   put before git's message, so a rejection still says so.
 - **When the remote has diverged (changed 2026-11-08),** as IntelliJ's `GitPushDivergenceDetector`
   and `PushDivergenceBanner` (read from its source): not for a branch the push makes, the remote's
-  branch is taken from where it was last fetched, then asked of the remote (`git ls-remote`, which
-  never asks for a password; where it was fetched when it can't be asked). When it has commits the
+  branch is taken from where it was last fetched, then asked of the remote (`git ls-remote`, with
+  only the passwords kept: see "Logging in to remotes"; where it was fetched when it can't be
+  asked). When it has commits the
   branch hasn't, a warning banner over the tree says so in IntelliJ's words ("Push will be
   rejected, branch 'main' has diverged from the remote: 2 remote commits are not in your local
   branch. …"); when they aren't fetched (`git cat-file` can't find the commit), only a fetch can
@@ -2065,7 +2122,8 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   fetched (IntelliJ's `git.use.push.force.with.lease`, on by default); "Force pushed main to
   origin/main" when it replaced commits (git's "+"), and "Force-with-lease push main to origin/main
   was rejected" when the remote's branch had moved ("stale info"). Measured on real git.
-- **Not yet:** several repositories at once, and asking for credentials. IntelliJ's actions on a
+- **Not yet:** several repositories at once (asking for credentials: done, see "Logging in to
+  remotes"). IntelliJ's actions on a
   rejected push's notification (Force push…, Force push anyway). In the dialog: selecting several commits, Show Details (the selected commit's
   message under its files), and opening a file's diff.
 
