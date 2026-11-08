@@ -6,12 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### The status bar's file items are samples
-
-Seen with the image viewer (2026-11-04): the caret's position, the line separator, the encoding
-and the indent are fixed texts ("1:1", "LF", "UTF-8", "2 spaces"), shown for every tab, an
-image's, a diff's and none. IntelliJ shows the file's own, and none of them for an image.
-
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's

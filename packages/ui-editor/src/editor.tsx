@@ -15,7 +15,7 @@ import {
   redo,
   undo,
 } from '@codemirror/commands';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
 import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
 import {
   drawSelection,
@@ -38,6 +38,7 @@ import {
   type ResolveCompletion,
 } from './completions.js';
 import { EditorDocument, KEPT } from './document.js';
+import type { Selected } from './line.js';
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
@@ -150,8 +151,11 @@ export interface CodeEditorProps {
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
   onMark?: (mark: Mark) => void;
-  /** Where the caret is, zero-based: as the editor opens, and each time it moves. */
-  onCaret?: (at: { line: number; column: number }) => void;
+  /**
+   * Where the caret is, zero-based, and what's selected, if anything: as the editor opens, and each
+   * time either changes.
+   */
+  onCaret?: (at: { line: number; column: number }, selected: Selected | undefined) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
   keys?: () => EditorKeys;
 }
@@ -231,6 +235,20 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
 const taken = new WeakSet<object>();
 
 /** A position in the editor as a line and column, zero-based. */
+/** How a line is indented: CodeMirror's default, which no language here changes, set to say so. */
+export const INDENT = '  ';
+
+/** What the main selection holds, if it holds anything. */
+function selectedIn(state: EditorState): Selected | undefined {
+  const { from, to, empty } = state.selection.main;
+  if (empty) return undefined;
+  return {
+    // Code points, as IntelliJ's Character.codePointCount: not graphemes.
+    chars: Array.from(state.sliceDoc(from, to)).length,
+    lineBreaks: state.doc.lineAt(to).number - state.doc.lineAt(from).number,
+  };
+}
+
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
   const line = state.doc.lineAt(pos);
   return { line: line.number - 1, column: pos - line.from };
@@ -784,7 +802,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const language = languageFor(props.path);
   const doc = props.document;
   const caret = (state: EditorState) => {
-    props.onCaret?.(placeOf(state, state.selection.main.head));
+    props.onCaret?.(placeOf(state, state.selection.main.head), selectedIn(state));
   };
   const extensions: Extension[] = [
     lineNumbers(),
@@ -805,6 +823,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     activeLine,
     // Marks the caret's line (`cm-activeLine`), painted by the layer.
     highlightActiveLine(),
+    indentUnit.of(INDENT),
     doc
       ? [namedHistory(), keymap.of([indentWithTab]), formattable(props.path)]
       : EditorState.readOnly.of(true),

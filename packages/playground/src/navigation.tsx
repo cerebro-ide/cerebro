@@ -25,6 +25,7 @@ import type {
   Problem,
   Renaming,
   Signatures,
+  Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
 import { documentFor, onEdited, saveAll, saveFiles } from './documents.js';
@@ -87,7 +88,9 @@ export const focusing = new ObservableMap<string, object>();
 const GROUP = 'Name matches';
 
 /** Where each open file's caret is, by path, as its editor says. */
-export const carets = new Map<string, Position>();
+export const carets = new ObservableMap<string, Position>();
+/** What each open file's editor has selected, by path, as it says: none for nothing selected. */
+export const selections = new ObservableMap<string, Selected>();
 /** Which line is at the top of each open file's editor, as it says. */
 export const tops = new Map<string, number>();
 

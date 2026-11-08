@@ -94,6 +94,30 @@ describe('StatusBarView', () => {
     expect(run).toHaveBeenCalledTimes(1);
   });
 
+  it('runs it on the item’s context, and hides the item while it says', () => {
+    const bar = new StatusBar();
+    const commands = new CommandRegistry();
+    const run = vi.fn();
+    commands.register({ id: 'line.goTo', label: 'Go to Line', run });
+    const shown = signal(false);
+    bar.add({
+      id: 'position',
+      text: () => '1:1',
+      command: 'line.goTo',
+      context: () => ({ file: 'a.ts' }),
+      hidden: () => !shown.get(),
+    });
+    bar.add({ id: 'encoding', text: () => 'UTF-8', hidden: () => !shown.get() });
+    const { item } = mount(bar, { commands });
+    expect(item('position').hidden).toBe(true);
+    expect(item('position').getBoundingClientRect().width).toBe(0);
+    expect(item('encoding').hidden).toBe(true);
+    shown.set(true);
+    expect(item('encoding').hidden).toBe(false);
+    item('position').click();
+    expect(run).toHaveBeenCalledWith({ file: 'a.ts' });
+  });
+
   it('is not clickable without a command registry', () => {
     const bar = new StatusBar();
     bar.add({ id: 'encoding', text: () => 'UTF-8', command: 'encoding.change' });

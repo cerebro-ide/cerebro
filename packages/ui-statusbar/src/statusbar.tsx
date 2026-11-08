@@ -1,6 +1,6 @@
 // The status bar: items contributed by the app and plugins, on the left or the right, ordered. An
 // item shows text (and optionally an icon or a progress bar), has a tooltip, and can run a command
-// when clicked. What goes on it is the contributors' business; the bar only lays items out.
+// when clicked. An item can be hidden, as IntelliJ's widgets are for a file they don't apply to. What goes on it is the contributors' business; the bar only lays items out.
 
 import type { CommandRegistry } from '@cerebro-ide/commands';
 import type { Child } from '@cerebro-ide/jsx';
@@ -20,6 +20,10 @@ export interface StatusItemSpec {
   tooltip?: () => string;
   /** Run when the item is clicked; the item is a button only with one. */
   command?: string;
+  /** What the command is run on, as a menu item's context. */
+  context?: () => unknown;
+  /** Whether the item is hidden for now. Default: shown. */
+  hidden?: () => boolean;
   /** An icon name; how it's drawn is up to the bar's `icon` prop. */
   icon?: string;
   progress?: () => Progress;
@@ -84,6 +88,7 @@ function Item(p: { props: StatusBarViewProps; item: StatusItemSpec }): Node {
   const commands = props.commands;
   const command = item.command;
   const clickable = commands !== undefined && command !== undefined;
+  const hidden = () => item.hidden?.() ?? false;
   const content = [
     item.icon !== undefined && props.icon ? (
       <span class="cerebro-statusbar__icon">{props.icon(item.icon)}</span>
@@ -102,14 +107,15 @@ function Item(p: { props: StatusBarViewProps; item: StatusItemSpec }): Node {
       class="cerebro-statusbar__item cerebro-statusbar__item--action"
       data-id={item.id}
       ref={tip}
+      hidden={hidden}
       on:click={() => {
-        commands.execute(command);
+        commands.execute(command, item.context?.());
       }}
     >
       {content}
     </button>
   ) : (
-    <span class="cerebro-statusbar__item" data-id={item.id} ref={tip}>
+    <span class="cerebro-statusbar__item" data-id={item.id} ref={tip} hidden={hidden}>
       {content}
     </span>
   );

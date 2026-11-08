@@ -31,8 +31,11 @@ afterEach(async () => {
 });
 
 const q = (selector: string) => document.querySelector(selector) as HTMLElement;
+/** The status bar's texts, of the items shown. */
 const status = () =>
-  [...document.querySelectorAll('.cerebro-statusbar__text')].map((t) => t.textContent);
+  [
+    ...document.querySelectorAll('.cerebro-statusbar__item:not([hidden]) .cerebro-statusbar__text'),
+  ].map((t) => t.textContent);
 const stripe = (id: string) => q(`.cerebro-stripe-button[data-id="${id}"]`);
 const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textContent;
 const env = () => workspace.active as NonNullable<typeof workspace.active>;
@@ -42,20 +45,23 @@ const editorRoot = () =>
   document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
 
 describe('the page in a browser', () => {
-  it('starts with the samples: a worktree’s files, and the windows shown by default', () => {
+  it('starts with the samples: a worktree’s files, and the windows shown by default', async () => {
     expect(document.documentElement.classList).not.toContain('cerebro-app');
     expect(env().id).toBe('cerebro-status-bar');
-    expect(status()).toEqual([
-      'cerebro-status-bar · feat/status-bar',
-      'src/styles.css',
-      'Indexing…',
-      expect.any(String),
-      '1:1',
-      'LF',
-      'UTF-8',
-      '2 spaces',
-      'CSS',
-    ]);
+    // The file's items once it's read.
+    await expect
+      .poll(status)
+      .toEqual([
+        'cerebro-status-bar · feat/status-bar',
+        'src/styles.css',
+        'Indexing…',
+        expect.any(String),
+        '1:1',
+        'LF',
+        'UTF-8',
+        '2 spaces',
+        'CSS',
+      ]);
     expect(q('.cerebro-tool-window[data-id="terminal"]').textContent).toContain(
       'Terminals run in the desktop app.',
     );
@@ -68,7 +74,7 @@ describe('the page in a browser', () => {
 
   it('says what each item on the status bar is', async () => {
     const tips: (string | undefined)[] = [];
-    for (const item of document.querySelectorAll('.cerebro-statusbar__item')) {
+    for (const item of document.querySelectorAll('.cerebro-statusbar__item:not([hidden])')) {
       await userEvent.hover(item);
       await expect.poll(tooltipText).toBeDefined();
       tips.push(tooltipText());
@@ -80,10 +86,10 @@ describe('the page in a browser', () => {
       'The active file',
       'A background task (sample)',
       'The worktree’s agent, in the Claude tool window',
-      expect.stringContaining('Go to File'),
-      'Line Separator',
-      'File Encoding',
-      'Indent',
+      expect.stringMatching(/^Go to Line/),
+      'Line Separator: \\n',
+      'File Encoding: UTF-8',
+      'Indent: 2 spaces',
       'File Type',
     ]);
   });
@@ -172,6 +178,12 @@ describe('Go to Line', () => {
     expect((await dialog()).textContent).toContain('Not a line or column');
     await userEvent.clear(field);
     await userEvent.type(field, '5:3{Enter}');
+    // The status bar follows the caret, and what's selected.
+    await expect.poll(() => status()[4]).toBe('5:3');
+    await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    await expect.poll(() => status()[4]).toMatch(/^6:\d+ \(\d+ chars, 1 line break\)$/);
+    await userEvent.keyboard('{Shift>}{ArrowUp}{/Shift}');
+    await expect.poll(() => status()[4]).toBe('5:3');
   });
 
   it('is off without an editor’s focus, as IntelliJ’s: its key goes to others', async () => {
@@ -191,6 +203,27 @@ describe('Go to Line', () => {
       )
       .toBe('true');
     await userEvent.keyboard('{Escape}{Escape}');
+    // The status bar's position goes to a line in the active editor, focused or not, as IntelliJ's.
+    await userEvent.click(q('.cerebro-statusbar__item[data-id="position"]'));
+    expect(((await dialog()).querySelector('input') as HTMLInputElement).value).toBe('5:3');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+  });
+});
+
+describe('the status bar’s file items', () => {
+  const items = ['position', 'separator', 'encoding', 'indent'];
+  const shown = () => items.filter((id) => !q(`.cerebro-statusbar__item[data-id="${id}"]`).hidden);
+
+  it('are a text editor’s: not a diff’s, nor an image’s', async () => {
+    expect(shown()).toEqual(items);
+    env().editor.open(diffTab('src/main.ts'));
+    await expect.poll(shown).toEqual([]);
+    env().editor.close(env().editor.activeGroupId, diffTab('src/main.ts').id);
+    env().editor.open({ id: 'src/logo.png', title: 'logo.png' });
+    await expect.poll(shown).toEqual([]);
+    env().editor.close(env().editor.activeGroupId, 'src/logo.png');
+    await expect.poll(shown).toEqual(items);
   });
 });
 

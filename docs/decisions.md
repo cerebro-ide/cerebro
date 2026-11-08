@@ -27,7 +27,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
 - [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
 - [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors
-- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout
+- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's
 - [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
 - [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
 - [Popups (2026-10-25)](#popups-2026-10-25): a search field over a list, not modal
@@ -554,11 +554,28 @@ new UI.
   - left or right (right by default, where IntelliJ keeps most widgets), ordered;
   - reactive text and an optional icon;
   - a tooltip with the command's shortcut;
-  - a command run on click;
+  - a command run on click, with the item's context (changed 2026-11-08);
+  - hidden while it says so, as IntelliJ hides a widget for a file it doesn't apply to (changed
+    2026-11-08);
   - an optional progress bar, determinate or indeterminate, for background tasks. It stops
     animating when the user prefers reduced motion.
-- **The playground's items are samples only:** environment, active file, a fake indexing task,
-  position, separator, encoding, indent and file type.
+- **The playground's items were samples at first:** environment, active file, a fake indexing
+  task, position, separator, encoding, indent and file type. The file's are real now (below).
+- **The file's items are the active editor's (changed 2026-11-08),** as IntelliJ's widgets
+  (PositionPanel, LineSeparatorPanel, EncodingPanel, CodeStyleStatusBarWidget, read in its source):
+  - shown for a file shown as text once it's read; hidden for a diff, an image, a file that can't
+    be read, and no file. Before, they were fixed texts shown for every tab;
+  - the position is the caret's `line:column`, with what's selected: `12:5 (10 chars, 1 line
+    break)`, counting code points, as IntelliJ does. Clicking it opens Go to Line on the active
+    editor, focused or not, as IntelliJ's;
+  - the line separator is the file's: LF or CRLF. Its tooltip is IntelliJ's, `Line Separator: \n`;
+  - the encoding is always UTF-8: the host reads and writes files as UTF-8, and keeps a byte order
+    mark. IntelliJ shows UTF-8 for a file with one too (its charset's name);
+  - the indent is the editor's: CodeMirror's default of 2 spaces, which no language here changes.
+    The editor now sets it, so the status bar reads the same value.
+- **Not yet:** the separator's, encoding's and indent's popups, which change them in IntelliJ; an
+  indent from the file (IntelliJ detects it) or from the tab size setting; a file with only `\r`
+  line breaks, which is read as LF.
 
 ## The Electron app (2026-10-25)
 

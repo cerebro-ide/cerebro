@@ -9,7 +9,7 @@
 // What's saved may first be changed by a plugin, as IntelliJ's Actions on Save (Prettier's Run on
 // save), on every save: Save All's and the ones made on their own.
 
-import { effect, untracked } from '@cerebro-ide/reactive';
+import { effect, ObservableMap, untracked } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor } from './environments.js';
 
@@ -60,6 +60,14 @@ type Loaded = EditorDocument | { error: string };
 
 const documents = new Map<string, Promise<Loaded>>();
 
+/** The documents read, by path: what shows them as they are reads them here (the status bar). */
+const read = new ObservableMap<string, EditorDocument>();
+
+/** A file's document once it's read; undefined before, or when it can't be. Read reactively. */
+export function documentRead(path: string): EditorDocument | undefined {
+  return read.get(path);
+}
+
 /** Told of each change to a file's text that leaves it unsaved: an edit, not a read from disk. */
 const editListeners = new Set<(path: string) => void>();
 
@@ -95,8 +103,10 @@ export function documentFor(path: string, sample?: () => string): Promise<Loaded
       : Promise.resolve(new EditorDocument(sample?.() ?? ''));
     // A file that couldn't be read is tried again the next time.
     void loaded.then((result) => {
-      if (result instanceof EditorDocument) watchEdits(path, result);
-      else documents.delete(path);
+      if (result instanceof EditorDocument) {
+        read.set(path, result);
+        watchEdits(path, result);
+      } else documents.delete(path);
     });
     documents.set(path, loaded);
   }
@@ -127,6 +137,7 @@ async function deleted(path: string): Promise<boolean> {
     );
   if (there !== false) return false;
   documents.delete(path);
+  read.delete(path);
   closeDeleted(path);
   return true;
 }
