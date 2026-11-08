@@ -32,10 +32,22 @@ import {
   type Pty,
   type Turn,
 } from '../src/index.js';
+import { askPassClient } from '../src/askpass.js';
 
 type Env = Record<string, string>;
 
 const PORCELAIN = 'worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n';
+
+/** What the host's remote commands run with: git's credential helpers left out, asking the page. */
+const HELPERLESS = ['-c', 'credential.helper='];
+const ASKING = expect.objectContaining({
+  GIT_TERMINAL_PROMPT: '0',
+  GIT_ASKPASS: expect.stringMatching(/git\.(sh|bat)$/) as string,
+  SSH_ASKPASS: expect.stringMatching(/ssh\.(sh|bat)$/) as string,
+  SSH_ASKPASS_REQUIRE: 'force',
+}) as Env;
+/** A remote command's own arguments. */
+const bare = (args: readonly string[]) => (args[0] === '-c' ? args.slice(2) : args);
 
 /** A UI-side connection to a host served on another connection. */
 function connect(
@@ -676,7 +688,9 @@ describe('ignored files and rolling back', () => {
 
   it('checks for a diverged remote, and fetches the push’s target', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
-      Promise.resolve(args[0] === 'rev-parse' ? 'abc\n' : args[0] === 'rev-list' ? '1\t2\n' : ''),
+      Promise.resolve(
+        bare(args)[0] === 'rev-parse' ? 'abc\n' : bare(args)[0] === 'rev-list' ? '1\t2\n' : '',
+      ),
     );
     const { ui } = connect(git);
     const to = { path: '/w', remote: 'origin', target: 'main' };
@@ -686,24 +700,25 @@ describe('ignored files and rolling back', () => {
       lease: 'abc',
     });
     // Not asked unless told.
-    expect(git.mock.calls.some(([, args]) => args[0] === 'ls-remote')).toBe(false);
+    expect(git.mock.calls.some(([, args]) => bare(args)[0] === 'ls-remote')).toBe(false);
     await ui.request('git.divergence', { ...to, checkRemote: true });
     expect(git).toHaveBeenCalledWith(
       '/w',
-      ['ls-remote', '--end-of-options', 'origin', 'refs/heads/main'],
-      { GIT_TERMINAL_PROMPT: '0' },
+      [...HELPERLESS, 'ls-remote', '--end-of-options', 'origin', 'refs/heads/main'],
+      ASKING,
     );
     await ui.request('git.fetchTarget', to);
     expect(git).toHaveBeenLastCalledWith(
       '/w',
       [
+        ...HELPERLESS,
         'fetch',
         '--quiet',
         '--end-of-options',
         'origin',
         '+refs/heads/main:refs/remotes/origin/main',
       ],
-      { GIT_TERMINAL_PROMPT: '0' },
+      ASKING,
     );
     for (const method of ['git.divergence', 'git.fetchTarget']) {
       await expect(ui.request(method, { path: '/w', remote: 'origin' })).rejects.toMatchObject({
@@ -715,9 +730,9 @@ describe('ignored files and rolling back', () => {
   it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
-      args[0] === 'symbolic-ref'
+      bare(args)[0] === 'symbolic-ref'
         ? Promise.reject(new Error('detached'))
-        : Promise.resolve(args[0] === 'remote' ? 'origin\n' : ''),
+        : Promise.resolve(bare(args)[0] === 'remote' ? 'origin\n' : ''),
     );
     const { ui } = connect(git);
     expect(await ui.request('git.outgoing', { path: '/w' })).toEqual({
@@ -741,7 +756,7 @@ describe('ignored files and rolling back', () => {
     // A branch: where it's told.
     git.mockImplementation((_cwd: string, args: readonly string[]) =>
       Promise.resolve(
-        args[0] === 'remote' ? 'origin\n' : args[0] === 'symbolic-ref' ? 'main\n' : '',
+        bare(args)[0] === 'remote' ? 'origin\n' : bare(args)[0] === 'symbolic-ref' ? 'main\n' : '',
       ),
     );
     expect(
@@ -751,6 +766,7 @@ describe('ignored files and rolling back', () => {
     expect(git).toHaveBeenCalledWith(
       '/w',
       [
+        ...HELPERLESS,
         'push',
         '--porcelain',
         '--set-upstream',
@@ -758,12 +774,13 @@ describe('ignored files and rolling back', () => {
         'origin',
         'HEAD:refs/heads/main',
       ],
-      { GIT_TERMINAL_PROMPT: '0' },
+      ASKING,
     );
     await ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', tags: 'follow' });
     expect(git).toHaveBeenLastCalledWith(
       '/w',
       [
+        ...HELPERLESS,
         'push',
         '--porcelain',
         '--set-upstream',
@@ -772,7 +789,7 @@ describe('ignored files and rolling back', () => {
         'origin',
         'HEAD:refs/heads/main',
       ],
-      { GIT_TERMINAL_PROMPT: '0' },
+      ASKING,
     );
     await expect(
       ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', tags: 'some' }),
@@ -791,6 +808,7 @@ describe('ignored files and rolling back', () => {
     expect(git).toHaveBeenLastCalledWith(
       '/w',
       [
+        ...HELPERLESS,
         'push',
         '--porcelain',
         '--set-upstream',
@@ -799,7 +817,7 @@ describe('ignored files and rolling back', () => {
         'origin',
         'HEAD:refs/heads/main',
       ],
-      { GIT_TERMINAL_PROMPT: '0' },
+      ASKING,
     );
     await ui.request('git.push', { path: '/w', remote: 'origin', target: 'main', force: true });
     expect(git.mock.lastCall?.[1]).toContain('--force-with-lease=refs/heads/main:');
@@ -816,10 +834,14 @@ describe('ignored files and rolling back', () => {
       [new Error('spawn git ENOENT'), 'spawn git ENOENT'],
     ] as const) {
       git.mockImplementation((_cwd: string, args: readonly string[]) =>
-        args[0] === 'push'
+        bare(args)[0] === 'push'
           ? Promise.reject(error)
           : Promise.resolve(
-              args[0] === 'remote' ? 'origin\n' : args[0] === 'symbolic-ref' ? 'main\n' : '',
+              bare(args)[0] === 'remote'
+                ? 'origin\n'
+                : bare(args)[0] === 'symbolic-ref'
+                  ? 'main\n'
+                  : '',
             ),
       );
       await expect(ui.request('git.push', { path: '/w' })).rejects.toMatchObject({ message });
@@ -830,15 +852,23 @@ describe('ignored files and rolling back', () => {
     const git = vi.fn(() => Promise.resolve(''));
     const { ui } = connect(git);
     await ui.request('git.checkRemote', { path: '/w', url: 'u' });
-    expect(git).toHaveBeenLastCalledWith('/w', ['ls-remote', '--heads', '--end-of-options', 'u'], {
-      GIT_TERMINAL_PROMPT: '0',
-    });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [...HELPERLESS, 'ls-remote', '--heads', '--end-of-options', 'u'],
+      ASKING,
+    );
     await ui.request('git.addRemote', { path: '/w', name: 'n', url: 'u' });
-    expect(git).toHaveBeenLastCalledWith('/w', ['remote', 'add', '--end-of-options', 'n', 'u']);
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [...HELPERLESS, 'remote', 'add', '--end-of-options', 'n', 'u'],
+      ASKING,
+    );
     await ui.request('git.addRemote', { path: '/w', name: 'f', url: 'u', fetch: true });
-    expect(git).toHaveBeenLastCalledWith('/w', ['fetch', '--quiet', '--end-of-options', 'f'], {
-      GIT_TERMINAL_PROMPT: '0',
-    });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'f'],
+      ASKING,
+    );
     for (const [method, params] of [
       ['git.checkRemote', { path: '/w' }],
       ['git.addRemote', { path: '/w', url: 'u' }],
@@ -1241,5 +1271,61 @@ describe('terminals', () => {
     } finally {
       chmodSync(helper, mode);
     }
+  });
+});
+
+describe('credentials', () => {
+  it('asks the page for what git asks, and tells it how the command ended', async () => {
+    // Git, asking through the askpass client as git's own would.
+    const git = vi.fn(async (_cwd: string, args: readonly string[], env?: Env) => {
+      if (bare(args)[0] === 'config') return 'store\n';
+      const out: string[] = [];
+      await askPassClient(
+        ['git', "Password for 'https://h': "],
+        env ?? {},
+        {
+          write: (text: string) => out.push(text),
+        },
+        { write: () => true },
+      );
+      return out.join('');
+    });
+    // The scripts run this host's entry: none here, as Node runs from standard input.
+    const argv = process.argv;
+    process.argv = [argv[0] as string];
+    const { ui, stop } = connect(git);
+    process.argv = argv;
+    const done: unknown[] = [];
+    ui.onNotification('askpass.done', (params) => done.push(params));
+    ui.onNotification('askpass.prompt', (params) => {
+      const { id } = params as { id: string };
+      expect(params).toMatchObject({
+        kind: 'git',
+        prompt: "Password for 'https://h': ",
+        silent: false,
+        helper: true,
+      });
+      // Answered twice: the second finds nobody waiting.
+      void ui.request('askpass.answer', { id, answer: 'secret' });
+      void ui.request('askpass.answer', { id, answer: 'again' });
+    });
+    await ui.request('git.checkRemote', { path: '/w', url: 'u' });
+    expect(await git.mock.results[0]?.value).toBe('secret\n');
+    const script = (git.mock.calls[0]?.[2] as Env)['GIT_ASKPASS'] as string;
+    expect(readFileSync(script, 'utf8')).toContain(`"${process.execPath}" "" askpass git`);
+    expect(done).toEqual([{ session: expect.any(String) as string, failed: false }]);
+    // Git's helper, when the page says so.
+    await ui.request('askpass.configure', { useCredentialHelper: true });
+    git.mockClear();
+    await ui.request('git.checkRemote', { path: '/w', url: 'u' });
+    expect(git.mock.calls[0]?.[1]).toEqual(['ls-remote', '--heads', '--end-of-options', 'u']);
+    await ui.request('askpass.configure', {});
+    git.mockClear();
+    await ui.request('git.checkRemote', { path: '/w', url: 'u' });
+    expect(git.mock.calls[0]?.[1].slice(0, 2)).toEqual(HELPERLESS);
+    await expect(ui.request('askpass.answer', { id: '1', answer: 1 })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+    stop();
   });
 });

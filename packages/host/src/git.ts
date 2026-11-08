@@ -743,7 +743,7 @@ export async function outgoing(
 
 /**
  * Whether a remote's URL answers, as IntelliJ's Define Remote checks before adding it: `git
- * ls-remote`, which fails with git's words. It never asks for a password (see `push`).
+ * ls-remote`, which fails with git's words. Never in a terminal (see `push`).
  */
 export async function checkRemote(worktree: string, url: string, run: Git = git): Promise<void> {
   await run(worktree, ['ls-remote', '--heads', '--end-of-options', url], {
@@ -777,7 +777,7 @@ export type PushDivergence =
 /**
  * Whether the push of the checked-out branch to `to` has diverged from the remote, as IntelliJ's
  * `GitPushDivergenceDetector`: not for a branch the push makes. With `checkRemote`, the remote is
- * asked where its branch is (`git ls-remote`, which never asks for a password); without it, or when
+ * asked where its branch is (`git ls-remote`, never in a terminal); without it, or when
  * it can't be asked, where it was last fetched is taken. Undefined when nothing stands in the way,
  * or when the branch is behind it (a push sends nothing then).
  */
@@ -869,9 +869,10 @@ export type PushTags = 'all' | 'follow';
  * Pushes the checked-out branch where `outgoing` says (to `to`, if given). It becomes the branch's
  * upstream as IntelliJ's (`GitPushTarget.shouldSetUpstream`): when the push makes the target and the
  * branch has no upstream yet ("New & Upstream"), or when asked (its Set upstream). Tags go too when
- * asked, even with nothing else to send; the ones it made there are named. Git never asks
- * for a password here, with no terminal to ask in: it fails instead, unless a credential helper
- * answers. Fails with git's words, which say when the push was rejected (`[rejected]`).
+ * asked, even with nothing else to send; the ones it made there are named. Git never asks for a
+ * password in a terminal, which nobody would see: the host's `run` asks the page (askpass.ts), and
+ * without it git fails instead, unless a credential helper answers. Fails with git's words, which
+ * say when the push was rejected (`[rejected]`).
  */
 export async function push(
   worktree: string,

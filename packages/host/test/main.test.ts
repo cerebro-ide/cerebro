@@ -7,6 +7,8 @@ const agents = vi.hoisted(() => ({
   parseHookInput: (text: string) => JSON.parse(text) as unknown,
 }));
 vi.mock('../src/agents.js', () => agents);
+const askpass = vi.hoisted(() => ({ askPassClient: vi.fn(() => Promise.resolve(3)) }));
+vi.mock('../src/askpass.js', () => askpass);
 // The language servers it's given: their ids.
 const lsp = vi.hoisted(() => ({
   LanguageServers: vi.fn(function (this: { ids: string[] }, specs: { id: string }[]) {
@@ -89,5 +91,25 @@ it('is an agent’s hook when asked: it tells the host what it read', async () =
   process.stdin.removeAllListeners('end');
   process.argv = argv;
   vi.unstubAllEnvs();
+  expect(host.serve).not.toHaveBeenCalled();
+});
+
+it('is git’s askpass when asked: it asks the host, exiting as the client says', async () => {
+  vi.resetModules();
+  host.serve.mockClear();
+  const argv = process.argv;
+  process.argv = [argv[0] as string, 'main.js', 'askpass', 'git', 'Password: '];
+  await import('../src/main.js');
+  await vi.waitFor(() => {
+    expect(process.exitCode).toBe(3);
+  });
+  expect(askpass.askPassClient).toHaveBeenCalledWith(
+    ['git', 'Password: '],
+    process.env,
+    process.stdout,
+    process.stderr,
+  );
+  process.exitCode = undefined;
+  process.argv = argv;
   expect(host.serve).not.toHaveBeenCalled();
 });
