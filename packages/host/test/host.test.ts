@@ -672,6 +672,25 @@ describe('ignored files and rolling back', () => {
       });
     }
   });
+
+  it('says what a push would send, and pushes', async () => {
+    // No branch checked out: there's nothing to push.
+    const { ui } = connect(vi.fn(() => Promise.reject(new Error('detached'))));
+    expect(await ui.request('git.outgoing', { path: '/w' })).toEqual({
+      branch: undefined,
+      remote: undefined,
+      target: undefined,
+      isNew: false,
+      commits: [],
+    });
+    await expect(ui.request('git.push', { path: '/w' })).rejects.toMatchObject({
+      code: ErrorCodes.InternalError,
+      message: 'No branch is checked out',
+    });
+    await expect(ui.request('git.push', {})).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
 });
 
 describe('files', () => {

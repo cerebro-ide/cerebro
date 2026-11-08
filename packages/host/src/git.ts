@@ -662,3 +662,93 @@ export async function listBranches(worktree: string, run: Git = git): Promise<Br
     .filter(([, , , symref]) => symref === '')
     .map(([ref, hash, head]) => ({ ref, hash, current: head === '*' }));
 }
+
+/**
+ * What a push of the checked-out branch sends, as IntelliJ's Push dialog shows it: where to (its
+ * upstream, else the branch of the same name on `origin`, or on the only remote), and the commits
+ * that aren't there yet, newest first.
+ */
+export interface Outgoing {
+  /** The branch checked out (`main`); undefined when HEAD is detached. */
+  branch: string | undefined;
+  /** The remote it goes to; undefined when there's none. */
+  remote: string | undefined;
+  /** The branch there (`main`). */
+  target: string | undefined;
+  /** Whether the target doesn't exist yet: the push makes it, and makes it the upstream. */
+  isNew: boolean;
+  commits: LogCommit[];
+}
+
+export async function outgoing(worktree: string, run: Git = git): Promise<Outgoing> {
+  const nothing = { remote: undefined, target: undefined, isNew: false, commits: [] };
+  let branch: string;
+  try {
+    branch = (await run(worktree, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
+  } catch {
+    return { branch: undefined, ...nothing };
+  }
+  const [upstreamRemote = '', upstreamRef = ''] = (
+    await run(worktree, [
+      'for-each-ref',
+      '--format=%(upstream:remotename)%09%(upstream:remoteref)',
+      `refs/heads/${branch}`,
+    ])
+  )
+    .trim()
+    .split('\t');
+  let remote = upstreamRemote;
+  let target = upstreamRef.replace(/^refs\/heads\//, '');
+  if (remote === '') {
+    const remotes = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+    const only = remotes.length === 1 ? remotes[0] : undefined;
+    remote = remotes.includes('origin') ? 'origin' : (only ?? '');
+    target = branch;
+  }
+  if (remote === '') return { branch, ...nothing };
+  const tracking = `refs/remotes/${remote}/${target}`;
+  const isNew = !(await listBranches(worktree, run)).some((b) => b.ref === tracking);
+  // A new branch sends what no branch of the remote has.
+  const base = isNew ? [`--remotes=${remote}`] : [tracking];
+  const commits = parseLog(
+    await readLog(worktree, [...DETAILS, 'HEAD', '--not', ...base, '--'], run),
+  );
+  return { branch, remote, target, isNew, commits };
+}
+
+/** How a push went: the commits sent, where to, and whether it made the branch there. */
+export interface Pushed {
+  commits: number;
+  remote: string;
+  target: string;
+  isNew: boolean;
+}
+
+/**
+ * Pushes the checked-out branch where `outgoing` says, making a new branch the upstream, as
+ * IntelliJ's "New & Upstream". Git never asks for a password here, with no terminal to ask in: it
+ * fails instead, unless a credential helper answers. Fails with git's words, which say when the
+ * push was rejected (`[rejected]`).
+ */
+export async function push(worktree: string, run: Git = git): Promise<Pushed> {
+  const out = await outgoing(worktree, run);
+  if (out.branch === undefined) throw new Error('No branch is checked out');
+  if (out.remote === undefined) throw new Error('The repository has no remote');
+  const target = out.target as string;
+  if (out.commits.length > 0 || out.isNew) {
+    await run(
+      worktree,
+      [
+        // Its refs' lines, `! [rejected]` among them, on its error output: `--porcelain` puts them
+        // on its output.
+        'push',
+        ...(out.isNew ? ['--set-upstream'] : []),
+        '--end-of-options',
+        out.remote,
+        `HEAD:refs/heads/${target}`,
+      ],
+      { GIT_TERMINAL_PROMPT: '0' },
+    );
+  }
+  return { commits: out.commits.length, remote: out.remote, target, isNew: out.isNew };
+}

@@ -4,7 +4,8 @@
 // - IntelliJ: its keymap files, `$default.xml` (Windows and Linux) and `Mac OS X 10.5+.xml`, which
 //   takes `$default`'s keys with Ctrl and Meta swapped and overrides some
 //   (github.com/JetBrains/intellij-community, platform/platform-resources/src/keymaps).
-//   Commit's Ctrl+K is given where the action is declared (platform/vcs-impl, VcsActions.xml).
+//   Commit's Ctrl+K is given where the action is declared (platform/vcs-impl, VcsActions.xml), and
+//   Push's Ctrl+Shift+K in the keymap dvcs-impl adds to `$default` (platform/dvcs-impl).
 // - VS Code: its keyboard shortcut sheets for Windows and macOS
 //   (code.visualstudio.com/shortcuts/keyboard-shortcuts-windows.pdf and -macos.pdf); a command they
 //   don't name keeps IntelliJ's keys. On Linux, VS Code's keymap takes its Linux sheet's few
@@ -91,6 +92,7 @@ export const INTELLIJ: KeymapPreset = {
     'image.zoomOut': ['Ctrl+-'],
     'image.actualSize': ['Ctrl+/'],
     'changes.commit': ['Ctrl+K'],
+    'vcs.push': ['Ctrl+Shift+K'],
     'changes.amend': ['Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
@@ -161,6 +163,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'image.zoomOut': ['Meta+-'],
     'image.actualSize': ['Meta+/'],
     'changes.commit': ['Meta+K'],
+    'vcs.push': ['Meta+Shift+K'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
@@ -537,6 +540,7 @@ export const SUBLIME: KeymapPreset = {
     'edit.redo': ['Ctrl+Shift+Z', 'Ctrl+Y'],
     'edit.paste': ['Ctrl+Shift+V'],
     'changes.commit': [],
+    'vcs.push': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
     [EDITOR_ACTIONS.find]: ['Ctrl+F'],
     [EDITOR_ACTIONS.replace]: ['Ctrl+H'],

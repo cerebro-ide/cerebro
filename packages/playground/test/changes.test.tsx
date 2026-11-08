@@ -68,6 +68,10 @@ const host = new FakeHost({
     return null;
   },
   'fs.exists': ({ path }: { path: string }) => !path.endsWith('gone.ts'),
+  'git.outgoing': () => {
+    fails('git.outgoing');
+    return { branch: 'main', remote: 'origin', target: 'main', isNew: false, commits: [] };
+  },
 });
 
 const CHANGES: Change[] = [
@@ -635,6 +639,38 @@ describe('Commit', () => {
     await userEvent.type(message(), 'One');
     await userEvent.click(commitButton());
     await expect.poll(() => notifications.all.get(0)?.title).toBe('1 file committed');
+  });
+
+  it('commits, then opens the Push dialog, with Commit and Push…, as IntelliJ’s', async () => {
+    const pushButton = () =>
+      [...document.querySelectorAll('.playground-commit button')].find((b) =>
+        b.textContent.endsWith('Commit and Push…'),
+      ) as HTMLButtonElement;
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    expect(pushButton().textContent).toBe('Commit and Push…');
+    await userEvent.click(document.querySelector('.playground-commit__amend input') as Element);
+    await expect.poll(() => pushButton().textContent).toBe('Amend Commit and Push…');
+    await userEvent.click(document.querySelector('.playground-commit__amend input') as Element);
+    // No message: no commit, no push.
+    await userEvent.click(pushButton());
+    expect(error()).toBe('Specify commit message');
+    await userEvent.type(message(), 'Push it');
+    await userEvent.click(pushButton());
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Push Commits to r',
+    );
+    expect(host.params('git.commit')).toHaveLength(1);
+    expect(host.params('git.outgoing')).toEqual([{ path: wt }]);
+    await press('Cancel');
+    // What to push couldn't be read.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.failing = 'git.outgoing';
+    await userEvent.type(message(), 'Again');
+    await userEvent.click(pushButton());
+    await vi.waitFor(() => {
+      expect(logged).toHaveBeenCalledWith('Reading what to push failed', expect.any(Error));
+    });
   });
 
   it('is Ctrl+K’s: the window shown, its message focused', async () => {

@@ -54,6 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the checked-out branch to its upstream; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1363,7 +1364,7 @@ committing from the Commit tool window, as IntelliJ's non-modal commit does.
   takes them out when they're all in. A turn's files and ignored files have none. Which files are in
   is kept per worktree while the app runs, not between runs (Claude's choice, open to change).
 - **Below the tree:** Amend, the message (a plain text field, "Commit Message" as its placeholder),
-  then Commit. The order is a claim about IntelliJ's, from memory. Commit and Push, the commit
+  then Commit. The order is a claim about IntelliJ's, from memory. The commit
   options (author, sign-off), the message's history and commit checks are later.
 - **Commit** says what's missing first, in IntelliJ's words (its `VcsBundle.properties`): "Select
   files to commit", "Specify commit message", or both. Amending needs no files, to change only the
@@ -1387,8 +1388,9 @@ committing from the Commit tool window, as IntelliJ's non-modal commit does.
   The other keymaps follow IntelliJ's files: Visual Studio's Commit is Ctrl+Alt+K (Cmd+Alt+Shift+K
   on macOS); Eclipse, NetBeans and Sublime Text have none, nor has Emacs an Amend.
 - **How it went is a notification (changed 2026-11-08),** as IntelliJ's: see "Notifications".
-- **Not yet:** Commit and Push, partial commits (lines or chunks), changelists, and keeping the
-  message between runs.
+- **Commit and Push (changed 2026-11-08):** see "Pushing".
+- **Not yet:** partial commits (lines or chunks), changelists, and keeping the message between
+  runs.
 
 ## Changing keys on the Keymap page (2026-11-01)
 
@@ -1963,6 +1965,38 @@ change.
     with Alt, so they can't match.
   - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
     the folded text on hover, folds kept across reopening a file, and a menu for the actions.
+
+## Pushing (2026-11-08)
+
+From the backlog (Ido, 2026-11-08: "All of these. Go."): "the Commit window's second button, as
+IntelliJ's: it commits, then opens the Push dialog with the commits to push, and pushes." IntelliJ's
+words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushResultNotification`,
+`DvcsBundle.properties`, `GitBundle.properties`, `VcsBundle.properties`).
+
+- **The Push dialog,** "Push Commits to {project}", 800 pixels wide as IntelliJ's: the branch and
+  where it goes ("main → origin : main", with "New" when the push makes the branch there), then the
+  commits that aren't there yet, newest first, by subject. Push, with Cancel; Push is disabled when
+  there's nothing to send. A detached HEAD, or no remote, says so instead (Cerebro's words, open to
+  change: IntelliJ offers Define remote).
+- **Where it goes, as IntelliJ's:** the branch's upstream, else the branch of the same name on
+  `origin`, or on the only remote. The commits are those the target doesn't have; for a new branch,
+  those no branch of that remote has. The push is `git push <remote> HEAD:refs/heads/<target>`, with
+  `--set-upstream` for a new branch, so the next push goes to the same place. It doesn't ask for a
+  password (`GIT_TERMINAL_PROMPT=0`): a remote that needs one fails, and says git's message.
+- **Opened from** Git → Push… (Ctrl+Shift+K, Cmd+Shift+K on macOS; IntelliJ gives it in the keymap
+  its dvcs-impl adds to `$default`, and Sublime Text's keymap takes it away), and from the Commit
+  window's **Commit and Push…** button beside Commit ("Amend Commit and Push…" while amending): it
+  commits, and opens the dialog once the commit went through.
+- **How it went is a notification,** as IntelliJ's `GitPushResultNotification`: "Pushed 2 commits to
+  origin/main", "Pushed feat to new branch origin/feat" or "Everything is up to date", a balloon
+  that fades; "Push rejected" (a warning: "Push to origin/main was rejected") when git's message
+  has `[rejected]`, else "Push failed" with git's message, which stay, as IntelliJ's important VCS
+  notifications.
+- **Measured on real git** (`push.test.ts`): `--porcelain` puts `! [rejected]` on git's output, which
+  is lost when git fails, so the push runs without it and the line comes on its error output.
+- **Not yet:** choosing another target branch or remote in the dialog, the selected commit's files
+  beside the list, Force Push, pushing tags, several repositories at once, IntelliJ's check for a
+  diverged remote before pushing, a progress indicator while it pushes, and asking for credentials.
 
 ## Notifications (2026-11-08)
 

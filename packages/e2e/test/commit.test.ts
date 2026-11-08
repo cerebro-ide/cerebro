@@ -1,5 +1,5 @@
-// The Commit tool window end to end: what goes in, the message, Commit and Amend; and going from a
-// diff to the file with F4.
+// The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
+// and going from a diff to the file with F4.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -122,4 +122,35 @@ it('goes from a diff to the file with F4, where the caret is, from either side',
   await side(1).locator('.cm-line', { hasText: '// and more.' }).click();
   await page().keyboard.press('F4');
   await expect.poll(shown).toBe('// and more.');
+});
+
+it('commits and pushes, with Commit and Push…, to the branch’s upstream', async () => {
+  const remote = join(root, 'remote.git');
+  execFileSync('git', ['init', '-q', '--bare', remote]);
+  git('remote', 'add', 'origin', remote);
+  git('push', '-q', '-u', 'origin', 'main');
+  await message().click();
+  await page().keyboard.type('Push it');
+  await page().locator('.playground-commit button', { hasText: 'Commit and Push…' }).click();
+  const shown = page().locator('.cerebro-dialog');
+  await expect
+    .poll(() => shown.locator('.playground-push__target').textContent())
+    .toBe('main→origin : main');
+  expect(await shown.locator('.playground-push__commit').allTextContents()).toEqual(['Push it']);
+  await shown.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
+  await expect
+    .poll(
+      () =>
+        execFileSync('git', ['log', '-1', '--format=%s', 'main'], {
+          cwd: remote,
+          encoding: 'utf8',
+        }),
+      {
+        timeout: 15_000,
+      },
+    )
+    .toBe('Push it\n');
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents())
+    .toContain('Pushed 1 commit to origin/main');
 });
