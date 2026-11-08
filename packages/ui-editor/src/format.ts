@@ -1,9 +1,11 @@
 // Reformat Code, as IntelliJ's (Ctrl+Alt+L): the file, or the selection, formatted by what's given
 // (the file's language server, in the app), as one change undo takes back. A hint at the caret says
 // how many lines changed, in IntelliJ's words, or why it wasn't formatted. A plugin's formatter
-// (Reformat with Prettier) formats an editor the same way, through `formatIn`.
+// (Reformat with Prettier) formats an editor the same way, through `formatIn`. Reindent File, as
+// IntelliJ's (from the status bar's indent), indents every line again, through `reindentIn`.
 
 import { isolateHistory } from '@codemirror/commands';
+import { indentRange } from '@codemirror/language';
 import { ChangeSet, Facet, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { changesTo } from './document.js';
@@ -119,6 +121,23 @@ export function formatIn(element: Element, ask: AskFormat, words?: FormatWords):
   const view = editingView(element);
   if (view) format(view, ask, words);
   return view !== undefined;
+}
+
+/**
+ * Indents every line of the editor `element` is in again, as its language does with the editor's
+ * indent, as one change undo takes back as `name`; returns whether it's in an editor that can be
+ * edited. Lines the language can't tell an indent for stay as they are.
+ */
+export function reindentIn(element: Element, name: string): boolean {
+  const view = editingView(element);
+  if (!view) return false;
+  const changes = indentRange(view.state, 0, view.state.doc.length);
+  view.dispatch({
+    changes,
+    userEvent: 'input.indent',
+    annotations: [isolateHistory.of('full'), historyName.of(name)],
+  });
+  return true;
 }
 
 /** Reformat Code on `keys`, through `ask`. */

@@ -1,10 +1,13 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import type { Tab } from '@cerebro-ide/layout';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { diffTab } from '../src/changes.js';
+import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { globalSettings } from '../src/settings.js';
-import { closeAll, dialog, menuItems, popupItems } from './fakes.js';
+import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
 // The page, as a browser shows it: the samples, without the app's hosts. It's made once, as it's
 // imported: each test leaves it as it found it, or goes on from where the last left it.
@@ -242,6 +245,67 @@ describe('the status bar’s file items', () => {
     global.reset('editor.indent');
     global.reset('editor.detectIndent');
     await expect.poll(indent).toBe('Tab');
+  });
+
+  it('change the indent from its menu, as IntelliJ’s', async () => {
+    // A sample, indented with tabs: the settings say 4 spaces.
+    const was = env().editor.activeGroup.activeTab as Tab;
+    env().editor.open({ id: 'src/styles.css', title: 'styles.css' });
+    const item = q('.cerebro-statusbar__item[data-id="indent"]');
+    await expect.poll(() => item.textContent).toBe('Tab');
+    const heading = () => q('.cerebro-menu-heading').textContent;
+    const choose = async (label: string) => {
+      await userEvent.click(item);
+      await userEvent.click(menuItem(label));
+    };
+    await userEvent.click(item);
+    expect(heading()).toBe('Indents Detection');
+    expect(await menuItems()).toEqual([
+      'Indent New Lines with 4 Spaces',
+      'Reindent File with 4 Spaces',
+      'Configure Indents for CSS…',
+      'Disable Indents Detection',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    // New lines as the settings say, until the file's own is asked for again.
+    await choose('Indent New Lines with 4 Spaces');
+    await expect.poll(() => item.textContent).toBe('4 spaces');
+    await userEvent.click(item);
+    expect(heading()).toBe('Indents Detection');
+    expect(await menuItems()).toEqual([
+      'Indent New Lines with Tab (detected)',
+      'Configure Indents for CSS…',
+      'Disable Indents Detection',
+    ]);
+    await userEvent.click(menuItem('Indent New Lines with Tab (detected)'));
+    await expect.poll(() => item.textContent).toBe('Tab');
+    // Every line indented again, as the settings say; then that's the file's own.
+    const text = () => (documentRead('src/styles.css') as EditorDocument).text.get().toString();
+    const before = text();
+    await choose('Reindent File with 4 Spaces');
+    await expect.poll(text).not.toBe(before);
+    expect(text()).not.toContain('\t');
+    await expect.poll(() => item.textContent).toBe('4 spaces');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    await expect.poll(text).toBe(before);
+    await expect.poll(() => item.textContent).toBe('Tab');
+    // Detection, off and on for every file.
+    await choose('Disable Indents Detection');
+    await expect.poll(() => item.textContent).toBe('4 spaces');
+    await userEvent.click(item);
+    expect(heading()).toBe('CSS Code Style');
+    expect(await menuItems()).toEqual(['Configure Indents for CSS…', 'Enable Indents Detection']);
+    await userEvent.click(menuItem('Enable Indents Detection'));
+    await expect.poll(() => item.textContent).toBe('Tab');
+    globalSettings.layers.global.reset('editor.detectIndent');
+    // Code Style, in Settings.
+    await choose('Configure Indents for CSS…');
+    expect(
+      (await dialog()).querySelector('.cerebro-settings__node--selected')?.textContent,
+    ).toContain('Code Style');
+    await userEvent.keyboard('{Escape}');
+    env().editor.open(was);
   });
 });
 

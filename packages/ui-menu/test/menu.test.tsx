@@ -315,6 +315,28 @@ describe('headings', () => {
     expect(visibleEntries(services, 'view')[0]).toEqual({ heading: 'Group By' });
   });
 
+  it('can say what the menu acts on, and leaves out a command not shown for it', () => {
+    const { services, menus, commands } = withHeadings();
+    commands.register({
+      id: 'bom',
+      label: 'Add BOM',
+      visible: (context: unknown) => context === 'plain.txt',
+      run: () => undefined,
+    });
+    menus.contribute({
+      menu: 'file',
+      item: { heading: (context: unknown) => `${String(context)} Code Style` },
+    });
+    menus.contribute({ menu: 'file', item: { command: 'bom' } });
+    expect(visibleEntries(services, 'file', 'plain.txt')).toEqual([
+      { heading: 'plain.txt Code Style' },
+      { command: 'bom', label: 'Add BOM', dialog: false },
+    ]);
+    expect(visibleEntries(services, 'file', 'marked.txt')).toEqual([
+      { heading: 'marked.txt Code Style' },
+    ]);
+  });
+
   it('is skipped by the keys, and can’t be chosen', () => {
     const { services, ran } = withHeadings();
     open(services, 'view', { x: 10, y: 10 });

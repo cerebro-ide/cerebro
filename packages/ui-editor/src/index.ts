@@ -25,6 +25,7 @@ export {
   ALREADY_FORMATTED,
   fileIn,
   formatIn,
+  reindentIn,
   formattedLines,
   type AskFormat,
   type FormatEdit,
@@ -39,7 +40,7 @@ export {
   type DiffEditorProps,
   type LineRange,
 } from './diff.js';
-export { EditorDocument } from './document.js';
+export { EditorDocument, type FileFormat, type LineSeparator } from './document.js';
 export { detectIndent, indentText, indentUnitOf, type Indent } from './indent.js';
 export { formatLineColumn, parseLineColumn, positionText, type Selected } from './line.js';
 export {

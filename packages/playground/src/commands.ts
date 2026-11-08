@@ -309,11 +309,13 @@ export function setupCommands(
     label: 'Se&ttings',
     dialog: true,
     icon: 'services',
-    run: () => {
+    // At a page when one's given, as the status bar's Configure Indents opens Code Style.
+    run: (context?: { page?: string }) => {
       const env = active();
       const settings = settingsFor(env?.id);
       openSettings({
         settings,
+        ...(context?.page === undefined ? {} : { page: context.page }),
         ...(env
           ? {
               scopeLabels: {
