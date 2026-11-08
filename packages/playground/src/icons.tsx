@@ -14,6 +14,8 @@ const PATHS: Record<string, string> = {
   bulb: 'M8 2a4 4 0 0 0-2.5 7.1v1.9h5V9.1A4 4 0 0 0 8 2zM6 13.5h4',
   git: 'M5 3v10M5 9c0-2 6-1 6-4M11 5a1.5 1.5 0 1 0 0-.01M5 13a1.5 1.5 0 1 0 0-.01',
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
+  // With a dot: notifications not seen yet (a claim: IntelliJ's dot is coloured).
+  bellNew: 'M4 11V7a4 4 0 0 1 6.2-3.3M12 7.5V11l1 1.5H3M6.5 14h3M12.5 4a1 1 0 1 0 0 .01',
   database:
     'M3 4c0-1 2.2-1.5 5-1.5s5 .5 5 1.5v8c0 1-2.2 1.5-5 1.5S3 13 3 12zM3 4c0 1 2.2 1.5 5 1.5S13 5 13 4M3 8c0 1 2.2 1.5 5 1.5S13 9 13 8',
   search: 'M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5',

@@ -21,6 +21,7 @@ import {
   type Turn,
 } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { notifications } from '../src/notifications.js';
 import { closeAll, dialog, dialogText, FakeHost, menuItems, press, project } from './fakes.js';
 
 /** The worktree as git sees it, and what the host was asked to do to it. */
@@ -578,6 +579,13 @@ describe('Commit', () => {
         },
       ]);
     await expect.poll(() => message().value).toBe('');
+    // As IntelliJ's notification.
+    expect(notifications.all.get(0)).toMatchObject({
+      title: '3 files committed',
+      content: 'Change things',
+      type: 'information',
+      display: 'sticky',
+    });
     // Enter alone is a new line.
     await userEvent.type(message(), 'a{Enter}b');
     expect(message().value).toBe('a\nb');
@@ -592,7 +600,13 @@ describe('Commit', () => {
     git.failing = 'git.commit';
     commitButton().click();
     commitButton().click();
-    expect(await dialogText()).toBe('git.commit failed');
+    await expect
+      .poll(() => notifications.all.get(0))
+      .toMatchObject({
+        title: 'Commit failed with error',
+        content: 'git.commit failed',
+        type: 'error',
+      });
     expect(host.params('git.commit')).toHaveLength(1);
     expect(message().value).toBe('m');
   });
@@ -609,6 +623,18 @@ describe('Commit', () => {
     git.hold = undefined;
     await expect.poll(() => commitButton().disabled).toBe(false);
     expect(host.params('git.commit')).toHaveLength(1);
+  });
+
+  it('says one file was committed, as IntelliJ’s', async () => {
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    for (const key of [GROUP, UNVERSIONED]) {
+      if (include(key).checked) await userEvent.click(include(key));
+    }
+    await userEvent.click(include(`${GROUP}:src/main/app.ts`));
+    await userEvent.type(message(), 'One');
+    await userEvent.click(commitButton());
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('1 file committed');
   });
 
   it('is Ctrl+K’s: the window shown, its message focused', async () => {
@@ -660,6 +686,7 @@ describe('Amend', () => {
         files: [],
         amend: true,
       });
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('No files committed');
   });
 
   it('keeps the message when the last one is empty or the same, or Amend is turned off meanwhile', async () => {

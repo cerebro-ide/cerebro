@@ -1,0 +1,27 @@
+{
+  "name": "@cerebro-ide/ui-notifications",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Notifications, as IntelliJ's: balloons in the window's corner, and the Notifications tool window's timeline.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "cerebro-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@cerebro-ide/jsx": "0.0.0",
+    "@cerebro-ide/reactive": "0.0.0"
+  }
+}
