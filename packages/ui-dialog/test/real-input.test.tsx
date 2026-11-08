@@ -3,8 +3,9 @@
 
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
+import { signal } from '@cerebro-ide/reactive';
 import { userEvent } from 'vitest/browser';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { openDialog, prompt, type DialogHandle } from '../src/index.js';
 
 const open: DialogHandle<unknown>[] = [];
@@ -22,6 +23,125 @@ function dialog<T>(options: Parameters<typeof openDialog<T>>[0]) {
 const focused = () => document.activeElement as HTMLElement;
 
 describe('dialogs, with real input', () => {
+  it('OK’s options, as IntelliJ’s option button: the first enabled, the others on its arrow', async () => {
+    const fetchFirst = signal(true);
+    const fetched = vi.fn();
+    const confirm = vi.fn(() => Promise.resolve(true));
+    const handle = dialog<string>({
+      title: 'Push',
+      content: () => <input class="field" />,
+      platform: 'other',
+      ok: {
+        label: 'Push',
+        enabled: () => !fetchFirst.get(),
+        description: () => (fetchFirst.get() ? 'Fetch first' : undefined),
+        accept: () => 'push',
+        options: [
+          {
+            label: 'Force Push',
+            enabled: () => !fetchFirst.get(),
+            check: confirm,
+            accept: () => 'force',
+          },
+          {
+            label: 'Fetch',
+            visible: () => fetchFirst.get(),
+            enabled: () => fetchFirst.get(),
+            run: fetched,
+          },
+        ],
+      },
+    });
+    const main = document.querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
+    const arrow = document.querySelector('.cerebro-dialog__arrow') as HTMLButtonElement;
+    const items = () =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__option')].map((item) => [
+        item.textContent,
+        item.getAttribute('aria-disabled'),
+      ]);
+    // Push and Force Push wait for a fetch: the button fetches, and stays open.
+    expect(main.textContent).toBe('Fetch');
+    expect(main.title).toBe('');
+    await userEvent.click(main);
+    expect(fetched).toHaveBeenCalledTimes(1);
+    expect(handle.open).toBe(true);
+    await userEvent.click(arrow);
+    expect(arrow.getAttribute('aria-expanded')).toBe('true');
+    expect(items()).toEqual([
+      ['Push', 'true'],
+      ['Force Push', 'true'],
+    ]);
+    expect((document.querySelector('.cerebro-dialog__option') as HTMLElement).title).toBe(
+      'Fetch first',
+    );
+    // A disabled one does nothing; the list stays. (Playwright's click waits for it to be enabled.)
+    (document.querySelector('.cerebro-dialog__option') as HTMLElement).click();
+    expect(handle.open).toBe(true);
+    expect(items()).toHaveLength(2);
+    // Escape closes the list, not the dialog.
+    await userEvent.keyboard('{Escape}');
+    expect(items()).toEqual([]);
+    expect(focused()).toBe(arrow);
+    expect(handle.open).toBe(true);
+    // Fetched: Push is the button's, Force Push the arrow's, and Fetch is gone.
+    fetchFirst.set(false);
+    expect(main.textContent).toBe('Push');
+    await userEvent.keyboard('{Enter}');
+    expect(items()).toEqual([['Force Push', 'false']]);
+    // Around the list, both ways.
+    await userEvent.keyboard('{ArrowUp}{ArrowDown}{ArrowDown}');
+    expect(document.querySelector('.cerebro-dialog__option--highlighted')?.textContent).toBe(
+      'Force Push',
+    );
+    await userEvent.keyboard('{Enter}');
+    expect(confirm).toHaveBeenCalledTimes(1);
+    expect(await handle.result).toBe('force');
+  });
+
+  it('closes OK’s list when it loses the focus, and chooses from it with the pointer', async () => {
+    const handle = dialog<string>({
+      title: 'T',
+      content: () => <input class="field" />,
+      ok: {
+        accept: () => 'ok',
+        options: [
+          { label: 'Other', accept: () => 'other' },
+          { label: 'Another', accept: () => 'another' },
+        ],
+      },
+    });
+    const arrow = document.querySelector('.cerebro-dialog__arrow') as HTMLButtonElement;
+    await userEvent.click(arrow);
+    expect(document.querySelector('.cerebro-dialog__options')).not.toBeNull();
+    // Enter with nothing highlighted chooses nothing; other keys do nothing.
+    await userEvent.keyboard('{Enter}a');
+    expect(handle.open).toBe(true);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{ArrowUp}');
+    expect(document.querySelector('.cerebro-dialog__option--highlighted')?.textContent).toBe(
+      'Other',
+    );
+    await userEvent.click(document.querySelector('.field') as HTMLElement);
+    expect(document.querySelector('.cerebro-dialog__options')).toBeNull();
+    // Pressed again, it closes; and again, it opens.
+    await userEvent.click(arrow);
+    await userEvent.keyboard('{Tab}');
+    expect(document.querySelector('.cerebro-dialog__options')).toBeNull();
+    await userEvent.click(arrow);
+    await userEvent.click(document.querySelector('.cerebro-dialog__option') as HTMLElement);
+    expect(await handle.result).toBe('other');
+  });
+
+  it('disables OK’s arrow when it has nothing to list', () => {
+    dialog({
+      title: 'T',
+      content: () => null,
+      ok: { accept: () => 1, options: [{ label: 'Hidden', visible: () => false, run: () => {} }] },
+    });
+    expect((document.querySelector('.cerebro-dialog__arrow') as HTMLButtonElement).disabled).toBe(
+      true,
+    );
+  });
+
   it('Tab moves through the controls, wrapping; Enter on Cancel cancels', async () => {
     let accepted = 0;
     const handle = dialog({

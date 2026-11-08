@@ -99,6 +99,64 @@
   color: #ffffff;
 }
 
+/* OK with options, as IntelliJ's option button: one button, its arrow parted by a line. */
+.cerebro-dialog__option-button {
+  position: relative;
+  display: flex;
+}
+
+.cerebro-dialog__option-button > .cerebro-dialog__button:first-child {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.cerebro-dialog__arrow {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0 6px;
+  border-left-color: var(--cerebro-dialog);
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+/* Below the button, from its left, as IntelliJ's. */
+.cerebro-dialog__options {
+  position: absolute;
+  z-index: 1;
+  top: calc(100% + 2px);
+  left: 0;
+  min-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: var(--cerebro-radius);
+  background: var(--cerebro-panel);
+  box-shadow: var(--cerebro-shadow);
+  list-style: none;
+  white-space: nowrap;
+}
+
+.cerebro-dialog__options:focus {
+  outline: none;
+}
+
+.cerebro-dialog__option {
+  height: var(--cerebro-menu-item-height);
+  padding: 0 8px;
+  border-radius: 4px;
+  line-height: var(--cerebro-menu-item-height);
+}
+
+.cerebro-dialog__option--highlighted {
+  background: var(--cerebro-menu-highlight);
+}
+
+.cerebro-dialog__option--disabled {
+  color: var(--cerebro-text-muted);
+}
+
 .cerebro-dialog__button:disabled {
   opacity: 0.5;
 }
