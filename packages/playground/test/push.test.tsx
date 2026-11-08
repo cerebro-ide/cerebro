@@ -1,15 +1,16 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import type { LogCommit } from '../src/git-log.js';
 import { notifications } from '../src/notifications.js';
-import { openPush, setupPush } from '../src/push.js';
+import { openPush, pushing, setupPush } from '../src/push.js';
 import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
-const commit = (subject: string): LogCommit => ({
+const commit = (subject: string, parent?: string): LogCommit => ({
   hash: `${subject}-hash`,
-  parents: [],
+  parents: parent === undefined ? [] : [parent],
   author: 'Ann',
   email: 'a@x',
   time: 0,
@@ -23,17 +24,23 @@ const git = {
   outgoing: {} as Record<string, unknown>,
   /** Pushed: how many commits, else the error it fails with. */
   pushed: 0 as number | Error,
+  /** Held until it resolves: a push under way. */
+  hold: undefined as Promise<void> | undefined,
 };
 const host = new FakeHost({
   'git.outgoing': () => {
     if (git.outgoing instanceof Error) throw git.outgoing;
     return git.outgoing;
   },
-  'git.push': () => {
+  'git.push': async () => {
+    await git.hold;
     if (git.pushed instanceof Error) throw git.pushed;
     const { remote, target, isNew } = git.outgoing;
     return { commits: git.pushed, remote, target, isNew };
   },
+  'git.changes': ({ from, to }: { from: string; to: string }) => [
+    { path: `${from}..${to}.ts`, status: 'modified' },
+  ],
 });
 
 const commands = new CommandRegistry();
@@ -53,7 +60,7 @@ beforeEach(() => {
     remote: 'origin',
     target: 'main',
     isNew: false,
-    commits: [commit('Second'), commit('First')],
+    commits: [commit('Second', 'First-hash'), commit('First', 'base')],
   };
   git.pushed = 2;
 });
@@ -86,6 +93,47 @@ describe('Push', () => {
       type: 'information',
       display: 'balloon',
     });
+  });
+
+  it('shows the selected row’s files beside: all the commits’, or one’s, as IntelliJ’s', async () => {
+    const files = () => texts('.playground-push__files .playground-change');
+    commands.execute('vcs.push');
+    await expect.poll(files).toEqual(['base..Second-hash.ts']);
+    const second = [...document.querySelectorAll<HTMLElement>('.playground-push__commit')][1];
+    expect(second?.title).toMatch(/^First-ha {2}.+ {2}by Ann\n\nFirst$/);
+    await userEvent.click(second as HTMLElement);
+    await expect.poll(files).toEqual(['base..First-hash.ts']);
+    // The first commit of all: from git's empty tree.
+    git.outgoing = { ...git.outgoing, commits: [{ ...commit('Root'), body: 'Why' }] };
+    await closeAll();
+    commands.execute('vcs.push');
+    await expect.poll(files).toEqual(['4b825dc642cb6eb9a060e54bf8d69288fbee4904..Root-hash.ts']);
+    expect(document.querySelector<HTMLElement>('.playground-push__commit')?.title).toMatch(
+      /\n\nRoot\n\nWhy$/,
+    );
+  });
+
+  it('says there’s nothing selected for a new branch with no commits of its own', async () => {
+    git.outgoing = { ...git.outgoing, isNew: true, commits: [] };
+    commands.execute('vcs.push');
+    await expect
+      .poll(() => texts('.playground-push__files .playground-project__empty'))
+      .toEqual(['No commits selected']);
+  });
+
+  it('shows Pushing… meanwhile, and pushes once at a time', async () => {
+    let finish!: () => void;
+    git.hold = new Promise((resolve) => (finish = resolve));
+    commands.execute('vcs.push');
+    await press('Push');
+    await expect.poll(() => pushing.get()).toBe(true);
+    expect(commands.isEnabled('vcs.push')).toBe(false);
+    await openPush('/r');
+    expect(host.params('git.outgoing')).toHaveLength(1);
+    finish();
+    git.hold = undefined;
+    await expect.poll(() => pushing.get()).toBe(false);
+    expect(commands.isEnabled('vcs.push')).toBe(true);
   });
 
   it('says one commit, and when there was nothing left to push', async () => {

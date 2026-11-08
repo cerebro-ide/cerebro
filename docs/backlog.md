@@ -55,10 +55,17 @@ on it:
   the earlier fix (ed7bffc) measured that for the test of typing.
   Again on 2026-11-08 (feat/indent, a full run while the machine's network kept changing): 4
   searches where 2 were expected; it passed alone 3 times.
-- **The Log e2e tests failed once in a full local run** (2026-11-07, on fix/go-to-line-focus;
-  they passed alone twice and in the next full run): the toolbar's » was hidden when a test
-  hovered it (`Element is not visible`), so the toolbar's filters seemed to fit. Cause not found;
-  the tests now print the window's and the toolbar's sizes when the » is hidden.
+- **The Log e2e tests fail in some full local runs: the window manager places the window late**
+  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; never alone, never in CI).
+  Measured with the window's `resize` and `move` events: the test's resize to 1024×768 right after
+  launch took effect, the window went back to 1440×900 a millisecond later, and WSLg's window
+  manager placed it 2.8 s later (moved off-screen, then to its centred place). Depending on that
+  last step the window ended at 1440×900 (the toolbar's filters fit, so its » never showed) or
+  1024×768, and a click before it was lost (the Git stripe button's, once). The tests print the
+  window's, the screen's and the toolbar's sizes when the » is hidden. Fixing it needs the e2e
+  harness (and `qa.mjs`, which resizes the same way) to wait until the window is placed, or the
+  app to take its size at launch, as IntelliJ restores a project's window bounds; neither is done
+  yet.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.

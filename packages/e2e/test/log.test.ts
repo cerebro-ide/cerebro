@@ -37,6 +37,9 @@ const subjects = () => page().locator('.playground-log__message').allTextContent
  * One of the Log toolbar's filters and actions, in the popup its » shows them in when pointed at:
  * the popup lies over the », so a click there would land on what's in it.
  */
+/** What resizing the window found and did, printed when the » is hidden. */
+let resized: unknown;
+
 const inToolbar = async (selector: string) => {
   const popup = page().locator('.cerebro-toolbar-row__popup');
   if ((await popup.count()) === 0) {
@@ -52,10 +55,21 @@ const inToolbar = async (selector: string) => {
           row: document
             .querySelector('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row')
             ?.getBoundingClientRect().width,
+          // Wider than shown, with the » hidden: the row's fit (in an animation frame) hasn't run.
+          items: (() => {
+            const items = document.querySelector(
+              '.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__items',
+            );
+            return items && { scroll: items.scrollWidth, client: items.clientWidth };
+          })(),
+          visibility: document.visibilityState,
+          focused: document.hasFocus(),
         })),
-        await running.app.evaluate(({ BrowserWindow }) =>
-          BrowserWindow.getAllWindows().map((window) => window.getBounds()),
-        ),
+        await running.app.evaluate(({ BrowserWindow, screen }) => ({
+          windows: BrowserWindow.getAllWindows().map((window) => window.getBounds()),
+          screen: screen.getPrimaryDisplay().workArea,
+        })),
+        resized,
       );
     await more.hover({ force: true });
   }
@@ -76,8 +90,10 @@ beforeAll(async () => {
   running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
   // As narrow as CI's macOS and Windows windows came out: the Log's toolbar hides its filters and
   // Refresh behind its » here, on every platform.
-  await running.app.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setSize(1024, 768);
+  resized = await running.app.evaluate(({ BrowserWindow }) => {
+    const windows = BrowserWindow.getAllWindows();
+    windows[0]?.setSize(1024, 768);
+    return { windows: windows.length, bounds: windows[0]?.getBounds() };
   });
 });
 

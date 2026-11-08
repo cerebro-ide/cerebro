@@ -112,12 +112,28 @@ body,
   gap: 6px;
 }
 
-/* The Push dialog: where the branch goes, then the commits to push. */
+/* The Push dialog: the repository and its commits, and beside them the selected row's files. */
+.playground-push__panes {
+  display: flex;
+  height: 360px;
+}
+
+.playground-push__log,
+.playground-push__files {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.playground-push__files {
+  border-left: 1px solid var(--cerebro-border);
+}
+
 .playground-push__target {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  margin: 0 0 8px;
   font-weight: 600;
 }
 
@@ -127,17 +143,8 @@ body,
   font-weight: normal;
 }
 
-.playground-push__commits {
-  overflow: auto;
-  height: 320px;
-  margin: 0;
-  padding: 0 0 0 20px;
-  list-style: none;
-}
-
 .playground-push__commit {
   overflow: hidden;
-  padding: 2px 0;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

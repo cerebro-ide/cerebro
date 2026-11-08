@@ -54,7 +54,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the checked-out branch to its upstream; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -1973,11 +1973,20 @@ IntelliJ's: it commits, then opens the Push dialog with the commits to push, and
 words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushResultNotification`,
 `DvcsBundle.properties`, `GitBundle.properties`, `VcsBundle.properties`).
 
-- **The Push dialog,** "Push Commits to {project}", 800 pixels wide as IntelliJ's: the branch and
-  where it goes ("main → origin : main", with "New" when the push makes the branch there), then the
-  commits that aren't there yet, newest first, by subject. Push, with Cancel; Push is disabled when
-  there's nothing to send. A detached HEAD, or no remote, says so instead (Cerebro's words, open to
-  change: IntelliJ offers Define remote).
+- **The Push dialog,** "Push Commits to {project}", 800 pixels wide as IntelliJ's. Push, with
+  Cancel; Push is disabled when there's nothing to send. A detached HEAD, or no remote, says so
+  instead (Cerebro's words, open to change: IntelliJ offers Define remote).
+- **Its two panes (changed 2026-11-08),** as IntelliJ's `PushLog`:
+  - on the left, the repository's row (the branch and where it goes, "main → origin : main", with
+    "New" when the push makes the branch there), and under it the commits that aren't there yet,
+    newest first, by subject. A commit's tooltip is IntelliJ's: its short hash, date and author, then
+    its message;
+  - on the right, the selected row's files, as the Log's: the repository's row, selected to start
+    with, gives all the commits' files; a commit, its own. With nothing to push, "No commits
+    selected".
+- **Pushing… (changed 2026-11-08):** while a push is under way, the status bar shows "Pushing…" with
+  a moving bar, as IntelliJ's background task, beside the indexing; Push can't start another
+  meanwhile (open to change: IntelliJ queues them).
 - **Where it goes, as IntelliJ's:** the branch's upstream, else the branch of the same name on
   `origin`, or on the only remote. The commits are those the target doesn't have; for a new branch,
   those no branch of that remote has. The push is `git push <remote> HEAD:refs/heads/<target>`, with
@@ -1994,9 +2003,10 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   notifications.
 - **Measured on real git** (`push.test.ts`): `--porcelain` puts `! [rejected]` on git's output, which
   is lost when git fails, so the push runs without it and the line comes on its error output.
-- **Not yet:** choosing another target branch or remote in the dialog, the selected commit's files
-  beside the list, Force Push, pushing tags, several repositories at once, IntelliJ's check for a
-  diverged remote before pushing, a progress indicator while it pushes, and asking for credentials.
+- **Not yet:** choosing another target branch or remote in the dialog, Force Push, pushing tags,
+  several repositories at once, IntelliJ's check for a diverged remote before pushing, and asking
+  for credentials. In the dialog: selecting several commits, Show Details (the selected commit's
+  message under its files), and opening a file's diff.
 
 ## Notifications (2026-11-08)
 

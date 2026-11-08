@@ -58,7 +58,7 @@ import { ProjectTree, selectInTree } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
-import { setupPush } from './push.js';
+import { pushing, setupPush } from './push.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -784,6 +784,16 @@ status.add({
       ? 'The worktree’s sources, indexed for navigation by name'
       : 'A background task (sample)',
   progress: indexProgress,
+});
+// A push under way, as IntelliJ's background task "Pushing…".
+status.add({
+  id: 'push',
+  side: 'left',
+  order: 2,
+  text: () => 'Pushing…',
+  tooltip: () => 'Pushing the branch',
+  hidden: () => !pushing.get(),
+  progress: () => 'indeterminate',
 });
 status.add({
   id: 'agent',
