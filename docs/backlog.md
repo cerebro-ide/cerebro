@@ -6,6 +6,19 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
+### Next, in this order (Ido, 2026-11-08: "All of these. Go.")
+
+1. **The indent, as IntelliJ's:** typing indents by 2 spaces, while Reformat Code indents by the
+   tab size setting. An indent setting, as IntelliJ's Code Style, and a file's own indent detected
+   (IntelliJ's "Detect and use existing file indents for editing", on by default), shown on the
+   status bar.
+2. **The status bar's popups:** clicking the line separator, the encoding or the indent opens
+   IntelliJ's menu to change it (convert the line separators, remove a BOM, the indent's options).
+3. **Notifications:** IntelliJ's balloons and Notifications tool window; the "N files committed"
+   notice after a commit waits on them.
+4. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
+   Push dialog with the commits to push, and pushes.
+
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
