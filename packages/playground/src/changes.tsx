@@ -37,6 +37,7 @@ import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
+import { openPush } from './push.js';
 
 export interface Change {
   path: string;
@@ -531,10 +532,10 @@ const committing = signal(false);
  * Commits the files put in, with the message, as IntelliJ's Commit button: it says what's missing
  * first. Amending needs no files: it can change only the message. How it went is a notification,
  * as IntelliJ's ShowNotificationCommitResultHandler: "2 files committed" with the message, or
- * "Commit failed with error" with why, each replacing the last.
+ * "Commit failed with error" with why, each replacing the last. Says whether it committed.
  */
-async function commit(changes: Changes): Promise<void> {
-  if (committing.peek()) return;
+async function commit(changes: Changes): Promise<boolean> {
+  if (committing.peek()) return false;
   const files = [...changes.tracked(), ...changes.unversioned()].filter((change) =>
     isIncluded(changes, change),
   );
@@ -550,7 +551,7 @@ async function commit(changes: Changes): Promise<void> {
           ? 'Select files to commit'
           : 'Specify commit message',
     );
-    return;
+    return false;
   }
   commitError.set('');
   committing.set(true);
@@ -573,6 +574,7 @@ async function commit(changes: Changes): Promise<void> {
       group: 'commit',
     });
     await changes.refresh(true);
+    return true;
   } catch (error) {
     notifications.notify({
       title: 'Commit failed with error',
@@ -581,9 +583,15 @@ async function commit(changes: Changes): Promise<void> {
       display: 'sticky',
       group: 'commit',
     });
+    return false;
   } finally {
     committing.set(false);
   }
+}
+
+/** Commit and Push…, as IntelliJ's: commits, then opens the Push dialog with what's to push. */
+async function commitAndPush(changes: Changes): Promise<void> {
+  if (await commit(changes)) await openPush(changes.path);
 }
 
 /**
@@ -1086,6 +1094,18 @@ function CommitPanel(props: { changes: Changes; services: MenuServices }): Node 
           }}
         >
           Commit
+        </button>
+        <button
+          type="button"
+          class="cerebro-dialog__button"
+          disabled={() => committing.get()}
+          on:click={() => {
+            commitAndPush(changes).catch((error: unknown) => {
+              console.error('Reading what to push failed', error);
+            });
+          }}
+        >
+          {() => (changes.amend.get() ? 'Amend Commit and Push…' : 'Commit and Push…')}
         </button>
       </div>
     </div>

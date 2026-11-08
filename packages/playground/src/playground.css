@@ -112,6 +112,36 @@ body,
   gap: 6px;
 }
 
+/* The Push dialog: where the branch goes, then the commits to push. */
+.playground-push__target {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.playground-push__arrow,
+.playground-push__new {
+  color: var(--cerebro-text-muted);
+  font-weight: normal;
+}
+
+.playground-push__commits {
+  overflow: auto;
+  height: 320px;
+  margin: 0;
+  padding: 0 0 0 20px;
+  list-style: none;
+}
+
+.playground-push__commit {
+  overflow: hidden;
+  padding: 2px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* A changed file in the Commit tool window: its name in its status's colour, then its folder. */
 .playground-change--modified,
 .playground-change--renamed {

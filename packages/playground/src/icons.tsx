@@ -5,6 +5,7 @@ const PATHS: Record<string, string> = {
   folder:
     'M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 11.5z',
   commit: 'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM1.5 8h4M10.5 8h4',
+  push: 'M8 13.5V3M4.5 6.5L8 3l3.5 3.5',
   structure: 'M3 3h4v3H3zM9 10h4v3H9zM5 6v5.5h4M9 4.5h4',
   bookmark: 'M4.5 2.5h7v11L8 10.5l-3.5 3z',
   note: 'M3.5 2.5h9v11h-9zM5.5 5.5h5M5.5 8h5M5.5 10.5h3',

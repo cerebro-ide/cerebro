@@ -6,11 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### Next, in this order (Ido, 2026-11-08: "All of these. Go.")
-
-1. **Commit and Push:** the Commit window's second button, as IntelliJ's: it commits, then opens the
-   Push dialog with the commits to push, and pushes.
-
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
