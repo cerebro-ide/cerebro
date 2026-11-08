@@ -118,4 +118,6 @@ on it:
   save took (up to 35 s). Measured in CI on #136 (2026-11-04): the stored setting was 1 s, and the
   file was saved 7 s after the edit, the editor focused. So it isn't the old 15 s. The test now
   also prints the keys and mouse events after the edit, which start the idle time again, and the
-  page's long tasks.
+  page's long tasks. Measured in CI on #153 (2026-11-08): saved 6.0 s after the edit, with no key
+  or mouse event after the typing and no long task, the editor focused, the setting 1 s. So
+  nothing started the idle time again; the delay's cause is still not found.
