@@ -40,6 +40,8 @@ export interface DialogOptions<T> {
    * Open Project dialog has This Window (OK) and New Window. They go beside OK.
    */
   choices?: { label: string; accept: () => T }[];
+  /** Options at the buttons' left, as IntelliJ's Push dialog has Push tags there. */
+  footer?: () => Child;
   /** Default: Cancel, or Close without an OK button. */
   cancelLabel?: string;
   /** The dialog's width in pixels; by default it fits its content. */
@@ -298,6 +300,7 @@ class Dialog<T> implements DialogHandle<T> {
         </div>
         <div class="cerebro-dialog__content">{options.content(this)}</div>
         <div class="cerebro-dialog__buttons">
+          {options.footer ? <div class="cerebro-dialog__footer">{options.footer()}</div> : null}
           {platform === 'mac'
             ? [cancelButton, applyButton, ...choices.reverse(), okButton]
             : [okButton, ...choices, cancelButton, applyButton]}

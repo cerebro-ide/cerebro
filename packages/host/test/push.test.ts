@@ -45,6 +45,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      tags: [],
     });
     commit(repo, 'second');
     commit(repo, 'third');
@@ -55,6 +56,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'main',
       isNew: false,
+      tags: [],
     });
     expect(run(remote, 'log', '-1', '--format=%s', 'main').trim()).toBe('third');
     expect((await outgoing(repo)).commits).toEqual([]);
@@ -78,6 +80,7 @@ describe('pushing, with real git', () => {
       remote: 'origin',
       target: 'feature',
       isNew: true,
+      tags: [],
     });
     expect(run(remote, 'log', '-1', '--format=%s', 'feature').trim()).toBe('mine');
     expect(run(repo, 'rev-parse', '--abbrev-ref', 'feature@{u}').trim()).toBe('origin/feature');
@@ -116,6 +119,7 @@ describe('pushing, with real git', () => {
       remote: 'second',
       target: 'review',
       isNew: true,
+      tags: [],
     });
     expect(run(second, 'log', '-1', '--format=%s', 'review').trim()).toBe('mine');
     expect(run(repo, 'rev-parse', '--abbrev-ref', 'main@{u}').trim()).toBe('origin/main');
@@ -156,6 +160,31 @@ describe('pushing, with real git', () => {
     run(repo, 'remote', 'add', 'b', remote);
     run(repo, 'remote', 'add', 'a', remote);
     expect((await outgoing(repo)).remote).toBe('a');
+  });
+
+  it('pushes tags when asked, all or the branch’s, as IntelliJ’s, naming the ones it made', async () => {
+    const { repo, remote } = cloned('tagged');
+    run(repo, 'tag', 'light');
+    run(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'tag', '-a', 'annotated', '-m', 'v');
+    // Only the annotated one on the branch, with nothing else to send.
+    expect(
+      await push(repo, undefined, { remote: 'origin', target: 'main', tags: 'follow' }),
+    ).toEqual({
+      commits: 0,
+      remote: 'origin',
+      target: 'main',
+      isNew: false,
+      tags: ['annotated'],
+    });
+    commit(repo, 'more');
+    expect(await push(repo, undefined, { remote: 'origin', target: 'main', tags: 'all' })).toEqual({
+      commits: 1,
+      remote: 'origin',
+      target: 'main',
+      isNew: false,
+      tags: ['light'],
+    });
+    expect(run(remote, 'tag').trim().split('\n')).toEqual(['annotated', 'light']);
   });
 
   it('defines a remote whose URL answers, fetched when asked, as IntelliJ’s Define Remote', async () => {
