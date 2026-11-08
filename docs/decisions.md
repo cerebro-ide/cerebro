@@ -1986,7 +1986,11 @@ for SSH passphrases and for fetch). IntelliJ's behaviour and words are from its 
   asks "Username for 'http://host':", then "Password for 'http://user@host':"; and OpenSSH asks the
   ssh script for a key's passphrase (with `ssh-keygen -y`, there being no SSH server to test
   against). After a cancelled username, git still asks for the password (measured): the rest of
-  that command is answered nothing, unasked, as IntelliJ's.
+  that command is answered nothing, unasked, as IntelliJ's. On Windows (measured with the portable
+  setup, git 2.56 against a server in WSL): the `.bat` script and a named pipe, with both prompts,
+  a failed login caught and asked again. The client's question is a line, not the end of its
+  connection: a named pipe closed for writing is closed both ways (measured: the host's reply
+  failed with EPIPE).
 - **Git's credential helpers are left out** (`-c credential.helper=`), as IntelliJ's "Use credential
   helper", off by default: a setting under Version Control → Git. When git has one configured
   (`git config --get credential.helper`), the login dialog offers Enter credentials or Use

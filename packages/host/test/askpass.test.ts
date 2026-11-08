@@ -1,7 +1,7 @@
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
-import { createConnection, type AddressInfo } from 'node:net';
+import { createConnection, createServer as createSocketServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import { join } from 'node:path';
@@ -308,13 +308,72 @@ describe('the askpass client', () => {
     expect(err.out[1]).toBe('Could not communicate with Cerebro: not run by its git\n');
   });
 
+  it('answers a question as a line, the connection left open', async () => {
+    // On Windows, a named pipe closed for writing is closed both ways (measured: the reply
+    // failed with EPIPE), so the question ends with its line.
+    const path = socketPath();
+    const server = listenForAskPass(path, (message) => Promise.resolve(`for ${message.prompt}`));
+    const reply = await new Promise<string>((resolve) => {
+      let text = '';
+      const socket = createConnection(path, () => {
+        // In two pieces, as a pipe may give it.
+        socket.write('{"session":"1","kind":"git",');
+        setTimeout(() => socket.write('"prompt":"P"}\n'), 20);
+      });
+      socket.setEncoding('utf8');
+      socket.on('data', (chunk: string) => (text += chunk));
+      socket.on('end', () => {
+        resolve(text);
+      });
+    });
+    expect(reply).toBe('{"answer":"for P"}');
+    server.close();
+  });
+
+  it('lets a client go before its answer', async () => {
+    const path = socketPath();
+    let answer!: (text: string) => void;
+    const asked = new Promise<void>((resolve) => {
+      listenForAskPass(path, () => {
+        resolve();
+        return new Promise((r) => (answer = r));
+      });
+    });
+    const socket = createConnection(path, () =>
+      socket.write('{"session":"1","kind":"git","prompt":""}\n'),
+    );
+    await asked;
+    socket.destroy();
+    await new Promise((resolve) => socket.on('close', resolve));
+    answer('late');
+    // Nothing thrown in the host: the test would fail with an unhandled error.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
+  it('fails when the host’s reply isn’t one', async () => {
+    const path = socketPath();
+    const server = createSocketServer((socket) => socket.end('not json'));
+    server.listen(path);
+    const err = output();
+    expect(
+      await askPassClient(
+        ['git', 'P'],
+        { CEREBRO_ASKPASS_SOCKET: path },
+        output().stream,
+        err.stream,
+      ),
+    ).toBe(1);
+    expect(err.out).toEqual(['Could not communicate with Cerebro: no answer\n']);
+    server.close();
+  });
+
   it('is answered null for a garbled question', async () => {
     const path = socketPath();
     const server = listenForAskPass(path, () => Promise.resolve('never'));
     const send = (text: string) =>
       new Promise<string>((resolve) => {
         let reply = '';
-        const socket = createConnection(path, () => socket.end(text));
+        const socket = createConnection(path, () => socket.write(`${text}\n`));
         socket.setEncoding('utf8');
         socket.on('data', (chunk: string) => (reply += chunk));
         socket.on('end', () => {

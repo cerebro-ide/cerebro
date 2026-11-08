@@ -65,24 +65,31 @@ export function writeAskPassScripts(
 }
 
 /**
- * Listens for the clients' questions on `path`, each answered with what `ask` gives; a garbled one,
- * with null.
+ * Listens for the clients' questions on `path`, each a line, answered with what `ask` gives (a
+ * garbled one, with null), after which the connection ends. A line, not the client's end of the
+ * connection: on Windows, a named pipe closed for writing is closed both ways (measured: the reply
+ * failed with EPIPE).
  */
 export function listenForAskPass(
   path: string,
   ask: (message: AskMessage) => Promise<string | null>,
   platform: NodeJS.Platform = process.platform,
 ): Server {
-  // Half open: the client has sent its question, and waits for the answer.
-  const server = createServer({ allowHalfOpen: true }, (socket) => {
+  const server = createServer((socket) => {
     let text = '';
     socket.setEncoding('utf8');
-    socket.on('data', (chunk: string) => {
+    // A client gone before its answer (its git killed): nobody to answer.
+    socket.on('error', () => undefined);
+    const read = (chunk: string) => {
       text += chunk;
-    });
-    socket.on('end', () => {
-      void answer(text).then((reply) => socket.end(JSON.stringify({ answer: reply })));
-    });
+      const end = text.indexOf('\n');
+      if (end < 0) return;
+      socket.off('data', read);
+      void answer(text.slice(0, end)).then((reply) =>
+        socket.end(JSON.stringify({ answer: reply })),
+      );
+    };
+    socket.on('data', read);
   });
   const answer = async (text: string) => {
     let message: Partial<AskMessage>;
@@ -127,14 +134,21 @@ export function askPassClient(
   return new Promise((resolve) => {
     let reply = '';
     const socket = createConnection(path, () => {
-      socket.end(JSON.stringify(message));
+      socket.write(`${JSON.stringify(message)}\n`);
     });
     socket.setEncoding('utf8');
     socket.on('data', (chunk: string) => {
       reply += chunk;
     });
     socket.on('end', () => {
-      const { answer } = JSON.parse(reply) as { answer: string | null };
+      let answer: string | null;
+      try {
+        ({ answer } = JSON.parse(reply) as { answer: string | null });
+      } catch {
+        err.write('Could not communicate with Cerebro: no answer\n');
+        resolve(1);
+        return;
+      }
       if (answer === null) err.write('Authentication request was cancelled\n');
       else out.write(`${answer}\n`);
       resolve(0);
