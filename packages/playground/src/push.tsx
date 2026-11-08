@@ -4,15 +4,19 @@
 // it goes can be changed, as IntelliJ's GitPushTargetPanel: the remote from a list, the branch
 // there typed, with the remote's branches suggested, and Set upstream; or a remote defined, as
 // IntelliJ's GitDefineRemoteDialog. Push tags, beside the buttons, sends tags too. Push pushes them,
-// "Pushing…" on the status bar meanwhile. How it went is a notification, as
-// IntelliJ's GitPushResultNotification: "Pushed 2 commits to origin/main", "Pushed main to new
-// branch origin/main", "Everything is up to date", or "Push rejected" or "Push failed", which stay.
+// "Pushing…" on the status bar meanwhile. When the remote's branch has commits the branch hasn't, a
+// banner says so over the tree, as IntelliJ's (PushDivergenceBanner): Force Push, on Push's arrow,
+// replaces them, after asking; when they aren't fetched, Fetch fetches them first, to count them.
+// How it went is a notification, as IntelliJ's GitPushResultNotification: "Pushed 2 commits to
+// origin/main", "Pushed main to new branch origin/main", "Force pushed main to origin/main",
+// "Everything is up to date", or "Push rejected" or "Push failed", which stay.
 
 import { onCleanup } from '@cerebro-ide/jsx';
-import { computed, effect, signal, untracked, type Signal } from '@cerebro-ide/reactive';
+import { batch, computed, effect, signal, untracked, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
+import { notificationIcon } from '@cerebro-ide/ui-notifications';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import {
   active,
@@ -44,7 +48,39 @@ interface Pushed {
   remote: string;
   target: string;
   isNew: boolean;
+  forced: boolean;
   tags: string[];
+}
+
+/** Why a push will be rejected: the host's `git.divergence`. */
+type PushDivergence =
+  | { kind: 'diverged'; remoteCommits: number; lease: string }
+  | { kind: 'fetchRequired'; lease: string };
+
+/** Branches a force push doesn't go to: IntelliJ's protected branches, by default. */
+const isProtected = (target: string) => target === 'main' || target === 'master';
+
+/** Where force pushes go without asking, as IntelliJ's Don't warn about this target keeps them. */
+const silentKey = (worktree: string) => `cerebro.push.silent:${worktree}`;
+
+function readSilentTargets(worktree: string): string[] {
+  try {
+    const kept: unknown = JSON.parse(localStorage.getItem(silentKey(worktree)) ?? '[]');
+    return Array.isArray(kept) ? kept.filter((t) => typeof t === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function keepSilentTarget(worktree: string, where: string): void {
+  try {
+    localStorage.setItem(
+      silentKey(worktree),
+      JSON.stringify([...readSilentTargets(worktree), where]),
+    );
+  } catch {
+    // Not kept: the next force push there asks again.
+  }
 }
 
 /** Which tags go too, as IntelliJ's Push tags: all, or the branch's annotated ones. */
@@ -77,11 +113,13 @@ function keepPushTags(worktree: string, tags: PushTags | undefined): void {
 function pushedText(pushed: Pushed, branch: string): string {
   const where = `${pushed.remote}/${pushed.target}`;
   const n = pushed.commits;
-  const sent = pushed.isNew
-    ? `Pushed ${branch} to new branch ${where}`
-    : n === 0
-      ? undefined
-      : `Pushed ${String(n)} ${n === 1 ? 'commit' : 'commits'} to ${where}`;
+  const sent = pushed.forced
+    ? `Force pushed ${branch} to ${where}`
+    : pushed.isNew
+      ? `Pushed ${branch} to new branch ${where}`
+      : n === 0
+        ? undefined
+        : `Pushed ${String(n)} ${n === 1 ? 'commit' : 'commits'} to ${where}`;
   const [tag, ...more] = pushed.tags;
   if (tag === undefined) return sent ?? 'Everything is up to date';
   const tags = more.length === 0 ? `tag ${tag}` : `${String(pushed.tags.length)} tags`;
@@ -96,10 +134,18 @@ function unpushable(out: Outgoing): string | undefined {
 /** While a push is under way: one at a time. */
 export const pushing = signal(false);
 
-/** A row of the dialog's tree: the repository, where its branch goes, or a commit to push. */
-type PushRow = { kind: 'repository' } | { kind: 'commit'; commit: LogCommit };
+/** While the Push dialog's Fetch fetches the remote's commits. */
+export const fetchingRemote = signal(false);
+
+/**
+ * A row of the dialog's tree: the repository, where its branch goes; why its Fetch failed, as
+ * IntelliJ's; or a commit to push.
+ */
+type PushRow =
+  { kind: 'repository' } | { kind: 'fetchError' } | { kind: 'commit'; commit: LogCommit };
 
 const REPOSITORY: PushRow = { kind: 'repository' };
+const FETCH_ERROR: PushRow = { kind: 'fetchError' };
 
 /** A commit's tooltip, as IntelliJ's (`push.commit.node.tooltip`): hash, date, author, message. */
 const tooltipOf = (commit: LogCommit) =>
@@ -143,6 +189,52 @@ interface PushState {
   /** Push tags, and which. */
   tags: Signal<boolean>;
   tagMode: Signal<PushTags>;
+  /** Why the push will be rejected, if it will. */
+  divergence: Signal<PushDivergence | undefined>;
+  /** Why the last Fetch failed, until what's pushed changes. */
+  fetchError: Signal<string | undefined>;
+  /** Fetches the remote's commits, so they're counted. */
+  fetch: () => void;
+}
+
+/** Whether the push waits for a Fetch, as IntelliJ's: not after one failed (the remote decides). */
+const fetchRequired = (state: PushState) =>
+  state.divergence.get()?.kind === 'fetchRequired' && state.fetchError.get() === undefined;
+
+/** The warning over the tree, in IntelliJ's words (`push.divergence.banner.*`). */
+function divergenceText(state: PushState): string | undefined {
+  const divergence = state.divergence.get();
+  if (divergence === undefined) return undefined;
+  const { branch, target } = state.out.get();
+  const name = `branch '${branch as string}'`;
+  if (divergence.kind === 'fetchRequired') {
+    return state.fetchError.get() === undefined
+      ? `Push will be rejected, ${name} has diverged from the remote, and there are unfetched remote commits. Fetch them to review them before a force push.`
+      : `Push may be rejected, ${name} has diverged from the remote, and the fetch of the remote commits failed.`;
+  }
+  const n = divergence.remoteCommits;
+  const them = n === 1 ? 'it' : 'them';
+  const diverged = `Push will be rejected, ${name} has diverged from the remote: ${String(n)} remote ${n === 1 ? 'commit is' : 'commits are'} not in your local branch.`;
+  return isProtected(target as string)
+    ? `${diverged} The target branch is protected, so update the project first.`
+    : `${diverged} To keep ${them}, update the project first. To replace ${them}, use Force Push.`;
+}
+
+/** IntelliJ's banner over the tree, while the push will be rejected. */
+function DivergenceBanner(props: { state: PushState }): Node {
+  return (
+    <div class="playground-push__divergence">
+      {() => {
+        const text = divergenceText(props.state);
+        return text === undefined ? null : (
+          <div class="playground-push__banner" role="status">
+            {notificationIcon('warning')}
+            <span>{text}</span>
+          </div>
+        );
+      }}
+    </div>
+  );
 }
 
 /** Whether Set upstream applies: the branch has one, and the target isn't it (IntelliJ's). */
@@ -408,17 +500,28 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
   const { state } = props;
   const log = new TreeModel<PushRow>({
     children: (row) =>
-      row ? state.out.peek().commits.map((commit) => ({ kind: 'commit', commit })) : [REPOSITORY],
-    key: (row) => (row.kind === 'repository' ? '\u0000repository' : row.commit.hash),
-    isLeaf: (row) => row.kind === 'commit',
+      row
+        ? [
+            ...(state.fetchError.peek() === undefined ? [] : [FETCH_ERROR]),
+            ...state.out.peek().commits.map((commit): PushRow => ({ kind: 'commit', commit })),
+          ]
+        : [REPOSITORY],
+    key: (row) =>
+      row.kind === 'commit'
+        ? row.commit.hash
+        : row.kind === 'repository'
+          ? '\u0000repository'
+          : '\u0000fetch-error',
+    isLeaf: (row) => row.kind !== 'repository',
   });
   // As IntelliJ's: the repository open, and selected, for all the commits' files.
   log.expand(REPOSITORY);
   log.select('\u0000repository');
-  // Another target sends other commits.
+  // Another target sends other commits; a Fetch that failed says why.
   let first = true;
   const following = effect(() => {
     state.out.get();
+    state.fetchError.get();
     if (!first) {
       log.select('\u0000repository');
       void untracked(() => log.load(REPOSITORY, true));
@@ -443,6 +546,21 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
           row={(row) =>
             row.kind === 'repository' ? (
               <TargetRow state={state} />
+            ) : row.kind === 'fetchError' ? (
+              // IntelliJ's words (`push.divergence.fetch.failed`).
+              <span class="playground-push__fetch-error">
+                {`Fetch failed: ${state.fetchError.peek() as string} `}
+                <button
+                  type="button"
+                  class="playground-push__link"
+                  on:click={(event) => {
+                    event.stopPropagation();
+                    state.fetch();
+                  }}
+                >
+                  Retry
+                </button>
+              </span>
             ) : (
               <span class="playground-push__commit" title={tooltipOf(row.commit)}>
                 {row.commit.subject}
@@ -578,6 +696,55 @@ function askForRemote(
   }).result;
 }
 
+/**
+ * Asks before a force push, as IntelliJ's: what it replaces on the remote, when that's counted; and
+ * Don't warn about this target, after which a force push there doesn't ask.
+ */
+async function confirmForcePush(
+  worktree: string,
+  out: Outgoing,
+  divergence: PushDivergence | undefined,
+): Promise<boolean> {
+  const where = `${out.remote as string}/${out.target as string}`;
+  if (readSilentTargets(worktree).includes(where)) return true;
+  const n = divergence?.kind === 'diverged' ? divergence.remoteCommits : 0;
+  const silent = signal(false);
+  const accepted = await openDialog<true>({
+    title: 'Force Push',
+    width: 460,
+    ok: { label: 'Force Push', accept: () => true },
+    content: () => (
+      <div class="playground-force">
+        {notificationIcon('warning')}
+        <div class="playground-force__text">
+          <p>
+            {"You're going to force push to "}
+            <b>{`'${out.target as string}'`}</b>
+            {n > 0
+              ? `. It replaces ${String(n)} ${n === 1 ? 'commit' : 'commits'} on the remote.`
+              : '. It may overwrite commits at the remote.'}
+            {' Are you sure you want to proceed?'}
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              on:change={(event) => {
+                silent.set((event.currentTarget as HTMLInputElement).checked);
+              }}
+            />
+            Don't warn about this target
+          </label>
+        </div>
+      </div>
+    ),
+  }).result;
+  if (accepted && silent.peek()) keepSilentTarget(worktree, where);
+  return accepted === true;
+}
+
+/** IntelliJ's description of Push and Force Push while the push waits for a Fetch. */
+const FETCH_FIRST = 'Fetch first. The remote has commits that are not fetched.';
+
 /** Opens the Push dialog for a worktree's branch, and pushes when its Push is pressed. */
 export async function openPush(worktree: string): Promise<void> {
   const host = hostFor(worktree);
@@ -592,10 +759,17 @@ export async function openPush(worktree: string): Promise<void> {
     // As last pushed with, IntelliJ's; All to choose from when it was off.
     tags: signal(readPushTags(worktree) !== undefined),
     tagMode: signal(readPushTags(worktree) ?? 'all'),
+    divergence: signal<PushDivergence | undefined>(undefined),
+    fetchError: signal<string | undefined>(undefined),
     retarget: (to) => {
       host.request('git.outgoing', { path: worktree, ...to }).then(
         (out) => {
-          state.out.set(out as Outgoing);
+          // Together: the tree reads its rows once, after both.
+          batch(() => {
+            state.out.set(out as Outgoing);
+            state.fetchError.set(undefined);
+          });
+          detect();
         },
         (error: unknown) => {
           console.error('Reading what to push failed', error);
@@ -617,7 +791,54 @@ export async function openPush(worktree: string): Promise<void> {
         loadBranches();
       });
     },
+    fetch: () => {
+      const { remote, target } = state.out.peek() as { remote: string; target: string };
+      fetchingRemote.set(true);
+      host
+        .request('git.fetchTarget', { path: worktree, remote, target })
+        .then(
+          () => {
+            // Counted now, as IntelliJ's: what's pushed is read again, and checked.
+            state.retarget({ remote, target });
+          },
+          (error: unknown) => {
+            state.fetchError.set((error as Error).message);
+          },
+        )
+        .finally(() => {
+          fetchingRemote.set(false);
+        });
+    },
   };
+  let checks = 0;
+  /**
+   * Whether the push will be rejected, as IntelliJ's: from where the remote's branch was fetched,
+   * then from where the remote says it is.
+   */
+  const detect = () => {
+    const out = state.out.peek();
+    const check = ++checks;
+    state.divergence.set(undefined);
+    if (out.remote === undefined || out.isNew) return;
+    const ask = (checkRemote: boolean) =>
+      host
+        .request('git.divergence', {
+          path: worktree,
+          remote: out.remote,
+          target: out.target,
+          checkRemote,
+        })
+        .then((divergence) => {
+          // Not when what's pushed changed meanwhile.
+          if (check === checks) state.divergence.set((divergence ?? undefined) as PushDivergence);
+        });
+    ask(false)
+      .then(() => ask(true))
+      .catch((error: unknown) => {
+        console.error('Checking the remote failed', error);
+      });
+  };
+  detect();
   /** The remotes' branches, for the target's suggestions. */
   const loadBranches = () => {
     host.request('git.branches', { worktree }).then(
@@ -636,36 +857,71 @@ export async function openPush(worktree: string): Promise<void> {
   loadBranches();
   // A host means a project is open.
   const project = activeProject() as ProjectState;
-  const accepted = await openDialog<true>({
+  const canPush = () => {
+    const out = state.out.get();
+    return (
+      why === undefined &&
+      state.editing.get() === undefined &&
+      !fetchingRemote.get() &&
+      (out.commits.length > 0 ||
+        out.isNew ||
+        (state.setUpstream.get() && otherThanUpstream(out, out.target as string)) ||
+        // Tags alone (Cerebro's: IntelliJ's Push is enabled whenever there's a target).
+        (state.tags.get() && out.remote !== undefined))
+    );
+  };
+  // IntelliJ's Push, Force Push and Fetch: the button does the first enabled one, so Fetch while the
+  // push waits for one; Force Push never, nor to a protected branch.
+  const accepted = await openDialog<'push' | 'force'>({
     title: `Push Commits to ${project.name}`,
     ok: {
       label: 'Push',
-      enabled: () => {
-        const out = state.out.get();
-        return (
-          why === undefined &&
-          state.editing.get() === undefined &&
-          (out.commits.length > 0 ||
-            out.isNew ||
-            (state.setUpstream.get() && otherThanUpstream(out, out.target as string)) ||
-            // Tags alone (Cerebro's: IntelliJ's Push is enabled whenever there's a target).
-            (state.tags.get() && out.remote !== undefined))
-        );
-      },
-      accept: () => true,
+      enabled: () => canPush() && !fetchRequired(state),
+      description: () => (fetchRequired(state) ? FETCH_FIRST : undefined),
+      accept: () => 'push',
+      options: [
+        {
+          label: 'Force Push',
+          enabled: () =>
+            canPush() && !isProtected(state.out.get().target as string) && !fetchRequired(state),
+          description: () => {
+            const { remote, target } = state.out.get();
+            if (fetchRequired(state)) return FETCH_FIRST;
+            return target !== undefined && isProtected(target)
+              ? `Force push to ${remote as string}/${target} is prohibited`
+              : undefined;
+          },
+          check: () => confirmForcePush(worktree, state.out.peek(), state.divergence.peek()),
+          accept: () => 'force',
+        },
+        {
+          label: 'Fetch',
+          visible: () => fetchRequired(state),
+          enabled: () => canPush() && fetchRequired(state),
+          description: () => 'Fetch the remote commits to review them before a push',
+          run: () => {
+            state.fetch();
+          },
+        },
+      ],
     },
     width: 800,
     footer: () => (why === undefined ? <TagsOption state={state} /> : null),
     content: () => (
       <div class="playground-push">
         {why === undefined ? (
-          <PushLog worktree={worktree} state={state} host={host} />
+          [
+            <DivergenceBanner state={state} />,
+            <PushLog worktree={worktree} state={state} host={host} />,
+          ]
         ) : (
           <p class="playground-push__target">{why}</p>
         )}
       </div>
     ),
   }).result;
+  // Not after the dialog: what's pushed is no longer checked.
+  checks++;
   if (!accepted) return;
   const out = state.out.peek();
   const remote = out.remote as string;
@@ -673,6 +929,10 @@ export async function openPush(worktree: string): Promise<void> {
   const where = `${remote}/${target}`;
   const tags = state.tags.peek() ? state.tagMode.peek() : undefined;
   keepPushTags(worktree, tags);
+  // A force push expects the remote's branch where it was seen, else where it was fetched.
+  const lease = state.divergence.peek()?.lease;
+  const force =
+    accepted === 'force' ? { force: true, ...(lease === undefined ? {} : { lease }) } : {};
   pushing.set(true);
   try {
     const pushed = (await host.request('git.push', {
@@ -681,13 +941,20 @@ export async function openPush(worktree: string): Promise<void> {
       target,
       setUpstream: state.setUpstream.peek() && otherThanUpstream(out, target),
       ...(tags === undefined ? {} : { tags }),
+      ...force,
     })) as Pushed;
     notifications.notify({ title: pushedText(pushed, out.branch as string), group: 'push' });
   } catch (error) {
-    const rejected = (error as Error).message.includes('[rejected]');
+    const { message } = error as Error;
+    const rejected = message.includes('[rejected]');
     notifications.notify({
       title: rejected ? 'Push rejected' : 'Push failed',
-      content: rejected ? `Push to ${where} was rejected` : (error as Error).message,
+      // IntelliJ's words; a force push's when the remote's branch wasn't where it was expected.
+      content: message.includes('(stale info)')
+        ? `Force-with-lease push ${out.branch as string} to ${where} was rejected`
+        : rejected
+          ? `Push to ${where} was rejected`
+          : message,
       type: rejected ? 'warning' : 'error',
       display: 'sticky',
       group: 'push',

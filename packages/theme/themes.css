@@ -77,6 +77,10 @@
   --cerebro-icon-warning-mark: #5e4d33;
   --cerebro-icon-ok: #57965c;
   --cerebro-icon-info: #548af7;
+  /* A warning banner, as the Push dialog's (ManyIslandsDark.theme.json's Banner.warningBackground and
+     warningBorderColor). */
+  --cerebro-banner-warning: #44321d;
+  --cerebro-banner-warning-border: #694820;
   /* Notifications: balloons, links in them, and the timeline's unread ones (ManyIslandsDark.theme.json's
      Notification and NotificationsToolwindow colours). */
   --cerebro-notification: #33353b;
@@ -253,6 +257,9 @@
   --cerebro-icon-warning-mark: #ffffff;
   --cerebro-icon-ok: #55a76a;
   --cerebro-icon-info: #4682fa;
+  /* ManyIslandsLight.theme.json's Banner.warningBackground and warningBorderColor. */
+  --cerebro-banner-warning: #fff6e9;
+  --cerebro-banner-warning-border: #f4cd9a;
   /* Notifications: balloons, links in them, and the timeline's unread ones (ManyIslandsLight.theme.json's
      Notification and NotificationsToolwindow colours). */
   --cerebro-notification: #ffffff;

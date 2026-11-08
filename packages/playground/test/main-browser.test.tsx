@@ -7,7 +7,7 @@ import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
-import { pushing } from '../src/push.js';
+import { fetchingRemote, pushing } from '../src/push.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
@@ -87,6 +87,21 @@ describe('the page in a browser', () => {
     await expect.poll(tooltipText).toBe('Pushing the branch');
     await userEvent.unhover(item);
     pushing.set(false);
+    await expect.poll(() => item.hidden).toBe(true);
+  });
+
+  it('shows Fetching Remote Commits… while the Push dialog fetches, as IntelliJ’s', async () => {
+    const item = q('.cerebro-statusbar__item[data-id="push-fetch"]');
+    expect(item.hidden).toBe(true);
+    fetchingRemote.set(true);
+    await expect.poll(() => item.hidden).toBe(false);
+    expect(item.textContent).toBe('Fetching Remote Commits…');
+    await userEvent.hover(item);
+    await expect
+      .poll(tooltipText)
+      .toBe('Fetching the remote’s commits, to count what a push replaces');
+    await userEvent.unhover(item);
+    fetchingRemote.set(false);
     await expect.poll(() => item.hidden).toBe(true);
   });
 

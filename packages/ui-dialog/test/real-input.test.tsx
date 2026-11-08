@@ -98,6 +98,49 @@ describe('dialogs, with real input', () => {
     expect(await handle.result).toBe('force');
   });
 
+  it('keeps the keys while nothing has the focus, as after a check disabled the button it was on', async () => {
+    const handle = dialog<string>({
+      title: 'T',
+      content: () => null,
+      ok: {
+        // Long enough for the browser to take the focus from the disabled button.
+        check: () =>
+          new Promise((resolve) =>
+            setTimeout(() => {
+              resolve(false);
+            }, 100),
+          ),
+        accept: () => 'ok',
+      },
+    });
+    const behind = dialog({ title: 'Behind', content: () => null });
+    behind.close();
+    const ok = document.querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
+    expect(focused()).toBe(ok);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => ok.disabled).toBe(false);
+    expect(focused()).toBe(document.body);
+    // The dialog's, not the app's behind it.
+    let reached = false;
+    const app = () => {
+      reached = true;
+    };
+    document.addEventListener('keydown', app);
+    await userEvent.keyboard('{Escape}');
+    document.removeEventListener('keydown', app);
+    expect(reached).toBe(false);
+    expect(await handle.result).toBeUndefined();
+  });
+
+  it('leaves the keys to the newest dialog', async () => {
+    const below = dialog<string>({ title: 'Below', content: () => null });
+    const above = dialog<string>({ title: 'Above', content: () => null });
+    (document.activeElement as HTMLElement).blur();
+    await userEvent.keyboard('{Escape}');
+    expect(above.open).toBe(false);
+    expect(below.open).toBe(true);
+  });
+
   it('closes OK’s list when it loses the focus, and chooses from it with the pointer', async () => {
     const handle = dialog<string>({
       title: 'T',

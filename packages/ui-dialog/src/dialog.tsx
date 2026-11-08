@@ -121,6 +121,8 @@ class Dialog<T> implements DialogHandle<T> {
     this.element = this.layer.querySelector('.cerebro-dialog') as HTMLElement;
     this.center();
     window.addEventListener('resize', this.onResize);
+    window.addEventListener('keydown', this.onStrayKey, true);
+    stack.push(this as Dialog<unknown>);
     this.focusFirst();
   }
 
@@ -128,6 +130,8 @@ class Dialog<T> implements DialogHandle<T> {
     if (!this.open) return;
     this.open = false;
     window.removeEventListener('resize', this.onResize);
+    window.removeEventListener('keydown', this.onStrayKey, true);
+    stack.splice(stack.indexOf(this as Dialog<unknown>), 1);
     this.dispose();
     this.layer.remove();
     this.restoreFocus.focus();
@@ -234,6 +238,14 @@ class Dialog<T> implements DialogHandle<T> {
           : (all[index + 1] ?? all[0]);
       next?.focus();
     }
+  };
+
+  /**
+   * Keys while nothing has the focus, as when the browser takes it from a control disabled or
+   * removed (a button disabled while its action runs): the newest dialog's still, not the app's.
+   */
+  private readonly onStrayKey = (event: KeyboardEvent) => {
+    if (stack.at(-1) === this && document.activeElement === document.body) this.onKey(event);
   };
 
   private readonly onDragStart = (down: PointerEvent) => {
@@ -460,6 +472,9 @@ class Dialog<T> implements DialogHandle<T> {
 }
 
 let dialogs = 0;
+
+/** The open dialogs, the newest last. */
+const stack: Dialog<unknown>[] = [];
 
 /** Opens a modal dialog. */
 export function openDialog<T>(options: DialogOptions<T>): DialogHandle<T> {
