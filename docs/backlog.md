@@ -50,6 +50,12 @@ on it:
   it in the app (Push failed's notification, Define Remote's URL), not in the browser tests,
   whose fake host throws plain errors. A fix would pass the error back as a value and rethrow it in
   the preload, with an e2e test that reads a shown message.
+- **The agents' hooks may not wait for the host on Windows** (seen 2026-11-08 while measuring
+  askpass there): the hook client ends its side of the socket and waits for it to close, as the
+  askpass client did; on Windows, a named pipe closed for writing is closed both ways (measured
+  for askpass: the host's reply failed with EPIPE). That the prompt's hook then returns before the
+  host's snapshot, or that the host's `socket.end()` errors, is a claim, not measured. Askpass now
+  sends its question as a line (`askpass.ts`); the hooks could do the same.
 - **A tree doesn't widen when a row's own content does** (`ui-tree`'s fit runs when its rows
   change, it's resized or scrolled): measured 2026-11-08, the Push dialog's row grew from 359 to
   407 pixels while its branch was typed (field and "Set upstream"), and was cut at the pane's
@@ -68,8 +74,9 @@ on it:
   Again on 2026-11-08 (feat/indent, a full run while the machine's network kept changing): 4
   searches where 2 were expected; it passed alone 3 times.
 - **The Log e2e tests fail in some full local runs: the window manager places the window late**
-  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; again on feat/push-force,
-  the » hidden, passing alone right after; never alone, never in CI).
+  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; again on feat/push-force
+  and feat/git-credentials, the same 4 tests, passing alone right after; never alone, never in
+  CI).
   Measured with the window's `resize` and `move` events: the test's resize to 1024×768 right after
   launch took effect, the window went back to 1440×900 a millisecond later, and WSLg's window
   manager placed it 2.8 s later (moved off-screen, then to its centred place). Depending on that
@@ -111,4 +118,6 @@ on it:
   save took (up to 35 s). Measured in CI on #136 (2026-11-04): the stored setting was 1 s, and the
   file was saved 7 s after the edit, the editor focused. So it isn't the old 15 s. The test now
   also prints the keys and mouse events after the edit, which start the idle time again, and the
-  page's long tasks.
+  page's long tasks. Measured in CI on #153 (2026-11-08): saved 6.0 s after the edit, with no key
+  or mouse event after the typing and no long task, the editor focused, the setting 1 s. So
+  nothing started the idle time again; the delay's cause is still not found.

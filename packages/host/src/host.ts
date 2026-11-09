@@ -1,7 +1,7 @@
 // The host's methods, on a connection to the UI.
 
 import { createHash } from 'node:crypto';
-import { chmodSync } from 'node:fs';
+import { chmodSync, rmSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
@@ -9,6 +9,7 @@ import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
+import { AskPass, listenForAskPass, writeAskPassScripts, type Answer } from './askpass.js';
 import { listTurns, TurnRecorder } from './turns.js';
 import {
   fileHistory,
@@ -81,6 +82,8 @@ export interface HostOptions {
   pty?: SpawnPty;
   /** The command an agent's hooks run, the hook's name after it. Default: this host's entry. */
   hookCommand?: string;
+  /** The program and arguments git's askpass scripts run, `askpass` and more after them. */
+  askPassCommand?: readonly string[];
   /** The language servers. Default: Cerebro's own, started as needed. */
   languageServers?: LanguageServers;
   /** ripgrep, for Find in Files. Default: @vscode/ripgrep's. */
@@ -480,6 +483,47 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       ? { remote: p.remote, target: p.target }
       : undefined;
   };
+  // Credentials for git's remote commands: asked of the page, which answers with `askpass.answer`.
+  const askSocket = socketPath();
+  const scripts = writeAskPassScripts(
+    options.askPassCommand ?? [process.execPath, process.argv[1] ?? ''],
+  );
+  const answers = new Map<string, (answer: Answer) => void>();
+  let asked = 0;
+  const askPass = new AskPass({
+    socket: askSocket,
+    scripts,
+    display: process.env['DISPLAY'],
+    prompt: (prompt) =>
+      new Promise((resolve) => {
+        const id = String(++asked);
+        answers.set(id, resolve);
+        connection.notify('askpass.prompt', { id, ...prompt });
+      }),
+    done: (session, failed) => {
+      connection.notify('askpass.done', { session, failed });
+    },
+  });
+  const askServer = listenForAskPass(askSocket, (message) => askPass.ask(message, git));
+  connection.onRequest('askpass.answer', (params) => {
+    const p = params as { answer?: unknown; useCredentialHelper?: unknown };
+    const id = text(params, 'id');
+    if (p.answer !== null && typeof p.answer !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'answer must be a string or null');
+    }
+    answers.get(id)?.({ answer: p.answer, useCredentialHelper: p.useCredentialHelper === true });
+    answers.delete(id);
+    return null;
+  });
+  // IntelliJ's "Use credential helper", as the page keeps it.
+  connection.onRequest('askpass.configure', (params) => {
+    askPass.useCredentialHelper =
+      (params as { useCredentialHelper?: unknown }).useCredentialHelper === true;
+    return null;
+  });
+  /** Git for remote commands, asking for credentials; silently, only what the page keeps. */
+  const remote = askPass.git(git);
+  const silentRemote = askPass.git(git, true);
   // What a push would send, and the push, of the checked-out branch: where it says, or by default.
   connection.onRequest('git.outgoing', (params) =>
     outgoing(text(params, 'path'), git, destination(params)),
@@ -495,7 +539,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     // A force push, expecting the remote's branch at `lease` when given.
     const force =
       p.force === true ? { force: typeof p.lease === 'string' ? { lease: p.lease } : {} } : {};
-    return push(text(params, 'path'), git, to && { ...to, setUpstream, ...tags, ...force });
+    return push(text(params, 'path'), remote, to && { ...to, setUpstream, ...tags, ...force });
   });
   // IntelliJ's check for a diverged remote, and its Fetch of the target to count what it has.
   connection.onRequest('git.divergence', (params) =>
@@ -503,19 +547,20 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       text(params, 'path'),
       { remote: text(params, 'remote'), target: text(params, 'target') },
       (params as { checkRemote?: unknown }).checkRemote === true,
-      git,
+      // As IntelliJ's check of the remote: without asking (`AuthenticationMode.SILENT`).
+      silentRemote,
     ),
   );
   connection.onRequest('git.fetchTarget', (params) =>
     fetchTarget(
       text(params, 'path'),
       { remote: text(params, 'remote'), target: text(params, 'target') },
-      git,
+      remote,
     ),
   );
   // Define Remote: whether its URL answers, and adding it.
   connection.onRequest('git.checkRemote', (params) =>
-    checkRemote(text(params, 'path'), text(params, 'url'), git),
+    checkRemote(text(params, 'path'), text(params, 'url'), remote),
   );
   connection.onRequest('git.addRemote', (params) =>
     addRemote(
@@ -525,7 +570,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
         url: text(params, 'url'),
         fetch: (params as { fetch?: unknown }).fetch === true,
       },
-      git,
+      remote,
     ),
   );
   connection.onRequest('git.changes', (params) => {
@@ -784,6 +829,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   return () => {
     terminals.closeAll();
     hookServer.close();
+    askServer.close();
+    rmSync(scripts.folder, { recursive: true, force: true });
     void servers.dispose();
   };
 }

@@ -1,7 +1,8 @@
 // Runs in the window before the page, sandboxed (so CommonJS): tells the page it runs in the app,
 // and on which platform, so it can leave room for the window controls; and on macOS lets it show
 // its menu as the application menu (see menu.ts), keep the display scale chosen (display.ts), open
-// and close projects (projects.ts), and reach its projects' hosts (host.ts).
+// and close projects (projects.ts), reach its projects' hosts (host.ts), and keep passwords
+// (passwords.ts).
 
 // The CommonJS form of an import; verbatimModuleSyntax rules out `import … from` here.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -18,6 +19,9 @@ const HOST_NOTIFICATION = 'cerebro:host:notification';
 const SET_SCALE = 'cerebro:display:scale';
 // Kept in step with colours.ts.
 const SET_COLOURS = 'cerebro:window:colours';
+// Kept in step with passwords.ts.
+const PASSWORD_GET = 'cerebro:passwords:get';
+const PASSWORD_SET = 'cerebro:passwords:set';
 // Kept in step with reveal.ts.
 const REVEAL = 'cerebro:shell:reveal';
 // Kept in step with main.ts.
@@ -87,6 +91,13 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     onShow: (listener: (path: unknown) => void) => listen(PROJECT_SHOW, listener),
     /** Removes a project from the recent ones. */
     forget: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_FORGET, path),
+  },
+  passwords: {
+    /** A password kept by its key, or null. */
+    get: (key: string): Promise<unknown> => electron.ipcRenderer.invoke(PASSWORD_GET, key),
+    /** Keeps a password by its key, encrypted by the system's keychain; null forgets it. */
+    set: (key: string, password: string | null): Promise<unknown> =>
+      electron.ipcRenderer.invoke(PASSWORD_SET, key, password),
   },
   host: {
     /** Sends a request to a project's host; resolves with its result. */

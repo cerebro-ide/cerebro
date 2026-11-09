@@ -105,6 +105,13 @@ const menu = vi.hoisted(() => ({ installMenu: vi.fn() }));
 vi.mock('../src/menu.js', () => menu);
 vi.mock('../src/colours.js', () => ({ installWindowColours: vi.fn() }));
 vi.mock('../src/reveal.js', () => ({ installReveal: vi.fn() }));
+const passwords = vi.hoisted(() => ({
+  installPasswords: vi.fn(),
+  PasswordStore: vi.fn(function (this: { file: string }, file: string) {
+    this.file = file;
+  }),
+}));
+vi.mock('../src/passwords.js', () => passwords);
 vi.mock('../src/fullscreen.js', () => ({ installFullScreen: vi.fn() }));
 
 const {
@@ -374,6 +381,11 @@ describe('start', () => {
       expect(electron.windows).toHaveLength(1);
     });
     expect(host.hosts.attach).toHaveBeenLastCalledWith(expect.anything(), repo);
+    // The passwords, in the app's data folder.
+    expect(passwords.PasswordStore).toHaveBeenLastCalledWith(
+      expect.stringMatching(/passwords\.json$/),
+    );
+    expect(passwords.installPasswords).toHaveBeenCalled();
   });
 
   it('does nothing on activation before it’s ready', () => {

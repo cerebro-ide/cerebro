@@ -14,6 +14,7 @@ import {
 } from '../src/main.js';
 import { EDIT, MENU_COMMAND, SET_MENU } from '../src/menu.js';
 import { PROJECT_ADDED, PROJECT_SHOW } from '../src/projects.js';
+import { PASSWORD_GET, PASSWORD_SET } from '../src/passwords.js';
 import { REVEAL } from '../src/reveal.js';
 
 // The preload, which a sandboxed window runs as CommonJS, can't import the modules whose channels
@@ -91,6 +92,8 @@ describe('the preload', () => {
     ]);
     expect(call('project', 'close', '/r')).toEqual(['invoke', PROJECT_CLOSE, '/r']);
     expect(call('project', 'forget', '/r')).toEqual(['invoke', PROJECT_FORGET, '/r']);
+    expect(call('passwords', 'get', 'k')).toEqual(['invoke', PASSWORD_GET, 'k']);
+    expect(call('passwords', 'set', 'k', 'p')).toEqual(['invoke', PASSWORD_SET, 'k', 'p']);
     expect(call('host', 'request', '/r', 'fs.read', { path: 'a' })).toEqual([
       'invoke',
       HOST_REQUEST,

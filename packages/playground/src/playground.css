@@ -1285,26 +1285,47 @@ body,
 }
 
 /* Define Remote: IntelliJ's rows, a label beside each field and its error under it. */
-.playground-remote {
+/* A dialog's labelled fields beside their labels, and its checkboxes under them: Define Remote's,
+   the login dialog's. */
+.playground-form {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 12px;
   align-items: center;
 }
 
-.playground-remote__row {
+.playground-form__row {
   display: contents;
 }
 
-.playground-remote__row .cerebro-dialog-field__error {
+.playground-form__row .cerebro-dialog-field__error {
   grid-column: 2;
 }
 
-.playground-remote__fetch {
+.playground-form__check {
   display: flex;
   grid-column: 1 / -1;
   align-items: center;
   gap: 6px;
+}
+
+/* A password asked for SSH: the prompt over the field, and Remember. */
+.playground-password {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playground-password__remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* SSH's question about a host, as OpenSSH words it, on several lines. */
+.playground-ssh-question {
+  margin: 0;
+  white-space: pre-wrap;
 }
 
 /* Push tags, beside the dialog's buttons. */

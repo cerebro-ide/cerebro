@@ -51,6 +51,11 @@ declare global {
         /** One of the window's projects was asked to open again: show it. */
         onShow(listener: (path: string) => void): () => void;
       };
+      /** Passwords kept by key, encrypted by the system's keychain; null forgets one. */
+      passwords: {
+        get(key: string): Promise<string | null>;
+        set(key: string, password: string | null): Promise<void>;
+      };
       /** Each project's host, by the project's path. */
       host: {
         request(project: string, method: string, params?: unknown): Promise<unknown>;
