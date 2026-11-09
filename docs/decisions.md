@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -2225,6 +2226,41 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
+
+Ido, 2026-11-09 ("all of the above", to: committing a merge with Abort and Continue, Blame, branch
+operations): the first of the three. Words and behaviour from IntelliJ's source
+(`GitResetAddStagingAreaStateManager`, `GitMergeCommitMessageReader`, `GitMergeCommitAction`,
+`GitAbortOperationAction`, `GitRebaseContinue`, `GitRebaseAbort`, `GitRebaseSkip`,
+`GitRebaseProcess`, `GitAbortRebaseProcess`, `Git.MainMenu.MergeActions` and
+`Git.MainMenu.RebaseActions` in its `plugin.xml`, `GitBundle`).
+
+- **The Commit window commits a merge,** as IntelliJ's: it commits the index, since git refuses a
+  partial commit during a merge ("fatal: cannot do a partial commit during a merge.", measured).
+  With files still unmerged it refuses, in IntelliJ's words ("Committing is not possible because you
+  have unmerged files."). What's staged besides the files ticked is unstaged first and staged again
+  after, whether the commit goes through or not; the commit has both parents (measured on real git,
+  `packages/host/test/git.test.ts`, and end to end).
+- **The merge's message:** an empty message field gets git's (`MERGE_MSG`, its "# Conflicts:" lines
+  kept, as IntelliJ's), and loses it when the merge is over if it wasn't edited.
+- **The Git menu,** after Update Project…, as IntelliJ's: Commit Merge (once no file is in
+  conflict) and Abort Merge while a merge is under way; the Rebase menu (Abort Rebase, Continue
+  Rebase, Skip Commit) while a rebase is; then Resolve Conflicts…, only while files are in
+  conflict. Each asks, says how it went, and fails in IntelliJ's words ("Abort Merge" / "Abort
+  merge?", "Merge abort succeeded"; "Abort rebase in {repository}?", "Abort rebase succeeded";
+  "Merge commit failed", "Continue rebase failed"). Continue Rebase and Skip Commit go through
+  conflicts as Update Project does: the Conflicts dialog, then on; closed with files left, "Rebase
+  stopped due to conflicts" with Resolve…, Continue and Abort; at the end "Rebase successful".
+- **In the host** (`conflicts.ts`): `git.state` (the operation under way, whether files are
+  unmerged, a merge's message), `git.continue` (`git commit` with git's message for a merge,
+  `git rebase --continue` for a rebase, with no editor), `git.skipCommit` and `git.abort`, each
+  recorded in the Local History.
+- **How the page knows what's under way:** it reads the active worktree's state every 2 seconds, as
+  the window gets the focus, and after Cerebro's own git actions, so a merge started in the terminal
+  shows (Cerebro's choice, open to change: IntelliJ watches `.git` for changes).
+- **Not yet:** IntelliJ's Merge… and Rebase… dialogs that start one (Git → Merge…, Git → Rebase…);
+  a cherry-pick's or revert's Abort; Edit a rebase's todo (interactive rebase).
+
 ## Merge conflicts (2026-11-09)
 
 Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Conflicts dialog and its
@@ -2264,10 +2300,10 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
   not three. Telling a both-added file's sides apart line by line: with no base, it's one conflict
   (Cerebro's choice, open to change).
 - **Not yet:** undo in the merge window, and asking before Cancel ("Cancel File Merge"); merging a
-  binary file (it says to accept a side); Group by directory and Resolve Simple Conflicts; the Git
-  menu's Continue Rebase, Abort Rebase and Abort Merge; Resolve Conflicts… is enabled with no
-  conflicts (IntelliJ disables it). Committing a merge from the Commit window fails: see the
-  backlog.
+  binary file (it says to accept a side); Group by directory and Resolve Simple Conflicts.
+  (changed 2026-11-09: the Git menu's Continue Rebase, Abort Rebase and Abort Merge, Resolve
+  Conflicts… shown only with conflicts, and committing a merge from the Commit window are done,
+  see "Committing a merge, and the Git menu's merge and rebase actions".)
 
 ## Updating the project (2026-11-09)
 

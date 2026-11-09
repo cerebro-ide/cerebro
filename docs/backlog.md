@@ -49,11 +49,6 @@ on it:
   IntelliJ's own applier finds the lines elsewhere. Update Project then says "Local changes were
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
-- **The Commit window can't commit a merge** (measured 2026-11-09): it commits with `git commit
-  --only`, which git refuses during a merge ("fatal: cannot do a partial commit during a merge.").
-  Update Project commits its own merge once the conflicts are resolved; a merge started elsewhere
-  (in the terminal) and resolved in the Conflicts dialog can't be committed from the window.
-  IntelliJ commits the whole merge then.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on

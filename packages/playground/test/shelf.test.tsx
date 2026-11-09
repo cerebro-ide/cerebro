@@ -35,6 +35,7 @@ const done = (method: string) => () => {
   return null;
 };
 const host = new FakeHost({
+  'git.state': () => ({ conflicts: false }),
   'git.changes': ({ from, to }: { from?: string; to?: string }) => {
     fails('git.changes');
     return from === undefined ? git.changes : (git.files[`${from}..${String(to)}`] ?? []);

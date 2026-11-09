@@ -265,7 +265,10 @@ export async function rollback(
  * what was staged besides (GitCheckinEnvironment). `git commit --only` does that in one step, given
  * the paths (a renamed file's both); an untracked file is added first, since `--only` takes only
  * paths git knows (measured). With `amend`, the last commit is replaced; with no changes too, to
- * change only its message.
+ * change only its message. During a merge, git won't commit some paths alone ("cannot do a partial
+ * commit during a merge", measured): as IntelliJ's `GitResetAddStagingAreaStateManager`, what's
+ * staged besides is unstaged, the paths staged, the whole index committed, which makes the merge
+ * commit, and what was unstaged staged again.
  */
 export async function commit(
   worktree: string,
@@ -276,13 +279,34 @@ export async function commit(
 ): Promise<void> {
   // Paths as they are, not patterns: a file named `*.ts` is just that file.
   const literal = { GIT_LITERAL_PATHSPECS: '1' };
+  const merging = await run(worktree, ['rev-parse', '-q', '--verify', 'MERGE_HEAD']).then(
+    () => true,
+    () => false,
+  );
+  if (merging && (await run(worktree, ['ls-files', '-u'])) !== '') {
+    // IntelliJ's words, which are git's too, before its hints.
+    throw new Error('Committing is not possible because you have unmerged files.');
+  }
   const untracked = changes.filter((c) => c.status === 'untracked').map((c) => c.path);
   if (untracked.length > 0) await run(worktree, ['add', '--', ...untracked], literal);
   const paths = changes.flatMap((c) => (c.from === undefined ? [c.path] : [c.from, c.path]));
+  const besides = merging
+    ? (await run(worktree, ['diff', '--cached', '--no-renames', '--name-only', '-z']))
+        .split('\0')
+        .filter((path) => path !== '' && !paths.includes(path))
+    : [];
+  if (besides.length > 0) await run(worktree, ['reset', '-q', '--', ...besides], literal);
   try {
     await run(
       worktree,
-      ['commit', '--only', '--file=-', ...(amend ? ['--amend'] : []), '--', ...paths],
+      [
+        'commit',
+        merging ? '--include' : '--only',
+        '--file=-',
+        ...(amend ? ['--amend'] : []),
+        '--',
+        ...paths,
+      ],
       literal,
       message,
     );
@@ -292,6 +316,8 @@ export async function commit(
       await run(worktree, ['rm', '--cached', '--quiet', '--', ...untracked], literal);
     }
     throw error;
+  } finally {
+    if (besides.length > 0) await run(worktree, ['add', '-A', '--', ...besides], literal);
   }
 }
 

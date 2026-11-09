@@ -300,3 +300,35 @@ it('at conflicts, shows the Conflicts dialog and the merge window, then commits 
     })
     .toContain('0 files updated in 1 commit');
 });
+
+it('commits a merge started elsewhere, resolved from the Commit window, with git’s message', async () => {
+  // A branch that changed a.ts as this one did: merged in a terminal, it stops at a conflict.
+  const commitAs = (...args: string[]) => git('-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
+  git('checkout', '-qb', 'side');
+  writeFileSync(join(repo, 'a.ts'), 'a side\n');
+  commitAs('commit', '-qm', 'Side to a', '--', 'a.ts');
+  git('checkout', '-q', 'main');
+  writeFileSync(join(repo, 'a.ts'), 'a main\n');
+  commitAs('commit', '-qm', 'Main to a', '--', 'a.ts');
+  expect(() => commitAs('merge', 'side')).toThrow();
+  await page().keyboard.press(KEYS.commit);
+  const conflicts = page().locator('.cerebro-tree-row', { hasText: 'Merge Conflicts' });
+  await conflicts.waitFor({ timeout: 15_000 });
+  await conflicts.locator('.playground-link', { hasText: 'Resolve' }).click();
+  const dialog = page().locator('.cerebro-dialog', {
+    hasText: 'Merging branch side into branch main',
+  });
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'Accept Theirs' }).click();
+  await dialog.waitFor({ state: 'detached' });
+  // The merge's message, as git wrote it, to commit with.
+  await expect
+    .poll(() => message().inputValue(), { timeout: 15_000 })
+    .toBe("Merge branch 'side'\n\n# Conflicts:\n#\ta.ts\n");
+  await message().click();
+  await page().keyboard.press('Control+Enter');
+  await expect
+    .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
+    .toBe(5);
+  expect(git('log', '-1', '--format=%s')).toBe("Merge branch 'side'\n");
+  expect(git('show', 'HEAD:a.ts')).toBe('a side\n');
+});

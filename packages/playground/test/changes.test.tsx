@@ -21,6 +21,7 @@ import {
   type Turn,
 } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
 import { closeAll, dialog, dialogText, FakeHost, menuItems, press, project } from './fakes.js';
 
@@ -32,6 +33,7 @@ const git = {
   /** Each turn's files, by its range. */
   turnFiles: {} as Record<string, Change[]>,
   lastMessage: 'The last commit',
+  state: { conflicts: false } as Record<string, unknown>,
   failing: undefined as string | undefined,
   /** Held until it resolves: a commit under way. */
   hold: undefined as Promise<void> | undefined,
@@ -53,6 +55,7 @@ const host = new FakeHost({
     return changes;
   },
   'agent.turns': () => git.turns,
+  'git.state': () => git.state,
   'git.ignored': () => git.ignored,
   'git.commit': async () => {
     fails('git.commit');
@@ -257,7 +260,7 @@ describe('the Commit window', () => {
     const resolved: unknown[] = [];
     const registered = commands.register({
       id: 'vcs.resolveConflicts',
-      label: 'Resolve Conflicts…',
+      label: 'Resolve Conflicts',
       run: (context) => void resolved.push(context),
     });
     await changesView([
@@ -718,6 +721,52 @@ describe('Commit', () => {
     workspace.openOrActivate({ id: '/n', name: 'n', branch: 'main' });
     expect(commands.isEnabled('changes.commit')).toBe(false);
     workspace.close('/n');
+  });
+});
+
+describe('a merge’s message', () => {
+  const message = () =>
+    document.querySelector('.playground-commit__message') as HTMLTextAreaElement;
+  /** The state read, then the changes: as the window reads them every few seconds. */
+  const merge = async (state: Record<string, unknown>) => {
+    git.state = state;
+    await readState(wt);
+    await refreshChanges(wt);
+  };
+  const MERGING = { operation: 'merge', conflicts: false, message: "Merge branch 'f'\n" };
+
+  afterEach(() => {
+    git.state = { conflicts: false };
+  });
+
+  it('is given once, to an empty message, as IntelliJ’s, and taken out unedited when it’s over', async () => {
+    await changesView();
+    await merge(MERGING);
+    expect(message().value).toBe("Merge branch 'f'\n");
+    // Over, unedited: taken out.
+    await merge({ conflicts: false });
+    expect(message().value).toBe('');
+    // Cleared, it stays so.
+    await merge(MERGING);
+    await userEvent.clear(message());
+    await merge(MERGING);
+    expect(message().value).toBe('');
+    // Edited, it stays when the merge is over.
+    await userEvent.type(message(), 'Mine');
+    await merge({ conflicts: false });
+    expect(message().value).toBe('Mine');
+    // A message being written isn't replaced.
+    await merge(MERGING);
+    expect(message().value).toBe('Mine');
+  });
+
+  it('is replaced, unedited, by the next merge’s, when no read came between them', async () => {
+    // On Windows in CI, Update Project's merge was committed and the next merge started before
+    // the window read its changes again: the first merge's message stayed.
+    await changesView();
+    await merge(MERGING);
+    await merge({ ...MERGING, message: "Merge branch 'g'\n" });
+    expect(message().value).toBe("Merge branch 'g'\n");
   });
 });
 

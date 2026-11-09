@@ -11,15 +11,10 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { MergeEditor, type MergeControl, type MergeLeft } from '@cerebro-ide/ui-editor';
 import { changeContent } from './changes.js';
-import {
-  active,
-  currentHost,
-  gitRepository,
-  hostFor,
-  showError,
-  type Host,
-} from './environments.js';
+import { active, currentHost, hostFor, showError, type Host } from './environments.js';
+import { stateOf } from './repository-state.js';
 import { settingsFor } from './settings.js';
+import { refreshAll } from './shelf.js';
 
 type ConflictSide = 'modified' | 'deleted';
 
@@ -379,21 +374,31 @@ export function setupConflicts(services: MenuServices): void {
   const { commands, menus } = services;
   commands.register({
     id: 'vcs.resolveConflicts',
-    label: 'Resolve Conflicts…',
+    label: 'Resolve Conflicts',
     dialog: true,
-    enabled: () =>
-      active() !== undefined &&
-      currentHost() !== undefined &&
-      gitRepository.get() &&
-      !resolving.get(),
-    run: () =>
-      resolveConflicts((active() as NonNullable<ReturnType<typeof active>>).id).then(
-        () => undefined,
-        (error: unknown) => {
-          showError('Cannot Resolve Conflicts', (error as Error).message);
-        },
-      ),
+    // As IntelliJ's, only while files are in conflict.
+    visible: () => {
+      const env = active();
+      return env !== undefined && currentHost() !== undefined && stateOf(env.id).conflicts;
+    },
+    enabled: () => !resolving.get(),
+    run: async () => {
+      const worktree = (active() as NonNullable<ReturnType<typeof active>>).id;
+      try {
+        await resolveConflicts(worktree);
+      } catch (error) {
+        showError('Cannot Resolve Conflicts', (error as Error).message);
+      }
+      await refreshAll(worktree).catch((error: unknown) => {
+        console.error('Reading the changes failed', error);
+      });
+    },
   });
-  // IntelliJ's second group, where Merge and Rebase go.
-  menus.contribute({ menu: 'main/git', item: { command: 'vcs.resolveConflicts' }, group: 'am' });
+  // IntelliJ's second group, where Merge and Rebase go, after their actions.
+  menus.contribute({
+    menu: 'main/git',
+    item: { command: 'vcs.resolveConflicts' },
+    group: 'am',
+    order: 1,
+  });
 }

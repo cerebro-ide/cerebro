@@ -197,6 +197,40 @@ export async function resolveWith(
   await markResolved(worktree, [path], [], run);
 }
 
+/** What the Git menu and the Commit window show of the repository's state, as IntelliJ's. */
+export interface RepositoryState {
+  operation: Operation | undefined;
+  /** Whether any file is in conflict: Resolve Conflicts… shows only then. */
+  conflicts: boolean;
+  /** During a merge, git's message for it, which the Commit window starts with. */
+  message?: string;
+}
+
+/** The merge or rebase under way, whether files are in conflict, and a merge's message. */
+export async function repositoryState(worktree: string, run: Git): Promise<RepositoryState> {
+  const op = await operation(worktree, run);
+  const state: RepositoryState = {
+    operation: op,
+    conflicts: (await run(worktree, ['ls-files', '-u'])) !== '',
+  };
+  // As IntelliJ's `GitMergeCommitMessageReader`, as git wrote it, its comments kept.
+  const message = op === 'merge' ? await gitFile(worktree, 'MERGE_MSG', run) : undefined;
+  if (message) state.message = readFileSync(message, 'utf8');
+  return state;
+}
+
+/** A rebase carried on, `--continue` or `--skip`: whether conflicts stopped it again. */
+async function rebaseOn(worktree: string, how: string, run: Git): Promise<'done' | 'conflicts'> {
+  try {
+    // Each commit with its message as it was, as IntelliJ's continue, which edits none.
+    await run(worktree, ['rebase', how], { GIT_EDITOR: 'true' });
+  } catch (error) {
+    if ((await unmerged(worktree, 'rebase', run)).length > 0) return 'conflicts';
+    throw error;
+  }
+  return 'done';
+}
+
 /**
  * Carries on once no conflict is left, as IntelliJ after its Conflicts dialog: the merge committed
  * with git's message (`GitMerger.mergeCommit`), or the rebase continued, which may stop at the next
@@ -209,14 +243,15 @@ export async function continueOperation(worktree: string, run: Git): Promise<'do
     await run(worktree, ['commit', '-F', message]);
     return 'done';
   }
-  if (op === 'rebase') {
-    try {
-      // Each commit with its message as it was, as IntelliJ's continue, which edits none.
-      await run(worktree, ['rebase', '--continue'], { GIT_EDITOR: 'true' });
-    } catch (error) {
-      if ((await unmerged(worktree, op, run)).length > 0) return 'conflicts';
-      throw error;
-    }
-  }
-  return 'done';
+  return op === 'rebase' ? rebaseOn(worktree, '--continue', run) : 'done';
+}
+
+/** IntelliJ's Skip Commit: the rebase goes on without the commit it stopped at. */
+export function skipCommit(worktree: string, run: Git): Promise<'done' | 'conflicts'> {
+  return rebaseOn(worktree, '--skip', run);
+}
+
+/** IntelliJ's Abort Merge and Abort Rebase: back to where it started, by git's `--abort`. */
+export async function abortOperation(worktree: string, op: Operation, run: Git): Promise<void> {
+  await run(worktree, [op, '--abort']);
 }

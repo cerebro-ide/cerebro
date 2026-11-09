@@ -13,6 +13,7 @@ import {
   type Conflicts,
 } from '../src/conflicts.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { readState } from '../src/repository-state.js';
 import { closeAll, dialog, dialogText, FakeHost, press, project } from './fakes.js';
 
 describe('the Conflicts dialog’s words', () => {
@@ -100,6 +101,7 @@ const resolve = (paths: readonly string[]) => {
   state.files = state.files.filter((f) => !paths.includes(f.path));
 };
 const host = new FakeHost({
+  'git.state': () => ({ conflicts: false }),
   'git.conflicts': () => ({
     operation: 'merge',
     yours: 'main',
@@ -368,23 +370,36 @@ describe('the Conflicts dialog', () => {
 });
 
 describe('Resolve Conflicts…', () => {
-  it('is in the Git menu, and shows the dialog for the active worktree', async () => {
+  it('shows in the Git menu while files are in conflict, the dialog for the active worktree', async () => {
     expect(JSON.stringify(menus.entries('main/git'))).toContain('vcs.resolveConflicts');
-    expect(commands.isEnabled('vcs.resolveConflicts')).toBe(true);
-    commands.execute('vcs.resolveConflicts');
+    const visible = () => commands.get('vcs.resolveConflicts')?.visible?.(undefined);
+    await readState('/r');
+    expect(visible()).toBe(false);
+    host.answers['git.state'] = () => ({ operation: 'merge', conflicts: true });
+    await readState('/r');
+    expect(visible()).toBe(true);
+    const done = commands.get('vcs.resolveConflicts')?.run(undefined) as Promise<void>;
     await dialog();
     expect(commands.isEnabled('vcs.resolveConflicts')).toBe(false);
+    host.answers['git.state'] = () => ({ operation: 'merge', conflicts: false });
     await press('Close');
+    await done;
+    // Read again after: none left, it's gone.
+    expect(visible()).toBe(false);
+    host.answers['git.state'] = () => ({ conflicts: false });
     workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
-    expect(commands.isEnabled('vcs.resolveConflicts')).toBe(false);
+    expect(visible()).toBe(false);
   });
 
-  it('says why it couldn’t list them', async () => {
+  it('says why it couldn’t list them, and logs what fails after', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const failing = new FakeHost({});
     useProjects([project('/r', host), project('/t', failing)]);
     workspace.openOrActivate({ id: '/t', name: 't', branch: 'main' });
-    commands.execute('vcs.resolveConflicts');
+    const done = commands.get('vcs.resolveConflicts')?.run(undefined) as Promise<void>;
     expect(await dialogText()).toContain('No answer for git.conflicts');
+    await done;
+    expect(error.mock.calls[0]?.[0]).toBe('Reading the changes failed');
     useProjects([project('/r', host), project('/s', undefined)]);
   });
 });
