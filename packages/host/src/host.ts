@@ -43,6 +43,7 @@ import {
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
 import { formatWithPrettier } from './prettier.js';
+import { update, type SaveChanges, type UpdateMethod } from './update.js';
 import {
   addWorktree,
   commit,
@@ -558,6 +559,20 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       remote,
     ),
   );
+  // Update Project: the branch from its upstream, merged or rebased, local changes in the way saved
+  // meanwhile (shelved or stashed).
+  connection.onRequest('git.update', (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { method?: unknown; save?: unknown };
+    if (p.method !== 'merge' && p.method !== 'rebase') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'method must be merge or rebase');
+    }
+    if (p.save !== 'shelve' && p.save !== 'stash') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'save must be shelve or stash');
+    }
+    const options = { method: p.method as UpdateMethod, save: p.save as SaveChanges };
+    return recording(worktree, 'Update Project', git, () => update(worktree, options, git, remote));
+  });
   // Define Remote: whether its URL answers, and adding it.
   connection.onRequest('git.checkRemote', (params) =>
     checkRemote(text(params, 'path'), text(params, 'url'), remote),

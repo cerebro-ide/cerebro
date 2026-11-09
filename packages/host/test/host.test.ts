@@ -727,6 +727,35 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('updates the project, fetching with credentials asked for', async () => {
+    const answers: Record<string, string> = {
+      'rev-parse': '/nowhere/state\n',
+      'symbolic-ref': 'main\n',
+      'for-each-ref': 'origin\n',
+      'rev-list': '0\n',
+    };
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(answers[bare(args)[0] as string] ?? ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.update', { path: '/w', method: 'merge', save: 'shelve' })).toEqual(
+      { kind: 'nothing' },
+    );
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'origin'],
+      ASKING,
+    );
+    for (const params of [
+      { path: '/w', method: 'pull', save: 'shelve' },
+      { path: '/w', method: 'rebase', save: 'drawer' },
+    ]) {
+      await expect(ui.request('git.update', params)).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
     const git = vi.fn((_cwd: string, args: readonly string[]) =>

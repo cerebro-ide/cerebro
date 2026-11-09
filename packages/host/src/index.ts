@@ -162,3 +162,10 @@ export {
   textIn,
   type Revision,
 } from './history.js';
+export {
+  savedMessage,
+  update,
+  type SaveChanges,
+  type Updated,
+  type UpdateMethod,
+} from './update.js';
