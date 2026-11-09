@@ -127,6 +127,15 @@
   --cerebro-vcs-modified: #6f9fe0;
   /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
   --cerebro-vcs-conflict: #de6a66;
+  /* Annotate's text, the latest commit's, and its five colours from newest to oldest, from IntelliJ's
+     Islands Dark scheme (ANNOTATIONS_COLOR, ANNOTATIONS_LAST_COMMIT_COLOR, VCS_ANNOTATIONS_COLOR_1-5). */
+  --cerebro-annotations: #8d9199;
+  --cerebro-annotations-latest: #ced0d6;
+  --cerebro-annotations-1: #2f5194;
+  --cerebro-annotations-2: #2d416b;
+  --cerebro-annotations-3: #283754;
+  --cerebro-annotations-4: #242d42;
+  --cerebro-annotations-5: #22252e;
   --cerebro-vcs-added: #73bd79;
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
@@ -313,6 +322,15 @@
   --cerebro-vcs-modified: #2f6fc4;
   /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
   --cerebro-vcs-conflict: #de1b2e;
+  /* Annotate's text, the latest commit's, and its five colours from newest to oldest, from IntelliJ's
+     New UI light scheme (ANNOTATIONS_COLOR, ANNOTATIONS_LAST_COMMIT_COLOR, VCS_ANNOTATIONS_COLOR_1-5). */
+  --cerebro-annotations: #5a5d6b;
+  --cerebro-annotations-latest: #000000;
+  --cerebro-annotations-1: #a1bef7;
+  --cerebro-annotations-2: #c9dafb;
+  --cerebro-annotations-3: #dee8fc;
+  --cerebro-annotations-4: #edf2fa;
+  --cerebro-annotations-5: #f7f8fa;
   --cerebro-vcs-added: #2e8a3c;
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;

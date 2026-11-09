@@ -172,6 +172,7 @@ export {
   type Updated,
   type UpdateMethod,
 } from './update.js';
+export { blame, parseBlame, type Blame, type BlameCommit } from './blame.js';
 export {
   acceptSide,
   continueOperation,
