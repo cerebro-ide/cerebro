@@ -709,7 +709,9 @@ describe('with real git', () => {
     writeFileSync(join(path, 'm1.txt'), 'mine');
     commitAll('mine');
     // m1 in conflict, m2 and m3 merged and staged: no commit until m1 is resolved.
-    expect(() => run(path, 'merge', '-q', 'commit-merge-theirs')).toThrow();
+    expect(() =>
+      run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'merge', '-q', 'commit-merge-theirs'),
+    ).toThrow();
     const pick = async (...names: string[]) =>
       (await listChanges(path)).filter((c) => names.includes(c.path));
     await expect(commit(path, await pick('m2.txt'), 'Merged', false, as)).rejects.toThrow(
@@ -737,7 +739,18 @@ describe('with real git', () => {
     run(path, 'add', '.');
     run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'theirs');
     run(path, 'checkout', '-q', 'commit-merge-fails');
-    run(path, 'merge', '-q', '--no-commit', '--no-ff', 'commit-merge-fails-theirs');
+    run(
+      path,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'merge',
+      '-q',
+      '--no-commit',
+      '--no-ff',
+      'commit-merge-fails-theirs',
+    );
     const changes = (await listChanges(path)).filter((c) => c.path === 'f1.txt');
     // An empty message: git refuses it.
     await expect(commit(path, changes, '', false, as)).rejects.toThrow();
