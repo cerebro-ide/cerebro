@@ -55,6 +55,12 @@ on it:
   (in the terminal) and resolved in the Conflicts dialog can't be committed from the window.
   IntelliJ commits the whole merge then.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
+- **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
+  row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
+  Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
+  balloons as expected. That a push still under way had Push turned off is a claim: in the run
+  after, Pushing… had already gone when the test before it ended. The test now prints the dialogs,
+  balloons, log and status bar when it fails.
 - **The agents' hooks may not wait for the host on Windows** (seen 2026-11-08 while measuring
   askpass there): the hook client ends its side of the socket and waits for it to close, as the
   askpass client did; on Windows, a named pipe closed for writing is closed both ways (measured

@@ -198,7 +198,8 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
   expect(await login.count()).toBe(0);
   const pushing = () => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible();
   console.log('Pushing… once the remote has it:', await pushing());
-  // As above: Push is off until it ends, and the next test pushes.
+  // Push is off until it ends, and the next test pushes. Not the measured cause of that test's
+  // failures on Windows (see the backlog): it had ended when the remote had it, in the run after.
   await expect.poll(pushing, { timeout: 15_000 }).toBe(false);
   server.close();
 });
