@@ -376,6 +376,18 @@ describe('the Shelf tab', () => {
     window.dispatchEvent(new Event('focus'));
     await expect.poll(() => commands.isEnabled('vcs.showShelf')).toBe(false);
   });
+
+  it('is shown by Show Stash, while there is one', async () => {
+    mount();
+    await expect.poll(tabs).toHaveLength(3);
+    const before = shown;
+    commands.execute('vcs.showStash');
+    expect(shown).toBe(before + 1);
+    await expect.poll(rows).toEqual(['WIP on main', 'Older']);
+    git.stashes = [];
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(() => commands.isEnabled('vcs.showStash')).toBe(false);
+  });
 });
 
 describe('the Stash tab', () => {

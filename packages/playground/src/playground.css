@@ -132,6 +132,13 @@ body,
   margin-top: 1px;
 }
 
+.playground-push__banner-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 .playground-push__fetch-error {
   color: var(--cerebro-text-muted);
 }

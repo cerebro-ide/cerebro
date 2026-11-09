@@ -9,6 +9,7 @@ import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { fetchingRemote, pushing } from '../src/push.js';
+import { updating } from '../src/update.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
@@ -88,6 +89,19 @@ describe('the page in a browser', () => {
     await expect.poll(tooltipText).toBe('Pushing the branch');
     await userEvent.unhover(item);
     pushing.set(false);
+    await expect.poll(() => item.hidden).toBe(true);
+  });
+
+  it('shows Updating… while the project updates, as IntelliJ’s', async () => {
+    const item = q('.cerebro-statusbar__item[data-id="update"]');
+    expect(item.hidden).toBe(true);
+    updating.set(true);
+    await expect.poll(() => item.hidden).toBe(false);
+    expect(item.textContent).toBe('Updating…');
+    await userEvent.hover(item);
+    await expect.poll(tooltipText).toBe('Updating the project');
+    await userEvent.unhover(item);
+    updating.set(false);
     await expect.poll(() => item.hidden).toBe(true);
   });
 

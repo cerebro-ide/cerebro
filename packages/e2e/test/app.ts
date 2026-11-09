@@ -27,6 +27,7 @@ export const KEYS = {
   groupByDirectory: mac ? 'Control+P' : 'Control+Alt+P',
   commit: mac ? 'Meta+K' : 'Control+K',
   push: mac ? 'Meta+Shift+K' : 'Control+Shift+K',
+  update: mac ? 'Meta+T' : 'Control+T',
   amend: mac ? 'Control+Alt+M' : 'Alt+M',
   darkTheme: 'Control+Backquote',
   undo: mac ? 'Meta+Z' : 'Control+Z',

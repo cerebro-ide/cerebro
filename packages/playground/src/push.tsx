@@ -6,7 +6,8 @@
 // IntelliJ's GitDefineRemoteDialog. Push tags, beside the buttons, sends tags too. Push pushes them,
 // "Pushing…" on the status bar meanwhile. When the remote's branch has commits the branch hasn't, a
 // banner says so over the tree, as IntelliJ's (PushDivergenceBanner): Force Push, on Push's arrow,
-// replaces them, after asking; when they aren't fetched, Fetch fetches them first, to count them.
+// replaces them, after asking; when they aren't fetched, Fetch fetches them first, to count them;
+// its Update project… updates instead.
 // How it went is a notification, as IntelliJ's GitPushResultNotification: "Pushed 2 commits to
 // origin/main", "Pushed main to new branch origin/main", "Force pushed main to origin/main",
 // "Everything is up to date", or "Push rejected" or "Push failed", which stay.
@@ -30,6 +31,7 @@ import {
 } from './environments.js';
 import { CommitFiles, EMPTY_TREE, type LogCommit } from './git-log.js';
 import { notifications } from './notifications.js';
+import { updateProject } from './update.js';
 
 /** What a push of the checked-out branch sends: the host's `git.outgoing`. */
 interface Outgoing {
@@ -220,8 +222,11 @@ function divergenceText(state: PushState): string | undefined {
     : `${diverged} To keep ${them}, update the project first. To replace ${them}, use Force Push.`;
 }
 
-/** IntelliJ's banner over the tree, while the push will be rejected. */
-function DivergenceBanner(props: { state: PushState }): Node {
+/**
+ * IntelliJ's banner over the tree, while the push will be rejected, with its Update project…, which
+ * closes the dialog and updates.
+ */
+function DivergenceBanner(props: { state: PushState; update: () => void }): Node {
   return (
     <div class="playground-push__divergence">
       {() => {
@@ -229,7 +234,12 @@ function DivergenceBanner(props: { state: PushState }): Node {
         return text === undefined ? null : (
           <div class="playground-push__banner" role="status">
             {notificationIcon('warning')}
-            <span>{text}</span>
+            <div class="playground-push__banner-text">
+              <span>{text}</span>
+              <button type="button" class="playground-push__link" on:click={props.update}>
+                Update project…
+              </button>
+            </div>
           </div>
         );
       }}
@@ -907,11 +917,17 @@ export async function openPush(worktree: string): Promise<void> {
     },
     width: 800,
     footer: () => (why === undefined ? <TagsOption state={state} /> : null),
-    content: () => (
+    content: (dialog) => (
       <div class="playground-push">
         {why === undefined ? (
           [
-            <DivergenceBanner state={state} />,
+            <DivergenceBanner
+              state={state}
+              update={() => {
+                dialog.close();
+                void updateProject(worktree);
+              }}
+            />,
             <PushLog worktree={worktree} state={state} host={host} />,
           ]
         ) : (

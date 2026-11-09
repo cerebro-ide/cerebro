@@ -93,6 +93,8 @@ export const INTELLIJ: KeymapPreset = {
     'image.actualSize': ['Ctrl+/'],
     'changes.commit': ['Ctrl+K'],
     'vcs.push': ['Ctrl+Shift+K'],
+    // Update Project: given where the action is declared (VcsActions.xml).
+    'vcs.update': ['Ctrl+T'],
     'changes.amend': ['Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
@@ -164,6 +166,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'image.actualSize': ['Meta+/'],
     'changes.commit': ['Meta+K'],
     'vcs.push': ['Meta+Shift+K'],
+    'vcs.update': ['Meta+T'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
@@ -213,6 +216,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
   name: 'VS Code',
   parent: INTELLIJ,
   bindings: {
+    // Ctrl+T is its Go to Symbol in Workspace, and it has no Update Project (Cerebro's choice).
+    'vcs.update': [],
     // The Command Palette: commands, as Find Action's tab.
     'action.find': ['Ctrl+Shift+P', 'F1'],
     'file.goTo': ['Ctrl+P'],
@@ -268,6 +273,7 @@ export const VSCODE_MAC: KeymapPreset = {
   name: 'VS Code (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'vcs.update': [],
     'action.find': ['Meta+Shift+P', 'F1'],
     'file.goTo': ['Meta+P'],
     'symbol.goTo': ['Meta+T'],
@@ -332,6 +338,7 @@ export const ECLIPSE: KeymapPreset = {
   name: 'Eclipse',
   parent: INTELLIJ,
   bindings: {
+    'vcs.update': [],
     'class.goTo': ['Ctrl+Shift+T'],
     'file.goTo': ['Ctrl+Shift+R'],
     'find.inFiles': ['Ctrl+H'],
@@ -373,6 +380,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
   name: 'Eclipse (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'vcs.update': [],
     'class.goTo': ['Meta+Shift+T'],
     'file.goTo': ['Meta+Shift+R'],
     'action.find': ['Meta+3'],
@@ -529,6 +537,7 @@ export const SUBLIME: KeymapPreset = {
   name: 'Sublime Text',
   parent: INTELLIJ,
   bindings: {
+    'vcs.update': [],
     'symbol.goTo': ['Ctrl+Shift+R'],
     'class.goTo': [],
     'file.goTo': ['Ctrl+P'],
@@ -561,6 +570,7 @@ export const SUBLIME_MAC: KeymapPreset = {
   name: 'Sublime Text (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'vcs.update': [],
     'symbol.goTo': ['Meta+Shift+R'],
     'class.goTo': [],
     'file.goTo': ['Meta+P', 'Meta+T'],
@@ -593,6 +603,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
   name: 'Visual Studio',
   parent: INTELLIJ,
   bindings: {
+    'vcs.update': ['Ctrl+Alt+W'],
     'symbol.goTo': ['Ctrl+Alt+Shift+T'],
     'class.goTo': [],
     'file.goTo': ['Ctrl+Shift+T'],
@@ -643,6 +654,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
   name: 'Visual Studio (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'vcs.update': ['Meta+Alt+W'],
     'symbol.goTo': ['Meta+Alt+Shift+T'],
     'class.goTo': [],
     'file.goTo': ['Meta+Shift+T'],

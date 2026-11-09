@@ -58,6 +58,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
+- [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; conflicts left to git
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -2118,8 +2119,9 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   Commits…" on the status bar), which reads what's pushed again; a Fetch that fails says why in a
   row of the tree, with Retry, and the push is left to the remote. A branch only behind sends
   nothing, so nothing's in its way. Measured on real git (`push.test.ts`). The banner's colours are
-  the Islands themes' `Banner.warningBackground` and `warningBorderColor`. IntelliJ's banner links,
-  Update project… and Show divergence in Git log, aren't there: Cerebro has neither yet.
+  the Islands themes' `Banner.warningBackground` and `warningBorderColor`. IntelliJ's banner link
+  Update project… is there (changed 2026-11-09: see "Updating the project"); Show divergence in
+  Git log isn't yet.
 - **Force Push (changed 2026-11-08),** as IntelliJ's: on the arrow of Push, which is an option
   button (`ui-dialog`'s OK options, as IntelliJ's `JBOptionButton`: the button does the first one
   enabled, so never Force Push). It's disabled while a fetch is needed, and to a protected branch
@@ -2221,6 +2223,64 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Updating the project (2026-11-09)
+
+Ido, 2026-11-09 ("do 1-3", the third being Update Project, then "Update first, conflicts next"):
+IntelliJ's Update Project, without its Conflicts dialog, which comes next. Its words and behaviour
+are from its source (`GitUpdateProcess`, `GitMergeUpdater`, `GitRebaseUpdater`,
+`GitPreservingProcess`, `GitUpdateOptionsPanel`, `UpdateOptionsDialog`, `PushController`,
+`GitBundle.properties`, `VcsBundle.properties`, `DvcsBundle.properties`, `VcsActions.xml`).
+
+- **Where it starts:** Git → Update Project…, after Push…, as IntelliJ's Git menu; Ctrl+T (Cmd+T
+  on macOS), IntelliJ's default. The keymaps follow IntelliJ's: Visual Studio's Ctrl+Alt+W (macOS:
+  Cmd+Alt+W); none in Eclipse's and Sublime Text's, which remove it. VS Code's keymap has none
+  either: its Ctrl+T is Go to Symbol in Workspace (Cerebro's choice, open to change). And the Push
+  dialog's banner, when the remote has diverged, has IntelliJ's Update project…, which closes the
+  dialog and updates.
+- **The dialog,** IntelliJ's "Update Project": Merge or Rebase (the setting's value to start with;
+  the choice is kept), with Don't show again. After that, it updates with the setting's method
+  without asking, until Version Control → "Show options before update" is ticked again (IntelliJ's
+  Show options before: Update, on its Confirmation page).
+- **Settings,** IntelliJ's, with its defaults: Version Control → Git's "Update method" (Merge or
+  Rebase; IntelliJ's Branch Default isn't there yet) and "Clean working tree using" (Shelve, or
+  Stash). Global, as Use credential helper is (Cerebro's choice, open to change: IntelliJ keeps
+  them by project).
+- **What it does,** as IntelliJ's `GitUpdateProcess`, in the host (`update.ts`):
+  - it won't start during a merge or a rebase, or with files unmerged; nor in a detached HEAD, nor
+    on a branch with no upstream;
+  - it fetches the upstream's remote, all of it, as IntelliJ's, with the same login as Push (see
+    "Logging in to remotes"); with nothing new upstream, it stops there;
+  - local changes in the way are saved first under IntelliJ's message ("Uncommitted changes before
+    Update at {date}") and put back after: for a rebase, any; for a merge, when the index has
+    changes, or a file changed here was changed upstream too (IntelliJ's `isSaveNeeded`). Untracked
+    files stay where they are. A rebase with local changes tries a fast-forward first, which saves
+    nothing (IntelliJ's `tryFastForwardMergeForRebaseUpdaters`);
+  - then `git merge --no-stat -v @{upstream}`, or `git rebase @{upstream}`;
+  - when git won't start it (untracked files in the way, say), what was saved is put back, and the
+    error is git's.
+  Measured on real git (`packages/host/test/update.test.ts`). It's recorded in the Local History, as
+  other git changes are.
+- **Updating…** on the status bar while it runs, as IntelliJ's; Update Project can't start another
+  meanwhile.
+- **How it went,** in IntelliJ's words: "2 files updated in 1 commit" (IntelliJ's View Commits isn't
+  there yet); "Nothing to update"; "Cannot update" with why ("You have unfinished merge. These
+  conflicts must be resolved before update.", and its rebase's and unmerged files' words, "main has
+  no tracked branch"); "Cannot Update: No Current Branch"; "Update failed" with git's words. When
+  saved changes didn't go back over the update: "Local changes were not restored", "Before update
+  your uncommitted changes were saved to shelf." (or stash), with View saved changes…, which shows
+  the Commit window's Shelf or Stash tab. Errors stay, as IntelliJ's sticky balloons.
+- **Conflicts** are left to git, the merge or rebase under way, and what was saved stays saved:
+  "Cannot complete update", "Merge conflicts detected. Resolve them before continuing update." (a
+  rebase's: "Cannot continue rebase", with IntelliJ's words on continuing or aborting it). The
+  Commit window lists the conflicted files, as changed ones for now (IntelliJ's Merge Conflicts
+  group comes with the Conflicts dialog). IntelliJ shows its Conflicts dialog first; closing it
+  leaves the same state.
+- **Not yet:** IntelliJ's Conflicts dialog and its 3-way merge (next). Reset to the Remote Branch
+  (the dialog's left button), Branch Default, Choose upstream branch (on "no tracked branch"), View
+  Commits, the warning before rebasing published commits, and several repositories at once.
+  Unshelving uses `git apply`, which, unlike IntelliJ's own applier, won't apply a hunk whose lines
+  moved: see the backlog.
 
 ## Reformat Code (2026-11-04)
 
