@@ -43,7 +43,14 @@ import {
 import { BadQuery, searchText } from './search.js';
 import { LanguageServers } from './lsp.js';
 import { formatWithPrettier } from './prettier.js';
-import { update, type SaveChanges, type UpdateMethod } from './update.js';
+import {
+  continueUpdate,
+  update,
+  type Resume,
+  type SaveChanges,
+  type UpdateMethod,
+} from './update.js';
+import { acceptSide, listConflicts, mergeRevisions, resolveWith } from './conflicts.js';
 import {
   addWorktree,
   commit,
@@ -572,6 +579,52 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     const options: { method: UpdateMethod; save: SaveChanges } = { method: p.method, save: p.save };
     return recording(worktree, 'Update Project', git, () => update(worktree, options, git, remote));
+  });
+  // Carries on with an update stopped at conflicts, once they're resolved: given back what it gave.
+  connection.onRequest('git.continueUpdate', (params) => {
+    const worktree = text(params, 'path');
+    const resume = (params as { resume?: unknown }).resume as Partial<Resume> | undefined;
+    const saved = resume?.saved as { how?: unknown; id?: unknown } | undefined;
+    if (
+      (resume?.method !== 'merge' && resume?.method !== 'rebase') ||
+      typeof resume.before !== 'string' ||
+      !COMMIT.test(resume.before) ||
+      !Number.isInteger(resume.commits) ||
+      (saved !== undefined &&
+        saved.how !== 'stash' &&
+        !(saved.how === 'shelve' && typeof saved.id === 'string' && SHELF_ID.test(saved.id)))
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'resume must be what the update gave');
+    }
+    const given = resume as Resume;
+    return recording(worktree, 'Update Project', git, () => continueUpdate(worktree, given, git));
+  });
+  // Merge conflicts: the files, their versions, resolving them, and carrying on after.
+  connection.onRequest('git.conflicts', (params) => listConflicts(text(params, 'path'), git));
+  connection.onRequest('git.mergeRevisions', (params) =>
+    mergeRevisions(text(params, 'path'), text(params, 'file'), git),
+  );
+  connection.onRequest('git.acceptSide', async (params) => {
+    const worktree = text(params, 'path');
+    const side = (params as { side?: unknown }).side;
+    if (side !== 'yours' && side !== 'theirs') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'side must be yours or theirs');
+    }
+    const named = [...files(params)];
+    await recording(worktree, side === 'yours' ? 'Accept Yours' : 'Accept Theirs', git, () =>
+      acceptSide(worktree, named, side, git),
+    );
+    return null;
+  });
+  connection.onRequest('git.resolve', async (params) => {
+    const worktree = text(params, 'path');
+    const file = text(params, 'file');
+    const merged = (params as { text?: unknown }).text;
+    if (typeof merged !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'text must be a string');
+    }
+    await recording(worktree, 'Merge', git, () => resolveWith(worktree, file, merged, git));
+    return null;
   });
   // Define Remote: whether its URL answers, and adding it.
   connection.onRequest('git.checkRemote', (params) =>

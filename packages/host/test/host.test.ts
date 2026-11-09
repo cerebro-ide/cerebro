@@ -756,6 +756,72 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('carries on with an update given back what it gave, and nothing else', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),
+    );
+    const { ui } = connect(git);
+    const before = 'a'.repeat(40);
+    for (const saved of [undefined, { how: 'stash' }, { how: 'shelve', id: '1-2' }]) {
+      const resume = { method: 'merge', before, commits: 2, ...(saved ? { saved } : {}) };
+      expect(await ui.request('git.continueUpdate', { path: '/w', resume })).toMatchObject({
+        kind: 'updated',
+        commits: 2,
+      });
+    }
+    for (const resume of [
+      undefined,
+      { method: 'pull', before, commits: 2 },
+      { method: 'rebase', before: 3, commits: 2 },
+      { method: 'rebase', before: 'HEAD', commits: 2 },
+      { method: 'rebase', before, commits: 'two' },
+      { method: 'rebase', before, commits: 2, saved: { how: 'drawer' } },
+      { method: 'rebase', before, commits: 2, saved: { how: 'shelve', id: '../x' } },
+      { method: 'rebase', before, commits: 2, saved: { how: 'shelve', id: 7 } },
+    ]) {
+      await expect(ui.request('git.continueUpdate', { path: '/w', resume })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
+  it('lists conflicts, gives their versions, and resolves them, as told', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.conflicts', { path: '/w' })).toEqual({ files: [] });
+    expect(await ui.request('git.mergeRevisions', { path: '/w', file: 'a.txt' })).toEqual({
+      binary: false,
+      base: '',
+      yours: '',
+      theirs: '',
+    });
+    for (const side of ['yours', 'theirs']) {
+      expect(await ui.request('git.acceptSide', { path: '/w', files: ['a.txt'], side })).toBe(null);
+    }
+    await expect(
+      ui.request('git.acceptSide', { path: '/w', files: ['a.txt'], side: 'both' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Not in conflict, so not written.
+    await expect(
+      ui.request('git.resolve', { path: '/w', file: 'a.txt', text: 'merged' }),
+    ).rejects.toThrow(/isn't in conflict/);
+    await expect(
+      ui.request('git.resolve', { path: '/w', file: 'a.txt', text: 3 }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams }); // In conflict, it's written and added.
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-resolve-')));
+    git.mockImplementation((_cwd, args) =>
+      Promise.resolve(bare(args)[0] === 'ls-files' ? '100644 abc 2\ta.txt\0' : '/nowhere/state\n'),
+    );
+    expect(await ui.request('git.resolve', { path: dir, file: 'a.txt', text: 'merged' })).toBe(
+      null,
+    );
+    expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('merged');
+    expect(git).toHaveBeenCalledWith(dir, ['add', '--', 'a.txt'], { GIT_LITERAL_PATHSPECS: '1' });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
