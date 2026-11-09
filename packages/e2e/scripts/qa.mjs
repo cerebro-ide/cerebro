@@ -31,19 +31,19 @@ export async function launch({ repo = newRepository(), width = 1600, height = 10
   writeFileSync(join(data, 'display.json'), JSON.stringify({ scale: '1' }));
   const app = await _electron.launch({
     args: [APP],
-    env: { ...process.env, CEREBRO_USER_DATA: data, CEREBRO_REPO: repo },
+    // Started at its size: a resize after it shows, Linux's window manager can undo (window.ts).
+    env: {
+      ...process.env,
+      CEREBRO_USER_DATA: data,
+      CEREBRO_REPO: repo,
+      CEREBRO_WINDOW_SIZE: `${width}x${height}`,
+    },
   });
   const page = await app.firstWindow();
   const errors = [];
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
-  await app.evaluate(
-    ({ BrowserWindow }, size) => {
-      BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
-    },
-    { width, height },
-  );
   await page.waitForSelector('.cerebro-toolbar');
   return {
     app,

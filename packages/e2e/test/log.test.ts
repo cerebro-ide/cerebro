@@ -37,14 +37,11 @@ const subjects = () => page().locator('.playground-log__message').allTextContent
  * One of the Log toolbar's filters and actions, in the popup its » shows them in when pointed at:
  * the popup lies over the », so a click there would land on what's in it.
  */
-/** What resizing the window found and did, printed when the » is hidden. */
-let resized: unknown;
-
 const inToolbar = async (selector: string) => {
   const popup = page().locator('.cerebro-toolbar-row__popup');
   if ((await popup.count()) === 0) {
     const more = page().locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more');
-    // It was hidden once in a full local run (backlog): what was seen, for next time.
+    // In case it's hidden again (it was, when the window was resized after it showed): what was seen.
     if (!(await more.isVisible()))
       console.log(
         'The » is hidden:',
@@ -65,11 +62,25 @@ const inToolbar = async (selector: string) => {
           visibility: document.visibilityState,
           focused: document.hasFocus(),
         })),
+        // Whether the page's animation frames run, where the row fits its items: frames in 500 ms.
+        await page().evaluate(
+          () =>
+            new Promise<number>((resolve) => {
+              let frames = 0;
+              const count = () => {
+                frames++;
+                requestAnimationFrame(count);
+              };
+              requestAnimationFrame(count);
+              setTimeout(() => {
+                resolve(frames);
+              }, 500);
+            }),
+        ),
         await running.app.evaluate(({ BrowserWindow, screen }) => ({
           windows: BrowserWindow.getAllWindows().map((window) => window.getBounds()),
           screen: screen.getPrimaryDisplay().workArea,
         })),
-        resized,
       );
     await more.hover({ force: true });
   }
@@ -87,13 +98,12 @@ beforeAll(async () => {
   git('commit', '-qm', 'On main');
   git('merge', '-q', '--no-ff', '-m', 'Merge side', 'side');
   git('tag', 'v1');
-  running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
   // As narrow as CI's macOS and Windows windows came out: the Log's toolbar hides its filters and
   // Refresh behind its » here, on every platform.
-  resized = await running.app.evaluate(({ BrowserWindow }) => {
-    const windows = BrowserWindow.getAllWindows();
-    windows[0]?.setSize(1024, 768);
-    return { windows: windows.length, bounds: windows[0]?.getBounds() };
+  running = await launch({
+    CEREBRO_REPO: repo,
+    CEREBRO_LANGUAGE_SERVERS: '',
+    CEREBRO_WINDOW_SIZE: '1024x768',
   });
 });
 

@@ -23,7 +23,7 @@ import { installMenu } from './menu.js';
 import { installPasswords, PasswordStore } from './passwords.js';
 import { installReveal } from './reveal.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
-import { WELCOME_SIZE, windowOptions } from './window.js';
+import { sizeFrom, WELCOME_SIZE, windowOptions } from './window.js';
 
 /** The built UI, relative to this file once compiled to dist/. */
 const PAGE = fileURLToPath(new URL('../../playground/dist/index.html', import.meta.url));
@@ -72,10 +72,11 @@ async function load(window: BrowserWindow, devUrl: string | undefined, zoom: num
 export function createWindow(
   welcome = false,
   devUrl = process.env['CEREBRO_DEV_URL'],
+  size = sizeFrom(process.env['CEREBRO_WINDOW_SIZE']),
 ): { window: BrowserWindow; loaded: Promise<void> } {
   const zoom = zoomFor(forcedScale, process.platform, screen.getPrimaryDisplay().scaleFactor);
   const window = new BrowserWindow(
-    windowOptions(process.platform, PRELOAD, zoom, welcome ? WELCOME_SIZE : undefined),
+    windowOptions(process.platform, PRELOAD, zoom, welcome ? WELCOME_SIZE : size),
   );
   window.once('ready-to-show', () => {
     window.show();

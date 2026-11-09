@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOOLBAR_HEIGHT, windowOptions } from '../src/window.js';
+import { sizeFrom, TOOLBAR_HEIGHT, windowOptions } from '../src/window.js';
 
 describe('windowOptions', () => {
   it('hides the title bar, drawing the window controls over the toolbar', () => {
@@ -26,5 +26,12 @@ describe('windowOptions', () => {
 
   it('zooms the page when told to', () => {
     expect(windowOptions('darwin', '/preload.cjs', 0.625).webPreferences?.zoomFactor).toBe(0.625);
+  });
+
+  it('reads a size as the tests give it, ignoring anything else', () => {
+    expect(sizeFrom('1024x768')).toEqual({ width: 1024, height: 768 });
+    expect(sizeFrom(undefined)).toBeUndefined();
+    expect(sizeFrom('')).toBeUndefined();
+    expect(sizeFrom('wide')).toBeUndefined();
   });
 });

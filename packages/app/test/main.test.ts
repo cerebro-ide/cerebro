@@ -190,6 +190,16 @@ describe('createWindow', () => {
     expect(navigates(window, 'file:///elsewhere/index.html')).toBe(true);
     expect(navigates(window, 'https://example.com/')).toBe(false);
   });
+
+  it('starts a project window at the size the tests ask for, not the Welcome window', () => {
+    vi.stubEnv('CEREBRO_WINDOW_SIZE', '1024x768');
+    createWindow(false, 'http://localhost/');
+    createWindow(true, 'http://localhost/');
+    vi.unstubAllEnvs();
+    const [project, welcome] = electron.windows as [FakeWindow, FakeWindow];
+    expect(project.options).toEqual(expect.objectContaining({ width: 1024, height: 768 }));
+    expect(welcome.options).toEqual(expect.objectContaining({ width: 800, height: 650 }));
+  });
 });
 
 describe('saveFiles', () => {

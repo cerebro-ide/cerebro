@@ -14,6 +14,16 @@ const TEXT = '#d1d3d9';
 /** The Welcome window's size: smaller than a project's, as IntelliJ's. */
 export const WELCOME_SIZE = { width: 800, height: 650 };
 
+/**
+ * A project window's size from `CEREBRO_WINDOW_SIZE` ("1024x768"), for the tests: the window starts
+ * at it, rather than being resized after it shows, which Linux's window manager can undo as it
+ * places the window (measured under WSLg: the size went back to 1440×900, 1 ms after the resize).
+ */
+export function sizeFrom(value: string | undefined): { width: number; height: number } | undefined {
+  const match = /^(\d+)x(\d+)$/.exec(value ?? '');
+  return match ? { width: Number(match[1]), height: Number(match[2]) } : undefined;
+}
+
 export function windowOptions(
   platform: NodeJS.Platform,
   preload: string,
