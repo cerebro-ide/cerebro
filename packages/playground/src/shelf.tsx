@@ -27,6 +27,7 @@ import {
 } from './changes.js';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
+import { readState } from './repository-state.js';
 
 /** A shelved list, as the host gives it. */
 export interface Shelf {
@@ -152,9 +153,12 @@ const worktree = () => (active() as Environment).id;
 const inRepository = () =>
   active() !== undefined && currentHost() !== undefined && gitRepository.get();
 
-/** Reads the active worktree's changes and lists again: after anything changes them. */
+/**
+ * Reads the active worktree's changes and lists again, and its state for the Git menu: after
+ * anything changes them.
+ */
 export async function refreshAll(worktree: string): Promise<void> {
-  await Promise.all([refreshChanges(worktree), listsOf(worktree).refresh()]);
+  await Promise.all([refreshChanges(worktree), listsOf(worktree).refresh(), readState(worktree)]);
 }
 
 type View = 'shelf' | 'stash';

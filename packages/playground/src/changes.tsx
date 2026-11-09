@@ -38,6 +38,7 @@ import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { openPush } from './push.js';
+import { stateOf } from './repository-state.js';
 
 export interface Change {
   path: string;
@@ -343,6 +344,9 @@ function made(worktree: string): Changes {
       const first = rows[0]?.node;
       return rows.length === 1 && first?.kind === 'group' && first.count === 0;
     });
+    const message = signal('');
+    /** The merge whose message was given, so it's given once: cleared, it stays so. */
+    let mergeMessage: string | undefined;
     changes = {
       path: worktree,
       model,
@@ -352,7 +356,7 @@ function made(worktree: string): Changes {
       unversioned: () => unversioned,
       excluded: new ObservableSet<string>(),
       included: new ObservableSet<string>(),
-      message: signal(''),
+      message,
       amend: signal(false),
       amended: undefined,
       refresh: async (force = false) => {
@@ -365,6 +369,14 @@ function made(worktree: string): Changes {
         ])) as [Change[], Turn[], string[]];
         // A later read was asked for while this one ran: it has what's newer.
         if (asked !== reads) return;
+        // During a merge, git's message for it, as IntelliJ's Commit window starts with; taken
+        // out, unedited, once the merge is over (committed by Update Project, say, or aborted).
+        const merge = stateOf(worktree).message;
+        if (merge !== mergeMessage) {
+          if (merge !== undefined && message.peek() === '') message.set(merge);
+          else if (merge === undefined && message.peek() === mergeMessage) message.set('');
+          mergeMessage = merge;
+        }
         const json = JSON.stringify([readChanges, readTurns, readIgnored, byDirectory.peek()]);
         if (json === last && !force) return;
         last = json;
