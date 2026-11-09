@@ -164,11 +164,19 @@ describe('text annotations', () => {
     );
     await userEvent.click(annotated[1] as HTMLElement, { button: 'right' });
     expect(menu).toHaveBeenCalledWith(2, expect.any(MouseEvent));
-    // Line 2's place in the gutter, under nothing.
-    const line = [
-      ...root.querySelectorAll<HTMLElement>('.cerebro-annotations .cm-gutterElement'),
-    ].find((e) => e.style.visibility !== 'hidden' && e.textContent === '');
-    line?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    // Line 2's place in the gutter, which CodeMirror draws nothing in.
+    const number = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].find(
+      (e) => e.textContent === '2',
+    ) as HTMLElement;
+    const gutter = root.querySelector('.cerebro-annotations') as HTMLElement;
+    const right = new MouseEvent('contextmenu', {
+      bubbles: true,
+      cancelable: true,
+      clientX: gutter.getBoundingClientRect().left + 2,
+      clientY: number.getBoundingClientRect().top + 2,
+    });
+    gutter.dispatchEvent(right);
+    expect(right.defaultPrevented).toBe(false);
     expect(menu).toHaveBeenCalledTimes(1);
   });
 

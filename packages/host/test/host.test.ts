@@ -786,9 +786,7 @@ describe('ignored files and rolling back', () => {
   });
 
   it('blames a file’s text, as given', async () => {
-    const git = vi.fn((_cwd: string, _args: readonly string[], _env?: unknown, _input?: string) =>
-      Promise.resolve(''),
-    );
+    const git = vi.fn<Git>(() => Promise.resolve(''));
     const { ui } = connect(git);
     expect(
       await ui.request('git.blame', { path: '/w', file: 'a.txt', contents: 'edited' }),

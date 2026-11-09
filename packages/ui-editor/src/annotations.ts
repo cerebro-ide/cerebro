@@ -104,8 +104,10 @@ const shownField = StateField.define<Shown | undefined>({
     if (!shown || !tr.docChanged) return shown;
     // With their lines: text put at a line's start goes before its annotation.
     const moved: Range<LineMarker>[] = [];
-    for (const at = shown.markers.iter(); at.value; at.next()) {
+    const at = shown.markers.iter();
+    while (at.value) {
       moved.push(at.value.range(tr.changes.mapPos(at.from, 1)));
+      at.next();
     }
     return { ...shown, markers: RangeSet.of(moved, true) };
   },
@@ -118,7 +120,7 @@ const spacerOf = (shown: Shown | undefined) =>
 /** Each column's width, in px: its widest text's, in the gutter's font. */
 function widthsOf(view: EditorView, annotation: TextAnnotation): number[] {
   const context = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
-  const sample = view.dom.querySelector('.cerebro-annotations') ?? view.dom;
+  const sample = view.dom.querySelector('.cerebro-annotations') as Element;
   // Chrome's computed `font` is empty (measured): it's put together.
   const { fontWeight, fontSize, fontFamily } = getComputedStyle(sample);
   context.font = `${fontWeight} ${fontSize} ${fontFamily}`;
@@ -178,9 +180,10 @@ export function textAnnotations(ask: AskAnnotation, after = ANNOTATIONS_AFTER): 
           shown?.markers.between(block.from, block.from, (_from, _to, marker) => {
             line = marker.line;
           });
-          if (!shown || line === undefined) return false;
+          // Found only among the annotations shown.
+          if (line === undefined) return false;
           event.preventDefault();
-          shown.annotation.menu(line, event as MouseEvent);
+          (shown as Shown).annotation.menu(line, event as MouseEvent);
           return true;
         },
       },

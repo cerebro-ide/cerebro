@@ -702,6 +702,35 @@ describe('Reformat Code’s indent', () => {
   });
 });
 
+describe('Annotate with Git Blame', () => {
+  it('shows who last changed each line from the gutter’s menu, with its own menu on them', async () => {
+    const hash = 'a'.repeat(40);
+    const commit = { hash, author: 'Ada Lovelace', email: 'ada@x.org', time: 0, message: 'First' };
+    answers.set('git.blame', { lines: [hash, null], commits: [commit] });
+    env().editor.open({ id: '/r/src/blamed.ts', title: 'blamed.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/blamed.ts');
+    const number = editorRoot()?.querySelector(
+      '.cm-lineNumbers .cm-gutterElement:not([style*="hidden"])',
+    );
+    await userEvent.click(number as HTMLElement, { button: 'right' });
+    expect(await menuItems()).toEqual(['Annotate with Git Blame']);
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    const annotation = () =>
+      [...(editorRoot()?.querySelectorAll<HTMLElement>('.cerebro-annotation') ?? [])].find(
+        (a) => a.textContent !== '',
+      );
+    await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
+    expect(host('/r').params('git.blame')).toEqual([
+      { path: '/r', file: 'src/blamed.ts', contents: '// /r/src/blamed.ts\nconst a = 1;\n' },
+    ]);
+    // On an annotation, its own menu, not the editor's.
+    await userEvent.click(annotation() as HTMLElement, { button: 'right' });
+    expect(await menuItems()).toEqual(['Close Annotations', 'View', 'Copy Revision Number']);
+    await userEvent.click(menuItem('Close Annotations'));
+    await expect.poll(annotation).toBeUndefined();
+  });
+});
+
 describe('the Prettier plugin', () => {
   const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
 

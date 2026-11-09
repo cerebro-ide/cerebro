@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, View (columns, Colors, Names) and Copy Revision Number
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -2224,6 +2225,43 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Annotate with Git Blame (2026-11-09)
+
+Ido, 2026-11-09 ("all of the above", to: committing a merge with Abort and Continue, Blame, branch
+operations): the second of the three. Words, layout and colours from IntelliJ's source
+(`AnnotateToggleAction`, `AnnotationPresentation`, `AspectAnnotationFieldGutter`,
+`GitFileAnnotation`, `GitAnnotationProvider`, `AnnotateActionGroup`, `ShowShortenNames`,
+`ShortNameType`, `ShowAnnotationColorsAction`, `AnnotationsSettings`, `ColorGenerator`,
+`EditorGutterComponentImpl`, `EditorGutterLayout`, its themes' `VCS_ANNOTATIONS_COLOR_*`).
+
+- **Where:** "Annotate with Git Blame" (its mnemonic N), first in the menu of a right-click on the
+  editor's gutter, and in Git → Current File (IntelliJ's `Git.MainMenu.FileActions`); checked
+  while annotated, and run again it closes them. Only for a file in a git worktree with a host.
+- **What it shows:** a column in the gutter before the line numbers, as IntelliJ's new UI, in the UI
+  font: for each line, the date (Today, Yesterday, or the short date, as `formatPrettyDate`) and the
+  author's last name, IntelliJ's defaults; the revision (8 characters) can be turned on. Each column
+  is as wide as its widest text and 5px more (`GAP_BETWEEN_ANNOTATIONS`), and keeps its width with no
+  annotated line in view. The file's last commit is in IntelliJ's latest-commit colour.
+- **Backgrounds,** as IntelliJ's: its five colours per theme, with four between each two (21), by age
+  (Order, the default: newest first) or by author (the palette shuffled so neighbours differ); none
+  with one commit, or with Hide. Tokens `--cerebro-annotations*`, IntelliJ's values.
+- **The editor's text, not the file's:** blamed as it is (`git blame --porcelain --contents -`), so
+  lines changed since the last commit show nothing, and asked again 500 ms after an edit settles;
+  meanwhile the annotations move with their lines. Failing (a file git doesn't track, say), they
+  close, with IntelliJ's "Cannot load annotations" and git's words.
+- **The tooltip** is IntelliJ's text (the commit, Author with email, Date, Path when the file was
+  elsewhere, then the message), shown as the browser's tooltip, as the gutter markers' are
+  (Cerebro's choice, open to change: IntelliJ's is a popup with links).
+- **The menu on an annotation,** as IntelliJ's in part: Close Annotations; View (Revision, Date,
+  Author; Colors: Author, Order, Hide; Names: Initials, Last Name, First Name, Full Name, Email,
+  shortened as `ShortNameType`, its tests' cases kept); Copy Revision Number. The view is kept in the
+  browser's storage for every file (IntelliJ keeps it in its settings: Cerebro's choice, open to
+  change).
+- **Not yet:** Show Diff, Annotate Revision and Annotate Previous Revision, Show Diff On Hover,
+  Options (ignoring whitespace, detecting moved lines); a click on an annotation going to the commit
+  in the Log; reading them again after a commit, or a change on disk; the action hidden for an
+  untracked file; the editor's context menu's Git submenu.
 
 ## Merge conflicts (2026-11-09)
 

@@ -72,8 +72,11 @@ const VIEW_KEY = 'cerebro.annotate.view';
 export function readView(): AnnotationView {
   try {
     const stored = JSON.parse(localStorage.getItem(VIEW_KEY) ?? '{}') as Partial<AnnotationView>;
-    const one = <T extends string>(all: readonly (readonly [T, string])[], value: unknown, or: T) =>
-      all.some(([id]) => id === value) ? (value as T) : or;
+    const one = <T extends string>(
+      all: readonly (readonly [T, string])[],
+      value: unknown,
+      or: T,
+    ) => (all.some(([id]) => id === value) ? (value as T) : or);
     return {
       aspects: Object.fromEntries(
         ASPECTS.map(([id]) => [
@@ -176,7 +179,9 @@ export const PALETTE: readonly string[] = Array.from({ length: 21 }, (_, i) => {
 
 /** By author, the palette shuffled so neighbours differ (`getAuthorsColors`). */
 const AUTHOR_PALETTE = [0, 1, 2, 3].flatMap((first) =>
-  PALETTE.flatMap((_, k) => (k * 4 + first < PALETTE.length ? [PALETTE[k * 4 + first] as string] : [])),
+  PALETTE.flatMap((_, k) =>
+    k * 4 + first < PALETTE.length ? [PALETTE[k * 4 + first] as string] : [],
+  ),
 );
 
 /** Each commit's background: by its age, or its author's; none with one commit, or Hide. */
@@ -410,9 +415,15 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     group: 'b',
   });
   for (const [id] of COLORS) {
-    menus.contribute({ menu: 'editor/annotation/colors', item: { command: `annotate.colors.${id}` } });
+    menus.contribute({
+      menu: 'editor/annotation/colors',
+      item: { command: `annotate.colors.${id}` },
+    });
   }
   for (const [id] of NAMES) {
-    menus.contribute({ menu: 'editor/annotation/names', item: { command: `annotate.names.${id}` } });
+    menus.contribute({
+      menu: 'editor/annotation/names',
+      item: { command: `annotate.names.${id}` },
+    });
   }
 }
