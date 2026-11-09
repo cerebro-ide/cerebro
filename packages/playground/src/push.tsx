@@ -236,7 +236,7 @@ function DivergenceBanner(props: { state: PushState; update: () => void }): Node
             {notificationIcon('warning')}
             <div class="playground-push__banner-text">
               <span>{text}</span>
-              <button type="button" class="playground-push__link" on:click={props.update}>
+              <button type="button" class="playground-link" on:click={props.update}>
                 Update project…
               </button>
             </div>
@@ -406,7 +406,7 @@ function TargetRow(props: { state: PushState }): Node {
       {/* One link, so it keeps the focus as what it says changes. */}
       <button
         type="button"
-        class="playground-push__link"
+        class="playground-link"
         on:click={(event) => {
           event.stopPropagation();
           // No remote: IntelliJ's link says Define remote, and there's no branch there.
@@ -421,7 +421,7 @@ function TargetRow(props: { state: PushState }): Node {
         state.out.get().remote === undefined ? null : !editing.get() ? (
           <button
             type="button"
-            class="playground-push__link"
+            class="playground-link"
             on:click={(event) => {
               event.stopPropagation();
               state.editing.set(state.out.peek().target);
@@ -562,7 +562,7 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
                 {`Fetch failed: ${state.fetchError.peek() as string} `}
                 <button
                   type="button"
-                  class="playground-push__link"
+                  class="playground-link"
                   on:click={(event) => {
                     event.stopPropagation();
                     state.fetch();

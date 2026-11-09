@@ -1,5 +1,5 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// going from a diff to the file with F4; logging in to push; and Update Project.
+// going from a diff to the file with F4; logging in to push; and Update Project, its conflicts resolved.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -196,6 +196,11 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
   await push('Kept');
   await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
   expect(await login.count()).toBe(0);
+  const pushing = () => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible();
+  console.log('Pushing… once the remote has it:', await pushing());
+  // Push is off until it ends, and the next test pushes. Not the measured cause of that test's
+  // failures on Windows (see the backlog): it had ended when the remote had it, in the run after.
+  await expect.poll(pushing, { timeout: 15_000 }).toBe(false);
   server.close();
 });
 
@@ -206,9 +211,20 @@ it('says why a push failed in git’s words alone', async () => {
   git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Nowhere');
   await page().keyboard.press(KEYS.push);
   const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
-  await expect
-    .poll(() => dialog.locator('.playground-push__commit').allTextContents(), { timeout: 15_000 })
-    .toContain('Nowhere');
+  try {
+    await expect
+      .poll(() => dialog.locator('.playground-push__commit').allTextContents(), {
+        timeout: 15_000,
+      })
+      .toContain('Nowhere');
+  } catch (error) {
+    // Failed once on Windows in CI (2026-11-09), the dialog's commits empty: what was seen.
+    console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
+    console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
+    console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
+    console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+    throw error;
+  }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
   const failed = page().locator('.cerebro-balloon', { hasText: 'Push failed' });
   await failed.waitFor({ timeout: 15_000 });
@@ -245,4 +261,42 @@ it('updates the project from the upstream, after asking how, as IntelliJ’s', a
       timeout: 15_000,
     })
     .toContain('1 file updated in 1 commit');
+});
+
+it('at conflicts, shows the Conflicts dialog and the merge window, then commits the merge', async () => {
+  // The same line changed here and in the other clone, both committed.
+  const other = join(root, 'other');
+  const inOther = (...args: string[]) => execFileSync('git', args, { cwd: other });
+  inOther('pull', '-q', '--no-rebase');
+  writeFileSync(join(other, 'a.ts'), 'a theirs\n');
+  inOther('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'Theirs to a');
+  inOther('push', '-q', 'origin', 'main');
+  writeFileSync(join(repo, 'a.ts'), 'a mine\n');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Mine to a', '--', 'a.ts');
+  await page().keyboard.press(KEYS.update);
+  const update = page().locator('.cerebro-dialog', { hasText: 'Update Project' });
+  await update.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+  const conflicts = page().locator('.cerebro-dialog', { hasText: 'Merge conflicts detected' });
+  await conflicts.waitFor({ timeout: 15_000 });
+  expect(await conflicts.locator('.playground-conflicts__row').allTextContents()).toEqual([
+    'a.tsModifiedModified',
+  ]);
+  await conflicts.locator('.cerebro-dialog__button', { hasText: 'Merge…' }).click();
+  const merge = page().locator('.cerebro-dialog', { hasText: 'Merge Revisions for' });
+  await merge.waitFor();
+  expect(await merge.locator('.playground-merge__left').textContent()).toBe(
+    'No changes, 1 conflict',
+  );
+  await merge.locator('.cerebro-dialog__button', { hasText: 'Accept Left' }).click();
+  // None left: the update goes on, and commits the merge.
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toBe("Merge remote-tracking branch 'origin/main'\n");
+  expect(git('show', 'HEAD:a.ts')).toBe('a mine\n');
+  // Mine kept: no file differs from before the update.
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('0 files updated in 1 commit');
 });

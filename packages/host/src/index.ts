@@ -163,9 +163,25 @@ export {
   type Revision,
 } from './history.js';
 export {
+  continueUpdate,
   savedMessage,
   update,
+  type Resume,
   type SaveChanges,
+  type Saved,
   type Updated,
   type UpdateMethod,
 } from './update.js';
+export {
+  acceptSide,
+  continueOperation,
+  listConflicts,
+  mergeRevisions,
+  operation,
+  resolveWith,
+  type ConflictedFile,
+  type Conflicts,
+  type ConflictSide,
+  type Operation,
+  type Revisions,
+} from './conflicts.js';

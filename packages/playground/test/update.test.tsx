@@ -6,19 +6,31 @@ import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { globalSettings } from '../src/settings.js';
 import { setupUpdate, updateProject, updating } from '../src/update.js';
-import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
+import { closeAll, dialog, dialogText, FakeHost, press, project } from './fakes.js';
 
 /** How the host says the update went: what it gives, or the error it fails with. */
 const git = {
   updated: { kind: 'nothing' } as unknown,
   /** Held until it resolves: an update under way. */
   hold: undefined as Promise<void> | undefined,
+  /** The files in conflict, and how the update goes on once none is. */
+  conflicted: [] as string[],
+  continued: { kind: 'updated', files: 1, commits: 1, restored: true } as unknown,
 };
 const host = new FakeHost({
   'git.update': async () => {
     await git.hold;
     if (git.updated instanceof Error) throw git.updated;
     return git.updated;
+  },
+  'git.continueUpdate': () => git.continued,
+  'git.conflicts': () => ({
+    operation: 'merge',
+    files: git.conflicted.map((path) => ({ path, yours: 'modified', theirs: 'modified' })),
+  }),
+  'git.acceptSide': () => {
+    git.conflicted = [];
+    return null;
   },
   'git.shelves': () => [],
   'git.stashes': () => [],
@@ -48,6 +60,7 @@ beforeEach(() => {
   workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
   git.updated = { kind: 'nothing' };
   git.hold = undefined;
+  git.conflicted = [];
   shown.length = 0;
 });
 
@@ -187,11 +200,6 @@ describe('Update Project', () => {
       ],
       [{ kind: 'noUpstream', branch: 'alone' }, 'Cannot update', 'alone has no tracked branch'],
       [
-        { kind: 'conflicts', method: 'merge', saved: false },
-        'Cannot complete update',
-        'Merge conflicts detected. Resolve them before continuing update.',
-      ],
-      [
         new Error('fatal: could not read from remote repository'),
         'Update failed',
         'fatal: could not read from remote repository',
@@ -214,15 +222,75 @@ describe('Update Project', () => {
     expect(shown).toEqual(['vcs.showShelf']);
     // A rebase's conflicts, the changes stashed: both said.
     globalSettings.layers.global.set('git.saveChanges', 'stash');
-    await updated({ kind: 'conflicts', method: 'rebase', saved: true });
-    expect(notifications.all.get(1)).toMatchObject({
-      title: 'Cannot continue rebase',
-      content:
-        'Merge conflicts detected. Resolve them before continuing rebase. Then you may continue rebase. You also may abort rebase to restore the original branch and stop rebasing.',
-    });
+    git.conflicted = ['a.ts'];
+    git.updated = { kind: 'conflicts', method: 'rebase', saved: true, resume: {} };
+    silently();
+    commands.execute('vcs.update');
+    await dialog();
+    await press('Close');
+    await expect
+      .poll(() => notifications.all.get(1))
+      .toMatchObject({
+        title: 'Cannot continue rebase',
+        content:
+          'There are pending unresolved conflicts. Then you may continue rebase. You also may abort rebase to restore the original branch and stop rebasing.',
+      });
     expect(last()?.content).toBe('Before update your uncommitted changes were saved to stash.');
     last()?.actions[0]?.run();
     expect(shown).toEqual(['vcs.showShelf', 'vcs.showStash']);
+  });
+
+  it('shows the Conflicts dialog at conflicts, and carries on once none is left', async () => {
+    const resume = { method: 'merge', before: 'abc', commits: 1 };
+    git.conflicted = ['a.ts'];
+    git.updated = { kind: 'conflicts', method: 'merge', saved: false, resume };
+    silently();
+    commands.execute('vcs.update');
+    expect(await dialogText()).toContain(
+      'Merge conflicts detected. Resolve them before continuing update.',
+    );
+    await press('Accept Yours');
+    await expect.poll(() => last()?.title).toBe('1 file updated in 1 commit');
+    expect(host.params('git.continueUpdate')).toEqual([{ path: '/r', resume }]);
+  });
+
+  it('says conflicts are left when the dialog is closed, and Resolve… shows it again', async () => {
+    git.conflicted = ['a.ts'];
+    git.updated = { kind: 'conflicts', method: 'merge', saved: false, resume: {} };
+    silently();
+    commands.execute('vcs.update');
+    await dialog();
+    await press('Close');
+    await expect.poll(last).toMatchObject({
+      title: 'Cannot complete update',
+      content: 'There are pending unresolved conflicts.',
+      type: 'warning',
+      display: 'sticky',
+    });
+    expect(host.params('git.continueUpdate')).toEqual([]);
+    const shelves = host.params('git.shelves').length;
+    last()?.actions[0]?.run();
+    // What's being merged, this time.
+    expect(await dialogText()).toContain('Merging branch');
+    await press('Accept Yours');
+    await expect.poll(() => host.params('git.shelves').length).toBeGreaterThan(shelves);
+  });
+
+  it('logs what fails resolving from the notification', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.conflicted = ['a.ts'];
+    git.updated = { kind: 'conflicts', method: 'merge', saved: false, resume: {} };
+    silently();
+    commands.execute('vcs.update');
+    await dialog();
+    await press('Close');
+    await expect.poll(() => last()?.title).toBe('Cannot complete update');
+    // The host gone by then: listing the conflicts fails.
+    useProjects([project('/r', new FakeHost({})), project('/s', undefined)]);
+    last()?.actions[0]?.run();
+    await expect.poll(() => error.mock.calls.length).toBe(1);
+    expect(error.mock.calls[0]?.[0]).toBe('Resolving the conflicts failed');
+    useProjects([project('/r', host), project('/s', undefined)]);
   });
 
   it('reads the Commit window’s lists again after', async () => {

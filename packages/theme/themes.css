@@ -116,8 +116,17 @@
   --cerebro-diff-removed-text: #6b3a3c;
   --cerebro-diff-added: #263a2c;
   --cerebro-diff-added-text: #35603e;
+  /* The merge window's changes, from IntelliJ's Darcula scheme (DefaultColorSchemesManager.xml);
+     the line where a change has none, and the controls' hover, not measured. */
+  --cerebro-merge-modified: #385570;
+  --cerebro-merge-inserted: #294436;
+  --cerebro-merge-deleted: #484a4a;
+  --cerebro-merge-conflict: #45302b;
+  --cerebro-merge-edge: #5a5d63;
   /* Changed files' names, by status (not measured). */
   --cerebro-vcs-modified: #6f9fe0;
+  /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
+  --cerebro-vcs-conflict: #de6a66;
   --cerebro-vcs-added: #73bd79;
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
@@ -293,8 +302,17 @@
   --cerebro-diff-removed-text: #f4b8b3;
   --cerebro-diff-added: #e1f3e1;
   --cerebro-diff-added-text: #aee0b0;
+  /* The merge window's changes, from IntelliJ's light schemes (the New UI's modified, the Default
+     scheme's others); the line where a change has none, and the controls' hover, not measured. */
+  --cerebro-merge-modified: #c2d8f2;
+  --cerebro-merge-inserted: #bee6be;
+  --cerebro-merge-deleted: #d6d6d6;
+  --cerebro-merge-conflict: #ffd5cc;
+  --cerebro-merge-edge: #a8adbd;
   /* Changed files' names, by status (not measured). */
   --cerebro-vcs-modified: #2f6fc4;
+  /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
+  --cerebro-vcs-conflict: #de1b2e;
   --cerebro-vcs-added: #2e8a3c;
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;

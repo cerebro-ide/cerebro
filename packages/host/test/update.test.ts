@@ -3,7 +3,16 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { git, listShelves, listStashes, savedMessage, update } from '../src/index.js';
+import {
+  acceptSide,
+  continueUpdate,
+  git,
+  listShelves,
+  listStashes,
+  savedMessage,
+  update,
+  type Updated,
+} from '../src/index.js';
 
 describe('updating the project, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-update-')));
@@ -161,12 +170,26 @@ describe('updating the project, with real git', () => {
     const { repo, upstream } = cloned();
     upstream('theirs', 'shared.txt', 'ONE\ntwo\nthree\n');
     commit(repo, 'mine', 'shared.txt', 'uno\ntwo\nthree\n');
-    expect(await update(repo, merge, git, git)).toEqual({
+    const before = run(repo, 'rev-parse', 'HEAD').trim();
+    const stopped = await update(repo, merge, git, git);
+    expect(stopped).toEqual({
       kind: 'conflicts',
       method: 'merge',
       saved: false,
+      resume: { method: 'merge', before, commits: 1 },
     });
     expect(await update(repo, merge, git, git)).toEqual({ kind: 'unfinished', state: 'merge' });
+    // Resolved, it carries on: the merge committed with git's message.
+    await acceptSide(repo, ['shared.txt'], 'theirs', git);
+    const { resume } = stopped as Extract<Updated, { kind: 'conflicts' }>;
+    expect(await continueUpdate(repo, resume, git)).toEqual({
+      kind: 'updated',
+      files: 1,
+      commits: 1,
+      restored: true,
+    });
+    expect(subjects(repo)[0]).toBe("Merge remote-tracking branch 'origin/main'");
+    expect(readFileSync(join(repo, 'shared.txt'), 'utf8')).toBe('ONE\ntwo\nthree\n');
   });
 
   it('stops at a rebase’s conflicts, its local changes kept saved', async () => {
@@ -175,13 +198,40 @@ describe('updating the project, with real git', () => {
     commit(repo, 'mine', 'shared.txt', 'uno\ntwo\nthree\n');
     writeFileSync(join(repo, 'other.txt'), 'changed');
     run(repo, 'add', 'other.txt');
-    expect(await update(repo, rebase, git, git)).toEqual({
-      kind: 'conflicts',
-      method: 'rebase',
-      saved: true,
-    });
+    const stopped = await update(repo, rebase, git, git);
+    expect(stopped).toMatchObject({ kind: 'conflicts', method: 'rebase', saved: true });
     expect(await listShelves(repo, git)).toHaveLength(1);
     expect(await update(repo, rebase, git, git)).toEqual({ kind: 'unfinished', state: 'rebase' });
+    // Resolved with mine (yours, during a rebase, is the commit replayed), it carries on, and the
+    // changes saved are put back.
+    await acceptSide(repo, ['shared.txt'], 'yours', git);
+    const { resume } = stopped as Extract<Updated, { kind: 'conflicts' }>;
+    // The file is as it was before, mine kept: none changed.
+    expect(await continueUpdate(repo, resume, git)).toEqual({
+      kind: 'updated',
+      files: 0,
+      commits: 1,
+      restored: true,
+    });
+    expect(subjects(repo).slice(0, 2)).toEqual(['mine', 'theirs']);
+    expect(readFileSync(join(repo, 'shared.txt'), 'utf8')).toBe('uno\ntwo\nthree\n');
+    expect(await listShelves(repo, git)).toEqual([]);
+    expect(readFileSync(join(repo, 'other.txt'), 'utf8')).toBe('changed');
+  });
+
+  it('stops again at the rebase’s next conflicts', async () => {
+    const { repo, upstream } = cloned();
+    upstream('theirs', 'shared.txt', 'ONE\nTWO\nthree\n');
+    commit(repo, 'first mine', 'shared.txt', 'uno\ntwo\nthree\n');
+    commit(repo, 'second mine', 'shared.txt', 'uno\ndos\nthree\n');
+    const stopped = (await update(repo, rebase, git, git)) as Extract<
+      Updated,
+      { kind: 'conflicts' }
+    >;
+    expect(stopped.kind).toBe('conflicts');
+    // Theirs at the first, so the second's change to the line they changed too conflicts.
+    await acceptSide(repo, ['shared.txt'], 'theirs', git);
+    expect(await continueUpdate(repo, stopped.resume, git)).toEqual(stopped);
   });
 
   it('won’t update with files unmerged', async () => {
@@ -203,5 +253,10 @@ describe('updating the project, with real git', () => {
     expect(await listShelves(repo, git)).toEqual([]);
     // Unshelved, an added file is back, though not added (the shelf's way).
     expect(run(repo, 'status', '--porcelain')).toBe('?? staged.txt\n?? theirs.txt\n');
+    // With nothing saved, there's nothing to put back.
+    const clean = cloned();
+    clean.upstream('theirs', 'theirs.txt', 'theirs');
+    writeFileSync(join(clean.repo, 'theirs.txt'), 'untracked here');
+    await expect(update(clean.repo, merge, git, git)).rejects.toThrow(/untracked working tree/);
   });
 });

@@ -58,7 +58,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
-- [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; conflicts left to git
+- [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
+- [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -2224,6 +2225,50 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Merge conflicts (2026-11-09)
+
+Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Conflicts dialog and its
+3-way merge. Words, layout and behaviour from IntelliJ's source (`GitConflictResolver`,
+`MultipleFileMergeDialog`, `GitDefaultMergeDialogCustomizer`, `TextMergeViewer`,
+`GitMergeProvider`, `VcsBundle`, `GitBundle`, `DiffBundle`).
+
+- **Where it shows:** Git → Resolve Conflicts…, after Merge and Rebase, as IntelliJ's; the Commit
+  window's Merge Conflicts group, first, with Resolve on its row; and Update Project at conflicts
+  (see "Updating the project"). Files in conflict (`U` on either side, `AA`, `DD`) are in that
+  group, in IntelliJ's conflict red (#DE6A66 dark, #DE1B2E light, from its themes), never put in a
+  commit.
+- **The Conflicts dialog:** what's being merged over the list, in IntelliJ's words ("Merging branch
+  origin/main into branch main", a rebase's "Rebasing branch … onto …", with the commit it stopped
+  at); the files, with Yours (branch) and Theirs (branch), each Modified or Deleted. Accept Yours
+  and Accept Theirs take that side for the files selected (git's stage 2 or 3, or the file deleted
+  when that side deleted it); Merge…, or a double-click, opens the merge window for each in turn,
+  until one is cancelled. It closes once no file is left. During a rebase, yours is the branch
+  being rebased (git's stage 3), as IntelliJ swaps them.
+- **The merge window,** "Merge Revisions for {path}": yours, the result and theirs, side by side,
+  their titles IntelliJ's ("Changes from main", "Result", "Changes from origin/main"; a rebase's
+  "Rebasing {hash} from {branch}" and "Already rebased commits and commits from {onto}"). Changes
+  are found by whole lines against the base; changes from both sides that touch or overlap are one
+  conflict, unless they're the same. Each change has IntelliJ's » or « to take it, and × to ignore
+  it; Apply non-conflicting changes: Left, All, Right; the count of what's left ("2 changes, 1
+  conflict", "All changes have been processed"). Accept Left and Accept Right take a side whole;
+  Apply writes the result and marks the file resolved, asking first, in IntelliJ's words, when
+  changes are left ("Apply Changes", Continue Merge). The panes are kept level with blank space
+  where a side has fewer lines, and scroll together. Its colours are IntelliJ's (its default
+  schemes, and the New UI's): modified #385570 / #C2D8F2, inserted #294436 / #BEE6BE, deleted
+  #484A4A / #D6D6D6, conflict #45302B / #FFD5CC (dark / light).
+- **In the host** (`conflicts.ts`): the files from `git ls-files -u`, their versions from the index's
+  stages, Accept as `git checkout --ours/--theirs` and `git add` (or `git rm`), a merged text
+  written and added. Measured on real git (`packages/host/test/conflicts.test.ts`). Each is
+  recorded in the Local History ("Accept Yours", "Merge").
+- **Rejected:** CodeMirror's own merge view (`@codemirror/merge`), which compares two documents,
+  not three. Telling a both-added file's sides apart line by line: with no base, it's one conflict
+  (Cerebro's choice, open to change).
+- **Not yet:** undo in the merge window, and asking before Cancel ("Cancel File Merge"); merging a
+  binary file (it says to accept a side); Group by directory and Resolve Simple Conflicts; the Git
+  menu's Continue Rebase, Abort Rebase and Abort Merge; Resolve Conflicts… is enabled with no
+  conflicts (IntelliJ disables it). Committing a merge from the Commit window fails: see the
+  backlog.
+
 ## Updating the project (2026-11-09)
 
 Ido, 2026-11-09 ("do 1-3", the third being Update Project, then "Update first, conflicts next"):
@@ -2270,13 +2315,17 @@ are from its source (`GitUpdateProcess`, `GitMergeUpdater`, `GitRebaseUpdater`,
   saved changes didn't go back over the update: "Local changes were not restored", "Before update
   your uncommitted changes were saved to shelf." (or stash), with View saved changes…, which shows
   the Commit window's Shelf or Stash tab. Errors stay, as IntelliJ's sticky balloons.
-- **Conflicts** are left to git, the merge or rebase under way, and what was saved stays saved:
-  "Cannot complete update", "Merge conflicts detected. Resolve them before continuing update." (a
-  rebase's: "Cannot continue rebase", with IntelliJ's words on continuing or aborting it). The
-  Commit window lists the conflicted files, as changed ones for now (IntelliJ's Merge Conflicts
-  group comes with the Conflicts dialog). IntelliJ shows its Conflicts dialog first; closing it
-  leaves the same state.
-- **Not yet:** IntelliJ's Conflicts dialog and its 3-way merge (next). Reset to the Remote Branch
+- **Conflicts** (changed 2026-11-09: the Conflicts dialog is here, see "Merge conflicts"): as
+  IntelliJ's `GitConflictResolver`, the Conflicts dialog shows, saying "Merge conflicts detected.
+  Resolve them before continuing update." (or "…continuing rebase."). Once no file is left in
+  conflict, the update goes on: a merge is committed with git's message, a rebase continued, to
+  its next stop or its end, and what was saved is put back. Closed with files left, the merge or
+  rebase stays under way and what was saved stays saved: "Cannot complete update" (a rebase's:
+  "Cannot continue rebase", with IntelliJ's words on continuing or aborting it), "There are
+  pending unresolved conflicts.", with Resolve…, which shows the dialog again; as IntelliJ's, the
+  update doesn't go on from there. Before, this entry gave the dialog's words as the
+  notification's: IntelliJ's source has them as the dialog's.
+- **Not yet:** Reset to the Remote Branch
   (the dialog's left button), Branch Default, Choose upstream branch (on "no tracked branch"), View
   Commits, the warning before rebasing published commits, and several repositories at once.
   Unshelving uses `git apply`, which, unlike IntelliJ's own applier, won't apply a hunk whose lines

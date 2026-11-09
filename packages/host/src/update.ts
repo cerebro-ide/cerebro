@@ -1,11 +1,11 @@
 // Update Project, as IntelliJ's `GitUpdateProcess` (read from its source): the upstream's remote is
 // fetched, then the upstream merged into the checked-out branch or the branch rebased on it. Local
 // changes in the way are saved first (shelved or stashed, IntelliJ's Save changes) and put back
-// after. Conflicts are left to git: the merge or rebase stays under way, and what was saved stays
-// saved, as IntelliJ leaves it when its Conflicts dialog is closed.
+// after. At conflicts, the merge or rebase stays under way and what was saved stays saved, as
+// IntelliJ leaves them while its Conflicts dialog is open: once they're resolved, `continueUpdate`
+// carries on from where it stopped, as IntelliJ does when the dialog closes with none left.
 
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { continueOperation, operation } from './conflicts.js';
 import { listChanges, type Change, type Git } from './git.js';
 import { shelve, stash, unshelve, unstash } from './shelf.js';
 
@@ -29,18 +29,23 @@ export type Updated =
    */
   | { kind: 'updated'; files: number; commits: number; restored: boolean }
   /** Stopped at conflicts; local changes saved stay saved. */
-  | { kind: 'conflicts'; method: UpdateMethod; saved: boolean };
+  | { kind: 'conflicts'; method: UpdateMethod; saved: boolean; resume: Resume };
+
+/** Where local changes were saved: a shelf's id, or the newest stash. */
+export type Saved = { how: 'shelve'; id: string } | { how: 'stash' };
+
+/** What `continueUpdate` needs to carry on after conflicts: given back as the update gave it. */
+export interface Resume {
+  method: UpdateMethod;
+  /** The commit before the update, and how many it brought. */
+  before: string;
+  commits: number;
+  saved?: Saved;
+}
 
 /** The message local changes are saved under, as IntelliJ's (`stash.changes.message.with.date`). */
 export function savedMessage(at: Date): string {
   return `Uncommitted changes before Update at ${at.toLocaleString()}`;
-}
-
-/** Whether a file in the repository's git folder is there: a merge's or a rebase's state. */
-async function hasGitFile(worktree: string, name: string, run: Git): Promise<boolean> {
-  return existsSync(
-    resolve(worktree, (await run(worktree, ['rev-parse', '--git-path', name])).trim()),
-  );
 }
 
 /** What stops an update before it starts, as IntelliJ's `isUpdateNotReady`. */
@@ -48,12 +53,8 @@ async function unfinished(
   worktree: string,
   run: Git,
 ): Promise<'merge' | 'rebase' | 'unmerged' | undefined> {
-  if (
-    (await hasGitFile(worktree, 'rebase-merge', run)) ||
-    (await hasGitFile(worktree, 'rebase-apply', run))
-  )
-    return 'rebase';
-  if (await hasGitFile(worktree, 'MERGE_HEAD', run)) return 'merge';
+  const under = await operation(worktree, run);
+  if (under) return under;
   const unmerged = await run(worktree, ['diff', '--name-only', '--diff-filter=U']);
   return unmerged.trim() === '' ? undefined : 'unmerged';
 }
@@ -81,26 +82,45 @@ async function inTheWay(
   return changes.some((c) => upstream.has(c.path));
 }
 
-/** Saves the changes in the way; resolves with a way to put them back, which says if it did. */
+/** Saves the changes in the way. */
 async function save(
   worktree: string,
   changes: Change[],
   how: SaveChanges,
   message: string,
   run: Git,
-): Promise<() => Promise<boolean>> {
-  const restored = (put: Promise<void>) =>
-    put.then(
-      () => true,
-      () => false,
-    );
-  if (how === 'shelve') {
-    const id = await shelve(worktree, changes, message, run);
-    return () => restored(unshelve(worktree, id, run));
-  }
+): Promise<Saved> {
+  if (how === 'shelve') return { how, id: await shelve(worktree, changes, message, run) };
   await stash(worktree, message, { keepIndex: false, includeUntracked: false }, run);
-  return () => restored(unstash(worktree, 'stash@{0}', { pop: true, reinstateIndex: true }, run));
+  return { how };
 }
+
+/** Puts saved changes back; says whether it could. */
+function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
+  return (
+    saved.how === 'shelve'
+      ? unshelve(worktree, saved.id, run)
+      : unstash(worktree, 'stash@{0}', { pop: true, reinstateIndex: true }, run)
+  ).then(
+    () => true,
+    () => false,
+  );
+}
+
+/** What the update brought, the files it changed counted; and whether what was saved went back. */
+async function updated(worktree: string, resume: Resume, run: Git): Promise<Updated> {
+  const restored = resume.saved ? await restore(worktree, resume.saved, run) : true;
+  const files = lines(await run(worktree, ['diff', '--name-only', `${resume.before}..HEAD`]));
+  return { kind: 'updated', files: files.length, commits: resume.commits, restored };
+}
+
+/** Stopped at conflicts. */
+const stopped = (resume: Resume): Updated => ({
+  kind: 'conflicts',
+  method: resume.method,
+  saved: resume.saved !== undefined,
+  resume,
+});
 
 /** Updates the checked-out branch from its upstream; `remote` runs git's remote commands. */
 export async function update(
@@ -129,14 +149,13 @@ export async function update(
     (await run(worktree, ['rev-list', '--count', 'HEAD..@{upstream}'])).trim(),
   );
   if (commits === 0) return { kind: 'nothing' };
-  const before = (await run(worktree, ['rev-parse', 'HEAD'])).trim();
+  const resume: Resume = {
+    method: options.method,
+    before: (await run(worktree, ['rev-parse', 'HEAD'])).trim(),
+    commits,
+  };
   // Untracked files aren't local changes to IntelliJ: they stay where they are.
   const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
-  /** What the update brought, the files it changed counted. */
-  const updated = async (restored: boolean): Promise<Updated> => {
-    const files = lines(await run(worktree, ['diff', '--name-only', `${before}..HEAD`])).length;
-    return { kind: 'updated', files, commits, restored };
-  };
   // A rebase with local changes tries a fast-forward first, which needs nothing saved
   // (IntelliJ's `tryFastForwardMergeForRebaseUpdaters`).
   if (
@@ -147,12 +166,11 @@ export async function update(
       () => false,
     ))
   ) {
-    return updated(true);
+    return updated(worktree, resume, run);
   }
-  let restore: (() => Promise<boolean>) | undefined;
   if (await inTheWay(worktree, options.method, changes, run)) {
     const message = savedMessage(options.now ?? new Date());
-    restore = await save(worktree, changes, options.save, message, run);
+    resume.saved = await save(worktree, changes, options.save, message, run);
   }
   try {
     await run(
@@ -162,12 +180,19 @@ export async function update(
         : ['rebase', '@{upstream}'],
     );
   } catch (error) {
-    if ((await unfinished(worktree, run)) !== undefined) {
-      return { kind: 'conflicts', method: options.method, saved: restore !== undefined };
-    }
+    if ((await unfinished(worktree, run)) !== undefined) return stopped(resume);
     // Nothing changed (local changes or untracked files git won't overwrite): they go back.
-    await restore?.();
+    if (resume.saved) await restore(worktree, resume.saved, run);
     throw error;
   }
-  return updated(restore ? await restore() : true);
+  return updated(worktree, resume, run);
+}
+
+/**
+ * Carries on with an update once its conflicts are resolved: the merge committed or the rebase
+ * continued (which may stop at more), then what was saved put back.
+ */
+export async function continueUpdate(worktree: string, resume: Resume, run: Git): Promise<Updated> {
+  if ((await continueOperation(worktree, run)) === 'conflicts') return stopped(resume);
+  return updated(worktree, resume, run);
 }

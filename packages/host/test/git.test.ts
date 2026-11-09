@@ -143,6 +143,12 @@ describe('parseStatus', () => {
     ]);
     expect(parseStatus('')).toEqual([]);
   });
+
+  it('reads files in conflict, each way git lists them', () => {
+    const codes = ['DD', 'AU', 'UD', 'UA', 'DU', 'AA', 'UU'];
+    const output = codes.map((code) => `${code} ${code}.ts`).join('\0');
+    expect(parseStatus(output).map((c) => c.status)).toEqual(codes.map(() => 'conflict'));
+  });
 });
 
 describe('parseNameStatus', () => {

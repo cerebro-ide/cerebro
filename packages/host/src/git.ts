@@ -150,7 +150,8 @@ export async function listFiles(worktree: string, run: Git = git): Promise<strin
 export interface Change {
   /** Relative to the worktree, `/`-separated. */
   path: string;
-  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked';
+  /** `conflict`: unmerged, a merge's or a rebase's conflict not yet resolved. */
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflict';
   /** A renamed file's path before. */
   from?: string;
 }
@@ -172,7 +173,11 @@ export function parseStatus(output: string): Change[] {
       const from = fields[++i] as string;
       changes.push(x === 'R' ? { path, status: 'renamed', from } : { path, status: 'added' });
     } else if (x === '?') changes.push({ path, status: 'untracked' });
-    else if (x === 'D' || y === 'D') changes.push({ path, status: 'deleted' });
+    // Unmerged, as git's documentation of the short format lists them: either side U, or both
+    // added or both deleted.
+    else if (x === 'U' || y === 'U' || (x === y && (x === 'A' || x === 'D'))) {
+      changes.push({ path, status: 'conflict' });
+    } else if (x === 'D' || y === 'D') changes.push({ path, status: 'deleted' });
     else if (x === 'A') changes.push({ path, status: 'added' });
     else changes.push({ path, status: 'modified' });
   }

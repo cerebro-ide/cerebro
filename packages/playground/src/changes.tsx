@@ -42,7 +42,7 @@ import { openPush } from './push.js';
 export interface Change {
   path: string;
   /** `ignored`: listed only when asked for; a folder git ignores whole ends with `/`. */
-  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'ignored';
+  status: 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'ignored' | 'conflict';
   from?: string;
 }
 
@@ -61,7 +61,7 @@ export interface Range {
   to: string;
 }
 
-type Group = 'changes' | 'unversioned' | 'ignored';
+type Group = 'conflicts' | 'changes' | 'unversioned' | 'ignored';
 
 /** A row: a group of files, a folder in one, a turn, or a file changed in any of them. */
 type Item =
@@ -104,6 +104,7 @@ export function diffRange(tabId: string): Range | undefined {
 export const REFRESH_MS = 2000;
 
 const GROUPS: Readonly<Record<Group, string>> = {
+  conflicts: 'Merge Conflicts',
   changes: 'Changes',
   unversioned: 'Unversioned Files',
   ignored: 'Ignored Files',
@@ -238,6 +239,9 @@ interface Changes {
 
 const lists = new Map<string, Changes>();
 
+/** The Merge Conflicts group's Resolve: given by `setupChanges`. */
+let resolveFromList: (() => void) | undefined;
+
 /** A worktree's lists, made the first time they're asked for. */
 function changesOf(worktree: string): Changes {
   // Made where they're shown, which needn't run again when they are: making them writes what it
@@ -249,6 +253,7 @@ function made(worktree: string): Changes {
   let changes = lists.get(worktree);
   if (!changes) {
     const host = hostFor(worktree) as NonNullable<ReturnType<typeof hostFor>>;
+    let conflicted: Change[] = [];
     let tracked: Change[] = [];
     let unversioned: Change[] = [];
     let ignored: Change[] = [];
@@ -293,7 +298,12 @@ function made(worktree: string): Changes {
     const model: TreeModel<Item> = new TreeModel<Item>({
       children: (item) => {
         if (item === undefined) {
-          const groups: Item[] = [{ kind: 'group', group: 'changes', count: tracked.length }];
+          // Files in conflict first, as IntelliJ's Merge Conflicts.
+          const groups: Item[] =
+            conflicted.length > 0
+              ? [{ kind: 'group', group: 'conflicts', count: conflicted.length }]
+              : [];
+          groups.push({ kind: 'group', group: 'changes', count: tracked.length });
           if (unversioned.length > 0) {
             groups.push({ kind: 'group', group: 'unversioned', count: unversioned.length });
           }
@@ -303,7 +313,9 @@ function made(worktree: string): Changes {
           return groups;
         }
         if (item.kind === 'group') {
-          const files = { changes: tracked, unversioned, ignored }[item.group];
+          const files = { conflicts: conflicted, changes: tracked, unversioned, ignored }[
+            item.group
+          ];
           return tree(groupKey(item.group), files, undefined, opened);
         }
         return (item as Extract<Item, { kind: 'folder' }>).children;
@@ -320,6 +332,7 @@ function made(worktree: string): Changes {
       key,
       isLeaf: (item) => item.kind === 'change',
     });
+    opened(groupKey('conflicts'));
     opened(groupKey('changes'));
     opened(groupKey('unversioned'));
     // Ignored files can be many: their group starts closed.
@@ -355,7 +368,10 @@ function made(worktree: string): Changes {
         const json = JSON.stringify([readChanges, readTurns, readIgnored, byDirectory.peek()]);
         if (json === last && !force) return;
         last = json;
-        tracked = readChanges.filter((change) => change.status !== 'untracked');
+        conflicted = readChanges.filter((change) => change.status === 'conflict');
+        tracked = readChanges.filter(
+          (change) => change.status !== 'untracked' && change.status !== 'conflict',
+        );
         unversioned = readChanges.filter((change) => change.status === 'untracked');
         ignored = readIgnored.map((path) => ({ path, status: 'ignored' }));
         turns = readTurns;
@@ -435,7 +451,10 @@ function rollbackable(changes: Changes | undefined): Change[] {
 /** The files a row's checkbox stands for: uncommitted ones, not a turn's or ignored ones. */
 function committable(item: Item, changes: Changes): Change[] {
   if (item.kind === 'change') {
-    return item.turn || item.change.status === 'ignored' ? [] : [item.change];
+    // Nor one in conflict: it's resolved first.
+    return item.turn || item.change.status === 'ignored' || item.change.status === 'conflict'
+      ? []
+      : [item.change];
   }
   if (item.kind === 'folder') return item.children.flatMap((child) => committable(child, changes));
   // A group: a turn's window has no checkboxes, and never asks.
@@ -623,6 +642,9 @@ async function flipAmend(changes: Changes): Promise<void> {
 /** The Commit window's commands, shortcuts and menus. */
 export function setupChanges(services: MenuServices, setup: ChangesSetup): void {
   const { commands, menus, keymap } = services;
+  resolveFromList = () => {
+    commands.execute('vcs.resolveConflicts');
+  };
   /** From the window's toolbar or menus, or a shortcut while it has the keyboard. */
   /** Whether a command acts on the Commit window. */
   const here = (context: unknown) => viewOf(context) === 'changes';
@@ -941,6 +963,19 @@ function content(item: Item): Node[] {
         {GROUPS[item.group]}
       </span>,
       <span class="playground-change__folder">{item.count === 0 ? '' : files(item.count)}</span>,
+      // As IntelliJ's Merge Conflicts: Resolve, a link on the group's row.
+      ...(item.group === 'conflicts'
+        ? [
+            <button
+              class="playground-link"
+              on:click={() => {
+                resolveFromList?.();
+              }}
+            >
+              Resolve
+            </button>,
+          ]
+        : []),
     ] as Node[];
   }
   if (item.kind === 'folder') {

@@ -164,7 +164,7 @@ const where = () =>
   );
 /** The target's link with this text: the remote, or the branch there. */
 const link = (text: string) =>
-  [...document.querySelectorAll<HTMLElement>('.playground-push__link')].find(
+  [...document.querySelectorAll<HTMLElement>('.playground-link')].find(
     (l) => l.textContent === text,
   ) as HTMLElement;
 /** The branch being typed, once it shows. */

@@ -253,6 +253,29 @@ describe('the Commit window', () => {
     await expect.poll(rows).toEqual(['Changes2 files', 'lib2 files', 'sub1 file', 'y.ts', 'x.ts']);
   });
 
+  it('lists the files in conflict first, as Merge Conflicts, with Resolve, and not to commit', async () => {
+    const resolved: unknown[] = [];
+    const registered = commands.register({
+      id: 'vcs.resolveConflicts',
+      label: 'Resolve Conflicts…',
+      run: (context) => void resolved.push(context),
+    });
+    await changesView([
+      { path: 'a.ts', status: 'conflict' },
+      { path: 'b.ts', status: 'modified' },
+    ]);
+    await expect
+      .poll(rows)
+      .toEqual(['Merge Conflicts1 fileResolve', 'a.ts', 'Changes1 file', 'b.ts']);
+    expect(
+      row('\u0000conflicts:a.ts').querySelector('.playground-change--conflict'),
+    ).not.toBeNull();
+    expect(row('\u0000conflicts:a.ts').querySelector('.playground-changes__include')).toBeNull();
+    await userEvent.click(row('\u0000conflicts').querySelector('.playground-link') as HTMLElement);
+    expect(resolved).toHaveLength(1);
+    registered.dispose();
+  });
+
   it('says there are no changes', async () => {
     await changesView([]);
     await expect.poll(empty).toBe('No changes');
