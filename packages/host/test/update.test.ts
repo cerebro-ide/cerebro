@@ -26,8 +26,11 @@ describe('updating the project, with real git', () => {
     const other = join(root, `${name}-other`);
     run(root, 'init', '-q', '--bare', '-b', 'main', remote);
     run(root, 'init', '-q', '-b', 'main', repo);
-    // The text as written, on every machine.
+    // The text as written, on every machine; and someone the update's merges commit as (CI's git
+    // has no one).
     run(repo, 'config', 'core.autocrlf', 'false');
+    run(repo, 'config', 'user.name', 't');
+    run(repo, 'config', 'user.email', 't@t');
     commit(repo, 'first', 'shared.txt', 'one\ntwo\nthree\n');
     run(repo, 'remote', 'add', 'origin', remote);
     run(repo, 'push', '-q', '-u', 'origin', 'main');
