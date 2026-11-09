@@ -277,9 +277,10 @@ it('at conflicts, shows the Conflicts dialog and the merge window, then commits 
     .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
     .toBe("Merge remote-tracking branch 'origin/main'\n");
   expect(git('show', 'HEAD:a.ts')).toBe('a mine\n');
+  // Mine kept: no file differs from before the update.
   await expect
     .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
       timeout: 15_000,
     })
-    .toContain('1 file updated in 1 commit');
+    .toContain('0 files updated in 1 commit');
 });
