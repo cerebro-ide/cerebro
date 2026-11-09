@@ -1,5 +1,5 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// going from a diff to the file with F4; logging in to push; and Update Project.
+// going from a diff to the file with F4; logging in to push; and Update Project, its conflicts resolved.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -240,6 +240,43 @@ it('updates the project from the upstream, after asking how, as IntelliJ’s', a
   ]);
   await dialog.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
   await expect.poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 }).toBe('Theirs\n');
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('1 file updated in 1 commit');
+});
+
+it('at conflicts, shows the Conflicts dialog and the merge window, then commits the merge', async () => {
+  // The same line changed here and in the other clone, both committed.
+  const other = join(root, 'other');
+  const inOther = (...args: string[]) => execFileSync('git', args, { cwd: other });
+  inOther('pull', '-q', '--no-rebase');
+  writeFileSync(join(other, 'a.ts'), 'a theirs\n');
+  inOther('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'Theirs to a');
+  inOther('push', '-q', 'origin', 'main');
+  writeFileSync(join(repo, 'a.ts'), 'a mine\n');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Mine to a', '--', 'a.ts');
+  await page().keyboard.press(KEYS.update);
+  const update = page().locator('.cerebro-dialog', { hasText: 'Update Project' });
+  await update.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+  const conflicts = page().locator('.cerebro-dialog', { hasText: 'Merge conflicts detected' });
+  await conflicts.waitFor({ timeout: 15_000 });
+  expect(await conflicts.locator('.playground-conflicts__row').allTextContents()).toEqual([
+    'a.tsModifiedModified',
+  ]);
+  await conflicts.locator('.cerebro-dialog__button', { hasText: 'Merge…' }).click();
+  const merge = page().locator('.cerebro-dialog', { hasText: 'Merge Revisions for' });
+  await merge.waitFor();
+  expect(await merge.locator('.playground-merge__left').textContent()).toBe(
+    'No changes, 1 conflict',
+  );
+  await merge.locator('.cerebro-dialog__button', { hasText: 'Accept Left' }).click();
+  // None left: the update goes on, and commits the merge.
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toBe("Merge remote-tracking branch 'origin/main'\n");
+  expect(git('show', 'HEAD:a.ts')).toBe('a mine\n');
   await expect
     .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
       timeout: 15_000,
