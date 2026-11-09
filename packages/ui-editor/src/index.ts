@@ -40,6 +40,13 @@ export {
   type DiffEditorProps,
   type LineRange,
 } from './diff.js';
+export {
+  MergeEditor,
+  type MergeControl,
+  type MergeEditorProps,
+  type MergeLeft,
+} from './merge-view.js';
+export { mergeChanges, type Lines, type MergeChange, type MergeKind } from './merge.js';
 export { EditorDocument, type FileFormat, type LineSeparator } from './document.js';
 export { detectIndent, indentText, indentUnitOf, type Indent } from './indent.js';
 export { formatLineColumn, parseLineColumn, positionText, type Selected } from './line.js';
