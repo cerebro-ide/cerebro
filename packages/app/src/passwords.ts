@@ -6,7 +6,8 @@
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
-import { ipcMain, safeStorage } from 'electron';
+import { safeStorage } from 'electron';
+import { handle } from './ipc.js';
 
 export const PASSWORD_GET = 'cerebro:passwords:get';
 export const PASSWORD_SET = 'cerebro:passwords:set';
@@ -83,10 +84,8 @@ export class PasswordStore {
 
 /** Lets pages read, keep and forget passwords. */
 export function installPasswords(store: PasswordStore): void {
-  ipcMain.handle(PASSWORD_GET, (_event, key: unknown) =>
-    typeof key === 'string' ? store.get(key) : null,
-  );
-  ipcMain.handle(PASSWORD_SET, (_event, key: unknown, password: unknown) => {
+  handle(PASSWORD_GET, (_event, key: unknown) => (typeof key === 'string' ? store.get(key) : null));
+  handle(PASSWORD_SET, (_event, key: unknown, password: unknown) => {
     if (typeof key === 'string' && (typeof password === 'string' || password === null)) {
       store.set(key, password);
     }

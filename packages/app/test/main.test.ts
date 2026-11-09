@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Answer } from '../src/ipc.js';
 
 type Listener = (...args: unknown[]) => unknown;
 
@@ -140,12 +141,15 @@ function navigates(window: FakeWindow, url: string) {
 
 const folder = () => mkdtempSync(join(tmpdir(), 'cerebro-main-'));
 
-/** Calls an IPC handler as `window`'s page would. */
-const ask = (channel: string, window: FakeWindow | undefined, ...args: unknown[]) =>
-  (electron.handlers.get(channel) as Listener)(
+/** Calls an IPC handler as `window`'s page would: its result, or its error thrown again. */
+const ask = async (channel: string, window: FakeWindow | undefined, ...args: unknown[]) => {
+  const answer = (await (electron.handlers.get(channel) as Listener)(
     { sender: { id: window?.webContents.id ?? -1 } },
     ...args,
-  );
+  )) as Answer;
+  if ('error' in answer) throw new Error(answer.error);
+  return answer.result;
+};
 
 beforeEach(() => {
   electron.windows.length = 0;
@@ -307,7 +311,7 @@ describe('installProjects', () => {
     ]);
     await ask(PROJECT_FORGET, window, '/gone');
     expect(store.recent.map((r) => r.path)).toEqual([a]);
-    expect(() => ask(PROJECT_FORGET, window, 5)).toThrow('path must be a path');
+    await expect(ask(PROJECT_FORGET, window, 5)).rejects.toThrow('path must be a path');
   });
 
   it('asks for a folder with the system’s dialog, over the window asking when there is one', async () => {
@@ -327,26 +331,26 @@ describe('installProjects', () => {
     expect(await ask(PROJECT_PICK, window)).toBeNull();
   });
 
-  it('opens a project where asked, closes one, and keeps them open when the app quits', () => {
+  it('opens a project where asked, closes one, and keeps them open when the app quits', async () => {
     const a = folder();
     const b = folder();
     const store = new ProjectStore(join(folder(), 'projects.json'));
     installProjects(host.hosts as never, store);
-    expect(() => ask(PROJECT_OPEN, undefined, a, 'elsewhere')).toThrow('where must be');
-    expect(() => ask(PROJECT_OPEN, undefined, '', 'new')).toThrow('path must be a path');
-    ask(PROJECT_OPEN, undefined, a, 'new');
-    ask(PROJECT_OPEN, undefined, b, 'new');
+    await expect(ask(PROJECT_OPEN, undefined, a, 'elsewhere')).rejects.toThrow('where must be');
+    await expect(ask(PROJECT_OPEN, undefined, '', 'new')).rejects.toThrow('path must be a path');
+    await ask(PROJECT_OPEN, undefined, a, 'new');
+    await ask(PROJECT_OPEN, undefined, b, 'new');
     expect(store.open).toEqual([[a], [b]]);
     expect(host.hosts.attach).toHaveBeenCalledTimes(2);
     // In the place of the window's project.
     const c = folder();
-    expect(() => ask(PROJECT_OPEN, electron.windows[0], c, 'this', 5)).toThrow(
+    await expect(ask(PROJECT_OPEN, electron.windows[0], c, 'this', 5)).rejects.toThrow(
       'replacing must be a path',
     );
-    ask(PROJECT_OPEN, electron.windows[0], c, 'this', a);
+    await ask(PROJECT_OPEN, electron.windows[0], c, 'this', a);
     expect(store.open).toEqual([[c], [b]]);
-    expect(() => ask(PROJECT_CLOSE, electron.windows[0])).toThrow('path must be a path');
-    ask(PROJECT_CLOSE, electron.windows[0], c);
+    await expect(ask(PROJECT_CLOSE, electron.windows[0])).rejects.toThrow('path must be a path');
+    await ask(PROJECT_CLOSE, electron.windows[0], c);
     expect(store.open).toEqual([[b]]);
     (electron.appListeners.get('before-quit') as Listener)();
     (electron.windows[1]?.listeners.get('closed') as Listener)();
