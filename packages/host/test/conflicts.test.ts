@@ -4,13 +4,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
+  abortOperation,
   acceptSide,
   continueOperation,
   git,
   listConflicts,
   mergeRevisions,
   operation,
+  repositoryState,
   resolveWith,
+  skipCommit,
 } from '../src/index.js';
 
 describe('merge conflicts, with real git', () => {
@@ -226,6 +229,48 @@ describe('merge conflicts, with real git', () => {
     ]);
     // With nothing under way, there's nothing to do.
     expect(await continueOperation(rebased, git)).toBe('done');
+  });
+
+  it('says what’s under way, whether files are in conflict, and a merge’s message', async () => {
+    const repo = merging();
+    expect(await repositoryState(repo, git)).toEqual({
+      operation: 'merge',
+      conflicts: true,
+      message: "Merge branch 'feature'\n\n# Conflicts:\n#\tdel.txt\n#\tf.txt\n#\tg.txt\n",
+    });
+    await acceptSide(repo, ['f.txt', 'g.txt', 'del.txt'], 'yours', git);
+    expect(await repositoryState(repo, git)).toMatchObject({
+      operation: 'merge',
+      conflicts: false,
+    });
+    expect(await repositoryState(rebasing(), git)).toEqual({
+      operation: 'rebase',
+      conflicts: true,
+    });
+    expect(await repositoryState(diverged(), git)).toEqual({
+      operation: undefined,
+      conflicts: false,
+    });
+  });
+
+  it('skips the commit a rebase stopped at, as IntelliJ’s Skip Commit', async () => {
+    const repo = rebasing();
+    expect(await skipCommit(repo, git)).toBe('done');
+    expect(await operation(repo, git)).toBeUndefined();
+    expect(run(repo, 'log', '--format=%s').trim().split('\n')).toEqual(['main change', 'base']);
+  });
+
+  it('aborts a merge or a rebase, back to where it started', async () => {
+    const repo = merging();
+    await abortOperation(repo, 'merge', git);
+    expect(await repositoryState(repo, git)).toEqual({ operation: undefined, conflicts: false });
+    expect(read(repo, 'f.txt')).toBe('a\nB-main\nc\n');
+    const rebased = rebasing();
+    await abortOperation(rebased, 'rebase', git);
+    expect(await operation(rebased, git)).toBeUndefined();
+    expect(run(rebased, 'log', '-1', '--format=%s').trim()).toBe('feat');
+    // Nothing to abort: git says so.
+    await expect(abortOperation(rebased, 'merge', git)).rejects.toThrow(/MERGE_HEAD missing/);
   });
 
   it('fails as git does when the rebase can’t continue for another reason', async () => {

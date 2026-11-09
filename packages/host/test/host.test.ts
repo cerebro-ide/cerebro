@@ -650,13 +650,16 @@ describe('ignored files and rolling back', () => {
 
   it('commits the files named, as changed now, and gives the changes left', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
-      Promise.resolve(
-        args[0] === 'status'
-          ? ' M a.ts\0R  n.ts\0o.ts\0?? u.ts\0'
-          : args[0] === 'log'
-            ? 'Last\n\n'
-            : '',
-      ),
+      // No merge under way: git finds no MERGE_HEAD.
+      args[0] === 'rev-parse'
+        ? Promise.reject(new Error('exit 1'))
+        : Promise.resolve(
+            args[0] === 'status'
+              ? ' M a.ts\0R  n.ts\0o.ts\0?? u.ts\0'
+              : args[0] === 'log'
+                ? 'Last\n\n'
+                : '',
+          ),
     );
     const { ui } = connect(git);
     const left = await ui.request('git.commit', {
@@ -820,6 +823,23 @@ describe('ignored files and rolling back', () => {
     expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('merged');
     expect(git).toHaveBeenCalledWith(dir, ['add', '--', 'a.txt'], { GIT_LITERAL_PATHSPECS: '1' });
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('gives the repository’s state, and continues, skips or aborts what’s under way', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.state', { path: '/w' })).toEqual({ conflicts: false });
+    expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
+    expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
+    for (const operation of ['merge', 'rebase']) {
+      expect(await ui.request('git.abort', { path: '/w', operation })).toBe(null);
+      expect(git).toHaveBeenCalledWith('/w', [operation, '--abort']);
+    }
+    await expect(
+      ui.request('git.abort', { path: '/w', operation: 'cherry-pick' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
   it('says what a push would send, and pushes, where it’s told', async () => {

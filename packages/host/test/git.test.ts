@@ -689,6 +689,61 @@ describe('with real git', () => {
     await expect(commit(path, [], '', true, as)).rejects.toThrow();
   });
 
+  it('commits a merge, as IntelliJ’s, what was staged besides staged again', async () => {
+    const path = join(root, 'commit-merge');
+    await addWorktree(repo, { path, branch: 'commit-merge', create: true });
+    const commitAll = (subject: string) => {
+      run(path, 'add', '.');
+      run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', subject);
+    };
+    writeFileSync(join(path, 'm1.txt'), 'base');
+    writeFileSync(join(path, 'm2.txt'), 'base');
+    writeFileSync(join(path, 'm3.txt'), 'base');
+    commitAll('base');
+    run(path, 'checkout', '-qb', 'commit-merge-theirs');
+    writeFileSync(join(path, 'm1.txt'), 'theirs');
+    writeFileSync(join(path, 'm2.txt'), 'theirs');
+    writeFileSync(join(path, 'm3.txt'), 'theirs');
+    commitAll('theirs');
+    run(path, 'checkout', '-q', 'commit-merge');
+    writeFileSync(join(path, 'm1.txt'), 'mine');
+    commitAll('mine');
+    // m1 in conflict, m2 and m3 merged and staged: no commit until m1 is resolved.
+    expect(() => run(path, 'merge', '-q', 'commit-merge-theirs')).toThrow();
+    const pick = async (...names: string[]) =>
+      (await listChanges(path)).filter((c) => names.includes(c.path));
+    await expect(commit(path, await pick('m2.txt'), 'Merged', false, as)).rejects.toThrow(
+      'Committing is not possible because you have unmerged files.',
+    );
+    writeFileSync(join(path, 'm1.txt'), 'resolved');
+    run(path, 'add', 'm1.txt');
+    writeFileSync(join(path, 'loose.txt'), 'new');
+    // m3 left out: unstaged for the commit, staged again after.
+    await commit(path, await pick('m1.txt', 'm2.txt', 'loose.txt'), 'Merged', false, as);
+    expect(run(path, 'log', '-1', '--format=%s %p').split(' ')).toHaveLength(3);
+    expect(await committedText(path, 'm1.txt')).toBe('resolved');
+    expect(await committedText(path, 'm2.txt')).toBe('theirs');
+    expect(await committedText(path, 'm3.txt')).toBe('base');
+    expect(await committedText(path, 'loose.txt')).toBe('new');
+    expect(run(path, 'diff', '--cached', '--name-only')).toBe('m3.txt\n');
+  });
+
+  it('stages again what it unstaged when a merge’s commit fails', async () => {
+    const path = join(root, 'commit-merge-fails');
+    await addWorktree(repo, { path, branch: 'commit-merge-fails', create: true });
+    run(path, 'checkout', '-qb', 'commit-merge-fails-theirs');
+    writeFileSync(join(path, 'f1.txt'), 'theirs');
+    writeFileSync(join(path, 'f2.txt'), 'theirs');
+    run(path, 'add', '.');
+    run(path, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'theirs');
+    run(path, 'checkout', '-q', 'commit-merge-fails');
+    run(path, 'merge', '-q', '--no-commit', '--no-ff', 'commit-merge-fails-theirs');
+    const changes = (await listChanges(path)).filter((c) => c.path === 'f1.txt');
+    // An empty message: git refuses it.
+    await expect(commit(path, changes, '', false, as)).rejects.toThrow();
+    expect(run(path, 'diff', '--cached', '--name-only')).toBe('f1.txt\nf2.txt\n');
+  });
+
   it('gives no last message before the first commit', async () => {
     const empty = join(root, 'empty');
     run(root, 'init', '-q', empty);
