@@ -370,11 +370,11 @@ function made(worktree: string): Changes {
         // A later read was asked for while this one ran: it has what's newer.
         if (asked !== reads) return;
         // During a merge, git's message for it, as IntelliJ's Commit window starts with; taken
-        // out, unedited, once the merge is over (committed by Update Project, say, or aborted).
+        // out, unedited, once the merge is over (committed by Update Project, say, or aborted),
+        // or replaced by the next merge's.
         const merge = stateOf(worktree).message;
         if (merge !== mergeMessage) {
-          if (merge !== undefined && message.peek() === '') message.set(merge);
-          else if (merge === undefined && message.peek() === mergeMessage) message.set('');
+          if (message.peek() === (mergeMessage ?? '')) message.set(merge ?? '');
           mergeMessage = merge;
         }
         const json = JSON.stringify([readChanges, readTurns, readIgnored, byDirectory.peek()]);

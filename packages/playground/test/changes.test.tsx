@@ -759,6 +759,15 @@ describe('a merge’s message', () => {
     await merge(MERGING);
     expect(message().value).toBe('Mine');
   });
+
+  it('is replaced, unedited, by the next merge’s, when no read came between them', async () => {
+    // On Windows in CI, Update Project's merge was committed and the next merge started before
+    // the window read its changes again: the first merge's message stayed.
+    await changesView();
+    await merge(MERGING);
+    await merge({ ...MERGING, message: "Merge branch 'g'\n" });
+    expect(message().value).toBe("Merge branch 'g'\n");
+  });
 });
 
 describe('Amend', () => {

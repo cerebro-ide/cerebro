@@ -25,12 +25,35 @@ export function stateOf(worktree: string): RepositoryState {
   return states.get(worktree) ?? NONE;
 }
 
-/** Reads a worktree's state again, if it's a git one with a host; set only if it changed. */
-export async function readState(worktree: string): Promise<void> {
-  const host = hostFor(worktree);
-  if (!host || projectOf(worktree)?.git === false) return;
-  const state = (await host.request('git.state', { path: worktree })) as RepositoryState;
-  if (JSON.stringify(state) !== JSON.stringify(states.get(worktree))) states.set(worktree, state);
+/** Each worktree's read under way, and the one asked for while it runs. */
+const running = new Map<string, Promise<void>>();
+const queued = new Map<string, Promise<void>>();
+
+function read(worktree: string): Promise<void> {
+  queued.delete(worktree);
+  const now = (async () => {
+    const host = hostFor(worktree);
+    if (!host || projectOf(worktree)?.git === false) return;
+    const state = (await host.request('git.state', { path: worktree })) as RepositoryState;
+    if (JSON.stringify(state) !== JSON.stringify(states.get(worktree))) states.set(worktree, state);
+  })().finally(() => running.delete(worktree));
+  running.set(worktree, now);
+  return now;
+}
+
+/**
+ * Reads a worktree's state again, if it's a git one with a host; set only if it changed. Asked
+ * while a read runs, one more follows it, for all asked meanwhile: each read starts four git
+ * processes, and the editing e2e test sends a focus event every 5 ms.
+ */
+export function readState(worktree: string): Promise<void> {
+  const waiting = queued.get(worktree);
+  if (waiting) return waiting;
+  const before = running.get(worktree);
+  if (!before) return read(worktree);
+  const next = before.catch(() => undefined).then(() => read(worktree));
+  queued.set(worktree, next);
+  return next;
 }
 
 /** Reads the active worktree's state now, every few seconds after, and as the window gets the focus. */

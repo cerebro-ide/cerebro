@@ -39,6 +39,19 @@ describe('the repository’s state', () => {
     stop.dispose();
   });
 
+  it('is read once more after a read under way, however often it’s asked meanwhile', async () => {
+    state = { conflicts: false };
+    const reads = [readState('/r'), readState('/r'), readState('/r')];
+    expect(host.params('git.state')).toHaveLength(1);
+    await Promise.all(reads);
+    expect(host.params('git.state')).toHaveLength(2);
+    // A failed read doesn't stop the next.
+    const failed = readState('/f');
+    const next = readState('/f');
+    await expect(failed).rejects.toThrow();
+    await expect(next).rejects.toThrow();
+  });
+
   it('isn’t read without a host, nor outside git', async () => {
     await readState('/s');
     await readState('/n');
