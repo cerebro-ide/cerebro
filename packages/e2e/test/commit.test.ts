@@ -196,6 +196,10 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
   await push('Kept');
   await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
   expect(await login.count()).toBe(0);
+  const pushing = () => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible();
+  console.log('Pushing… once the remote has it:', await pushing());
+  // As above: Push is off until it ends, and the next test pushes.
+  await expect.poll(pushing, { timeout: 15_000 }).toBe(false);
   server.close();
 });
 
@@ -217,6 +221,7 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
+    console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
     throw error;
   }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
