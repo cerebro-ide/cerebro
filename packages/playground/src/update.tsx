@@ -45,7 +45,7 @@ async function askMethod(): Promise<UpdateMethod | undefined> {
   const silent = signal(false);
   const chosen = await openDialog<UpdateMethod>({
     title: 'Update Project',
-    width: 320,
+    width: 400,
     ok: { accept: () => method.peek() },
     footer: () => (
       <label class="playground-rollback__option">
@@ -59,7 +59,7 @@ async function askMethod(): Promise<UpdateMethod | undefined> {
       </label>
     ),
     content: () => (
-      <div class="playground-update" role="radiogroup" aria-label="Update method">
+      <div role="radiogroup" aria-label="Update method">
         {(['merge', 'rebase'] as const).map((value) => (
           <label class="playground-rollback__option">
             <input

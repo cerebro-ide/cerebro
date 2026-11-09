@@ -43,6 +43,12 @@ on it:
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
+- **Unshelving won't apply a hunk whose lines moved** (measured 2026-11-09, writing Update
+  Project's tests): the shelf applies its patch with `git apply`, which anchors a hunk that starts
+  at line 1 to the file's start, so a line added above it (by an update, say) makes it fail, where
+  IntelliJ's own applier finds the lines elsewhere. Update Project then says "Local changes were
+  not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
+  are options.
 - **The agents' hooks may not wait for the host on Windows** (seen 2026-11-08 while measuring
   askpass there): the hook client ends its side of the socket and waits for it to close, as the
   askpass client did; on Windows, a named pipe closed for writing is closed both ways (measured

@@ -1,5 +1,5 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// going from a diff to the file with F4; and logging in to push.
+// going from a diff to the file with F4; logging in to push; and Update Project.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -214,4 +214,35 @@ it('says why a push failed in git’s words alone', async () => {
   await failed.waitFor({ timeout: 15_000 });
   // Not Electron's "Error invoking remote method 'cerebro:host:request': …" in front.
   expect(await failed.locator('.cerebro-notification__content').textContent()).toMatch(/^fatal: /);
+});
+
+it('updates the project from the upstream, after asking how, as IntelliJ’s', async () => {
+  // An upstream where the branch is, and another clone's commit there.
+  const upstream = join(root, 'update.git');
+  const other = join(root, 'other');
+  execFileSync('git', ['init', '-q', '--bare', '-b', 'main', upstream]);
+  git('push', '-q', upstream, 'main');
+  git('remote', 'set-url', 'origin', upstream);
+  git('fetch', '-q', 'origin');
+  execFileSync('git', ['clone', '-q', upstream, other]);
+  writeFileSync(join(other, 'theirs.txt'), 'Theirs');
+  const inOther = (...args: string[]) => execFileSync('git', args, { cwd: other });
+  inOther('add', 'theirs.txt');
+  inOther('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Theirs');
+  inOther('push', '-q', 'origin', 'main');
+  await page().keyboard.press(KEYS.update);
+  const dialog = page().locator('.cerebro-dialog', { hasText: 'Update Project' });
+  await dialog.waitFor();
+  expect(await dialog.locator('label').allTextContents()).toEqual([
+    'Merge',
+    'Rebase',
+    "Don't show again",
+  ]);
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+  await expect.poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 }).toBe('Theirs\n');
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('1 file updated in 1 commit');
 });
