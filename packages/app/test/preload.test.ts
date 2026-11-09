@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SET_COLOURS } from '../src/colours.js';
 import { SET_SCALE } from '../src/display.js';
 import { HOST_NOTIFICATION, HOST_REQUEST } from '../src/host.js';
+import type { Answer } from '../src/ipc.js';
 import {
   PROJECT_CLOSE,
   PROJECT_CURRENT,
@@ -24,12 +25,14 @@ vi.mock('electron', () => ({}));
 
 type Listener = (event: unknown, ...args: unknown[]) => void;
 const sent: unknown[][] = [];
+/** What the main process answers an `invoke`. */
+let answer: Answer = { result: undefined };
 const listeners = new Map<string, Listener>();
 const ipcRenderer = {
   send: (...args: unknown[]) => void sent.push(['send', ...args]),
   invoke: (...args: unknown[]) => {
     sent.push(['invoke', ...args]);
-    return Promise.resolve();
+    return Promise.resolve(answer);
   },
   on: (channel: string, listener: Listener) => void listeners.set(channel, listener),
   off: (channel: string) => void listeners.delete(channel),
@@ -101,6 +104,15 @@ describe('the preload', () => {
       'fs.read',
       { path: 'a' },
     ]);
+  });
+
+  it('gives the page a request’s result, or its error with only its message', async () => {
+    answer = { result: { version: 1 } };
+    expect(await api.host?.request?.('/r', 'host.ping')).toEqual({ version: 1 });
+    answer = { error: 'fatal: no such remote' };
+    const failed = api.project?.open?.('/r', 'new') as Promise<unknown>;
+    await expect(failed).rejects.toThrow(new Error('fatal: no such remote'));
+    answer = { result: undefined };
   });
 
   it('listens on the channels the main process sends on, until stopped', () => {
