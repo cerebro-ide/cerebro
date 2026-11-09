@@ -296,48 +296,52 @@ export async function resolveConflicts(worktree: string, description?: string): 
             {() => description ?? describe(conflicts.get())}
           </p>
           <div class="playground-conflicts__body">
-            <table
-              class="playground-conflicts__table"
-              tabIndex={0}
-              aria-multiselectable="true"
-              on:keydown={(event) => {
-                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-                  event.preventDefault();
-                  moveBy(event.key === 'ArrowDown' ? 1 : -1);
-                }
-              }}
-            >
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>{() => column('Yours', conflicts.get().yours)}</th>
-                  <th>{() => column('Theirs', conflicts.get().theirs)}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {() =>
-                  conflicts.get().files.map((file) => (
-                    <tr
-                      class="playground-conflicts__row"
-                      aria-selected={() => String(selected.get().includes(file.path))}
-                      on:mousedown={(event) => {
-                        select(file.path, event);
-                      }}
-                      on:dblclick={() => {
-                        selected.set([file.path]);
-                        void merge();
-                      }}
-                    >
-                      <td class="playground-conflicts__name">
-                        {changeContent({ path: file.path, status: 'conflict' }, true)}
-                      </td>
-                      <td>{status(file.yours)}</td>
-                      <td>{status(file.theirs)}</td>
-                    </tr>
-                  ))
-                }
-              </tbody>
-            </table>
+            <div class="playground-conflicts__list">
+              <table
+                class="playground-conflicts__table"
+                tabIndex={0}
+                aria-multiselectable="true"
+                on:keydown={(event) => {
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    moveBy(event.key === 'ArrowDown' ? 1 : -1);
+                  }
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>{() => column('Yours', conflicts.get().yours)}</th>
+                    <th>{() => column('Theirs', conflicts.get().theirs)}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {() =>
+                    conflicts.get().files.map((file) => (
+                      <tr
+                        class="playground-conflicts__row"
+                        aria-selected={() => String(selected.get().includes(file.path))}
+                        on:mousedown={(event) => {
+                          select(file.path, event);
+                        }}
+                        on:dblclick={() => {
+                          selected.set([file.path]);
+                          void merge();
+                        }}
+                      >
+                        <td>
+                          <span class="playground-conflicts__name">
+                            {changeContent({ path: file.path, status: 'conflict' }, true)}
+                          </span>
+                        </td>
+                        <td>{status(file.yours)}</td>
+                        <td>{status(file.theirs)}</td>
+                      </tr>
+                    ))
+                  }
+                </tbody>
+              </table>
+            </div>
             <div class="playground-conflicts__buttons">
               <button
                 class="cerebro-dialog__button"

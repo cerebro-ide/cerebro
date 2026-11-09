@@ -187,6 +187,11 @@ describe('the Conflicts dialog', () => {
       ['c.tssrc', 'Modified', 'Deleted'],
     ]);
     expect(selectedRows()).toEqual(['a.ts']);
+    // Each row its own height, the list's room left below them; each cell's text on one line.
+    const first = await row('a.ts');
+    expect(first.getBoundingClientRect().height).toBeLessThan(30);
+    const cells = [...first.querySelectorAll('td')].map((td) => td.getBoundingClientRect());
+    expect(new Set(cells.map((cell) => cell.top)).size).toBe(1);
     expect(resolving.get()).toBe(true);
     await press('Close');
     expect(await done).toBe(false);

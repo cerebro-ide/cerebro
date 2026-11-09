@@ -1380,10 +1380,16 @@ body,
   align-items: flex-start;
 }
 
-.playground-conflicts__table {
+/* The list's room, as IntelliJ's: its rows their own height, however few. */
+.playground-conflicts__list {
   flex: 1;
-  min-height: 200px;
+  height: 200px;
+  overflow: auto;
   border: 1px solid var(--cerebro-border);
+}
+
+.playground-conflicts__table {
+  width: 100%;
   border-collapse: collapse;
   outline: none;
 }
@@ -1401,7 +1407,7 @@ body,
 }
 
 .playground-conflicts__name {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
 }
