@@ -125,6 +125,8 @@
   --cerebro-merge-edge: #5a5d63;
   /* Changed files' names, by status (not measured). */
   --cerebro-vcs-modified: #6f9fe0;
+  /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
+  --cerebro-vcs-conflict: #de6a66;
   --cerebro-vcs-added: #73bd79;
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
@@ -309,6 +311,8 @@
   --cerebro-merge-edge: #a8adbd;
   /* Changed files' names, by status (not measured). */
   --cerebro-vcs-modified: #2f6fc4;
+  /* Files in conflict, from IntelliJ's New UI scheme (FILESTATUS_MERGED_WITH_CONFLICTS). */
+  --cerebro-vcs-conflict: #de1b2e;
   --cerebro-vcs-added: #2e8a3c;
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;

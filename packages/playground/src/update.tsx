@@ -3,11 +3,14 @@
 // host fetches the upstream's remote and merges or rebases, local changes in the way shelved or
 // stashed meanwhile (Version Control → Git's settings). "Updating…" on the status bar meanwhile.
 // How it went is a notification, in IntelliJ's words: "2 files updated in 1 commit", "Nothing to
-// update", or why it couldn't. Conflicts are left to git, the Commit window showing the files.
+// update", or why it couldn't. At conflicts, the Conflicts dialog shows; once none is left, the
+// update carries on (the merge committed, the rebase continued), as IntelliJ's `GitConflictResolver`.
+// Closed with some left, the notification's Resolve… shows the dialog again, carrying on no more.
 
 import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
+import { resolveConflicts } from './conflicts.js';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { notifications } from './notifications.js';
 import { globalSettings, save } from './settings.js';
@@ -22,7 +25,7 @@ type Updated =
   | { kind: 'noUpstream'; branch: string }
   | { kind: 'nothing' }
   | { kind: 'updated'; files: number; commits: number; restored: boolean }
-  | { kind: 'conflicts'; method: UpdateMethod; saved: boolean };
+  | { kind: 'conflicts'; method: UpdateMethod; saved: boolean; resume: unknown };
 
 /** While an update runs. */
 export const updating = signal(false);
@@ -84,8 +87,19 @@ async function askMethod(): Promise<UpdateMethod | undefined> {
   return chosen;
 }
 
+/** What the Conflicts dialog says over the list during an update, as IntelliJ's. */
+const DURING = {
+  merge: 'Merge conflicts detected. Resolve them before continuing update.',
+  rebase: 'Merge conflicts detected. Resolve them before continuing rebase.',
+} as const;
+
 /** Says how an update went, as IntelliJ's notifications. */
-function report(updated: Updated, saveChanges: 'shelve' | 'stash', viewSaved: () => void): void {
+function report(
+  worktree: string,
+  updated: Updated,
+  saveChanges: 'shelve' | 'stash',
+  viewSaved: () => void,
+): void {
   const notify = notifications.notify.bind(notifications);
   const failed = (title: string, content: string) => {
     notify({ title, content, type: 'error', display: 'sticky', group: 'update' });
@@ -123,19 +137,34 @@ function report(updated: Updated, saveChanges: 'shelve' | 'stash', viewSaved: ()
       });
       if (!updated.restored) notRestored();
       return;
-    case 'conflicts':
-      if (updated.method === 'merge') {
-        failed(
-          'Cannot complete update',
-          'Merge conflicts detected. Resolve them before continuing update.',
-        );
-      } else {
-        failed(
-          'Cannot continue rebase',
-          'Merge conflicts detected. Resolve them before continuing rebase. Then you may continue rebase. You also may abort rebase to restore the original branch and stop rebasing.',
-        );
-      }
+    case 'conflicts': {
+      // IntelliJ's `notifyUnresolvedRemain`, its Resolve… showing the dialog again.
+      const pending = 'There are pending unresolved conflicts.';
+      notify({
+        ...(updated.method === 'merge'
+          ? { title: 'Cannot complete update', content: pending }
+          : {
+              title: 'Cannot continue rebase',
+              content: `${pending} Then you may continue rebase. You also may abort rebase to restore the original branch and stop rebasing.`,
+            }),
+        type: 'warning',
+        display: 'sticky',
+        group: 'update',
+        actions: [
+          {
+            label: 'Resolve…',
+            run: () => {
+              void resolveConflicts(worktree)
+                .then(() => refreshAll(worktree))
+                .catch((error: unknown) => {
+                  console.error('Resolving the conflicts failed', error);
+                });
+            },
+          },
+        ],
+      });
       if (updated.saved) notRestored();
+    }
   }
 }
 
@@ -154,12 +183,22 @@ export async function updateProject(worktree: string): Promise<void> {
   const saveChanges = globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
   updating.set(true);
   try {
-    const updated = (await host.request('git.update', {
+    let updated = (await host.request('git.update', {
       path: worktree,
       method,
       save: saveChanges,
     })) as Updated;
-    report(updated, saveChanges, () => {
+    // At conflicts, the dialog; with none left, on to the next stop, or the end.
+    while (
+      updated.kind === 'conflicts' &&
+      (await resolveConflicts(worktree, DURING[updated.method]))
+    ) {
+      updated = (await host.request('git.continueUpdate', {
+        path: worktree,
+        resume: updated.resume,
+      })) as Updated;
+    }
+    report(worktree, updated, saveChanges, () => {
       commands.execute(saveChanges === 'shelve' ? 'vcs.showShelf' : 'vcs.showStash');
     });
   } catch (error) {

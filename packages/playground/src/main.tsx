@@ -60,6 +60,7 @@ import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
+import { setupConflicts } from './conflicts.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -266,6 +267,7 @@ setupShelf(services, {
 });
 setupPush(services);
 setupUpdate(services);
+setupConflicts(services);
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
 const jumpTo = (at: { path: string; line: number; column: number }) => {

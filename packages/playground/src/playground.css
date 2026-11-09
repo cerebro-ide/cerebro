@@ -194,8 +194,9 @@ body,
   font-weight: normal;
 }
 
-/* The remote and the branch there, to change, as IntelliJ's links in the push target. */
-.playground-push__link {
+/* A link in a dialog or a row, as IntelliJ's: the push target's remote and branch, the Merge
+   Conflicts group's Resolve. */
+.playground-link {
   padding: 0;
   border: none;
   background: none;
@@ -204,7 +205,7 @@ body,
   cursor: pointer;
 }
 
-.playground-push__link:hover {
+.playground-link:hover {
   text-decoration: underline;
 }
 
@@ -295,6 +296,10 @@ body,
 
 .playground-change--ignored {
   color: var(--cerebro-vcs-ignored);
+}
+
+.playground-change--conflict {
+  color: var(--cerebro-vcs-conflict);
 }
 
 /* A turn's prompt is cut short; all of it shows on hover. */
@@ -1360,4 +1365,102 @@ body,
 
 .playground-push__tag-mode:disabled {
   opacity: 0.5;
+}
+
+/* The Conflicts dialog, as IntelliJ's: what's being merged, the files and what each side did to them
+   beside Accept Yours, Accept Theirs and Merge…. */
+.playground-conflicts__description {
+  margin: 0 0 8px;
+  white-space: pre-wrap;
+}
+
+.playground-conflicts__body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.playground-conflicts__table {
+  flex: 1;
+  min-height: 200px;
+  border: 1px solid var(--cerebro-border);
+  border-collapse: collapse;
+  outline: none;
+}
+
+.playground-conflicts__table th {
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--cerebro-border);
+  font-weight: normal;
+  text-align: left;
+}
+
+.playground-conflicts__table td {
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.playground-conflicts__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.playground-conflicts__row[aria-selected='true'] {
+  background: var(--cerebro-selected);
+}
+
+.playground-conflicts__table:focus .playground-conflicts__row[aria-selected='true'] {
+  background: var(--cerebro-menu-highlight);
+}
+
+.playground-conflicts__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* The merge window, as IntelliJ's: its toolbar, the panes' titles, then the panes. */
+.playground-merge {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+}
+
+.playground-merge__toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.playground-merge__left {
+  margin-left: auto;
+  color: var(--cerebro-text-muted);
+}
+
+.playground-merge__titles {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 34px;
+  margin-bottom: 4px;
+}
+
+.playground-merge__panes {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid var(--cerebro-border);
+}
+
+.playground-merge__panes > .cerebro-editor-merge {
+  height: 100%;
+}
+
+.playground-merge__accept {
+  display: flex;
+  gap: 8px;
+}
+
+.playground-merge__question {
+  margin: 0;
 }
