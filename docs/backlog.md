@@ -43,13 +43,6 @@ on it:
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
-- **The host's errors reach the page with Electron's wrapping** (seen 2026-11-08 in QA of Define
-  Remote): "Error invoking remote method 'cerebro:host:request': ResponseError: fatal: …", where
-  git's words alone were meant. `ipcRenderer.invoke` puts that in front of an error thrown in
-  `ipcMain.handle` (`packages/app/src/host.ts`). Every place that shows a host error's message has
-  it in the app (Push failed's notification, Define Remote's URL), not in the browser tests,
-  whose fake host throws plain errors. A fix would pass the error back as a value and rethrow it in
-  the preload, with an e2e test that reads a shown message.
 - **The agents' hooks may not wait for the host on Windows** (seen 2026-11-08 while measuring
   askpass there): the hook client ends its side of the socket and waits for it to close, as the
   askpass client did; on Windows, a named pipe closed for writing is closed both ways (measured

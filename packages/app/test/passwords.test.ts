@@ -100,12 +100,12 @@ describe('installPasswords', () => {
     const get = electron.handlers.get(PASSWORD_GET) as Listener;
     const set = electron.handlers.get(PASSWORD_SET) as Listener;
     await set({}, 'k', 'secret');
-    expect(await get({}, 'k')).toBe('secret');
+    expect(await get({}, 'k')).toEqual({ result: 'secret' });
     await set({}, 'k', 3);
     await set({}, 1, 'x');
-    expect(await get({}, 'k')).toBe('secret');
-    expect(await get({}, 1)).toBeNull();
+    expect(await get({}, 'k')).toEqual({ result: 'secret' });
+    expect(await get({}, 1)).toEqual({ result: null });
     await set({}, 'k', null);
-    expect(await get({}, 'k')).toBeNull();
+    expect(await get({}, 'k')).toEqual({ result: null });
   });
 });

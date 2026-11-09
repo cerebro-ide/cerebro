@@ -8,7 +8,6 @@ import {
   app,
   BrowserWindow,
   dialog,
-  ipcMain,
   screen,
   type OpenDialogOptions,
   type WebContents,
@@ -18,6 +17,7 @@ import { installWindowColours } from './colours.js';
 import { installFullScreen } from './fullscreen.js';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
+import { handle } from './ipc.js';
 import { logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
 import { installPasswords, PasswordStore } from './passwords.js';
@@ -175,13 +175,13 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
     if (typeof value !== 'string' || value === '') throw new Error(`${name} must be a path`);
     return value;
   };
-  ipcMain.handle(PROJECT_CURRENT, (event) =>
+  handle(PROJECT_CURRENT, (event) =>
     windows.projectsOf(event.sender.id).map((path) => ({ path, name: projectName(path) })),
   );
-  ipcMain.handle(PROJECT_RECENT, () =>
+  handle(PROJECT_RECENT, () =>
     store.recent.map((recent) => ({ ...recent, exists: isFolder(recent.path) })),
   );
-  ipcMain.handle(PROJECT_PICK, async (event) => {
+  handle(PROJECT_PICK, async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender);
     const options: OpenDialogOptions = {
       title: 'Open',
@@ -192,7 +192,7 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
       : await dialog.showOpenDialog(options);
     return picked.canceled ? null : (picked.filePaths[0] ?? null);
   });
-  ipcMain.handle(PROJECT_OPEN, (event, path: unknown, where: unknown, replacing: unknown) => {
+  handle(PROJECT_OPEN, (event, path: unknown, where: unknown, replacing: unknown) => {
     if (where !== 'this' && where !== 'new') throw new Error('where must be "this" or "new"');
     windows.open(
       text(path, 'path'),
@@ -201,10 +201,10 @@ export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindo
       replacing === undefined ? undefined : text(replacing, 'replacing'),
     );
   });
-  ipcMain.handle(PROJECT_CLOSE, (event, path: unknown) => {
+  handle(PROJECT_CLOSE, (event, path: unknown) => {
     windows.close(event.sender.id, text(path, 'path'));
   });
-  ipcMain.handle(PROJECT_FORGET, (_event, path: unknown) => {
+  handle(PROJECT_FORGET, (_event, path: unknown) => {
     store.forget(text(path, 'path'));
   });
   app.on('before-quit', () => {

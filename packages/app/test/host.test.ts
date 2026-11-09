@@ -183,9 +183,13 @@ describe('installHosts', () => {
     const answer = handle({ sender: { id: 7 } }, '/repo', 'host.ping') as Promise<unknown>;
     expect(await next).toMatchObject({ method: 'host.ping' });
     child.stdout.write('{"jsonrpc":"2.0","id":1,"result":{"version":1}}\n');
-    expect(await answer).toEqual({ version: 1 });
-    expect(() => handle({ sender: { id: 7 } }, '/repo', 5)).toThrow('needs a method name');
-    expect(() => handle({ sender: { id: 7 } }, 5, 'host.ping')).toThrow('needs a project');
+    expect(await answer).toEqual({ result: { version: 1 } });
+    expect(await handle({ sender: { id: 7 } }, '/repo', 5)).toEqual({
+      error: 'A host request needs a method name',
+    });
+    expect(await handle({ sender: { id: 7 } }, 5, 'host.ping')).toEqual({
+      error: 'A host request needs a project',
+    });
     (electron.appListeners.get('will-quit') as Listener)();
     expect(child.kill).toHaveBeenCalled();
   });

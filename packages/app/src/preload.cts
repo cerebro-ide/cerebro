@@ -35,6 +35,17 @@ const PROJECT_FORGET = 'cerebro:project:forget';
 const PROJECT_ADDED = 'cerebro:project:added';
 const PROJECT_SHOW = 'cerebro:project:show';
 
+/**
+ * Asks the main process on `channel`: its handler's result, or its error thrown again, with only
+ * its message (ipc.ts, whose `Answer` it reads, says why).
+ */
+async function invoke(channel: string, ...args: unknown[]): Promise<unknown> {
+  const answer = (await electron.ipcRenderer.invoke(channel, ...args)) as
+    { result: unknown } | { error: string };
+  if ('error' in answer) throw new Error(answer.error);
+  return answer.result;
+}
+
 /** Calls `listener` with each message on `channel`; returns a function that stops it. */
 function listen(channel: string, listener: (...args: unknown[]) => void): () => void {
   const handler = (_event: unknown, ...args: unknown[]) => {
@@ -72,37 +83,37 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
   },
   project: {
     /** The projects this window shows, in the order they were opened; none in the Welcome window. */
-    current: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CURRENT),
+    current: (): Promise<unknown> => invoke(PROJECT_CURRENT),
     /** The projects opened recently, the latest first, each saying whether it's still there. */
-    recent: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_RECENT),
+    recent: (): Promise<unknown> => invoke(PROJECT_RECENT),
     /** Asks for a folder with the system's dialog; null if none was chosen. */
-    pick: (): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_PICK),
+    pick: (): Promise<unknown> => invoke(PROJECT_PICK),
     /**
      * Opens a project from this window: as more tabs ('new'), or in the place of its project
      * `replacing` ('this').
      */
     open: (path: string, where: 'this' | 'new', replacing?: string): Promise<unknown> =>
-      electron.ipcRenderer.invoke(PROJECT_OPEN, path, where, replacing),
+      invoke(PROJECT_OPEN, path, where, replacing),
     /** Closes one of this window's projects; its last closes the window. */
-    close: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_CLOSE, path),
+    close: (path: string): Promise<unknown> => invoke(PROJECT_CLOSE, path),
     /** Calls `listener` with each project that joins this window. */
     onAdded: (listener: (project: unknown) => void) => listen(PROJECT_ADDED, listener),
     /** Calls `listener` with a project of this window's asked to open again: show it. */
     onShow: (listener: (path: unknown) => void) => listen(PROJECT_SHOW, listener),
     /** Removes a project from the recent ones. */
-    forget: (path: string): Promise<unknown> => electron.ipcRenderer.invoke(PROJECT_FORGET, path),
+    forget: (path: string): Promise<unknown> => invoke(PROJECT_FORGET, path),
   },
   passwords: {
     /** A password kept by its key, or null. */
-    get: (key: string): Promise<unknown> => electron.ipcRenderer.invoke(PASSWORD_GET, key),
+    get: (key: string): Promise<unknown> => invoke(PASSWORD_GET, key),
     /** Keeps a password by its key, encrypted by the system's keychain; null forgets it. */
     set: (key: string, password: string | null): Promise<unknown> =>
-      electron.ipcRenderer.invoke(PASSWORD_SET, key, password),
+      invoke(PASSWORD_SET, key, password),
   },
   host: {
     /** Sends a request to a project's host; resolves with its result. */
     request: (project: string, method: string, params?: unknown): Promise<unknown> =>
-      electron.ipcRenderer.invoke(HOST_REQUEST, project, method, params),
+      invoke(HOST_REQUEST, project, method, params),
     /**
      * Calls `listener` with each notification from the hosts, with the project of the host it
      * came from; returns a function that stops it.

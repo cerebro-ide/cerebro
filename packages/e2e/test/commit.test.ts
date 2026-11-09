@@ -198,3 +198,20 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
   expect(await login.count()).toBe(0);
   server.close();
 });
+
+it('says why a push failed in git’s words alone', async () => {
+  git('remote', 'set-url', 'origin', join(root, 'missing.git'));
+  writeFileSync(join(repo, 'pushed.txt'), 'Nowhere');
+  git('add', 'pushed.txt');
+  git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Nowhere');
+  await page().keyboard.press(KEYS.push);
+  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
+  await expect
+    .poll(() => dialog.locator('.playground-push__commit').allTextContents(), { timeout: 15_000 })
+    .toContain('Nowhere');
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
+  const failed = page().locator('.cerebro-balloon', { hasText: 'Push failed' });
+  await failed.waitFor({ timeout: 15_000 });
+  // Not Electron's "Error invoking remote method 'cerebro:host:request': …" in front.
+  expect(await failed.locator('.cerebro-notification__content').textContent()).toMatch(/^fatal: /);
+});

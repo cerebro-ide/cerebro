@@ -7,7 +7,8 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Connection, LineReader } from '@cerebro-ide/protocol';
-import { app, ipcMain } from 'electron';
+import { app } from 'electron';
+import { handle } from './ipc.js';
 
 export const HOST_REQUEST = 'cerebro:host:request';
 export const HOST_NOTIFICATION = 'cerebro:host:notification';
@@ -131,7 +132,7 @@ export class Hosts {
  */
 export function installHosts(spawn: typeof nodeSpawn = nodeSpawn): Hosts {
   const hosts = new Hosts(spawn);
-  ipcMain.handle(HOST_REQUEST, (event, repo: unknown, method: unknown, params: unknown) => {
+  handle(HOST_REQUEST, (event, repo: unknown, method: unknown, params: unknown) => {
     if (typeof repo !== 'string') throw new Error('A host request needs a project');
     if (typeof method !== 'string') throw new Error('A host request needs a method name');
     return hosts.request(event.sender.id, repo, method, params);
