@@ -374,7 +374,7 @@ export function setupConflicts(services: MenuServices): void {
   const { commands, menus } = services;
   commands.register({
     id: 'vcs.resolveConflicts',
-    label: 'Resolve Conflicts…',
+    label: 'Resolve Conflicts',
     dialog: true,
     // As IntelliJ's, only while files are in conflict.
     visible: () => {

@@ -1,4 +1,4 @@
-import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
+import { CommandRegistry, displayText, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { visibleEntries, type MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setupConflicts } from '../src/conflicts.js';
@@ -71,12 +71,14 @@ afterEach(async () => {
   vi.restoreAllMocks();
 });
 
-/** The Git menu's labels, its Rebase menu's after it, as they show in `state`. */
+/** The Git menu's items as it shows them, its Rebase menu's after, in `state`. */
 const menu = async (state: Record<string, unknown>) => {
   git.state = state;
   await readState('/r/feature');
   const labels = (name: string) =>
-    visibleEntries(services, name).map((e) => ('label' in e ? e.label : '-'));
+    visibleEntries(services, name).map((e) =>
+      'command' in e ? displayText(e.label, e.dialog) : 'label' in e ? displayText(e.label) : '-',
+    );
   return [...labels('main/git'), ...labels('main/git/rebase')];
 };
 const last = () => notifications.all.get(0);
@@ -96,7 +98,7 @@ describe('the Git menu during a merge or a rebase', () => {
       'Abort Merge',
     ]);
     expect(await menu({ operation: 'rebase', conflicts: true })).toEqual([
-      '&Rebase',
+      'Rebase',
       'Resolve Conflicts…',
       'Abort Rebase',
       'Continue Rebase',

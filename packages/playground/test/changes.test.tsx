@@ -260,7 +260,7 @@ describe('the Commit window', () => {
     const resolved: unknown[] = [];
     const registered = commands.register({
       id: 'vcs.resolveConflicts',
-      label: 'Resolve Conflicts…',
+      label: 'Resolve Conflicts',
       run: (context) => void resolved.push(context),
     });
     await changesView([
