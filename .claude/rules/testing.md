@@ -50,6 +50,9 @@ paths:
   reproduced locally, even under xvfb). Clicks that hit this use `{ force: true }`, with a comment.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each
   starts Electron as Node) or another process gets an explicit `{ timeout: 15_000 }`.
+- **A test that needs another window size starts the app at it** (`CEREBRO_WINDOW_SIZE: '1024x768'`
+  in `launch()`'s environment), never resizes after launch: Linux's window manager can undo a resize
+  made before it places the window (measured under WSLg).
 - The Claude tool window is open by default and takes room from the editor: tests that click in the
   editor hide it first.
 - A terminal's text is its `.cerebro-terminal__row` elements; a narrow terminal wraps lines, so join

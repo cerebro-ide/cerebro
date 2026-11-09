@@ -73,21 +73,17 @@ on it:
   the earlier fix (ed7bffc) measured that for the test of typing.
   Again on 2026-11-08 (feat/indent, a full run while the machine's network kept changing): 4
   searches where 2 were expected; it passed alone 3 times.
-- **The Log e2e tests fail in some full local runs: the window manager places the window late**
-  (first 2026-11-07; 4 full runs in 6 on 2026-11-08, feat/push-dialog; again on feat/push-force
-  and feat/git-credentials, the same 4 tests, passing alone right after; never alone, never in
-  CI).
-  Measured with the window's `resize` and `move` events: the test's resize to 1024×768 right after
-  launch took effect, the window went back to 1440×900 a millisecond later, and WSLg's window
-  manager placed it 2.8 s later (moved off-screen, then to its centred place). Depending on that
-  last step the window ended at 1440×900 (the toolbar's filters fit, so its » never showed) or
-  1024×768, and a click before it was lost (the Git stripe button's: once, and again on
-  2026-11-08 on feat/push-remote, where all 6 failed with the window at 1024×768 and no Git tool
-  window open; the file passed alone twice right after). The tests print the
-  window's, the screen's and the toolbar's sizes when the » is hidden. Fixing it needs the e2e
-  harness (and `qa.mjs`, which resizes the same way) to wait until the window is placed, or the
-  app to take its size at launch, as IntelliJ restores a project's window bounds; neither is done
-  yet.
+- **A Log e2e test sometimes finds its toolbar's » hidden in a full local run** (WSLg; never alone,
+  never in CI). Most of these failures were the test resizing the window after launch, before
+  WSLg's window manager placed it, which undid the size (measured 2026-11-09: 1024×768, then back to
+  1440×900 1 ms later, placed 0.85 s and 2.3 s after); the window now starts at the test's size
+  (`CEREBRO_WINDOW_SIZE`), and in 6 full runs since, its size was never undone. Left: in 1 of
+  those runs, the window at its size but off-screen (x -21824, where WSLg puts a window before placing it), the
+  toolbar's items overflowing (289 pixels in 70) with its » hidden: the row's fit, in an animation
+  frame, hadn't run. That frames don't run off-screen is a claim: WSLg won't move a window
+  off-screen to measure it, and waiting for the window to be placed failed other files (a window
+  stayed off-screen for over 15 s, which they ran fine in). The test now also prints how many
+  frames the page draws in 500 ms when it finds the » hidden.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
