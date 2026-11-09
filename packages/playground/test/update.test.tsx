@@ -18,6 +18,7 @@ const git = {
   continued: { kind: 'updated', files: 1, commits: 1, restored: true } as unknown,
 };
 const host = new FakeHost({
+  'git.state': () => ({ conflicts: false }),
   'git.update': async () => {
     await git.hold;
     if (git.updated instanceof Error) throw git.updated;

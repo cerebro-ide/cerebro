@@ -49,11 +49,6 @@ on it:
   IntelliJ's own applier finds the lines elsewhere. Update Project then says "Local changes were
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
-- **The Commit window can't commit a merge** (measured 2026-11-09): it commits with `git commit
-  --only`, which git refuses during a merge ("fatal: cannot do a partial commit during a merge.").
-  Update Project commits its own merge once the conflicts are resolved; a merge started elsewhere
-  (in the terminal) and resolved in the Conflicts dialog can't be committed from the window.
-  IntelliJ commits the whole merge then.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
@@ -127,4 +122,7 @@ on it:
   also prints the keys and mouse events after the edit, which start the idle time again, and the
   page's long tasks. Measured in CI on #153 (2026-11-08): saved 6.0 s after the edit, with no key
   or mouse event after the typing and no long task, the editor focused, the setting 1 s. So
-  nothing started the idle time again; the delay's cause is still not found.
+  nothing started the idle time again; the delay's cause is still not found. Seen again on #158 (2026-11-09):
+  saved 6.1 s after the edit, the editor focused, the setting 1 s, no key after the typing; the
+  race test before it took 18 s there, against 8–12 s on earlier branches, but locally #158 took
+  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced.

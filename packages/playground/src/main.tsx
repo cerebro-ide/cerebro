@@ -62,6 +62,8 @@ import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
+import { setupMergeRebase } from './merge-rebase.js';
+import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -269,6 +271,8 @@ setupShelf(services, {
 setupPush(services);
 setupUpdate(services);
 setupConflicts(services);
+setupMergeRebase(services);
+watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, { activeTab: () => editor()?.activeGroup.active });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */

@@ -51,7 +51,16 @@ import {
   type UpdateMethod,
 } from './update.js';
 import { blame } from './blame.js';
-import { acceptSide, listConflicts, mergeRevisions, resolveWith } from './conflicts.js';
+import {
+  abortOperation,
+  acceptSide,
+  continueOperation,
+  listConflicts,
+  mergeRevisions,
+  repositoryState,
+  resolveWith,
+  skipCommit,
+} from './conflicts.js';
 import {
   addWorktree,
   commit,
@@ -610,6 +619,28 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return blame(text(params, 'path'), text(params, 'file'), contents, git);
   });
   connection.onRequest('git.conflicts', (params) => listConflicts(text(params, 'path'), git));
+  connection.onRequest('git.state', (params) => repositoryState(text(params, 'path'), git));
+  // The Git menu's, during a merge or a rebase: Commit Merge and Continue Rebase, Skip Commit,
+  // Abort Merge and Abort Rebase.
+  connection.onRequest('git.continue', (params) => {
+    const worktree = text(params, 'path');
+    return recording(worktree, 'Continue', git, () => continueOperation(worktree, git));
+  });
+  connection.onRequest('git.skipCommit', (params) => {
+    const worktree = text(params, 'path');
+    return recording(worktree, 'Skip Commit', git, () => skipCommit(worktree, git));
+  });
+  connection.onRequest('git.abort', async (params) => {
+    const worktree = text(params, 'path');
+    const op = (params as { operation?: unknown }).operation;
+    if (op !== 'merge' && op !== 'rebase') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'operation must be merge or rebase');
+    }
+    await recording(worktree, op === 'merge' ? 'Abort Merge' : 'Abort Rebase', git, () =>
+      abortOperation(worktree, op, git),
+    );
+    return null;
+  });
   connection.onRequest('git.mergeRevisions', (params) =>
     mergeRevisions(text(params, 'path'), text(params, 'file'), git),
   );

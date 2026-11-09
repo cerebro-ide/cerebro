@@ -396,12 +396,12 @@ describe('CodeEditor', () => {
       return Number(line?.textContent.split(' ')[1]);
     };
     // Far down: the lines above that were never drawn have estimated heights, so it's whichever
-    // line is drawn there.
+    // line is drawn there. Said first by the estimates, then again once they're measured
+    // (measured, scrolled to 1000: line 45, then 71, as CodeMirror kept the line in place).
     scroller.scrollTop = 2200;
     await vi.waitFor(() => {
-      expect(onScroll).toHaveBeenCalled();
+      expect(onScroll).toHaveBeenLastCalledWith(shown());
     });
-    expect(onScroll).toHaveBeenLastCalledWith(shown());
     expect(shown()).toBeGreaterThan(50);
     // The caret at line 120, with line 110 at the top: not centred.
     reveal.set({ line: 120, column: 0, top: 110 });

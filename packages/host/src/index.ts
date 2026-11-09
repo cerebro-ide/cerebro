@@ -174,15 +174,19 @@ export {
 } from './update.js';
 export { blame, parseBlame, type Blame, type BlameCommit } from './blame.js';
 export {
+  abortOperation,
   acceptSide,
   continueOperation,
   listConflicts,
   mergeRevisions,
   operation,
+  repositoryState,
   resolveWith,
+  skipCommit,
   type ConflictedFile,
   type Conflicts,
   type ConflictSide,
   type Operation,
+  type RepositoryState,
   type Revisions,
 } from './conflicts.js';
