@@ -206,9 +206,19 @@ it('says why a push failed in git’s words alone', async () => {
   git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Nowhere');
   await page().keyboard.press(KEYS.push);
   const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
-  await expect
-    .poll(() => dialog.locator('.playground-push__commit').allTextContents(), { timeout: 15_000 })
-    .toContain('Nowhere');
+  try {
+    await expect
+      .poll(() => dialog.locator('.playground-push__commit').allTextContents(), {
+        timeout: 15_000,
+      })
+      .toContain('Nowhere');
+  } catch (error) {
+    // Failed once on Windows in CI (2026-11-09), the dialog's commits empty: what was seen.
+    console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
+    console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
+    console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
+    throw error;
+  }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
   const failed = page().locator('.cerebro-balloon', { hasText: 'Push failed' });
   await failed.waitFor({ timeout: 15_000 });
