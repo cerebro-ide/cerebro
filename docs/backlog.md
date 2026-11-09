@@ -49,6 +49,12 @@ on it:
   IntelliJ's own applier finds the lines elsewhere. Update Project then says "Local changes were
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
+- **The Commit window can't commit a merge** (measured 2026-11-09): it commits with `git commit
+  --only`, which git refuses during a merge ("fatal: cannot do a partial commit during a merge.").
+  Update Project commits its own merge once the conflicts are resolved; a merge started elsewhere
+  (in the terminal) and resolved in the Conflicts dialog can't be committed from the window.
+  IntelliJ commits the whole merge then.
+- **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **The agents' hooks may not wait for the host on Windows** (seen 2026-11-08 while measuring
   askpass there): the hook client ends its side of the socket and waits for it to close, as the
   askpass client did; on Windows, a named pipe closed for writing is closed both ways (measured
