@@ -2035,7 +2035,11 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
 `DvcsBundle.properties`, `GitBundle.properties`, `VcsBundle.properties`).
 
 - **The Push dialog,** "Push Commits to {project}", 800 pixels wide as IntelliJ's. Push, with
-  Cancel; Push is disabled when there's nothing to send. A detached HEAD says so instead
+  Cancel. The dialog always opens; Push is enabled only when the push sends something to the
+  target, which can be changed in the dialog (Ido, 2026-11-09: "like intellij, the push dailog can
+  always be opened, but will allow to push only if there's a difference from where you're pushing
+  to, which can be edited in the modal"; IntelliJ's own Push is enabled whenever there's a target,
+  `PushController.isPushAllowed`). A detached HEAD says so instead
   (Cerebro's words, open to change). No remote: see "Defining a remote".
 - **Its two panes (changed 2026-11-08),** as IntelliJ's `PushLog`:
   - on the left, the repository's row (the branch and where it goes, "main → origin : main", with
@@ -2094,7 +2098,7 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   branch's annotated tags; measured on git 2.43). It starts as the last push in the repository left
   it, as IntelliJ's `GitPusher` keeps it in the project's settings (Cerebro keeps it in the
   browser's storage, as its other options). Ticked, Push is enabled with only tags to send
-  (Cerebro's: IntelliJ's Push is enabled whenever there's a target, `GitPushSupport.canBePushed`).
+  (something to send, as above).
   The notification names the tags made there, in IntelliJ's words: "Pushed 2 commits to origin/main,
   and tag v1 to origin", "… and 2 tags to origin", "Pushed tag v1 to origin", "Pushed 2 tags to
   origin". IntelliJ's Run Git hooks beside it isn't done.
