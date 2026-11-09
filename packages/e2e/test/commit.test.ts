@@ -310,7 +310,7 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
   git('checkout', '-q', 'main');
   writeFileSync(join(repo, 'a.ts'), 'a main\n');
   commitAs('commit', '-qm', 'Main to a', '--', 'a.ts');
-  expect(() => git('merge', 'side')).toThrow();
+  expect(() => commitAs('merge', 'side')).toThrow();
   await page().keyboard.press(KEYS.commit);
   const conflicts = page().locator('.cerebro-tree-row', { hasText: 'Merge Conflicts' });
   await conflicts.waitFor({ timeout: 15_000 });
