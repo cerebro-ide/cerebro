@@ -570,7 +570,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (p.save !== 'shelve' && p.save !== 'stash') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'save must be shelve or stash');
     }
-    const options = { method: p.method as UpdateMethod, save: p.save as SaveChanges };
+    const options: { method: UpdateMethod; save: SaveChanges } = { method: p.method, save: p.save };
     return recording(worktree, 'Update Project', git, () => update(worktree, options, git, remote));
   });
   // Define Remote: whether its URL answers, and adding it.

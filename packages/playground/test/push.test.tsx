@@ -620,7 +620,8 @@ describe('Push', () => {
   });
 
   describe('when the remote has diverged, as IntelliJ’s', () => {
-    const banner = () => document.querySelector('.playground-push__banner')?.textContent ?? '';
+    const banner = () =>
+      document.querySelector('.playground-push__banner-text > span')?.textContent ?? '';
     const main = () =>
       document.querySelector<HTMLButtonElement>(
         '.cerebro-dialog__option-button > .cerebro-dialog__button--primary',
@@ -649,6 +650,16 @@ describe('Push', () => {
         upstream: { remote: 'origin', target: 'fix' },
       };
     };
+
+    it('closes, to update the project, with the banner’s Update project…', async () => {
+      git.remote = { kind: 'diverged', remoteCommits: 2, lease: 'theirs' };
+      commands.execute('vcs.push');
+      await expect.poll(banner).not.toBe('');
+      await userEvent.click(link('Update project…'));
+      // The Update Project dialog, in the Push dialog's place.
+      await expect.poll(() => texts('.cerebro-dialog__title')).toEqual(['Update Project']);
+      expect(host.params('git.push')).toEqual([]);
+    });
 
     it('says so, and force pushes after asking, expecting the remote’s branch where it was seen', async () => {
       toFeature();

@@ -187,6 +187,43 @@ registry.register({
   type: 'string',
   default: 'feat/',
 });
+// IntelliJ's (Version Control → Git), with its defaults: how Update Project takes the upstream's
+// commits, and where local changes in the way go meanwhile. Global, as the credential helper is
+// (Cerebro's choice, open to change: IntelliJ keeps them by project).
+registry.register({
+  id: 'git.updateMethod',
+  title: 'Update method',
+  page: 'vcs/git',
+  type: 'enum',
+  default: 'merge',
+  options: [
+    { value: 'merge', label: 'Merge' },
+    { value: 'rebase', label: 'Rebase' },
+  ],
+  scopes: ['global'],
+});
+registry.register({
+  id: 'git.saveChanges',
+  title: 'Clean working tree using',
+  page: 'vcs/git',
+  type: 'enum',
+  default: 'shelve',
+  options: [
+    { value: 'stash', label: 'Stash' },
+    { value: 'shelve', label: 'Shelve' },
+  ],
+  scopes: ['global'],
+});
+// IntelliJ's Show options before: Update (Version Control → Confirmation); its Update Project
+// dialog's Don't show again turns it off.
+registry.register({
+  id: 'vcs.showUpdateOptions',
+  title: 'Show options before update',
+  page: 'vcs',
+  type: 'boolean',
+  default: true,
+  scopes: ['global'],
+});
 
 const REPO = 'cerebro';
 

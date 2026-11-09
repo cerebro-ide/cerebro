@@ -59,6 +59,7 @@ import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { fetchingRemote, pushing, setupPush } from './push.js';
+import { setupUpdate, updating } from './update.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -264,6 +265,7 @@ setupShelf(services, {
   },
 });
 setupPush(services);
+setupUpdate(services);
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
 const jumpTo = (at: { path: string; line: number; column: number }) => {
@@ -795,6 +797,16 @@ status.add({
   text: () => 'Pushing…',
   tooltip: () => 'Pushing the branch',
   hidden: () => !pushing.get(),
+  progress: () => 'indeterminate',
+});
+// An update under way, as IntelliJ's "Updating…".
+status.add({
+  id: 'update',
+  side: 'left',
+  order: 2,
+  text: () => 'Updating…',
+  tooltip: () => 'Updating the project',
+  hidden: () => !updating.get(),
   progress: () => 'indeterminate',
 });
 // The Push dialog's Fetch, as IntelliJ's "Fetching Remote Commits…".

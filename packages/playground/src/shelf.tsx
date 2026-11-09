@@ -153,7 +153,7 @@ const inRepository = () =>
   active() !== undefined && currentHost() !== undefined && gitRepository.get();
 
 /** Reads the active worktree's changes and lists again: after anything changes them. */
-async function refreshAll(worktree: string): Promise<void> {
+export async function refreshAll(worktree: string): Promise<void> {
   await Promise.all([refreshChanges(worktree), listsOf(worktree).refresh()]);
 }
 
@@ -324,6 +324,16 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     enabled: () => (current()?.shelves.get().length ?? 0) > 0,
     run: () => {
       chosen.set('shelf');
+      setup.show();
+    },
+  });
+  // As Show Shelf: where Update Project's View saved changes… goes, after a stash.
+  commands.register({
+    id: 'vcs.showStash',
+    label: 'Show Stash',
+    enabled: () => (current()?.stashes.get().length ?? 0) > 0,
+    run: () => {
+      chosen.set('stash');
       setup.show();
     },
   });

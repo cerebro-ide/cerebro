@@ -77,9 +77,8 @@ async function inTheWay(
   const upstream = new Set(
     lines(await run(worktree, ['diff', '--name-only', 'HEAD...@{upstream}'])),
   );
-  return changes.some(
-    (c) => upstream.has(c.path) || (c.from !== undefined && upstream.has(c.from)),
-  );
+  // A rename is in the index, so its old path needn't be looked at.
+  return changes.some((c) => upstream.has(c.path));
 }
 
 /** Saves the changes in the way; resolves with a way to put them back, which says if it did. */
@@ -133,38 +132,42 @@ export async function update(
   const before = (await run(worktree, ['rev-parse', 'HEAD'])).trim();
   // Untracked files aren't local changes to IntelliJ: they stay where they are.
   const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
+  /** What the update brought, the files it changed counted. */
+  const updated = async (restored: boolean): Promise<Updated> => {
+    const files = lines(await run(worktree, ['diff', '--name-only', `${before}..HEAD`])).length;
+    return { kind: 'updated', files, commits, restored };
+  };
   // A rebase with local changes tries a fast-forward first, which needs nothing saved
   // (IntelliJ's `tryFastForwardMergeForRebaseUpdaters`).
-  const fastForward =
+  if (
     options.method === 'rebase' &&
     changes.length > 0 &&
     (await run(worktree, ['merge', '--ff-only', '@{upstream}']).then(
       () => true,
       () => false,
-    ));
-  let restore: (() => Promise<boolean>) | undefined;
-  if (!fastForward) {
-    if (await inTheWay(worktree, options.method, changes, run)) {
-      const message = savedMessage(options.now ?? new Date());
-      restore = await save(worktree, changes, options.save, message, run);
-    }
-    try {
-      await run(
-        worktree,
-        options.method === 'merge'
-          ? ['merge', '--no-stat', '-v', '@{upstream}']
-          : ['rebase', '@{upstream}'],
-      );
-    } catch (error) {
-      if ((await unfinished(worktree, run)) !== undefined) {
-        return { kind: 'conflicts', method: options.method, saved: restore !== undefined };
-      }
-      // Nothing changed (local changes or untracked files git won't overwrite): they go back.
-      await restore?.();
-      throw error;
-    }
+    ))
+  ) {
+    return updated(true);
   }
-  const files = lines(await run(worktree, ['diff', '--name-only', `${before}..HEAD`])).length;
-  const restored = restore ? await restore() : true;
-  return { kind: 'updated', files, commits, restored };
+  let restore: (() => Promise<boolean>) | undefined;
+  if (await inTheWay(worktree, options.method, changes, run)) {
+    const message = savedMessage(options.now ?? new Date());
+    restore = await save(worktree, changes, options.save, message, run);
+  }
+  try {
+    await run(
+      worktree,
+      options.method === 'merge'
+        ? ['merge', '--no-stat', '-v', '@{upstream}']
+        : ['rebase', '@{upstream}'],
+    );
+  } catch (error) {
+    if ((await unfinished(worktree, run)) !== undefined) {
+      return { kind: 'conflicts', method: options.method, saved: restore !== undefined };
+    }
+    // Nothing changed (local changes or untracked files git won't overwrite): they go back.
+    await restore?.();
+    throw error;
+  }
+  return updated(restore ? await restore() : true);
 }
