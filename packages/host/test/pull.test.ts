@@ -65,9 +65,8 @@ describe('fetching and pulling, with real git', () => {
     run(repo, 'remote', 'add', 'broken', join(root, 'missing.git'));
     upstream('theirs');
     const fetched = await fetchAll(repo, git, git);
-    expect(fetched.failed).toEqual([
-      { remote: 'broken', error: expect.stringMatching(/does not appear to be a git repository/) },
-    ]);
+    expect(fetched.failed.map((f) => f.remote)).toEqual(['broken']);
+    expect(fetched.failed[0]?.error).toMatch(/does not appear to be a git repository/);
     expect(run(repo, 'log', '-1', '--format=%s', 'origin/main').trim()).toBe('theirs');
   });
 

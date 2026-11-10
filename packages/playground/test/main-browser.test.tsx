@@ -8,6 +8,7 @@ import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
+import { fetching, pullingFrom } from '../src/fetch-pull.js';
 import { fetchingRemote, pushing } from '../src/push.js';
 import { updating } from '../src/update.js';
 import { globalSettings } from '../src/settings.js';
@@ -118,6 +119,29 @@ describe('the page in a browser', () => {
     await userEvent.unhover(item);
     fetchingRemote.set(false);
     await expect.poll(() => item.hidden).toBe(true);
+  });
+
+  it('shows Fetching… and Pulling changes from a remote while they’re under way, as IntelliJ’s', async () => {
+    const fetchItem = q('.cerebro-statusbar__item[data-id="fetch"]');
+    expect(fetchItem.hidden).toBe(true);
+    fetching.set(true);
+    await expect.poll(() => fetchItem.hidden).toBe(false);
+    expect(fetchItem.textContent).toBe('Fetching…');
+    await userEvent.hover(fetchItem);
+    await expect.poll(tooltipText).toBe('Fetching every remote');
+    await userEvent.unhover(fetchItem);
+    fetching.set(false);
+    await expect.poll(() => fetchItem.hidden).toBe(true);
+    const pullItem = q('.cerebro-statusbar__item[data-id="pull"]');
+    expect(pullItem.hidden).toBe(true);
+    pullingFrom.set('upstream');
+    await expect.poll(() => pullItem.hidden).toBe(false);
+    expect(pullItem.textContent).toBe('Pulling changes from upstream');
+    await userEvent.hover(pullItem);
+    await expect.poll(tooltipText).toBe('Pulling the branch');
+    await userEvent.unhover(pullItem);
+    pullingFrom.set(undefined);
+    await expect.poll(() => pullItem.hidden).toBe(true);
   });
 
   it('says what each item on the status bar is', async () => {

@@ -1,5 +1,6 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// going from a diff to the file with F4; logging in to push; and Update Project, its conflicts resolved.
+// going from a diff to the file with F4; logging in to push; Update Project, its conflicts resolved;
+// and Fetch and Pull.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -7,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { gitServer, hasHttpBackend } from '../../host/test/git-server.js';
-import { KEYS, launch, type Running } from './app.js';
+import { findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -25,6 +26,8 @@ const IDENTITY = {
 const page = () => running.page;
 const message = () => page().locator('.playground-commit__message');
 const row = (key: string) => page().locator(`.cerebro-tree-row[data-key$="${key}"]`);
+/** Runs an action by its name, from Find Action. */
+const action = (name: string) => findAction(page(), name);
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
@@ -331,4 +334,31 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
     .toBe(5);
   expect(git('log', '-1', '--format=%s')).toBe("Merge branch 'side'\n");
   expect(git('show', 'HEAD:a.ts')).toBe('a side\n');
+});
+
+it('fetches every remote, then pulls a branch of one from Git → Pull…, as IntelliJ’s', async () => {
+  // Another clone's branch, pushed: not here until fetched.
+  const other = join(root, 'other');
+  const inOther = (...args: string[]) => execFileSync('git', args, { cwd: other });
+  inOther('checkout', '-qb', 'feature');
+  writeFileSync(join(other, 'pulled.txt'), 'Pulled');
+  inOther('add', 'pulled.txt');
+  inOther('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'Pulled');
+  inOther('push', '-q', 'origin', 'feature');
+  const titles = () =>
+    page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents();
+  await action('Fetch');
+  await expect.poll(titles, { timeout: 15_000 }).toContain('Fetch successful');
+  expect(git('branch', '-r', '--format=%(refname:short)')).toContain('origin/feature');
+  await action('Pull');
+  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-pull') });
+  await dialog.waitFor();
+  expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Pull to main');
+  await dialog.locator('.playground-pull__field').fill('feature');
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'Pull' }).click();
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toMatch(/^Merge branch 'feature' of /);
+  expect(git('show', 'HEAD:pulled.txt')).toBe('Pulled');
+  await expect.poll(titles, { timeout: 15_000 }).toContain('1 file updated in 1 commit');
 });

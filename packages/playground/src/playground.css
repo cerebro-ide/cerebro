@@ -1509,7 +1509,6 @@ body,
 }
 
 .playground-pull__branch {
-  position: relative;
   flex: 1;
 }
 
@@ -1526,14 +1525,12 @@ body,
 }
 
 .playground-pull__suggestions {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  left: 0;
+  position: fixed;
   z-index: 1;
+  box-sizing: border-box;
   max-height: 160px;
   overflow: auto;
-  margin: 2px 0 0;
+  margin: 0;
   padding: 4px 0;
   border: 1px solid var(--cerebro-separator);
   border-radius: var(--cerebro-radius);

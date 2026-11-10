@@ -53,6 +53,16 @@ async function stop(app: ElectronApplication): Promise<void> {
   await app.close();
 }
 
+/** Runs an action by its name, from Find Action. */
+export async function findAction(page: Page, name: string): Promise<void> {
+  await page.keyboard.press('ControlOrMeta+Shift+A');
+  await page.keyboard.type(name);
+  await page
+    .locator('.cerebro-popup-item', { hasText: new RegExp(`^${name}`) })
+    .first()
+    .click({ force: true });
+}
+
 export interface Running {
   app: ElectronApplication;
   page: Page;

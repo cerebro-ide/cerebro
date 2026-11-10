@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { KEYS, launch, type Running } from './app.js';
+import { findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -42,14 +42,7 @@ const status = () => git('status', '--porcelain', '--untracked-files=all');
 const HOST = { timeout: 15_000 };
 
 /** Runs an action by its name, from Find Action. */
-async function action(name: string): Promise<void> {
-  await page().keyboard.press('ControlOrMeta+Shift+A');
-  await page().keyboard.type(name);
-  await page()
-    .locator('.cerebro-popup-item', { hasText: new RegExp(`^${name}`) })
-    .first()
-    .click({ force: true });
-}
+const action = (name: string) => findAction(page(), name);
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);

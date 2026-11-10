@@ -158,6 +158,8 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
   const branch = signal(remote.peek() === undefined ? '' : startingBranch(remote.peek() as string));
   const options = signal(readOptions(worktree));
   const suggesting = signal(false);
+  /** The branch field, which the suggestions show under. */
+  let field!: HTMLInputElement;
   const error = () => {
     const at = remote.get();
     if (at === undefined) return 'Select the remote to pull from';
@@ -172,6 +174,8 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
     openPicker<PickerItem>({
       label: 'Add Pull Options',
       placeholder: 'Add Pull Options',
+      // Its longest description and flag on one line, as IntelliJ's popup fits them.
+      width: 480,
       position: { below: button },
       owner: button,
       items: () =>
@@ -246,10 +250,11 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
               placeholder="Specify branch"
               spellcheck={false}
               value={() => branch.get()}
-              ref={(field) => {
+              ref={(element) => {
+                field = element;
                 requestAnimationFrame(() => {
-                  field.focus();
-                  field.select();
+                  element.focus();
+                  element.select();
                 });
               }}
               on:input={(event) => {
@@ -268,7 +273,17 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
                   ? []
                   : remoteBranches(at).filter((b) => b !== typed && b.includes(typed));
               return list.length === 0 ? null : (
-                <ul class="playground-pull__suggestions" role="listbox">
+                <ul
+                  class="playground-pull__suggestions"
+                  role="listbox"
+                  ref={(list) => {
+                    // Under the field, over the dialog's edge: its content would clip it.
+                    const at = field.getBoundingClientRect();
+                    list.style.left = `${String(at.left)}px`;
+                    list.style.top = `${String(at.bottom + 2)}px`;
+                    list.style.width = `${String(at.width)}px`;
+                  }}
+                >
                   {list.map((b) => (
                     <li
                       role="option"
