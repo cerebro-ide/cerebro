@@ -51,7 +51,7 @@ import {
   type UpdateMethod,
 } from './update.js';
 import { blame } from './blame.js';
-import { fetchAll, pull, PULL_OPTIONS } from './pull.js';
+import { fetchAll, merge, MERGE_OPTIONS, pull, PULL_OPTIONS, unmerged } from './pull.js';
 import {
   checkout,
   createBranch,
@@ -592,26 +592,46 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.fetch', (params) => fetchAll(text(params, 'path'), git, remote));
   // Where a pull comes from: the branch, the remotes and the upstream.
   connection.onRequest('git.tracking', (params) => tracking(text(params, 'path'), git));
-  // Git → Pull…: a remote's branch merged, with the dialog's options.
-  connection.onRequest('git.pull', (params) => {
-    const worktree = text(params, 'path');
+  /** A dialog's options, each among those it has. */
+  const chosen = (params: unknown, known: readonly string[]): string[] => {
     const options = (params as { options?: unknown }).options ?? [];
     if (
       !Array.isArray(options) ||
-      !options.every((o) => typeof o === 'string' && PULL_OPTIONS.includes(o))
+      !options.every((o) => typeof o === 'string' && known.includes(o))
     ) {
       throw new ResponseError(
         ErrorCodes.InvalidParams,
-        `options must be among ${PULL_OPTIONS.join(', ')}`,
+        `options must be among ${known.join(', ')}`,
       );
     }
+    return options as string[];
+  };
+  // Git → Pull…: a remote's branch merged, with the dialog's options.
+  connection.onRequest('git.pull', (params) => {
+    const worktree = text(params, 'path');
     const from = {
       remote: text(params, 'remote'),
       branch: text(params, 'branch'),
-      options: options as string[],
+      options: chosen(params, PULL_OPTIONS),
     };
     return recording(worktree, 'Pull', git, () => pull(worktree, from, git, remote));
   });
+  // Git → Merge…: a branch merged, with the dialog's options and its commit's message, if any.
+  connection.onRequest('git.merge', (params) => {
+    const worktree = text(params, 'path');
+    const message = (params as { message?: unknown }).message;
+    if (message !== undefined && typeof message !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'message must be a string');
+    }
+    const what = {
+      branch: text(params, 'branch'),
+      options: chosen(params, MERGE_OPTIONS),
+      ...(message === undefined ? {} : { message }),
+    };
+    return recording(worktree, `Merge ${what.branch}`, git, () => merge(worktree, what, git));
+  });
+  // The branches not merged yet: the Merge dialog's.
+  connection.onRequest('git.unmerged', (params) => unmerged(text(params, 'path'), git));
   // Update Project: the branch from its upstream, merged or rebased, local changes in the way saved
   // meanwhile (shelved or stashed).
   connection.onRequest('git.update', (params) => {

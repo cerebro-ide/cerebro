@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { fetchAll, git, pull, tracking } from '../src/index.js';
+import { fetchAll, git, merge, pull, tracking, unmerged } from '../src/index.js';
 
 describe('fetching and pulling, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-pull-')));
@@ -93,7 +93,7 @@ describe('fetching and pulling, with real git', () => {
     upstream('more');
     commit(repo, 'mine');
     const remote = vi.fn(git);
-    expect(await pull(repo, from(), git, remote)).toEqual({ kind: 'pulled', files: 2, commits: 2 });
+    expect(await pull(repo, from(), git, remote)).toEqual({ kind: 'merged', files: 2, commits: 2 });
     expect(remote.mock.calls[0]?.[1]).toEqual([
       'pull',
       '--no-rebase',
@@ -104,7 +104,7 @@ describe('fetching and pulling, with real git', () => {
       'main',
     ]);
     expect(subjects(repo)[0]).toMatch(/^Merge branch 'main'/);
-    expect(await pull(repo, from(), git, git)).toEqual({ kind: 'pulled', files: 0, commits: 0 });
+    expect(await pull(repo, from(), git, git)).toEqual({ kind: 'merged', files: 0, commits: 0 });
   });
 
   it('pulls with the options chosen: squashed, its files staged, no commit', async () => {
@@ -112,7 +112,7 @@ describe('fetching and pulling, with real git', () => {
     upstream('theirs');
     commit(repo, 'mine');
     expect(await pull(repo, from('--squash'), git, git)).toEqual({
-      kind: 'pulled',
+      kind: 'merged',
       files: 1,
       commits: 1,
     });
@@ -127,6 +127,61 @@ describe('fetching and pulling, with real git', () => {
     run(repo, 'reset', '-q', '--hard', 'HEAD~1');
     writeFileSync(join(repo, 'shared.txt'), 'mine\n');
     await expect(pull(repo, from(), git, git)).rejects.toThrow(/would be overwritten/);
+  });
+
+  it('merges a branch with the options chosen, counting what it brought', async () => {
+    const { repo, upstream } = cloned();
+    upstream('theirs');
+    run(repo, 'fetch', '-q');
+    run(repo, 'branch', 'side', 'origin/main');
+    commit(repo, 'mine');
+    // Not merged yet: both, the local branch and the remote one; origin/HEAD isn't listed.
+    run(repo, 'remote', 'set-head', 'origin', 'main');
+    expect(await unmerged(repo, git)).toEqual(['refs/heads/side', 'refs/remotes/origin/main']);
+    expect(
+      await merge(
+        repo,
+        { branch: 'side', options: ['--no-ff'], message: ' Mine and theirs ' },
+        git,
+      ),
+    ).toEqual({
+      kind: 'merged',
+      files: 1,
+      commits: 1,
+    });
+    expect(subjects(repo)[0]).toBe('Mine and theirs');
+    expect(await unmerged(repo, git)).toEqual([]);
+    // Nothing more to bring; then a remote one, squashed, with git's message.
+    expect(await merge(repo, { branch: 'origin/main', options: [] }, git)).toEqual({
+      kind: 'merged',
+      files: 0,
+      commits: 0,
+    });
+    upstream('more');
+    run(repo, 'fetch', '-q');
+    expect(
+      await merge(repo, { branch: 'origin/main', options: ['--squash'], message: '' }, git),
+    ).toEqual({
+      kind: 'merged',
+      files: 1,
+      commits: 1,
+    });
+    expect(run(repo, 'diff', '--cached', '--name-only').trim()).toBe('more.txt');
+  });
+
+  it('fails a merge in git’s words, or stops at its conflicts', async () => {
+    const { repo, upstream } = cloned();
+    upstream('theirs', 'shared.txt', 'theirs\n');
+    run(repo, 'fetch', '-q');
+    commit(repo, 'mine', 'shared.txt', 'mine\n');
+    await expect(
+      merge(repo, { branch: 'origin/main', options: ['--ff-only'] }, git),
+    ).rejects.toThrow(/fast-forward/i);
+    const before = run(repo, 'rev-parse', 'HEAD').trim();
+    expect(await merge(repo, { branch: 'origin/main', options: [] }, git)).toEqual({
+      kind: 'conflicts',
+      resume: { method: 'merge', before, commits: 1 },
+    });
   });
 
   it('stops at conflicts, the merge under way', async () => {

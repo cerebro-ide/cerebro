@@ -17,7 +17,7 @@ const git = {
     upstream: { remote: 'origin', branch: 'main' },
   } as unknown,
   branches: ['origin/main', 'origin/dev', 'origin/HEAD', 'upstream/main', 'upstream/feature'],
-  pulled: { kind: 'pulled', files: 2, commits: 1 } as unknown,
+  pulled: { kind: 'merged', files: 2, commits: 1 } as unknown,
   /** Held until it resolves: a fetch or a pull under way. */
   hold: undefined as Promise<void> | undefined,
   conflicted: [] as string[],
@@ -73,7 +73,7 @@ beforeEach(() => {
     remotes: ['origin', 'upstream'],
     upstream: { remote: 'origin', branch: 'main' },
   };
-  git.pulled = { kind: 'pulled', files: 2, commits: 1 };
+  git.pulled = { kind: 'merged', files: 2, commits: 1 };
   git.hold = undefined;
   git.conflicted = [];
   localStorage.clear();
@@ -391,11 +391,11 @@ describe('Pull', () => {
   });
 
   it('says how it went, in IntelliJ’s words', async () => {
-    git.pulled = { kind: 'pulled', files: 1, commits: 3 };
+    git.pulled = { kind: 'merged', files: 1, commits: 3 };
     commands.execute('vcs.pull');
     await press('Pull');
     await expect.poll(() => last()?.title).toBe('1 file updated in 3 commits');
-    git.pulled = { kind: 'pulled', files: 0, commits: 0 };
+    git.pulled = { kind: 'merged', files: 0, commits: 0 };
     await expect.poll(() => commands.isEnabled('vcs.pull')).toBe(true);
     commands.execute('vcs.pull');
     await press('Pull');

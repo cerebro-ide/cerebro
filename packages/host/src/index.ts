@@ -175,7 +175,16 @@ export {
   type UpdateMethod,
 } from './update.js';
 export { blame, parseBlame, type Blame, type BlameCommit } from './blame.js';
-export { fetchAll, pull, PULL_OPTIONS, type Fetched, type Pulled } from './pull.js';
+export {
+  fetchAll,
+  merge,
+  MERGE_OPTIONS,
+  pull,
+  PULL_OPTIONS,
+  unmerged,
+  type Fetched,
+  type Merged,
+} from './pull.js';
 export {
   abortOperation,
   acceptSide,

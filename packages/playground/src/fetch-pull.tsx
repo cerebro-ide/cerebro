@@ -336,7 +336,7 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
 
 /** The host's `git.pull`. */
 type Pulled =
-  { kind: 'pulled'; files: number; commits: number } | { kind: 'conflicts'; resume: unknown };
+  { kind: 'merged'; files: number; commits: number } | { kind: 'conflicts'; resume: unknown };
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? '' : 's'}`;
 
@@ -378,7 +378,7 @@ async function pull(host: Host, worktree: string, chosen: PullChoice): Promise<v
   pullingFrom.set(chosen.remote);
   try {
     const pulled = (await host.request('git.pull', { path: worktree, ...chosen })) as Pulled;
-    if (pulled.kind === 'pulled') {
+    if (pulled.kind === 'merged') {
       reportPulled(pulled);
       return;
     }
