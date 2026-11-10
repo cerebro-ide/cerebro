@@ -50,11 +50,15 @@ describe('fetching and pulling, with real git', () => {
     upstream('gone', undefined, undefined, 'gone');
     upstream('kept', undefined, undefined, 'kept');
     expect(await fetchAll(repo, git, git)).toEqual({ pruned: [], failed: [] });
+    // The remote's HEAD, as git (2.48 on, CI's) sets it as it fetches: not a branch pruned.
+    run(repo, 'remote', 'set-head', 'origin', 'main');
+    // And the remote's HEAD, if it was the branch deleted, isn't a branch pruned either.
+    run(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/gone');
     run(other, 'push', '-q', 'origin', '--delete', 'gone');
     const remote = vi.fn(git);
     expect(await fetchAll(repo, git, remote)).toEqual({ pruned: ['origin/gone'], failed: [] });
     expect(remote.mock.calls[0]?.[1]).toContain('fetch');
-    expect(run(repo, 'branch', '-r', '--format=%(refname:short)').trim().split('\n')).toEqual([
+    expect(run(repo, 'branch', '-r', '--format=%(refname:lstrip=2)').trim().split('\n')).toEqual([
       'origin/kept',
       'origin/main',
     ]);
