@@ -94,6 +94,21 @@ describe('updating the project, with real git', () => {
     expect(subjects(repo)).toEqual(['mine', 'theirs', 'first']);
   });
 
+  it('updates from another remote branch when asked (Pull’s with --rebase), without an upstream', async () => {
+    const { repo, upstream } = cloned();
+    upstream('theirs');
+    commit(repo, 'mine');
+    run(repo, 'checkout', '-q', '-b', 'alone', 'HEAD~1');
+    commit(repo, 'alone');
+    const from = { remote: 'origin', branch: 'main' };
+    expect(await update(repo, { ...rebase, from }, git, git)).toMatchObject({
+      kind: 'updated',
+      commits: 1,
+    });
+    expect(subjects(repo)).toEqual(['alone', 'theirs', 'first']);
+    expect(await update(repo, { ...rebase, from }, git, git)).toEqual({ kind: 'nothing' });
+  });
+
   it('saves local changes only when they’re in the way of a merge, and puts them back', async () => {
     const { repo, upstream } = cloned();
     const lines = (...changed: [number, string][]) => {

@@ -51,6 +51,7 @@ import {
   type UpdateMethod,
 } from './update.js';
 import { blame } from './blame.js';
+import { fetchAll, pull, PULL_OPTIONS } from './pull.js';
 import {
   checkout,
   createBranch,
@@ -87,6 +88,7 @@ import {
   fetchTarget,
   outgoing,
   push,
+  tracking,
   listAuthors,
   log,
   rollback,
@@ -586,6 +588,30 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       remote,
     ),
   );
+  // Git → Fetch: every remote, pruned.
+  connection.onRequest('git.fetch', (params) => fetchAll(text(params, 'path'), git, remote));
+  // Where a pull comes from: the branch, the remotes and the upstream.
+  connection.onRequest('git.tracking', (params) => tracking(text(params, 'path'), git));
+  // Git → Pull…: a remote's branch merged, with the dialog's options.
+  connection.onRequest('git.pull', (params) => {
+    const worktree = text(params, 'path');
+    const options = (params as { options?: unknown }).options ?? [];
+    if (
+      !Array.isArray(options) ||
+      !options.every((o) => typeof o === 'string' && PULL_OPTIONS.includes(o))
+    ) {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        `options must be among ${PULL_OPTIONS.join(', ')}`,
+      );
+    }
+    const from = {
+      remote: text(params, 'remote'),
+      branch: text(params, 'branch'),
+      options: options as string[],
+    };
+    return recording(worktree, 'Pull', git, () => pull(worktree, from, git, remote));
+  });
   // Update Project: the branch from its upstream, merged or rebased, local changes in the way saved
   // meanwhile (shelved or stashed).
   connection.onRequest('git.update', (params) => {
@@ -597,8 +623,25 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (p.save !== 'shelve' && p.save !== 'stash') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'save must be shelve or stash');
     }
-    const options: { method: UpdateMethod; save: SaveChanges } = { method: p.method, save: p.save };
-    return recording(worktree, 'Update Project', git, () => update(worktree, options, git, remote));
+    // Pull's with --rebase: from the remote branch chosen.
+    const from = (params as { from?: unknown }).from as
+      { remote?: unknown; branch?: unknown } | undefined;
+    if (
+      from !== undefined &&
+      (typeof from.remote !== 'string' || typeof from.branch !== 'string')
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'from must name a remote and a branch');
+    }
+    const method: UpdateMethod = p.method;
+    const save: SaveChanges = p.save;
+    const options = {
+      method,
+      save,
+      ...(from ? { from: { remote: from.remote as string, branch: from.branch as string } } : {}),
+    };
+    return recording(worktree, from ? 'Pull' : 'Update Project', git, () =>
+      update(worktree, options, git, remote),
+    );
   });
   // Carries on with an update stopped at conflicts, once they're resolved: given back what it gave.
   connection.onRequest('git.continueUpdate', (params) => {

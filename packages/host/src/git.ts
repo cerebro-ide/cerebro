@@ -704,6 +704,38 @@ export async function listBranches(worktree: string, run: Git = git): Promise<Br
     .map(([ref, hash, head]) => ({ ref, hash, current: head === '*' }));
 }
 
+/** The checked-out branch, the remotes, and the branch's upstream: where a pull comes from. */
+export interface Tracking {
+  /** Undefined when HEAD is detached. */
+  branch: string | undefined;
+  remotes: string[];
+  upstream: { remote: string; branch: string } | undefined;
+}
+
+export async function tracking(worktree: string, run: Git = git): Promise<Tracking> {
+  const remotes = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+  let branch: string;
+  try {
+    branch = (await run(worktree, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
+  } catch {
+    return { branch: undefined, remotes, upstream: undefined };
+  }
+  const [remote = '', ref = ''] = (
+    await run(worktree, [
+      'for-each-ref',
+      '--format=%(upstream:remotename)%09%(upstream:remoteref)',
+      `refs/heads/${branch}`,
+    ])
+  )
+    .trim()
+    .split('\t');
+  return {
+    branch,
+    remotes,
+    upstream: remote === '' ? undefined : { remote, branch: ref.replace(/^refs\/heads\//, '') },
+  };
+}
+
 /** Where a push goes: a remote, and a branch there. */
 export interface PushTarget {
   remote: string;
@@ -736,36 +768,19 @@ export async function outgoing(
   run: Git = git,
   to?: PushTarget,
 ): Promise<Outgoing> {
-  const remotes = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+  const { branch, remotes, upstream: tracked } = await tracking(worktree, run);
   const nothing = { remote: undefined, target: undefined, isNew: false, commits: [], remotes };
-  let branch: string;
-  try {
-    branch = (await run(worktree, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
-  } catch {
-    return { branch: undefined, ...nothing, upstream: undefined };
-  }
-  const [upstreamRemote = '', upstreamRef = ''] = (
-    await run(worktree, [
-      'for-each-ref',
-      '--format=%(upstream:remotename)%09%(upstream:remoteref)',
-      `refs/heads/${branch}`,
-    ])
-  )
-    .trim()
-    .split('\t');
-  const upstream =
-    upstreamRemote === ''
-      ? undefined
-      : { remote: upstreamRemote, target: upstreamRef.replace(/^refs\/heads\//, '') };
+  if (branch === undefined) return { branch, ...nothing, upstream: undefined };
+  const upstream = tracked && { remote: tracked.remote, target: tracked.branch };
   // IntelliJ's `getDefaultOrFirstRemote`: origin, else the first.
   const fallback = remotes.includes('origin') ? 'origin' : remotes[0];
   const { remote, target } = to ?? upstream ?? { remote: fallback, target: branch };
   if (remote === undefined) return { branch, ...nothing, upstream };
   if (!remotes.includes(remote)) throw new Error(`There’s no remote named ${remote}`);
-  const tracking = `refs/remotes/${remote}/${target}`;
-  const isNew = !(await listBranches(worktree, run)).some((b) => b.ref === tracking);
+  const there = `refs/remotes/${remote}/${target}`;
+  const isNew = !(await listBranches(worktree, run)).some((b) => b.ref === there);
   // A new branch sends what no branch of the remote has.
-  const base = isNew ? [`--remotes=${remote}`] : [tracking];
+  const base = isNew ? [`--remotes=${remote}`] : [there];
   const commits = parseLog(
     await readLog(worktree, [...DETAILS, 'HEAD', '--not', ...base, '--'], run),
   );
