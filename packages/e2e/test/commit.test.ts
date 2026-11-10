@@ -351,10 +351,10 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
   await expect.poll(titles, { timeout: 15_000 }).toContain('Fetch successful');
   expect(git('branch', '-r', '--format=%(refname:short)')).toContain('origin/feature');
   await action('Pull');
-  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-pull') });
+  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-git-command') });
   await dialog.waitFor();
   expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Pull to main');
-  await dialog.locator('.playground-pull__field').fill('feature');
+  await dialog.locator('.playground-git-branch__field').fill('feature');
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Pull' }).click();
   await expect
     .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })

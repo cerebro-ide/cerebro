@@ -8,10 +8,9 @@
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
-import { resolveConflicts } from './conflicts.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
-import { icon } from './icons.js';
+import { branchField, gitOptions, type GitOption } from './git-options.js';
+import { mergeAction } from './merge-action.js';
 import { notifications } from './notifications.js';
 import { refreshAll } from './shelf.js';
 import { updateProject, updating } from './update.js';
@@ -55,7 +54,7 @@ async function fetchAll(host: Host, worktree: string): Promise<void> {
 }
 
 /** IntelliJ's `GitPullOption`: each flag, what it does, and those it can't go with. */
-const OPTIONS: { flag: string; description: string; excludes: string[] }[] = [
+const OPTIONS: GitOption[] = [
   {
     flag: '--rebase',
     description: 'Rebase the current branch on top of incoming changes',
@@ -87,32 +86,6 @@ const OPTIONS: { flag: string; description: string; excludes: string[] }[] = [
     excludes: [],
   },
 ];
-
-/** Whether `flag` goes with those chosen, as IntelliJ's `isOptionSuitable`. */
-const suitable = (flag: string, chosen: readonly string[]) =>
-  chosen.every((c) => !OPTIONS.find((o) => o.flag === c)?.excludes.includes(flag));
-
-/** Where a repository's pull options are kept, as IntelliJ keeps them per project. */
-const optionsKey = (worktree: string) => `cerebro.pull.options:${worktree}`;
-
-function readOptions(worktree: string): string[] {
-  try {
-    const kept: unknown = JSON.parse(localStorage.getItem(optionsKey(worktree)) ?? '[]');
-    return Array.isArray(kept)
-      ? kept.filter((o): o is string => OPTIONS.some((known) => known.flag === o))
-      : [];
-  } catch {
-    return [];
-  }
-}
-
-function keepOptions(worktree: string, options: readonly string[]): void {
-  try {
-    localStorage.setItem(optionsKey(worktree), JSON.stringify(options));
-  } catch {
-    // Not kept: the next pull starts without them.
-  }
-}
 
 /** The host's `git.tracking`. */
 interface Tracking {
@@ -156,45 +129,12 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
       (tracking.remotes.includes('origin') ? 'origin' : tracking.remotes[0]),
   );
   const branch = signal(remote.peek() === undefined ? '' : startingBranch(remote.peek() as string));
-  const options = signal(readOptions(worktree));
-  const suggesting = signal(false);
-  /** The branch field, which the suggestions show under. */
-  let field!: HTMLInputElement;
+  const options = gitOptions(OPTIONS, 'Add Pull Options', `cerebro.pull.options:${worktree}`);
   const error = () => {
     const at = remote.get();
     if (at === undefined) return 'Select the remote to pull from';
     if (branch.get() === '') return 'The branch to pull from should be selected.';
     return remoteBranches(at).includes(branch.get()) ? undefined : 'There is no matching branch.';
-  };
-  const toggle = (flag: string) => {
-    const now = options.peek();
-    options.set(now.includes(flag) ? now.filter((o) => o !== flag) : [...now, flag]);
-  };
-  const modify = (button: HTMLElement) => {
-    openPicker<PickerItem>({
-      label: 'Add Pull Options',
-      placeholder: 'Add Pull Options',
-      // Its longest description and flag on one line, as IntelliJ's popup fits them.
-      width: 480,
-      position: { below: button },
-      owner: button,
-      items: () =>
-        OPTIONS.map((o) => {
-          const checked = options.get().includes(o.flag);
-          return {
-            label: o.description,
-            shortcut: o.flag,
-            ...(checked ? { icon: () => icon('check') } : {}),
-            option: {
-              checked,
-              enabled: suitable(o.flag, options.get()),
-              run: () => {
-                toggle(o.flag);
-              },
-            },
-          };
-        }),
-    });
   };
   const chosen = await openDialog<PullChoice>({
     title: tracking.branch === undefined ? 'Pull' : `Pull to ${tracking.branch}`,
@@ -205,26 +145,16 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
       accept: () => ({
         remote: remote.peek() as string,
         branch: branch.peek(),
-        options: options.peek(),
+        options: options.chosen.peek(),
       }),
     },
-    footer: () => (
-      <button
-        type="button"
-        class="playground-link"
-        on:click={(event) => {
-          modify(event.currentTarget as HTMLElement);
-        }}
-      >
-        Modify options
-      </button>
-    ),
+    footer: options.link,
     content: () => (
-      <div class="playground-pull">
-        <div class="playground-pull__command">
-          <span class="playground-pull__git">git pull</span>
+      <div class="playground-git-command">
+        <div class="playground-git-command__row">
+          <span class="playground-git-command__git">git pull</span>
           <select
-            class="playground-pull__remote"
+            class="playground-git-command__remote"
             aria-label="Remote"
             disabled={tracking.remotes.length === 0}
             on:change={(event) => {
@@ -243,130 +173,20 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
               ))
             )}
           </select>
-          <span class="playground-pull__branch">
-            <input
-              class="playground-pull__field"
-              aria-label="Branch"
-              placeholder="Specify branch"
-              spellcheck={false}
-              value={() => branch.get()}
-              ref={(element) => {
-                field = element;
-                requestAnimationFrame(() => {
-                  element.focus();
-                  element.select();
-                });
-              }}
-              on:input={(event) => {
-                branch.set((event.currentTarget as HTMLInputElement).value.trim());
-                suggesting.set(true);
-              }}
-              on:blur={() => {
-                suggesting.set(false);
-              }}
-            />
-            {() => {
-              const at = remote.get();
-              const typed = branch.get();
-              const list =
-                at === undefined || !suggesting.get()
-                  ? []
-                  : remoteBranches(at).filter((b) => b !== typed && b.includes(typed));
-              return list.length === 0 ? null : (
-                <ul
-                  class="playground-pull__suggestions"
-                  role="listbox"
-                  ref={(list) => {
-                    // Under the field, over the dialog's edge: its content would clip it.
-                    const at = field.getBoundingClientRect();
-                    list.style.left = `${String(at.left)}px`;
-                    list.style.top = `${String(at.bottom + 2)}px`;
-                    list.style.width = `${String(at.width)}px`;
-                  }}
-                >
-                  {list.map((b) => (
-                    <li
-                      role="option"
-                      class="playground-pull__suggestion"
-                      on:pointerdown={(event) => {
-                        // Chosen, not a press that leaves the field first.
-                        event.preventDefault();
-                        branch.set(b);
-                        suggesting.set(false);
-                      }}
-                    >
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-              );
-            }}
-          </span>
+          {branchField(branch, () => {
+            const at = remote.get();
+            return at === undefined ? [] : remoteBranches(at);
+          })}
         </div>
-        {() =>
-          options.get().length === 0 ? null : (
-            <div class="playground-pull__options">
-              {options.get().map((flag) => (
-                <span class="playground-pull__option">
-                  {flag}
-                  <button
-                    type="button"
-                    class="playground-pull__remove"
-                    aria-label={`Remove ${flag}`}
-                    on:click={() => {
-                      toggle(flag);
-                    }}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )
-        }
+        {options.shown}
         <span class="cerebro-dialog-field__error" role="alert">
           {() => error() ?? ''}
         </span>
       </div>
     ),
   }).result;
-  if (chosen) keepOptions(worktree, chosen.options);
+  if (chosen) options.keep();
   return chosen;
-}
-
-/** The host's `git.pull`. */
-type Pulled =
-  { kind: 'merged'; files: number; commits: number } | { kind: 'conflicts'; resume: unknown };
-
-const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? '' : 's'}`;
-
-/** Says how a pull went, as IntelliJ's `GitMergeAction` does. */
-function reportPulled(pulled: { files: number; commits: number }): void {
-  notifications.notify({
-    title:
-      pulled.commits === 0
-        ? 'All files are up to date'
-        : `${plural(pulled.files, 'file')} updated in ${plural(pulled.commits, 'commit')}`,
-  });
-}
-
-/** Says why a pull failed, in IntelliJ's words where it has its own. */
-function reportFailed(error: Error): void {
-  const message = error.message;
-  const untracked = /untracked working tree files would be overwritten/.test(message);
-  const local = !untracked && /would be overwritten by merge/.test(message);
-  notifications.notify({
-    title: untracked
-      ? 'Untracked Files Prevent Pull'
-      : local
-        ? 'Git Pull Failed'
-        : 'Git Pull failed',
-    content: local
-      ? 'Your local changes will be overwritten by pull.\nCommit, stash, or revert them to proceed.'
-      : message,
-    type: 'error',
-    display: 'sticky',
-  });
 }
 
 /** Pulls what the dialog chose: merged, or rebased as Update Project does. */
@@ -377,39 +197,13 @@ async function pull(host: Host, worktree: string, chosen: PullChoice): Promise<v
   }
   pullingFrom.set(chosen.remote);
   try {
-    const pulled = (await host.request('git.pull', { path: worktree, ...chosen })) as Pulled;
-    if (pulled.kind === 'merged') {
-      reportPulled(pulled);
-      return;
-    }
-    // As IntelliJ's: the Conflicts dialog, and the merge committed once none is left.
-    if (!(await resolveConflicts(worktree))) {
-      notifications.notify({
-        title: '',
-        content: 'There are pending unresolved conflicts.',
-        type: 'warning',
-        display: 'sticky',
-        actions: [
-          {
-            label: 'Resolve…',
-            run: () => {
-              void resolveConflicts(worktree).then(() => refreshAll(worktree));
-            },
-          },
-        ],
-      });
-      return;
-    }
-    // Without --no-commit, the merge committed; then how it went, as without conflicts.
-    if (chosen.options.includes('--no-commit')) return;
-    reportPulled(
-      (await host.request('git.continueUpdate', { path: worktree, resume: pulled.resume })) as {
-        files: number;
-        commits: number;
-      },
+    await mergeAction(
+      host,
+      worktree,
+      'Pull',
+      () => host.request('git.pull', { path: worktree, ...chosen }),
+      !chosen.options.includes('--no-commit'),
     );
-  } catch (error) {
-    reportFailed(error as Error);
   } finally {
     pullingFrom.set(undefined);
   }

@@ -1479,26 +1479,26 @@ body,
   margin: 0;
 }
 
-/* The Pull dialog, as IntelliJ's: `git pull`, the remote and the branch on one row, the options
-   chosen under it, each removable. */
-.playground-pull {
+/* The Pull and Merge dialogs, as IntelliJ's: `git pull` (the remote) and the branch on one row, the
+   options chosen under it, each removable. */
+.playground-git-command {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.playground-pull__command {
+.playground-git-command__row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.playground-pull__git {
+.playground-git-command__git {
   color: var(--cerebro-text-muted);
 }
 
-.playground-pull__remote,
-.playground-pull__field {
+.playground-git-command__remote,
+.playground-git-branch__field {
   height: 28px;
   padding: 0 8px;
   border: 1px solid var(--cerebro-input-border);
@@ -1508,23 +1508,23 @@ body,
   font: inherit;
 }
 
-.playground-pull__branch {
+.playground-git-branch {
   flex: 1;
 }
 
-.playground-pull__field {
+.playground-git-branch__field {
   box-sizing: border-box;
   width: 100%;
   user-select: text;
 }
 
-.playground-pull__remote:focus,
-.playground-pull__field:focus {
+.playground-git-command__remote:focus,
+.playground-git-branch__field:focus {
   outline: 2px solid var(--cerebro-accent);
   outline-offset: 1px;
 }
 
-.playground-pull__suggestions {
+.playground-git-branch__suggestions {
   position: fixed;
   z-index: 1;
   box-sizing: border-box;
@@ -1539,22 +1539,22 @@ body,
   list-style: none;
 }
 
-.playground-pull__suggestion {
+.playground-git-branch__suggestion {
   padding: 2px 8px;
   cursor: pointer;
 }
 
-.playground-pull__suggestion:hover {
+.playground-git-branch__suggestion:hover {
   background: var(--cerebro-menu-highlight);
 }
 
-.playground-pull__options {
+.playground-git-options {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
 }
 
-.playground-pull__option {
+.playground-git-options__option {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1563,7 +1563,7 @@ body,
   border-radius: 4px;
 }
 
-.playground-pull__remove {
+.playground-git-options__remove {
   padding: 0 4px;
   border: none;
   background: none;
@@ -1572,6 +1572,19 @@ body,
   cursor: pointer;
 }
 
-.playground-pull__remove:hover {
+.playground-git-options__remove:hover {
   color: var(--cerebro-text);
+}
+
+/* Merge's commit message, with -m: its label over it. */
+.playground-git-command__message {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playground-git-command__message-field {
+  min-height: 75px;
+  padding: 4px 8px;
+  resize: vertical;
 }
