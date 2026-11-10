@@ -18,7 +18,8 @@ export interface Fetched {
 async function trackingBranches(worktree: string, remote: string, run: Git): Promise<string[]> {
   const output = await run(worktree, [
     'for-each-ref',
-    '--format=%(refname:short)',
+    // Not `:short`, which gives the remote's HEAD as `origin` (measured).
+    '--format=%(refname:lstrip=2)',
     `refs/remotes/${remote}/`,
   ]);
   return output.split('\n').filter((b) => b !== '' && b !== `${remote}/HEAD`);
