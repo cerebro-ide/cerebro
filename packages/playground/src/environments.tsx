@@ -211,6 +211,8 @@ export function setupEnvironments(
   removeProject: (path: string) => void;
   pickWorktree: (button: HTMLElement) => PickerHandle<unknown>;
   pickBranch: (button: HTMLElement) => PickerHandle<unknown>;
+  /** Reads a worktree's project's worktrees again, and their branches: after a checkout. */
+  readWorktrees: (worktree: string) => Promise<void>;
 } {
   const open = (id: string) => {
     const spec = projectOf(id)
@@ -252,6 +254,9 @@ export function setupEnvironments(
     }
     project.worktrees.set(specs);
     for (const spec of specs) {
+      // A branch checked out since, in Cerebro or not.
+      const env = workspace.open.find((e) => e.id === spec.id);
+      if (env && env.branch !== spec.branch) env.branch = spec.branch;
       if (spec.branch !== 'detached' && !project.branches.get().includes(spec.branch)) {
         project.branches.set([...project.branches.get(), spec.branch]);
         addBranch(spec.branch);
@@ -515,7 +520,13 @@ export function setupEnvironments(
       ),
     ]);
 
-  return { open, addProject, showProject, removeProject, pickWorktree, pickBranch };
+  const readWorktrees = async (worktree: string) => {
+    const project = projectOf(worktree);
+    if (project?.host)
+      sync(project, (await project.host.request('git.worktrees')) as HostWorktree[]);
+  };
+
+  return { open, addProject, showProject, removeProject, pickWorktree, pickBranch, readWorktrees };
 }
 
 /** Files for a sample environment's first opening. */

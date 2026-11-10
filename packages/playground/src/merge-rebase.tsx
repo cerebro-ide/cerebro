@@ -67,17 +67,25 @@ async function commitMerge(host: Host, worktree: string): Promise<void> {
 }
 
 /**
- * IntelliJ's Continue Rebase and Skip Commit, as its `GitRebaseProcess`: at conflicts, the Conflicts
+ * IntelliJ's Continue Rebase and Skip Commit, as its `GitRebaseProcess`; or on from a rebase just
+ * stopped at conflicts (`stopped`, as the branches popup's Rebase onto). At conflicts, the Conflicts
  * dialog, then on once none is left; if some are, "Rebase stopped due to conflicts", with Resolve…,
- * Continue and Abort; at the end, "Rebase successful".
+ * Continue and Abort; at the end, "Rebase successful", and what it did (`done`, else git's).
  */
-async function continueRebase(host: Host, worktree: string, skip = false): Promise<void> {
+export async function continueRebase(
+  host: Host,
+  worktree: string,
+  how: 'continue' | 'skip' | 'stopped' = 'continue',
+  done?: string,
+): Promise<void> {
   try {
     // The branch rebased, as git keeps it while the rebase is under way.
     const { yours } = (await host.request('git.conflicts', { path: worktree })) as Conflicts;
     let stopped =
-      (await host.request(skip ? 'git.skipCommit' : 'git.continue', { path: worktree })) ===
-      'conflicts';
+      how === 'stopped' ||
+      (await host.request(how === 'skip' ? 'git.skipCommit' : 'git.continue', {
+        path: worktree,
+      })) === 'conflicts';
     while (stopped && (await resolveConflicts(worktree))) {
       stopped = (await host.request('git.continue', { path: worktree })) === 'conflicts';
     }
@@ -87,15 +95,15 @@ async function continueRebase(host: Host, worktree: string, skip = false): Promi
         type: 'warning',
         display: 'sticky',
         actions: [
-          { label: 'Resolve…', run: () => void resolveAndContinue(host, worktree) },
-          { label: 'Continue', run: () => void continueRebase(host, worktree) },
+          { label: 'Resolve…', run: () => void resolveAndContinue(host, worktree, done) },
+          { label: 'Continue', run: () => void continueRebase(host, worktree, 'continue', done) },
           { label: 'Abort', run: () => void abort(host, worktree, 'rebase') },
         ],
       });
     } else {
       notifications.notify({
         title: 'Rebase successful',
-        content: yours === undefined ? 'Rebased' : `Rebased ${yours}`,
+        content: done ?? (yours === undefined ? 'Rebased' : `Rebased ${yours}`),
       });
     }
   } catch (error) {
@@ -110,8 +118,8 @@ async function continueRebase(host: Host, worktree: string, skip = false): Promi
 }
 
 /** The stopped notification's Resolve…: the dialog, then on if none is left. */
-async function resolveAndContinue(host: Host, worktree: string): Promise<void> {
-  if (await resolveConflicts(worktree)) await continueRebase(host, worktree);
+async function resolveAndContinue(host: Host, worktree: string, done?: string): Promise<void> {
+  if (await resolveConflicts(worktree)) await continueRebase(host, worktree, 'continue', done);
   else await refreshAll(worktree);
 }
 
@@ -156,7 +164,7 @@ export function setupMergeRebase(services: MenuServices): void {
   register('vcs.abortMerge', 'Abort Merge', 'merge', (h, w) => abort(h, w, 'merge'));
   register('vcs.abortRebase', 'Abort Rebase', 'rebase', (h, w) => abort(h, w, 'rebase'));
   register('vcs.continueRebase', 'Continue Rebase', 'rebase', (h, w) => continueRebase(h, w));
-  register('vcs.skipCommit', 'Skip Commit', 'rebase', (h, w) => continueRebase(h, w, true));
+  register('vcs.skipCommit', 'Skip Commit', 'rebase', (h, w) => continueRebase(h, w, 'skip'));
   // IntelliJ's second group: Merge's actions, then the Rebase menu, then Resolve Conflicts….
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.commitMerge' }, group: 'am' });
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.abortMerge' }, group: 'am' });

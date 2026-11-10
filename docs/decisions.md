@@ -26,7 +26,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The shell window (2026-10-25)](#the-shell-window-2026-10-25): the window's parts: stripes, tool windows, editor
 - [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
 - [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
-- [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors
+- [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors; the branch selector opens IntelliJ's branches popup (changed 2026-11-10)
 - [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them
 - [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
 - [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
@@ -548,6 +549,9 @@ new UI.
   - A searchable picker like IntelliJ's branch popup can come later.
 - **The playground's worktrees and branches are samples** until the host can list real ones.
   Switching updates the branch selector and the status bar.
+- **The branch selector opens IntelliJ's branches popup** (changed 2026-11-10): the repository's
+  branches, read from git, each with its actions (decision "Branches"). The samples keep their
+  pretend branches, in a browser.
 
 ## The status bar (2026-10-25)
 
@@ -2225,6 +2229,53 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Branches (2026-11-10)
+
+Ido's "all of the above", for branch operations: IntelliJ's branches popup, from the toolbar's
+branch selector, with "New Branch, Checkout, Merge into Current, Rebase Current onto Selected,
+Rename and Delete, each branch with its submenu". From IntelliJ's source (`GitBranchesTreePopup`,
+the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and their words in
+`GitBundle`).
+
+- **The popup:** a search field, New Branch…, then the active worktree's branches as git lists
+  them, under Local and Remote; the current one checked, one checked out in another worktree with
+  that worktree's name. A branch's row has an arrow: choosing it (a click, Enter, or Right at the
+  end of the field) opens its menu beside the row. Escape or Left in the menu goes back to the
+  list; an action chosen closes both, as IntelliJ's.
+  - The picker (`ui-popup`) takes a submenu per item; a menu (`ui-menu`) says how it closed
+    (chosen, cancelled, dismissed), so the popup stays or goes with it.
+- **A branch's actions, those that apply only** (IntelliJ hides the rest), in its order: Checkout,
+  Open Worktree, New Branch from 'x'…, | Rebase 'current' onto 'x', Merge 'x' into 'current', |
+  Rename…, Delete.
+  - **Checkout:** not the current branch. A remote one is checked out as a local branch tracking
+    it (`git checkout --track`). "Checked out x", or "Could not checkout x" with git's words.
+  - **Open Worktree:** a branch checked out in another worktree (git won't check it out twice)
+    opens or shows that worktree's environment instead of checking out (Ido's choice).
+  - **New Branch… and New Branch from 'x'…:** IntelliJ's Create New Branch dialog: Branch Name,
+    Checkout branch (on), Overwrite existing branch (enabled when the name is a local branch's).
+    Its errors, as it words them: "HEAD is a reserved keyword", "Branch name x is not valid" (git's
+    `check-ref-format` rules), "… conflicts with remote branch with the same name", "… already
+    exists. Change the name or overwrite existing branch".
+  - **Rebase 'current' onto 'x':** not with HEAD detached (IntelliJ's). Local changes are put
+    aside and back with `--autostash` (Cerebro's choice, open to change: IntelliJ saves them as
+    Update Project does). "Rebase successful"; at conflicts, Continue Rebase's way: the Conflicts
+    dialog, then on.
+  - **Merge 'x' into 'current':** "Merged x to current", with Delete x for a local branch (IntelliJ
+    proposes it), or "Already up to date". At conflicts, the Conflicts dialog, and the merge
+    committed with git's message once none is left; closed with some, "x Merged with Conflicts".
+  - **Rename…:** a local branch; the dialog titled "Rename Branch x", a name taken refused, its own
+    included (Cerebro's, open to change: whether IntelliJ allows it wasn't checked).
+  - **Delete:** a local branch, not the current one; `git branch -d`, then `-D` when it isn't fully
+    merged, as IntelliJ deletes. "Deleted Branch: x" ("Unmerged commits were discarded" if so),
+    with Restore, which puts it back where it was.
+  - After each, the Commit window's lists, the repository's state, the branches and the worktrees
+    are read again: the branch selector, the tab and the status bar follow a checkout.
+- **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
+  now); Checkout and Rebase onto, Compare with Current, Show Diff with Working Tree, Update, Push and
+  Pull from the menu; deleting a remote branch; Checkout Tag or Revision; View Commits and Delete
+  Tracked Branch after a delete; the menu opening on hover; favourites and Recent; Git → Branches…
+  and Git → New Branch…; a remote branch whose local branch exists already.
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

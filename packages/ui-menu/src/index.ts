@@ -2,6 +2,7 @@ export {
   openContextMenu,
   openMenu,
   visibleEntries,
+  type MenuClosed,
   type MenuHandle,
   type MenuOptions,
   type MenuPosition,

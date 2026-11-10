@@ -409,6 +409,27 @@ describe('mouse', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('says how it closed: an item chosen, cancelled, or dismissed', () => {
+    const { services } = setup();
+    const onClose = vi.fn();
+    open(services, 'test', { x: 10, y: 10 }, { onClose });
+    (items()[0] as HTMLElement).click();
+    open(services, 'test', { x: 10, y: 10 }, { onClose });
+    key('Escape');
+    open(services, 'test', { x: 10, y: 10 }, { onClose }).close();
+    open(services, 'test', { x: 10, y: 10 }, { onClose });
+    window.dispatchEvent(new Event('blur'));
+    open(services, 'test', { x: 10, y: 10 }, { onClose });
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(onClose.mock.calls).toEqual([
+      ['chosen'],
+      ['cancelled'],
+      ['cancelled'],
+      ['dismissed'],
+      ['dismissed'],
+    ]);
+  });
+
   it('closes when the window loses focus or resizes', () => {
     const { services } = setup();
     const first = open(services, 'test', { x: 10, y: 10 });
@@ -471,6 +492,17 @@ describe('placement', () => {
     anchor.style.top = `${String(window.innerHeight - 30)}px`;
     open(services, 'test', { anchor, placement: 'below' });
     expect(rect().bottom).toBeCloseTo(window.innerHeight - 30, 0);
+    anchor.remove();
+  });
+
+  it('opens beside an anchor outside a menu (a popup’s row), its top with the anchor’s', () => {
+    const { services } = setup();
+    const anchor = document.createElement('div');
+    anchor.style.cssText = 'position: fixed; left: 100px; top: 50px; width: 40px; height: 20px;';
+    document.body.append(anchor);
+    open(services, 'test', { anchor, placement: 'right' });
+    expect(rect().left).toBe(140);
+    expect(rect().top).toBe(46);
     anchor.remove();
   });
 

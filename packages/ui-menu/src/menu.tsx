@@ -29,6 +29,9 @@ export interface MenuServices {
   icon?: (name: string) => Child;
 }
 
+/** How a menu closed: see `MenuOptions.onClose`. */
+export type MenuClosed = 'chosen' | 'cancelled' | 'dismissed';
+
 /** Where a menu opens: at a point, or beside an element. */
 export type MenuPosition =
   { x: number; y: number } | { anchor: Element; placement: 'below' | 'right' };
@@ -36,7 +39,11 @@ export type MenuPosition =
 export interface MenuOptions {
   /** Passed to commands: the thing a context menu was opened on. */
   context?: unknown;
-  onClose?: () => void;
+  /**
+   * Called as it closes: `chosen` when an item ran; `cancelled` by Escape or `close()`;
+   * `dismissed` by a press outside or the window losing the focus. A popup it opened from (IntelliJ's branches popup) closes with it, or stays, by this.
+   */
+  onClose?: (how: MenuClosed) => void;
   /**
    * Left at the top menu, or Right on an item without a submenu: the menu bar uses this to move to
    * the neighbouring menu. Without it, those keys do nothing there.
@@ -51,7 +58,7 @@ export interface MenuOptions {
 }
 
 export interface MenuHandle {
-  close(): void;
+  close(how?: MenuClosed): void;
   readonly open: boolean;
 }
 
@@ -165,7 +172,7 @@ class MenuSession implements MenuHandle {
     else if (options.focusFirst) level.highlight = step(entries, -1, 1);
   }
 
-  close(): void {
+  close(how: MenuClosed = 'cancelled'): void {
     if (!this.open) return;
     this.open = false;
     this.truncate(0);
@@ -175,16 +182,18 @@ class MenuSession implements MenuHandle {
     window.removeEventListener('blur', this.onBlur);
     window.removeEventListener('resize', this.onBlur);
     this.restoreFocus.focus();
-    this.options.onClose?.();
+    this.options.onClose?.(how);
   }
 
   private readonly onBlur = () => {
-    this.close();
+    this.close('dismissed');
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
     const target = event.target as Node;
-    if (!this.layer.contains(target) && !this.options.owner?.contains(target)) this.close();
+    if (!this.layer.contains(target) && !this.options.owner?.contains(target)) {
+      this.close('dismissed');
+    }
   };
 
   private readonly onKey = (event: KeyboardEvent) => {
@@ -263,7 +272,7 @@ class MenuSession implements MenuHandle {
       return;
     }
     if (!this.services.commands.isEnabled(entry.command, this.options.context)) return;
-    this.close();
+    this.close('chosen');
     this.services.commands.execute(entry.command, this.options.context);
   }
 
@@ -417,9 +426,10 @@ function place(element: HTMLElement, position: MenuPosition): void {
       left = rect.left;
       top = rect.bottom + height <= window.innerHeight ? rect.bottom : rect.top - height;
     } else {
-      // Beside the item: right of the parent menu, or left of it without room.
+      // Beside the item: right of the parent menu, or left of it without room; outside a menu
+      // (a popup's row), of the item itself.
       const parent = (
-        position.anchor.closest('.cerebro-menu') as HTMLElement
+        position.anchor.closest('.cerebro-menu') ?? position.anchor
       ).getBoundingClientRect();
       left = parent.right + width <= window.innerWidth ? parent.right : parent.left - width;
       top = rect.top - 4;

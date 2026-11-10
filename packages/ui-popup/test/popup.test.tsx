@@ -337,6 +337,44 @@ describe('openPicker', () => {
     expect(handle.open).toBe(true);
   });
 
+  it('opens an item’s submenu beside its row, staying open unless it says to close', async () => {
+    let answer: (close: boolean) => void = () => undefined;
+    const submenu = vi.fn<(row: HTMLElement) => Promise<boolean>>(
+      () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    const handle = picker({
+      items: () => [{ label: 'main' }, { label: 'side', submenu }],
+    });
+    expect(document.querySelectorAll('.cerebro-popup-item__arrow')).toHaveLength(1);
+    // Right moves the caret in the field until it's at the end.
+    type('x');
+    search().setSelectionRange(0, 0);
+    key('ArrowDown');
+    expect(key('ArrowRight').defaultPrevented).toBe(false);
+    search().setSelectionRange(1, 1);
+    expect(key('ArrowRight').defaultPrevented).toBe(true);
+    expect(submenu).toHaveBeenCalledTimes(1);
+    expect(submenu.mock.calls[0]?.[0].textContent).toBe('side');
+    // Open: once only, and presses outside are its own.
+    key('Enter');
+    expect(submenu).toHaveBeenCalledTimes(1);
+    document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+    expect(handle.open).toBe(true);
+    answer(false);
+    await vi.waitFor(() => {
+      expect(handle.open).toBe(true);
+    });
+    // A click opens it too; something chosen there closes the popup.
+    await userEvent.click(document.querySelectorAll('.cerebro-popup-item')[1] as Element);
+    expect(submenu).toHaveBeenCalledTimes(2);
+    answer(true);
+    expect(await handle.result).toBeUndefined();
+    expect(handle.open).toBe(false);
+  });
+
   it('closes an item with its close button, keeping the popup open', async () => {
     const tabs = signal(['a.ts', 'b.ts']);
     const handle = picker({
