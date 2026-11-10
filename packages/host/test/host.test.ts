@@ -788,6 +788,18 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('blames a file’s text, as given', async () => {
+    const git = vi.fn<Git>(() => Promise.resolve(''));
+    const { ui } = connect(git);
+    expect(
+      await ui.request('git.blame', { path: '/w', file: 'a.txt', contents: 'edited' }),
+    ).toEqual({ lines: [], commits: [] });
+    expect(git.mock.calls[0]?.[3]).toBe('edited');
+    await expect(
+      ui.request('git.blame', { path: '/w', file: 'a.txt', contents: 3 }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+  });
+
   it('lists conflicts, gives their versions, and resolves them, as told', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),

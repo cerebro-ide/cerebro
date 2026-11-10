@@ -50,6 +50,7 @@ import {
   type SaveChanges,
   type UpdateMethod,
 } from './update.js';
+import { blame } from './blame.js';
 import {
   checkout,
   createBranch,
@@ -619,6 +620,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return recording(worktree, 'Update Project', git, () => continueUpdate(worktree, given, git));
   });
   // Merge conflicts: the files, their versions, resolving them, and carrying on after.
+  // Who last changed each line of a file, given its text as the editor has it: IntelliJ's Annotate.
+  connection.onRequest('git.blame', (params) => {
+    const { contents } = params as { contents?: unknown };
+    if (typeof contents !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'contents must be a string');
+    }
+    return blame(text(params, 'path'), text(params, 'file'), contents, git);
+  });
   connection.onRequest('git.conflicts', (params) => listConflicts(text(params, 'path'), git));
   connection.onRequest('git.state', (params) => repositoryState(text(params, 'path'), git));
   // The Git menu's, during a merge or a rebase: Commit Merge and Continue Rebase, Skip Commit,

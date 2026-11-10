@@ -59,6 +59,12 @@ export {
 } from './problems.js';
 export { MARKS_AFTER, type AskMarks, type Mark, type MarkerKind } from './markers.js';
 export {
+  ANNOTATIONS_AFTER,
+  type AskAnnotation,
+  type LineAnnotation,
+  type TextAnnotation,
+} from './annotations.js';
+export {
   placeAt,
   USAGES_AFTER,
   type AskDefinition,

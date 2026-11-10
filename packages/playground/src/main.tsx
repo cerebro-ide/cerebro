@@ -17,7 +17,7 @@ import {
   ToolTabs,
 } from '@cerebro-ide/ui-layout';
 import './bridge.js';
-import { MenuBar, openContextMenu, syncNativeMenu } from '@cerebro-ide/ui-menu';
+import { MenuBar, openContextMenu, syncNativeMenu, visibleEntries } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
@@ -60,6 +60,7 @@ import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
+import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
@@ -274,6 +275,7 @@ setupConflicts(services);
 setupMergeRebase(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
+setupBlame(services, { activeTab: () => editor()?.activeGroup.active });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
 const jumpTo = (at: { path: string; line: number; column: number }) => {
   navigation.openAt(at);
@@ -1382,7 +1384,17 @@ function Code(props: { path: string; env: string }) {
   return (
     <div
       class="playground-code"
-      on:contextmenu={(event) => openContextMenu(services, 'editor/content', event)}
+      on:contextmenu={(event) => {
+        // An annotation's own menu opened.
+        if (event.defaultPrevented) return;
+        const inGutter = event
+          .composedPath()
+          .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
+        if (!inGutter) openContextMenu(services, 'editor/content', event);
+        else if (visibleEntries(services, 'editor/gutter', { file: props.path }).length > 0) {
+          openContextMenu(services, 'editor/gutter', event, { file: props.path });
+        } else event.preventDefault();
+      }}
       on:focusout={() => {
         // The editor's file is saved when the focus leaves it, for the window or somewhere else in
         // it. A move inside the editor stays in its shadow root: it doesn't come out as a focusout.
@@ -1416,6 +1428,7 @@ function Code(props: { path: string; env: string }) {
               else selections.delete(props.path);
             }}
             onScroll={(top) => tops.set(props.path, top)}
+            annotate={() => annotationFor(props.path)}
             {...(navigation.available()
               ? {
                   onGoToDefinition: (name: string, at: { line: number; column: number }) =>
