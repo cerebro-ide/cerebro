@@ -207,7 +207,7 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
     footer: () => (
       <button
         type="button"
-        class="playground-pull__modify"
+        class="playground-link"
         on:click={(event) => {
           modify(event.currentTarget as HTMLElement);
         }}

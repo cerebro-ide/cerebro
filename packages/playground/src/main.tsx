@@ -60,6 +60,7 @@ import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
+import { fetching, pullingFrom, setupFetchPull } from './fetch-pull.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
@@ -271,6 +272,7 @@ setupShelf(services, {
 });
 setupPush(services);
 setupUpdate(services);
+setupFetchPull(services);
 setupConflicts(services);
 setupMergeRebase(services);
 watchState();
@@ -817,6 +819,26 @@ status.add({
   text: () => 'Updating…',
   tooltip: () => 'Updating the project',
   hidden: () => !updating.get(),
+  progress: () => 'indeterminate',
+});
+// Git → Fetch under way, as IntelliJ's "Fetching…".
+status.add({
+  id: 'fetch',
+  side: 'left',
+  order: 2,
+  text: () => 'Fetching…',
+  tooltip: () => 'Fetching every remote',
+  hidden: () => !fetching.get(),
+  progress: () => 'indeterminate',
+});
+// A pull under way, as IntelliJ's "Pulling changes from origin".
+status.add({
+  id: 'pull',
+  side: 'left',
+  order: 2,
+  text: () => `Pulling changes from ${pullingFrom.get() ?? ''}`,
+  tooltip: () => 'Pulling the branch',
+  hidden: () => pullingFrom.get() === undefined,
   progress: () => 'indeterminate',
 });
 // The Push dialog's Fetch, as IntelliJ's "Fetching Remote Commits…".
