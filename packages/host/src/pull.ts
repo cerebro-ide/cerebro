@@ -5,6 +5,7 @@
 
 import { operation } from './conflicts.js';
 import type { Git } from './git.js';
+import type { Resume } from './update.js';
 
 /** How a fetch went: the remote-tracking branches pruned, and each remote that failed, why. */
 export interface Fetched {
@@ -49,11 +50,12 @@ export async function fetchAll(worktree: string, run: Git, remote: Git): Promise
 export const PULL_OPTIONS = ['--ff-only', '--no-ff', '--squash', '--no-commit', '--no-verify'];
 
 /**
- * How a pull went: stopped at conflicts, the merge under way; or the files it changed and the
- * commits it brought (none of either: up to date). With `--squash` or `--no-commit`, the files are
- * those the merge staged, its commit not made.
+ * How a pull went: the files it changed and the commits it brought (none: up to date), as Update
+ * Project counts them; with `--squash` or `--no-commit`, the files are those the merge staged. Or
+ * stopped at conflicts, the merge under way, with what `continueUpdate` needs to commit it after.
  */
-export type Pulled = { kind: 'conflicts' } | { kind: 'pulled'; files: number; commits: number };
+export type Pulled =
+  { kind: 'pulled'; files: number; commits: number } | { kind: 'conflicts'; resume: Resume };
 
 /** Lines of git's output. */
 const lines = (output: string) => output.split('\n').filter(Boolean);
@@ -69,6 +71,9 @@ export async function pull(
   remote: Git,
 ): Promise<Pulled> {
   const before = (await run(worktree, ['rev-parse', 'HEAD'])).trim();
+  /** The commits the pull brought: those fetched that weren't here. */
+  const brought = async () =>
+    Number((await run(worktree, ['rev-list', '--count', `${before}..FETCH_HEAD`])).trim());
   try {
     await remote(
       worktree,
@@ -87,10 +92,10 @@ export async function pull(
       { GIT_TERMINAL_PROMPT: '0', GIT_EDITOR: 'true' },
     );
   } catch (error) {
-    if ((await operation(worktree, run)) === 'merge') return { kind: 'conflicts' };
-    throw error;
+    if ((await operation(worktree, run)) !== 'merge') throw error;
+    return { kind: 'conflicts', resume: { method: 'merge', before, commits: await brought() } };
   }
-  const commits = Number((await run(worktree, ['rev-list', '--count', `${before}..HEAD`])).trim());
+  const commits = await brought();
   // The index against what was there: what was merged, committed or not.
   const files = lines(await run(worktree, ['diff', '--cached', '--name-only', before])).length;
   return { kind: 'pulled', files, commits };

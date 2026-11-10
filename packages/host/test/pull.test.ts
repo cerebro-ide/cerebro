@@ -94,7 +94,7 @@ describe('fetching and pulling, with real git', () => {
     upstream('more');
     commit(repo, 'mine');
     const remote = vi.fn(git);
-    expect(await pull(repo, from(), git, remote)).toEqual({ kind: 'pulled', files: 2, commits: 3 });
+    expect(await pull(repo, from(), git, remote)).toEqual({ kind: 'pulled', files: 2, commits: 2 });
     expect(remote.mock.calls[0]?.[1]).toEqual([
       'pull',
       '--no-rebase',
@@ -115,7 +115,7 @@ describe('fetching and pulling, with real git', () => {
     expect(await pull(repo, from('--squash'), git, git)).toEqual({
       kind: 'pulled',
       files: 1,
-      commits: 0,
+      commits: 1,
     });
     expect(run(repo, 'diff', '--cached', '--name-only').trim()).toBe('theirs.txt');
   });
@@ -134,7 +134,11 @@ describe('fetching and pulling, with real git', () => {
     const { repo, upstream } = cloned();
     upstream('theirs', 'shared.txt', 'theirs\n');
     commit(repo, 'mine', 'shared.txt', 'mine\n');
-    expect(await pull(repo, from(), git, git)).toEqual({ kind: 'conflicts' });
+    const before = run(repo, 'rev-parse', 'HEAD').trim();
+    expect(await pull(repo, from(), git, git)).toEqual({
+      kind: 'conflicts',
+      resume: { method: 'merge', before, commits: 1 },
+    });
     expect(run(repo, 'diff', '--name-only', '--diff-filter=U').trim()).toBe('shared.txt');
   });
 });
