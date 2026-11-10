@@ -50,6 +50,7 @@ import { foldKeys, folding, type AskFolds } from './folding.js';
 import { formattable, formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
+import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
 import { definitionLinks, usageHighlights, type AskDefinition, type AskUsages } from './usages.js';
@@ -164,6 +165,12 @@ export interface CodeEditorProps {
   onShowProblems?: () => void;
   /** A gutter marker clicked: go where it says. */
   onMark?: (mark: Mark) => void;
+  /**
+   * Text annotations in the gutter, before the line numbers, as IntelliJ's Annotate: what asks for
+   * them, given the text, as they're shown and once an edit has settled. Read reactively. None:
+   * none shown.
+   */
+  annotate?: () => AskAnnotation | undefined;
   /**
    * Where the caret is, zero-based, and what's selected, if anything: as the editor opens, and each
    * time either changes.
@@ -294,6 +301,13 @@ export const theme = EditorView.theme({
     border: 'none',
     borderRight: `1px solid ${variable('editor-gutter-line')}`,
   },
+  // Annotate's columns, in the UI's font as IntelliJ's new UI draws them; each line's background
+  // fills its height.
+  '.cerebro-annotations': { fontFamily: variable('font'), fontSize: variable('font-size') },
+  '.cerebro-annotations .cm-gutterElement': { display: 'flex' },
+  '.cerebro-annotation': { display: 'flex', alignItems: 'center', color: variable('annotations') },
+  '.cerebro-annotation--latest': { color: variable('annotations-latest') },
+  '.cerebro-annotation__column': { flex: 'none', overflow: 'hidden', whiteSpace: 'pre' },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
   // With markers, they take the room after the numbers (their place in it is a claim).
   '.cm-lineNumbers:has(+ .cerebro-markers) .cm-gutterElement': { paddingRight: '6px' },
@@ -814,6 +828,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const caret = (state: EditorState) => {
     props.onCaret?.(placeOf(state, state.selection.main.head), selectedIn(state));
   };
+  const annotating = new Compartment();
+  let annotated = props.annotate?.();
   const indenting = new Compartment();
   /** The indent last told, as `unit detected`. */
   let told: string | undefined;
@@ -834,6 +850,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
     props.onIndent?.(indent, found !== undefined);
   };
   const extensions: Extension[] = [
+    // Before the line numbers, as IntelliJ's new UI.
+    annotating.of(annotated ? textAnnotations(annotated) : []),
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
@@ -928,6 +946,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
     return undefined;
   });
+  // Annotations shown or closed, or asked of another.
+  const annotations = effect(() => {
+    const ask = props.annotate?.();
+    if (ask === annotated) return undefined;
+    annotated = ask;
+    view.dispatch({ effects: annotating.reconfigure(ask ? textAnnotations(ask) : []) });
+    return undefined;
+  });
   // The settings apply as they change, without rebuilding the editor.
   const watch = effect(() => {
     view.dispatch({ effects: [settings.reconfigure(configure()), keyed.reconfigure(actions())] });
@@ -984,6 +1010,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     view.scrollDOM.removeEventListener('scroll', scrolled);
     if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();
+    annotations.dispose();
     revealing.dispose();
     focusing.dispose();
     following.dispose();

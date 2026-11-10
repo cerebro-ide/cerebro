@@ -150,6 +150,18 @@ describe('the editor', () => {
     await userEvent.click(editor, { button: 'right' });
     expect(await menuItems()).toEqual(['Go to File…', 'Local History', 'Reformat with Prettier']);
     await closeAll();
+    // The gutter's menu: nothing in it without git, so none.
+    const gutter = document
+      .querySelector('.cerebro-editor-group--active .cerebro-editor-code')
+      ?.shadowRoot?.querySelector('.cm-gutters') as HTMLElement;
+    const right = new MouseEvent('contextmenu', {
+      bubbles: true,
+      composed: true,
+      cancelable: true,
+    });
+    gutter.dispatchEvent(right);
+    expect(right.defaultPrevented).toBe(true);
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
     await userEvent.click(q('.cerebro-editor-tab--active'), { button: 'right' });
     expect(await menuItems()).toEqual(expect.arrayContaining(['Close']));
   });
