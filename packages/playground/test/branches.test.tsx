@@ -1,0 +1,447 @@
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import { setupBranches } from '../src/branches.js';
+import { useProjects, workspace } from '../src/environments.js';
+import { notifications } from '../src/notifications.js';
+import {
+  answer,
+  closeAll,
+  dialog,
+  FakeHost,
+  menuItem,
+  menuItems,
+  popupItems,
+  press,
+  project,
+} from './fakes.js';
+
+/** The repository as the host sees it, and how what's asked of it goes. */
+const git = {
+  local: ['feature', 'main', 'side'],
+  remote: ['origin/main', 'origin/side'],
+  current: 'main' as string | undefined,
+  /** What a merge or rebase gives, or the error it fails with. */
+  result: 'done' as unknown,
+  conflicted: [] as string[],
+};
+const fail = (method: string) => () => {
+  if (git.result instanceof Error) throw git.result;
+  return method === 'result' ? git.result : null;
+};
+const host = new FakeHost({
+  'git.branches': () => [
+    ...git.local.map((b) => ({ ref: `refs/heads/${b}`, current: b === git.current })),
+    ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
+  ],
+  'git.checkout': fail('checkout'),
+  'git.createBranch': fail('create'),
+  'git.renameBranch': fail('rename'),
+  'git.deleteBranch': () => {
+    if (git.result instanceof Error) throw git.result;
+    return { hash: 'abc', unmerged: git.result === 'unmerged' };
+  },
+  'git.restoreBranch': () => null,
+  'git.mergeBranch': fail('result'),
+  'git.rebaseOnto': fail('result'),
+  'git.continue': () => 'done',
+  'git.state': () => ({ conflicts: false }),
+  'git.conflicts': () => ({
+    operation: 'merge',
+    files: git.conflicted.map((path) => ({ path, yours: 'modified', theirs: 'modified' })),
+  }),
+  'git.acceptSide': () => {
+    git.conflicted = [];
+    return null;
+  },
+  'git.shelves': () => [],
+  'git.stashes': () => [],
+});
+
+const commands = new CommandRegistry();
+const menus = new MenuRegistry();
+const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
+const readWorktrees = vi.fn(() => Promise.resolve());
+const open = vi.fn();
+const button = document.createElement('button');
+let pick: (button: HTMLElement) => unknown;
+
+beforeAll(() => {
+  // `side` is checked out in another worktree.
+  useProjects([
+    project('/r', host, [
+      { id: '/r', branch: 'main' },
+      { id: '/r-side', branch: 'side' },
+    ]),
+    project('/s', undefined),
+  ]);
+  document.body.append(button);
+  ({ pick } = setupBranches(services, { readWorktrees, open }));
+});
+
+beforeEach(() => {
+  workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+  git.current = 'main';
+  git.result = 'done';
+  git.conflicted = [];
+});
+
+afterEach(async () => {
+  await closeAll();
+  host.asked.length = 0;
+  readWorktrees.mockClear();
+  open.mockClear();
+  vi.restoreAllMocks();
+});
+
+const last = () => notifications.all.get(0);
+/** Opens the popup, with the branches read. */
+const popup = async () => {
+  pick(button);
+  await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(6);
+};
+/** A row of the popup, by its branch's name. */
+const row = (name: string) =>
+  [...document.querySelectorAll<HTMLElement>('.cerebro-popup-item')].find(
+    (r) => r.querySelector('.cerebro-popup-item__label')?.textContent === name,
+  ) as HTMLElement;
+/** A branch's menu's items, opened from its row. */
+const branchMenu = async (name: string) => {
+  await userEvent.click(row(name));
+  return menuItems();
+};
+/** Opens the popup and runs an item of a branch's menu, as clicked; waits for what it does. */
+const choose = async (name: string, item: string) => {
+  await popup();
+  await branchMenu(name);
+  await userEvent.click(menuItem(item));
+};
+
+describe('the branches popup', () => {
+  it('lists New Branch…, then the local and remote branches, the current checked', async () => {
+    await popup();
+    expect(await popupItems()).toEqual([
+      'New Branch…',
+      'feature',
+      'main',
+      'side',
+      'origin/main',
+      'origin/side',
+    ]);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
+    ).toEqual(['Local', 'Remote']);
+    expect(row('main').querySelector('svg')).not.toBeNull();
+    // The worktree a branch is checked out in.
+    expect(row('side').textContent).toContain('r-side');
+    // Searched.
+    await userEvent.keyboard('orig');
+    expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
+  });
+
+  it('shows each branch’s actions as IntelliJ’s: only those that apply', async () => {
+    await popup();
+    expect(await branchMenu('feature')).toEqual([
+      'Checkout',
+      "New Branch from 'feature'…",
+      "Rebase 'main' onto 'feature'",
+      "Merge 'feature' into 'main'",
+      'Rename…',
+      'Delete',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    // The current branch: none of what it can't be to itself.
+    expect(await branchMenu('main')).toEqual(["New Branch from 'main'…", 'Rename…']);
+    await userEvent.keyboard('{Escape}');
+    // Checked out in another worktree: that worktree opened instead.
+    expect(await branchMenu('side')).toEqual([
+      'Open Worktree',
+      "New Branch from 'side'…",
+      "Rebase 'main' onto 'side'",
+      "Merge 'side' into 'main'",
+      'Rename…',
+      'Delete',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    // A remote branch: not renamed or deleted from here.
+    expect(await branchMenu('origin/side')).toEqual([
+      'Checkout',
+      "New Branch from 'origin/side'…",
+      "Rebase 'main' onto 'origin/side'",
+      "Merge 'origin/side' into 'main'",
+    ]);
+  });
+
+  it('stays open when a branch’s menu is closed; closes with it when an action is chosen', async () => {
+    await popup();
+    await branchMenu('feature');
+    await userEvent.keyboard('{Escape}');
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
+    expect(document.querySelector('.cerebro-popup')).not.toBeNull();
+    // Left goes back too.
+    await branchMenu('feature');
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
+    expect(document.querySelector('.cerebro-popup')).not.toBeNull();
+    await branchMenu('feature');
+    await userEvent.click(menuItem('Checkout'));
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
+  it('keeps a branch’s menu open on Right, there being nothing to its right', async () => {
+    await popup();
+    await branchMenu('feature');
+    await userEvent.keyboard('{ArrowRight}');
+    expect(document.querySelector('.cerebro-menu')).not.toBeNull();
+  });
+
+  it('logs a failure to read the branches, or to read again after an action', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const branches = host.answers['git.branches'];
+    host.answers['git.branches'] = () => {
+      throw new Error('gone');
+    };
+    pick(button);
+    await expect
+      .poll(() => error.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the branches failed');
+    await commands.get('git.branch.checkout')?.run({ name: 'feature', remote: false });
+    expect(error.mock.calls[1]?.[0]).toBe('Reading again after "Could not checkout feature"');
+    host.answers['git.branches'] = branches as never;
+  });
+
+  it('rebases only with a branch checked out, as IntelliJ', async () => {
+    git.current = undefined;
+    await popup();
+    await branchMenu('feature');
+    expect(menuItem("Rebase 'HEAD' onto 'feature'").getAttribute('aria-disabled')).toBe('true');
+  });
+});
+
+describe('Checkout', () => {
+  it('checks out the branch and says so; reads the branches and worktrees again', async () => {
+    await choose('feature', 'Checkout');
+    await expect.poll(() => last()?.content).toBe('Checked out feature');
+    expect(host.params('git.checkout')).toEqual([{ path: '/r', branch: 'feature', remote: false }]);
+    await expect.poll(() => readWorktrees.mock.calls).toEqual([['/r']]);
+  });
+
+  it('checks out a remote branch as a local one tracking it', async () => {
+    await choose('origin/side', 'Checkout');
+    await expect.poll(() => last()?.content).toBe('Checked out side');
+    expect(host.params('git.checkout')).toEqual([
+      { path: '/r', branch: 'origin/side', remote: true },
+    ]);
+  });
+
+  it('says why it couldn’t, in git’s words', async () => {
+    git.result = new Error('Your local changes would be overwritten');
+    await choose('feature', 'Checkout');
+    await expect.poll(() => last()?.title).toBe('Could not checkout feature');
+    expect(last()).toMatchObject({
+      content: 'Your local changes would be overwritten',
+      type: 'error',
+    });
+  });
+
+  it('opens the worktree a branch is checked out in, instead', async () => {
+    await choose('side', 'Open Worktree');
+    expect(open).toHaveBeenCalledWith('/r-side');
+  });
+});
+
+describe('New Branch', () => {
+  it('makes a branch from HEAD, checked out, as IntelliJ’s dialog', async () => {
+    await popup();
+    await userEvent.click(row('New Branch…'));
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Create New Branch');
+    await answer('fresh');
+    await press('Create');
+    await expect
+      .poll(() => host.params('git.createBranch'))
+      .toEqual([{ path: '/r', name: 'fresh', checkout: true, overwrite: false }]);
+  });
+
+  it('refuses a name git won’t take or one taken, unless overwriting', async () => {
+    await choose('side', "New Branch from 'side'…");
+    const box = await dialog();
+    const error = () => box.querySelector('.cerebro-dialog-field__error')?.textContent;
+    const create = () =>
+      [...box.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
+        (b) => b.textContent === 'Create',
+      ) as HTMLButtonElement;
+    const [checkout, overwrite] = box.querySelectorAll<HTMLInputElement>('input[type="checkbox"]');
+    expect(overwrite?.disabled).toBe(true);
+    await answer('HEAD');
+    expect(error()).toBe('HEAD is a reserved keyword');
+    await answer('a..b');
+    expect(error()).toBe('Branch name a..b is not valid');
+    await answer('bell\u0007');
+    expect(error()).toBe('Branch name bell\u0007 is not valid');
+    await answer('x.lock/y');
+    expect(error()).toBe('Branch name x.lock/y is not valid');
+    await answer('origin/main');
+    expect(error()).toBe('Branch name origin/main conflicts with remote branch with the same name');
+    await answer('feature');
+    expect(error()).toBe(
+      'Branch name feature already exists. Change the name or overwrite existing branch',
+    );
+    expect(create().disabled).toBe(true);
+    expect(overwrite?.disabled).toBe(false);
+    await userEvent.click(overwrite as HTMLInputElement);
+    expect(error()).toBe('');
+    await userEvent.click(checkout as HTMLInputElement);
+    await press('Create');
+    await expect
+      .poll(() => host.params('git.createBranch'))
+      .toEqual([{ path: '/r', name: 'feature', from: 'side', checkout: false, overwrite: true }]);
+  });
+
+  it('makes nothing when cancelled; says why git wouldn’t', async () => {
+    await choose('side', "New Branch from 'side'…");
+    await press('Cancel');
+    expect(host.params('git.createBranch')).toEqual([]);
+    git.result = new Error('fatal: cannot lock ref');
+    await choose('side', "New Branch from 'side'…");
+    await answer('fresh');
+    await press('Create');
+    await expect.poll(() => last()?.title).toBe('Could not create new branch');
+  });
+});
+
+describe('Rename', () => {
+  it('renames a branch, as IntelliJ’s dialog, refusing a name taken', async () => {
+    await choose('feature', 'Rename…');
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Rename Branch feature');
+    expect(box.querySelector('input[type="checkbox"]')).toBeNull();
+    // Its own name too, as taken.
+    expect(box.querySelector('.cerebro-dialog-field__error')?.textContent).toBe(
+      'Branch name feature already exists',
+    );
+    await answer('side');
+    expect(box.querySelector('.cerebro-dialog-field__error')?.textContent).toBe(
+      'Branch name side already exists',
+    );
+    await answer('renamed');
+    await press('Rename');
+    await expect
+      .poll(() => host.params('git.renameBranch'))
+      .toEqual([{ path: '/r', from: 'feature', to: 'renamed' }]);
+  });
+
+  it('renames nothing when cancelled', async () => {
+    await choose('feature', 'Rename…');
+    await press('Cancel');
+    expect(host.params('git.renameBranch')).toEqual([]);
+  });
+});
+
+describe('Delete', () => {
+  it('deletes the branch, saying if unmerged commits went with it, and restores it', async () => {
+    git.result = 'unmerged';
+    await choose('feature', 'Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted Branch: feature');
+    expect(last()?.content).toBe('Unmerged commits were discarded');
+    last()?.actions[0]?.run();
+    await expect
+      .poll(() => host.params('git.restoreBranch'))
+      .toEqual([{ path: '/r', name: 'feature', hash: 'abc' }]);
+    git.result = 'done';
+    await choose('feature', 'Delete');
+    await expect.poll(() => host.params('git.deleteBranch').length).toBe(2);
+    expect(last()?.content).toBe('');
+  });
+
+  it('says why it wasn’t deleted', async () => {
+    git.result = new Error('error: cannot delete branch');
+    await choose('feature', 'Delete');
+    await expect.poll(() => last()?.title).toBe("Branch feature wasn't deleted");
+  });
+});
+
+describe('Merge into Current', () => {
+  it('merges and says so, proposing to delete a local branch merged', async () => {
+    await choose('feature', "Merge 'feature' into 'main'");
+    await expect.poll(() => last()?.content).toBe('Merged feature to main');
+    expect(host.params('git.mergeBranch')).toEqual([{ path: '/r', branch: 'feature' }]);
+    expect(last()?.actions.map((a) => a.label)).toEqual(['Delete feature']);
+    last()?.actions[0]?.run();
+    await expect
+      .poll(() => host.params('git.deleteBranch'))
+      .toEqual([{ path: '/r', name: 'feature' }]);
+  });
+
+  it('proposes nothing for a remote branch, or one already merged', async () => {
+    await choose('origin/side', "Merge 'origin/side' into 'main'");
+    await expect.poll(() => last()?.content).toBe('Merged origin/side to main');
+    expect(last()?.actions).toEqual([]);
+    git.result = 'upToDate';
+    await choose('feature', "Merge 'feature' into 'main'");
+    await expect.poll(() => last()?.content).toBe('Already up to date');
+    expect(last()?.actions).toEqual([]);
+  });
+
+  it('stopped at conflicts, commits the merge once they’re resolved', async () => {
+    git.result = 'conflicts';
+    git.conflicted = ['a.ts'];
+    await choose('feature', "Merge 'feature' into 'main'");
+    await dialog();
+    await press('Accept Yours');
+    await expect.poll(() => last()?.content).toBe('Merged feature to main');
+    expect(host.params('git.continue')).toEqual([{ path: '/r' }]);
+  });
+
+  it('warns of the conflicts left when the dialog is closed with some', async () => {
+    git.result = 'conflicts';
+    git.conflicted = ['a.ts'];
+    await choose('feature', "Merge 'feature' into 'main'");
+    await dialog();
+    await press('Close');
+    await expect.poll(() => last()?.title).toBe('feature Merged with Conflicts');
+    expect(last()?.type).toBe('warning');
+    expect(host.params('git.continue')).toEqual([]);
+  });
+
+  it('says why it couldn’t', async () => {
+    git.result = new Error('not something we can merge');
+    await choose('feature', "Merge 'feature' into 'main'");
+    await expect.poll(() => last()?.title).toBe('Could not merge feature');
+  });
+});
+
+describe('Rebase Current onto Selected', () => {
+  it('rebases and says so', async () => {
+    await choose('feature', "Rebase 'main' onto 'feature'");
+    await expect.poll(() => last()?.title).toBe('Rebase successful');
+    expect(last()?.content).toBe('Rebased main on feature');
+    expect(host.params('git.rebaseOnto')).toEqual([{ path: '/r', onto: 'feature' }]);
+  });
+
+  it('stopped at conflicts, goes on as Continue Rebase does', async () => {
+    git.result = 'conflicts';
+    git.conflicted = ['a.ts'];
+    await choose('feature', "Rebase 'main' onto 'feature'");
+    await dialog();
+  });
+
+  it('says why it couldn’t', async () => {
+    git.result = new Error('invalid upstream');
+    await choose('feature', "Rebase 'main' onto 'feature'");
+    await expect.poll(() => last()?.title).toBe('Rebase failed');
+  });
+});
+
+describe('without a host', () => {
+  it('does nothing, and New Branch isn’t there to run', async () => {
+    workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
+    expect(commands.isEnabled('git.newBranch')).toBe(false);
+    await commands.get('git.branch.checkout')?.run({ name: 'feature', remote: false });
+    // The popup lists what it last read.
+    pick(button);
+    expect(await popupItems()).toContain('New Branch…');
+    expect(host.asked).toEqual([]);
+  });
+});

@@ -158,6 +158,17 @@
   padding-left: 16px;
 }
 
+/* An item with a submenu: its arrow, as a menu's, in the grid's last column. */
+.cerebro-popup-item:has(.cerebro-popup-item__arrow) {
+  grid-template-columns: 18px auto minmax(0, 1fr) auto 12px;
+}
+
+.cerebro-popup-item__arrow {
+  display: grid;
+  place-items: center;
+  color: var(--cerebro-text-muted);
+}
+
 /* A closable item's button, as an editor tab's: in the grid's last column, past the shortcut. */
 .cerebro-popup-item:has(.cerebro-popup-item__close) {
   grid-template-columns: 18px auto minmax(0, 1fr) auto 16px;

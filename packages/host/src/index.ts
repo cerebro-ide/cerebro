@@ -190,3 +190,15 @@ export {
   type RepositoryState,
   type Revisions,
 } from './conflicts.js';
+export {
+  checkout,
+  createBranch,
+  deleteBranch,
+  mergeBranch,
+  rebaseOnto,
+  renameBranch,
+  restoreBranch,
+  type BranchResult,
+  type Deleted,
+  type NewBranch,
+} from './branches.js';

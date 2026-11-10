@@ -854,6 +854,54 @@ describe('ignored files and rolling back', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
+  it('checks out, makes, renames, deletes, restores, merges and rebases branches, as asked', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'rev-parse' ? 'abc\n' : ''),
+    );
+    const { ui } = connect(git);
+    const asked = () => git.mock.calls.map(([, args]) => bare(args).join(' '));
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'side' })).toBe(null);
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'origin/x', remote: true })).toBe(
+      null,
+    );
+    expect(await ui.request('git.createBranch', { path: '/w', name: 'n' })).toBe(null);
+    expect(
+      await ui.request('git.createBranch', {
+        path: '/w',
+        name: 'm',
+        from: 'side',
+        checkout: true,
+        overwrite: true,
+      }),
+    ).toBe(null);
+    expect(await ui.request('git.renameBranch', { path: '/w', from: 'n', to: 'o' })).toBe(null);
+    expect(await ui.request('git.deleteBranch', { path: '/w', name: 'o' })).toEqual({
+      hash: 'abc',
+      unmerged: false,
+    });
+    expect(await ui.request('git.restoreBranch', { path: '/w', name: 'o', hash: 'abc' })).toBe(
+      null,
+    );
+    expect(await ui.request('git.mergeBranch', { path: '/w', branch: 'side' })).toBe('upToDate');
+    expect(await ui.request('git.rebaseOnto', { path: '/w', onto: 'side' })).toBe('upToDate');
+    expect(asked()).toEqual(
+      expect.arrayContaining([
+        'checkout side --',
+        'checkout --track origin/x',
+        'branch n HEAD',
+        'checkout -B m side',
+        'branch --move n o',
+        'branch --delete o',
+        'branch o abc',
+        'merge --no-edit side',
+        'rebase --autostash side',
+      ]),
+    );
+    await expect(ui.request('git.checkout', { path: '/w' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+
   it('says what a push would send, and pushes, where it’s told', async () => {
     // No branch checked out: there's nothing to push.
     const git = vi.fn((_cwd: string, args: readonly string[]) =>

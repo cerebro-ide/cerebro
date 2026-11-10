@@ -174,6 +174,19 @@ describe('environments', () => {
     expect(commands.isEnabled('branch.checkout.main')).toBe(false);
   });
 
+  it('read their worktrees again, an open one’s branch checked out since followed', async () => {
+    start({
+      'git.worktrees': () => [worktree('/r/main', 'side', true), worktree('/r/feature', 'feat/x')],
+    });
+    await envs.readWorktrees('/r/main');
+    expect(workspace.active?.branch).toBe('side');
+    expect(main.branches.get()).toContain('side');
+    // A project without a host: nothing to read.
+    envs.addProject(project('/s', undefined));
+    await envs.readWorktrees('/s');
+    expect(host.params('git.worktrees')).toHaveLength(1);
+  });
+
   it('take a project that joins the window, or one in another’s place and tab', () => {
     start();
     const other = project('/r/other', new FakeHost(), [{ id: '/r/other', branch: 'dev' }]);

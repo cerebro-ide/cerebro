@@ -52,6 +52,16 @@ import {
 } from './update.js';
 import { blame } from './blame.js';
 import {
+  checkout,
+  createBranch,
+  deleteBranch,
+  mergeBranch,
+  rebaseOnto,
+  renameBranch,
+  restoreBranch,
+  type NewBranch,
+} from './branches.js';
+import {
   abortOperation,
   acceptSide,
   continueOperation,
@@ -640,6 +650,51 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       abortOperation(worktree, op, git),
     );
     return null;
+  });
+  // The branches popup's, as IntelliJ's: each that changes files recorded in the Local History.
+  connection.onRequest('git.checkout', async (params) => {
+    const worktree = text(params, 'path');
+    const branch = text(params, 'branch');
+    const remote = (params as { remote?: unknown }).remote === true;
+    await recording(worktree, `Checkout ${branch}`, git, () =>
+      checkout(worktree, branch, remote, git),
+    );
+    return null;
+  });
+  connection.onRequest('git.createBranch', async (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { from?: unknown; checkout?: unknown; overwrite?: unknown };
+    const branch: NewBranch = {
+      name: text(params, 'name'),
+      ...(typeof p.from === 'string' ? { from: p.from } : {}),
+      checkout: p.checkout === true,
+      overwrite: p.overwrite === true,
+    };
+    await recording(worktree, `New Branch ${branch.name}`, git, () =>
+      createBranch(worktree, branch, git),
+    );
+    return null;
+  });
+  connection.onRequest('git.renameBranch', async (params) => {
+    await renameBranch(text(params, 'path'), text(params, 'from'), text(params, 'to'), git);
+    return null;
+  });
+  connection.onRequest('git.deleteBranch', (params) =>
+    deleteBranch(text(params, 'path'), text(params, 'name'), git),
+  );
+  connection.onRequest('git.restoreBranch', async (params) => {
+    await restoreBranch(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git);
+    return null;
+  });
+  connection.onRequest('git.mergeBranch', (params) => {
+    const worktree = text(params, 'path');
+    const branch = text(params, 'branch');
+    return recording(worktree, `Merge ${branch}`, git, () => mergeBranch(worktree, branch, git));
+  });
+  connection.onRequest('git.rebaseOnto', (params) => {
+    const worktree = text(params, 'path');
+    const onto = text(params, 'onto');
+    return recording(worktree, `Rebase onto ${onto}`, git, () => rebaseOnto(worktree, onto, git));
   });
   connection.onRequest('git.mergeRevisions', (params) =>
     mergeRevisions(text(params, 'path'), text(params, 'file'), git),

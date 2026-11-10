@@ -63,6 +63,7 @@ import { setupUpdate, updating } from './update.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
+import { setupBranches } from './branches.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog } from './git-log.js';
@@ -687,6 +688,7 @@ setupSaving(
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (initial.length === 0) seedFiles(env, tabOf);
 });
+const branches = setupBranches(services, environments);
 // A project that joins the window shows at once; one asked to open again comes to the front.
 window.cerebro?.project.onAdded(({ replaces, ...project }) => {
   projectAdded(project);
@@ -1195,7 +1197,8 @@ function Header() {
           git.get() ? (
             <ToolbarDropdown
               services={services}
-              popup={environments.pickBranch}
+              // The samples' branches are pretend.
+              popup={currentHost() ? branches.pick : environments.pickBranch}
               label="Branch"
               icon={icon('git')}
               text={() => active()?.branch ?? '—'}

@@ -112,6 +112,14 @@ body,
   gap: 6px;
 }
 
+/* The Create New Branch dialog's checkboxes, under the name. */
+.playground-branch-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
 /* The Push dialog: the repository and its commits, and beside them the selected row's files. */
 /* IntelliJ's warning banner over the tree, while the push will be rejected. */
 .playground-push__banner {

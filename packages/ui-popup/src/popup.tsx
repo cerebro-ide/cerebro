@@ -32,6 +32,13 @@ export interface PickerItem {
    * All, as IntelliJ's. Choosing it runs this, and the popup stays open. Drawn as the headers are.
    */
   more?: () => void;
+  /**
+   * A submenu, as IntelliJ's branches popup has for each branch: an arrow at the item's end.
+   * Choosing the item, or Right at the end of the search field, opens it beside the row, the popup
+   * staying open behind it. It resolves with whether the popup closes too: something was chosen in
+   * it, or it was dismissed by a press outside.
+   */
+  submenu?: (row: HTMLElement) => Promise<boolean>;
 }
 
 /**
@@ -156,6 +163,7 @@ function rowKey(item: PickerItem): string {
     item.highlight,
     item.more !== undefined,
     item.close?.label,
+    item.submenu !== undefined,
   ]);
 }
 
@@ -196,6 +204,8 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private readonly restoreFocus: HTMLElement;
   private readonly dispose: () => void;
   private rows = new Map<string, Row<T>>();
+  /** A submenu open beside a row: presses outside are its to handle. */
+  private submenuOpen = false;
 
   constructor(private readonly options: PickerOptions<T>) {
     this.result = new Promise((resolve) => {
@@ -278,6 +288,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   };
 
   private readonly onPointerDown = (event: PointerEvent) => {
+    if (this.submenuOpen) return;
     const target = event.target as Node;
     if (!this.element.contains(target) && !this.options.owner?.contains(target)) this.close();
   };
@@ -300,6 +311,16 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     }
     const count = Math.min(this.items.get().length, this.options.limit ?? LIMIT);
     const { index } = this.state;
+    const field = event.currentTarget as HTMLInputElement;
+    if (
+      event.key === 'ArrowRight' &&
+      this.items.get()[index]?.submenu &&
+      field.selectionStart === field.value.length
+    ) {
+      event.preventDefault();
+      this.choose(index);
+      return;
+    }
     /** Highlights another item; there's none to move to in an empty list. */
     const go = (to: number) => {
       if (count) this.highlight(to);
@@ -334,7 +355,19 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private choose(index: number): void {
     const item = this.items.get()[index];
     if (item?.more) item.more();
+    else if (item?.submenu) void this.openSubmenu(item.submenu, index);
     else if (item) this.finish(item);
+  }
+
+  /** Opens an item's submenu beside its row; the popup closes after it if it says so. */
+  private async openSubmenu(submenu: (row: HTMLElement) => Promise<boolean>, index: number) {
+    if (this.submenuOpen) return;
+    this.highlight(index);
+    const row = this.element.querySelector(`[data-index="${String(index)}"]`) as HTMLElement;
+    this.submenuOpen = true;
+    const close = await submenu(row);
+    this.submenuOpen = false;
+    if (close) this.finish(undefined);
   }
 
   /** Draws a row for an item, at an index that changes as items come in before it. */
@@ -371,6 +404,20 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           <span class="cerebro-popup-item__label">{highlighted(item.label, item.highlight)}</span>
           <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
           <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>
+          {item.submenu ? (
+            <span class="cerebro-popup-item__arrow">
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                <path
+                  d="M6 3.5l4.5 4.5L6 12.5"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+              </svg>
+            </span>
+          ) : null}
           {item.close ? (
             <button
               type="button"

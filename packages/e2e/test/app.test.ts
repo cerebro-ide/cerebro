@@ -237,19 +237,28 @@ describe('the window', () => {
 });
 
 describe('dialogs', () => {
-  it('creates a branch from the branch picker, refusing one that exists', async () => {
+  it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
     await page().locator('[aria-label^="Branch:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.type('main');
     await expect
       .poll(() => page().locator('.cerebro-dialog-field__error').textContent())
-      .toBe('Branch main exists');
+      .toBe('Branch name main already exists. Change the name or overwrite existing branch');
     await page().keyboard.press('Enter');
     expect(await count('.cerebro-dialog')).toBe(1);
     await page().keyboard.type('-e2e');
     await page().keyboard.press('Enter');
     expect(await count('.cerebro-dialog')).toBe(0);
-    expect(await branch()).toBe('Branch: main-e2e');
+    // Made and checked out by git.
+    await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main-e2e');
+    // Back on main, for the tests after: from its row's menu.
+    await page().locator('[aria-label^="Branch:"]').click();
+    await page()
+      .locator('.cerebro-popup-item', { hasText: /^main$/ })
+      .click();
+    await page().locator('.cerebro-menu-item', { hasText: 'Checkout' }).click();
+    await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
+    expect(await count('.cerebro-popup')).toBe(0);
   });
 
   it('keeps the app’s shortcuts and menu bar from running behind a dialog', async () => {
