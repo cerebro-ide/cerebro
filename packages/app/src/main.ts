@@ -13,6 +13,7 @@ import {
   type WebContents,
 } from 'electron';
 import { fileURLToPath } from 'node:url';
+import { watchEventLoop } from '@cerebro-ide/host/slow';
 import { installWindowColours } from './colours.js';
 import { installFullScreen } from './fullscreen.js';
 import { installDisplayScale, zoomFor } from './display.js';
@@ -230,6 +231,8 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   installWindowColours();
   installReveal();
   installFullScreen();
+  // Its main process held up is reported, as the host's is: a stall's cause (the backlog).
+  watchEventLoop("the app's");
   const hosts = installHosts();
   // Empty is unset: a test or a shell can clear it without removing it.
   const repo = process.env['CEREBRO_REPO'] || undefined;

@@ -78,6 +78,14 @@ on it:
   5 s, with its arguments, or its event loop is held up over 2 s (`slow.ts`), and the e2e tests
   keep the app's standard error (`running.output`) and print it when this test fails (measured:
   a git made 6 s slow showed "Slow: git check-ignore -z --stdin in … took 6005 ms").
+  It stalled again on 2026-11-11, on macOS (#169, run 42998193659) and Windows (#166, run
+  42998184065) at once: the commit done about 44 s after Ctrl+Enter ("Done 13873 ms after the test
+  gave up"), the next test's Pull timing out too, and the standard error empty: no git command took
+  5 s, nor was the host's event loop held up 2 s. So each request is now reported if the host took
+  over 5 s to answer it ("Slow: request git.commit took …"), and if it took that long from the app
+  to the host and back ("Slow: git.commit from the app to the host of … and back took …"); and the
+  app's own event loop held up is reported, as the host's. Next time, which of these speaks says
+  where the time went: in the host's work, on the way, or in the app.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
