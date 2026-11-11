@@ -32,6 +32,7 @@ import {
   type DiffEditorProps,
 } from './diff.js';
 import { gutterObstacle, highlight, scroller, selection, theme } from './editor.js';
+import { appearance } from './appearance.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
 
@@ -129,18 +130,18 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
       lineMarkerChange: renumbered,
       initialSpacer: () => new LineNumber((side === 'a' ? a : b).lines),
     });
+  const numbers = [column('a'), column('b')];
   const settings = new Compartment();
   const configure = (): Extension => [
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
+    appearance(props, numbers),
   ];
   const language = languageFor(props.path);
   const view = new EditorView({
     root: shadow,
     parent: frame,
     extensions: [
-      column('a'),
-      column('b'),
       gutterObstacle,
       fullWidth,
       selection,

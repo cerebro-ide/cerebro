@@ -111,6 +111,9 @@
   --cerebro-editor-line-number: #4b5059;
   --cerebro-editor-line-number-active: #a1a3ab;
   --cerebro-editor-gutter-line: #313438;
+  /* Whitespace shown, and indent guides: IslandSchemeDark.xml's WHITESPACES and INDENT_GUIDE. */
+  --cerebro-whitespace: #6f737a;
+  --cerebro-indent-guide: #323438;
   /* Changes, in a diff and in the merge window, from IntelliJ's Darcula scheme
      (DefaultColorSchemesManager.xml), and the band of unchanged lines folded in a diff, its
      Islands Dark scheme's DIFF_SEPARATORS_BACKGROUND; the line where a change has none, and the
@@ -304,6 +307,10 @@
   --cerebro-editor-line-number: #aeb3c2;
   --cerebro-editor-line-number-active: #767a8a;
   --cerebro-editor-gutter-line: #ebecf0;
+  /* Whitespace shown, and indent guides: the Default scheme's WHITESPACES
+     (DefaultColorSchemesManager.xml) and expUI_lightScheme.xml's INDENT_GUIDE. */
+  --cerebro-whitespace: #adadad;
+  --cerebro-indent-guide: #ebecf0;
   /* Changes, in a diff and in the merge window, from IntelliJ's light schemes (the New UI's
      modified and DIFF_SEPARATORS_BACKGROUND, the Default scheme's others); the line where a change
      has none, and the controls' hover, not measured. */
