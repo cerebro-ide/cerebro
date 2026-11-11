@@ -405,6 +405,71 @@ describe('New Branch', () => {
     await press('Create');
     await expect.poll(() => last()?.title).toBe('Could not create new branch');
   });
+
+  describe('from a commit, in the Log’s menu', () => {
+    const refresh = vi.fn(() => Promise.resolve());
+    const at = (refs: string[]) => ({
+      commit: {
+        hash: 'abc1234567890def',
+        parents: [],
+        author: 't',
+        email: 't@t',
+        time: 0,
+        subject: 's',
+        body: '',
+        refs,
+      },
+      worktree: '/r',
+      host,
+      refresh,
+    });
+    const run = (refs: string[]) => Promise.resolve(commands.get('log.newBranch')?.run(at(refs)));
+
+    it('makes a branch from the commit, as IntelliJ’s, and reads the Log again', async () => {
+      expect(menus.entries('log/commit')).toEqual([{ command: 'log.newBranch' }]);
+      expect(commands.get('log.newBranch')).toMatchObject({ label: 'New Branch', dialog: true });
+      const done = run(['tag: refs/tags/v1']);
+      const box = await dialog();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+        'Create Branch from abc12345',
+      );
+      expect((box.querySelector('input') as HTMLInputElement).value).toBe('');
+      await answer('fix');
+      await press('Create');
+      await done;
+      expect(host.params('git.createBranch')).toEqual([
+        { path: '/r', name: 'fix', checkout: true, overwrite: false, from: 'abc1234567890def' },
+      ]);
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it('suggests the one branch at the commit, a remote one without its remote', async () => {
+      const suggested = async (refs: string[]) => {
+        const done = run(refs);
+        const value = ((await dialog()).querySelector('input') as HTMLInputElement).value;
+        await press('Cancel');
+        await done;
+        return value;
+      };
+      expect(await suggested(['HEAD -> refs/heads/main', 'refs/remotes/origin/main'])).toBe('main');
+      expect(await suggested(['refs/remotes/origin/side'])).toBe('side');
+      expect(await suggested(['HEAD', 'refs/heads/a', 'refs/heads/b'])).toBe('');
+      expect(host.params('git.createBranch')).toEqual([]);
+    });
+
+    it('checks the name against the branches as they are now', async () => {
+      git.local = [...git.local, 'later'];
+      const done = run([]);
+      const box = await dialog();
+      await answer('later');
+      expect(box.querySelector('.cerebro-dialog-field__error')?.textContent).toBe(
+        'Branch name later already exists. Change the name or overwrite existing branch',
+      );
+      await press('Cancel');
+      await done;
+      git.local = git.local.filter((b) => b !== 'later');
+    });
+  });
 });
 
 describe('Rename', () => {
