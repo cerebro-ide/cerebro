@@ -178,4 +178,8 @@ on it:
   reading the file; `races.txt`'s save read it for 3786 ms, and a later `fs.read` of the project
   took 5052 ms. So every read in the host is slow for some seconds after the race test, not one
   save behind another: next, what the host is doing then (its event loop, or its file watcher
-  after the race test's writes).
+  after the race test's writes). Cause found (2026-11-11, measured locally by counting the app's
+  requests by method): the race test sends a focus event every 5 ms, and each read every open file
+  again, 1,708 `fs.read` in that file's run, 532 in one second. Each file's read is now coalesced
+  as the repository state's is (one more follows a read under way): 322 in the run, 42 at most in a
+  second. Left here until CI shows the idle save in time again.

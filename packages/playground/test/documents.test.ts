@@ -19,8 +19,11 @@ import { FakeHost, project } from './fakes.js';
 const disk = new Map<string, string>();
 /** Files the host can't read, though they're there. */
 const unreadable = new Set<string>();
+/** What a file's read waits on, for those that wait. */
+const held = new Map<string, Promise<void>>();
 const host = new FakeHost({
-  'fs.read': ({ path }: { path: string }) => {
+  'fs.read': async ({ path }: { path: string }) => {
+    await held.get(path);
     const text = disk.get(path);
     if (text === undefined || unreadable.has(path)) throw new Error(`ENOENT: ${path}`);
     return { text };
@@ -360,6 +363,32 @@ describe('saving', () => {
 });
 
 describe('reading again', () => {
+  it('reads a file once more while it’s read, however often asked, then takes the newest', async () => {
+    const doc = await file('/r/often.ts', 'a');
+    const reads = () =>
+      host.params('fs.read').filter((p) => (p as { path: string }).path === '/r/often.ts');
+    let release!: () => void;
+    held.set(
+      '/r/often.ts',
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    host.asked.length = 0;
+    const first = reloadAll();
+    await expect.poll(() => reads()).toHaveLength(1);
+    // A focus event every 5 ms, as the editing e2e test sends, while it's read.
+    disk.set('/r/often.ts', 'b');
+    const more = Array.from({ length: 50 }, () => reloadAll());
+    // The fake host answers in microtasks: one turn, and every call waits on this file's read.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    held.delete('/r/often.ts');
+    release();
+    await Promise.all([first, ...more]);
+    expect(reads()).toHaveLength(2);
+    expect(doc.content()).toBe('b');
+  });
+
   it('takes what changed on disk where there are no edits', async () => {
     const doc = await file('/r/changed.ts', 'a');
     disk.set('/r/changed.ts', 'b');
