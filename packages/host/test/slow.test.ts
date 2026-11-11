@@ -16,6 +16,39 @@ describe('what’s slow in the host', () => {
     expect(log).toHaveBeenCalledWith(`Slow: git commit in /r took ${String(SLOW_MS + 1)} ms`);
   });
 
+  it('reports a task still going once it’s slow, so one that never ends is seen', async () => {
+    vi.useFakeTimers();
+    const log = vi.fn();
+    let finish: (() => void) | undefined;
+    const task = timed(
+      'git commit in /r',
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+      log,
+      () => 0,
+    );
+    vi.advanceTimersByTime(SLOW_MS - 1);
+    expect(log).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(log).toHaveBeenCalledWith(
+      `Slow: git commit in /r still going after ${String(SLOW_MS)} ms`,
+    );
+    finish?.();
+    await task;
+    // Done quickly: no word once it's passed.
+    await timed(
+      'quick',
+      () => Promise.resolve(),
+      log,
+      () => 0,
+    );
+    vi.advanceTimersByTime(SLOW_MS);
+    expect(log).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+
   it('reports an event loop held up, whose, until stopped', () => {
     vi.useFakeTimers();
     const log = vi.fn();
