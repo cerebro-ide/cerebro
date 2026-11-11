@@ -5,11 +5,12 @@
 // after it, Commit Merge (once no file is in conflict) and Abort Merge; after Rebase, its menu:
 // Abort Rebase, Continue Rebase and Skip Commit. Each shows only while its operation is under way.
 
-import { signal } from '@cerebro-ide/reactive';
+import { effect, signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { resolveConflicts, type Conflicts } from './conflicts.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
+import { currentBranch } from './git-fields.js';
 import { branchField, gitOptions, type GitOption } from './git-options.js';
 import { mergeAction } from './merge-action.js';
 import { notifications } from './notifications.js';
@@ -316,6 +317,263 @@ async function mergeChosen(host: Host, worktree: string, chosen: MergeChoice): P
   );
 }
 
+/**
+ * IntelliJ's `GitRebaseOption`, in its order, but --interactive, which needs IntelliJ's interactive
+ * rebase editor (not yet). The other branch (no flag in IntelliJ's popup) and --onto are fields of
+ * the command, not options under it.
+ */
+const REBASE_OPTIONS: GitOption[] = [
+  { flag: '', description: 'Select another branch to rebase', excludes: [], field: true },
+  {
+    flag: '--onto',
+    description: 'Specify a new base for the rebased commits',
+    excludes: [],
+    field: true,
+  },
+  { flag: '--rebase-merges', description: 'Recreate commits topology', excludes: [] },
+  { flag: '--keep-empty', description: 'Do not remove empty commits during rebase', excludes: [] },
+  { flag: '--root', description: 'Rebase all commits in the branch', excludes: [] },
+  {
+    flag: '--update-refs',
+    description: 'Auto-update branches pointing to rebased commits',
+    excludes: [],
+  },
+  {
+    flag: '--autosquash',
+    description: 'Auto-squash commits marked for fixup or squash',
+    excludes: ['--no-autosquash'],
+  },
+  {
+    flag: '--no-autosquash',
+    description: 'Override the Git config setting to disable automatic squashing',
+    excludes: ['--autosquash'],
+  },
+];
+
+/** What the Rebase dialog chose: the host's `git.rebase`'s. */
+interface RebaseChoice {
+  options: string[];
+  onto?: string;
+  upstream?: string;
+  branch?: string;
+}
+
+/** Where the new base last chosen in a repository is kept, as IntelliJ's `newBase` setting. */
+const baseKey = (worktree: string) => `cerebro.rebase.base:${worktree}`;
+
+/**
+ * IntelliJ's Rebase dialog: `git rebase`, then the base (a branch, tag or hash, suggested as it's
+ * typed); with --onto, the new base first and the old one under it; with another branch, that
+ * branch; the options under it, Modify options at the buttons' left. The base last chosen to start
+ * with, when git still knows it. A base git doesn't know is said so on Rebase, as IntelliJ's.
+ */
+async function askRebase(host: Host, worktree: string): Promise<RebaseChoice | undefined> {
+  const [refs, tags] = (await Promise.all([
+    host.request('git.branches', { worktree }),
+    host.request('git.tags', { path: worktree }),
+  ])) as [{ ref: string }[], string[]];
+  const names = refs.map((r) => r.ref);
+  const local = names
+    .filter((r) => r.startsWith('refs/heads/'))
+    .map(branchName)
+    .filter((b) => b !== undefined)
+    .sort(natural);
+  const remote = names
+    .filter((r) => r.startsWith('refs/remotes/'))
+    .map(branchName)
+    .filter((b) => b !== undefined)
+    .sort(natural);
+  const refsToo = [...local, ...remote, ...[...tags].sort(natural)];
+  let kept: string | null = null;
+  try {
+    kept = localStorage.getItem(baseKey(worktree));
+  } catch {
+    // None kept.
+  }
+  const keep =
+    kept !== null &&
+    ((await host.request('git.validRevision', { path: worktree, revision: kept })) as boolean);
+  const upstream = signal(keep ? (kept as string) : '');
+  const onto = signal('');
+  const branch = signal('');
+  const options = gitOptions(
+    REBASE_OPTIONS,
+    'Add Rebase Options',
+    `cerebro.rebase.options:${worktree}`,
+    640,
+  );
+  const has = (flag: string) => options.chosen.get().includes(flag);
+  /** What Rebase found git doesn't know: the field's name and its text then. */
+  const unknown = signal<{ field: 'onto' | 'upstream'; text: string } | undefined>(undefined);
+  // As IntelliJ's: --onto moves the base to its field, and back when it goes.
+  let ontoBefore = false;
+  const moving = effect(() => {
+    const now = has('--onto');
+    if (now === ontoBefore) return;
+    ontoBefore = now;
+    if (now) {
+      onto.set(upstream.peek());
+      upstream.set('');
+    } else {
+      upstream.set(onto.peek());
+      onto.set('');
+    }
+  });
+  const error = () => {
+    if (stateOf(worktree).operation === 'rebase') {
+      return 'Interactive rebase is already in progress for this Git root';
+    }
+    const root = has('--root');
+    if (!root && upstream.get() === '') {
+      return has('--onto') ? 'Select an upstream' : 'Select a new base';
+    }
+    if (has('--onto') && onto.get() === '' && !root) return 'Select a new base';
+    const missing = unknown.get();
+    if (missing && (missing.field === 'onto' ? onto : upstream).get() === missing.text) {
+      return 'There is no such branch or tag';
+    }
+    if (has('')) {
+      const at = branch.get();
+      if (at === '') return 'Select a branch to switch to';
+      if (!local.includes(at)) return `Branch '${at}' does not exist`;
+    }
+    return undefined;
+  };
+  const choice = (): RebaseChoice => {
+    const given = (value: string) => (value === '' ? undefined : value);
+    const base = has('--root') ? undefined : given(upstream.peek());
+    const newBase = has('--onto') ? given(onto.peek()) : undefined;
+    const other = has('') ? given(branch.peek()) : undefined;
+    return {
+      options: options.chosen.peek().filter((o) => o !== '' && o !== '--onto' && o !== '--root'),
+      ...(newBase === undefined ? {} : { onto: newBase }),
+      ...(base === undefined ? {} : { upstream: base }),
+      ...(other === undefined ? {} : { branch: other }),
+    };
+  };
+  const chosen = await openDialog<RebaseChoice>({
+    title: 'Rebase',
+    width: 640,
+    ok: {
+      label: 'Rebase',
+      enabled: () => error() === undefined,
+      // As IntelliJ's `RevValidator`: the bases asked of git on Rebase only.
+      check: async () => {
+        const { onto: newBase, upstream: base } = choice();
+        for (const [field, text] of [
+          ['onto', newBase],
+          ['upstream', base],
+        ] as const) {
+          if (text === undefined) continue;
+          const valid = (await host.request('git.validRevision', {
+            path: worktree,
+            revision: text,
+          })) as boolean;
+          if (!valid) {
+            unknown.set({ field, text });
+            return false;
+          }
+        }
+        return true;
+      },
+      accept: choice,
+    },
+    footer: options.link,
+    content: () => (
+      <div class="playground-git-command">
+        <div class="playground-git-command__row">
+          <span class="playground-git-command__git">git rebase</span>
+          {() =>
+            has('--onto') ? (
+              <>
+                <span class="playground-git-command__git">--onto</span>
+                {branchField(onto, () => refsToo, {
+                  label: 'New base',
+                  placeholder: () => 'new base (branch or hash)',
+                })}
+              </>
+            ) : null
+          }
+          {() =>
+            has('--onto')
+              ? null
+              : [
+                  branchField(upstream, () => refsToo, {
+                    label: 'Base',
+                    placeholder: () => 'branch or hash',
+                    disabled: () => has('--root'),
+                  }),
+                  has('')
+                    ? branchField(branch, () => local, {
+                        label: 'Branch to rebase',
+                        placeholder: () => 'source branch',
+                        focus: false,
+                      })
+                    : null,
+                ]
+          }
+        </div>
+        {() =>
+          has('--onto') ? (
+            <div class="playground-git-command__row">
+              {branchField(upstream, () => refsToo, {
+                label: 'Old base',
+                placeholder: () => 'old base (branch or hash)',
+                disabled: () => has('--root'),
+                focus: false,
+              })}
+              {has('')
+                ? branchField(branch, () => local, {
+                    label: 'Branch to rebase',
+                    placeholder: () => 'source branch',
+                    focus: false,
+                  })
+                : null}
+            </div>
+          ) : null
+        }
+        {options.shown}
+        <span class="cerebro-dialog-field__error" role="alert">
+          {() => error() ?? ''}
+        </span>
+      </div>
+    ),
+  }).result;
+  moving.dispose();
+  if (chosen) {
+    options.keep();
+    try {
+      localStorage.setItem(baseKey(worktree), chosen.onto ?? chosen.upstream ?? '');
+    } catch {
+      // Not kept: the next rebase starts empty.
+    }
+  }
+  return chosen;
+}
+
+/** Rebases as chosen; on through the Conflicts dialog when it stops, as IntelliJ's. */
+async function rebaseChosen(host: Host, worktree: string, chosen: RebaseChoice): Promise<void> {
+  const base = chosen.onto ?? chosen.upstream;
+  const branch = chosen.branch ?? currentBranch(worktree) ?? 'HEAD';
+  const done = base === undefined ? `Rebased ${branch}` : `Rebased ${branch} on ${base}`;
+  try {
+    const result = await host.request('git.rebase', { path: worktree, ...chosen });
+    if (result === 'conflicts') {
+      await continueRebase(host, worktree, 'stopped', done);
+      return;
+    }
+    notifications.notify({ title: 'Rebase successful', content: done });
+  } catch (error) {
+    notifications.notify({
+      title: 'Rebase failed',
+      content: (error as Error).message,
+      type: 'error',
+      display: 'sticky',
+    });
+  }
+  await refreshAll(worktree);
+}
+
 /** Git's actions for a merge or a rebase under way, as IntelliJ's, in its Git menu. */
 export function setupMergeRebase(services: MenuServices): void {
   const { commands, menus } = services;
@@ -382,6 +640,21 @@ export function setupMergeRebase(services: MenuServices): void {
         });
     },
   });
+  // Rebase…, as IntelliJ's: there whatever's under way, its dialog saying when a rebase is.
+  commands.register({
+    id: 'vcs.rebase',
+    label: 'Rebase',
+    dialog: true,
+    enabled: () => target() !== undefined,
+    run: () => {
+      const { host, worktree } = target() as { host: Host; worktree: string };
+      return askRebase(host, worktree)
+        .then((chosen) => chosen && rebaseChosen(host, worktree, chosen))
+        .catch((error: unknown) => {
+          console.error('Rebase failed', error);
+        });
+    },
+  });
   // Commit Merge shows once no file is in conflict: until then, Resolve Conflicts… does.
   register('vcs.commitMerge', 'Commit Merge', 'merge', commitMerge, (w) => !stateOf(w).conflicts);
   register('vcs.abortMerge', 'Abort Merge', 'merge', (h, w) => abort(h, w, 'merge'));
@@ -392,6 +665,7 @@ export function setupMergeRebase(services: MenuServices): void {
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.merge' }, group: 'am', order: -1 });
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.commitMerge' }, group: 'am' });
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.abortMerge' }, group: 'am' });
+  menus.contribute({ menu: 'main/git', item: { command: 'vcs.rebase' }, group: 'am' });
   menus.contribute({
     menu: 'main/git',
     item: { submenu: 'main/git/rebase', label: '&Rebase' },

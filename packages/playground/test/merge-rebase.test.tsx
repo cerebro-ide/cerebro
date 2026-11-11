@@ -27,6 +27,11 @@ const git = {
   /** The branches, local and remote (with a slash). */
   refs: [] as string[],
   merged: { kind: 'merged', files: 2, commits: 1 } as { kind: string; [key: string]: unknown },
+  tags: ['v1.0'],
+  /** What git knows, as `git.validRevision` answers. */
+  known: (revision: string) => revision !== 'nowhere',
+  /** What a rebase gives: done, conflicts, or an error. */
+  rebased: 'done' as 'done' | 'conflicts' | Error,
 };
 const host = new FakeHost({
   'git.state': () => git.state,
@@ -63,6 +68,13 @@ const host = new FakeHost({
     if (git.merged.kind === 'conflicts') git.conflicted = ['a.ts'];
     return git.merged;
   },
+  'git.tags': () => git.tags,
+  'git.validRevision': (p: { revision: string }) => git.known(p.revision),
+  'git.rebase': () => {
+    if (git.rebased instanceof Error) throw git.rebased;
+    if (git.rebased === 'conflicts') git.conflicted = ['a.ts'];
+    return git.rebased;
+  },
   'git.continueUpdate': () => ({ kind: 'updated', files: 4, commits: 3, restored: true }),
 });
 const next = () => {
@@ -91,6 +103,9 @@ beforeEach(() => {
   git.tracking = { branch: 'feature', upstream: { remote: 'origin', branch: 'main' } };
   git.unmerged = ['refs/heads/v2', 'refs/remotes/origin/main'];
   git.merged = { kind: 'merged', files: 2, commits: 1 };
+  git.tags = ['v1.0'];
+  git.known = (revision) => revision !== 'nowhere';
+  git.rebased = 'done';
   git.refs = ['feature', 'v10', 'main', 'v2', 'origin/HEAD', 'origin/main', 'origin/feature'];
   localStorage.clear();
 });
