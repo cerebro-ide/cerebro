@@ -63,12 +63,6 @@ on it:
   It needs a contribution that makes its items from the context (as the Branches popup's lists
   are made today, outside the menus): a change to a shared package, to be proposed before it's
   built.
-- **The Welcome window's test "opens a project clicked" can't find the row to click** (once in a
-  local `npm run check`, 2026-11-11; it passed 3 of 3 alone): Vitest's click finds the row by its
-  role and accessible name, which includes its Remove button only while the row is highlighted (the
-  button is `visibility: hidden` otherwise), and the highlight follows the pointer, left over
-  another row by an earlier file. The name taken ("alpha /p/alpha Remove from…") then matched
-  nothing for 15 s. Clicking the row's name, whose text doesn't change, would avoid it.
 - **The e2e run's first app start can take over 5 s on macOS and Windows in CI** (measured
   2026-11-11, #179, run 43049756595: `app.test.ts`, the first file, timed out waiting 5 s for the
   window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
@@ -79,21 +73,29 @@ on it:
   feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
   closed a diff window; the file alone passed five times). The trace was overwritten before it was
   read. `findAction` now prints the popup's field, its items and the focus when it fails.
+- **The e2e test of saving when idle saved late again** (#186, run 43084558097, Linux, 2026-11-11;
+  on time on all three OSes in #181's runs before): saved 5.3 s after the edit with the idle time
+  at 1 s, the editor focused, no key, pointer or wheel event after the last key and no long task;
+  no save of the file was slow (over 2 s from asked to written), so it was asked for late, or an
+  earlier one found nothing to save. The page now logs each idle save as it starts, with the files
+  modified then, which the test prints when it fails.
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
   which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run
   43007945845) it counted one "Write a file" turn in 15 s, not the two of the runs before and after
   the restart; it now prints the rows, the status bar, the agent's terminal and the app's standard
-  error when that fails.
-- **The Welcome window's page test timed out clicking a recent project once** (2026-11-11, in a
-  full local `npm run check` on feat/diff-appearance, with a Docker container restarting in a
-  loop; alone it passed three times): the option wasn't clickable for 15 s. Its screenshot was
-  overwritten by the reruns before it was read.
+  error when that fails. Again on macOS (#184, run 43081109016): one turn, the status bar "Claude is
+  done", the terminal "pretend claude: --resume fake-session" (the second run started), nothing in
+  the standard error. Whether its hooks ran isn't shown: the pretend claude now prints each hook's
+  end, how long it took, or its error.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is
   resized; that either happened isn't known. The test now prints the popups, their items' boxes,
-  the focus and the window's size when the click fails.
+  the focus and the window's size when the click fails. The same click failed the same way in
+  `app.test.ts` on Linux in CI (#181, 2026-11-11), with no frame report: every page now also says
+  when its window is resized or loses focus, printed as each e2e file ends. In #181's passing run
+  (43076863326) Linux's window had none; macOS's resizes came from the full-screen test alone.
 - **The page stopped taking clicks for the rest of `editing.test.ts` on Linux in CI** (once, on
   2026-11-11, #166, run 43003358765): a click on System Settings' Global waited "performing click
   action" until it timed out, and every test after failed. The app now reports a page held up over
@@ -165,30 +167,3 @@ on it:
   `shape.wi` was typed, with the editor focused and no popup open, the list never showed. The cause
   isn't found. The test's output asked the server again with the file as on disk, not as typed, so
   it showed nothing useful. It now asks with the editor's text (checked locally: `width`).
-- **The e2e test of saving when idle sometimes doesn't save in time** (a full local run and CI on
-  #121, both 2026-11-04; reruns pass): `second.ts` wasn't saved within 5 s of an edit, with the
-  idle time set to 1 s, and the next test failed from it. In CI the page printed the edit in the
-  editor, the page focused, and the editor focused; the file was saved later, before the next test
-  looked. The cause isn't found: the timer set with the old 15 s, or the save waiting behind
-  another, would both fit. The test now also prints the settings the page stored and how long the
-  save took (up to 35 s). Measured in CI on #136 (2026-11-04): the stored setting was 1 s, and the
-  file was saved 7 s after the edit, the editor focused. So it isn't the old 15 s. The test now
-  also prints the keys and mouse events after the edit, which start the idle time again, and the
-  page's long tasks. Measured in CI on #153 (2026-11-08): saved 6.0 s after the edit, with no key
-  or mouse event after the typing and no long task, the editor focused, the setting 1 s. So
-  nothing started the idle time again; the delay's cause is still not found. Seen again on #158 (2026-11-09):
-  saved 6.1 s after the edit, the editor focused, the setting 1 s, no key after the typing; the
-  race test before it took 18 s there, against 8–12 s on earlier branches, but locally #158 took
-  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced. Seen again on #163
-  (2026-11-11): saved 6.2 s after the edit, the same otherwise. A save slower than 2 s now says on
-  the console how long it waited behind the saves before, read the file, ran the hooks before
-  saving, and wrote it; the test prints that. Measured in CI on #174 (2026-11-11): `second.ts` saved 5.5 s after the
-  edit, and a save of `races.txt` (the race test's file, before it) took 4.1 s, 3.9 s of it in the
-  host reading the file, 0 ms waiting behind other saves. So a slow read in the host is now the
-  lead: next, whether the idle save of `second.ts` waits behind that one, and why the read is slow
-  (the race test writes the file in a loop just before). Measured in CI on #180 (2026-11-11): it
-  doesn't wait: `second.ts` saved 5.7 s after the edit, 0 ms after the saves before, 4060 ms of it
-  reading the file; `races.txt`'s save read it for 3786 ms, and a later `fs.read` of the project
-  took 5052 ms. So every read in the host is slow for some seconds after the race test, not one
-  save behind another: next, what the host is doing then (its event loop, or its file watcher
-  after the race test's writes).

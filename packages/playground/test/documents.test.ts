@@ -19,8 +19,11 @@ import { FakeHost, project } from './fakes.js';
 const disk = new Map<string, string>();
 /** Files the host can't read, though they're there. */
 const unreadable = new Set<string>();
+/** What a file's read waits on, for those that wait. */
+const held = new Map<string, Promise<void>>();
 const host = new FakeHost({
-  'fs.read': ({ path }: { path: string }) => {
+  'fs.read': async ({ path }: { path: string }) => {
+    await held.get(path);
     const text = disk.get(path);
     if (text === undefined || unreadable.has(path)) throw new Error(`ENOENT: ${path}`);
     return { text };
@@ -360,11 +363,81 @@ describe('saving', () => {
 });
 
 describe('reading again', () => {
+  /** Holds `path`'s reads until the returned function is called. */
+  const hold = (path: string) => {
+    let release!: () => void;
+    held.set(
+      path,
+      new Promise((resolve) => {
+        release = resolve;
+      }),
+    );
+    return () => {
+      held.delete(path);
+      release();
+    };
+  };
+  const readsOf = (path: string) =>
+    host.params('fs.read').filter((p) => (p as { path: string }).path === path);
+  /** One turn: the fake host answers in microtasks, so every call gets as far as it can. */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('reads a file once more while it’s read, however often asked, then takes the newest', async () => {
+    const doc = await file('/r/often.ts', 'a');
+    const release = hold('/r/often.ts');
+    host.asked.length = 0;
+    const first = reloadAll();
+    await expect.poll(() => readsOf('/r/often.ts')).toHaveLength(1);
+    // A focus event every 5 ms, as the editing e2e test sends, while it's read.
+    disk.set('/r/often.ts', 'b');
+    const more = Array.from({ length: 50 }, () => reloadAll());
+    await settle();
+    release();
+    await Promise.all([first, ...more]);
+    expect(readsOf('/r/often.ts')).toHaveLength(2);
+    expect(doc.content()).toBe('b');
+  });
+
   it('takes what changed on disk where there are no edits', async () => {
     const doc = await file('/r/changed.ts', 'a');
     disk.set('/r/changed.ts', 'b');
     await reloadAll();
     expect(doc.content()).toBe('b');
+  });
+
+  it('doesn’t read a file once more when a save of it started meanwhile', async () => {
+    const doc = await file('/r/saved-meanwhile.ts', 'a');
+    const release = hold('/r/saved-meanwhile.ts');
+    host.asked.length = 0;
+    const first = reloadAll();
+    const queued = reloadAll();
+    await settle();
+    edit(doc, '1');
+    const saving = saveFiles(['/r/saved-meanwhile.ts']);
+    release();
+    await Promise.all([first, queued, saving]);
+    // The first read, and the save's own: none after it.
+    expect(readsOf('/r/saved-meanwhile.ts')).toHaveLength(2);
+  });
+
+  it('reads a file once more after a read that failed', async () => {
+    const doc = await file('/r/failing.ts', 'a');
+    edit(doc, '1');
+    disk.set('/r/failing.ts', 'b');
+    const release = hold('/r/failing.ts');
+    let asked = 0;
+    resolver = (path) =>
+      path === '/r/failing.ts' && ++asked === 1
+        ? Promise.reject(new Error('no answer'))
+        : Promise.resolve();
+    host.asked.length = 0;
+    const first = reloadAll();
+    const queued = reloadAll();
+    await settle();
+    release();
+    await expect(first).rejects.toThrow('no answer');
+    await queued;
+    expect(readsOf('/r/failing.ts')).toHaveLength(2);
   });
 
   it('asks about a file changed on disk and in the editor', async () => {
@@ -479,9 +552,21 @@ describe('on its own', () => {
     window.dispatchEvent(new PointerEvent('pointerdown'));
     vi.advanceTimersByTime(900);
     expect(writes('/r/idle.ts')).toEqual([]);
+    const said = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.advanceTimersByTime(100);
     vi.useRealTimers();
     await expect.poll(() => disk.get('/r/idle.ts')).toBe('a1');
+    // Said, with the files modified then; once saved, not it.
+    expect(said.mock.calls[0]?.[0]).toMatch(
+      /^Saving when idle at \d+ ms, modified: \[.*"\/r\/idle\.ts"/,
+    );
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    window.dispatchEvent(new KeyboardEvent('keydown'));
+    vi.advanceTimersByTime(1000);
+    vi.useRealTimers();
+    await expect.poll(() => said.mock.calls.length).toBe(2);
+    expect(String(said.mock.calls[1]?.[0])).not.toContain('/r/idle.ts');
+    said.mockRestore();
     idle = undefined;
     edit(doc, '2');
     window.dispatchEvent(new WheelEvent('wheel'));

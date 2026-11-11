@@ -791,6 +791,15 @@ describe('ignored files and rolling back', () => {
       [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'origin'],
       ASKING,
     );
+    // One remote, as the Pull dialog asks.
+    git.mockClear();
+    await ui.request('git.fetch', { path: '/w', remote: 'upstream' });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'upstream'],
+      ASKING,
+    );
+    expect(git.mock.calls.some(([, args]) => bare(args)[0] === 'remote')).toBe(false);
     expect(await ui.request('git.tracking', { path: '/w' })).toEqual({
       branch: 'main',
       remotes: ['origin'],
@@ -949,7 +958,10 @@ describe('ignored files and rolling back', () => {
       Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),
     );
     const { ui } = connect(git);
-    expect(await ui.request('git.state', { path: '/w' })).toEqual({ conflicts: false });
+    expect(await ui.request('git.state', { path: '/w' })).toEqual({
+      conflicts: false,
+      remotes: false,
+    });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
     for (const operation of ['merge', 'rebase']) {

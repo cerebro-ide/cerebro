@@ -14,6 +14,8 @@ export interface PromptOptions {
   ok?: string;
   /** Why the text can't be accepted, or undefined when it can. Blank text never can. */
   validate?: (text: string) => string | undefined;
+  /** Whether OK is enabled, nothing said when it isn't: IntelliJ's `InputValidator`. */
+  valid?: (text: string) => boolean;
   platform?: 'mac' | 'other';
 }
 
@@ -21,7 +23,10 @@ export interface PromptOptions {
 export function prompt(options: PromptOptions): Promise<string | undefined> {
   const text = signal(options.value ?? '');
   const error = () => options.validate?.(text.get().trim());
-  const valid = () => text.get().trim() !== '' && error() === undefined;
+  const valid = () => {
+    const typed = text.get().trim();
+    return typed !== '' && error() === undefined && (options.valid?.(typed) ?? true);
+  };
   return openDialog<string>({
     title: options.title,
     width: 400,

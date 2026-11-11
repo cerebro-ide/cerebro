@@ -204,14 +204,20 @@ export interface RepositoryState {
   conflicts: boolean;
   /** During a merge, git's message for it, which the Commit window starts with. */
   message?: string;
+  /** Whether the repository has any remote: IntelliJ's Fetch is disabled without. */
+  remotes: boolean;
 }
 
-/** The merge or rebase under way, whether files are in conflict, and a merge's message. */
+/**
+ * The merge or rebase under way, whether files are in conflict, a merge's message, and whether
+ * there are remotes.
+ */
 export async function repositoryState(worktree: string, run: Git): Promise<RepositoryState> {
   const op = await operation(worktree, run);
   const state: RepositoryState = {
     operation: op,
     conflicts: (await run(worktree, ['ls-files', '-u'])) !== '',
+    remotes: (await run(worktree, ['remote'])) !== '',
   };
   // As IntelliJ's `GitMergeCommitMessageReader`, as git wrote it, its comments kept.
   const message = op === 'merge' ? await gitFile(worktree, 'MERGE_MSG', run) : undefined;

@@ -1,17 +1,20 @@
 // Git → Fetch and Git → Pull…, as IntelliJ's (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 // `GitPullDialog`, `GitPullOption`, `GitMergeAction`, `GitOptionsPopupBuilder`, read from its
-// source). Fetch fetches every remote, saying what it pruned. Pull asks, in IntelliJ's dialog,
-// which remote's branch to pull and with which options, then merges it; with --rebase, the
-// branch is updated as Update Project does it. At conflicts, the Conflicts dialog, then the merge
-// committed.
+// source). Fetch fetches every remote, saying what it pruned; it's off while there's none. Pull
+// asks, in IntelliJ's dialog, which remote's branch to pull and with which options (Ctrl+F5 in its
+// branch field fetches that remote and suggests its branches again), then merges it; with
+// --rebase, the branch is updated as Update Project does it. At conflicts, the Conflicts dialog,
+// then the merge committed.
 
-import { signal } from '@cerebro-ide/reactive';
+import { formatChord, type Platform } from '@cerebro-ide/commands';
+import { signal, type Signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { branchField, gitOptions, type GitOption } from './git-options.js';
 import { mergeAction } from './merge-action.js';
 import { notifications } from './notifications.js';
+import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 import { updateProject, updating } from './update.js';
 
@@ -48,6 +51,43 @@ async function fetchAll(host: Host, worktree: string): Promise<void> {
       type: 'error',
       display: 'sticky',
     });
+  } finally {
+    fetching.set(false);
+  }
+}
+
+/**
+ * The Pull dialog's key that fetches the remote chosen: IntelliJ's Refresh's shortcut, which its
+ * keymaps make Ctrl+F5 and Cmd+R on macOS (its own fallback too, `FETCH_ACTION_SHORTCUT`).
+ */
+const FETCH_KEY: Record<Platform, string> = { mac: 'Meta+R', other: 'Ctrl+F5' };
+
+/**
+ * The Pull dialog's fetch, as IntelliJ's `performFetch`: the remote chosen alone, unless a fetch
+ * is under way; then its branches read again. What git said isn't shown, as IntelliJ's isn't.
+ */
+async function fetchRemote(
+  host: Host,
+  worktree: string,
+  remote: string | undefined,
+  branches: Signal<{ ref: string }[]>,
+): Promise<void> {
+  if (fetching.peek()) return;
+  if (remote === undefined) {
+    notifications.notify({
+      title: 'Cannot load remote branches',
+      content: 'Select a local and a remote repository',
+      type: 'error',
+      display: 'sticky',
+    });
+    return;
+  }
+  fetching.set(true);
+  try {
+    await host.request('git.fetch', { path: worktree, remote }).catch(() => undefined);
+    branches.set((await host.request('git.branches', { worktree })) as { ref: string }[]);
+  } catch (error) {
+    console.error('Reading the branches after a fetch failed', error);
   } finally {
     fetching.set(false);
   }
@@ -106,13 +146,19 @@ export interface PullChoice {
  * branches suggested as it's typed); the options chosen under it, each removable, and Modify
  * options at the buttons' left. The upstream's remote and branch to start with.
  */
-async function askPull(host: Host, worktree: string): Promise<PullChoice | undefined> {
-  const [tracking, branches] = (await Promise.all([
+async function askPull(
+  host: Host,
+  worktree: string,
+  platform: Platform,
+): Promise<PullChoice | undefined> {
+  const [tracking, read] = (await Promise.all([
     host.request('git.tracking', { path: worktree }),
     host.request('git.branches', { worktree }),
   ])) as [Tracking, { ref: string }[]];
+  const branches = signal(read);
   const remoteBranches = (remote: string) =>
     branches
+      .get()
       .map((b) => b.ref)
       .filter((ref) => ref.startsWith(`refs/remotes/${remote}/`))
       .map((ref) => ref.slice(`refs/remotes/${remote}/`.length))
@@ -173,10 +219,22 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
               ))
             )}
           </select>
-          {branchField(branch, () => {
-            const at = remote.get();
-            return at === undefined ? [] : remoteBranches(at);
-          })}
+          {branchField(
+            branch,
+            () => {
+              const at = remote.get();
+              return at === undefined ? [] : remoteBranches(at);
+            },
+            {
+              update: {
+                chord: FETCH_KEY[platform],
+                hint: `Press ${formatChord(FETCH_KEY[platform], platform)} to update branches`,
+                run: () => {
+                  void fetchRemote(host, worktree, remote.peek(), branches);
+                },
+              },
+            },
+          )}
         </div>
         {options.shown}
         <span class="cerebro-dialog-field__error" role="alert">
@@ -231,7 +289,11 @@ export function setupFetchPull(services: MenuServices): void {
     id: 'vcs.fetch',
     label: 'Fetch',
     icon: 'fetch',
-    enabled: () => target() !== undefined && !fetching.get(),
+    // As IntelliJ's: off without a remote, and while a fetch runs.
+    enabled: () => {
+      const at = target();
+      return at !== undefined && stateOf(at.worktree).remotes !== false && !fetching.get();
+    },
     run: () => on('Fetch', fetchAll),
   });
   commands.register({
@@ -241,7 +303,7 @@ export function setupFetchPull(services: MenuServices): void {
     enabled: () => target() !== undefined && pullingFrom.get() === undefined && !updating.get(),
     run: () =>
       on('Pull', async (host, worktree) => {
-        const chosen = await askPull(host, worktree);
+        const chosen = await askPull(host, worktree, services.keymap?.platform ?? 'other');
         if (chosen) await pull(host, worktree, chosen);
       }),
   });
