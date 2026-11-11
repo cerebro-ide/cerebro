@@ -32,7 +32,7 @@ async function seen(): Promise<void> {
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
-  // What's shown: its tasks are there, hidden, when none is under way.
+  // The items shown: hidden tasks' text is there too, and `textContent` took it.
   console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
@@ -50,6 +50,8 @@ async function measure(done: () => boolean): Promise<void> {
       ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
       : 'Still not done a minute after the test gave up',
   );
+  // The hosts' slow git and held-up event loop, if any: where the time went.
+  console.log('Standard error:', running.output.join(''));
 }
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
@@ -286,7 +288,6 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
-    // What's shown: its tasks are there, hidden, when none is under way.
     console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
     throw error;
   }

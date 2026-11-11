@@ -94,6 +94,8 @@ export interface Running {
   page: Page;
   /** The page's console messages since the last reset. */
   messages: string[];
+  /** What the app and its hosts wrote on their standard error (the hosts' slow git, say). */
+  output: string[];
   /** Clears what the page saved and reloads it, for a test to start fresh. */
   reset(): Promise<void>;
   /** Quits and starts the app again with the same data, as a user restarting it. */
@@ -127,14 +129,17 @@ async function start(
 export async function launch(env: Record<string, string> = {}): Promise<Running> {
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
-  const listen = (page: Page) => {
+  const output: string[] = [];
+  const listen = ({ app, page }: { app: ElectronApplication; page: Page }) => {
     page.on('console', (message) => messages.push(message.text()));
+    app.process().stderr?.on('data', (chunk: Buffer) => output.push(chunk.toString()));
   };
   const first = await start(data, env);
-  listen(first.page);
+  listen(first);
   const running: Running = {
     ...first,
     messages,
+    output,
     async reset() {
       await running.page.evaluate(() => {
         localStorage.clear();
@@ -146,7 +151,7 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
     async restart() {
       await stop(running.app);
       const next = await start(data, env);
-      listen(next.page);
+      listen(next);
       running.app = next.app;
       running.page = next.page;
     },

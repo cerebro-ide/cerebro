@@ -2,6 +2,7 @@
 
 import { execFile } from 'node:child_process';
 import type { Writable } from 'node:stream';
+import { timed } from './slow.js';
 
 export interface Worktree {
   /** The worktree's folder, absolute. */
@@ -45,6 +46,9 @@ export class GitError extends Error {
 }
 
 export const git: Git = (cwd, args, env, input) =>
+  timed(`git ${args.join(' ')} in ${cwd}`, () => run(cwd, args, env, input));
+
+const run: Git = (cwd, args, env, input) =>
   new Promise((resolve, reject) => {
     const child = execFile(
       'git',

@@ -63,17 +63,20 @@ on it:
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
   which assertion wasn't kept. The next failure's message will say.
-- **The app stalls for tens of seconds on Windows in CI, now and then** (#161 and #162,
-  2026-11-11; #161's next run passed with the same code): "commits a merge started elsewhere"
+- **The app stalls for tens of seconds in CI, now and then** (Windows: #161 and #162; macOS: #165,
+  run 42944609115; Linux: #165, run 42988680864; 2026-11-11): "commits a merge started elsewhere"
   pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
-  in 15 s (git still merging); it was committed during the next test, whose Pull then did nothing
-  for 15 s (no dialog, no balloon), while the Merge test after took 1.7 s. Cause not found: the
-  tests now print the window, the repository and the page's console, and how long the commit or
-  pull takes after they give up. On macOS too (#165, run 42944609115): the merge was committed by the
-  next test, which printed "Done 15280 ms after the test gave up" (which wait, its own or the
-  commit's, the line doesn't say), the console empty. Its status bar seemed to show Pushing…, Updating…,
-  Fetching… and a pull under way, but the printout took hidden items' text too: it now prints
-  only what's shown.
+  in 15 s. On Linux the commit landed about 29 s after Ctrl+Enter ("Done 13497 ms after the test
+  gave up"), and the next test's Pull did nothing for 15 s more, while the Merge test after took
+  0.4 s: about 45 s in all; on macOS, "Done 15280 ms after the test gave up". The page sends the
+  commit to the host without waiting on anything first (`changes.tsx`); the page's console was
+  empty. Which held it up, the host or git, isn't
+  known. The status bar printed in those runs seemed to show Pushing…, Updating…, Fetching… and a
+  pull under way, but that was `textContent`, which takes hidden items' text too: it's `innerText`
+  now, only what's shown. The host now says on its standard error when a git command takes over
+  5 s, with its arguments, or its event loop is held up over 2 s (`slow.ts`), and the e2e tests
+  keep the app's standard error (`running.output`) and print it when this test fails (measured:
+  a git made 6 s slow showed "Slow: git check-ignore -z --stdin in … took 6005 ms").
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
@@ -152,4 +155,7 @@ on it:
   nothing started the idle time again; the delay's cause is still not found. Seen again on #158 (2026-11-09):
   saved 6.1 s after the edit, the editor focused, the setting 1 s, no key after the typing; the
   race test before it took 18 s there, against 8–12 s on earlier branches, but locally #158 took
-  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced.
+  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced. Seen again on #163
+  (2026-11-11): saved 6.2 s after the edit, the same otherwise. A save slower than 2 s now says on
+  the console how long it waited behind the saves before, read the file, ran the hooks before
+  saving, and wrote it; the test prints that.
