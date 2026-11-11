@@ -73,6 +73,8 @@ describe('ProjectStore', () => {
 
 interface FakeWindow extends ProjectWindow {
   welcome: boolean;
+  /** The project it's kept as (main.ts keeps its size and place by it). */
+  project: string | undefined;
   focus: Mock;
   send: Mock;
   /** Closes it as the user would. */
@@ -87,11 +89,12 @@ function setup(open: string[][] = [], exists = (path: string) => !path.includes(
   const windows: FakeWindow[] = [];
   let ids = 0;
   const hosts = { attach: vi.fn(), detach: vi.fn() };
-  const create = (welcome: boolean) => {
+  const create = (welcome: boolean, project?: string) => {
     const listeners: (() => void)[] = [];
     const window: FakeWindow = {
       id: ++ids,
       welcome,
+      project,
       send: vi.fn(),
       focus: vi.fn(),
       close: vi.fn(() => {
@@ -125,6 +128,8 @@ describe('ProjectWindows', () => {
     const last = setup([[a, resolve('/missing')], [resolve('/missing')], [b, c]]);
     last.projects.start();
     expect(last.shown()).toEqual([[a], [b, c]]);
+    // Each kept as its first project.
+    expect(last.windows.map((w) => w.project)).toEqual([a, b]);
     expect(last.hosts.attach).toHaveBeenCalledTimes(3);
     expect(last.store.open).toEqual([[a], [b, c]]);
     const none = setup();

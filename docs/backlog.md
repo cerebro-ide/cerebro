@@ -36,10 +36,6 @@ on it:
   Recent Files), as IntelliJ's. From Ido (2026-10-27), with a screenshot of the tree: "missing
   icons per file type - but don't work on the icons now just add it to the list of things to
   polish".
-- **Windows keep their size and place,** as IntelliJ's (its frames, and its diff window, whose size
-  it remembers: a claim). None does yet: a project window opens at 1440 by 900, a diff
-  window at 1100 by 750. Keeping the diff window's alone would be a special case; it's a choice for
-  every window (2026-11-11, from the diff viewer's Not yet).
 
 ## Known gaps
 
