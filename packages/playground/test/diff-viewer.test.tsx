@@ -96,6 +96,7 @@ describe('a diff’s toolbar', () => {
     await userEvent.click(button('diff.collapseUnchanged'));
     await expect.poll(folds).toBe(0);
     expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toEqual({
+      viewer: 'sideBySide',
       collapse: false,
       syncScroll: true,
       ignore: 'none',
@@ -150,6 +151,36 @@ describe('a diff’s toolbar', () => {
     expect(mount().services.commands.isChecked('diff.highlight.none')).toBe(true);
     localStorage.setItem('cerebro.diff', JSON.stringify({ ignore: 'formatting' }));
     expect(load(null).services.commands.isChecked('diff.ignore.none')).toBe(true);
+  });
+
+  it('shows the diff unified or side by side, as chosen, and keeps the choice', async () => {
+    const { services } = mount();
+    const pressed = (command: string) => button(command).getAttribute('aria-pressed');
+    expect([pressed('diff.sideBySide'), pressed('diff.unified')]).toEqual(['true', 'false']);
+    await userEvent.click(button('diff.unified'));
+    await expect.poll(() => shadow().querySelector('.cm-diff-unified')).not.toBeNull();
+    expect(shadow().querySelector('.cm-diff-b')).toBeNull();
+    // Its toolbar acts on it: the arrows, from the caret at its first change.
+    expect(button('diff.previousDifference').disabled).toBe(true);
+    await userEvent.click(button('diff.nextDifference'));
+    expect(caret()).toBe(30);
+    // And its keys, with the keyboard in it.
+    services.commands.execute('diff.nextDifference');
+    await expect.poll(caret).toBe(50);
+    // No Synchronize Scrolling: one editor.
+    await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
+    expect(document.querySelector('.cerebro-menu')?.textContent).not.toContain('Synchronize');
+    await userEvent.keyboard('{Escape}');
+    expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
+      viewer: 'unified',
+    });
+    // A new session takes it; back to side by side.
+    dispose?.();
+    document.body.replaceChildren();
+    mount();
+    expect(shadow().querySelector('.cm-diff-unified')).not.toBeNull();
+    await userEvent.click(button('diff.sideBySide'));
+    await expect.poll(() => shadow().querySelector('.cm-diff-b')).not.toBeNull();
   });
 
   it('starts as before when the toggles can’t be read or kept', () => {

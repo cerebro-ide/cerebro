@@ -1,12 +1,13 @@
 // A diff with its toolbar, as IntelliJ's diff viewer: Previous and Next Difference (Shift+F7 and
-// F7), Collapse Unchanged Fragments, and the Settings gear with Synchronize Scrolling and the
-// policies, Ignore Differences and Highlighting Differences. The settings are kept for every diff,
+// F7), Collapse Unchanged Fragments, the viewer (side by side or unified), and the Settings gear
+// with Synchronize Scrolling and the policies, Ignore Differences and Highlighting Differences. The settings are kept for every diff,
 // as IntelliJ keeps its diff settings, and the diffs open take them at once.
 
 import { formatSequence, type Keymap } from '@cerebro-ide/commands';
 import { signal, type Signal } from '@cerebro-ide/reactive';
 import {
   DiffEditor,
+  UnifiedDiffEditor,
   HIGHLIGHT_POLICIES,
   IGNORE_POLICIES,
   type DiffControl,
@@ -36,7 +37,11 @@ const HIGHLIGHT_LABELS: Record<HighlightPolicy, string> = {
   none: 'None',
 };
 
+/** IntelliJ's two viewers of a text's diff. */
+type Viewer = 'sideBySide' | 'unified';
+
 interface Options {
+  viewer: Viewer;
   collapse: boolean;
   syncScroll: boolean;
   ignore: IgnorePolicy;
@@ -51,6 +56,7 @@ interface Options {
  */
 function readOptions(): Options {
   const defaults: Options = {
+    viewer: 'sideBySide',
     collapse: true,
     syncScroll: true,
     ignore: 'none',
@@ -61,6 +67,7 @@ function readOptions(): Options {
     const one = <T extends string>(values: readonly T[], value: unknown, fallback: T) =>
       values.find((v) => v === value) ?? fallback;
     return {
+      viewer: stored.viewer === 'unified' ? 'unified' : 'sideBySide',
       collapse: stored.collapse !== false,
       syncScroll: stored.syncScroll !== false,
       ignore: one(IGNORE_POLICIES, stored.ignore, defaults.ignore),
@@ -72,6 +79,7 @@ function readOptions(): Options {
 }
 
 /** The settings, as kept: read as the commands are set up. */
+const viewer = signal<Viewer>('sideBySide');
 const collapse = signal(true);
 const syncScroll = signal(true);
 const ignore = signal<IgnorePolicy>('none');
@@ -80,6 +88,7 @@ const highlight = signal<HighlightPolicy>('words');
 function saveOptions(): void {
   try {
     const options: Options = {
+      viewer: viewer.peek(),
       collapse: collapse.peek(),
       syncScroll: syncScroll.peek(),
       ignore: ignore.peek(),
@@ -91,20 +100,21 @@ function saveOptions(): void {
   }
 }
 
-/** Each viewer's diff, by its element, for a key pressed in it. */
-const diffs = new WeakMap<Element, DiffControl>();
+/** Each viewer's diff, by its element, for a key pressed in it: the one it shows now. */
+const diffs = new WeakMap<Element, () => DiffControl | undefined>();
 
 /** The diff a command acts on: its toolbar's, or the one with the keyboard's. */
 function diffOf(context: unknown): DiffControl | undefined {
   if (context && typeof context === 'object' && 'next' in context) return context as DiffControl;
-  const viewer = document.activeElement?.closest('.playground-diff');
-  return viewer ? diffs.get(viewer) : undefined;
+  const element = document.activeElement?.closest('.playground-diff');
+  return element ? diffs.get(element)?.() : undefined;
 }
 
 /** The diff's commands and its Settings menu; their keys are the keymaps'. */
 export function setupDiffViewer(services: MenuServices): void {
   const { commands, menus } = services;
   const options = readOptions();
+  viewer.set(options.viewer);
   collapse.set(options.collapse);
   syncScroll.set(options.syncScroll);
   ignore.set(options.ignore);
@@ -137,9 +147,27 @@ export function setupDiffViewer(services: MenuServices): void {
       saveOptions();
     },
   });
+  // The viewers, as IntelliJ's chooser: their names, `DiffBundle`'s `*.viewer`.
+  for (const [id, label, which] of [
+    ['diff.sideBySide', 'Side-by-side viewer', 'sideBySide'],
+    ['diff.unified', 'Unified viewer', 'unified'],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      icon: which,
+      checked: () => viewer.get() === which,
+      run: () => {
+        viewer.set(which);
+        saveOptions();
+      },
+    });
+  }
   commands.register({
     id: 'diff.syncScroll',
     label: 'Synchronize Scrolling',
+    // One editor scrolls alone.
+    visible: () => viewer.get() === 'sideBySide',
     checked: () => syncScroll.get(),
     run: () => {
       syncScroll.set(!syncScroll.peek());
@@ -217,9 +245,13 @@ export function DiffViewer(props: DiffViewerProps): Node {
         {button('diff.nextDifference')}
         <span class="playground-diff__separator" />
         {button('diff.collapseUnchanged')}
+        <div class="playground-diff__viewers" role="group" aria-label="Viewer">
+          {button('diff.sideBySide')}
+          {button('diff.unified')}
+        </div>
         <button
           type="button"
-          class="cerebro-toolbar-button playground-diff__settings"
+          class="cerebro-toolbar-button"
           aria-label="Settings"
           data-menu="diff/settings"
           ref={tooltip({ text: () => 'Settings', placement: 'below' })}
@@ -231,23 +263,29 @@ export function DiffViewer(props: DiffViewerProps): Node {
           {icon('settings')}
         </button>
       </div>
-      <DiffEditor
-        path={props.path}
-        original={props.original}
-        text={props.text}
-        fontSize={props.fontSize}
-        tabSize={props.tabSize}
-        collapse={() => collapse.get()}
-        syncScroll={() => syncScroll.get()}
-        ignore={() => ignore.get()}
-        highlight={() => highlight.get()}
-        control={(diff) => {
-          control.set(diff);
-        }}
-      />
+      {() => {
+        // The viewer chosen, made again when another is.
+        const shared = {
+          path: props.path,
+          original: props.original,
+          text: props.text,
+          fontSize: props.fontSize,
+          tabSize: props.tabSize,
+          collapse: () => collapse.get(),
+          ignore: () => ignore.get(),
+          highlight: () => highlight.get(),
+          control: (diff: DiffControl) => {
+            control.set(diff);
+          },
+        };
+        return viewer.get() === 'unified' ? (
+          <UnifiedDiffEditor {...shared} />
+        ) : (
+          <DiffEditor {...shared} syncScroll={() => syncScroll.get()} />
+        );
+      }}
     </div>
   ) as HTMLElement;
-  // Given as the diff was made, before its element was.
-  diffs.set(element, control.peek() as DiffControl);
+  diffs.set(element, () => control.peek());
   return element;
 }

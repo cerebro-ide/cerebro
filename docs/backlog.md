@@ -113,7 +113,10 @@ on it:
   frame, hadn't run. That frames don't run off-screen is a claim: WSLg won't move a window
   off-screen to measure it, and waiting for the window to be placed failed other files (a window
   stayed off-screen for over 15 s, which they ran fine in). The test now also prints how many
-  frames the page draws in 500 ms when it finds the » hidden.
+  frames the page draws in 500 ms when it finds the » hidden. On 2026-11-11 (feat/diff-unified,
+  full local run), another way: nothing printed, so the » showed when checked, then hover found it
+  hidden ("Element is not visible"): the row's fit changed between the two. What changed it isn't
+  known yet.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
   real bug, users could hit it too.
