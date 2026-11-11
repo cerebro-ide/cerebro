@@ -2388,8 +2388,7 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     the caret of the side last focused).
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
-- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
-  window's size kept; the Go to next file setting (Settings → Tools → Diff & Merge); several files
+- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the Go to next file setting (Settings → Tools → Diff & Merge); several files
   selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
