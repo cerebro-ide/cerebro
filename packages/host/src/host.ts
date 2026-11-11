@@ -57,6 +57,7 @@ import {
   checkout,
   createBranch,
   deleteBranch,
+  deleteRemoteBranch,
   mergeBranch,
   rebase,
   rebaseOnto,
@@ -803,6 +804,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.deleteBranch', (params) =>
     deleteBranch(text(params, 'path'), text(params, 'name'), git),
   );
+  connection.onRequest('git.deleteRemoteBranch', async (params) => {
+    const name = text(params, 'name');
+    if (!/^[^/]+\/./.test(name)) {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'name must be a remote branch: remote/branch',
+      );
+    }
+    await deleteRemoteBranch(text(params, 'path'), name, remote);
+    return null;
+  });
   connection.onRequest('git.restoreBranch', async (params) => {
     await restoreBranch(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git);
     return null;
