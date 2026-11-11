@@ -191,15 +191,27 @@ let saved: Promise<unknown> = Promise.resolve();
  * once would each find the other's write on disk, and call it a conflict.
  */
 export function saveFiles(paths?: readonly string[], label?: string): Promise<void> {
-  const next = saved.then(() => save(paths, label));
+  const asked = performance.now();
+  const next = saved.then(() => save(paths, label, asked));
   // A save that fails doesn't stop the next.
   saved = next.catch(() => undefined);
   return next;
 }
 
-async function save(paths?: readonly string[], label?: string): Promise<void> {
+/**
+ * How long a save may take, from when it was asked for, before it says on the console where the time
+ * went: the e2e test of saving when idle has seen 6 s with the idle time at 1 s (docs/backlog.md).
+ */
+export const SLOW_SAVE = 2000;
+
+async function save(
+  paths: readonly string[] | undefined,
+  label: string | undefined,
+  asked: number,
+) {
   if (!currentHost()) return;
   const failed: string[] = [];
+  const started = performance.now();
   for (const [path, doc] of await opened()) {
     if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
@@ -208,15 +220,18 @@ async function save(paths?: readonly string[], label?: string): Promise<void> {
     saves.set(path, (saves.get(path) ?? 0) + 1);
     try {
       // Not over a change made on disk since it was read: that's a conflict.
+      const reading = performance.now();
       const disk = await host.request('fs.read', { path }).then(
         (result) => (result as { text: string }).text,
         () => undefined,
       );
+      const read = performance.now();
       // Deleted: not made again. Unreadable: written over, which says why it fails.
       if (disk === undefined && (await deleted(path))) continue;
       if (disk !== undefined && (await conflicts(path, doc, disk))) continue;
       if (!doc.modified.peek()) continue;
       await changeBeforeSave(path, doc);
+      const hooked = performance.now();
       // What's written, which the editor may change while it's being written.
       const text = doc.text.peek();
       const format = doc.format.peek();
@@ -226,6 +241,15 @@ async function save(paths?: readonly string[], label?: string): Promise<void> {
         ...(label === undefined ? {} : { label }),
       });
       doc.saved(text, format);
+      const written = performance.now();
+      if (written - asked > SLOW_SAVE) {
+        const ms = (from: number, to: number) => `${String(Math.round(to - from))} ms`;
+        console.warn(
+          `Saving ${path} took ${ms(asked, written)}: ${ms(asked, started)} after the saves before, ` +
+            `${ms(started, reading)} to the file, ${ms(reading, read)} reading it, ` +
+            `${ms(read, hooked)} before saving, ${ms(hooked, written)} writing it`,
+        );
+      }
     } catch (error) {
       failed.push(`${path}: ${(error as Error).message}`);
     } finally {
