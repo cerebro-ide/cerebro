@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import type { DiffSpec } from '../src/bridge.js';
 
@@ -133,5 +133,25 @@ describe('its title', () => {
     moved?.();
     expect(tabs).toEqual([SPEC, SPEC]);
     expect(alls).toEqual([true, false]);
+  });
+
+  it('closes on Escape, as IntelliJ’s, unless something in it took the key', async () => {
+    const close = vi.spyOn(window, 'close').mockImplementation(() => undefined);
+    try {
+      const content = root()?.querySelectorAll<HTMLElement>('.cm-content')[1] as HTMLElement;
+      await userEvent.click(content);
+      // Taken by what has the focus (a popup's field, say): the window stays.
+      const take = (event: KeyboardEvent) => {
+        event.preventDefault();
+      };
+      content.addEventListener('keydown', take);
+      await userEvent.keyboard('{Escape}');
+      expect(close).not.toHaveBeenCalled();
+      content.removeEventListener('keydown', take);
+      await userEvent.keyboard('{Escape}');
+      expect(close).toHaveBeenCalledOnce();
+    } finally {
+      close.mockRestore();
+    }
   });
 });

@@ -146,7 +146,11 @@ it('shows a commit’s files and message, and opens a file’s diff between it a
   const added = diff.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await expect.poll(() => added.allTextContents(), HOST).toEqual(['On the side']);
   expect(await diff.title()).toMatch(/^file\.txt \([0-9a-f]{8}\.\.[0-9a-f]{8}\)$/);
-  await diff.close();
+  // Escape closes it, as IntelliJ's.
+  const closed = diff.waitForEvent('close');
+  // Gone as the key goes down: the key's release finds no page (measured), so it may fail.
+  await diff.keyboard.press('Escape').catch(() => undefined);
+  await closed;
 });
 
 it('filters by the branch double-clicked in its pane, or chosen in the toolbar, and refreshes', async () => {
