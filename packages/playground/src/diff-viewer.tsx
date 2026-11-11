@@ -21,6 +21,7 @@ import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { icon } from './icons.js';
+import { globalSettings } from './settings.js';
 
 /** The settings, kept between sessions. */
 const OPTIONS_KEY = 'cerebro.diff';
@@ -109,6 +110,15 @@ function readOptions(): Options {
     return defaults;
   }
 }
+
+/**
+ * The lines folds leave by each change, from Settings → Tools → Diff & Merge; undefined when
+ * folding is turned off there (Disable). Read reactively.
+ */
+const contextLines = (): number | undefined => {
+  const lines = globalSettings.get('diff.contextLines') as string;
+  return lines === 'disable' ? undefined : Number(lines);
+};
 
 /** The settings, as kept: read as the commands are set up. */
 const viewer = signal<Viewer>('sideBySide');
@@ -249,6 +259,8 @@ export function setupDiffViewer(services: MenuServices, files?: DiffFiles, move?
     id: 'diff.collapseUnchanged',
     label: 'Collapse Unchanged Fragments',
     icon: 'collapseAll',
+    // Nothing to fold with folding turned off in Settings.
+    enabled: () => contextLines() !== undefined,
     checked: () => collapse.get(),
     run: () => {
       collapse.set(!collapse.peek());
@@ -370,6 +382,8 @@ export interface DiffViewerProps {
    * there: made with `button`, a command's button as the toolbar's own.
    */
   navigation?: (button: (command: string) => Node) => Child;
+  /** Makes the right side editable: called with its text as it's edited. */
+  onEdit?: (text: string) => void;
 }
 
 /** A diff and its toolbar. */
@@ -439,7 +453,8 @@ export function DiffViewer(props: DiffViewerProps): Node {
             text: props.text,
             fontSize: props.fontSize,
             tabSize: props.tabSize,
-            collapse: () => collapse.get(),
+            collapse: () => collapse.get() && contextLines() !== undefined,
+            context: () => contextLines() ?? 0,
             ignore: () => ignore.get(),
             highlight: () => highlight.get(),
             whitespace: () => appearance.whitespace.get(),
@@ -451,6 +466,7 @@ export function DiffViewer(props: DiffViewerProps): Node {
               if (props.focus) diff.focus();
             },
             ...(props.scrollTo ? { scrollTo: props.scrollTo } : {}),
+            ...(props.onEdit ? { onEdit: props.onEdit } : {}),
           };
           return viewer.get() === 'unified' ? (
             <UnifiedDiffEditor {...shared} />
@@ -494,14 +510,26 @@ export function DiffViewer(props: DiffViewerProps): Node {
 }
 
 /**
+ * The text a diff's right side edits, as IntelliJ's diff of a file as it is edits the file's
+ * document: read reactively, and edited from the diff.
+ */
+export interface DiffDocument {
+  /** Undefined if it can't be read (a file deleted): the diff then shows what `read` gives. */
+  text(): string | undefined;
+  edit(text: string): void;
+}
+
+/**
  * A file's diff as `read` gives its two texts: "Loading…" until they're read, why if they can't
  * be, then the diff and its toolbar. Read again when `version` changes (a diff window getting the
- * focus back), it's shown again only if they've changed, so the caret stays where it was.
+ * focus back), it's shown again only if they've changed, so the caret stays where it was. With a
+ * `document`, the right side is its text, and edits it: shown again when it's changed elsewhere.
  */
 export function FileDiff(props: {
   services: MenuServices;
   path: string;
   read: () => Promise<{ original: string; text: string }>;
+  document?: DiffDocument;
   version?: () => number;
   fontSize: () => number;
   tabSize: () => number;
@@ -511,21 +539,46 @@ export function FileDiff(props: {
 }): Node {
   type Loaded = { original: string; text: string } | { error: string };
   const loaded = signal<Loaded | undefined>(undefined);
+  /** What's shown, as the diff's editors have it: an edit there isn't news. */
+  let shown = '';
   const show = (next: Loaded) => {
-    const now = loaded.peek();
-    if (JSON.stringify(now) !== JSON.stringify(next)) loaded.set(next);
+    const key = JSON.stringify(next);
+    if (key === shown) return;
+    shown = key;
+    loaded.set(next);
   };
+  const { document } = props;
   const watch = effect(() => {
     props.version?.();
     untracked(() => {
-      props.read().then(show, (error: unknown) => {
-        show({ error: (error as Error).message });
-      });
+      props.read().then(
+        (read) => {
+          show({ original: read.original, text: document?.text() ?? read.text });
+        },
+        (error: unknown) => {
+          show({ error: (error as Error).message });
+        },
+      );
     });
     return undefined;
   });
+  // The document changed elsewhere (its file's tab): shown as it is.
+  const following = effect(() => {
+    const text = document?.text();
+    untracked(() => {
+      const now = loaded.peek();
+      if (text !== undefined && now && !('error' in now)) show({ original: now.original, text });
+    });
+    return undefined;
+  });
+  const edit = (text: string) => {
+    const now = loaded.peek() as { original: string; text: string };
+    shown = JSON.stringify({ original: now.original, text });
+    document?.edit(text);
+  };
   onCleanup(() => {
     watch.dispose();
+    following.dispose();
   });
   return (
     <div class="playground-code">
@@ -550,6 +603,7 @@ export function FileDiff(props: {
             {...(props.navigation ? { navigation: props.navigation } : {})}
             {...(props.scrollTo ? { scrollTo: props.scrollTo } : {})}
             {...(props.focus ? { focus: true } : {})}
+            {...(untracked(() => document?.text()) === undefined ? {} : { onEdit: edit })}
           />
         );
       }}

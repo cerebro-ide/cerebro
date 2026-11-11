@@ -37,6 +37,8 @@ beforeAll(async () => {
         tabs.push(spec);
         return Promise.resolve();
       },
+      // Between commits: no document to be told of.
+      onDocument: () => () => undefined,
     },
   } as unknown as NonNullable<Window['cerebro']>;
   location.hash = `#diff=${encodeURIComponent(JSON.stringify(SPEC))}`;

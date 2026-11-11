@@ -239,6 +239,23 @@ it('moves a diff from its window to a tab and back, from its Settings, as Intell
   await back.close();
 });
 
+it('edits the file from its diff window, as its document, as IntelliJ’s', async () => {
+  await row('changes:shape.ts').click();
+  const window = await diffWindow(running, () => page().keyboard.press('ControlOrMeta+d'));
+  const right = window.locator('.cerebro-editor-diff .cm-diff-b');
+  await right.locator('.cm-line', { hasText: '// added' }).click();
+  await window.keyboard.press('End');
+  await window.keyboard.type(' typed');
+  // The file's tab, in the project's window, has it: one document.
+  const tab = () => page().locator('.cerebro-editor-code:visible .cm-line').allTextContents();
+  await expect.poll(tab, { timeout: 15_000 }).toContain('// added typed');
+  // Taken back in the diff: the file as it was.
+  for (let i = 0; i < ' typed'.length; i++) await window.keyboard.press('Backspace');
+  await expect.poll(tab, { timeout: 15_000 }).toContain('// added');
+  expect(await tab()).not.toContain('// added typed');
+  await window.close();
+});
+
 it('commits and pushes, with Commit and Push…, to the branch’s upstream', async () => {
   const remote = join(root, 'remote.git');
   execFileSync('git', ['init', '-q', '--bare', remote]);

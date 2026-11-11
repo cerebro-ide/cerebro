@@ -7,6 +7,7 @@ import { visibleEntries, type MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource } from '@cerebro-ide/ui-editor';
+import { globalSettings } from '../src/settings.js';
 import { DiffViewer, diffsInTabs, setupDiffViewer, type DiffMove } from '../src/diff-viewer.js';
 
 /** Set up afresh, as a new session reads the toggles kept. */
@@ -114,6 +115,22 @@ describe('a diff’s toolbar', () => {
     mount();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(folds()).toBe(0);
+  });
+
+  it('folds with the context lines of Settings → Tools → Diff & Merge, or not at all, as IntelliJ’s', async () => {
+    mount();
+    // 60 lines, changes at 10, 30 and 50: 4 lines of context leave 6 before the first.
+    const first = () =>
+      shadow().querySelector('.cm-diff-b .cm-diff-fold')?.getAttribute('aria-label') ?? null;
+    await expect.poll(first).toBe('6 unchanged lines');
+    globalSettings.layers.global.set('diff.contextLines', '1');
+    await expect.poll(first).toBe('9 unchanged lines');
+    // Disable: nothing folded, and nothing to collapse.
+    globalSettings.layers.global.set('diff.contextLines', 'disable');
+    await expect.poll(folds).toBe(0);
+    expect(button('diff.collapseUnchanged').disabled).toBe(true);
+    globalSettings.layers.global.reset('diff.contextLines');
+    await expect.poll(first).toBe('6 unchanged lines');
   });
 
   it('aligns changes if turned on, and synchronizes scrolling unless turned off, in its Settings', async () => {

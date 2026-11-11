@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import type { DiffSpec } from '../src/bridge.js';
+import { globalSettings } from '../src/settings.js';
 
 // A diff window opened from a list of files (diff-window.test has one opened alone): it goes through
 // them, as IntelliJ's diff window goes through the files it was opened with. Made once, as it's
@@ -10,6 +11,7 @@ import type { DiffSpec } from '../src/bridge.js';
 const requests: unknown[] = [];
 const jumps: unknown[] = [];
 const tabs: unknown[] = [];
+let told: (path: string, text: string | null) => void = () => undefined;
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -41,6 +43,17 @@ beforeAll(async () => {
       toTab: (spec: unknown) => {
         tabs.push(spec);
         return Promise.resolve();
+      },
+      // Its files' documents can't be read: their diffs are git's, not edited.
+      document: (file: string) => {
+        queueMicrotask(() => {
+          told(file, null);
+        });
+        return Promise.resolve();
+      },
+      onDocument: (listener: typeof told) => {
+        told = listener;
+        return () => undefined;
       },
     },
   } as unknown as NonNullable<Window['cerebro']>;
@@ -177,6 +190,17 @@ describe('a diff window with a list of files', () => {
     await userEvent.keyboard('{F7}{F7}');
     expect(hint()?.textContent).toBe('Press again to go to the next file');
     expect(shown()).toBe('b.ts');
+  });
+
+  it('stays at the last change if turned off in Settings → Tools → Diff & Merge, as IntelliJ’s', async () => {
+    // At b.ts's last change, as the test before left it.
+    expect(button('diff.nextDifference').disabled).toBe(false);
+    globalSettings.layers.global.set('diff.goToNextFile', false);
+    await expect.poll(() => button('diff.nextDifference').disabled).toBe(true);
+    // Compare Next File still goes on.
+    expect(button('diff.nextFile').disabled).toBe(false);
+    globalSettings.layers.global.reset('diff.goToNextFile');
+    await expect.poll(() => button('diff.nextDifference').disabled).toBe(false);
   });
 
   it('moves the file shown to a tab of its opener, from its Settings, as IntelliJ’s', async () => {

@@ -84,6 +84,14 @@ declare global {
         toTab(spec: DiffSpec): Promise<void>;
         /** In a project's window: each diff its diff windows move to tabs. */
         onTab(listener: (spec: unknown) => void): () => void;
+        /** From a diff window: asks its opener for a file's document (`text` null), or edits it. */
+        document(path: string, text: string | null): Promise<void>;
+        /** In a diff window: each text its opener tells of a document (null if unread). */
+        onDocument(listener: (path: unknown, text: unknown) => void): () => void;
+        /** In a project's window: each document a diff window asks for, or edits. */
+        onDocumentAsked(listener: (path: unknown, text: unknown) => void): () => void;
+        /** From a project's window: a document's text (null if unread), for its diff windows. */
+        documentText(path: string, text: string | null): Promise<void>;
       };
       /** Passwords kept by key, encrypted by the system's keychain; null forgets one. */
       passwords: {

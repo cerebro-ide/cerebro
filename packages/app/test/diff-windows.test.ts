@@ -32,6 +32,10 @@ vi.mock('electron', () => ({ ipcMain: electron.ipcMain, BrowserWindow: electron.
 const {
   DIFF_JUMP,
   DIFF_JUMPED,
+  DIFF_DOCUMENT,
+  DIFF_DOCUMENT_ASKED,
+  DIFF_DOCUMENT_SHOWN,
+  DIFF_DOCUMENT_TEXT,
   DIFF_TAB,
   DIFF_TABBED,
   DIFF_OPEN,
@@ -97,6 +101,28 @@ describe('diff windows', () => {
     expect(made[2]?.close).toHaveBeenCalled();
   });
 
+  it('asks a diff window’s opener for a document, and tells its diff windows alone of its text', () => {
+    let ids = 10;
+    const made: ReturnType<typeof fake>[] = [];
+    const windows = new DiffWindows({ share: vi.fn(), unshare: vi.fn() }, () => {
+      const window = fake(++ids);
+      made.push(window);
+      return window;
+    });
+    const [opener, other] = [fake(1), fake(2)];
+    windows.show(opener, spec);
+    windows.show(other, spec);
+    windows.askDocument(11, '/repo/a.ts', null);
+    expect(opener.send).toHaveBeenCalledWith(DIFF_DOCUMENT_ASKED, '/repo/a.ts', null);
+    expect(other.send).not.toHaveBeenCalled();
+    windows.showDocument(1, '/repo/a.ts', 'text');
+    expect(made[0]?.send).toHaveBeenCalledWith(DIFF_DOCUMENT_SHOWN, '/repo/a.ts', 'text');
+    expect(made[1]?.send).not.toHaveBeenCalled();
+    // A window no project window opened: no one to ask.
+    windows.askDocument(99, '/repo/a.ts', null);
+    expect(opener.send).toHaveBeenCalledOnce();
+  });
+
   it('moves a diff to its opener as a tab, in front, and closes its window', () => {
     let ids = 10;
     const windows = new DiffWindows({ share: vi.fn(), unshare: vi.fn() }, () => fake(++ids));
@@ -159,6 +185,13 @@ describe('diff windows', () => {
     expect(opener.send).toHaveBeenCalledWith(DIFF_JUMPED, { line: 1 });
     await ask(DIFF_TAB, 2, spec);
     expect(opener.send).toHaveBeenCalledWith(DIFF_TABBED, spec);
+    // Its document, asked for through the opener, told of to the diff window.
+    create.mockImplementation(() => ({ ...fake(3), send: opener.send }));
+    await ask(DIFF_OPEN, 1, { ...spec, path: 'b.ts' });
+    await ask(DIFF_DOCUMENT, 3, '/repo/b.ts', null);
+    expect(opener.send).toHaveBeenCalledWith(DIFF_DOCUMENT_ASKED, '/repo/b.ts', null);
+    await ask(DIFF_DOCUMENT_TEXT, 1, '/repo/b.ts', 'b');
+    expect(opener.send).toHaveBeenCalledWith(DIFF_DOCUMENT_SHOWN, '/repo/b.ts', 'b');
   });
 
   it('sees a window through its contents: sent to while it lasts, brought to the front, closed', () => {
