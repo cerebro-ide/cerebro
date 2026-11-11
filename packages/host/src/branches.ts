@@ -108,5 +108,43 @@ export function mergeBranch(worktree: string, branch: string, run: Git): Promise
  * rebase.
  */
 export function rebaseOnto(worktree: string, onto: string, run: Git): Promise<BranchResult> {
-  return changing(worktree, ['rebase', '--autostash', onto], run);
+  return rebase(worktree, { options: [], upstream: onto }, run);
+}
+
+/** The options Git → Rebase… offers, IntelliJ's `REBASE_FLAGS` but --interactive and --root. */
+export const REBASE_OPTIONS = [
+  '--rebase-merges',
+  '--keep-empty',
+  '--update-refs',
+  '--autosquash',
+  '--no-autosquash',
+] as const;
+
+export interface RebaseParams {
+  options: readonly (typeof REBASE_OPTIONS)[number][];
+  /** `--onto`'s new base, if given. */
+  onto?: string;
+  /** The upstream (with `--onto`, the old base); every commit of the branch (`--root`) if none. */
+  upstream?: string;
+  /** The branch switched to first, if not the current one. */
+  branch?: string;
+}
+
+/**
+ * Git → Rebase…: IntelliJ's `git rebase [options] [--onto <new base>] (<upstream> | --root)
+ * [<branch>]`, local changes stashed and put back as `rebaseOnto`'s.
+ */
+export function rebase(worktree: string, params: RebaseParams, run: Git): Promise<BranchResult> {
+  return changing(
+    worktree,
+    [
+      'rebase',
+      '--autostash',
+      ...params.options,
+      ...(params.onto === undefined ? [] : ['--onto', params.onto]),
+      params.upstream ?? '--root',
+      ...(params.branch === undefined ? [] : [params.branch]),
+    ],
+    run,
+  );
 }

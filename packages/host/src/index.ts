@@ -211,10 +211,13 @@ export {
   createBranch,
   deleteBranch,
   mergeBranch,
+  rebase,
   rebaseOnto,
+  REBASE_OPTIONS,
   renameBranch,
   restoreBranch,
   type BranchResult,
+  type RebaseParams,
   type Deleted,
   type NewBranch,
 } from './branches.js';

@@ -10,6 +10,7 @@ import {
   deleteBranch,
   git,
   mergeBranch,
+  rebase,
   rebaseOnto,
   renameBranch,
   restoreBranch,
@@ -157,6 +158,23 @@ describe('branch operations, with real git', () => {
     expect(await continueOperation(repo, git)).toBe('done');
     expect(subjects(repo)).toEqual(['shared on main', 'main', 'shared on side', 'side', 'first']);
     expect(read(repo, 'main.txt')).toBe('mine');
+  });
+
+  it('rebases with Git → Rebase…’s choices: another branch, --onto, --root', async () => {
+    const repo = repository();
+    // `side` onto main, from main: switched to it first.
+    expect(await rebase(repo, { options: [], upstream: 'main', branch: 'side' }, git)).toBe('done');
+    expect(current(repo)).toBe('side');
+    expect(subjects(repo)).toEqual(['side', 'main', 'first']);
+    // Its last commit alone, onto first: --onto with the old base.
+    expect(await rebase(repo, { options: [], onto: 'main~1', upstream: 'side~1' }, git)).toBe(
+      'done',
+    );
+    expect(subjects(repo)).toEqual(['side', 'first']);
+    // Every commit, the empty one kept: --root (first, in main already, is git's to skip).
+    run(repo, 'commit', '-q', '--allow-empty', '-m', 'empty');
+    expect(await rebase(repo, { options: ['--keep-empty'], onto: 'main' }, git)).toBe('done');
+    expect(subjects(repo)).toEqual(['empty', 'side', 'main', 'first']);
   });
 
   it('fails a rebase onto what isn’t there in git’s words', async () => {
