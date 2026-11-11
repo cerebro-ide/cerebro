@@ -2267,8 +2267,9 @@ source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
 
 - **Where:** the Log's toolbar, after Refresh (IntelliJ's `Vcs.Log.Toolbar`, between Refresh and
   the presentation settings), on the selected commit, off with none; and the commit menu, after
-  Copy Revision Number (IntelliJ's comes after Create Patch, which Cerebro hasn't). No key: IntelliJ's
-  keymaps give it none (searched). Off while a pick runs in that worktree, as IntelliJ's while one is started.
+  Copy Revision Number (IntelliJ's comes after Create Patch, which Cerebro hasn't). No key:
+  IntelliJ's keymaps give it none (searched). Off while a pick runs in that worktree, as IntelliJ's
+  is while one is started.
 - **The pick:** `git cherry-pick <hash>` with no editor (`GIT_EDITOR=true`), so the commit keeps its
   message and author, as IntelliJ's (`preserveCommitMetadata`). With "(cherry picked from commit …)"
   (git's `-x`) when the commit is on a protected branch of a remote, as IntelliJ's default
