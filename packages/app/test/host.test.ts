@@ -142,6 +142,13 @@ describe('Hosts', () => {
     expect(() => hosts.request(1, '/other', 'host.ping', undefined)).toThrow(
       'no project open at /other',
     );
+    // A window sharing another's hosts (a diff window): its requests go to them, until unshared.
+    hosts.share(2, 1);
+    const shared = one.sent();
+    void hosts.request(2, '/repo', 'git.diff', { file: 'a.ts' });
+    expect(await shared).toMatchObject({ method: 'git.diff', params: { file: 'a.ts' } });
+    hosts.unshare(2);
+    expect(() => hosts.request(2, '/repo', 'host.ping', undefined)).toThrow('no project open');
   });
 
   it('stops a project’s host when it starts again, when it closes, with its window, and at the end', () => {

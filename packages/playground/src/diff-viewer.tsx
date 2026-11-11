@@ -289,3 +289,52 @@ export function DiffViewer(props: DiffViewerProps): Node {
   diffs.set(element, () => control.peek());
   return element;
 }
+
+/**
+ * A file's diff as `read` gives its two texts: "Loading…" until they're read, why if they can't
+ * be, then the diff and its toolbar.
+ */
+export function FileDiff(props: {
+  services: MenuServices;
+  path: string;
+  read: () => Promise<{ original: string; text: string }>;
+  fontSize: () => number;
+  tabSize: () => number;
+}): Node {
+  const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
+    undefined,
+  );
+  props.read().then(
+    (result) => {
+      loaded.set(result);
+    },
+    (error: unknown) => {
+      loaded.set({ error: (error as Error).message });
+    },
+  );
+  return (
+    <div class="playground-code">
+      {() => {
+        const state = loaded.get();
+        if (!state) return <p class="playground-code__note">Loading…</p>;
+        if ('error' in state) {
+          return (
+            <p class="playground-code__note">
+              Can’t show the changes to {props.path}: {state.error}
+            </p>
+          );
+        }
+        return (
+          <DiffViewer
+            services={props.services}
+            path={props.path}
+            original={state.original}
+            text={state.text}
+            fontSize={props.fontSize}
+            tabSize={props.tabSize}
+          />
+        );
+      }}
+    </div>
+  ) as HTMLElement;
+}

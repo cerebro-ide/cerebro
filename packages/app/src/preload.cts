@@ -31,6 +31,10 @@ const PROJECT_PICK = 'cerebro:project:pick';
 const PROJECT_OPEN = 'cerebro:project:open';
 const PROJECT_CLOSE = 'cerebro:project:close';
 const PROJECT_FORGET = 'cerebro:project:forget';
+// Kept in step with diff-windows.ts.
+const DIFF_OPEN = 'cerebro:diff:open';
+const DIFF_JUMP = 'cerebro:diff:jump';
+const DIFF_JUMPED = 'cerebro:diff:jumped';
 // Kept in step with projects.ts.
 const PROJECT_ADDED = 'cerebro:project:added';
 const PROJECT_SHOW = 'cerebro:project:show';
@@ -124,6 +128,14 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
           listener(project, method, params);
         }
       }),
+  },
+  diff: {
+    /** Shows a file's diff in a window of its own (diff-windows.ts). */
+    open: (spec: unknown): Promise<unknown> => invoke(DIFF_OPEN, spec),
+    /** From a diff window: its opener goes to a place in a file. */
+    jump: (at: unknown): Promise<unknown> => invoke(DIFF_JUMP, at),
+    /** In an opener: calls `listener` with each place its diff windows jump to. */
+    onJump: (listener: (at: unknown) => void) => listen(DIFF_JUMPED, listener),
   },
   menu: {
     set: (items: unknown) => {

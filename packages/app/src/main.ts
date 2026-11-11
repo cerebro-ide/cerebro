@@ -15,6 +15,7 @@ import {
 import { fileURLToPath } from 'node:url';
 import { installWindowColours } from './colours.js';
 import { installFullScreen } from './fullscreen.js';
+import { diffHash, installDiffWindows, windowOf, type DiffSpec } from './diff-windows.js';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { handle } from './ipc.js';
@@ -50,15 +51,20 @@ export const PROJECT_OPEN = 'cerebro:project:open';
 export const PROJECT_CLOSE = 'cerebro:project:close';
 export const PROJECT_FORGET = 'cerebro:project:forget';
 
-/** Loads a window's page: the dev server's, or the built one. */
-async function load(window: BrowserWindow, devUrl: string | undefined, zoom: number | undefined) {
+/** Loads a window's page: the dev server's, or the built one; with a hash, what it's to show. */
+async function load(
+  window: BrowserWindow,
+  devUrl: string | undefined,
+  zoom: number | undefined,
+  hash: string | undefined,
+) {
   if (devUrl) {
     const origin = new URL(devUrl).origin;
     confine(window.webContents, (url) => url.origin === origin);
-    await window.loadURL(devUrl);
+    await window.loadURL(hash === undefined ? devUrl : `${devUrl}#${hash}`);
   } else {
     confine(window.webContents, (url) => url.protocol === 'file:');
-    await window.loadFile(PAGE);
+    await window.loadFile(PAGE, hash === undefined ? undefined : { hash });
   }
   // Again once loaded: a zoom kept from the last run overrides the window's zoomFactor (measured in
   // CI on macOS: 1.25 after going back to Auto, with zoomFactor 1).
@@ -66,13 +72,14 @@ async function load(window: BrowserWindow, devUrl: string | undefined, zoom: num
 }
 
 /**
- * A window showing the UI, for a project or, smaller, the Welcome window; `loaded` settles once
- * its page has loaded.
+ * A window showing the UI, for a project or, smaller, the Welcome window, or with `hash`, a diff
+ * window; `loaded` settles once its page has loaded.
  */
 export function createWindow(
   welcome = false,
   devUrl = process.env['CEREBRO_DEV_URL'],
   size = sizeFrom(process.env['CEREBRO_WINDOW_SIZE']),
+  hash?: string,
 ): { window: BrowserWindow; loaded: Promise<void> } {
   const zoom = zoomFor(forcedScale, process.platform, screen.getPrimaryDisplay().scaleFactor);
   const window = new BrowserWindow(
@@ -81,7 +88,21 @@ export function createWindow(
   window.once('ready-to-show', () => {
     window.show();
   });
-  return { window, loaded: load(window, devUrl, zoom) };
+  return { window, loaded: load(window, devUrl, zoom, hash) };
+}
+
+/** A diff window's size to start with (a claim: IntelliJ keeps the size its diff window was left at). */
+export const DIFF_SIZE = { width: 1100, height: 750 };
+
+/** A diff window, its page logged as a project window's. */
+export function diffWindow(spec: DiffSpec): ReturnType<typeof windowOf> {
+  const { window, loaded } = createWindow(false, undefined, DIFF_SIZE, diffHash(spec));
+  const log = join(app.getPath('userData'), PAGE_LOG);
+  logPage(window.webContents, log);
+  loaded.catch((error: unknown) => {
+    console.error('The diff window could not load', error);
+  });
+  return windowOf(window.webContents);
 }
 
 /** How long a page gets to save its files before its window closes anyway. */
@@ -231,6 +252,7 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   installReveal();
   installFullScreen();
   const hosts = installHosts();
+  installDiffWindows(hosts, diffWindow);
   // Empty is unset: a test or a shell can clear it without removing it.
   const repo = process.env['CEREBRO_REPO'] || undefined;
   let windows: ProjectWindows | undefined;

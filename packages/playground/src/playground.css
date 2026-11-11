@@ -1634,3 +1634,20 @@ body,
   padding: 4px 8px;
   resize: vertical;
 }
+
+/* A diff window: its title bar, then its diff. */
+.playground-diff-window {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.playground-diff-window > .playground-code {
+  flex: 1;
+  min-height: 0;
+}
+
+.playground-diff-window__title {
+  padding: 0 8px;
+  font-weight: 600;
+}
