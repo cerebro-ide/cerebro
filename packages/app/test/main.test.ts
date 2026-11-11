@@ -25,6 +25,8 @@ const electron = vi.hoisted(() => {
     contentListeners = new Map<string, Listener>();
     focus = vi.fn();
     restore = vi.fn();
+    maximize = vi.fn();
+    setFullScreen = vi.fn();
     close = vi.fn();
     webContents = {
       id: ++ids,
@@ -90,8 +92,24 @@ vi.mock('electron', () => ({
   BrowserWindow: electron.BrowserWindow,
   ipcMain: electron.ipcMain,
   dialog: electron.dialog,
-  screen: { getPrimaryDisplay: () => ({ scaleFactor: 2 }) },
+  screen: { getPrimaryDisplay: () => ({ scaleFactor: 2 }), getAllDisplays: () => ['screens'] },
   session: { defaultSession: { webRequest: { onHeadersReceived: vi.fn() } } },
+}));
+
+const bounds = vi.hoisted(() => ({
+  get: vi.fn((): unknown => undefined),
+  keep: vi.fn(),
+  made: [] as unknown[][],
+}));
+vi.mock('../src/bounds.js', async (actual) => ({
+  ...(await actual<typeof import('../src/bounds.js')>()),
+  WindowStates: class {
+    constructor(...args: unknown[]) {
+      bounds.made.push(args);
+    }
+    get = bounds.get;
+    keep = bounds.keep;
+  },
 }));
 
 const display = vi.hoisted(() => ({
@@ -184,6 +202,30 @@ describe('diffWindow', () => {
     });
   });
 
+  it('opens as its project’s diff window was left, and is kept so', () => {
+    bounds.get.mockReturnValueOnce({
+      x: 5,
+      y: 6,
+      width: 700,
+      height: 500,
+      maximized: true,
+      fullScreen: false,
+    });
+    diffWindow({ project: '/repo', env: '/repo', path: 'a.ts' });
+    const fake = electron.windows[0] as FakeWindow;
+    expect(bounds.get).toHaveBeenCalledWith('diff:/repo');
+    expect(fake.options).toEqual(expect.objectContaining({ x: 5, y: 6, width: 700, height: 500 }));
+    expect(bounds.keep).toHaveBeenCalledWith('diff:/repo', fake);
+    // Maximized as it shows, which shows it.
+    (fake.onceListeners.get('ready-to-show') as Listener)();
+    expect(fake.maximize).toHaveBeenCalled();
+    expect(fake.shown).toBe(false);
+    // Kept in the app's data folder, for the screens there are.
+    const [file, displays] = bounds.made[0] as [string, () => unknown];
+    expect(file).toBe(join('/nowhere', 'windows.json'));
+    expect(displays()).toEqual(['screens']);
+  });
+
   it('says when its page can’t load', async () => {
     vi.stubEnv('CEREBRO_DEV_URL', '');
     electron.BrowserWindow.failLoad = true;
@@ -255,6 +297,16 @@ describe('saveFiles', () => {
 });
 
 describe('projectWindow', () => {
+  it('opens as its project’s window was left, and is kept so; the Welcome window isn’t', () => {
+    bounds.get.mockClear();
+    bounds.keep.mockClear();
+    projectWindow(false, '/repo');
+    expect(bounds.get).toHaveBeenCalledWith('project:/repo');
+    expect(bounds.keep).toHaveBeenCalledWith('project:/repo', electron.windows[0]);
+    projectWindow(true);
+    expect(bounds.keep).toHaveBeenCalledOnce();
+  });
+
   it('acts on its window until it closes, then does nothing', () => {
     vi.stubEnv('CEREBRO_DEV_URL', '');
     const window = projectWindow(false);

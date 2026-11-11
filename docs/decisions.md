@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
@@ -2234,6 +2235,29 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Windows keep their size and place (2026-11-11)
+
+From the backlog's Polish list (and the diff viewer's Not yet): windows open as they were left, as
+IntelliJ's.
+
+- **A project's window opens as it was left,** its place, its size, maximized or full screen, as
+  IntelliJ's frames (`ProjectFrameBounds`, which keeps a `FrameInfo` of bounds, extended state and
+  full screen per project; IntelliJ's source). A window of several projects is kept as its first.
+  The Welcome window isn't kept: it has one size.
+- **A diff window opens as its project's was left,** as IntelliJ's (`DiffWindowBase` gives its
+  window the dimension service key "DiffContextDialog", kept per project by `WindowStateService`;
+  IntelliJ's source). The first time, 1100 by 750.
+- **For the screens there are:** what's kept is kept for the layout of screens it was left on (each
+  screen's bounds are part of its key, as `WindowStateServiceImpl.getAbsoluteKey`'s), and isn't used
+  if none of it would be on a screen's work area (as IntelliJ's `isVisible`). A window left on a
+  second screen opens on it again when that screen is there, and as it was on one screen when not.
+- **Kept as it closes,** in `windows.json` in the app's data folder. Its normal bounds are kept
+  (Electron's `getNormalBounds`), so a maximized window comes back maximized and goes back to its
+  size when restored. Maximized or full screen is put back as it shows, which shows it.
+- **Measured** under WSLg: a project window moved to 120,80 at 1000 by 700 opened there after a
+  restart, and maximized after it was left maximized.
+- **Rejected:** keeping only the diff window's size, a special case of what every window should do.
+
 ## The diff viewer, as IntelliJ's (2026-11-11)
 
 Ido: "I'd expected the same git diff functionality and behaviour as intellij. new window instead of
@@ -2331,7 +2355,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     window (Claude's choice, open to change; that IntelliJ opens a new one each time is a claim).
   - With the focus back, it reads the diff again, and shows it again only if it changed, so the
     caret stays where it was. A tab was read again as it showed.
-  - 1100 by 750 to start with (a claim: not measured from IntelliJ, which remembers the size).
+  - 1100 by 750 the first time (a claim: not measured from IntelliJ); after, as its project's was
+    left (decision "Windows keep their size and place").
   - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to
     open, still shows diffs as tabs.
 - **The diff window goes through the list it was opened from,** as IntelliJ's diff chain

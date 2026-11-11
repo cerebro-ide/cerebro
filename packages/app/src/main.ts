@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { watchEventLoop } from '@cerebro-ide/host/slow';
 import { installWindowColours } from './colours.js';
 import { installFullScreen } from './fullscreen.js';
+import { show, WindowStates } from './bounds.js';
 import { diffHash, installDiffWindows, windowOf, type DiffSpec } from './diff-windows.js';
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
@@ -73,32 +74,55 @@ async function load(
   if (zoom !== undefined) window.webContents.setZoomFactor(zoom);
 }
 
+/** The windows' sizes and places, kept in the app's data folder: read as the first window opens. */
+let states: WindowStates | undefined;
+const windowStates = () =>
+  (states ??= new WindowStates(join(app.getPath('userData'), 'windows.json'), () =>
+    screen.getAllDisplays(),
+  ));
+
 /**
  * A window showing the UI, for a project or, smaller, the Welcome window, or with `hash`, a diff
- * window; `loaded` settles once its page has loaded.
+ * window; `loaded` settles once its page has loaded. With `kept`, it opens as the window kept by that
+ * name was left, and is kept so as it closes.
  */
 export function createWindow(
   welcome = false,
   devUrl = process.env['CEREBRO_DEV_URL'],
   size = sizeFrom(process.env['CEREBRO_WINDOW_SIZE']),
   hash?: string,
+  kept?: string,
 ): { window: BrowserWindow; loaded: Promise<void> } {
   const zoom = zoomFor(forcedScale, process.platform, screen.getPrimaryDisplay().scaleFactor);
-  const window = new BrowserWindow(
-    windowOptions(process.platform, PRELOAD, zoom, welcome ? WELCOME_SIZE : size),
-  );
+  const state = kept === undefined ? undefined : windowStates().get(kept);
+  const bounds = state
+    ? { x: state.x, y: state.y, width: state.width, height: state.height }
+    : welcome
+      ? WELCOME_SIZE
+      : size;
+  const window = new BrowserWindow(windowOptions(process.platform, PRELOAD, zoom, bounds));
+  if (kept !== undefined) windowStates().keep(kept, window);
   window.once('ready-to-show', () => {
-    window.show();
+    show(window, state);
   });
   return { window, loaded: load(window, devUrl, zoom, hash) };
 }
 
-/** A diff window's size to start with (a claim: IntelliJ keeps the size its diff window was left at). */
+/** A diff window's size the first time (IntelliJ's is `JBUI.DialogSizes.extraLarge()`). */
 export const DIFF_SIZE = { width: 1100, height: 750 };
 
-/** A diff window, its page logged as a project window's. */
+/**
+ * A diff window, its page logged as a project window's; as its project's diff window was left, as
+ * IntelliJ's (its `DiffContextDialog` window state, kept by project).
+ */
 export function diffWindow(spec: DiffSpec): ReturnType<typeof windowOf> {
-  const { window, loaded } = createWindow(false, undefined, DIFF_SIZE, diffHash(spec));
+  const { window, loaded } = createWindow(
+    false,
+    undefined,
+    DIFF_SIZE,
+    diffHash(spec),
+    `diff:${spec.project}`,
+  );
   const log = join(app.getPath('userData'), PAGE_LOG);
   logPage(window.webContents, log);
   loaded.catch((error: unknown) => {
@@ -138,10 +162,17 @@ export function saveFiles(contents: WebContents, timeout = SAVE_TIMEOUT): Promis
 
 /**
  * A new window as projects see it; its page loads in the background, and what goes wrong in it is
- * logged to PAGE_LOG in the app's data folder.
+ * logged to PAGE_LOG in the app's data folder. A project's opens as its window was left, as
+ * IntelliJ's (its frame's bounds, kept by project).
  */
-export function projectWindow(welcome: boolean): ProjectWindow {
-  const { window, loaded } = createWindow(welcome);
+export function projectWindow(welcome: boolean, project?: string): ProjectWindow {
+  const { window, loaded } = createWindow(
+    welcome,
+    undefined,
+    undefined,
+    undefined,
+    project === undefined ? undefined : `project:${project}`,
+  );
   const contents = window.webContents;
   const log = join(app.getPath('userData'), PAGE_LOG);
   logPage(contents, log);
