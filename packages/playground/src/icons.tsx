@@ -54,6 +54,10 @@ const PATHS: Record<string, string> = {
   // nextOccurence arrows), and its Settings gear (a claim: not IntelliJ's drawing).
   previousDiff: 'M8 13V3M4.5 6.5L8 3l3.5 3.5',
   nextDiff: 'M8 3v10M4.5 9.5L8 13l3.5-3.5',
+  // The diff's viewers: two panes, side by side, or one with its lines (a claim: not IntelliJ's
+  // drawing).
+  sideBySide: 'M2.5 3.5h11v9h-11zM8 3.5v9',
+  unified: 'M2.5 3.5h11v9h-11zM5 6.5h6M5 9.5h6',
   settings:
     'M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6.9 2.5h2.2l.4 1.6 1.4.8 1.6-.5 1.1 1.9-1.2 1.1v1.2l1.2 1.1-1.1 1.9-1.6-.5-1.4.8-.4 1.6H6.9l-.4-1.6-1.4-.8-1.6.5-1.1-1.9 1.2-1.1V7.4L2.4 6.3l1.1-1.9 1.6.5 1.4-.8z',
   services:

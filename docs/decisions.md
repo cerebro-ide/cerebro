@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2285,15 +2285,28 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     each other character. That they give IntelliJ's results on every text is a claim: its own
     algorithm (`ByWord`'s inner-fragment matching) isn't reproduced.
   - Kept between sessions with the toggles; a diff open is compared again as they change.
-- **The toolbar** is IntelliJ's left to right: the arrows, Collapse Unchanged Fragments, and the
-  gear at the end. In the diff tab and Local History; the file cache conflict's diff has none, as
+- **The unified viewer,** IntelliJ's other (`UnifiedDiffViewer`), chosen on the toolbar as its
+  chooser's two buttons, "Side-by-side viewer" and "Unified viewer", and kept with the settings:
+  - one editor, built as IntelliJ's `UnifiedFragmentBuilder`: unchanged lines are the right's,
+    and each change's left lines come above its right ones;
+  - removed lines in the deleted colour and added ones in the inserted colour, whatever the
+    change's kind; their changed text in the full colour (`createUnifiedChunkHighlighters`);
+  - two columns of line numbers, the left's and the right's, with none where a line isn't on
+    that side;
+  - Collapse Unchanged Fragments, the policies, and Previous and Next Difference work as on the
+    side-by-side viewer. No Synchronize Scrolling, with one editor;
+  - Jump to Source from a removed line goes to where its change is in the file.
+  - The chooser's icons are drawn for Cerebro (a claim: not IntelliJ's drawings), as is the
+    border around the two (IntelliJ's is a segmented button).
+- **The toolbar** is IntelliJ's left to right: the arrows and Collapse Unchanged Fragments, then
+  at the end the viewer's chooser and the gear. In the diff tab and Local History; the file cache conflict's diff has none, as
   it's a merge.
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
-- **Not yet:** the unified viewer (IntelliJ's toolbar's other menu); a separate diff window; a
-  fold's description (IntelliJ's breadcrumbs of where it is); the other settings in the gear
-  (aligning changes, line numbers, soft wraps); Ignore formatting and language-specific changes
-  (they need the language's formatter and parser).
+- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); a
+  separate diff window; a fold's description (IntelliJ's breadcrumbs of where it is); the other
+  settings in the gear (aligning changes, line numbers, soft wraps); Ignore formatting and
+  language-specific changes (they need the language's formatter and parser).
 
 ## Git → Merge… (2026-11-10)
 

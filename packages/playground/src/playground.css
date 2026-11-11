@@ -377,8 +377,12 @@ body,
 }
 
 /* The Settings gear at the toolbar's end, as IntelliJ's. */
-.playground-diff__settings {
+/* IntelliJ's viewer chooser, a segmented button: its two at the end, before the gear. */
+.playground-diff__viewers {
+  display: flex;
   margin-left: auto;
+  border: 1px solid var(--cerebro-separator);
+  border-radius: 4px;
 }
 
 .playground-image {
