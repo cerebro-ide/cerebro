@@ -142,7 +142,9 @@ describe('Hosts', () => {
     // One answered slowly is reported, there and back, on the standard error (`slow.ts`).
     const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const asked = one.sent();
     const slow = hosts.request(1, '/repo', 'git.commit', {});
+    await asked;
     now.mockReturnValue(SLOW_MS + 1);
     one.child.stdout.write('{"jsonrpc":"2.0","id":2,"result":null}\n');
     await slow;
