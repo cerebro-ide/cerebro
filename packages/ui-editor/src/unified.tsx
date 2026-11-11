@@ -21,9 +21,10 @@ import {
 } from '@codemirror/state';
 import { Decoration, EditorView, gutter, GutterMarker, type ViewUpdate } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
-import { effect, signal } from '@cerebro-ide/reactive';
+import { effect, signal, untracked } from '@cerebro-ide/reactive';
 import { compare, type Change, type LineRange } from './compare.js';
 import {
+  CONTEXT,
   diffs,
   diffTheme,
   Fold,
@@ -124,6 +125,8 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'a
   let unified: Unified = { text: '', lines: [], blocks: [] };
   const blocks = signal<Unified['blocks']>([]);
   const caret = signal(0);
+  /** The lines of context folds leave, as last read. */
+  let context = untracked(() => props.context?.() ?? CONTEXT);
   /** Each run of unchanged lines' fold level (`foldedLines`): before change `i`, and after all. */
   let levels: number[] = [];
   let expanders: (() => void)[] = [];
@@ -251,7 +254,7 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'a
     }
     const all = ranges();
     for (let i = 0; i <= all.length; i++) {
-      const folded = foldedLines(all, i, 'a', doc.lines, levels[i] as number);
+      const folded = foldedLines(all, i, 'a', doc.lines, levels[i] as number, context);
       if (!folded) continue;
       const widget = new Fold(folded.to - folded.from, expanders[i] as () => void);
       const range = { from: doc.line(folded.from + 1).from, to: doc.line(folded.to).to };
@@ -294,7 +297,7 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'a
       // Shows more of them, or all: the next level that folds any.
       const lines = view.state.doc.lines;
       let level = (levels[i] as number) + 1;
-      while (level < 3 && !foldedLines(ranges(), i, 'a', lines, level)) level++;
+      while (level < 3 && !foldedLines(ranges(), i, 'a', lines, level, context)) level++;
       levels[i] = level;
       mark();
     });
@@ -339,11 +342,14 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'a
     view.dispatch({ effects: settings.reconfigure(configure()) });
     return undefined;
   });
-  let folding: boolean | undefined;
+  let folding: string | undefined;
   const collapsing = effect(() => {
     const collapse = props.collapse?.() ?? false;
-    if (folding !== undefined && collapse !== folding) fold(collapse);
-    folding = collapse;
+    const lines = props.context?.() ?? CONTEXT;
+    const now = `${String(collapse)} ${String(lines)}`;
+    context = lines;
+    if (folding !== undefined && now !== folding) fold(collapse);
+    folding = now;
     return undefined;
   });
   let policies: string | undefined;
