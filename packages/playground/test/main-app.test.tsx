@@ -139,6 +139,42 @@ describe('a diff tab', () => {
       .toBe('Can’t show the changes to src/b.ts: no such file');
   });
 
+  it('shows an image’s two versions in the image diff, and says whether another binary differs', async () => {
+    const active = (selector: string) =>
+      [...document.querySelectorAll(`.cerebro-editor-group--active ${selector}`)].map(
+        (e) => e.textContent,
+      );
+    // A PNG's first bytes: enough for its sides, not to show.
+    const png = btoa('\x89PNG\r\n\x1a\n\0');
+    answers.set('git.diff', { binary: true, original: png, text: null });
+    env().editor.open(diffTab('art/logo.png', { from: 'abcdef0123', to: '9876543210' }));
+    await expect.poll(() => active('.cerebro-image-diff__title')).toEqual(['abcdef01']);
+    expect(active('.cerebro-image-diff__empty')).toEqual(['No image']);
+    expect(active('.cerebro-image-diff__status')).toEqual(['Files contents are different']);
+    env().editor.close(
+      env().editor.activeGroup.id,
+      diffTab('art/logo.png', { from: 'abcdef0123', to: '9876543210' }).id,
+    );
+    answers.set('git.diff', { binary: true, original: null, text: png });
+    env().editor.open(diffTab('art/new.png'));
+    await expect.poll(() => active('.cerebro-image-diff__title')).toEqual(['Your version']);
+    env().editor.close(env().editor.activeGroup.id, diffTab('art/new.png').id);
+    // Not an image: whether it differs, as IntelliJ's.
+    answers.set('git.diff', { binary: true, original: png, text: png });
+    env().editor.open(diffTab('lib/a.bin'));
+    await expect
+      .poll(() => active('.playground-code__note'))
+      .toEqual(['Files contents are identical']);
+    env().editor.close(env().editor.activeGroup.id, diffTab('lib/a.bin').id);
+    answers.set('git.diff', { binary: true, original: png, text: null });
+    env().editor.open(diffTab('lib/b.bin'));
+    await expect
+      .poll(() => active('.playground-code__note'))
+      .toEqual(['Files contents are different']);
+    env().editor.close(env().editor.activeGroup.id, diffTab('lib/b.bin').id);
+    answers.delete('git.diff');
+  });
+
   it('jumps to the source a diff window sends back, if the file’s still there', async () => {
     answers.set('fs.exists', false);
     jumped({ env: '/r', path: 'src/gone.ts', line: 1, column: 0 });

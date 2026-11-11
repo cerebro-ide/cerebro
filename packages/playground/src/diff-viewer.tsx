@@ -20,7 +20,9 @@ import {
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
+import { ImageDiff } from '@cerebro-ide/ui-image';
 import { icon } from './icons.js';
+import { imageType } from './images.js';
 import { globalSettings } from './settings.js';
 
 /** The settings, kept between sessions. */
@@ -525,10 +527,20 @@ export interface DiffDocument {
  * focus back), it's shown again only if they've changed, so the caret stays where it was. With a
  * `document`, the right side is its text, and edits it: shown again when it's changed elsewhere.
  */
+/**
+ * What the host's `git.diff` gives: the two sides' texts, or a binary file's bytes, in base64, null
+ * for a side it isn't on.
+ */
+export type DiffSides =
+  | { original: string; text: string }
+  | { binary: true; original: string | null; text: string | null };
+
 export function FileDiff(props: {
   services: MenuServices;
   path: string;
-  read: () => Promise<{ original: string; text: string }>;
+  read: () => Promise<DiffSides>;
+  /** A binary file's sides' names: the revision, or "Your version". */
+  titles: readonly [string, string];
   document?: DiffDocument;
   version?: () => number;
   fontSize: () => number;
@@ -537,7 +549,7 @@ export function FileDiff(props: {
   focus?: boolean;
   navigation?: DiffViewerProps['navigation'];
 }): Node {
-  type Loaded = { original: string; text: string } | { error: string };
+  type Loaded = DiffSides | { error: string };
   const loaded = signal<Loaded | undefined>(undefined);
   /** What's shown, as the diff's editors have it: an edit there isn't news. */
   let shown = '';
@@ -553,7 +565,11 @@ export function FileDiff(props: {
     untracked(() => {
       props.read().then(
         (read) => {
-          show({ original: read.original, text: document?.text() ?? read.text });
+          show(
+            'binary' in read
+              ? read
+              : { original: read.original, text: document?.text() ?? read.text },
+          );
         },
         (error: unknown) => {
           show({ error: (error as Error).message });
@@ -567,7 +583,9 @@ export function FileDiff(props: {
     const text = document?.text();
     untracked(() => {
       const now = loaded.peek();
-      if (text !== undefined && now && !('error' in now)) show({ original: now.original, text });
+      if (text !== undefined && now && !('error' in now) && !('binary' in now)) {
+        show({ original: now.original, text });
+      }
     });
     return undefined;
   });
@@ -592,6 +610,8 @@ export function FileDiff(props: {
             </p>
           );
         }
+        if ('binary' in state)
+          return <BinaryDiff path={props.path} sides={state} titles={props.titles} />;
         return (
           <DiffViewer
             services={props.services}
@@ -608,5 +628,44 @@ export function FileDiff(props: {
         );
       }}
     </div>
+  );
+}
+
+/**
+ * A diff's sides' names: at two commits, theirs, shortened; else the last commit's and "Your
+ * version", as IntelliJ names a file as it is (a claim, from memory).
+ */
+export const sideTitles = (range: { from: string; to: string } | undefined): [string, string] =>
+  range ? [range.from.slice(0, 8), range.to.slice(0, 8)] : ['HEAD', 'Your version'];
+
+/** A side's bytes, from base64. */
+const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+
+/**
+ * A binary file's diff: an image's in the image diff; another's, as IntelliJ's, whether its
+ * contents differ (its `DiffBundle`'s words), with neither shown.
+ */
+function BinaryDiff(props: {
+  path: string;
+  sides: Extract<DiffSides, { binary: true }>;
+  titles: readonly [string, string];
+}): Child {
+  const { original, text } = props.sides;
+  const [left, right] = props.titles;
+  const type = imageType(props.path);
+  if (type !== undefined) {
+    return (
+      <ImageDiff
+        before={original === null ? undefined : { bytes: bytesOf(original), title: left }}
+        after={text === null ? undefined : { bytes: bytesOf(text), title: right }}
+        type={type}
+        label={props.path}
+      />
+    );
+  }
+  return (
+    <p class="playground-code__note">
+      {original === text ? 'Files contents are identical' : 'Files contents are different'}
+    </p>
   );
 }

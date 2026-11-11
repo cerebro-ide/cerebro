@@ -96,7 +96,13 @@ import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import '@cerebro-ide/ui-image/styles.css';
-import { diffsInTabs, FileDiff, setupDiffViewer } from './diff-viewer.js';
+import {
+  diffsInTabs,
+  FileDiff,
+  setupDiffViewer,
+  sideTitles,
+  type DiffSides,
+} from './diff-viewer.js';
 import { ImageTab, isImage, setupImages } from './images.js';
 import {
   active,
@@ -1667,8 +1673,9 @@ function Diff(props: { path: string; env: string; range: Range | undefined }) {
         });
         // The document read first, if it can be.
         if (document) await documentFor(file);
-        return (await diff) as { original: string; text: string };
+        return (await diff) as DiffSides;
       }}
+      titles={sideTitles(props.range)}
       {...(document ? { document } : {})}
       fontSize={() => settings.get('editor.fontSize') as number}
       tabSize={() => settings.get('editor.tabSize') as number}

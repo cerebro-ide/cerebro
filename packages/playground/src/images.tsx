@@ -29,10 +29,12 @@ const TYPES: Record<string, string> = {
   avif: 'image/avif',
 };
 
-const typeOf = (path: string) => TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()];
+/** An image file's media type; undefined for a file that isn't one. */
+export const imageType = (path: string): string | undefined =>
+  TYPES[path.slice(path.lastIndexOf('.') + 1).toLowerCase()];
 
 /** Whether a file opens in the image viewer. */
-export const isImage = (path: string): boolean => typeOf(path) !== undefined;
+export const isImage = (path: string): boolean => imageType(path) !== undefined;
 
 /** The chessboard and grid for images opened next. */
 const DEFAULTS_KEY = 'cerebro.images';
@@ -190,7 +192,7 @@ export function ImageTab(props: { path: string; services: MenuServices }): Node 
       const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
       const format = imageFormat(bytes);
       loaded.set({
-        src: `data:${typeOf(path) as string};base64,${data}`,
+        src: `data:${imageType(path) as string};base64,${data}`,
         info: (view) => imageInfo(view, format, bytes.length),
       });
     },
