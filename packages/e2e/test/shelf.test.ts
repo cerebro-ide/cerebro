@@ -108,7 +108,9 @@ it('stashes with a message and untracked files, and pops it from the Stash tab',
     .click({ button: 'right' });
   await page().locator('.cerebro-menu-item', { hasText: 'Pop' }).click();
   await expect.poll(status, HOST).toBe(' M a.ts\n M b.ts\n?? new.ts\n');
-  expect(git('stash', 'list')).toBe('');
+  // Pop applies, then drops: the files can be back before the stash is gone, and a list read
+  // while it's dropped fails ("bad revision 'refs/stash'", seen on macOS in CI).
+  await expect.poll(() => git('stash', 'list'), HOST).toBe('');
   await tab('stash').waitFor({ state: 'detached' });
 });
 
