@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu
+- [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
 - [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11)
@@ -1902,9 +1902,8 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
-  (decision "Cherry-Pick"), then Reset
-  Current Branch to Here… (decision "Git → Reset HEAD…") and New Tag… (decision "Git → New
-  Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
+  (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
+  Revert Commit (decision "Cherry-Pick") and New Tag… (decision "Git → New Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
   keymaps give these none (searched).
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
@@ -2293,6 +2292,18 @@ source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
   IntelliJ hides it while Resolve Conflicts… shows) and Abort Cherry-Pick, last in it as IntelliJ's;
   Abort asks first ("Abort cherry-pick?"), as Abort Merge does. Update Project isn't stopped by
   one, only by its unmerged files, as IntelliJ's `isUpdateNotReady`.
+- **Revert Commit** (added 2026-11-11), in the commit menu after Reset Current Branch to Here…, as
+  IntelliJ's (`GitRevertAction`, `GitRevertProcess`): the same process as the pick, with
+  `git revert` and IntelliJ's words for it ("Revert successful", "Nothing to revert", "All changes
+  from … have already been reverted", "Revert was performed with conflicts", Abort Revert). Off for
+  a merge commit, as IntelliJ's. The message is git's own (`Revert "…"`, "This reverts commit …"),
+  with no editor. Measured (git 2.43): an empty revert says "nothing to commit" and leaves no
+  REVERT_HEAD, which is how IntelliJ's `isEmptyCommit` tells it; one resolved to nothing at
+  `--continue` leaves REVERT_HEAD, and is skipped with `--skip`. The Conflicts dialog says
+  "Conflicts during revert of commit … made by …" and the subject, as IntelliJ's revert does;
+  its merge window's sides are IntelliJ's defaults. A revert under way is the host's fourth
+  operation (REVERT_HEAD); the Git menu then shows Abort Revert ("Abort revert?"), before
+  Cherry-Pick's, as IntelliJ's, which has no Continue Revert: the Commit window finishes one.
 - **Claims:** the icon (two cherries; not IntelliJ's drawing).
 - **Not yet:** several commits at once (the Log selects one; IntelliJ picks them oldest first);
   documents saved first, as IntelliJ's does (none of Cerebro's git actions does yet); "Stash
