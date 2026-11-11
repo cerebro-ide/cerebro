@@ -9,7 +9,6 @@ import {
   continueApplying,
   git,
   listConflicts,
-  onRemoteBranch,
   operation,
   repositoryState,
 } from '../src/index.js';
@@ -167,17 +166,5 @@ describe('cherry-pick and revert, with real git', () => {
     await expect(applyCommit(repo, 'revert', 'HEAD', false, git)).rejects.toThrow(
       /local changes to the following files would be overwritten/,
     );
-  });
-
-  it('knows a commit is on a remote’s branch: IntelliJ’s published', async () => {
-    const { repo, changed, added } = repository();
-    run(repo, 'update-ref', 'refs/remotes/origin/main', changed);
-    run(repo, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
-    const main = (name: string) => name === 'main';
-    expect(await onRemoteBranch(repo, changed, main, git)).toBe(true);
-    expect(await onRemoteBranch(repo, added, main, git)).toBe(false);
-    expect(await onRemoteBranch(repo, changed, () => false, git)).toBe(false);
-    // A remote's HEAD isn't a branch of its own.
-    expect(await onRemoteBranch(repo, changed, (n) => n === 'HEAD', git)).toBe(false);
   });
 });

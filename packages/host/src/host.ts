@@ -69,8 +69,9 @@ import {
   type RebaseParams,
 } from './branches.js';
 import { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
-import { applyCommit, continueApplying, onRemoteBranch } from './apply-changes.js';
-import { resetHead } from './reset.js';
+import { applyCommit, continueApplying } from './apply-changes.js';
+import { protectedBranchHolding } from './protected-branches.js';
+import { resetHead, undoCommit } from './reset.js';
 import {
   abortOperation,
   acceptSide,
@@ -762,18 +763,32 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     return hash;
   };
+  /** The branches whose name on a remote makes a commit there published: `protected`. */
+  const protectedOf = (params: unknown) => {
+    const named = (params as { protected?: unknown }).protected;
+    if (!Array.isArray(named) || !named.every((n) => typeof n === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'protected must be a list of names');
+    }
+    return (name: string) => named.includes(name);
+  };
+  // The Log's Undo Commit…: the branch on a remote it's published on, if it is, nothing done.
+  connection.onRequest('git.undoCommit', async (params) => {
+    const worktree = text(params, 'path');
+    const hash = hashOf(params);
+    const named = protectedOf(params);
+    return recording(worktree, 'Git undo commit', git, () =>
+      undoCommit(worktree, hash, named, git),
+    );
+  });
   // The Log's Cherry-Pick: `protected` names the branches on a remote that make a commit
   // published, its message then saying where it's from.
   connection.onRequest('git.cherryPick', async (params) => {
     const worktree = text(params, 'path');
     const hash = hashOf(params);
-    const named = (params as { protected?: unknown }).protected;
-    if (!Array.isArray(named) || !named.every((n) => typeof n === 'string')) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'protected must be a list of names');
-    }
-    const published = await onRemoteBranch(worktree, hash, (n) => named.includes(n), git);
+    const named = protectedOf(params);
+    const published = await protectedBranchHolding(worktree, hash, named, git);
     return recording(worktree, 'Cherry-Pick', git, () =>
-      applyCommit(worktree, 'cherry-pick', hash, published, git),
+      applyCommit(worktree, 'cherry-pick', hash, published !== undefined, git),
     );
   });
   // The Log's Revert Commit.

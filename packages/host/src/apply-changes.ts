@@ -62,22 +62,6 @@ async function stopped(
   return 'empty';
 }
 
-/** Whether one of `branches` (`origin/main`) on a remote holds `hash`: IntelliJ's "published". */
-export async function onRemoteBranch(
-  worktree: string,
-  hash: string,
-  branches: (name: string) => boolean,
-  run: Git,
-): Promise<boolean> {
-  const names = await run(worktree, [
-    'for-each-ref',
-    '--format=%(refname:lstrip=3)',
-    `--contains=${hash}`,
-    'refs/remotes',
-  ]);
-  return names.split('\n').some((name) => name !== '' && name !== 'HEAD' && branches(name));
-}
-
 /**
  * IntelliJ's Continue Cherry-Pick, and a pick or revert carried on once its conflicts are
  * resolved: the commit made with git's message (`--continue`), a pick's with its author.

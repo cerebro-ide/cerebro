@@ -976,7 +976,11 @@ describe('ignored files and rolling back', () => {
   it('cherry-picks or reverts a commit by its hash, from the Log, and continues either', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(
-        bare(args)[0] === 'for-each-ref' ? 'main\n' : bare(args)[0] === 'rev-parse' ? '/w\n' : '',
+        bare(args)[0] === 'for-each-ref'
+          ? 'origin/main\n'
+          : bare(args)[0] === 'rev-parse'
+            ? '/w\n'
+            : '',
       ),
     );
     const { ui } = connect(git);
@@ -1012,6 +1016,35 @@ describe('ignored files and rolling back', () => {
       { hash: 'abc1234', protected: [1] },
     ]) {
       await expect(ui.request('git.cherryPick', { path: '/w', ...params })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
+  it('undoes HEAD’s commit, unless a protected branch on a remote has it', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(
+        bare(args)[0] === 'for-each-ref'
+          ? 'origin/main\n'
+          : bare(args)[0] === 'rev-parse'
+            ? 'abc1234\n'
+            : '',
+      ),
+    );
+    const { ui } = connect(git);
+    expect(
+      await ui.request('git.undoCommit', { path: '/w', hash: 'abc1234', protected: ['main'] }),
+    ).toBe('origin/main');
+    expect(git).not.toHaveBeenCalledWith('/w', expect.arrayContaining(['reset']));
+    expect(await ui.request('git.undoCommit', { path: '/w', hash: 'abc1234', protected: [] })).toBe(
+      null,
+    );
+    expect(git).toHaveBeenCalledWith('/w', ['reset', '--soft', 'abc1234^', '--']);
+    for (const params of [
+      { hash: '--abort', protected: [] },
+      { hash: 'abc1234', protected: 'main' },
+    ]) {
+      await expect(ui.request('git.undoCommit', { path: '/w', ...params })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,
       });
     }

@@ -250,6 +250,11 @@ function changesOf(worktree: string): Changes {
   return untracked(() => made(worktree));
 }
 
+/** Puts a message in a worktree's Commit window: Undo Commit's, as IntelliJ's, to commit again. */
+export function setCommitMessage(worktree: string, message: string): void {
+  changesOf(worktree).message.set(message);
+}
+
 function made(worktree: string): Changes {
   let changes = lists.get(worktree);
   if (!changes) {
