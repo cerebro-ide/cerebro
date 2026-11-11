@@ -1414,24 +1414,29 @@ body,
   grid-column: 1 / -1;
 }
 
-/* New Tag: Force under the name's field, Validate beside the commit's, the message's label at
-   its field's top. */
-.playground-tag__force {
-  grid-column: 2;
-}
-
-.playground-tag__commit {
+/* A commit's field, Validate beside it: New Tag's, Reset HEAD's. */
+.playground-form__revision {
   display: flex;
   gap: 6px;
 }
 
-.playground-tag__commit > .cerebro-dialog-field__input {
+.playground-form__revision > .cerebro-dialog-field__input {
   flex: 1;
+}
+
+/* New Tag: Force under the name's field, the message's label at its field's top. */
+.playground-tag__force {
+  grid-column: 2;
 }
 
 .playground-tag__message > span {
   align-self: start;
   padding-top: 4px;
+}
+
+/* Reset HEAD: the type as wide as its names, as IntelliJ's. */
+.playground-reset__type {
+  justify-self: start;
 }
 
 /* A password asked for SSH: the prompt over the field, and Remember. */
@@ -1603,6 +1608,7 @@ body,
 }
 
 .playground-git-command__remote,
+.playground-reset__type,
 .playground-git-branch__field {
   height: 28px;
   padding: 0 8px;
@@ -1624,6 +1630,7 @@ body,
 }
 
 .playground-git-command__remote:focus,
+.playground-reset__type:focus,
 .playground-git-branch__field:focus {
   outline: 2px solid var(--cerebro-accent);
   outline-offset: 1px;

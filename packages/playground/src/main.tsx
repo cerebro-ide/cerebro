@@ -65,6 +65,7 @@ import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
 import { setupTag } from './tag.js';
+import { resetting, setupReset } from './reset.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog, showInLog } from './git-log.js';
@@ -327,6 +328,7 @@ setupFetchPull(services);
 setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);
+setupReset(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, {
@@ -910,6 +912,16 @@ status.add({
   text: () => 'Fetching…',
   tooltip: () => 'Fetching every remote',
   hidden: () => !fetching.get(),
+  progress: () => 'indeterminate',
+});
+// Git → Reset HEAD… under way, as IntelliJ's "Resetting HEAD…".
+status.add({
+  id: 'reset',
+  side: 'left',
+  order: 2,
+  text: () => 'Resetting HEAD…',
+  tooltip: () => 'Resetting the branch',
+  hidden: () => !resetting.get(),
   progress: () => 'indeterminate',
 });
 // A pull under way, as IntelliJ's "Pulling changes from origin".

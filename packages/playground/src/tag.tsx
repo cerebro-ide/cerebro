@@ -6,7 +6,8 @@
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { active, hostFor, projectOf, type Host } from './environments.js';
+import { active, hostFor, type Host } from './environments.js';
+import { currentBranchRow, revisionField } from './git-fields.js';
 import { notifications } from './notifications.js';
 import { refreshAll } from './shelf.js';
 
@@ -17,36 +18,23 @@ interface NewTag {
   force: boolean;
 }
 
-/** The dialog, given the worktree's tags and branch; what it chose, or undefined if cancelled. */
+/** The dialog, given the worktree's tags; what it chose, or undefined if cancelled. */
 function tagDialog(
   host: Host,
   worktree: string,
   tags: readonly string[],
-  branch: string | undefined,
 ): Promise<NewTag | undefined> {
   const name = signal('');
   const force = signal(false);
-  const commit = signal('');
   const message = signal('');
-  /** The commit last validated, and whether git knew it. */
-  const validated = signal<{ text: string; valid: boolean } | undefined>(undefined);
+  const commit = revisionField(host, worktree, 'Commit:', {
+    field: 'Enter name of commit or object to tag or leave blank to use HEAD.',
+    validate: 'Click this button to validate the commit to be tagged',
+  });
   const exists = () => tags.includes(name.get());
-  // As IntelliJ's: invalid only while it's the text that was validated.
-  const invalid = () => {
-    const last = validated.get();
-    return last !== undefined && last.text === commit.get() && !last.valid;
-  };
   const error = () => {
     if (exists() && !force.get()) return 'The tag with the same name exists.';
-    return invalid() ? 'The commit or object name is invalid.' : undefined;
-  };
-  const validate = async () => {
-    const text = commit.peek();
-    const valid = (await host.request('git.validRevision', {
-      path: worktree,
-      revision: text.trim(),
-    })) as boolean;
-    validated.set({ text, valid });
+    return commit.invalid() ? 'The commit or object name is invalid.' : undefined;
   };
   return openDialog<NewTag>({
     title: 'Tag',
@@ -55,7 +43,7 @@ function tagDialog(
       label: 'Create Tag',
       enabled: () => name.get() !== '' && error() === undefined,
       accept: () => {
-        const object = commit.peek().trim();
+        const object = commit.value();
         const text = message.peek();
         return {
           name: name.peek(),
@@ -67,10 +55,7 @@ function tagDialog(
     },
     content: () => (
       <div class="playground-form">
-        <div class="playground-form__row">
-          <span>Current Branch:</span>
-          <span title="The currently checked-out branch.">{branch ?? '<no active branch>'}</span>
-        </div>
+        {currentBranchRow(worktree)}
         <label class="playground-form__row">
           <span>Tag Name:</span>
           <input
@@ -104,33 +89,7 @@ function tagDialog(
           />
           Force
         </label>
-        <label class="playground-form__row">
-          <span>Commit:</span>
-          <span class="playground-tag__commit">
-            <input
-              class="cerebro-dialog-field__input"
-              type="text"
-              spellcheck={false}
-              title="Enter name of commit or object to tag or leave blank to use HEAD."
-              on:input={(event) => {
-                commit.set((event.currentTarget as HTMLInputElement).value);
-              }}
-            />
-            <button
-              type="button"
-              class="cerebro-dialog__button"
-              title="Click this button to validate the commit to be tagged"
-              disabled={() => commit.get().trim() === ''}
-              on:click={() => {
-                validate().catch((failure: unknown) => {
-                  console.error('Validating the commit to tag failed', failure);
-                });
-              }}
-            >
-              Validate
-            </button>
-          </span>
-        </label>
+        {commit.row()}
         <label class="playground-form__row playground-tag__message">
           <span>Message:</span>
           <textarea
@@ -179,10 +138,7 @@ export function setupTag(services: MenuServices): void {
         failed('Getting Existing Tags…', error);
         return;
       }
-      const branch = projectOf(worktree)
-        ?.worktrees.get()
-        .find((w) => w.id === worktree)?.branch;
-      const tag = await tagDialog(host, worktree, tags, branch);
+      const tag = await tagDialog(host, worktree, tags);
       if (!tag) return;
       try {
         await host.request('git.createTag', { path: worktree, ...tag });

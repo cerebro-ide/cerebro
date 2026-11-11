@@ -64,6 +64,7 @@ import {
   type NewBranch,
 } from './branches.js';
 import { createTag, listTags, validRevision, type NewTag } from './tags.js';
+import { resetHead } from './reset.js';
 import {
   abortOperation,
   acceptSide,
@@ -771,6 +772,18 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       force: p.force === true,
     };
     await createTag(text(params, 'path'), tag, git);
+    return null;
+  });
+  // Git → Reset HEAD…'s, recorded in Local History as IntelliJ's ("Git reset").
+  connection.onRequest('git.reset', async (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { mode?: unknown; commit?: unknown };
+    if (p.mode !== 'mixed' && p.mode !== 'soft' && p.mode !== 'hard') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'mode must be mixed, soft or hard');
+    }
+    const mode = p.mode;
+    const commit = typeof p.commit === 'string' ? p.commit : undefined;
+    await recording(worktree, 'Git reset', git, () => resetHead(worktree, mode, commit, git));
     return null;
   });
   connection.onRequest('git.renameBranch', async (params) => {
