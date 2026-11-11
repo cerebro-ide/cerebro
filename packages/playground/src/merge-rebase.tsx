@@ -419,18 +419,23 @@ async function askRebase(host: Host, worktree: string): Promise<RebaseChoice | u
       onto.set('');
     }
   });
+  /** Whether Rebase found git doesn't know the field's text, still as it was then. */
+  const notKnown = (field: 'onto' | 'upstream') => {
+    const missing = unknown.get();
+    return missing?.field === field && (field === 'onto' ? onto : upstream).get() === missing.text;
+  };
+  // In IntelliJ's order (`doValidateAll`): the base, the new base, a rebase under way, the branch.
   const error = () => {
+    if (!has('--root')) {
+      if (upstream.get() === '') return has('--onto') ? 'Select an upstream' : 'Select a new base';
+      if (notKnown('upstream')) return 'There is no such branch or tag';
+    }
+    if (has('--onto')) {
+      if (onto.get() === '') return 'Select a new base';
+      if (notKnown('onto')) return 'There is no such branch or tag';
+    }
     if (stateOf(worktree).operation === 'rebase') {
       return 'Interactive rebase is already in progress for this Git root';
-    }
-    const root = has('--root');
-    if (!root && upstream.get() === '') {
-      return has('--onto') ? 'Select an upstream' : 'Select a new base';
-    }
-    if (has('--onto') && onto.get() === '' && !root) return 'Select a new base';
-    const missing = unknown.get();
-    if (missing && (missing.field === 'onto' ? onto : upstream).get() === missing.text) {
-      return 'There is no such branch or tag';
     }
     if (has('')) {
       const at = branch.get();
@@ -440,10 +445,10 @@ async function askRebase(host: Host, worktree: string): Promise<RebaseChoice | u
     return undefined;
   };
   const choice = (): RebaseChoice => {
-    const given = (value: string) => (value === '' ? undefined : value);
-    const base = has('--root') ? undefined : given(upstream.peek());
-    const newBase = has('--onto') ? given(onto.peek()) : undefined;
-    const other = has('') ? given(branch.peek()) : undefined;
+    // Each field shown is filled: Rebase is off until it is.
+    const base = has('--root') ? undefined : upstream.peek();
+    const newBase = has('--onto') ? onto.peek() : undefined;
+    const other = has('') ? branch.peek() : undefined;
     return {
       options: options.chosen.peek().filter((o) => o !== '' && o !== '--onto' && o !== '--root'),
       ...(newBase === undefined ? {} : { onto: newBase }),
@@ -479,65 +484,48 @@ async function askRebase(host: Host, worktree: string): Promise<RebaseChoice | u
       accept: choice,
     },
     footer: options.link,
-    content: () => (
-      <div class="playground-git-command">
-        <div class="playground-git-command__row">
-          <span class="playground-git-command__git">git rebase</span>
+    // As IntelliJ's: each field built once, moved as options change, the base focused at first.
+    content: () => {
+      const newBase = branchField(onto, () => refsToo, {
+        label: 'New base',
+        placeholder: () => 'new base (branch or hash)',
+        focus: false,
+      });
+      const base = branchField(upstream, () => refsToo, {
+        label: 'Base',
+        placeholder: () => (has('--onto') ? 'old base (branch or hash)' : 'branch or hash'),
+        disabled: () => has('--root'),
+      });
+      const other = branchField(branch, () => local, {
+        label: 'Branch to rebase',
+        placeholder: () => 'source branch',
+        focus: false,
+      });
+      return (
+        <div class="playground-git-command">
+          <div class="playground-git-command__row">
+            <span class="playground-git-command__git">git rebase</span>
+            {() =>
+              has('--onto')
+                ? [<span class="playground-git-command__git">--onto</span>, newBase]
+                : [base, has('') ? other : null]
+            }
+          </div>
           {() =>
             has('--onto') ? (
-              <>
-                <span class="playground-git-command__git">--onto</span>
-                {branchField(onto, () => refsToo, {
-                  label: 'New base',
-                  placeholder: () => 'new base (branch or hash)',
-                })}
-              </>
+              <div class="playground-git-command__row">
+                {base}
+                {has('') ? other : null}
+              </div>
             ) : null
           }
-          {() =>
-            has('--onto')
-              ? null
-              : [
-                  branchField(upstream, () => refsToo, {
-                    label: 'Base',
-                    placeholder: () => 'branch or hash',
-                    disabled: () => has('--root'),
-                  }),
-                  has('')
-                    ? branchField(branch, () => local, {
-                        label: 'Branch to rebase',
-                        placeholder: () => 'source branch',
-                        focus: false,
-                      })
-                    : null,
-                ]
-          }
+          {options.shown}
+          <span class="cerebro-dialog-field__error" role="alert">
+            {() => error() ?? ''}
+          </span>
         </div>
-        {() =>
-          has('--onto') ? (
-            <div class="playground-git-command__row">
-              {branchField(upstream, () => refsToo, {
-                label: 'Old base',
-                placeholder: () => 'old base (branch or hash)',
-                disabled: () => has('--root'),
-                focus: false,
-              })}
-              {has('')
-                ? branchField(branch, () => local, {
-                    label: 'Branch to rebase',
-                    placeholder: () => 'source branch',
-                    focus: false,
-                  })
-                : null}
-            </div>
-          ) : null
-        }
-        {options.shown}
-        <span class="cerebro-dialog-field__error" role="alert">
-          {() => error() ?? ''}
-        </span>
-      </div>
-    ),
+      );
+    },
   }).result;
   moving.dispose();
   if (chosen) {
