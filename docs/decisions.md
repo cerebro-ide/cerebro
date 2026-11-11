@@ -86,7 +86,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings; IntelliJ's others (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio…) from its files
 - [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
 - [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
-- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs; saving on its own, as IntelliJ; conflicts with the disk asked about; deleted files' tabs closed; the Edit menu, Undo named
+- [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs, keeping their place; saving on its own, as IntelliJ; conflicts with the disk asked about; deleted files' tabs closed; the Edit menu, Undo named
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
 - [The Commit tool window's toolbar (2026-10-26)](#the-commit-tool-windows-toolbar-2026-10-26): open a file or its diff, group, roll back
@@ -3202,6 +3202,12 @@ choices below are Claude's, after IntelliJ, open to change.
 - **A document per open file,** as IntelliJ's: it outlives the editors showing it, so switching tabs
   keeps the edits, the selection and the undo history (CodeMirror's state, kept as JSON with its
   history field between editors). It knows the text last read or saved, so whether it's modified.
+  It keeps where its last editor was scrolled too (changed 2026-11-11, a bug Ido found: after going
+  to a definition, a tab chosen again showed its file's top). A tab's editor is made again each time
+  it's chosen, and only the state had been kept; now CodeMirror's scroll snapshot is too, given to
+  the next editor. A position to reveal is revealed once, as a focus request is taken once: the
+  tab of a definition gone to, chosen again, had gone back to the definition (both measured in the
+  app: line 0 and line 85, where it had been left at 40 and 74).
 - **Saving on its own** (changed 2026-10-27; Ido: "this IDE doesn't work in a way that a user need
   to manually trigger a save action, it auto-saves", in batches, after a while or when the focus
   leaves). IntelliJ's triggers, read in its source (`SaveAndSyncHandlerImpl.kt`,

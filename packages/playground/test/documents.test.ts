@@ -9,6 +9,7 @@ import {
   saveAll,
   saveFiles,
   setupSaving,
+  SLOW_SAVE,
   type ConflictResolver,
 } from '../src/documents.js';
 import { projects, useProjects } from '../src/environments.js';
@@ -175,6 +176,33 @@ describe('saving', () => {
     // The second, after the first, wrote over its write; at once, the first would have written last.
     expect(writes('/r/twice.ts').map((w) => (w as { text: string }).text)).toEqual(['a1', 'a12']);
     expect(disk.get('/r/twice.ts')).toBe('a12');
+  });
+
+  it('says on the console where the time went when a save is slow', async () => {
+    const doc = await file('/r/slow.ts', 'a');
+    edit(doc, '1');
+    // The write takes as long as a slow save.
+    let late = 0;
+    const now = performance.now.bind(performance);
+    vi.spyOn(performance, 'now').mockImplementation(() => now() + late);
+    const answer = host.answers['fs.write'] as (p: never) => unknown;
+    host.answers['fs.write'] = (params: never) => {
+      late = SLOW_SAVE + 1;
+      return answer(params);
+    };
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    await saveFiles(['/r/slow.ts']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]?.[0]).toMatch(
+      /^Saving \/r\/slow\.ts took \d+ ms: \d+ ms after the saves before, \d+ ms to the file, \d+ ms reading it, \d+ ms before saving, \d+ ms writing it$/,
+    );
+    // Quick: nothing said.
+    host.answers['fs.write'] = answer;
+    late = 0;
+    edit(doc, '2');
+    await saveFiles(['/r/slow.ts']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
   });
 
   it('says which files couldn’t be saved, which stay modified, and goes on with the next save', async () => {

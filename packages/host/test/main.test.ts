@@ -16,6 +16,8 @@ const lsp = vi.hoisted(() => ({
   }),
 }));
 vi.mock('../src/lsp.js', () => lsp);
+const slow = vi.hoisted(() => ({ watchEventLoop: vi.fn() }));
+vi.mock('../src/slow.js', () => slow);
 
 it('serves over stdio, for CEREBRO_REPO or the folder it started in', async () => {
   vi.stubEnv('CEREBRO_REPO', '/chosen');
@@ -25,6 +27,8 @@ it('serves over stdio, for CEREBRO_REPO or the folder it started in', async () =
     repo: '/chosen',
     languageServers: { ids: ['typescript', 'python', 'bash', 'yaml', 'web'] },
   });
+  // Saying on its standard error when its event loop is held up.
+  expect(slow.watchEventLoop).toHaveBeenCalled();
   vi.resetModules();
   vi.stubEnv('CEREBRO_REPO', undefined);
   await import('../src/main.js');

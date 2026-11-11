@@ -380,6 +380,28 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 299');
   });
 
+  it('keeps where a document was scrolled for its next editor, and reveals a position only once', async () => {
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const document = new EditorDocument(text);
+    // Revealed by the first editor: the second, given it again, stays where the first was scrolled.
+    const reveal = { line: 200, column: 0 };
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const scrollerOf = (root: ShadowRoot) => root.querySelector('.cm-scroller') as HTMLElement;
+    let root = mount({ path: 'a.txt', document, reveal: () => reveal, revealFocus: false });
+    await vi.waitFor(() => {
+      expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 200');
+    });
+    scrollerOf(root).scrollTop = 1500;
+    await frame();
+    const before = scrollerOf(root).scrollTop;
+    cleanup?.();
+    root = mount({ path: 'a.txt', document, reveal: () => reveal, revealFocus: false });
+    await frame();
+    await frame();
+    expect(scrollerOf(root).scrollTop).toBe(before);
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 200');
+  });
+
   it('says which line is at the top as it scrolls, and puts it back there when revealing', async () => {
     const onScroll = vi.fn();
     const reveal = signal<{ line: number; column: number; top?: number } | undefined>(undefined);

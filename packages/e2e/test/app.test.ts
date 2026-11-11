@@ -432,7 +432,9 @@ describe('the layout', () => {
     expect(before.file).toContain('src/layout.ts');
     await page().reload();
     await page().waitForSelector('.cerebro-toolbar');
-    expect(await snapshot()).toEqual(before);
+    // The file's caret and indent show on the status bar once its editor has read it, after the
+    // window's laid out (measured on macOS in CI: the status bar was read before they showed).
+    await expect.poll(snapshot, { timeout: 15_000 }).toEqual(before);
   });
 });
 
