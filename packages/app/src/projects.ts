@@ -132,8 +132,8 @@ export interface ProjectDeps {
     /** Stops a project's host in a window, or without one, all of the window's. */
     detach(window: ProjectWindow, repo?: string): void;
   };
-  /** A new window, for projects or, smaller, the Welcome window. */
-  create(welcome: boolean): ProjectWindow;
+  /** A new window, for projects (the first named) or, smaller, the Welcome window. */
+  create(welcome: boolean, project?: string): ProjectWindow;
   /** Whether a folder is there to open. */
   exists(path: string): boolean;
 }
@@ -258,7 +258,7 @@ export class ProjectWindows {
   }
 
   private openWindow(projects: string[]): void {
-    const window = this.track(this.deps.create(false), projects);
+    const window = this.track(this.deps.create(false, projects[0]), projects);
     for (const project of projects) {
       this.deps.hosts.attach(window, project);
       this.deps.store.opened(project);

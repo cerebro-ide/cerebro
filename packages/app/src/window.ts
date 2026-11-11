@@ -29,7 +29,7 @@ export function windowOptions(
   preload: string,
   /** The page's zoom, if it's to be other than 1 (see display.ts). */
   zoomFactor?: number,
-  size: { width: number; height: number } = { width: 1440, height: 900 },
+  size: { width: number; height: number; x?: number; y?: number } = { width: 1440, height: 900 },
 ): BrowserWindowConstructorOptions {
   return {
     ...size,
