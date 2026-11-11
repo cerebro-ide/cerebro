@@ -228,12 +228,28 @@ const viewOf = (context: unknown): View | undefined => {
   return source === 'shelf' || source === 'stash' ? source : focused.get();
 };
 
+const modelOf = (lists: Lists, view: View) =>
+  view === 'shelf' ? lists.shelfModel : lists.stashModel;
+
 /** The selected row in a tab's tree. */
 function selected(view: View | undefined): Item | undefined {
   const lists = current();
   if (!lists || !view) return undefined;
-  const model = view === 'shelf' ? lists.shelfModel : lists.stashModel;
+  const model = modelOf(lists, view);
   return model.rows.find((row) => row.key === model.selected)?.node;
+}
+
+/** Opens a file's diff, through its list's files, as IntelliJ's shelf. */
+function openDiff(
+  open: (tab: Tab, chain?: readonly string[]) => void,
+  model: TreeModel<Item>,
+  file: Extract<Item, { kind: 'file' }>,
+): void {
+  const files = model.loaded.get(keyOf(file.list)) as Extract<Item, { kind: 'file' }>[];
+  open(
+    diffTab(file.change.path, file.range),
+    files.map((each) => each.change.path),
+  );
 }
 
 /** The shelved list or stash the selection is in. */
@@ -276,7 +292,7 @@ function content(item: Item): Node[] {
 
 export interface ShelfSetup {
   /** Opens a tab in the active editor. */
-  open: (tab: Tab) => void;
+  open: (tab: Tab, chain?: readonly string[]) => void;
   /** Shows the Commit tool window. */
   show: () => void;
 }
@@ -361,8 +377,9 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
     icon: 'diff',
     enabled: (c) => selected(viewOf(c))?.kind === 'file',
     run: (c) => {
-      const { change, range } = selected(viewOf(c)) as Extract<Item, { kind: 'file' }>;
-      setup.open(diffTab(change.path, range));
+      const view = viewOf(c) as View;
+      const file = selected(view) as Extract<Item, { kind: 'file' }>;
+      openDiff(setup.open, modelOf(current() as Lists, view), file);
     },
   });
   commands.register({
@@ -652,7 +669,7 @@ function ListView(props: {
   view: View;
   worktree: Environment;
   services: MenuServices;
-  open: (tab: Tab) => void;
+  open: (tab: Tab, chain?: readonly string[]) => void;
 }): Node {
   const { view, worktree } = props;
   const lists = listsOf(worktree.id);
@@ -668,13 +685,12 @@ function ListView(props: {
       }}
     >
       <TreeView
-        model={view === 'shelf' ? lists.shelfModel : lists.stashModel}
+        model={modelOf(lists, view)}
         label={`${worktree.name} ${view}`}
         row={content}
         onOpen={(item) => {
           // A file opens its diff, as in IntelliJ's shelf.
-          const file = item as Extract<Item, { kind: 'file' }>;
-          props.open(diffTab(file.change.path, file.range));
+          openDiff(props.open, modelOf(lists, view), item as Extract<Item, { kind: 'file' }>);
         }}
         onContextMenu={(event) => {
           openContextMenu(
@@ -693,7 +709,10 @@ function ListView(props: {
  * The Commit tool window: the tab chosen in its header. Its shelved lists and stashes are read every
  * few seconds while it shows, as its changes are.
  */
-export function CommitWindow(props: { services: MenuServices; open: (tab: Tab) => void }): Node {
+export function CommitWindow(props: {
+  services: MenuServices;
+  open: (tab: Tab, chain?: readonly string[]) => void;
+}): Node {
   return (
     <>
       {() => {

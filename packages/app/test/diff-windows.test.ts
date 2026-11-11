@@ -95,11 +95,21 @@ describe('diff windows', () => {
     expect(made[2]?.close).toHaveBeenCalled();
   });
 
-  it('takes a spec with its strings, and a range’s, or none', () => {
+  it('takes a spec with its strings, a range’s, and its files with its own, or none', () => {
     expect(diffSpec(spec)).toEqual(spec);
     const range = { from: 'a1', to: 'b2' };
     expect(diffSpec({ ...spec, range, extra: 1 })).toEqual({ ...spec, range });
-    for (const bad of [null, {}, { ...spec, path: '' }, { ...spec, range: { from: 'a' } }]) {
+    const chain = ['b.ts', spec.path];
+    expect(diffSpec({ ...spec, chain })).toEqual({ ...spec, chain });
+    for (const bad of [
+      null,
+      {},
+      { ...spec, path: '' },
+      { ...spec, range: { from: 'a' } },
+      { ...spec, chain: 'b.ts' },
+      { ...spec, chain: ['b.ts'] },
+      { ...spec, chain: [spec.path, 1] },
+    ]) {
       expect(() => diffSpec(bad)).toThrow('A diff needs');
     }
     expect(decodeURIComponent(diffHash(spec))).toBe(`diff=${JSON.stringify(spec)}`);

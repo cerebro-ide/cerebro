@@ -429,7 +429,7 @@ export function CommitFiles(props: {
   range: { from: string; to: string };
   /** What the tree is, for a screen reader. */
   label: string;
-  open?: (tab: Tab) => void;
+  open?: (tab: Tab, chain?: readonly string[]) => void;
   /** The file to select once they're read. */
   selected?: string | undefined;
 }) {
@@ -470,7 +470,11 @@ export function CommitFiles(props: {
           label={props.label}
           row={(change) => changeContent(change, true)}
           onOpen={(change) => {
-            open?.(diffTab(change.path, range));
+            // Through the commit's files, as IntelliJ's.
+            open?.(
+              diffTab(change.path, range),
+              changes.peek().map((c) => c.path),
+            );
           }}
         />
       </div>
@@ -481,7 +485,12 @@ export function CommitFiles(props: {
 }
 
 /** The selected commit's changed files, then its details. */
-function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab: Tab) => void }) {
+function CommitPane(props: {
+  log: Log;
+  host: Host;
+  worktree: string;
+  open: (tab: Tab, chain?: readonly string[]) => void;
+}) {
   const { log } = props;
   return () => {
     const hash = log.model.selected;
@@ -792,7 +801,10 @@ function LogToolbar(props: {
 }
 
 /** The Git tool window's Log, of the active environment's repository. */
-export function GitLogView(props: { services: MenuServices; open: (tab: Tab) => void }): Node {
+export function GitLogView(props: {
+  services: MenuServices;
+  open: (tab: Tab, chain?: readonly string[]) => void;
+}): Node {
   return (
     <div class="playground-log">
       {() => {

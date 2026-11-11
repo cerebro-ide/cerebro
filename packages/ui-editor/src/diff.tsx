@@ -7,6 +7,9 @@
 //   (SyncScrollSupport), on unless turned off;
 // - Collapse Unchanged Fragments: unchanged lines more than 4 from a change are folded into a band,
 //   which shows 4 more of them each side when clicked, then 8 more, then all (FoldingModelSupport);
+// - Align Changes Highlighting: each change as high on both sides, the shorter filled out below it
+//   (and above it, where wrapped lines above made one side taller), so they line up across
+//   (AlignedDiffModel); off unless turned on;
 // - Previous and Next Difference from the caret, and the caret at the first change to start with.
 // Read-only, in the code editor's look and in a shadow root for the same reason (editor.tsx). To
 // merge, the right side can be edited, with an arrow by each change that takes the left's.
@@ -62,6 +65,8 @@ export interface DiffEditorProps extends Appearance {
   tabSize?: () => number;
   /** Scrolling one side scrolls the other, read reactively. Default: true. */
   syncScroll?: () => boolean;
+  /** Each change lined up across the sides, read reactively. Default: false, as IntelliJ's. */
+  align?: () => boolean;
   /** Folds the unchanged lines away from the changes, read reactively. Default: false. */
   collapse?: () => boolean;
   /** What's not a difference, read reactively. Default: nothing, as IntelliJ's. */
@@ -72,6 +77,11 @@ export interface DiffEditorProps extends Appearance {
   onEdit?: (text: string) => void;
   /** Given the diff's controls, once it shows. */
   control?: (diff: DiffControl) => void;
+  /**
+   * The change the caret starts at, as IntelliJ's ScrollToPolicy: the first (its default), or the
+   * last, for a file come to by going back from the next one's first change.
+   */
+  scrollTo?: 'firstChange' | 'lastChange';
 }
 
 /** What a toolbar does with a diff: IntelliJ's Previous and Next Difference. */
@@ -82,6 +92,8 @@ export interface DiffControl {
   /** Whether there's one to go to, read reactively. */
   hasPrevious(): boolean;
   hasNext(): boolean;
+  /** Gives the keyboard to the side last focused (the right, to start with). */
+  focus(): void;
 }
 
 type Side = 'a' | 'b';
@@ -190,6 +202,39 @@ export const marks = StateField.define<Marks>({
   ],
 });
 
+/**
+ * Room that lines a change up with the other side's (Align Changes Highlighting): in the change's
+ * colour where its lines are missing on this side, as IntelliJ's (`getAlignedChangeColor`: the
+ * colour at 200 of 255, none for a modified change's).
+ */
+class Spacer extends WidgetType {
+  constructor(
+    readonly height: number,
+    readonly kind: Kind,
+  ) {
+    super();
+  }
+  override eq(other: Spacer) {
+    return other.height === this.height && other.kind === this.kind;
+  }
+  override get estimatedHeight() {
+    return this.height;
+  }
+  toDOM() {
+    const room = document.createElement('div');
+    room.className = `cm-diff-spacer cm-diff-spacer-${this.kind}`;
+    room.style.height = `${String(this.height)}px`;
+    return room;
+  }
+}
+const setSpacers = StateEffect.define<DecorationSet>();
+const spacers = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update: (value, tr) =>
+    tr.effects.reduce((v, e) => (e.is(setSpacers) ? e.value : v), value.map(tr.changes)),
+  provide: (field) => EditorView.decorations.from(field),
+});
+
 /** The ignored colour of a modified change's lines: IntelliJ mixes its colour 40% into the text's. */
 const lighter = (kind: Kind) =>
   `color-mix(in srgb, ${variable(`diff-${kind}`)} 40%, ${variable('background')})`;
@@ -210,6 +255,12 @@ export const diffTheme = EditorView.theme({
     ]),
   ),
   '.cm-diff-fold': { backgroundColor: variable('diff-separator'), cursor: 'pointer' },
+  ...Object.fromEntries(
+    (['inserted', 'deleted'] as const).map((kind) => [
+      `.cm-diff-spacer-${kind}`,
+      { backgroundColor: `color-mix(in srgb, ${variable(`diff-${kind}`)} 78%, transparent)` },
+    ]),
+  ),
 });
 
 /** The panes and the divider, as a constructable sheet: the page allows no style element. */
@@ -301,6 +352,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
           if (update.geometryChanged || update.viewportChanged || update.heightChanged) draw();
         }),
         marks,
+        spacers,
         theme,
         diffTheme,
         syntaxHighlighting(highlight),
@@ -429,22 +481,109 @@ export function DiffEditor(props: DiffEditorProps): Node {
     cancelAnimationFrame(frameRequest);
     frameRequest = requestAnimationFrame(paint);
   }
+  /** Each change's room above and below it on each side, as last set (`align`). */
+  let room: Record<Side, { above: number[]; below: number[] }> = {
+    a: { above: [], below: [] },
+    b: { above: [], below: [] },
+  };
+  /**
+   * Lines the changes up, as IntelliJ's AlignedDiffModel: from where each change's lines would be
+   * without the room added, room above it on the side whose change starts higher, then below it on
+   * the side whose change is shorter. Set again only when it's moved: measured again after.
+   */
+  function align() {
+    const all = changes.peek();
+    const on = props.align?.() ?? false;
+    /** A change's top and bottom on a side, less the room added above them. */
+    const natural = (side: Side, i: number) => {
+      const view = views[side];
+      const doc = view.state.doc;
+      const change = all[i] as Change;
+      const [first, last] = [start(change, side), end(change, side)];
+      const { above, below } = room[side];
+      const before =
+        above.slice(0, i).reduce((x, y) => x + y, 0) + below.slice(0, i).reduce((x, y) => x + y, 0);
+      const own = (above[i] ?? 0) + (below[i] ?? 0);
+      // Room goes on the change's first line (or where it'd be), and after its last.
+      if (first >= doc.lines) {
+        const bottom = view.lineBlockAt(doc.length).bottom - before - own;
+        return [bottom, bottom] as const;
+      }
+      const top = view.lineBlockAt(doc.line(first + 1).from).top - before;
+      if (first === last) return [top, top] as const;
+      return [top, view.lineBlockAt(doc.line(last).from).bottom - before - own] as const;
+    };
+    const next: typeof room = { a: { above: [], below: [] }, b: { above: [], below: [] } };
+    if (on) {
+      const offset = { a: 0, b: 0 };
+      for (let i = 0; i < all.length; i++) {
+        const [a, b] = [natural('a', i), natural('b', i)];
+        const shift = a[0] + offset.a - (b[0] + offset.b);
+        next.a.above.push(Math.max(-shift, 0));
+        next.b.above.push(Math.max(shift, 0));
+        offset.a += Math.max(-shift, 0);
+        offset.b += Math.max(shift, 0);
+        const taller = a[1] - a[0] - (b[1] - b[0]);
+        next.a.below.push(Math.max(-taller, 0));
+        next.b.below.push(Math.max(taller, 0));
+        offset.a += Math.max(-taller, 0);
+        offset.b += Math.max(taller, 0);
+      }
+    }
+    if (JSON.stringify(next) === JSON.stringify(room)) return;
+    room = next;
+    for (const side of ['a', 'b'] as const) {
+      const view = views[side];
+      const doc = view.state.doc;
+      const widgets: Range<Decoration>[] = [];
+      all.forEach((change, i) => {
+        const [first, last] = [start(change, side), end(change, side)];
+        const spacer = (height: number, at: number, end: boolean) => {
+          if (height < 0.5) return;
+          const widget = new Spacer(height, change.kind);
+          widgets.push(Decoration.widget({ widget, block: true, side: end ? 1 : -1 }).range(at));
+        };
+        // None when off.
+        const [above, below] = [next[side].above[i] ?? 0, next[side].below[i] ?? 0];
+        if (first >= doc.lines) {
+          spacer(above + below, doc.length, true);
+        } else if (first === last) {
+          spacer(above + below, doc.line(first + 1).from, false);
+        } else {
+          spacer(above, doc.line(first + 1).from, false);
+          spacer(below, doc.line(last).to, true);
+        }
+      });
+      view.dispatch({ effects: setSpacers.of(Decoration.set(widgets, true)) });
+    }
+  }
+
   const SVG = 'http://www.w3.org/2000/svg';
   function paint() {
+    align();
     const width = divider.clientWidth;
     const top = divider.getBoundingClientRect().top;
-    /** A side's lines' top and bottom in the divider: a change's, or a fold's. */
-    const edges = (side: Side, from: number, to: number) => {
+    /**
+     * A side's lines' top and bottom in the divider: a change's (the `i`th), or a fold's. Aligned,
+     * a change's room is in it, but not the room above it, which lines up the lines before.
+     */
+    const edges = (side: Side, from: number, to: number, i?: number) => {
       const view = views[side];
       const doc = view.state.doc;
       const offset = view.documentTop - top;
-      // A change or fold starts at a line, or after the last.
-      const upper =
-        offset +
-        (from < doc.lines
-          ? view.lineBlockAt(doc.line(from + 1).from).top
-          : view.lineBlockAt(doc.length).bottom);
-      return [upper, from === to ? upper : offset + view.lineBlockAt(doc.line(to).from).bottom];
+      const above = i === undefined ? 0 : (room[side].above[i] ?? 0);
+      const below = i === undefined ? 0 : (room[side].below[i] ?? 0);
+      // After the last line, the room's under it.
+      if (from >= doc.lines) {
+        const bottom = offset + view.lineBlockAt(doc.length).bottom;
+        return [bottom - below, bottom];
+      }
+      // A change or fold starts at a line.
+      const upper = offset + view.lineBlockAt(doc.line(from + 1).from).top + above;
+      return [
+        upper,
+        from === to ? upper + below : offset + view.lineBlockAt(doc.line(to).from).bottom,
+      ];
     };
     const shape = (a: number[], b: number[], fill: string) => {
       const [a1, a2] = a as [number, number];
@@ -463,9 +602,9 @@ export function DiffEditor(props: DiffEditorProps): Node {
     const svg = document.createElementNS(SVG, 'svg');
     const all = changes.peek();
     const buttons: HTMLElement[] = [];
-    for (const change of all) {
-      const a = edges('a', change.start1, change.end1);
-      const b = edges('b', change.start2, change.end2);
+    for (const [i, change] of all.entries()) {
+      const a = edges('a', change.start1, change.end1, i);
+      const b = edges('b', change.start2, change.end2, i);
       svg.append(shape(a, b, `var(--cerebro-diff-${change.kind})`));
       if (!props.onEdit) continue;
       const button = document.createElement('button');
@@ -532,6 +671,11 @@ export function DiffEditor(props: DiffEditorProps): Node {
         following[slave] = s.scrollDOM.scrollTop;
       }
     };
+    // Lined up: the same place is as far down on both.
+    if (props.align?.()) {
+      set(m.scrollDOM.scrollLeft, m.scrollDOM.scrollTop);
+      return;
+    }
     const third = Math.floor(m.scrollDOM.clientHeight / 3);
     // From the scroller's top to the text's.
     const padding = (view: EditorView) =>
@@ -580,8 +724,9 @@ export function DiffEditor(props: DiffEditorProps): Node {
   };
 
   rediff();
-  // The caret at the first change, as IntelliJ opens a diff, scrolled to the middle.
-  const first = changes.peek()[0];
+  // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
+  // the middle.
+  const first = props.scrollTo === 'lastChange' ? changes.peek().at(-1) : changes.peek()[0];
   if (first) {
     for (const side of ['a', 'b'] as const) {
       const doc = views[side].state.doc;
@@ -613,6 +758,12 @@ export function DiffEditor(props: DiffEditorProps): Node {
     policies = now;
     return undefined;
   });
+  // Turned on or off: lined up, or not, at once.
+  const aligning = effect(() => {
+    props.align?.();
+    draw();
+    return undefined;
+  });
   let syncing: boolean | undefined;
   const sync = effect(() => {
     const on = props.syncScroll?.() ?? true;
@@ -630,6 +781,9 @@ export function DiffEditor(props: DiffEditorProps): Node {
     },
     hasPrevious: () => previousOf() !== undefined,
     hasNext: () => nextOf() !== undefined,
+    focus: () => {
+      views[current.peek()].focus();
+    },
   });
   onCleanup(() => {
     cancelAnimationFrame(frameRequest);
@@ -637,6 +791,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     collapsing.dispose();
     comparing.dispose();
     sync.dispose();
+    aligning.dispose();
     views.a.destroy();
     views.b.destroy();
   });

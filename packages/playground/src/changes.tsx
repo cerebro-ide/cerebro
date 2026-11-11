@@ -33,7 +33,7 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
-import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
+import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
@@ -436,6 +436,26 @@ function selectedChange(
   return item?.kind === 'change' ? item : undefined;
 }
 
+/**
+ * The files Compare Previous and Next File go through from the selected file, as IntelliJ's diff
+ * chain: its group's (its changelist's, or the unversioned files) or its turn's, in the tree's
+ * order.
+ */
+function chainOf(changes: Changes, view: View = 'changes'): string[] {
+  const model = modelOf(changes, view);
+  const rows = model.rows;
+  const at = rows.findIndex((row) => row.key === model.selected);
+  const top = rows.slice(0, at + 1).findLast((row) => row.depth === 0) as TreeRow<Item>;
+  // A group's or a turn's rows are folders and files.
+  const files = (items: readonly Item[]): string[] =>
+    items.flatMap((item) =>
+      item.kind === 'folder'
+        ? files(item.children)
+        : [(item as Extract<Item, { kind: 'change' }>).change.path],
+    );
+  return files(model.loaded.get(top.key) as readonly Item[]);
+}
+
 /** The files a selected row stands for: itself, or all of its folder's or group's. */
 function filesUnder(item: Item | undefined, changes: Changes): Extract<Item, { kind: 'change' }>[] {
   if (!item || item.kind === 'turn') return [];
@@ -541,7 +561,7 @@ const viewOf = (context: unknown): View | undefined =>
 
 export interface ChangesSetup {
   /** Opens a tab in the active editor. */
-  open: (tab: Tab) => void;
+  open: (tab: Tab, chain?: readonly string[]) => void;
   /** The active editor tab's id: Select Opened File selects its file. */
   activeTab: () => string | undefined;
   /** Shows the Commit tool window. */
@@ -720,7 +740,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
         Item,
         { kind: 'change' }
       >;
-      setup.open(diffTab(change.path, turn && { from: turn.start, to: turn.end }));
+      setup.open(
+        diffTab(change.path, turn && { from: turn.start, to: turn.end }),
+        chainOf(current() as Changes, viewOf(c)),
+      );
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
@@ -1159,7 +1182,10 @@ function CommitPanel(props: { changes: Changes; services: MenuServices }): Node 
   );
 }
 
-export function ChangesView(props: { services: MenuServices; open: (tab: Tab) => void }): Node {
+export function ChangesView(props: {
+  services: MenuServices;
+  open: (tab: Tab, chain?: readonly string[]) => void;
+}): Node {
   return (
     <div
       class="playground-changes"
@@ -1236,7 +1262,7 @@ export function ChangesView(props: { services: MenuServices; open: (tab: Tab) =>
 /** The Agent Changes tool window: each of the agent's turns, with the files it changed. */
 export function AgentChangesView(props: {
   services: MenuServices;
-  open: (tab: Tab) => void;
+  open: (tab: Tab, chain?: readonly string[]) => void;
 }): Node {
   return (
     <div

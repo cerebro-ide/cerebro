@@ -98,6 +98,8 @@ const menus = new MenuRegistry();
 const keymap = new Keymap('other');
 const services: MenuServices = { commands, menus, keymap };
 const opened: Tab[] = [];
+/** The files each diff opened goes through. */
+const chains: (readonly string[] | undefined)[] = [];
 const placed: { path: string; line: number; column: number }[] = [];
 let shown = 0;
 let activeTab: string | undefined;
@@ -111,7 +113,10 @@ beforeAll(() => {
     { ...project('/n', host), git: false },
   ]);
   setupChanges(services, {
-    open: (tab) => void opened.push(tab),
+    open: (tab, chain) => {
+      opened.push(tab);
+      chains.push(chain);
+    },
     activeTab: () => activeTab,
     show: () => {
       shown++;
@@ -134,6 +139,7 @@ afterEach(async () => {
   dispose = undefined;
   document.body.replaceChildren();
   opened.length = 0;
+  chains.length = 0;
   placed.length = 0;
   host.asked.length = 0;
   git.failing = undefined;
@@ -386,11 +392,22 @@ describe('the Commit window', () => {
     expect(commands.isEnabled('changes.showDiff', FROM_VIEW)).toBe(true);
     commands.execute('changes.showDiff', FROM_VIEW);
     expect(opened.at(-1)).toEqual({ id: 'diff:README.md', title: 'README.md' });
+    // Through its group's files, in the tree's order, as IntelliJ's changelist.
+    expect(chains.at(-1)).toEqual([
+      'docs/guide.md',
+      'src/main/app.ts',
+      'src/main/new.ts',
+      'README.md',
+    ]);
     // F4: a deleted file has nothing to go to.
     expect(commands.isEnabled('changes.jumpToSource', FROM_VIEW)).toBe(false);
     await userEvent.click(row(`${GROUP}:src/main/new.ts`));
     commands.execute('changes.jumpToSource', FROM_VIEW);
     expect(opened.at(-1)).toEqual({ id: `${wt}/src/main/new.ts`, title: 'new.ts' });
+    // An unversioned file's: the unversioned files.
+    await userEvent.click(row(`${UNVERSIONED}:notes.txt`));
+    commands.execute('changes.showDiff', FROM_VIEW);
+    expect(chains.at(-1)).toEqual(['notes.txt']);
     // Only with the window's keyboard, or from it.
     (document.activeElement as HTMLElement).blur();
     expect(commands.isEnabled('changes.showDiff')).toBe(false);
@@ -948,6 +965,8 @@ describe('the Agent Changes window', () => {
     expect(opened).toEqual([{ id: `${wt}/src/a.ts`, title: 'a.ts' }]);
     commands.execute('changes.showDiff', FROM_AGENT);
     expect(opened.at(-1)).toEqual({ id: 'diff@b..c:gone.ts', title: 'gone.ts' });
+    // Through its turn's files.
+    expect(chains.at(-1)).toEqual(['src/a.ts', 'gone.ts']);
     expect(commands.isEnabled('changes.rollback', FROM_AGENT)).toBe(false);
     commands.execute('changes.collapseAll', FROM_AGENT);
     commands.execute('changes.expandAll', FROM_AGENT);

@@ -50,6 +50,9 @@ export const INTELLIJ: KeymapPreset = {
     // Meta+[ is Back elsewhere), as IntelliJ's diff takes them.
     'diff.nextDifference': ['F7'],
     'diff.previousDifference': ['Shift+F7'],
+    // Compare Next and Previous File (Diff.NextChange and Diff.PrevChange).
+    'diff.nextFile': ['Alt+Shift+Right'],
+    'diff.previousFile': ['Alt+Shift+Left'],
     'symbol.goTo': ['Ctrl+Alt+Shift+N'],
     'class.goTo': ['Ctrl+N'],
     'file.goTo': ['Ctrl+Shift+N'],
@@ -133,6 +136,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     // Meta+[ is Back elsewhere), as IntelliJ's diff takes them.
     'diff.nextDifference': ['F7'],
     'diff.previousDifference': ['Shift+F7'],
+    'diff.nextFile': ['Ctrl+Shift+Right'],
+    'diff.previousFile': ['Ctrl+Shift+Left'],
     'symbol.goTo': ['Meta+Alt+O'],
     'class.goTo': ['Meta+O'],
     'file.goTo': ['Meta+Shift+O'],
@@ -354,6 +359,9 @@ export const ECLIPSE: KeymapPreset = {
   parent: INTELLIJ,
   bindings: {
     'diff.nextDifference': ['Ctrl+F7'],
+    // Left for Next and Right for Previous, as its file has them.
+    'diff.nextFile': ['Ctrl+Alt+Shift+Left'],
+    'diff.previousFile': ['Ctrl+Alt+Shift+Right'],
     'vcs.update': [],
     'class.goTo': ['Ctrl+Shift+T'],
     'file.goTo': ['Ctrl+Shift+R'],
@@ -397,6 +405,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
   parent: INTELLIJ_MAC,
   bindings: {
     'diff.nextDifference': ['Ctrl+F7'],
+    'diff.nextFile': [],
+    'diff.previousFile': [],
     'vcs.update': [],
     'class.goTo': ['Meta+Shift+T'],
     'file.goTo': ['Meta+Shift+R'],
@@ -472,6 +482,8 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
   name: 'IntelliJ IDEA Classic (macOS)',
   parent: forMac(INTELLIJ),
   bindings: {
+    'diff.nextFile': ['Ctrl+Shift+Right'],
+    'diff.previousFile': ['Ctrl+Shift+Left'],
     'find.inFiles': ['Ctrl+Shift+F'],
     'replace.inFiles': ['Ctrl+Shift+R'],
     'file.new': ['Ctrl+Shift+N'],
@@ -524,6 +536,8 @@ export const NETBEANS: KeymapPreset = {
   name: 'NetBeans',
   parent: INTELLIJ,
   bindings: {
+    'diff.nextFile': ['Ctrl+Alt+PageDown'],
+    'diff.previousFile': ['Ctrl+Alt+PageUp'],
     'symbol.goTo': ['Ctrl+Alt+Shift+O'],
     'class.goTo': ['Ctrl+O'],
     'file.goTo': ['Alt+Shift+O'],
@@ -556,6 +570,8 @@ export const SUBLIME: KeymapPreset = {
   name: 'Sublime Text',
   parent: INTELLIJ,
   bindings: {
+    'diff.nextFile': [],
+    'diff.previousFile': [],
     'vcs.update': [],
     'symbol.goTo': ['Ctrl+Shift+R'],
     'class.goTo': [],

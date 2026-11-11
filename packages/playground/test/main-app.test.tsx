@@ -323,8 +323,11 @@ describe('the Git window', () => {
       )
       .toBe('First');
     expect(host('/r').params('git.log')).toContainEqual({ worktree: '/r', skip: 0, max: 1000 });
-    // A commit's file opens its diff in a window of its own.
-    answers.set('git.changes', [{ path: 'src/a.ts', status: 'added' }]);
+    // A commit's file opens its diff in a window of its own, which goes through its files.
+    answers.set('git.changes', [
+      { path: 'src/a.ts', status: 'added' },
+      { path: 'src/b.ts', status: 'added' },
+    ]);
     answers.set('git.diff', { original: '', text: 'const a = 1;\n' });
     const window = '.cerebro-tool-window[data-id="git"]';
     await userEvent.click(
@@ -336,7 +339,13 @@ describe('the Git window', () => {
     await userEvent.dblClick(file);
     expect(calls.at(-1)).toEqual([
       'diff',
-      { project: '/r', env: '/r', path: 'src/a.ts', range: { from: EMPTY_TREE, to: 'c0' } },
+      {
+        project: '/r',
+        env: '/r',
+        path: 'src/a.ts',
+        range: { from: EMPTY_TREE, to: 'c0' },
+        chain: ['src/a.ts', 'src/b.ts'],
+      },
     ]);
     await userEvent.keyboard('{Alt>}9{/Alt}');
   });
@@ -357,6 +366,7 @@ describe('the Commit window', () => {
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/a.ts');
     await userEvent.click(row(':src/a.ts'));
     await userEvent.keyboard('{Control>}d{/Control}');
+    // One file alone: nothing to go through.
     expect(calls.at(-1)).toEqual(['diff', { project: '/r', env: '/r', path: 'src/a.ts' }]);
     // Show Shelf, from Search Everywhere's actions.
     await userEvent.keyboard('{Shift}{Shift}');

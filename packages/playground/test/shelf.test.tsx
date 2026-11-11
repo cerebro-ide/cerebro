@@ -76,6 +76,12 @@ const menus = new MenuRegistry();
 const keymap = new Keymap('other');
 const services: MenuServices = { commands, menus, keymap };
 const opened: Tab[] = [];
+/** The files each diff opened goes through. */
+const chains: (readonly string[] | undefined)[] = [];
+const open = (tab: Tab, chain?: readonly string[]) => {
+  opened.push(tab);
+  chains.push(chain);
+};
 let shown = 0;
 let dispose: (() => void) | undefined;
 
@@ -89,7 +95,7 @@ beforeAll(() => {
     openAt: () => undefined,
   });
   setupShelf(services, {
-    open: (tab) => void opened.push(tab),
+    open,
     show: () => {
       shown++;
     },
@@ -106,7 +112,10 @@ beforeEach(() => {
   git.shelves = [SHELF];
   git.stashes = STASHES;
   git.files = {
-    'b1..c1': [{ path: 'src/a.ts', status: 'modified' }],
+    'b1..c1': [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'src/b.ts', status: 'added' },
+    ],
     'p0..h0': [{ path: 'b.ts', status: 'added' }],
   };
 });
@@ -117,6 +126,7 @@ afterEach(async () => {
   dispose = undefined;
   document.body.replaceChildren();
   opened.length = 0;
+  chains.length = 0;
   host.asked.length = 0;
   git.failing = undefined;
   showCommitTab();
@@ -135,7 +145,7 @@ function mount(): void {
     () => (
       <>
         <CommitTabs />
-        <CommitWindow services={services} open={(tab) => void opened.push(tab)} />
+        <CommitWindow services={services} open={open} />
       </>
     ),
     box,
@@ -288,6 +298,8 @@ describe('the Shelf tab', () => {
     expect(host.params('git.changes')).toContainEqual({ path: wt, from: 'b1', to: 'c1' });
     await userEvent.dblClick(row('shelf:s1:src/a.ts'));
     expect(opened.map((t) => t.id)).toEqual(['diff@b1..c1:src/a.ts']);
+    // Through the list's files, as IntelliJ's shelf.
+    expect(chains).toEqual([['src/a.ts', 'src/b.ts']]);
     // Collapsed and expanded again, its files aren't read again.
     const read = reads('git.changes');
     await userEvent.dblClick(row('shelf:s1'));
@@ -305,6 +317,7 @@ describe('the Shelf tab', () => {
     expect(commands.isEnabled('shelf.showDiff')).toBe(true);
     commands.execute('shelf.showDiff');
     expect(opened).toHaveLength(2);
+    expect(chains[1]).toEqual(chains[0]);
     expect(keymap.shortcutsFor('shelf.showDiff')).toEqual(['Ctrl+D']);
     // Not on a list, nor once the keyboard left.
     await userEvent.click(row('shelf:s1'));
@@ -416,6 +429,7 @@ describe('the Stash tab', () => {
     await expect.poll(() => row('stash:h0:b.ts')).not.toBeNull();
     await userEvent.dblClick(row('stash:h0:b.ts'));
     expect(opened.map((t) => t.id)).toEqual(['diff@p0..h0:b.ts']);
+    expect(chains).toEqual([['b.ts']]);
     // The shelf's commands aren't the stash's.
     expect(commands.isEnabled('shelf.unshelve', FROM_STASH)).toBe(false);
   });

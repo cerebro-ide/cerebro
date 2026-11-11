@@ -235,7 +235,7 @@ const editor = () => active()?.editor;
  * Opens a tab in the active environment; in the desktop app a diff opens in a window of its own,
  * as IntelliJ's (Ido: "new window instead of as a tab").
  */
-function openTab(tab: Tab): void {
+function openTab(tab: Tab, chain?: readonly string[]): void {
   const path = diffPath(tab.id);
   const env = active()?.id;
   if (path === undefined || !window.cerebro || env === undefined) {
@@ -244,7 +244,13 @@ function openTab(tab: Tab): void {
   }
   const range = diffRange(tab.id);
   const project = shownProject().path;
-  void window.cerebro.diff.open({ project, env, path, ...(range ? { range } : {}) });
+  void window.cerebro.diff.open({
+    project,
+    env,
+    path,
+    ...(range ? { range } : {}),
+    ...(chain && chain.length > 1 ? { chain: [...chain] } : {}),
+  });
 }
 
 // Navigation by name, through the host's index; Search Everywhere's commands open places with it.

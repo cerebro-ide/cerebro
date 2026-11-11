@@ -29,6 +29,11 @@ export interface DiffSpec {
   env: string;
   path: string;
   range?: { from: string; to: string };
+  /**
+   * The files Compare Previous and Next File go through, `path` among them, as IntelliJ's diff
+   * chain: the list the diff was opened from.
+   */
+  chain?: string[];
 }
 
 /** Where Jump to Source goes from a diff window: a place in a file of its worktree. */

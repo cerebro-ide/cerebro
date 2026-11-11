@@ -21,7 +21,7 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'onEdit'>) {
+function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>) {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 800px; height: 300px;';
   document.body.append(container);
@@ -189,6 +189,22 @@ describe('the unified diff editor', () => {
     await expect
       .poll(() => getComputedStyle(root.querySelector('.cm-scroller') as Element).fontSize)
       .toBe('20px');
+  });
+
+  it('starts at the last change if asked, and takes the focus when asked', () => {
+    let control: DiffControl | undefined;
+    const root = mount({
+      path: 'a.txt',
+      original: 'a\nb\nc\nd',
+      text: 'a\nB\nc\nD',
+      scrollTo: 'lastChange',
+      control: (c) => {
+        control = c;
+      },
+    });
+    expect(diffSource(root.host)).toEqual({ line: 3, column: 0 });
+    (control as DiffControl).focus();
+    expect(root.activeElement).toBe(root.querySelector('.cm-content'));
   });
 
   it('jumps to the right’s line from an added or unchanged line, and to its change’s from a removed one', async () => {

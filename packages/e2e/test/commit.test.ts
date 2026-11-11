@@ -1,5 +1,5 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
-// going from a diff to the file with F4; logging in to push; Update Project, its conflicts resolved;
+// going from a diff to the file with F4, and to the list's other files; logging in to push; Update Project, its conflicts resolved;
 // Fetch and Pull; and Merge.
 
 import { execFileSync } from 'node:child_process';
@@ -201,6 +201,20 @@ it('goes to the next change with F7 and back with Shift+F7, from the first to st
   await diff.keyboard.press('Shift+F7');
   await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// Shapes, longer');
+});
+
+it('compares the previous file of its list, as IntelliJ’s diff window', async () => {
+  // The Changes group's files: b.ts, then shape.ts.
+  await diff.bringToFront();
+  const count = diff.locator('.playground-diff-window__count');
+  await expect.poll(() => count.textContent()).toBe('2/2');
+  await diff.locator('[data-command="diff.previousFile"]').click();
+  await expect.poll(() => diff.title()).toBe('b.ts');
+  expect(await count.textContent()).toBe('1/2');
+  const right = diff.locator('.cerebro-editor-diff .cm-diff-b');
+  await expect
+    .poll(() => right.locator('.cm-line').allTextContents(), { timeout: 15_000 })
+    .toContain('b changed');
   await diff.close();
 });
 

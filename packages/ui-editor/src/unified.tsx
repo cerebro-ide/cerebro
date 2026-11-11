@@ -101,7 +101,9 @@ const renumbered = (update: ViewUpdate) =>
 const textOf = (doc: string) => Text.of(doc.split(/\r\n?|\n/));
 
 /** A diff of one file in one editor, read-only. */
-export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'onEdit'>): Node {
+export function UnifiedDiffEditor(
+  props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>,
+): Node {
   const container = document.createElement('div');
   container.className = 'cerebro-editor-diff';
   const shadow = container.attachShadow({ mode: 'open' });
@@ -264,8 +266,9 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
   });
 
   rediff();
-  // The caret at the first change, as IntelliJ opens a diff, scrolled to the middle.
-  const first = blocks.peek()[0];
+  // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
+  // the middle.
+  const first = props.scrollTo === 'lastChange' ? blocks.peek().at(-1) : blocks.peek()[0];
   if (first) show(first);
 
   const watch = effect(() => {
@@ -295,6 +298,9 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
     },
     hasPrevious: () => previousOf() !== undefined,
     hasNext: () => nextOf() !== undefined,
+    focus: () => {
+      view.focus();
+    },
   });
   onCleanup(() => {
     watch.dispose();

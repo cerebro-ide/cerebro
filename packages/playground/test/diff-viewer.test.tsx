@@ -99,6 +99,7 @@ describe('a diff’s toolbar', () => {
       viewer: 'sideBySide',
       collapse: false,
       syncScroll: true,
+      align: false,
       ignore: 'none',
       highlight: 'words',
       whitespace: false,
@@ -114,18 +115,29 @@ describe('a diff’s toolbar', () => {
     expect(folds()).toBe(0);
   });
 
-  it('synchronizes scrolling unless turned off in its Settings', async () => {
+  it('aligns changes if turned on, and synchronizes scrolling unless turned off, in its Settings', async () => {
     const { services } = mount();
     const settings = document.querySelector('[data-menu="diff/settings"]') as HTMLElement;
     await userEvent.click(settings);
-    const item = document.querySelector('[role="menuitemcheckbox"]');
-    expect(item?.textContent).toContain('Synchronize Scrolling');
-    expect(item?.getAttribute('aria-checked')).toBe('true');
-    await userEvent.click(item as Element);
+    // First, as IntelliJ's gear: Align Changes Highlighting, off, then Synchronize Scrolling, on.
+    const items = () => [...document.querySelectorAll('[role="menuitemcheckbox"]')].slice(0, 2);
+    expect(items().map((item) => item.textContent)).toEqual([
+      expect.stringContaining('Align Changes Highlighting') as unknown,
+      expect.stringContaining('Synchronize Scrolling') as unknown,
+    ]);
+    expect(items().map((item) => item.getAttribute('aria-checked'))).toEqual(['false', 'true']);
+    await userEvent.click(items()[1] as Element);
     expect(services.commands.isChecked('diff.syncScroll')).toBe(false);
+    services.commands.execute('diff.alignChanges');
+    expect(services.commands.isChecked('diff.alignChanges')).toBe(true);
     expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
       syncScroll: false,
+      align: true,
     });
+    // A new session takes it.
+    dispose?.();
+    document.body.replaceChildren();
+    expect(mount().services.commands.isChecked('diff.alignChanges')).toBe(true);
   });
 
   it('ignores and highlights differences as chosen in its Settings, and keeps the choice', async () => {
@@ -204,9 +216,9 @@ describe('a diff’s toolbar', () => {
     // And its keys, with the keyboard in it.
     services.commands.execute('diff.nextDifference');
     await expect.poll(caret).toBe(50);
-    // No Synchronize Scrolling: one editor.
     await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
-    expect(document.querySelector('.cerebro-menu')?.textContent).not.toContain('Synchronize');
+    // Nor Align Changes Highlighting, nor Synchronize Scrolling: one editor.
+    expect(document.querySelector('.cerebro-menu')?.textContent).not.toMatch(/Synchronize|Align/);
     await userEvent.keyboard('{Escape}');
     expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
       viewer: 'unified',
