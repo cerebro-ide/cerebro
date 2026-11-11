@@ -58,10 +58,13 @@ import {
   createBranch,
   deleteBranch,
   mergeBranch,
+  rebase,
   rebaseOnto,
+  REBASE_OPTIONS,
   renameBranch,
   restoreBranch,
   type NewBranch,
+  type RebaseParams,
 } from './branches.js';
 import { createTag, listTags, validRevision, type NewTag } from './tags.js';
 import { resetHead } from './reset.js';
@@ -809,6 +812,26 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = text(params, 'path');
     const onto = text(params, 'onto');
     return recording(worktree, `Rebase onto ${onto}`, git, () => rebaseOnto(worktree, onto, git));
+  });
+  // Git → Rebase…, recorded as IntelliJ's Rebase onto.
+  connection.onRequest('git.rebase', (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { onto?: unknown; upstream?: unknown; branch?: unknown };
+    const given = (value: unknown) =>
+      typeof value === 'string' && value !== '' ? value : undefined;
+    const onto = given(p.onto);
+    const upstream = given(p.upstream);
+    const branch = given(p.branch);
+    const rebaseParams = {
+      options: chosen(params, REBASE_OPTIONS) as RebaseParams['options'],
+      ...(onto === undefined ? {} : { onto }),
+      ...(upstream === undefined ? {} : { upstream }),
+      ...(branch === undefined ? {} : { branch }),
+    };
+    const base = onto ?? upstream ?? 'its root';
+    return recording(worktree, `Rebase onto ${base}`, git, () =>
+      rebase(worktree, rebaseParams, git),
+    );
   });
   connection.onRequest('git.mergeRevisions', (params) =>
     mergeRevisions(text(params, 'path'), text(params, 'file'), git),

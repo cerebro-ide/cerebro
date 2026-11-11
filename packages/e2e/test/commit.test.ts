@@ -545,3 +545,32 @@ it('merges a branch from Git → Merge…, with the options chosen, as IntelliJ�
     })
     .toContain('1 file updated in 1 commit');
 });
+
+it('rebases the branch onto another from Git → Rebase…, as IntelliJ’s', async () => {
+  const commitAs = (...args: string[]) => git('-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
+  git('checkout', '-qb', 'base');
+  writeFileSync(join(repo, 'base.txt'), 'Base');
+  git('add', 'base.txt');
+  commitAs('commit', '-qm', 'Base');
+  git('checkout', '-q', 'main');
+  writeFileSync(join(repo, 'mine.txt'), 'Mine');
+  git('add', 'mine.txt');
+  commitAs('commit', '-qm', 'Mine');
+  await action('Rebase');
+  const dialog = page().locator('.cerebro-dialog', { hasText: 'git rebase' });
+  await dialog.waitFor();
+  expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Rebase');
+  await dialog.locator('input[aria-label="Base"]').fill('base');
+  await dialog.locator('.cerebro-dialog__button', { hasText: /^Rebase$/ }).click();
+  const titles = () =>
+    page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents();
+  try {
+    await expect.poll(titles, { timeout: 15_000 }).toContain('Rebase successful');
+  } catch (error) {
+    await seen();
+    throw error;
+  }
+  // On top of base: its commit under main's.
+  expect(git('log', '-1', '--format=%s')).toBe('Mine\n');
+  expect(() => git('merge-base', '--is-ancestor', 'base', 'HEAD')).not.toThrow();
+});

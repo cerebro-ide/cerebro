@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
 - [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated
@@ -2238,6 +2239,42 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Git → Rebase… (2026-11-11)
+
+The last of the Git menu's actions the decision "Fetch and Pull" left. From IntelliJ's source
+(`GitRebaseDialog`, `GitRebaseOption`, `GitRebaseParams`, their words in `GitBundle`, and
+`Git.MainMenu`).
+
+- **In the Git menu after Merge…, whatever's under way,** as IntelliJ's (`Git.Rebase` there); off
+  only without a host.
+- **The dialog, "Rebase":** `git rebase`, then the base (a branch or a hash: local branches, then
+  remote ones, then tags, suggested as it's typed), the Merge dialog's field. Modify options (Add
+  Rebase Options) at the buttons' left, the options chosen shown under the command, as Merge's.
+  The options are IntelliJ's but --interactive: Select another branch to rebase, --onto,
+  --rebase-merges, --keep-empty, --root, --update-refs, --autosquash and --no-autosquash (each of
+  the last two excludes the other).
+- **The fields move, as IntelliJ's:** --onto puts its new base first, the base moved there, and the
+  old base under it; another branch's field follows the base, or goes under with it. --root turns
+  the base off. Each field is built once and moved, the focus left where it was; the base has the
+  focus at first (`getPreferredFocusedComponent`).
+- **What's wrong is said under the fields, in IntelliJ's order** (`doValidateAll`) and words: the
+  base (Select a new base, or Select an upstream with --onto), the new base, a rebase under way
+  (Interactive rebase is already in progress for this Git root), the branch (Select a branch to
+  switch to, Branch 'x' does not exist: a local one). A base git doesn't know is asked of git on
+  Rebase only (`RevValidator`): There is no such branch or tag, until it's changed. Rebase is off
+  while anything is wrong (Cerebro's, open to change: IntelliJ turns it off for the bases' errors
+  only, and says the others when clicked).
+- **Kept, as IntelliJ's settings:** the options (not --onto and the other branch, which are fields)
+  and the base last chosen, per repository; the base only while git still knows it.
+- **Then `git rebase --autostash`** with the options, `--onto <new base>`, the base (or `--root`)
+  and the branch, as `GitRebaseParams` orders them; `--autostash` as Update Project's rebase. It's
+  recorded in Local History. "Rebase successful" says "Rebased <branch> on <base>" (HEAD when
+  detached); at conflicts, the Conflicts dialog, then on, as Continue Rebase. A failure is "Rebase
+  failed", git's words under it.
+- **Not yet:** --interactive (IntelliJ's interactive rebase editor); IntelliJ's checks before
+  starting (Rebase is not possible during a merge or a cherry-pick: git's own words say so now);
+  several repositories' Git Root field.
+
 ## Git → Manage Remotes… (2026-11-11)
 
 The last of the Git menu's actions the decision "Fetch and Pull" left, with Rebase…. From
@@ -2583,8 +2620,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
 - **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull; Rebase… (the next PR; Merge…: decision "Git → Merge…";
-  New Tag…, Reset HEAD… and Manage Remotes…: their decisions).
+  without remotes; View Commits after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
+  Rebase…: their decisions).
 
 ## Branches (2026-11-10)
 
@@ -2727,8 +2764,8 @@ operations): the first of the three. Words and behaviour from IntelliJ's source
 - **How the page knows what's under way:** it reads the active worktree's state every 2 seconds, as
   the window gets the focus, and after Cerebro's own git actions, so a merge started in the terminal
   shows (Cerebro's choice, open to change: IntelliJ watches `.git` for changes).
-- **Not yet:** IntelliJ's Merge… and Rebase… dialogs that start one (Git → Merge…, Git → Rebase…);
-  a cherry-pick's or revert's Abort; Edit a rebase's todo (interactive rebase).
+- **Not yet:** a cherry-pick's or revert's Abort; Edit a rebase's todo (interactive rebase).
+  (Merge… and Rebase…, which start one: their decisions.)
 
 ## Merge conflicts (2026-11-09)
 

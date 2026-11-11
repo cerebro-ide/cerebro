@@ -1036,6 +1036,19 @@ describe('ignored files and rolling back', () => {
     );
     expect(await ui.request('git.mergeBranch', { path: '/w', branch: 'side' })).toBe('upToDate');
     expect(await ui.request('git.rebaseOnto', { path: '/w', onto: 'side' })).toBe('upToDate');
+    expect(
+      await ui.request('git.rebase', {
+        path: '/w',
+        options: ['--update-refs'],
+        onto: 'main',
+        upstream: 'old',
+        branch: 'side',
+      }),
+    ).toBe('upToDate');
+    expect(await ui.request('git.rebase', { path: '/w', upstream: '' })).toBe('upToDate');
+    await expect(
+      ui.request('git.rebase', { path: '/w', options: ['--interactive'] }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     expect(asked()).toEqual(
       expect.arrayContaining([
         'checkout side --',
@@ -1047,6 +1060,8 @@ describe('ignored files and rolling back', () => {
         'branch o abc',
         'merge --no-edit side',
         'rebase --autostash side',
+        'rebase --autostash --update-refs --onto main old side',
+        'rebase --autostash --root',
       ]),
     );
     await expect(ui.request('git.checkout', { path: '/w' })).rejects.toMatchObject({

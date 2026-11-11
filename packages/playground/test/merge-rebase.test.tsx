@@ -27,6 +27,11 @@ const git = {
   /** The branches, local and remote (with a slash). */
   refs: [] as string[],
   merged: { kind: 'merged', files: 2, commits: 1 } as { kind: string; [key: string]: unknown },
+  tags: ['v1.0'],
+  /** What git knows, as `git.validRevision` answers. */
+  known: (revision: string) => revision !== 'nowhere',
+  /** What a rebase gives: done, conflicts, or an error. */
+  rebased: 'done' as 'done' | 'conflicts' | Error,
 };
 const host = new FakeHost({
   'git.state': () => git.state,
@@ -63,6 +68,13 @@ const host = new FakeHost({
     if (git.merged.kind === 'conflicts') git.conflicted = ['a.ts'];
     return git.merged;
   },
+  'git.tags': () => git.tags,
+  'git.validRevision': (p: { revision: string }) => git.known(p.revision),
+  'git.rebase': () => {
+    if (git.rebased instanceof Error) throw git.rebased;
+    if (git.rebased === 'conflicts') git.conflicted = ['a.ts'];
+    return git.rebased;
+  },
   'git.continueUpdate': () => ({ kind: 'updated', files: 4, commits: 3, restored: true }),
 });
 const next = () => {
@@ -72,12 +84,15 @@ const next = () => {
   return stop;
 };
 
+/** The project, its worktree on branch feature. */
+const repository = () => project('/r/feature', host, [{ id: '/r/feature', branch: 'feature' }]);
+
 const commands = new CommandRegistry();
 const menus = new MenuRegistry();
 const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
 
 beforeAll(() => {
-  useProjects([project('/r/feature', host), project('/s', undefined)]);
+  useProjects([repository(), project('/s', undefined)]);
   setupConflicts(services);
   setupMergeRebase(services);
 });
@@ -91,6 +106,9 @@ beforeEach(() => {
   git.tracking = { branch: 'feature', upstream: { remote: 'origin', branch: 'main' } };
   git.unmerged = ['refs/heads/v2', 'refs/remotes/origin/main'];
   git.merged = { kind: 'merged', files: 2, commits: 1 };
+  git.tags = ['v1.0'];
+  git.known = (revision) => revision !== 'nowhere';
+  git.rebased = 'done';
   git.refs = ['feature', 'v10', 'main', 'v2', 'origin/HEAD', 'origin/main', 'origin/feature'];
   localStorage.clear();
 });
@@ -118,19 +136,22 @@ const run = (id: string) => Promise.resolve({ done: exec(id) });
 
 describe('the Git menu during a merge or a rebase', () => {
   it('shows each action only while it applies, as IntelliJ’s', async () => {
-    // Merge… but while a merge is under way; during a rebase, off.
-    expect(await menu({ conflicts: false })).toEqual(['Merge…']);
+    // Merge… but while a merge is under way; during a rebase, off. Rebase… always.
+    expect(await menu({ conflicts: false })).toEqual(['Merge…', 'Rebase…']);
     expect(commands.isEnabled('vcs.merge')).toBe(true);
     expect(await menu({ operation: 'merge', conflicts: true })).toEqual([
       'Abort Merge',
+      'Rebase…',
       'Resolve Conflicts…',
     ]);
     expect(await menu({ operation: 'merge', conflicts: false })).toEqual([
       'Commit Merge',
       'Abort Merge',
+      'Rebase…',
     ]);
     expect(await menu({ operation: 'rebase', conflicts: true })).toEqual([
       'Merge…',
+      'Rebase…',
       'Rebase',
       'Resolve Conflicts…',
       'Abort Rebase',
@@ -138,12 +159,14 @@ describe('the Git menu during a merge or a rebase', () => {
       'Skip Commit',
     ]);
     expect(commands.isEnabled('vcs.merge')).toBe(false);
-    // Without a host, Merge… alone, off.
+    // Without a host, Merge… and Rebase… alone, off.
     workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
     expect(visibleEntries(services, 'main/git').map((e) => 'command' in e && e.command)).toEqual([
       'vcs.merge',
+      'vcs.rebase',
     ]);
     expect(commands.isEnabled('vcs.merge')).toBe(false);
+    expect(commands.isEnabled('vcs.rebase')).toBe(false);
     expect(commands.get('vcs.merge')?.run(undefined)).toBeUndefined();
     await exec('vcs.abortMerge');
     expect(document.querySelector('.cerebro-dialog')).toBeNull();
@@ -493,6 +516,250 @@ describe('Merge…', () => {
     ]);
     await exec('vcs.merge');
     expect(logged.mock.calls[0]?.[0]).toBe('Merge failed');
-    useProjects([project('/r/feature', host), project('/s', undefined)]);
+    useProjects([repository(), project('/s', undefined)]);
+  });
+});
+
+describe('Rebase…', () => {
+  /** Opens the dialog from the Git menu, in `state`. */
+  const open = async (state: Record<string, unknown> = { conflicts: false }) => {
+    await menu(state);
+    const done = exec('vcs.rebase');
+    const shown = await dialog();
+    const field = (label: string) =>
+      shown.querySelector<HTMLInputElement>(`input[aria-label="${label}"]`) as HTMLInputElement;
+    return {
+      done,
+      shown,
+      field,
+      error: () => shown.querySelector('[role="alert"]')?.textContent,
+      ok: () =>
+        [...shown.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
+          (b) => b.textContent === 'Rebase',
+        ) as HTMLButtonElement,
+      /** Types into a field, by its label, replacing what's there. */
+      type: async (label: string, text: string) => {
+        await userEvent.clear(field(label));
+        if (text !== '') await userEvent.type(field(label), text);
+      },
+      /** Toggles options in Add Rebase Options, by their descriptions. */
+      choose: async (...descriptions: string[]) => {
+        await userEvent.click(
+          [...shown.querySelectorAll('button')].find(
+            (b) => b.textContent === 'Modify options',
+          ) as HTMLElement,
+        );
+        await popupItems();
+        for (const description of descriptions) {
+          await userEvent.click(
+            [...document.querySelectorAll<HTMLElement>('.cerebro-popup-item')].find(
+              (r) => r.querySelector('.cerebro-popup-item__label')?.textContent === description,
+            ) as HTMLElement,
+          );
+        }
+        await userEvent.keyboard('{Escape}');
+        await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+      },
+      chips: () =>
+        [...shown.querySelectorAll('.playground-git-options__option')].map(
+          (o) => o.firstChild?.textContent,
+        ),
+    };
+  };
+
+  it('asks in IntelliJ’s dialog, and rebases the branch on the base', async () => {
+    const { shown, field, done, error, ok, type } = await open();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Rebase');
+    expect(shown.querySelector('.playground-git-command__git')?.textContent).toBe('git rebase');
+    expect(field('Base').placeholder).toBe('branch or hash');
+    expect(error()).toBe('Select a new base');
+    expect(ok().disabled).toBe(true);
+    // Local branches, then remote ones, then tags.
+    await type('Base', 'v');
+    expect(
+      [...document.querySelectorAll('.playground-git-branch__suggestion')].map(
+        (s) => s.textContent,
+      ),
+    ).toEqual(['v2', 'v10', 'v1.0']);
+    await type('Base', 'main');
+    expect(error()).toBe('');
+    await press('Rebase');
+    await done;
+    expect(host.params('git.rebase')).toEqual([
+      { path: '/r/feature', options: [], upstream: 'main' },
+    ]);
+    expect(last()).toMatchObject({
+      title: 'Rebase successful',
+      content: 'Rebased feature on main',
+    });
+  });
+
+  it('moves the base to --onto’s new base, and back, the old one asked under it', async () => {
+    const { field, done, error, type, choose } = await open();
+    await type('Base', 'main');
+    await choose('Specify a new base for the rebased commits');
+    expect(field('New base').value).toBe('main');
+    expect(field('Base').value).toBe('');
+    expect(field('Base').placeholder).toBe('old base (branch or hash)');
+    // The fields moved, the focus left where it was.
+    expect(document.activeElement?.closest('.cerebro-popup')).toBeNull();
+    expect(error()).toBe('Select an upstream');
+    await choose('Specify a new base for the rebased commits');
+    expect(field('Base').value).toBe('main');
+    await choose('Specify a new base for the rebased commits');
+    await type('Base', 'v2');
+    await type('New base', '');
+    expect(error()).toBe('Select a new base');
+    await type('New base', 'main');
+    await press('Rebase');
+    await done;
+    expect(host.params('git.rebase')).toEqual([
+      { path: '/r/feature', options: [], onto: 'main', upstream: 'v2' },
+    ]);
+    // The new base is the one kept.
+    expect((await open()).field('Base').value).toBe('main');
+  });
+
+  it('rebases from the root, another branch, with the options chosen', async () => {
+    const { field, done, error, type, choose, chips } = await open();
+    await choose(
+      'Rebase all commits in the branch',
+      'Select another branch to rebase',
+      'Recreate commits topology',
+    );
+    expect(chips()).toEqual(['--root', '--rebase-merges']);
+    expect(field('Base').disabled).toBe(true);
+    expect(error()).toBe('Select a branch to switch to');
+    await type('Branch to rebase', 'nope');
+    expect(error()).toBe("Branch 'nope' does not exist");
+    await type('Branch to rebase', 'v2');
+    expect(error()).toBe('');
+    await press('Rebase');
+    await done;
+    expect(host.params('git.rebase')).toEqual([
+      { path: '/r/feature', options: ['--rebase-merges'], branch: 'v2' },
+    ]);
+    expect(last()).toMatchObject({ title: 'Rebase successful', content: 'Rebased v2' });
+    // The options are kept, but the fields'.
+    const again = await open();
+    expect(again.chips()).toEqual(['--root', '--rebase-merges']);
+    expect(again.field('Branch to rebase')).toBeNull();
+    // With --onto and another branch: both under the new base.
+    await again.choose(
+      'Specify a new base for the rebased commits',
+      'Select another branch to rebase',
+    );
+    const rows = again.shown.querySelectorAll('.playground-git-command__row');
+    expect(
+      [...(rows[1]?.querySelectorAll('input') ?? [])].map((i) => i.getAttribute('aria-label')),
+    ).toEqual(['Base', 'Branch to rebase']);
+    expect(again.field('Base').disabled).toBe(true);
+    expect(again.error()).toBe('Select a new base');
+  });
+
+  it('says on Rebase that git doesn’t know a base, until it’s changed', async () => {
+    const { done, error, ok, type, choose } = await open();
+    await type('Base', 'nowhere');
+    await userEvent.click(ok());
+    await expect.poll(error).toBe('There is no such branch or tag');
+    expect(ok().disabled).toBe(true);
+    await type('Base', 'main');
+    expect(error()).toBe('');
+    // --onto's new base, asked first.
+    await choose('Specify a new base for the rebased commits');
+    await type('Base', 'v2');
+    await type('New base', 'nowhere');
+    await userEvent.click(ok());
+    await expect.poll(error).toBe('There is no such branch or tag');
+    await type('Base', 'nowhere');
+    await type('New base', 'v10');
+    await userEvent.click(ok());
+    await expect.poll(error).toBe('There is no such branch or tag');
+    await press('Cancel');
+    await done;
+    expect(host.params('git.rebase')).toEqual([]);
+  });
+
+  it('starts at the base last chosen while git still knows it', async () => {
+    const first = await open();
+    await first.type('Base', 'v2');
+    await press('Rebase');
+    await first.done;
+    const second = await open();
+    expect(second.field('Base').value).toBe('v2');
+    await press('Cancel');
+    await second.done;
+    git.known = (revision) => revision !== 'v2';
+    expect((await open()).field('Base').value).toBe('');
+  });
+
+  it('says when a rebase is under way', async () => {
+    const { error, ok, type } = await open({ operation: 'rebase', conflicts: true });
+    await type('Base', 'main');
+    expect(error()).toBe('Interactive rebase is already in progress for this Git root');
+    expect(ok().disabled).toBe(true);
+  });
+
+  it('shows the Conflicts dialog at conflicts, and goes on once none is left', async () => {
+    git.rebased = 'conflicts';
+    const { done, type } = await open();
+    await type('Base', 'main');
+    await press('Rebase');
+    await expect.poll(dialogText).toContain('a.ts');
+    await press('Accept Yours');
+    await done;
+    expect(host.params('git.continue')).toHaveLength(1);
+    expect(last()).toMatchObject({
+      title: 'Rebase successful',
+      content: 'Rebased feature on main',
+    });
+  });
+
+  it('says why it failed, in git’s words; HEAD when detached', async () => {
+    git.rebased = new Error('fatal: invalid upstream');
+    const first = await open();
+    await first.type('Base', 'main');
+    await press('Rebase');
+    await first.done;
+    expect(last()).toMatchObject({
+      title: 'Rebase failed',
+      content: 'fatal: invalid upstream',
+      type: 'error',
+      display: 'sticky',
+    });
+    git.rebased = 'done';
+    useProjects([
+      project('/r/feature', host, [{ id: '/r/feature', branch: 'detached' }]),
+      project('/s', undefined),
+    ]);
+    const second = await open();
+    await press('Rebase');
+    await second.done;
+    expect(last()?.content).toBe('Rebased HEAD on main');
+    useProjects([repository(), project('/s', undefined)]);
+  });
+
+  it('starts afresh when nothing can be kept', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    const first = await open();
+    await first.type('Base', 'v2');
+    await press('Rebase');
+    await first.done;
+    expect((await open()).field('Base').value).toBe('');
+  });
+
+  it('logs what fails outside the rebase', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const tags = host.answers['git.tags'];
+    delete host.answers['git.tags'];
+    await menu({ conflicts: false });
+    await exec('vcs.rebase');
+    expect(logged.mock.calls[0]?.[0]).toBe('Rebase failed');
+    host.answers['git.tags'] = tags as NonNullable<typeof tags>;
   });
 });

@@ -13,6 +13,11 @@ export interface GitOption {
   flag: string;
   description: string;
   excludes: string[];
+  /**
+   * Shown as a field of the command, not under it, and not kept: Rebase's --onto and its other
+   * branch, as IntelliJ's options beside `REBASE_FLAGS`.
+   */
+  field?: true;
 }
 
 /** Whether `flag` goes with those chosen, as IntelliJ's `isOptionSuitable`. */
@@ -41,6 +46,7 @@ export function gitOptions(
   key: string,
   width: number,
 ): GitOptions {
+  const fields = all.filter((o) => o.field).map((o) => o.flag);
   const chosen = signal(read(all, key));
   const toggle = (flag: string) => {
     const now = chosen.peek();
@@ -84,10 +90,11 @@ export function gitOptions(
         Modify options
       </button>
     ),
-    shown: () =>
-      chosen.get().length === 0 ? null : (
+    shown: () => {
+      const flags = chosen.get().filter((flag) => !fields.includes(flag));
+      return flags.length === 0 ? null : (
         <div class="playground-git-options">
-          {chosen.get().map((flag) => (
+          {flags.map((flag) => (
             <span class="playground-git-options__option">
               {flag}
               <button
@@ -103,10 +110,14 @@ export function gitOptions(
             </span>
           ))}
         </div>
-      ),
+      );
+    },
     keep: () => {
       try {
-        localStorage.setItem(key, JSON.stringify(chosen.peek()));
+        localStorage.setItem(
+          key,
+          JSON.stringify(chosen.peek().filter((flag) => !fields.includes(flag))),
+        );
       } catch {
         // Not kept: the next time starts without them.
       }
@@ -126,11 +137,24 @@ function read(all: readonly GitOption[], key: string): string[] {
   }
 }
 
+/** A branch field's name, its placeholder, whether it's off, and whether it takes the focus. */
+export interface BranchFieldOptions {
+  label?: string;
+  placeholder?: () => string;
+  disabled?: () => boolean;
+  focus?: boolean;
+}
+
 /**
- * A branch field, focused with its text selected, its `branches` that hold what's typed suggested
- * under it as it's typed, and chosen with a click. Read reactively: the list follows them.
+ * A branch field, focused with its text selected (unless told not to), its `branches` that hold
+ * what's typed suggested under it as it's typed, and chosen with a click. Read reactively: the list
+ * follows them.
  */
-export function branchField(branch: Signal<string>, branches: () => readonly string[]): Child {
+export function branchField(
+  branch: Signal<string>,
+  branches: () => readonly string[],
+  options: BranchFieldOptions = {},
+): Child {
   const suggesting = signal(false);
   /** The field, which the suggestions show under. */
   let field!: HTMLInputElement;
@@ -138,12 +162,14 @@ export function branchField(branch: Signal<string>, branches: () => readonly str
     <span class="playground-git-branch">
       <input
         class="playground-git-branch__field"
-        aria-label="Branch"
-        placeholder="Specify branch"
+        aria-label={options.label ?? 'Branch'}
+        placeholder={() => options.placeholder?.() ?? 'Specify branch'}
+        disabled={() => options.disabled?.() === true}
         spellcheck={false}
         value={() => branch.get()}
         ref={(element) => {
           field = element;
+          if (options.focus === false) return;
           requestAnimationFrame(() => {
             element.focus();
             element.select();
