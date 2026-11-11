@@ -56,6 +56,7 @@ interface Options {
   viewer: Viewer;
   collapse: boolean;
   syncScroll: boolean;
+  align: boolean;
   ignore: IgnorePolicy;
   highlight: HighlightPolicy;
   /** The gear's Appearance. */
@@ -69,13 +70,14 @@ interface Options {
  * Collapsed to start with, as IntelliJ's diffs from the Commit tool window, the Log and a file's
  * history, where Cerebro's open (its default elsewhere is expanded: a claim that one default fits
  * here, open to change); scrolling synchronized, nothing ignored and words highlighted, line
- * numbers alone shown, as IntelliJ's defaults (`TextDiffSettingsHolder`).
+ * numbers alone shown, changes not aligned, as IntelliJ's defaults (`TextDiffSettingsHolder`).
  */
 function readOptions(): Options {
   const defaults: Options = {
     viewer: 'sideBySide',
     collapse: true,
     syncScroll: true,
+    align: false,
     ignore: 'none',
     highlight: 'words',
     whitespace: false,
@@ -91,6 +93,7 @@ function readOptions(): Options {
       viewer: stored.viewer === 'unified' ? 'unified' : 'sideBySide',
       collapse: stored.collapse !== false,
       syncScroll: stored.syncScroll !== false,
+      align: stored.align === true,
       ignore: one(IGNORE_POLICIES, stored.ignore, defaults.ignore),
       highlight: one(HIGHLIGHT_POLICIES, stored.highlight, defaults.highlight),
       whitespace: stored.whitespace === true,
@@ -107,6 +110,7 @@ function readOptions(): Options {
 const viewer = signal<Viewer>('sideBySide');
 const collapse = signal(true);
 const syncScroll = signal(true);
+const align = signal(false);
 const ignore = signal<IgnorePolicy>('none');
 const highlight = signal<HighlightPolicy>('words');
 const appearance = {
@@ -122,6 +126,7 @@ function saveOptions(): void {
       viewer: viewer.peek(),
       collapse: collapse.peek(),
       syncScroll: syncScroll.peek(),
+      align: align.peek(),
       ignore: ignore.peek(),
       highlight: highlight.peek(),
       whitespace: appearance.whitespace.peek(),
@@ -181,6 +186,7 @@ export function setupDiffViewer(services: MenuServices, files?: DiffFiles): void
   viewer.set(options.viewer);
   collapse.set(options.collapse);
   syncScroll.set(options.syncScroll);
+  align.set(options.align);
   ignore.set(options.ignore);
   highlight.set(options.highlight);
   for (const name of APPEARANCE) appearance[name].set(options[name]);
@@ -241,6 +247,20 @@ export function setupDiffViewer(services: MenuServices, files?: DiffFiles): void
       },
     });
   }
+  // First in the gear, before Synchronize Scrolling, as IntelliJ's (its name, `ActionsBundle`'s
+  // Vcs.Diff.ToggleDiffAligningMode in the gear's popup).
+  commands.register({
+    id: 'diff.alignChanges',
+    label: 'Align Changes Highlighting',
+    // The unified viewer has one side.
+    visible: () => viewer.get() === 'sideBySide',
+    checked: () => align.get(),
+    run: () => {
+      align.set(!align.peek());
+      saveOptions();
+    },
+  });
+  menus.contribute({ menu: 'diff/settings', item: { command: 'diff.alignChanges' }, group: 'a' });
   commands.register({
     id: 'diff.syncScroll',
     label: 'Synchronize Scrolling',
@@ -391,7 +411,7 @@ export function DiffViewer(props: DiffViewerProps): Node {
           return viewer.get() === 'unified' ? (
             <UnifiedDiffEditor {...shared} />
           ) : (
-            <DiffEditor {...shared} syncScroll={() => syncScroll.get()} />
+            <DiffEditor {...shared} syncScroll={() => syncScroll.get()} align={() => align.get()} />
           );
         }}
         {() => {

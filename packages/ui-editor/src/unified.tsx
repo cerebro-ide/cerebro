@@ -101,7 +101,9 @@ const renumbered = (update: ViewUpdate) =>
 const textOf = (doc: string) => Text.of(doc.split(/\r\n?|\n/));
 
 /** A diff of one file in one editor, read-only. */
-export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'onEdit'>): Node {
+export function UnifiedDiffEditor(
+  props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>,
+): Node {
   const container = document.createElement('div');
   container.className = 'cerebro-editor-diff';
   const shadow = container.attachShadow({ mode: 'open' });

@@ -21,7 +21,7 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'onEdit'>) {
+function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>) {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 800px; height: 300px;';
   document.body.append(container);

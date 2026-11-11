@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2258,6 +2258,15 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   height, in the same phase within its line (`SyncScrollSupport.syncVerticalScroll`); horizontally,
   to the same place. Turned back on, the other side catches up at once. In the Settings gear's menu
   (its `SetEditorSettingsActionGroup`).
+- **Align Changes Highlighting,** off to start with, as IntelliJ's
+  (`ENABLE_ALIGNING_CHANGES_MODE`), first in the gear, before Synchronize Scrolling, in the
+  side-by-side viewer alone (`addTwoSideSettingsActions`). On, each change is as high on both
+  sides, as IntelliJ's `AlignedDiffModel`: room below it on the side whose change is shorter, and
+  above it where the lines above made one side taller (wrapped lines, or a blank line not a
+  difference), measured from where the lines would be without the room. The room takes the
+  change's colour at 200 of 255 where its lines are missing on a side, none for a modified change's
+  (`getAlignedChangeColor`). With the sides lined up, Synchronize Scrolling scrolls them to the
+  same height (Claude's choice, open to change). Kept between sessions, as the toggles are.
 - **Collapse Unchanged Fragments,** a toggle on the toolbar: unchanged lines more than 4 from a
   change (`CONTEXT_RANGE` 4) fold into a band in IntelliJ's `DIFF_SEPARATORS_BACKGROUND`; at least 2
   lines, or none; the text's ends fold to its edges. A click on a band shows 4 more lines each side,
@@ -2357,7 +2366,7 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
   window's size kept; the Go to next file setting (Settings → Tools → Diff & Merge); several files
   selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
-  aligning changes, highlighting level and breadcrumbs; Ignore formatting and
+  highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 
 ## Git → Merge… (2026-11-10)

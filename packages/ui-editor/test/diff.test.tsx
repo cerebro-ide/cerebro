@@ -334,6 +334,111 @@ describe('synchronized scrolling', () => {
   });
 });
 
+describe('aligning changes', () => {
+  /** Where a side's line with `text` starts and ends, down from its text's top. */
+  const place = (root: ShadowRoot, side: 'a' | 'b', text: string) => {
+    const editor = root.querySelector(`.cm-diff-${side}`) as Element;
+    const top = (editor.querySelector('.cm-content') as Element).getBoundingClientRect().top;
+    const line = [...editor.querySelectorAll('.cm-line')].find((l) => l.textContent === text);
+    const rect = (line as Element).getBoundingClientRect();
+    return [Math.round(rect.top - top), Math.round(rect.bottom - top)];
+  };
+  const room = (root: ShadowRoot, side: 'a' | 'b') =>
+    [...root.querySelectorAll<HTMLElement>(`.cm-diff-${side} .cm-diff-spacer`)].map((spacer) => [
+      spacer.className.replace('cm-diff-spacer cm-diff-spacer-', ''),
+      Math.round(spacer.getBoundingClientRect().height),
+    ]);
+
+  it('lines each change up on both sides, filling out the shorter, when turned on', async () => {
+    const align = signal(true);
+    const ignore = signal<IgnorePolicy>('whitespacesAndEmptyLines');
+    const root = mount({
+      path: 'a.txt',
+      // A line made three, a blank line not a difference above, two lines removed, one added.
+      original: ['top', 'x', 'one', 'kept', 'gone 1', 'gone 2', 'more', 'end'].join('\n'),
+      text: ['top', '', 'x', 'one 1', 'one 2', 'one 3', 'kept', 'more', 'added', 'end'].join('\n'),
+      ignore: () => ignore.get(),
+      align: () => align.get(),
+    });
+    const line = 22;
+    // Above the first change, room for the blank line; below it, for the two lines more.
+    await expect
+      .poll(() => room(root, 'a'))
+      .toEqual([
+        ['modified', line],
+        ['modified', 2 * line],
+        ['inserted', line],
+      ]);
+    expect(room(root, 'b')).toEqual([['deleted', 2 * line]]);
+    expect(place(root, 'a', 'one')[0]).toBe(place(root, 'b', 'one 1')[0]);
+    expect(place(root, 'a', 'kept')).toEqual(place(root, 'b', 'kept'));
+    expect(place(root, 'a', 'more')).toEqual(place(root, 'b', 'more'));
+    expect(place(root, 'a', 'end')).toEqual(place(root, 'b', 'end'));
+    // Joined across level, each change's room in its joint: the left's ends at the right's.
+    const joints = () =>
+      [...root.querySelectorAll('.cm-diff-divider path')].map((path) => {
+        const y = (path.getAttribute('d') ?? '').match(/-?[\d.]+/g)?.map(Number) ?? [];
+        // M0 a1 C… w b1 L w b2 C… 0 a2: the left's top and bottom, then the right's.
+        return [y[1], y[15], y[7], y[9]].map((n) => Math.round(n as number)) as [
+          number,
+          number,
+          number,
+          number,
+        ];
+      });
+    await expect
+      .poll(() => joints().map(([a1, a2, b1, b2]) => a1 === b1 && a2 === b2 && a2 > a1))
+      .toEqual([true, true, true]);
+    // Where lines are missing, in their change's colour, lighter; none for a modified change's.
+    const colour = (side: 'a' | 'b', kind: string) =>
+      getComputedStyle(root.querySelector(`.cm-diff-${side} .cm-diff-spacer-${kind}`) as Element)
+        .backgroundColor;
+    expect(colour('b', 'deleted')).toMatch(/^color\(srgb .* 0\.78\)$|^rgba\(.*, 0\.78\d*\)$/);
+    expect(colour('a', 'inserted')).toMatch(/^color\(srgb .* 0\.78\)$|^rgba\(.*, 0\.78\d*\)$/);
+    expect(colour('a', 'modified')).toBe('rgba(0, 0, 0, 0)');
+    // The blank line a difference: room for it instead of above the next, the rest as it was.
+    ignore.set('none');
+    await expect
+      .poll(() => room(root, 'a'))
+      .toEqual([
+        ['inserted', line],
+        ['modified', 2 * line],
+        ['inserted', line],
+      ]);
+    expect(room(root, 'b')).toEqual([['deleted', 2 * line]]);
+    expect(place(root, 'a', 'end')).toEqual(place(root, 'b', 'end'));
+    // Off: as they are.
+    align.set(false);
+    await expect.poll(() => room(root, 'a')).toEqual([]);
+    expect(room(root, 'b')).toEqual([]);
+    expect(place(root, 'a', 'end')).not.toEqual(place(root, 'b', 'end'));
+  });
+
+  it('lines up a change at the text’s end, and scrolls both sides as one', async () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    const text = [...original.slice(0, 10), 'new', ...original.slice(10)].slice(0, 50);
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      align: () => true,
+    });
+    const [left, right] = root.querySelectorAll<HTMLElement>('.cm-scroller') as unknown as [
+      HTMLElement,
+      HTMLElement,
+    ];
+    await expect.poll(() => room(root, 'a')).toEqual([['inserted', 22]]);
+    right.scrollTop = 300;
+    await expect.poll(() => left.scrollTop).toBe(300);
+    expect(place(root, 'a', 'line 30')).toEqual(place(root, 'b', 'line 30'));
+    // Eleven lines gone at the right's end: room for them after its last, as high as the left's.
+    left.scrollTop = 10_000;
+    await expect.poll(() => room(root, 'b')).toEqual([['deleted', 11 * 22]]);
+    await expect.poll(() => right.scrollTop).toBe(left.scrollTop);
+    expect(place(root, 'a', 'line 48')).toEqual(place(root, 'b', 'line 48'));
+  });
+});
+
 describe('previous and next difference', () => {
   it('starts at the first change, and goes to the one after the caret, or before', async () => {
     const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
