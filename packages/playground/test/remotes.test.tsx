@@ -10,8 +10,11 @@ import { closeAll, FakeHost, project } from './fakes.js';
 const git = {
   remotes: [] as { name: string; url: string }[],
   failure: undefined as Error | undefined,
+  /** What a change waits on. */
+  done: Promise.resolve(),
 };
-const changed = () => {
+const changed = async () => {
+  await git.done;
   if (git.failure) throw git.failure;
   return null;
 };
@@ -21,20 +24,20 @@ const host = new FakeHost({
     return git.remotes.map((r) => ({ ...r }));
   },
   'git.checkRemote': () => null,
-  'git.addRemote': (p: { name: string; url: string }) => {
-    changed();
+  'git.addRemote': async (p: { name: string; url: string }) => {
+    await changed();
     git.remotes.push({ name: p.name, url: p.url });
     return null;
   },
-  'git.changeRemote': (p: { fromName: string; name: string; url: string }) => {
-    changed();
+  'git.changeRemote': async (p: { fromName: string; name: string; url: string }) => {
+    await changed();
     git.remotes = git.remotes.map((r) =>
       r.name === p.fromName ? { name: p.name, url: p.url } : r,
     );
     return null;
   },
-  'git.removeRemote': (p: { name: string }) => {
-    changed();
+  'git.removeRemote': async (p: { name: string }) => {
+    await changed();
     git.remotes = git.remotes.filter((r) => r.name !== p.name);
     return null;
   },
@@ -56,6 +59,7 @@ beforeEach(() => {
     { name: 'up', url: 'https://u' },
   ];
   git.failure = undefined;
+  git.done = Promise.resolve();
 });
 
 afterEach(async () => {
@@ -236,6 +240,35 @@ describe('Git → Manage Remotes…', () => {
     await expect.poll(title).toBe('Remove Remote');
     await click('Yes');
     await expect.poll(rows).toEqual(['origin https://o']);
+  });
+
+  it('does nothing else while a change runs, saying which, as IntelliJ’s modal task', async () => {
+    let finish!: () => void;
+    git.done = new Promise((resolve) => {
+      finish = resolve;
+    });
+    await opened();
+    await userEvent.dblClick(row('up'));
+    await expect.poll(title).toBe('Define Remote');
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.type(fields()[0] as HTMLInputElement, 'upstream');
+    await click('OK');
+    const progress = () =>
+      remotesDialog().querySelector('.playground-remotes__progress')?.textContent;
+    await expect.poll(progress).toBe('Changing Remote…');
+    expect(['Add', 'Remove', 'Edit'].map((label) => tool(label).disabled)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    // The list is the one before: its rows, keys and a double-click do nothing yet.
+    await userEvent.dblClick(row('up'));
+    await userEvent.keyboard('{Enter}{Alt>}{Delete}{/Alt}{Alt>}{Insert}{/Alt}');
+    expect(dialogs()).toHaveLength(1);
+    finish();
+    await expect.poll(rows).toEqual(['origin https://o', 'upstream https://u']);
+    expect(progress()).toBe('');
+    expect(tool('Remove').disabled).toBe(false);
   });
 
   it('says why a change failed, in IntelliJ’s words, the list read again', async () => {

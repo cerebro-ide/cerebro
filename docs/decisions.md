@@ -2295,6 +2295,13 @@ IntelliJ's source (`GitConfigureRemotesDialog`, `GitDefineRemoteDialog`, `Toolba
   (`git remote rename`, `set-url`), then fetched if asked.
 - **Remove asks** "Remove remote x 'url'?" (Remove Remote, Yes or No), then `git remote remove`,
   which drops its remote-tracking branches too (measured in the host's tests).
+- **While a change runs, the dialog does nothing else** (changed 2026-11-11): IntelliJ runs each as
+  a modal task (Adding Remote…, Changing Remote…, Removing Remote…), and until it's done, and the
+  remotes read again, nothing in its dialog can be used. Cerebro's says the task's title under the
+  table, its tools off and its keys doing nothing, rather than a window over it (open to change:
+  Cerebro's dialogs can all be closed, and a progress window closed while git goes on would leave
+  the list as it was). Measured in CI: Remove was pressed on the row of a remote just renamed,
+  while the fetch after the rename was still running.
 - **A failure** says so in a dialog, IntelliJ's words: "Cannot add remote x 'url' in <worktree>:"
   and git's (Add Remote, Change Remote, Remove Remote); the list is read again either way.
 - **Name is as wide as its names, URL the rest,** as IntelliJ's `updateTableWidth`; a long URL is
