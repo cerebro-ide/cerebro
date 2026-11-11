@@ -256,7 +256,8 @@ describe('the window', () => {
 
 describe('dialogs', () => {
   it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
-    await page().locator('[aria-label^="Branch:"]').click();
+    // Forced: it waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
+    await page().locator('[aria-label^="Branch:"]').click({ force: true });
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.type('main');
     await expect
@@ -292,7 +293,8 @@ describe('dialogs', () => {
     expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Tag');
     await page().keyboard.type('v1-e2e');
     await box.locator('textarea').fill('The first');
-    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click();
+    // Forced: it waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
+    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click({ force: true });
     expect(await count('.cerebro-dialog')).toBe(0);
     const tag = () =>
       execFileSync('git', ['for-each-ref', '--format=%(objecttype) %(contents)', 'refs/tags'], {
