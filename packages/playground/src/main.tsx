@@ -66,6 +66,7 @@ import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
 import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
+import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog, showInLog } from './git-log.js';
@@ -329,6 +330,7 @@ setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);
 setupReset(services);
+setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, {

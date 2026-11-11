@@ -3,7 +3,17 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { addRemote, checkRemote, divergence, fetchTarget, outgoing, push } from '../src/index.js';
+import {
+  addRemote,
+  changeRemote,
+  checkRemote,
+  divergence,
+  fetchTarget,
+  listRemotes,
+  outgoing,
+  push,
+  removeRemote,
+} from '../src/index.js';
 
 describe('pushing, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-push-')));
@@ -289,5 +299,35 @@ describe('pushing, with real git', () => {
     await expect(addRemote(repo, { name: 'fetched', url: remote, fetch: false })).rejects.toThrow(
       'remote fetched already exists',
     );
+  });
+
+  it('lists, changes and removes remotes, as IntelliJ’s Git Remotes dialog', async () => {
+    const { repo, remote } = cloned('managed');
+    const other = join(root, 'other.git');
+    await addRemote(repo, { name: 'b', url: other, fetch: false });
+    await addRemote(repo, { name: 'a', url: remote, fetch: false });
+    // Origin first, then by name.
+    expect(await listRemotes(repo)).toEqual([
+      { name: 'origin', url: remote },
+      { name: 'a', url: remote },
+      { name: 'b', url: other },
+    ]);
+    // Renamed, its URL kept; then its URL changed and fetched.
+    await changeRemote(repo, { name: 'a', url: remote }, { name: 'c', url: remote, fetch: false });
+    await changeRemote(repo, { name: 'b', url: other }, { name: 'b', url: remote, fetch: true });
+    expect(await listRemotes(repo)).toEqual([
+      { name: 'origin', url: remote },
+      { name: 'b', url: remote },
+      { name: 'c', url: remote },
+    ]);
+    expect(run(repo, 'rev-parse', '--verify', 'refs/remotes/b/main').trim()).not.toBe('');
+    // Renamed and moved at once: the URL set on the new name.
+    await changeRemote(repo, { name: 'c', url: remote }, { name: 'd', url: other, fetch: false });
+    expect((await listRemotes(repo)).at(-1)).toEqual({ name: 'd', url: other });
+    // Removed, with its remote-tracking branches.
+    await removeRemote(repo, 'b');
+    expect((await listRemotes(repo)).map((r) => r.name)).toEqual(['origin', 'd']);
+    expect(run(repo, 'for-each-ref', 'refs/remotes/b')).toBe('');
+    await expect(removeRemote(repo, 'nowhere')).rejects.toThrow('No such remote');
   });
 });

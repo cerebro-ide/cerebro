@@ -602,25 +602,27 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
 }
 
 /** A remote to add: its name and URL, and whether to fetch it. */
-interface NewRemote {
+export interface NewRemote {
   name: string;
   url: string;
   fetch: boolean;
 }
 
 /**
- * Asks for a remote, as IntelliJ's Define Remote: a name (origin to start with) and a URL, and
- * Fetch remote. OK checks that the URL answers (`git ls-remote`), and says git's words under it
- * when it doesn't. A name git refuses, or one already used, says so as it's typed; OK waits for
- * both (Cerebro's, as its prompts: IntelliJ says so on OK).
+ * Asks for a remote, as IntelliJ's Define Remote: a name and a URL (origin and none to start with,
+ * or the remote's being edited), and Fetch remote. OK checks that the URL answers (`git
+ * ls-remote`), and says git's words under it when it doesn't. A name git refuses, or one of
+ * `remotes` (those besides the one edited), says so as it's typed; OK waits for both (Cerebro's, as its prompts: IntelliJ says so
+ * on OK). The name's field is focused while it's empty, else the URL's, as IntelliJ's.
  */
-function askForRemote(
+export function askForRemote(
   host: Host,
   worktree: string,
   remotes: readonly string[],
+  initial: { name: string; url: string } = { name: 'origin', url: '' },
 ): Promise<NewRemote | undefined> {
-  const name = signal('origin');
-  const url = signal('');
+  const name = signal(initial.name);
+  const url = signal(initial.url);
   const fetch = signal(true);
   const checking = signal(false);
   /** Why the URL can't be used, from checking it. */
@@ -648,9 +650,8 @@ function askForRemote(
         disabled={() => checking.get()}
         aria-invalid={() => String(error() !== undefined)}
         ref={(input) => {
-          if (value !== url) return;
-          urlField = input;
-          // IntelliJ's: the URL first, as the name is filled in.
+          if (value === url) urlField = input;
+          if (value !== (initial.name === '' ? name : url)) return;
           queueMicrotask(() => {
             input.focus();
           });

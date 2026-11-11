@@ -256,8 +256,9 @@ describe('the window', () => {
 
 describe('dialogs', () => {
   it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
-    await page().locator('[aria-label^="Branch:"]').click();
-    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
+    // Forced: they waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
+    await page().locator('[aria-label^="Branch:"]').click({ force: true });
+    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
     await page().keyboard.type('main');
     await expect
       .poll(() => page().locator('.cerebro-dialog-field__error').textContent())
@@ -292,7 +293,8 @@ describe('dialogs', () => {
     expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Tag');
     await page().keyboard.type('v1-e2e');
     await box.locator('textarea').fill('The first');
-    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click();
+    // Forced: it waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
+    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click({ force: true });
     expect(await count('.cerebro-dialog')).toBe(0);
     const tag = () =>
       execFileSync('git', ['for-each-ref', '--format=%(objecttype) %(contents)', 'refs/tags'], {
@@ -335,6 +337,53 @@ describe('dialogs', () => {
       console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
       throw error;
     }
+  });
+
+  it('adds, renames and removes a remote from Git → Manage Remotes…', async () => {
+    const remotes = () =>
+      execFileSync('git', ['remote', '-v'], { cwd: repo, encoding: 'utf8' })
+        .split('\n')
+        .filter((line) => line.endsWith('(fetch)'))
+        .map((line) => line.split('\t')[0]);
+    const box = () => page().locator('.cerebro-dialog').last();
+    await findAction(page(), 'Manage Remotes');
+    const dialog = page().locator('.cerebro-dialog', {
+      has: page().locator('.playground-remotes'),
+    });
+    await dialog.waitFor();
+    // Added: the other worktree's repository, which answers git's ls-remote.
+    await dialog.locator('button[aria-label="Add"]').click();
+    await expect
+      .poll(() => box().locator('.cerebro-dialog__title').textContent())
+      .toBe('Define Remote');
+    await box().locator('input[type="text"]').nth(1).fill(other);
+    await box().locator('input[type="checkbox"]').uncheck();
+    await box().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    try {
+      await expect.poll(remotes, { timeout: 15_000 }).toEqual(['origin']);
+    } catch (error) {
+      console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
+      throw error;
+    }
+    await expect.poll(() => dialog.locator('.playground-remotes__row').count()).toBe(1);
+    // Renamed, from the row.
+    await dialog.locator('.playground-remotes__row').dblclick();
+    await box().locator('input[type="text"]').first().fill('upstream');
+    await box().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    await expect.poll(remotes, { timeout: 15_000 }).toEqual(['upstream']);
+    // The dialog waits for the fetch after it, then reads the remotes again.
+    await expect
+      .poll(() => dialog.locator('.playground-remotes__row td').first().textContent(), {
+        timeout: 15_000,
+      })
+      .toBe('upstream');
+    // Removed, once asked.
+    await dialog.locator('.playground-remotes__row').click();
+    await dialog.locator('button[aria-label="Remove"]').click();
+    await box().locator('.cerebro-dialog__button', { hasText: 'Yes' }).click();
+    await expect.poll(remotes, { timeout: 15_000 }).toEqual([]);
+    await dialog.locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
+    expect(await count('.cerebro-dialog')).toBe(0);
   });
 
   it('keeps the app’s shortcuts and menu bar from running behind a dialog', async () => {

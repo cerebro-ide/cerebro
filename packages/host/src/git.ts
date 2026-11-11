@@ -815,6 +815,55 @@ export async function addRemote(
   }
 }
 
+/** A remote, by its name and its first URL, as IntelliJ's Git Remotes dialog lists it. */
+export interface Remote {
+  name: string;
+  url: string;
+}
+
+/** The remotes, origin first and then by name, as IntelliJ's `sortedRemotes`. */
+export async function listRemotes(worktree: string, run: Git = git): Promise<Remote[]> {
+  const names = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+  const remotes = await Promise.all(
+    names.map(async (name) => ({
+      name,
+      // Its first URL, as IntelliJ's: `get-url` gives it, rewritten by `insteadOf` as git uses it.
+      url: (await run(worktree, ['remote', 'get-url', '--end-of-options', name])).trim(),
+    })),
+  );
+  // Names are unique: never equal.
+  const rank = (r: Remote) => (r.name === 'origin' ? '' : `.${r.name}`);
+  return remotes.sort((a, b) => (rank(a) < rank(b) ? -1 : 1));
+}
+
+/** Removes a remote, and its remote-tracking branches with it (git's). */
+export async function removeRemote(worktree: string, name: string, run: Git = git): Promise<void> {
+  await run(worktree, ['remote', 'remove', '--end-of-options', name]);
+}
+
+/**
+ * Changes a remote, as IntelliJ's `changeRemote`: renamed if its name changed, then its URL set if
+ * that changed; fetched after when asked (Define Remote's Fetch remote).
+ */
+export async function changeRemote(
+  worktree: string,
+  from: Remote,
+  to: Remote & { fetch: boolean },
+  run: Git = git,
+): Promise<void> {
+  if (to.name !== from.name) {
+    await run(worktree, ['remote', 'rename', '--end-of-options', from.name, to.name]);
+  }
+  if (to.url !== from.url) {
+    await run(worktree, ['remote', 'set-url', '--end-of-options', to.name, to.url]);
+  }
+  if (to.fetch) {
+    await run(worktree, ['fetch', '--quiet', '--end-of-options', to.name], {
+      GIT_TERMINAL_PROMPT: '0',
+    });
+  }
+}
+
 /**
  * Why a push will be rejected, as IntelliJ's `PushDivergence`: the remote's branch has commits the
  * branch hasn't (`diverged`, counted), or has commits not fetched yet, which only a fetch can count

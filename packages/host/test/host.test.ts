@@ -1175,8 +1175,8 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('checks a remote’s URL, and adds it, fetched when asked', async () => {
-    const git = vi.fn(() => Promise.resolve(''));
+  it('checks, adds, lists, changes and removes remotes, fetched when asked', async () => {
+    const git = vi.fn<Git>(() => Promise.resolve(''));
     const { ui } = connect(git);
     await ui.request('git.checkRemote', { path: '/w', url: 'u' });
     expect(git).toHaveBeenLastCalledWith(
@@ -1196,9 +1196,34 @@ describe('ignored files and rolling back', () => {
       [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'f'],
       ASKING,
     );
+    await ui.request('git.removeRemote', { path: '/w', name: 'n' });
+    expect(git).toHaveBeenLastCalledWith('/w', ['remote', 'remove', '--end-of-options', 'n']);
+    await ui.request('git.changeRemote', {
+      path: '/w',
+      fromName: 'n',
+      fromUrl: 'u',
+      name: 'n',
+      url: 'v',
+      fetch: true,
+    });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'remote', 'set-url', '--end-of-options', 'n', 'v'],
+      ASKING,
+    );
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'n'],
+      ASKING,
+    );
+    git.mockImplementation((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(args[0] === 'remote' && args.length === 1 ? 'origin\n' : 'u\n'),
+    );
+    expect(await ui.request('git.remotes', { path: '/w' })).toEqual([{ name: 'origin', url: 'u' }]);
     for (const [method, params] of [
       ['git.checkRemote', { path: '/w' }],
       ['git.addRemote', { path: '/w', url: 'u' }],
+      ['git.changeRemote', { path: '/w', name: 'n', url: 'u' }],
     ] as const) {
       await expect(ui.request(method, params)).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,

@@ -56,6 +56,18 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **The Welcome window's test "opens a project clicked" can't find the row to click** (once in a
+  local `npm run check`, 2026-11-11; it passed 3 of 3 alone): Vitest's click finds the row by its
+  role and accessible name, which includes its Remove button only while the row is highlighted (the
+  button is `visibility: hidden` otherwise), and the highlight follows the pointer, left over
+  another row by an earlier file. The name taken ("alpha /p/alpha Remove from…") then matched
+  nothing for 15 s. Clicking the row's name, whose text doesn't change, would avoid it.
+- **The e2e run's first app start can take over 5 s on macOS and Windows in CI** (measured
+  2026-11-11, #179, run 43049756595: `app.test.ts`, the first file, timed out waiting 5 s for the
+  window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
+  from their traces). Why isn't known: that it's the OS checking the Electron binary just
+  downloaded is a claim. The wait for a window is now 30 s, and a start over 2 s prints how long
+  it took.
 - **Find Action didn't list "Unstash Changes" once in a full local e2e run** (2026-11-11,
   feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
   closed a diff window; the file alone passed five times). The trace was overwritten before it was
@@ -167,4 +179,9 @@ on it:
   edit, and a save of `races.txt` (the race test's file, before it) took 4.1 s, 3.9 s of it in the
   host reading the file, 0 ms waiting behind other saves. So a slow read in the host is now the
   lead: next, whether the idle save of `second.ts` waits behind that one, and why the read is slow
-  (the race test writes the file in a loop just before).
+  (the race test writes the file in a loop just before). Measured in CI on #180 (2026-11-11): it
+  doesn't wait: `second.ts` saved 5.7 s after the edit, 0 ms after the saves before, 4060 ms of it
+  reading the file; `races.txt`'s save read it for 3786 ms, and a later `fs.read` of the project
+  took 5052 ms. So every read in the host is slow for some seconds after the race test, not one
+  save behind another: next, what the host is doing then (its event loop, or its file watcher
+  after the race test's writes).
