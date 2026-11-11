@@ -756,10 +756,10 @@ describe('a commit’s menu', () => {
     expect(write).toHaveBeenCalledWith('c1');
   });
 
-  it('gives its commands the commit, its worktree and host, and a way to read the Log again', async () => {
-    git.log = history(1);
+  it('gives its commands the commit, its worktree and host, HEAD’s, and a way to read the Log again', async () => {
+    git.log = history(2, ['HEAD -> refs/heads/main']);
     mount();
-    await expect.poll(subjects).toEqual(['Change 0']);
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
     let given: LogCommitContext | undefined;
     services.commands.register<LogCommitContext>({
       id: 'test.logCommit',
@@ -769,14 +769,14 @@ describe('a commit’s menu', () => {
       },
     });
     services.menus.contribute({ menu: 'log/commit', item: { command: 'test.logCommit' } });
-    (rows()[0] as HTMLElement).dispatchEvent(
+    (rows()[1] as HTMLElement).dispatchEvent(
       new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
     );
     const item = [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')].find(
       (i) => i.textContent === 'Test',
     );
     await userEvent.click(item as HTMLElement);
-    expect(given).toMatchObject({ commit: { hash: 'c0' }, worktree: '/r', host });
+    expect(given).toMatchObject({ commit: { hash: 'c1' }, worktree: '/r', host, head: 'c0' });
     await given?.refresh();
     expect(host.params('git.log')).toHaveLength(2);
   });

@@ -938,14 +938,14 @@ status.add({
   hidden: () => !fetching.get(),
   progress: () => 'indeterminate',
 });
-// Git → Reset HEAD… under way, as IntelliJ's "Resetting HEAD…".
+// Git → Reset HEAD… under way, as IntelliJ's "Resetting HEAD…"; the Log's, "Git Reset".
 status.add({
   id: 'reset',
   side: 'left',
   order: 2,
-  text: () => 'Resetting HEAD…',
+  text: () => resetting.get() ?? '',
   tooltip: () => 'Resetting the branch',
-  hidden: () => !resetting.get(),
+  hidden: () => resetting.get() === undefined,
   progress: () => 'indeterminate',
 });
 // A pull under way, as IntelliJ's "Pulling changes from origin".

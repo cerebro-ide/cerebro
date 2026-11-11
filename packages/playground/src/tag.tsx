@@ -177,6 +177,7 @@ export function setupTag(services: MenuServices): void {
       await refresh();
     },
   });
-  // Last in IntelliJ's Git group of the menu (Git.Log.ContextMenu), after the copy's group.
-  menus.contribute({ menu: 'log/commit', item: { command: 'log.newTag' }, group: 'g' });
+  // Last in IntelliJ's Git group of the menu (Git.Log.ContextMenu), after the copy's group; its
+  // items between (Reset first) take the orders before.
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.newTag' }, group: 'g', order: 10 });
 }

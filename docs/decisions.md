@@ -62,7 +62,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -1891,8 +1891,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
-  with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), then New Tag…
-  (decision "Git → New Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
+  with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), then Reset
+  Current Branch to Here… (decision "Git → Reset HEAD…") and New Tag… (decision "Git → New
+  Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
   keymaps give these none (searched).
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
@@ -2339,7 +2340,19 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   nothing said when it works, and git's words under "Resetting HEAD…" when it fails, as IntelliJ's.
 - **Left out, open to change:** the Git Root field (a worktree is one repository here); IntelliJ's
   Validate also opens the commit's changes when it's valid.
-- **Not yet:** the Log's Reset Current Branch to Here… (the newer dialog, with Keep).
+- **The Log's Reset Current Branch to Here…** (added 2026-11-11), on a commit's menu, first in
+  IntelliJ's Git group: its newer dialog (`GitResetAction`, `GitNewResetDialog`,
+  `GitResetOperation`), "Git Reset": "{branch} -> {short hash} "{subject}" by {author}" (subject
+  and author cut to 40 characters with an ellipsis, as IntelliJ's; HEAD with its short hash when
+  detached, HEAD alone when that commit isn't loaded), IntelliJ's description, then Soft, Mixed,
+  Hard and Keep, each with its comment; Reset. `git reset --<mode> <hash> --`, recorded as "Git
+  reset"; "Git Reset" on the status bar while it runs; "Reset successful", or "Reset failed" with
+  git's words. The mode chosen is kept for next time, per repository, in the page's storage
+  (Cerebro's, open to change: IntelliJ keeps it in its project settings); Mixed to start with.
+  - **Claims:** the short hash's 8 characters; the comments' layout.
+  - **Not yet:** IntelliJ's smart reset (when local changes would be overwritten, it offers to
+    stash or shelve them first; here git refuses, and says why); the radio buttons' mnemonics
+    (Cerebro's dialogs have none yet).
 
 ## Git → New Tag… (2026-11-11)
 
