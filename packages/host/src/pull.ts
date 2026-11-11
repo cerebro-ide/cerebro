@@ -26,11 +26,18 @@ async function trackingBranches(worktree: string, remote: string, run: Git): Pro
 }
 
 /**
- * Fetches every remote, as IntelliJ's Fetch (`fetchAllRemotes`), with `--prune`; `remote` runs
- * git's remote commands. A remote that fails doesn't stop the others.
+ * Fetches every remote, as IntelliJ's Fetch (`fetchAllRemotes`), with `--prune`; or `only` that
+ * one, as its Pull dialog's fetch. `remote` runs git's remote commands. A remote that fails doesn't
+ * stop the others.
  */
-export async function fetchAll(worktree: string, run: Git, remote: Git): Promise<Fetched> {
-  const remotes = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+export async function fetchAll(
+  worktree: string,
+  run: Git,
+  remote: Git,
+  only?: string,
+): Promise<Fetched> {
+  const remotes =
+    only === undefined ? (await run(worktree, ['remote'])).split('\n').filter(Boolean) : [only];
   const fetched: Fetched = { pruned: [], failed: [] };
   for (const name of remotes) {
     const before = await trackingBranches(worktree, name, run);

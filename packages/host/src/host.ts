@@ -598,7 +598,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     ),
   );
   // Git → Fetch: every remote, pruned.
-  connection.onRequest('git.fetch', (params) => fetchAll(text(params, 'path'), git, remote));
+  // Every remote; or one, the Pull dialog's.
+  connection.onRequest('git.fetch', (params) => {
+    const only = (params as { remote?: unknown }).remote;
+    return fetchAll(text(params, 'path'), git, remote, typeof only === 'string' ? only : undefined);
+  });
   // Where a pull comes from: the branch, the remotes and the upstream.
   connection.onRequest('git.tracking', (params) => tracking(text(params, 'path'), git));
   /** A dialog's options, each among those it has. */

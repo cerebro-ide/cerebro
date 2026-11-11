@@ -3,6 +3,7 @@
 // as it's typed, and options chosen in a popup from Modify options, shown under the command, each
 // removable, and kept per repository.
 
+import { chordFromEvent } from '@cerebro-ide/commands';
 import type { Child } from '@cerebro-ide/jsx';
 import { signal, type Signal } from '@cerebro-ide/reactive';
 import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
@@ -137,12 +138,16 @@ function read(all: readonly GitOption[], key: string): string[] {
   }
 }
 
-/** A branch field's name, its placeholder, whether it's off, and whether it takes the focus. */
+/**
+ * A branch field's name, its placeholder, whether it's off, whether it takes the focus, and a key
+ * that updates its branches, named under the suggestions (IntelliJ's Pull dialog fetches on it).
+ */
 export interface BranchFieldOptions {
   label?: string;
   placeholder?: () => string;
   disabled?: () => boolean;
   focus?: boolean;
+  update?: { chord: string; hint: string; run: () => void };
 }
 
 /**
@@ -182,6 +187,14 @@ export function branchField(
         on:blur={() => {
           suggesting.set(false);
         }}
+        on:keydown={(event) => {
+          const { update } = options;
+          if (!update || chordFromEvent(event) !== update.chord) return;
+          event.preventDefault();
+          // As IntelliJ's: its popup hidden first.
+          suggesting.set(false);
+          update.run();
+        }}
       />
       {() => {
         const typed = branch.get();
@@ -214,6 +227,11 @@ export function branchField(
                 {b}
               </li>
             ))}
+            {options.update ? (
+              <li role="presentation" class="playground-git-branch__hint">
+                {options.update.hint}
+              </li>
+            ) : null}
           </ul>
         );
       }}
