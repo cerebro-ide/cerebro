@@ -20,6 +20,7 @@ import {
   type LogCommitContext,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
+import { setupCherryPick } from '../src/cherry-pick.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { notifications } from '../src/notifications.js';
 
@@ -97,6 +98,11 @@ const host = new FakeHost({
     return git.changes[`${from}..${to}`] ?? [];
   },
   'git.authors': () => git.authors,
+  'git.cherryPick': () => 'picked',
+  'git.state': () => ({ conflicts: false }),
+  'git.status': () => ({ files: [] }),
+  'git.shelves': () => [],
+  'git.stashes': () => [],
   'git.tags': () => {
     if (git.tags instanceof Error) throw git.tags;
     return git.tags;
@@ -127,6 +133,7 @@ let dispose: (() => void) | undefined;
 let shownLog = 0;
 
 beforeAll(() => {
+  setupCherryPick(services);
   setupLog(services, () => {
     shownLog++;
   });
@@ -789,6 +796,28 @@ describe('Refresh', () => {
   });
 });
 
+describe('Cherry-Pick, from the toolbar', () => {
+  it('picks the commit selected, as IntelliJ’s, off with none selected', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    const button = document.querySelector(
+      '.playground-log__toolbar [data-command="log.cherryPick"]',
+    ) as HTMLButtonElement;
+    expect(button.getAttribute('aria-label')).toBe('Cherry-Pick');
+    expect(commands.isEnabled('log.cherryPick', { source: 'log' })).toBe(false);
+    await userEvent.click(rows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    await userEvent.click(button);
+    await expect
+      .poll(() => host.params('git.cherryPick'))
+      .toEqual([{ path: '/r', hash: 'c1', protected: ['main', 'master'] }]);
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cherry-pick successful');
+    // The Log read again after.
+    await expect.poll(() => host.params('git.log').length).toBeGreaterThan(1);
+  });
+});
+
 describe('Go To Hash/Branch/Tag', () => {
   const selected = () =>
     document
@@ -894,7 +923,11 @@ describe('a commit’s menu', () => {
     );
     expect(rows()[1]?.getAttribute('aria-selected')).toBe('true');
     const items = () => [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')];
-    expect(items().map((item) => item.textContent)).toEqual(['Copy Revision Number']);
+    // Cherry-Pick after it, as IntelliJ's.
+    expect(items().map((item) => item.textContent)).toEqual([
+      'Copy Revision Number',
+      'Cherry-Pick',
+    ]);
     await userEvent.click(items()[0] as HTMLElement);
     expect(write).toHaveBeenCalledWith('c1');
   });

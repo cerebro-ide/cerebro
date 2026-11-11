@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
 - [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11)
@@ -1894,13 +1895,14 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   `rev-parse --verify x^{commit}`) or the Log doesn't have it. **Claude's, open to change:** a
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
-- **Not yet:** the toolbar's other actions (Cherry-pick, Graph Options); the
+- **Not yet:** the toolbar's other actions (Graph Options); the
   branches pane's toolbar (New Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and
   its own search; tags in the pane; grouping the files by directory; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
-  with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), then Reset
+  with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
+  (decision "Cherry-Pick"), then Reset
   Current Branch to Here… (decision "Git → Reset HEAD…") and New Tag… (decision "Git → New
   Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
   keymaps give these none (searched).
@@ -2255,6 +2257,47 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Cherry-Pick (2026-11-11)
+
+The Log's Cherry-Pick, next of its toolbar's "Not yet" (decision "The Git Log"). From IntelliJ's
+source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
+`GitCherryPickContinueProcess`, `GitApplyChangesConflictResolver`, `GitDefaultMergeDialogCustomizer`,
+`GitAbortOperationAction`, their words from `GitBundle`.
+
+- **Where:** the Log's toolbar, after Refresh (IntelliJ's `Vcs.Log.Toolbar`, between Refresh and
+  the presentation settings), on the selected commit, off with none; and the commit menu, after
+  Copy Revision Number (IntelliJ's comes after Create Patch, which Cerebro hasn't). No key: IntelliJ's
+  keymaps give it none (searched). Off while a pick runs in that worktree, as IntelliJ's while one is started.
+- **The pick:** `git cherry-pick <hash>` with no editor (`GIT_EDITOR=true`), so the commit keeps its
+  message and author, as IntelliJ's (`preserveCommitMetadata`). With "(cherry picked from commit …)"
+  (git's `-x`) when the commit is on a protected branch of a remote, as IntelliJ's default
+  ("published", `isAddSuffixToCherryPicksOfPublishedCommits` true); the protected branches are
+  Push's (main, master). Recorded in the Local History as Cherry-Pick.
+- **How it went** (measured, git 2.43): picked, "Cherry-pick successful" and the commit (its first 8
+  characters and subject, as IntelliJ's `commitDetails`). Its changes already here, the pick is
+  empty (git stops, CHERRY_PICK_HEAD there, no file unmerged): skipped with `--skip`, as IntelliJ's
+  default (`EmptyCherryPickResolutionStrategy.SKIP`), "Nothing to cherry-pick", "All changes from
+  … have already been applied". Local changes or untracked files in the way: git starts nothing;
+  "Cherry-pick failed" with IntelliJ's "Your local changes will be overwritten by cherry-pick…", or
+  "Untracked Files Prevent Cherry-pick". Anything else: "Cherry-pick failed" and git's words.
+- **At conflicts:** the Conflicts dialog, saying "Conflicts during cherry-picking commit … made by
+  …" and the message; the merge window's sides "Local Changes" and "Changes from cherry-pick …",
+  as IntelliJ's. Once none is left, the pick is committed (`--continue`): **Claude's, open to
+  change**, as Merge… commits its merge: IntelliJ shows its commit dialog there, with the
+  commit's message. Closed with some left: "Cherry-pick was performed with conflicts", with
+  Resolve… (no commit after, as IntelliJ's) and Abort Cherry-pick.
+- **A cherry-pick under way** is the host's third operation, beside a merge and a rebase (by
+  CHERRY_PICK_HEAD). The Git menu shows Continue Cherry-Pick (once no file is in conflict, as
+  IntelliJ hides it while Resolve Conflicts… shows) and Abort Cherry-Pick, last in it as IntelliJ's;
+  Abort asks first ("Abort cherry-pick?"), as Abort Merge does. Update Project isn't stopped by
+  one, only by its unmerged files, as IntelliJ's `isUpdateNotReady`.
+- **Claims:** the icon (two cherries; not IntelliJ's drawing).
+- **Not yet:** several commits at once (the Log selects one; IntelliJ picks them oldest first);
+  documents saved first, as IntelliJ's does (none of Cerebro's git actions does yet); "Stash
+  Changes and Retry" and "Show Files" when local changes are in the way; Abort's notification
+  without asking, as IntelliJ's; the Cherry-Pick setting for the suffix and for empty picks;
+  Cherry-Pick in a file's history.
 
 ## Git → Rebase… (2026-11-11)
 

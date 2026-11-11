@@ -32,7 +32,12 @@ export async function cherryPick(
 
 /** Why a pick, or its `--continue`, stopped: at conflicts, or empty (then skipped); else its error. */
 async function stopped(worktree: string, error: unknown, run: Git): Promise<CherryPicked> {
-  const picking = await run(worktree, ['rev-parse', '--verify', '--quiet', 'CHERRY_PICK_HEAD']).then(
+  const picking = await run(worktree, [
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    'CHERRY_PICK_HEAD',
+  ]).then(
     () => true,
     () => false,
   );

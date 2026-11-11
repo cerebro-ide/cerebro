@@ -745,7 +745,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
         'operation must be merge, rebase or cherry-pick',
       );
     }
-    const named = { merge: 'Abort Merge', rebase: 'Abort Rebase', 'cherry-pick': 'Abort Cherry-Pick' };
+    const named = {
+      merge: 'Abort Merge',
+      rebase: 'Abort Rebase',
+      'cherry-pick': 'Abort Cherry-Pick',
+    };
     await recording(worktree, named[op], git, () => abortOperation(worktree, op, git));
     return null;
   });

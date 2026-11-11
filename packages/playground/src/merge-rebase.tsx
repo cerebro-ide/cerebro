@@ -17,7 +17,7 @@ import { notifications } from './notifications.js';
 import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
-type Operation = 'merge' | 'rebase';
+type Operation = 'merge' | 'rebase' | 'cherry-pick';
 
 /** IntelliJ's confirmation before aborting: Abort, or Cancel. */
 async function confirmAbort(title: string, message: string): Promise<boolean> {
@@ -30,30 +30,85 @@ async function confirmAbort(title: string, message: string): Promise<boolean> {
   return yes === true;
 }
 
-/** IntelliJ's Abort Merge and Abort Rebase: asks, then `git merge|rebase --abort`. */
-async function abort(host: Host, worktree: string, operation: Operation): Promise<void> {
-  const asked =
-    operation === 'merge'
-      ? await confirmAbort('Abort Merge', 'Abort merge?')
-      : await confirmAbort(
-          'Abort Rebase',
-          `Abort rebase in ${worktree.split(/[\\/]/).at(-1) as string}?`,
-        );
-  if (!asked) return;
+/** Abort's words, as IntelliJ's: `GitAbortOperationAction`'s, and `GitAbortRebaseProcess`'s. */
+const ABORT: Record<
+  Operation,
+  { title: string; ask: (worktree: string) => string; done: string; failed: string }
+> = {
+  merge: {
+    title: 'Abort Merge',
+    ask: () => 'Abort merge?',
+    done: 'Merge abort succeeded',
+    failed: 'Merge abort failed',
+  },
+  rebase: {
+    title: 'Abort Rebase',
+    ask: (worktree) => `Abort rebase in ${worktree.split(/[\\/]/).at(-1) as string}?`,
+    done: 'Abort rebase succeeded',
+    failed: 'Abort rebase failed',
+  },
+  'cherry-pick': {
+    title: 'Abort Cherry-pick',
+    ask: () => 'Abort cherry-pick?',
+    done: 'Cherry-pick abort succeeded',
+    failed: 'Cherry-pick abort failed',
+  },
+};
+
+/** IntelliJ's Abort Merge, Abort Rebase and Abort Cherry-Pick: asks, then git's `--abort`. */
+export async function abort(host: Host, worktree: string, operation: Operation): Promise<void> {
+  const words = ABORT[operation];
+  if (!(await confirmAbort(words.title, words.ask(worktree)))) return;
   try {
     await host.request('git.abort', { path: worktree, operation });
-    notifications.notify({
-      content: operation === 'merge' ? 'Merge abort succeeded' : 'Abort rebase succeeded',
-    });
+    notifications.notify({ content: words.done });
   } catch (error) {
     notifications.notify({
-      title: operation === 'merge' ? 'Merge abort failed' : 'Abort rebase failed',
+      title: words.failed,
       content: (error as Error).message,
       type: 'error',
       display: 'sticky',
     });
   }
   await refreshAll(worktree);
+}
+
+/**
+ * A Git menu action shown only while `operation` is under way in the active worktree (and `shows`
+ * says so): run on it, what fails besides what git says (in a notification) logged.
+ */
+export function registerDuring(
+  { commands }: MenuServices,
+  id: string,
+  label: string,
+  operation: Operation,
+  run: (host: Host, worktree: string) => Promise<void>,
+  shows: (worktree: string) => boolean = () => true,
+): void {
+  /** The active worktree, and its host, while `operation` is under way in it. */
+  const during = () => {
+    const env = active();
+    const host = currentHost();
+    return env && host && stateOf(env.id).operation === operation
+      ? { worktree: env.id, host }
+      : undefined;
+  };
+  commands.register({
+    id,
+    label,
+    visible: () => {
+      const under = during();
+      return under !== undefined && shows(under.worktree);
+    },
+    run: () => {
+      const under = during();
+      return under === undefined
+        ? undefined
+        : run(under.host, under.worktree).catch((error: unknown) => {
+            console.error(`${label} failed`, error);
+          });
+    },
+  });
 }
 
 /** IntelliJ's Commit Merge: the merge committed with git's message. */
@@ -565,38 +620,14 @@ async function rebaseChosen(host: Host, worktree: string, chosen: RebaseChoice):
 /** Git's actions for a merge or a rebase under way, as IntelliJ's, in its Git menu. */
 export function setupMergeRebase(services: MenuServices): void {
   const { commands, menus } = services;
-  /** The active worktree, and its host, while `operation` is under way in it. */
-  const during = (operation: Operation) => {
-    const env = active();
-    const host = currentHost();
-    return env && host && stateOf(env.id).operation === operation
-      ? { worktree: env.id, host }
-      : undefined;
-  };
   const register = (
     id: string,
     label: string,
     operation: Operation,
     run: (host: Host, worktree: string) => Promise<void>,
-    shows: (worktree: string) => boolean = () => true,
+    shows?: (worktree: string) => boolean,
   ) => {
-    commands.register({
-      id,
-      label,
-      visible: () => {
-        const under = during(operation);
-        return under !== undefined && shows(under.worktree);
-      },
-      run: () => {
-        const under = during(operation);
-        // What git says is in a notification: what fails besides (reading the lists after) is logged.
-        return under === undefined
-          ? undefined
-          : run(under.host, under.worktree).catch((error: unknown) => {
-              console.error(`${label} failed`, error);
-            });
-      },
-    });
+    registerDuring(services, id, label, operation, run, shows);
   };
   /** The active worktree, and its host, in a git project. */
   const target = () => {

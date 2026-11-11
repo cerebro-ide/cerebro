@@ -20,7 +20,7 @@ type ConflictSide = 'modified' | 'deleted';
 
 /** The host's `git.conflicts`. */
 export interface Conflicts {
-  operation?: 'merge' | 'rebase';
+  operation?: 'merge' | 'rebase' | 'cherry-pick';
   files: { path: string; yours: ConflictSide; theirs: ConflictSide }[];
   yours?: string;
   theirs?: string;
@@ -55,6 +55,10 @@ export function describe(conflicts: Conflicts): string {
       ? `Rebasing${branch} onto ${onto}. Current commit ${commit.hash} made by ${commit.author}:\n${commit.message}`
       : `Rebasing${branch} onto ${onto}`;
   }
+  if (conflicts.operation === 'cherry-pick' && conflicts.commit) {
+    const { hash, author, message } = conflicts.commit;
+    return `Conflicts during cherry-picking commit ${hash} made by ${author}\n${message}`;
+  }
   const n = conflicts.files.length;
   return `The following ${plural(n, 'file has', 'files have')} conflicts:`;
 }
@@ -72,6 +76,9 @@ export function paneTitles(conflicts: Conflicts): [string, string] {
         ? 'Already rebased commits'
         : `Already rebased commits and commits from ${theirs}`,
     ];
+  }
+  if (conflicts.operation === 'cherry-pick') {
+    return ['Local Changes', `Changes from cherry-pick ${conflicts.commit?.hash ?? ''}`];
   }
   return ['Your version', 'Changes from server'];
 }
