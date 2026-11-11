@@ -280,6 +280,12 @@ describe('dialogs', () => {
   });
 
   it('makes a tag from Git → New Tag…, annotated by its message, refusing one that exists', async () => {
+    // Someone to tag as: without, git refuses an annotated tag ("Committer identity unknown",
+    // measured), and CI's git has no one.
+    const config = (...args: string[]) =>
+      execFileSync('git', ['config', ...args], { cwd: repo, stdio: 'pipe' });
+    config('user.name', 't');
+    config('user.email', 't@t');
     await findAction(page(), 'New Tag');
     const box = page().locator('.cerebro-dialog');
     await box.waitFor();
@@ -293,7 +299,12 @@ describe('dialogs', () => {
         cwd: repo,
         encoding: 'utf8',
       }).trim();
-    await expect.poll(tag, { timeout: 15_000 }).toBe('tag The first');
+    try {
+      await expect.poll(tag, { timeout: 15_000 }).toBe('tag The first');
+    } catch (error) {
+      console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
+      throw error;
+    }
     // Taken now: only with Force. The dialog opens once the tags are read.
     await findAction(page(), 'New Tag');
     await box.waitFor();
@@ -303,6 +314,8 @@ describe('dialogs', () => {
       .toBe('The tag with the same name exists.');
     await page().keyboard.press('Escape');
     execFileSync('git', ['tag', '-d', 'v1-e2e'], { cwd: repo, stdio: 'pipe' });
+    config('--unset', 'user.name');
+    config('--unset', 'user.email');
   });
 
   it('keeps the app’s shortcuts and menu bar from running behind a dialog', async () => {
