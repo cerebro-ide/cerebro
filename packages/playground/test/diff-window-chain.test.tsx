@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import type { DiffSpec } from '../src/bridge.js';
@@ -9,6 +9,7 @@ import type { DiffSpec } from '../src/bridge.js';
 
 const requests: unknown[] = [];
 const jumps: unknown[] = [];
+const tabs: unknown[] = [];
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -37,6 +38,10 @@ beforeAll(async () => {
         jumps.push(at);
         return Promise.resolve();
       },
+      toTab: (spec: unknown) => {
+        tabs.push(spec);
+        return Promise.resolve();
+      },
     },
   } as unknown as NonNullable<Window['cerebro']>;
   location.hash = `#diff=${encodeURIComponent(JSON.stringify(SPEC))}`;
@@ -44,6 +49,11 @@ beforeAll(async () => {
   app.id = 'app';
   document.body.append(app);
   await import('../src/diff-window.js');
+});
+
+// The choice made in its Settings, kept where other test files' pages would read it.
+afterAll(() => {
+  localStorage.removeItem('cerebro.diff');
 });
 
 const root = () => document.querySelector('.cerebro-editor-diff')?.shadowRoot;
@@ -167,5 +177,17 @@ describe('a diff window with a list of files', () => {
     await userEvent.keyboard('{F7}{F7}');
     expect(hint()?.textContent).toBe('Press again to go to the next file');
     expect(shown()).toBe('b.ts');
+  });
+
+  it('moves the file shown to a tab of its opener, from its Settings, as IntelliJ’s', async () => {
+    await userEvent.click(button('diff.nextFile'));
+    await expect.poll(shown).toBe('src/c/d.ts');
+    await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
+    const item = [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].find((i) =>
+      i.textContent.includes('Show Diff in Editor Tab'),
+    ) as Element;
+    await userEvent.click(item);
+    // The file shown, not the list: a tab shows one file.
+    expect(tabs).toEqual([{ project: '/r', env: '/r/w', path: 'src/c/d.ts' }]);
   });
 });

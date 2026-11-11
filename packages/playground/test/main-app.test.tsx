@@ -16,6 +16,7 @@ import {
   jumped,
   notify,
   shownAgain,
+  tabbed,
 } from './app-bridge.js';
 import { closeAll, dialog, dialogText, menuItem, menuItems, popupItems, press } from './fakes.js';
 
@@ -120,6 +121,31 @@ describe('a diff tab', () => {
     jumped({ env: '/r', path: 'src/c.ts', line: 2, column: 3 });
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
     expect(env().editor.activeGroup.tabs.map((tab) => tab.id)).not.toContain('/r/src/gone.ts');
+  });
+});
+
+describe('a diff moved between a window and a tab', () => {
+  it('shows a diff window’s diff as a tab of its worktree, if open, and moves it back to a window', async () => {
+    answers.set('git.diff', { original: 'a\n', text: 'b\n' });
+    const { id: group, active: before } = env().editor.activeGroup;
+    tabbed({ project: '/r', env: '/gone', path: 'src/m.ts' });
+    expect(env().editor.activeGroup.active).not.toBe(diffTab('src/m.ts').id);
+    tabbed({ project: '/r', env: '/r', path: 'src/m.ts' });
+    expect(env().editor.activeGroup.active).toBe(diffTab('src/m.ts').id);
+    const gear = await vi.waitUntil(() =>
+      document.querySelector('.cerebro-editor-group--active [data-menu="diff/settings"]'),
+    );
+    await userEvent.click(gear);
+    const item = [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].find((i) =>
+      i.textContent.includes('Show Diff in Separate Window'),
+    ) as Element;
+    await userEvent.click(item);
+    expect(env().editor.activeGroup.tabs.map((tab) => tab.id)).not.toContain(
+      diffTab('src/m.ts').id,
+    );
+    expect(calls.at(-1)).toEqual(['diff', { project: '/r', env: '/r', path: 'src/m.ts' }]);
+    // As it was found, for the tests after.
+    env().editor.activate(group, before as string);
   });
 });
 
@@ -347,6 +373,18 @@ describe('the Git window', () => {
         chain: ['src/a.ts', 'src/b.ts'],
       },
     ]);
+    // Chosen in a diff's Settings, in this window or another: as a tab.
+    localStorage.setItem('cerebro.diff', JSON.stringify({ inTab: true }));
+    const opened = calls.length;
+    const { id: group, active: before } = env().editor.activeGroup;
+    await userEvent.dblClick(file);
+    expect(env().editor.activeGroup.active).toBe(
+      diffTab('src/a.ts', { from: EMPTY_TREE, to: 'c0' }).id,
+    );
+    expect(calls.length).toBe(opened);
+    localStorage.removeItem('cerebro.diff');
+    env().editor.close(group, env().editor.activeGroup.active as string);
+    env().editor.activate(group, before as string);
     await userEvent.keyboard('{Alt>}9{/Alt}');
   });
 });

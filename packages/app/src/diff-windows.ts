@@ -1,7 +1,8 @@
 // Diff windows: a diff opened from a project window shows in a window of its own, as IntelliJ's
 // (Ido: "new window instead of as a tab"). Its page names what it shows in its URL's hash, asks the
-// hosts of the window that opened it, as that window would, and sends Jump to Source back to it.
-// It closes with that window. The same diff opened again brings its window to the front.
+// hosts of the window that opened it, as that window would, and sends Jump to Source back to it,
+// and Show Diff in Editor Tab, which opens it there as a tab and closes it. It closes with that
+// window. The same diff opened again brings its window to the front.
 
 import { BrowserWindow, type WebContents } from 'electron';
 import type { Hosts } from './host.js';
@@ -11,6 +12,9 @@ export const DIFF_OPEN = 'cerebro:diff:open';
 export const DIFF_JUMP = 'cerebro:diff:jump';
 /** To the opener: go to this place in a file. */
 export const DIFF_JUMPED = 'cerebro:diff:jumped';
+export const DIFF_TAB = 'cerebro:diff:tab';
+/** To the opener: show this diff as a tab. */
+export const DIFF_TABBED = 'cerebro:diff:tabbed';
 
 /** What a diff window shows: a file of a project's worktree, against its last commit or between two. */
 export interface DiffSpec {
@@ -106,6 +110,15 @@ export class DiffWindows {
     opener.send(DIFF_JUMPED, at);
     opener.focus();
   }
+
+  /** Show Diff in Editor Tab from the diff `window`: its opener shows `spec` as a tab, in front. */
+  toTab(window: Window, spec: DiffSpec): void {
+    const opener = this.openers.get(window.id);
+    if (!opener) return;
+    opener.send(DIFF_TABBED, spec);
+    opener.focus();
+    window.close();
+  }
 }
 
 /** A window's contents as a diff window's opener or a diff window. */
@@ -133,7 +146,7 @@ export function windowOf(contents: WebContents): Window {
   };
 }
 
-/** Lets project windows open diff windows, and diff windows jump back to them. */
+/** Lets project windows open diff windows, and diff windows jump and move back to them. */
 export function installDiffWindows(hosts: Hosts, create: (spec: DiffSpec) => Window): DiffWindows {
   const windows = new DiffWindows(hosts, create);
   handle(DIFF_OPEN, (event, spec: unknown) => {
@@ -141,6 +154,9 @@ export function installDiffWindows(hosts: Hosts, create: (spec: DiffSpec) => Win
   });
   handle(DIFF_JUMP, (event, at: unknown) => {
     windows.jump(event.sender.id, at);
+  });
+  handle(DIFF_TAB, (event, spec: unknown) => {
+    windows.toTab(windowOf(event.sender), diffSpec(spec));
   });
   return windows;
 }

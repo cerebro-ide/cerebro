@@ -80,6 +80,10 @@ declare global {
         jump(at: DiffJump): Promise<void>;
         /** In a project's window: each place its diff windows jump to. */
         onJump(listener: (at: unknown) => void): () => void;
+        /** From a diff window: its opener shows the diff as a tab, and it closes. */
+        toTab(spec: DiffSpec): Promise<void>;
+        /** In a project's window: each diff its diff windows move to tabs. */
+        onTab(listener: (spec: unknown) => void): () => void;
       };
       /** Passwords kept by key, encrypted by the system's keychain; null forgets one. */
       passwords: {

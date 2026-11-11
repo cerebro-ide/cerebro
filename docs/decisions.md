@@ -61,7 +61,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2359,6 +2359,15 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     left (decision "Windows keep their size and place").
   - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to
     open, still shows diffs as tabs.
+- **Show Diff in Editor Tab and Show Diff in Separate Window,** in the gear after Synchronize
+  Scrolling, each where the diff isn't, as IntelliJ's (`MoveDiffEditorAction`, in the
+  `Diff.DiffModes` group that `SetEditorSettingsActionGroup` puts after the viewer's settings;
+  IntelliJ's source). Chosen, diffs open there from then on, and it's kept: the diff a window
+  shows (the file shown, not its list: a tab shows one file) opens as a tab of its project's
+  window, in front, and the window closes; a tab's closes and opens in a window. Not in Local
+  History's diff, which stays in its dialog, nor in a browser, with no windows. Kept as the diff's
+  other toggles, and read as kept each time, so a choice made in a diff window holds in the
+  project's window.
 - **The diff window goes through the list it was opened from,** as IntelliJ's diff chain
   (`ChangesListViewDiffableSelectionUtil`, `DiffRequestProcessor.getNavigationActions`):
   - The list: a Commit window file's group (its changelist, or the unversioned files) or an agent
@@ -2389,7 +2398,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
 - **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the Go to next file setting (Settings → Tools → Diff & Merge); several files
-  selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
+  selected as the list; moving every diff open when the choice changes, as IntelliJ's
+  (`reopenDiffEditorsForFiles`; here the one it's chosen in moves); a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 

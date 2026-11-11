@@ -35,6 +35,8 @@ const PROJECT_FORGET = 'cerebro:project:forget';
 const DIFF_OPEN = 'cerebro:diff:open';
 const DIFF_JUMP = 'cerebro:diff:jump';
 const DIFF_JUMPED = 'cerebro:diff:jumped';
+const DIFF_TAB = 'cerebro:diff:tab';
+const DIFF_TABBED = 'cerebro:diff:tabbed';
 // Kept in step with projects.ts.
 const PROJECT_ADDED = 'cerebro:project:added';
 const PROJECT_SHOW = 'cerebro:project:show';
@@ -136,6 +138,10 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     jump: (at: unknown): Promise<unknown> => invoke(DIFF_JUMP, at),
     /** In an opener: calls `listener` with each place its diff windows jump to. */
     onJump: (listener: (at: unknown) => void) => listen(DIFF_JUMPED, listener),
+    /** From a diff window: its opener shows the diff as a tab, and it closes. */
+    toTab: (spec: unknown): Promise<unknown> => invoke(DIFF_TAB, spec),
+    /** In an opener: calls `listener` with each diff its diff windows move to tabs. */
+    onTab: (listener: (spec: unknown) => void) => listen(DIFF_TABBED, listener),
   },
   menu: {
     set: (items: unknown) => {
