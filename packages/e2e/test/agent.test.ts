@@ -79,7 +79,17 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     // Both runs' turns: the one after the restart wrote the same file again, changing nothing.
     const turns = page.locator('.cerebro-tree-row', { hasText: 'Write a file' });
     // Each hook runs the host's entry as Node: slow, so this waits longer than most.
-    await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
+    try {
+      await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
+    } catch (error) {
+      // One turn alone once on macOS in CI (#169, 2026-11-11): what was seen.
+      const rows = await page.locator('.cerebro-tree-row').allTextContents();
+      console.log('Rows:', rows);
+      console.log('Status bar:', await page.locator('.cerebro-statusbar').innerText());
+      console.log('Terminal:', await shown());
+      console.log('Standard error:', running.output.join(''));
+      throw error;
+    }
     const file = page.locator('.cerebro-tree-row[data-key^="turn:"][data-key$=":agent.txt"]');
     // Double-clicked again until it's seen expanded: right after the turn showed, its file
     // sometimes never did (3 runs in 9 locally; why isn't known yet).
