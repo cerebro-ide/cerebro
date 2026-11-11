@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createTag, git, listTags, validRevision } from '../src/index.js';
+import { createTag, git, listTags, resolveRevision, validRevision } from '../src/index.js';
 
 describe('tags, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-tags-')));
@@ -59,5 +59,15 @@ describe('tags, with real git', () => {
     expect(await validRevision(repo, 'v0', git)).toBe(true);
     expect(await validRevision(repo, 'nowhere', git)).toBe(false);
     expect(await validRevision(repo, '--all', git)).toBe(false);
+  });
+
+  it('gives the commit a hash’s start, a branch or a tag names, an annotated tag’s too', async () => {
+    const first = run('rev-parse', 'HEAD~1').trim();
+    expect(await resolveRevision(repo, first.slice(0, 7), git)).toBe(first);
+    expect(await resolveRevision(repo, 'main', git)).toBe(run('rev-parse', 'HEAD').trim());
+    // v0 is annotated: its commit, not the tag's object.
+    expect(await resolveRevision(repo, 'v0', git)).toBe(first);
+    expect(await resolveRevision(repo, 'nowhere', git)).toBeUndefined();
+    expect(await resolveRevision(repo, '--all', git)).toBeUndefined();
   });
 });

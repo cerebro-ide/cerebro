@@ -11,6 +11,29 @@ export async function listTags(worktree: string, run: Git): Promise<string[]> {
 }
 
 /** Whether `revision` names an object git knows: IntelliJ's Validate. */
+/**
+ * The commit a hash (or its start), a branch or a tag names, in full; undefined if none: the Log's
+ * Go To Hash/Branch/Tag.
+ */
+export async function resolveRevision(
+  worktree: string,
+  revision: string,
+  run: Git,
+): Promise<string | undefined> {
+  try {
+    const hash = await run(worktree, [
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      '--end-of-options',
+      `${revision}^{commit}`,
+    ]);
+    return hash.trim();
+  } catch {
+    return undefined;
+  }
+}
+
 export async function validRevision(
   worktree: string,
   revision: string,

@@ -15,6 +15,7 @@
 
 import { formatSequence } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
+import { openDialog } from '@cerebro-ide/ui-dialog';
 import { computed, effect, signal } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
@@ -26,6 +27,7 @@ import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
+import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
@@ -191,7 +193,7 @@ class Log {
 
   constructor(
     readonly host: Host,
-    private readonly worktree: string,
+    readonly worktree: string,
   ) {
     this.model = new TreeModel<LogCommit>({
       children: () => this.commits.peek(),
@@ -547,6 +549,47 @@ export function showInLog(hash: string, path: string): void {
   wanted.set({ hash, path });
 }
 
+/**
+ * IntelliJ's Go To Hash/Branch/Tag (`GoToHashOrRefAction`, `GoToHashOrRefPopup`): a hash, or a
+ * branch's or tag's name, typed, the branches and tags that hold it suggested; the commit selected,
+ * the filters cleared if they hide it (as a commit shown from an annotation); "x not found" if git
+ * knows of none. IntelliJ's is a popup; here a dialog (Claude's, open to change), its label without
+ * the ellipsis as IntelliJ's.
+ */
+async function goToRef(log: Log, branches: Branches): Promise<void> {
+  const tags = (await log.host
+    .request('git.tags', { path: log.worktree })
+    .catch((error: unknown) => {
+      console.error('Reading the tags failed', error);
+      return [];
+    })) as string[];
+  const names = [...branches.branches.peek().map((b) => branchName(b.ref)), ...tags];
+  const typed = signal('');
+  const reference = await openDialog<string>({
+    title: 'Go To Hash/Branch/Tag',
+    width: 420,
+    ok: {
+      label: 'OK',
+      enabled: () => typed.get().trim() !== '',
+      accept: () => typed.peek().trim(),
+    },
+    content: () => (
+      <label class="cerebro-dialog-field">
+        <span class="cerebro-dialog-field__label">Enter hash or branch/tag name:</span>
+        {branchField(typed, () => names, { label: 'Hash or name', placeholder: () => '' })}
+      </label>
+    ),
+  }).result;
+  if (reference === undefined) return;
+  const hash = (await log.host.request('git.resolveRevision', {
+    path: log.worktree,
+    revision: reference,
+  })) as string | null;
+  if (hash === null || !(await log.select(hash))) {
+    notifications.notify({ title: `${reference} not found`, type: 'warning' });
+  }
+}
+
 /** The Log's commands and shortcuts. */
 export function setupLog(services: MenuServices): void {
   const { commands, keymap } = services;
@@ -575,6 +618,18 @@ export function setupLog(services: MenuServices): void {
   });
   // IntelliJ's, Ctrl+L in its default keymap: Cmd+L on macOS, which takes it with Ctrl as Cmd.
   keymap?.bindDefault('Mod+L', 'log.focusTextFilter');
+  commands.register({
+    id: 'log.goToRef',
+    label: 'Go To Hash/Branch/Tag',
+    icon: 'search',
+    enabled: (c) => here(c) && shown.get() !== undefined,
+    run: () => {
+      const { log, branches } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
+      void goToRef(log, branches);
+    },
+  });
+  // IntelliJ's takes Find's shortcut: Ctrl+F, Cmd+F on macOS.
+  keymap?.bindDefault('Mod+F', 'log.goToRef');
 }
 
 type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
@@ -792,6 +847,14 @@ function LogToolbar(props: {
             command="log.refresh"
             icon={icon('refresh')}
             shortcut={shortcutOf(services, 'log.refresh')}
+            context={() => FROM_LOG}
+          />,
+          // After the presentation settings in IntelliJ's (`Vcs.Log.ToolbarGroup`).
+          <ToolbarButton
+            commands={services.commands}
+            command="log.goToRef"
+            icon={icon('search')}
+            shortcut={shortcutOf(services, 'log.goToRef')}
             context={() => FROM_LOG}
           />,
         ]}
