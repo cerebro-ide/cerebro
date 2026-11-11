@@ -62,62 +62,22 @@ on it:
   read. `findAction` now prints the popup's field, its items and the focus when it fails.
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
-  which assertion wasn't kept. The next failure's message will say.
+  which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run
+  43007945845) it counted one "Write a file" turn in 15 s, not the two of the runs before and after
+  the restart; it now prints the rows, the status bar, the agent's terminal and the app's standard
+  error when that fails.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is
   resized; that either happened isn't known. The test now prints the popups, their items' boxes,
   the focus and the window's size when the click fails.
-- **The app stalls for tens of seconds in CI, now and then** (Windows: #161 and #162; macOS: #165,
-  run 42944609115; Linux: #165, run 42988680864; 2026-11-11): "commits a merge started elsewhere"
-  pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
-  in 15 s. On Linux the commit landed about 29 s after Ctrl+Enter ("Done 13497 ms after the test
-  gave up"), and the next test's Pull did nothing for 15 s more, while the Merge test after took
-  0.4 s: about 45 s in all; on macOS, "Done 15280 ms after the test gave up". The page sends the
-  commit to the host without waiting on anything first (`changes.tsx`); the page's console was
-  empty. Which held it up, the host or git, isn't
-  known. The status bar printed in those runs seemed to show Pushing…, Updating…, Fetching… and a
-  pull under way, but that was `textContent`, which takes hidden items' text too: it's `innerText`
-  now, only what's shown. The host now says on its standard error when a git command takes over
-  5 s, with its arguments, or its event loop is held up over 2 s (`slow.ts`), and the e2e tests
-  keep the app's standard error (`running.output`) and print it when this test fails (measured:
-  a git made 6 s slow showed "Slow: git check-ignore -z --stdin in … took 6005 ms").
-  It stalled again on 2026-11-11, on macOS (#169, run 42998193659) and Windows (#166, run
-  42998184065) at once: the commit done about 44 s after Ctrl+Enter ("Done 13873 ms after the test
-  gave up"), the next test's Pull timing out too, and the standard error empty: no git command took
-  5 s, nor was the host's event loop held up 2 s. So each request is now reported if the host took
-  over 5 s to answer it ("Slow: request git.commit took …"), and if it took that long from the app
-  to the host and back ("Slow: git.commit from the app to the host of … and back took …"); and the
-  app's own event loop held up is reported, as the host's. Next time, which of these speaks says
-  where the time went: in the host's work, on the way, or in the app.
-  The runs after (2026-11-11: #168 run 43003363747 and #171 run 43004785796 on Windows, #169 run
-  43003368712 on macOS) stalled in the same test, the merge never committed in 30 s and the Pull
-  after done 13 to 14 s after its test gave up, and still said nothing: no request was slow, from
-  the app or in the host, nor any event loop held up. Two gaps remained: a report came only once
-  the work ended, so a request still going when the test ended said nothing; and nothing watched the
-  page, where `changes.tsx` sends the commit. And on Linux (#166, run 43003358765) the page stopped
-  taking clicks for the rest of `editing.test.ts` (a click waited "performing click action" until it
-  timed out, and every test after failed). So a request or a git command is now reported once it's
-  been going 5 s, as well as when it ends; the app asks each page for an answer every second and
-  reports one held up over 2 s, with the call stack it was running (Chromium's
-  `collectJavaScriptCallStack`, which needs a `Document-Policy` header the app now adds: measured,
-  a page kept busy 6 s said "held up over 2000 ms", "was running: at spinForever (…)", "answered
-  after 5200 ms"); and every e2e file prints these lines when it ends, failed or not. Electron's own
-  `unresponsive` event never came for a page kept busy 55 s with a click waiting (measured on
-  Linux), so it isn't used.
-  The run after (#168, run 43007941029, Windows) failed the same way, with all of these quiet: no
-  request or git command went on 5 s, no page or event loop was held up. So the page never sent the
-  commit, or sent it late without being busy. Its "Done 14913 ms after the test gave up" isn't the
-  merge's commit, as it was read before: it tests HEAD for two parents, which the next test's Pull
-  gives too, and git's status printed then still said "All conflicts fixed but you are still
-  merging". The page sends the commit at once, unless it finds no files or no message to commit,
-  when it only says why under the message: the test now prints that, and the Commit window's rows,
-  with which are put in.
-- **The agent's second turn wasn't listed in Agent Changes in 15 s on macOS in CI** (once, on
-  2026-11-11, #169, run 43007945845): "lists its turn in the Agent Changes tool window" counted one
-  "Write a file" turn, not the two of the runs before and after the restart. Nothing was printed;
-  the test now prints the rows, the status bar, the agent's terminal and the app's standard error
-  when it fails.
+- **The page stopped taking clicks for the rest of `editing.test.ts` on Linux in CI** (once, on
+  2026-11-11, #166, run 43003358765): a click on System Settings' Global waited "performing click
+  action" until it timed out, and every test after failed. The app now reports a page held up over
+  2 s with the call stack it was running, and every e2e file prints these reports as it ends.
+  (The "stall" in "commits a merge started elsewhere", thought to be the same, wasn't one: the
+  test pressed Ctrl+Enter before the Commit window listed the resolved file, and Commit said
+  "Select files to commit", as IntelliJ's; it now waits for the file to be put in.)
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
