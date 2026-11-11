@@ -6,6 +6,7 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
+import { TimedConnection } from './slow.js';
 import { spawn as spawnPty } from 'node-pty';
 import { Terminals, type SpawnPty } from './terminals.js';
 import { hookSettings, listenForHooks, socketPath } from './agents.js';
@@ -1084,7 +1085,8 @@ export function serve(
   output: NodeJS.WritableStream,
   options: HostOptions,
 ): Connection {
-  const connection = new Connection((line) => {
+  // Each request that's slow reported (`slow.ts`).
+  const connection = new TimedConnection((line) => {
     output.write(`${line}\n`);
   });
   const stop = serveOn(connection, options);
