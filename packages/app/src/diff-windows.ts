@@ -1,7 +1,9 @@
 // Diff windows: a diff opened from a project window shows in a window of its own, as IntelliJ's
 // (Ido: "new window instead of as a tab"). Its page names what it shows in its URL's hash, asks the
 // hosts of the window that opened it, as that window would, and sends Jump to Source back to it,
-// and Show Diff in Editor Tab, which opens it there as a tab and closes it. It closes with that
+// and Show Diff in Editor Tab, which opens it there as a tab and closes it. A file as it is is that
+// window's document, as IntelliJ's diff edits the file's one document: the diff window asks for it
+// and edits it through that window, which tells its diff windows of its text. It closes with that
 // window. The same diff opened again brings its window to the front.
 
 import { BrowserWindow, type WebContents } from 'electron';
@@ -15,6 +17,12 @@ export const DIFF_JUMPED = 'cerebro:diff:jumped';
 export const DIFF_TAB = 'cerebro:diff:tab';
 /** To the opener: show this diff as a tab. */
 export const DIFF_TABBED = 'cerebro:diff:tabbed';
+/** From a diff window, and on to its opener: a file's document, to be told of, or its new text. */
+export const DIFF_DOCUMENT = 'cerebro:diff:document';
+export const DIFF_DOCUMENT_ASKED = 'cerebro:diff:document-asked';
+/** From an opener, and on to its diff windows: a file's document's text, or null if unread. */
+export const DIFF_DOCUMENT_TEXT = 'cerebro:diff:document-text';
+export const DIFF_DOCUMENT_SHOWN = 'cerebro:diff:document-shown';
 
 /** What a diff window shows: a file of a project's worktree, against its last commit or between two. */
 export interface DiffSpec {
@@ -111,6 +119,20 @@ export class DiffWindows {
     opener.focus();
   }
 
+  /** From the diff window `id`: its opener is asked for a file's document, or edits it. */
+  askDocument(id: number, path: unknown, text: unknown): void {
+    this.openers.get(id)?.send(DIFF_DOCUMENT_ASKED, path, text);
+  }
+
+  /** From `opener`: a file's document's text, for each of its diff windows. */
+  showDocument(opener: number, path: unknown, text: unknown): void {
+    for (const window of this.open.values()) {
+      if (this.openers.get(window.id)?.id === opener) {
+        window.send(DIFF_DOCUMENT_SHOWN, path, text);
+      }
+    }
+  }
+
   /** Show Diff in Editor Tab from the diff `window`: its opener shows `spec` as a tab, in front. */
   toTab(window: Window, spec: DiffSpec): void {
     const opener = this.openers.get(window.id);
@@ -157,6 +179,12 @@ export function installDiffWindows(hosts: Hosts, create: (spec: DiffSpec) => Win
   });
   handle(DIFF_TAB, (event, spec: unknown) => {
     windows.toTab(windowOf(event.sender), diffSpec(spec));
+  });
+  handle(DIFF_DOCUMENT, (event, path: unknown, text: unknown) => {
+    windows.askDocument(event.sender.id, path, text);
+  });
+  handle(DIFF_DOCUMENT_TEXT, (event, path: unknown, text: unknown) => {
+    windows.showDocument(event.sender.id, path, text);
   });
   return windows;
 }

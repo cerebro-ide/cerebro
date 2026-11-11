@@ -348,6 +348,28 @@ window.cerebro?.diff.onTab((spec) => {
   workspace.activate(env);
   editor()?.open(diffTab(path, range));
 });
+// A diff window's file as it is: this window's document, as IntelliJ's one document per file. Its
+// text is told to the diff windows as it changes (null if it can't be read), and edited from them.
+const told = new Set<string>();
+window.cerebro?.diff.onDocumentAsked((path, text) => {
+  const file = path as string;
+  void documentFor(file).then((doc) => {
+    const app = window.cerebro as NonNullable<Window['cerebro']>;
+    if ('error' in doc) {
+      void app.diff.documentText(file, null);
+      return;
+    }
+    if (typeof text === 'string') doc.replace(text);
+    // Asked again (another diff window): told as it is.
+    else if (told.has(file)) void app.diff.documentText(file, doc.text.peek().toString());
+    if (told.has(file)) return;
+    told.add(file);
+    effect(() => {
+      void app.diff.documentText(file, doc.text.get().toString());
+      return undefined;
+    });
+  });
+});
 // Jump to Source from a diff window: the file, if it's still there, where its caret was.
 window.cerebro?.diff.onJump((at) => {
   const { env, path, line, column } = at as {
@@ -1589,22 +1611,37 @@ function Code(props: { path: string; env: string }) {
 
 /**
  * A changed file's diff, read through the host: as last committed against as it is, or at two
- * commits (an agent's turn's snapshots).
+ * commits (an agent's turn's snapshots). As it is, its right side is the file's document, as
+ * IntelliJ's: its edits, unsaved too, and edited there.
  */
 function Diff(props: { path: string; env: string; range: Range | undefined }) {
   const settings = settingsFor(props.env);
   const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
+  const file = `${props.env}/${props.path}`;
+  const document = props.range
+    ? undefined
+    : {
+        text: () => documentRead(file)?.text.get().toString(),
+        edit: (text: string) => {
+          documentRead(file)?.replace(text);
+        },
+      };
   return (
     <FileDiff
       services={services}
       path={props.path}
-      read={() =>
-        host.request('git.diff', { path: props.env, file: props.path, ...props.range }) as Promise<{
-          original: string;
-          text: string;
-        }>
-      }
+      read={async () => {
+        const diff = host.request('git.diff', {
+          path: props.env,
+          file: props.path,
+          ...props.range,
+        });
+        // The document read first, if it can be.
+        if (document) await documentFor(file);
+        return (await diff) as { original: string; text: string };
+      }}
+      {...(document ? { document } : {})}
       fontSize={() => settings.get('editor.fontSize') as number}
       tabSize={() => settings.get('editor.tabSize') as number}
     />

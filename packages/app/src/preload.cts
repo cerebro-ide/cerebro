@@ -37,6 +37,10 @@ const DIFF_JUMP = 'cerebro:diff:jump';
 const DIFF_JUMPED = 'cerebro:diff:jumped';
 const DIFF_TAB = 'cerebro:diff:tab';
 const DIFF_TABBED = 'cerebro:diff:tabbed';
+const DIFF_DOCUMENT = 'cerebro:diff:document';
+const DIFF_DOCUMENT_ASKED = 'cerebro:diff:document-asked';
+const DIFF_DOCUMENT_TEXT = 'cerebro:diff:document-text';
+const DIFF_DOCUMENT_SHOWN = 'cerebro:diff:document-shown';
 // Kept in step with projects.ts.
 const PROJECT_ADDED = 'cerebro:project:added';
 const PROJECT_SHOW = 'cerebro:project:show';
@@ -142,6 +146,17 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     toTab: (spec: unknown): Promise<unknown> => invoke(DIFF_TAB, spec),
     /** In an opener: calls `listener` with each diff its diff windows move to tabs. */
     onTab: (listener: (spec: unknown) => void) => listen(DIFF_TABBED, listener),
+    /** From a diff window: asks its opener for a file's document (`text` null), or edits it. */
+    document: (path: unknown, text: unknown): Promise<unknown> => invoke(DIFF_DOCUMENT, path, text),
+    /** In a diff window: calls `listener` with each text its opener tells of a document. */
+    onDocument: (listener: (path: unknown, text: unknown) => void) =>
+      listen(DIFF_DOCUMENT_SHOWN, listener),
+    /** In an opener: calls `listener` as a diff window asks for a document, or edits it. */
+    onDocumentAsked: (listener: (path: unknown, text: unknown) => void) =>
+      listen(DIFF_DOCUMENT_ASKED, listener),
+    /** From an opener: a document's text (null if it can't be read), for its diff windows. */
+    documentText: (path: unknown, text: unknown): Promise<unknown> =>
+      invoke(DIFF_DOCUMENT_TEXT, path, text),
   },
   menu: {
     set: (items: unknown) => {

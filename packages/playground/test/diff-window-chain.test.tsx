@@ -10,6 +10,7 @@ import type { DiffSpec } from '../src/bridge.js';
 const requests: unknown[] = [];
 const jumps: unknown[] = [];
 const tabs: unknown[] = [];
+let told: (path: string, text: string | null) => void = () => undefined;
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -41,6 +42,17 @@ beforeAll(async () => {
       toTab: (spec: unknown) => {
         tabs.push(spec);
         return Promise.resolve();
+      },
+      // Its files' documents can't be read: their diffs are git's, not edited.
+      document: (file: string) => {
+        queueMicrotask(() => {
+          told(file, null);
+        });
+        return Promise.resolve();
+      },
+      onDocument: (listener: typeof told) => {
+        told = listener;
+        return () => undefined;
       },
     },
   } as unknown as NonNullable<Window['cerebro']>;

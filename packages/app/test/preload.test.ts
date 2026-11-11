@@ -3,7 +3,17 @@ import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { SET_COLOURS } from '../src/colours.js';
 import { SET_SCALE } from '../src/display.js';
-import { DIFF_JUMP, DIFF_JUMPED, DIFF_OPEN, DIFF_TAB, DIFF_TABBED } from '../src/diff-windows.js';
+import {
+  DIFF_DOCUMENT,
+  DIFF_DOCUMENT_ASKED,
+  DIFF_DOCUMENT_SHOWN,
+  DIFF_DOCUMENT_TEXT,
+  DIFF_JUMP,
+  DIFF_JUMPED,
+  DIFF_OPEN,
+  DIFF_TAB,
+  DIFF_TABBED,
+} from '../src/diff-windows.js';
 import { HOST_NOTIFICATION, HOST_REQUEST } from '../src/host.js';
 import type { Answer } from '../src/ipc.js';
 import {
@@ -99,6 +109,13 @@ describe('the preload', () => {
     expect(call('diff', 'open', { path: 'a' })).toEqual(['invoke', DIFF_OPEN, { path: 'a' }]);
     expect(call('diff', 'jump', { line: 1 })).toEqual(['invoke', DIFF_JUMP, { line: 1 }]);
     expect(call('diff', 'toTab', { path: 'a' })).toEqual(['invoke', DIFF_TAB, { path: 'a' }]);
+    expect(call('diff', 'document', '/a', null)).toEqual(['invoke', DIFF_DOCUMENT, '/a', null]);
+    expect(call('diff', 'documentText', '/a', 't')).toEqual([
+      'invoke',
+      DIFF_DOCUMENT_TEXT,
+      '/a',
+      't',
+    ]);
     expect(call('passwords', 'get', 'k')).toEqual(['invoke', PASSWORD_GET, 'k']);
     expect(call('passwords', 'set', 'k', 'p')).toEqual(['invoke', PASSWORD_SET, 'k', 'p']);
     expect(call('host', 'request', '/r', 'fs.read', { path: 'a' })).toEqual([
@@ -127,6 +144,8 @@ describe('the preload', () => {
       api['menu']?.['onCommand']?.((c: unknown) => void heard.push(['command', c])),
       api['diff']?.['onJump']?.((at: unknown) => void heard.push(['jump', at])),
       api['diff']?.['onTab']?.((spec: unknown) => void heard.push(['tab', spec])),
+      api['diff']?.['onDocument']?.((...d: unknown[]) => void heard.push(['document', ...d])),
+      api['diff']?.['onDocumentAsked']?.((...d: unknown[]) => void heard.push(['asked', ...d])),
       api['host']?.['onNotification']?.(
         (...n: unknown[]) => void heard.push(['notification', ...n]),
       ),
@@ -137,6 +156,8 @@ describe('the preload', () => {
     emit(MENU_COMMAND, 'file.open');
     emit(DIFF_JUMPED, { line: 1 });
     emit(DIFF_TABBED, { path: 'a' });
+    emit(DIFF_DOCUMENT_SHOWN, '/a', 't');
+    emit(DIFF_DOCUMENT_ASKED, '/a', null);
     // What isn't a command, or a notification from a project's host, is dropped.
     emit(MENU_COMMAND, 1);
     emit(HOST_NOTIFICATION, '/r', 'index.progress', { done: 1 });
@@ -147,6 +168,8 @@ describe('the preload', () => {
       ['command', 'file.open'],
       ['jump', { line: 1 }],
       ['tab', { path: 'a' }],
+      ['document', '/a', 't'],
+      ['asked', '/a', null],
       ['notification', '/r', 'index.progress', { done: 1 }],
     ]);
     for (const stop of stops) stop();
