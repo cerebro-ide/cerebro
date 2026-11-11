@@ -7,6 +7,7 @@ import {
   realpathSync,
   rmSync,
   statSync,
+  truncateSync,
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -28,6 +29,8 @@ import {
   serveOn,
   shellWord,
   type Git,
+  type GitBytes,
+  MAX_FILE_SIZE,
   type LanguageServers,
   type Pty,
   type Turn,
@@ -55,6 +58,8 @@ function connect(
   pty?: () => Pty,
   languageServers?: LanguageServers,
   rg?: string,
+  // A file at a commit: the mocked git's text, as bytes.
+  gitBytes: GitBytes = async (cwd, args) => new TextEncoder().encode(await git(cwd, args)),
 ) {
   // eslint-disable-next-line prefer-const -- the two refer to each other
   let host: Connection;
@@ -67,6 +72,7 @@ function connect(
   const stop = serveOn(host, {
     repo: '/default',
     git,
+    gitBytes,
     ...(pty ? { pty } : {}),
     ...(languageServers ? { languageServers } : {}),
     ...(rg ? { rg } : {}),
@@ -429,9 +435,18 @@ describe('changes', () => {
       original: 'committed HEAD:same.ts',
       text: 'same',
     });
-    await expect(ui.request('git.diff', { path: dir, file: 'b.bin' })).rejects.toMatchObject({
+    // Binary on either side: both, in base64, not compared as text (which took tens of seconds).
+    expect(await ui.request('git.diff', { path: dir, file: 'b.bin' })).toEqual({
+      binary: true,
+      original: Buffer.from('committed HEAD:b.bin').toString('base64'),
+      text: 'AAE=',
+    });
+    // Too large to read, it says so.
+    writeFileSync(join(dir, 'huge.bin'), '');
+    truncateSync(join(dir, 'huge.bin'), MAX_FILE_SIZE + 1);
+    await expect(ui.request('git.diff', { path: dir, file: 'huge.bin' })).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
-      data: { reason: 'binary' },
+      data: { reason: 'too large' },
     });
     rmSync(dir, { recursive: true });
   });
@@ -456,6 +471,26 @@ describe('changes', () => {
       original: 'at c1:b.ts',
       text: 'at c2:b.ts',
     });
+  });
+
+  it('gives a binary file’s sides at two commits, one missing as null', async () => {
+    const png = new Uint8Array([0x89, 0x50, 0, 1]);
+    // Added: nothing before.
+    const bytes = vi.fn((_cwd: string, args: readonly string[]) =>
+      args[1] === 'c1:p.png' ? Promise.reject(new Error('not there')) : Promise.resolve(png),
+    );
+    const { ui: binary } = connect(
+      vi.fn((_cwd: string, args: readonly string[]) =>
+        Promise.resolve(args[0] === 'diff' ? 'A\0p.png\0' : ''),
+      ),
+      undefined,
+      undefined,
+      undefined,
+      bytes,
+    );
+    expect(
+      await binary.request('git.diff', { path: '/w', from: 'c1', to: 'c2', file: 'p.png' }),
+    ).toEqual({ binary: true, original: null, text: Buffer.from(png).toString('base64') });
   });
 });
 
