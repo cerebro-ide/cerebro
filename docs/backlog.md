@@ -163,4 +163,8 @@ on it:
   8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced. Seen again on #163
   (2026-11-11): saved 6.2 s after the edit, the same otherwise. A save slower than 2 s now says on
   the console how long it waited behind the saves before, read the file, ran the hooks before
-  saving, and wrote it; the test prints that.
+  saving, and wrote it; the test prints that. Measured in CI on #174 (2026-11-11): `second.ts` saved 5.5 s after the
+  edit, and a save of `races.txt` (the race test's file, before it) took 4.1 s, 3.9 s of it in the
+  host reading the file, 0 ms waiting behind other saves. So a slow read in the host is now the
+  lead: next, whether the idle save of `second.ts` waits behind that one, and why the read is slow
+  (the race test writes the file in a loop just before).
