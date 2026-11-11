@@ -371,6 +371,12 @@ describe('dialogs', () => {
     await box().locator('input[type="text"]').first().fill('upstream');
     await box().locator('.cerebro-dialog__button', { hasText: 'OK' }).click();
     await expect.poll(remotes, { timeout: 15_000 }).toEqual(['upstream']);
+    // The dialog waits for the fetch after it, then reads the remotes again.
+    await expect
+      .poll(() => dialog.locator('.playground-remotes__row td').first().textContent(), {
+        timeout: 15_000,
+      })
+      .toBe('upstream');
     // Removed, once asked.
     await dialog.locator('.playground-remotes__row').click();
     await dialog.locator('button[aria-label="Remove"]').click();

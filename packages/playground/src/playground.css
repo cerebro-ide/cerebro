@@ -1445,6 +1445,12 @@ body,
   flex-direction: column;
 }
 
+.playground-remotes__progress {
+  min-height: 1.5em;
+  padding-top: 4px;
+  color: var(--cerebro-text-muted);
+}
+
 .playground-remotes__toolbar {
   display: flex;
   gap: 2px;

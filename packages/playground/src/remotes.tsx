@@ -40,34 +40,55 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
   };
   await read();
   const chosen = () => remotes.get().find((r) => r.name === selected.get());
+  /**
+   * The change under way, by IntelliJ's task's title: until it's done and the remotes read again,
+   * the dialog does nothing else, as IntelliJ's modal task keeps it from doing (Cerebro's: in the
+   * dialog, not a window over it).
+   */
+  const busy = signal<string | undefined>(undefined);
   /** Runs a change; IntelliJ's words in a dialog if git fails; the remotes read again. */
-  const change = async (title: string, failure: string, run: () => Promise<unknown>) => {
+  const change = async (
+    progress: string,
+    title: string,
+    failure: string,
+    run: () => Promise<unknown>,
+  ) => {
+    busy.set(progress);
     try {
       await run();
     } catch (error) {
       showError(title, `${failure} in ${worktree}:\n${(error as Error).message}`);
     }
-    await read();
+    try {
+      await read();
+    } finally {
+      busy.set(undefined);
+    }
   };
   const names = () => remotes.peek().map((r) => r.name);
   const add = async () => {
+    if (busy.peek() !== undefined) return;
     // IntelliJ's: origin to start with, unless there's one.
     const name = names().includes('origin') ? '' : 'origin';
     const remote = await askForRemote(host, worktree, names(), { name, url: '' });
     if (!remote) return;
-    await change('Add Remote', `Cannot add remote ${remote.name} '${remote.url}'`, () =>
-      host.request('git.addRemote', { path: worktree, ...remote }),
+    await change(
+      'Adding Remote…',
+      'Add Remote',
+      `Cannot add remote ${remote.name} '${remote.url}'`,
+      () => host.request('git.addRemote', { path: worktree, ...remote }),
     );
     selected.set(remote.name);
   };
   const edit = async () => {
     const from = chosen();
-    if (!from) return;
+    if (!from || busy.peek() !== undefined) return;
     const others = names().filter((n) => n !== from.name);
     const to = await askForRemote(host, worktree, others, from);
     // As IntelliJ's: nothing changed, nothing done, Fetch remote or not.
     if (!to || (to.name === from.name && to.url === from.url)) return;
     await change(
+      'Changing Remote…',
       'Change Remote',
       `Cannot change remote ${from.name} to ${to.name} '${to.url}'`,
       () =>
@@ -82,9 +103,12 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
   };
   const remove = async () => {
     const remote = chosen();
-    if (!remote || !(await confirmRemove(remote))) return;
-    await change('Remove Remote', `Cannot remove remote ${remote.name} '${remote.url}'`, () =>
-      host.request('git.removeRemote', { path: worktree, name: remote.name }),
+    if (!remote || busy.peek() !== undefined || !(await confirmRemove(remote))) return;
+    await change(
+      'Removing Remote…',
+      'Remove Remote',
+      `Cannot remove remote ${remote.name} '${remote.url}'`,
+      () => host.request('git.removeRemote', { path: worktree, name: remote.name }),
     );
   };
   // `ToolbarDecorator`'s keys: Add is New's for dialogs, Edit Enter, Remove Alt+Delete (⌘⌫).
@@ -104,7 +128,7 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
       type="button"
       class="cerebro-toolbar-button"
       aria-label={label}
-      disabled={() => !on && chosen() === undefined}
+      disabled={() => busy.get() !== undefined || (!on && chosen() === undefined)}
       ref={tooltip({ text: () => label, shortcut: () => formatSequence(key, platform) })}
       on:click={() => void run()}
     >
@@ -181,6 +205,9 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
               }
             </tbody>
           </table>
+        </div>
+        <div class="playground-remotes__progress" role="status">
+          {() => busy.get() ?? ''}
         </div>
       </div>
     ),
