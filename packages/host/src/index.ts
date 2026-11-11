@@ -208,6 +208,7 @@ export {
 } from './conflicts.js';
 export {
   checkout,
+  checkoutDetached,
   createBranch,
   deleteBranch,
   mergeBranch,

@@ -55,6 +55,7 @@ import { blame, MOVEMENTS, type BlameOptions } from './blame.js';
 import { fetchAll, merge, MERGE_OPTIONS, pull, PULL_OPTIONS, unmerged } from './pull.js';
 import {
   checkout,
+  checkoutDetached,
   createBranch,
   deleteBranch,
   mergeBranch,
@@ -747,6 +748,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const remote = (params as { remote?: unknown }).remote === true;
     await recording(worktree, `Checkout ${branch}`, git, () =>
       checkout(worktree, branch, remote, git),
+    );
+    return null;
+  });
+  connection.onRequest('git.checkoutRevision', async (params) => {
+    const worktree = text(params, 'path');
+    const reference = text(params, 'reference');
+    await recording(worktree, `Checkout ${reference}`, git, () =>
+      checkoutDetached(worktree, reference, git),
     );
     return null;
   });

@@ -1016,6 +1016,7 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.checkout', { path: '/w', branch: 'origin/x', remote: true })).toBe(
       null,
     );
+    expect(await ui.request('git.checkoutRevision', { path: '/w', reference: 'v1' })).toBe(null);
     expect(await ui.request('git.createBranch', { path: '/w', name: 'n' })).toBe(null);
     expect(
       await ui.request('git.createBranch', {
@@ -1053,6 +1054,7 @@ describe('ignored files and rolling back', () => {
       expect.arrayContaining([
         'checkout side --',
         'checkout --track origin/x',
+        'checkout --detach v1 --',
         'branch n HEAD',
         'checkout -B m side',
         'branch --move n o',

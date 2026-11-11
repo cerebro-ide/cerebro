@@ -14,6 +14,7 @@ import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { resolveConflicts } from './conflicts.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
+import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
@@ -174,6 +175,32 @@ function branchDialog(
   }).result;
 }
 
+/**
+ * IntelliJ's Checkout Tag or Revision… dialog (`GitRefDialog`): "Checkout", a reference typed, the
+ * branches and tags that hold what's typed suggested. Its text, trimmed, or undefined if cancelled.
+ */
+function referenceDialog(suggested: readonly string[]): Promise<string | undefined> {
+  const reference = signal('');
+  return openDialog<string>({
+    title: 'Checkout',
+    width: 420,
+    ok: {
+      label: 'OK',
+      // Claude's: IntelliJ's takes an empty one, for git to refuse.
+      enabled: () => reference.get().trim() !== '',
+      accept: () => reference.peek().trim(),
+    },
+    content: () => (
+      <label class="cerebro-dialog-field">
+        <span class="cerebro-dialog-field__label">
+          Enter reference (branch, tag) name or commit hash:
+        </span>
+        {branchField(reference, () => suggested, { label: 'Reference', placeholder: () => '' })}
+      </label>
+    ),
+  }).result;
+}
+
 export interface BranchesSetup {
   /** Reads the worktrees again, for the branch each has: after a checkout. */
   readWorktrees: (worktree: string) => Promise<void>;
@@ -253,6 +280,29 @@ export function setupBranches(
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
         });
+      });
+    },
+  });
+  commands.register({
+    id: 'git.checkoutRevision',
+    label: 'Checkout Tag or Revision',
+    dialog: true,
+    enabled: () => target() !== undefined,
+    run: async () => {
+      const at = target() as NonNullable<ReturnType<typeof target>>;
+      // The tags as well as the branches, read first (IntelliJ reads them as the dialog opens).
+      const tags = (await at.host
+        .request('git.tags', { path: at.worktree })
+        .catch((error: unknown) => {
+          console.error('Reading the tags failed', error);
+          return [];
+        })) as string[];
+      const { local, remote } = branches.peek();
+      const reference = await referenceDialog([...local, ...remote, ...tags]);
+      if (reference === undefined) return;
+      await operate(`Could not checkout ${reference}`, async (host, worktree) => {
+        await host.request('git.checkoutRevision', { path: worktree, reference });
+        notifications.notify({ content: `Checked out ${reference}` });
       });
     },
   });
@@ -421,8 +471,15 @@ export function setupBranches(
       position: button ? { below: button } : 'top',
       ...(button ? { owner: button } : {}),
       items: (query) => [
+        // IntelliJ's `Git.Branches.List`, what's here of it.
         ...fuzzyFilter(
-          [{ label: 'New Branch…', run: () => commands.execute('git.newBranch') }],
+          [
+            { label: 'New Branch…', run: () => commands.execute('git.newBranch') },
+            {
+              label: 'Checkout Tag or Revision…',
+              run: () => commands.execute('git.checkoutRevision'),
+            },
+          ],
           query,
         ),
         ...fuzzyFilter(

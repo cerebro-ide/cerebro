@@ -18,6 +18,21 @@ export async function checkout(
   await run(worktree, remote ? ['checkout', '--track', branch] : ['checkout', branch, '--']);
 }
 
+/**
+ * Checks out a branch, tag or commit with HEAD detached at it, as IntelliJ's Checkout Tag or
+ * Revision… (`git checkout ref^0` there, for gits older than `--detach`). A reference can't start
+ * with "-" (git's `check-ref-format`, and no hash does): git would take it for an option, and its
+ * `--end-of-options` isn't taken by checkout (measured, git 2.43).
+ */
+export async function checkoutDetached(
+  worktree: string,
+  reference: string,
+  run: Git,
+): Promise<void> {
+  if (reference.startsWith('-')) throw new Error(`Not a reference: ${reference}`);
+  await run(worktree, ['checkout', '--detach', reference, '--']);
+}
+
 export interface NewBranch {
   name: string;
   /** Where it starts: a branch, or HEAD when undefined. */
