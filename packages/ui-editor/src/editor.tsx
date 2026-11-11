@@ -658,9 +658,9 @@ export const theme = EditorView.theme({
  * after `lineNumbers()`.
  */
 export const gutterObstacle = ViewPlugin.define((view) => {
-  // After the line numbers' plugin, which made the gutters.
+  // After the line numbers' plugin, which made the gutters: none, with a diff's line numbers off.
   const mark = () => {
-    (view.dom.querySelector('.cm-gutters') as Element).setAttribute('data-scrollbar-obstacle', '');
+    view.dom.querySelector('.cm-gutters')?.setAttribute('data-scrollbar-obstacle', '');
   };
   mark();
   return { update: mark };

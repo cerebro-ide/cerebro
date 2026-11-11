@@ -142,6 +142,8 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
     root: shadow,
     parent: frame,
     extensions: [
+      // First: the line numbers, which `gutterObstacle` marks.
+      settings.of(configure()),
       gutterObstacle,
       fullWidth,
       selection,
@@ -156,7 +158,6 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
       diffTheme,
       syntaxHighlighting(highlight),
       ...(language ? [language] : []),
-      settings.of(configure()),
     ],
   });
 

@@ -279,6 +279,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
       root: shadow,
       parent: frame,
       extensions: [
+        // First: the line numbers, which `gutterObstacle` marks.
+        compartment.of(configure()),
         gutterObstacle,
         fullWidth,
         selection,
@@ -303,7 +305,6 @@ export function DiffEditor(props: DiffEditorProps): Node {
         diffTheme,
         syntaxHighlighting(highlight),
         ...(language ? [language] : []),
-        compartment.of(configure()),
       ],
     });
   const views = {
