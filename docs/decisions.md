@@ -55,7 +55,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
 - [Code folding (2026-11-04)](#code-folding-2026-11-04): the language server's folds, or the grammar's where it has none, with IntelliJ's placeholders, chevrons and colours; each keymap's keys
 - [Logging in to remotes (2026-11-08)](#logging-in-to-remotes-2026-11-08): git's and ssh's prompts asked of the page through askpass, as IntelliJ's; its login dialog and SSH dialogs, Remember in the system's keychain, Use credential helper (off by default)
-- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
+- [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…, or the Log's Push All up to Here… (changed 2026-11-11); the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
@@ -2123,6 +2123,15 @@ words and behaviour are from its source (`VcsPushDialog`, `PushLog`, `GitPushRes
   its dvcs-impl adds to `$default`, and Sublime Text's keymap takes it away), and from the Commit
   window's **Commit and Push…** button beside Commit ("Amend Commit and Push…" while amending): it
   commits, and opens the dialog once the commit went through.
+- **Push All up to Here… (changed 2026-11-11),** IntelliJ's `GitPushUpToCommitAction`, on a
+  commit in the Log (its commit menu, after Reset, Revert and Undo Commit; its words from
+  `GitBundle`). The same dialog, for that commit and the ones before it that the target hasn't:
+  `git push <remote> <hash>:refs/heads/<target>`. A commit pushed isn't a branch, so git sets no
+  upstream for it (measured, git 2.43); when one is to be set, `git branch --set-upstream-to` does
+  it after the push. A commit that isn't in the checked-out branch (`git merge-base --is-ancestor`)
+  fails as IntelliJ's does, in a "Push Failed to Start" dialog, with "The commit is not in the
+  current branch" (Cerebro's words). Not yet: IntelliJ pushes from the first local branch that
+  has the commit when the checked-out one doesn't, or from a detached HEAD.
 - **How it went is a notification,** as IntelliJ's `GitPushResultNotification`: "Pushed 2 commits to
   origin/main", "Pushed feat to new branch origin/feat" or "Everything is up to date", a balloon
   that fades; "Push rejected" (a warning: "Push to origin/main was rejected") when git's message

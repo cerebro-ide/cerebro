@@ -895,6 +895,47 @@ describe('Push', () => {
   });
 });
 
+describe('Push All up to Here…, from the Log', () => {
+  const upTo = commit('First', 'base');
+  const context = { commit: upTo, worktree: '/r', host, refresh: () => Promise.resolve() };
+
+  it('sits in the commit menu, as IntelliJ’s, for the commit right-clicked or selected', () => {
+    expect(menus.entries('log/commit')).toEqual([{ command: 'log.pushUpTo' }]);
+    expect(commands.get('log.pushUpTo')).toMatchObject({
+      label: 'Push All up to Here',
+      dialog: true,
+    });
+    // No commit selected, with no Log shown.
+    expect(commands.isEnabled('log.pushUpTo', { source: 'log' })).toBe(false);
+    expect(commands.isEnabled('log.pushUpTo', context)).toBe(true);
+    pushing.set(true);
+    expect(commands.isEnabled('log.pushUpTo', context)).toBe(false);
+    pushing.set(false);
+  });
+
+  it('opens the Push dialog for that commit and those before it, and pushes up to it', async () => {
+    git.outgoing = { ...git.outgoing, commits: [upTo] };
+    commands.execute('log.pushUpTo', context);
+    await dialog();
+    expect(texts('.playground-push__commit')).toEqual(['First']);
+    expect(host.params('git.outgoing')).toEqual([{ path: '/r', upTo: upTo.hash }]);
+    await press('Push');
+    await expect
+      .poll(() => host.params('git.push'))
+      .toEqual([
+        { path: '/r', remote: 'origin', target: 'main', setUpstream: false, upTo: upTo.hash },
+      ]);
+  });
+
+  it('says why it can’t start, in IntelliJ’s words', async () => {
+    git.outgoing = new Error('The commit is not in the current branch') as never;
+    commands.execute('log.pushUpTo', context);
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Push Failed to Start');
+    expect(shown.textContent).toContain('The commit is not in the current branch');
+  });
+});
+
 describe('branch names, as IntelliJ’s GitRefNameValidator', () => {
   it('drops what git refuses as they’re typed, and makes spaces -', () => {
     expect(cleanUpBranchName('.a~b:c^d?e*f"g[h\\i@{j//k..l./m/.n o\u0001p')).toBe(

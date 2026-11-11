@@ -29,7 +29,13 @@ import {
   type Host,
   type ProjectState,
 } from './environments.js';
-import { CommitFiles, EMPTY_TREE, type LogCommit } from './git-log.js';
+import {
+  CommitFiles,
+  EMPTY_TREE,
+  selectedCommit,
+  type LogCommit,
+  type LogCommitContext,
+} from './git-log.js';
 import { notifications } from './notifications.js';
 import { updateProject } from './update.js';
 
@@ -758,10 +764,12 @@ async function confirmForcePush(
 const FETCH_FIRST = 'Fetch first. The remote has commits that are not fetched.';
 
 /** Opens the Push dialog for a worktree's branch, and pushes when its Push is pressed. */
-export async function openPush(worktree: string): Promise<void> {
+export async function openPush(worktree: string, upTo?: string): Promise<void> {
   const host = hostFor(worktree);
   if (!host || pushing.peek()) return;
-  const first = (await host.request('git.outgoing', { path: worktree })) as Outgoing;
+  // The Log's Push All up to Here…: that commit and the ones before it, not those after.
+  const up = upTo === undefined ? {} : { upTo };
+  const first = (await host.request('git.outgoing', { path: worktree, ...up })) as Outgoing;
   const why = unpushable(first);
   const state: PushState = {
     out: signal(first),
@@ -774,7 +782,7 @@ export async function openPush(worktree: string): Promise<void> {
     divergence: signal<PushDivergence | undefined>(undefined),
     fetchError: signal<string | undefined>(undefined),
     retarget: (to) => {
-      host.request('git.outgoing', { path: worktree, ...to }).then(
+      host.request('git.outgoing', { path: worktree, ...to, ...up }).then(
         (out) => {
           // Together: the tree reads its rows once, after both.
           batch(() => {
@@ -960,6 +968,7 @@ export async function openPush(worktree: string): Promise<void> {
       setUpstream: state.setUpstream.peek() && otherThanUpstream(out, target),
       ...(tags === undefined ? {} : { tags }),
       ...force,
+      ...up,
     })) as Pushed;
     notifications.notify({ title: pushedText(pushed, out.branch as string), group: 'push' });
   } catch (error) {
@@ -983,6 +992,12 @@ export async function openPush(worktree: string): Promise<void> {
 }
 
 /** Git → Push…, with IntelliJ's Ctrl+Shift+K. */
+/** The commit right-clicked in the Log, or from elsewhere, the one selected. */
+const pushTarget = (context: unknown): LogCommitContext | undefined =>
+  (context as Partial<LogCommitContext> | undefined)?.commit === undefined
+    ? selectedCommit()
+    : (context as LogCommitContext);
+
 export function setupPush(services: MenuServices): void {
   const { commands, menus, keymap } = services;
   commands.register({
@@ -1000,6 +1015,23 @@ export function setupPush(services: MenuServices): void {
         console.error('Reading what to push failed', error);
       }),
   });
+  // IntelliJ's Push All up to Here… (`GitPushUpToCommitAction`): the Push dialog, for the commit
+  // right-clicked or selected and those before it, of the checked-out branch.
+  commands.register({
+    id: 'log.pushUpTo',
+    label: 'Push All up to Here',
+    dialog: true,
+    enabled: (context) => !pushing.get() && pushTarget(context) !== undefined,
+    run: (context) => {
+      const at = pushTarget(context) as LogCommitContext;
+      return openPush(at.worktree, at.commit.hash).catch((error: unknown) => {
+        // As IntelliJ's, when it can't start (its words for the title).
+        showError('Push Failed to Start', (error as Error).message);
+      });
+    },
+  });
+  // After Reset, Revert and Undo Commit (and the rebase actions Cerebro hasn't), as IntelliJ's.
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.pushUpTo' }, group: 'g', order: 5 });
   keymap?.bindDefault('Mod+Shift+K', 'vcs.push');
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.push' }, group: 'a', order: 1 });
 }

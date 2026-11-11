@@ -1148,6 +1148,16 @@ describe('ignored files and rolling back', () => {
     await expect(ui.request('git.push', {})).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
+    // Up to a commit: nothing either, with no branch; a hash only.
+    expect(await ui.request('git.outgoing', { path: '/w', upTo: 'abc1234' })).toMatchObject({
+      commits: [],
+    });
+    for (const upTo of ['HEAD', 7]) {
+      await expect(ui.request('git.outgoing', { path: '/w', upTo })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+        message: 'upTo must be a commit hash',
+      });
+    }
     // A branch: where it's told.
     git.mockImplementation((_cwd: string, args: readonly string[]) =>
       Promise.resolve(

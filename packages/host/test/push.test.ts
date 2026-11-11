@@ -146,6 +146,34 @@ describe('pushing, with real git', () => {
     );
   });
 
+  it('sends up to a commit of the branch, as Push All up to Here…, its upstream set after', async () => {
+    const { repo, remote } = cloned('upTo');
+    commit(repo, 'second');
+    const second = run(repo, 'rev-parse', 'HEAD').trim();
+    commit(repo, 'third');
+    expect(
+      (await outgoing(repo, undefined, undefined, second)).commits.map((c) => c.subject),
+    ).toEqual(['second']);
+    expect(await push(repo, undefined, undefined, second)).toMatchObject({ commits: 1 });
+    expect(run(remote, 'log', '-1', '--format=%s', 'main').trim()).toBe('second');
+    // A new branch, up to its first commit: made there, and its upstream set. What no branch
+    // there has goes: main's third, and that commit.
+    run(repo, 'checkout', '-q', '-b', 'topic');
+    commit(repo, 'topic one');
+    const one = run(repo, 'rev-parse', 'HEAD').trim();
+    commit(repo, 'topic two');
+    expect(
+      await push(repo, undefined, { remote: 'origin', target: 'topic', setUpstream: true }, one),
+    ).toMatchObject({ commits: 2, isNew: true });
+    expect(run(remote, 'log', '-1', '--format=%s', 'topic').trim()).toBe('topic one');
+    expect(run(repo, 'rev-parse', '--abbrev-ref', 'topic@{upstream}').trim()).toBe('origin/topic');
+    // Not a commit of the branch: refused.
+    run(repo, 'checkout', '-q', 'main');
+    await expect(outgoing(repo, undefined, undefined, one)).rejects.toThrow(
+      'The commit is not in the current branch',
+    );
+  });
+
   it('says why it can’t: no branch, no remote, or rejected', async () => {
     const { repo, remote } = cloned('fails');
     run(repo, 'checkout', '-q', '--detach');
