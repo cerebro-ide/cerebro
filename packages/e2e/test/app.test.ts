@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { APP, KEYS, launch, type Running } from './app.js';
+import { APP, findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -277,6 +277,32 @@ describe('dialogs', () => {
     await page().locator('.cerebro-menu-item', { hasText: 'Checkout' }).click();
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
     expect(await count('.cerebro-popup')).toBe(0);
+  });
+
+  it('makes a tag from Git → New Tag…, annotated by its message, refusing one that exists', async () => {
+    await findAction(page(), 'New Tag');
+    const box = page().locator('.cerebro-dialog');
+    await box.waitFor();
+    expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Tag');
+    await page().keyboard.type('v1-e2e');
+    await box.locator('textarea').fill('The first');
+    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click();
+    expect(await count('.cerebro-dialog')).toBe(0);
+    const tag = () =>
+      execFileSync('git', ['for-each-ref', '--format=%(objecttype) %(contents)', 'refs/tags'], {
+        cwd: repo,
+        encoding: 'utf8',
+      }).trim();
+    await expect.poll(tag, { timeout: 15_000 }).toBe('tag The first');
+    // Taken now: only with Force. The dialog opens once the tags are read.
+    await findAction(page(), 'New Tag');
+    await box.waitFor();
+    await page().keyboard.type('v1-e2e');
+    await expect
+      .poll(() => box.locator('.cerebro-dialog-field__error').textContent())
+      .toBe('The tag with the same name exists.');
+    await page().keyboard.press('Escape');
+    execFileSync('git', ['tag', '-d', 'v1-e2e'], { cwd: repo, stdio: 'pipe' });
   });
 
   it('keeps the app’s shortcuts and menu bar from running behind a dialog', async () => {

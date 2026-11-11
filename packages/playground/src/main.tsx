@@ -64,6 +64,7 @@ import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
+import { setupTag } from './tag.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog, showInLog } from './git-log.js';
@@ -325,6 +326,7 @@ setupUpdate(services);
 setupFetchPull(services);
 setupConflicts(services);
 setupMergeRebase(services);
+setupTag(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, {
