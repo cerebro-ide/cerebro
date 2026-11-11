@@ -1,7 +1,9 @@
 import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { diffTab } from '../src/changes.js';
+import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
@@ -87,17 +89,44 @@ describe('the page in the app', () => {
 
 describe('a diff tab', () => {
   it('shows the changes the host reads, or why it can’t', async () => {
-    env().editor.open(diffTab('src/a.ts'));
-    await expect
-      .poll(() =>
-        [
-          ...(document
-            .querySelector('.cerebro-editor-group--active .cerebro-editor-diff')
-            ?.shadowRoot?.querySelectorAll('.cm-content') ?? []),
-        ].map((side) => side.textContent),
-      )
-      .toEqual(['a', 'b']);
-    expect(host('/r').params('git.diff')).toContainEqual({ path: '/r', file: 'src/a.ts' });
+    const sides = () => [
+      ...(document
+        .querySelector('.cerebro-editor-group--active .cerebro-editor-diff')
+        ?.shadowRoot?.querySelectorAll('.cm-content') ?? []),
+    ];
+    env().editor.open(diffTab('src/a.ts', { from: 'a1', to: 'b2' }));
+    await expect.poll(() => sides().map((side) => side.textContent)).toEqual(['a', 'b']);
+    expect(host('/r').params('git.diff')).toContainEqual({
+      path: '/r',
+      file: 'src/a.ts',
+      from: 'a1',
+      to: 'b2',
+    });
+    // As it is: the right side is the file's document, as IntelliJ's, and edits it.
+    answers.set('fs.read', { text: 'd\n' });
+    env().editor.open(diffTab('src/edited.ts'));
+    await expect.poll(() => sides().map((side) => side.textContent)).toEqual(['a', 'd']);
+    const doc = documentRead('/r/src/edited.ts') as EditorDocument;
+    await userEvent.click(sides()[1] as Element);
+    await userEvent.keyboard('{Control>}{End}{/Control}// typed');
+    expect(doc.text.get().toString()).toBe('d\n// typed');
+    expect(doc.modified.get()).toBe(true);
+    // Edited elsewhere (its tab): shown.
+    doc.replace('c\n');
+    await expect.poll(() => sides().map((side) => side.textContent)).toEqual(['a', 'c']);
+    doc.saved();
+    answers.delete('fs.read');
+    env().editor.close(env().editor.activeGroup.id, diffTab('src/edited.ts').id);
+    // Deleted: its document can't be read; what git has, not edited.
+    answers.set('fs.read', new Error('ENOENT'));
+    answers.set('git.diff', { original: 'gone\n', text: '' });
+    env().editor.open(diffTab('src/deleted.ts'));
+    await expect.poll(() => sides().map((side) => side.textContent)).toEqual(['gone', '']);
+    await userEvent.click(sides()[1] as Element);
+    await userEvent.keyboard('x');
+    expect(sides()[1]?.textContent).toBe('');
+    answers.delete('fs.read');
+    env().editor.close(env().editor.activeGroup.id, diffTab('src/deleted.ts').id);
     answers.set('git.diff', new Error('no such file'));
     env().editor.open(diffTab('src/b.ts'));
     await expect

@@ -1589,22 +1589,37 @@ function Code(props: { path: string; env: string }) {
 
 /**
  * A changed file's diff, read through the host: as last committed against as it is, or at two
- * commits (an agent's turn's snapshots).
+ * commits (an agent's turn's snapshots). As it is, its right side is the file's document, as
+ * IntelliJ's: its edits, unsaved too, and edited there.
  */
 function Diff(props: { path: string; env: string; range: Range | undefined }) {
   const settings = settingsFor(props.env);
   const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
+  const file = `${props.env}/${props.path}`;
+  const document = props.range
+    ? undefined
+    : {
+        text: () => documentRead(file)?.text.get().toString(),
+        edit: (text: string) => {
+          documentRead(file)?.replace(text);
+        },
+      };
   return (
     <FileDiff
       services={services}
       path={props.path}
-      read={() =>
-        host.request('git.diff', { path: props.env, file: props.path, ...props.range }) as Promise<{
-          original: string;
-          text: string;
-        }>
-      }
+      read={async () => {
+        const diff = host.request('git.diff', {
+          path: props.env,
+          file: props.path,
+          ...props.range,
+        });
+        // The document read first, if it can be.
+        if (document) await documentFor(file);
+        return (await diff) as { original: string; text: string };
+      }}
+      {...(document ? { document } : {})}
       fontSize={() => settings.get('editor.fontSize') as number}
       tabSize={() => settings.get('editor.tabSize') as number}
     />
