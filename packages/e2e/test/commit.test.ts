@@ -7,8 +7,9 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
+import type { Page } from 'playwright';
 import { gitServer, hasHttpBackend } from '../../host/test/git-server.js';
-import { findAction, KEYS, launch, type Running } from './app.js';
+import { diffWindow, findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -131,24 +132,27 @@ it('amends the last commit, its message put in to edit', async () => {
     .toBe(false);
 });
 
+/** The diff window the F4 and F7 tests share. */
+let diff: Page;
+
 it('goes from a diff to the file with F4, where the caret is, from either side', async () => {
   // The committed first line becomes two.
   writeFileSync(join(repo, 'shape.ts'), '// Shapes, longer\n// and more.\nexport class Shape {}\n');
   await row('changes:shape.ts').click();
-  await page().keyboard.press('ControlOrMeta+d');
-  const side = (n: 0 | 1) => page().locator('.cerebro-editor-diff .cm-editor').nth(n);
+  diff = await diffWindow(running, () => page().keyboard.press('ControlOrMeta+d'));
+  const side = (n: 0 | 1) => diff.locator('.cerebro-editor-diff .cm-editor').nth(n);
   const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
   // From the left, the committed text: the line after the change, one further down in the file.
   await side(0).locator('.cm-line', { hasText: 'export class Shape {}' }).click();
-  await page().keyboard.press('F4');
+  await diff.keyboard.press('F4');
   await expect
     .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
     .toBe('shape.ts');
   await expect.poll(shown).toBe('export class Shape {}');
-  // From the right: the line itself. The diff is read again as its tab shows.
-  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
+  // From the right: the line itself, back in the diff's window.
+  await diff.bringToFront();
   await side(1).locator('.cm-line', { hasText: '// and more.' }).click();
-  await page().keyboard.press('F4');
+  await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// and more.');
 });
 
@@ -164,19 +168,25 @@ it('goes to the next change with F7 and back with Shift+F7, from the first to st
       timeout: 15_000,
     })
     .toContain('// added');
-  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
-  const right = page().locator('.cerebro-editor-diff:visible .cm-diff-b');
-  // Read again as its tab shows, the caret at the first change: F7 goes to the next.
+  // The diff's window, with the focus back, reads the diff again: the caret at the first change.
+  // (The event, as the Log's test sends it: a window brought to the front may not tell its page.)
+  await diff.bringToFront();
+  await diff.evaluate(() => window.dispatchEvent(new Event('focus')));
+  const right = diff.locator('.cerebro-editor-diff .cm-diff-b');
+  await expect
+    .poll(() => right.locator('.cm-line').allTextContents(), { timeout: 15_000 })
+    .toContain('// added');
   await right.locator('.cm-content').focus();
-  await page().keyboard.press('F7');
-  await page().keyboard.press('F4');
+  await diff.keyboard.press('F7');
+  await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// added');
   // From the last, Shift+F7 goes back to the first.
-  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
+  await diff.bringToFront();
   await right.locator('.cm-line', { hasText: '// added' }).click();
-  await page().keyboard.press('Shift+F7');
-  await page().keyboard.press('F4');
+  await diff.keyboard.press('Shift+F7');
+  await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// Shapes, longer');
+  await diff.close();
 });
 
 it('commits and pushes, with Commit and Push…, to the branch’s upstream', async () => {

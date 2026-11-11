@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { findAction, KEYS, launch, type Running } from './app.js';
+import { diffWindow, findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -83,8 +83,9 @@ it('shelves the file chosen, shows it in the Shelf tab with its diff, and unshel
   await shelf.click();
   await page().keyboard.press('ArrowRight');
   await row(':a.ts').click();
-  await page().keyboard.press('Enter');
-  await page().locator('.cerebro-editor-tab[data-tab^="diff@"][data-tab$=":a.ts"]').waitFor();
+  const diff = await diffWindow(running, () => page().keyboard.press('Enter'));
+  expect(await diff.title()).toMatch(/^a\.ts \(/);
+  await diff.close();
   // Unshelved: the change is back, and the tab goes with the last list.
   await shelf.click();
   await page().keyboard.press('ControlOrMeta+Shift+U');

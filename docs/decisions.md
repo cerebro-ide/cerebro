@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2299,12 +2299,27 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   - The chooser's icons are drawn for Cerebro (a claim: not IntelliJ's drawings), as is the
     border around the two (IntelliJ's is a segmented button).
 - **The toolbar** is IntelliJ's left to right: the arrows and Collapse Unchanged Fragments, then
-  at the end the viewer's chooser and the gear. In the diff tab and Local History; the file cache conflict's diff has none, as
-  it's a merge.
+  at the end the viewer's chooser and the gear. In the diff window and Local History; the file
+  cache conflict's diff has none, as it's a merge.
+- **A diff opens in a window of its own** in the app, as IntelliJ's (Ido: "new window instead of
+  as a tab"): from the Commit window (Ctrl+D), Agent Changes, the Shelf, the Log and Show Diff on
+  an annotation. The window has the main toolbar's look with the file's name as its title (and
+  the two commits, for a diff between them), the diff's toolbar and the keymap chosen in Settings.
+  - It reads through its opener's hosts: the app routes its requests to the project window's
+    (`Hosts.share`), so it asks as that window would. It closes with that window.
+  - Jump to Source (F4) goes back to the project window, which comes to the front, the file open
+    where the caret was, if it still exists.
+  - The same diff opened again brings its window to the front; another file's opens another
+    window (Claude's choice, open to change; that IntelliJ opens a new one each time is a claim).
+  - With the focus back, it reads the diff again, and shows it again only if it changed, so the
+    caret stays where it was. A tab was read again as it showed.
+  - 1100 by 750 to start with (a claim: not measured from IntelliJ, which remembers the size).
+  - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to
+    open, still shows diffs as tabs.
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
-- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); a
-  separate diff window; a fold's description (IntelliJ's breadcrumbs of where it is); the other
+- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
+  window's size kept; a fold's description (IntelliJ's breadcrumbs of where it is); the other
   settings in the gear (aligning changes, line numbers, soft wraps); Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 

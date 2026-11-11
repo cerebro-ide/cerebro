@@ -6,7 +6,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { diffWindow, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -141,10 +141,12 @@ it('shows a commit’s files and message, and opens a file’s diff between it a
   const file = log.locator('.playground-log__files .cerebro-tree-row', { hasText: 'file.txt' });
   await file.waitFor(HOST);
   expect(await log.locator('.playground-log__details-subject').textContent()).toBe('On the side');
-  await file.dblclick({ force: true });
-  // The diff: the first commit's text on the left, the side's on the right.
-  const added = page().locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
+  // The diff, in a window of its own: the first commit's text on the left, the side's on the right.
+  const diff = await diffWindow(running, () => file.dblclick({ force: true }));
+  const added = diff.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await expect.poll(() => added.allTextContents(), HOST).toEqual(['On the side']);
+  expect(await diff.title()).toMatch(/^file\.txt \([0-9a-f]{8}\.\.[0-9a-f]{8}\)$/);
+  await diff.close();
 });
 
 it('filters by the branch double-clicked in its pane, or chosen in the toolbar, and refreshes', async () => {

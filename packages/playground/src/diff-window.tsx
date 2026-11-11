@@ -21,7 +21,7 @@ import {
   MenuRegistry,
 } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
-import { effect } from '@cerebro-ide/reactive';
+import { effect, signal } from '@cerebro-ide/reactive';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
 import type { DiffSpec } from './bridge.js';
@@ -84,6 +84,12 @@ window.addEventListener('keydown', (event) => {
 });
 
 const settings = settingsFor(spec.env);
+// The file may have changed while the window was in the background: read again with the focus
+// back, as the Log does.
+const version = signal(0);
+window.addEventListener('focus', () => {
+  version.set(version.peek() + 1);
+});
 render(
   () => (
     <div class="playground-diff-window">
@@ -100,6 +106,7 @@ render(
             ...spec.range,
           }) as Promise<{ original: string; text: string }>
         }
+        version={() => version.get()}
         fontSize={() => settings.get('editor.fontSize') as number}
         tabSize={() => settings.get('editor.tabSize') as number}
       />

@@ -63,6 +63,18 @@ export async function findAction(page: Page, name: string): Promise<void> {
     .click({ force: true });
 }
 
+/**
+ * The diff window `open` opens (a diff opens in a window of its own), once it shows the diff, read
+ * through the host. Its console goes with the app's.
+ */
+export async function diffWindow(running: Running, open: () => Promise<void>): Promise<Page> {
+  const [window] = await Promise.all([running.app.waitForEvent('window'), open()]);
+  window.setDefaultTimeout(5000);
+  window.on('console', (message) => running.messages.push(message.text()));
+  await window.locator('.cerebro-editor-diff').waitFor({ timeout: 15_000 });
+  return window;
+}
+
 export interface Running {
   app: ElectronApplication;
   page: Page;

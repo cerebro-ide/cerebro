@@ -7,6 +7,8 @@ import type { DiffSpec } from '../src/bridge.js';
 
 const requests: unknown[][] = [];
 const jumps: unknown[] = [];
+/** What the host reads, as the file is now. */
+let texts = { original: 'one\ntwo\n', text: 'one\nthree\n' };
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -22,7 +24,7 @@ beforeAll(async () => {
     host: {
       request: (project: string, method: string, params: unknown) => {
         requests.push([project, method, params]);
-        return Promise.resolve({ original: 'one\ntwo\n', text: 'one\nthree\n' });
+        return Promise.resolve(texts);
       },
     },
     diff: {
@@ -67,6 +69,20 @@ describe('a diff window', () => {
     await userEvent.click(lines[1] as HTMLElement);
     await userEvent.keyboard('{Home}{F4}');
     expect(jumps).toEqual([{ env: '/r/w', path: 'src/a.ts', line: 1, column: 0 }]);
+  });
+});
+
+describe('with the focus back', () => {
+  it('reads the diff again, shown again only if it’s changed', async () => {
+    const shown = root()?.querySelector('.cm-diff-b .cm-content');
+    const before = requests.length;
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(() => requests.length).toBe(before + 1);
+    // The same texts: the same editor, the caret where it was.
+    expect(root()?.querySelector('.cm-diff-b .cm-content')).toBe(shown);
+    texts = { original: 'one\ntwo\n', text: 'one\nfour\n' };
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(sides).toEqual(['onetwo', 'onefour']);
   });
 });
 

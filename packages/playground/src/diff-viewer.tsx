@@ -4,7 +4,8 @@
 // as IntelliJ keeps its diff settings, and the diffs open take them at once.
 
 import { formatSequence, type Keymap } from '@cerebro-ide/commands';
-import { signal, type Signal } from '@cerebro-ide/reactive';
+import { onCleanup } from '@cerebro-ide/jsx';
+import { effect, signal, untracked, type Signal } from '@cerebro-ide/reactive';
 import {
   DiffEditor,
   UnifiedDiffEditor,
@@ -292,26 +293,35 @@ export function DiffViewer(props: DiffViewerProps): Node {
 
 /**
  * A file's diff as `read` gives its two texts: "Loading…" until they're read, why if they can't
- * be, then the diff and its toolbar.
+ * be, then the diff and its toolbar. Read again when `version` changes (a diff window getting the
+ * focus back), it's shown again only if they've changed, so the caret stays where it was.
  */
 export function FileDiff(props: {
   services: MenuServices;
   path: string;
   read: () => Promise<{ original: string; text: string }>;
+  version?: () => number;
   fontSize: () => number;
   tabSize: () => number;
 }): Node {
-  const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
-    undefined,
-  );
-  props.read().then(
-    (result) => {
-      loaded.set(result);
-    },
-    (error: unknown) => {
-      loaded.set({ error: (error as Error).message });
-    },
-  );
+  type Loaded = { original: string; text: string } | { error: string };
+  const loaded = signal<Loaded | undefined>(undefined);
+  const show = (next: Loaded) => {
+    const now = loaded.peek();
+    if (JSON.stringify(now) !== JSON.stringify(next)) loaded.set(next);
+  };
+  const watch = effect(() => {
+    props.version?.();
+    untracked(() => {
+      props.read().then(show, (error: unknown) => {
+        show({ error: (error as Error).message });
+      });
+    });
+    return undefined;
+  });
+  onCleanup(() => {
+    watch.dispose();
+  });
   return (
     <div class="playground-code">
       {() => {

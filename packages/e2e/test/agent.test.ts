@@ -7,7 +7,7 @@ import { chmodSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { diffWindow, launch, type Running } from './app.js';
 
 const FAKE_CLAUDE = `#!/usr/bin/env node
 const { execSync } = require('node:child_process');
@@ -92,8 +92,9 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
       })
       .toBe(1);
     await file.click();
-    await page.keyboard.press('ControlOrMeta+d');
-    const added = page.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
+    const diff = await diffWindow(running, () => page.keyboard.press('ControlOrMeta+d'));
+    const added = diff.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
     await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
+    await diff.close();
   });
 });
