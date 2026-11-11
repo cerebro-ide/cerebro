@@ -56,6 +56,12 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **The e2e run's first app start can take over 5 s on macOS and Windows in CI** (measured
+  2026-11-11, #179, run 43049756595: `app.test.ts`, the first file, timed out waiting 5 s for the
+  window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
+  from their traces). Why isn't known: that it's the OS checking the Electron binary just
+  downloaded is a claim. The wait for a window is now 30 s, and a start over 2 s prints how long
+  it took.
 - **Find Action didn't list "Unstash Changes" once in a full local e2e run** (2026-11-11,
   feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
   closed a diff window; the file alone passed five times). The trace was overwritten before it was
