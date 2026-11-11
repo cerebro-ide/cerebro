@@ -119,7 +119,25 @@ describe('the window', () => {
     // "stable", which Playwright measures over animation frames (not reproduced locally, even
     // under xvfb).
     await page().locator('[aria-label^="Branch:"]').click({ force: true });
-    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
+    try {
+      await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
+    } catch (error) {
+      // "Element is not visible" once on macOS in CI (#168, 2026-11-11), 10 ms after the item was
+      // seen shown. The popup closes when the window loses the focus or is resized: what was there.
+      console.log(
+        'After the click failed:',
+        await page().evaluate(() => ({
+          popups: document.querySelectorAll('.cerebro-popup').length,
+          items: [...document.querySelectorAll('.cerebro-popup-item')].map((item) => [
+            item.textContent,
+            JSON.stringify(item.getBoundingClientRect()),
+          ]),
+          focused: document.hasFocus(),
+          size: [innerWidth, innerHeight],
+        })),
+      );
+      throw error;
+    }
     await page().keyboard.press('Escape');
     expect(await page().evaluate(() => (window as { violations?: string[] }).violations)).toEqual(
       [],
