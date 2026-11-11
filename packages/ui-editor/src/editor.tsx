@@ -310,7 +310,13 @@ export const theme = EditorView.theme({
   // fills its height.
   '.cerebro-annotations': { fontFamily: variable('font'), fontSize: variable('font-size') },
   '.cerebro-annotations .cm-gutterElement': { display: 'flex' },
-  '.cerebro-annotation': { display: 'flex', alignItems: 'center', color: variable('annotations') },
+  // A hand over an annotation, as IntelliJ's: a click shows its commit.
+  '.cerebro-annotation': {
+    display: 'flex',
+    alignItems: 'center',
+    color: variable('annotations'),
+    cursor: 'pointer',
+  },
   '.cerebro-annotation--latest': { color: variable('annotations-latest') },
   '.cerebro-annotation__column': { flex: 'none', overflow: 'hidden', whiteSpace: 'pre' },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },
@@ -1014,7 +1020,17 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
   };
   view.scrollDOM.addEventListener('scroll', scrolled);
+  // A press in the gutter (a line number, an annotation) leaves the text focused, as IntelliJ's:
+  // the browser would focus the scroller, which takes no keys and draws its focus ring.
+  // A press a gutter's own handler took (a marker opening its popup) is left to it.
+  const pressed = (event: MouseEvent) => {
+    if (event.defaultPrevented || !(event.target as Element).closest('.cm-gutters')) return;
+    event.preventDefault();
+    view.focus();
+  };
+  view.scrollDOM.addEventListener('mousedown', pressed);
   onCleanup(() => {
+    view.scrollDOM.removeEventListener('mousedown', pressed);
     view.scrollDOM.removeEventListener('scroll', scrolled);
     if (doc) {
       doc.state = view.state.toJSON(KEPT);

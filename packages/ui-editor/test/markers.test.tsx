@@ -100,6 +100,19 @@ describe('gutter markers', () => {
     expect(onMark).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves the focus where the one clicked put it: a popup it opened', async () => {
+    const field = document.createElement('input');
+    const onMark = vi.fn(() => {
+      document.body.append(field);
+      field.focus();
+    });
+    const root = mount({ text: TEXT, marks: () => Promise.resolve(MARKS), onMark });
+    await expect.poll(() => root.querySelectorAll('.cerebro-marker').length).toBe(3);
+    await userEvent.click(root.querySelector('.cerebro-marker') as Element);
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
   it('does nothing on a click without a way to go', async () => {
     const root = mount({ text: TEXT, marks: () => Promise.resolve(MARKS) });
     await expect.poll(() => root.querySelectorAll('.cerebro-marker').length).toBe(3);

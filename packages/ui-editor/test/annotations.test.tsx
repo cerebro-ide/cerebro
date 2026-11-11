@@ -64,6 +64,7 @@ const annotation = (overrides: Partial<TextAnnotation> = {}): TextAnnotation => 
   ],
   tooltip: (line) => `line ${String(line)}`,
   menu: () => undefined,
+  click: () => undefined,
   ...overrides,
 });
 
@@ -178,6 +179,56 @@ describe('text annotations', () => {
     gutter.dispatchEvent(right);
     expect(right.defaultPrevented).toBe(false);
     expect(menu).toHaveBeenCalledTimes(1);
+  });
+
+  it('act on a click with the main button, under a hand; not where a line has none', async () => {
+    const click = vi.fn();
+    const root = mount({
+      text: 'a\nb\nc\n',
+      annotate: () => () => Promise.resolve(annotation({ click })),
+    });
+    await expect.poll(() => drawn(root)).toHaveLength(2);
+    const annotated = [...root.querySelectorAll<HTMLElement>('.cerebro-annotation')].filter(
+      (a) => a.textContent !== '',
+    );
+    expect(getComputedStyle(annotated[0] as HTMLElement).cursor).toBe('pointer');
+    await userEvent.click(annotated[1] as HTMLElement);
+    expect(click).toHaveBeenCalledWith(2);
+    // The middle button, and line 2's place, which has none: nothing.
+    const gutter = root.querySelector('.cerebro-annotations') as HTMLElement;
+    const number = [...root.querySelectorAll('.cm-lineNumbers .cm-gutterElement')].find(
+      (e) => e.textContent === '2',
+    ) as HTMLElement;
+    const at = (
+      element: HTMLElement,
+      button: number,
+      y = element.getBoundingClientRect().top + 2,
+    ) =>
+      new MouseEvent('click', {
+        bubbles: true,
+        button,
+        clientX: gutter.getBoundingClientRect().left + 2,
+        clientY: y,
+      });
+    gutter.dispatchEvent(at(annotated[0] as HTMLElement, 1));
+    gutter.dispatchEvent(at(number, 0));
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
+  it('leave the text focused when pressed, as the line numbers do, not the scroller', async () => {
+    const root = mount({ text: 'a\nb\nc\n', annotate: () => () => Promise.resolve(annotation()) });
+    await expect.poll(() => drawn(root)).toHaveLength(2);
+    const annotated = [...root.querySelectorAll<HTMLElement>('.cerebro-annotation')].find(
+      (a) => a.textContent !== '',
+    ) as HTMLElement;
+    await userEvent.click(annotated);
+    expect(root.activeElement?.className).toContain('cm-content');
+    const number = root.querySelector('.cm-lineNumbers .cm-gutterElement:not([style*="hidden"])');
+    await userEvent.click(number as HTMLElement);
+    expect(root.activeElement?.className).toContain('cm-content');
+    // In the text: CodeMirror's own, as before.
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    expect(root.activeElement?.className).toContain('cm-content');
   });
 
   it('show and close as asked, without opening the editor again', async () => {

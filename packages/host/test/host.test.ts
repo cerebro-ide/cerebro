@@ -889,9 +889,22 @@ describe('ignored files and rolling back', () => {
       await ui.request('git.blame', { path: '/w', file: 'a.txt', contents: 'edited' }),
     ).toEqual({ lines: [], commits: [] });
     expect(git.mock.calls[0]?.[3]).toBe('edited');
-    await expect(
-      ui.request('git.blame', { path: '/w', file: 'a.txt', contents: 3 }),
-    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // IntelliJ's defaults: whitespace ignored, no movements looked for; else as asked.
+    expect(git.mock.calls[0]?.[1]).toContain('-w');
+    await ui.request('git.blame', {
+      path: '/w',
+      file: 'a.txt',
+      contents: '',
+      ignoreWhitespace: false,
+      movements: 'across',
+    });
+    expect(git.mock.calls.at(-1)?.[1]).toContain('-C');
+    expect(git.mock.calls.at(-1)?.[1]).not.toContain('-w');
+    for (const bad of [{ contents: 3 }, { ignoreWhitespace: 'yes' }, { movements: 'far' }]) {
+      await expect(
+        ui.request('git.blame', { path: '/w', file: 'a.txt', contents: '', ...bad }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
   });
 
   it('lists conflicts, gives their versions, and resolves them, as told', async () => {

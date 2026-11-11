@@ -64,7 +64,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
-- [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, View (columns, Colors, Names) and Copy Revision Number
+- [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number and Options; a click shows the commit in the Log
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -2380,14 +2380,37 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
 - **The tooltip** is IntelliJ's text (the commit, Author with email, Date, Path when the file was
   elsewhere, then the message), shown as the browser's tooltip, as the gutter markers' are
   (Cerebro's choice, open to change: IntelliJ's is a popup with links).
-- **The menu on an annotation,** as IntelliJ's in part: Close Annotations; View (Revision, Date,
-  Author; Colors: Author, Order, Hide; Names: Initials, Last Name, First Name, Full Name, Email,
-  shortened as `ShortNameType`, its tests' cases kept); Copy Revision Number. The view is kept in the
-  browser's storage for every file (IntelliJ keeps it in its settings: Cerebro's choice, open to
-  change).
-- **Not yet:** Show Diff, Annotate Revision and Annotate Previous Revision, Show Diff On Hover,
-  Options (ignoring whitespace, detecting moved lines); a click on an annotation going to the commit
-  in the Log; reading them again after a commit, or a change on disk; the action hidden for an
+- **The menu on an annotation** (changed 2026-11-11, Ido: "I'd expected the same context menu and
+  mouse functionality (open the git tree log) on mouse events"), in IntelliJ's order: the gutter's
+  Close Annotations (`EditorGutterComponentImpl.getTextAnnotationPopupActions`), then
+  `AnnotateToggleAction`'s: Show Diff, View (Revision, Date, Author; Colors: Author, Order, Hide;
+  Names: Initials, Last Name, First Name, Full Name, Email, shortened as `ShortNameType`, its tests'
+  cases kept), Copy Revision Number; a separator; then Options (git's own,
+  `GitToggleAnnotationOptionsActionProvider`). The view and the options are kept in the browser's
+  storage for every file (IntelliJ keeps them in its settings: Cerebro's choice, open to change).
+- **Show Diff** (added 2026-11-11), as `ShowDiffFromAnnotation`: the line's commit's changes to the
+  file, in a diff tab, from the commit before that changed it (`previous` in `git blame
+  --porcelain`), or from the empty tree where the commit added it. The file's path is the one it had
+  in that commit; a rename's two paths aren't both followed yet (the diff compares one path).
+- **Options** (added 2026-11-11), as `GitToggleAnnotationOptionsActionProvider` and
+  `GitAnnotationProvider`: Ignore Whitespaces (`-w`, on by default as in IntelliJ, which Cerebro's
+  blame hadn't been), Detect Movements Within File (`-M`), Detect Movements Across Files (`-C`;
+  turning it on turns Within on, and off leaves Within on; Within off turns both off), and Show Commit
+  Timestamp (the committer's date in the Date column). Measured on real git: `-C` follows lines only
+  from files the same commit changed, as git's documentation says. IntelliJ's Show Commit Timestamp
+  is the Log's setting too; here it's the annotations' alone (open to change).
+- **A click on an annotation** (added 2026-11-11), as IntelliJ's (`LineAnnotationAspectAdapter`
+  under a hand cursor, then `GitFileAnnotation.showAffectedPaths` → `jumpToRevisionAsync`): with the
+  main button, it shows the Git tool window and selects the commit in the Log, loading pages until
+  it's there, and then its file among the commit's changes. IntelliJ looks for the commit in its
+  Log tabs, and when their filters leave it out, opens a new tab without filters
+  (`IdeVcsLogManager.showCommitInLogTab`, read from its source); Cerebro has one Log, so its filters
+  are cleared instead (open to change). A commit not in the log says so. A press in the gutter (an
+  annotation, a line number) leaves the text focused: before, the browser focused the editor's
+  scroller, which takes no keys and drew a focus ring (measured in the app, 2026-11-11).
+- **Not yet:** Annotate Revision and Annotate Previous Revision, and Show in File History (they need
+  a file's version at a commit, and a Git file history: Git → Current File's history, next); Show
+  Diff On Hover; reading them again after a commit, or a change on disk; the action hidden for an
   untracked file; the editor's context menu's Git submenu.
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)

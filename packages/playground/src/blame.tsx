@@ -3,13 +3,19 @@
 // `ShortNameType`, `ShowAnnotationColorsAction`, `AnnotationsSettings`, `ColorGenerator`, read from
 // its source): who last changed each line of a file, and when, in the editor's gutter. From the
 // gutter's menu, or Git → Current File. Lines changed since the last commit show nothing. Its menu,
-// on an annotation: Close Annotations, View (the columns, their colours, how names show) and Copy
-// Revision Number. The view is kept in the browser's storage.
+// on an annotation (`EditorGutterComponentImpl.getTextAnnotationPopupActions`, then
+// `AnnotateToggleAction`'s): Close Annotations, Show Diff, View (the columns, their colours, how
+// names show), Copy Revision Number, and Options (`GitToggleAnnotationOptionsActionProvider`). A
+// click on one shows its commit in the Log (`GitFileAnnotation.showAffectedPaths`). The view and the
+// options are kept in the browser's storage.
 
 import { ObservableMap, signal } from '@cerebro-ide/reactive';
 import type { AskAnnotation, LineAnnotation, TextAnnotation } from '@cerebro-ide/ui-editor';
+import type { Tab } from '@cerebro-ide/layout';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { diffTab } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
+import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
 
 /** The host's `git.blame`. */
@@ -23,8 +29,12 @@ export interface BlameCommit {
   author: string;
   email: string;
   time: number;
+  /** The committer's date: Show Commit Timestamp's. */
+  committed: number;
   message: string;
   path?: string;
+  /** The commit before that changed the file, and its path there: none where it was added. */
+  previous?: { hash: string; path: string };
 }
 
 /** IntelliJ's columns, in its order (`GitFileAnnotation.getAspects`). */
@@ -53,17 +63,32 @@ const NAMES = [
 ] as const;
 type NameType = (typeof NAMES)[number][0];
 
+/** How far moved lines are followed (Options): not, within the file, or across files too. */
+const MOVEMENTS = ['none', 'within', 'across'] as const;
+type Movements = (typeof MOVEMENTS)[number];
+
 export interface AnnotationView {
   aspects: Record<Aspect, boolean>;
   colors: ColorMode;
   names: NameType;
+  /** Options: blame ignoring whitespace (`-w`). */
+  ignoreWhitespace: boolean;
+  movements: Movements;
+  /** Options: the committer's date in the Date column, not the author's. */
+  commitDate: boolean;
 }
 
-/** IntelliJ's defaults: the date and the author, coloured by age, last names. */
+/**
+ * IntelliJ's defaults: the date and the author, coloured by age, last names; whitespace ignored,
+ * no movements followed, the author's date (`GitVcsApplicationSettings`, `CommonUiProperties`).
+ */
 const DEFAULT_VIEW: AnnotationView = {
   aspects: { revision: false, date: true, author: true },
   colors: 'order',
   names: 'lastname',
+  ignoreWhitespace: true,
+  movements: 'none',
+  commitDate: false,
 };
 
 const VIEW_KEY = 'cerebro.annotate.view';
@@ -77,6 +102,7 @@ export function readView(): AnnotationView {
       value: unknown,
       or: T,
     ) => (all.some(([id]) => id === value) ? (value as T) : or);
+    const flag = (value: unknown, or: boolean) => (typeof value === 'boolean' ? value : or);
     return {
       aspects: Object.fromEntries(
         ASPECTS.map(([id]) => [
@@ -86,6 +112,11 @@ export function readView(): AnnotationView {
       ) as Record<Aspect, boolean>,
       colors: one(COLORS, stored.colors, DEFAULT_VIEW.colors),
       names: one(NAMES, stored.names, DEFAULT_VIEW.names),
+      ignoreWhitespace: flag(stored.ignoreWhitespace, DEFAULT_VIEW.ignoreWhitespace),
+      movements: MOVEMENTS.includes(stored.movements as Movements)
+        ? (stored.movements as Movements)
+        : DEFAULT_VIEW.movements,
+      commitDate: flag(stored.commitDate, DEFAULT_VIEW.commitDate),
     };
   } catch {
     return DEFAULT_VIEW;
@@ -217,11 +248,11 @@ export function tooltipOf(commit: BlameCommit): string {
   return `${lines.join('\n')}\n\n${commit.message}`;
 }
 
-/** A blame as the gutter shows it, in the view given. */
+/** A blame as the gutter shows it, in the view given, with what its menu and a click do. */
 export function present(
   blame: Blame,
   shown: AnnotationView,
-  menu: TextAnnotation['menu'],
+  actions: Pick<TextAnnotation, 'menu' | 'click'>,
   now = Date.now(),
 ): TextAnnotation {
   const commits = new Map(blame.commits.map((c) => [c.hash, c]));
@@ -233,7 +264,7 @@ export function present(
     aspect === 'revision'
       ? commit.hash.slice(0, 8)
       : aspect === 'date'
-        ? formatPrettyDate(commit.time, now)
+        ? formatPrettyDate(shown.commitDate ? commit.committed : commit.time, now)
         : shortenName(exactName(commit), shown.names);
   const lines = blame.lines.map((hash): LineAnnotation | null => {
     const commit = hash === null ? undefined : commits.get(hash);
@@ -252,7 +283,7 @@ export function present(
       const commit = hash ? commits.get(hash) : undefined;
       return commit ? tooltipOf(commit) : '';
     },
-    menu,
+    ...actions,
   };
 }
 
@@ -265,13 +296,17 @@ interface Annotated {
 /** The files annotated, by their tabs' ids. */
 const annotated = new ObservableMap<string, Annotated>();
 
-/** What the menus on an annotation are given. */
+/** What the menus on an annotation are given: the file's tab, and the line's commit. */
 export interface AnnotationContext {
   file: string;
   hash: string;
+  /** The file's path in its worktree at that commit. */
+  path: string;
+  commit: BlameCommit;
 }
 
 let menuServices: MenuServices | undefined;
+let blameSetup: BlameSetup | undefined;
 
 /** What asks for a file's annotations while it's annotated, in the view as it is. Reactive. */
 export function annotationFor(file: string): AskAnnotation | undefined {
@@ -285,13 +320,23 @@ export function annotationFor(file: string): AskAnnotation | undefined {
         path: target.worktree,
         file: target.path,
         contents: text,
+        ignoreWhitespace: shown.ignoreWhitespace,
+        movements: shown.movements,
       })) as Blame;
-      return present(blame, shown, (line, event) => {
-        const hash = blame.lines[line] as string;
-        openContextMenu(menuServices as MenuServices, 'editor/annotation', event, {
-          file,
-          hash,
-        } satisfies AnnotationContext);
+      const commits = new Map(blame.commits.map((c) => [c.hash, c]));
+      const context = (line: number): AnnotationContext => {
+        const commit = commits.get(blame.lines[line] as string) as BlameCommit;
+        return { file, hash: commit.hash, path: commit.path ?? target.path, commit };
+      };
+      return present(blame, shown, {
+        menu: (line, event) => {
+          openContextMenu(menuServices as MenuServices, 'editor/annotation', event, context(line));
+        },
+        // IntelliJ's: the commit in the Log, the file selected among its changes.
+        click: (line) => {
+          const { hash, path } = context(line);
+          blameSetup?.showInLog(hash, path);
+        },
       });
     } catch (error) {
       annotated.delete(file);
@@ -308,7 +353,46 @@ export function annotationFor(file: string): AskAnnotation | undefined {
 export interface BlameSetup {
   /** The active editor tab's id. */
   activeTab: () => string | undefined;
+  /** Opens a tab in the editor: Show Diff's. */
+  open: (tab: Tab) => void;
+  /** Shows a commit in the Git tool window's Log, a file (in the worktree) selected in it. */
+  showInLog: (hash: string, path: string) => void;
 }
+
+/** IntelliJ's Options, in its order, toggled as it toggles them (`GitToggleAnnotationOptionsActionProvider`). */
+const OPTIONS: readonly {
+  id: string;
+  label: string;
+  checked: (shown: AnnotationView) => boolean;
+  toggle: (shown: AnnotationView) => Partial<AnnotationView>;
+}[] = [
+  {
+    id: 'ignoreWhitespace',
+    label: 'Ignore Whitespaces',
+    checked: (shown) => shown.ignoreWhitespace,
+    toggle: (shown) => ({ ignoreWhitespace: !shown.ignoreWhitespace }),
+  },
+  {
+    // Checked for across files too; off, it follows none.
+    id: 'movementsWithin',
+    label: 'Detect Movements Within File',
+    checked: (shown) => shown.movements !== 'none',
+    toggle: (shown) => ({ movements: shown.movements === 'none' ? 'within' : 'none' }),
+  },
+  {
+    // Off, it still follows them within the file.
+    id: 'movementsAcross',
+    label: 'Detect Movements Across Files',
+    checked: (shown) => shown.movements === 'across',
+    toggle: (shown) => ({ movements: shown.movements === 'across' ? 'within' : 'across' }),
+  },
+  {
+    id: 'commitDate',
+    label: 'Show Commit Timestamp',
+    checked: (shown) => shown.commitDate,
+    toggle: (shown) => ({ commitDate: !shown.commitDate }),
+  },
+];
 
 /** A file in the active git worktree, by its tab's id. */
 function fileIn(tab: string | undefined): Annotated | undefined {
@@ -321,6 +405,7 @@ function fileIn(tab: string | undefined): Annotated | undefined {
 /** Annotate with Git Blame, its menus, and the menu on an annotation. */
 export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   menuServices = services;
+  blameSetup = setup;
   const { commands, menus } = services;
   /** The file a command is for: the gutter's, or the active editor's. */
   const target = (c: unknown) => (c as { file?: string } | undefined)?.file ?? setup.activeTab();
@@ -340,6 +425,24 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     label: 'Close Annotations',
     run: (c) => annotated.delete(c.file),
   });
+  // The commit's changes to the file: from the commit before that changed it, as IntelliJ's.
+  commands.register<AnnotationContext>({
+    id: 'annotate.showDiff',
+    label: 'Show Diff',
+    run: (c) => {
+      setup.open(diffTab(c.path, { from: c.commit.previous?.hash ?? EMPTY_TREE, to: c.hash }));
+    },
+  });
+  for (const option of OPTIONS) {
+    commands.register({
+      id: `annotate.options.${option.id}`,
+      label: option.label,
+      checked: () => option.checked(view.get()),
+      run: () => {
+        setView(option.toggle(view.peek()));
+      },
+    });
+  }
   commands.register<AnnotationContext>({
     id: 'annotate.copyRevision',
     label: 'Copy Revision Number',
@@ -385,18 +488,28 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     order: 1,
   });
   menus.contribute({ menu: 'main/git/file', item: { command: 'vcs.annotate' } });
-  // On an annotation: Close Annotations, View, Copy Revision Number, as IntelliJ's.
-  menus.contribute({ menu: 'editor/annotation', item: { command: 'annotate.close' }, order: 1 });
-  menus.contribute({
-    menu: 'editor/annotation',
-    item: { submenu: 'editor/annotation/view', label: 'View' },
-    order: 2,
+  // On an annotation, as IntelliJ's: Close Annotations, Show Diff, View, Copy Revision Number;
+  // then (after Annotate Revision's group, not yet here) Options.
+  const first = ['annotate.close', 'annotate.showDiff', 'view', 'annotate.copyRevision'];
+  first.forEach((id, order) => {
+    menus.contribute({
+      menu: 'editor/annotation',
+      item: id === 'view' ? { submenu: 'editor/annotation/view', label: 'View' } : { command: id },
+      group: 'a',
+      order,
+    });
   });
   menus.contribute({
     menu: 'editor/annotation',
-    item: { command: 'annotate.copyRevision' },
-    order: 3,
+    item: { submenu: 'editor/annotation/options', label: 'Options' },
+    group: 'c',
   });
+  for (const option of OPTIONS) {
+    menus.contribute({
+      menu: 'editor/annotation/options',
+      item: { command: `annotate.options.${option.id}` },
+    });
+  }
   for (const [id] of ASPECTS) {
     menus.contribute({
       menu: 'editor/annotation/view',

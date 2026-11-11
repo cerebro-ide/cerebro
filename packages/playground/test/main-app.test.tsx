@@ -721,11 +721,33 @@ describe('Annotate with Git Blame', () => {
       );
     await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
     expect(host('/r').params('git.blame')).toEqual([
-      { path: '/r', file: 'src/blamed.ts', contents: '// /r/src/blamed.ts\nconst a = 1;\n' },
+      {
+        path: '/r',
+        file: 'src/blamed.ts',
+        contents: '// /r/src/blamed.ts\nconst a = 1;\n',
+        ignoreWhitespace: true,
+        movements: 'none',
+      },
     ]);
     // On an annotation, its own menu, not the editor's.
     await userEvent.click(annotation() as HTMLElement, { button: 'right' });
-    expect(await menuItems()).toEqual(['Close Annotations', 'View', 'Copy Revision Number']);
+    expect(await menuItems()).toEqual([
+      'Close Annotations',
+      'Show Diff',
+      'View',
+      'Copy Revision Number',
+      'Options',
+    ]);
+    // Show Diff: the commit's changes to the file, in a tab.
+    await userEvent.click(menuItem('Show Diff'));
+    expect(env().editor.activeGroup.active).toMatch(/^diff@.*:src\/blamed\.ts$/);
+    env().editor.open({ id: '/r/src/blamed.ts', title: 'blamed.ts' });
+    await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
+    // A click: the commit in the Git tool window's Log.
+    await userEvent.click(annotation() as HTMLElement);
+    await expect.poll(() => document.querySelector('.playground-log')).not.toBeNull();
+    await userEvent.click(annotation() as HTMLElement, { button: 'right' });
+    await menuItems();
     await userEvent.click(menuItem('Close Annotations'));
     await expect.poll(annotation).toBeUndefined();
   });

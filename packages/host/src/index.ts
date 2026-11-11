@@ -174,7 +174,7 @@ export {
   type Updated,
   type UpdateMethod,
 } from './update.js';
-export { blame, parseBlame, type Blame, type BlameCommit } from './blame.js';
+export { blame, parseBlame, type Blame, type BlameCommit, type BlameOptions } from './blame.js';
 export {
   fetchAll,
   merge,
