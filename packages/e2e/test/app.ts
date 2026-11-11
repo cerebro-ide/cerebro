@@ -157,6 +157,12 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
     },
     async close() {
       await stop(running.app);
+      // What was slow or held up, from any test of the file: a stall's cause (the backlog).
+      const reported = output
+        .join('')
+        .split('\n')
+        .filter((line) => /^(Slow|Blocked): /.test(line));
+      if (reported.length > 0) console.log(reported.join('\n'));
       await rm(data, { recursive: true, force: true });
     },
   };

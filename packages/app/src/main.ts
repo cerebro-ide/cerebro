@@ -9,6 +9,7 @@ import {
   BrowserWindow,
   dialog,
   screen,
+  session,
   type OpenDialogOptions,
   type WebContents,
 } from 'electron';
@@ -20,7 +21,7 @@ import { diffHash, installDiffWindows, windowOf, type DiffSpec } from './diff-wi
 import { installDisplayScale, zoomFor } from './display.js';
 import { installHosts, type Hosts } from './host.js';
 import { handle } from './ipc.js';
-import { logPage, PAGE_LOG, writeLog } from './log.js';
+import { allowCallStacks, logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
 import { installPasswords, PasswordStore } from './passwords.js';
 import { installReveal } from './reveal.js';
@@ -252,8 +253,14 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   installWindowColours();
   installReveal();
   installFullScreen();
-  // Its main process held up is reported, as the host's is: a stall's cause (the backlog).
+  // Its main process held up is reported, as the host's is: a stall's cause (the backlog). And a
+  // page that stops answering, with what it was running: Electron collects it with this feature on
+  // (webFrameMain's collectJavaScriptCallStack).
   watchEventLoop("the app's");
+  app.commandLine.appendSwitch(
+    'enable-features',
+    'DocumentPolicyIncludeJSCallStacksInCrashReports',
+  );
   const hosts = installHosts();
   installDiffWindows(hosts, diffWindow);
   // Empty is unset: a test or a shell can clear it without removing it.
@@ -266,6 +273,7 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
     if (BrowserWindow.getAllWindows().length === 0) windows?.start(repo);
   });
   void app.whenReady().then(() => {
+    allowCallStacks(session.defaultSession);
     windows = installProjects(
       hosts,
       new ProjectStore(join(app.getPath('userData'), 'projects.json')),

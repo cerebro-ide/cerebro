@@ -37,6 +37,8 @@ const electron = vi.hoisted(() => {
       on: (event: string, listener: Listener) => {
         this.contentListeners.set(event, listener);
       },
+      // The page's watchdog (log.ts), started on events these pages never send.
+      once: vi.fn(),
     };
     constructor(options: unknown) {
       this.options = options;
@@ -72,6 +74,7 @@ const electron = vi.hoisted(() => {
     setPath: vi.fn(),
     getPath: vi.fn(() => '/nowhere'),
     whenReady: () => Promise.resolve(),
+    commandLine: { appendSwitch: vi.fn() },
   };
   const ipcMain = {
     handle: (channel: string, handler: Listener) => {
@@ -88,6 +91,7 @@ vi.mock('electron', () => ({
   ipcMain: electron.ipcMain,
   dialog: electron.dialog,
   screen: { getPrimaryDisplay: () => ({ scaleFactor: 2 }) },
+  session: { defaultSession: { webRequest: { onHeadersReceived: vi.fn() } } },
 }));
 
 const display = vi.hoisted(() => ({
@@ -481,6 +485,11 @@ describe('start', () => {
 
   it('quits when the last window closes, except on macOS', () => {
     start();
+    // With what a page that stops answering was running collected (log.ts).
+    expect(electron.app.commandLine.appendSwitch).toHaveBeenCalledWith(
+      'enable-features',
+      'DocumentPolicyIncludeJSCallStacksInCrashReports',
+    );
     const closed = electron.appListeners.get('window-all-closed') as Listener;
     const platform = Object.getOwnPropertyDescriptor(process, 'platform') as PropertyDescriptor;
     try {
