@@ -1439,6 +1439,20 @@ body,
   justify-self: start;
 }
 
+/* Git Remotes: Add, Remove and Edit over the table, as IntelliJ's. */
+.playground-remotes {
+  display: flex;
+  flex-direction: column;
+}
+
+.playground-remotes__toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--cerebro-border);
+  border-bottom: none;
+}
+
 /* A password asked for SSH: the prompt over the field, and Remember. */
 .playground-password {
   display: flex;
@@ -1499,27 +1513,31 @@ body,
 }
 
 /* The list's room, as IntelliJ's: its rows their own height, however few. */
-.playground-conflicts__list {
+.playground-conflicts__list,
+.playground-remotes__list {
   flex: 1;
   height: 200px;
   overflow: auto;
   border: 1px solid var(--cerebro-border);
 }
 
-.playground-conflicts__table {
+.playground-conflicts__table,
+.playground-remotes__table {
   width: 100%;
   border-collapse: collapse;
   outline: none;
 }
 
-.playground-conflicts__table th {
+.playground-conflicts__table th,
+.playground-remotes__table th {
   padding: 2px 8px;
   border-bottom: 1px solid var(--cerebro-border);
   font-weight: normal;
   text-align: left;
 }
 
-.playground-conflicts__table td {
+.playground-conflicts__table td,
+.playground-remotes__table td {
   padding: 2px 8px;
   white-space: nowrap;
 }
@@ -1530,11 +1548,13 @@ body,
   gap: 4px;
 }
 
-.playground-conflicts__row[aria-selected='true'] {
+.playground-conflicts__row[aria-selected='true'],
+.playground-remotes__row[aria-selected='true'] {
   background: var(--cerebro-selected);
 }
 
-.playground-conflicts__table:focus .playground-conflicts__row[aria-selected='true'] {
+.playground-conflicts__table:focus .playground-conflicts__row[aria-selected='true'],
+.playground-remotes__table:focus .playground-remotes__row[aria-selected='true'] {
   background: var(--cerebro-menu-highlight);
 }
 

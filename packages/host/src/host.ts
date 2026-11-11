@@ -86,7 +86,10 @@ import {
   lastMessage,
   listBranches,
   addRemote,
+  changeRemote,
   checkRemote,
+  listRemotes,
+  removeRemote,
   divergence,
   fetchTarget,
   outgoing,
@@ -847,6 +850,25 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       remote,
     ),
   );
+  // Manage Remotes: the remotes, removing one, and changing one's name or URL.
+  connection.onRequest('git.remotes', (params) => listRemotes(text(params, 'path'), git));
+  connection.onRequest('git.removeRemote', async (params) => {
+    await removeRemote(text(params, 'path'), text(params, 'name'), git);
+    return null;
+  });
+  connection.onRequest('git.changeRemote', async (params) => {
+    await changeRemote(
+      text(params, 'path'),
+      { name: text(params, 'fromName'), url: text(params, 'fromUrl') },
+      {
+        name: text(params, 'name'),
+        url: text(params, 'url'),
+        fetch: (params as { fetch?: unknown }).fetch === true,
+      },
+      remote,
+    );
+    return null;
+  });
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);
