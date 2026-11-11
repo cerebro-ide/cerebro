@@ -40,6 +40,7 @@ export {
   type DiffControl,
   type DiffEditorProps,
 } from './diff.js';
+export { UnifiedDiffEditor } from './unified.js';
 export {
   HIGHLIGHT_POLICIES,
   IGNORE_POLICIES,

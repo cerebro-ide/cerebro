@@ -130,7 +130,7 @@ export function foldedLines(
 }
 
 /** The band in place of folded lines: clicked, it shows more of them. */
-class Fold extends WidgetType {
+export class Fold extends WidgetType {
   constructor(
     readonly lines: number,
     readonly expand: () => void,
@@ -159,19 +159,19 @@ class Mark extends GutterMarker {
     this.elementClass = `cm-diff-gutter-${kind}`;
   }
 }
-const MARKS = {
+export const MARKS = {
   inserted: new Mark('inserted'),
   deleted: new Mark('deleted'),
   modified: new Mark('modified'),
 };
 
 /** A side's marks, folds and gutter colours, as the diff sets them. */
-interface Marks {
+export interface Marks {
   decorations: DecorationSet;
   gutter: RangeSet<GutterMarker>;
 }
-const setMarks = StateEffect.define<Marks>();
-const marks = StateField.define<Marks>({
+export const setMarks = StateEffect.define<Marks>();
+export const marks = StateField.define<Marks>({
   create: (): Marks => ({
     decorations: Decoration.none,
     gutter: RangeSet.empty as RangeSet<GutterMarker>,
@@ -196,7 +196,7 @@ const lighter = (kind: Kind) =>
 type StyleSpec = Parameters<typeof EditorView.theme>[0][string];
 
 /** The changes' colours, from the theme's variables. */
-const diffTheme = EditorView.theme({
+export const diffTheme = EditorView.theme({
   ...Object.fromEntries<StyleSpec>(
     (['inserted', 'deleted', 'modified'] as const).flatMap((kind): [string, StyleSpec][] => [
       [`.cm-diff-${kind}`, { backgroundColor: variable(`diff-${kind}`) }],
@@ -212,7 +212,7 @@ const diffTheme = EditorView.theme({
 });
 
 /** The panes and the divider, as a constructable sheet: the page allows no style element. */
-const LAYOUT = `
+export const LAYOUT = `
 .cm-diff { display: flex; height: 100%; }
 .cm-diff > .cm-editor { flex: 1 1 0; min-width: 0; }
 .cm-diff-divider { flex: 0 0 30px; position: relative; overflow: hidden; background: var(--cerebro-background); }
@@ -225,31 +225,23 @@ const LAYOUT = `
 .cm-diff-take:hover { background: var(--cerebro-diff-edge); }
 `;
 
-/** The diffs that show, by their element: for `diffSource`. */
-const diffs = new WeakMap<
-  Element,
-  { views: Record<Side, EditorView>; side: () => Side; changes: () => readonly Change[] }
->();
+/** Where a position is in a file: its line and column, zero-based. */
+export interface Position {
+  line: number;
+  column: number;
+}
+
+/** The diffs that show, by their element: where each one's caret is in the file, for `diffSource`. */
+export const diffs = new WeakMap<Element, () => Position>();
 
 /**
  * Where Jump to Source goes from the diff `element` is in (the focused one, say): the caret's line
  * and column, zero-based, in the file as it is now. From the left side, the last committed text,
  * its line there, as IntelliJ's. Undefined outside a diff.
  */
-export function diffSource(element: Element): { line: number; column: number } | undefined {
+export function diffSource(element: Element): Position | undefined {
   const container = element.closest('.cerebro-editor-diff');
-  const diff = container ? diffs.get(container) : undefined;
-  if (!diff) return undefined;
-  const { views } = diff;
-  const side = views[diff.side()];
-  const head = side.state.selection.main.head;
-  const line = side.state.doc.lineAt(head);
-  const at = { line: line.number - 1, column: head - line.from };
-  if (side === views.b) return at;
-  return {
-    line: Math.min(transferLine(at.line, diff.changes()), views.b.state.doc.lines - 1),
-    column: at.column,
-  };
+  return container ? diffs.get(container)?.() : undefined;
 }
 
 /** A diff of one file: read-only, or editable on the right to merge. */
@@ -319,7 +311,18 @@ export function DiffEditor(props: DiffEditorProps): Node {
   const divider = document.createElement('div');
   divider.className = 'cm-diff-divider';
   frame.insertBefore(divider, views.b.dom);
-  diffs.set(container, { views, side: () => current.peek(), changes: () => changes.peek() });
+  diffs.set(container, () => {
+    const side = current.peek();
+    const { state } = views[side];
+    const head = state.selection.main.head;
+    const line = state.doc.lineAt(head);
+    const at = { line: line.number - 1, column: head - line.from };
+    if (side === 'b') return at;
+    return {
+      line: Math.min(transferLine(at.line, changes.peek()), views.b.state.doc.lines - 1),
+      column: at.column,
+    };
+  });
 
   /** A side's lines from `from` to `to`, as positions: from the first's start to the last's end. */
   const span = (doc: Text, from: number, to: number) => ({
