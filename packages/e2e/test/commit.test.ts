@@ -32,6 +32,19 @@ async function seen(): Promise<void> {
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
+  // Why Commit didn't, if it said, and what it would have committed: the rows, those put in.
+  console.log('Commit error:', await page().locator('.playground-commit__error').allTextContents());
+  const rows = page().locator('.cerebro-tree-row');
+  console.log(
+    'Rows:',
+    await rows.evaluateAll((all) =>
+      all.map((row) => {
+        const box = row.querySelector('.playground-changes__include');
+        const put = box instanceof HTMLInputElement ? (box.checked ? '[x] ' : '[ ] ') : '';
+        return put + row.textContent;
+      }),
+    ),
+  );
   // The items shown: hidden tasks' text is there too, and `textContent` took it.
   console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));

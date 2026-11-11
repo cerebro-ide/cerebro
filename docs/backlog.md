@@ -109,6 +109,14 @@ on it:
   after 5200 ms"); and every e2e file prints these lines when it ends, failed or not. Electron's own
   `unresponsive` event never came for a page kept busy 55 s with a click waiting (measured on
   Linux), so it isn't used.
+  The run after (#168, run 43007941029, Windows) failed the same way, with all of these quiet: no
+  request or git command went on 5 s, no page or event loop was held up. So the page never sent the
+  commit, or sent it late without being busy. Its "Done 14913 ms after the test gave up" isn't the
+  merge's commit, as it was read before: it tests HEAD for two parents, which the next test's Pull
+  gives too, and git's status printed then still said "All conflicts fixed but you are still
+  merging". The page sends the commit at once, unless it finds no files or no message to commit,
+  when it only says why under the message: the test now prints that, and the Commit window's rows,
+  with which are put in.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
