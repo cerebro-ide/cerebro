@@ -12,11 +12,26 @@ export interface BlameCommit {
   email: string;
   /** The author's date, in ms, as IntelliJ shows by default. */
   time: number;
+  /** The committer's date, in ms: IntelliJ's Show Commit Timestamp. */
+  committed: number;
   /** Its whole message, for the tooltip. */
   message: string;
   /** The file's path in it, when it was elsewhere then. */
   path?: string;
+  /** The commit before that changed the file, and its path there: none where it was added. */
+  previous?: { hash: string; path: string };
 }
+
+/** IntelliJ's Options on an annotation (`GitVcsApplicationSettings`, `GitAnnotationProvider`). */
+export interface BlameOptions {
+  /** `-w`: on by default in IntelliJ. */
+  ignoreWhitespace: boolean;
+  /** Lines moved or copied: within the file (`-M`), across files too (`-C`), or not looked for. */
+  movements: (typeof MOVEMENTS)[number];
+}
+
+/** How far moved lines are followed: not, within the file, or across files too. */
+export const MOVEMENTS = ['none', 'within', 'across'] as const;
 
 export interface Blame {
   /** Each line's commit, by its hash; null for a line changed since the last commit. */
@@ -49,7 +64,7 @@ export function parseBlame(
       lines[number] = committed ? hash : null;
       current = commits.get(hash);
       if (!current && committed) {
-        current = { hash, author: '', email: '', time: 0 };
+        current = { hash, author: '', email: '', time: 0, committed: 0 };
         commits.set(hash, current);
       }
       if (!committed) current = undefined;
@@ -62,24 +77,43 @@ export function parseBlame(
     if (key === 'author') current.author = value;
     else if (key === 'author-mail') current.email = value.replace(/^<|>$/g, '');
     else if (key === 'author-time') current.time = Number(value) * 1000;
+    else if (key === 'committer-time') current.committed = Number(value) * 1000;
     else if (key === 'filename' && value !== path) current.path = value;
+    else if (key === 'previous') {
+      const at = value.indexOf(' ');
+      current.previous = { hash: value.slice(0, at), path: value.slice(at + 1) };
+    }
   }
   return { lines, commits };
 }
 
 /**
  * Blames a file's text, as the editor has it, against the worktree's last commit: as IntelliJ's,
- * `git blame --porcelain -l -t --encoding=UTF-8`. Each commit's whole message is read after.
+ * `git blame --porcelain -l -t --encoding=UTF-8`, with its options. Each commit's whole message is
+ * read after.
  */
 export async function blame(
   worktree: string,
   path: string,
   text: string,
   run: Git,
+  options: BlameOptions = { ignoreWhitespace: true, movements: 'none' },
 ): Promise<Blame> {
   const output = await run(
     worktree,
-    ['blame', '--porcelain', '-l', '-t', '--encoding=UTF-8', '--contents', '-', '--', path],
+    [
+      'blame',
+      '--porcelain',
+      '-l',
+      '-t',
+      '--encoding=UTF-8',
+      ...(options.ignoreWhitespace ? ['-w'] : []),
+      ...({ none: [], within: ['-M'], across: ['-C'] } as const)[options.movements],
+      '--contents',
+      '-',
+      '--',
+      path,
+    ],
     undefined,
     text,
   );

@@ -50,7 +50,7 @@ import {
   type SaveChanges,
   type UpdateMethod,
 } from './update.js';
-import { blame } from './blame.js';
+import { blame, MOVEMENTS, type BlameOptions } from './blame.js';
 import { fetchAll, merge, MERGE_OPTIONS, pull, PULL_OPTIONS, unmerged } from './pull.js';
 import {
   checkout,
@@ -689,7 +689,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (typeof contents !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'contents must be a string');
     }
-    return blame(text(params, 'path'), text(params, 'file'), contents, git);
+    // IntelliJ's Options on an annotation; its defaults when not given.
+    const { ignoreWhitespace = true, movements = 'none' } = params as {
+      ignoreWhitespace?: unknown;
+      movements?: unknown;
+    };
+    if (typeof ignoreWhitespace !== 'boolean' || !MOVEMENTS.includes(movements as string)) {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        `ignoreWhitespace must be a boolean, movements among ${MOVEMENTS.join(', ')}`,
+      );
+    }
+    return blame(text(params, 'path'), text(params, 'file'), contents, git, {
+      ignoreWhitespace,
+      movements: movements as BlameOptions['movements'],
+    });
   });
   connection.onRequest('git.conflicts', (params) => listConflicts(text(params, 'path'), git));
   connection.onRequest('git.state', (params) => repositoryState(text(params, 'path'), git));

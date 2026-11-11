@@ -29,6 +29,8 @@ export interface TextAnnotation {
   tooltip: (line: number) => string;
   /** A line's annotation right-clicked: its menu, where the pointer is. */
   menu: (line: number, event: MouseEvent) => void;
+  /** A line's annotation clicked, as IntelliJ's (the commit, in the Log, for a blame). */
+  click: (line: number) => void;
 }
 
 /** Asks for a text's annotations; nothing when there's no answer. */
@@ -175,18 +177,29 @@ export function textAnnotations(ask: AskAnnotation, after = ANNOTATIONS_AFTER): 
       },
       domEventHandlers: {
         contextmenu(view, block, event) {
-          const shown = view.state.field(shownField);
-          let line: number | undefined;
-          shown?.markers.between(block.from, block.from, (_from, _to, marker) => {
-            line = marker.line;
-          });
-          // Found only among the annotations shown.
+          const line = lineAt(view, block.from);
           if (line === undefined) return false;
           event.preventDefault();
-          (shown as Shown).annotation.menu(line, event as MouseEvent);
+          (view.state.field(shownField) as Shown).annotation.menu(line, event as MouseEvent);
+          return true;
+        },
+        // The main button, as IntelliJ acts on a click (`UIUtil.isActionClick`).
+        click(view, block, event) {
+          const line = lineAt(view, block.from);
+          if (line === undefined || (event as MouseEvent).button !== 0) return false;
+          (view.state.field(shownField) as Shown).annotation.click(line);
           return true;
         },
       },
     }),
   ];
+}
+
+/** The line annotated at a gutter block: found only among the annotations shown. */
+function lineAt(view: EditorView, from: number): number | undefined {
+  let line: number | undefined;
+  view.state.field(shownField)?.markers.between(from, from, (_from, _to, marker) => {
+    line = marker.line;
+  });
+  return line;
 }

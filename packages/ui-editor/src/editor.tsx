@@ -305,7 +305,13 @@ export const theme = EditorView.theme({
   // fills its height.
   '.cerebro-annotations': { fontFamily: variable('font'), fontSize: variable('font-size') },
   '.cerebro-annotations .cm-gutterElement': { display: 'flex' },
-  '.cerebro-annotation': { display: 'flex', alignItems: 'center', color: variable('annotations') },
+  // A hand over an annotation, as IntelliJ's: a click shows its commit.
+  '.cerebro-annotation': {
+    display: 'flex',
+    alignItems: 'center',
+    color: variable('annotations'),
+    cursor: 'pointer',
+  },
   '.cerebro-annotation--latest': { color: variable('annotations-latest') },
   '.cerebro-annotation__column': { flex: 'none', overflow: 'hidden', whiteSpace: 'pre' },
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 42px 0 9px' },

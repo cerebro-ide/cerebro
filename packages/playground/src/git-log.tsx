@@ -15,7 +15,7 @@
 
 import { formatSequence } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
-import { computed, signal } from '@cerebro-ide/reactive';
+import { computed, effect, signal } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
@@ -27,6 +27,7 @@ import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
 import { icon } from './icons.js';
+import { notifications } from './notifications.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
 import { pathsText, pickPaths } from './log-paths.js';
@@ -162,6 +163,8 @@ class Log {
   /** Why it couldn't be read. */
   readonly error = signal<string | undefined>(undefined);
   readonly loaded = signal(false);
+  /** The file to select among a commit's changes, as shown in the Log from an annotation. */
+  readonly file = signal<{ hash: string; path: string } | undefined>(undefined);
   /** The branch it shows the commits of; all, if none. */
   readonly branch = signal<BranchFilter | undefined>(undefined);
   /** The text its commits' messages have, or a hash; any, if none. */
@@ -335,6 +338,40 @@ class Log {
       });
   }
 
+  /** Clears every filter, as a Log tab IntelliJ opens to show a commit the others don't. */
+  clearFilters(): Promise<void> {
+    this.branch.set(undefined);
+    this.text.set(undefined);
+    this.users.set(undefined);
+    this.period.set(undefined);
+    this.paths.set(undefined);
+    return this.refilter();
+  }
+
+  /**
+   * Selects a commit, loading pages until it's among them, as IntelliJ's `jumpToCommit`; with the
+   * filters cleared if they leave it out. Says whether it was found.
+   */
+  async select(hash: string): Promise<boolean> {
+    const find = async () => {
+      while (this.indexOf(hash) < 0 && !this.done && this.error.peek() === undefined) {
+        this.more();
+        await this.loading;
+      }
+      return this.indexOf(hash) >= 0;
+    };
+    const found = (await find()) || (this.filtered() && (await this.clearFilters(), await find()));
+    if (found) this.model.select(hash);
+    return found;
+  }
+
+  /** Whether any filter applies. */
+  private filtered(): boolean {
+    return [this.branch, this.text, this.users, this.period, this.paths].some(
+      (filter) => filter.peek() !== undefined,
+    );
+  }
+
   /** A commit loaded, by its hash. */
   commit(hash: string): LogCommit | undefined {
     return this.commits.peek().find((commit) => commit.hash === hash);
@@ -393,6 +430,8 @@ export function CommitFiles(props: {
   /** What the tree is, for a screen reader. */
   label: string;
   open?: (tab: Tab) => void;
+  /** The file to select once they're read. */
+  selected?: string | undefined;
 }) {
   const { range, open } = props;
   const changes = signal<readonly Change[]>([]);
@@ -405,7 +444,9 @@ export function CommitFiles(props: {
   void props.host.request('git.changes', { path: props.worktree, ...range }).then(
     (listed) => {
       changes.set(listed as Change[]);
-      void files.load(undefined, true);
+      void files.load(undefined, true).then(() => {
+        files.select(props.selected);
+      });
     },
     (error: unknown) => {
       failed.set((error as Error).message);
@@ -453,6 +494,7 @@ function CommitPane(props: { log: Log; host: Host; worktree: string; open: (tab:
         range={rangeOf(commit)}
         label={`${commit.subject} changes`}
         open={props.open}
+        selected={log.file.peek()?.hash === hash ? log.file.peek()?.path : undefined}
       />,
       <div class="playground-log__details cerebro-selectable">
         <p class="playground-log__details-subject">{commit.subject}</p>
@@ -478,11 +520,22 @@ const here = (context: unknown) =>
   (context as { source?: string } | undefined)?.source === 'log' ||
   document.activeElement?.closest('.playground-log') != null;
 
-/** Reads the Log and its branches again. */
-function refresh(log: Log, branches: Branches) {
+/** Reads the Log and its branches again; done once the Log's first page is read. */
+function refresh(log: Log, branches: Branches): Promise<void> {
   log.forgetAuthors();
-  void log.reload();
   void branches.reload();
+  return log.reload();
+}
+
+/**
+ * A commit to show in the Log, and a file to select among its changes: IntelliJ's
+ * `jumpToRevisionAsync`, from a click on an annotation. The Log takes it when it shows.
+ */
+const wanted = signal<{ hash: string; path: string } | undefined>(undefined);
+
+/** Shows a commit in the Log (the Git tool window shown by the caller), its file selected. */
+export function showInLog(hash: string, path: string): void {
+  wanted.set({ hash, path });
 }
 
 /** The Log's commands and shortcuts. */
@@ -741,12 +794,30 @@ export function GitLogView(props: { services: MenuServices; open: (tab: Tab) => 
         const log = new Log(host, env.id);
         const branches = new Branches(host, env.id);
         const reload = () => {
-          refresh(log, branches);
+          void refresh(log, branches);
         };
-        reload();
+        const first = refresh(log, branches);
         shown.set({ log, branches });
+        // Taken once the first page is read; its file selected once its changes are.
+        const taking = effect(() => {
+          const want = wanted.get();
+          if (!want) return undefined;
+          wanted.set(undefined);
+          // The file first: the commit's changes, once it's selected, select it as they're read.
+          log.file.set(want);
+          void first.then(async () => {
+            if (await log.select(want.hash)) return;
+            log.file.set(undefined);
+            notifications.notify({
+              title: `Commit ${want.hash.slice(0, 8)} isn’t in the log`,
+              type: 'warning',
+            });
+          });
+          return undefined;
+        });
         window.addEventListener('focus', reload);
         onCleanup(() => {
+          taking.dispose();
           window.removeEventListener('focus', reload);
           shown.set(undefined);
         });

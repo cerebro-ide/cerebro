@@ -14,10 +14,12 @@ import {
   rangeOf,
   refsOf,
   setupLog,
+  showInLog,
   type LogCommit,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
 import { FakeHost, project } from './fakes.js';
+import { notifications } from '../src/notifications.js';
 
 /** A line of `count` commits, newest first, the first with `refs`. */
 function history(count: number, refs: string[] = [], prefix = 'c'): LogCommit[] {
@@ -428,6 +430,54 @@ describe('a commit’s pane', () => {
 });
 
 const branch = (ref: string, current = false): Branch => ({ ref, hash: 'h', current });
+
+describe('showing a commit, as from an annotation', () => {
+  const selected = () =>
+    document
+      .querySelector('.playground-log__commits .cerebro-tree-row[aria-selected="true"]')
+      ?.getAttribute('data-key');
+  const selectedFile = () =>
+    document
+      .querySelector('.playground-log__files .cerebro-tree-row[aria-selected="true"]')
+      ?.textContent.trim();
+
+  it('selects it, loading pages until it’s there, and its file among its changes', async () => {
+    git.log = history(PAGE + 5);
+    const hash = `c${String(PAGE + 2)}`;
+    git.changes[`c${String(PAGE + 3)}..${hash}`] = [
+      { path: 'a.ts', status: 'modified' },
+      { path: 'src/b.ts', status: 'modified' },
+    ];
+    // Asked before the Log shows: taken once it has.
+    showInLog(hash, 'src/b.ts');
+    mount();
+    await expect.poll(selected).toBe(hash);
+    expect(skips()).toEqual([0, PAGE]);
+    await expect.poll(selectedFile).toBe('b.tssrc');
+    // Another commit chosen: no file selected among its changes.
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(selected).toBe('c0');
+    expect(selectedFile()).toBeUndefined();
+  });
+
+  it('clears the filters when they leave it out, and says so when it isn’t there at all', async () => {
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const field = document.querySelector('.playground-log__search-field') as HTMLInputElement;
+    await userEvent.click(field);
+    await userEvent.keyboard('fix{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    showInLog('c2', 'a.ts');
+    await expect.poll(selected).toBe('c2');
+    expect(field.value).toBe('');
+    // Not in the log, filtered or not.
+    showInLog('gone', 'a.ts');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Commit gone isn’t in the log');
+    expect(selected()).toBe('c2');
+  });
+});
 
 describe('the branches', () => {
   it('are HEAD, then the local ones and the remote ones, by directory, as IntelliJ orders them', () => {
