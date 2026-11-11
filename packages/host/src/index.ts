@@ -214,3 +214,4 @@ export {
   type Deleted,
   type NewBranch,
 } from './branches.js';
+export { createTag, listTags, validRevision, type NewTag } from './tags.js';

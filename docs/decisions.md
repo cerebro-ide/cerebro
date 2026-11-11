@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
@@ -2235,6 +2236,30 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Git → New Tag… (2026-11-11)
+
+The next of the Git menu's actions left by the decision "Fetch and Pull". From IntelliJ's source
+(`GitTag`, `GitTagDialog`, `GitReferenceValidator`, their words in `GitBundle`, and `Git.MainMenu`).
+
+- **In the Git menu after New Branch…,** as IntelliJ's; also in Find Action. No key, as IntelliJ's
+  keymaps give it none (its action has no shortcut, and no keymap file names it: searched).
+- **The dialog, "Tag":** Current Branch (`<no active branch>` when HEAD is detached), Tag Name,
+  Force, Commit with Validate, and Message, in IntelliJ's rows and with its tooltips; Create Tag.
+  The worktree's tags are read before it opens, as IntelliJ's reads them first ("Getting Existing
+  Tags…" says why when that fails, and no dialog opens).
+  - **Force** is enabled only while the name is a tag's that exists, and goes off when it isn't;
+    without it, "The tag with the same name exists." and Create Tag disabled.
+  - **Validate** asks git whether the commit names something (`git rev-parse --verify`); while the
+    text is the one that failed, "The commit or object name is invalid." Empty, it's HEAD.
+  - **Message:** when it has more than spaces, the tag is annotated, with the message as typed.
+- **Made by** `git tag [-a] [-f] [-F -] -- <name> [<commit>]`: IntelliJ's command, the message on
+  standard input where IntelliJ writes it to a file (the same message, without the file; `--`
+  added so a name that starts with "-" is taken as a name and refused by git, measured in the
+  host's tests). "Created tag x successfully.", or "Could not create tag" with git's words.
+- **Left out, open to change:** the Git Root field (a worktree is one repository here); IntelliJ's
+  Validate also opens the commit's changes when it's valid, which Cerebro doesn't yet.
+- **Not yet:** New Tag… from the Log's commit menu.
+
 ## Windows keep their size and place (2026-11-11)
 
 From the backlog's Polish list (and the diff viewer's Not yet): windows open as they were left, as
@@ -2462,8 +2487,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 `GitPullOption`, `GitMergeAction`, `GitOptionsPopupBuilder`, its `Git.MainMenu` and keymaps).
 
 - **The Git menu, in IntelliJ's order:** Commit…, Push…, Update Project…, Pull…, Fetch | the merge
-  and rebase actions, Resolve Conflicts… | Branches…, New Branch… | Current File, Uncommitted
-  Changes.
+  and rebase actions, Resolve Conflicts… | Branches…, New Branch…, New Tag… (added 2026-11-11:
+  decision "Git → New Tag…") | Current File, Uncommitted Changes.
 - **Fetch:** every remote, `git fetch --prune`, as IntelliJ's `fetchAllRemotes`; a remote that fails
   doesn't stop the others. "Fetch successful", with the remote branches pruned; or "Fetch failed"
   with git's words, each remote named when several failed. "Fetching…" on the status bar while it
@@ -2495,8 +2520,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
 - **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull; Rebase…, New Tag…, Reset HEAD… and Manage Remotes…
-  (the next PRs; Merge…: decision "Git → Merge…").
+  without remotes; View Commits after a pull; Rebase…, Reset HEAD… and Manage Remotes… (the next
+  PRs; Merge…: decision "Git → Merge…"; New Tag…: decision "Git → New Tag…").
 
 ## Branches (2026-11-10)
 

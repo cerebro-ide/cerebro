@@ -63,6 +63,7 @@ import {
   restoreBranch,
   type NewBranch,
 } from './branches.js';
+import { createTag, listTags, validRevision, type NewTag } from './tags.js';
 import {
   abortOperation,
   acceptSide,
@@ -754,6 +755,22 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await recording(worktree, `New Branch ${branch.name}`, git, () =>
       createBranch(worktree, branch, git),
     );
+    return null;
+  });
+  // Git → New Tag…'s.
+  connection.onRequest('git.tags', (params) => listTags(text(params, 'path'), git));
+  connection.onRequest('git.validRevision', (params) =>
+    validRevision(text(params, 'path'), text(params, 'revision'), git),
+  );
+  connection.onRequest('git.createTag', async (params) => {
+    const p = params as { commit?: unknown; message?: unknown; force?: unknown };
+    const tag: NewTag = {
+      name: text(params, 'name'),
+      ...(typeof p.commit === 'string' ? { commit: p.commit } : {}),
+      ...(typeof p.message === 'string' ? { message: p.message } : {}),
+      force: p.force === true,
+    };
+    await createTag(text(params, 'path'), tag, git);
     return null;
   });
   connection.onRequest('git.renameBranch', async (params) => {

@@ -961,6 +961,37 @@ describe('ignored files and rolling back', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
+  it('lists tags, checks a revision and makes a tag, as asked', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      bare(args)[0] === 'rev-parse'
+        ? Promise.reject(new Error('fatal: Needed a single revision'))
+        : Promise.resolve(bare(args)[0] === 'for-each-ref' ? 'v1\nv2\n' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.tags', { path: '/w' })).toEqual(['v1', 'v2']);
+    expect(await ui.request('git.validRevision', { path: '/w', revision: 'nope' })).toBe(false);
+    expect(await ui.request('git.createTag', { path: '/w', name: 'v3' })).toBe(null);
+    expect(
+      await ui.request('git.createTag', {
+        path: '/w',
+        name: 'v1',
+        commit: 'side',
+        message: 'One',
+        force: true,
+      }),
+    ).toBe(null);
+    expect(git).toHaveBeenCalledWith('/w', ['tag', '--', 'v3'], undefined, undefined);
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['tag', '-a', '-f', '-F', '-', '--', 'v1', 'side'],
+      undefined,
+      'One',
+    );
+    await expect(ui.request('git.createTag', { path: '/w' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+
   it('checks out, makes, renames, deletes, restores, merges and rebases branches, as asked', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'rev-parse' ? 'abc\n' : ''),

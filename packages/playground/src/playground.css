@@ -1410,6 +1410,30 @@ body,
   gap: 6px;
 }
 
+.playground-form > .playground-form__error {
+  grid-column: 1 / -1;
+}
+
+/* New Tag: Force under the name's field, Validate beside the commit's, the message's label at
+   its field's top. */
+.playground-tag__force {
+  grid-column: 2;
+}
+
+.playground-tag__commit {
+  display: flex;
+  gap: 6px;
+}
+
+.playground-tag__commit > .cerebro-dialog-field__input {
+  flex: 1;
+}
+
+.playground-tag__message > span {
+  align-self: start;
+  padding-top: 4px;
+}
+
 /* A password asked for SSH: the prompt over the field, and Remember. */
 .playground-password {
   display: flex;
