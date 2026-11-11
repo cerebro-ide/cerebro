@@ -56,6 +56,10 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **Find Action didn't list "Unstash Changes" once in a full local e2e run** (2026-11-11,
+  feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
+  closed a diff window; the file alone passed five times). The trace was overwritten before it was
+  read. `findAction` now prints the popup's field, its items and the focus when it fails.
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
   which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run

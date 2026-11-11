@@ -85,7 +85,7 @@ import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import '@cerebro-ide/ui-image/styles.css';
-import { DiffViewer, setupDiffViewer } from './diff-viewer.js';
+import { FileDiff, setupDiffViewer } from './diff-viewer.js';
 import { ImageTab, isImage, setupImages } from './images.js';
 import {
   active,
@@ -231,6 +231,22 @@ const shownProject = () => activeProject() as ProjectState;
 /** The active environment's editor area, if an environment is open. */
 const editor = () => active()?.editor;
 
+/**
+ * Opens a tab in the active environment; in the desktop app a diff opens in a window of its own,
+ * as IntelliJ's (Ido: "new window instead of as a tab").
+ */
+function openTab(tab: Tab): void {
+  const path = diffPath(tab.id);
+  const env = active()?.id;
+  if (path === undefined || !window.cerebro || env === undefined) {
+    editor()?.open(tab);
+    return;
+  }
+  const range = diffRange(tab.id);
+  const project = shownProject().path;
+  void window.cerebro.diff.open({ project, env, path, ...(range ? { range } : {}) });
+}
+
 // Navigation by name, through the host's index; Search Everywhere's commands open places with it.
 const navigation = setupNavigation(editor);
 const services = setupCommands(editor, layout.toolWindows, FILES, tabOf, {
@@ -257,7 +273,7 @@ setupLog(services);
 setupImages(services);
 setupDiffViewer(services);
 setupChanges(services, {
-  open: (tab) => editor()?.open(tab),
+  open: openTab,
   activeTab: () => editor()?.activeGroup.active,
   show: () => {
     showCommitTab();
@@ -266,7 +282,7 @@ setupChanges(services, {
   openAt: navigation.openAt,
 });
 setupShelf(services, {
-  open: (tab) => editor()?.open(tab),
+  open: openTab,
   show: () => {
     layout.toolWindows.show('commit');
   },
@@ -280,7 +296,7 @@ watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, {
   activeTab: () => editor()?.activeGroup.active,
-  open: (tab) => editor()?.open(tab),
+  open: openTab,
   showInLog: (hash, path) => {
     layout.toolWindows.show('git');
     showInLog(hash, path);
@@ -292,6 +308,21 @@ const jumpTo = (at: { path: string; line: number; column: number }) => {
   focusing.set(at.path, {});
 };
 setupProblems(services, { openAt: jumpTo });
+// Jump to Source from a diff window: the file, if it's still there, where its caret was.
+window.cerebro?.diff.onJump((at) => {
+  const { env, path, line, column } = at as {
+    env: string;
+    path: string;
+    line: number;
+    column: number;
+  };
+  const file = `${env}/${path}`;
+  void hostFor(env)
+    ?.request('fs.exists', { path: file })
+    .then((exists) => {
+      if (exists) jumpTo({ path: file, line, column });
+    });
+});
 
 // Terminals let the app's shortcuts through, except plain Ctrl+key, which programs use (Ctrl+C).
 setTerminalKeys((event) => {
@@ -1356,12 +1387,9 @@ function TerminalTabs() {
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
-  if (props.id === 'commit')
-    return <CommitWindow services={services} open={(tab) => editor()?.open(tab)} />;
-  if (props.id === 'agentChanges')
-    return <AgentChangesView services={services} open={(tab) => editor()?.open(tab)} />;
-  if (props.id === 'git')
-    return <GitLogView services={services} open={(tab) => editor()?.open(tab)} />;
+  if (props.id === 'commit') return <CommitWindow services={services} open={openTab} />;
+  if (props.id === 'agentChanges') return <AgentChangesView services={services} open={openTab} />;
+  if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
@@ -1527,41 +1555,19 @@ function Diff(props: { path: string; env: string; range: Range | undefined }) {
   const settings = settingsFor(props.env);
   const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
-  const loaded = signal<{ original: string; text: string } | { error: string } | undefined>(
-    undefined,
-  );
-  host.request('git.diff', { path: props.env, file: props.path, ...props.range }).then(
-    (result) => {
-      loaded.set(result as { original: string; text: string });
-    },
-    (error: unknown) => {
-      loaded.set({ error: (error as Error).message });
-    },
-  );
   return (
-    <div class="playground-code">
-      {() => {
-        const state = loaded.get();
-        if (!state) return <p class="playground-code__note">Loading…</p>;
-        if ('error' in state) {
-          return (
-            <p class="playground-code__note">
-              Can’t show the changes to {props.path}: {state.error}
-            </p>
-          );
-        }
-        return (
-          <DiffViewer
-            services={services}
-            path={props.path}
-            original={state.original}
-            text={state.text}
-            fontSize={() => settings.get('editor.fontSize') as number}
-            tabSize={() => settings.get('editor.tabSize') as number}
-          />
-        );
-      }}
-    </div>
+    <FileDiff
+      services={services}
+      path={props.path}
+      read={() =>
+        host.request('git.diff', { path: props.env, file: props.path, ...props.range }) as Promise<{
+          original: string;
+          text: string;
+        }>
+      }
+      fontSize={() => settings.get('editor.fontSize') as number}
+      tabSize={() => settings.get('editor.tabSize') as number}
+    />
   );
 }
 

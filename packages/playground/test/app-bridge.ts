@@ -77,6 +77,7 @@ export const calls: unknown[][] = [];
 type Added = (project: Project & { replaces?: string }) => void;
 let onAdded: Added = () => undefined;
 let onShow: (path: string) => void = () => undefined;
+let onJump: (at: unknown) => void = () => undefined;
 /** A project joins the window, as the app says when one opens. */
 export const added: Added = (project) => {
   onAdded(project);
@@ -84,6 +85,10 @@ export const added: Added = (project) => {
 /** A project of the window is asked to open again. */
 export const shownAgain = (path: string): void => {
   onShow(path);
+};
+/** Jump to Source from a diff window this window opened. */
+export const jumped = (at: unknown): void => {
+  onJump(at);
 };
 const recent: RecentProject[] = [
   { path: '/r', name: 'r', opened: 3, exists: true },
@@ -119,6 +124,17 @@ export function installBridge(platform: string, menu: unknown = {}): void {
       },
       onShow: (listener: typeof onShow) => {
         onShow = listener;
+        return () => undefined;
+      },
+    },
+    diff: {
+      open: (spec: unknown) => {
+        calls.push(['diff', spec]);
+        return Promise.resolve();
+      },
+      jump: () => Promise.resolve(),
+      onJump: (listener: typeof onJump) => {
+        onJump = listener;
         return () => undefined;
       },
     },

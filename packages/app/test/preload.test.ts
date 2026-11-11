@@ -3,6 +3,7 @@ import ts from 'typescript';
 import { describe, expect, it, vi } from 'vitest';
 import { SET_COLOURS } from '../src/colours.js';
 import { SET_SCALE } from '../src/display.js';
+import { DIFF_JUMP, DIFF_JUMPED, DIFF_OPEN } from '../src/diff-windows.js';
 import { HOST_NOTIFICATION, HOST_REQUEST } from '../src/host.js';
 import type { Answer } from '../src/ipc.js';
 import {
@@ -95,6 +96,8 @@ describe('the preload', () => {
     ]);
     expect(call('project', 'close', '/r')).toEqual(['invoke', PROJECT_CLOSE, '/r']);
     expect(call('project', 'forget', '/r')).toEqual(['invoke', PROJECT_FORGET, '/r']);
+    expect(call('diff', 'open', { path: 'a' })).toEqual(['invoke', DIFF_OPEN, { path: 'a' }]);
+    expect(call('diff', 'jump', { line: 1 })).toEqual(['invoke', DIFF_JUMP, { line: 1 }]);
     expect(call('passwords', 'get', 'k')).toEqual(['invoke', PASSWORD_GET, 'k']);
     expect(call('passwords', 'set', 'k', 'p')).toEqual(['invoke', PASSWORD_SET, 'k', 'p']);
     expect(call('host', 'request', '/r', 'fs.read', { path: 'a' })).toEqual([
@@ -121,6 +124,7 @@ describe('the preload', () => {
       api['project']?.['onAdded']?.((p: unknown) => void heard.push(['added', p])),
       api['project']?.['onShow']?.((p: unknown) => void heard.push(['show', p])),
       api['menu']?.['onCommand']?.((c: unknown) => void heard.push(['command', c])),
+      api['diff']?.['onJump']?.((at: unknown) => void heard.push(['jump', at])),
       api['host']?.['onNotification']?.(
         (...n: unknown[]) => void heard.push(['notification', ...n]),
       ),
@@ -129,6 +133,7 @@ describe('the preload', () => {
     emit(PROJECT_ADDED, { path: '/r' });
     emit(PROJECT_SHOW, '/r');
     emit(MENU_COMMAND, 'file.open');
+    emit(DIFF_JUMPED, { line: 1 });
     // What isn't a command, or a notification from a project's host, is dropped.
     emit(MENU_COMMAND, 1);
     emit(HOST_NOTIFICATION, '/r', 'index.progress', { done: 1 });
@@ -137,6 +142,7 @@ describe('the preload', () => {
       ['added', { path: '/r' }],
       ['show', '/r'],
       ['command', 'file.open'],
+      ['jump', { line: 1 }],
       ['notification', '/r', 'index.progress', { done: 1 }],
     ]);
     for (const stop of stops) stop();

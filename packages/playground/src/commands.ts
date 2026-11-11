@@ -9,7 +9,6 @@ import {
   KeyDispatcher,
   Keymap,
   MenuRegistry,
-  type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
@@ -24,7 +23,7 @@ import { setupEdit } from './edit.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
 import { pluginsPage } from './plugins-page.js';
-import { PRESETS } from './keymaps.js';
+import { keymapPlatform, PRESETS } from './keymaps.js';
 import { globalSettings, save, settingsFor } from './settings.js';
 import { themeIsDark } from './theme.js';
 
@@ -62,11 +61,6 @@ export function tabFile(
     name: full.split('/').at(-1),
     relative: root !== undefined && full.startsWith(root) ? full.slice(root.length) : undefined,
   };
-}
-
-/** The keymap's platform, for the system the page runs on (`navigator.platform`). */
-export function keymapPlatform(platform: string): Platform {
-  return platform.includes('Mac') ? 'mac' : 'other';
 }
 
 /** The theme, from the global settings: chosen, or the system's. */

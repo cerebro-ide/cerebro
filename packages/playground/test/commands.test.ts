@@ -5,13 +5,13 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
   dark,
-  keymapPlatform,
   menuVisible,
   setDark,
   setupCommands,
   tabFile,
   type TabContext,
 } from '../src/commands.js';
+import { keymapPlatform } from '../src/keymaps.js';
 import { projects, setupEnvironments, useProjects, workspace } from '../src/environments.js';
 import { userKeymaps } from '../src/keymap-page.js';
 import { globalSettings } from '../src/settings.js';

@@ -23,6 +23,22 @@ export interface RecentProject extends Project {
  */
 export type OpenIn = 'this' | 'new';
 
+/** What a diff window shows: a file of a project's worktree, against its last commit or between two. */
+export interface DiffSpec {
+  project: string;
+  env: string;
+  path: string;
+  range?: { from: string; to: string };
+}
+
+/** Where Jump to Source goes from a diff window: a place in a file of its worktree. */
+export interface DiffJump {
+  env: string;
+  path: string;
+  line: number;
+  column: number;
+}
+
 declare global {
   interface Window {
     cerebro?: {
@@ -50,6 +66,15 @@ declare global {
         onAdded(listener: (project: Project & { replaces?: string }) => void): () => void;
         /** One of the window's projects was asked to open again: show it. */
         onShow(listener: (path: string) => void): () => void;
+      };
+      /** Diffs in windows of their own. */
+      diff: {
+        /** Shows a file's diff in a window of its own. */
+        open(spec: DiffSpec): Promise<void>;
+        /** From a diff window: its opener goes to a place in a file. */
+        jump(at: DiffJump): Promise<void>;
+        /** In a project's window: each place its diff windows jump to. */
+        onJump(listener: (at: unknown) => void): () => void;
       };
       /** Passwords kept by key, encrypted by the system's keychain; null forgets one. */
       passwords: {

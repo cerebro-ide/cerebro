@@ -60,8 +60,8 @@ const electron = vi.hoisted(() => {
       this.loaded = url;
       return Promise.resolve();
     }
-    loadFile(path: string) {
-      this.loaded = path;
+    loadFile(path: string, options?: { hash?: string }) {
+      this.loaded = options?.hash === undefined ? path : `${path}#${options.hash}`;
       return FakeWindow.failLoad ? Promise.reject(new Error('gone')) : Promise.resolve();
     }
     static failLoad = false;
@@ -121,6 +121,8 @@ vi.mock('../src/fullscreen.js', () => ({ installFullScreen: vi.fn() }));
 
 const {
   createWindow,
+  diffWindow,
+  DIFF_SIZE,
   installProjects,
   projectWindow,
   saveFiles,
@@ -161,6 +163,37 @@ beforeEach(() => {
   electron.handlers.clear();
   electron.app.quit.mockClear();
   electron.BrowserWindow.failLoad = false;
+});
+
+describe('diffWindow', () => {
+  it('loads the page with the diff named in its hash, at its own size; on the dev server too', async () => {
+    vi.stubEnv('CEREBRO_DEV_URL', '');
+    const spec = { project: '/repo', env: '/repo', path: 'a.ts' };
+    const window = diffWindow(spec);
+    const fake = electron.windows[0] as FakeWindow;
+    expect(window.id).toBe(fake.webContents.id);
+    expect(fake.options).toEqual(expect.objectContaining(DIFF_SIZE));
+    await vi.waitFor(() => {
+      expect(fake.loaded).toMatch(/index\.html#diff=%7B%22project%22/);
+    });
+    vi.stubEnv('CEREBRO_DEV_URL', 'http://localhost:5173/');
+    diffWindow(spec);
+    vi.unstubAllEnvs();
+    await vi.waitFor(() => {
+      expect(electron.windows[1]?.loaded).toMatch(/^http:\/\/localhost:5173\/#diff=/);
+    });
+  });
+
+  it('says when its page can’t load', async () => {
+    vi.stubEnv('CEREBRO_DEV_URL', '');
+    electron.BrowserWindow.failLoad = true;
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    diffWindow({ project: '/repo', env: '/repo', path: 'a.ts' });
+    vi.unstubAllEnvs();
+    await vi.waitFor(() => {
+      expect(error).toHaveBeenCalledWith('The diff window could not load', expect.any(Error));
+    });
+  });
 });
 
 describe('createWindow', () => {

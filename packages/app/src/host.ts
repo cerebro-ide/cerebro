@@ -85,6 +85,8 @@ export interface HostWindow {
 export class Hosts {
   /** By window, then by project. */
   private readonly running = new Map<number, Map<string, ReturnType<typeof startHost>>>();
+  /** Windows that use another's hosts (a diff window, its opener's), by their id. */
+  private readonly sharing = new Map<number, number>();
 
   constructor(private readonly spawn: typeof nodeSpawn = nodeSpawn) {}
 
@@ -114,9 +116,18 @@ export class Hosts {
     if (hosts.size === 0) this.running.delete(window.id);
   }
 
-  /** Sends a request to the host of the project `repo` in the window `id`. */
+  /** Lets the window `id` send requests to the window `from`'s hosts, until `unshare`. */
+  share(id: number, from: number): void {
+    this.sharing.set(id, from);
+  }
+
+  unshare(id: number): void {
+    this.sharing.delete(id);
+  }
+
+  /** Sends a request to the host of the project `repo` in the window `id`, or the one it shares. */
   request(id: number, repo: string, method: string, params: unknown): Promise<unknown> {
-    const host = this.running.get(id)?.get(repo);
+    const host = this.running.get(this.sharing.get(id) ?? id)?.get(repo);
     if (!host) throw new Error(`This window has no project open at ${repo}`);
     // There and back, reported if slow: against the host's own time for it, the way's (`slow.ts`).
     return timed(`${method} from the app to the host of ${repo} and back`, () =>

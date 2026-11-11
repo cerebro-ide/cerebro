@@ -4,7 +4,8 @@
 // as IntelliJ keeps its diff settings, and the diffs open take them at once.
 
 import { formatSequence, type Keymap } from '@cerebro-ide/commands';
-import { signal, type Signal } from '@cerebro-ide/reactive';
+import { onCleanup } from '@cerebro-ide/jsx';
+import { effect, signal, untracked, type Signal } from '@cerebro-ide/reactive';
 import {
   DiffEditor,
   UnifiedDiffEditor,
@@ -288,4 +289,62 @@ export function DiffViewer(props: DiffViewerProps): Node {
   ) as HTMLElement;
   diffs.set(element, () => control.peek());
   return element;
+}
+
+/**
+ * A file's diff as `read` gives its two texts: "Loading…" until they're read, why if they can't
+ * be, then the diff and its toolbar. Read again when `version` changes (a diff window getting the
+ * focus back), it's shown again only if they've changed, so the caret stays where it was.
+ */
+export function FileDiff(props: {
+  services: MenuServices;
+  path: string;
+  read: () => Promise<{ original: string; text: string }>;
+  version?: () => number;
+  fontSize: () => number;
+  tabSize: () => number;
+}): Node {
+  type Loaded = { original: string; text: string } | { error: string };
+  const loaded = signal<Loaded | undefined>(undefined);
+  const show = (next: Loaded) => {
+    const now = loaded.peek();
+    if (JSON.stringify(now) !== JSON.stringify(next)) loaded.set(next);
+  };
+  const watch = effect(() => {
+    props.version?.();
+    untracked(() => {
+      props.read().then(show, (error: unknown) => {
+        show({ error: (error as Error).message });
+      });
+    });
+    return undefined;
+  });
+  onCleanup(() => {
+    watch.dispose();
+  });
+  return (
+    <div class="playground-code">
+      {() => {
+        const state = loaded.get();
+        if (!state) return <p class="playground-code__note">Loading…</p>;
+        if ('error' in state) {
+          return (
+            <p class="playground-code__note">
+              Can’t show the changes to {props.path}: {state.error}
+            </p>
+          );
+        }
+        return (
+          <DiffViewer
+            services={props.services}
+            path={props.path}
+            original={state.original}
+            text={state.text}
+            fontSize={props.fontSize}
+            tabSize={props.tabSize}
+          />
+        );
+      }}
+    </div>
+  );
 }

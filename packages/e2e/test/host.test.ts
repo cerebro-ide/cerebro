@@ -13,7 +13,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { KEYS, launch, type Running } from './app.js';
+import { diffWindow, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name, which git and
@@ -533,10 +533,11 @@ it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl
   await page.locator('.cm-content', { hasText: 'export class Shape {}' }).waitFor();
   expect(await page.locator('.cerebro-editor-diff').count()).toBe(0);
   await shape.click();
-  await page.keyboard.press('ControlOrMeta+d');
-  // The diff: the committed text on the left, the line added on the right.
-  const added = page.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
+  // The diff, in a window of its own: the committed text on the left, the line added on the right.
+  const diff = await diffWindow(running, () => page.keyboard.press('ControlOrMeta+d'));
+  const added = diff.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await expect.poll(() => added.allTextContents()).toEqual(['export {};']);
+  await diff.close();
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });
 
@@ -621,12 +622,13 @@ it('opens a changed file of the worktree it’s in, from the Commit window and f
     .toBe('// In the other worktree.');
   // Jump to Source from its diff goes to the same tab.
   await shape.click();
-  await page.keyboard.press('ControlOrMeta+d');
-  const changed = page.locator('.cerebro-editor-diff:visible .cm-diff-b .cm-diff-line');
+  const diff = await diffWindow(running, () => page.keyboard.press('ControlOrMeta+d'));
+  const changed = diff.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await changed.first().click();
-  await page.keyboard.press('F4');
+  await diff.keyboard.press('F4');
   await expect
     .poll(() => active.getAttribute('data-tab'))
     .toBe(gitPath(worktree, 'src', 'shape.ts'));
+  await diff.close();
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });

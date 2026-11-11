@@ -19,7 +19,7 @@
 //   and dialogs here.
 // A command none of them names (a plugin's) keeps the key its owner gives it.
 
-import type { Keymap, KeymapPreset } from '@cerebro-ide/commands';
+import type { Keymap, KeymapPreset, Platform } from '@cerebro-ide/commands';
 import type { EditorKeys } from '@cerebro-ide/ui-editor';
 
 /** The editor's own actions: CodeMirror runs them, with the keys the keymap gives them. */
@@ -796,4 +796,9 @@ export function editorKeys(keymap: Keymap): EditorKeys {
     undo: [],
     redo: [],
   };
+}
+
+/** The keymap's platform, for the system the page runs on (`navigator.platform`). */
+export function keymapPlatform(platform: string): Platform {
+  return platform.includes('Mac') ? 'mac' : 'other';
 }
