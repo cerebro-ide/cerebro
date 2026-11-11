@@ -56,8 +56,11 @@ describe('a diff window', () => {
     expect(requests).toEqual([
       ['/r', 'git.diff', { path: '/r/w', file: 'src/a.ts', ...SPEC.range }],
     ]);
-    // The diff's toolbar, as in a tab.
+    // The diff's toolbar, as in a tab, with Jump to Source; one file alone, none of a list's.
     expect(document.querySelector('[data-command="diff.nextDifference"]')).not.toBeNull();
+    expect(document.querySelector('[data-command="changes.jumpToSource"]')).not.toBeNull();
+    expect(document.querySelector('[data-command="diff.nextFile"]')).toBeNull();
+    expect(document.querySelector('.playground-diff-window__count')).toBeNull();
   });
 
   it('jumps to the source in its opener, where the caret is (zero-based), on its key', async () => {

@@ -18,6 +18,11 @@ export interface DiffSpec {
   env: string;
   path: string;
   range?: { from: string; to: string };
+  /**
+   * The files Compare Previous and Next File go through, `path` among them, as IntelliJ's diff
+   * chain: the list the diff was opened from.
+   */
+  chain?: string[];
 }
 
 /** A window, as diff windows see it: the one that opens them, or one of them. */
@@ -38,20 +43,26 @@ export function diffSpec(value: unknown): DiffSpec {
   const text = (v: unknown) => typeof v === 'string' && v !== '';
   const spec = value as Partial<DiffSpec> | null;
   const range = spec?.range;
+  const chain = spec?.chain as unknown;
   if (
     !spec ||
     !text(spec.project) ||
     !text(spec.env) ||
     !text(spec.path) ||
-    (range !== undefined && !(text(range.from) && text(range.to)))
+    (range !== undefined && !(text(range.from) && text(range.to))) ||
+    (chain !== undefined &&
+      !(Array.isArray(chain) && chain.every(text) && chain.includes(spec.path)))
   ) {
-    throw new Error('A diff needs a project, a worktree, a path, and commits if a range');
+    throw new Error(
+      'A diff needs a project, a worktree, a path, commits if a range, and its path in its files',
+    );
   }
   return {
     project: spec.project as string,
     env: spec.env as string,
     path: spec.path as string,
     ...(range ? { range: { from: range.from, to: range.to } } : {}),
+    ...(chain ? { chain: [...(chain as string[])] } : {}),
   };
 }
 

@@ -1640,6 +1640,9 @@ body,
   display: flex;
   flex-direction: column;
   height: 100vh;
+  /* The app's text, as the project window's. */
+  font-family: var(--cerebro-font);
+  font-size: var(--cerebro-font-size);
 }
 
 .playground-diff-window > .playground-code {
@@ -1650,4 +1653,11 @@ body,
 .playground-diff-window__title {
   padding: 0 8px;
   font-weight: 600;
+}
+
+/* The count of the list's files, which opens Go to Changed File: as wide as its text. */
+/* Over the diff toolbar's square buttons. */
+.playground-diff__toolbar .playground-diff-window__count {
+  width: auto;
+  padding: 0 6px;
 }

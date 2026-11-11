@@ -1,10 +1,12 @@
 // A diff with its toolbar, as IntelliJ's diff viewer: Previous and Next Difference (Shift+F7 and
-// F7), Collapse Unchanged Fragments, the viewer (side by side or unified), and the Settings gear
-// with Synchronize Scrolling and the policies, Ignore Differences and Highlighting Differences. The settings are kept for every diff,
-// as IntelliJ keeps its diff settings, and the diffs open take them at once.
+// F7), what a diff window puts after them (Jump to Source, its files), Collapse Unchanged
+// Fragments, the viewer (side by side or unified), and the Settings gear with Synchronize
+// Scrolling, the policies (Ignore Differences and Highlighting Differences) and Appearance. The
+// settings are kept for every diff, as IntelliJ keeps its diff settings, and the diffs open take
+// them at once.
 
 import { formatSequence, type Keymap } from '@cerebro-ide/commands';
-import { onCleanup } from '@cerebro-ide/jsx';
+import { onCleanup, type Child } from '@cerebro-ide/jsx';
 import { effect, signal, untracked, type Signal } from '@cerebro-ide/reactive';
 import {
   DiffEditor,
@@ -258,6 +260,11 @@ export interface DiffViewerProps {
   text: string;
   fontSize: () => number;
   tabSize: () => number;
+  /**
+   * What goes after Next Difference, as IntelliJ's diff window has Jump to Source and its files
+   * there: made with `button`, a command's button as the toolbar's own.
+   */
+  navigation?: (button: (command: string) => Node) => Child;
 }
 
 /** A diff and its toolbar. */
@@ -292,6 +299,7 @@ export function DiffViewer(props: DiffViewerProps): Node {
       >
         {button('diff.previousDifference')}
         {button('diff.nextDifference')}
+        {props.navigation?.(button)}
         <span class="playground-diff__separator" />
         {button('diff.collapseUnchanged')}
         <div class="playground-diff__viewers" role="group" aria-label="Viewer">
@@ -355,6 +363,7 @@ export function FileDiff(props: {
   version?: () => number;
   fontSize: () => number;
   tabSize: () => number;
+  navigation?: DiffViewerProps['navigation'];
 }): Node {
   type Loaded = { original: string; text: string } | { error: string };
   const loaded = signal<Loaded | undefined>(undefined);
@@ -394,6 +403,7 @@ export function FileDiff(props: {
             text={state.text}
             fontSize={props.fontSize}
             tabSize={props.tabSize}
+            {...(props.navigation ? { navigation: props.navigation } : {})}
           />
         );
       }}

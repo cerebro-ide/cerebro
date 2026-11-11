@@ -108,6 +108,8 @@ const host = new FakeHost({
 const commands = new CommandRegistry();
 const services: MenuServices = { commands, menus: new MenuRegistry(), keymap: new Keymap('other') };
 const opened: Tab[] = [];
+/** The files each diff opened goes through. */
+const chains: (readonly string[] | undefined)[] = [];
 
 let dispose: (() => void) | undefined;
 
@@ -130,6 +132,7 @@ afterEach(() => {
   document.body.replaceChildren();
   host.asked.length = 0;
   opened.length = 0;
+  chains.length = 0;
   git.failing = undefined;
   git.branchesFailing = undefined;
   git.branches = [];
@@ -145,7 +148,15 @@ function mount(withServices: MenuServices = services) {
   box.style.flexDirection = 'column';
   document.body.append(box);
   const handle = render(
-    () => <GitLogView services={withServices} open={(tab) => void opened.push(tab)} />,
+    () => (
+      <GitLogView
+        services={withServices}
+        open={(tab, chain) => {
+          opened.push(tab);
+          chains.push(chain);
+        }}
+      />
+    ),
     box,
   );
   dispose = () => {
@@ -383,6 +394,8 @@ describe('a commit’s pane', () => {
       fileRows().find((row) => row.textContent.includes(name)) as HTMLElement;
     await userEvent.dblClick(file('a.ts'));
     expect(opened).toEqual([{ id: 'diff@c1..c0:src/a.ts', title: 'a.ts' }]);
+    // Through the commit's files, as IntelliJ's.
+    expect(chains).toEqual([['src/a.ts', 'gone.ts']]);
     // F4 opens the file itself; not one that's deleted, nor on other keys.
     await userEvent.keyboard('{F4}');
     expect(opened.at(-1)).toEqual({ id: '/r/src/a.ts', title: 'a.ts' });

@@ -54,6 +54,11 @@ const PATHS: Record<string, string> = {
   // nextOccurence arrows), and its Settings gear (a claim: not IntelliJ's drawing).
   previousDiff: 'M8 13V3M4.5 6.5L8 3l3.5 3.5',
   nextDiff: 'M8 3v10M4.5 9.5L8 13l3.5-3.5',
+  // A diff window's Jump to Source (IntelliJ's editSource pencil) and Compare Previous and Next
+  // File (its back and forward arrows): a claim, not IntelliJ's drawing.
+  editSource: 'M3 13l.5-2.5 7-7 2 2-7 7zM9 5l2 2',
+  previousFile: 'M13 8H3M6.5 4.5L3 8l3.5 3.5',
+  nextFile: 'M3 8h10M9.5 4.5L13 8l-3.5 3.5',
   // The diff's viewers: two panes, side by side, or one with its lines (a claim: not IntelliJ's
   // drawing).
   sideBySide: 'M2.5 3.5h11v9h-11zM8 3.5v9',

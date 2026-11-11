@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own; Appearance (whitespace, line numbers, indent guides, soft wraps)
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2325,10 +2325,27 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   - 1100 by 750 to start with (a claim: not measured from IntelliJ, which remembers the size).
   - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to
     open, still shows diffs as tabs.
+- **The diff window goes through the list it was opened from,** as IntelliJ's diff chain
+  (`ChangesListViewDiffableSelectionUtil`, `DiffRequestProcessor.getNavigationActions`):
+  - The list: a Commit window file's group (its changelist, or the unversioned files) or an agent
+    turn's, in the tree's order; a shelved list's or a stash's files; a Log commit's files. Show
+    Diff on an annotation opens one file. One file alone shows none of what follows.
+  - After Next Difference, in IntelliJ's order: Jump to Source (its OpenInEditorAction, which is
+    EditSource's), Compare Previous File, the file's place in the list ("2/5"), and Compare Next
+    File. The place opens Go to Changed File: the list's files by name and folder, filtered as
+    typed, the one shown chosen.
+  - Compare Previous and Next File stop at the list's ends (that IntelliJ's do too is a claim).
+    Their keys are IntelliJ's for Diff.PrevChange and Diff.NextChange, from its keymap files:
+    Alt+Shift+Left and Right (`$default`, Emacs; VS Code takes them, as it names none); Ctrl+Shift
+    on macOS (Mac OS X 10.5+ and Mac OS X); Eclipse's Ctrl+Alt+Shift+Right for Previous and Left
+    for Next, as its file has them; NetBeans' Ctrl+Alt+Page Up and Down; none in Eclipse (macOS)
+    and Sublime Text.
+  - The icons are drawn here (a pencil and two arrows, a claim: not IntelliJ's drawings).
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
 - **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
-  window's size kept; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
+  window's size kept; F7 at the last difference going on to the next file ("Press again to go to
+  the next file"); several files selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   aligning changes, highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 

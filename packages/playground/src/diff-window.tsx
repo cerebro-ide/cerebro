@@ -1,7 +1,8 @@
-// A diff window's page (boot.ts): one file's diff, as IntelliJ's diff window, with the diff's toolbar
-// and keys. It names what it shows in its URL's hash, reads it through its opener's hosts (the app
-// shares them), takes the settings kept for every window (the theme, the keymap, the font), and
-// sends Jump to Source back to its opener.
+// A diff window's page (boot.ts): a file's diff, as IntelliJ's diff window, with the diff's toolbar
+// and keys, and the other files of the list it was opened from: Compare Previous and Next File, and
+// Go to Changed File from its count. It names what it shows in its URL's hash, reads it through its
+// opener's hosts (the app shares them), takes the settings kept for every window (the theme, the
+// keymap, the font), and sends Jump to Source back to its opener.
 
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
@@ -23,7 +24,10 @@ import {
 import { render } from '@cerebro-ide/jsx';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { diffSource } from '@cerebro-ide/ui-editor';
+import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
+import '@cerebro-ide/ui-popup/styles.css';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import type { DiffSpec } from './bridge.js';
 import { FileDiff, setupDiffViewer } from './diff-viewer.js';
 import { userKeymaps } from './keymap-page.js';
@@ -47,9 +51,17 @@ export function titleOf(spec: DiffSpec): string {
 
 const app = window.cerebro as NonNullable<Window['cerebro']>;
 const spec = specOf(location.hash);
+/** The files it goes through, and the one it shows. */
+const chain = spec.chain ?? [spec.path];
+const current = signal(spec.path);
+const at = () => chain.indexOf(current.get());
+const title = () => titleOf({ ...spec, path: current.get() });
 
 document.documentElement.classList.add('cerebro-app', `cerebro-platform-${app.platform}`);
-document.title = titleOf(spec);
+effect(() => {
+  document.title = title();
+  return undefined;
+});
 effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;
@@ -70,13 +82,47 @@ setupDiffViewer(services);
 services.commands.register({
   id: 'changes.jumpToSource',
   label: 'Jump to Source',
+  icon: 'editSource',
   enabled: () =>
     document.activeElement !== null && diffSource(document.activeElement) !== undefined,
   run: () => {
     const at = diffSource(document.activeElement as Element) as { line: number; column: number };
-    void app.diff.jump({ env: spec.env, path: spec.path, ...at });
+    void app.diff.jump({ env: spec.env, path: current.peek(), ...at });
   },
 });
+// The list's files, as IntelliJ's Diff.PrevChange and Diff.NextChange (its names, `ActionsBundle`).
+for (const [id, label, step] of [
+  ['diff.previousFile', 'Compare Previous File', -1],
+  ['diff.nextFile', 'Compare Next File', 1],
+] as const) {
+  services.commands.register({
+    id,
+    label,
+    icon: id.replace('diff.', ''),
+    enabled: () => chain[at() + step] !== undefined,
+    run: () => {
+      current.set(chain[at() + step] as string);
+    },
+  });
+}
+/** Go to Changed File: the list's files, by name and folder, the one shown chosen. */
+async function goToFile(anchor: Element): Promise<void> {
+  const items = chain.map((path) => {
+    const slash = path.lastIndexOf('/');
+    return slash < 0
+      ? { label: path, path }
+      : { label: path.slice(slash + 1), detail: path.slice(0, slash), path };
+  });
+  const chosen = await openPicker({
+    label: 'Go to Changed File',
+    position: { below: anchor },
+    placeholder: 'Filter',
+    items: (query) => fuzzyFilter(items, query),
+    initial: at(),
+    owner: anchor,
+  }).result;
+  if (chosen) current.set(chosen.path);
+}
 const dispatcher = new KeyDispatcher(keymap, services.commands);
 window.addEventListener('keydown', (event) => {
   const chord = chordFromEvent(event);
@@ -93,23 +139,46 @@ window.addEventListener('focus', () => {
 render(
   () => (
     <div class="playground-diff-window">
-      <MainToolbar
-        left={() => <span class="playground-diff-window__title">{document.title}</span>}
-      />
-      <FileDiff
-        services={services}
-        path={spec.path}
-        read={() =>
-          app.host.request(spec.project, 'git.diff', {
-            path: spec.env,
-            file: spec.path,
-            ...spec.range,
-          }) as Promise<{ original: string; text: string }>
-        }
-        version={() => version.get()}
-        fontSize={() => settings.get('editor.fontSize') as number}
-        tabSize={() => settings.get('editor.tabSize') as number}
-      />
+      <MainToolbar left={() => <span class="playground-diff-window__title">{title}</span>} />
+      {() => {
+        // Made again for each file, as IntelliJ's window shows the next.
+        const path = current.get();
+        return (
+          <FileDiff
+            services={services}
+            path={path}
+            read={() =>
+              app.host.request(spec.project, 'git.diff', {
+                path: spec.env,
+                file: path,
+                ...spec.range,
+              }) as Promise<{ original: string; text: string }>
+            }
+            version={() => version.get()}
+            fontSize={() => settings.get('editor.fontSize') as number}
+            tabSize={() => settings.get('editor.tabSize') as number}
+            navigation={(button) => [
+              button('changes.jumpToSource'),
+              ...(chain.length > 1
+                ? [
+                    button('diff.previousFile'),
+                    <button
+                      type="button"
+                      class="cerebro-toolbar-button playground-diff-window__count"
+                      ref={tooltip({ text: () => 'Go to Changed File', placement: 'below' })}
+                      on:click={(event) => {
+                        void goToFile(event.currentTarget as Element);
+                      }}
+                    >
+                      {() => `${String(at() + 1)}/${String(chain.length)}`}
+                    </button>,
+                    button('diff.nextFile'),
+                  ]
+                : []),
+            ]}
+          />
+        );
+      }}
     </div>
   ),
   document.getElementById('app') as HTMLElement,
