@@ -749,13 +749,70 @@ describe('ignored files and rolling back', () => {
       [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'origin'],
       ASKING,
     );
+    // Pull's with --rebase: from the branch asked for.
+    expect(
+      await ui.request('git.update', {
+        path: '/w',
+        method: 'rebase',
+        save: 'stash',
+        from: { remote: 'up', branch: 'dev' },
+      }),
+    ).toEqual({ kind: 'nothing' });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--quiet', '--end-of-options', 'up'],
+      ASKING,
+    );
     for (const params of [
       { path: '/w', method: 'pull', save: 'shelve' },
       { path: '/w', method: 'rebase', save: 'drawer' },
+      { path: '/w', method: 'rebase', save: 'stash', from: { remote: 'up' } },
     ]) {
       await expect(ui.request('git.update', params)).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,
       });
+    }
+  });
+
+  it('fetches every remote, pulls with the options asked, and says where a pull comes from', async () => {
+    const answers: Record<string, string> = {
+      remote: 'origin\n',
+      'rev-parse': '/nowhere/state\n',
+      'symbolic-ref': 'main\n',
+      'rev-list': '0\n',
+    };
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(answers[bare(args)[0] as string] ?? ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.fetch', { path: '/w' })).toEqual({ pruned: [], failed: [] });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'origin'],
+      ASKING,
+    );
+    expect(await ui.request('git.tracking', { path: '/w' })).toEqual({
+      branch: 'main',
+      remotes: ['origin'],
+      upstream: undefined,
+    });
+    expect(
+      await ui.request('git.pull', {
+        path: '/w',
+        remote: 'origin',
+        branch: 'main',
+        options: ['--ff-only'],
+      }),
+    ).toEqual({ kind: 'pulled', files: 0, commits: 0 });
+    expect(await ui.request('git.pull', { path: '/w', remote: 'origin', branch: 'main' })).toEqual({
+      kind: 'pulled',
+      files: 0,
+      commits: 0,
+    });
+    for (const options of ['--ff-only', ['--exec=x']]) {
+      await expect(
+        ui.request('git.pull', { path: '/w', remote: 'origin', branch: 'main', options }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     }
   });
 

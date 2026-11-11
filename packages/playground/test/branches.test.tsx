@@ -119,6 +119,19 @@ const choose = async (name: string, item: string) => {
 };
 
 describe('the branches popup', () => {
+  it('opens from the Git menu’s Branches…, at the window’s top, beside New Branch…', async () => {
+    const entries = JSON.stringify(menus.entries('main/git'));
+    expect(entries.indexOf('git.branches')).toBeLessThan(entries.indexOf('git.newBranch'));
+    expect(commands.get('git.branches')?.label).toBe('&Branches');
+    commands.execute('git.branches');
+    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(6);
+    // Centred, not below the toolbar's button.
+    const shown = (document.querySelector('.cerebro-popup') as HTMLElement).getBoundingClientRect();
+    expect(Math.abs(shown.left + shown.width / 2 - window.innerWidth / 2)).toBeLessThanOrEqual(1);
+    workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
+    expect(commands.isEnabled('git.branches')).toBe(false);
+  });
+
   it('lists New Branch…, then the local and remote branches, the current checked', async () => {
     await popup();
     expect(await popupItems()).toEqual([

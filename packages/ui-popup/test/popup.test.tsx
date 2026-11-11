@@ -375,6 +375,40 @@ describe('openPicker', () => {
     expect(handle.open).toBe(false);
   });
 
+  it('checks and unchecks options, staying open; one that can’t be chosen is greyed', async () => {
+    const checked = signal<string[]>([]);
+    const handle = picker({
+      items: () =>
+        ['--rebase', '--ff-only'].map((flag) => ({
+          label: flag,
+          option: {
+            checked: checked.get().includes(flag),
+            // Each goes only without the other.
+            enabled: checked.get().every((c) => c === flag),
+            run: () => {
+              const now = checked.peek();
+              checked.set(now.includes(flag) ? now.filter((c) => c !== flag) : [...now, flag]);
+            },
+          },
+        })),
+    });
+    const disabled = () =>
+      [...document.querySelectorAll('.cerebro-popup-item')].map((r) =>
+        r.classList.contains('cerebro-popup-item--disabled'),
+      );
+    key('Enter');
+    expect(checked.get()).toEqual(['--rebase']);
+    expect(handle.open).toBe(true);
+    expect(disabled()).toEqual([false, true]);
+    // Greyed: nothing.
+    await userEvent.click(document.querySelectorAll('.cerebro-popup-item')[1] as Element);
+    expect(checked.get()).toEqual(['--rebase']);
+    key('Enter');
+    expect(checked.get()).toEqual([]);
+    expect(disabled()).toEqual([false, false]);
+    expect(handle.open).toBe(true);
+  });
+
   it('closes an item with its close button, keeping the popup open', async () => {
     const tabs = signal(['a.ts', 'b.ts']);
     const handle = picker({

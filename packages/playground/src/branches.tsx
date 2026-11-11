@@ -185,7 +185,7 @@ export interface BranchesSetup {
 export function setupBranches(
   services: MenuServices,
   setup: BranchesSetup,
-): { pick: (button: HTMLElement) => PickerHandle<unknown> } {
+): { pick: (button?: HTMLElement) => PickerHandle<unknown> } {
   const { commands, menus } = services;
   /** The active worktree and its host. */
   const target = () => {
@@ -407,7 +407,8 @@ export function setupBranches(
         }),
     };
   };
-  const pick = (button: HTMLElement) => {
+  /** The popup, below the toolbar's button; from the Git menu or its key, at the window's top. */
+  const pick = (button?: HTMLElement) => {
     const at = target();
     if (at) {
       readBranches(at.host, at.worktree).catch((error: unknown) => {
@@ -417,8 +418,8 @@ export function setupBranches(
     const handle = openPicker<Choice>({
       label: 'Branches',
       placeholder: 'Search',
-      position: { below: button },
-      owner: button,
+      position: button ? { below: button } : 'top',
+      ...(button ? { owner: button } : {}),
       items: (query) => [
         ...fuzzyFilter(
           [{ label: 'New Branch…', run: () => commands.execute('git.newBranch') }],
@@ -437,5 +438,17 @@ export function setupBranches(
     void handle.result.then((choice) => choice?.run?.());
     return handle;
   };
+  commands.register({
+    id: 'git.branches',
+    label: '&Branches',
+    dialog: true,
+    enabled: () => target() !== undefined,
+    run: () => {
+      pick();
+    },
+  });
+  // IntelliJ's Git menu, its third group: Branches…, New Branch….
+  menus.contribute({ menu: 'main/git', item: { command: 'git.branches' }, group: 'an', order: 1 });
+  menus.contribute({ menu: 'main/git', item: { command: 'git.newBranch' }, group: 'an', order: 2 });
   return { pick };
 }

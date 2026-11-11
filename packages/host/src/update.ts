@@ -70,16 +70,17 @@ async function inTheWay(
   worktree: string,
   method: UpdateMethod,
   changes: Change[],
+  upstream: string,
   run: Git,
 ): Promise<boolean> {
   if (changes.length === 0) return false;
   if (method === 'rebase') return true;
   if (lines(await run(worktree, ['diff', '--cached', '--name-only'])).length > 0) return true;
-  const upstream = new Set(
-    lines(await run(worktree, ['diff', '--name-only', 'HEAD...@{upstream}'])),
+  const changed = new Set(
+    lines(await run(worktree, ['diff', '--name-only', `HEAD...${upstream}`])),
   );
   // A rename is in the index, so its old path needn't be looked at.
-  return changes.some((c) => upstream.has(c.path));
+  return changes.some((c) => changed.has(c.path));
 }
 
 /** Saves the changes in the way. */
@@ -122,10 +123,18 @@ const stopped = (resume: Resume): Updated => ({
   resume,
 });
 
-/** Updates the checked-out branch from its upstream; `remote` runs git's remote commands. */
+/**
+ * Updates the checked-out branch from its upstream, or from another remote branch (Pull's with
+ * `--rebase`, as IntelliJ's); `remote` runs git's remote commands.
+ */
 export async function update(
   worktree: string,
-  options: { method: UpdateMethod; save: SaveChanges; now?: Date },
+  options: {
+    method: UpdateMethod;
+    save: SaveChanges;
+    from?: { remote: string; branch: string };
+    now?: Date;
+  },
   run: Git,
   remote: Git,
 ): Promise<Updated> {
@@ -137,16 +146,25 @@ export async function update(
   } catch {
     return { kind: 'detached' };
   }
-  const upstreamRemote = (
-    await run(worktree, ['for-each-ref', '--format=%(upstream:remotename)', `refs/heads/${branch}`])
-  ).trim();
+  const upstreamRemote =
+    options.from?.remote ??
+    (
+      await run(worktree, [
+        'for-each-ref',
+        '--format=%(upstream:remotename)',
+        `refs/heads/${branch}`,
+      ])
+    ).trim();
   if (upstreamRemote === '') return { kind: 'noUpstream', branch };
+  const upstream = options.from
+    ? `refs/remotes/${options.from.remote}/${options.from.branch}`
+    : '@{upstream}';
   // As IntelliJ's: the upstream's remote, all of it.
   await remote(worktree, ['fetch', '--quiet', '--end-of-options', upstreamRemote], {
     GIT_TERMINAL_PROMPT: '0',
   });
   const commits = Number(
-    (await run(worktree, ['rev-list', '--count', 'HEAD..@{upstream}'])).trim(),
+    (await run(worktree, ['rev-list', '--count', `HEAD..${upstream}`])).trim(),
   );
   if (commits === 0) return { kind: 'nothing' };
   const resume: Resume = {
@@ -161,23 +179,21 @@ export async function update(
   if (
     options.method === 'rebase' &&
     changes.length > 0 &&
-    (await run(worktree, ['merge', '--ff-only', '@{upstream}']).then(
+    (await run(worktree, ['merge', '--ff-only', upstream]).then(
       () => true,
       () => false,
     ))
   ) {
     return updated(worktree, resume, run);
   }
-  if (await inTheWay(worktree, options.method, changes, run)) {
+  if (await inTheWay(worktree, options.method, changes, upstream, run)) {
     const message = savedMessage(options.now ?? new Date());
     resume.saved = await save(worktree, changes, options.save, message, run);
   }
   try {
     await run(
       worktree,
-      options.method === 'merge'
-        ? ['merge', '--no-stat', '-v', '@{upstream}']
-        : ['rebase', '@{upstream}'],
+      options.method === 'merge' ? ['merge', '--no-stat', '-v', upstream] : ['rebase', upstream],
     );
   } catch (error) {
     if ((await unfinished(worktree, run)) !== undefined) return stopped(resume);

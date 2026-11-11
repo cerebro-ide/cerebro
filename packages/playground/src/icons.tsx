@@ -8,6 +8,8 @@ const PATHS: Record<string, string> = {
   push: 'M8 13.5V3M4.5 6.5L8 3l3.5 3.5',
   // Push's arrow, down: IntelliJ's Update Project.
   update: 'M8 2.5V13M4.5 9.5L8 13l3.5-3.5',
+  // Update's arrow over a line: fetched, not yet in the branch (a claim: not IntelliJ's drawing).
+  fetch: 'M8 2.5V10M4.5 6.5L8 10l3.5-3.5M3 13.5h10',
   structure: 'M3 3h4v3H3zM9 10h4v3H9zM5 6v5.5h4M9 4.5h4',
   bookmark: 'M4.5 2.5h7v11L8 10.5l-3.5 3z',
   note: 'M3.5 2.5h9v11h-9zM5.5 5.5h5M5.5 8h5M5.5 10.5h3',

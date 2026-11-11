@@ -119,6 +119,14 @@ describe('Update Project', () => {
     ]);
   });
 
+  it('rebases on another remote branch without asking, as Pull’s --rebase', async () => {
+    await updateProject('/r', { remote: 'upstream', branch: 'dev' });
+    expect(host.params('git.update')).toEqual([
+      { path: '/r', method: 'rebase', save: 'shelve', from: { remote: 'upstream', branch: 'dev' } },
+    ]);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+  });
+
   it('does nothing when the dialog is cancelled', async () => {
     commands.execute('vcs.update');
     await dialog();

@@ -60,7 +60,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore)
+- [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
+- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, View (columns, Colors, Names) and Copy Revision Number
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -2231,7 +2232,53 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Fetch and Pull (2026-11-10)
+
+Ido's "all of the above", its first part: the Git menu's rest, here Fetch, Pull…, Branches… and New
+Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`, `GitPullDialog`,
+`GitPullOption`, `GitMergeAction`, `GitOptionsPopupBuilder`, its `Git.MainMenu` and keymaps).
+
+- **The Git menu, in IntelliJ's order:** Commit…, Push…, Update Project…, Pull…, Fetch | the merge
+  and rebase actions, Resolve Conflicts… | Branches…, New Branch… | Current File, Uncommitted
+  Changes.
+- **Fetch:** every remote, `git fetch --prune`, as IntelliJ's `fetchAllRemotes`; a remote that fails
+  doesn't stop the others. "Fetch successful", with the remote branches pruned; or "Fetch failed"
+  with git's words, each remote named when several failed. "Fetching…" on the status bar while it
+  runs, and Fetch disabled.
+- **Pull…:** IntelliJ's dialog, "Pull to main": `git pull`, the remote, and the branch there, its
+  branches suggested as it's typed. To start with, the upstream's; without one, origin (else the
+  first remote) and its branch of the same name. Its errors in its words: "Select the remote to pull
+  from", "The branch to pull from should be selected.", "There is no matching branch.".
+  - **Modify options:** IntelliJ's Add Pull Options popup: --rebase, --ff-only, --no-ff, --squash,
+    --no-commit, --no-verify, each with its description; those that can't go with the ones chosen
+    greyed, as `GitPullOption` excludes them; the popup stays open as they're toggled. The options
+    chosen show under the row, each removable, and are kept per repository, as IntelliJ keeps them
+    per project (in the page's storage: Cerebro's choice, open to change).
+  - **Merged:** `git pull --no-rebase --no-stat [options] -v remote branch`. `--no-rebase` is
+    Cerebro's: git 2.27 on refuses to pull divergent branches until told how (measured in the host's
+    tests). "N files updated in M commits", or "All files are up to date" with nothing brought, as
+    `GitMergeAction`. Failures in IntelliJ's words: "Git Pull Failed" for local changes in the way
+    ("Your local changes will be overwritten by pull. Commit, stash, or revert them to proceed."),
+    "Untracked Files Prevent Pull", else "Git Pull failed" with git's words. "Pulling changes from
+    origin" on the status bar while it runs.
+  - **--rebase:** through Update Project, rebasing on the branch chosen instead of the upstream, as
+    IntelliJ's `GitPull` runs its update; recorded in Local History as Pull.
+  - **At conflicts:** the Conflicts dialog, then the merge committed with git's message, unless
+    --no-commit; closed with some left, "There are pending unresolved conflicts." with Resolve….
+- **Branches… and New Branch…:** the branches popup (decision "Branches") and its Create New Branch
+  dialog, from the Git menu. Their keys are IntelliJ's: Ctrl+Shift+` for Branches… (none on macOS,
+  where IntelliJ removes it) and Ctrl+Alt+N for New Branch… (Meta+Alt+N on macOS); no other keymap
+  names either (measured: IntelliJ's keymap files). From the menu or its key, the popup opens at the
+  window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
+  window).
+- **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
+  without remotes; View Commits after a pull; Merge…, Rebase…, New Tag…, Reset HEAD… and Manage
+  Remotes… (the next PRs).
+
 ## Branches (2026-11-10)
+
+Git → Branches… and Git → New Branch… open it too (changed 2026-11-10: decision "Fetch and
+Pull").
 
 Ido's "all of the above", for branch operations: IntelliJ's branches popup, from the toolbar's
 branch selector, with "New Branch, Checkout, Merge into Current, Rebase Current onto Selected,
@@ -2275,8 +2322,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
   now); Checkout and Rebase onto, Compare with Current, Show Diff with Working Tree, Update, Push and
   Pull from the menu; deleting a remote branch; Checkout Tag or Revision; View Commits and Delete
-  Tracked Branch after a delete; the menu opening on hover; favourites and Recent; Git → Branches…
-  and Git → New Branch…; a remote branch whose local branch exists already.
+  Tracked Branch after a delete; the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
 ## Annotate with Git Blame (2026-11-09)
 

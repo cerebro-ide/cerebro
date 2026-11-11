@@ -95,6 +95,10 @@ export const INTELLIJ: KeymapPreset = {
     'vcs.push': ['Ctrl+Shift+K'],
     // Update Project: given where the action is declared (VcsActions.xml).
     'vcs.update': ['Ctrl+T'],
+    // Branches and New Branch: given where git's actions are declared (intellij.vcs.git.backend.xml)
+    // and in `$default`.
+    'git.branches': ['Ctrl+Shift+~'],
+    'git.newBranch': ['Ctrl+Alt+N'],
     'changes.amend': ['Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
@@ -167,6 +171,9 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'changes.commit': ['Meta+K'],
     'vcs.push': ['Meta+Shift+K'],
     'vcs.update': ['Meta+T'],
+    // Branches' key is removed on macOS where it's declared; New Branch's swapped from `$default`.
+    'git.branches': [],
+    'git.newBranch': ['Meta+Alt+N'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7'],
