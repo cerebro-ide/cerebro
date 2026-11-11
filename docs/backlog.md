@@ -59,6 +59,11 @@ on it:
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
   which assertion wasn't kept. The next failure's message will say.
+- **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
+  42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
+  highlighted 10 ms before the click. The popup closes when the window loses the focus or is
+  resized; that either happened isn't known. The test now prints the popups, their items' boxes,
+  the focus and the window's size when the click fails.
 - **The app stalls for tens of seconds in CI, now and then** (Windows: #161 and #162; macOS: #165,
   run 42944609115; Linux: #165, run 42988680864; 2026-11-11): "commits a merge started elsewhere"
   pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
