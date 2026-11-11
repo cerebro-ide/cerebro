@@ -37,14 +37,19 @@ export function specOf(hash: string): DiffSpec {
   return JSON.parse(decodeURIComponent(hash.replace(/^#diff=/, ''))) as DiffSpec;
 }
 
+/** The window's title: the file's name, and the commits it's between if it's a range's. */
+export function titleOf(spec: DiffSpec): string {
+  const name = spec.path.split('/').at(-1) as string;
+  return spec.range
+    ? `${name} (${spec.range.from.slice(0, 8)}..${spec.range.to.slice(0, 8)})`
+    : name;
+}
+
 const app = window.cerebro as NonNullable<Window['cerebro']>;
 const spec = specOf(location.hash);
-const name = spec.path.split('/').at(-1) as string;
 
 document.documentElement.classList.add('cerebro-app', `cerebro-platform-${app.platform}`);
-document.title = spec.range
-  ? `${name} (${spec.range.from.slice(0, 8)}..${spec.range.to.slice(0, 8)})`
-  : name;
+document.title = titleOf(spec);
 effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;

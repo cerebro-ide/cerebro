@@ -9,7 +9,6 @@ import {
   KeyDispatcher,
   Keymap,
   MenuRegistry,
-  type Platform,
 } from '@cerebro-ide/commands';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';

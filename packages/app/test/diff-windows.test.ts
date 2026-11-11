@@ -123,9 +123,9 @@ describe('diff windows', () => {
       ) as Promise<Answer>;
     expect(await ask(DIFF_OPEN, 1, spec)).toEqual({ result: undefined });
     expect(create).toHaveBeenCalledWith(spec);
-    expect(await ask(DIFF_OPEN, 1, { path: 3 })).toMatchObject({
-      error: expect.stringContaining('A diff needs'),
-    });
+    expect(((await ask(DIFF_OPEN, 1, { path: 3 })) as { error: string }).error).toContain(
+      'A diff needs',
+    );
     await ask(DIFF_JUMP, 2, { line: 1 });
     expect(opener.send).toHaveBeenCalledWith(DIFF_JUMPED, { line: 1 });
   });

@@ -1,14 +1,22 @@
 import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import type { Tab } from '@cerebro-ide/layout';
 import { diffTab } from '../src/changes.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
-import { added, answers, calls, host, installBridge, notify, shownAgain } from './app-bridge.js';
+import {
+  added,
+  answers,
+  calls,
+  host,
+  installBridge,
+  jumped,
+  notify,
+  shownAgain,
+} from './app-bridge.js';
 import { closeAll, dialog, dialogText, menuItem, menuItems, popupItems, press } from './fakes.js';
 
 // The page, as the desktop app shows it: a window with a project, its host answering through the
@@ -98,6 +106,20 @@ describe('a diff tab', () => {
             ?.textContent,
       )
       .toBe('Can’t show the changes to src/b.ts: no such file');
+  });
+
+  it('jumps to the source a diff window sends back, if the file’s still there', async () => {
+    answers.set('fs.exists', false);
+    jumped({ env: '/r', path: 'src/gone.ts', line: 1, column: 0 });
+    await expect
+      .poll(() => host('/r').params('fs.exists'))
+      .toContainEqual({
+        path: '/r/src/gone.ts',
+      });
+    answers.delete('fs.exists');
+    jumped({ env: '/r', path: 'src/c.ts', line: 2, column: 3 });
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    expect(env().editor.activeGroup.tabs.map((tab) => tab.id)).not.toContain('/r/src/gone.ts');
   });
 });
 
@@ -301,9 +323,7 @@ describe('the Git window', () => {
       )
       .toBe('First');
     expect(host('/r').params('git.log')).toContainEqual({ worktree: '/r', skip: 0, max: 1000 });
-    // A commit's file opens its diff in the editor.
-    const group = env().editor.activeGroup;
-    const before = group.tabs.find((tab) => tab.id === group.active) as Tab;
+    // A commit's file opens its diff in a window of its own.
     answers.set('git.changes', [{ path: 'src/a.ts', status: 'added' }]);
     answers.set('git.diff', { original: '', text: 'const a = 1;\n' });
     const window = '.cerebro-tool-window[data-id="git"]';
@@ -314,12 +334,10 @@ describe('the Git window', () => {
       document.querySelector(`${window} .playground-log__files .cerebro-tree-row`),
     );
     await userEvent.dblClick(file);
-    await expect
-      .poll(() => env().editor.activeGroup.active)
-      .toBe(`diff@${EMPTY_TREE}..c0:src/a.ts`);
-    // As it was, the tab active before active again, for the tests after.
-    env().editor.close(env().editor.activeGroup.id, `diff@${EMPTY_TREE}..c0:src/a.ts`);
-    env().editor.open(before);
+    expect(calls.at(-1)).toEqual([
+      'diff',
+      { project: '/r', env: '/r', path: 'src/a.ts', range: { from: EMPTY_TREE, to: 'c0' } },
+    ]);
     await userEvent.keyboard('{Alt>}9{/Alt}');
   });
 });
@@ -339,7 +357,7 @@ describe('the Commit window', () => {
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/a.ts');
     await userEvent.click(row(':src/a.ts'));
     await userEvent.keyboard('{Control>}d{/Control}');
-    await expect.poll(() => env().editor.activeGroup.active).toBe(diffTab('src/a.ts').id);
+    expect(calls.at(-1)).toEqual(['diff', { project: '/r', env: '/r', path: 'src/a.ts' }]);
     // Show Shelf, from Search Everywhere's actions.
     await userEvent.keyboard('{Shift}{Shift}');
     await popupItems();
@@ -351,9 +369,10 @@ describe('the Commit window', () => {
     await expect.poll(() => row('shelf:s1:src/s.ts')).toBeDefined();
     await userEvent.click(row('shelf:s1:src/s.ts'));
     await userEvent.keyboard('{Control>}d{/Control}');
-    await expect
-      .poll(() => env().editor.activeGroup.active)
-      .toBe(diffTab('src/s.ts', { from: 'b', to: 'c' }).id);
+    expect(calls.at(-1)).toEqual([
+      'diff',
+      { project: '/r', env: '/r', path: 'src/s.ts', range: { from: 'b', to: 'c' } },
+    ]);
   });
 });
 
@@ -738,10 +757,9 @@ describe('Annotate with Git Blame', () => {
       'Copy Revision Number',
       'Options',
     ]);
-    // Show Diff: the commit's changes to the file, in a tab.
+    // Show Diff: the commit's changes to the file, in a window of its own.
     await userEvent.click(menuItem('Show Diff'));
-    expect(env().editor.activeGroup.active).toMatch(/^diff@.*:src\/blamed\.ts$/);
-    env().editor.open({ id: '/r/src/blamed.ts', title: 'blamed.ts' });
+    expect(calls.at(-1)).toMatchObject(['diff', { env: '/r', path: 'src/blamed.ts' }]);
     await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
     // A click: the commit in the Git tool window's Log.
     await userEvent.click(annotation() as HTMLElement);

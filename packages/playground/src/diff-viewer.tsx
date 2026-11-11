@@ -336,5 +336,5 @@ export function FileDiff(props: {
         );
       }}
     </div>
-  ) as HTMLElement;
+  );
 }

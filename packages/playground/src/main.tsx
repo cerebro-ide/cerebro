@@ -238,12 +238,12 @@ const editor = () => active()?.editor;
 function openTab(tab: Tab): void {
   const path = diffPath(tab.id);
   const env = active()?.id;
-  const project = env === undefined ? undefined : projectOf(env)?.path;
-  if (path === undefined || !window.cerebro || env === undefined || project === undefined) {
+  if (path === undefined || !window.cerebro || env === undefined) {
     editor()?.open(tab);
     return;
   }
   const range = diffRange(tab.id);
+  const project = shownProject().path;
   void window.cerebro.diff.open({ project, env, path, ...(range ? { range } : {}) });
 }
 
