@@ -132,4 +132,7 @@ on it:
   nothing started the idle time again; the delay's cause is still not found. Seen again on #158 (2026-11-09):
   saved 6.1 s after the edit, the editor focused, the setting 1 s, no key after the typing; the
   race test before it took 18 s there, against 8–12 s on earlier branches, but locally #158 took
-  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced.
+  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced. Seen again on #163
+  (2026-11-11): saved 6.2 s after the edit, the same otherwise. A save slower than 2 s now says on
+  the console how long it waited behind the saves before, read the file, ran the hooks before
+  saving, and wrote it; the test prints that.

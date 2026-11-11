@@ -232,6 +232,8 @@ it('saves a file on its own after the idle time set in System Settings, or not w
           savedAfter: disk(second).includes('idle')
             ? `${String(Math.round(performance.now() - typed))} ms`
             : 'not in 35 s',
+          // Where a slow save's time went, as the page says (documents.ts, SLOW_SAVE).
+          slowSaves: running.messages.filter((m) => m.startsWith('Saving ')),
         });
         throw error;
       });
