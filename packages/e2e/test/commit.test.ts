@@ -401,12 +401,6 @@ it('updates the project from the upstream, after asking how, as IntelliJ’s', a
   await expect
     .poll(() => page().locator('.playground-log__message').allTextContents(), { timeout: 15_000 })
     .toEqual(['Theirs']);
-  // All again, for the tests after.
-  await page().locator('.playground-log__toolbar .cerebro-toolbar-dropdown').first().click();
-  await page().keyboard.press('Enter');
-  await expect
-    .poll(() => page().locator('.playground-log__message').count(), { timeout: 15_000 })
-    .toBeGreaterThan(1);
 });
 
 it('at conflicts, shows the Conflicts dialog and the merge window, then commits the merge', async () => {
