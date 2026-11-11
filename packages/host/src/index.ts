@@ -226,9 +226,10 @@ export {
 } from './branches.js';
 export { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
 export {
-  cherryPick,
-  continueCherryPick,
+  applyCommit,
+  continueApplying,
   onRemoteBranch,
-  type CherryPicked,
-} from './cherry-pick.js';
+  type Applied,
+  type Applying,
+} from './apply-changes.js';
 export { resetHead, type ResetMode } from './reset.js';
