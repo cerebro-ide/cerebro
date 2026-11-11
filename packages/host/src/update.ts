@@ -63,7 +63,8 @@ async function unfinished(
   run: Git,
 ): Promise<'merge' | 'rebase' | 'unmerged' | undefined> {
   const under = await operation(worktree, run);
-  if (under) return under;
+  // A cherry-pick under way stops it by its unmerged files alone, as IntelliJ's.
+  if (under === 'merge' || under === 'rebase') return under;
   const unmerged = await run(worktree, ['diff', '--name-only', '--diff-filter=U']);
   return unmerged.trim() === '' ? undefined : 'unmerged';
 }

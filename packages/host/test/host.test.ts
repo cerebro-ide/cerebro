@@ -964,13 +964,40 @@ describe('ignored files and rolling back', () => {
     });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
-    for (const operation of ['merge', 'rebase']) {
+    for (const operation of ['merge', 'rebase', 'cherry-pick']) {
       expect(await ui.request('git.abort', { path: '/w', operation })).toBe(null);
       expect(git).toHaveBeenCalledWith('/w', [operation, '--abort']);
     }
     await expect(
-      ui.request('git.abort', { path: '/w', operation: 'cherry-pick' }),
+      ui.request('git.abort', { path: '/w', operation: 'revert' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+  });
+
+  it('cherry-picks a commit by its hash, from the Log, and continues the pick', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(
+        bare(args)[0] === 'for-each-ref' ? 'main\n' : bare(args)[0] === 'rev-parse' ? '/w\n' : '',
+      ),
+    );
+    const { ui } = connect(git);
+    expect(
+      await ui.request('git.cherryPick', { path: '/w', hash: 'abc1234', protected: ['main'] }),
+    ).toBe('picked');
+    expect(git).toHaveBeenCalledWith('/w', ['cherry-pick', '-x', 'abc1234'], {
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_EDITOR: 'true',
+    });
+    expect(await ui.request('git.continueCherryPick', { path: '/w' })).toBe('picked');
+    // Not a hash, as an option would be taken; not a list of names.
+    for (const params of [
+      { hash: '--abort', protected: [] },
+      { hash: 'abc1234', protected: 'main' },
+      { hash: 'abc1234', protected: [1] },
+    ]) {
+      await expect(ui.request('git.cherryPick', { path: '/w', ...params })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
   });
 
   it('lists tags, checks a revision and makes a tag, as asked', async () => {
