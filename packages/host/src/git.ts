@@ -690,22 +690,29 @@ export interface Branch {
   hash: string;
   /** Checked out in this worktree. */
   current: boolean;
+  /** The branch a local one tracks, in full (`refs/remotes/origin/main`), if any. */
+  upstream?: string;
 }
 
 /** The repository's local and remote branches, but not a remote's HEAD, which names another. */
 export async function listBranches(worktree: string, run: Git = git): Promise<Branch[]> {
   const output = await run(worktree, [
     'for-each-ref',
-    '--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)',
+    '--format=%(refname)%09%(objectname)%09%(HEAD)%09%(symref)%09%(upstream)',
     'refs/heads',
     'refs/remotes',
   ]);
   return output
     .split('\n')
     .filter(Boolean)
-    .map((line) => line.split('\t') as [string, string, string, string])
+    .map((line) => line.split('\t') as [string, string, string, string, string])
     .filter(([, , , symref]) => symref === '')
-    .map(([ref, hash, head]) => ({ ref, hash, current: head === '*' }));
+    .map(([ref, hash, head, , upstream]) => ({
+      ref,
+      hash,
+      current: head === '*',
+      ...(upstream === '' ? {} : { upstream }),
+    }));
 }
 
 /** The checked-out branch, the remotes, and the branch's upstream: where a pull comes from. */

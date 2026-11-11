@@ -210,6 +210,7 @@ export {
   checkout,
   createBranch,
   deleteBranch,
+  deleteRemoteBranch,
   mergeBranch,
   rebase,
   rebaseOnto,

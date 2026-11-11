@@ -17,6 +17,7 @@ import { active, hostFor, projectOf, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
+import { isProtected } from './push.js';
 import { refreshAll } from './shelf.js';
 
 /** A branch the popup lists: `main`, or a remote one, `origin/main`. */
@@ -29,16 +30,26 @@ export interface BranchRef {
 interface HostBranch {
   ref: string;
   current: boolean;
+  upstream?: string;
 }
 
-/** The active worktree's branches, as last read; the current one, undefined when detached. */
+/**
+ * The active worktree's branches, as last read; the current one, undefined when detached; and the
+ * branch each local one tracks, in full, if any.
+ */
 interface Branches {
   local: string[];
   remote: string[];
   current: string | undefined;
+  upstreams: ReadonlyMap<string, string>;
 }
 
-const branches = signal<Branches>({ local: [], remote: [], current: undefined });
+const branches = signal<Branches>({
+  local: [],
+  remote: [],
+  current: undefined,
+  upstreams: new Map(),
+});
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
@@ -49,6 +60,11 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
     local: named('refs/heads/'),
     remote: named('refs/remotes/'),
     current: list.find((b) => b.current)?.ref.slice('refs/heads/'.length),
+    upstreams: new Map(
+      list.flatMap((b) =>
+        b.upstream === undefined ? [] : [[b.ref.slice('refs/heads/'.length), b.upstream]],
+      ),
+    ),
   });
 }
 
@@ -172,6 +188,39 @@ function branchDialog(
       ),
     ],
   }).result;
+}
+
+/**
+ * IntelliJ's question before deleting a remote branch (`confirmRemoteBranchDeletion`): Delete or
+ * Cancel, and whether the local branches tracking it go too (off to start with), when there are any.
+ * Undefined when cancelled.
+ */
+async function confirmRemoteDeletion(
+  name: string,
+  tracking: readonly string[],
+): Promise<{ withTracking: boolean } | undefined> {
+  const withTracking = signal(false);
+  const yes = await openDialog<true>({
+    title: 'Delete Remote Branch',
+    ok: { label: 'Delete', accept: () => true },
+    content: () => [
+      <p class="cerebro-selectable">{`Delete remote branch ${name}?`}</p>,
+      tracking.length === 0 ? null : (
+        <label class="playground-rollback__option">
+          <input
+            type="checkbox"
+            on:change={(event) => {
+              withTracking.set((event.currentTarget as HTMLInputElement).checked);
+            }}
+          />
+          {tracking.length === 1
+            ? `Delete tracking local branch ${tracking[0] as string} as well`
+            : `Delete tracking local branches: ${tracking.join(', ')}`}
+        </label>
+      ),
+    ],
+  }).result;
+  return yes === true ? { withTracking: withTracking.peek() } : undefined;
 }
 
 export interface BranchesSetup {
@@ -333,37 +382,85 @@ export function setupBranches(
       });
     },
   });
+  /**
+   * Deletes a remote branch (`origin/x`) where it is, once asked, and the local branches tracking it
+   * if chosen, as IntelliJ's `GitDeleteRemoteBranchOperation`.
+   */
+  const deleteRemote = (name: string) =>
+    operate(`Failed to delete remote branch ${name}`, async (host, worktree) => {
+      const { local, current: checkedOut, upstreams } = branches.peek();
+      // Not the current branch, even if it tracks it, as IntelliJ's.
+      const tracking = local.filter(
+        (l) => l !== checkedOut && upstreams.get(l) === `refs/remotes/${name}`,
+      );
+      const decision = await confirmRemoteDeletion(name, tracking);
+      if (!decision) return;
+      await host.request('git.deleteRemoteBranch', { path: worktree, name });
+      const also: string[] = [];
+      for (const l of decision.withTracking ? tracking : []) {
+        try {
+          await host.request('git.deleteBranch', { path: worktree, name: l });
+          also.push(l);
+        } catch (error) {
+          notifications.notify({
+            title: `Branch ${l} wasn't deleted`,
+            content: (error as Error).message,
+            type: 'error',
+            display: 'sticky',
+          });
+        }
+      }
+      notifications.notify({
+        title: `Deleted remote branch ${name}`,
+        ...(also.length === 0
+          ? {}
+          : {
+              content: `Also deleted local ${also.length === 1 ? 'branch' : 'branches'}: ${also.join(', ')}`,
+            }),
+      });
+    });
+  const deleteLocal = (b: BranchRef) =>
+    operate(`Branch ${b.name} wasn't deleted`, async (host, worktree) => {
+      const deleted = (await host.request('git.deleteBranch', {
+        path: worktree,
+        name: b.name,
+      })) as { hash: string; unmerged: boolean; tracked?: string };
+      const { tracked } = deleted;
+      notifications.notify({
+        title: `Deleted Branch: ${b.name}`,
+        ...(deleted.unmerged ? { content: 'Unmerged commits were discarded' } : {}),
+        actions: [
+          {
+            label: 'Restore',
+            run: () => {
+              void operate(`Could not Restore ${b.name}`, async (h, w) => {
+                await h.request('git.restoreBranch', {
+                  path: w,
+                  name: b.name,
+                  hash: deleted.hash,
+                });
+              });
+            },
+          },
+          // The remote branch it alone tracked, unless it's protected, as IntelliJ's.
+          ...(tracked === undefined || isProtected(tracked.slice(tracked.indexOf('/') + 1))
+            ? []
+            : [
+                {
+                  label: 'Delete Tracked Branch',
+                  run: () => {
+                    void deleteRemote(tracked);
+                  },
+                },
+              ]),
+        ],
+      });
+    });
   commands.register<BranchRef>({
     id: 'git.branch.delete',
     label: '&Delete',
-    // A remote branch's deletion pushes: not yet.
-    visible: (b) => !b.remote && !isCurrent(b),
-    run: (b) => {
-      return operate(`Branch ${b.name} wasn't deleted`, async (host, worktree) => {
-        const deleted = (await host.request('git.deleteBranch', {
-          path: worktree,
-          name: b.name,
-        })) as { hash: string; unmerged: boolean };
-        notifications.notify({
-          title: `Deleted Branch: ${b.name}`,
-          ...(deleted.unmerged ? { content: 'Unmerged commits were discarded' } : {}),
-          actions: [
-            {
-              label: 'Restore',
-              run: () => {
-                void operate(`Could not Restore ${b.name}`, async (h, w) => {
-                  await h.request('git.restoreBranch', {
-                    path: w,
-                    name: b.name,
-                    hash: deleted.hash,
-                  });
-                });
-              },
-            },
-          ],
-        });
-      });
-    },
+    visible: (b) => !isCurrent(b),
+    run: (b) => (b.remote ? deleteRemote(b.name) : deleteLocal(b)),
   });
   // IntelliJ's order (`Git.Branch.Backend.Checkout`, `Git.Branch.Backend`), what's here of it.
   const groups: [string, string[]][] = [

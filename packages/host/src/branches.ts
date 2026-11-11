@@ -49,10 +49,36 @@ export async function renameBranch(
   await run(worktree, ['branch', '--move', from, to]);
 }
 
-/** A branch deleted: where it was, to restore it; whether commits only it had were dropped. */
+/**
+ * A branch deleted: where it was, to restore it; whether commits only it had were dropped; and the
+ * remote branch it tracked (`origin/x`), if that's there and no other local branch tracks it, as
+ * IntelliJ's `GitDeleteBranchOperation` offers Delete Tracked Branch then.
+ */
 export interface Deleted {
   hash: string;
   unmerged: boolean;
+  tracked?: string;
+}
+
+const REMOTES = 'refs/remotes/';
+
+/** The remote branch a local branch tracks, if it's there and the branch alone tracks it. */
+async function trackedAlone(worktree: string, name: string, run: Git) {
+  const refs = (
+    await run(worktree, [
+      'for-each-ref',
+      '--format=%(refname)%09%(upstream)',
+      'refs/heads',
+      REMOTES,
+    ])
+  )
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => line.split('\t') as [string, string]);
+  const own = refs.find(([ref]) => ref === `refs/heads/${name}`)?.[1] ?? '';
+  const there = refs.some(([ref]) => ref === own);
+  const others = refs.some(([ref, upstream]) => upstream === own && ref !== `refs/heads/${name}`);
+  return own.startsWith(REMOTES) && there && !others ? own.slice(REMOTES.length) : undefined;
 }
 
 /**
@@ -61,13 +87,41 @@ export interface Deleted {
  */
 export async function deleteBranch(worktree: string, name: string, run: Git): Promise<Deleted> {
   const hash = (await run(worktree, ['rev-parse', '--verify', `refs/heads/${name}`])).trim();
+  const tracked = await trackedAlone(worktree, name, run);
+  let unmerged = false;
   try {
     await run(worktree, ['branch', '--delete', name]);
-    return { hash, unmerged: false };
   } catch (error) {
     if (!/not fully merged/.test((error as Error).message)) throw error;
     await run(worktree, ['branch', '--delete', '--force', name]);
-    return { hash, unmerged: true };
+    unmerged = true;
+  }
+  return tracked === undefined ? { hash, unmerged } : { hash, unmerged, tracked };
+}
+
+/**
+ * Deletes a remote branch (`origin/x`) where it is, as IntelliJ's `GitDeleteRemoteBranchOperation`:
+ * a push of nothing to it, with the remote commands' git (`remote`); if the remote has it no more,
+ * the remote's branches here are pruned instead.
+ */
+export async function deleteRemoteBranch(
+  worktree: string,
+  name: string,
+  remote: Git,
+): Promise<void> {
+  const slash = name.indexOf('/');
+  const remoteName = name.slice(0, slash);
+  const branch = name.slice(slash + 1);
+  const quiet = { GIT_TERMINAL_PROMPT: '0' };
+  try {
+    await remote(
+      worktree,
+      ['push', '--end-of-options', remoteName, `:refs/heads/${branch}`],
+      quiet,
+    );
+  } catch (error) {
+    if (!(error as Error).message.includes('remote ref does not exist')) throw error;
+    await remote(worktree, ['remote', 'prune', '--end-of-options', remoteName], quiet);
   }
 }
 
