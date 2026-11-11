@@ -60,7 +60,8 @@ type PushDivergence =
   | { kind: 'fetchRequired'; lease: string };
 
 /** Branches a force push doesn't go to: IntelliJ's protected branches, by default. */
-export const isProtected = (target: string) => target === 'main' || target === 'master';
+export const PROTECTED: readonly string[] = ['main', 'master'];
+export const isProtected = (target: string) => PROTECTED.includes(target);
 
 /** Where force pushes go without asking, as IntelliJ's Don't warn about this target keeps them. */
 const silentKey = (worktree: string) => `cerebro.push.silent:${worktree}`;

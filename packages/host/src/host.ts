@@ -69,6 +69,7 @@ import {
   type RebaseParams,
 } from './branches.js';
 import { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
+import { cherryPick, continueCherryPick, onRemoteBranch } from './cherry-pick.js';
 import { resetHead } from './reset.js';
 import {
   abortOperation,
@@ -738,13 +739,42 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.abort', async (params) => {
     const worktree = text(params, 'path');
     const op = (params as { operation?: unknown }).operation;
-    if (op !== 'merge' && op !== 'rebase') {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'operation must be merge or rebase');
+    if (op !== 'merge' && op !== 'rebase' && op !== 'cherry-pick') {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'operation must be merge, rebase or cherry-pick',
+      );
     }
-    await recording(worktree, op === 'merge' ? 'Abort Merge' : 'Abort Rebase', git, () =>
-      abortOperation(worktree, op, git),
-    );
+    const named = {
+      merge: 'Abort Merge',
+      rebase: 'Abort Rebase',
+      'cherry-pick': 'Abort Cherry-Pick',
+    };
+    await recording(worktree, named[op], git, () => abortOperation(worktree, op, git));
     return null;
+  });
+  // The Log's Cherry-Pick, and Continue Cherry-Pick: `protected` names the branches on a remote
+  // that make a commit published, its message then saying where it's from.
+  connection.onRequest('git.cherryPick', async (params) => {
+    const worktree = text(params, 'path');
+    const hash = text(params, 'hash');
+    const named = (params as { protected?: unknown }).protected;
+    if (!/^[0-9a-f]{4,64}$/i.test(hash)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'hash must be a commit hash');
+    }
+    if (!Array.isArray(named) || !named.every((n) => typeof n === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'protected must be a list of names');
+    }
+    const published = await onRemoteBranch(worktree, hash, (n) => named.includes(n), git);
+    return recording(worktree, 'Cherry-Pick', git, () =>
+      cherryPick(worktree, hash, published, git),
+    );
+  });
+  connection.onRequest('git.continueCherryPick', (params) => {
+    const worktree = text(params, 'path');
+    return recording(worktree, 'Continue Cherry-Pick', git, () =>
+      continueCherryPick(worktree, git),
+    );
   });
   // The branches popup's, as IntelliJ's: each that changes files recorded in the Local History.
   connection.onRequest('git.checkout', async (params) => {

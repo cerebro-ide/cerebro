@@ -17,6 +17,9 @@ const PATHS: Record<string, string> = {
   problems: 'M8 2.5l6 10.5H2zM8 6.5v3M8 11.2v.3',
   // A light bulb: a context action, as IntelliJ's.
   bulb: 'M8 2a4 4 0 0 0-2.5 7.1v1.9h5V9.1A4 4 0 0 0 8 2zM6 13.5h4',
+  // Two cherries on their stems: IntelliJ's Cherry-Pick (a claim: not IntelliJ's drawing).
+  cherryPick:
+    'M5 9.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM11 8.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 9.5L9 2.5l2 6M9 2.5h3.5',
   git: 'M5 3v10M5 9c0-2 6-1 6-4M11 5a1.5 1.5 0 1 0 0-.01M5 13a1.5 1.5 0 1 0 0-.01',
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
   // With a dot: notifications not seen yet (a claim: IntelliJ's dot is coloured).

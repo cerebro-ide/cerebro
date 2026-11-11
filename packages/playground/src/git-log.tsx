@@ -542,6 +542,29 @@ const shown = signal<{ log: Log; branches: Branches } | undefined>(undefined);
 /** Where the toolbar's commands come from. */
 const FROM_LOG = { source: 'log' };
 
+/** What the commit menu acts on, for a commit of `log`. */
+function commitContext(log: Log, branches: Branches, commit: LogCommit): LogCommitContext {
+  const head = log.commits
+    .peek()
+    .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
+  return {
+    commit,
+    worktree: log.worktree,
+    host: log.host,
+    ...(head ? { head: head.hash } : {}),
+    refresh: () => refresh(log, branches),
+  };
+}
+
+/** The Log's selected commit, as its commit menu has it: what its toolbar's Cherry-Pick picks. */
+export function selectedCommit(): LogCommitContext | undefined {
+  const at = shown.get();
+  if (!at) return undefined;
+  const hash = at.log.model.selected;
+  const commit = hash === undefined ? undefined : at.log.commit(hash);
+  return commit && commitContext(at.log, at.branches, commit);
+}
+
 /** From the Log's toolbar, or a shortcut while it has the keyboard. */
 const here = (context: unknown) =>
   (context as { source?: string } | undefined)?.source === 'log' ||
@@ -914,6 +937,13 @@ function LogToolbar(props: {
             shortcut={shortcutOf(services, 'log.refresh')}
             context={() => FROM_LOG}
           />,
+          // IntelliJ's Vcs.Log.Toolbar, between Refresh and the presentation settings.
+          <ToolbarButton
+            commands={services.commands}
+            command="log.cherryPick"
+            icon={icon('cherryPick')}
+            context={() => FROM_LOG}
+          />,
           // After the presentation settings in IntelliJ's (`Vcs.Log.ToolbarGroup`).
           <ToolbarButton
             commands={services.commands}
@@ -994,17 +1024,12 @@ export function GitLogView(props: {
               label={`${env.name} log`}
               row={(commit) => <CommitRow commit={commit} log={log} />}
               onContextMenu={(event, commit) => {
-                const head = log.commits
-                  .peek()
-                  .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
-                const context: LogCommitContext = {
-                  commit,
-                  worktree: env.id,
-                  host,
-                  ...(head ? { head: head.hash } : {}),
-                  refresh: () => refresh(log, branches),
-                };
-                openContextMenu(props.services, 'log/commit', event, context);
+                openContextMenu(
+                  props.services,
+                  'log/commit',
+                  event,
+                  commitContext(log, branches, commit),
+                );
               }}
             />
           );

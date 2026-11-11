@@ -18,7 +18,7 @@ export interface ConflictedFile {
 }
 
 /** What's under way. */
-export type Operation = 'merge' | 'rebase';
+export type Operation = 'merge' | 'rebase' | 'cherry-pick';
 
 export interface Conflicts {
   operation: Operation | undefined;
@@ -27,7 +27,7 @@ export interface Conflicts {
   yours?: string;
   /** The branch merged, or rebased onto. */
   theirs?: string;
-  /** During a rebase: where onto, and the commit replayed. */
+  /** During a rebase: where onto, and the commit replayed; during a cherry-pick, the commit picked. */
   onto?: string;
   commit?: { hash: string; author: string; message: string };
 }
@@ -48,10 +48,19 @@ async function rebaseFolder(worktree: string, run: Git): Promise<string | undefi
   return (await gitFile(worktree, 'rebase-merge', run)) ?? gitFile(worktree, 'rebase-apply', run);
 }
 
-/** The merge or rebase under way, if any. */
+/** The merge, rebase or cherry-pick under way, if any. */
 export async function operation(worktree: string, run: Git): Promise<Operation | undefined> {
   if (await rebaseFolder(worktree, run)) return 'rebase';
-  return (await gitFile(worktree, 'MERGE_HEAD', run)) ? 'merge' : undefined;
+  if (await gitFile(worktree, 'MERGE_HEAD', run)) return 'merge';
+  return (await gitFile(worktree, 'CHERRY_PICK_HEAD', run)) ? 'cherry-pick' : undefined;
+}
+
+/** A commit's short hash, author and message, as the Conflicts dialog names it. */
+async function commitOf(worktree: string, revision: string, run: Git) {
+  const [hash, author, message] = (
+    await run(worktree, ['log', '-1', '--format=%h%x00%an%x00%B', revision])
+  ).split('\0') as [string, string, string];
+  return { hash, author, message: message.trim() };
 }
 
 /** Whether git's sides are swapped for IntelliJ's yours and theirs (`isReverseRoot`). */
@@ -121,11 +130,11 @@ export async function listConflicts(worktree: string, run: Git): Promise<Conflic
     const branch = await branchAt(worktree, onto, run);
     if (branch) conflicts.theirs = branch;
     // Stopped at conflicts, git names the commit replayed REBASE_HEAD.
-    const [hash, author, message] = (
-      await run(worktree, ['log', '-1', '--format=%h%x00%an%x00%B', 'REBASE_HEAD'])
-    ).split('\0') as [string, string, string];
-    conflicts.commit = { hash, author, message: message.trim() };
+    conflicts.commit = await commitOf(worktree, 'REBASE_HEAD', run);
     return conflicts;
+  }
+  if (op === 'cherry-pick') {
+    return { operation: op, files, commit: await commitOf(worktree, 'CHERRY_PICK_HEAD', run) };
   }
   return { operation: op, files };
 }

@@ -225,4 +225,10 @@ export {
   type NewBranch,
 } from './branches.js';
 export { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
+export {
+  cherryPick,
+  continueCherryPick,
+  onRemoteBranch,
+  type CherryPicked,
+} from './cherry-pick.js';
 export { resetHead, type ResetMode } from './reset.js';
