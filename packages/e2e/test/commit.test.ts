@@ -28,10 +28,10 @@ const message = () => page().locator('.playground-commit__message');
 const row = (key: string) => page().locator(`.cerebro-tree-row[data-key$="${key}"]`);
 /** What the window and the repository show, printed when a test fails: CI's log is all there is. */
 async function seen(): Promise<void> {
-  // The items shown: hidden tasks' text is there too, and `textContent` took it.
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
+  // The items shown: hidden tasks' text is there too, and `textContent` took it.
   console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
