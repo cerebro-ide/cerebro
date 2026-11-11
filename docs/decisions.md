@@ -2374,6 +2374,10 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   again. On to start with: IntelliJ's default for diffs from the Commit window, the Log and a file's
   history, where Cerebro's are; elsewhere it starts expanded (Claude's choice that one default fits
   every diff here, open to change). Both toggles are kept between sessions, for every diff.
+  - The lines of context are IntelliJ's setting, Settings → Tools → Diff & Merge → Context lines
+    (2026-11-11): 1, 2, 4 (its default) or 8, a band's clicks showing as many again, then twice
+    that; or Disable, which folds nothing, the toggle disabled. A list where IntelliJ has a slider
+    (Claude's choice, open to change: the settings pages have no slider).
 - **Previous and Next Difference** (Shift+F7 and F7; Visual Studio's F8 too, Eclipse's Ctrl+F7,
   macOS System's Cmd+[ and Cmd+], as IntelliJ's keymaps give them), on the toolbar too: the caret
   to the change before or after it on the side last focused, in the middle of the view; disabled
@@ -2405,6 +2409,10 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   - Collapse Unchanged Fragments, the policies, and Previous and Next Difference work as on the
     side-by-side viewer. No Synchronize Scrolling, with one editor;
   - Jump to Source from a removed line goes to where its change is in the file.
+  - A file as it is is edited on the right's lines, as IntelliJ's (its unified viewer edits its
+    master side): not its removed lines, nor the line breaks around them (an edit touching one is
+    refused). Compared again after each edit, the editor takes only what changed, and the caret
+    stays on its line of the right.
   - The chooser's icons are drawn for Cerebro (a claim: not IntelliJ's drawings), as is the
     border around the two (IntelliJ's is a segmented button).
 - **Appearance,** last in the gear under its heading, as IntelliJ's (`SetEditorSettingsActionGroup`,
@@ -2465,7 +2473,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     back, to the previous file's last change. Going to a difference, or another file shown,
     forgets the first press; any key or scrolling hides the hint. As IntelliJ's, its Go to next
     file setting on, its default (`DiffDifferenceNavigationAction`, `DiffRequestProcessor`'s
-    DiffNavigator, `DiffSettingsHolder`); the setting itself isn't here yet. The hint is centred
+    DiffNavigator, `DiffSettingsHolder`). The setting is IntelliJ's, in Settings → Tools → Diff &
+    Merge, "Go to the next file after reaching last change", on by default (2026-11-11); off,
+    Next Difference stops at the last change, and Compare Next File still goes on. The hint is centred
     40px from the diff's end the way it goes, bold, in a tooltip's colours (IntelliJ puts it by the
     change, in its information hint's colours: a simplification, open to change).
   - The diff takes the keyboard as a file shows, as IntelliJ's window gives it to its editor, and
@@ -2473,7 +2483,21 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     the caret of the side last focused).
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
-- **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the Go to next file setting (Settings → Tools → Diff & Merge); several files
+- **A diff of a file as it is edits its document** (2026-11-11), as IntelliJ's diff of local
+  changes edits the file's one document: its right side is the file's text with its unsaved
+  edits, edited there, in either viewer, and saved as the file's tab is (the arrows by each change
+  take the left's, as in the file cache conflict).
+  - In a diff window, the document is its project window's: the window asks for it and edits it
+    there through the app, which tells the project window's diff windows its text as it changes.
+    Its own edits, told back, aren't news; a text told while one of its edits is on its way isn't
+    shown, as the edit will replace it.
+  - Changed elsewhere (in the file's tab), the diff shows it, made again: the caret goes back to
+    its first change (Claude's choice, open to change: keeping it is a refinement).
+  - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
+    commits.
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's options, and whether
+  diffs go in the navigation history);
+  several files
   selected as the list; moving every diff open when the choice changes, as IntelliJ's
   (`reopenDiffEditorsForFiles`; here the one it's chosen in moves); a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and

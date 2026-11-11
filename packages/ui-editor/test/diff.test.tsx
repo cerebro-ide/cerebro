@@ -258,6 +258,24 @@ describe('collapsing unchanged fragments', () => {
     await expect.poll(() => folds(root, 'b')).toEqual(['46 unchanged lines', '45 unchanged lines']);
   });
 
+  it('leaves the lines of context asked for by each change, folded again as they change', async () => {
+    const context = signal(2);
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      collapse: () => true,
+      context: () => context.get(),
+    });
+    await expect.poll(() => folds(root, 'b')).toEqual(['48 unchanged lines', '47 unchanged lines']);
+    await expect.poll(() => root.querySelectorAll('.cm-diff-divider path').length).toBe(3);
+    // Shown more: twice as many.
+    await userEvent.click(root.querySelector('.cm-diff-b .cm-diff-fold') as Element);
+    await expect.poll(() => folds(root, 'b')).toEqual(['46 unchanged lines', '47 unchanged lines']);
+    context.set(8);
+    await expect.poll(() => folds(root, 'b')).toEqual(['42 unchanged lines', '41 unchanged lines']);
+  });
+
   it('shows all at once a fold too short to keep folding', async () => {
     // 12 unchanged lines before the change: 8 folded, then 4, then too few at 16 lines of context.
     const root = mount({

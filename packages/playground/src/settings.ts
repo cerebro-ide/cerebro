@@ -27,6 +27,9 @@ registry.registerPage({ id: 'vcs/git', title: 'Git', parent: 'vcs' });
 // Where plugins for languages put their pages (Prettier's), as IntelliJ's.
 registry.registerPage({ id: 'languages', title: 'Languages & Frameworks', order: 7 });
 registry.registerPage({ id: 'languages/javascript', title: 'JavaScript', parent: 'languages' });
+// IntelliJ's Tools → Diff & Merge (`DiffSettingsConfigurable`).
+registry.registerPage({ id: 'tools', title: 'Tools', order: 8 });
+registry.registerPage({ id: 'tools/diff', title: 'Diff & Merge', parent: 'tools' });
 
 registry.register({
   id: 'appearance.theme',
@@ -286,3 +289,35 @@ export function save(settings: Settings, scopes: readonly Scope[]): void {
     }
   }
 }
+// The lines Collapse Unchanged Fragments leaves by each change: IntelliJ's choices, 4 by default
+// (`TextDiffSettingsHolder`'s CONTEXT_RANGE_MODES), its words (`DiffBundle`). A list for its slider
+// (Claude's choice, open to change: the settings pages have no slider).
+registry.register({
+  id: 'diff.contextLines',
+  title: 'Context lines',
+  description:
+    'The unchanged lines a diff shows by each change as Collapse Unchanged Fragments folds the rest; Disable folds none.',
+  page: 'tools/diff',
+  type: 'enum',
+  default: '4',
+  options: [
+    { value: '1', label: '1' },
+    { value: '2', label: '2' },
+    { value: '4', label: '4' },
+    { value: '8', label: '8' },
+    { value: 'disable', label: 'Disable' },
+  ],
+  scopes: ['global'],
+});
+// On by default, as IntelliJ's (`DiffSettingsHolder`'s GO_TO_NEXT_FILE_ON_NEXT_DIFFERENCE); its
+// words, `DiffBundle`'s.
+registry.register({
+  id: 'diff.goToNextFile',
+  title: 'Go to the next file after reaching last change',
+  description:
+    'In a diff window opened from a list, Next Difference (F7) pressed again at the last change goes on to the next file, and Previous Difference to the previous one.',
+  page: 'tools/diff',
+  type: 'boolean',
+  default: true,
+  scopes: ['global'],
+});
