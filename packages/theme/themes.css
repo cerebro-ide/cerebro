@@ -163,6 +163,10 @@
   --cerebro-image-chessboard-white: #ffffff;
   --cerebro-image-chessboard-black: #c0c0c0;
   --cerebro-image-grid: #c0c0c0;
+  /* The image diff's Difference: the pixels changed, and the faded colour under the rest. Not from
+     IntelliJ, which has no such mode; not measured. */
+  --cerebro-image-diff-changed: #ff3dd4;
+  --cerebro-image-diff-unchanged: #1e2022;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #548af7;
   --cerebro-agent-waiting: #e5a345;
@@ -342,6 +346,8 @@
   --cerebro-log-ref-tag: #7a7a7a;
   /* The image viewer's grid, JBColor.DARK_GRAY's light colour. */
   --cerebro-image-grid: #404040;
+  --cerebro-image-diff-changed: #e0009e;
+  --cerebro-image-diff-unchanged: #ffffff;
   /* An agent's state: working, waiting for the user, done (not measured). */
   --cerebro-agent-working: #3574f0;
   --cerebro-agent-waiting: #c77d0e;

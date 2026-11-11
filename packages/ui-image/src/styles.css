@@ -63,3 +63,150 @@
   color: var(--cerebro-text-muted);
   text-align: center;
 }
+
+/* The image diff: its modes above, then the two sides or the two in one, and its status line. */
+.cerebro-image-diff {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--cerebro-background);
+}
+
+.cerebro-image-diff__modes {
+  display: flex;
+  flex: none;
+  gap: 2px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--cerebro-border);
+}
+
+.cerebro-image-diff__mode {
+  padding: 2px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text);
+  font: inherit;
+}
+
+.cerebro-image-diff__mode:hover:not(:disabled) {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-image-diff__mode[aria-checked='true'] {
+  border-color: var(--cerebro-accent);
+}
+
+.cerebro-image-diff__mode:disabled {
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-image-diff__sides {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.cerebro-image-diff__side {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cerebro-image-diff__side + .cerebro-image-diff__side {
+  border-left: 1px solid var(--cerebro-border);
+}
+
+.cerebro-image-diff__title,
+.cerebro-image-diff__info {
+  flex: none;
+  padding: 2px 8px;
+  overflow: hidden;
+  color: var(--cerebro-text-muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cerebro-image-diff__side .cerebro-image {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.cerebro-image-diff__stacked {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cerebro-image-diff__area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* The larger image's frame, on the chessboard, centred; both images from its top left. */
+.cerebro-image-diff__stage {
+  position: relative;
+  flex: none;
+  margin: auto;
+  background-color: var(--cerebro-image-chessboard-white);
+  background-image: conic-gradient(
+    var(--cerebro-image-chessboard-black) 25%,
+    var(--cerebro-image-chessboard-white) 0 50%,
+    var(--cerebro-image-chessboard-black) 0 75%,
+    var(--cerebro-image-chessboard-white) 0
+  );
+  background-size: 10px 10px;
+}
+
+.cerebro-image-diff__layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+}
+
+.cerebro-image-diff__layer--pixels {
+  image-rendering: pixelated;
+}
+
+.cerebro-image-diff__swipe-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--cerebro-accent);
+  pointer-events: none;
+}
+
+.cerebro-image-diff__slider {
+  flex: none;
+  width: min(320px, 80%);
+  margin: 6px auto;
+  accent-color: var(--cerebro-accent);
+}
+
+.cerebro-image-diff__caption,
+.cerebro-image-diff__empty {
+  margin: auto;
+  padding: 6px;
+  color: var(--cerebro-text-muted);
+  text-align: center;
+}
+
+.cerebro-image-diff__caption {
+  flex: none;
+}
+
+.cerebro-image-diff__status {
+  flex: none;
+  margin: 0;
+  padding: 2px 8px;
+  border-top: 1px solid var(--cerebro-border);
+  color: var(--cerebro-text-muted);
+}
