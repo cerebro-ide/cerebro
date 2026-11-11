@@ -110,7 +110,9 @@ const READY = '.cerebro-toolbar, .playground-welcome';
  * Installed in every page: says on the console when no animation frame came for over a second, the
  * page's visibility and focus then. Playwright's click waits for an element to be "stable" over
  * frames, and under xvfb in CI some clicks waited forever (testing.md): this is to see whether the
- * page stopped making frames then, and why.
+ * page stopped making frames then, and why. And when the window is resized or loses focus, either
+ * of which closes a popup (ui-popup): a forced click on a popup's item failed as "not visible" in CI
+ * (#181, 2026-11-11), which is what Playwright says of an element no longer in the page.
  */
 function watchFrames(): void {
   const page = window as unknown as { framesWatched?: boolean };
@@ -128,6 +130,12 @@ function watchFrames(): void {
     requestAnimationFrame(frame);
   };
   requestAnimationFrame(frame);
+  window.addEventListener('resize', () => {
+    console.warn(`Window: resized to ${String(innerWidth)}x${String(innerHeight)}`);
+  });
+  window.addEventListener('blur', () => {
+    console.warn('Window: lost focus');
+  });
   setInterval(() => {
     const gap = performance.now() - last;
     if (stalled || gap < 1000) return;
@@ -181,14 +189,14 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
   const output: string[] = [];
-  /** Each window's frames that stopped coming (`watchFrames`), by window and time. */
+  /** Each window's frames that stopped coming, resizes and lost focus (`watchFrames`), by window and time. */
   const frames: string[] = [];
   const listen = ({ app, page }: { app: ElectronApplication; page: Page }) => {
     page.on('console', (message) => messages.push(message.text()));
     const watch = (window: Page, name: string) => {
       window.on('console', (message) => {
         const text = message.text();
-        if (text.startsWith('Frames: ')) {
+        if (/^(Frames|Window): /.test(text)) {
           frames.push(`${text} (${name}, ${new Date().toISOString().slice(11, 23)})`);
         }
       });

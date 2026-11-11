@@ -30,8 +30,8 @@ paths:
 - **A browser test file that never loads** ("Failed to fetch dynamically imported module", or an
   iframe that never becomes ready) can be Chrome cancelling requests in flight when the machine's
   network changes (`ERR_NETWORK_CHANGED` in its net log, `--log-net-log`). Measured on 2026-11-03:
-  a Docker container restarting in a loop added an interface each minute. `ip monitor address`
-  shows such changes.
+  a Docker container restarting in a loop added an interface each minute (stopped since, at Ido's
+  word: none in 75 s after). `ip monitor address` shows such changes.
 - **A page that runs as it's imported** (`main.tsx`, `welcome.tsx`, `boot.ts`) has a test file
   for each way it starts (`main-browser`, `main-app`, `main-mac`, `main-reload`): each sets up
   `window.cerebro` and `#app`, then imports it. A module that reads something as it's imported
@@ -49,8 +49,10 @@ paths:
 - **Under xvfb in CI, Playwright's click can wait forever for an element to be "stable"** (not
   reproduced locally, even under xvfb). Clicks that hit this use `{ force: true }`, with a comment.
   Why isn't known: "stable" is measured over animation frames, and every page now says on the
-  console when none came for over a second, and whether it was visible and focused (`watchFrames`
-  in `test/app.ts`); each file prints those as it ends.
+  console when none came for over a second, and whether it was visible and focused, and when its
+  window is resized or loses focus (`watchFrames` in `test/app.ts`); each file prints those as it
+  ends. Frames kept coming when a forced click on a popup's item failed as "not visible" (#181):
+  Playwright says that of an element gone from the page, and a popup closes on a resize or blur.
 - **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
   test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each
