@@ -15,6 +15,7 @@ import {
   refsOf,
   setupLog,
   showInLog,
+  viewCommits,
   type LogCommit,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
@@ -113,8 +114,13 @@ const chains: (readonly string[] | undefined)[] = [];
 
 let dispose: (() => void) | undefined;
 
+/** How many times View Commits showed the Git tool window. */
+let shownLog = 0;
+
 beforeAll(() => {
-  setupLog(services);
+  setupLog(services, () => {
+    shownLog++;
+  });
   useProjects([
     project('/r', host),
     project('/s', undefined),
@@ -493,6 +499,38 @@ describe('showing a commit, as from an annotation', () => {
   });
 });
 
+describe('View Commits, after an update', () => {
+  it('shows the Git window, its Log the commits between, the other filters but Paths cleared', async () => {
+    const start = `${'a'.repeat(8)}${'1'.repeat(32)}`;
+    const end = `${'b'.repeat(8)}${'2'.repeat(32)}`;
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    git.byBranch[`${start}..${end}`] = history(2, [], 'u');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const field = document.querySelector('.playground-log__search-field') as HTMLInputElement;
+    await userEvent.click(field);
+    await userEvent.keyboard('fix{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    const before = shownLog;
+    viewCommits({ start, end });
+    expect(shownLog).toBe(before + 1);
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('u0');
+    expect(field.value).toBe('');
+    // git's range, its ends shortened in the Branch filter.
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: PAGE,
+      branches: [`${start}..${end}`],
+    });
+    expect(
+      document.querySelector('.playground-log__toolbar .cerebro-toolbar-dropdown__text')
+        ?.textContent,
+    ).toBe('Branch: aaaaaaaa..bbbbbbbb');
+  });
+});
+
 describe('the branches', () => {
   it('are HEAD, then the local ones and the remote ones, by directory, as IntelliJ orders them', () => {
     const names = (nodes: ReturnType<typeof branchTree>): unknown[] =>
@@ -718,7 +756,10 @@ describe('Refresh', () => {
 
   it('is IntelliJ’s Cmd+R on macOS', () => {
     const keymap = new Keymap('mac');
-    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
+    setupLog(
+      { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
+      () => undefined,
+    );
     expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
   });
 });
@@ -808,7 +849,10 @@ describe('the text filter', () => {
 
   it('is focused with Cmd+L on macOS, as IntelliJ’s keymaps take Ctrl there', () => {
     const keymap = new Keymap('mac');
-    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap });
+    setupLog(
+      { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
+      () => undefined,
+    );
     expect(keymap.shortcutsFor('log.focusTextFilter')).toEqual(['Meta+L']);
   });
 });

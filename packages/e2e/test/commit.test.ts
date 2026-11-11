@@ -393,6 +393,20 @@ it('updates the project from the upstream, after asking how, as IntelliJ’s', a
       timeout: 15_000,
     })
     .toContain('1 file updated in 1 commit');
+  // View Commits: the Git window's Log, with the commit it brought alone.
+  await page()
+    .locator('.cerebro-balloon', { hasText: '1 file updated in 1 commit' })
+    .locator('.cerebro-notification__action', { hasText: 'View Commits' })
+    .click();
+  await expect
+    .poll(() => page().locator('.playground-log__message').allTextContents(), { timeout: 15_000 })
+    .toEqual(['Theirs']);
+  // All again, for the tests after.
+  await page().locator('.playground-log__toolbar .cerebro-toolbar-dropdown').first().click();
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(() => page().locator('.playground-log__message').count(), { timeout: 15_000 })
+    .toBeGreaterThan(1);
 });
 
 it('at conflicts, shows the Conflicts dialog and the merge window, then commits the merge', async () => {

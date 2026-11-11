@@ -285,7 +285,9 @@ async function closeActiveProject(): Promise<void> {
   await closeProject(project.path);
 }
 await setupProjects(services.commands, services.menus, closeActiveProject);
-setupLog(services);
+setupLog(services, () => {
+  layout.toolWindows.show('git');
+});
 setupImages(services);
 // In the app, Show Diff in Separate Window from a diff tab: it closes, and opens in a window.
 setupDiffViewer(

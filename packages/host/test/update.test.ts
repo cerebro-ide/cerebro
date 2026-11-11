@@ -73,11 +73,14 @@ describe('updating the project, with real git', () => {
     upstream('theirs');
     upstream('more');
     commit(repo, 'mine');
+    const start = run(repo, 'rev-parse', 'HEAD').trim();
     const remote = vi.fn(git);
+    // HEAD before and after, for View Commits.
     expect(await update(repo, merge, git, remote)).toEqual({
       kind: 'updated',
       files: 2,
       commits: 2,
+      range: { start, end: run(repo, 'rev-parse', 'HEAD').trim() },
       restored: true,
     });
     expect(remote).toHaveBeenCalledWith(repo, ['fetch', '--quiet', '--end-of-options', 'origin'], {
@@ -201,6 +204,7 @@ describe('updating the project, with real git', () => {
       kind: 'updated',
       files: 1,
       commits: 1,
+      range: { start: before, end: run(repo, 'rev-parse', 'HEAD').trim() },
       restored: true,
     });
     expect(subjects(repo)[0]).toBe("Merge remote-tracking branch 'origin/main'");
@@ -226,6 +230,7 @@ describe('updating the project, with real git', () => {
       kind: 'updated',
       files: 0,
       commits: 1,
+      range: { start: resume.before, end: run(repo, 'rev-parse', 'HEAD').trim() },
       restored: true,
     });
     expect(subjects(repo).slice(0, 2)).toEqual(['mine', 'theirs']);

@@ -58,7 +58,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Pushing (2026-11-08)](#pushing-2026-11-08): IntelliJ's Push dialog, from Git → Push… (Ctrl+Shift+K) or the Commit window's Commit and Push…; the remote and the branch there chosen in it, or a remote defined; Push tags; the warning when the remote has diverged, with Fetch and Force Push; the commits and the selected one's files; the checked-out branch to its upstream; Pushing… on the status bar; how it went in a notification
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
-- [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
+- [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
@@ -1811,7 +1811,8 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   as the main toolbar's branch popup, the one in use checked), then Refresh (IntelliJ's Refresh
   shortcut: Ctrl+F5, Cmd+R on macOS, measured from its keymaps; while the Log has the keyboard),
   which reads the commits and the branches again. A page asked for under one filter is dropped
-  once the filter changes.
+  once the filter changes. View Commits' range shows there too, its ends' first 8 characters
+  ("Branch: 1a2b3c4d..5e6f7a8b"; IntelliJ's shows a range as it's given, a claim).
 - **The text filter** (changed 2026-11-07, the first of the other filters, Ido: "go ahead"), first
   in the toolbar as IntelliJ's, from its source (VcsLogClassicFilterUi, TextFilterModel,
   GitLogProvider, VcsLogFiltererImpl, VcsLogBundle): "Text or hash", applied on Enter or as the
@@ -2605,7 +2606,7 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   - **Merged:** `git pull --no-rebase --no-stat [options] -v remote branch`. `--no-rebase` is
     Cerebro's: git 2.27 on refuses to pull divergent branches until told how (measured in the host's
     tests). "N files updated in M commits", or "All files are up to date" with nothing brought, as
-    `GitMergeAction`. Failures in IntelliJ's words: "Git Pull Failed" for local changes in the way
+    `GitMergeAction`; with View commits once the merge is committed (below), as its. Failures in IntelliJ's words: "Git Pull Failed" for local changes in the way
     ("Your local changes will be overwritten by pull. Commit, stash, or revert them to proceed."),
     "Untracked Files Prevent Pull", else "Git Pull failed" with git's words. "Pulling changes from
     origin" on the status bar while it runs.
@@ -2620,7 +2621,7 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
 - **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
+  without remotes (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
   Rebase…: their decisions).
 
 ## Branches (2026-11-10)
@@ -2850,8 +2851,8 @@ are from its source (`GitUpdateProcess`, `GitMergeUpdater`, `GitRebaseUpdater`,
   other git changes are.
 - **Updating…** on the status bar while it runs, as IntelliJ's; Update Project can't start another
   meanwhile.
-- **How it went,** in IntelliJ's words: "2 files updated in 1 commit" (IntelliJ's View Commits isn't
-  there yet); "Nothing to update"; "Cannot update" with why ("You have unfinished merge. These
+- **How it went,** in IntelliJ's words: "2 files updated in 1 commit", with View Commits (below);
+  "Nothing to update"; "Cannot update" with why ("You have unfinished merge. These
   conflicts must be resolved before update.", and its rebase's and unmerged files' words, "main has
   no tracked branch"); "Cannot Update: No Current Branch"; "Update failed" with git's words. When
   saved changes didn't go back over the update: "Local changes were not restored", "Before update
@@ -2867,9 +2868,17 @@ are from its source (`GitUpdateProcess`, `GitMergeUpdater`, `GitRebaseUpdater`,
   pending unresolved conflicts.", with Resolve…, which shows the dialog again; as IntelliJ's, the
   update doesn't go on from there. Before, this entry gave the dialog's words as the
   notification's: IntelliJ's source has them as the dialog's.
+- **View Commits** (added 2026-11-11), after an update, and View commits after a pull or a merge
+  committed (not --squash or --no-commit, as IntelliJ's `GitMergeAction`, which offers it only
+  then): the Git tool window shown, its Log's commits those from HEAD before to HEAD after (git's
+  `before..after`, IntelliJ's `HashRange` and `VcsLogRangeFilter`). In the Branch filter, the Text,
+  User and Date filters cleared, the Paths filter kept, as IntelliJ's tab for it has its Log's paths
+  alone. IntelliJ opens a Log tab of its own for each, by itself unless Advanced Settings say not
+  (`git.update.info.auto.open.enabled`); here the one Log shows it, when asked (Claude's choice, open
+  to change: a second Log is a tab beside it, not here yet).
 - **Not yet:** Reset to the Remote Branch
-  (the dialog's left button), Branch Default, Choose upstream branch (on "no tracked branch"), View
-  Commits, the warning before rebasing published commits, and several repositories at once.
+  (the dialog's left button), Branch Default, Choose upstream branch (on "no tracked branch"),
+  the warning before rebasing published commits, and several repositories at once.
   Unshelving uses `git apply`, which, unlike IntelliJ's own applier, won't apply a hunk whose lines
   moved: see the backlog.
 

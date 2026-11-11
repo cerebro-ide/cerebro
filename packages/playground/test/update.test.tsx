@@ -5,17 +5,21 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { globalSettings } from '../src/settings.js';
+import { setupLog } from '../src/git-log.js';
 import { setupUpdate, updateProject, updating } from '../src/update.js';
 import { closeAll, dialog, dialogText, FakeHost, press, project } from './fakes.js';
 
 /** How the host says the update went: what it gives, or the error it fails with. */
+/** HEAD before and after an update. */
+const RANGE = { start: 'a1', end: 'b2' };
+
 const git = {
   updated: { kind: 'nothing' } as unknown,
   /** Held until it resolves: an update under way. */
   hold: undefined as Promise<void> | undefined,
   /** The files in conflict, and how the update goes on once none is. */
   conflicted: [] as string[],
-  continued: { kind: 'updated', files: 1, commits: 1, restored: true } as unknown,
+  continued: { kind: 'updated', files: 1, commits: 1, range: RANGE, restored: true } as unknown,
 };
 const host = new FakeHost({
   'git.state': () => ({ conflicts: false }),
@@ -75,6 +79,8 @@ afterEach(async () => {
 });
 
 const last = () => notifications.all.get(0);
+/** How many times View Commits showed the Git tool window. */
+let shownLog = 0;
 const radios = async () =>
   [...(await dialog()).querySelectorAll<HTMLInputElement>('input[type="radio"]')].map((r) => [
     r.parentElement?.textContent,
@@ -176,10 +182,17 @@ describe('Update Project', () => {
     expect(host.params('git.update')).toHaveLength(1);
   });
 
-  it('says what it brought, in IntelliJ’s words', async () => {
-    await updated({ kind: 'updated', files: 2, commits: 1, restored: true });
+  it('says what it brought, in IntelliJ’s words, with View Commits', async () => {
+    await updated({ kind: 'updated', files: 2, commits: 1, range: RANGE, restored: true });
     expect(last()).toMatchObject({ title: '2 files updated in 1 commit', type: 'information' });
-    await updated({ kind: 'updated', files: 1, commits: 3, restored: true });
+    const view = last()?.actions[0];
+    expect(view?.label).toBe('View Commits');
+    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry() }, () => {
+      shownLog++;
+    });
+    view?.run();
+    expect(shownLog).toBe(1);
+    await updated({ kind: 'updated', files: 1, commits: 3, range: RANGE, restored: true });
     expect(last()?.title).toBe('1 file updated in 3 commits');
     await updated({ kind: 'nothing' });
     expect(last()).toMatchObject({ title: 'Nothing to update', type: 'warning' });
@@ -221,7 +234,7 @@ describe('Update Project', () => {
   });
 
   it('says when local changes saved weren’t put back, and shows them', async () => {
-    await updated({ kind: 'updated', files: 1, commits: 1, restored: false });
+    await updated({ kind: 'updated', files: 1, commits: 1, range: RANGE, restored: false });
     expect(last()).toMatchObject({
       title: 'Local changes were not restored',
       content: 'Before update your uncommitted changes were saved to shelf.',
