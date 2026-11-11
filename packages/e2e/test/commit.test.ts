@@ -1,6 +1,6 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
 // going from a diff to the file with F4; logging in to push; Update Project, its conflicts resolved;
-// and Fetch and Pull.
+// Fetch and Pull; and Merge.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -351,7 +351,9 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
   await expect.poll(titles, { timeout: 15_000 }).toContain('Fetch successful');
   expect(git('branch', '-r', '--format=%(refname:short)')).toContain('origin/feature');
   await action('Pull');
-  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-git-command') });
+  const dialog = page().locator('.cerebro-dialog', {
+    has: page().locator('.playground-git-command'),
+  });
   await dialog.waitFor();
   expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Pull to main');
   await dialog.locator('.playground-git-branch__field').fill('feature');
@@ -361,4 +363,33 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
     .toMatch(/^Merge branch 'feature' of /);
   expect(git('show', 'HEAD:pulled.txt')).toBe('Pulled');
   await expect.poll(titles, { timeout: 15_000 }).toContain('1 file updated in 1 commit');
+});
+
+it('merges a branch from Git → Merge…, with the options chosen, as IntelliJ’s', async () => {
+  const commitAs = (...args: string[]) => git('-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
+  git('checkout', '-qb', 'topic');
+  writeFileSync(join(repo, 'topic.txt'), 'Topic');
+  git('add', 'topic.txt');
+  commitAs('commit', '-qm', 'Topic');
+  git('checkout', '-q', 'main');
+  await action('Merge');
+  const dialog = page().locator('.cerebro-dialog', { hasText: 'git merge' });
+  await dialog.waitFor();
+  expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Merge into main');
+  await dialog.locator('.playground-git-branch__field').fill('topic');
+  // A merge commit, though it could fast-forward.
+  await dialog.locator('button', { hasText: 'Modify options' }).click();
+  await page()
+    .locator('.cerebro-popup-item', { hasText: 'Create a merge commit even if' })
+    .click({ force: true });
+  await page().keyboard.press('Escape');
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'Merge' }).click();
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toBe("Merge branch 'topic'\n");
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('1 file updated in 1 commit');
 });

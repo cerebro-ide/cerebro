@@ -237,6 +237,7 @@ async function askMerge(host: Host, worktree: string): Promise<MergeChoice | und
     MERGE_OPTIONS,
     'Add Merge Options',
     `cerebro.merge.options:${worktree}`,
+    640,
   );
   const message = signal('');
   const error = () => {

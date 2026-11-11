@@ -129,7 +129,7 @@ async function askPull(host: Host, worktree: string): Promise<PullChoice | undef
       (tracking.remotes.includes('origin') ? 'origin' : tracking.remotes[0]),
   );
   const branch = signal(remote.peek() === undefined ? '' : startingBranch(remote.peek() as string));
-  const options = gitOptions(OPTIONS, 'Add Pull Options', `cerebro.pull.options:${worktree}`);
+  const options = gitOptions(OPTIONS, 'Add Pull Options', `cerebro.pull.options:${worktree}`, 480);
   const error = () => {
     const at = remote.get();
     if (at === undefined) return 'Select the remote to pull from';

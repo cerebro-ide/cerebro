@@ -174,7 +174,9 @@ const parts = async () => {
     field: shown.querySelector('.playground-git-branch__field') as HTMLInputElement,
     error: () => shown.querySelector('[role="alert"]')?.textContent,
     options: () =>
-      [...shown.querySelectorAll('.playground-git-options__option')].map((o) => o.firstChild?.textContent),
+      [...shown.querySelectorAll('.playground-git-options__option')].map(
+        (o) => o.firstChild?.textContent,
+      ),
     ok: () =>
       [...shown.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
         (b) => b.textContent === 'Pull',
@@ -279,7 +281,9 @@ describe('Pull', () => {
     await parts();
     await typeBranch('e');
     const suggestions = () =>
-      [...document.querySelectorAll('.playground-git-branch__suggestion')].map((s) => s.textContent);
+      [...document.querySelectorAll('.playground-git-branch__suggestion')].map(
+        (s) => s.textContent,
+      );
     // origin's, but its HEAD.
     expect(suggestions()).toEqual(['dev']);
     await userEvent.selectOptions((await parts()).remote, 'upstream');
@@ -292,7 +296,9 @@ describe('Pull', () => {
     }
     await typeBranch('ea');
     expect(suggestions()).toEqual(['feature']);
-    await userEvent.click(document.querySelector('.playground-git-branch__suggestion') as HTMLElement);
+    await userEvent.click(
+      document.querySelector('.playground-git-branch__suggestion') as HTMLElement,
+    );
     expect((await parts()).field.value).toBe('feature');
     expect(suggestions()).toEqual([]);
     // Leaving the field hides them.

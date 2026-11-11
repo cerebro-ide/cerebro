@@ -32,9 +32,15 @@ export interface GitOptions {
 
 /**
  * A dialog's options, from `all`, with those kept for the repository under `key` to start with (in
- * the page's storage). `title` is the popup's, as IntelliJ's "Add Pull Options".
+ * the page's storage). `title` is the popup's, as IntelliJ's "Add Pull Options"; `width`, one wide
+ * enough for its longest description and flag on one line, as IntelliJ's popup fits them.
  */
-export function gitOptions(all: readonly GitOption[], title: string, key: string): GitOptions {
+export function gitOptions(
+  all: readonly GitOption[],
+  title: string,
+  key: string,
+  width: number,
+): GitOptions {
   const chosen = signal(read(all, key));
   const toggle = (flag: string) => {
     const now = chosen.peek();
@@ -44,8 +50,7 @@ export function gitOptions(all: readonly GitOption[], title: string, key: string
     openPicker<PickerItem>({
       label: title,
       placeholder: title,
-      // Its longest description and flag on one line, as IntelliJ's popup fits them.
-      width: 480,
+      width,
       position: { below: button },
       owner: button,
       items: () =>
