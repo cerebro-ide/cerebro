@@ -113,6 +113,11 @@ on it:
   merging". The page sends the commit at once, unless it finds no files or no message to commit,
   when it only says why under the message: the test now prints that, and the Commit window's rows,
   with which are put in.
+- **The agent's second turn wasn't listed in Agent Changes in 15 s on macOS in CI** (once, on
+  2026-11-11, #169, run 43007945845): "lists its turn in the Agent Changes tool window" counted one
+  "Write a file" turn, not the two of the runs before and after the restart. Nothing was printed;
+  the test now prints the rows, the status bar, the agent's terminal and the app's standard error
+  when it fails.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
