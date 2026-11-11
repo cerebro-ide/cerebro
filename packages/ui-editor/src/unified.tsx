@@ -3,7 +3,8 @@
 // added as inserted, their changed text in the full colour), and two columns of line numbers, the
 // left's and the right's. As IntelliJ builds it (UnifiedFragmentBuilder): unchanged lines are the
 // right's, the master side. Collapse Unchanged Fragments and Previous and Next Difference as the
-// side-by-side viewer's; read-only.
+// side-by-side viewer's. With `onEdit`, the right's lines are edited, as IntelliJ's: the removed
+// ones aren't, nor the line breaks around them, and it's compared again after each edit.
 
 import { syntaxHighlighting } from '@codemirror/language';
 import {
@@ -13,6 +14,8 @@ import {
   RangeSet,
   StateEffect,
   Text,
+  Annotation,
+  Transaction,
   type Extension,
   type Range,
 } from '@codemirror/state';
@@ -33,6 +36,7 @@ import {
 } from './diff.js';
 import { gutterObstacle, highlight, scroller, selection, theme } from './editor.js';
 import { appearance } from './appearance.js';
+import { changesTo } from './document.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
 
@@ -97,13 +101,14 @@ const renumber = StateEffect.define();
 const renumbered = (update: ViewUpdate) =>
   update.transactions.some((t) => t.effects.some((e) => e.is(renumber)));
 
+/** The unified text made again after an edit: not the user's, and not refused. */
+const rebuilt = Annotation.define<boolean>();
+
 /** A text as CodeMirror splits it into lines. */
 const textOf = (doc: string) => Text.of(doc.split(/\r\n?|\n/));
 
-/** A diff of one file in one editor, read-only. */
-export function UnifiedDiffEditor(
-  props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>,
-): Node {
+/** A diff of one file in one editor: read-only, or editable on the right's lines. */
+export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'align'>): Node {
   const container = document.createElement('div');
   container.className = 'cerebro-editor-diff';
   const shadow = container.attachShadow({ mode: 'open' });
@@ -114,7 +119,8 @@ export function UnifiedDiffEditor(
   frame.className = 'cm-diff';
   shadow.append(frame);
 
-  const [a, b] = [textOf(props.original), textOf(props.text)];
+  const a = textOf(props.original);
+  let b = textOf(props.text);
   let unified: Unified = { text: '', lines: [], blocks: [] };
   const blocks = signal<Unified['blocks']>([]);
   const caret = signal(0);
@@ -150,7 +156,7 @@ export function UnifiedDiffEditor(
       fullWidth,
       selection,
       EditorView.editorAttributes.of({ class: 'cm-diff-unified' }),
-      EditorState.readOnly.of(true),
+      props.onEdit ? editing(props.onEdit) : EditorState.readOnly.of(true),
       EditorView.updateListener.of((update) => {
         const { state } = update;
         if (update.selectionSet) caret.set(state.doc.lineAt(state.selection.main.head).number - 1);
@@ -162,6 +168,54 @@ export function UnifiedDiffEditor(
       ...(language ? [language] : []),
     ],
   });
+
+  /** Where the caret was on the right after an edit, put back there once compared again. */
+  let caretAt: { line: number; column: number } | undefined;
+  /** Each change's removed lines, which aren't edited: from the first's start to the last's end. */
+  function removed(doc: Text): { from: number; to: number }[] {
+    return unified.blocks
+      .filter(({ start, middle }) => middle > start)
+      .map(({ start, middle }) => ({ from: doc.line(start + 1).from, to: doc.line(middle).to }));
+  }
+  /** The right's lines edited, as IntelliJ's unified viewer edits its master side. */
+  function editing(onEdit: (text: string) => void): Extension {
+    return [
+      // Refused if it touches a removed line, or a line break beside one.
+      EditorState.transactionFilter.of((tr) => {
+        if (!tr.docChanged || tr.annotation(rebuilt)) return tr;
+        const zones = removed(tr.startState.doc);
+        const touched: boolean[] = [];
+        tr.changes.iterChangedRanges((from, to) => {
+          touched.push(zones.some((zone) => from <= zone.to && to >= zone.from));
+        });
+        return touched.includes(true) ? [] : tr;
+      }),
+      EditorView.updateListener.of((update) => {
+        if (!update.docChanged || update.transactions.some((t) => t.annotation(rebuilt))) return;
+        // The right's text: every line but the removed ones, which the edit didn't touch.
+        const zones = removed(update.startState.doc).map(({ from, to }) => ({
+          from: update.changes.mapPos(from, 1),
+          to: update.changes.mapPos(to, -1),
+        }));
+        const right: string[] = [];
+        const { doc, selection } = update.state;
+        const head = doc.lineAt(selection.main.head);
+        for (let n = 1; n <= doc.lines; n++) {
+          const line = doc.line(n);
+          if (!zones.some(({ from, to }) => from <= line.from && line.from <= to)) {
+            // The caret's place on the right, for when it's shown again.
+            if (n === head.number) {
+              caretAt = { line: right.length, column: selection.main.head - line.from };
+            }
+            right.push(line.text);
+          }
+        }
+        b = Text.of(right);
+        onEdit(right.join('\n'));
+        queueMicrotask(rediff);
+      }),
+    ];
+  }
 
   /** The changes' lines, as the folds take them. */
   const ranges = (): LineRange[] =>
@@ -215,10 +269,20 @@ export function UnifiedDiffEditor(
   function rediff() {
     const changes = compare(a, b, props.ignore?.() ?? 'none', props.highlight?.() ?? 'words');
     unified = unify(a, b, changes);
+    // Only what's changed, so the caret stays where it was; not undone.
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: unified.text },
+      changes: changesTo(view.state.doc, unified.text),
       effects: renumber.of(null),
+      annotations: [rebuilt.of(true), Transaction.addToHistory.of(false)],
     });
+    if (caretAt) {
+      const { line, column } = caretAt;
+      const n = unified.lines.findIndex((numbers) => numbers.b === line);
+      view.dispatch({
+        selection: EditorSelection.cursor(view.state.doc.line(n + 1).from + column),
+      });
+      caretAt = undefined;
+    }
     blocks.set(unified.blocks);
     levels = changes.map(() => 0).concat(0);
     fold(props.collapse?.() ?? false);

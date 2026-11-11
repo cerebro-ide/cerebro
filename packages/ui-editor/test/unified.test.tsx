@@ -3,7 +3,7 @@ import '../src/styles.css';
 import { Text } from '@codemirror/state';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { compare } from '../src/compare.js';
 import {
@@ -21,7 +21,7 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'align' | 'onEdit'>) {
+function mount(props: Omit<DiffEditorProps, 'syncScroll' | 'align'>) {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 800px; height: 300px;';
   document.body.append(container);
@@ -234,6 +234,35 @@ describe('the unified diff editor', () => {
     await expect
       .poll(() => root.querySelectorAll('.cm-diff-numbers-a, .cm-diff-numbers-b').length)
       .toBe(0);
+  });
+
+  it('edits the right’s lines, not the removed ones nor the breaks around them, as IntelliJ’s', async () => {
+    const onEdit = vi.fn();
+    const root = mount({ path: 'a.txt', original: 'a\nold\nb', text: 'a\nnew\nb', onEdit });
+    const line = (text: string) =>
+      [...root.querySelectorAll('.cm-line')].find((l) => l.textContent === text) as Element;
+    expect(texts(root, '.cm-line')).toEqual(['a', 'old', 'new', 'b']);
+    // An added line, typed into.
+    await userEvent.click(line('new'));
+    await userEvent.keyboard('{End}!');
+    expect(onEdit).toHaveBeenLastCalledWith('a\nnew!\nb');
+    // An unchanged one: compared again, it's a change, joined with the one below, their old lines
+    // above them; the caret where it was.
+    await userEvent.click(line('a'));
+    await userEvent.keyboard('{End}2');
+    expect(onEdit).toHaveBeenLastCalledWith('a2\nnew!\nb');
+    await expect.poll(() => texts(root, '.cm-line')).toEqual(['a', 'old', 'a2', 'new!', 'b']);
+    await expect.poll(() => texts(root, '.cm-diff-deleted')).toEqual(['a', 'old']);
+    await userEvent.keyboard('3');
+    expect(onEdit).toHaveBeenLastCalledWith('a23\nnew!\nb');
+    // A removed line isn't typed into, nor is the break before or after it taken out.
+    onEdit.mockClear();
+    await userEvent.click(line('old'));
+    await userEvent.keyboard('{End}x{Home}{Backspace}');
+    await userEvent.click(line('a23'));
+    await userEvent.keyboard('{Home}{Backspace}');
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(texts(root, '.cm-line')).toEqual(['a', 'old', 'a23', 'new!', 'b']);
   });
 
   it('shows the same text unmarked, with no change to go to', () => {

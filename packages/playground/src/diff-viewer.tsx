@@ -370,7 +370,7 @@ export interface DiffViewerProps {
    * there: made with `button`, a command's button as the toolbar's own.
    */
   navigation?: (button: (command: string) => Node) => Child;
-  /** Makes the right side editable: called with its text as it's edited (the side-by-side viewer's). */
+  /** Makes the right side editable: called with its text as it's edited. */
   onEdit?: (text: string) => void;
 }
 
@@ -453,16 +453,12 @@ export function DiffViewer(props: DiffViewerProps): Node {
               if (props.focus) diff.focus();
             },
             ...(props.scrollTo ? { scrollTo: props.scrollTo } : {}),
+            ...(props.onEdit ? { onEdit: props.onEdit } : {}),
           };
           return viewer.get() === 'unified' ? (
             <UnifiedDiffEditor {...shared} />
           ) : (
-            <DiffEditor
-              {...shared}
-              syncScroll={() => syncScroll.get()}
-              align={() => align.get()}
-              {...(props.onEdit ? { onEdit: props.onEdit } : {})}
-            />
+            <DiffEditor {...shared} syncScroll={() => syncScroll.get()} align={() => align.get()} />
           );
         }}
         {() => {
