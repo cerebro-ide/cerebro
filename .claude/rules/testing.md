@@ -55,7 +55,10 @@ paths:
   Playwright says that of an element gone from the page, and a popup closes on a resize or blur.
   Then an unforced click of the Branch button waited 5 s with frames coming and no resize or focus
   lost: `click` in `test/app.ts` says, when a click fails, the element's boxes over 20 frames and
-  the page's animations; a click that has hit this goes through it.
+  the page's animations; a click that has hit this goes through it. On 2026-11-11 (run
+  43118257614, the "back on main" click of the Branch button) it measured one box over 20 frames
+  and no animations: the element wasn't moving, and Playwright's log stopped at "scrolling into
+  view if needed". Such a click is forced too.
 - **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
   test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each
