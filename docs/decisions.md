@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -63,7 +63,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
 - [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History
-- [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated
+- [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
@@ -1888,9 +1888,16 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - **Not yet:** the button's tooltip listing the paths.
 - **Not yet:** the toolbar's other actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the
   branches pane's toolbar (New Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and
-  its own search; tags in the pane; grouping the files by directory; the right-click menu (Copy
-  Revision Number, Checkout Revision); IntelliJ's Log is a tab beside Console in the Git window,
-  here it's all the window holds.
+  its own search; tags in the pane; grouping the files by directory; the right-click menu's other
+  items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
+  IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
+  with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), then New Tag…
+  (decision "Git → New Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
+  keymaps give these none (searched).
+- **Read again, the Log keeps its list when the first page's commits are the same** (above): the
+  same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
+  before: a tag made from the Log didn't show after its refresh, nor after Refresh.
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 
@@ -2358,7 +2365,12 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
 - **Left out, open to change:** the Git Root field (a worktree is one repository here); IntelliJ's
   Validate also opens the commit's changes when it's valid, which Cerebro doesn't yet.
   (The Current Branch row and the commit's field are shared with Reset HEAD… since 2026-11-11.)
-- **Not yet:** New Tag… from the Log's commit menu.
+- **New Tag… from the Log's commit menu** (added 2026-11-11), as IntelliJ's `GitCreateTagAction`:
+  its input dialog, "Create New Tag On {the full hash}" and "Enter the name of new tag", OK only
+  while the name has no spaces (nothing said, as IntelliJ's validator says nothing); then `git tag
+  -- <name> <hash>`, through the same request as the dialog's. Nothing said when it's made (IntelliJ
+  says nothing either); "Could not create tag {name}" with git's words when it isn't. The Log is
+  read again after either.
 
 ## Windows keep their size and place (2026-11-11)
 
@@ -2593,7 +2605,9 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 - **Fetch:** every remote, `git fetch --prune`, as IntelliJ's `fetchAllRemotes`; a remote that fails
   doesn't stop the others. "Fetch successful", with the remote branches pruned; or "Fetch failed"
   with git's words, each remote named when several failed. "Fetching…" on the status bar while it
-  runs, and Fetch disabled.
+  runs, and Fetch disabled. Disabled too while the repository has no remote, as IntelliJ's
+  (`GitFetch.hasRemotes`; added 2026-11-11): the host's repository state says whether it has any
+  (`git remote`), read with the rest of it every 2 s; enabled until first read.
 - **Pull…:** IntelliJ's dialog, "Pull to main": `git pull`, the remote, and the branch there, its
   branches suggested as it's typed. To start with, the upstream's; without one, origin (else the
   first remote) and its branch of the same name. Its errors in its words: "Select the remote to pull
@@ -2610,6 +2624,13 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
     ("Your local changes will be overwritten by pull. Commit, stash, or revert them to proceed."),
     "Untracked Files Prevent Pull", else "Git Pull failed" with git's words. "Pulling changes from
     origin" on the status bar while it runs.
+  - **Fetching from the dialog** (added 2026-11-11), as IntelliJ's `performFetch`: in the branch
+    field, Ctrl+F5 (Cmd+R on macOS) fetches the remote chosen alone, then its branches are
+    suggested again; the suggestions hide first, and under them "Press Ctrl+F5 to update branches".
+    "Fetching…" while it runs, and the key does nothing then. Without a remote, "Cannot load remote
+    branches" / "Select a local and a remote repository". What git says isn't shown, as IntelliJ's
+    isn't. The key is IntelliJ's Refresh's in its keymaps (and its own fallback); that it doesn't
+    follow a rebinding is Cerebro's, open to change: Cerebro has no Refresh action of its own.
   - **--rebase:** through Update Project, rebasing on the branch chosen instead of the upstream, as
     IntelliJ's `GitPull` runs its update; recorded in Local History as Pull.
   - **At conflicts:** the Conflicts dialog, then the merge committed with git's message, unless
@@ -2620,9 +2641,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   names either (measured: IntelliJ's keymap files). From the menu or its key, the popup opens at the
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
-- **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
-  Rebase…: their decisions).
+- **Not yet:** for Merge…, New Tag…, Reset HEAD…, Manage Remotes… and Rebase…, see their
+  decisions.
 
 ## Branches (2026-11-10)
 

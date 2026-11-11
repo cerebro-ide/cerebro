@@ -17,6 +17,7 @@ import {
   showInLog,
   viewCommits,
   type LogCommit,
+  type LogCommitContext,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
 import { FakeHost, project } from './fakes.js';
@@ -723,6 +724,22 @@ describe('Refresh', () => {
     expect(commands.isEnabled('log.refresh', { source: 'log' })).toBe(false);
   });
 
+  it('shows a ref added at a commit already listed, as a tag made since', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    const refs = () =>
+      rows().map((row) =>
+        [...row.querySelectorAll('.playground-log__ref')].map((ref) => ref.textContent),
+      );
+    expect(refs()).toEqual([[], []]);
+    git.log = history(2).map((commit, i) =>
+      i === 1 ? { ...commit, refs: ['tag: refs/tags/v2'] } : commit,
+    );
+    commands.execute('log.refresh', { source: 'log' });
+    await expect.poll(refs).toEqual([[], ['v2']]);
+  });
+
   it('hides behind a » with the Branch filter when the Log is narrow, as IntelliJ’s toolbar', async () => {
     git.log = history(1);
     const box = mount();
@@ -761,6 +778,48 @@ describe('Refresh', () => {
       () => undefined,
     );
     expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
+  });
+});
+
+describe('a commit’s menu', () => {
+  it('opens on a commit, selecting it, and copies its full hash, as IntelliJ’s first item', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    (rows()[1] as HTMLElement).dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    expect(rows()[1]?.getAttribute('aria-selected')).toBe('true');
+    const items = () => [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')];
+    expect(items().map((item) => item.textContent)).toEqual(['Copy Revision Number']);
+    await userEvent.click(items()[0] as HTMLElement);
+    expect(write).toHaveBeenCalledWith('c1');
+  });
+
+  it('gives its commands the commit, its worktree and host, and a way to read the Log again', async () => {
+    git.log = history(1);
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    let given: LogCommitContext | undefined;
+    services.commands.register<LogCommitContext>({
+      id: 'test.logCommit',
+      label: 'Test',
+      run: (context) => {
+        given = context;
+      },
+    });
+    services.menus.contribute({ menu: 'log/commit', item: { command: 'test.logCommit' } });
+    (rows()[0] as HTMLElement).dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true }),
+    );
+    const item = [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')].find(
+      (i) => i.textContent === 'Test',
+    );
+    await userEvent.click(item as HTMLElement);
+    expect(given).toMatchObject({ commit: { hash: 'c0' }, worktree: '/r', host });
+    await given?.refresh();
+    expect(host.params('git.log')).toHaveLength(2);
   });
 });
 

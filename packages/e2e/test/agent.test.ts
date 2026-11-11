@@ -15,10 +15,18 @@ const { writeFileSync } = require('node:fs');
 const args = process.argv.slice(2);
 const at = args.indexOf('--settings');
 const hooks = JSON.parse(args[at + 1]).hooks;
-const run = (event) =>
-  execSync(hooks[event][0].hooks[0].command, {
-    input: '{"session_id":"fake-session","prompt":"Write a file"}',
-  });
+// Each hook's end, or its error, shown in its terminal: the test prints that when it fails.
+const run = (event) => {
+  const started = Date.now();
+  try {
+    execSync(hooks[event][0].hooks[0].command, {
+      input: '{"session_id":"fake-session","prompt":"Write a file"}',
+    });
+    console.log('hook ' + event + ' ran in ' + (Date.now() - started) + ' ms.');
+  } catch (error) {
+    console.log('hook ' + event + ' failed: ' + error.message);
+  }
+};
 console.log('pretend claude: ' + args.filter((_, i) => i !== at && i !== at + 1).join(' '));
 run('UserPromptSubmit');
 writeFileSync('agent.txt', 'written by the agent\\n');
@@ -82,7 +90,8 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     try {
       await expect.poll(() => turns.count(), { timeout: 15_000 }).toBe(2);
     } catch (error) {
-      // One turn alone once on macOS in CI (#169, 2026-11-11): what was seen.
+      // One turn alone on macOS in CI (#169 and #184, 2026-11-11): what was seen, the hooks' ends
+      // among the terminal's lines.
       const rows = await page.locator('.cerebro-tree-row').allTextContents();
       console.log('Rows:', rows);
       console.log('Status bar:', await page.locator('.cerebro-statusbar').innerText());

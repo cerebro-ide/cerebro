@@ -18,7 +18,7 @@ import { onCleanup } from '@cerebro-ide/jsx';
 import { computed, effect, signal } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
-import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
@@ -266,7 +266,11 @@ class Log {
       if (this.filtering !== filtering) return;
       this.error.set(undefined);
       const before = this.commits.peek();
-      const same = page.every((commit, i) => before[i]?.hash === commit.hash);
+      // The same commits with the same refs: a tag or branch made at one since changes the page.
+      const same = page.every(
+        (commit, i) =>
+          before[i]?.hash === commit.hash && before[i].refs.join('\n') === commit.refs.join('\n'),
+      );
       if (replace || !(same && before.length >= page.length && this.loaded.peek())) {
         this.layout = new GraphLayout();
         this.graph.clear();
@@ -554,6 +558,15 @@ function refresh(log: Log, branches: Branches): Promise<void> {
  */
 const wanted = signal<{ hash: string; path: string } | undefined>(undefined);
 
+/** What the Log's commit menu acts on: the commit right-clicked, and its worktree's Log. */
+export interface LogCommitContext {
+  commit: LogCommit;
+  worktree: string;
+  host: Host;
+  /** Reads the Log again, as Refresh: after an action changed what it shows (a tag made). */
+  refresh: () => Promise<void>;
+}
+
 /** Shows a commit in the Log (the Git tool window shown by the caller), its file selected. */
 export function showInLog(hash: string, path: string): void {
   wanted.set({ hash, path });
@@ -582,7 +595,7 @@ export function viewCommits(range: HashRange): void {
 
 /** The Log's commands and shortcuts; `show` shows the Git tool window. */
 export function setupLog(services: MenuServices, show: () => void): void {
-  const { commands, keymap } = services;
+  const { commands, keymap, menus } = services;
   showLog = show;
   commands.register({
     id: 'log.refresh',
@@ -609,6 +622,13 @@ export function setupLog(services: MenuServices, show: () => void): void {
   });
   // IntelliJ's, Ctrl+L in its default keymap: Cmd+L on macOS, which takes it with Ctrl as Cmd.
   keymap?.bindDefault('Mod+L', 'log.focusTextFilter');
+  // A commit's menu, first in IntelliJ's (Vcs.Log.ContextMenu): the full hash, as its own copies.
+  commands.register<LogCommitContext>({
+    id: 'log.copyRevision',
+    label: 'Copy Revision Number',
+    run: (c) => navigator.clipboard.writeText(c.commit.hash),
+  });
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.copyRevision' }, group: 'a' });
 }
 
 type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
@@ -908,6 +928,15 @@ export function GitLogView(props: {
               model={log.model}
               label={`${env.name} log`}
               row={(commit) => <CommitRow commit={commit} log={log} />}
+              onContextMenu={(event, commit) => {
+                const context: LogCommitContext = {
+                  commit,
+                  worktree: env.id,
+                  host,
+                  refresh: () => refresh(log, branches),
+                };
+                openContextMenu(props.services, 'log/commit', event, context);
+              }}
             />
           );
         };

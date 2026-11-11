@@ -1352,8 +1352,9 @@ body,
   outline: none;
 }
 
-/* IntelliJ's popup advertisement: below the field, muted. */
-.playground-values__hint {
+/* IntelliJ's popup advertisement: below the field (or a branch field's suggestions), muted. */
+.playground-values__hint,
+.playground-git-branch__hint {
   margin: 0;
   padding: 4px 8px 6px;
   border-top: 1px solid var(--cerebro-separator);

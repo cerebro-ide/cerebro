@@ -1,7 +1,7 @@
 // The repository's state, as IntelliJ's GitRepository keeps it: the merge or rebase under way,
-// whether files are in conflict, and a merge's message. The Git menu shows Commit Merge, Abort
-// Merge, the Rebase menu and Resolve Conflicts… by it, and the Commit window starts with a
-// merge's message. The active worktree's is read every few seconds and as the window gets the
+// whether files are in conflict, a merge's message, and whether there are remotes. The Git menu
+// shows Commit Merge, Abort Merge, the Rebase menu and Resolve Conflicts… by it, Fetch is off
+// without remotes, and the Commit window starts with a merge's message. The active worktree's is read every few seconds and as the window gets the
 // focus, as the Commit window reads its changes, and after Cerebro's own git changes.
 
 import { ObservableMap } from '@cerebro-ide/reactive';
@@ -12,6 +12,8 @@ export interface RepositoryState {
   operation?: 'merge' | 'rebase';
   conflicts: boolean;
   message?: string;
+  /** Whether it has any remote: unknown (undefined) until read. */
+  remotes?: boolean;
 }
 
 /** How often the active worktree's state is read, as the Commit window's changes are. */

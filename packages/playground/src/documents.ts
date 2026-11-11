@@ -11,7 +11,7 @@
 
 import { effect, ObservableMap, untracked } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
-import { currentHost, hostFor } from './environments.js';
+import { currentHost, hostFor, type Host } from './environments.js';
 
 /** How often open files are read again for changes on disk, while the window has the focus. */
 export const RELOAD_EVERY = 2000;
@@ -259,15 +259,15 @@ async function save(
   if (failed.length > 0) throw new Error(`Couldn’t save ${failed.join('; ')}`);
 }
 
-/**
- * Reads the open files again, taking what changed on disk where there are no unsaved edits; where
- * there are, it's a conflict.
- */
-export async function reloadAll(): Promise<void> {
-  if (!currentHost()) return;
-  for (const [path, doc] of await opened()) {
-    const host = hostFor(path);
-    if (!host || resolving.has(path) || saving.has(path)) continue;
+/** Each file's read under way, and the one asked for while it runs. */
+const reading = new Map<string, Promise<void>>();
+const readNext = new Map<string, Promise<void>>();
+
+/** Reads a file again, taking what changed on disk where there are no unsaved edits. */
+function readAgain(path: string, doc: EditorDocument, host: Host): Promise<void> {
+  readNext.delete(path);
+  const now = (async () => {
+    if (resolving.has(path) || saving.has(path)) return;
     const before = saves.get(path);
     let text: string;
     try {
@@ -275,10 +275,40 @@ export async function reloadAll(): Promise<void> {
     } catch {
       // Deleted, its tabs closed; or unreadable now: the editor keeps what it shows.
       await deleted(path);
+      return;
+    }
+    if (saving.has(path) || saves.get(path) !== before) return;
+    if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
+  })().finally(() => reading.delete(path));
+  reading.set(path, now);
+  return now;
+}
+
+/**
+ * Reads the open files again, taking what changed on disk where there are no unsaved edits; where
+ * there are, it's a conflict. Asked while a file's read runs, one more follows it, for all asked
+ * meanwhile: the window's focus asks, and the editing e2e test sends a focus event every 5 ms
+ * (measured: 1,708 reads in that file's run, 532 in one second, the host's reads then 4 s in CI).
+ */
+export async function reloadAll(): Promise<void> {
+  if (!currentHost()) return;
+  for (const [path, doc] of await opened()) {
+    const host = hostFor(path);
+    // A file asked about is left alone: its question waits on the person.
+    if (!host || resolving.has(path) || saving.has(path)) continue;
+    const waiting = readNext.get(path);
+    if (waiting) {
+      await waiting;
       continue;
     }
-    if (saving.has(path) || saves.get(path) !== before) continue;
-    if (!(await conflicts(path, doc, text))) doc.changedOnDisk(text);
+    const running = reading.get(path);
+    if (!running) {
+      await readAgain(path, doc, host);
+      continue;
+    }
+    const next = running.catch(() => undefined).then(() => readAgain(path, doc, host));
+    readNext.set(path, next);
+    await next;
   }
 }
 
@@ -312,7 +342,20 @@ export function setupSaving(
     clearTimeout(timer);
     // Read each time: a change in Settings counts from the next key or move.
     const after = idle();
-    if (after !== undefined) timer = setTimeout(save, after);
+    if (after !== undefined) timer = setTimeout(idleSave, after);
+  };
+  /**
+   * Saves when idle, saying so on the console with the files modified then: the e2e test of it has
+   * seen the save come seconds late, no save slow (docs/backlog.md).
+   */
+  const idleSave = () => {
+    void opened().then((docs) => {
+      const modified = docs.filter(([, doc]) => doc.modified.peek()).map(([path]) => path);
+      console.info(
+        `Saving when idle at ${String(Math.round(performance.now()))} ms, modified: ${JSON.stringify(modified)}`,
+      );
+    });
+    save();
   };
   for (const type of ['keydown', 'pointerdown', 'wheel']) {
     window.addEventListener(type, active, { capture: true, passive: true });

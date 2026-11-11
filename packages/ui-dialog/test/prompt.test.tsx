@@ -66,4 +66,16 @@ describe('prompt', () => {
     );
     expect(await result).toBeUndefined();
   });
+
+  it('keeps OK off while the text isn’t valid, saying nothing, as IntelliJ’s input validator', async () => {
+    const result = prompt({ title: 'Tag', label: 'Name:', valid: (text) => !/\s/.test(text) });
+    type('v 1');
+    expect(ok().disabled).toBe(true);
+    expect(error()).toBe('');
+    expect(input().getAttribute('aria-invalid')).toBe('false');
+    type(' v1 ');
+    expect(ok().disabled).toBe(false);
+    ok().click();
+    expect(await result).toBe('v1');
+  });
 });

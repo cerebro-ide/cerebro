@@ -243,3 +243,22 @@ it('filters by paths typed or checked in the tree, cleared with its X', async ()
   await (await inToolbar('[aria-label="Clear Paths"]')).click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(7);
 });
+
+it('tags the commit right-clicked, from its menu’s New Tag…, and shows the tag at it', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  const row = log.locator('.playground-log__list .cerebro-tree-row', { hasText: 'On the side' });
+  await row.click({ button: 'right', force: true });
+  await page().locator('.cerebro-menu-item', { hasText: 'New Tag…' }).click({ force: true });
+  const box = page().locator('.cerebro-dialog');
+  expect(await box.locator('.cerebro-dialog__title').textContent()).toBe(
+    `Create New Tag On ${git('rev-parse', 'side').trim()}`,
+  );
+  await page().keyboard.type('side-e2e');
+  await page().keyboard.press('Enter');
+  await expect
+    .poll(() => git('rev-parse', 'side-e2e^{}').trim(), HOST)
+    .toBe(git('rev-parse', 'side').trim());
+  await expect
+    .poll(() => row.locator('.playground-log__ref').allTextContents(), HOST)
+    .toEqual(['side', 'side-e2e']);
+});
