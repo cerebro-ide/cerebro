@@ -20,7 +20,7 @@ import {
   type LogCommitContext,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
-import { setupCherryPick } from '../src/cherry-pick.js';
+import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { notifications } from '../src/notifications.js';
 
@@ -133,7 +133,7 @@ let dispose: (() => void) | undefined;
 let shownLog = 0;
 
 beforeAll(() => {
-  setupCherryPick(services);
+  setupApplyChanges(services);
   setupLog(services, () => {
     shownLog++;
   });
@@ -927,6 +927,7 @@ describe('a commit’s menu', () => {
     expect(items().map((item) => item.textContent)).toEqual([
       'Copy Revision Number',
       'Cherry-Pick',
+      'Revert Commit',
       'Go to Child CommitLeft',
       'Go to Parent CommitRight',
     ]);
