@@ -41,6 +41,21 @@ describe('indent guides', () => {
     expect((lefts[0] as number) + base).toBeCloseTo(start.left, 0);
     expect(getComputedStyle(found[0] as HTMLElement).backgroundColor).toBe('rgb(50, 52, 56)');
     expect(found[0]?.style.width).toBe('1px');
+    // Over the text, so a change's colour doesn't hide them.
+    const layer = found[0]?.parentElement as Element;
+    const content = (view as EditorView).contentDOM;
+    expect(content.compareDocumentPosition(layer) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('guides a wrapped line’s first row alone: its next ones start at the edge', async () => {
+    const long = `    ${'word '.repeat(200)}`;
+    const found = await guides(long, EditorView.lineWrapping);
+    expect(found).toHaveLength(1);
+    const height = parseFloat(found[0]?.style.height as string);
+    expect(height).toBeCloseTo((view as EditorView).defaultLineHeight);
+    expect((view as EditorView).contentDOM.getBoundingClientRect().height).toBeGreaterThan(
+      3 * height,
+    );
   });
 
   it('takes a blank line’s from the lines around it, or none past the text’s ends', async () => {

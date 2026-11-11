@@ -2303,7 +2303,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   with the other settings. Line numbers alone on to start with, IntelliJ's defaults
   (`TextDiffSettingsHolder`). Whitespace and indent guides in its colours (`WHITESPACES` and
   `INDENT_GUIDE`, IslandSchemeDark.xml; the light scheme's and Default's). The guides are drawn
-  every tab size apart, from the line's start, on through blank lines: IntelliJ's follow the
+  every tab size apart, from the line's start, on through blank lines, over a change's colour and
+  on a wrapped line's first row alone: IntelliJ's follow the
   language's indent and its blocks, so that they match is a claim. Its highlighting level and
   breadcrumbs, off in IntelliJ unless turned on elsewhere, aren't there.
 - **The toolbar** is IntelliJ's left to right: the arrows and Collapse Unchanged Fragments, then

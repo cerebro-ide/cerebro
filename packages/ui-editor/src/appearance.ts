@@ -63,11 +63,13 @@ function guideIndents(view: EditorView): (number: number) => number {
 /**
  * IntelliJ's indent guides: a thin line at each indentation step a line is indented past, from the
  * line's start, every tab size apart (IntelliJ takes the language's indent: that the tab size
- * matches it is a claim). Drawn behind the text, as a layer, so they take no room.
+ * matches it is a claim). Drawn as a layer over the text, so a change's colour doesn't hide them
+ * (they're in the indentation alone), and only on a line's first row: wrapped, its next rows start
+ * at the edge.
  */
 export const indentGuides: Extension = [
   layer({
-    above: false,
+    above: true,
     class: 'cm-indentGuides',
     update: (update) => update.docChanged || update.viewportChanged || update.geometryChanged,
     markers(view) {
@@ -97,7 +99,7 @@ export const indentGuides: Extension = [
               left + column * width,
               top + block.top,
               1,
-              block.height,
+              Math.min(block.height, view.defaultLineHeight),
             ),
           );
         }
