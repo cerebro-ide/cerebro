@@ -71,7 +71,10 @@ on it:
   which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run
   43007945845) it counted one "Write a file" turn in 15 s, not the two of the runs before and after
   the restart; it now prints the rows, the status bar, the agent's terminal and the app's standard
-  error when that fails.
+  error when that fails. Again on macOS (#184, run 43081109016): one turn, the status bar "Claude is
+  done", the terminal "pretend claude: --resume fake-session" (the second run started), nothing in
+  the standard error. Whether its hooks ran isn't shown: the pretend claude now prints each hook's
+  end, how long it took, or its error.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is
