@@ -283,8 +283,12 @@ describe('completions', () => {
     await userEvent.keyboard('{Enter}');
     expect(doc.text.peek().toString()).toBe('x;\ntarget');
     expect(resolveCompletion).toHaveBeenCalledWith(item);
-    // Typed on before the answer: the import still goes where the server said.
+    // Typed on straight away, before the answer: the import still goes where the server said. The
+    // clock held, as CodeMirror joins typing to the completion only within 500 ms of it: a slow
+    // runner took longer (macOS in CI, 2026-11-11), and the typing was undone apart.
+    const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now());
     await userEvent.keyboard('(');
+    now.mockRestore();
     answer([{ from: { line: 0, column: 0 }, to: { line: 0, column: 0 }, text: 'import t;\n' }]);
     await vi.waitFor(() => {
       expect(doc.text.peek().toString()).toBe('import t;\nx;\ntarget(');

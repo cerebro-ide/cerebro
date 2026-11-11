@@ -417,6 +417,14 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
   await expect
     .poll(() => message().inputValue(), { timeout: 15_000 })
     .toBe("Merge branch 'side'\n\n# Conflicts:\n#\ta.ts\n");
+  // And the resolved file in the list, put in: the message can come first (it's read from git's
+  // state, the list apart), and Commit with nothing put in says "Select files to commit", as
+  // IntelliJ's (seen on Windows and macOS in CI, 2026-11-11).
+  await expect
+    .poll(() => row('changes:a.ts').locator('.playground-changes__include').isChecked(), {
+      timeout: 15_000,
+    })
+    .toBe(true);
   await message().click();
   await page().keyboard.press('Control+Enter');
   try {
@@ -424,7 +432,7 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
       .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
       .toBe(5);
   } catch (error) {
-    // Not committed in time on Windows in CI twice (#161, #162, 2026-11-11): what was seen.
+    // Not committed in time on Windows in CI (#161, #162, 2026-11-11): what was seen.
     await seen();
     await measure(() => git('log', '-1', '--format=%p').trim().includes(' '));
     throw error;
