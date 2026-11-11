@@ -78,6 +78,7 @@ type Added = (project: Project & { replaces?: string }) => void;
 let onAdded: Added = () => undefined;
 let onShow: (path: string) => void = () => undefined;
 let onJump: (at: unknown) => void = () => undefined;
+let onTab: (spec: unknown) => void = () => undefined;
 /** A project joins the window, as the app says when one opens. */
 export const added: Added = (project) => {
   onAdded(project);
@@ -89,6 +90,10 @@ export const shownAgain = (path: string): void => {
 /** Jump to Source from a diff window this window opened. */
 export const jumped = (at: unknown): void => {
   onJump(at);
+};
+/** Show Diff in Editor Tab from a diff window this window opened. */
+export const tabbed = (spec: unknown): void => {
+  onTab(spec);
 };
 const recent: RecentProject[] = [
   { path: '/r', name: 'r', opened: 3, exists: true },
@@ -135,6 +140,11 @@ export function installBridge(platform: string, menu: unknown = {}): void {
       jump: () => Promise.resolve(),
       onJump: (listener: typeof onJump) => {
         onJump = listener;
+        return () => undefined;
+      },
+      toTab: () => Promise.resolve(),
+      onTab: (listener: typeof onTab) => {
+        onTab = listener;
         return () => undefined;
       },
     },

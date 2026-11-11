@@ -64,6 +64,8 @@ interface Options {
   lineNumbers: boolean;
   indentGuides: boolean;
   softWrap: boolean;
+  /** Diffs open as editor tabs, not windows of their own. */
+  inTab: boolean;
 }
 
 /**
@@ -84,6 +86,7 @@ function readOptions(): Options {
     lineNumbers: true,
     indentGuides: false,
     softWrap: false,
+    inTab: false,
   };
   try {
     const stored = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? '{}') as Record<string, unknown>;
@@ -100,6 +103,7 @@ function readOptions(): Options {
       lineNumbers: stored.lineNumbers !== false,
       indentGuides: stored.indentGuides === true,
       softWrap: stored.softWrap === true,
+      inTab: stored.inTab === true,
     };
   } catch {
     return defaults;
@@ -119,8 +123,14 @@ const appearance = {
   indentGuides: signal(false),
   softWrap: signal(false),
 };
+/**
+ * Whether diffs open as editor tabs, as chosen in a diff's Settings, in this window or another: read
+ * as kept, not as a setting of the window's.
+ */
+export const diffsInTabs = (): boolean => readOptions().inTab;
 
-function saveOptions(): void {
+/** Keeps the window's settings, and `inTab` if given (else as kept, maybe by another window). */
+function saveOptions(inTab = diffsInTabs()): void {
   try {
     const options: Options = {
       viewer: viewer.peek(),
@@ -133,6 +143,7 @@ function saveOptions(): void {
       lineNumbers: appearance.lineNumbers.peek(),
       indentGuides: appearance.indentGuides.peek(),
       softWrap: appearance.softWrap.peek(),
+      inTab,
     };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(options));
   } catch {
@@ -177,10 +188,23 @@ function diffOf(
 }
 
 /**
- * The diff's commands and its Settings menu; their keys are the keymaps'. A diff window gives its
- * `files`, for Next and Previous Difference to go on to.
+ * Where a diff shown moves to, and how: IntelliJ's Show Diff in Editor Tab, from a diff window, and
+ * Show Diff in Separate Window, from a tab (`MoveDiffEditorAction`).
  */
-export function setupDiffViewer(services: MenuServices, files?: DiffFiles): void {
+export interface DiffMove {
+  to: 'tab' | 'window';
+  /** Whether the diff whose Settings button this is moves (Local History's diff doesn't). */
+  moves(button: unknown): boolean;
+  /** Moves that diff; diffs open there from now on. */
+  move(button: unknown): void;
+}
+
+/**
+ * The diff's commands and its Settings menu; their keys are the keymaps'. A diff window gives its
+ * `files`, for Next and Previous Difference to go on to; in the app, `move` moves diffs between
+ * windows and tabs.
+ */
+export function setupDiffViewer(services: MenuServices, files?: DiffFiles, move?: DiffMove): void {
   const { commands, menus } = services;
   const options = readOptions();
   viewer.set(options.viewer);
@@ -273,6 +297,21 @@ export function setupDiffViewer(services: MenuServices, files?: DiffFiles): void
     },
   });
   menus.contribute({ menu: 'diff/settings', item: { command: 'diff.syncScroll' }, group: 'a' });
+  // After them, as IntelliJ's gear puts its Diff.DiffModes (`SetEditorSettingsActionGroup`); each
+  // shown where the diff isn't (its names, `ActionsBundle`'s Vcs.Diff.ShowDiffIn*).
+  if (move) {
+    const id = move.to === 'tab' ? 'diff.showInEditorTab' : 'diff.showInWindow';
+    commands.register({
+      id,
+      label: move.to === 'tab' ? 'Show Diff in Editor Tab' : 'Show Diff in Separate Window',
+      visible: (button) => move.moves(button),
+      run: (button) => {
+        saveOptions(move.to === 'tab');
+        move.move(button);
+      },
+    });
+    menus.contribute({ menu: 'diff/settings', item: { command: id }, group: 'a' });
+  }
   // Each policy a choice of one, under its heading, as IntelliJ's gear.
   const policy = <T extends string>(
     group: string,
@@ -380,7 +419,12 @@ export function DiffViewer(props: DiffViewerProps): Node {
           ref={tooltip({ text: () => 'Settings', placement: 'below' })}
           on:click={(event) => {
             const anchor = event.currentTarget as HTMLElement;
-            openMenu(services, 'diff/settings', { anchor, placement: 'below' }, { owner: anchor });
+            openMenu(
+              services,
+              'diff/settings',
+              { anchor, placement: 'below' },
+              { owner: anchor, context: anchor },
+            );
           }}
         >
           {icon('settings')}

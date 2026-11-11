@@ -3,20 +3,20 @@ import '@cerebro-ide/ui-editor/styles.css';
 import '../src/playground.css';
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
-import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { visibleEntries, type MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource } from '@cerebro-ide/ui-editor';
-import { DiffViewer, setupDiffViewer } from '../src/diff-viewer.js';
+import { DiffViewer, diffsInTabs, setupDiffViewer, type DiffMove } from '../src/diff-viewer.js';
 
 /** Set up afresh, as a new session reads the toggles kept. */
-function load(keymap: Keymap | null) {
+function load(keymap: Keymap | null, move?: DiffMove) {
   const services: MenuServices = {
     commands: new CommandRegistry(),
     menus: new MenuRegistry(),
     ...(keymap ? { keymap } : {}),
   };
-  setupDiffViewer(services);
+  setupDiffViewer(services, undefined, move);
   return { services };
 }
 
@@ -35,8 +35,8 @@ const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
 const text = original.with(10, 'one').with(30, 'two').with(50, 'three');
 
 /** With the keymap given, a plain one, or none (null). */
-function mount(keymap: Keymap | null = new Keymap('other')) {
-  const loaded = load(keymap);
+function mount(keymap: Keymap | null = new Keymap('other'), move?: DiffMove) {
+  const loaded = load(keymap, move);
   const { services } = loaded;
   const box = document.createElement('div');
   box.style.height = '400px';
@@ -106,6 +106,7 @@ describe('a diff’s toolbar', () => {
       lineNumbers: true,
       indentGuides: false,
       softWrap: false,
+      inTab: false,
     });
     // A new session takes it.
     dispose?.();
@@ -138,6 +139,51 @@ describe('a diff’s toolbar', () => {
     dispose?.();
     document.body.replaceChildren();
     expect(mount().services.commands.isChecked('diff.alignChanges')).toBe(true);
+  });
+
+  it('moves the diff to a tab or a window, from its Settings, after Synchronize Scrolling, and keeps where', async () => {
+    const move = { to: 'tab' as const, moves: vi.fn(() => true), move: vi.fn() };
+    const { services } = mount(undefined, move);
+    const settings = document.querySelector('[data-menu="diff/settings"]') as HTMLElement;
+    await userEvent.click(settings);
+    const items = () =>
+      [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].map((i) => i.textContent);
+    const shown = items();
+    expect(shown.findIndex((i) => i.includes('Show Diff in Editor Tab'))).toBe(
+      shown.findIndex((i) => i.includes('Synchronize Scrolling')) + 1,
+    );
+    // It's asked of the diff whose Settings these are.
+    expect(move.moves).toHaveBeenCalledWith(settings);
+    const item = [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].find((i) =>
+      i.textContent.includes('Show Diff in Editor Tab'),
+    ) as Element;
+    await userEvent.click(item);
+    expect(move.move).toHaveBeenCalledWith(settings);
+    expect(diffsInTabs()).toBe(true);
+    // Another toggle keeps it, as kept, though another window chose it.
+    localStorage.setItem(
+      'cerebro.diff',
+      JSON.stringify({
+        ...JSON.parse(localStorage.getItem('cerebro.diff') as string),
+        inTab: false,
+      }),
+    );
+    services.commands.execute('diff.collapseUnchanged');
+    expect(diffsInTabs()).toBe(false);
+    // Where it doesn't move, not shown.
+    move.moves.mockReturnValue(false);
+    expect(
+      visibleEntries(services, 'diff/settings', settings).some(
+        (entry) => 'command' in entry && entry.command === 'diff.showInEditorTab',
+      ),
+    ).toBe(false);
+    // The other way: Show Diff in Separate Window.
+    dispose?.();
+    document.body.replaceChildren();
+    const back = { to: 'window' as const, moves: () => true, move: vi.fn() };
+    mount(undefined, back).services.commands.execute('diff.showInWindow');
+    expect(back.move).toHaveBeenCalled();
+    expect(diffsInTabs()).toBe(false);
   });
 
   it('ignores and highlights differences as chosen in its Settings, and keeps the choice', async () => {

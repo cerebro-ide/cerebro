@@ -9,6 +9,7 @@ const requests: unknown[][] = [];
 const jumps: unknown[] = [];
 /** What the host reads, as the file is now. */
 let texts = { original: 'one\ntwo\n', text: 'one\nthree\n' };
+const tabs: unknown[] = [];
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -30,6 +31,10 @@ beforeAll(async () => {
     diff: {
       jump: (at: unknown) => {
         jumps.push(at);
+        return Promise.resolve();
+      },
+      toTab: (spec: unknown) => {
+        tabs.push(spec);
         return Promise.resolve();
       },
     },
@@ -99,5 +104,15 @@ describe('its title', () => {
   it('is the file’s name, and the commits it’s between', async () => {
     const { titleOf } = await import('../src/diff-window.js');
     expect(titleOf({ project: '/r', env: '/r', path: 'a/b.ts' })).toBe('b.ts');
+  });
+
+  it('moves to a tab of its opener, between the same commits, from its Settings', async () => {
+    await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
+    const item = [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].find((i) =>
+      i.textContent.includes('Show Diff in Editor Tab'),
+    ) as Element;
+    await userEvent.click(item);
+    expect(tabs).toEqual([SPEC]);
+    localStorage.removeItem('cerebro.diff');
   });
 });

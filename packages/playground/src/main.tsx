@@ -68,7 +68,14 @@ import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { GitLogView, setupLog, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
-import { AgentChangesView, diffPath, diffRange, setupChanges, type Range } from './changes.js';
+import {
+  AgentChangesView,
+  diffPath,
+  diffRange,
+  diffTab,
+  setupChanges,
+  type Range,
+} from './changes.js';
 import { setupCredentials } from './credentials.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
@@ -85,7 +92,7 @@ import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import '@cerebro-ide/ui-image/styles.css';
-import { FileDiff, setupDiffViewer } from './diff-viewer.js';
+import { diffsInTabs, FileDiff, setupDiffViewer } from './diff-viewer.js';
 import { ImageTab, isImage, setupImages } from './images.js';
 import {
   active,
@@ -132,7 +139,7 @@ import {
   setupProjects,
   windowProjects,
 } from './projects.js';
-import type { RecentProject } from './bridge.js';
+import type { DiffSpec, RecentProject } from './bridge.js';
 import {
   globalSettings,
   registry as settingsRegistry,
@@ -233,12 +240,12 @@ const editor = () => active()?.editor;
 
 /**
  * Opens a tab in the active environment; in the desktop app a diff opens in a window of its own,
- * as IntelliJ's (Ido: "new window instead of as a tab").
+ * as IntelliJ's (Ido: "new window instead of as a tab"), unless chosen to open as a tab.
  */
 function openTab(tab: Tab, chain?: readonly string[]): void {
   const path = diffPath(tab.id);
   const env = active()?.id;
-  if (path === undefined || !window.cerebro || env === undefined) {
+  if (path === undefined || !window.cerebro || env === undefined || diffsInTabs()) {
     editor()?.open(tab);
     return;
   }
@@ -277,7 +284,27 @@ async function closeActiveProject(): Promise<void> {
 await setupProjects(services.commands, services.menus, closeActiveProject);
 setupLog(services);
 setupImages(services);
-setupDiffViewer(services);
+// In the app, Show Diff in Separate Window from a diff tab: it closes, and opens in a window.
+setupDiffViewer(
+  services,
+  undefined,
+  window.cerebro && {
+    to: 'window',
+    // A tab's diff, not Local History's.
+    moves: (button) => button instanceof Element && !!button.closest('.cerebro-editor-group'),
+    // The tab its group shows.
+    move: (button) => {
+      const group = (button as Element).closest<HTMLElement>(
+        '.cerebro-editor-group',
+      ) as HTMLElement;
+      const id = group.dataset['group'] as string;
+      const area = editor() as NonNullable<ReturnType<typeof editor>>;
+      const tab = area.group(id).activeTab as Tab;
+      area.close(id, tab.id);
+      openTab(tab);
+    },
+  },
+);
 setupChanges(services, {
   open: openTab,
   activeTab: () => editor()?.activeGroup.active,
@@ -314,6 +341,13 @@ const jumpTo = (at: { path: string; line: number; column: number }) => {
   focusing.set(at.path, {});
 };
 setupProblems(services, { openAt: jumpTo });
+// Show Diff in Editor Tab from a diff window: its diff as a tab of its worktree, if still open.
+window.cerebro?.diff.onTab((spec) => {
+  const { env, path, range } = spec as DiffSpec;
+  if (!workspace.open.some((e) => e.id === env)) return;
+  workspace.activate(env);
+  editor()?.open(diffTab(path, range));
+});
 // Jump to Source from a diff window: the file, if it's still there, where its caret was.
 window.cerebro?.diff.onJump((at) => {
   const { env, path, line, column } = at as {

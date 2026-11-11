@@ -218,6 +218,27 @@ it('compares the previous file of its list, as IntelliJ’s diff window', async 
   await diff.close();
 });
 
+it('moves a diff from its window to a tab and back, from its Settings, as IntelliJ’s', async () => {
+  await row('changes:shape.ts').click();
+  const window = await diffWindow(running, () => page().keyboard.press('ControlOrMeta+d'));
+  const choose = async (where: Page, label: string) => {
+    await where.locator('[data-menu="diff/settings"]:visible').click();
+    await where.locator('.cerebro-menu [role^="menuitem"]', { hasText: label }).click();
+  };
+  const closed = window.waitForEvent('close');
+  await choose(window, 'Show Diff in Editor Tab');
+  await closed;
+  // In the project's window, as a tab, in front.
+  const tab = page().locator('.cerebro-editor-group--active .cerebro-editor-diff');
+  await tab.waitFor({ timeout: 15_000 });
+  expect(await page().locator('.cerebro-editor-tab--active').textContent()).toBe('shape.ts');
+  // Back: the tab goes, a window shows it.
+  const back = await diffWindow(running, () => choose(page(), 'Show Diff in Separate Window'));
+  expect(await back.title()).toBe('shape.ts');
+  await expect.poll(() => tab.count()).toBe(0);
+  await back.close();
+});
+
 it('commits and pushes, with Commit and Push…, to the branch’s upstream', async () => {
   const remote = join(root, 'remote.git');
   execFileSync('git', ['init', '-q', '--bare', remote]);

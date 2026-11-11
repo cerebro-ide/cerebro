@@ -80,16 +80,29 @@ effect(() => {
   return undefined;
 });
 const services = { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap };
-// Next and Previous Difference go on to the list's files past a file's ends, as IntelliJ's.
-setupDiffViewer(services, {
-  has: (step) => beside(step) !== undefined,
-  go: (step) => {
-    current.set({
-      path: beside(step) as string,
-      ...(step < 0 ? { scrollTo: 'lastChange' as const } : {}),
-    });
+// Next and Previous Difference go on to the list's files past a file's ends, as IntelliJ's. Show
+// Diff in Editor Tab shows the file shown as a tab in the opener, and closes the window.
+setupDiffViewer(
+  services,
+  {
+    has: (step) => beside(step) !== undefined,
+    go: (step) => {
+      current.set({
+        path: beside(step) as string,
+        ...(step < 0 ? { scrollTo: 'lastChange' as const } : {}),
+      });
+    },
   },
-});
+  {
+    to: 'tab',
+    moves: () => true,
+    move: () => {
+      // The file shown, not the list: a tab shows one file.
+      const { project, env, range } = spec;
+      void app.diff.toTab({ project, env, path: current.peek().path, ...(range ? { range } : {}) });
+    },
+  },
+);
 /** Where the window's diff's caret is, on the side last focused; undefined until it shows. */
 const source = () => {
   const diff = document.querySelector('.cerebro-editor-diff');

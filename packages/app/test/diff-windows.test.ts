@@ -32,6 +32,8 @@ vi.mock('electron', () => ({ ipcMain: electron.ipcMain, BrowserWindow: electron.
 const {
   DIFF_JUMP,
   DIFF_JUMPED,
+  DIFF_TAB,
+  DIFF_TABBED,
   DIFF_OPEN,
   DiffWindows,
   diffHash,
@@ -95,6 +97,23 @@ describe('diff windows', () => {
     expect(made[2]?.close).toHaveBeenCalled();
   });
 
+  it('moves a diff to its opener as a tab, in front, and closes its window', () => {
+    let ids = 10;
+    const windows = new DiffWindows({ share: vi.fn(), unshare: vi.fn() }, () => fake(++ids));
+    const opener = fake(1);
+    windows.show(opener, spec);
+    const shown = fake(11);
+    windows.toTab(shown, { ...spec, path: 'b.ts' });
+    expect(opener.send).toHaveBeenCalledWith(DIFF_TABBED, { ...spec, path: 'b.ts' });
+    expect(opener.focus).toHaveBeenCalled();
+    expect(shown.close).toHaveBeenCalled();
+    // A window no project window opened: nothing to move to.
+    const other = fake(12);
+    windows.toTab(other, spec);
+    expect(other.close).not.toHaveBeenCalled();
+    expect(opener.send).toHaveBeenCalledOnce();
+  });
+
   it('takes a spec with its strings, a range’s, and its files with its own, or none', () => {
     expect(diffSpec(spec)).toEqual(spec);
     const range = { from: 'a1', to: 'b2' };
@@ -138,6 +157,8 @@ describe('diff windows', () => {
     );
     await ask(DIFF_JUMP, 2, { line: 1 });
     expect(opener.send).toHaveBeenCalledWith(DIFF_JUMPED, { line: 1 });
+    await ask(DIFF_TAB, 2, spec);
+    expect(opener.send).toHaveBeenCalledWith(DIFF_TABBED, spec);
   });
 
   it('sees a window through its contents: sent to while it lasts, brought to the front, closed', () => {
