@@ -57,10 +57,24 @@ async function stop(app: ElectronApplication): Promise<void> {
 export async function findAction(page: Page, name: string): Promise<void> {
   await page.keyboard.press('ControlOrMeta+Shift+A');
   await page.keyboard.type(name);
-  await page
-    .locator('.cerebro-popup-item', { hasText: new RegExp(`^${name}`) })
-    .first()
-    .click({ force: true });
+  try {
+    await page
+      .locator('.cerebro-popup-item', { hasText: new RegExp(`^${name}`) })
+      .first()
+      .click({ force: true });
+  } catch (error) {
+    // Not found once, after a diff window closed (shelf.test, the whole run): what was shown.
+    console.log(
+      `Find Action without "${name}":`,
+      await page.evaluate(() => ({
+        field: document.querySelector<HTMLInputElement>('.cerebro-popup input')?.value,
+        items: [...document.querySelectorAll('.cerebro-popup-item')].map((i) => i.textContent),
+        focused: document.activeElement?.className,
+        hasFocus: document.hasFocus(),
+      })),
+    );
+    throw error;
+  }
 }
 
 /**
