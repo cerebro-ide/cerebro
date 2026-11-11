@@ -122,12 +122,12 @@ const marks = StateField.define<DecorationSet>({
 
 /** The changes' colours, from IntelliJ's colour schemes. */
 const mergeTheme = EditorView.theme({
-  '.cm-merge3-modified': { backgroundColor: variable('merge-modified') },
-  '.cm-merge3-inserted': { backgroundColor: variable('merge-inserted') },
-  '.cm-merge3-deleted': { backgroundColor: variable('merge-deleted') },
-  '.cm-merge3-conflict': { backgroundColor: variable('merge-conflict') },
+  '.cm-merge3-modified': { backgroundColor: variable('diff-modified') },
+  '.cm-merge3-inserted': { backgroundColor: variable('diff-inserted') },
+  '.cm-merge3-deleted': { backgroundColor: variable('diff-deleted') },
+  '.cm-merge3-conflict': { backgroundColor: variable('diff-conflict') },
   // A change with no lines here: a line where it would be.
-  '.cm-merge3-spacer': { borderTop: `1px solid ${variable('merge-edge')}`, marginTop: '-1px' },
+  '.cm-merge3-spacer': { borderTop: `1px solid ${variable('diff-edge')}`, marginTop: '-1px' },
   // The frame scrolls, not each pane.
   '&': { height: 'auto' },
   '.cm-scroller': { overflowY: 'visible' },
@@ -143,7 +143,7 @@ const LAYOUT = `
   position: absolute; width: 16px; height: 16px; padding: 0; border: none; border-radius: 3px;
   background: transparent; color: var(--cerebro-text); font: 12px/16px sans-serif; cursor: pointer;
 }
-.cm-merge3-control:hover { background: var(--cerebro-merge-edge); }
+.cm-merge3-control:hover { background: var(--cerebro-diff-edge); }
 `;
 
 /** A three-way merge of one file. */

@@ -36,7 +36,6 @@ import '@cerebro-ide/ui-tree/styles.css';
 import '@cerebro-ide/ui-editor/styles.css';
 import {
   CodeEditor,
-  DiffEditor,
   fileIn,
   formatIn,
   formatLineColumn,
@@ -86,6 +85,7 @@ import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import '@cerebro-ide/ui-image/styles.css';
+import { DiffViewer, setupDiffViewer } from './diff-viewer.js';
 import { ImageTab, isImage, setupImages } from './images.js';
 import {
   active,
@@ -255,6 +255,7 @@ async function closeActiveProject(): Promise<void> {
 await setupProjects(services.commands, services.menus, closeActiveProject);
 setupLog(services);
 setupImages(services);
+setupDiffViewer(services);
 setupChanges(services, {
   open: (tab) => editor()?.open(tab),
   activeTab: () => editor()?.activeGroup.active,
@@ -1550,7 +1551,8 @@ function Diff(props: { path: string; env: string; range: Range | undefined }) {
           );
         }
         return (
-          <DiffEditor
+          <DiffViewer
+            services={services}
             path={props.path}
             original={state.original}
             text={state.text}

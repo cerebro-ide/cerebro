@@ -46,6 +46,10 @@ export const INTELLIJ: KeymapPreset = {
   id: 'intellij',
   name: 'IntelliJ IDEA',
   bindings: {
+    // First: in a diff, its keys come before another command's with the same (macOS System's
+    // Meta+[ is Back elsewhere), as IntelliJ's diff takes them.
+    'diff.nextDifference': ['F7'],
+    'diff.previousDifference': ['Shift+F7'],
     'symbol.goTo': ['Ctrl+Alt+Shift+N'],
     'class.goTo': ['Ctrl+N'],
     'file.goTo': ['Ctrl+Shift+N'],
@@ -125,6 +129,10 @@ export const INTELLIJ_MAC: KeymapPreset = {
   id: 'intellij-mac',
   name: 'IntelliJ IDEA (macOS)',
   bindings: {
+    // First: in a diff, its keys come before another command's with the same (macOS System's
+    // Meta+[ is Back elsewhere), as IntelliJ's diff takes them.
+    'diff.nextDifference': ['F7'],
+    'diff.previousDifference': ['Shift+F7'],
     'symbol.goTo': ['Meta+Alt+O'],
     'class.goTo': ['Meta+O'],
     'file.goTo': ['Meta+Shift+O'],
@@ -345,6 +353,7 @@ export const ECLIPSE: KeymapPreset = {
   name: 'Eclipse',
   parent: INTELLIJ,
   bindings: {
+    'diff.nextDifference': ['Ctrl+F7'],
     'vcs.update': [],
     'class.goTo': ['Ctrl+Shift+T'],
     'file.goTo': ['Ctrl+Shift+R'],
@@ -387,6 +396,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
   name: 'Eclipse (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'diff.nextDifference': ['Ctrl+F7'],
     'vcs.update': [],
     'class.goTo': ['Meta+Shift+T'],
     'file.goTo': ['Meta+Shift+R'],
@@ -489,6 +499,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
   name: 'macOS System Shortcuts',
   parent: INTELLIJ_MAC,
   bindings: {
+    'diff.nextDifference': ['Meta+]', 'F7'],
+    'diff.previousDifference': ['Meta+[', 'Shift+F7'],
     'action.find': ['Meta+Shift+P', 'Meta+Shift+A'],
     'navigate.back': ['Meta+['],
     'navigate.forward': ['Meta+]'],
@@ -610,6 +622,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
   name: 'Visual Studio',
   parent: INTELLIJ,
   bindings: {
+    'diff.nextDifference': ['F7', 'F8'],
+    'diff.previousDifference': ['Shift+F7', 'Shift+F8'],
     'vcs.update': ['Ctrl+Alt+W'],
     'symbol.goTo': ['Ctrl+Alt+Shift+T'],
     'class.goTo': [],

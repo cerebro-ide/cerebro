@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2233,6 +2234,52 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## The diff viewer, as IntelliJ's (2026-11-11)
+
+Ido: "I'd expected the same git diff functionality and behaviour as intellij. new window instead of
+as a tab, allow collapsing of irrelevant rows, sync scroll toggle - the entire menu that intellij
+offers on webstorm". This is the first part: the viewer itself. Measured from IntelliJ's source
+(`SimpleDiffViewer`, `TwosideTextDiffViewer`, `SyncScrollSupport`, `FoldingModelSupport`,
+`TextDiffSettingsHolder`, `DiffDrawUtil`, `TextDiffTypeFactory`, `DiffBundle`, the keymaps).
+
+- **Two editors and a divider,** as IntelliJ's side-by-side viewer, not CodeMirror's merge view:
+  each side scrolls by itself, so scrolling can be synchronized or not. CodeMirror's merge view is
+  one scroll area, with no way to scroll the sides apart. Between them, a divider joins each change
+  on the left to its place on the right with curves in its colour, and each folded band to the
+  other side's, as IntelliJ's. `@codemirror/merge`'s `Chunk.build` still finds the changes.
+- **IntelliJ's colours by kind** (`TextDiffType`): inserted, deleted and modified, the merge
+  window's colours (the tokens are shared now, `--cerebro-diff-*`, as IntelliJ uses the same ones).
+  A modified change's lines take its colour mixed 40% into the text's background, and its changed
+  text the full colour, as IntelliJ's "ignored" colour (`MIDDLE_COLOR_FACTOR` 0.6); an inserted or
+  deleted one is in the full colour. Each change's line numbers too, as IntelliJ paints the whole
+  gutter. Where a change has no lines on a side, a line in its colour where they would be.
+- **Synchronize Scrolling,** on to start with, as IntelliJ's: scrolling one side scrolls the other
+  so the line a third of the way down is carried across the changes (`transferLine`) to the same
+  height, in the same phase within its line (`SyncScrollSupport.syncVerticalScroll`); horizontally,
+  to the same place. Turned back on, the other side catches up at once. In the Settings gear's menu
+  (its `SetEditorSettingsActionGroup`).
+- **Collapse Unchanged Fragments,** a toggle on the toolbar: unchanged lines more than 4 from a
+  change (`CONTEXT_RANGE` 4) fold into a band in IntelliJ's `DIFF_SEPARATORS_BACKGROUND`; at least 2
+  lines, or none; the text's ends fold to its edges. A click on a band shows 4 more lines each side,
+  then 8 more, then all, as IntelliJ's nested folds (`getRangeShift`). Toggled, every fold is set
+  again. On to start with: IntelliJ's default for diffs from the Commit window, the Log and a file's
+  history, where Cerebro's are; elsewhere it starts expanded (Claude's choice that one default fits
+  every diff here, open to change). Both toggles are kept between sessions, for every diff.
+- **Previous and Next Difference** (Shift+F7 and F7; Visual Studio's F8 too, Eclipse's Ctrl+F7,
+  macOS System's Cmd+[ and Cmd+], as IntelliJ's keymaps give them), on the toolbar too: the caret
+  to the change before or after it on the side last focused, in the middle of the view; disabled
+  with none to go to. A diff opens with the caret at its first change, scrolled to it, as IntelliJ's.
+  macOS System's Cmd+[ is Back elsewhere: a diff's keys come first, and run only in a diff.
+- **The toolbar** is IntelliJ's left to right: the arrows, Collapse Unchanged Fragments, and the
+  gear at the end. In the diff tab and Local History; the file cache conflict's diff has none, as
+  it's a merge.
+- **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
+  the divider, as IntelliJ's; the sides are diffed again as it's edited.
+- **Not yet:** the highlighting and ignore policies and the unified viewer (IntelliJ's toolbar's
+  other menus); a separate diff window; a fold's description (IntelliJ's breadcrumbs of where it
+  is); the other settings in the gear (aligning changes, line numbers, soft wraps); a changed text's
+  words as IntelliJ splits them (the changes are CodeMirror's, by character).
+
 ## Git → Merge… (2026-11-10)
 
 Ido's "all of the above", the Git menu's rest: Merge…, stacked on Fetch and Pull, whose dialog's
@@ -3410,7 +3457,9 @@ The POC's second step: the worktree's changed files, each opening its diff in an
 - **The diff is side by side,** as IntelliJ's default: the last committed text on the left, the
   file as it is on the right, unchanged lines aligned, read-only. CodeMirror's merge view
   (`@codemirror/merge` 6.12.2; 6.12.3 was out for under two weeks), in the code editor's look and
-  shadow root. Diff colours and the status colours are theme tokens, not measured.
+  shadow root. Diff colours and the status colours are theme tokens, not measured. (Changed
+  2026-11-11: two editors and a divider, in IntelliJ's colours, each side scrolling by itself, as
+  IntelliJ's; see "The diff viewer, as IntelliJ's".)
 - **A diff tab** is the file's path marked `diff:`; it reads both sides through the host when it
   shows (`git.diff`), so it's current each time it's switched to.
 - **From a diff to the code** (added 2026-11-02, the next stage's second item): Jump to Source (F4,

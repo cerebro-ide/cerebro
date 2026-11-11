@@ -143,7 +143,7 @@ it('shows a commit’s files and message, and opens a file’s diff between it a
   expect(await log.locator('.playground-log__details-subject').textContent()).toBe('On the side');
   await file.dblclick({ force: true });
   // The diff: the first commit's text on the left, the side's on the right.
-  const added = page().locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+  const added = page().locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await expect.poll(() => added.allTextContents(), HOST).toEqual(['On the side']);
 });
 

@@ -37,6 +37,7 @@ export {
   DiffEditor,
   diffSource,
   transferLine,
+  type DiffControl,
   type DiffEditorProps,
   type LineRange,
 } from './diff.js';

@@ -535,7 +535,7 @@ it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl
   await shape.click();
   await page.keyboard.press('ControlOrMeta+d');
   // The diff: the committed text on the left, the line added on the right.
-  const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+  const added = page.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
   await expect.poll(() => added.allTextContents()).toEqual(['export {};']);
   await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
 });
@@ -622,7 +622,7 @@ it('opens a changed file of the worktree it’s in, from the Commit window and f
   // Jump to Source from its diff goes to the same tab.
   await shape.click();
   await page.keyboard.press('ControlOrMeta+d');
-  const changed = page.locator('.cerebro-editor-diff:visible .cm-merge-b .cm-changedLine');
+  const changed = page.locator('.cerebro-editor-diff:visible .cm-diff-b .cm-diff-line');
   await changed.first().click();
   await page.keyboard.press('F4');
   await expect

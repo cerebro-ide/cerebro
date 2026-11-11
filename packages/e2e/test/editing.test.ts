@@ -286,7 +286,7 @@ it('asks about a file changed both in the editor and on disk: keep, load, or mer
   await conflict(' // merged', 'const second = 6;\n');
   await button('Show Difference').click();
   const merge = page().locator('.cerebro-dialog', { hasText: 'Save Memory Content' });
-  const revert = merge.locator('.cm-merge-revert button').first();
+  const revert = merge.locator('.cm-diff-take').first();
   await revert.waitFor();
   await revert.click();
   await merge.getByRole('button', { name: 'Save Memory Content' }).click();

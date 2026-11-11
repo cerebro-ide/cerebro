@@ -4,7 +4,14 @@ import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { DiffEditor, diffSource, transferLine, type DiffEditorProps } from '../src/index.js';
+import {
+  DiffEditor,
+  diffSource,
+  transferLine,
+  type DiffControl,
+  type DiffEditorProps,
+} from '../src/index.js';
+import { foldedLines } from '../src/diff.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -29,31 +36,54 @@ const lines = (editor: Element) =>
   [...editor.querySelectorAll('.cm-line')].map((line) => line.textContent);
 
 describe('the diff editor', () => {
-  it('shows the committed text on the left and the current on the right, changes marked', () => {
+  const sides = (root: ShadowRoot) => [
+    root.querySelector('.cm-diff-a') as Element,
+    root.querySelector('.cm-diff-b') as Element,
+  ];
+  const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+
+  it('shows the committed text on the left and the current on the right, changes marked by kind', () => {
     const root = mount({
       path: 'a.ts',
       original: 'const a = 1;\nconst same = 0;\n',
       text: 'const a = 2;\nconst same = 0;\nconst added = 3;\n',
     });
-    const [left, right] = root.querySelectorAll('.cm-mergeViewEditor .cm-editor');
-    expect(lines(left as Element)).toEqual(['const a = 1;', 'const same = 0;', '']);
-    expect(lines(right as Element)).toContain('const added = 3;');
-    expect(left?.querySelector('.cm-changedLine')?.textContent).toBe('const a = 1;');
-    expect(
-      [...(right as Element).querySelectorAll('.cm-changedLine')].map((l) => l.textContent),
-    ).toEqual(['const a = 2;', 'const added = 3;']);
-    // In the theme's colours.
-    const removed = getComputedStyle(left?.querySelector('.cm-changedLine') as Element);
-    expect(removed.backgroundColor).toBe('rgb(62, 42, 44)'); // Scrollbars avoid both sides' gutters.
+    const [left, right] = sides(root) as [Element, Element];
+    expect(lines(left)).toEqual(['const a = 1;', 'const same = 0;', '']);
+    expect(lines(right)).toContain('const added = 3;');
+    expect(left.querySelector('.cm-diff-line')?.textContent).toBe('const a = 1;');
+    expect([...right.querySelectorAll('.cm-diff-line')].map((l) => l.textContent)).toEqual([
+      'const a = 2;',
+      'const added = 3;',
+    ]);
+    // In IntelliJ's colours: a modified line lighter, its changed text in the full colour.
+    const modified = right.querySelector('.cm-diff-modified') as Element;
+    const word = right.querySelector('.cm-diff-word-modified') as Element;
+    expect(word.textContent).toBe('2');
+    expect(getComputedStyle(word).backgroundColor).toBe('rgb(56, 85, 112)');
+    expect(getComputedStyle(modified).backgroundColor).not.toBe('rgb(56, 85, 112)');
+    const added = right.querySelector('.cm-diff-inserted') as Element;
+    expect(getComputedStyle(added).backgroundColor).toBe('rgb(41, 68, 54)');
+    // Its lines' numbers too; on the left, a line where the added one would be.
+    expect(right.querySelectorAll('.cm-gutterElement.cm-diff-gutter-inserted')).toHaveLength(1);
+    expect(left.querySelector('.cm-diff-before-inserted')?.textContent).toBe('');
+    // Scrollbars avoid both sides' gutters.
     expect(root.querySelectorAll('.cm-gutters[data-scrollbar-obstacle]')).toHaveLength(2);
+  });
+
+  it('joins each change across the divider, and each fold', async () => {
+    const original = Array.from({ length: 40 }, (_, i) => `line ${String(i)}`);
+    const text = original.with(20, 'changed');
+    const root = mount({ path: 'a.txt', original: original.join('\n'), text: text.join('\n') });
+    await expect.poll(() => root.querySelectorAll('.cm-diff-divider path').length).toBe(1);
   });
 
   it('is as wide as the longest line on each side, though it isn’t drawn', async () => {
     const lines = Array.from({ length: 3000 }, (_, i) => `line ${String(i)}`);
     lines[2500] = 'x'.repeat(400);
     const root = mount({ path: 'a.txt', original: lines.join('\n'), text: lines.join('\n') });
-    await new Promise((resolve) => requestAnimationFrame(resolve));
-    await new Promise((resolve) => requestAnimationFrame(resolve));
+    await frame();
+    await frame();
     for (const content of root.querySelectorAll<HTMLElement>('.cm-content')) {
       expect(parseFloat(content.style.minWidth)).toBeGreaterThan(2000);
     }
@@ -78,21 +108,189 @@ describe('the diff editor', () => {
   it('merges into the right side: typed into, or taking the left’s change by its arrow', async () => {
     const onEdit = vi.fn();
     const root = mount({ path: 'a.txt', original: 'disk\nsame', text: 'memory\nsame', onEdit });
-    const right = root.querySelectorAll('.cm-editor')[1] as Element;
-    // Drawn once the view has measured itself.
-    await expect.poll(() => root.querySelector('.cm-merge-revert button')).not.toBeNull();
-    await userEvent.click(root.querySelector('.cm-merge-revert button') as Element);
+    const right = sides(root)[1] as Element;
+    // Drawn in the next frame.
+    await expect.poll(() => root.querySelector('.cm-diff-take')).not.toBeNull();
+    await userEvent.click(root.querySelector('.cm-diff-take') as Element);
     expect(onEdit).toHaveBeenLastCalledWith('disk\nsame');
     await userEvent.click(right.querySelector('.cm-line') as Element);
     await userEvent.keyboard('{End}!');
     expect(onEdit).toHaveBeenLastCalledWith('disk!\nsame');
     expect(lines(right)).toEqual(['disk!', 'same']);
+    // Diffed again: the change typed is marked.
+    await expect.poll(() => right.querySelector('.cm-diff-word-inserted')?.textContent).toBe('!');
+  });
+
+  it('takes a change at the text’s end, with no last newline', async () => {
+    const onEdit = vi.fn();
+    const root = mount({ path: 'a.txt', original: 'same\nold', text: 'same', onEdit });
+    await expect.poll(() => root.querySelector('.cm-diff-take')).not.toBeNull();
+    await userEvent.click(root.querySelector('.cm-diff-take') as Element);
+    expect(onEdit).toHaveBeenLastCalledWith('same\nold');
   });
 
   it('defaults its settings', () => {
     const root = mount({ path: 'a.md', original: '# a', text: '# b' });
     const scroller = root.querySelector('.cm-scroller') as Element;
     expect(getComputedStyle(scroller).fontSize).toBe('13px');
+    expect(root.querySelector('.cm-diff-fold')).toBeNull();
+  });
+});
+
+describe('collapsing unchanged fragments', () => {
+  // 100 lines, the 51st changed.
+  const original = Array.from({ length: 100 }, (_, i) => `line ${String(i)}`);
+  const text = original.with(50, 'changed');
+  const folds = (root: ShadowRoot, side: 'a' | 'b') =>
+    [...root.querySelectorAll(`.cm-diff-${side} .cm-diff-fold`)].map((f) =>
+      f.getAttribute('aria-label'),
+    );
+
+  it('folds the lines more than 4 from a change, shows more of them when clicked, then all', async () => {
+    const collapse = signal(true);
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      collapse: () => collapse.get(),
+    });
+    await expect.poll(() => folds(root, 'a')).toEqual(['46 unchanged lines', '45 unchanged lines']);
+    expect(folds(root, 'b')).toEqual(['46 unchanged lines', '45 unchanged lines']);
+    // The lines kept: 4 each side of the change.
+    expect(lines(root.querySelector('.cm-diff-b') as Element)).toEqual(
+      expect.arrayContaining(['line 46', 'changed', 'line 54']) as string[],
+    );
+    expect(lines(root.querySelector('.cm-diff-b') as Element)).not.toContain('line 45');
+    // Joined across the divider, as the change is.
+    await expect.poll(() => root.querySelectorAll('.cm-diff-divider path').length).toBe(3);
+    // Clicked: 4 more lines each side, then 8 more, then all, on both sides.
+    const first = () => root.querySelector('.cm-diff-b .cm-diff-fold') as Element;
+    await userEvent.click(first());
+    await expect.poll(() => folds(root, 'a')).toEqual(['42 unchanged lines', '45 unchanged lines']);
+    await userEvent.click(first());
+    await expect.poll(() => folds(root, 'b')).toEqual(['34 unchanged lines', '45 unchanged lines']);
+    await userEvent.click(first());
+    await expect.poll(() => folds(root, 'b')).toEqual(['45 unchanged lines']);
+    // Turned off, nothing's folded; on again, all is, as IntelliJ's toggle refolds.
+    collapse.set(false);
+    await expect.poll(() => folds(root, 'b')).toEqual([]);
+    collapse.set(true);
+    await expect.poll(() => folds(root, 'b')).toEqual(['46 unchanged lines', '45 unchanged lines']);
+  });
+
+  it('shows all at once a fold too short to keep folding', async () => {
+    // 12 unchanged lines before the change: 8 folded, then 4, then too few at 16 lines of context.
+    const root = mount({
+      path: 'a.txt',
+      original: original.slice(0, 14).join('\n'),
+      text: original.slice(0, 14).with(12, 'changed').join('\n'),
+      collapse: () => true,
+    });
+    await expect.poll(() => folds(root, 'b')).toEqual(['8 unchanged lines']);
+    await userEvent.click(root.querySelector('.cm-diff-b .cm-diff-fold') as Element);
+    await expect.poll(() => folds(root, 'b')).toEqual(['4 unchanged lines']);
+    await userEvent.click(root.querySelector('.cm-diff-b .cm-diff-fold') as Element);
+    await expect.poll(() => folds(root, 'b')).toEqual([]);
+  });
+});
+
+describe('foldedLines', () => {
+  const changes = [{ start1: 10, end1: 11, start2: 10, end2: 12 }];
+
+  it('keeps context around changes, the more the deeper, and folds no fewer than 2 lines', () => {
+    expect(foldedLines(changes, 0, 'a', 30, 0)).toEqual({ from: 0, to: 6 });
+    expect(foldedLines(changes, 0, 'a', 30, 1)).toEqual({ from: 0, to: 2 });
+    expect(foldedLines(changes, 0, 'a', 30, 2)).toBeUndefined();
+    expect(foldedLines(changes, 1, 'a', 30, 0)).toEqual({ from: 15, to: 30 });
+    expect(foldedLines(changes, 1, 'b', 30, 0)).toEqual({ from: 16, to: 30 });
+    expect(foldedLines(changes, 1, 'b', 30, 3)).toBeUndefined();
+    expect(foldedLines([], 0, 'a', 1, 0)).toBeUndefined();
+  });
+});
+
+describe('synchronized scrolling', () => {
+  // 300 lines, 20 more added on the right after the 100th.
+  const original = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`);
+  const added = Array.from({ length: 20 }, (_, i) => `added ${String(i)}`);
+  const text = [...original.slice(0, 100), ...added, ...original.slice(100)];
+  const scrollers = (root: ShadowRoot) =>
+    [...root.querySelectorAll<HTMLElement>('.cm-scroller')] as [HTMLElement, HTMLElement];
+  /** The line a third of the way down a side. */
+  const third = (scroller: HTMLElement) => {
+    const box = scroller.getBoundingClientRect();
+    const root = scroller.getRootNode() as ShadowRoot;
+    const at = root.elementsFromPoint(box.left + 80, box.top + box.height / 3);
+    return at.find((e) => e.classList.contains('cm-line'))?.textContent;
+  };
+
+  it('scrolls the other side to the same line, carried across the changes', async () => {
+    const sync = signal(true);
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      syncScroll: () => sync.get(),
+    });
+    const [left, right] = scrollers(root);
+    // To start with, at the first change, the left keeping up.
+    await expect.poll(() => third(left)).toBeDefined();
+    const level = () => {
+      const [a, b] = [third(left), third(right)];
+      return a !== undefined && a === b ? a : `${String(a)} ≠ ${String(b)}`;
+    };
+    right.scrollTop = 200 * 22;
+    await expect.poll(level).toMatch(/^line \d+$/);
+    // Off, the other side stays; on again, it catches up.
+    sync.set(false);
+    const before = left.scrollTop;
+    right.scrollTop = 250 * 22;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(left.scrollTop).toBe(before);
+    sync.set(true);
+    await expect.poll(level).toMatch(/^line 2\d\d$/);
+    // From the left, the right follows.
+    left.scrollTop = 20 * 22;
+    await expect.poll(level).toMatch(/^line \d\d$/);
+  });
+});
+
+describe('previous and next difference', () => {
+  it('starts at the first change, and goes to the one after the caret, or before', async () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    const text = original.with(10, 'one').with(30, 'two').with(50, 'three');
+    let control: DiffControl | undefined;
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      control: (c) => {
+        control = c;
+      },
+    });
+    const diff = control as DiffControl;
+    expect(diffSource(root.host)).toEqual({ line: 10, column: 0 });
+    expect(diff.hasPrevious()).toBe(false);
+    expect(diff.hasNext()).toBe(true);
+    diff.next();
+    expect(diffSource(root.host)).toEqual({ line: 30, column: 0 });
+    diff.next();
+    expect(diffSource(root.host)).toEqual({ line: 50, column: 0 });
+    expect(diff.hasNext()).toBe(false);
+    diff.next();
+    expect(diffSource(root.host)).toEqual({ line: 50, column: 0 });
+    diff.previous();
+    diff.previous();
+    expect(diffSource(root.host)).toEqual({ line: 10, column: 0 });
+    diff.previous();
+    expect(diffSource(root.host)).toEqual({ line: 10, column: 0 });
+    // On the left, from its caret, once it's focused.
+    const left = root.querySelector('.cm-diff-a') as Element;
+    await userEvent.click(
+      [...left.querySelectorAll('.cm-line')].find((l) => l.textContent === 'line 12') as Element,
+    );
+    expect(diff.hasPrevious()).toBe(true);
+    diff.next();
+    expect(diffSource(root.host)).toEqual({ line: 30, column: 0 });
   });
 });
 
@@ -122,7 +320,7 @@ describe('transferLine', () => {
 
 describe('diffSource', () => {
   const caret = async (root: ShadowRoot, side: 0 | 1, text: string) => {
-    const editor = root.querySelectorAll('.cm-mergeViewEditor .cm-editor')[side] as Element;
+    const editor = root.querySelectorAll('.cm-editor')[side] as Element;
     const line = [...editor.querySelectorAll('.cm-line')].find((l) => l.textContent === text);
     await userEvent.click(line as Element);
   };
@@ -134,8 +332,8 @@ describe('diffSource', () => {
       text: 'one\nadded\nmore\ntwo\nfour\n',
     });
     const element = root.host;
-    // Before either side has the focus: the right side's caret, at the start.
-    expect(diffSource(element)).toEqual({ line: 0, column: 0 });
+    // Before either side has the focus: the right side's caret, at the first change.
+    expect(diffSource(element)).toEqual({ line: 1, column: 0 });
     await caret(root, 1, 'more');
     expect(diffSource(element)).toMatchObject({ line: 2 });
     // On the left, "four" is after the changes: on the right, a line further down.

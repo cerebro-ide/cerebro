@@ -339,6 +339,48 @@ body,
   height: 100%;
 }
 
+/* A diff and its toolbar, as the image viewer's. */
+.playground-diff {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playground-diff > .cerebro-editor-diff {
+  flex: 1;
+  min-height: 0;
+}
+
+.playground-diff__toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+}
+
+.playground-diff__toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
+.playground-diff__toolbar .cerebro-toolbar-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.playground-diff__separator {
+  width: 1px;
+  height: 16px;
+  margin: 0 4px;
+  background: var(--cerebro-separator);
+}
+
+/* The Settings gear at the toolbar's end, as IntelliJ's. */
+.playground-diff__settings {
+  margin-left: auto;
+}
+
 .playground-image {
   display: flex;
   flex-direction: column;

@@ -50,6 +50,15 @@ on it:
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
+- **Jump to Source can land before an open file reads a change made outside Cerebro** (measured
+  2026-11-11, writing the diff viewer's e2e test): the file changed on disk while its tab was open;
+  the diff, read from disk, had the new lines, but F4 from it put the caret in the editor's old text
+  (on its last, empty line), and the text was reloaded around a second later, the caret staying
+  there. The jump should wait for the reload, or the reload be asked for first.
+- **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
+  (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
+  which assertion wasn't kept. The next failure's message will say.
 - **The app stalls for tens of seconds on Windows in CI, now and then** (#161 and #162,
   2026-11-11; #161's next run passed with the same code): "commits a merge started elsewhere"
   pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed

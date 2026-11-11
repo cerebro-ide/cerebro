@@ -93,7 +93,7 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
       .toBe(1);
     await file.click();
     await page.keyboard.press('ControlOrMeta+d');
-    const added = page.locator('.cerebro-editor-diff .cm-merge-b .cm-changedLine');
+    const added = page.locator('.cerebro-editor-diff .cm-diff-b .cm-diff-line');
     await expect.poll(() => added.allTextContents()).toEqual(['written by the agent']);
   });
 });
