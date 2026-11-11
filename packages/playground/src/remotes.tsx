@@ -63,7 +63,8 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
   const edit = async () => {
     const from = chosen();
     if (!from) return;
-    const to = await askForRemote(host, worktree, names(), from);
+    const others = names().filter((n) => n !== from.name);
+    const to = await askForRemote(host, worktree, others, from);
     // As IntelliJ's: nothing changed, nothing done, Fetch remote or not.
     if (!to || (to.name === from.name && to.url === from.url)) return;
     await change(
@@ -97,7 +98,7 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
     name: string,
     key: string,
     run: () => Promise<void>,
-    on = true,
+    on: boolean,
   ) => (
     <button
       type="button"
@@ -153,7 +154,7 @@ async function remotesDialog(host: Host, worktree: string, platform: Platform): 
                 moveBy(event.key === 'ArrowDown' ? 1 : -1);
               } else if (adding) press(add);
               else if (removing) press(remove);
-              else if (event.key === 'Enter' && chosen()) press(edit);
+              else if (event.key === 'Enter') press(edit);
             }}
           >
             <thead>

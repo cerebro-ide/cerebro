@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
 - [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
@@ -2237,6 +2238,33 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Git → Manage Remotes… (2026-11-11)
+
+The last of the Git menu's actions the decision "Fetch and Pull" left, with Rebase…. From
+IntelliJ's source (`GitConfigureRemotesDialog`, `GitDefineRemoteDialog`, `ToolbarDecorator` and
+`CommonActionsPanel`, their words in `GitBundle`, and `Git.MainMenu`).
+
+- **In the Git menu, in a group of its own after Uncommitted Changes and Current File,** as
+  IntelliJ's (Clone, after it there, isn't in Cerebro).
+- **The dialog, "Git Remotes":** a table of Name and URL (a remote's first URL), origin first and
+  the rest by name, one selected at a time; Add, Remove and Edit over it, Remove and Edit only with
+  one selected; OK alone closes it, as IntelliJ's. The keys are `ToolbarDecorator`'s: Add
+  Alt+Insert (⌘N on macOS), Remove Alt+Delete (⌘⌫), Edit Enter or a double-click; Up and Down
+  select.
+- **Add and Edit ask with Define Remote, Push's** (now shared, taking a starting name and URL, as
+  IntelliJ's): Add starts at origin unless there's one, then empty, its name's field focused; Edit
+  starts at the remote's own, other remotes' names taken. Edit with nothing changed does nothing,
+  even with Fetch remote, as IntelliJ's. A changed one is renamed, then its URL set
+  (`git remote rename`, `set-url`), then fetched if asked.
+- **Remove asks** "Remove remote x 'url'?" (Remove Remote, Yes or No), then `git remote remove`,
+  which drops its remote-tracking branches too (measured in the host's tests).
+- **A failure** says so in a dialog, IntelliJ's words: "Cannot add remote x 'url' in <worktree>:"
+  and git's (Add Remote, Change Remote, Remove Remote); the list is read again either way.
+- **Add's and Remove's icons** are a plus and a minus drawn for Cerebro, Edit's the pencil (a
+  claim: not IntelliJ's drawings).
+- **Left out, open to change:** a repository's rows (Cerebro's worktree is one repository);
+  the table's height following its rows (IntelliJ's shows up to 8).
+
 ## Git → Reset HEAD… (2026-11-11)
 
 The next of the Git menu's actions left by the decision "Fetch and Pull". From IntelliJ's source
@@ -2487,7 +2515,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 
 - **The Git menu, in IntelliJ's order:** Commit…, Push…, Update Project…, Pull…, Fetch | the merge
   and rebase actions, Resolve Conflicts… | Branches…, New Branch…, New Tag…, Reset HEAD… (added
-  2026-11-11: their decisions) | Current File, Uncommitted Changes.
+  2026-11-11: their decisions) | Current File, Uncommitted Changes | Manage Remotes… (added
+  2026-11-11).
 - **Fetch:** every remote, `git fetch --prune`, as IntelliJ's `fetchAllRemotes`; a remote that fails
   doesn't stop the others. "Fetch successful", with the remote branches pruned; or "Fetch failed"
   with git's words, each remote named when several failed. "Fetching…" on the status bar while it
@@ -2519,8 +2548,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
 - **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull; Rebase… and Manage Remotes… (the next PRs; Merge…:
-  decision "Git → Merge…"; New Tag… and Reset HEAD…: their decisions).
+  without remotes; View Commits after a pull; Rebase… (the next PR; Merge…: decision "Git → Merge…";
+  New Tag…, Reset HEAD… and Manage Remotes…: their decisions).
 
 ## Branches (2026-11-10)
 

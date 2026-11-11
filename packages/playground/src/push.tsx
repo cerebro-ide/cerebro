@@ -611,8 +611,8 @@ export interface NewRemote {
 /**
  * Asks for a remote, as IntelliJ's Define Remote: a name and a URL (origin and none to start with,
  * or the remote's being edited), and Fetch remote. OK checks that the URL answers (`git
- * ls-remote`), and says git's words under it when it doesn't. A name git refuses, or one another
- * remote has, says so as it's typed; OK waits for both (Cerebro's, as its prompts: IntelliJ says so
+ * ls-remote`), and says git's words under it when it doesn't. A name git refuses, or one of
+ * `remotes` (those besides the one edited), says so as it's typed; OK waits for both (Cerebro's, as its prompts: IntelliJ says so
  * on OK). The name's field is focused while it's empty, else the URL's, as IntelliJ's.
  */
 export function askForRemote(
@@ -633,9 +633,7 @@ export function askForRemote(
     const typed = name.get().trim();
     if (typed === '') return undefined;
     if (!isBranchName(typed)) return 'Remote name contains illegal characters';
-    return typed !== initial.name && remotes.includes(typed)
-      ? `Remote name '${typed}' is already used`
-      : undefined;
+    return remotes.includes(typed) ? `Remote name '${typed}' is already used` : undefined;
   };
   const field = (label: string, value: Signal<string>, error: () => string | undefined) => (
     <label class="playground-form__row">

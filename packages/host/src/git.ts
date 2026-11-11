@@ -831,8 +831,9 @@ export async function listRemotes(worktree: string, run: Git = git): Promise<Rem
       url: (await run(worktree, ['remote', 'get-url', '--end-of-options', name])).trim(),
     })),
   );
+  // Names are unique: never equal.
   const rank = (r: Remote) => (r.name === 'origin' ? '' : `.${r.name}`);
-  return remotes.sort((a, b) => (rank(a) < rank(b) ? -1 : rank(a) > rank(b) ? 1 : 0));
+  return remotes.sort((a, b) => (rank(a) < rank(b) ? -1 : 1));
 }
 
 /** Removes a remote, and its remote-tracking branches with it (git's). */
