@@ -53,6 +53,9 @@ paths:
   window is resized or loses focus (`watchFrames` in `test/app.ts`); each file prints those as it
   ends. Frames kept coming when a forced click on a popup's item failed as "not visible" (#181):
   Playwright says that of an element gone from the page, and a popup closes on a resize or blur.
+  Then an unforced click of the Branch button waited 5 s with frames coming and no resize or focus
+  lost: `click` in `test/app.ts` says, when a click fails, the element's boxes over 20 frames and
+  the page's animations; a click that has hit this goes through it.
 - **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
   test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each

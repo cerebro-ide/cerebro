@@ -8,7 +8,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron, type ElectronApplication, type Page } from 'playwright';
+import { _electron, type ElectronApplication, type Locator, type Page } from 'playwright';
 import { expect } from 'vitest';
 
 /** The app's package, which Electron runs. */
@@ -73,6 +73,41 @@ export async function findAction(page: Page, name: string): Promise<void> {
         hasFocus: document.hasFocus(),
       })),
     );
+    throw error;
+  }
+}
+
+/**
+ * Clicks, and when the click fails, says how the element moved over 20 animation frames (each
+ * distinct box, in order) and what animations ran in the page: under xvfb in CI a click waited 5 s
+ * for the Branch button to be "stable" while frames kept coming and the window kept its size and
+ * focus (#181, 2026-11-11), so its box changes, or Playwright's check fails another way.
+ */
+export async function click(
+  target: Locator,
+  options?: Parameters<Locator['click']>[0],
+): Promise<void> {
+  try {
+    await target.click(options);
+  } catch (error) {
+    const seen = await target
+      .evaluate(async (element) => {
+        const boxes: string[] = [];
+        for (let i = 0; i < 20; i++) {
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const r = element.getBoundingClientRect();
+          const box = [r.x, r.y, r.width, r.height].map((n) => n.toFixed(2)).join(',');
+          if (boxes.at(-1) !== box) boxes.push(box);
+        }
+        const animations = document.getAnimations().map((a) => {
+          const on = (a.effect as KeyframeEffect | null)?.target;
+          return `${a.constructor.name} ${a.playState} on ${on instanceof Element ? on.className : '?'}`;
+        });
+        return { connected: element.isConnected, boxes, animations };
+      })
+      .catch((reason: unknown) => String(reason));
+    const [why] = (error as Error).message.split('\n');
+    report(`The click failed: ${why ?? ''}: ${JSON.stringify(seen)}`);
     throw error;
   }
 }
