@@ -78,7 +78,8 @@ on it:
   resized; that either happened isn't known. The test now prints the popups, their items' boxes,
   the focus and the window's size when the click fails. The same click failed the same way in
   `app.test.ts` on Linux in CI (#181, 2026-11-11), with no frame report: every page now also says
-  when its window is resized or loses focus, printed as each e2e file ends.
+  when its window is resized or loses focus, printed as each e2e file ends. In #181's passing run
+  (43076863326) Linux's window had none; macOS's resizes came from the full-screen test alone.
 - **The page stopped taking clicks for the rest of `editing.test.ts` on Linux in CI** (once, on
   2026-11-11, #166, run 43003358765): a click on System Settings' Global waited "performing click
   action" until it timed out, and every test after failed. The app now reports a page held up over
@@ -150,34 +151,3 @@ on it:
   `shape.wi` was typed, with the editor focused and no popup open, the list never showed. The cause
   isn't found. The test's output asked the server again with the file as on disk, not as typed, so
   it showed nothing useful. It now asks with the editor's text (checked locally: `width`).
-- **The e2e test of saving when idle sometimes doesn't save in time** (a full local run and CI on
-  #121, both 2026-11-04; reruns pass): `second.ts` wasn't saved within 5 s of an edit, with the
-  idle time set to 1 s, and the next test failed from it. In CI the page printed the edit in the
-  editor, the page focused, and the editor focused; the file was saved later, before the next test
-  looked. The cause isn't found: the timer set with the old 15 s, or the save waiting behind
-  another, would both fit. The test now also prints the settings the page stored and how long the
-  save took (up to 35 s). Measured in CI on #136 (2026-11-04): the stored setting was 1 s, and the
-  file was saved 7 s after the edit, the editor focused. So it isn't the old 15 s. The test now
-  also prints the keys and mouse events after the edit, which start the idle time again, and the
-  page's long tasks. Measured in CI on #153 (2026-11-08): saved 6.0 s after the edit, with no key
-  or mouse event after the typing and no long task, the editor focused, the setting 1 s. So
-  nothing started the idle time again; the delay's cause is still not found. Seen again on #158 (2026-11-09):
-  saved 6.1 s after the edit, the editor focused, the setting 1 s, no key after the typing; the
-  race test before it took 18 s there, against 8–12 s on earlier branches, but locally #158 took
-  8.0–8.7 s against main's 9.5–10.5 s (three runs each), so that isn't reproduced. Seen again on #163
-  (2026-11-11): saved 6.2 s after the edit, the same otherwise. A save slower than 2 s now says on
-  the console how long it waited behind the saves before, read the file, ran the hooks before
-  saving, and wrote it; the test prints that. Measured in CI on #174 (2026-11-11): `second.ts` saved 5.5 s after the
-  edit, and a save of `races.txt` (the race test's file, before it) took 4.1 s, 3.9 s of it in the
-  host reading the file, 0 ms waiting behind other saves. So a slow read in the host is now the
-  lead: next, whether the idle save of `second.ts` waits behind that one, and why the read is slow
-  (the race test writes the file in a loop just before). Measured in CI on #180 (2026-11-11): it
-  doesn't wait: `second.ts` saved 5.7 s after the edit, 0 ms after the saves before, 4060 ms of it
-  reading the file; `races.txt`'s save read it for 3786 ms, and a later `fs.read` of the project
-  took 5052 ms. So every read in the host is slow for some seconds after the race test, not one
-  save behind another: next, what the host is doing then (its event loop, or its file watcher
-  after the race test's writes). Cause found (2026-11-11, measured locally by counting the app's
-  requests by method): the race test sends a focus event every 5 ms, and each read every open file
-  again, 1,708 `fs.read` in that file's run, 532 in one second. Each file's read is now coalesced
-  as the repository state's is (one more follows a read under way): 322 in the run, 42 at most in a
-  second. Left here until CI shows the idle save in time again.
