@@ -101,6 +101,10 @@ describe('a diff’s toolbar', () => {
       syncScroll: true,
       ignore: 'none',
       highlight: 'words',
+      whitespace: false,
+      lineNumbers: true,
+      indentGuides: false,
+      softWrap: false,
     });
     // A new session takes it.
     dispose?.();
@@ -151,6 +155,39 @@ describe('a diff’s toolbar', () => {
     expect(mount().services.commands.isChecked('diff.highlight.none')).toBe(true);
     localStorage.setItem('cerebro.diff', JSON.stringify({ ignore: 'formatting' }));
     expect(load(null).services.commands.isChecked('diff.ignore.none')).toBe(true);
+  });
+
+  it('shows whitespace, line numbers, indent guides and soft wraps as chosen in its Settings, and keeps them', async () => {
+    const { services } = mount();
+    await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
+    const menu = document.querySelector('.cerebro-menu')?.textContent ?? '';
+    // Last, under its heading, as IntelliJ's; line numbers alone on, to start with.
+    expect(menu.indexOf('Appearance')).toBeGreaterThan(menu.indexOf('Highlighting Differences'));
+    const checked = (id: string) => services.commands.isChecked(id);
+    expect(
+      ['diff.whitespace', 'diff.lineNumbers', 'diff.indentGuides', 'diff.softWrap'].map(checked),
+    ).toEqual([false, true, false, false]);
+    const item = (label: string) =>
+      [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((i) =>
+        i.textContent.includes(label),
+      ) as Element;
+    await userEvent.click(item('Show Line Numbers'));
+    await expect.poll(() => shadow().querySelectorAll('.cm-lineNumbers').length).toBe(0);
+    for (const id of ['diff.whitespace', 'diff.indentGuides', 'diff.softWrap']) {
+      services.commands.execute(id);
+    }
+    await expect.poll(() => shadow().querySelectorAll('.cm-lineWrapping').length).toBe(2);
+    expect(shadow().querySelectorAll('.cm-highlightSpace').length).toBeGreaterThan(0);
+    expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
+      whitespace: true,
+      lineNumbers: false,
+      indentGuides: true,
+      softWrap: true,
+    });
+    // A new session takes them.
+    dispose?.();
+    document.body.replaceChildren();
+    expect(mount().services.commands.isChecked('diff.lineNumbers')).toBe(false);
   });
 
   it('shows the diff unified or side by side, as chosen, and keeps the choice', async () => {

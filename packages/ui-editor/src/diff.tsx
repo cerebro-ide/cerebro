@@ -45,10 +45,11 @@ import {
   type Kind,
   type LineRange,
 } from './compare.js';
+import { appearance, type Appearance } from './appearance.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
 
-export interface DiffEditorProps {
+export interface DiffEditorProps extends Appearance {
   /** The file's path: its language comes from the extension. */
   path: string;
   /** As last committed: empty for a new file. */
@@ -258,9 +259,11 @@ export function DiffEditor(props: DiffEditorProps): Node {
 
   const language = languageFor(props.path);
   const settings = [new Compartment(), new Compartment()] as const;
+  const numbers = lineNumbers();
   const configure = (): Extension => [
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
+    appearance(props, numbers),
   ];
   /** The side last focused, as IntelliJ's current one: the right one to start with. */
   const current = signal<Side>('b');
@@ -276,7 +279,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
       root: shadow,
       parent: frame,
       extensions: [
-        lineNumbers(),
+        // First: the line numbers, which `gutterObstacle` marks.
+        compartment.of(configure()),
         gutterObstacle,
         fullWidth,
         selection,
@@ -301,7 +305,6 @@ export function DiffEditor(props: DiffEditorProps): Node {
         diffTheme,
         syntaxHighlighting(highlight),
         ...(language ? [language] : []),
-        compartment.of(configure()),
       ],
     });
   const views = {

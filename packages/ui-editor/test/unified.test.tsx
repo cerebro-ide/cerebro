@@ -205,6 +205,21 @@ describe('the unified diff editor', () => {
     expect(diffSource(empty.host)).toEqual({ line: 0, column: 0 });
   });
 
+  it('hides both columns of numbers when line numbers are off', async () => {
+    const numbers = signal(true);
+    const root = mount({
+      path: 'a.ts',
+      original: 'a\n',
+      text: 'b\n',
+      lineNumbers: () => numbers.get(),
+    });
+    expect(root.querySelectorAll('.cm-diff-numbers-a, .cm-diff-numbers-b')).toHaveLength(2);
+    numbers.set(false);
+    await expect
+      .poll(() => root.querySelectorAll('.cm-diff-numbers-a, .cm-diff-numbers-b').length)
+      .toBe(0);
+  });
+
   it('shows the same text unmarked, with no change to go to', () => {
     let control: DiffControl | undefined;
     const root = mount({

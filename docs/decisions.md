@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2298,6 +2298,15 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   - Jump to Source from a removed line goes to where its change is in the file.
   - The chooser's icons are drawn for Cerebro (a claim: not IntelliJ's drawings), as is the
     border around the two (IntelliJ's is a segmented button).
+- **Appearance,** last in the gear under its heading, as IntelliJ's (`SetEditorSettingsActionGroup`,
+  its actions' names): Show Whitespaces, Show Line Numbers, Show Indent Guides, Soft-Wrap, kept
+  with the other settings. Line numbers alone on to start with, IntelliJ's defaults
+  (`TextDiffSettingsHolder`). Whitespace and indent guides in its colours (`WHITESPACES` and
+  `INDENT_GUIDE`, IslandSchemeDark.xml; the light scheme's and Default's). The guides are drawn
+  every tab size apart, from the line's start, on through blank lines, over a change's colour and
+  on a wrapped line's first row alone: IntelliJ's follow the language's indent and its blocks, so
+  that they match is a claim. Its highlighting level and breadcrumbs, off in IntelliJ unless
+  turned on elsewhere, aren't there.
 - **The toolbar** is IntelliJ's left to right: the arrows and Collapse Unchanged Fragments, then
   at the end the viewer's chooser and the gear. In the diff window and Local History; the file
   cache conflict's diff has none, as it's a merge.
@@ -2319,8 +2328,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
 - **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
-  window's size kept; a fold's description (IntelliJ's breadcrumbs of where it is); the other
-  settings in the gear (aligning changes, line numbers, soft wraps); Ignore formatting and
+  window's size kept; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
+  aligning changes, highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 
 ## Git → Merge… (2026-11-10)

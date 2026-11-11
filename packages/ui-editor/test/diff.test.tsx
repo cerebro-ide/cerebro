@@ -176,6 +176,39 @@ describe('the diff editor', () => {
     await expect.poll(marked).toEqual([]);
   });
 
+  it('shows whitespace, line numbers, indent guides and soft wraps as asked, again as they change', async () => {
+    const shown = {
+      lineNumbers: signal(true),
+      whitespace: signal(false),
+      indentGuides: signal(false),
+      softWrap: signal(false),
+    };
+    const root = mount({
+      path: 'a.ts',
+      original: 'if (a) {\n    b();\n}\n',
+      text: 'if (a) {\n    c();\n}\n',
+      lineNumbers: () => shown.lineNumbers.get(),
+      whitespace: () => shown.whitespace.get(),
+      indentGuides: () => shown.indentGuides.get(),
+      softWrap: () => shown.softWrap.get(),
+    });
+    const count = (selector: string) => root.querySelectorAll(selector).length;
+    // IntelliJ's defaults: line numbers alone.
+    expect(count('.cm-lineNumbers')).toBe(2);
+    expect(count('.cm-highlightSpace')).toBe(0);
+    expect(count('.cm-indentGuide')).toBe(0);
+    expect(count('.cm-lineWrapping')).toBe(0);
+    shown.lineNumbers.set(false);
+    shown.whitespace.set(true);
+    shown.indentGuides.set(true);
+    shown.softWrap.set(true);
+    await expect.poll(() => count('.cm-lineNumbers')).toBe(0);
+    // Each side: the indent, and the spaces between words.
+    expect(count('.cm-highlightSpace')).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => count('.cm-indentGuide')).toBe(2);
+    expect(count('.cm-lineWrapping')).toBe(2);
+  });
+
   it('defaults its settings', () => {
     const root = mount({ path: 'a.md', original: '# a', text: '# b' });
     const scroller = root.querySelector('.cm-scroller') as Element;

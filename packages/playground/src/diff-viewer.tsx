@@ -38,6 +38,15 @@ const HIGHLIGHT_LABELS: Record<HighlightPolicy, string> = {
   none: 'None',
 };
 
+/** The gear's Appearance, in IntelliJ's order (`SetEditorSettingsActionGroup`), and its names. */
+const APPEARANCE = ['whitespace', 'lineNumbers', 'indentGuides', 'softWrap'] as const;
+const APPEARANCE_LABELS: Record<(typeof APPEARANCE)[number], string> = {
+  whitespace: 'Sh&ow Whitespaces',
+  lineNumbers: 'Show L&ine Numbers',
+  indentGuides: 'Sh&ow Indent Guides',
+  softWrap: 'Soft-Wrap',
+};
+
 /** IntelliJ's two viewers of a text's diff. */
 type Viewer = 'sideBySide' | 'unified';
 
@@ -47,13 +56,18 @@ interface Options {
   syncScroll: boolean;
   ignore: IgnorePolicy;
   highlight: HighlightPolicy;
+  /** The gear's Appearance. */
+  whitespace: boolean;
+  lineNumbers: boolean;
+  indentGuides: boolean;
+  softWrap: boolean;
 }
 
 /**
  * Collapsed to start with, as IntelliJ's diffs from the Commit tool window, the Log and a file's
  * history, where Cerebro's open (its default elsewhere is expanded: a claim that one default fits
- * here, open to change); scrolling synchronized, nothing ignored and words highlighted, as
- * IntelliJ's defaults.
+ * here, open to change); scrolling synchronized, nothing ignored and words highlighted, line
+ * numbers alone shown, as IntelliJ's defaults (`TextDiffSettingsHolder`).
  */
 function readOptions(): Options {
   const defaults: Options = {
@@ -62,6 +76,10 @@ function readOptions(): Options {
     syncScroll: true,
     ignore: 'none',
     highlight: 'words',
+    whitespace: false,
+    lineNumbers: true,
+    indentGuides: false,
+    softWrap: false,
   };
   try {
     const stored = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? '{}') as Record<string, unknown>;
@@ -73,6 +91,10 @@ function readOptions(): Options {
       syncScroll: stored.syncScroll !== false,
       ignore: one(IGNORE_POLICIES, stored.ignore, defaults.ignore),
       highlight: one(HIGHLIGHT_POLICIES, stored.highlight, defaults.highlight),
+      whitespace: stored.whitespace === true,
+      lineNumbers: stored.lineNumbers !== false,
+      indentGuides: stored.indentGuides === true,
+      softWrap: stored.softWrap === true,
     };
   } catch {
     return defaults;
@@ -85,6 +107,12 @@ const collapse = signal(true);
 const syncScroll = signal(true);
 const ignore = signal<IgnorePolicy>('none');
 const highlight = signal<HighlightPolicy>('words');
+const appearance = {
+  whitespace: signal(false),
+  lineNumbers: signal(true),
+  indentGuides: signal(false),
+  softWrap: signal(false),
+};
 
 function saveOptions(): void {
   try {
@@ -94,6 +122,10 @@ function saveOptions(): void {
       syncScroll: syncScroll.peek(),
       ignore: ignore.peek(),
       highlight: highlight.peek(),
+      whitespace: appearance.whitespace.peek(),
+      lineNumbers: appearance.lineNumbers.peek(),
+      indentGuides: appearance.indentGuides.peek(),
+      softWrap: appearance.softWrap.peek(),
     };
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(options));
   } catch {
@@ -120,6 +152,7 @@ export function setupDiffViewer(services: MenuServices): void {
   syncScroll.set(options.syncScroll);
   ignore.set(options.ignore);
   highlight.set(options.highlight);
+  for (const name of APPEARANCE) appearance[name].set(options[name]);
   commands.register({
     id: 'diff.previousDifference',
     label: 'Previous Difference',
@@ -201,6 +234,21 @@ export function setupDiffViewer(services: MenuServices): void {
   };
   policy('b', 'Ignore Differences', 'ignore', IGNORE_LABELS, ignore);
   policy('c', 'Highlighting Differences', 'highlight', HIGHLIGHT_LABELS, highlight);
+  // Appearance, under its heading, last, as IntelliJ's (its actions' names, `ActionsBundle`).
+  menus.contribute({ menu: 'diff/settings', item: { heading: 'Appearance' }, group: 'd' });
+  for (const name of APPEARANCE) {
+    const id = `diff.${name}`;
+    commands.register({
+      id,
+      label: APPEARANCE_LABELS[name],
+      checked: () => appearance[name].get(),
+      run: () => {
+        appearance[name].set(!appearance[name].peek());
+        saveOptions();
+      },
+    });
+    menus.contribute({ menu: 'diff/settings', item: { command: id }, group: 'd' });
+  }
 }
 
 export interface DiffViewerProps {
@@ -275,6 +323,10 @@ export function DiffViewer(props: DiffViewerProps): Node {
           collapse: () => collapse.get(),
           ignore: () => ignore.get(),
           highlight: () => highlight.get(),
+          whitespace: () => appearance.whitespace.get(),
+          lineNumbers: () => appearance.lineNumbers.get(),
+          indentGuides: () => appearance.indentGuides.get(),
+          softWrap: () => appearance.softWrap.get(),
           control: (diff: DiffControl) => {
             control.set(diff);
           },
