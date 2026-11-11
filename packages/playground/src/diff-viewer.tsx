@@ -135,18 +135,47 @@ function saveOptions(): void {
   }
 }
 
+/** Going on (1) or back (-1). */
+type Step = 1 | -1;
+
+/** A diff window's other files, where Next and Previous Difference go on past a file's ends. */
+export interface DiffFiles {
+  /** Whether there's a file `step` away from the one shown; read reactively. */
+  has(step: Step): boolean;
+  /** Shows it, the caret at its first change going on, at its last coming back. */
+  go(step: Step): void;
+}
+
+/**
+ * Past a file's last difference (or before its first), the first press says to press again, and
+ * the second goes on to the next file, as IntelliJ's diff (`DiffDifferenceNavigationAction`, its
+ * Go to next file setting on, as it is by default): which way a press made ready, until a
+ * difference is gone to or the diff shown is another.
+ */
+let ready: Step | undefined;
+/** The hint saying to press again, while it's shown: any key or scrolling hides it, as IntelliJ's. */
+const pressAgain = signal<Step | undefined>(undefined);
+
 /** Each viewer's diff, by its element, for a key pressed in it: the one it shows now. */
 const diffs = new WeakMap<Element, () => DiffControl | undefined>();
 
-/** The diff a command acts on: its toolbar's, or the one with the keyboard's. */
-function diffOf(context: unknown): DiffControl | undefined {
+/**
+ * The diff a command acts on: its toolbar's, or the one `element` is (by default, the one with the
+ * keyboard).
+ */
+function diffOf(
+  context: unknown,
+  element = document.activeElement?.closest('.playground-diff'),
+): DiffControl | undefined {
   if (context && typeof context === 'object' && 'next' in context) return context as DiffControl;
-  const element = document.activeElement?.closest('.playground-diff');
   return element ? diffs.get(element)?.() : undefined;
 }
 
-/** The diff's commands and its Settings menu; their keys are the keymaps'. */
-export function setupDiffViewer(services: MenuServices): void {
+/**
+ * The diff's commands and its Settings menu; their keys are the keymaps'. A diff window gives its
+ * `files`, for Next and Previous Difference to go on to.
+ */
+export function setupDiffViewer(services: MenuServices, files?: DiffFiles): void {
   const { commands, menus } = services;
   const options = readOptions();
   viewer.set(options.viewer);
@@ -155,24 +184,37 @@ export function setupDiffViewer(services: MenuServices): void {
   ignore.set(options.ignore);
   highlight.set(options.highlight);
   for (const name of APPEARANCE) appearance[name].set(options[name]);
-  commands.register({
-    id: 'diff.previousDifference',
-    label: 'Previous Difference',
-    icon: 'previousDiff',
-    enabled: (context) => diffOf(context)?.hasPrevious() === true,
-    run: (context) => {
-      diffOf(context)?.previous();
-    },
-  });
-  commands.register({
-    id: 'diff.nextDifference',
-    label: 'Next Difference',
-    icon: 'nextDiff',
-    enabled: (context) => diffOf(context)?.hasNext() === true,
-    run: (context) => {
-      diffOf(context)?.next();
-    },
-  });
+  for (const [id, label, step] of [
+    ['diff.previousDifference', 'Previous Difference', -1],
+    ['diff.nextDifference', 'Next Difference', 1],
+  ] as const) {
+    /** Whether the diff has a difference that way from its caret. */
+    const has = (diff: DiffControl | undefined) =>
+      (step > 0 ? diff?.hasNext() : diff?.hasPrevious()) === true;
+    /** The diff acted on: in a diff window, its one diff, wherever the keyboard is. */
+    const diffFor = (context: unknown) =>
+      diffOf(context) ??
+      (files ? diffOf(context, document.querySelector('.playground-diff')) : undefined);
+    commands.register({
+      id,
+      label,
+      icon: step > 0 ? 'nextDiff' : 'previousDiff',
+      enabled: (context) => has(diffFor(context)) || files?.has(step) === true,
+      run: (context) => {
+        const diff = diffFor(context);
+        if (has(diff)) {
+          if (step > 0) diff?.next();
+          else diff?.previous();
+          ready = undefined;
+        } else if (ready === step) {
+          files?.go(step);
+        } else {
+          ready = step;
+          pressAgain.set(step);
+        }
+      },
+    });
+  }
   commands.register({
     id: 'diff.collapseUnchanged',
     label: 'Collapse Unchanged Fragments',
@@ -260,6 +302,10 @@ export interface DiffViewerProps {
   text: string;
   fontSize: () => number;
   tabSize: () => number;
+  /** The change the caret starts at: the first, or the last (`DiffEditorProps`). */
+  scrollTo?: 'firstChange' | 'lastChange';
+  /** The diff takes the keyboard as it shows, as IntelliJ's diff window gives it to its editor. */
+  focus?: boolean;
   /**
    * What goes after Next Difference, as IntelliJ's diff window has Jump to Source and its files
    * there: made with `button`, a command's button as the toolbar's own.
@@ -320,34 +366,66 @@ export function DiffViewer(props: DiffViewerProps): Node {
           {icon('settings')}
         </button>
       </div>
-      {() => {
-        // The viewer chosen, made again when another is.
-        const shared = {
-          path: props.path,
-          original: props.original,
-          text: props.text,
-          fontSize: props.fontSize,
-          tabSize: props.tabSize,
-          collapse: () => collapse.get(),
-          ignore: () => ignore.get(),
-          highlight: () => highlight.get(),
-          whitespace: () => appearance.whitespace.get(),
-          lineNumbers: () => appearance.lineNumbers.get(),
-          indentGuides: () => appearance.indentGuides.get(),
-          softWrap: () => appearance.softWrap.get(),
-          control: (diff: DiffControl) => {
-            control.set(diff);
-          },
-        };
-        return viewer.get() === 'unified' ? (
-          <UnifiedDiffEditor {...shared} />
-        ) : (
-          <DiffEditor {...shared} syncScroll={() => syncScroll.get()} />
-        );
-      }}
+      <div class="playground-diff__body">
+        {() => {
+          // The viewer chosen, made again when another is.
+          const shared = {
+            path: props.path,
+            original: props.original,
+            text: props.text,
+            fontSize: props.fontSize,
+            tabSize: props.tabSize,
+            collapse: () => collapse.get(),
+            ignore: () => ignore.get(),
+            highlight: () => highlight.get(),
+            whitespace: () => appearance.whitespace.get(),
+            lineNumbers: () => appearance.lineNumbers.get(),
+            indentGuides: () => appearance.indentGuides.get(),
+            softWrap: () => appearance.softWrap.get(),
+            control: (diff: DiffControl) => {
+              control.set(diff);
+              if (props.focus) diff.focus();
+            },
+            ...(props.scrollTo ? { scrollTo: props.scrollTo } : {}),
+          };
+          return viewer.get() === 'unified' ? (
+            <UnifiedDiffEditor {...shared} />
+          ) : (
+            <DiffEditor {...shared} syncScroll={() => syncScroll.get()} />
+          );
+        }}
+        {() => {
+          const step = pressAgain.get();
+          if (step === undefined) return null;
+          // Over the diff, near its end the way it goes, as IntelliJ's (its words, `DiffBundle`).
+          return (
+            <div
+              class={`playground-diff__hint playground-diff__hint--${step > 0 ? 'next' : 'previous'}`}
+              role="status"
+            >
+              {step > 0
+                ? 'Press again to go to the next file'
+                : 'Press again to go to the previous file'}
+            </div>
+          );
+        }}
+      </div>
     </div>
   ) as HTMLElement;
   diffs.set(element, () => control.peek());
+  // Any key or scrolling hides the hint; the next press still goes on.
+  const hide = () => {
+    pressAgain.set(undefined);
+  };
+  window.addEventListener('keydown', hide, true);
+  window.addEventListener('scroll', hide, true);
+  onCleanup(() => {
+    window.removeEventListener('keydown', hide, true);
+    window.removeEventListener('scroll', hide, true);
+    // Another diff shown: what a press made ready is forgotten, as IntelliJ's.
+    ready = undefined;
+    hide();
+  });
   return element;
 }
 
@@ -363,6 +441,8 @@ export function FileDiff(props: {
   version?: () => number;
   fontSize: () => number;
   tabSize: () => number;
+  scrollTo?: DiffViewerProps['scrollTo'];
+  focus?: boolean;
   navigation?: DiffViewerProps['navigation'];
 }): Node {
   type Loaded = { original: string; text: string } | { error: string };
@@ -404,6 +484,8 @@ export function FileDiff(props: {
             fontSize={props.fontSize}
             tabSize={props.tabSize}
             {...(props.navigation ? { navigation: props.navigation } : {})}
+            {...(props.scrollTo ? { scrollTo: props.scrollTo } : {})}
+            {...(props.focus ? { focus: true } : {})}
           />
         );
       }}

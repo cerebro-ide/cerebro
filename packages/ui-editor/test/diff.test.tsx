@@ -372,6 +372,25 @@ describe('previous and next difference', () => {
     diff.next();
     expect(diffSource(root.host)).toEqual({ line: 30, column: 0 });
   });
+
+  it('starts at the last change if asked, as IntelliJ coming back from the next file', () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    let control: DiffControl | undefined;
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: original.with(10, 'one').with(50, 'three').join('\n'),
+      scrollTo: 'lastChange',
+      control: (c) => {
+        control = c;
+      },
+    });
+    expect(diffSource(root.host)).toEqual({ line: 50, column: 0 });
+    expect((control as DiffControl).hasNext()).toBe(false);
+    // Focused: the right side, to start with.
+    (control as DiffControl).focus();
+    expect(root.activeElement).toBe(root.querySelector('.cm-diff-b .cm-content'));
+  });
 });
 
 describe('transferLine', () => {

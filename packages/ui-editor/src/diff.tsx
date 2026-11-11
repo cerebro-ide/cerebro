@@ -72,6 +72,11 @@ export interface DiffEditorProps extends Appearance {
   onEdit?: (text: string) => void;
   /** Given the diff's controls, once it shows. */
   control?: (diff: DiffControl) => void;
+  /**
+   * The change the caret starts at, as IntelliJ's ScrollToPolicy: the first (its default), or the
+   * last, for a file come to by going back from the next one's first change.
+   */
+  scrollTo?: 'firstChange' | 'lastChange';
 }
 
 /** What a toolbar does with a diff: IntelliJ's Previous and Next Difference. */
@@ -82,6 +87,8 @@ export interface DiffControl {
   /** Whether there's one to go to, read reactively. */
   hasPrevious(): boolean;
   hasNext(): boolean;
+  /** Gives the keyboard to the side last focused (the right, to start with). */
+  focus(): void;
 }
 
 type Side = 'a' | 'b';
@@ -580,8 +587,9 @@ export function DiffEditor(props: DiffEditorProps): Node {
   };
 
   rediff();
-  // The caret at the first change, as IntelliJ opens a diff, scrolled to the middle.
-  const first = changes.peek()[0];
+  // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
+  // the middle.
+  const first = props.scrollTo === 'lastChange' ? changes.peek().at(-1) : changes.peek()[0];
   if (first) {
     for (const side of ['a', 'b'] as const) {
       const doc = views[side].state.doc;
@@ -630,6 +638,9 @@ export function DiffEditor(props: DiffEditorProps): Node {
     },
     hasPrevious: () => previousOf() !== undefined,
     hasNext: () => nextOf() !== undefined,
+    focus: () => {
+      views[current.peek()].focus();
+    },
   });
   onCleanup(() => {
     cancelAnimationFrame(frameRequest);

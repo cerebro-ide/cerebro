@@ -264,8 +264,9 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
   });
 
   rediff();
-  // The caret at the first change, as IntelliJ opens a diff, scrolled to the middle.
-  const first = blocks.peek()[0];
+  // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
+  // the middle.
+  const first = props.scrollTo === 'lastChange' ? blocks.peek().at(-1) : blocks.peek()[0];
   if (first) show(first);
 
   const watch = effect(() => {
@@ -295,6 +296,9 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'o
     },
     hasPrevious: () => previousOf() !== undefined,
     hasNext: () => nextOf() !== undefined,
+    focus: () => {
+      view.focus();
+    },
   });
   onCleanup(() => {
     watch.dispose();

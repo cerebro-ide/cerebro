@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { diffSource } from '@cerebro-ide/ui-editor';
 import type { DiffSpec } from '../src/bridge.js';
 
 // A diff window opened from a list of files (diff-window.test has one opened alone): it goes through
@@ -23,7 +24,12 @@ beforeAll(async () => {
     host: {
       request: (_project: string, _method: string, params: { file: string }) => {
         requests.push(params.file);
-        return Promise.resolve({ original: `${params.file}\n`, text: `${params.file} changed\n` });
+        // Two changes, lines 0 and 10, far enough apart to be two.
+        const middle = Array.from({ length: 9 }, (_, i) => String(i + 1)).join('\n');
+        return Promise.resolve({
+          original: `${params.file}\n${middle}\nend\n`,
+          text: `${params.file} changed\n${middle}\nend changed\n`,
+        });
       },
     },
     diff: {
@@ -41,7 +47,11 @@ beforeAll(async () => {
 });
 
 const root = () => document.querySelector('.cerebro-editor-diff')?.shadowRoot;
-const shown = () => root()?.querySelector('.cm-diff-a .cm-content')?.textContent;
+/** The file shown: the left's first line. */
+const shown = () => root()?.querySelector('.cm-diff-a .cm-line')?.textContent;
+/** Where the diff's caret is, on the right (zero-based). */
+const caret = () => diffSource(root()?.host as Element)?.line;
+const hint = () => document.querySelector('.playground-diff__hint');
 const button = (command: string) =>
   document.querySelector(`[data-command="${command}"]`) as HTMLButtonElement;
 const count = () => document.querySelector('.playground-diff-window__count') as HTMLButtonElement;
@@ -113,5 +123,49 @@ describe('a diff window with a list of files', () => {
     await userEvent.keyboard('{Escape}');
     await expect.poll(() => items().length).toBe(0);
     expect(count().textContent).toBe('1/3');
+  });
+
+  it('goes on to the next file past the last difference, pressed again, at its first', async () => {
+    // At src/a.ts, which has the keyboard, at its first change.
+    await expect.poll(caret).toBe(0);
+    await userEvent.keyboard('{F7}');
+    expect(caret()).toBe(10);
+    expect(hint()).toBeNull();
+    // The last: the first press says to press again, and stays.
+    await userEvent.keyboard('{F7}');
+    expect(hint()?.textContent).toBe('Press again to go to the next file');
+    expect(hint()?.classList).toContain('playground-diff__hint--next');
+    expect(shown()).toBe('src/a.ts');
+    await userEvent.keyboard('{F7}');
+    await expect.poll(shown).toBe('b.ts');
+    expect(hint()).toBeNull();
+    await expect.poll(caret).toBe(0);
+  });
+
+  it('comes back to the previous file’s last difference, the hint gone with any key', async () => {
+    await userEvent.keyboard('{Shift>}{F7}{/Shift}');
+    expect(hint()?.textContent).toBe('Press again to go to the previous file');
+    expect(hint()?.classList).toContain('playground-diff__hint--previous');
+    // Hidden by another key; still ready to go on.
+    await userEvent.keyboard('{Control}');
+    expect(hint()).toBeNull();
+    await userEvent.keyboard('{Shift>}{F7}{/Shift}');
+    await expect.poll(shown).toBe('src/a.ts');
+    await expect.poll(caret).toBe(10);
+    expect(count().textContent).toBe('1/3');
+    // Gone to a difference, and back at the end: two presses again.
+    await userEvent.keyboard('{Shift>}{F7}{/Shift}');
+    expect(caret()).toBe(0);
+    expect(button('diff.previousDifference').disabled).toBe(true);
+    await userEvent.keyboard('{F7}{F7}');
+    expect(hint()?.textContent).toBe('Press again to go to the next file');
+    // Shown another way: what the press made ready is forgotten.
+    await userEvent.click(button('diff.nextFile'));
+    await expect.poll(shown).toBe('b.ts');
+    expect(hint()).toBeNull();
+    await expect.poll(caret).toBe(0);
+    await userEvent.keyboard('{F7}{F7}');
+    expect(hint()?.textContent).toBe('Press again to go to the next file');
+    expect(shown()).toBe('b.ts');
   });
 });

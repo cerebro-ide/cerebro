@@ -53,9 +53,12 @@ const app = window.cerebro as NonNullable<Window['cerebro']>;
 const spec = specOf(location.hash);
 /** The files it goes through, and the one it shows. */
 const chain = spec.chain ?? [spec.path];
-const current = signal(spec.path);
-const at = () => chain.indexOf(current.get());
-const title = () => titleOf({ ...spec, path: current.get() });
+/** The file shown, and where its caret starts: its last change, come back to by Previous Difference. */
+const current = signal<{ path: string; scrollTo?: 'lastChange' }>({ path: spec.path });
+const at = () => chain.indexOf(current.get().path);
+/** The file `step` away from the one shown, if there's one. */
+const beside = (step: 1 | -1) => chain[at() + step];
+const title = () => titleOf({ ...spec, path: current.get().path });
 
 document.documentElement.classList.add('cerebro-app', `cerebro-platform-${app.platform}`);
 effect(() => {
@@ -77,7 +80,16 @@ effect(() => {
   return undefined;
 });
 const services = { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap };
-setupDiffViewer(services);
+// Next and Previous Difference go on to the list's files past a file's ends, as IntelliJ's.
+setupDiffViewer(services, {
+  has: (step) => beside(step) !== undefined,
+  go: (step) => {
+    current.set({
+      path: beside(step) as string,
+      ...(step < 0 ? { scrollTo: 'lastChange' as const } : {}),
+    });
+  },
+});
 // Jump to Source, as from a diff tab: back in the opener, where the caret is.
 services.commands.register({
   id: 'changes.jumpToSource',
@@ -87,7 +99,7 @@ services.commands.register({
     document.activeElement !== null && diffSource(document.activeElement) !== undefined,
   run: () => {
     const at = diffSource(document.activeElement as Element) as { line: number; column: number };
-    void app.diff.jump({ env: spec.env, path: current.peek(), ...at });
+    void app.diff.jump({ env: spec.env, path: current.peek().path, ...at });
   },
 });
 // The list's files, as IntelliJ's Diff.PrevChange and Diff.NextChange (its names, `ActionsBundle`).
@@ -99,9 +111,9 @@ for (const [id, label, step] of [
     id,
     label,
     icon: id.replace('diff.', ''),
-    enabled: () => chain[at() + step] !== undefined,
+    enabled: () => beside(step) !== undefined,
     run: () => {
-      current.set(chain[at() + step] as string);
+      current.set({ path: beside(step) as string });
     },
   });
 }
@@ -121,7 +133,7 @@ async function goToFile(anchor: Element): Promise<void> {
     initial: at(),
     owner: anchor,
   }).result;
-  if (chosen) current.set(chosen.path);
+  if (chosen) current.set({ path: chosen.path });
 }
 const dispatcher = new KeyDispatcher(keymap, services.commands);
 window.addEventListener('keydown', (event) => {
@@ -142,7 +154,7 @@ render(
       <MainToolbar left={() => <span class="playground-diff-window__title">{title}</span>} />
       {() => {
         // Made again for each file, as IntelliJ's window shows the next.
-        const path = current.get();
+        const { path, scrollTo } = current.get();
         return (
           <FileDiff
             services={services}
@@ -155,6 +167,8 @@ render(
               }) as Promise<{ original: string; text: string }>
             }
             version={() => version.get()}
+            {...(scrollTo ? { scrollTo } : {})}
+            focus
             fontSize={() => settings.get('editor.fontSize') as number}
             tabSize={() => settings.get('editor.tabSize') as number}
             navigation={(button) => [

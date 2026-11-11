@@ -346,9 +346,44 @@ body,
   height: 100%;
 }
 
-.playground-diff > .cerebro-editor-diff {
+/* The diff, and the hint over it. */
+.playground-diff__body {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.playground-diff__body > .cerebro-editor-diff {
   flex: 1;
   min-height: 0;
+}
+
+/* "Press again to go to the next file", as IntelliJ's: bold, in a tooltip's colours (that its
+   information hint has them is a claim), centred 40px from the diff's end the way it goes. */
+.playground-diff__hint {
+  position: absolute;
+  left: 50%;
+  z-index: 1;
+  padding: 5px 9px;
+  border: 1px solid var(--cerebro-tooltip-border);
+  border-radius: 4px;
+  background: var(--cerebro-tooltip);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  font-weight: 600;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.playground-diff__hint--next {
+  bottom: 40px;
+}
+
+.playground-diff__hint--previous {
+  top: 40px;
 }
 
 .playground-diff__toolbar {
