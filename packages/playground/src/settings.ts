@@ -289,6 +289,26 @@ export function save(settings: Settings, scopes: readonly Scope[]): void {
     }
   }
 }
+// The lines Collapse Unchanged Fragments leaves by each change: IntelliJ's choices, 4 by default
+// (`TextDiffSettingsHolder`'s CONTEXT_RANGE_MODES), its words (`DiffBundle`). A list for its slider
+// (Claude's choice, open to change: the settings pages have no slider).
+registry.register({
+  id: 'diff.contextLines',
+  title: 'Context lines',
+  description:
+    'The unchanged lines a diff shows by each change as Collapse Unchanged Fragments folds the rest; Disable folds none.',
+  page: 'tools/diff',
+  type: 'enum',
+  default: '4',
+  options: [
+    { value: '1', label: '1' },
+    { value: '2', label: '2' },
+    { value: '4', label: '4' },
+    { value: '8', label: '8' },
+    { value: 'disable', label: 'Disable' },
+  ],
+  scopes: ['global'],
+});
 // On by default, as IntelliJ's (`DiffSettingsHolder`'s GO_TO_NEXT_FILE_ON_NEXT_DIFFERENCE); its
 // words, `DiffBundle`'s.
 registry.register({

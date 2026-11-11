@@ -21,6 +21,7 @@ import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { icon } from './icons.js';
+import { globalSettings } from './settings.js';
 
 /** The settings, kept between sessions. */
 const OPTIONS_KEY = 'cerebro.diff';
@@ -109,6 +110,15 @@ function readOptions(): Options {
     return defaults;
   }
 }
+
+/**
+ * The lines folds leave by each change, from Settings → Tools → Diff & Merge; undefined when
+ * folding is turned off there (Disable). Read reactively.
+ */
+const contextLines = (): number | undefined => {
+  const lines = globalSettings.get('diff.contextLines') as string;
+  return lines === 'disable' ? undefined : Number(lines);
+};
 
 /** The settings, as kept: read as the commands are set up. */
 const viewer = signal<Viewer>('sideBySide');
@@ -249,6 +259,8 @@ export function setupDiffViewer(services: MenuServices, files?: DiffFiles, move?
     id: 'diff.collapseUnchanged',
     label: 'Collapse Unchanged Fragments',
     icon: 'collapseAll',
+    // Nothing to fold with folding turned off in Settings.
+    enabled: () => contextLines() !== undefined,
     checked: () => collapse.get(),
     run: () => {
       collapse.set(!collapse.peek());
@@ -441,7 +453,8 @@ export function DiffViewer(props: DiffViewerProps): Node {
             text: props.text,
             fontSize: props.fontSize,
             tabSize: props.tabSize,
-            collapse: () => collapse.get(),
+            collapse: () => collapse.get() && contextLines() !== undefined,
+            context: () => contextLines() ?? 0,
             ignore: () => ignore.get(),
             highlight: () => highlight.get(),
             whitespace: () => appearance.whitespace.get(),

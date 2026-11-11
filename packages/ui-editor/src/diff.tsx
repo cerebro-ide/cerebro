@@ -37,7 +37,7 @@ import {
   type DecorationSet,
 } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
-import { effect, signal } from '@cerebro-ide/reactive';
+import { effect, signal, untracked } from '@cerebro-ide/reactive';
 import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
 import {
   compare,
@@ -69,6 +69,8 @@ export interface DiffEditorProps extends Appearance {
   align?: () => boolean;
   /** Folds the unchanged lines away from the changes, read reactively. Default: false. */
   collapse?: () => boolean;
+  /** The unchanged lines left by each change as they're folded, read reactively. Default: 4. */
+  context?: () => number;
   /** What's not a difference, read reactively. Default: nothing, as IntelliJ's. */
   ignore?: () => IgnorePolicy;
   /** How changes are marked, read reactively. Default: by words, as IntelliJ's. */
@@ -99,7 +101,8 @@ export interface DiffControl {
 type Side = 'a' | 'b';
 
 /** Context kept around a change when unchanged lines are folded: IntelliJ's default, 4. */
-const CONTEXT = 4;
+/** The lines of context folds leave by each change, as IntelliJ's default (`CONTEXT_RANGE`). */
+export const CONTEXT = 4;
 
 /**
  * A left line's line on the right, as IntelliJ's diff carries a position across
@@ -123,8 +126,9 @@ const end = (change: LineRange, side: Side) => (side === 'a' ? change.end1 : cha
 
 /**
  * The unchanged lines folded between changes `index - 1` and `index` on one side, at a level:
- * 4 lines of context (0), 8 (1), 16 (2), or none folded (3), as IntelliJ's nested folds. Folded
- * only when at least 2 lines would be, as IntelliJ's. The first and last folds reach the text's ends.
+ * `context` lines by each change (0), twice as many (1), four times (2), or none folded (3), as
+ * IntelliJ's nested folds. Folded only when at least 2 lines would be, as IntelliJ's. The first and
+ * last folds reach the text's ends.
  */
 export function foldedLines(
   changes: readonly LineRange[],
@@ -132,9 +136,10 @@ export function foldedLines(
   side: 'a' | 'b',
   lines: number,
   level: number,
+  context = CONTEXT,
 ): { from: number; to: number } | undefined {
   if (level >= 3) return undefined;
-  const shift = CONTEXT * 2 ** level;
+  const shift = context * 2 ** level;
   const before = changes[index - 1];
   const after = changes[index];
   const from = before ? Math.min(end(before, side) + shift, lines) : 0;
@@ -424,7 +429,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
         }
       }
       for (let i = 0; i <= all.length; i++) {
-        const folded = foldedLines(all, i, side, doc.lines, levels[i] as number);
+        const folded = foldedLines(all, i, side, doc.lines, levels[i] as number, context);
         if (!folded) continue;
         const widget = new Fold(folded.to - folded.from, expanders[i] as () => void);
         const { from, to } = span(doc, folded.from, folded.to);
@@ -440,6 +445,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
     draw();
   }
 
+  /** The lines of context folds leave, as last read. */
+  let context = untracked(() => props.context?.() ?? CONTEXT);
   /** Each fold's expander: kept, so its band is the same widget as long as it shows. */
   let expanders: (() => void)[] = [];
   /** Diffs the two sides again: to start with, and after an edit. */
@@ -464,8 +471,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
       let level = (levels[i] as number) + 1;
       while (
         level < 3 &&
-        !foldedLines(all, i, 'a', lines('a'), level) &&
-        !foldedLines(all, i, 'b', lines('b'), level)
+        !foldedLines(all, i, 'a', lines('a'), level, context) &&
+        !foldedLines(all, i, 'b', lines('b'), level, context)
       ) {
         level++;
       }
@@ -621,7 +628,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     }
     for (let i = 0; i <= all.length; i++) {
       const folds = (['a', 'b'] as const).map((side) =>
-        foldedLines(all, i, side, views[side].state.doc.lines, levels[i] as number),
+        foldedLines(all, i, side, views[side].state.doc.lines, levels[i] as number, context),
       );
       const [a, b] = folds;
       if (!a || !b) continue;
@@ -744,11 +751,14 @@ export function DiffEditor(props: DiffEditorProps): Node {
     views.b.dispatch({ effects: settings[1].reconfigure(configured) });
     return undefined;
   });
-  let folding: boolean | undefined;
+  let folding: string | undefined;
   const collapsing = effect(() => {
     const collapse = props.collapse?.() ?? false;
-    if (folding !== undefined && collapse !== folding) fold(collapse);
-    folding = collapse;
+    const lines = props.context?.() ?? CONTEXT;
+    const now = `${String(collapse)} ${String(lines)}`;
+    context = lines;
+    if (folding !== undefined && now !== folding) fold(collapse);
+    folding = now;
     return undefined;
   });
   let policies: string | undefined;

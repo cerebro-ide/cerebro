@@ -191,6 +191,24 @@ describe('the unified diff editor', () => {
       .toBe('20px');
   });
 
+  it('leaves the lines of context asked for by each change, folded again as they change', async () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    const context = signal(1);
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: original.with(30, 'changed').join('\n'),
+      collapse: () => true,
+      context: () => context.get(),
+    });
+    const folds = () =>
+      [...root.querySelectorAll('.cm-diff-fold')].map((band) => band.getAttribute('aria-label'));
+    // 30 lines before the change, 1 left; 29 after it.
+    await expect.poll(folds).toEqual(['29 unchanged lines', '28 unchanged lines']);
+    context.set(8);
+    await expect.poll(folds).toEqual(['22 unchanged lines', '21 unchanged lines']);
+  });
+
   it('starts at the last change if asked, and takes the focus when asked', () => {
     let control: DiffControl | undefined;
     const root = mount({
