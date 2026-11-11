@@ -1,6 +1,6 @@
 // Git → Fetch and Git → Pull…, as IntelliJ's (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 // `GitPullDialog`, `GitPullOption`, `GitMergeAction`, `GitOptionsPopupBuilder`, read from its
-// source). Fetch fetches every remote, saying what it pruned. Pull asks, in IntelliJ's dialog,
+// source). Fetch fetches every remote, saying what it pruned; it's off while there's none. Pull asks, in IntelliJ's dialog,
 // which remote's branch to pull and with which options, then merges it; with --rebase, the
 // branch is updated as Update Project does it. At conflicts, the Conflicts dialog, then the merge
 // committed.
@@ -12,6 +12,7 @@ import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { branchField, gitOptions, type GitOption } from './git-options.js';
 import { mergeAction } from './merge-action.js';
 import { notifications } from './notifications.js';
+import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 import { updateProject, updating } from './update.js';
 
@@ -231,7 +232,11 @@ export function setupFetchPull(services: MenuServices): void {
     id: 'vcs.fetch',
     label: 'Fetch',
     icon: 'fetch',
-    enabled: () => target() !== undefined && !fetching.get(),
+    // As IntelliJ's: off without a remote, and while a fetch runs.
+    enabled: () => {
+      const at = target();
+      return at !== undefined && stateOf(at.worktree).remotes !== false && !fetching.get();
+    },
     run: () => on('Fetch', fetchAll),
   });
   commands.register({

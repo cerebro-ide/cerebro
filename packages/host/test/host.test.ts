@@ -949,7 +949,10 @@ describe('ignored files and rolling back', () => {
       Promise.resolve(bare(args)[0] === 'rev-parse' ? '/nowhere/state\n' : ''),
     );
     const { ui } = connect(git);
-    expect(await ui.request('git.state', { path: '/w' })).toEqual({ conflicts: false });
+    expect(await ui.request('git.state', { path: '/w' })).toEqual({
+      conflicts: false,
+      remotes: false,
+    });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
     for (const operation of ['merge', 'rebase']) {
