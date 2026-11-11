@@ -9,6 +9,7 @@ import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { fetching, pullingFrom } from '../src/fetch-pull.js';
+import { viewCommits } from '../src/git-log.js';
 import { resetting } from '../src/reset.js';
 import { fetchingRemote, pushing } from '../src/push.js';
 import { updating } from '../src/update.js';
@@ -462,6 +463,17 @@ describe('the tool windows', () => {
     await shows('structure', 'cerebro-status-bar · Structure item 1');
     // Commit's and Agent Changes' took the Project window's place.
     await userEvent.click(stripe('project'));
+  });
+
+  it('show the Git window for View Commits, after an update', async () => {
+    const git = () => document.querySelector('.cerebro-tool-window[data-id="git"]');
+    expect(git()).toBeNull();
+    viewCommits({ start: 'a1', end: 'b2' });
+    await expect.poll(() => git()?.textContent).toContain('The log shows in the desktop app.');
+    await userEvent.click(stripe('git'));
+    await expect.poll(git).toBeNull();
+    // It took the Terminal's place: back, for the tests after.
+    await userEvent.click(stripe('terminal'));
   });
 
   it('show their shortcut in their tooltip', async () => {

@@ -306,6 +306,18 @@ class Log {
     return this.refilter();
   }
 
+  /**
+   * Shows the commits after `start` up to `end` alone (git's `start..end`): IntelliJ's View
+   * Commits, whose tab has only the range and the Log's Paths filter, so the others are cleared.
+   */
+  showRange(range: HashRange): Promise<void> {
+    this.branch.set(`${range.start}..${range.end}`);
+    this.text.set(undefined);
+    this.users.set(undefined);
+    this.period.set(undefined);
+    return this.refilter();
+  }
+
   /** Shows the commits that change these paths alone, or every commit (undefined). */
   filterPaths(paths: readonly string[] | undefined): Promise<void> {
     this.paths.set(paths);
@@ -562,9 +574,31 @@ export function showInLog(hash: string, path: string): void {
   wanted.set({ hash, path });
 }
 
-/** The Log's commands and shortcuts. */
-export function setupLog(services: MenuServices): void {
+/** HEAD before and after an update or a merge: the host's. */
+export interface HashRange {
+  start: string;
+  end: string;
+}
+
+/** The commits View Commits shows, taken by the Log when it shows. */
+const wantedRange = signal<HashRange | undefined>(undefined);
+
+/** Shows the Git tool window: given by `setupLog`. */
+let showLog: () => void;
+
+/**
+ * View Commits, after an update, a pull or a merge: the Git tool window shown, its Log's commits
+ * those between (IntelliJ's `GitUpdateInfoAsLog`).
+ */
+export function viewCommits(range: HashRange): void {
+  wantedRange.set(range);
+  showLog();
+}
+
+/** The Log's commands and shortcuts; `show` shows the Git tool window. */
+export function setupLog(services: MenuServices, show: () => void): void {
   const { commands, keymap, menus } = services;
+  showLog = show;
   commands.register({
     id: 'log.refresh',
     label: '&Refresh',
@@ -730,6 +764,15 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
 }
 
 /** A filter's text, as IntelliJ's: its name alone while it's off, else its name and value. */
+/** The Branch filter's: a branch's name, or a range's ends shortened (Claude's, open to change). */
+const branchText = (branch: BranchFilter) =>
+  branch.includes('..')
+    ? branch
+        .split('..')
+        .map((hash) => hash.slice(0, 8))
+        .join('..')
+    : branchName(branch);
+
 const filterText = <T,>(name: string, value: T | undefined, text: (value: T) => string) =>
   value === undefined ? name : `${name}: ${text(value)}`;
 
@@ -758,7 +801,7 @@ function LogToolbar(props: {
           <ToolbarDropdown
             services={services}
             label="Branch"
-            text={() => filterText('Branch', log.branch.get(), branchName)}
+            text={() => filterText('Branch', log.branch.get(), branchText)}
             popup={(button) => pickBranch(button, log, branches)}
             clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
           />,
@@ -862,9 +905,17 @@ export function GitLogView(props: {
           });
           return undefined;
         });
+        const ranging = effect(() => {
+          const range = wantedRange.get();
+          if (!range) return undefined;
+          wantedRange.set(undefined);
+          void first.then(() => log.showRange(range));
+          return undefined;
+        });
         window.addEventListener('focus', reload);
         onCleanup(() => {
           taking.dispose();
+          ranging.dispose();
           window.removeEventListener('focus', reload);
           shown.set(undefined);
         });

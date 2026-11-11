@@ -285,7 +285,9 @@ async function closeActiveProject(): Promise<void> {
   await closeProject(project.path);
 }
 await setupProjects(services.commands, services.menus, closeActiveProject);
-setupLog(services);
+setupLog(services, () => {
+  layout.toolWindows.show('git');
+});
 setupImages(services);
 // In the app, Show Diff in Separate Window from a diff tab: every diff tab closes, and opens in a
 // window, as IntelliJ's `reopenDiffEditorsForFiles` moves every diff open; the one it was chosen

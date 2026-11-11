@@ -6,7 +6,7 @@
 
 import { operation } from './conflicts.js';
 import type { Git } from './git.js';
-import type { Resume } from './update.js';
+import type { HashRange, Resume } from './update.js';
 
 /** How a fetch went: the remote-tracking branches pruned, and each remote that failed, why. */
 export interface Fetched {
@@ -61,11 +61,13 @@ export const PULL_OPTIONS = ['--ff-only', '--no-ff', '--squash', '--no-commit', 
 /**
  * How a pull or a merge went: the files it changed and the commits it brought (none: up to date),
  * as Update Project counts them; with `--squash` or `--no-commit`, the files are those the merge
- * staged. Or stopped at conflicts, the merge under way, with what `continueUpdate` needs to commit
- * it after.
+ * staged. HEAD before and after, if it moved (View commits', which IntelliJ offers only for a merge
+ * committed). Or stopped at conflicts, the merge under way, with what `continueUpdate` needs to
+ * commit it after.
  */
 export type Merged =
-  { kind: 'merged'; files: number; commits: number } | { kind: 'conflicts'; resume: Resume };
+  | { kind: 'merged'; files: number; commits: number; range?: HashRange }
+  | { kind: 'conflicts'; resume: Resume };
 
 /** Lines of git's output. */
 const lines = (output: string) => output.split('\n').filter(Boolean);
@@ -94,7 +96,10 @@ async function merging(
   const commits = await brought();
   // The index against what was there: what was merged, committed or not.
   const files = lines(await run(worktree, ['diff', '--cached', '--name-only', before])).length;
-  return { kind: 'merged', files, commits };
+  const after = (await run(worktree, ['rev-parse', 'HEAD'])).trim();
+  return after === before
+    ? { kind: 'merged', files, commits }
+    : { kind: 'merged', files, commits, range: { start: before, end: after } };
 }
 
 /** Git's merge's own environment: no prompt, and no editor for its message (git's), as IntelliJ's. */

@@ -24,12 +24,21 @@ export type Updated =
   /** The upstream has nothing the branch hasn't. */
   | { kind: 'nothing' }
   /**
-   * Updated: the files it changed and the commits it brought; whether local changes saved were put
-   * back (true when none were saved).
+   * Updated: the files it changed and the commits it brought, and HEAD before and after (View
+   * Commits'); whether local changes saved were put back (true when none were saved).
    */
-  | { kind: 'updated'; files: number; commits: number; restored: boolean }
+  | { kind: 'updated'; files: number; commits: number; range: HashRange; restored: boolean }
   /** Stopped at conflicts; local changes saved stay saved. */
   | { kind: 'conflicts'; method: UpdateMethod; saved: boolean; resume: Resume };
+
+/**
+ * HEAD before and after an update or a merge, as IntelliJ's `HashRange`: View Commits shows the
+ * commits between (`start..end`).
+ */
+export interface HashRange {
+  start: string;
+  end: string;
+}
 
 /** Where local changes were saved: a shelf's id, or the newest stash. */
 export type Saved = { how: 'shelve'; id: string } | { how: 'stash' };
@@ -112,7 +121,8 @@ function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
 async function updated(worktree: string, resume: Resume, run: Git): Promise<Updated> {
   const restored = resume.saved ? await restore(worktree, resume.saved, run) : true;
   const files = lines(await run(worktree, ['diff', '--name-only', `${resume.before}..HEAD`]));
-  return { kind: 'updated', files: files.length, commits: resume.commits, restored };
+  const range = { start: resume.before, end: (await run(worktree, ['rev-parse', 'HEAD'])).trim() };
+  return { kind: 'updated', files: files.length, commits: resume.commits, range, restored };
 }
 
 /** Stopped at conflicts. */

@@ -34,7 +34,10 @@ interface BranchItem {
 
 export type BranchNode = { kind: 'head' } | Group | BranchItem;
 
-/** What the Log is filtered by: a branch's ref in full, or HEAD. */
+/**
+ * What the Log is filtered by: a branch's ref in full, or HEAD; or View Commits' range, git's
+ * `start..end` (no ref has `..` in its name, as git's `check-ref-format` rules).
+ */
 export type BranchFilter = string;
 
 const LOCAL = 'refs/heads/';
