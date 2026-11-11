@@ -96,8 +96,15 @@ describe('fetching and pulling, with real git', () => {
     upstream('theirs');
     upstream('more');
     commit(repo, 'mine');
+    const start = run(repo, 'rev-parse', 'HEAD').trim();
     const remote = vi.fn(git);
-    expect(await pull(repo, from(), git, remote)).toEqual({ kind: 'merged', files: 2, commits: 2 });
+    // HEAD before and after, for View commits.
+    expect(await pull(repo, from(), git, remote)).toEqual({
+      kind: 'merged',
+      files: 2,
+      commits: 2,
+      range: { start, end: run(repo, 'rev-parse', 'HEAD').trim() },
+    });
     expect(remote.mock.calls[0]?.[1]).toEqual([
       'pull',
       '--no-rebase',
@@ -120,6 +127,7 @@ describe('fetching and pulling, with real git', () => {
       files: 1,
       commits: 1,
     });
+    // Nothing committed: no range, HEAD where it was.
     expect(run(repo, 'diff', '--cached', '--name-only').trim()).toBe('theirs.txt');
   });
 
@@ -139,6 +147,7 @@ describe('fetching and pulling, with real git', () => {
     run(repo, 'fetch', '-q');
     run(repo, 'branch', 'side', 'origin/main');
     commit(repo, 'mine');
+    const start = run(repo, 'rev-parse', 'HEAD').trim();
     // Not merged yet: both, the local branch and the remote one; origin/HEAD isn't listed.
     run(repo, 'remote', 'set-head', 'origin', 'main');
     expect(await unmerged(repo, git)).toEqual(['refs/heads/side', 'refs/remotes/origin/main']);
@@ -152,6 +161,7 @@ describe('fetching and pulling, with real git', () => {
       kind: 'merged',
       files: 1,
       commits: 1,
+      range: { start, end: run(repo, 'rev-parse', 'HEAD').trim() },
     });
     expect(subjects(repo)[0]).toBe('Mine and theirs');
     expect(await unmerged(repo, git)).toEqual([]);

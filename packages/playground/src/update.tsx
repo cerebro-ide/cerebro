@@ -12,6 +12,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { resolveConflicts } from './conflicts.js';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
+import { viewCommits, type HashRange } from './git-log.js';
 import { notifications } from './notifications.js';
 import { globalSettings, save } from './settings.js';
 import { refreshAll } from './shelf.js';
@@ -24,7 +25,7 @@ type Updated =
   | { kind: 'detached' }
   | { kind: 'noUpstream'; branch: string }
   | { kind: 'nothing' }
-  | { kind: 'updated'; files: number; commits: number; restored: boolean }
+  | { kind: 'updated'; files: number; commits: number; range: HashRange; restored: boolean }
   | { kind: 'conflicts'; method: UpdateMethod; saved: boolean; resume: unknown };
 
 /** While an update runs. */
@@ -134,6 +135,14 @@ function report(
       notify({
         title: `${plural(updated.files, 'file')} updated in ${plural(updated.commits, 'commit')}`,
         group: 'update',
+        actions: [
+          {
+            label: 'View Commits',
+            run: () => {
+              viewCommits(updated.range);
+            },
+          },
+        ],
       });
       if (!updated.restored) notRestored();
       return;

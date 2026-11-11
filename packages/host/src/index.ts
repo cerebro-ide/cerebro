@@ -172,6 +172,7 @@ export {
   continueUpdate,
   savedMessage,
   update,
+  type HashRange,
   type Resume,
   type SaveChanges,
   type Saved,

@@ -5,6 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import { fetching, pullingFrom, setupFetchPull } from '../src/fetch-pull.js';
 import { notifications } from '../src/notifications.js';
+import { setupLog } from '../src/git-log.js';
 import { setupUpdate } from '../src/update.js';
 import { closeAll, dialog, FakeHost, popupItems, press, project } from './fakes.js';
 
@@ -399,11 +400,26 @@ describe('Pull', () => {
     expect(host.params('git.pull')).toEqual([]);
   });
 
-  it('says how it went, in IntelliJ’s words', async () => {
-    git.pulled = { kind: 'merged', files: 1, commits: 3 };
+  it('says how it went, in IntelliJ’s words, with View commits once committed', async () => {
+    git.pulled = { kind: 'merged', files: 1, commits: 3, range: { start: 'a1', end: 'b2' } };
     commands.execute('vcs.pull');
     await press('Pull');
     await expect.poll(() => last()?.title).toBe('1 file updated in 3 commits');
+    const view = last()?.actions[0];
+    expect(view?.label).toBe('View commits');
+    let shown = 0;
+    setupLog({ commands: new CommandRegistry(), menus: new MenuRegistry() }, () => {
+      shown++;
+    });
+    view?.run();
+    expect(shown).toBe(1);
+    // Squashed, or not committed: HEAD didn't move, so there's none to view.
+    git.pulled = { kind: 'merged', files: 1, commits: 1 };
+    await expect.poll(() => commands.isEnabled('vcs.pull')).toBe(true);
+    commands.execute('vcs.pull');
+    await press('Pull');
+    await expect.poll(() => last()?.title).toBe('1 file updated in 1 commit');
+    expect(last()?.actions).toEqual([]);
     git.pulled = { kind: 'merged', files: 0, commits: 0 };
     await expect.poll(() => commands.isEnabled('vcs.pull')).toBe(true);
     commands.execute('vcs.pull');

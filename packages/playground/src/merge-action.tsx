@@ -4,22 +4,38 @@
 
 import { resolveConflicts } from './conflicts.js';
 import type { Host } from './environments.js';
+import { viewCommits, type HashRange } from './git-log.js';
 import { notifications } from './notifications.js';
 import { refreshAll } from './shelf.js';
 
 /** The host's `git.pull` and `git.merge`. */
 type Merged =
-  { kind: 'merged'; files: number; commits: number } | { kind: 'conflicts'; resume: unknown };
+  | { kind: 'merged'; files: number; commits: number; range?: HashRange }
+  | { kind: 'conflicts'; resume: unknown };
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? '' : 's'}`;
 
 /** Says how it went, as IntelliJ's `GitMergeAction` does. */
-function reportMerged(merged: { files: number; commits: number }): void {
+function reportMerged(merged: { files: number; commits: number; range?: HashRange }): void {
+  const { range } = merged;
   notifications.notify({
     title:
       merged.commits === 0
         ? 'All files are up to date'
         : `${plural(merged.files, 'file')} updated in ${plural(merged.commits, 'commit')}`,
+    // Only for a merge committed, as IntelliJ's: HEAD moved.
+    ...(range
+      ? {
+          actions: [
+            {
+              label: 'View commits',
+              run: () => {
+                viewCommits(range);
+              },
+            },
+          ],
+        }
+      : {}),
   });
 }
 
@@ -82,6 +98,7 @@ export async function mergeAction(
       (await host.request('git.continueUpdate', { path: worktree, resume: merged.resume })) as {
         files: number;
         commits: number;
+        range: HashRange;
       },
     );
   } catch (error) {
