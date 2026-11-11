@@ -1,6 +1,6 @@
 // The Commit tool window end to end: what goes in, the message, Commit and Amend, Commit and Push;
 // going from a diff to the file with F4; logging in to push; Update Project, its conflicts resolved;
-// and Fetch and Pull.
+// Fetch and Pull; and Merge.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -34,6 +34,20 @@ async function seen(): Promise<void> {
   console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
+  console.log('Console:', running.messages);
+}
+
+/** How long `done` takes to hold after a test gave up on it, up to a minute: slow, or stuck. */
+async function measure(done: () => boolean): Promise<void> {
+  const start = performance.now();
+  while (!done() && performance.now() - start < 60_000) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  console.log(
+    done()
+      ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
+      : 'Still not done a minute after the test gave up',
+  );
 }
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
@@ -343,8 +357,9 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
       .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
       .toBe(5);
   } catch (error) {
-    // Not committed in time on Windows in CI once (#161, 2026-11-11): what was seen.
+    // Not committed in time on Windows in CI twice (#161, #162, 2026-11-11): what was seen.
     await seen();
+    await measure(() => git('log', '-1', '--format=%p').trim().includes(' '));
     throw error;
   }
   expect(git('log', '-1', '--format=%s')).toBe("Merge branch 'side'\n");
@@ -366,20 +381,53 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
   await expect.poll(titles, { timeout: 15_000 }).toContain('Fetch successful');
   expect(git('branch', '-r', '--format=%(refname:short)')).toContain('origin/feature');
   await action('Pull');
-  const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-pull') });
+  const dialog = page().locator('.cerebro-dialog', {
+    has: page().locator('.playground-git-command'),
+  });
   await dialog.waitFor();
   expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Pull to main');
-  await dialog.locator('.playground-pull__field').fill('feature');
+  await dialog.locator('.playground-git-branch__field').fill('feature');
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Pull' }).click();
   try {
     await expect
       .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
       .toMatch(/^Merge branch 'feature' of /);
   } catch (error) {
-    // Not pulled on Windows in CI once (#161, 2026-11-11), after the test before failed: what was seen.
+    // Not pulled in time on Windows in CI twice (#161, #162, 2026-11-11), after the test before
+    // failed: what was seen.
     await seen();
+    await measure(() => git('log', '-1', '--format=%s').startsWith("Merge branch 'feature' of "));
     throw error;
   }
   expect(git('show', 'HEAD:pulled.txt')).toBe('Pulled');
   await expect.poll(titles, { timeout: 15_000 }).toContain('1 file updated in 1 commit');
+});
+
+it('merges a branch from Git → Merge…, with the options chosen, as IntelliJ’s', async () => {
+  const commitAs = (...args: string[]) => git('-c', 'user.name=t', '-c', 'user.email=t@t', ...args);
+  git('checkout', '-qb', 'topic');
+  writeFileSync(join(repo, 'topic.txt'), 'Topic');
+  git('add', 'topic.txt');
+  commitAs('commit', '-qm', 'Topic');
+  git('checkout', '-q', 'main');
+  await action('Merge');
+  const dialog = page().locator('.cerebro-dialog', { hasText: 'git merge' });
+  await dialog.waitFor();
+  expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Merge into main');
+  await dialog.locator('.playground-git-branch__field').fill('topic');
+  // A merge commit, though it could fast-forward.
+  await dialog.locator('button', { hasText: 'Modify options' }).click();
+  await page()
+    .locator('.cerebro-popup-item', { hasText: 'Create a merge commit even if' })
+    .click({ force: true });
+  await page().keyboard.press('Escape');
+  await dialog.locator('.cerebro-dialog__button', { hasText: 'Merge' }).click();
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toBe("Merge branch 'topic'\n");
+  await expect
+    .poll(() => page().locator('.cerebro-balloon .cerebro-notification__title').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('1 file updated in 1 commit');
 });

@@ -803,15 +803,52 @@ describe('ignored files and rolling back', () => {
         branch: 'main',
         options: ['--ff-only'],
       }),
-    ).toEqual({ kind: 'pulled', files: 0, commits: 0 });
+    ).toEqual({ kind: 'merged', files: 0, commits: 0 });
     expect(await ui.request('git.pull', { path: '/w', remote: 'origin', branch: 'main' })).toEqual({
-      kind: 'pulled',
+      kind: 'merged',
       files: 0,
       commits: 0,
     });
     for (const options of ['--ff-only', ['--exec=x']]) {
       await expect(
         ui.request('git.pull', { path: '/w', remote: 'origin', branch: 'main', options }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
+  });
+
+  it('merges with the options and message asked, and lists the branches not merged', async () => {
+    const answers: Record<string, string> = {
+      'rev-parse': '/nowhere/state\n',
+      'rev-list': '0\n',
+      branch: 'refs/heads/side []\n',
+    };
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(answers[bare(args)[0] as string] ?? ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.unmerged', { path: '/w' })).toEqual(['refs/heads/side']);
+    expect(
+      await ui.request('git.merge', {
+        path: '/w',
+        branch: 'side',
+        options: ['--no-ff'],
+        message: 'Merged',
+      }),
+    ).toEqual({ kind: 'merged', files: 0, commits: 0 });
+    expect(git.mock.calls.map((c) => bare(c[1]))).toContainEqual([
+      'merge',
+      '--no-ff',
+      '-m',
+      'Merged',
+      '--end-of-options',
+      'side',
+    ]);
+    expect(await ui.request('git.merge', { path: '/w', branch: 'side' })).toMatchObject({
+      kind: 'merged',
+    });
+    for (const params of [{ options: ['--rebase'] }, { options: '--no-ff' }, { message: 1 }]) {
+      await expect(
+        ui.request('git.merge', { path: '/w', branch: 'side', ...params }),
       ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     }
   });

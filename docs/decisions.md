@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
@@ -2232,6 +2233,34 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Git → Merge… (2026-11-10)
+
+Ido's "all of the above", the Git menu's rest: Merge…, stacked on Fetch and Pull, whose dialog's
+parts it shares. From IntelliJ's source (`GitMerge`, `GitMergeDialog`, `GitMergeOption`,
+`GitMergeAction`, their words in `GitBundle`).
+
+- **In the Git menu** first in its second group, before Commit Merge and Abort Merge. Hidden while a
+  merge is under way, off during a rebase, as IntelliJ's `GitMerge.update`.
+- **The dialog,** "Merge into main" ("Merge Changes" when detached): `git merge` and the branch, its
+  local branches then its remote ones suggested as it's typed, each in IntelliJ's natural order (no
+  remote's HEAD). It starts at the branch merged last in the repository, else the upstream, else the
+  first. Its errors in IntelliJ's words: "The merge branch should be selected.", "There is no
+  matching branch.", and "Branch 'x' is already merged" once the host says which aren't (`git branch
+  --all --no-merged`, read alongside, as IntelliJ reads them in the background).
+- **Modify options:** Add Merge Options, IntelliJ's `GitMergeOption`: --no-ff, --ff-only, --squash,
+  -m, --no-commit, --no-verify, --allow-unrelated-histories, those that can't go with the ones
+  chosen greyed. With -m, "Commit message:" and its field under the options; the message goes with
+  -m only when one's written, as IntelliJ's. The branch and the options are kept per repository.
+- **Then as Pull:** IntelliJ's `GitMergeAction` for both, shared: how it went, its failures in its
+  words with Merge's name ("Git Merge Failed", "Your local changes will be overwritten by merge.",
+  "Untracked Files Prevent Merge", "Git Merge failed"); at conflicts, the Conflicts dialog, then the
+  merge committed, unless --no-commit. Recorded in Local History as "Merge x".
+- **Shared with Pull** (`git-options.tsx`, `merge-action.tsx`): the branch field and its
+  suggestions, the options' popup, chips and keeping, and what comes after git. The popup's width is
+  each dialog's, to fit its longest row (Cerebro's: IntelliJ's popup sizes to its content).
+- **Not yet:** the repository field (one repository per worktree here); --no-verify shown only when
+  git supports it (Cerebro assumes it does).
+
 ## Fetch and Pull (2026-11-10)
 
 Ido's "all of the above", its first part: the Git menu's rest, here Fetch, Pull…, Branches… and New
@@ -2272,8 +2301,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
 - **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull; Merge…, Rebase…, New Tag…, Reset HEAD… and Manage
-  Remotes… (the next PRs).
+  without remotes; View Commits after a pull; Rebase…, New Tag…, Reset HEAD… and Manage Remotes…
+  (the next PRs; Merge…: decision "Git → Merge…").
 
 ## Branches (2026-11-10)
 

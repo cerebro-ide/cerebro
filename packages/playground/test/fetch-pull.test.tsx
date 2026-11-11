@@ -17,7 +17,7 @@ const git = {
     upstream: { remote: 'origin', branch: 'main' },
   } as unknown,
   branches: ['origin/main', 'origin/dev', 'origin/HEAD', 'upstream/main', 'upstream/feature'],
-  pulled: { kind: 'pulled', files: 2, commits: 1 } as unknown,
+  pulled: { kind: 'merged', files: 2, commits: 1 } as unknown,
   /** Held until it resolves: a fetch or a pull under way. */
   hold: undefined as Promise<void> | undefined,
   conflicted: [] as string[],
@@ -73,7 +73,7 @@ beforeEach(() => {
     remotes: ['origin', 'upstream'],
     upstream: { remote: 'origin', branch: 'main' },
   };
-  git.pulled = { kind: 'pulled', files: 2, commits: 1 };
+  git.pulled = { kind: 'merged', files: 2, commits: 1 };
   git.hold = undefined;
   git.conflicted = [];
   localStorage.clear();
@@ -170,11 +170,13 @@ const parts = async () => {
   return {
     shown,
     title: shown.querySelector('.cerebro-dialog__title')?.textContent,
-    remote: shown.querySelector('.playground-pull__remote') as HTMLSelectElement,
-    field: shown.querySelector('.playground-pull__field') as HTMLInputElement,
+    remote: shown.querySelector('.playground-git-command__remote') as HTMLSelectElement,
+    field: shown.querySelector('.playground-git-branch__field') as HTMLInputElement,
     error: () => shown.querySelector('[role="alert"]')?.textContent,
     options: () =>
-      [...shown.querySelectorAll('.playground-pull__option')].map((o) => o.firstChild?.textContent),
+      [...shown.querySelectorAll('.playground-git-options__option')].map(
+        (o) => o.firstChild?.textContent,
+      ),
     ok: () =>
       [...shown.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
         (b) => b.textContent === 'Pull',
@@ -213,7 +215,7 @@ describe('Pull', () => {
     commands.execute('vcs.pull');
     const { title, remote, field, shown } = await parts();
     expect(title).toBe('Pull to main');
-    expect(shown.querySelector('.playground-pull__git')?.textContent).toBe('git pull');
+    expect(shown.querySelector('.playground-git-command__git')?.textContent).toBe('git pull');
     expect([...remote.options].map((o) => o.value)).toEqual(['origin', 'upstream']);
     expect(remote.value).toBe('origin');
     expect(field.value).toBe('main');
@@ -261,6 +263,9 @@ describe('Pull', () => {
     expect(none.remote.disabled).toBe(true);
     expect([...none.remote.options].map((o) => o.textContent)).toEqual(['None']);
     expect(none.error()).toBe('Select the remote to pull from');
+    // No remote's branches to suggest.
+    await typeBranch('m');
+    expect(document.querySelector('.playground-git-branch__suggestions')).toBeNull();
   });
 
   it('starts at the first remote when there’s no upstream or origin', async () => {
@@ -276,20 +281,24 @@ describe('Pull', () => {
     await parts();
     await typeBranch('e');
     const suggestions = () =>
-      [...document.querySelectorAll('.playground-pull__suggestion')].map((s) => s.textContent);
+      [...document.querySelectorAll('.playground-git-branch__suggestion')].map(
+        (s) => s.textContent,
+      );
     // origin's, but its HEAD.
     expect(suggestions()).toEqual(['dev']);
     await userEvent.selectOptions((await parts()).remote, 'upstream');
     // All of them, cleared: each shown, though they go past the dialog's edge.
     await typeBranch('');
     expect(suggestions()).toEqual(['feature', 'main']);
-    for (const item of document.querySelectorAll('.playground-pull__suggestion')) {
+    for (const item of document.querySelectorAll('.playground-git-branch__suggestion')) {
       const at = item.getBoundingClientRect();
       expect(document.elementFromPoint(at.left + 4, at.bottom - 4)).toBe(item);
     }
     await typeBranch('ea');
     expect(suggestions()).toEqual(['feature']);
-    await userEvent.click(document.querySelector('.playground-pull__suggestion') as HTMLElement);
+    await userEvent.click(
+      document.querySelector('.playground-git-branch__suggestion') as HTMLElement,
+    );
     expect((await parts()).field.value).toBe('feature');
     expect(suggestions()).toEqual([]);
     // Leaving the field hides them.
@@ -391,11 +400,11 @@ describe('Pull', () => {
   });
 
   it('says how it went, in IntelliJ’s words', async () => {
-    git.pulled = { kind: 'pulled', files: 1, commits: 3 };
+    git.pulled = { kind: 'merged', files: 1, commits: 3 };
     commands.execute('vcs.pull');
     await press('Pull');
     await expect.poll(() => last()?.title).toBe('1 file updated in 3 commits');
-    git.pulled = { kind: 'pulled', files: 0, commits: 0 };
+    git.pulled = { kind: 'merged', files: 0, commits: 0 };
     await expect.poll(() => commands.isEnabled('vcs.pull')).toBe(true);
     commands.execute('vcs.pull');
     await press('Pull');
