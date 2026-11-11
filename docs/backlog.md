@@ -179,4 +179,9 @@ on it:
   edit, and a save of `races.txt` (the race test's file, before it) took 4.1 s, 3.9 s of it in the
   host reading the file, 0 ms waiting behind other saves. So a slow read in the host is now the
   lead: next, whether the idle save of `second.ts` waits behind that one, and why the read is slow
-  (the race test writes the file in a loop just before).
+  (the race test writes the file in a loop just before). Measured in CI on #180 (2026-11-11): it
+  doesn't wait: `second.ts` saved 5.7 s after the edit, 0 ms after the saves before, 4060 ms of it
+  reading the file; `races.txt`'s save read it for 3786 ms, and a later `fs.read` of the project
+  took 5052 ms. So every read in the host is slow for some seconds after the race test, not one
+  save behind another: next, what the host is doing then (its event loop, or its file watcher
+  after the race test's writes).
