@@ -1909,8 +1909,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   IntelliJ's `GitCreateNewBranchFromCommitAction`: the Create New Branch dialog, titled "Create
   Branch from" and the commit's first 8 characters, its name the one branch at the commit if there's
   one (a remote one's without its remote), as IntelliJ suggests it; the Log read again after. The
-  branches are read before the dialog checks the name against them, for Git → New Branch… too:
-  measured, a branch made since the popup last read them wasn't caught. **Not yet:** its shortcut,
+  branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
+  against them once they're in: measured, a branch made since the popup last read them wasn't
+  caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
+  Branch… went nowhere while they were read. **Not yet:** its shortcut,
   New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
   first enabled command bound, so Git → New Branch… would take it.
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the

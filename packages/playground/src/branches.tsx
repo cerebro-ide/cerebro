@@ -309,7 +309,11 @@ export function setupBranches(
    */
   const newBranch = (from: string | undefined, title = 'Create New Branch', value = '') =>
     operate(`Could not create new branch`, async (host, worktree) => {
-      await readBranches(host, worktree);
+      // Read as it shows, not before: the name is checked against them once they're in, and
+      // what's typed meanwhile goes into the dialog.
+      readBranches(host, worktree).catch((error: unknown) => {
+        console.error('Reading the branches failed', error);
+      });
       const named = await branchDialog(title, 'Create', value, false);
       if (!named) return;
       await host.request('git.createBranch', {
