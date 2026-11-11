@@ -2592,7 +2592,9 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
 - **Fetch:** every remote, `git fetch --prune`, as IntelliJ's `fetchAllRemotes`; a remote that fails
   doesn't stop the others. "Fetch successful", with the remote branches pruned; or "Fetch failed"
   with git's words, each remote named when several failed. "Fetching…" on the status bar while it
-  runs, and Fetch disabled.
+  runs, and Fetch disabled. Disabled too while the repository has no remote, as IntelliJ's
+  (`GitFetch.hasRemotes`; added 2026-11-11): the host's repository state says whether it has any
+  (`git remote`), read with the rest of it every 2 s; enabled until first read.
 - **Pull…:** IntelliJ's dialog, "Pull to main": `git pull`, the remote, and the branch there, its
   branches suggested as it's typed. To start with, the upstream's; without one, origin (else the
   first remote) and its branch of the same name. Its errors in its words: "Select the remote to pull
@@ -2619,8 +2621,8 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   names either (measured: IntelliJ's keymap files). From the menu or its key, the popup opens at the
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
-- **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); Fetch disabled
-  without remotes; View Commits after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
+- **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); View Commits
+  after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
   Rebase…: their decisions).
 
 ## Branches (2026-11-10)

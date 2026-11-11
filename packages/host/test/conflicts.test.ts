@@ -237,6 +237,7 @@ describe('merge conflicts, with real git', () => {
       operation: 'merge',
       conflicts: true,
       message: "Merge branch 'feature'\n\n# Conflicts:\n#\tdel.txt\n#\tf.txt\n#\tg.txt\n",
+      remotes: false,
     });
     await acceptSide(repo, ['f.txt', 'g.txt', 'del.txt'], 'yours', git);
     expect(await repositoryState(repo, git)).toMatchObject({
@@ -246,11 +247,17 @@ describe('merge conflicts, with real git', () => {
     expect(await repositoryState(rebasing(), git)).toEqual({
       operation: 'rebase',
       conflicts: true,
+      remotes: false,
     });
-    expect(await repositoryState(diverged(), git)).toEqual({
+    const quiet = diverged();
+    expect(await repositoryState(quiet, git)).toEqual({
       operation: undefined,
       conflicts: false,
+      remotes: false,
     });
+    // And whether it has a remote, as IntelliJ's Fetch asks.
+    run(quiet, 'remote', 'add', 'origin', 'https://example.com/r.git');
+    expect(await repositoryState(quiet, git)).toMatchObject({ remotes: true });
   });
 
   it('skips the commit a rebase stopped at, as IntelliJ’s Skip Commit', async () => {
@@ -263,7 +270,11 @@ describe('merge conflicts, with real git', () => {
   it('aborts a merge or a rebase, back to where it started', async () => {
     const repo = merging();
     await abortOperation(repo, 'merge', git);
-    expect(await repositoryState(repo, git)).toEqual({ operation: undefined, conflicts: false });
+    expect(await repositoryState(repo, git)).toEqual({
+      operation: undefined,
+      conflicts: false,
+      remotes: false,
+    });
     expect(read(repo, 'f.txt')).toBe('a\nB-main\nc\n');
     const rebased = rebasing();
     await abortOperation(rebased, 'rebase', git);

@@ -5,6 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import { fetching, pullingFrom, setupFetchPull } from '../src/fetch-pull.js';
 import { notifications } from '../src/notifications.js';
+import { readState } from '../src/repository-state.js';
 import { setupUpdate } from '../src/update.js';
 import { closeAll, dialog, FakeHost, popupItems, press, project } from './fakes.js';
 
@@ -21,9 +22,11 @@ const git = {
   /** Held until it resolves: a fetch or a pull under way. */
   hold: undefined as Promise<void> | undefined,
   conflicted: [] as string[],
+  /** What the repository's state says besides. */
+  state: {} as { remotes?: boolean },
 };
 const answers = {
-  'git.state': () => ({ conflicts: false }),
+  'git.state': () => ({ conflicts: false, ...git.state }),
   'git.fetch': async () => {
     await git.hold;
     if (git.fetched instanceof Error) throw git.fetched;
@@ -149,6 +152,16 @@ describe('Fetch', () => {
     expect(commands.isEnabled('vcs.pull')).toBe(false);
     // Run anyway (from elsewhere), it does nothing.
     expect(commands.get('vcs.fetch')?.run(undefined)).toBeUndefined();
+  });
+
+  it('is disabled while the repository has no remote, as IntelliJ’s', async () => {
+    git.state = { remotes: false };
+    await readState('/r');
+    expect(commands.isEnabled('vcs.fetch')).toBe(false);
+    git.state = { remotes: true };
+    await readState('/r');
+    expect(commands.isEnabled('vcs.fetch')).toBe(true);
+    git.state = {};
   });
 
   it('logs what fails outside the fetch', async () => {
