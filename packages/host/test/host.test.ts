@@ -1012,8 +1012,12 @@ describe('ignored files and rolling back', () => {
       null,
     );
     expect(await ui.request('git.reset', { path: '/w', mode: 'soft' })).toBe(null);
-    expect(asked()).toEqual(expect.arrayContaining(['reset --hard HEAD~1 --', 'reset --soft --']));
-    await expect(ui.request('git.reset', { path: '/w', mode: 'keep' })).rejects.toMatchObject({
+    // The Log's Keep.
+    expect(await ui.request('git.reset', { path: '/w', mode: 'keep', commit: 'abc' })).toBe(null);
+    expect(asked()).toEqual(
+      expect.arrayContaining(['reset --hard HEAD~1 --', 'reset --soft --', 'reset --keep abc --']),
+    );
+    await expect(ui.request('git.reset', { path: '/w', mode: 'merge' })).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
   });

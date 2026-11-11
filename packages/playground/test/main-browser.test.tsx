@@ -122,16 +122,18 @@ describe('the page in a browser', () => {
     await expect.poll(() => item.hidden).toBe(true);
   });
 
-  it('shows Resetting HEAD… while a reset is under way, as IntelliJ’s', async () => {
+  it('shows Resetting HEAD… or Git Reset while a reset is under way, as IntelliJ’s', async () => {
     const item = q('.cerebro-statusbar__item[data-id="reset"]');
     expect(item.hidden).toBe(true);
-    resetting.set(true);
+    resetting.set('Resetting HEAD…');
     await expect.poll(() => item.hidden).toBe(false);
     expect(item.textContent).toBe('Resetting HEAD…');
     await userEvent.hover(item);
     await expect.poll(tooltipText).toBe('Resetting the branch');
     await userEvent.unhover(item);
-    resetting.set(false);
+    resetting.set('Git Reset');
+    await expect.poll(() => item.textContent).toBe('Git Reset');
+    resetting.set(undefined);
     await expect.poll(() => item.hidden).toBe(true);
   });
 

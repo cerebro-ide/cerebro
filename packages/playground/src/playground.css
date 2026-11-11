@@ -1765,3 +1765,20 @@ body,
   width: auto;
   padding: 0 6px;
 }
+
+/* The Log's Git Reset dialog: each mode, its comment under it, muted, as IntelliJ's. */
+.playground-reset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playground-reset p {
+  margin: 0;
+}
+
+.playground-reset__comment {
+  padding-left: 22px;
+  color: var(--cerebro-text-muted);
+  font-size: 12px;
+}

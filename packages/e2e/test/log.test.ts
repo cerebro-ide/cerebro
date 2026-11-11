@@ -262,3 +262,20 @@ it('tags the commit right-clicked, from its menu’s New Tag…, and shows the t
     .poll(() => row.locator('.playground-log__ref').allTextContents(), HOST)
     .toEqual(['side', 'side-e2e']);
 });
+
+it('resets the branch to the commit right-clicked, from Reset Current Branch to Here…', async () => {
+  const log = page().locator('.cerebro-tool-window[data-id="git"]');
+  const later = git('log', '-1', '--format=%H', '--grep=^Later$').trim();
+  const row = log.locator('.playground-log__list .cerebro-tree-row', { hasText: 'Later' });
+  await row.click({ button: 'right', force: true });
+  await page()
+    .locator('.cerebro-menu-item', { hasText: 'Reset Current Branch to Here…' })
+    .click({ force: true });
+  const box = page().locator('.cerebro-dialog');
+  expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Git Reset');
+  // Mixed, IntelliJ's default: the branch moved, the file as it was.
+  await page().keyboard.press('Enter');
+  await expect.poll(() => git('rev-parse', 'HEAD').trim(), HOST).toBe(later);
+  expect(git('status', '--porcelain').trim()).toBe('M file.txt');
+  await expect.poll(async () => (await subjects())[0], HOST).toBe('Later');
+});

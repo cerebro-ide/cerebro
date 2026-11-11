@@ -784,12 +784,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await createTag(text(params, 'path'), tag, git);
     return null;
   });
-  // Git → Reset HEAD…'s, recorded in Local History as IntelliJ's ("Git reset").
+  // Git → Reset HEAD…'s and the Log's reset, recorded in Local History as IntelliJ's ("Git reset").
   connection.onRequest('git.reset', async (params) => {
     const worktree = text(params, 'path');
     const p = params as { mode?: unknown; commit?: unknown };
-    if (p.mode !== 'mixed' && p.mode !== 'soft' && p.mode !== 'hard') {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'mode must be mixed, soft or hard');
+    if (p.mode !== 'mixed' && p.mode !== 'soft' && p.mode !== 'hard' && p.mode !== 'keep') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'mode must be mixed, soft, hard or keep');
     }
     const mode = p.mode;
     const commit = typeof p.commit === 'string' ? p.commit : undefined;

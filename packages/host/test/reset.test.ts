@@ -54,6 +54,21 @@ describe('Reset HEAD, with real git', () => {
     expect(file()).toBe('one\n');
   });
 
+  it('Keep: the files as the commit has them, local changes kept; refused where they’d be lost', async () => {
+    writeFileSync(join(repo, 'b.txt'), 'local\n');
+    await resetHead(repo, 'keep', first, git);
+    expect(run('rev-parse', 'HEAD')).toBe(first);
+    expect(file()).toBe('one\n');
+    expect(readFileSync(join(repo, 'b.txt'), 'utf8')).toBe('local\n');
+    rmSync(join(repo, 'b.txt'));
+    // A local change to a file the reset would change: git refuses, and nothing moves.
+    commit('two\n');
+    writeFileSync(join(repo, 'a.txt'), 'local\n');
+    await expect(resetHead(repo, 'keep', first, git)).rejects.toThrow(/not uptodate/);
+    expect(file()).toBe('local\n');
+    expect(run('rev-parse', 'HEAD')).not.toBe(first);
+  });
+
   it('to HEAD when no commit is given; a commit named as a file is taken as a commit', async () => {
     writeFileSync(join(repo, 'a.txt'), 'local\n');
     run('add', '.');

@@ -551,6 +551,8 @@ export interface LogCommitContext {
   commit: LogCommit;
   worktree: string;
   host: Host;
+  /** The commit HEAD is at, among those loaded; undefined if it isn't. */
+  head?: string;
   /** Reads the Log again, as Refresh: after an action changed what it shows (a tag made). */
   refresh: () => Promise<void>;
 }
@@ -878,10 +880,14 @@ export function GitLogView(props: {
               label={`${env.name} log`}
               row={(commit) => <CommitRow commit={commit} log={log} />}
               onContextMenu={(event, commit) => {
+                const head = log.commits
+                  .peek()
+                  .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
                 const context: LogCommitContext = {
                   commit,
                   worktree: env.id,
                   host,
+                  ...(head ? { head: head.hash } : {}),
                   refresh: () => refresh(log, branches),
                 };
                 openContextMenu(props.services, 'log/commit', event, context);
