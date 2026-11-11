@@ -19,6 +19,7 @@ import {
   notify,
   shownAgain,
   tabbed,
+  askedDocument,
 } from './app-bridge.js';
 import { closeAll, dialog, dialogText, menuItem, menuItems, popupItems, press } from './fakes.js';
 
@@ -150,6 +151,36 @@ describe('a diff tab', () => {
     jumped({ env: '/r', path: 'src/c.ts', line: 2, column: 3 });
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
     expect(env().editor.activeGroup.tabs.map((tab) => tab.id)).not.toContain('/r/src/gone.ts');
+  });
+});
+
+describe('a diff window’s document', () => {
+  it('is this window’s, told to its diff windows as it changes, and edited from them', async () => {
+    const file = '/r/src/shared.ts';
+    const told = () => calls.filter((call) => call[0] === 'documentText' && call[1] === file);
+    answers.set('fs.read', { text: 'disk\n' });
+    askedDocument(file, null);
+    await expect.poll(told).toEqual([['documentText', file, 'disk\n']]);
+    const doc = documentRead(file) as EditorDocument;
+    // Edited from a diff window: the document's text, told back.
+    askedDocument(file, 'edited\n');
+    await expect.poll(() => doc.text.get().toString()).toBe('edited\n');
+    expect(doc.modified.get()).toBe(true);
+    await expect.poll(() => told().at(-1)).toEqual(['documentText', file, 'edited\n']);
+    // Changed here: told.
+    doc.replace('here\n');
+    await expect.poll(() => told().at(-1)).toEqual(['documentText', file, 'here\n']);
+    // Asked again, by another diff window: told as it is.
+    const before = told().length;
+    askedDocument(file, null);
+    await expect.poll(() => told().length).toBe(before + 1);
+    doc.saved();
+    answers.delete('fs.read');
+    // One that can't be read: null.
+    answers.set('fs.read', new Error('ENOENT'));
+    askedDocument('/r/src/none.ts', null);
+    await expect.poll(() => calls.at(-1)).toEqual(['documentText', '/r/src/none.ts', null]);
+    answers.delete('fs.read');
   });
 });
 

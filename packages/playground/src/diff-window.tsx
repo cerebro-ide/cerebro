@@ -2,7 +2,8 @@
 // and keys, and the other files of the list it was opened from: Compare Previous and Next File, and
 // Go to Changed File from its count. It names what it shows in its URL's hash, reads it through its
 // opener's hosts (the app shares them), takes the settings kept for every window (the theme, the
-// keymap, the font), and sends Jump to Source back to its opener.
+// keymap, the font), and sends Jump to Source back to its opener. A file as it is is its opener's
+// document, as IntelliJ's diff edits the file's one document: told by the opener, and edited there.
 
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
@@ -22,14 +23,14 @@ import {
   MenuRegistry,
 } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
-import { effect, signal } from '@cerebro-ide/reactive';
+import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import '@cerebro-ide/ui-popup/styles.css';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import type { DiffSpec } from './bridge.js';
-import { FileDiff, setupDiffViewer } from './diff-viewer.js';
+import { FileDiff, setupDiffViewer, type DiffDocument } from './diff-viewer.js';
 import { userKeymaps } from './keymap-page.js';
 import { keymapPlatform, PRESETS } from './keymaps.js';
 import { globalSettings, settingsFor } from './settings.js';
@@ -159,6 +160,45 @@ window.addEventListener('keydown', (event) => {
   if (chord !== undefined && dispatcher.press(chord) !== 'unhandled') event.preventDefault();
 });
 
+/** The opener's documents' texts, by file, as it tells them: null for one that can't be read. */
+const texts = new ObservableMap<string, string | null>();
+/** Each file's edits sent, not yet told back: told back, they aren't news. */
+const sent = new Map<string, string[]>();
+/** What waits for a file's text to be told. */
+const waiting = new Map<string, (() => void)[]>();
+app.diff.onDocument((path, text) => {
+  const file = path as string;
+  const mine = sent.get(file) ?? [];
+  const echo = mine.indexOf(text as string);
+  if (echo >= 0) mine.splice(0, echo + 1);
+  // Not while an edit sent is still to be told back: the document will be what it says.
+  else if (mine.length === 0) texts.set(file, text as string | null);
+  for (const resolve of waiting.get(file) ?? []) resolve();
+  waiting.delete(file);
+});
+/** A file of the worktree, as it is: its opener's document. */
+function documentOf(path: string): { document: DiffDocument; read: () => Promise<void> } {
+  const file = `${spec.env}/${path}`;
+  return {
+    document: {
+      text: () => texts.get(file) ?? undefined,
+      edit: (text) => {
+        sent.set(file, [...(sent.get(file) ?? []), text]);
+        texts.set(file, text);
+        void app.diff.document(file, text);
+      },
+    },
+    // Asked for the first time it's shown; then told as it changes.
+    read: () =>
+      texts.has(file)
+        ? Promise.resolve()
+        : new Promise((resolve) => {
+            waiting.set(file, [...(waiting.get(file) ?? []), resolve]);
+            void app.diff.document(file, null);
+          }),
+  };
+}
+
 const settings = settingsFor(spec.env);
 // The file may have changed while the window was in the background: read again with the focus
 // back, as the Log does.
@@ -173,17 +213,22 @@ render(
       {() => {
         // Made again for each file, as IntelliJ's window shows the next.
         const { path, scrollTo } = current.get();
+        // Between commits, nothing to edit.
+        const asIs = spec.range ? undefined : documentOf(path);
         return (
           <FileDiff
             services={services}
             path={path}
-            read={() =>
-              app.host.request(spec.project, 'git.diff', {
+            read={async () => {
+              const diff = app.host.request(spec.project, 'git.diff', {
                 path: spec.env,
                 file: path,
                 ...spec.range,
-              }) as Promise<{ original: string; text: string }>
-            }
+              });
+              await asIs?.read();
+              return (await diff) as { original: string; text: string };
+            }}
+            {...(asIs ? { document: asIs.document } : {})}
             version={() => version.get()}
             {...(scrollTo ? { scrollTo } : {})}
             focus

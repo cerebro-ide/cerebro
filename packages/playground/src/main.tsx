@@ -348,6 +348,28 @@ window.cerebro?.diff.onTab((spec) => {
   workspace.activate(env);
   editor()?.open(diffTab(path, range));
 });
+// A diff window's file as it is: this window's document, as IntelliJ's one document per file. Its
+// text is told to the diff windows as it changes (null if it can't be read), and edited from them.
+const told = new Set<string>();
+window.cerebro?.diff.onDocumentAsked((path, text) => {
+  const file = path as string;
+  void documentFor(file).then((doc) => {
+    const app = window.cerebro as NonNullable<Window['cerebro']>;
+    if ('error' in doc) {
+      void app.diff.documentText(file, null);
+      return;
+    }
+    if (typeof text === 'string') doc.replace(text);
+    // Asked again (another diff window): told as it is.
+    else if (told.has(file)) void app.diff.documentText(file, doc.text.peek().toString());
+    if (told.has(file)) return;
+    told.add(file);
+    effect(() => {
+      void app.diff.documentText(file, doc.text.get().toString());
+      return undefined;
+    });
+  });
+});
 // Jump to Source from a diff window: the file, if it's still there, where its caret was.
 window.cerebro?.diff.onJump((at) => {
   const { env, path, line, column } = at as {

@@ -79,6 +79,7 @@ let onAdded: Added = () => undefined;
 let onShow: (path: string) => void = () => undefined;
 let onJump: (at: unknown) => void = () => undefined;
 let onTab: (spec: unknown) => void = () => undefined;
+let onDocumentAsked: (path: unknown, text: unknown) => void = () => undefined;
 /** A project joins the window, as the app says when one opens. */
 export const added: Added = (project) => {
   onAdded(project);
@@ -94,6 +95,10 @@ export const jumped = (at: unknown): void => {
 /** Show Diff in Editor Tab from a diff window this window opened. */
 export const tabbed = (spec: unknown): void => {
   onTab(spec);
+};
+/** A diff window this window opened asks for a file's document (`text` null), or edits it. */
+export const askedDocument = (path: string, text: string | null): void => {
+  onDocumentAsked(path, text);
 };
 const recent: RecentProject[] = [
   { path: '/r', name: 'r', opened: 3, exists: true },
@@ -146,6 +151,14 @@ export function installBridge(platform: string, menu: unknown = {}): void {
       onTab: (listener: typeof onTab) => {
         onTab = listener;
         return () => undefined;
+      },
+      onDocumentAsked: (listener: typeof onDocumentAsked) => {
+        onDocumentAsked = listener;
+        return () => undefined;
+      },
+      documentText: (path: string, text: string | null) => {
+        calls.push(['documentText', path, text]);
+        return Promise.resolve();
       },
     },
     host: {
