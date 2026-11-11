@@ -277,7 +277,7 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
     // What's shown: its tasks are there, hidden, when none is under way.
-  console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
+    console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
     throw error;
   }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
