@@ -34,7 +34,8 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
-import { active, currentHost, gitRepository, hostFor } from './environments.js';
+import { onEdited, saveFiles, unsavedFiles } from './documents.js';
+import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { openPush } from './push.js';
@@ -243,6 +244,27 @@ const lists = new Map<string, Changes>();
 /** The Merge Conflicts group's Resolve: given by `setupChanges`. */
 let resolveFromList: (() => void) | undefined;
 
+/**
+ * `listed` with the tracked files edited and not saved yet, as modified: IntelliJ lists a file in
+ * Changes as it's edited, not once it's saved.
+ */
+async function withUnsaved(
+  host: Host,
+  worktree: string,
+  listed: Change[],
+  unsaved: readonly string[],
+): Promise<Change[]> {
+  const root = `${worktree}/`;
+  const known = new Set(listed.map((change) => change.path));
+  const files = unsaved
+    .filter((path) => path.startsWith(root))
+    .map((path) => path.slice(root.length))
+    .filter((path) => !known.has(path));
+  if (files.length === 0) return listed;
+  const tracked = (await host.request('git.tracked', { path: worktree, files })) as string[];
+  return [...listed, ...tracked.map((path): Change => ({ path, status: 'modified' }))];
+}
+
 /** A worktree's lists, made the first time they're asked for. */
 function changesOf(worktree: string): Changes {
   // Made where they're shown, which needn't run again when they are: making them writes what it
@@ -266,6 +288,9 @@ function made(worktree: string): Changes {
     let last = '';
     // Reads asked for: only the latest one's answer is shown.
     let reads = 0;
+    const root = `${worktree}/`;
+    /** The files whose first edit read the lists: asked about again once saved. */
+    const firstEdits = new Set<string>();
     // Folders and groups are expanded when they first show, as IntelliJ's changes are; after
     // that, as the user left them.
     const seen = new Set<string>();
@@ -362,11 +387,14 @@ function made(worktree: string): Changes {
       refresh: async (force = false) => {
         const asked = ++reads;
         const ignoredToo = showIgnored.peek();
-        const [readChanges, readTurns, readIgnored] = (await Promise.all([
+        const [listed, readTurns, readIgnored] = (await Promise.all([
           host.request('git.changes', { path: worktree }),
           host.request('agent.turns', { path: worktree }),
           ignoredToo ? host.request('git.ignored', { path: worktree }) : [],
         ])) as [Change[], Turn[], string[]];
+        const unsaved = unsavedFiles();
+        for (const file of firstEdits) if (!unsaved.includes(root + file)) firstEdits.delete(file);
+        const readChanges = await withUnsaved(host, worktree, listed, unsaved);
         // A later read was asked for while this one ran: it has what's newer.
         if (asked !== reads) return;
         // During a merge, git's message for it, as IntelliJ's Commit window starts with; taken
@@ -391,6 +419,19 @@ function made(worktree: string): Changes {
       },
     };
     lists.set(worktree, changes);
+    const these = changes;
+    // A file's first edit lists it at once, not at the next read. Asked once until it's saved, so
+    // typing in a file git doesn't track doesn't read the lists at every key.
+    onEdited((path) => {
+      const file = path.slice(root.length);
+      if (!path.startsWith(root) || firstEdits.has(file)) return;
+      if ([...conflicted, ...tracked, ...unversioned].some((change) => change.path === file))
+        return;
+      firstEdits.add(file);
+      these.refresh().catch((error: unknown) => {
+        console.error('Reading the changes failed', error);
+      });
+    });
   }
   return changes;
 }
@@ -607,6 +648,8 @@ async function commit(changes: Changes): Promise<boolean> {
   commitError.set('');
   committing.set(true);
   try {
+    // What's committed is what's on disk: the files put in are saved first, as IntelliJ's.
+    await saveFiles(files.map((change) => `${changes.path}/${change.path}`));
     await hostFor(changes.path)?.request('git.commit', {
       path: changes.path,
       files: files.map((change) => change.path),
