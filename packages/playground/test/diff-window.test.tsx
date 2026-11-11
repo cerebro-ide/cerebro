@@ -64,14 +64,20 @@ describe('a diff window', () => {
   });
 
   it('jumps to the source in its opener, where the caret is (zero-based), on its key', async () => {
-    // Nowhere in the diff: nothing to jump to.
+    // Its button on, once the diff shows.
+    const button = document.querySelector(
+      '[data-command="changes.jumpToSource"]',
+    ) as HTMLButtonElement;
+    await expect.poll(() => button.disabled).toBe(false);
+    // With the keyboard elsewhere in the window: the diff's caret, at its first change.
     (document.activeElement as HTMLElement | null)?.blur();
     await userEvent.keyboard('{F4}');
-    expect(jumps).toEqual([]);
-    const lines = root()?.querySelectorAll('.cm-diff-b .cm-line') as NodeListOf<HTMLElement>;
-    await userEvent.click(lines[1] as HTMLElement);
-    await userEvent.keyboard('{Home}{F4}');
     expect(jumps).toEqual([{ env: '/r/w', path: 'src/a.ts', line: 1, column: 0 }]);
+    jumps.length = 0;
+    const lines = root()?.querySelectorAll('.cm-diff-b .cm-line') as NodeListOf<HTMLElement>;
+    await userEvent.click(lines[0] as HTMLElement);
+    await userEvent.keyboard('{Home}{F4}');
+    expect(jumps).toEqual([{ env: '/r/w', path: 'src/a.ts', line: 0, column: 0 }]);
   });
 });
 

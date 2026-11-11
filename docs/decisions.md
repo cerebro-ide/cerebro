@@ -2341,11 +2341,22 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     for Next, as its file has them; NetBeans' Ctrl+Alt+Page Up and Down; none in Eclipse (macOS)
     and Sublime Text.
   - The icons are drawn here (a pencil and two arrows, a claim: not IntelliJ's drawings).
+  - Past a file's last difference, Next Difference (F7) says "Press again to go to the next file",
+    and pressed again shows the next file at its first change; Previous Difference the same way
+    back, to the previous file's last change. Going to a difference, or another file shown,
+    forgets the first press; any key or scrolling hides the hint. As IntelliJ's, its Go to next
+    file setting on, its default (`DiffDifferenceNavigationAction`, `DiffRequestProcessor`'s
+    DiffNavigator, `DiffSettingsHolder`); the setting itself isn't here yet. The hint is centred
+    40px from the diff's end the way it goes, bold, in a tooltip's colours (IntelliJ puts it by the
+    change, in its information hint's colours: a simplification, open to change).
+  - The diff takes the keyboard as a file shows, as IntelliJ's window gives it to its editor, and
+    in the window the diff's keys act on its diff wherever the keyboard is (Jump to Source from
+    the caret of the side last focused).
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
 - **Not yet:** editing in the unified viewer (IntelliJ's edits the right's lines there); the diff
-  window's size kept; F7 at the last difference going on to the next file ("Press again to go to
-  the next file"); several files selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
+  window's size kept; the Go to next file setting (Settings → Tools → Diff & Merge); several files
+  selected as the list; Open in Editor Tab; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   aligning changes, highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 

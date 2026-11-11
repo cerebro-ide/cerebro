@@ -90,15 +90,20 @@ setupDiffViewer(services, {
     });
   },
 });
-// Jump to Source, as from a diff tab: back in the opener, where the caret is.
+/** Where the window's diff's caret is, on the side last focused; undefined until it shows. */
+const source = () => {
+  const diff = document.querySelector('.cerebro-editor-diff');
+  return diff ? diffSource(diff) : undefined;
+};
+// Jump to Source, as from a diff tab: back in the opener, where the caret is. The toolbar's button
+// is told the diff (its context) once it shows.
 services.commands.register({
   id: 'changes.jumpToSource',
   label: 'Jump to Source',
   icon: 'editSource',
-  enabled: () =>
-    document.activeElement !== null && diffSource(document.activeElement) !== undefined,
+  enabled: () => source() !== undefined,
   run: () => {
-    const at = diffSource(document.activeElement as Element) as { line: number; column: number };
+    const at = source() as { line: number; column: number };
     void app.diff.jump({ env: spec.env, path: current.peek().path, ...at });
   },
 });
