@@ -38,6 +38,7 @@ const {
   DIFF_DOCUMENT_TEXT,
   DIFF_TAB,
   DIFF_TABBED,
+  DIFF_MOVE,
   DIFF_OPEN,
   DiffWindows,
   diffHash,
@@ -140,6 +141,30 @@ describe('diff windows', () => {
     expect(opener.send).toHaveBeenCalledOnce();
   });
 
+  it('tells the opener’s other diff windows to move too, when asked, as IntelliJ moves every diff', () => {
+    const made: ReturnType<typeof fake>[] = [];
+    let ids = 10;
+    const windows = new DiffWindows({ share: vi.fn(), unshare: vi.fn() }, () => {
+      const window = fake(++ids);
+      made.push(window);
+      return window;
+    });
+    const opener = fake(1);
+    const another = fake(2);
+    windows.show(opener, spec);
+    windows.show(opener, { ...spec, path: 'b.ts' });
+    windows.show(another, spec);
+    const [first, second, elsewhere] = made as [typeof opener, typeof opener, typeof opener];
+    windows.toTab(first, spec, true);
+    expect(second.send).toHaveBeenCalledWith(DIFF_MOVE);
+    expect(first.send).not.toHaveBeenCalled();
+    // Another project window's diffs stay.
+    expect(elsewhere.send).not.toHaveBeenCalled();
+    // Moving as told: no one else told again.
+    windows.toTab(second, { ...spec, path: 'b.ts' });
+    expect(second.send).toHaveBeenCalledOnce();
+  });
+
   it('takes a spec with its strings, a range’s, and its files with its own, or none', () => {
     expect(diffSpec(spec)).toEqual(spec);
     const range = { from: 'a1', to: 'b2' };
@@ -183,7 +208,7 @@ describe('diff windows', () => {
     );
     await ask(DIFF_JUMP, 2, { line: 1 });
     expect(opener.send).toHaveBeenCalledWith(DIFF_JUMPED, { line: 1 });
-    await ask(DIFF_TAB, 2, spec);
+    await ask(DIFF_TAB, 2, spec, true);
     expect(opener.send).toHaveBeenCalledWith(DIFF_TABBED, spec);
     // Its document, asked for through the opener, told of to the diff window.
     create.mockImplementation(() => ({ ...fake(3), send: opener.send }));

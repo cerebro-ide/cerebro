@@ -190,6 +190,7 @@ describe('a diff moved between a window and a tab', () => {
     const { id: group, active: before } = env().editor.activeGroup;
     tabbed({ project: '/r', env: '/gone', path: 'src/m.ts' });
     expect(env().editor.activeGroup.active).not.toBe(diffTab('src/m.ts').id);
+    tabbed({ project: '/r', env: '/r', path: 'src/n.ts' });
     tabbed({ project: '/r', env: '/r', path: 'src/m.ts' });
     expect(env().editor.activeGroup.active).toBe(diffTab('src/m.ts').id);
     const gear = await vi.waitUntil(() =>
@@ -200,10 +201,14 @@ describe('a diff moved between a window and a tab', () => {
       i.textContent.includes('Show Diff in Separate Window'),
     ) as Element;
     await userEvent.click(item);
-    expect(env().editor.activeGroup.tabs.map((tab) => tab.id)).not.toContain(
-      diffTab('src/m.ts').id,
-    );
-    expect(calls.at(-1)).toEqual(['diff', { project: '/r', env: '/r', path: 'src/m.ts' }]);
+    const ids = env().editor.activeGroup.tabs.map((tab) => tab.id);
+    expect(ids).not.toContain(diffTab('src/m.ts').id);
+    expect(ids).not.toContain(diffTab('src/n.ts').id);
+    // Every diff tab moves, as IntelliJ's, the one chosen from last, so its window is in front.
+    expect(calls.filter((call) => call[0] === 'diff').slice(-2)).toEqual([
+      ['diff', { project: '/r', env: '/r', path: 'src/n.ts' }],
+      ['diff', { project: '/r', env: '/r', path: 'src/m.ts' }],
+    ]);
     // As it was found, for the tests after.
     env().editor.activate(group, before as string);
   });

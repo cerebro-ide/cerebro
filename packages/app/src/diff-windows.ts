@@ -4,7 +4,8 @@
 // and Show Diff in Editor Tab, which opens it there as a tab and closes it. A file as it is is that
 // window's document, as IntelliJ's diff edits the file's one document: the diff window asks for it
 // and edits it through that window, which tells its diff windows of its text. It closes with that
-// window. The same diff opened again brings its window to the front.
+// window. The same diff opened again brings its window to the front. Show Diff in Editor Tab moves
+// every diff window of that opener, as IntelliJ's moves every diff open.
 
 import { BrowserWindow, type WebContents } from 'electron';
 import type { Hosts } from './host.js';
@@ -17,6 +18,8 @@ export const DIFF_JUMPED = 'cerebro:diff:jumped';
 export const DIFF_TAB = 'cerebro:diff:tab';
 /** To the opener: show this diff as a tab. */
 export const DIFF_TABBED = 'cerebro:diff:tabbed';
+/** To a diff window: move to a tab, as another of its opener's did. */
+export const DIFF_MOVE = 'cerebro:diff:move';
 /** From a diff window, and on to its opener: a file's document, to be told of, or its new text. */
 export const DIFF_DOCUMENT = 'cerebro:diff:document';
 export const DIFF_DOCUMENT_ASKED = 'cerebro:diff:document-asked';
@@ -133,13 +136,23 @@ export class DiffWindows {
     }
   }
 
-  /** Show Diff in Editor Tab from the diff `window`: its opener shows `spec` as a tab, in front. */
-  toTab(window: Window, spec: DiffSpec): void {
+  /**
+   * Show Diff in Editor Tab from the diff `window`: its opener shows `spec` as a tab, in front.
+   * With `all`, the opener's other diff windows are told to move too, as IntelliJ's
+   * `reopenDiffEditorsForFiles` moves every diff open.
+   */
+  toTab(window: Window, spec: DiffSpec, all = false): void {
     const opener = this.openers.get(window.id);
     if (!opener) return;
     opener.send(DIFF_TABBED, spec);
     opener.focus();
     window.close();
+    if (!all) return;
+    for (const other of this.open.values()) {
+      if (other.id !== window.id && this.openers.get(other.id)?.id === opener.id) {
+        other.send(DIFF_MOVE);
+      }
+    }
   }
 }
 
@@ -177,8 +190,8 @@ export function installDiffWindows(hosts: Hosts, create: (spec: DiffSpec) => Win
   handle(DIFF_JUMP, (event, at: unknown) => {
     windows.jump(event.sender.id, at);
   });
-  handle(DIFF_TAB, (event, spec: unknown) => {
-    windows.toTab(windowOf(event.sender), diffSpec(spec));
+  handle(DIFF_TAB, (event, spec: unknown, all: unknown) => {
+    windows.toTab(windowOf(event.sender), diffSpec(spec), all === true);
   });
   handle(DIFF_DOCUMENT, (event, path: unknown, text: unknown) => {
     windows.askDocument(event.sender.id, path, text);

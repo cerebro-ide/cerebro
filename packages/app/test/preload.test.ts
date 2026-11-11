@@ -10,6 +10,7 @@ import {
   DIFF_DOCUMENT_TEXT,
   DIFF_JUMP,
   DIFF_JUMPED,
+  DIFF_MOVE,
   DIFF_OPEN,
   DIFF_TAB,
   DIFF_TABBED,
@@ -108,7 +109,18 @@ describe('the preload', () => {
     expect(call('project', 'forget', '/r')).toEqual(['invoke', PROJECT_FORGET, '/r']);
     expect(call('diff', 'open', { path: 'a' })).toEqual(['invoke', DIFF_OPEN, { path: 'a' }]);
     expect(call('diff', 'jump', { line: 1 })).toEqual(['invoke', DIFF_JUMP, { line: 1 }]);
-    expect(call('diff', 'toTab', { path: 'a' })).toEqual(['invoke', DIFF_TAB, { path: 'a' }]);
+    expect(call('diff', 'toTab', { path: 'a' })).toEqual([
+      'invoke',
+      DIFF_TAB,
+      { path: 'a' },
+      false,
+    ]);
+    expect(call('diff', 'toTab', { path: 'a' }, true)).toEqual([
+      'invoke',
+      DIFF_TAB,
+      { path: 'a' },
+      true,
+    ]);
     expect(call('diff', 'document', '/a', null)).toEqual(['invoke', DIFF_DOCUMENT, '/a', null]);
     expect(call('diff', 'documentText', '/a', 't')).toEqual([
       'invoke',
@@ -144,6 +156,7 @@ describe('the preload', () => {
       api['menu']?.['onCommand']?.((c: unknown) => void heard.push(['command', c])),
       api['diff']?.['onJump']?.((at: unknown) => void heard.push(['jump', at])),
       api['diff']?.['onTab']?.((spec: unknown) => void heard.push(['tab', spec])),
+      api['diff']?.['onMove']?.(() => void heard.push(['move'])),
       api['diff']?.['onDocument']?.((...d: unknown[]) => void heard.push(['document', ...d])),
       api['diff']?.['onDocumentAsked']?.((...d: unknown[]) => void heard.push(['asked', ...d])),
       api['host']?.['onNotification']?.(
@@ -156,6 +169,7 @@ describe('the preload', () => {
     emit(MENU_COMMAND, 'file.open');
     emit(DIFF_JUMPED, { line: 1 });
     emit(DIFF_TABBED, { path: 'a' });
+    emit(DIFF_MOVE);
     emit(DIFF_DOCUMENT_SHOWN, '/a', 't');
     emit(DIFF_DOCUMENT_ASKED, '/a', null);
     // What isn't a command, or a notification from a project's host, is dropped.
@@ -168,6 +182,7 @@ describe('the preload', () => {
       ['command', 'file.open'],
       ['jump', { line: 1 }],
       ['tab', { path: 'a' }],
+      ['move'],
       ['document', '/a', 't'],
       ['asked', '/a', null],
       ['notification', '/r', 'index.progress', { done: 1 }],

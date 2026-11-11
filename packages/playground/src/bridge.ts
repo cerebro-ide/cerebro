@@ -80,8 +80,13 @@ declare global {
         jump(at: DiffJump): Promise<void>;
         /** In a project's window: each place its diff windows jump to. */
         onJump(listener: (at: unknown) => void): () => void;
-        /** From a diff window: its opener shows the diff as a tab, and it closes. */
-        toTab(spec: DiffSpec): Promise<void>;
+        /**
+         * From a diff window: its opener shows the diff as a tab, and it closes; with `all`, the
+         * opener's other diff windows are told to move too.
+         */
+        toTab(spec: DiffSpec, all?: boolean): Promise<void>;
+        /** In a diff window: each time it's to move to a tab, as another diff window did. */
+        onMove(listener: () => void): () => void;
         /** In a project's window: each diff its diff windows move to tabs. */
         onTab(listener: (spec: unknown) => void): () => void;
         /** From a diff window: asks its opener for a file's document (`text` null), or edits it. */

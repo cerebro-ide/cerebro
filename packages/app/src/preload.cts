@@ -37,6 +37,7 @@ const DIFF_JUMP = 'cerebro:diff:jump';
 const DIFF_JUMPED = 'cerebro:diff:jumped';
 const DIFF_TAB = 'cerebro:diff:tab';
 const DIFF_TABBED = 'cerebro:diff:tabbed';
+const DIFF_MOVE = 'cerebro:diff:move';
 const DIFF_DOCUMENT = 'cerebro:diff:document';
 const DIFF_DOCUMENT_ASKED = 'cerebro:diff:document-asked';
 const DIFF_DOCUMENT_TEXT = 'cerebro:diff:document-text';
@@ -142,8 +143,13 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     jump: (at: unknown): Promise<unknown> => invoke(DIFF_JUMP, at),
     /** In an opener: calls `listener` with each place its diff windows jump to. */
     onJump: (listener: (at: unknown) => void) => listen(DIFF_JUMPED, listener),
-    /** From a diff window: its opener shows the diff as a tab, and it closes. */
-    toTab: (spec: unknown): Promise<unknown> => invoke(DIFF_TAB, spec),
+    /**
+     * From a diff window: its opener shows the diff as a tab, and it closes; with `all`, its
+     * opener's other diff windows are told to move too.
+     */
+    toTab: (spec: unknown, all?: unknown): Promise<unknown> => invoke(DIFF_TAB, spec, all === true),
+    /** In a diff window: calls `listener` when it's to move to a tab, as another one did. */
+    onMove: (listener: () => void) => listen(DIFF_MOVE, listener),
     /** In an opener: calls `listener` with each diff its diff windows move to tabs. */
     onTab: (listener: (spec: unknown) => void) => listen(DIFF_TABBED, listener),
     /** From a diff window: asks its opener for a file's document (`text` null), or edits it. */

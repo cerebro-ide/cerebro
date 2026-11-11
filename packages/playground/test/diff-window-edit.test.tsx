@@ -35,6 +35,7 @@ beforeAll(async () => {
         told = listener;
         return () => undefined;
       },
+      onMove: () => () => undefined,
     },
   } as unknown as NonNullable<Window['cerebro']>;
   location.hash = `#diff=${encodeURIComponent(JSON.stringify(SPEC))}`;
