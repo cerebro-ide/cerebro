@@ -992,6 +992,20 @@ describe('ignored files and rolling back', () => {
     });
   });
 
+  it('resets HEAD, as asked', async () => {
+    const git = vi.fn<Git>(() => Promise.resolve(''));
+    const { ui } = connect(git);
+    const asked = () => git.mock.calls.map(([, args]) => bare(args).join(' '));
+    expect(await ui.request('git.reset', { path: '/w', mode: 'hard', commit: 'HEAD~1' })).toBe(
+      null,
+    );
+    expect(await ui.request('git.reset', { path: '/w', mode: 'soft' })).toBe(null);
+    expect(asked()).toEqual(expect.arrayContaining(['reset --hard HEAD~1 --', 'reset --soft --']));
+    await expect(ui.request('git.reset', { path: '/w', mode: 'keep' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+
   it('checks out, makes, renames, deletes, restores, merges and rebases branches, as asked', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'rev-parse' ? 'abc\n' : ''),

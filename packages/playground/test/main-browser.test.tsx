@@ -9,6 +9,7 @@ import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { fetching, pullingFrom } from '../src/fetch-pull.js';
+import { resetting } from '../src/reset.js';
 import { fetchingRemote, pushing } from '../src/push.js';
 import { updating } from '../src/update.js';
 import { globalSettings } from '../src/settings.js';
@@ -118,6 +119,19 @@ describe('the page in a browser', () => {
       .toBe('Fetching the remote’s commits, to count what a push replaces');
     await userEvent.unhover(item);
     fetchingRemote.set(false);
+    await expect.poll(() => item.hidden).toBe(true);
+  });
+
+  it('shows Resetting HEAD… while a reset is under way, as IntelliJ’s', async () => {
+    const item = q('.cerebro-statusbar__item[data-id="reset"]');
+    expect(item.hidden).toBe(true);
+    resetting.set(true);
+    await expect.poll(() => item.hidden).toBe(false);
+    expect(item.textContent).toBe('Resetting HEAD…');
+    await userEvent.hover(item);
+    await expect.poll(tooltipText).toBe('Resetting the branch');
+    await userEvent.unhover(item);
+    resetting.set(false);
     await expect.poll(() => item.hidden).toBe(true);
   });
 

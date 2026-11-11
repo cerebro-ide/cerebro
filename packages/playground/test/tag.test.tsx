@@ -208,6 +208,6 @@ describe('Git → New Tag…', () => {
     await userEvent.click(button(box, 'Validate'));
     await expect
       .poll(() => logged.mock.calls[0]?.[0] as unknown)
-      .toBe('Validating the commit to tag failed');
+      .toBe('Validating the commit failed');
   });
 });

@@ -318,6 +318,25 @@ describe('dialogs', () => {
     config('--unset', 'user.email');
   });
 
+  it('resets HEAD to a commit from Git → Reset HEAD…', async () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: repo, encoding: 'utf8' }).trim();
+    const first = git('rev-parse', 'HEAD');
+    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'second', '--allow-empty');
+    await findAction(page(), 'Reset HEAD');
+    const box = page().locator('.cerebro-dialog');
+    await box.waitFor();
+    expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Reset Head');
+    await box.locator('input').fill('HEAD~1');
+    await box.locator('.cerebro-dialog__button', { hasText: /^Reset$/ }).click();
+    try {
+      await expect.poll(() => git('rev-parse', 'HEAD'), { timeout: 15_000 }).toBe(first);
+    } catch (error) {
+      console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
+      throw error;
+    }
+  });
+
   it('keeps the app’s shortcuts and menu bar from running behind a dialog', async () => {
     await page().locator('[aria-label^="Branch:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
