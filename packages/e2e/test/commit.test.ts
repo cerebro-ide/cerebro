@@ -34,6 +34,20 @@ async function seen(): Promise<void> {
   console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
+  console.log('Console:', running.messages);
+}
+
+/** How long `done` takes to hold after a test gave up on it, up to a minute: slow, or stuck. */
+async function measure(done: () => boolean): Promise<void> {
+  const start = performance.now();
+  while (!done() && performance.now() - start < 60_000) {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  console.log(
+    done()
+      ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
+      : 'Still not done a minute after the test gave up',
+  );
 }
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
@@ -343,8 +357,9 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
       .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
       .toBe(5);
   } catch (error) {
-    // Not committed in time on Windows in CI once (#161, 2026-11-11): what was seen.
+    // Not committed in time on Windows in CI twice (#161, #162, 2026-11-11): what was seen.
     await seen();
+    await measure(() => git('log', '-1', '--format=%p').trim().includes(' '));
     throw error;
   }
   expect(git('log', '-1', '--format=%s')).toBe("Merge branch 'side'\n");
@@ -378,8 +393,10 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
       .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
       .toMatch(/^Merge branch 'feature' of /);
   } catch (error) {
-    // Not pulled on Windows in CI once (#161, 2026-11-11), after the test before failed: what was seen.
+    // Not pulled in time on Windows in CI twice (#161, #162, 2026-11-11), after the test before
+    // failed: what was seen.
     await seen();
+    await measure(() => git('log', '-1', '--format=%s').startsWith("Merge branch 'feature' of "));
     throw error;
   }
   expect(git('show', 'HEAD:pulled.txt')).toBe('Pulled');

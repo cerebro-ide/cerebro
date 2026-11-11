@@ -50,11 +50,13 @@ on it:
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
-- **Committing a merge from the Commit window took over 15 s on Windows in CI** (#161, 2026-11-11):
-  "commits a merge started elsewhere" found HEAD still at the commit before (`%s %p` had 4 words,
-  not 5); the merge was committed later, and the next test's Pull then didn't merge. Not seen in
-  #160's runs, nor locally. Cause not found: both tests now print what the window and the repository
-  show when they fail.
+- **The app stalls for tens of seconds on Windows in CI, now and then** (#161 and #162,
+  2026-11-11; #161's next run passed with the same code): "commits a merge started elsewhere"
+  pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
+  in 15 s (git still merging); it was committed during the next test, whose Pull then did nothing
+  for 15 s (no dialog, no balloon), while the Merge test after took 1.7 s. Cause not found: the
+  tests now print the window, the repository and the page's console, and how long the commit or
+  pull takes after they give up.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
