@@ -2298,6 +2298,10 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   again. On to start with: IntelliJ's default for diffs from the Commit window, the Log and a file's
   history, where Cerebro's are; elsewhere it starts expanded (Claude's choice that one default fits
   every diff here, open to change). Both toggles are kept between sessions, for every diff.
+  - The lines of context are IntelliJ's setting, Settings → Tools → Diff & Merge → Context lines
+    (2026-11-11): 1, 2, 4 (its default) or 8, a band's clicks showing as many again, then twice
+    that; or Disable, which folds nothing, the toggle disabled. A list where IntelliJ has a slider
+    (Claude's choice, open to change: the settings pages have no slider).
 - **Previous and Next Difference** (Shift+F7 and F7; Visual Studio's F8 too, Eclipse's Ctrl+F7,
   macOS System's Cmd+[ and Cmd+], as IntelliJ's keymaps give them), on the toolbar too: the caret
   to the change before or after it on the side last focused, in the middle of the view; disabled
@@ -2415,7 +2419,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     its first change (Claude's choice, open to change: keeping it is a refinement).
   - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
     commits.
-- **Not yet:** the rest of Settings → Tools → Diff & Merge (Context lines, the merge's options);
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's options, and whether
+  diffs go in the navigation history);
   several files
   selected as the list; moving every diff open when the choice changes, as IntelliJ's
   (`reopenDiffEditorsForFiles`; here the one it's chosen in moves); a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
