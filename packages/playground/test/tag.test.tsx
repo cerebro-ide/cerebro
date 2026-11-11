@@ -211,3 +211,66 @@ describe('Git → New Tag…', () => {
       .toBe('Validating the commit failed');
   });
 });
+
+describe('the Log’s New Tag…', () => {
+  const commit = {
+    hash: 'abc1234def5678',
+    parents: [],
+    author: 'a',
+    email: 'a@a',
+    time: 0,
+    subject: 's',
+    body: '',
+    refs: [],
+  };
+  const read = vi.fn(() => Promise.resolve());
+  const context = () => ({ commit, worktree: '/r', host, refresh: read });
+  const input = () => document.querySelector('.cerebro-dialog-field__input') as HTMLInputElement;
+
+  it('is last in the commit menu’s Git group, a dialog', () => {
+    expect(menus.entries('log/commit')).toEqual([{ command: 'log.newTag' }]);
+    expect(commands.get('log.newTag')).toMatchObject({ label: 'New Tag', dialog: true });
+  });
+
+  it('asks for the name, OK only while it has no spaces, then tags the commit and reads the Log again', async () => {
+    read.mockClear();
+    commands.execute('log.newTag', context());
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Create New Tag On abc1234def5678',
+    );
+    expect(box.querySelector('.cerebro-dialog-field__label')?.textContent).toBe(
+      'Enter the name of new tag',
+    );
+    await userEvent.type(input(), 'v 2');
+    const ok = box.querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
+    expect(ok.disabled).toBe(true);
+    await userEvent.clear(input());
+    await userEvent.type(input(), 'v2');
+    await press('OK');
+    await expect.poll(() => read.mock.calls.length).toBe(1);
+    expect(host.params('git.createTag')).toEqual([
+      { path: '/r', name: 'v2', commit: 'abc1234def5678' },
+    ]);
+    expect(notifications.all.get(0)?.title).not.toBe('v2');
+  });
+
+  it('says why the tag couldn’t be made, in git’s words, and reads the Log again', async () => {
+    read.mockClear();
+    git.failure = new Error("fatal: tag 'v1' already exists");
+    commands.execute('log.newTag', context());
+    await dialog();
+    await userEvent.type(input(), 'v1');
+    await press('OK');
+    await expect.poll(() => last()?.title).toBe('Could not create tag v1');
+    expect(last()).toMatchObject({ content: "fatal: tag 'v1' already exists", type: 'error' });
+    await expect.poll(() => read.mock.calls.length).toBe(1);
+  });
+
+  it('does nothing when cancelled', async () => {
+    commands.execute('log.newTag', context());
+    await dialog();
+    await press('Cancel');
+    expect(host.params('git.createTag')).toEqual([]);
+  });
+});

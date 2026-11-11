@@ -1,12 +1,14 @@
 // Git → New Tag…, as IntelliJ's (`GitTag`, `GitTagDialog` and its `GitReferenceValidator`, their
 // words in `GitBundle`, read from its source): the dialog "Tag" with the current branch, Tag Name,
 // Force (enabled only when a tag of that name exists), Commit (HEAD when empty) with Validate, and
-// Message, which makes the tag annotated. The tags there are read before it opens.
+// Message, which makes the tag annotated. The tags there are read before it opens. And the Log's
+// commit menu's New Tag… (`GitCreateTagAction`): a name asked for, the commit tagged with it.
 
 import { signal } from '@cerebro-ide/reactive';
-import { openDialog } from '@cerebro-ide/ui-dialog';
+import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { active, hostFor, type Host } from './environments.js';
+import type { LogCommitContext } from './git-log.js';
 import { currentBranchRow, revisionField } from './git-fields.js';
 import { notifications } from './notifications.js';
 import { refreshAll } from './shelf.js';
@@ -153,4 +155,28 @@ export function setupTag(services: MenuServices): void {
   });
   // IntelliJ's: after New Branch….
   menus.contribute({ menu: 'main/git', item: { command: 'git.newTag' }, group: 'an', order: 3 });
+
+  // The Log's, on a commit: IntelliJ's input dialog, OK only while the name has no spaces, then
+  // `git tag <name> <commit>`; nothing said when it's made, as IntelliJ's says nothing.
+  commands.register<LogCommitContext>({
+    id: 'log.newTag',
+    label: 'New Tag',
+    dialog: true,
+    run: async ({ commit, worktree, host, refresh }) => {
+      const name = await prompt({
+        title: `Create New Tag On ${commit.hash}`,
+        label: 'Enter the name of new tag',
+        valid: (text) => !/\s/.test(text),
+      });
+      if (name === undefined) return;
+      try {
+        await host.request('git.createTag', { path: worktree, name, commit: commit.hash });
+      } catch (error) {
+        failed(`Could not create tag ${name}`, error);
+      }
+      await refresh();
+    },
+  });
+  // Last in IntelliJ's Git group of the menu (Git.Log.ContextMenu), after the copy's group.
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.newTag' }, group: 'g' });
 }
