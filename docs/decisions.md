@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1886,7 +1886,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     tree shows unversioned files, which IntelliJ leaves out; `:(literal)` (IntelliJ's own pathspecs
     weren't checked); no roots section, as Cerebro opens one repository per environment.
   - **Not yet:** the button's tooltip listing the paths.
-- **Not yet:** the toolbar's other actions (Cherry-pick, Graph Options, Go to Hash/Branch/Tag); the
+- **Go To Hash/Branch/Tag** (2026-11-11), after Refresh, as IntelliJ's (GoToHashOrRefAction,
+  GoToHashOrRefPopup): Find's shortcut (Ctrl+F, Cmd+F on macOS) while the Log has the keyboard; a
+  hash's start, or a branch's or tag's name, typed ("Enter hash or branch/tag name:"), the branches
+  and tags that hold the text suggested. The commit is selected, the filters cleared if they hide
+  it, as a commit shown from an annotation; "x not found" if git names none (`git.resolveRevision`,
+  `rev-parse --verify x^{commit}`) or the Log doesn't have it. **Claude's, open to change:** a
+  dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
+  and reset filters").
+- **Not yet:** the toolbar's other actions (Cherry-pick, Graph Options); the
   branches pane's toolbar (New Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and
   its own search; tags in the pane; grouping the files by directory; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);

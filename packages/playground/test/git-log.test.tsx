@@ -20,7 +20,7 @@ import {
   type LogCommitContext,
 } from '../src/git-log.js';
 import { branchTree, type Branch } from '../src/log-branches.js';
-import { FakeHost, project } from './fakes.js';
+import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { notifications } from '../src/notifications.js';
 
 /** A line of `count` commits, newest first, the first with `refs`. */
@@ -59,6 +59,9 @@ const git = {
   },
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
+  tags: ['v1', 'v2'] as string[] | Error,
+  /** The commit each revision names, as `git rev-parse` would. */
+  revisions: {} as Record<string, string>,
 };
 const host = new FakeHost({
   'git.log': async ({
@@ -94,6 +97,11 @@ const host = new FakeHost({
     return git.changes[`${from}..${to}`] ?? [];
   },
   'git.authors': () => git.authors,
+  'git.tags': () => {
+    if (git.tags instanceof Error) throw git.tags;
+    return git.tags;
+  },
+  'git.resolveRevision': ({ revision }: { revision: string }) => git.revisions[revision] ?? null,
   'fs.list': ({ path }: { path: string }) =>
     path === '/r'
       ? [
@@ -778,6 +786,100 @@ describe('Refresh', () => {
       () => undefined,
     );
     expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
+  });
+});
+
+describe('Go To Hash/Branch/Tag', () => {
+  const selected = () =>
+    document
+      .querySelector('.playground-log__commits .cerebro-tree-row[aria-selected="true"]')
+      ?.getAttribute('data-key');
+  const suggestions = () =>
+    [...document.querySelectorAll('.playground-git-branch__suggestion')].map((s) => s.textContent);
+  const button = () =>
+    document.querySelector('.playground-log__toolbar [data-command="log.goToRef"]') as HTMLElement;
+
+  it('selects the commit a hash, branch or tag names, the branches and tags suggested', async () => {
+    git.log = history(3);
+    git.branches = [
+      { ref: 'refs/heads/main', hash: 'c0', current: true },
+      { ref: 'refs/heads/side', hash: 'c1', current: false },
+    ];
+    git.revisions = { side: 'c1', v2: 'c2' };
+    expect(commands.isEnabled('log.goToRef', { source: 'log' })).toBe(false);
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    expect(button().getAttribute('aria-label')).toBe('Go To Hash/Branch/Tag');
+    await userEvent.hover(button());
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Go To Hash/Branch/TagCtrl+F');
+    await userEvent.click(button());
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Go To Hash/Branch/Tag',
+    );
+    expect(shown.querySelector('.cerebro-dialog-field__label')?.textContent.trim()).toBe(
+      'Enter hash or branch/tag name:',
+    );
+    const ok = [...shown.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
+      (b) => b.textContent === 'OK',
+    ) as HTMLButtonElement;
+    expect(ok.disabled).toBe(true);
+    await answer('si');
+    expect(suggestions()).toEqual(['side']);
+    await answer('v');
+    expect(suggestions()).toEqual(['v1', 'v2']);
+    await answer(' v2 ');
+    await press('OK');
+    await expect.poll(selected).toBe('c2');
+    expect(host.params('git.resolveRevision')).toEqual([{ path: '/r', revision: 'v2' }]);
+    // From the keyboard, while the Log has the focus.
+    expect(services.keymap?.shortcutsFor('log.goToRef')).toEqual(['Ctrl+F']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    commands.execute('log.goToRef');
+    await answer('side');
+    await press('OK');
+    await expect.poll(selected).toBe('c1');
+  });
+
+  it('says what it can’t find; does nothing when cancelled; does without the tags if unread', async () => {
+    git.log = history(2);
+    git.revisions = { far: 'gone' };
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    await userEvent.click(button());
+    await answer('nope');
+    await press('OK');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('nope not found');
+    expect(notifications.all.get(0)?.type).toBe('warning');
+    // A commit git knows, but not in the Log.
+    await userEvent.click(button());
+    await answer('far');
+    await press('OK');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('far not found');
+    await userEvent.click(button());
+    await answer('c1');
+    await press('Cancel');
+    expect(host.params('git.resolveRevision')).toHaveLength(2);
+    git.tags = new Error('no tags');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await userEvent.click(button());
+    await answer('v');
+    expect(suggestions()).toEqual([]);
+    expect(logged).toHaveBeenCalledWith('Reading the tags failed', git.tags);
+    await press('Cancel');
+    logged.mockRestore();
+    git.tags = ['v1', 'v2'];
+  });
+
+  it('is IntelliJ’s Cmd+F on macOS', () => {
+    const keymap = new Keymap('mac');
+    setupLog(
+      { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
+      () => undefined,
+    );
+    expect(keymap.shortcutsFor('log.goToRef')).toEqual(['Meta+F']);
   });
 });
 

@@ -224,5 +224,5 @@ export {
   type Deleted,
   type NewBranch,
 } from './branches.js';
-export { createTag, listTags, validRevision, type NewTag } from './tags.js';
+export { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
 export { resetHead, type ResetMode } from './reset.js';

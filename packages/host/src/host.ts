@@ -68,7 +68,7 @@ import {
   type NewBranch,
   type RebaseParams,
 } from './branches.js';
-import { createTag, listTags, validRevision, type NewTag } from './tags.js';
+import { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
 import { resetHead } from './reset.js';
 import {
   abortOperation,
@@ -780,6 +780,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   // Git → New Tag…'s.
   connection.onRequest('git.tags', (params) => listTags(text(params, 'path'), git));
+  connection.onRequest(
+    'git.resolveRevision',
+    async (params) =>
+      (await resolveRevision(text(params, 'path'), text(params, 'revision'), git)) ?? null,
+  );
   connection.onRequest('git.validRevision', (params) =>
     validRevision(text(params, 'path'), text(params, 'revision'), git),
   );
