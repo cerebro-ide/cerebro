@@ -48,6 +48,11 @@ paths:
   (`expect.arrayContaining`).
 - **Under xvfb in CI, Playwright's click can wait forever for an element to be "stable"** (not
   reproduced locally, even under xvfb). Clicks that hit this use `{ force: true }`, with a comment.
+  Why isn't known: "stable" is measured over animation frames, and every page now says on the
+  console when none came for over a second, and whether it was visible and focused (`watchFrames`
+  in `test/app.ts`); each file prints those as it ends.
+- **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
+  test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each
   starts Electron as Node) or another process gets an explicit `{ timeout: 15_000 }`.
 - **A test that needs another window size starts the app at it** (`CEREBRO_WINDOW_SIZE: '1024x768'`

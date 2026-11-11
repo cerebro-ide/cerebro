@@ -106,6 +106,48 @@ export interface Running {
 /** What shows once a window is ready: the main toolbar, or the Welcome window. */
 const READY = '.cerebro-toolbar, .playground-welcome';
 
+/**
+ * Installed in every page: says on the console when no animation frame came for over a second, the
+ * page's visibility and focus then. Playwright's click waits for an element to be "stable" over
+ * frames, and under xvfb in CI some clicks waited forever (testing.md): this is to see whether the
+ * page stopped making frames then, and why.
+ */
+function watchFrames(): void {
+  const page = window as unknown as { framesWatched?: boolean };
+  if (page.framesWatched) return;
+  page.framesWatched = true;
+  let last = performance.now();
+  let stalled = false;
+  const frame = () => {
+    const now = performance.now();
+    if (stalled) {
+      console.warn(`Frames: again after ${String(Math.round(now - last))} ms`);
+      stalled = false;
+    }
+    last = now;
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+  setInterval(() => {
+    const gap = performance.now() - last;
+    if (stalled || gap < 1000) return;
+    stalled = true;
+    console.warn(
+      `Frames: none for ${String(Math.round(gap))} ms, ${document.visibilityState}, ` +
+        (document.hasFocus() ? 'focused' : 'not focused'),
+    );
+  }, 250);
+}
+
+/**
+ * Says what the harness measured, on the standard error itself: Vitest shows a test's console only
+ * when it fails (measured: a passing file's `console.log` didn't show), and these are wanted from
+ * every run, a stall's cause being in the runs that passed too.
+ */
+function report(line: string): void {
+  process.stderr.write(`${line}\n`);
+}
+
 async function start(
   data: string,
   env: Record<string, string>,
@@ -115,7 +157,10 @@ async function start(
     env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
   await app.context().tracing.start({ screenshots: true, snapshots: true });
+  await app.context().addInitScript(watchFrames);
   const page = await app.firstWindow();
+  // The first window may have loaded before the script was added.
+  await page.evaluate(watchFrames).catch(() => undefined);
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
   // But a window to be ready: the first start of a run took over 5 s on macOS and on Windows in CI
@@ -124,7 +169,7 @@ async function start(
   const asked = performance.now();
   await page.waitForSelector(READY, { timeout: 30_000 });
   const took = performance.now() - asked;
-  if (took > 2000) console.log(`The window took ${String(Math.round(took))} ms to be ready`);
+  if (took > 2000) report(`The window took ${String(Math.round(took))} ms to be ready`);
   return { app, page };
 }
 
@@ -136,8 +181,22 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
   const output: string[] = [];
+  /** Each window's frames that stopped coming (`watchFrames`), by window and time. */
+  const frames: string[] = [];
   const listen = ({ app, page }: { app: ElectronApplication; page: Page }) => {
     page.on('console', (message) => messages.push(message.text()));
+    const watch = (window: Page, name: string) => {
+      window.on('console', (message) => {
+        const text = message.text();
+        if (text.startsWith('Frames: ')) {
+          frames.push(`${text} (${name}, ${new Date().toISOString().slice(11, 23)})`);
+        }
+      });
+    };
+    watch(page, 'the first window');
+    app.on('window', (window) => {
+      watch(window, window.url().replace(/^.*#/, '#').slice(0, 40));
+    });
     app.process().stderr?.on('data', (chunk: Buffer) => output.push(chunk.toString()));
   };
   const first = await start(data, env);
@@ -168,7 +227,7 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
         .join('')
         .split('\n')
         .filter((line) => /^(Slow|Blocked): /.test(line));
-      if (reported.length > 0) console.log(reported.join('\n'));
+      for (const line of [...reported, ...frames]) report(line);
       await rm(data, { recursive: true, force: true });
     },
   };
