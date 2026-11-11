@@ -64,6 +64,14 @@ describe('fetching and pulling, with real git', () => {
     ]);
   });
 
+  it('fetches only the remote asked for, as IntelliJ’s Pull dialog', async () => {
+    const { repo, upstream } = cloned();
+    run(repo, 'remote', 'add', 'broken', join(root, 'missing.git'));
+    upstream('theirs');
+    expect(await fetchAll(repo, git, git, 'origin')).toEqual({ pruned: [], failed: [] });
+    expect(run(repo, 'log', '-1', '--format=%s', 'origin/main').trim()).toBe('theirs');
+  });
+
   it('says which remote failed and why, the others fetched', async () => {
     const { repo, upstream } = cloned();
     run(repo, 'remote', 'add', 'broken', join(root, 'missing.git'));

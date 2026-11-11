@@ -791,6 +791,15 @@ describe('ignored files and rolling back', () => {
       [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'origin'],
       ASKING,
     );
+    // One remote, as the Pull dialog asks.
+    git.mockClear();
+    await ui.request('git.fetch', { path: '/w', remote: 'upstream' });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'upstream'],
+      ASKING,
+    );
+    expect(git.mock.calls.some(([, args]) => bare(args)[0] === 'remote')).toBe(false);
     expect(await ui.request('git.tracking', { path: '/w' })).toEqual({
       branch: 'main',
       remotes: ['origin'],

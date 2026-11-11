@@ -2611,6 +2611,13 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
     ("Your local changes will be overwritten by pull. Commit, stash, or revert them to proceed."),
     "Untracked Files Prevent Pull", else "Git Pull failed" with git's words. "Pulling changes from
     origin" on the status bar while it runs.
+  - **Fetching from the dialog** (added 2026-11-11), as IntelliJ's `performFetch`: in the branch
+    field, Ctrl+F5 (Cmd+R on macOS) fetches the remote chosen alone, then its branches are
+    suggested again; the suggestions hide first, and under them "Press Ctrl+F5 to update branches".
+    "Fetching…" while it runs, and the key does nothing then. Without a remote, "Cannot load remote
+    branches" / "Select a local and a remote repository". What git says isn't shown, as IntelliJ's
+    isn't. The key is IntelliJ's Refresh's in its keymaps (and its own fallback); that it doesn't
+    follow a rebinding is Cerebro's, open to change: Cerebro has no Refresh action of its own.
   - **--rebase:** through Update Project, rebasing on the branch chosen instead of the upstream, as
     IntelliJ's `GitPull` runs its update; recorded in Local History as Pull.
   - **At conflicts:** the Conflicts dialog, then the merge committed with git's message, unless
@@ -2621,8 +2628,7 @@ Branch…. From IntelliJ's source (`GitFetch`, `GitFetchSupportImpl`, `GitPull`,
   names either (measured: IntelliJ's keymap files). From the menu or its key, the popup opens at the
   window's top, as Search Everywhere does (a claim that it's close enough: IntelliJ centres it in the
   window).
-- **Not yet:** Ctrl+F5 in the Pull dialog (fetch, then list the branches again); View Commits
-  after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
+- **Not yet:** View Commits after a pull (Merge…, New Tag…, Reset HEAD…, Manage Remotes… and
   Rebase…: their decisions).
 
 ## Branches (2026-11-10)

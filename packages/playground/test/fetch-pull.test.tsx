@@ -281,6 +281,98 @@ describe('Pull', () => {
     expect(document.querySelector('.playground-git-branch__suggestions')).toBeNull();
   });
 
+  it('fetches the remote chosen on Ctrl+F5 in the branch field, then suggests its branches again, as IntelliJ’s', async () => {
+    const branches = [...git.branches];
+    commands.execute('vcs.pull');
+    await parts();
+    await typeBranch('e');
+    const suggestions = () =>
+      [...document.querySelectorAll('.playground-git-branch__suggestion')].map(
+        (s) => s.textContent,
+      );
+    expect(suggestions()).toEqual(['dev']);
+    expect(document.querySelector('.playground-git-branch__hint')?.textContent).toBe(
+      'Press Ctrl+F5 to update branches',
+    );
+    // Brought by the fetch.
+    git.branches.push('origin/edge');
+    let release!: () => void;
+    git.hold = new Promise((resolve) => (release = resolve));
+    await userEvent.keyboard('{Control>}{F5}{/Control}');
+    // Its suggestions hidden first, and "Fetching…" while it runs; asked again meanwhile, nothing.
+    expect(document.querySelector('.playground-git-branch__suggestions')).toBeNull();
+    await expect.poll(() => fetching.get()).toBe(true);
+    await userEvent.keyboard('{Control>}{F5}{/Control}');
+    release();
+    await expect.poll(() => fetching.get()).toBe(false);
+    expect(host.params('git.fetch')).toEqual([{ path: '/r', remote: 'origin' }]);
+    await typeBranch('e');
+    expect(suggestions()).toEqual(['dev', 'edge']);
+    // Other keys are typed.
+    await userEvent.keyboard('{F5}');
+    expect(host.params('git.fetch')).toHaveLength(1);
+    git.branches = branches;
+  });
+
+  it('says it can’t load the branches without a remote, and logs a failed read after a fetch', async () => {
+    git.tracking = { branch: 'main', remotes: [], upstream: undefined };
+    commands.execute('vcs.pull');
+    (await parts()).field.focus();
+    await userEvent.keyboard('{Control>}{F5}{/Control}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot load remote branches');
+    expect(notifications.all.get(0)).toMatchObject({
+      content: 'Select a local and a remote repository',
+      type: 'error',
+    });
+    expect(host.params('git.fetch')).toEqual([]);
+    await closeAll();
+    // A fetch that fails says nothing, as IntelliJ's; the branches read after, failing, are logged.
+    git.tracking = { branch: 'main', remotes: ['origin'], upstream: undefined };
+    git.fetched = new Error('fatal: unreachable');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    commands.execute('vcs.pull');
+    (await parts()).field.focus();
+    const read = host.answers['git.branches'];
+    host.answers['git.branches'] = () => {
+      throw new Error('gone');
+    };
+    await userEvent.keyboard('{Control>}{F5}{/Control}');
+    await expect
+      .poll(() =>
+        logged.mock.calls.some(([text]) => text === 'Reading the branches after a fetch failed'),
+      )
+      .toBe(true);
+    host.answers['git.branches'] = read as NonNullable<typeof read>;
+    expect(fetching.get()).toBe(false);
+  });
+
+  it('is Cmd+R on macOS, as IntelliJ’s Refresh there', async () => {
+    const mac: MenuServices = {
+      commands: new CommandRegistry(),
+      menus: new MenuRegistry(),
+      keymap: new Keymap('mac'),
+    };
+    setupFetchPull(mac);
+    mac.commands.execute('vcs.pull');
+    await parts();
+    await typeBranch('e');
+    expect(document.querySelector('.playground-git-branch__hint')?.textContent).toBe(
+      'Press ⌘R to update branches',
+    );
+    await userEvent.keyboard('{Meta>}r{/Meta}');
+    await expect.poll(() => host.params('git.fetch')).toEqual([{ path: '/r', remote: 'origin' }]);
+    await closeAll();
+    // Without a keymap, as elsewhere.
+    const none: MenuServices = { commands: new CommandRegistry(), menus: new MenuRegistry() };
+    setupFetchPull(none);
+    none.commands.execute('vcs.pull');
+    await parts();
+    await typeBranch('e');
+    expect(document.querySelector('.playground-git-branch__hint')?.textContent).toBe(
+      'Press Ctrl+F5 to update branches',
+    );
+  });
+
   it('starts at the first remote when there’s no upstream or origin', async () => {
     git.tracking = { branch: 'main', remotes: ['upstream'], upstream: undefined };
     commands.execute('vcs.pull');
