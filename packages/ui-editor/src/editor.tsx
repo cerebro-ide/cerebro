@@ -1014,8 +1014,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
   view.scrollDOM.addEventListener('scroll', scrolled);
   // A press in the gutter (a line number, an annotation) leaves the text focused, as IntelliJ's:
   // the browser would focus the scroller, which takes no keys and draws its focus ring.
+  // A press a gutter's own handler took (a marker opening its popup) is left to it.
   const pressed = (event: MouseEvent) => {
-    if (!(event.target as Element).closest('.cm-gutters')) return;
+    if (event.defaultPrevented || !(event.target as Element).closest('.cm-gutters')) return;
     event.preventDefault();
     view.focus();
   };
