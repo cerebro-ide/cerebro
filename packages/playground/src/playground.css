@@ -1549,6 +1549,17 @@ body,
 }
 
 .playground-conflicts__row[aria-selected='true'],
+/*
+ * As IntelliJ's table (`updateTableWidth`): Name as wide as its names, URL the rest, a long one cut
+ * with an ellipsis (IntelliJ widens the dialog to the URLs first; Cerebro's keeps its width).
+ */
+.playground-remotes__table td:last-child {
+  width: 100%;
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .playground-remotes__row[aria-selected='true'] {
   background: var(--cerebro-selected);
 }

@@ -2260,6 +2260,10 @@ IntelliJ's source (`GitConfigureRemotesDialog`, `GitDefineRemoteDialog`, `Toolba
   which drops its remote-tracking branches too (measured in the host's tests).
 - **A failure** says so in a dialog, IntelliJ's words: "Cannot add remote x 'url' in <worktree>:"
   and git's (Add Remote, Change Remote, Remove Remote); the list is read again either way.
+- **Name is as wide as its names, URL the rest,** as IntelliJ's `updateTableWidth`; a long URL is
+  cut with an ellipsis (changed 2026-11-11: the table grew to a long URL, and its horizontal
+  scrollbar lay over the only row, measured in CI on macOS and Windows). IntelliJ widens the dialog
+  to the URLs first; Cerebro's keeps its width (open to change).
 - **Add's and Remove's icons** are a plus and a minus drawn for Cerebro, Edit's the pencil (a
   claim: not IntelliJ's drawings).
 - **Left out, open to change:** a repository's rows (Cerebro's worktree is one repository);
