@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { APP, findAction, KEYS, launch, type Running } from './app.js';
+import { APP, click, findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -257,8 +257,9 @@ describe('the window', () => {
 describe('dialogs', () => {
   it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
     // Forced: they waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
-    await page().locator('[aria-label^="Branch:"]').click({ force: true });
-    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
+    // Through `click`, which says how the element moved when a click fails (#181).
+    await click(page().locator('[aria-label^="Branch:"]'), { force: true });
+    await click(page().locator('.cerebro-popup-item', { hasText: 'New Branch' }), { force: true });
     await page().keyboard.type('main');
     await expect
       .poll(() => page().locator('.cerebro-dialog-field__error').textContent())
@@ -271,11 +272,9 @@ describe('dialogs', () => {
     // Made and checked out by git.
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main-e2e');
     // Back on main, for the tests after: from its row's menu.
-    await page().locator('[aria-label^="Branch:"]').click();
-    await page()
-      .locator('.cerebro-popup-item', { hasText: /^main$/ })
-      .click();
-    await page().locator('.cerebro-menu-item', { hasText: 'Checkout' }).click();
+    await click(page().locator('[aria-label^="Branch:"]'));
+    await click(page().locator('.cerebro-popup-item', { hasText: /^main$/ }));
+    await click(page().locator('.cerebro-menu-item', { hasText: 'Checkout' }));
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
     expect(await count('.cerebro-popup')).toBe(0);
   });

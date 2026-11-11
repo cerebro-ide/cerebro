@@ -38,6 +38,11 @@ const names = () =>
   [...document.querySelectorAll('.playground-welcome__name')].map((n) => n.textContent);
 const item = (path: string) =>
   document.querySelector(`.playground-welcome__project[data-path="${path}"]`) as HTMLElement;
+/**
+ * A project's name, to point at its row: the row's own accessible name, by which Vitest finds it,
+ * has its Remove button's label only while highlighted, and the highlight follows the pointer.
+ */
+const at = (path: string) => item(path).querySelector('.playground-welcome__name') as HTMLElement;
 const highlighted = () =>
   document.querySelector('.playground-welcome__project--highlighted')?.getAttribute('data-path');
 
@@ -53,9 +58,9 @@ describe('the Welcome window', () => {
   });
 
   it('opens a project clicked, or a folder picked, in a new window; not one that’s gone', async () => {
-    await userEvent.click(item('/p/alpha'));
+    await userEvent.click(at('/p/alpha'));
     // Marked disabled, which Playwright won't click unless forced; a person can.
-    await userEvent.click(item('/p/beta'), { force: true });
+    await userEvent.click(at('/p/beta'), { force: true });
     const open = [...document.querySelectorAll('button')].find(
       (b) => b.textContent === 'Open',
     ) as HTMLElement;
@@ -72,7 +77,7 @@ describe('the Welcome window', () => {
   });
 
   it('filters by name or folder as the user types, and opens by Up, Down and Enter', async () => {
-    await userEvent.hover(item('/work/gamma'));
+    await userEvent.hover(at('/work/gamma'));
     expect(highlighted()).toBe('/work/gamma');
     await userEvent.click(search());
     await userEvent.type(search(), 'p/');
@@ -111,9 +116,9 @@ describe('the Welcome window', () => {
     await userEvent.click(remove('/p/beta'), { force: true });
     await expect.poll(names).toEqual(['alpha', 'gamma']);
     // It shows on the project highlighted.
-    await userEvent.hover(item('/p/alpha'));
+    await userEvent.hover(at('/p/alpha'));
     await userEvent.click(remove('/p/alpha'));
-    await userEvent.hover(item('/work/gamma'));
+    await userEvent.hover(at('/work/gamma'));
     await userEvent.click(remove('/work/gamma'));
     await expect
       .poll(() => document.querySelector('.playground-welcome__empty')?.textContent)
