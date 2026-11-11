@@ -79,7 +79,10 @@ export interface CodeEditorProps {
   detectIndent?: () => boolean;
   /** The indent used, and whether it's the file's own: as the editor opens, and as it changes. */
   onIndent?: (indent: Indent, detected: boolean) => void;
-  /** A position to show and select: where a definition is. Read reactively; zero-based. */
+  /**
+   * A position to show and select: where a definition is. Read reactively; zero-based. Each object
+   * is revealed once, as `focus`: a later editor of the file given it again keeps its own place.
+   */
   reveal?: () =>
     | { line: number; column: number; end?: number | undefined; top?: number | undefined }
     | undefined;
@@ -253,6 +256,8 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
 
 /** Focus requests already taken (`focus`): a later editor given one again leaves the focus. */
 const taken = new WeakSet<object>();
+/** Positions already revealed (`reveal`), likewise: a later editor shows where the last was. */
+const revealed = new WeakSet<object>();
 
 /** A position in the editor as a line and column, zero-based. */
 /** What the main selection holds, if it holds anything. */
@@ -920,6 +925,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
       doc?.state === undefined
         ? EditorState.create({ doc: doc ? doc.text.peek() : (props.text ?? ''), extensions })
         : EditorState.fromJSON(doc.state, { extensions }, KEPT),
+    // Scrolled as the last editor of the document was, as IntelliJ keeps a file's place in its tab.
+    ...(doc?.scroll === undefined ? {} : { scrollTo: doc.scroll }),
   });
   caret(view.state);
   // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable on its own,
@@ -970,7 +977,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
     const at = props.reveal?.();
     if (!at) return undefined;
     queueMicrotask(() => {
-      if (!container.isConnected) return;
+      if (!container.isConnected || revealed.has(at)) return;
+      revealed.add(at);
       const line = lineOf(at.line);
       const pos = Math.min(line.from + at.column, line.to);
       view.dispatch({
@@ -1008,7 +1016,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
   view.scrollDOM.addEventListener('scroll', scrolled);
   onCleanup(() => {
     view.scrollDOM.removeEventListener('scroll', scrolled);
-    if (doc) doc.state = view.state.toJSON(KEPT);
+    if (doc) {
+      doc.state = view.state.toJSON(KEPT);
+      doc.scroll = view.scrollSnapshot();
+    }
     watch.dispose();
     annotations.dispose();
     revealing.dispose();

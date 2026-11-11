@@ -8,7 +8,7 @@
 
 import { historyField } from '@codemirror/commands';
 import { diff } from '@codemirror/merge';
-import { ChangeSet, Text } from '@codemirror/state';
+import { ChangeSet, Text, type StateEffect } from '@codemirror/state';
 import { computed, signal, type Computed, type Signal } from '@cerebro-ide/reactive';
 import { historyNames } from './history.js';
 
@@ -28,6 +28,8 @@ export class EditorDocument {
   private readonly diskFormat: Signal<FileFormat>;
   /** The last editor's state (selection, history), for the next one; undefined before any. */
   state: unknown;
+  /** Where the last editor was scrolled (`EditorView.scrollSnapshot`), for the next one. */
+  scroll: StateEffect<unknown> | undefined;
   /**
    * The last change made through `edit`: an editor showing the text it was made to takes it as an
    * edit, by its name for undo (Replace without one).

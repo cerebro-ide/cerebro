@@ -21,6 +21,26 @@ const where = async () => ({
   line: await page().locator('.cm-activeLine').first().textContent(),
 });
 
+/** The line drawn at the top of the editor shown. */
+const top = () =>
+  page().evaluate(() => {
+    // The shown editor: other environments' are kept, hidden.
+    const editor = [...document.querySelectorAll<HTMLElement>('.cerebro-editor-code')].find(
+      (e) => e.offsetParent !== null,
+    ) as HTMLElement;
+    const root = editor.shadowRoot as ShadowRoot;
+    const box = (root.querySelector('.cm-scroller') as HTMLElement).getBoundingClientRect();
+    // The first line not wholly scrolled out of view.
+    return [...root.querySelectorAll('.cm-line')].find(
+      (line) => line.getBoundingClientRect().bottom > box.top,
+    )?.textContent;
+  });
+/** Waits for the editor to scroll (a frame) and measure (another): polling could catch the moment before. */
+const settled = () =>
+  page().evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+
 /** Opens a file with Go to File. */
 async function open(name: string): Promise<void> {
   await page().keyboard.press(KEYS.goToFile);
@@ -241,20 +261,6 @@ it('goes back to a place as it was scrolled, not just to its caret', async () =>
   await page().keyboard.press('ControlOrMeta+Home');
   await page().locator('.cm-line', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
-  /** The line drawn at the top of the editor. */
-  const top = () =>
-    page().evaluate(() => {
-      // The shown editor: other tabs' are kept, hidden.
-      const editor = [...document.querySelectorAll<HTMLElement>('.cerebro-editor-code')].find(
-        (e) => e.offsetParent !== null,
-      ) as HTMLElement;
-      const root = editor.shadowRoot as ShadowRoot;
-      const box = (root.querySelector('.cm-scroller') as HTMLElement).getBoundingClientRect();
-      // The first line not wholly scrolled out of view.
-      return [...root.querySelectorAll('.cm-line')].find(
-        (line) => line.getBoundingClientRect().bottom > box.top,
-      )?.textContent;
-    });
   // Scrolled down by the wheel, the caret left where it was.
   await page().locator('.cm-line', { hasText: 'target();' }).first().hover();
   await page().mouse.wheel(0, 200);
@@ -264,11 +270,28 @@ it('goes back to a place as it was scrolled, not just to its caret', async () =>
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   await page().keyboard.press(mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft');
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'target();' });
-  // Once the editor has scrolled (a frame) and measured (another): polling could catch the moment
-  // before, which may match by chance.
-  await page().evaluate(
-    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
-  );
+  // Polling could catch the moment before, which may match by chance.
+  await settled();
+  expect(await top()).toBe(scrolled);
+});
+
+it('keeps where a file was scrolled when its tab is chosen again, after going to a definition', async () => {
+  await open('b.ts');
+  await open('a.ts');
+  await page().keyboard.press('ControlOrMeta+Home');
+  await page().keyboard.press('ControlOrMeta+b');
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  // Scrolled away from the definition: the tab chosen again shows this, not the definition again.
+  await page().locator('.cm-line', { hasText: 'export function target' }).hover();
+  await page().mouse.wheel(0, -300);
+  await expect.poll(top).not.toBe('target();');
+  await settled();
+  const scrolled = await top();
+  await page().locator('.cerebro-editor-tab', { hasText: 'b.ts' }).click();
+  await expect.poll(where).toEqual({ tab: 'b.ts', line: 'export const b = 1;' });
+  await page().locator('.cerebro-editor-tab', { hasText: 'a.ts' }).click();
+  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  await settled();
   expect(await top()).toBe(scrolled);
 });
 
