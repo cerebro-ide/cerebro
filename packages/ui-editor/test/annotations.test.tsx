@@ -215,6 +215,22 @@ describe('text annotations', () => {
     expect(click).toHaveBeenCalledTimes(1);
   });
 
+  it('leave the text focused when pressed, as the line numbers do, not the scroller', async () => {
+    const root = mount({ text: 'a\nb\nc\n', annotate: () => () => Promise.resolve(annotation()) });
+    await expect.poll(() => drawn(root)).toHaveLength(2);
+    const annotated = [...root.querySelectorAll<HTMLElement>('.cerebro-annotation')].find(
+      (a) => a.textContent !== '',
+    ) as HTMLElement;
+    await userEvent.click(annotated);
+    expect(root.activeElement?.className).toContain('cm-content');
+    const number = root.querySelector('.cm-lineNumbers .cm-gutterElement:not([style*="hidden"])');
+    await userEvent.click(number as HTMLElement);
+    expect(root.activeElement?.className).toContain('cm-content');
+    // In the text: CodeMirror's own, as before.
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    expect(root.activeElement?.className).toContain('cm-content');
+  });
+
   it('show and close as asked, without opening the editor again', async () => {
     const shown = signal<AskAnnotation | undefined>(undefined);
     const ask = vi.fn<AskAnnotation>(() => Promise.resolve(annotation()));

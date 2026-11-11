@@ -694,7 +694,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       ignoreWhitespace?: unknown;
       movements?: unknown;
     };
-    if (typeof ignoreWhitespace !== 'boolean' || !MOVEMENTS.includes(movements as string)) {
+    if (
+      typeof ignoreWhitespace !== 'boolean' ||
+      !MOVEMENTS.includes(movements as BlameOptions['movements'])
+    ) {
       throw new ResponseError(
         ErrorCodes.InvalidParams,
         `ignoreWhitespace must be a boolean, movements among ${MOVEMENTS.join(', ')}`,

@@ -1012,7 +1012,16 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
   };
   view.scrollDOM.addEventListener('scroll', scrolled);
+  // A press in the gutter (a line number, an annotation) leaves the text focused, as IntelliJ's:
+  // the browser would focus the scroller, which takes no keys and draws its focus ring.
+  const pressed = (event: MouseEvent) => {
+    if (!(event.target as Element).closest('.cm-gutters')) return;
+    event.preventDefault();
+    view.focus();
+  };
+  view.scrollDOM.addEventListener('mousedown', pressed);
   onCleanup(() => {
+    view.scrollDOM.removeEventListener('mousedown', pressed);
     view.scrollDOM.removeEventListener('scroll', scrolled);
     if (doc) doc.state = view.state.toJSON(KEPT);
     watch.dispose();

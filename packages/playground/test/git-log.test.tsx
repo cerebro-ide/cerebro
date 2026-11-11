@@ -455,8 +455,9 @@ describe('showing a commit, as from an annotation', () => {
     expect(skips()).toEqual([0, PAGE]);
     await expect.poll(selectedFile).toBe('b.tssrc');
     // Another commit chosen: no file selected among its changes.
-    await userEvent.click(rows()[0] as HTMLElement);
-    await expect.poll(selected).toBe('c0');
+    const other = rows().find((row) => row.getAttribute('data-key') !== hash) as HTMLElement;
+    await userEvent.click(other);
+    await expect.poll(selected).toBe(other.getAttribute('data-key'));
     expect(selectedFile()).toBeUndefined();
   });
 

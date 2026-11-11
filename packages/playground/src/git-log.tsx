@@ -548,7 +548,7 @@ export function setupLog(services: MenuServices): void {
     enabled: (c) => here(c) && shown.get() !== undefined,
     run: () => {
       const { log, branches } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
-      refresh(log, branches);
+      void refresh(log, branches);
     },
   });
   // IntelliJ's Refresh, in its macOS keymap and the others.
@@ -623,6 +623,19 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
     void log.search(typed.peek());
   };
   let field: HTMLInputElement | undefined;
+  // The filter changed from elsewhere (cleared, to show a commit it left out): the field follows.
+  // Never at first, when they agree: by then the field is there.
+  const following = effect(() => {
+    const text = log.text.get() ?? '';
+    if (!same()) {
+      typed.set(text);
+      (field as HTMLInputElement).value = text;
+    }
+    return undefined;
+  });
+  onCleanup(() => {
+    following.dispose();
+  });
   const option = (label: string, text: string, name: 'regex' | 'matchCase') => (
     <Toggle
       label={label}
