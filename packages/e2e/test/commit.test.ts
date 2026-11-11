@@ -28,10 +28,11 @@ const message = () => page().locator('.playground-commit__message');
 const row = (key: string) => page().locator(`.cerebro-tree-row[data-key$="${key}"]`);
 /** What the window and the repository show, printed when a test fails: CI's log is all there is. */
 async function seen(): Promise<void> {
+  // The items shown: hidden tasks' text is there too, and `textContent` took it.
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
-  console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+  console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
   console.log('Console:', running.messages);
@@ -48,6 +49,8 @@ async function measure(done: () => boolean): Promise<void> {
       ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
       : 'Still not done a minute after the test gave up',
   );
+  // The hosts' slow git and held-up event loop, if any: where the time went.
+  console.log('Standard error:', running.output.join(''));
 }
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
@@ -275,7 +278,7 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
-    console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+    console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
     throw error;
   }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
