@@ -2304,9 +2304,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   (`TextDiffSettingsHolder`). Whitespace and indent guides in its colours (`WHITESPACES` and
   `INDENT_GUIDE`, IslandSchemeDark.xml; the light scheme's and Default's). The guides are drawn
   every tab size apart, from the line's start, on through blank lines, over a change's colour and
-  on a wrapped line's first row alone: IntelliJ's follow the
-  language's indent and its blocks, so that they match is a claim. Its highlighting level and
-  breadcrumbs, off in IntelliJ unless turned on elsewhere, aren't there.
+  on a wrapped line's first row alone: IntelliJ's follow the language's indent and its blocks, so
+  that they match is a claim. Its highlighting level and breadcrumbs, off in IntelliJ unless
+  turned on elsewhere, aren't there.
 - **The toolbar** is IntelliJ's left to right: the arrows and Collapse Unchanged Fragments, then
   at the end the viewer's chooser and the gear. In the diff window and Local History; the file
   cache conflict's diff has none, as it's a merge.
