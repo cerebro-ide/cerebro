@@ -6,6 +6,7 @@
 import { spawn as nodeSpawn } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { timed } from '@cerebro-ide/host/slow';
 import { Connection, LineReader } from '@cerebro-ide/protocol';
 import { app } from 'electron';
 import { handle } from './ipc.js';
@@ -117,7 +118,10 @@ export class Hosts {
   request(id: number, repo: string, method: string, params: unknown): Promise<unknown> {
     const host = this.running.get(id)?.get(repo);
     if (!host) throw new Error(`This window has no project open at ${repo}`);
-    return host.connection.request(method, params);
+    // There and back, reported if slow: against the host's own time for it, the way's (`slow.ts`).
+    return timed(`${method} from the app to the host of ${repo} and back`, () =>
+      host.connection.request(method, params),
+    );
   }
 
   stopAll(): void {

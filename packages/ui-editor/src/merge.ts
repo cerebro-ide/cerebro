@@ -7,7 +7,7 @@
 
 import { diff } from '@codemirror/merge';
 import type { Text } from '@codemirror/state';
-import type { LineRange } from './diff.js';
+import type { LineRange } from './compare.js';
 
 /** Lines of a text, zero-based, the end excluded. */
 export interface Lines {

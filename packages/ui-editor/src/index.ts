@@ -39,8 +39,14 @@ export {
   transferLine,
   type DiffControl,
   type DiffEditorProps,
-  type LineRange,
 } from './diff.js';
+export {
+  HIGHLIGHT_POLICIES,
+  IGNORE_POLICIES,
+  type HighlightPolicy,
+  type IgnorePolicy,
+  type LineRange,
+} from './compare.js';
 export {
   MergeEditor,
   type MergeControl,

@@ -58,20 +58,22 @@ on it:
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
-  which assertion wasn't kept. The next failure's message will say.
-- **The app stalls for tens of seconds in CI, now and then** (Windows: #161 and #162; macOS: #165,
-  run 42944609115; Linux: #165, run 42988680864; 2026-11-11): "commits a merge started elsewhere"
-  pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
-  in 15 s. On Linux the commit landed about 29 s after Ctrl+Enter ("Done 13497 ms after the test
-  gave up"), and the next test's Pull did nothing for 15 s more, while the Merge test after took
-  0.4 s: about 45 s in all. The page sends the commit to the host without waiting on anything
-  first (`changes.tsx`); the page's console was empty. Which held it up, the host or git, isn't
-  known. The status bar printed in those runs seemed to show Pushing…, Updating…, Fetching… and a
-  pull under way, but that was `textContent`, which takes hidden items' text too: it's `innerText`
-  now, only what's shown. The host now says on its standard error when a git command takes over
-  5 s, with its arguments, or its event loop is held up over 2 s (`slow.ts`), and the e2e tests
-  keep the app's standard error (`running.output`) and print it when this test fails (measured:
-  a git made 6 s slow showed "Slow: git check-ignore -z --stdin in … took 6005 ms").
+  which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run
+  43007945845) it counted one "Write a file" turn in 15 s, not the two of the runs before and after
+  the restart; it now prints the rows, the status bar, the agent's terminal and the app's standard
+  error when that fails.
+- **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
+  42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
+  highlighted 10 ms before the click. The popup closes when the window loses the focus or is
+  resized; that either happened isn't known. The test now prints the popups, their items' boxes,
+  the focus and the window's size when the click fails.
+- **The page stopped taking clicks for the rest of `editing.test.ts` on Linux in CI** (once, on
+  2026-11-11, #166, run 43003358765): a click on System Settings' Global waited "performing click
+  action" until it timed out, and every test after failed. The app now reports a page held up over
+  2 s with the call stack it was running, and every e2e file prints these reports as it ends.
+  (The "stall" in "commits a merge started elsewhere", thought to be the same, wasn't one: the
+  test pressed Ctrl+Enter before the Commit window listed the resolved file, and Commit said
+  "Select files to commit", as IntelliJ's; it now waits for the file to be put in.)
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its

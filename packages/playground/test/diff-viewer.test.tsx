@@ -98,6 +98,8 @@ describe('a diff’s toolbar', () => {
     expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toEqual({
       collapse: false,
       syncScroll: true,
+      ignore: 'none',
+      highlight: 'words',
     });
     // A new session takes it.
     dispose?.();
@@ -119,6 +121,35 @@ describe('a diff’s toolbar', () => {
     expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
       syncScroll: false,
     });
+  });
+
+  it('ignores and highlights differences as chosen in its Settings, and keeps the choice', async () => {
+    const { services } = mount();
+    await userEvent.click(document.querySelector('[data-menu="diff/settings"]') as Element);
+    const menu = () => document.querySelector('.cerebro-menu')?.textContent;
+    expect(menu()).toContain('Ignore Differences');
+    expect(menu()).toContain('Highlighting Differences');
+    const item = (label: string) =>
+      [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((i) =>
+        i.textContent.includes(label),
+      ) as Element;
+    expect(item('Words').getAttribute('aria-checked')).toBe('true');
+    await userEvent.click(item('Ignore whitespaces and empty lines'));
+    expect(services.commands.isChecked('diff.ignore.whitespacesAndEmptyLines')).toBe(true);
+    expect(services.commands.isChecked('diff.ignore.none')).toBe(false);
+    services.commands.execute('diff.highlight.none');
+    // Nothing highlighted: no changes to go to.
+    await expect.poll(() => button('diff.nextDifference').disabled).toBe(true);
+    expect(JSON.parse(localStorage.getItem('cerebro.diff') as string)).toMatchObject({
+      ignore: 'whitespacesAndEmptyLines',
+      highlight: 'none',
+    });
+    // A new session takes it; one kept that's not known isn't.
+    dispose?.();
+    document.body.replaceChildren();
+    expect(mount().services.commands.isChecked('diff.highlight.none')).toBe(true);
+    localStorage.setItem('cerebro.diff', JSON.stringify({ ignore: 'formatting' }));
+    expect(load(null).services.commands.isChecked('diff.ignore.none')).toBe(true);
   });
 
   it('starts as before when the toggles can’t be read or kept', () => {

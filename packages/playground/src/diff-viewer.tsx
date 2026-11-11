@@ -1,42 +1,91 @@
 // A diff with its toolbar, as IntelliJ's diff viewer: Previous and Next Difference (Shift+F7 and
-// F7), Collapse Unchanged Fragments, and the Settings gear with Synchronize Scrolling. The toggles
-// are kept for every diff, as IntelliJ keeps its diff settings, and the diffs open take them at once.
+// F7), Collapse Unchanged Fragments, and the Settings gear with Synchronize Scrolling and the
+// policies, Ignore Differences and Highlighting Differences. The settings are kept for every diff,
+// as IntelliJ keeps its diff settings, and the diffs open take them at once.
 
 import { formatSequence, type Keymap } from '@cerebro-ide/commands';
-import { signal } from '@cerebro-ide/reactive';
-import { DiffEditor, type DiffControl } from '@cerebro-ide/ui-editor';
+import { signal, type Signal } from '@cerebro-ide/reactive';
+import {
+  DiffEditor,
+  HIGHLIGHT_POLICIES,
+  IGNORE_POLICIES,
+  type DiffControl,
+  type HighlightPolicy,
+  type IgnorePolicy,
+} from '@cerebro-ide/ui-editor';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { icon } from './icons.js';
 
-/** The toggles, kept between sessions. */
+/** The settings, kept between sessions. */
 const OPTIONS_KEY = 'cerebro.diff';
+
+/** IntelliJ's labels (`DiffBundle`'s `option.ignore.policy.*` and `option.highlighting.policy.*`). */
+const IGNORE_LABELS: Record<IgnorePolicy, string> = {
+  none: 'None',
+  trim: 'Trim whitespaces',
+  whitespaces: 'Ignore whitespaces',
+  whitespacesAndEmptyLines: 'Ignore whitespaces and empty lines',
+};
+const HIGHLIGHT_LABELS: Record<HighlightPolicy, string> = {
+  lines: 'Lines',
+  words: 'Words',
+  split: 'Split changes',
+  characters: 'Characters',
+  none: 'None',
+};
+
+interface Options {
+  collapse: boolean;
+  syncScroll: boolean;
+  ignore: IgnorePolicy;
+  highlight: HighlightPolicy;
+}
 
 /**
  * Collapsed to start with, as IntelliJ's diffs from the Commit tool window, the Log and a file's
  * history, where Cerebro's open (its default elsewhere is expanded: a claim that one default fits
- * here, open to change); scrolling synchronized, as IntelliJ's default.
+ * here, open to change); scrolling synchronized, nothing ignored and words highlighted, as
+ * IntelliJ's defaults.
  */
-function readOptions(): { collapse: boolean; syncScroll: boolean } {
+function readOptions(): Options {
+  const defaults: Options = {
+    collapse: true,
+    syncScroll: true,
+    ignore: 'none',
+    highlight: 'words',
+  };
   try {
     const stored = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? '{}') as Record<string, unknown>;
-    return { collapse: stored.collapse !== false, syncScroll: stored.syncScroll !== false };
+    const one = <T extends string>(values: readonly T[], value: unknown, fallback: T) =>
+      values.find((v) => v === value) ?? fallback;
+    return {
+      collapse: stored.collapse !== false,
+      syncScroll: stored.syncScroll !== false,
+      ignore: one(IGNORE_POLICIES, stored.ignore, defaults.ignore),
+      highlight: one(HIGHLIGHT_POLICIES, stored.highlight, defaults.highlight),
+    };
   } catch {
-    return { collapse: true, syncScroll: true };
+    return defaults;
   }
 }
 
-/** The toggles, as kept: read as the commands are set up. */
+/** The settings, as kept: read as the commands are set up. */
 const collapse = signal(true);
 const syncScroll = signal(true);
+const ignore = signal<IgnorePolicy>('none');
+const highlight = signal<HighlightPolicy>('words');
 
 function saveOptions(): void {
   try {
-    localStorage.setItem(
-      OPTIONS_KEY,
-      JSON.stringify({ collapse: collapse.peek(), syncScroll: syncScroll.peek() }),
-    );
+    const options: Options = {
+      collapse: collapse.peek(),
+      syncScroll: syncScroll.peek(),
+      ignore: ignore.peek(),
+      highlight: highlight.peek(),
+    };
+    localStorage.setItem(OPTIONS_KEY, JSON.stringify(options));
   } catch {
     // Not kept: the next session starts as before.
   }
@@ -58,6 +107,8 @@ export function setupDiffViewer(services: MenuServices): void {
   const options = readOptions();
   collapse.set(options.collapse);
   syncScroll.set(options.syncScroll);
+  ignore.set(options.ignore);
+  highlight.set(options.highlight);
   commands.register({
     id: 'diff.previousDifference',
     label: 'Previous Difference',
@@ -96,6 +147,31 @@ export function setupDiffViewer(services: MenuServices): void {
     },
   });
   menus.contribute({ menu: 'diff/settings', item: { command: 'diff.syncScroll' }, group: 'a' });
+  // Each policy a choice of one, under its heading, as IntelliJ's gear.
+  const policy = <T extends string>(
+    group: string,
+    heading: string,
+    name: string,
+    labels: Record<T, string>,
+    chosen: Signal<T>,
+  ) => {
+    menus.contribute({ menu: 'diff/settings', item: { heading }, group });
+    for (const value of Object.keys(labels) as T[]) {
+      const id = `diff.${name}.${value}`;
+      commands.register({
+        id,
+        label: labels[value],
+        checked: () => chosen.get() === value,
+        run: () => {
+          chosen.set(value);
+          saveOptions();
+        },
+      });
+      menus.contribute({ menu: 'diff/settings', item: { command: id }, group });
+    }
+  };
+  policy('b', 'Ignore Differences', 'ignore', IGNORE_LABELS, ignore);
+  policy('c', 'Highlighting Differences', 'highlight', HIGHLIGHT_LABELS, highlight);
 }
 
 export interface DiffViewerProps {
@@ -163,6 +239,8 @@ export function DiffViewer(props: DiffViewerProps): Node {
         tabSize={props.tabSize}
         collapse={() => collapse.get()}
         syncScroll={() => syncScroll.get()}
+        ignore={() => ignore.get()}
+        highlight={() => highlight.get()}
         control={(diff) => {
           control.set(diff);
         }}

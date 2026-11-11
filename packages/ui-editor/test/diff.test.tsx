@@ -10,6 +10,8 @@ import {
   transferLine,
   type DiffControl,
   type DiffEditorProps,
+  type HighlightPolicy,
+  type IgnorePolicy,
 } from '../src/index.js';
 import { foldedLines } from '../src/diff.js';
 
@@ -127,6 +129,51 @@ describe('the diff editor', () => {
     await expect.poll(() => root.querySelector('.cm-diff-take')).not.toBeNull();
     await userEvent.click(root.querySelector('.cm-diff-take') as Element);
     expect(onEdit).toHaveBeenLastCalledWith('same\nold');
+  });
+
+  it('takes each kind of change, at the text’s ends too', async () => {
+    const taken = async (original: string, text: string) => {
+      const onEdit = vi.fn();
+      const root = mount({ path: 'a.txt', original, text, onEdit });
+      await expect.poll(() => root.querySelector('.cm-diff-take')).not.toBeNull();
+      await userEvent.click(root.querySelector('.cm-diff-take') as Element);
+      cleanup?.();
+      cleanup = undefined;
+      return onEdit.mock.lastCall?.[0] as string;
+    };
+    // A line removed on the right, a line added there, the right's last lines added.
+    expect(await taken('a\nb\nc', 'a\nc')).toBe('a\nb\nc');
+    expect(await taken('a\nc', 'a\nb\nc')).toBe('a\nc');
+    expect(await taken('a', 'a\nb\nc')).toBe('a');
+    // The right's lines, last ones too, for the left's; into an empty text.
+    expect(await taken('x', 'y\nz')).toBe('x');
+    expect(await taken('x', '')).toBe('x');
+  });
+
+  it('compares by the ignore and highlighting policies, again as they change', async () => {
+    const ignore = signal<IgnorePolicy>('none');
+    const highlight = signal<HighlightPolicy>('words');
+    const root = mount({
+      path: 'a.ts',
+      original: 'const a = 1;\n  same();\n',
+      text: 'const a = 2;\nsame();\n',
+      ignore: () => ignore.get(),
+      highlight: () => highlight.get(),
+    });
+    const [left, right] = sides(root) as [Element, Element];
+    const marked = () => [...right.querySelectorAll('.cm-diff-line')].map((l) => l.textContent);
+    // The left's: the indent taken out is marked there alone.
+    const words = () => left.querySelectorAll('[class*="cm-diff-word-"]').length;
+    expect(marked()).toEqual(['const a = 2;', 'same();']);
+    expect(words()).toBe(2);
+    ignore.set('trim');
+    await expect.poll(marked).toEqual(['const a = 2;']);
+    expect(words()).toBe(1);
+    highlight.set('lines');
+    await expect.poll(words).toBe(0);
+    expect(right.querySelector('.cm-diff-words')).toBeNull();
+    highlight.set('none');
+    await expect.poll(marked).toEqual([]);
   });
 
   it('defaults its settings', () => {

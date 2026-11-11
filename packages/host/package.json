@@ -9,6 +9,11 @@
       "cerebro-source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./slow": {
+      "cerebro-source": "./src/slow.ts",
+      "types": "./dist/slow.d.ts",
+      "default": "./dist/slow.js"
     }
   },
   "files": [
