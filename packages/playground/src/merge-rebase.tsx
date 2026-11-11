@@ -17,7 +17,7 @@ import { notifications } from './notifications.js';
 import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
-type Operation = 'merge' | 'rebase' | 'cherry-pick';
+type Operation = 'merge' | 'rebase' | 'cherry-pick' | 'revert';
 
 /** IntelliJ's confirmation before aborting: Abort, or Cancel. */
 async function confirmAbort(title: string, message: string): Promise<boolean> {
@@ -53,9 +53,15 @@ const ABORT: Record<
     done: 'Cherry-pick abort succeeded',
     failed: 'Cherry-pick abort failed',
   },
+  revert: {
+    title: 'Abort Revert',
+    ask: () => 'Abort revert?',
+    done: 'Revert abort succeeded',
+    failed: 'Revert abort failed',
+  },
 };
 
-/** IntelliJ's Abort Merge, Abort Rebase and Abort Cherry-Pick: asks, then git's `--abort`. */
+/** IntelliJ's Abort Merge, Abort Rebase, Abort Cherry-Pick and Abort Revert: asks, then git's `--abort`. */
 export async function abort(host: Host, worktree: string, operation: Operation): Promise<void> {
   const words = ABORT[operation];
   if (!(await confirmAbort(words.title, words.ask(worktree)))) return;

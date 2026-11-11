@@ -225,10 +225,6 @@ export {
   type NewBranch,
 } from './branches.js';
 export { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
-export {
-  cherryPick,
-  continueCherryPick,
-  onRemoteBranch,
-  type CherryPicked,
-} from './cherry-pick.js';
-export { resetHead, type ResetMode } from './reset.js';
+export { applyCommit, continueApplying, type Applied, type Applying } from './apply-changes.js';
+export { protectedBranchHolding } from './protected-branches.js';
+export { resetHead, undoCommit, type ResetMode } from './reset.js';

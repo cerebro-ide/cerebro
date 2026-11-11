@@ -11,6 +11,8 @@ import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 const git = {
   done: Promise.resolve(),
   failure: undefined as Error | undefined,
+  /** The protected branch on a remote that has the commit Undo Commit is asked for, if one has. */
+  pushedTo: null as string | null,
 };
 const host = new FakeHost({
   'git.validRevision': (params: { revision: string }) => params.revision === 'HEAD~1',
@@ -18,6 +20,11 @@ const host = new FakeHost({
     await git.done;
     if (git.failure) throw git.failure;
     return null;
+  },
+  'git.undoCommit': async () => {
+    await git.done;
+    if (git.failure) throw git.failure;
+    return git.pushedTo;
   },
   'git.status': () => ({ files: [] }),
   'git.shelves': () => [],
@@ -38,6 +45,7 @@ beforeEach(() => {
   workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
   git.done = Promise.resolve();
   git.failure = undefined;
+  git.pushedTo = null;
 });
 
 afterEach(async () => {
@@ -178,7 +186,10 @@ describe('the Log’s Reset Current Branch to Here…', () => {
   });
 
   it('is first in the commit menu’s Git group, before New Tag…', () => {
-    expect(menus.entries('log/commit')).toEqual([{ command: 'log.reset' }]);
+    expect(menus.entries('log/commit')).toEqual([
+      { command: 'log.reset' },
+      { command: 'log.undoCommit' },
+    ]);
     expect(commands.get('log.reset')).toMatchObject({
       label: 'Reset Current Branch to Here',
       dialog: true,
@@ -293,5 +304,89 @@ describe('the Log’s Reset Current Branch to Here…', () => {
     expect(host.params('git.reset')).toEqual([
       { path: '/r', mode: 'soft', commit: 'abc1234def5678' },
     ]);
+  });
+});
+
+describe('the Log’s Undo Commit…', () => {
+  const commit = {
+    hash: 'abc1234def5678',
+    parents: ['0123456789abcd'],
+    author: 'Ada',
+    email: 'ada@example.com',
+    time: 0,
+    subject: 'Fix the thing',
+    body: 'Why it was broken.\n',
+    refs: [],
+  };
+  const read = vi.fn(() => Promise.resolve());
+  const context = (changed: Partial<typeof commit> = {}, head: string | null = commit.hash) => ({
+    commit: { ...commit, ...changed },
+    worktree: '/r',
+    host,
+    ...(head === null ? {} : { head }),
+    refresh: read,
+  });
+  const undo = () => Promise.resolve(commands.get('log.undoCommit')?.run(context()));
+
+  beforeEach(() => {
+    read.mockClear();
+  });
+
+  it('is only for HEAD’s commit, not a merge nor the first, as IntelliJ’s', () => {
+    expect(commands.get('log.undoCommit')).toMatchObject({ label: 'Undo Commit', dialog: true });
+    expect(commands.isEnabled('log.undoCommit', context())).toBe(true);
+    expect(commands.isEnabled('log.undoCommit', context({}, 'other'))).toBe(false);
+    expect(commands.isEnabled('log.undoCommit', context({}, null))).toBe(false);
+    expect(commands.isEnabled('log.undoCommit', context({ parents: ['a', 'b'] }))).toBe(false);
+    expect(commands.isEnabled('log.undoCommit', context({ parents: [] }))).toBe(false);
+    // From Find Action, with no commit.
+    expect(commands.isEnabled('log.undoCommit')).toBe(false);
+  });
+
+  it('undoes it, Undoing Last Commit… while it runs, its message in the Commit window', async () => {
+    let release: () => void = () => undefined;
+    git.done = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const done = undo();
+    expect(resetting.get()).toBe('Undoing Last Commit…');
+    expect(commands.isEnabled('log.undoCommit', context())).toBe(false);
+    release();
+    await done;
+    expect(resetting.get()).toBeUndefined();
+    expect(host.params('git.undoCommit')).toEqual([
+      { path: '/r', hash: commit.hash, protected: ['main', 'master'] },
+    ]);
+    expect(last()?.title).toBe('Undo commit successful');
+    expect(read).toHaveBeenCalled();
+    // No body: the subject alone.
+    await Promise.resolve(commands.get('log.undoCommit')?.run(context({ body: '' })));
+    expect(last()?.title).toBe('Undo commit successful');
+  });
+
+  it('says it can’t when a protected branch on a remote has it, doing nothing', async () => {
+    git.pushedTo = 'origin/main';
+    const done = undo();
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Cannot Undo Commit');
+    expect(box.textContent).toContain(
+      "The commit is already pushed to protected branch 'origin/main'",
+    );
+    await press('OK');
+    await done;
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('says why it failed, and logs what fails reading again after', async () => {
+    git.failure = new Error('The selected commit is not the last in the current branch');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    read.mockRejectedValueOnce(new Error('gone'));
+    await undo();
+    expect(last()).toMatchObject({
+      title: 'Undo commit failed',
+      content: 'The selected commit is not the last in the current branch',
+      type: 'error',
+    });
+    expect(logged).toHaveBeenCalledWith('Reading again after Undo Commit', new Error('gone'));
   });
 });

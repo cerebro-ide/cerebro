@@ -7,6 +7,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { userEvent } from 'vitest/browser';
 import {
   AgentChangesView,
+  type Change,
   ChangesView,
   diffPath,
   diffRange,
@@ -15,9 +16,9 @@ import {
   readOptions,
   REFRESH_MS,
   refreshChanges,
+  setCommitMessage,
   setupChanges,
   toShelve,
-  type Change,
   type Turn,
 } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
@@ -784,6 +785,16 @@ describe('a merge’s message', () => {
     await merge(MERGING);
     await merge({ ...MERGING, message: "Merge branch 'g'\n" });
     expect(message().value).toBe("Merge branch 'g'\n");
+  });
+});
+
+describe('a message put in from elsewhere', () => {
+  it('shows in the Commit window: Undo Commit’s, to commit again', async () => {
+    await changesView();
+    setCommitMessage(wt, 'Fix it\n\nWhy');
+    const box = document.querySelector('.playground-commit__message') as HTMLTextAreaElement;
+    await expect.poll(() => box.value).toBe('Fix it\n\nWhy');
+    setCommitMessage(wt, '');
   });
 });
 

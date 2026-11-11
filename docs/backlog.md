@@ -63,6 +63,12 @@ on it:
   It needs a contribution that makes its items from the context (as the Branches popup's lists
   are made today, outside the menus): a change to a shared package, to be proposed before it's
   built.
+- **Two read marks for a variable read once** (measured 2026-11-11, #192's macOS e2e, run
+  43111846003: "goes to a usage when its mark on the scrollbar is clicked" found two
+  `.cerebro-usageMark` without `--write` in `long.ts`, whose `distant` is declared once and read
+  once). Why isn't known: that TypeScript's highlights came back empty and the references
+  fallback (`highlights` in `lsp.ts`) marked the declaration as read is a claim. The test now
+  prints each mark and each usage in the text when it fails.
 - **The e2e run's first app start can take over 5 s on macOS and Windows in CI** (measured
   2026-11-11, #179, run 43049756595: `app.test.ts`, the first file, timed out waiting 5 s for the
   window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
