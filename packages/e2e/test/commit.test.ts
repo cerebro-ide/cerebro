@@ -265,8 +265,9 @@ it('commits and pushes, with Commit and Push…, to the branch’s upstream', as
   await page().keyboard.type('Push it');
   await page().locator('.playground-commit button', { hasText: 'Commit and Push…' }).click();
   const shown = page().locator('.cerebro-dialog');
+  // The host's git first: once later than poll's 1 s on Windows in CI (#180, 2026-11-11).
   await expect
-    .poll(() => shown.locator('.playground-push__target').textContent())
+    .poll(() => shown.locator('.playground-push__target').textContent(), { timeout: 15_000 })
     .toBe('main→origin:main');
   expect(await shown.locator('.playground-push__commit').allTextContents()).toEqual(['Push it']);
   await shown.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();

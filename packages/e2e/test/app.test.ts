@@ -256,9 +256,9 @@ describe('the window', () => {
 
 describe('dialogs', () => {
   it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
-    // Forced: it waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
+    // Forced: they waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
     await page().locator('[aria-label^="Branch:"]').click({ force: true });
-    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
+    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
     await page().keyboard.type('main');
     await expect
       .poll(() => page().locator('.cerebro-dialog-field__error').textContent())
