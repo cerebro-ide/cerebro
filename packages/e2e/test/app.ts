@@ -118,7 +118,13 @@ async function start(
   const page = await app.firstWindow();
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
-  await page.waitForSelector(READY);
+  // But a window to be ready: the first start of a run took over 5 s on macOS and on Windows in CI
+  // (#179, 2026-11-11), the others 0.2–0.9 s (their traces). Why is in the backlog; how long it
+  // took is said when it's slow.
+  const asked = performance.now();
+  await page.waitForSelector(READY, { timeout: 30_000 });
+  const took = performance.now() - asked;
+  if (took > 2000) console.log(`The window took ${String(Math.round(took))} ms to be ready`);
   return { app, page };
 }
 
