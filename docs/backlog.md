@@ -56,6 +56,13 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **The Log's Checkout submenu needs menu items made from the context** (found 2026-11-11, adding
+  the Log's commit menu, #182): IntelliJ's lists the commit's branches (then Checkout Revision),
+  which change from commit to commit, but `@cerebro-ide/commands`' menus are contributed once and
+  a submenu only refers to another menu, so its items can't come from the commit right-clicked.
+  It needs a contribution that makes its items from the context (as the Branches popup's lists
+  are made today, outside the menus): a change to a shared package, to be proposed before it's
+  built.
 - **The Welcome window's test "opens a project clicked" can't find the row to click** (once in a
   local `npm run check`, 2026-11-11; it passed 3 of 3 alone): Vitest's click finds the row by its
   role and accessible name, which includes its Remove button only while the row is highlighted (the
