@@ -6,11 +6,18 @@ import type { Child } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { projectOf, type Host } from './environments.js';
 
-/** IntelliJ's Current Branch row: the worktree's branch, or `<no active branch>` when detached. */
-export function currentBranchRow(worktree: string): Child {
+/** The worktree's branch, undefined when HEAD is detached. */
+export function currentBranch(worktree: string): string | undefined {
   const branch = projectOf(worktree)
     ?.worktrees.get()
     .find((w) => w.id === worktree)?.branch;
+  // A detached worktree's environment says 'detached' (`toSpec`'s).
+  return branch === 'detached' ? undefined : branch;
+}
+
+/** IntelliJ's Current Branch row: the worktree's branch, or `<no active branch>` when detached. */
+export function currentBranchRow(worktree: string): Child {
+  const branch = currentBranch(worktree);
   return (
     <div class="playground-form__row">
       <span>Current Branch:</span>

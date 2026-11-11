@@ -195,7 +195,7 @@ describe('Git → New Tag…', () => {
   });
 
   it('shows no active branch when HEAD is detached; a failed validation is logged', async () => {
-    useProjects([project('/r', host, [{ id: '/r', branch: undefined as unknown as string }])]);
+    useProjects([project('/r', host, [{ id: '/r', branch: 'detached' }])]);
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     host.answers['git.validRevision'] = () => {
       throw new Error('gone');
