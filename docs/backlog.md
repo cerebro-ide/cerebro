@@ -65,7 +65,10 @@ on it:
   in 15 s (git still merging); it was committed during the next test, whose Pull then did nothing
   for 15 s (no dialog, no balloon), while the Merge test after took 1.7 s. Cause not found: the
   tests now print the window, the repository and the page's console, and how long the commit or
-  pull takes after they give up.
+  pull takes after they give up. On macOS too (#165, run 42944609115): the commit was made 15.3 s
+  after the test gave up, the console empty. Its status bar seemed to show Pushing…, Updating…,
+  Fetching… and a pull under way, but the printout took hidden items' text too: it now prints
+  only what's shown.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its

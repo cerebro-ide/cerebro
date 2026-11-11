@@ -31,7 +31,8 @@ async function seen(): Promise<void> {
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
-  console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+  // What's shown: its tasks are there, hidden, when none is under way.
+  console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
   console.log('Console:', running.messages);
@@ -275,7 +276,8 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
-    console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+    // What's shown: its tasks are there, hidden, when none is under way.
+  console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
     throw error;
   }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
