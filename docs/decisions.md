@@ -2393,7 +2393,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     back, to the previous file's last change. Going to a difference, or another file shown,
     forgets the first press; any key or scrolling hides the hint. As IntelliJ's, its Go to next
     file setting on, its default (`DiffDifferenceNavigationAction`, `DiffRequestProcessor`'s
-    DiffNavigator, `DiffSettingsHolder`); the setting itself isn't here yet. The hint is centred
+    DiffNavigator, `DiffSettingsHolder`). The setting is IntelliJ's, in Settings → Tools → Diff &
+    Merge, "Go to the next file after reaching last change", on by default (2026-11-11); off,
+    Next Difference stops at the last change, and Compare Next File still goes on. The hint is centred
     40px from the diff's end the way it goes, bold, in a tooltip's colours (IntelliJ puts it by the
     change, in its information hint's colours: a simplification, open to change).
   - The diff takes the keyboard as a file shows, as IntelliJ's window gives it to its editor, and
@@ -2413,7 +2415,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     its first change (Claude's choice, open to change: keeping it is a refinement).
   - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
     commits.
-- **Not yet:** the Go to next file setting (Settings → Tools → Diff & Merge); several files
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (Context lines, the merge's options);
+  several files
   selected as the list; moving every diff open when the choice changes, as IntelliJ's
   (`reopenDiffEditorsForFiles`; here the one it's chosen in moves); a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and
