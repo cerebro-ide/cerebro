@@ -26,6 +26,15 @@ const IDENTITY = {
 const page = () => running.page;
 const message = () => page().locator('.playground-commit__message');
 const row = (key: string) => page().locator(`.cerebro-tree-row[data-key$="${key}"]`);
+/** What the window and the repository show, printed when a test fails: CI's log is all there is. */
+async function seen(): Promise<void> {
+  console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
+  console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
+  console.log('Message:', await message().inputValue());
+  console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+  console.log('Log:', git('log', '--oneline', '--graph', '-4'));
+  console.log('Status:', git('status'));
+}
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
 
@@ -329,9 +338,15 @@ it('commits a merge started elsewhere, resolved from the Commit window, with git
     .toBe("Merge branch 'side'\n\n# Conflicts:\n#\ta.ts\n");
   await message().click();
   await page().keyboard.press('Control+Enter');
-  await expect
-    .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
-    .toBe(5);
+  try {
+    await expect
+      .poll(() => git('log', '-1', '--format=%s %p').trim().split(' ').length, { timeout: 15_000 })
+      .toBe(5);
+  } catch (error) {
+    // Not committed in time on Windows in CI once (#161, 2026-11-11): what was seen.
+    await seen();
+    throw error;
+  }
   expect(git('log', '-1', '--format=%s')).toBe("Merge branch 'side'\n");
   expect(git('show', 'HEAD:a.ts')).toBe('a side\n');
 });
@@ -356,9 +371,15 @@ it('fetches every remote, then pulls a branch of one from Git → Pull…, as In
   expect(await dialog.locator('.cerebro-dialog__title').textContent()).toBe('Pull to main');
   await dialog.locator('.playground-pull__field').fill('feature');
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Pull' }).click();
-  await expect
-    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
-    .toMatch(/^Merge branch 'feature' of /);
+  try {
+    await expect
+      .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+      .toMatch(/^Merge branch 'feature' of /);
+  } catch (error) {
+    // Not pulled on Windows in CI once (#161, 2026-11-11), after the test before failed: what was seen.
+    await seen();
+    throw error;
+  }
   expect(git('show', 'HEAD:pulled.txt')).toBe('Pulled');
   await expect.poll(titles, { timeout: 15_000 }).toContain('1 file updated in 1 commit');
 });
