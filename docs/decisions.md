@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words; at conflicts, the Conflicts dialog, then on (changed 2026-11-09)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear
+- [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
@@ -2246,7 +2246,7 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   each side scrolls by itself, so scrolling can be synchronized or not. CodeMirror's merge view is
   one scroll area, with no way to scroll the sides apart. Between them, a divider joins each change
   on the left to its place on the right with curves in its colour, and each folded band to the
-  other side's, as IntelliJ's. `@codemirror/merge`'s `Chunk.build` still finds the changes.
+  other side's, as IntelliJ's.
 - **IntelliJ's colours by kind** (`TextDiffType`): inserted, deleted and modified, the merge
   window's colours (the tokens are shared now, `--cerebro-diff-*`, as IntelliJ uses the same ones).
   A modified change's lines take its colour mixed 40% into the text's background, and its changed
@@ -2270,15 +2270,30 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   to the change before or after it on the side last focused, in the middle of the view; disabled
   with none to go to. A diff opens with the caret at its first change, scrolled to it, as IntelliJ's.
   macOS System's Cmd+[ is Back elsewhere: a diff's keys come first, and run only in a diff.
+- **Ignore Differences and Highlighting Differences,** in the gear under their headings, each a
+  choice of one, as IntelliJ's (`IgnorePolicy`, `HighlightPolicy`; its labels, `DiffBundle`):
+  - Ignore: None (the default), Trim whitespaces (lines equal but for white space at their ends),
+    Ignore whitespaces (anywhere), Ignore whitespaces and empty lines (blank lines alone aren't a
+    change either). In a changed line, a change of white space alone isn't marked, or with
+    trimming, only one at a line's end.
+  - Highlighting: Lines, Words (the default), Split changes (a block split where its changed text
+    is a line or more apart, as `LineFragmentSplitter`), Characters, None (no changes shown).
+  - Compared as IntelliJ's `ComparisonManagerImpl`: by lines first, equal under the ignore policy,
+    then each changed block's text. CodeMirror's `diff` does the comparing, lines and words each
+    encoded as one character, so it finds the fewest changes of whole lines, then whole words.
+    Words are IntelliJ's `ByWord` tokens: runs of letters, digits and `_`; runs of white space;
+    each other character. That they give IntelliJ's results on every text is a claim: its own
+    algorithm (`ByWord`'s inner-fragment matching) isn't reproduced.
+  - Kept between sessions with the toggles; a diff open is compared again as they change.
 - **The toolbar** is IntelliJ's left to right: the arrows, Collapse Unchanged Fragments, and the
   gear at the end. In the diff tab and Local History; the file cache conflict's diff has none, as
   it's a merge.
 - **Merging into the right side** (the file cache conflict) keeps its arrow by each change, now in
   the divider, as IntelliJ's; the sides are diffed again as it's edited.
-- **Not yet:** the highlighting and ignore policies and the unified viewer (IntelliJ's toolbar's
-  other menus); a separate diff window; a fold's description (IntelliJ's breadcrumbs of where it
-  is); the other settings in the gear (aligning changes, line numbers, soft wraps); a changed text's
-  words as IntelliJ splits them (the changes are CodeMirror's, by character).
+- **Not yet:** the unified viewer (IntelliJ's toolbar's other menu); a separate diff window; a
+  fold's description (IntelliJ's breadcrumbs of where it is); the other settings in the gear
+  (aligning changes, line numbers, soft wraps); Ignore formatting and language-specific changes
+  (they need the language's formatter and parser).
 
 ## Git → Merge… (2026-11-10)
 

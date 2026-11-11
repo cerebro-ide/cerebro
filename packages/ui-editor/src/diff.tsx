@@ -12,7 +12,6 @@
 // merge, the right side can be edited, with an arrow by each change that takes the left's.
 // Jump to Source asks `diffSource` where the caret is in the file as it is now (the right side's).
 
-import { Chunk } from '@codemirror/merge';
 import { syntaxHighlighting } from '@codemirror/language';
 import {
   Compartment,
@@ -37,6 +36,15 @@ import {
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
+import {
+  compare,
+  kindOf,
+  type Change,
+  type HighlightPolicy,
+  type IgnorePolicy,
+  type Kind,
+  type LineRange,
+} from './compare.js';
 import { languageFor } from './languages.js';
 import { fullWidth } from './width.js';
 
@@ -55,6 +63,10 @@ export interface DiffEditorProps {
   syncScroll?: () => boolean;
   /** Folds the unchanged lines away from the changes, read reactively. Default: false. */
   collapse?: () => boolean;
+  /** What's not a difference, read reactively. Default: nothing, as IntelliJ's. */
+  ignore?: () => IgnorePolicy;
+  /** How changes are marked, read reactively. Default: by words, as IntelliJ's. */
+  highlight?: () => HighlightPolicy;
   /** Makes the right side editable, to merge into it: called with its text as it's edited. */
   onEdit?: (text: string) => void;
   /** Given the diff's controls, once it shows. */
@@ -71,43 +83,10 @@ export interface DiffControl {
   hasNext(): boolean;
 }
 
-/** A changed block's lines on the left (`start1` to `end1`) and right, zero-based, ends excluded. */
-export interface LineRange {
-  start1: number;
-  end1: number;
-  start2: number;
-  end2: number;
-}
-
-type Kind = 'inserted' | 'deleted' | 'modified';
 type Side = 'a' | 'b';
-
-/** A change: its lines, its kind, and the chunk it came from (for its changed text). */
-interface Change extends LineRange {
-  kind: Kind;
-  chunk: Chunk;
-}
 
 /** Context kept around a change when unchanged lines are folded: IntelliJ's default, 4. */
 const CONTEXT = 4;
-
-/** A change's kind, as IntelliJ's (`DiffUtil.getDiffType`): what's on either side. */
-const kindOf = (left: boolean, right: boolean): Kind =>
-  !left ? 'inserted' : !right ? 'deleted' : 'modified';
-
-/** The chunks as lines: each covers whole lines, ending where the next line starts. */
-function changesOf(chunks: readonly Chunk[], a: Text, b: Text): Change[] {
-  const lines = (doc: Text, from: number, to: number) => {
-    const start = doc.lineAt(from).number - 1;
-    if (to === from) return [start, start] as const;
-    return [start, to > doc.length ? doc.lines : doc.lineAt(to).number - 1] as const;
-  };
-  return chunks.map((chunk) => {
-    const [start1, end1] = lines(a, chunk.fromA, chunk.toA);
-    const [start2, end2] = lines(b, chunk.fromB, chunk.toB);
-    return { start1, end1, start2, end2, kind: kindOf(end1 > start1, end2 > start2), chunk };
-  });
-}
 
 /**
  * A left line's line on the right, as IntelliJ's diff carries a position across
@@ -226,6 +205,7 @@ const diffTheme = EditorView.theme({
       [`.cm-gutterElement.cm-diff-gutter-${kind}`, { backgroundColor: variable(`diff-${kind}`) }],
       // Where a change has no lines on this side: a line in its colour where they'd be.
       [`.cm-diff-before-${kind}`, { boxShadow: `inset 0 1px 0 ${variable(`diff-${kind}`)}` }],
+      [`.cm-diff-after-${kind}`, { boxShadow: `inset 0 -1px 0 ${variable(`diff-${kind}`)}` }],
     ]),
   ),
   '.cm-diff-fold': { backgroundColor: variable('diff-separator'), cursor: 'pointer' },
@@ -356,17 +336,18 @@ export function DiffEditor(props: DiffEditorProps): Node {
       const decorations: Range<Decoration>[] = [];
       const gutter: Range<GutterMarker>[] = [];
       for (const change of all) {
-        const { kind, chunk } = change;
+        const { kind, parts } = change;
         const [first, last] = [start(change, side), end(change, side)];
         if (first === last) {
-          // None of its lines here: a line where they'd be, over the line after. There's always
-          // one: a chunk ends where a line starts.
-          const line = doc.line(first + 1);
-          decorations.push(Decoration.line({ class: `cm-diff-before-${kind}` }).range(line.from));
+          // None of its lines here: a line where they'd be, over the line after, or under the last.
+          const below = first < doc.lines;
+          const line = doc.line(below ? first + 1 : doc.lines);
+          const where = below ? 'before' : 'after';
+          decorations.push(Decoration.line({ class: `cm-diff-${where}-${kind}` }).range(line.from));
           continue;
         }
-        // Its changed text, in the full colour, when it's modified: on lines in the lighter one.
-        const words = kind === 'modified';
+        // Its changed text, if it's marked, in the full colour: on lines in the lighter one.
+        const words = parts !== undefined;
         for (let n = first; n < last; n++) {
           const from = doc.line(n + 1).from;
           const lines = `cm-diff-line cm-diff-${kind}${words ? ' cm-diff-words' : ''}`;
@@ -374,8 +355,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
           gutter.push(MARKS[kind].range(from));
         }
         if (!words) continue;
-        const offset = side === 'a' ? chunk.fromA : chunk.fromB;
-        for (const part of chunk.changes) {
+        const offset = doc.line(first + 1).from;
+        for (const part of parts) {
           const [from, to] = side === 'a' ? [part.fromA, part.toA] : [part.fromB, part.toB];
           if (from === to) continue;
           const word = kindOf(part.toA > part.fromA, part.toB > part.fromB);
@@ -405,10 +386,11 @@ export function DiffEditor(props: DiffEditorProps): Node {
   let expanders: (() => void)[] = [];
   /** Diffs the two sides again: to start with, and after an edit. */
   function rediff() {
-    const found = changesOf(
-      Chunk.build(views.a.state.doc, views.b.state.doc),
+    const found = compare(
       views.a.state.doc,
       views.b.state.doc,
+      props.ignore?.() ?? 'none',
+      props.highlight?.() ?? 'words',
     );
     changes.set(found);
     levels = found.map(() => 0).concat(0);
@@ -450,8 +432,12 @@ export function DiffEditor(props: DiffEditorProps): Node {
       const view = views[side];
       const doc = view.state.doc;
       const offset = view.documentTop - top;
-      // A change or fold starts at a line, even one with none on this side (`mark`).
-      const upper = offset + view.lineBlockAt(doc.line(from + 1).from).top;
+      // A change or fold starts at a line, or after the last.
+      const upper =
+        offset +
+        (from < doc.lines
+          ? view.lineBlockAt(doc.line(from + 1).from).top
+          : view.lineBlockAt(doc.length).bottom);
       return [upper, from === to ? upper : offset + view.lineBlockAt(doc.line(to).from).bottom];
     };
     const shape = (a: number[], b: number[], fill: string) => {
@@ -504,14 +490,25 @@ export function DiffEditor(props: DiffEditorProps): Node {
     divider.replaceChildren(svg, ...buttons);
   }
 
-  /** Takes the left's lines in place of the right's, as CodeMirror's merge view reverts a chunk. */
+  /** Takes the left's lines in place of the right's, as IntelliJ's arrow does. */
   function take(change: Change) {
-    const { chunk } = change;
     const a = views.a.state.doc;
     const b = views.b.state.doc;
-    let insert = a.sliceString(chunk.fromA, Math.max(chunk.fromA, chunk.toA - 1));
-    if (chunk.fromA !== chunk.toA && chunk.toB <= b.length) insert += views.a.state.lineBreak;
-    views.b.dispatch({ changes: { from: chunk.fromB, to: Math.min(b.length, chunk.toB), insert } });
+    // Where a line starts, or the text's end.
+    const at = (doc: Text, line: number) =>
+      line < doc.lines ? doc.line(line + 1).from : doc.length;
+    let insert = a.sliceString(at(a, change.start1), at(a, change.end1));
+    let from = at(b, change.start2);
+    const to = at(b, change.end2);
+    if (insert === '' && to === b.length && from > 0) {
+      // The right's last lines go, and the newline before them.
+      from--;
+    } else if (from === b.length && b.length > 0 && !insert.endsWith('\n')) {
+      // After the right's last line, which has no newline: one before the lines taken. (Lines
+      // taken without a newline end the left's text, so the right's change ends its text too.)
+      insert = `\n${insert}`;
+    }
+    views.b.dispatch({ changes: { from, to, insert } });
   }
 
   // Synchronize Scrolling, as IntelliJ's: the line a third of the way down one side is carried to
@@ -603,6 +600,13 @@ export function DiffEditor(props: DiffEditorProps): Node {
     folding = collapse;
     return undefined;
   });
+  let policies: string | undefined;
+  const comparing = effect(() => {
+    const now = `${props.ignore?.() ?? 'none'} ${props.highlight?.() ?? 'words'}`;
+    if (policies !== undefined && now !== policies) rediff();
+    policies = now;
+    return undefined;
+  });
   let syncing: boolean | undefined;
   const sync = effect(() => {
     const on = props.syncScroll?.() ?? true;
@@ -625,6 +629,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
     cancelAnimationFrame(frameRequest);
     watch.dispose();
     collapsing.dispose();
+    comparing.dispose();
     sync.dispose();
     views.a.destroy();
     views.b.destroy();
