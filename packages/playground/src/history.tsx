@@ -9,8 +9,8 @@ import type { Environment } from '@cerebro-ide/layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { DiffEditor } from '@cerebro-ide/ui-editor';
 import { diffPath } from './changes.js';
+import { DiffViewer } from './diff-viewer.js';
 import type { TabContext } from './commands.js';
 import { reloadAll } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
@@ -74,7 +74,7 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
     enabled: (c) => target(c) !== undefined,
     // Enabled only with a file to show.
     run: (c) => {
-      showHistory(target(c) as HistoryFile).catch(fail('Couldn’t Read the History'));
+      showHistory(services, target(c) as HistoryFile).catch(fail('Couldn’t Read the History'));
     },
   });
   commands.register({
@@ -120,7 +120,10 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
  * IntelliJ's Local History window for a file, as a dialog: its versions, the latest first, and the
  * selected one compared with the file as it is. Revert puts the file back as it was then.
  */
-async function showHistory({ host, worktree, path }: HistoryFile): Promise<void> {
+async function showHistory(
+  services: MenuServices,
+  { host, worktree, path }: HistoryFile,
+): Promise<void> {
   // What's changed outside Cerebro since: recorded first, so it's listed.
   await host.request('history.record', { path: worktree });
   const revisions = (await host.request('history.file', {
@@ -205,7 +208,8 @@ async function showHistory({ host, worktree, path }: HistoryFile): Promise<void>
               const text = shown.get();
               if (text === undefined) return <p class="playground-code__note">Loading…</p>;
               return (
-                <DiffEditor
+                <DiffViewer
+                  services={services}
                   path={path}
                   original={text ?? ''}
                   text={now}

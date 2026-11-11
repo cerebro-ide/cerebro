@@ -10,6 +10,7 @@ import { parseHookInput, sendHook } from './agents.js';
 import { askPassClient } from './askpass.js';
 import { serve } from './host.js';
 import { LanguageServers } from './lsp.js';
+import { watchEventLoop } from './slow.js';
 
 if (process.argv[2] === 'askpass') {
   void askPassClient(process.argv.slice(3), process.env, process.stdout, process.stderr).then(
@@ -31,6 +32,7 @@ if (process.argv[2] === 'askpass') {
     });
   });
 } else {
+  watchEventLoop();
   const indexCache = process.env['CEREBRO_INDEX_CACHE'];
   serve(process.stdin, process.stdout, {
     repo: process.env['CEREBRO_REPO'] ?? process.cwd(),

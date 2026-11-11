@@ -31,7 +31,8 @@ async function seen(): Promise<void> {
   console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
   console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
   console.log('Message:', await message().inputValue());
-  console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+  // The items shown: hidden tasks' text is there too, and `textContent` took it.
+  console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
   console.log('Log:', git('log', '--oneline', '--graph', '-4'));
   console.log('Status:', git('status'));
   console.log('Console:', running.messages);
@@ -48,6 +49,8 @@ async function measure(done: () => boolean): Promise<void> {
       ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
       : 'Still not done a minute after the test gave up',
   );
+  // The hosts' slow git and held-up event loop, if any: where the time went.
+  console.log('Standard error:', running.output.join(''));
 }
 /** Runs an action by its name, from Find Action. */
 const action = (name: string) => findAction(page(), name);
@@ -135,7 +138,7 @@ it('goes from a diff to the file with F4, where the caret is, from either side',
   writeFileSync(join(repo, 'shape.ts'), '// Shapes, longer\n// and more.\nexport class Shape {}\n');
   await row('changes:shape.ts').click();
   await page().keyboard.press('ControlOrMeta+d');
-  const side = (n: 0 | 1) => page().locator('.cerebro-editor-diff .cm-mergeViewEditor').nth(n);
+  const side = (n: 0 | 1) => page().locator('.cerebro-editor-diff .cm-editor').nth(n);
   const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
   // From the left, the committed text: the line after the change, one further down in the file.
   await side(0).locator('.cm-line', { hasText: 'export class Shape {}' }).click();
@@ -149,6 +152,33 @@ it('goes from a diff to the file with F4, where the caret is, from either side',
   await side(1).locator('.cm-line', { hasText: '// and more.' }).click();
   await page().keyboard.press('F4');
   await expect.poll(shown).toBe('// and more.');
+});
+
+it('goes to the next change with F7 and back with Shift+F7, from the first to start with', async () => {
+  writeFileSync(
+    join(repo, 'shape.ts'),
+    '// Shapes, longer\n// and more.\nexport class Shape {}\n// added\n',
+  );
+  const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
+  // The file's tab, left by the test before, has the change once the watcher's told it.
+  await expect
+    .poll(() => page().locator('.cerebro-editor-code:visible .cm-line').allTextContents(), {
+      timeout: 15_000,
+    })
+    .toContain('// added');
+  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
+  const right = page().locator('.cerebro-editor-diff:visible .cm-diff-b');
+  // Read again as its tab shows, the caret at the first change: F7 goes to the next.
+  await right.locator('.cm-content').focus();
+  await page().keyboard.press('F7');
+  await page().keyboard.press('F4');
+  await expect.poll(shown).toBe('// added');
+  // From the last, Shift+F7 goes back to the first.
+  await page().locator('.cerebro-editor-tab[data-tab="diff:shape.ts"]').click();
+  await right.locator('.cm-line', { hasText: '// added' }).click();
+  await page().keyboard.press('Shift+F7');
+  await page().keyboard.press('F4');
+  await expect.poll(shown).toBe('// Shapes, longer');
 });
 
 it('commits and pushes, with Commit and Push…, to the branch’s upstream', async () => {
@@ -248,7 +278,7 @@ it('says why a push failed in git’s words alone', async () => {
     console.log('Dialogs:', await page().locator('.cerebro-dialog').allTextContents());
     console.log('Balloons:', await page().locator('.cerebro-balloon').allTextContents());
     console.log('Log:', git('log', '--oneline', '-3', 'HEAD', '@{upstream}'));
-    console.log('Status bar:', await page().locator('.cerebro-statusbar').textContent());
+    console.log('Status bar:', await page().locator('.cerebro-statusbar').innerText());
     throw error;
   }
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();

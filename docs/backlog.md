@@ -50,13 +50,28 @@ on it:
   not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
   are options.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
-- **The app stalls for tens of seconds on Windows in CI, now and then** (#161 and #162,
-  2026-11-11; #161's next run passed with the same code): "commits a merge started elsewhere"
+- **Jump to Source can land before an open file reads a change made outside Cerebro** (measured
+  2026-11-11, writing the diff viewer's e2e test): the file changed on disk while its tab was open;
+  the diff, read from disk, had the new lines, but F4 from it put the caret in the editor's old text
+  (on its last, empty line), and the text was reloaded around a second later, the caret staying
+  there. The jump should wait for the reload, or the reload be asked for first.
+- **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
+  (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
+  which assertion wasn't kept. The next failure's message will say.
+- **The app stalls for tens of seconds in CI, now and then** (Windows: #161 and #162; macOS: #165,
+  run 42944609115; Linux: #165, run 42988680864; 2026-11-11): "commits a merge started elsewhere"
   pressed Ctrl+Enter with the conflicts resolved and the message filled, and nothing was committed
-  in 15 s (git still merging); it was committed during the next test, whose Pull then did nothing
-  for 15 s (no dialog, no balloon), while the Merge test after took 1.7 s. Cause not found: the
-  tests now print the window, the repository and the page's console, and how long the commit or
-  pull takes after they give up.
+  in 15 s. On Linux the commit landed about 29 s after Ctrl+Enter ("Done 13497 ms after the test
+  gave up"), and the next test's Pull did nothing for 15 s more, while the Merge test after took
+  0.4 s: about 45 s in all. The page sends the commit to the host without waiting on anything
+  first (`changes.tsx`); the page's console was empty. Which held it up, the host or git, isn't
+  known. The status bar printed in those runs seemed to show Pushing…, Updating…, Fetching… and a
+  pull under way, but that was `textContent`, which takes hidden items' text too: it's `innerText`
+  now, only what's shown. The host now says on its standard error when a git command takes over
+  5 s, with its arguments, or its event loop is held up over 2 s (`slow.ts`), and the e2e tests
+  keep the app's standard error (`running.output`) and print it when this test fails (measured:
+  a git made 6 s slow showed "Slow: git check-ignore -z --stdin in … took 6005 ms").
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its

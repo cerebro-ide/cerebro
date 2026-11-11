@@ -50,6 +50,12 @@ const PATHS: Record<string, string> = {
   zoomOut: 'M7 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM10 10l3.5 3.5M5 7h4',
   actualSize: 'M2.5 3.5h11v9h-11zM5.5 6v4M10.5 6v4M8 6.8v.2M8 9.2v.2',
   fit: 'M2.5 5.5v-3h3M10.5 2.5h3v3M13.5 10.5v3h-3M5.5 13.5h-3v-3M5.5 5.5h5v5h-5z',
+  // A diff's toolbar, as IntelliJ's: Previous and Next Difference (its previousOccurence and
+  // nextOccurence arrows), and its Settings gear (a claim: not IntelliJ's drawing).
+  previousDiff: 'M8 13V3M4.5 6.5L8 3l3.5 3.5',
+  nextDiff: 'M8 3v10M4.5 9.5L8 13l3.5-3.5',
+  settings:
+    'M8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM6.9 2.5h2.2l.4 1.6 1.4.8 1.6-.5 1.1 1.9-1.2 1.1v1.2l1.2 1.1-1.1 1.9-1.6-.5-1.4.8-.4 1.6H6.9l-.4-1.6-1.4-.8-1.6.5-1.1-1.9 1.2-1.1V7.4L2.4 6.3l1.1-1.9 1.6.5 1.4-.8z',
   services:
     'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4',
 };

@@ -7,6 +7,7 @@ import {
   forMac,
   INTELLIJ,
   INTELLIJ_MAC,
+  MACOS_SYSTEM,
   PRESETS,
   VSCODE_LINUX,
   vscode,
@@ -44,6 +45,13 @@ describe('the ready-made keymaps', () => {
     expect(linux.bindings[EDITOR_ACTIONS.format]).toEqual(['Ctrl+Shift+I', 'Ctrl+K Ctrl+F']);
     expect(windows.bindings[EDITOR_ACTIONS.format]).toEqual(['Shift+Alt+F', 'Ctrl+K Ctrl+F']);
     expect([linux.id, windows.id]).toEqual(['vscode', 'vscode']);
+  });
+
+  it('give a diff’s keys before another command’s with the same: macOS System’s Back', () => {
+    const keymap = new Keymap('mac');
+    keymap.setPreset(MACOS_SYSTEM);
+    expect(keymap.commandsFor('Meta+[')).toEqual(['diff.previousDifference', 'navigate.back']);
+    expect(keymap.shortcutsFor('diff.nextDifference')).toEqual(['Meta+]', 'F7']);
   });
 
   it('swap Ctrl and Meta for a keymap made for macOS from another', () => {
