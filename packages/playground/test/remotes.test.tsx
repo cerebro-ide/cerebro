@@ -145,6 +145,21 @@ describe('Git → Manage Remotes…', () => {
     expect(dialogs()).toHaveLength(1);
   });
 
+  it('fits a long URL in the table, cut with an ellipsis, as IntelliJ’s', async () => {
+    git.remotes = [{ name: 'origin', url: `/${'very-long-folder/'.repeat(20)}repository` }];
+    commands.execute('git.manageRemotes');
+    await expect.poll(() => remotesDialog().querySelector('.playground-remotes__row')).toBeTruthy();
+    const list = remotesDialog().querySelector('.playground-remotes__list') as HTMLElement;
+    // No horizontal bar to lie over the rows.
+    expect(list.scrollWidth).toBe(list.clientWidth);
+    const url = row('origin').querySelectorAll('td')[1] as HTMLElement;
+    expect(url.scrollWidth).toBeGreaterThan(url.clientWidth);
+    expect(getComputedStyle(url).textOverflow).toBe('ellipsis');
+    // Name as wide as its names.
+    const name = row('origin').querySelector('td') as HTMLElement;
+    expect(name.offsetWidth).toBeLessThan(list.clientWidth / 4);
+  });
+
   it('adds a remote with Define Remote, its name empty when there’s an origin', async () => {
     await opened();
     await userEvent.click(tool('Add'));
