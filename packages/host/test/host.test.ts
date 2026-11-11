@@ -964,16 +964,16 @@ describe('ignored files and rolling back', () => {
     });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
-    for (const operation of ['merge', 'rebase', 'cherry-pick']) {
+    for (const operation of ['merge', 'rebase', 'cherry-pick', 'revert']) {
       expect(await ui.request('git.abort', { path: '/w', operation })).toBe(null);
       expect(git).toHaveBeenCalledWith('/w', [operation, '--abort']);
     }
     await expect(
-      ui.request('git.abort', { path: '/w', operation: 'revert' }),
+      ui.request('git.abort', { path: '/w', operation: 'bisect' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
-  it('cherry-picks a commit by its hash, from the Log, and continues the pick', async () => {
+  it('cherry-picks or reverts a commit by its hash, from the Log, and continues either', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(
         bare(args)[0] === 'for-each-ref' ? 'main\n' : bare(args)[0] === 'rev-parse' ? '/w\n' : '',
@@ -987,7 +987,24 @@ describe('ignored files and rolling back', () => {
       GIT_TERMINAL_PROMPT: '0',
       GIT_EDITOR: 'true',
     });
-    expect(await ui.request('git.continueCherryPick', { path: '/w' })).toBe('picked');
+    expect(await ui.request('git.continueApplying', { path: '/w', operation: 'cherry-pick' })).toBe(
+      'picked',
+    );
+    // Revert Commit, and on once its conflicts are resolved.
+    expect(await ui.request('git.revert', { path: '/w', hash: 'abc1234' })).toBe('picked');
+    expect(git).toHaveBeenCalledWith('/w', ['revert', 'abc1234'], {
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_EDITOR: 'true',
+    });
+    expect(await ui.request('git.continueApplying', { path: '/w', operation: 'revert' })).toBe(
+      'picked',
+    );
+    await expect(
+      ui.request('git.continueApplying', { path: '/w', operation: 'merge' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    await expect(ui.request('git.revert', { path: '/w', hash: '-n' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
     // Not a hash, as an option would be taken; not a list of names.
     for (const params of [
       { hash: '--abort', protected: [] },

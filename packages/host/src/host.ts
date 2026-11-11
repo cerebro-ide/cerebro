@@ -69,7 +69,7 @@ import {
   type RebaseParams,
 } from './branches.js';
 import { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
-import { cherryPick, continueCherryPick, onRemoteBranch } from './cherry-pick.js';
+import { applyCommit, continueApplying, onRemoteBranch } from './apply-changes.js';
 import { resetHead } from './reset.js';
 import {
   abortOperation,
@@ -739,41 +739,60 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.abort', async (params) => {
     const worktree = text(params, 'path');
     const op = (params as { operation?: unknown }).operation;
-    if (op !== 'merge' && op !== 'rebase' && op !== 'cherry-pick') {
-      throw new ResponseError(
-        ErrorCodes.InvalidParams,
-        'operation must be merge, rebase or cherry-pick',
-      );
-    }
     const named = {
       merge: 'Abort Merge',
       rebase: 'Abort Rebase',
       'cherry-pick': 'Abort Cherry-Pick',
+      revert: 'Abort Revert',
     };
+    if (op !== 'merge' && op !== 'rebase' && op !== 'cherry-pick' && op !== 'revert') {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'operation must be merge, rebase, cherry-pick or revert',
+      );
+    }
     await recording(worktree, named[op], git, () => abortOperation(worktree, op, git));
     return null;
   });
-  // The Log's Cherry-Pick, and Continue Cherry-Pick: `protected` names the branches on a remote
-  // that make a commit published, its message then saying where it's from.
-  connection.onRequest('git.cherryPick', async (params) => {
-    const worktree = text(params, 'path');
+  /** A commit's hash, as the Log gives it: never an option. */
+  const hashOf = (params: unknown) => {
     const hash = text(params, 'hash');
-    const named = (params as { protected?: unknown }).protected;
     if (!/^[0-9a-f]{4,64}$/i.test(hash)) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'hash must be a commit hash');
     }
+    return hash;
+  };
+  // The Log's Cherry-Pick: `protected` names the branches on a remote that make a commit
+  // published, its message then saying where it's from.
+  connection.onRequest('git.cherryPick', async (params) => {
+    const worktree = text(params, 'path');
+    const hash = hashOf(params);
+    const named = (params as { protected?: unknown }).protected;
     if (!Array.isArray(named) || !named.every((n) => typeof n === 'string')) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'protected must be a list of names');
     }
     const published = await onRemoteBranch(worktree, hash, (n) => named.includes(n), git);
     return recording(worktree, 'Cherry-Pick', git, () =>
-      cherryPick(worktree, hash, published, git),
+      applyCommit(worktree, 'cherry-pick', hash, published, git),
     );
   });
-  connection.onRequest('git.continueCherryPick', (params) => {
+  // The Log's Revert Commit.
+  connection.onRequest('git.revert', (params) => {
     const worktree = text(params, 'path');
-    return recording(worktree, 'Continue Cherry-Pick', git, () =>
-      continueCherryPick(worktree, git),
+    const hash = hashOf(params);
+    return recording(worktree, 'Revert', git, () =>
+      applyCommit(worktree, 'revert', hash, false, git),
+    );
+  });
+  // Continue Cherry-Pick, and either carried on once its conflicts are resolved.
+  connection.onRequest('git.continueApplying', (params) => {
+    const worktree = text(params, 'path');
+    const how = (params as { operation?: unknown }).operation;
+    if (how !== 'cherry-pick' && how !== 'revert') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'operation must be cherry-pick or revert');
+    }
+    return recording(worktree, how === 'revert' ? 'Revert' : 'Continue Cherry-Pick', git, () =>
+      continueApplying(worktree, how, git),
     );
   });
   // The branches popup's, as IntelliJ's: each that changes files recorded in the Local History.

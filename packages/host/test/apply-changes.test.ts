@@ -5,8 +5,8 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   abortOperation,
-  cherryPick,
-  continueCherryPick,
+  applyCommit,
+  continueApplying,
   git,
   listConflicts,
   onRemoteBranch,
@@ -14,8 +14,8 @@ import {
   repositoryState,
 } from '../src/index.js';
 
-describe('cherry-pick, with real git', () => {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-cherry-pick-')));
+describe('cherry-pick and revert, with real git', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-apply-changes-')));
   const run = (cwd: string, ...args: string[]) =>
     execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf8' }).trim();
   const write = (cwd: string, files: Record<string, string>) => {
@@ -56,15 +56,15 @@ describe('cherry-pick, with real git', () => {
 
   it('picks a commit, with its message; says where from when asked; skips it once it’s here', async () => {
     const { repo, added } = repository();
-    expect(await cherryPick(repo, added, false, git)).toBe('picked');
+    expect(await applyCommit(repo, 'cherry-pick', added, false, git)).toBe('picked');
     expect(subjects(repo)).toEqual(['add b', 'main change', 'base']);
     expect(run(repo, 'log', '-1', '--format=%B')).toBe('add b');
     // Its changes already here: skipped, nothing under way after.
-    expect(await cherryPick(repo, added, false, git)).toBe('empty');
+    expect(await applyCommit(repo, 'cherry-pick', added, false, git)).toBe('empty');
     expect(subjects(repo)).toHaveLength(3);
     expect(await operation(repo, git)).toBeUndefined();
     run(repo, 'reset', '-q', '--hard', 'HEAD~1');
-    expect(await cherryPick(repo, added, true, git)).toBe('picked');
+    expect(await applyCommit(repo, 'cherry-pick', added, true, git)).toBe('picked');
     expect(run(repo, 'log', '-1', '--format=%B')).toBe(
       `add b\n\n(cherry picked from commit ${added})`,
     );
@@ -72,7 +72,7 @@ describe('cherry-pick, with real git', () => {
 
   it('stops at conflicts, named for the Conflicts dialog; continues with its author, or aborts', async () => {
     const { repo, changed } = repository();
-    expect(await cherryPick(repo, changed, false, git)).toBe('conflicts');
+    expect(await applyCommit(repo, 'cherry-pick', changed, false, git)).toBe('conflicts');
     expect(await operation(repo, git)).toBe('cherry-pick');
     expect((await repositoryState(repo, git)).operation).toBe('cherry-pick');
     expect(await listConflicts(repo, git)).toEqual({
@@ -81,15 +81,15 @@ describe('cherry-pick, with real git', () => {
       commit: { hash: changed.slice(0, 7), author: 'Them', message: 'side change' },
     });
     // Still in conflict: it stops again.
-    expect(await continueCherryPick(repo, git)).toBe('conflicts');
+    expect(await continueApplying(repo, 'cherry-pick', git)).toBe('conflicts');
     write(repo, { 'a.txt': 'resolved\n' });
     run(repo, 'add', 'a.txt');
-    expect(await continueCherryPick(repo, git)).toBe('picked');
+    expect(await continueApplying(repo, 'cherry-pick', git)).toBe('picked');
     expect(run(repo, 'log', '-1', '--format=%s|%an')).toBe('side change|Them');
     expect(await operation(repo, git)).toBeUndefined();
     // Aborted: back to where it was.
     run(repo, 'reset', '-q', '--hard', 'HEAD~1');
-    expect(await cherryPick(repo, changed, false, git)).toBe('conflicts');
+    expect(await applyCommit(repo, 'cherry-pick', changed, false, git)).toBe('conflicts');
     await abortOperation(repo, 'cherry-pick', git);
     expect(await operation(repo, git)).toBeUndefined();
     expect(subjects(repo)).toEqual(['main change', 'base']);
@@ -97,10 +97,10 @@ describe('cherry-pick, with real git', () => {
 
   it('skips a pick its conflicts resolved to nothing', async () => {
     const { repo, changed } = repository();
-    expect(await cherryPick(repo, changed, false, git)).toBe('conflicts');
+    expect(await applyCommit(repo, 'cherry-pick', changed, false, git)).toBe('conflicts');
     run(repo, 'checkout', '--ours', 'a.txt');
     run(repo, 'add', 'a.txt');
-    expect(await continueCherryPick(repo, git)).toBe('empty');
+    expect(await continueApplying(repo, 'cherry-pick', git)).toBe('empty');
     expect(await operation(repo, git)).toBeUndefined();
     expect(subjects(repo)).toEqual(['main change', 'base']);
   });
@@ -108,15 +108,65 @@ describe('cherry-pick, with real git', () => {
   it('fails as git does when local changes or untracked files are in the way', async () => {
     const { repo, changed, added } = repository();
     write(repo, { 'a.txt': 'dirty\n' });
-    await expect(cherryPick(repo, changed, false, git)).rejects.toThrow(
+    await expect(applyCommit(repo, 'cherry-pick', changed, false, git)).rejects.toThrow(
       /local changes to the following files would be overwritten/,
     );
     run(repo, 'checkout', '-q', 'a.txt');
     write(repo, { 'b.txt': 'mine\n' });
-    await expect(cherryPick(repo, added, false, git)).rejects.toThrow(
+    await expect(applyCommit(repo, 'cherry-pick', added, false, git)).rejects.toThrow(
       /untracked working tree files would be overwritten/,
     );
     expect(await operation(repo, git)).toBeUndefined();
+  });
+
+  it('reverts a commit with git’s message; says when it’s undone already', async () => {
+    const { repo } = repository();
+    write(repo, { 'c.txt': 'c\n' });
+    const added = commit(repo, 'add c');
+    expect(await applyCommit(repo, 'revert', added, false, git)).toBe('picked');
+    expect(run(repo, 'log', '-1', '--format=%B')).toBe(
+      `Revert "add c"\n\nThis reverts commit ${added}.`,
+    );
+    // Undone already: git commits nothing, and nothing is left under way.
+    expect(await applyCommit(repo, 'revert', added, false, git)).toBe('empty');
+    expect(await operation(repo, git)).toBeUndefined();
+  });
+
+  it('stops a revert at conflicts, named for the Conflicts dialog; continues, skips or aborts it', async () => {
+    const { repo } = repository();
+    const changed = run(repo, 'rev-parse', 'HEAD');
+    write(repo, { 'a.txt': 'again\n' });
+    commit(repo, 'change again');
+    expect(await applyCommit(repo, 'revert', changed, false, git)).toBe('conflicts');
+    expect(await operation(repo, git)).toBe('revert');
+    expect(await listConflicts(repo, git)).toEqual({
+      operation: 'revert',
+      files: [{ path: 'a.txt', yours: 'modified', theirs: 'modified' }],
+      commit: { hash: changed.slice(0, 7), author: 'me', message: 'main change' },
+    });
+    write(repo, { 'a.txt': 'base\n' });
+    run(repo, 'add', 'a.txt');
+    expect(await continueApplying(repo, 'revert', git)).toBe('picked');
+    expect(run(repo, 'log', '-1', '--format=%s')).toBe('Revert "main change"');
+    // Resolved to what's there: nothing to commit, skipped.
+    run(repo, 'reset', '-q', '--hard', 'HEAD~1');
+    expect(await applyCommit(repo, 'revert', changed, false, git)).toBe('conflicts');
+    run(repo, 'checkout', '--ours', 'a.txt');
+    run(repo, 'add', 'a.txt');
+    expect(await continueApplying(repo, 'revert', git)).toBe('empty');
+    expect(await operation(repo, git)).toBeUndefined();
+    expect(await applyCommit(repo, 'revert', changed, false, git)).toBe('conflicts');
+    await abortOperation(repo, 'revert', git);
+    expect(await operation(repo, git)).toBeUndefined();
+    expect(subjects(repo)[0]).toBe('change again');
+  });
+
+  it('fails a revert as git does when local changes are in the way', async () => {
+    const { repo } = repository();
+    write(repo, { 'a.txt': 'dirty\n' });
+    await expect(applyCommit(repo, 'revert', 'HEAD', false, git)).rejects.toThrow(
+      /local changes to the following files would be overwritten/,
+    );
   });
 
   it('knows a commit is on a remote’s branch: IntelliJ’s published', async () => {
