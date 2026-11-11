@@ -86,7 +86,9 @@ const services = { commands: new CommandRegistry(), menus: new MenuRegistry(), k
 setupDiffViewer(
   services,
   {
-    has: (step) => beside(step) !== undefined,
+    // Unless turned off in Settings → Tools → Diff & Merge, as IntelliJ's.
+    has: (step) =>
+      (globalSettings.get('diff.goToNextFile') as boolean) && beside(step) !== undefined,
     go: (step) => {
       current.set({
         path: beside(step) as string,

@@ -27,6 +27,9 @@ registry.registerPage({ id: 'vcs/git', title: 'Git', parent: 'vcs' });
 // Where plugins for languages put their pages (Prettier's), as IntelliJ's.
 registry.registerPage({ id: 'languages', title: 'Languages & Frameworks', order: 7 });
 registry.registerPage({ id: 'languages/javascript', title: 'JavaScript', parent: 'languages' });
+// IntelliJ's Tools → Diff & Merge (`DiffSettingsConfigurable`).
+registry.registerPage({ id: 'tools', title: 'Tools', order: 8 });
+registry.registerPage({ id: 'tools/diff', title: 'Diff & Merge', parent: 'tools' });
 
 registry.register({
   id: 'appearance.theme',
@@ -286,3 +289,15 @@ export function save(settings: Settings, scopes: readonly Scope[]): void {
     }
   }
 }
+// On by default, as IntelliJ's (`DiffSettingsHolder`'s GO_TO_NEXT_FILE_ON_NEXT_DIFFERENCE); its
+// words, `DiffBundle`'s.
+registry.register({
+  id: 'diff.goToNextFile',
+  title: 'Go to the next file after reaching last change',
+  description:
+    'In a diff window opened from a list, Next Difference (F7) pressed again at the last change goes on to the next file, and Previous Difference to the previous one.',
+  page: 'tools/diff',
+  type: 'boolean',
+  default: true,
+  scopes: ['global'],
+});
