@@ -287,7 +287,9 @@ async function closeActiveProject(): Promise<void> {
 await setupProjects(services.commands, services.menus, closeActiveProject);
 setupLog(services);
 setupImages(services);
-// In the app, Show Diff in Separate Window from a diff tab: it closes, and opens in a window.
+// In the app, Show Diff in Separate Window from a diff tab: every diff tab closes, and opens in a
+// window, as IntelliJ's `reopenDiffEditorsForFiles` moves every diff open; the one it was chosen
+// in last, so its window is the one in front.
 setupDiffViewer(
   services,
   undefined,
@@ -295,16 +297,22 @@ setupDiffViewer(
     to: 'window',
     // A tab's diff, not Local History's.
     moves: (button) => button instanceof Element && !!button.closest('.cerebro-editor-group'),
-    // The tab its group shows.
     move: (button) => {
       const group = (button as Element).closest<HTMLElement>(
         '.cerebro-editor-group',
       ) as HTMLElement;
       const id = group.dataset['group'] as string;
       const area = editor() as NonNullable<ReturnType<typeof editor>>;
-      const tab = area.group(id).activeTab as Tab;
-      area.close(id, tab.id);
-      openTab(tab);
+      const chosen = area.group(id).activeTab as Tab;
+      const others = area.groups.flatMap((g) =>
+        g.tabs
+          .filter((tab) => tab !== chosen && diffPath(tab.id) !== undefined)
+          .map((tab) => ({ group: g.id, tab })),
+      );
+      for (const { group: from, tab } of [...others, { group: id, tab: chosen }]) {
+        area.close(from, tab.id);
+        openTab(tab);
+      }
     },
   },
 );

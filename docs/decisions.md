@@ -2521,7 +2521,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   `Diff.DiffModes` group that `SetEditorSettingsActionGroup` puts after the viewer's settings;
   IntelliJ's source). Chosen, diffs open there from then on, and it's kept: the diff a window
   shows (the file shown, not its list: a tab shows one file) opens as a tab of its project's
-  window, in front, and the window closes; a tab's closes and opens in a window. Not in Local
+  window, in front, and the window closes; a tab's closes and opens in a window. Every diff open
+  moves with it, as IntelliJ's (`reopenDiffEditorsForFiles`, 2026-11-11): the project window's
+  other diff windows, and all its diff tabs, the one it's chosen in last, so it ends in front. Not in Local
   History's diff, which stays in its dialog, nor in a browser, with no windows. Kept as the diff's
   other toggles, and read as kept each time, so a choice made in a diff window holds in the
   project's window.
@@ -2571,8 +2573,7 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's options, and whether
   diffs go in the navigation history);
   several files
-  selected as the list; moving every diff open when the choice changes, as IntelliJ's
-  (`reopenDiffEditorsForFiles`; here the one it's chosen in moves); a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
+  selected as the list; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and
   language-specific changes (they need the language's formatter and parser).
 

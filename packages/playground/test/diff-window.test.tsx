@@ -10,6 +10,10 @@ const jumps: unknown[] = [];
 /** What the host reads, as the file is now. */
 let texts = { original: 'one\ntwo\n', text: 'one\nthree\n' };
 const tabs: unknown[] = [];
+/** Whether each move to a tab asked the opener's other diff windows to move too. */
+const alls: unknown[] = [];
+/** What the app calls when another diff window moved. */
+let moved: (() => void) | undefined;
 const SPEC: DiffSpec = {
   project: '/r',
   env: '/r/w',
@@ -33,9 +37,14 @@ beforeAll(async () => {
         jumps.push(at);
         return Promise.resolve();
       },
-      toTab: (spec: unknown) => {
+      toTab: (spec: unknown, all: unknown) => {
         tabs.push(spec);
+        alls.push(all);
         return Promise.resolve();
+      },
+      onMove: (listener: () => void) => {
+        moved = listener;
+        return () => undefined;
       },
       // Between commits: no document to be told of.
       onDocument: () => () => undefined,
@@ -115,6 +124,14 @@ describe('its title', () => {
     ) as Element;
     await userEvent.click(item);
     expect(tabs).toEqual([SPEC]);
+    // Every other diff window of the opener moves too, as IntelliJ's.
+    expect(alls).toEqual([true]);
     localStorage.removeItem('cerebro.diff');
+  });
+
+  it('moves to a tab when told, another diff window having moved, the others not told again', () => {
+    moved?.();
+    expect(tabs).toEqual([SPEC, SPEC]);
+    expect(alls).toEqual([true, false]);
   });
 });
