@@ -32,6 +32,8 @@ const git = {
   /** What a merge or rebase gives, or the error it fails with. */
   result: 'done' as unknown,
   conflicted: [] as string[],
+  /** The tags, or why they can't be read. */
+  tags: ['v1', 'v2'] as string[] | Error,
 };
 const fail = (method: string) => () => {
   if (git.result instanceof Error) throw git.result;
@@ -47,6 +49,11 @@ const host = new FakeHost({
     ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
   ],
   'git.checkout': fail('checkout'),
+  'git.checkoutRevision': fail('checkout'),
+  'git.tags': () => {
+    if (git.tags instanceof Error) throw git.tags;
+    return git.tags;
+  },
   'git.createBranch': fail('create'),
   'git.renameBranch': fail('rename'),
   'git.deleteBranch': () => {
@@ -104,6 +111,7 @@ beforeEach(() => {
   git.current = 'main';
   git.result = 'done';
   git.conflicted = [];
+  git.tags = ['v1', 'v2'];
   git.upstreams = {};
   git.tracked = undefined;
   git.remoteFailing = undefined;
@@ -121,7 +129,7 @@ const last = () => notifications.all.get(0);
 /** Opens the popup, with the branches read. */
 const popup = async () => {
   pick(button);
-  await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(6);
+  await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
 };
 /** A row of the popup, by its branch's name. */
 const row = (name: string) =>
@@ -146,7 +154,7 @@ describe('the branches popup', () => {
     expect(entries.indexOf('git.branches')).toBeLessThan(entries.indexOf('git.newBranch'));
     expect(commands.get('git.branches')?.label).toBe('&Branches');
     commands.execute('git.branches');
-    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(6);
+    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
     // Centred, not below the toolbar's button.
     const shown = (document.querySelector('.cerebro-popup') as HTMLElement).getBoundingClientRect();
     expect(Math.abs(shown.left + shown.width / 2 - window.innerWidth / 2)).toBeLessThanOrEqual(1);
@@ -154,10 +162,11 @@ describe('the branches popup', () => {
     expect(commands.isEnabled('git.branches')).toBe(false);
   });
 
-  it('lists New Branch…, then the local and remote branches, the current checked', async () => {
+  it('lists New Branch… and Checkout Tag or Revision…, then the local and remote branches, the current checked', async () => {
     await popup();
     expect(await popupItems()).toEqual([
       'New Branch…',
+      'Checkout Tag or Revision…',
       'feature',
       'main',
       'side',
@@ -279,6 +288,57 @@ describe('Checkout', () => {
       content: 'Your local changes would be overwritten',
       type: 'error',
     });
+  });
+
+  const suggestions = () =>
+    [...document.querySelectorAll('.playground-git-branch__suggestion')].map((s) => s.textContent);
+  /** Chooses Checkout Tag or Revision… from the popup, and types a reference in its dialog. */
+  const checkoutReference = async (text: string) => {
+    await popup();
+    await userEvent.click(row('Checkout Tag or Revision…'));
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout');
+    await answer(text);
+    return shown;
+  };
+
+  it('checks out a tag or revision typed, the branches and tags suggested, HEAD detached', async () => {
+    const shown = await checkoutReference('');
+    expect(shown.querySelector('.cerebro-dialog-field__label')?.textContent.trim()).toBe(
+      'Enter reference (branch, tag) name or commit hash:',
+    );
+    // Nothing typed: nothing to check out.
+    const ok = [...shown.querySelectorAll<HTMLButtonElement>('.cerebro-dialog__button')].find(
+      (b) => b.textContent === 'OK',
+    ) as HTMLButtonElement;
+    expect(ok.disabled).toBe(true);
+    await answer('sid');
+    expect(suggestions()).toEqual(['side', 'origin/side']);
+    await answer('v');
+    expect(suggestions()).toEqual(['v1', 'v2']);
+    await answer(' v2 ');
+    await press('OK');
+    await expect.poll(() => last()?.content).toBe('Checked out v2');
+    expect(host.params('git.checkoutRevision')).toEqual([{ path: '/r', reference: 'v2' }]);
+    await expect.poll(() => readWorktrees.mock.calls).toEqual([['/r']]);
+  });
+
+  it('checks out none when cancelled; says why git wouldn’t; does without the tags if unread', async () => {
+    await checkoutReference('v1');
+    await press('Cancel');
+    expect(host.params('git.checkoutRevision')).toEqual([]);
+    git.result = new Error('fatal: invalid reference: nope');
+    await checkoutReference('nope');
+    await press('OK');
+    await expect.poll(() => last()?.title).toBe('Could not checkout nope');
+    expect(last()).toMatchObject({ content: 'fatal: invalid reference: nope', type: 'error' });
+    git.result = 'done';
+    git.tags = new Error('no tags');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await checkoutReference('v');
+    expect(suggestions()).toEqual([]);
+    expect(logged).toHaveBeenCalledWith('Reading the tags failed', git.tags);
+    await press('Cancel');
   });
 
   it('opens the worktree a branch is checked out in, instead', async () => {

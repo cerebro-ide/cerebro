@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   checkout,
+  checkoutDetached,
   continueOperation,
   createBranch,
   deleteBranch,
@@ -60,6 +61,24 @@ describe('branch operations, with real git', () => {
     await checkout(clone, 'origin/side', true, git);
     expect(current(clone)).toBe('side');
     expect(run(clone, 'rev-parse', '--abbrev-ref', 'side@{upstream}').trim()).toBe('origin/side');
+  });
+
+  it('checks out a tag, a commit or a branch with HEAD detached; not what isn’t a reference', async () => {
+    const repo = repository();
+    run(repo, 'tag', 'v1', 'side');
+    await checkoutDetached(repo, 'v1', git);
+    expect(current(repo)).toBe('');
+    expect(subjects(repo)[0]).toBe('side');
+    await checkoutDetached(repo, 'main', git);
+    expect(current(repo)).toBe('');
+    expect(subjects(repo)[0]).toBe('main');
+    await checkoutDetached(repo, run(repo, 'rev-parse', 'main~1').trim(), git);
+    expect(subjects(repo)[0]).toBe('first');
+    await expect(checkoutDetached(repo, 'nope', git)).rejects.toThrow(/invalid reference: nope/);
+    // An option, not a reference.
+    await expect(checkoutDetached(repo, '--orphan=x', git)).rejects.toThrow(
+      'Not a reference: --orphan=x',
+    );
   });
 
   it('fails a checkout in git’s words when local changes are in the way', async () => {
