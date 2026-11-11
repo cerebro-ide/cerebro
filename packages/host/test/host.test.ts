@@ -1035,6 +1035,12 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.restoreBranch', { path: '/w', name: 'o', hash: 'abc' })).toBe(
       null,
     );
+    expect(await ui.request('git.deleteRemoteBranch', { path: '/w', name: 'origin/x' })).toBe(null);
+    for (const name of ['x', 'origin/', '/x']) {
+      await expect(
+        ui.request('git.deleteRemoteBranch', { path: '/w', name }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
     expect(await ui.request('git.mergeBranch', { path: '/w', branch: 'side' })).toBe('upToDate');
     expect(await ui.request('git.rebaseOnto', { path: '/w', onto: 'side' })).toBe('upToDate');
     expect(
@@ -1060,6 +1066,7 @@ describe('ignored files and rolling back', () => {
         'branch --move n o',
         'branch --delete o',
         'branch o abc',
+        'push --end-of-options origin :refs/heads/x',
         'merge --no-edit side',
         'rebase --autostash side',
         'rebase --autostash --update-refs --onto main old side',

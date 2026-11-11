@@ -211,6 +211,7 @@ export {
   checkoutDetached,
   createBranch,
   deleteBranch,
+  deleteRemoteBranch,
   mergeBranch,
   rebase,
   rebaseOnto,

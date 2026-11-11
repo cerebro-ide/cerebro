@@ -9,6 +9,7 @@ import {
   answer,
   closeAll,
   dialog,
+  dialogText,
   FakeHost,
   menuItem,
   menuItems,
@@ -22,6 +23,12 @@ const git = {
   local: ['feature', 'main', 'side'],
   remote: ['origin/main', 'origin/side'],
   current: 'main' as string | undefined,
+  /** The branch each local one tracks, by name. */
+  upstreams: {} as Record<string, string>,
+  /** The remote branch a branch deleted alone tracked, as the host says. */
+  tracked: undefined as string | undefined,
+  /** Why a remote branch's deletion fails, if it does. */
+  remoteFailing: undefined as Error | undefined,
   /** What a merge or rebase gives, or the error it fails with. */
   result: 'done' as unknown,
   conflicted: [] as string[],
@@ -34,7 +41,11 @@ const fail = (method: string) => () => {
 };
 const host = new FakeHost({
   'git.branches': () => [
-    ...git.local.map((b) => ({ ref: `refs/heads/${b}`, current: b === git.current })),
+    ...git.local.map((b) => ({
+      ref: `refs/heads/${b}`,
+      current: b === git.current,
+      ...(git.upstreams[b] === undefined ? {} : { upstream: `refs/remotes/${git.upstreams[b]}` }),
+    })),
     ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
   ],
   'git.checkout': fail('checkout'),
@@ -47,7 +58,15 @@ const host = new FakeHost({
   'git.renameBranch': fail('rename'),
   'git.deleteBranch': () => {
     if (git.result instanceof Error) throw git.result;
-    return { hash: 'abc', unmerged: git.result === 'unmerged' };
+    return {
+      hash: 'abc',
+      unmerged: git.result === 'unmerged',
+      ...(git.tracked === undefined ? {} : { tracked: git.tracked }),
+    };
+  },
+  'git.deleteRemoteBranch': () => {
+    if (git.remoteFailing) throw git.remoteFailing;
+    return null;
   },
   'git.restoreBranch': () => null,
   'git.mergeBranch': fail('result'),
@@ -93,6 +112,9 @@ beforeEach(() => {
   git.result = 'done';
   git.conflicted = [];
   git.tags = ['v1', 'v2'];
+  git.upstreams = {};
+  git.tracked = undefined;
+  git.remoteFailing = undefined;
 });
 
 afterEach(async () => {
@@ -186,12 +208,13 @@ describe('the branches popup', () => {
       'Delete',
     ]);
     await userEvent.keyboard('{Escape}');
-    // A remote branch: not renamed or deleted from here.
+    // A remote branch: not renamed.
     expect(await branchMenu('origin/side')).toEqual([
       'Checkout',
       "New Branch from 'origin/side'…",
       "Rebase 'main' onto 'origin/side'",
       "Merge 'origin/side' into 'main'",
+      'Delete',
     ]);
   });
 
@@ -432,6 +455,102 @@ describe('Delete', () => {
     git.result = new Error('error: cannot delete branch');
     await choose('feature', 'Delete');
     await expect.poll(() => last()?.title).toBe("Branch feature wasn't deleted");
+  });
+
+  /** The checkbox of the Delete Remote Branch dialog, if it has one. */
+  const tracking = async () => (await dialog()).querySelector<HTMLInputElement>('input');
+
+  it('deletes a remote branch once asked, as IntelliJ, and the local one tracking it if chosen', async () => {
+    // The current branch tracks it too: not proposed, as IntelliJ's.
+    git.upstreams = { feature: 'origin/side', main: 'origin/side' };
+    await choose('origin/side', 'Delete');
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Delete Remote Branch',
+    );
+    expect(await dialogText()).toBe(
+      'Delete remote branch origin/side?Delete tracking local branch feature as well',
+    );
+    expect((await tracking())?.checked).toBe(false);
+    await press('Cancel');
+    expect(host.params('git.deleteRemoteBranch')).toEqual([]);
+    await choose('origin/side', 'Delete');
+    await userEvent.click((await tracking()) as HTMLInputElement);
+    await press('Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted remote branch origin/side');
+    expect(last()?.content).toBe('Also deleted local branch: feature');
+    expect(host.params('git.deleteRemoteBranch')).toEqual([{ path: '/r', name: 'origin/side' }]);
+    expect(host.params('git.deleteBranch')).toEqual([{ path: '/r', name: 'feature' }]);
+    expect(readWorktrees).toHaveBeenCalled();
+  });
+
+  it('lists the local branches tracking it, deleting none unless chosen; with none, asks the rest', async () => {
+    git.upstreams = { feature: 'origin/main', side: 'origin/main' };
+    await choose('origin/main', 'Delete');
+    expect(await dialogText()).toBe(
+      'Delete remote branch origin/main?Delete tracking local branches: feature, side',
+    );
+    await press('Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted remote branch origin/main');
+    expect(last()?.content).toBe('');
+    expect(host.params('git.deleteBranch')).toEqual([]);
+    // Several deleted, one failing: said, the rest listed.
+    await choose('origin/main', 'Delete');
+    await userEvent.click((await tracking()) as HTMLInputElement);
+    const deleting = host.answers['git.deleteBranch'];
+    host.answers['git.deleteBranch'] = ({ name }: { name: string }) => {
+      if (name === 'side') throw new Error('error: side is in use');
+      return { hash: 'abc', unmerged: false };
+    };
+    await press('Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted remote branch origin/main');
+    expect(last()?.content).toBe('Also deleted local branch: feature');
+    expect(notifications.all.get(1)).toMatchObject({
+      title: "Branch side wasn't deleted",
+      content: 'error: side is in use',
+      type: 'error',
+    });
+    git.upstreams = { feature: 'origin/main', side: 'origin/main' };
+    host.answers['git.deleteBranch'] = deleting as never;
+    await choose('origin/main', 'Delete');
+    await userEvent.click((await tracking()) as HTMLInputElement);
+    await press('Delete');
+    await expect.poll(() => last()?.content).toBe('Also deleted local branches: feature, side');
+    // None tracking it: the question alone.
+    git.upstreams = {};
+    await choose('origin/side', 'Delete');
+    expect(await dialogText()).toBe('Delete remote branch origin/side?');
+    expect(await tracking()).toBeNull();
+    await press('Cancel');
+  });
+
+  it('says why a remote branch wasn’t deleted, in git’s words', async () => {
+    git.remoteFailing = new Error('error: unable to delete');
+    await choose('origin/side', 'Delete');
+    await press('Delete');
+    await expect.poll(() => last()?.title).toBe('Failed to delete remote branch origin/side');
+    expect(last()).toMatchObject({ content: 'error: unable to delete', type: 'error' });
+  });
+
+  it('offers to delete the remote branch a branch deleted alone tracked, unless it’s protected', async () => {
+    git.tracked = 'origin/feature';
+    await choose('feature', 'Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted Branch: feature');
+    const actions = last()?.actions ?? [];
+    expect(actions.map((a) => a.label)).toEqual(['Restore', 'Delete Tracked Branch']);
+    actions[1]?.run();
+    expect(await dialogText()).toBe('Delete remote branch origin/feature?');
+    await press('Delete');
+    await expect
+      .poll(() => host.params('git.deleteRemoteBranch'))
+      .toEqual([{ path: '/r', name: 'origin/feature' }]);
+    // IntelliJ's protected branches, by default.
+    for (const tracked of ['origin/main', 'up/master']) {
+      git.tracked = tracked;
+      host.asked.length = 0;
+      await choose('feature', 'Delete');
+      await expect.poll(() => host.params('git.deleteBranch').length).toBe(1);
+      await expect.poll(() => last()?.actions.map((a) => a.label)).toEqual(['Restore']);
+    }
   });
 });
 

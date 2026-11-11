@@ -2,13 +2,14 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   checkout,
   checkoutDetached,
   continueOperation,
   createBranch,
   deleteBranch,
+  deleteRemoteBranch,
   git,
   mergeBranch,
   rebase,
@@ -133,6 +134,63 @@ describe('branch operations, with real git', () => {
     expect((await deleteBranch(repo, 'merged', git)).unmerged).toBe(false);
     // The branch checked out: git's words.
     await expect(deleteBranch(repo, 'main', git)).rejects.toThrow(/cannot delete branch 'main'/i);
+  });
+
+  it('says which remote branch a branch deleted tracked, if it’s there and the branch alone tracks it', async () => {
+    const repo = repository();
+    const clone = join(root, 'tracking');
+    run(root, 'clone', '-q', repo, clone);
+    run(clone, 'branch', '--track', 'side', 'origin/side');
+    const tip = run(clone, 'rev-parse', 'side').trim();
+    // Merged where it tracks, though not to HEAD: git's -d is enough.
+    expect(await deleteBranch(clone, 'side', git)).toEqual({
+      hash: tip,
+      unmerged: false,
+      tracked: 'origin/side',
+    });
+    // Another branch tracking it too: not proposed.
+    run(clone, 'branch', '--track', 'one', 'origin/side');
+    run(clone, 'branch', '--track', 'two', 'origin/side');
+    expect((await deleteBranch(clone, 'one', git)).tracked).toBeUndefined();
+    // Its remote branch gone: nor then.
+    run(clone, 'update-ref', '-d', 'refs/remotes/origin/side');
+    expect((await deleteBranch(clone, 'two', git)).tracked).toBeUndefined();
+    // Tracking a local branch: nor then.
+    run(clone, 'branch', '--track', 'three', 'main');
+    expect((await deleteBranch(clone, 'three', git)).tracked).toBeUndefined();
+  });
+
+  it('deletes a remote branch there, with the remote commands’ git; prunes one already gone', async () => {
+    const repo = repository();
+    const clone = join(root, 'deleting');
+    run(root, 'clone', '-q', repo, clone);
+    run(repo, 'branch', 'gone', 'side');
+    run(clone, 'fetch', '-q');
+    const remote = vi.fn(git);
+    await deleteRemoteBranch(clone, 'origin/side', remote);
+    expect(remote.mock.calls[0]?.slice(1)).toEqual([
+      ['push', '--end-of-options', 'origin', ':refs/heads/side'],
+      { GIT_TERMINAL_PROMPT: '0' },
+    ]);
+    expect(run(repo, 'branch', '--list', 'side')).toBe('');
+    expect(run(clone, 'branch', '--remotes', '--list', 'origin/side')).toBe('');
+    // Deleted there by someone else: git's own server warns, and it's gone here too (measured).
+    run(repo, 'branch', '-D', 'gone');
+    await deleteRemoteBranch(clone, 'origin/gone', git);
+    expect(run(clone, 'branch', '--remotes', '--list', 'origin/gone')).toBe('');
+    // A server that refuses, in the words IntelliJ looks for: the remote's branches pruned.
+    const refusing = vi.fn((cwd: string, args: readonly string[]) =>
+      args[0] === 'push'
+        ? Promise.reject(new Error("error: unable to delete 'x': remote ref does not exist"))
+        : Promise.resolve(''),
+    );
+    await deleteRemoteBranch(clone, 'origin/x', refusing);
+    expect(refusing.mock.calls[1]?.slice(1)).toEqual([
+      ['remote', 'prune', '--end-of-options', 'origin'],
+      { GIT_TERMINAL_PROMPT: '0' },
+    ]);
+    // Other failures in git's words.
+    await expect(deleteRemoteBranch(clone, 'nowhere/side', git)).rejects.toThrow(/nowhere/);
   });
 
   it('merges a branch into the current one, or says it was up to date', async () => {

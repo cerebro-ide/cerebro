@@ -269,8 +269,17 @@ describe('with real git', () => {
     run(history, 'update-ref', 'refs/remotes/origin/main', 'main');
     run(history, 'symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
     const hash = (ref: string) => run(history, 'rev-parse', ref).trim();
+    // And the branch a local one tracks.
+    run(history, 'config', 'remote.origin.fetch', '+refs/heads/*:refs/remotes/origin/*');
+    run(history, 'config', 'branch.main.remote', 'origin');
+    run(history, 'config', 'branch.main.merge', 'refs/heads/main');
     expect(await listBranches(history)).toEqual([
-      { ref: 'refs/heads/main', hash: hash('main'), current: true },
+      {
+        ref: 'refs/heads/main',
+        hash: hash('main'),
+        current: true,
+        upstream: 'refs/remotes/origin/main',
+      },
       { ref: 'refs/heads/side', hash: hash('side'), current: false },
       { ref: 'refs/remotes/origin/main', hash: hash('main'), current: false },
     ]);
