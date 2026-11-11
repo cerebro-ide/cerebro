@@ -73,6 +73,12 @@ on it:
   feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
   closed a diff window; the file alone passed five times). The trace was overwritten before it was
   read. `findAction` now prints the popup's field, its items and the focus when it fails.
+- **The e2e test of saving when idle saved late again** (#186, run 43084558097, Linux, 2026-11-11;
+  on time on all three OSes in #181's runs before): saved 5.3 s after the edit with the idle time
+  at 1 s, the editor focused, no key, pointer or wheel event after the last key and no long task;
+  no save of the file was slow (over 2 s from asked to written), so it was asked for late, or an
+  earlier one found nothing to save. The page now logs each idle save as it starts, with the files
+  modified then, which the test prints when it fails.
 - **The agent's e2e test "lists its turn … and shows its diff" failed once in five runs**
   (2026-11-11, on the diff viewer's branch, in a full local run; the file alone passed four times):
   which assertion wasn't kept. The next failure's message will say. On macOS in CI (#169, run

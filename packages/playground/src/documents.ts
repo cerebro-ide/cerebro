@@ -342,7 +342,20 @@ export function setupSaving(
     clearTimeout(timer);
     // Read each time: a change in Settings counts from the next key or move.
     const after = idle();
-    if (after !== undefined) timer = setTimeout(save, after);
+    if (after !== undefined) timer = setTimeout(idleSave, after);
+  };
+  /**
+   * Saves when idle, saying so on the console with the files modified then: the e2e test of it has
+   * seen the save come seconds late, no save slow (docs/backlog.md).
+   */
+  const idleSave = () => {
+    void opened().then((docs) => {
+      const modified = docs.filter(([, doc]) => doc.modified.peek()).map(([path]) => path);
+      console.info(
+        `Saving when idle at ${String(Math.round(performance.now()))} ms, modified: ${JSON.stringify(modified)}`,
+      );
+    });
+    save();
   };
   for (const type of ['keydown', 'pointerdown', 'wheel']) {
     window.addEventListener(type, active, { capture: true, passive: true });

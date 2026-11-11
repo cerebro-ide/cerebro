@@ -552,9 +552,21 @@ describe('on its own', () => {
     window.dispatchEvent(new PointerEvent('pointerdown'));
     vi.advanceTimersByTime(900);
     expect(writes('/r/idle.ts')).toEqual([]);
+    const said = vi.spyOn(console, 'info').mockImplementation(() => undefined);
     vi.advanceTimersByTime(100);
     vi.useRealTimers();
     await expect.poll(() => disk.get('/r/idle.ts')).toBe('a1');
+    // Said, with the files modified then; once saved, not it.
+    expect(said.mock.calls[0]?.[0]).toMatch(
+      /^Saving when idle at \d+ ms, modified: \[.*"\/r\/idle\.ts"/,
+    );
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    window.dispatchEvent(new KeyboardEvent('keydown'));
+    vi.advanceTimersByTime(1000);
+    vi.useRealTimers();
+    await expect.poll(() => said.mock.calls.length).toBe(2);
+    expect(String(said.mock.calls[1]?.[0])).not.toContain('/r/idle.ts');
+    said.mockRestore();
     idle = undefined;
     edit(doc, '2');
     window.dispatchEvent(new WheelEvent('wheel'));
