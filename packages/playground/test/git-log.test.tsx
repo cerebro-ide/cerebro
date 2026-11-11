@@ -927,6 +927,8 @@ describe('a commit’s menu', () => {
     expect(items().map((item) => item.textContent)).toEqual([
       'Copy Revision Number',
       'Cherry-Pick',
+      'Go to Child CommitLeft',
+      'Go to Parent CommitRight',
     ]);
     await userEvent.click(items()[0] as HTMLElement);
     expect(write).toHaveBeenCalledWith('c1');
@@ -955,6 +957,116 @@ describe('a commit’s menu', () => {
     expect(given).toMatchObject({ commit: { hash: 'c1' }, worktree: '/r', host, head: 'c0' });
     await given?.refresh();
     expect(host.params('git.log')).toHaveLength(2);
+  });
+});
+
+describe('Go to Parent and Child Commit', () => {
+  /** A merge `m` of `a` and `b`, both from `base`, as `--date-order` lists them. */
+  const merged = (subject = 'Change b'): LogCommit[] => {
+    const [m, a, b, base] = history(4);
+    return [
+      { ...(m as LogCommit), hash: 'm', parents: ['a', 'b'] },
+      { ...(a as LogCommit), hash: 'a', parents: ['base'] },
+      { ...(b as LogCommit), hash: 'b', parents: ['base'], subject },
+      { ...(base as LogCommit), hash: 'base', parents: [] },
+    ];
+  };
+  const selected = () =>
+    document.querySelector('.playground-log__commits .cerebro-tree-row--selected')?.textContent;
+  const items = () => [...document.querySelectorAll<HTMLElement>('.cerebro-menu-item')];
+  const heading = () => document.querySelector('.cerebro-menu-heading')?.textContent;
+  const when = (time: number) => {
+    const date = new Date(time);
+    return `on ${date.toLocaleDateString()} at ${date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}`;
+  };
+
+  it('go to the one there is with Right and Left while the commits have the keyboard, as IntelliJ’s', async () => {
+    git.log = merged();
+    mount();
+    await expect.poll(subjects).toHaveLength(4);
+    expect(services.keymap?.shortcutsFor('log.goToParent')).toEqual(['ArrowRight']);
+    expect(services.keymap?.shortcutsFor('log.goToChild')).toEqual(['ArrowLeft']);
+    await userEvent.click(rows()[1] as HTMLElement);
+    commands.execute('log.goToParent');
+    await expect.poll(selected).toContain('Change 3');
+    await userEvent.click(rows()[2] as HTMLElement);
+    commands.execute('log.goToChild');
+    await expect.poll(selected).toContain('Change 0');
+    expect(document.activeElement).toBe(tree());
+    // Not with the keyboard elsewhere.
+    tree().blur();
+    expect(commands.isEnabled('log.goToChild')).toBe(false);
+  });
+
+  it('choose among several in a numbered popup at the row, as IntelliJ’s', async () => {
+    git.log = merged('A & B, a subject longer than forty characters');
+    mount();
+    await expect.poll(subjects).toHaveLength(4);
+    await userEvent.click(rows()[0] as HTMLElement);
+    commands.execute('log.goToParent');
+    expect(heading()).toBe('Select Parent to Navigate');
+    const time = (git.log[0] as LogCommit).time;
+    expect(items().map((item) => item.textContent)).toEqual([
+      `1. a "Change 1" by Ada ${when(time)}`,
+      `2. b "A & B, a subject longer than forty ch..." by Ada ${when(time)}`,
+    ]);
+    // Its items only from it, not from Find Action.
+    expect(commands.isEnabled('log.adjacent.0')).toBe(false);
+    await userEvent.keyboard('2');
+    await expect.poll(selected).toContain('A & B');
+    await userEvent.click(rows()[3] as HTMLElement);
+    commands.execute('log.goToChild');
+    expect(heading()).toBe('Select Child to Navigate');
+    await userEvent.keyboard('{Escape}');
+    expect(selected()).toContain('Change 3');
+  });
+
+  it('sit last in a commit’s menu, off with none to go to', async () => {
+    git.log = merged();
+    mount();
+    await expect.poll(subjects).toHaveLength(4);
+    (rows()[3] as HTMLElement).dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    const labels = items().map(
+      (item) => item.querySelector('.cerebro-menu-item__label')?.textContent,
+    );
+    expect(labels.slice(-2)).toEqual(['Go to Child Commit', 'Go to Parent Commit']);
+    expect(items().at(-1)?.getAttribute('aria-disabled')).toBe('true');
+    await userEvent.click(items().at(-2) as HTMLElement);
+    expect(heading()).toBe('Select Child to Navigate');
+    await userEvent.keyboard('{Escape}');
+  });
+
+  it('load pages until the parent is there; do nothing if it never is', async () => {
+    git.log = history(PAGE + 1);
+    (git.log[1] as LogCommit).parents = ['gone'];
+    mount();
+    await expect.poll(() => rows().length).toBeGreaterThan(0);
+    const from = (i: number) => ({ commit: git.log[i] });
+    commands.execute('log.goToParent', from(PAGE - 1));
+    await expect.poll(selected).toContain(`Change ${String(PAGE)}`);
+    expect(skips()).toEqual([0, PAGE]);
+    // Not there once all are loaded: nothing.
+    commands.execute('log.goToParent', from(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(selected()).toContain(`Change ${String(PAGE)}`);
+    expect(skips()).toEqual([0, PAGE]);
+  });
+
+  it('list a parent not loaded yet last, by its hash, and load it once chosen', async () => {
+    git.log = history(PAGE + 1);
+    (git.log[0] as LogCommit).parents = ['c1', `c${String(PAGE)}`];
+    mount();
+    await expect.poll(() => rows().length).toBeGreaterThan(0);
+    // From a commit not drawn: the popup at the window's corner.
+    commands.execute('log.goToParent', { commit: git.log[0] });
+    expect(items().map((item) => item.textContent)).toEqual([
+      expect.stringMatching(/^1\. c1 "Change 1"/),
+      `2. c${String(PAGE)}`,
+    ]);
+    await userEvent.keyboard('2');
+    await expect.poll(selected).toContain(`Change ${String(PAGE)}`);
   });
 });
 
