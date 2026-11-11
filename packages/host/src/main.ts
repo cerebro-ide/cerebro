@@ -32,7 +32,7 @@ if (process.argv[2] === 'askpass') {
     });
   });
 } else {
-  watchEventLoop();
+  watchEventLoop("the host's");
   const indexCache = process.env['CEREBRO_INDEX_CACHE'];
   serve(process.stdin, process.stdout, {
     repo: process.env['CEREBRO_REPO'] ?? process.cwd(),

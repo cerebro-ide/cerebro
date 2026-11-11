@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { ErrorCodes } from '@cerebro-ide/protocol';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SLOW_MS } from '@cerebro-ide/host/slow';
 
 type Listener = (...args: unknown[]) => unknown;
 
@@ -138,6 +139,18 @@ describe('Hosts', () => {
         done: 1,
       });
     });
+    // One answered slowly is reported, there and back, on the standard error (`slow.ts`).
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+    const slow = hosts.request(1, '/repo', 'git.commit', {});
+    now.mockReturnValue(SLOW_MS + 1);
+    one.child.stdout.write('{"jsonrpc":"2.0","id":2,"result":null}\n');
+    await slow;
+    expect(error).toHaveBeenCalledWith(
+      `Slow: git.commit from the app to the host of /repo and back took ${String(SLOW_MS + 1)} ms`,
+    );
+    now.mockRestore();
+    error.mockRestore();
     expect(() => hosts.request(2, '/repo', 'host.ping', undefined)).toThrow('no project open');
     expect(() => hosts.request(1, '/other', 'host.ping', undefined)).toThrow(
       'no project open at /other',
