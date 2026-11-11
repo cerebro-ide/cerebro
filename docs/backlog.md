@@ -98,6 +98,21 @@ on it:
   to the host and back ("Slow: git.commit from the app to the host of … and back took …"); and the
   app's own event loop held up is reported, as the host's. Next time, which of these speaks says
   where the time went: in the host's work, on the way, or in the app.
+  The runs after (2026-11-11: #168 run 43003363747 and #171 run 43004785796 on Windows, #169 run
+  43003368712 on macOS) stalled in the same test, the merge never committed in 30 s and the Pull
+  after done 13 to 14 s after its test gave up, and still said nothing: no request was slow, from
+  the app or in the host, nor any event loop held up. Two gaps remained: a report came only once
+  the work ended, so a request still going when the test ended said nothing; and nothing watched the
+  page, where `changes.tsx` sends the commit. And on Linux (#166, run 43003358765) the page stopped
+  taking clicks for the rest of `editing.test.ts` (a click waited "performing click action" until it
+  timed out, and every test after failed). So a request or a git command is now reported once it's
+  been going 5 s, as well as when it ends; the app asks each page for an answer every second and
+  reports one held up over 2 s, with the call stack it was running (Chromium's
+  `collectJavaScriptCallStack`, which needs a `Document-Policy` header the app now adds: measured,
+  a page kept busy 6 s said "held up over 2000 ms", "was running: at spinForever (…)", "answered
+  after 5200 ms"); and every e2e file prints these lines when it ends, failed or not. Electron's own
+  `unresponsive` event never came for a page kept busy 55 s with a click waiting (measured on
+  Linux), so it isn't used.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its

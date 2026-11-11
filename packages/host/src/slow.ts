@@ -15,7 +15,10 @@ const stderr: Log = (message) => {
   console.error(message);
 };
 
-/** Runs `task`, reporting it as `what` if it took longer than `SLOW_MS`. */
+/**
+ * Runs `task`, reporting it as `what` if it took longer than `SLOW_MS`: once that's passed, so one
+ * that never ends is seen too, and when it ends.
+ */
 export async function timed<T>(
   what: string,
   task: () => Promise<T>,
@@ -23,9 +26,14 @@ export async function timed<T>(
   now: () => number = () => performance.now(),
 ): Promise<T> {
   const start = now();
+  const late = setTimeout(() => {
+    log(`Slow: ${what} still going after ${String(SLOW_MS)} ms`);
+  }, SLOW_MS);
+  late.unref();
   try {
     return await task();
   } finally {
+    clearTimeout(late);
     const took = now() - start;
     if (took > SLOW_MS) log(`Slow: ${what} took ${String(Math.round(took))} ms`);
   }
