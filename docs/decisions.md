@@ -68,7 +68,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
-- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore); from Git → Branches… too (changed 2026-11-10)
+- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); from Git → Branches… too (changed 2026-11-11)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number and Options; a click shows the commit in the Log
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -2664,13 +2664,25 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     included (Cerebro's, open to change: whether IntelliJ allows it wasn't checked).
   - **Delete:** a local branch, not the current one; `git branch -d`, then `-D` when it isn't fully
     merged, as IntelliJ deletes. "Deleted Branch: x" ("Unmerged commits were discarded" if so),
-    with Restore, which puts it back where it was.
+    with Restore, which puts it back where it was; and Delete Tracked Branch when the remote branch
+    it tracked is there, no other local branch tracks it, and it isn't protected (main or master,
+    as Push's), as IntelliJ's `GitDeleteBranchOperation` (added 2026-11-11).
+  - **Delete, of a remote branch** (added 2026-11-11), as IntelliJ's
+    `GitDeleteRemoteBranchOperation` and `confirmRemoteBranchDeletion`: asked first, "Delete Remote
+    Branch", "Delete remote branch origin/x?", Delete or Cancel; with "Delete tracking local branch
+    y as well" (or "Delete tracking local branches: y, z"), off to start with, when local branches
+    other than the current one track it. Then a push of nothing to it (`git push origin
+    :refs/heads/x`, the remote commands' git); a server that says the branch isn't there ("remote
+    ref does not exist", the words IntelliJ looks for) has the remote's branches pruned instead
+    (git's own warns and deletes it here: measured). "Deleted remote branch origin/x", with "Also
+    deleted local branch: y" when they went too; "Failed to delete remote branch origin/x" with git's
+    words. No icon in the question (IntelliJ's has its question icon; open to change).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
   now); Checkout and Rebase onto, Compare with Current, Show Diff with Working Tree, Update, Push and
-  Pull from the menu; deleting a remote branch; Checkout Tag or Revision; View Commits and Delete
-  Tracked Branch after a delete; the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
+  Pull from the menu; Checkout Tag or Revision; View Commits after a delete (IntelliJ's shows the
+  commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
 ## Annotate with Git Blame (2026-11-09)
 
