@@ -1268,12 +1268,12 @@ describe('the branches’ toolbar', () => {
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
     // Found again as the Log is read again.
     git.exclusive = { branches: { 'refs/heads/alpha': [me] }, me };
-    await commands.execute('log.refresh');
+    commands.execute('log.refresh');
     await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'alpha']);
     // Where they can't be found, all show.
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     git.exclusive = new Error('fatal: bad object');
-    await commands.execute('log.refresh');
+    commands.execute('log.refresh');
     await expect.poll(() => branchNames().length).toBe(9);
     expect(logged.mock.calls[0]?.[0] as unknown).toBe('Finding my branches failed');
     // Off: all.
