@@ -2,7 +2,7 @@
 // source): the tags there are, for the dialog to say a name is taken; the commit to tag checked;
 // and the tag made, annotated when it has a message.
 
-import type { Git } from './git.js';
+import { porcelainPush, type Git } from './git.js';
 
 /** The worktree's tags' names. */
 export async function listTags(worktree: string, run: Git): Promise<string[]> {
@@ -146,4 +146,21 @@ export async function restoreTag(
   run: Git,
 ): Promise<void> {
   await run(worktree, ['tag', '--', name, hash]);
+}
+
+/**
+ * Pushes a tag to a remote, as IntelliJ's `GitPushTagAction` (the branches popup's Push to): the
+ * tag alone, by its full name, with the remote commands' git (`remote`). Whether it was sent: not
+ * when the remote has it already, there.
+ */
+export async function pushTag(
+  worktree: string,
+  name: string,
+  at: string,
+  remote: Git,
+): Promise<boolean> {
+  const ref = `refs/tags/${name}`;
+  const lines = await porcelainPush(worktree, remote, ['--end-of-options', at, `${ref}:${ref}`]);
+  // "=", up to date.
+  return !lines.some((line) => line.startsWith('=\t'));
 }

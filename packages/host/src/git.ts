@@ -1131,39 +1131,24 @@ export async function push(
     const lease =
       force &&
       (force.lease ?? (await hashOf(worktree, `refs/remotes/${out.remote}/${target}`, run)) ?? '');
-    try {
-      lines = (
-        await run(
-          worktree,
-          [
-            // A line per ref, on its output: the tags it made there ("*" and "[new tag]").
-            'push',
-            '--porcelain',
-            ...(setUpstream && upTo === undefined ? ['--set-upstream'] : []),
-            ...(tags === undefined ? [] : [tags === 'all' ? '--tags' : '--follow-tags']),
-            ...(lease === undefined ? [] : [`--force-with-lease=refs/heads/${target}:${lease}`]),
-            '--end-of-options',
-            out.remote,
-            `${upTo ?? pushedHead(source)}:refs/heads/${target}`,
-          ],
-          { GIT_TERMINAL_PROMPT: '0' },
-        )
-      ).split('\n');
-      // A commit pushed, not a branch: git sets no upstream for it (measured, git 2.43), so it's
-      // set after, the push having made the remote's branch here.
-      if (setUpstream && upTo !== undefined) {
-        await run(worktree, [
-          'branch',
-          `--set-upstream-to=${out.remote}/${target}`,
-          '--end-of-options',
-          out.branch,
-        ]);
-      }
-    } catch (error) {
-      // The refs it couldn't push ("!", with "[rejected]") are on its output, not in its message.
-      const refused = error instanceof GitError ? refusedRefs(error.output) : [];
-      if (refused.length === 0) throw error;
-      throw new Error([...refused, (error as GitError).message].join('\n'), { cause: error });
+    // A line per ref, on its output: the tags it made there ("*" and "[new tag]").
+    lines = await porcelainPush(worktree, run, [
+      ...(setUpstream && upTo === undefined ? ['--set-upstream'] : []),
+      ...(tags === undefined ? [] : [tags === 'all' ? '--tags' : '--follow-tags']),
+      ...(lease === undefined ? [] : [`--force-with-lease=refs/heads/${target}:${lease}`]),
+      '--end-of-options',
+      out.remote,
+      `${upTo ?? pushedHead(source)}:refs/heads/${target}`,
+    ]);
+    // A commit pushed, not a branch: git sets no upstream for it (measured, git 2.43), so it's
+    // set after, the push having made the remote's branch here.
+    if (setUpstream && upTo !== undefined) {
+      await run(worktree, [
+        'branch',
+        `--set-upstream-to=${out.remote}/${target}`,
+        '--end-of-options',
+        out.branch,
+      ]);
     }
   }
   const made = lines.flatMap((line) => /^\*\trefs\/tags\/([^:]+):/.exec(line)?.[1] ?? []);
@@ -1181,3 +1166,24 @@ export async function push(
 
 /** The refs `git push --porcelain` couldn't push, as it says them. */
 const refusedRefs = (output: string) => output.split('\n').filter((line) => line.startsWith('!\t'));
+
+/**
+ * `git push --porcelain` with `args`, without asking in a terminal: its lines, a line per ref. When
+ * it fails, the refs it couldn't push ("!", with "[rejected]"), which are on its output, not in its
+ * message, are put first in the error's.
+ */
+export async function porcelainPush(
+  worktree: string,
+  run: Git,
+  args: readonly string[],
+): Promise<string[]> {
+  try {
+    return (
+      await run(worktree, ['push', '--porcelain', ...args], { GIT_TERMINAL_PROMPT: '0' })
+    ).split('\n');
+  } catch (error) {
+    const refused = error instanceof GitError ? refusedRefs(error.output) : [];
+    if (refused.length === 0) throw error;
+    throw new Error([...refused, (error as GitError).message].join('\n'), { cause: error });
+  }
+}

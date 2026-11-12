@@ -83,6 +83,7 @@ import {
   deleteRemoteTag,
   deleteTag,
   listTags,
+  pushTag,
   resolveRevision,
   restoreTag,
   validRevision,
@@ -926,6 +927,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   connection.onRequest('git.deleteRemoteTag', (params) =>
     deleteRemoteTag(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git, remote),
+  );
+  // The branches popup's Push to, on a tag.
+  connection.onRequest('git.pushTag', (params) =>
+    pushTag(text(params, 'path'), text(params, 'name'), text(params, 'remote'), remote),
   );
   connection.onRequest('git.restoreTag', async (params) => {
     await restoreTag(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git);

@@ -235,6 +235,7 @@ export {
   deleteRemoteTag,
   deleteTag,
   listTags,
+  pushTag,
   resolveRevision,
   restoreTag,
   validRevision,

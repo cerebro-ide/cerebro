@@ -48,6 +48,12 @@ const git = {
   tags: ['v1', 'v2'] as string[] | Error,
   /** Whether the repository has remotes, as its state says. */
   remotes: true,
+  /** Its remotes' names, or why they can't be read. */
+  remoteNames: ['origin', 'upstream'] as string[] | Error,
+  /** What pushing a tag gives (whether it was sent), or the error it fails with. */
+  tagPushed: true as boolean | Error,
+  /** Held until it resolves: a tag's push. */
+  tagPushHeld: undefined as Promise<void> | undefined,
   /** What updating a branch gives, or the error it fails with. */
   updated: {} as { worktree?: string } | Error,
   /** Held until it resolves: the branches' reading. */
@@ -97,6 +103,15 @@ const host = new FakeHost({
   'git.deleteRemoteTag': () => {
     if (git.remoteTag instanceof Error) throw git.remoteTag;
     return git.remoteTag;
+  },
+  'git.remotes': () => {
+    if (git.remoteNames instanceof Error) throw git.remoteNames;
+    return git.remoteNames.map((name) => ({ name, url: `/remotes/${name}` }));
+  },
+  'git.pushTag': async () => {
+    await git.tagPushHeld;
+    if (git.tagPushed instanceof Error) throw git.tagPushed;
+    return git.tagPushed;
   },
   'git.restoreTag': () => {
     if (git.result instanceof Error) throw git.result;
@@ -162,6 +177,8 @@ beforeEach(() => {
   git.tagRemotes = 0;
   git.remoteTag = { deleted: [], failed: [] };
   git.remotes = true;
+  git.remoteNames = ['origin', 'upstream'];
+  git.tagPushed = true;
   git.updated = {};
 });
 
@@ -248,12 +265,14 @@ describe('the branches popup', () => {
     await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
   });
 
-  it('a tag’s menu: Checkout, Merge and Delete, as IntelliJ’s', async () => {
+  it('a tag’s menu: Checkout, Merge, Push to each remote, and Delete, as IntelliJ’s', async () => {
     await popup();
     expect(await branchMenu('v1')).toEqual([
       'Checkout',
       'Show Diff with Working Tree',
       "Merge 'v1' into 'main'",
+      'Push to origin',
+      'Push to upstream',
       'Delete',
     ]);
     await closeAll();
@@ -1196,6 +1215,58 @@ describe('Push', () => {
     await choose('main', 'Push…');
     expect(commands.isEnabled('git.branch.push')).toBe(false);
     await expect.poll(() => host.params('git.outgoing').at(-1)).toEqual({ path: '/r' });
+  });
+});
+
+describe('a tag’s Push to', () => {
+  it('pushes the tag to the remote chosen, and says how it went, as IntelliJ’s', async () => {
+    await choose('v1', 'Push to upstream');
+    await expect.poll(() => last()?.title).toBe('Pushed tag v1 to upstream');
+    expect(host.params('git.pushTag')).toEqual([{ path: '/r', name: 'v1', remote: 'upstream' }]);
+    git.tagPushed = false;
+    await choose('v2', 'Push to origin');
+    await expect.poll(() => last()?.title).toBe('Everything is up to date');
+    // Refused: where, in IntelliJ's words; failed: git's.
+    git.tagPushed = new Error('!\trefs/tags/v1:refs/tags/v1\t[rejected] (already exists)');
+    await choose('v1', 'Push to origin');
+    await expect.poll(() => last()?.title).toBe('Push rejected');
+    expect(last()?.content).toBe('Push to origin was rejected');
+    git.tagPushed = new Error('fatal: unable to access');
+    await choose('v1', 'Push to origin');
+    await expect.poll(() => last()?.title).toBe('Push failed');
+    expect(last()?.content).toBe('fatal: unable to access');
+    // Off without a tag, as Find Action asks, and for a branch.
+    const v1 = { name: 'v1', remote: false, tag: true };
+    expect(commands.isEnabled('git.tag.push.origin', v1)).toBe(true);
+    expect(commands.isEnabled('git.tag.push.origin')).toBe(false);
+    expect(commands.isEnabled('git.tag.push.origin', { name: 'main', remote: false })).toBe(false);
+  });
+
+  it('is off while a push runs', async () => {
+    let finish = () => undefined as unknown;
+    git.tagPushHeld = new Promise<void>((resolve) => (finish = resolve));
+    await choose('v1', 'Push to origin');
+    const v1 = { name: 'v1', remote: false, tag: true };
+    await expect.poll(() => commands.isEnabled('git.tag.push.origin', v1)).toBe(false);
+    finish();
+    await expect.poll(() => commands.isEnabled('git.tag.push.origin', v1)).toBe(true);
+    git.tagPushHeld = undefined;
+  });
+
+  it('follows the remotes: one per remote; none where they can’t be read', async () => {
+    git.remoteNames = ['fork'];
+    await popup();
+    expect(await branchMenu('v1')).toContain('Push to fork');
+    expect(commands.get('git.tag.push.origin')).toBeUndefined();
+    await closeAll();
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.remoteNames = new Error('fatal: not a git repository');
+    await popup();
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the remotes failed');
+    await expect.poll(() => commands.get('git.tag.push.fork')).toBeUndefined();
+    expect(await branchMenu('v1')).not.toContain('Push to fork');
   });
 });
 
