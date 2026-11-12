@@ -303,6 +303,11 @@ describe('ToolbarDropdown', () => {
     const x = () => document.querySelector<HTMLElement>('.cerebro-toolbar-dropdown__clear');
     expect(button.querySelector('.cerebro-toolbar-dropdown__chevron')).toBeNull();
     expect(x()?.getAttribute('aria-label')).toBe('Clear Choice');
+    // Its tooltip, as IntelliJ's: Clear, and Delete, which clears it too.
+    await userEvent.hover(x() as HTMLElement);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('ClearDelete');
     await userEvent.click(x() as HTMLElement);
     expect(cleared).toEqual(['x']);
     expect(menus()).toEqual([]);

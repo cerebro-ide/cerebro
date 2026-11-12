@@ -9,7 +9,7 @@
 //   popup of the app's (a searchable picker, as IntelliJ's branch popup). An optional badge (a
 //   name's initials on a colour from it, as IntelliJ's project widget) can lead the label.
 
-import { displayText, type CommandRegistry } from '@cerebro-ide/commands';
+import { displayText, formatChord, type CommandRegistry } from '@cerebro-ide/commands';
 import type { Child } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
 import { openMenu, type MenuHandle, type MenuServices } from '@cerebro-ide/ui-menu';
@@ -91,7 +91,10 @@ export interface ToolbarDropdownProps {
   text: () => string;
   /** For the tooltip and screen readers (but a filter's text has it): what is being chosen. */
   label: string;
-  /** The tooltip, when it's more than the label: the Paths filter's, its paths in full. */
+  /**
+   * The tooltip in place of the label, none when empty: a filter's value in full while it's on, as
+   * IntelliJ's (the Paths filter's paths).
+   */
   tooltip?: () => string;
   /** Leads the label: an icon, or a badge with a name's initials. */
   icon?: Child;
@@ -203,7 +206,12 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
             type="button"
             class="cerebro-toolbar-dropdown__clear"
             aria-label={`Clear ${props.label}`}
-            ref={tooltip({ text: () => 'Clear', placement: 'below' })}
+            ref={tooltip({
+              text: () => 'Clear',
+              // IntelliJ's: the Delete action's first shortcut, which clears it too.
+              shortcut: () => formatChord('Delete', props.services.keymap?.platform ?? 'other'),
+              placement: 'below',
+            })}
             on:click={run}
           >
             {glyph('', 'M5 5l6 6M11 5l-6 6')}

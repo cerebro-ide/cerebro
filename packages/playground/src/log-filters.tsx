@@ -80,6 +80,9 @@ export function rememberChoice(worktree: string, filter: string, values: readonl
 /** The User filter's text: its values, "me" for the user, between bars, cut short. */
 export const usersText = (values: readonly string[]): string => displayable(shown(values));
 
+/** The User filter's tooltip while it's on, as IntelliJ's: every value, between commas. */
+export const usersTooltip = (values: readonly string[]): string => shown(values).join(', ');
+
 type UserChoice = PickerItem & { values?: string[] };
 
 /** What the User popup needs: the authors, and what to do with a choice. */
