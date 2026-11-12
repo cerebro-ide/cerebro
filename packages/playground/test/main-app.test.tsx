@@ -1244,7 +1244,9 @@ describe('saving', () => {
     expect(String(logged.mock.calls[0]?.[0])).toContain('EROFS');
     answers.set('fs.read', new Error('ENOENT'));
     answers.set('fs.exists', false);
-    await userEvent.click(await vi.waitUntil(code));
+    // Not through `vi.waitUntil`, which ticks the fake clock (50 ms a check, measured in Vitest's
+    // source): a tick onto the documents' reading again (every 2 s) would close the tabs first.
+    await userEvent.click(code() as HTMLElement);
     await userEvent.keyboard('{Control>}s{/Control}');
     await expect.poll(tabs).not.toContain('/r/src/a.ts');
   });
