@@ -378,6 +378,8 @@ export function setupBranches(
     visible: (b) => !isCurrent(b) && elsewhere(b) === undefined,
     enabled: given,
     run: (b) => {
+      const name = b.remote ? b.name.replace(/^[^/]*\//, '') : b.name;
+      if (b.remote && branches.peek().local.includes(name)) return checkoutInto(b.name, name);
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
         // A tag's commit, HEAD detached at it, as IntelliJ's (`GitCheckoutAction`).
@@ -392,6 +394,60 @@ export function setupBranches(
       });
     },
   });
+  /**
+   * A remote branch checked out where its local branch exists, as IntelliJ's
+   * (`GitRemoteBranchCheckoutUtil`, `GitBranchCheckoutOperation`): one that tracks another branch
+   * isn't taken over, a new branch's name asked for instead; otherwise it's moved to the remote
+   * branch and checked out, after asking, when it has commits of its own, whether to rebase them
+   * onto it or drop them.
+   */
+  const checkoutInto = (remote: string, name: string) => {
+    const tracked = branches.peek().upstreams.get(name);
+    if (tracked !== undefined && tracked !== `refs/remotes/${remote}`) {
+      return newBranch(remote, `Checkout ${remote}`, name);
+    }
+    return operate(`Could not checkout ${remote}`, async (host, worktree) => {
+      const own = (await host.request('git.hasCommitsNotIn', {
+        path: worktree,
+        branch: name,
+        of: remote,
+      })) as boolean;
+      const how = own
+        ? await openDialog<'rebase' | 'drop'>({
+            title: `Checkout ${remote}`,
+            content: () => (
+              <p class="cerebro-selectable">
+                Local branch '{name}' has commits that do not exist in '{remote}'. Rebase '{name}'
+                onto '{remote}', or drop local commits?
+              </p>
+            ),
+            ok: { label: 'Rebase onto Remote', accept: () => 'rebase' },
+            choices: [{ label: 'Drop Local Commits', accept: () => 'drop' }],
+          }).result
+        : 'drop';
+      if (how === undefined) return;
+      await saveBeforeGit();
+      if (how === 'rebase') {
+        const done = `Checked out ${name} and rebased it on ${remote}`;
+        const result = await host.request('git.rebase', {
+          path: worktree,
+          upstream: remote,
+          branch: name,
+        });
+        if (result === 'conflicts') await continueRebase(host, worktree, 'stopped', done);
+        else notifications.notify({ title: 'Rebase successful', content: done });
+        return;
+      }
+      await host.request('git.createBranch', {
+        path: worktree,
+        name,
+        from: remote,
+        checkout: true,
+        overwrite: true,
+      });
+      notifications.notify({ content: `Checked out ${name}` });
+    });
+  };
   commands.register({
     id: 'git.checkoutRevision',
     label: 'Checkout Tag or Revision',

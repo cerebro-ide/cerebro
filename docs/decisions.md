@@ -3178,6 +3178,15 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
   Rename…, Delete.
   - **Checkout:** not the current branch. A remote one is checked out as a local branch tracking
     it (`git checkout --track`). "Checked out x", or "Could not checkout x" with git's words.
+    Where its local branch exists (changed 2026-11-12; before, git's "already exists"), as
+    IntelliJ's (`GitRemoteBranchCheckoutUtil`, `GitBranchCheckoutOperation`, read from their
+    source): one tracking another branch isn't taken over: the New Branch dialog, "Checkout
+    origin/x", asks for a name. Otherwise the local branch is moved to the remote one and checked
+    out (`git checkout -B x origin/x`); when it has commits the remote one hasn't (`git rev-list
+    --count`), IntelliJ's question first: "Local branch 'x' has commits that do not exist in
+    'origin/x'. Rebase 'x' onto 'origin/x', or drop local commits?", with Rebase onto Remote (`git
+    rebase origin/x x`, conflicts as Rebase's, "Rebase successful" as Checkout and Rebase's,
+    open to change), Drop Local Commits, and Cancel.
   - **Open Worktree:** a branch checked out in another worktree (git won't check it out twice)
     opens or shows that worktree's environment instead of checking out (Ido's choice).
   - **New Branch… and New Branch from 'x'…:** IntelliJ's Create New Branch dialog: Branch Name,
@@ -3283,7 +3292,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
   now); View Commits after a
-  delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
+  delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)
 
