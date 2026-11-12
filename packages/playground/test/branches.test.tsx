@@ -1188,7 +1188,9 @@ describe('Push', () => {
     await expect
       .poll(() => host.params('git.outgoing'))
       .toEqual([{ path: '/r', source: 'feature' }]);
-    await expect.poll(() => logged.mock.calls[0]?.[0] as unknown).toBe('Reading what to push failed');
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading what to push failed');
     await choose('main', 'Push…');
     expect(commands.isEnabled('git.branch.push')).toBe(false);
     await expect.poll(() => host.params('git.outgoing').at(-1)).toEqual({ path: '/r' });
