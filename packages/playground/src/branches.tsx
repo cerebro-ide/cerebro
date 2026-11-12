@@ -448,6 +448,36 @@ export function setupBranches(
     },
   });
   commands.register<BranchRef>({
+    // IntelliJ's (`GitCheckoutWithRebaseAction`): `git rebase HEAD <branch>`; a remote branch's
+    // local branch made first, tracking it (`GitCheckoutAndRebaseRemoteBranchWorkflow`).
+    id: 'git.branch.checkoutRebase',
+    label: 'Checkout and Rebase onto Current',
+    text: () => `Checkout and Rebase onto ${quoted(current())}`,
+    visible: (b) => !isCurrent(b) && !b.tag && elsewhere(b) === undefined,
+    run: (b) => {
+      const name = b.remote ? b.name.replace(/^[^/]*\//, '') : b.name;
+      const done = `Checked out ${name} and rebased it on ${current()}`;
+      return operate('Checkout and Rebase failed', async (host, worktree) => {
+        if (b.remote) {
+          await host.request('git.createBranch', {
+            path: worktree,
+            name,
+            from: b.name,
+            checkout: false,
+            overwrite: false,
+          });
+        }
+        const result = await host.request('git.rebase', {
+          path: worktree,
+          upstream: 'HEAD',
+          branch: name,
+        });
+        if (result === 'conflicts') await continueRebase(host, worktree, 'stopped', done);
+        else notifications.notify({ title: 'Rebase successful', content: done });
+      });
+    },
+  });
+  commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
@@ -759,7 +789,15 @@ export function setupBranches(
   );
   // IntelliJ's order (`Git.Branch.Backend.Checkout`, `Git.Branch.Backend`), what's here of it.
   const groups: [string, string[]][] = [
-    ['a', ['git.branch.checkout', 'git.branch.openWorktree', 'git.branch.newFrom']],
+    [
+      'a',
+      [
+        'git.branch.checkout',
+        'git.branch.openWorktree',
+        'git.branch.newFrom',
+        'git.branch.checkoutRebase',
+      ],
+    ],
     ['ab', ['git.branch.compare']],
     ['b', ['git.branch.rebase', 'git.branch.merge']],
     ['c', ['git.branch.rename', 'git.branch.delete']],
