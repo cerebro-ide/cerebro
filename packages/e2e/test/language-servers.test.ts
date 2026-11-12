@@ -31,6 +31,14 @@ const where = async () => ({
   line: await page().locator('.cm-activeLine').first().textContent(),
 });
 
+/** What has the focus, inside shadow roots too: its tag and classes. */
+const focused = () =>
+  page().evaluate(() => {
+    let element = document.activeElement;
+    while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+    return element ? `${element.tagName}.${element.className}` : null;
+  });
+
 /** Opens a file with Go to File, the caret at the start of a line holding `text`. */
 async function openAt(name: string, text: string): Promise<void> {
   // A popup left open (an earlier test's late name matches, a claim: two Windows runs failed every
@@ -56,6 +64,20 @@ async function openAt(name: string, text: string): Promise<void> {
 async function untilAnswered(keys: string, answered: () => Promise<boolean>): Promise<void> {
   let presses = 0;
   let pressed = 0;
+  // Where the page was at each press and after it, printed if no answer comes: a macOS run (#228)
+  // ended with lib.py's tab active, the focus on the body and a popup of name matches open.
+  const trail: string[] = [];
+  const note = async (when: string) => {
+    trail.push(
+      `${when}: ${JSON.stringify({
+        ...(await where()),
+        focus: await focused(),
+        popup: await popup()
+          .getAttribute('aria-label', { timeout: 200 })
+          .catch(() => null),
+      })}`,
+    );
+  };
   await expect
     .poll(
       async () => {
@@ -65,18 +87,25 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
         if (await answered()) return true;
         presses++;
         pressed = Date.now();
+        await note(`before ${keys} #${String(presses)}`);
         await page().keyboard.press(keys);
         await page().waitForTimeout(500);
+        await note('after');
         const names = await popup().getByText('Name matches').count();
         if (names > 0) {
           await page().keyboard.press('Escape');
+          await note('after Escape');
           return false;
         }
         return answered();
       },
       { timeout: 30_000, interval: 1_000 },
     )
-    .toBeTruthy();
+    .toBeTruthy()
+    .catch((error: unknown) => {
+      console.log(`The presses of ${keys}:\n${trail.join('\n')}`);
+      throw error;
+    });
   // An earlier press's answer may still come, and go there again after the next test has moved on
   // (a Windows run went back to lib.sh from scope.ts): it's waited for, as long as the host waits.
   if (presses > 1) await page().waitForTimeout(Math.max(0, pressed + 3_500 - Date.now()));
@@ -128,11 +157,7 @@ async function explain(
   // And where the page is: the tab and line, what has the focus, and any popup.
   const state = {
     ...(await where()),
-    focus: await page().evaluate(() => {
-      let element = document.activeElement;
-      while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
-      return element ? `${element.tagName}.${element.className}` : null;
-    }),
+    focus: await focused(),
     popup: await popup()
       .first()
       .textContent({ timeout: 1_000 })
