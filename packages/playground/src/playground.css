@@ -787,6 +787,23 @@ body,
   font-weight: 600;
 }
 
+/* File Revisions' commit message, below its list, as IntelliJ's (`createCommentsPanel`). */
+.playground-revisions__message {
+  border-top: 1px solid var(--cerebro-separator);
+  padding: 4px 8px;
+}
+
+.playground-revisions__label {
+  color: var(--cerebro-text-muted);
+  margin-bottom: 4px;
+}
+
+.playground-revisions__text {
+  white-space: pre-wrap;
+  max-height: 6em;
+  overflow: auto;
+}
+
 .playground-recent__edited {
   display: flex;
   align-items: center;

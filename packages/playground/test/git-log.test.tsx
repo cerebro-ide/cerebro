@@ -7,9 +7,9 @@ import type { Tab } from '@cerebro-ide/layout';
 import { userEvent } from 'vitest/browser';
 import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import type { Change } from '../src/changes.js';
+import { formatCommitDate } from '../src/dates.js';
 import {
   EMPTY_TREE,
-  formatCommitDate,
   GitLogView,
   matchRanges,
   PAGE,

@@ -25,6 +25,7 @@ import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-tool
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
+import { formatCommitDate } from './dates.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
 import { branchField } from './git-options.js';
@@ -91,22 +92,6 @@ export function refsOf(decorations: readonly string[]): Ref[] {
     }
   }
   return refs.sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
-}
-
-const sameDay = (a: Date, b: Date) =>
-  a.getFullYear() === b.getFullYear() &&
-  a.getMonth() === b.getMonth() &&
-  a.getDate() === b.getDate();
-
-/** A commit's date as IntelliJ's Log shows it: today's and yesterday's by name, with the time. */
-export function formatCommitDate(time: number, now = Date.now()): string {
-  const date = new Date(time);
-  const clock = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  const today = new Date(now);
-  if (sameDay(date, today)) return `Today ${clock}`;
-  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
-  if (sameDay(date, yesterday)) return `Yesterday ${clock}`;
-  return date.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
 }
 
 /** A lane's width, and a row's height (the tree's), in pixels. */

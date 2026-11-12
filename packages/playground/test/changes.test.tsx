@@ -79,6 +79,22 @@ const host = new FakeHost({
     { ref: 'refs/remotes/origin/HEAD', current: false },
     { ref: 'refs/remotes/origin/main', current: false },
   ],
+  'git.log': ({ filter }: { filter: { paths: string[] } }) => {
+    fails('git.log');
+    const commit = (hash: string, subject: string, body: string) => ({
+      hash,
+      parents: [],
+      author: 'Ada',
+      email: 'ada@x.org',
+      time: 0,
+      subject,
+      body,
+      refs: [],
+    });
+    return filter.paths[0] === 'src/main/app.ts'
+      ? [commit('b'.repeat(40), 'Second', 'Why it changed'), commit('a'.repeat(40), 'First', '')]
+      : [];
+  },
   'git.tags': () => {
     fails('git.tags');
     return ['v1.0'];
@@ -574,6 +590,62 @@ describe('Git → Current File → Show Diff', () => {
       // As IntelliJ's AnnotateToggleAction.
       expect(commands.get('vcs.annotate')?.visible?.(undefined)).toBe(on);
     }
+  });
+});
+
+describe('Git → Current File → Compare with Revision…', () => {
+  it('shows the file as it is against one of its commits, chosen in File Revisions', async () => {
+    const id = 'git.file.compareWithRevision';
+    expect(commands.get(id)?.visible?.(undefined)).toBe(false);
+    activeTab = `${wt}/src/main/app.ts`;
+    expect(commands.isEnabled(id)).toBe(true);
+    commands.execute(id);
+    expect(await popupItems()).toEqual(['b'.repeat(40), 'a'.repeat(40)]);
+    expect(document.querySelector('.playground-popup__title')?.textContent).toBe('File Revisions');
+    // The highlighted one's message below.
+    const message = () => document.querySelector('.playground-revisions__text')?.textContent;
+    await expect.poll(message).toBe('Second\n\nWhy it changed');
+    // Searched by its author too.
+    await userEvent.keyboard('Ada');
+    await expect.poll(popupItems).toHaveLength(2);
+    await userEvent.keyboard('{ArrowDown}');
+    await expect.poll(message).toBe('First');
+    await userEvent.keyboard('{Enter}');
+    expect(opened.at(-1)).toEqual(diffTab('src/main/app.ts', { from: 'a'.repeat(40) }));
+    // None to list (no commit has it yet): no message, and Escape opens nothing.
+    activeTab = `${wt}/unchanged.ts`;
+    commands.execute(id);
+    expect(await popupItems()).toEqual([]);
+    expect(document.querySelector('.playground-revisions__message')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(opened).toHaveLength(1);
+    // IntelliJ's order (`Git.FileActions`), Annotate aside.
+    const items = menus
+      .entries('main/git/file')
+      .flatMap((e) => ('command' in e && e.command.startsWith('git.file.') ? [e.command] : []));
+    expect(items).toEqual([
+      'git.file.showDiff',
+      'git.file.compareWithRevision',
+      'git.file.compareWithBranch',
+    ]);
+  });
+
+  it('is off when Show Diff is: for a file git hasn’t committed', async () => {
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled('git.file.compareWithRevision')).toBe(false);
+  });
+
+  it('says on the console when the revisions can’t be read', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    git.failing = 'git.log';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    commands.execute('git.file.compareWithRevision');
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the file’s revisions failed');
+    logged.mockRestore();
   });
 });
 
