@@ -53,13 +53,13 @@ async function seen(): Promise<void> {
 }
 
 /** How long `done` takes to hold after a test gave up on it, up to a minute: slow, or stuck. */
-async function measure(done: () => boolean): Promise<void> {
+async function measure(done: () => boolean | Promise<boolean>): Promise<void> {
   const start = performance.now();
-  while (!done() && performance.now() - start < 60_000) {
+  while (!(await done()) && performance.now() - start < 60_000) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   console.log(
-    done()
+    (await done())
       ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
       : 'Still not done a minute after the test gave up',
   );
@@ -295,7 +295,7 @@ it('commits and pushes, with Commit and Push…, to the branch’s upstream', as
 // Git for Windows and macOS's git have git's HTTP backend; a git without it can't serve the test.
 it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password', async () => {
   // The remote, now behind a login.
-  const { url, server } = await gitServer(root, 'ido', 'secret');
+  const { url, server, requests } = await gitServer(root, 'ido', 'secret');
   git('remote', 'set-url', 'origin', `${url}/remote.git`);
   const push = async (subject: string) => {
     writeFileSync(join(repo, 'pushed.txt'), subject);
@@ -317,7 +317,17 @@ it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password'
     });
   await push('Logged in');
   const login = page().locator('.cerebro-dialog', { hasText: 'Log In to' });
-  await login.waitFor({ timeout: 15_000 });
+  try {
+    await login.waitFor({ timeout: 15_000 });
+  } catch (error) {
+    // Not asked in time on macOS in CI, once (#233, 2026-11-12), and Push stayed busy for the
+    // tests after: what was seen, whether git reached the server, and whether it asked later.
+    await seen();
+    console.log('Requests:', requests);
+    await measure(() => login.isVisible());
+    console.log('Requests by then:', requests);
+    throw error;
+  }
   await page().keyboard.type('ido');
   await login.locator('input[type=password]').fill('secret');
   await login.locator('.cerebro-dialog__button', { hasText: 'Log In' }).click();
