@@ -973,6 +973,12 @@ describe('the Log’s branches pane', () => {
     await expect.poll(() => last()?.title).toBe('Failed to delete tag v2 on Remotes');
     expect(last()).toMatchObject({ content: 'moved: rejected (stale info)', type: 'error' });
     expect(notifications.all.get(1)?.title).toBe('Deleted Tag on Remotes: v2');
+    // Failed on every remote that has it: the failure alone.
+    git.remoteTag = { deleted: [], failed: [{ remote: 'moved', error: 'rejected' }] };
+    const before = notifications.all.length;
+    two?.actions[1]?.run();
+    await expect.poll(() => notifications.all.length).toBe(before + 1);
+    expect(last()).toMatchObject({ title: 'Failed to delete tag v2 on Remotes', type: 'error' });
     git.remoteTag = new Error('fatal: no such remote');
     one?.actions[1]?.run();
     await expect.poll(() => last()?.content).toBe('fatal: no such remote');
