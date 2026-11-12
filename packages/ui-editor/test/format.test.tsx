@@ -160,4 +160,15 @@ describe('Reformat Code', () => {
     expect(historyNamesIn(content)?.undo).toBe('Reindent File with 2 Spaces');
     expect(reindentIn(document.body, 'Reindent')).toBe(false);
   });
+
+  it('reindents the whole file, though CodeMirror hasn’t parsed it all yet', () => {
+    // Parsed as it opens up to a time budget, the rest later: lines past what's parsed get no
+    // indentation, and kept theirs (main-browser's test once found a tab left, in CI on #233).
+    const block = 'if (a) {\n\tb();\n}\n';
+    const doc = new EditorDocument(block.repeat(20_000));
+    const root = mount({ document: doc, indent: () => ({ tabs: false, size: 2 }) });
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    reindentIn(content, 'Reindent File with 2 Spaces');
+    expect(doc.text.peek().toString()).not.toContain('\t');
+  });
 });
