@@ -9,6 +9,7 @@ import {
   deleteTag,
   git,
   listTags,
+  pushTag,
   resolveRevision,
   restoreTag,
   validRevision,
@@ -154,5 +155,20 @@ describe('a tag deleted on the remotes, with real git', () => {
       deleted: [],
       failed: [{ remote: 'moved', error: expect.stringMatching(/stale info/) as string }],
     });
+  });
+
+  it('pushes a tag alone to a remote; not again when it has it; says why one has it elsewhere', async () => {
+    run(work, 'tag', 'v2', 'HEAD~1');
+    expect(await pushTag(work, 'v2', 'other', git)).toBe(true);
+    expect(run(at('other'), 'tag')).toBe('v2');
+    // The tag alone: not the branch.
+    expect(run(at('other'), 'branch')).toBe('');
+    expect(await pushTag(work, 'v2', 'other', git)).toBe(false);
+    // `moved` has v2 elsewhere: git refuses, and the ref it refused comes first.
+    run(work, 'push', '-q', 'moved', 'HEAD:refs/tags/v2');
+    run(work, 'tag', '-f', 'v2', 'HEAD~1');
+    await expect(pushTag(work, 'v2', 'moved', git)).rejects.toThrow(
+      /^!\trefs\/tags\/v2:refs\/tags\/v2\t\[rejected\] \(already exists\)/,
+    );
   });
 });

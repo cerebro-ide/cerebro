@@ -1219,6 +1219,22 @@ describe('ignored files and rolling back', () => {
       await ui.request('git.deleteRemoteTag', { path: '/w', name: 'v1', hash: 'abc1234' }),
     ).toEqual({ deleted: [], failed: [] });
     expect(git).toHaveBeenCalledWith('/w', ['tag', '--delete', '--', 'v1']);
+    // Pushed, as the branches popup's Push to: with the remote commands' git, which asks.
+    expect(await ui.request('git.pushTag', { path: '/w', name: 'v1', remote: 'origin' })).toBe(
+      true,
+    );
+    const pushed = git.mock.calls.find(([, args]) => bare(args)[0] === 'push');
+    expect(bare(pushed?.[1] ?? [])).toEqual([
+      'push',
+      '--porcelain',
+      '--end-of-options',
+      'origin',
+      'refs/tags/v1:refs/tags/v1',
+    ]);
+    expect(pushed?.[2]).toMatchObject({
+      GIT_TERMINAL_PROMPT: '0',
+      GIT_ASKPASS: expect.any(String) as string,
+    });
     expect(await ui.request('git.restoreTag', { path: '/w', name: 'v1', hash: 'abc1234' })).toBe(
       null,
     );

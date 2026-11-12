@@ -22,6 +22,7 @@ for (const method of [
   'fs.list',
   'git.files',
   'git.branches',
+  'git.remotes',
   'git.changes',
   'git.ignored',
   'git.shelves',

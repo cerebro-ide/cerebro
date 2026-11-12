@@ -3227,8 +3227,15 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     pane's: unasked, with Restore and Delete on Remote). A row that's neither checked out nor a
     favorite has a branch's icon, or a tag's, as IntelliJ's (`GitBranchesTreeIconProvider`: its
     `BranchNode` and `BranchLabel`; the drawings are the Log's branches pane's), which the muted
-    star takes the place of on the row highlighted; before, such a row had no icon. **Not yet:**
-    its Push Tag; tags grouped by directory (the popup groups
+    star takes the place of on the row highlighted; before, such a row had no icon. **Push to**
+    (added 2026-11-12), one per remote ("Push to origin"), after Merge, as IntelliJ's
+    (`GitPushTagsActionGroup`, `GitPushTagAction`, read from their source): the tag alone, `git push
+    origin refs/tags/v1:refs/tags/v1`, asking for a login as a push does, "Pushing…" meanwhile and
+    off while a push runs. How it went in IntelliJ's push words: "Pushed tag v1 to origin",
+    "Everything is up to date" (the remote has it there already), "Push rejected" with "Push to
+    origin was rejected" (it has it elsewhere: git's "already exists"), or "Push failed" with git's
+    words. The remotes are read with the branches; where they can't be, there's no Push to.
+    **Not yet:** IntelliJ's submenu from six remotes on; tags grouped by directory (the popup groups
     nothing yet).
   - **Checkout and Rebase onto Current** (added 2026-11-12), after New Branch from, as IntelliJ's
     (`GitCheckoutWithRebaseAction`, read from its source; its words "Checkout and Rebase onto

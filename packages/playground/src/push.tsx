@@ -982,19 +982,52 @@ export async function openPush(
     notifications.notify({ title: pushedText(pushed, out.branch as string), group: 'push' });
   } catch (error) {
     const { message } = error as Error;
-    const rejected = message.includes('[rejected]');
-    notifications.notify({
-      title: rejected ? 'Push rejected' : 'Push failed',
-      // IntelliJ's words; a force push's when the remote's branch wasn't where it was expected.
-      content: message.includes('(stale info)')
+    pushFailed(
+      message,
+      // A force push's when the remote's branch wasn't where it was expected.
+      message.includes('(stale info)')
         ? `Force-with-lease push ${out.branch as string} to ${where} was rejected`
-        : rejected
-          ? `Push to ${where} was rejected`
-          : message,
-      type: rejected ? 'warning' : 'error',
-      display: 'sticky',
+        : `Push to ${where} was rejected`,
+    );
+  } finally {
+    pushing.set(false);
+  }
+}
+
+/**
+ * A push that failed, in IntelliJ's words: "Push rejected", saying what was, when git refused a
+ * ref; else "Push failed", with git's. Either stays.
+ */
+function pushFailed(message: string, rejection: string): void {
+  const rejected = message.includes('[rejected]');
+  notifications.notify({
+    title: rejected ? 'Push rejected' : 'Push failed',
+    content: rejected ? rejection : message,
+    type: rejected ? 'warning' : 'error',
+    display: 'sticky',
+    group: 'push',
+  });
+}
+
+/**
+ * A tag pushed to a remote, as IntelliJ's `GitPushTagAction` (the branches popup's Push to): the
+ * tag alone, "Pushing…" meanwhile; how it went, as a push's.
+ */
+export async function pushTag(
+  host: Host,
+  worktree: string,
+  name: string,
+  remote: string,
+): Promise<void> {
+  pushing.set(true);
+  try {
+    const sent = (await host.request('git.pushTag', { path: worktree, name, remote })) as boolean;
+    notifications.notify({
+      title: sent ? `Pushed tag ${name} to ${remote}` : 'Everything is up to date',
       group: 'push',
     });
+  } catch (error) {
+    pushFailed((error as Error).message, `Push to ${remote} was rejected`);
   } finally {
     pushing.set(false);
   }

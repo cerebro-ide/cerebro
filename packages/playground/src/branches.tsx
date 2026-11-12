@@ -8,13 +8,13 @@
 // Project's does.
 
 import type { EnvironmentSpec } from '@cerebro-ide/layout';
-import { signal } from '@cerebro-ide/reactive';
+import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
-import { openPush } from './push.js';
+import { isProtected, openPush, pushTag, pushing } from './push.js';
 import { updateProject } from './update.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
@@ -27,7 +27,6 @@ import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
 import { branchName, isTag, paneSettings, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
-import { isProtected } from './push.js';
 import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
@@ -48,12 +47,13 @@ interface HostBranch {
 /**
  * The active worktree's branches, as last read; the current one, undefined when detached; and the
  * branch each local one tracks, in full, if any. Its tags too, while the Branches settings' Show
- * Tags is on.
+ * Tags is on; and its remotes' names, which a tag can be pushed to.
  */
 interface Branches {
   local: string[];
   remote: string[];
   tags: string[];
+  remotes: string[];
   current: string | undefined;
   upstreams: ReadonlyMap<string, string>;
 }
@@ -62,13 +62,14 @@ const branches = signal<Branches>({
   local: [],
   remote: [],
   tags: [],
+  remotes: [],
   current: undefined,
   upstreams: new Map(),
 });
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
-  const [list, tags] = await Promise.all([
+  const [list, tags, remotes] = await Promise.all([
     host.request('git.branches', { worktree }) as Promise<HostBranch[]>,
     // Where the tags can't be read, the branches show without them.
     paneSettings.showTags.peek()
@@ -79,6 +80,14 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
           },
         )
       : [],
+    // Where they can't be read, a tag's menu has no Push to.
+    (host.request('git.remotes', { path: worktree }) as Promise<{ name: string }[]>).then(
+      (all) => all.map((r) => r.name),
+      (error: unknown) => {
+        console.error('Reading the remotes failed', error);
+        return [];
+      },
+    ),
   ]);
   const named = (prefix: string) =>
     list.filter((b) => b.ref.startsWith(prefix)).map((b) => b.ref.slice(prefix.length));
@@ -86,6 +95,7 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
     local: named('refs/heads/'),
     remote: named('refs/remotes/'),
     tags,
+    remotes,
     current: list.find((b) => b.current)?.ref.slice('refs/heads/'.length),
     upstreams: new Map(
       list.flatMap((b) =>
@@ -887,6 +897,35 @@ export function setupBranches(
   for (const [group, ids] of groups) {
     for (const command of ids) menus.contribute({ menu: 'git/branch', item: { command }, group });
   }
+  // A tag's Push to, one per remote, after the branch operations, as IntelliJ's
+  // (`GitPushTagsActionGroup`, `GitPushTagAction`); registered again when the remotes change.
+  const remotes = computed(() => branches.get().remotes.join('\n'));
+  effect(() => {
+    const names = remotes.get().split('\n').filter(Boolean);
+    // What registering reads (whether the command is there) isn't what this follows.
+    const made = untracked(() =>
+      names.flatMap((remote) => {
+        const id = `git.tag.push.${remote}`;
+        return [
+          commands.register<BranchRef>({
+            id,
+            label: `Push to ${remote}`,
+            visible: (b) => b.tag === true,
+            // Not without a tag, as Find Action asks; nor while a push runs.
+            enabled: (b: BranchRef | undefined) => b?.tag === true && !pushing.get(),
+            run: (b) => {
+              const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
+              return pushTag(host, worktree, b.name, remote);
+            },
+          }),
+          menus.contribute({ menu: 'git/branch', item: { command: id }, group: 'bc' }),
+        ];
+      }),
+    );
+    return () => {
+      for (const done of made) done.dispose();
+    };
+  });
 
   type Choice = PickerItem & { branch?: BranchRef; run?: () => void };
   const refOf = (branch: BranchRef) =>
