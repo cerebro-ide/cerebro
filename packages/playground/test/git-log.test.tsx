@@ -5,6 +5,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { useProjects, workspace } from '../src/environments.js';
 import type { Tab } from '@cerebro-ide/layout';
 import { userEvent } from 'vitest/browser';
+import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
 import type { Change } from '../src/changes.js';
 import {
   EMPTY_TREE,
@@ -544,6 +545,13 @@ describe('View Commits, after an update', () => {
       document.querySelector('.playground-log__toolbar .cerebro-toolbar-dropdown__text')
         ?.textContent,
     ).toBe('Branch: aaaaaaaa..bbbbbbbb');
+    // In full in its tooltip.
+    await userEvent.hover(
+      document.querySelector('.playground-log__toolbar .cerebro-toolbar-dropdown') as HTMLElement,
+    );
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe(`${start}..${end}`);
   });
 });
 
@@ -1365,8 +1373,6 @@ describe('the User, Date and Paths filters', () => {
     mount();
     await expect.poll(subjects).toHaveLength(3);
     expect(text('Paths')).toBe('Paths');
-    await userEvent.hover(dropdown('Paths'));
-    await expect.poll(() => document.querySelector('.cerebro-tooltip')?.textContent).toBe('Paths');
     await userEvent.click(dropdown('Paths'));
     await expect.poll(items).toEqual(['Select…', 'Select in Tree…']);
     await userEvent.keyboard('{Enter}');
@@ -1478,6 +1484,51 @@ describe('the User, Date and Paths filters', () => {
     await deleted('Paths');
     await expect.poll(subjects).toHaveLength(3);
     expect(asked().filter).toBeUndefined();
+  });
+
+  it('have tooltips while on, as IntelliJ’s: Branch’s and User’s values, none for Date', async () => {
+    git.log = history(3);
+    git.byBranch['refs/heads/main'] = history(1, [], 'm');
+    git.byAuthors['bob@x'] = history(1, [], 'b');
+    git.branches = [branch('refs/heads/main', true)];
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const tip = async (label: string) => {
+      // Off it first: after a click the pointer is over it already, and hovering wouldn't enter it.
+      await userEvent.unhover(dropdown(label));
+      await userEvent.hover(dropdown(label));
+      // The pause before a tooltip shows, and a little more.
+      await new Promise((resolve) => setTimeout(resolve, SHOW_DELAY + 100));
+      const text = document.querySelector('.cerebro-tooltip')?.textContent;
+      await userEvent.unhover(dropdown(label));
+      return text;
+    };
+    // Off: none.
+    for (const label of ['Branch', 'User', 'Date', 'Paths'])
+      expect(await tip(label)).toBeUndefined();
+    await userEvent.dblClick(
+      await vi.waitUntil(() =>
+        [...document.querySelectorAll<HTMLElement>('.playground-branches .cerebro-tree-row')].find(
+          (row) => row.textContent.trim() === 'main',
+        ),
+      ),
+    );
+    await expect.poll(() => text('Branch')).toBe('Branch: main');
+    expect(await tip('Branch')).toBe('main');
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('User')).toBe('User: me');
+    expect(await tip('User')).toBe('me');
+    await userEvent.click(dropdown('Date'));
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('Date')).not.toBe('Date');
+    expect(await tip('Date')).toBeUndefined();
+    // Its X: Clear, and the key that clears it too.
+    await userEvent.hover(clear('Date') as HTMLElement);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('ClearDelete');
   });
 
   it('read the authors again after the Log is', async () => {

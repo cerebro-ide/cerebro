@@ -38,6 +38,7 @@ import {
   pickDate,
   pickUser,
   usersText,
+  usersTooltip,
   type Period,
 } from './log-filters.js';
 import { pathsText, pathsTooltip, pickPaths, shortenText } from './log-paths.js';
@@ -1036,6 +1037,11 @@ function LogToolbar(props: {
             services={services}
             label="Branch"
             text={() => filterText('Branch', log.branch.get(), branchText)}
+            tooltip={() => {
+              const branch = log.branch.get();
+              if (branch === undefined) return '';
+              return branch.includes('..') ? branch : branchName(branch);
+            }}
             popup={(button) => pickBranch(button, log, branches, platform)}
             clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
           />,
@@ -1043,6 +1049,10 @@ function LogToolbar(props: {
             services={services}
             label="User"
             text={() => filterText('User', log.users.get(), usersText)}
+            tooltip={() => {
+              const users = log.users.get();
+              return users ? usersTooltip(users) : '';
+            }}
             popup={(button) => {
               void log.readAuthors();
               return pickUser(button, {
@@ -1059,6 +1069,7 @@ function LogToolbar(props: {
             services={services}
             label="Date"
             text={() => filterText('Date', log.period.get(), periodText)}
+            tooltip={() => ''}
             popup={(button) =>
               pickDate(button, {
                 platform,
@@ -1074,7 +1085,7 @@ function LogToolbar(props: {
             text={() => filterText('Paths', log.paths.get(), pathsText)}
             tooltip={() => {
               const paths = log.paths.get();
-              return paths ? pathsTooltip(paths) : 'Paths';
+              return paths ? pathsTooltip(paths) : '';
             }}
             popup={(button) =>
               pickPaths(button, {

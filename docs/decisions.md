@@ -1905,9 +1905,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     weren't checked); no roots section, as Cerebro opens one repository per environment.
   - **The button's tooltip** (added 2026-11-12), while the filter is on, lists the paths as
     IntelliJ's getToolTip does: "Paths:", then the first ten in order, a line each, then "..." if
-    there are more. Off, it says "Paths", as the other filters' do. **Not yet:** IntelliJ's
-    Branch and User tooltips (their values, joined by commas, while on), and none while a filter
-    is off (IntelliJ's FilterPopupComponent has none then; Date has none at all).
+    there are more.
+  - **The filters' tooltips** (2026-11-12), as IntelliJ's FilterPopupComponent: none while a
+    filter is off; while on, Branch's is the branch (a range in full), User's its values between
+    commas ("me" as shown), Paths' as above, and Date has none. The X's is "Clear" with the
+    Delete action's first shortcut, as IntelliJ's FilterComponent shows it. **Claim:** a range in
+    full is its hashes (IntelliJ's ranges are by name).
 - **Go To Hash/Branch/Tag** (2026-11-11), after Refresh, as IntelliJ's (GoToHashOrRefAction,
   GoToHashOrRefPopup): Find's shortcut (Ctrl+F, Cmd+F on macOS) while the Log has the keyboard; a
   hash's start, or a branch's or tag's name, typed ("Enter hash or branch/tag name:"), the branches
