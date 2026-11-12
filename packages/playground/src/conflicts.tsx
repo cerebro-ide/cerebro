@@ -20,7 +20,7 @@ type ConflictSide = 'modified' | 'deleted';
 
 /** The host's `git.conflicts`. */
 export interface Conflicts {
-  operation?: 'merge' | 'rebase' | 'cherry-pick';
+  operation?: 'merge' | 'rebase' | 'cherry-pick' | 'revert';
   files: { path: string; yours: ConflictSide; theirs: ConflictSide }[];
   yours?: string;
   theirs?: string;
@@ -54,6 +54,11 @@ export function describe(conflicts: Conflicts): string {
     return commit
       ? `Rebasing${branch} onto ${onto}. Current commit ${commit.hash} made by ${commit.author}:\n${commit.message}`
       : `Rebasing${branch} onto ${onto}`;
+  }
+  // As IntelliJ's revert says it (`GitApplyChangesConflictResolver`), with the commit's subject.
+  if (conflicts.operation === 'revert' && conflicts.commit) {
+    const { hash, author, message } = conflicts.commit;
+    return `Conflicts during revert of commit ${hash} made by ${author}\n${message.split('\n', 1)[0] as string}`;
   }
   if (conflicts.operation === 'cherry-pick' && conflicts.commit) {
     const { hash, author, message } = conflicts.commit;
