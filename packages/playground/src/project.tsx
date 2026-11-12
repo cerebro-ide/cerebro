@@ -10,6 +10,7 @@ import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { RELOAD_EVERY } from './documents.js';
+import { target } from './edit.js';
 import { active, currentHost, hostFor } from './environments.js';
 import { icon } from './icons.js';
 import { hasErrors, hasErrorsBeneath } from './problems.js';
@@ -82,6 +83,19 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
   const parts = path.slice(root.length).split('/');
   const keys = parts.map((_, i) => root + parts.slice(0, i + 1).join('/'));
   return modelFor(env.id, samples).reveal(keys);
+}
+
+/**
+ * The Project view's selected file, its full path, while the view has the focus (or had it before
+ * a menu took it), as IntelliJ's actions take the files of the view with the focus: null when
+ * what's selected there isn't a file; undefined when the view hasn't the focus.
+ */
+export function projectFile(): string | null | undefined {
+  const env = active();
+  if (!env || !target()?.closest('.playground-project')) return undefined;
+  const model = models.get(env.id) as TreeModel<FileNode>;
+  const node = model.rows.find((row) => row.key === model.selected)?.node;
+  return node?.kind === 'file' ? node.path : null;
 }
 
 export function ProjectTree(props: {

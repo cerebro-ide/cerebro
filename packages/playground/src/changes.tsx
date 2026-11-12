@@ -37,6 +37,8 @@ import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
+import { target } from './edit.js';
+import { projectFile } from './project.js';
 import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
 import { branchName, natural } from './git-refs.js';
@@ -891,10 +893,20 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
-  /** The active editor's file and its worktree, if it's in the active worktree's repository. */
-  const editorFile = () => {
+  /**
+   * The file Git → Current File acts on, and its worktree, if it's in the active worktree's
+   * repository: the Project view's selected file while it has the focus; none while another tool
+   * window has it; else the active editor's.
+   */
+  const currentFile = () => {
     const env = active();
-    const tab = setup.activeTab();
+    const selected = projectFile();
+    const tab =
+      selected !== undefined
+        ? (selected ?? undefined)
+        : target()?.closest('.cerebro-tool-window')
+          ? undefined
+          : setup.activeTab();
     if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
     const path = tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
     return path === undefined ? undefined : { worktree: env.id, path };
@@ -906,13 +918,13 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.showDiff',
     label: 'Show Diff',
     icon: 'diff',
-    visible: () => editorFile() !== undefined,
+    visible: () => currentFile() !== undefined,
     enabled: () => {
-      const file = editorFile();
+      const file = currentFile();
       return file !== undefined && !notCommitted(file.worktree, file.path);
     },
     run: () => {
-      const file = editorFile() as { worktree: string; path: string };
+      const file = currentFile() as { worktree: string; path: string };
       // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
       const caret = carets.get(`${file.worktree}/${file.path}`);
       setup.open(diffTab(file.path), undefined, caret?.line);
@@ -925,10 +937,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.compareWithRevision',
     label: 'Compare with Revision',
     dialog: true,
-    visible: () => editorFile() !== undefined,
+    visible: () => currentFile() !== undefined,
     enabled: () => commands.isEnabled('git.file.showDiff'),
     run: () => {
-      const file = editorFile() as { worktree: string; path: string };
+      const file = currentFile() as { worktree: string; path: string };
       pickRevision(hostFor(file.worktree) as Host, file.worktree, file.path).then(
         (hash) => {
           if (hash !== undefined) setup.open(diffTab(file.path, { from: hash }));
@@ -946,9 +958,9 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.compareWithBranch',
     label: 'Compare with Branch or Tag',
     dialog: true,
-    visible: () => editorFile() !== undefined,
+    visible: () => currentFile() !== undefined,
     run: () => {
-      const file = editorFile() as { worktree: string; path: string };
+      const file = currentFile() as { worktree: string; path: string };
       pickRef(hostFor(file.worktree) as Host, file.worktree).then(
         (ref) => {
           if (ref !== undefined) setup.open(diffTab(file.path, { from: ref }));
@@ -965,10 +977,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   commands.register({
     id: 'git.file.showHistory',
     label: 'Show History',
-    visible: () => editorFile() !== undefined,
+    visible: () => currentFile() !== undefined,
     enabled: () => commands.isEnabled('git.file.showDiff'),
     run: () => {
-      setup.showHistory((editorFile() as { worktree: string; path: string }).path);
+      setup.showHistory((currentFile() as { worktree: string; path: string }).path);
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
@@ -1065,6 +1077,9 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   keymap?.bindDefault('Mod+K', 'changes.commit');
   keymap?.bindDefault('Alt+M', 'changes.amend');
   keymap?.bindDefault('Mod+D', 'changes.showDiff');
+  // IntelliJ's Compare.SameVersion key: after the editor's Duplicate and the Commit window's Show
+  // Diff, so it's the Project view's, as in IntelliJ.
+  keymap?.bindDefault('Mod+D', 'git.file.showDiff');
   keymap?.bindDefault('F4', 'changes.jumpToSource');
   keymap?.bindDefault('Mod+Alt+Z', 'changes.rollback');
   keymap?.bindDefault('Mod+P', 'changes.groupByDirectory');

@@ -6,7 +6,7 @@ import { userEvent } from 'vitest/browser';
 import { RELOAD_EVERY } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { fileProblems } from '../src/problems.js';
-import { ProjectTree, selectInTree, type FileNode } from '../src/project.js';
+import { ProjectTree, projectFile, selectInTree, type FileNode } from '../src/project.js';
 import { FakeHost, project } from './fakes.js';
 
 /** The host's folders, as it lists them. */
@@ -70,6 +70,23 @@ describe('the Project tool window', () => {
     await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
     await userEvent.dblClick(row('/r/src/main.ts'));
     expect(opened).toEqual([{ id: '/r/src/main.ts', title: 'main.ts' }]);
+  });
+
+  it('gives its selected file to the actions while it has the focus', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).toContain('README.md');
+    expect(projectFile()).toBeUndefined();
+    await userEvent.click(row('/r/README.md'));
+    expect(projectFile()).toBe('/r/README.md');
+    // A folder isn't a file.
+    await userEvent.click(row('/r/src'));
+    expect(projectFile()).toBeNull();
+    // Elsewhere: none of its.
+    const field = document.createElement('input');
+    document.body.append(field);
+    field.focus();
+    expect(projectFile()).toBeUndefined();
   });
 
   it('marks a file with errors, and the folders it’s in, with the error’s wave', async () => {
