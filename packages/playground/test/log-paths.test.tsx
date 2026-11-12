@@ -4,6 +4,7 @@ import {
   MAX_PATHS,
   pathState,
   pathsText,
+  pathsTooltip,
   pickPaths,
   readPaths,
   shortenPath,
@@ -54,6 +55,12 @@ describe('the Paths filter’s paths', () => {
     expect(shortenText('A subject longer than forty characters, by far')).toBe(
       'A subject longer than forty character...',
     );
+  });
+
+  it('are listed in the tooltip, as IntelliJ’s: sorted, ten at most, then "..."', () => {
+    expect(pathsTooltip(['src/', 'a.txt'])).toBe('Paths:\na.txt\nsrc/');
+    const many = Array.from({ length: 11 }, (_, i) => `f${String(i).padStart(2, '0')}`);
+    expect(pathsTooltip(many).split('\n')).toEqual(['Paths:', ...many.slice(0, 10), '...']);
   });
 
   it('show the first, and how many more', () => {

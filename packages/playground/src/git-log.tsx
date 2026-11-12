@@ -40,7 +40,7 @@ import {
   usersText,
   type Period,
 } from './log-filters.js';
-import { pathsText, pickPaths, shortenText } from './log-paths.js';
+import { pathsText, pathsTooltip, pickPaths, shortenText } from './log-paths.js';
 import type { FileNode } from './project.js';
 import { resolveUsers, type Author } from './log-users.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
@@ -1072,6 +1072,10 @@ function LogToolbar(props: {
             services={services}
             label="Paths"
             text={() => filterText('Paths', log.paths.get(), pathsText)}
+            tooltip={() => {
+              const paths = log.paths.get();
+              return paths ? pathsTooltip(paths) : 'Paths';
+            }}
             popup={(button) =>
               pickPaths(button, {
                 worktree: props.worktree,
