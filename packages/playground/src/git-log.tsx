@@ -538,6 +538,10 @@ export function CommitFiles(props: {
   open?: (tab: Tab, chain?: readonly string[]) => void;
   /** The file to select once they're read. */
   selected?: string | undefined;
+  /** Given, as it shows, what reads the selected file's change (reactively). */
+  selection?: (selected: () => Change | undefined) => void;
+  /** A file's context menu: the file is selected first. */
+  onContextMenu?: (event: MouseEvent, change: Change) => void;
 }) {
   const { range, open } = props;
   const changes = signal<readonly Change[]>([]);
@@ -545,6 +549,10 @@ export function CommitFiles(props: {
     children: () => changes.peek(),
     key: (change) => change.path,
     isLeaf: () => true,
+  });
+  props.selection?.(() => {
+    const key = files.selected;
+    return changes.get().find((c) => c.path === key);
   });
   const failed = signal<string | undefined>(undefined);
   /** Read, and none differ. */
@@ -581,6 +589,7 @@ export function CommitFiles(props: {
           model={files}
           label={props.label}
           row={(change) => changeContent(change, true)}
+          {...(props.onContextMenu ? { onContextMenu: props.onContextMenu } : {})}
           onOpen={(change) => {
             // Through the commit's files, as IntelliJ's.
             open?.(

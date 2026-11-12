@@ -1282,6 +1282,19 @@ describe('ignored files and rolling back', () => {
       '--count',
       'refs/remotes/origin/x..refs/heads/x',
     ]);
+    // Show Diff with Working Tree's Get from Branch.
+    expect(
+      await ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: ['a'], remove: ['b'] }),
+    ).toBe(null);
+    expect(asked()).toEqual(
+      expect.arrayContaining(['rm -q -f -- b', 'restore --source=side --staged --worktree -- a']),
+    );
+    await expect(
+      ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: 'a', remove: [] }),
+    ).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+      message: 'checkout must be a list of paths',
+    });
     expect(await ui.request('git.createBranch', { path: '/w', name: 'n' })).toBe(null);
     expect(
       await ui.request('git.createBranch', {

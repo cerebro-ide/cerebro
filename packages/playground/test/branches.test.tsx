@@ -163,7 +163,7 @@ beforeAll(() => {
   document.body.append(button);
   ({ pick } = setupBranches(services, { readWorktrees, open }));
   setupCompare(services, (tab) => compared.push(tab));
-  setupDiffWithWorkingTree(() => {
+  setupDiffWithWorkingTree(services, () => {
     revealed++;
   });
 });
@@ -1383,7 +1383,7 @@ describe('Show Diff with Working Tree', () => {
   it('shows the files that differ from the branch’s or tag’s, the documents saved first, as IntelliJ’s', async () => {
     const box = document.createElement('div');
     document.body.append(box);
-    const view = render(() => <DiffWithWorkingTree open={open} />, box);
+    const view = render(() => <DiffWithWorkingTree services={services} open={open} />, box);
     const before = revealed;
     await unsavedEdit(host, '/r/a.ts');
     await choose('v1', 'Show Diff with Working Tree');

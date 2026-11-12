@@ -3274,8 +3274,17 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     branch and as it is, as the Log's commit's files do; "No differences" when none do, and git's
     words where they can't be read (IntelliJ shows an error dialog: open to change). Another
     comparison takes the place of the one before. **Claude's, open to change:** Diff's icon for
-    the window (IntelliJ's new UI has a Changes icon). **Not yet:** IntelliJ's Swap Branches and Get
-    from Branch.
+    the window (IntelliJ's new UI has a Changes icon). **Get from Branch** (added 2026-11-12), in
+    the window's toolbar and a file's menu, as IntelliJ's (`GetVersionActionProvider`,
+    `GitLocalCommitCompareInfo.copyChangesFromBranch`, `ReplaceFileConfirmationDialog`, read from
+    their source): the selected file made as the branch has it, in the index too (`git restore
+    --source=feature --staged --worktree`, or `git rm` where the branch has none; a renamed one,
+    the branch's path back in place of this one), recorded in the Local History as "Get from
+    feature", the documents saved first, then the list read again. A file with local changes asks
+    first ("File a.ts has been locally modified.", Overwrite Modified File); git's words in IntelliJ's
+    "Cannot Copy Changes" error dialog. Its icon, an arrow down onto a line, is IntelliJ's
+    `AllIcons.Actions.Download` (a claim: not IntelliJ's drawing). **Not yet:** IntelliJ's Swap
+    Branches; several files at once (the list selects one); the window's toolbar's other actions.
   - **Update** (added 2026-11-12), after Merge, as IntelliJ's (`GitUpdateSelectedBranchAction`,
     read from its source): for a local branch, the current one too, as the Log's branches pane's
     Update Selected (the same code): the one checked out by Update Project, another fetched from

@@ -66,6 +66,7 @@ import {
 import {
   checkout,
   checkoutDetached,
+  getFrom,
   hasCommitsNotIn,
   createBranch,
   deleteBranch,
@@ -883,6 +884,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.hasCommitsNotIn', (params) =>
     hasCommitsNotIn(text(params, 'path'), text(params, 'branch'), text(params, 'of'), git),
   );
+  // Show Diff with Working Tree's Get from Branch, recorded in the Local History as IntelliJ's.
+  connection.onRequest('git.getFrom', async (params) => {
+    const worktree = text(params, 'path');
+    const ref = text(params, 'ref');
+    const [checkout, remove] = [files(params, 'checkout'), files(params, 'remove')];
+    await recording(worktree, `Get from ${ref}`, git, () =>
+      getFrom(worktree, ref, [...checkout], [...remove], git),
+    );
+    return null;
+  });
   connection.onRequest('git.checkoutRevision', async (params) => {
     const worktree = text(params, 'path');
     const reference = text(params, 'reference');
@@ -1152,13 +1163,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await commit(worktree, changes, message, p.amend === true, git);
     return listChanges(worktree, git);
   });
-  /** A request's list of files, by path. */
-  const files = (params: unknown): Set<string> => {
-    const p = params as { files?: unknown };
-    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+  /** A request's list of files, by path: its `files`, or another `key`. */
+  const files = (params: unknown, key = 'files'): Set<string> => {
+    const list = (params as Record<string, unknown>)[key];
+    if (!Array.isArray(list) || !list.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, `${key} must be a list of paths`);
     }
-    return new Set(p.files);
+    return new Set(list);
   };
   /** A request's shelved list, stash or record, as the lists name them. */
   const named = (params: unknown, key: 'id' | 'ref' | 'commit', pattern: RegExp): string => {

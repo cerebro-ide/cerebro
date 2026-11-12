@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -11,6 +18,7 @@ import {
   deleteBranch,
   deleteRemoteBranch,
   git,
+  getFrom,
   hasCommitsNotIn,
   mergeBranch,
   rebase,
@@ -75,6 +83,27 @@ describe('branch operations, with real git', () => {
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(false);
     run(clone, 'branch', '-f', 'side', 'origin/main');
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(true);
+  });
+
+  it('gets files as a branch has them: checked out, or removed where it has none, staged', async () => {
+    const repo = repository();
+    // On main: main.txt is main's own; shared.txt changed here; side.txt is side's.
+    writeFileSync(join(repo, 'shared.txt'), 'changed\n');
+    await getFrom(repo, 'side', ['side.txt', 'shared.txt'], ['main.txt'], git);
+    expect(read(repo, 'side.txt')).toBe('side');
+    expect(read(repo, 'shared.txt')).toBe('one\n');
+    expect(existsSync(join(repo, 'main.txt'))).toBe(false);
+    expect(run(repo, 'status', '--porcelain').split('\n').filter(Boolean).sort()).toEqual([
+      'A  side.txt',
+      'D  main.txt',
+    ]);
+    // Nothing to do: git isn't run.
+    await getFrom(repo, 'side', [], [], git);
+    // A path is a path, not a pattern.
+    writeFileSync(join(repo, '*.txt'), 'star');
+    run(repo, 'add', '*.txt');
+    await getFrom(repo, 'side', [], ['*.txt'], git);
+    expect(existsSync(join(repo, 'side.txt'))).toBe(true);
   });
 
   it('checks out a tag, a commit or a branch with HEAD detached; not what isn’t a reference', async () => {

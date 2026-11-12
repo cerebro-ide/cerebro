@@ -19,6 +19,30 @@ export async function checkout(
 }
 
 /**
+ * IntelliJ's Get from Branch (`GitLocalCommitCompareInfo.copyChangesFromBranch`): files made as
+ * they are in `ref`, `checkout` checked out from it and `remove` removed where it has none, both
+ * in the index too, as IntelliJ's. Paths are taken as they are, not as patterns.
+ */
+export async function getFrom(
+  worktree: string,
+  ref: string,
+  checkout: readonly string[],
+  remove: readonly string[],
+  run: Git,
+): Promise<void> {
+  const literal = { GIT_LITERAL_PATHSPECS: '1' };
+  if (remove.length > 0) await run(worktree, ['rm', '-q', '-f', '--', ...remove], literal);
+  if (checkout.length > 0) {
+    // As `git checkout <ref> -- <paths>`, which takes no `--end-of-options` (git 2.43, measured).
+    await run(
+      worktree,
+      ['restore', `--source=${ref}`, '--staged', '--worktree', '--', ...checkout],
+      literal,
+    );
+  }
+}
+
+/**
  * Whether local branch `branch` has commits that remote branch `of` (`origin/main`) hasn't, as
  * IntelliJ's `checkLocalHasMoreCommits` asks before checking `of` out into it. By their full names,
  * which can't be taken for options.
