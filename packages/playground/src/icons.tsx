@@ -41,6 +41,10 @@ const PATHS: Record<string, string> = {
   locate: 'M8 3.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3',
   expandAll: 'M5 5.5l3-3 3 3M5 10.5l3 3 3-3',
   collapseAll: 'M5 2.5l3 3 3-3M5 13.5l3-3 3 3',
+  // A side pane hidden and shown, as IntelliJ's ArrowCollapse and ArrowExpand: an arrow to an edge
+  // and away from it (a claim: not IntelliJ's drawing).
+  arrowCollapse: 'M2.5 3v10M13.5 8H5.5M8.5 5l-3 3 3 3',
+  arrowExpand: 'M2.5 3v10M5.5 8h8M10.5 5l3 3-3 3',
   // A box with its lid: the shelf; a stack: the stash.
   shelf: 'M2.5 6.5h11v6.5h-11zM2 3.5h12v3H2zM6.5 9h3',
   stash: 'M3 3.5h10v3H3zM3 6.5h10v3H3zM3 9.5h10v3H3z',
