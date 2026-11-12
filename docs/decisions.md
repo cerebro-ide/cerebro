@@ -3269,9 +3269,8 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now);
-  Pull from the menu; View Commits after a delete (IntelliJ's shows the
-  commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
+  now); a remote branch's Pull into Current Using Rebase and Using Merge; View Commits after a
+  delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
 ## Annotate with Git Blame (2026-11-09)
 
