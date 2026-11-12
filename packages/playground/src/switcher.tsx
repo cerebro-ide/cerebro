@@ -15,6 +15,7 @@
 
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
+import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import { openSwitcher, type Modifier, type SwitcherItem } from '@cerebro-ide/ui-popup';
 import { diffPath } from './changes.js';
 import { active } from './environments.js';
@@ -172,14 +173,7 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
         if (entry?.kind === 'tab') setup.open(entry.tab);
         else if (entry) {
           setup.tools.show(entry.id);
-          // Once it has drawn: its content takes the keyboard, as IntelliJ activates a window.
-          requestAnimationFrame(() => {
-            document
-              .querySelector<HTMLElement>(
-                `.cerebro-tool-window[data-id="${entry.id}"] :is([tabindex], input, textarea, button)`,
-              )
-              ?.focus();
-          });
+          void focusToolWindow(entry.id);
         }
       });
     },

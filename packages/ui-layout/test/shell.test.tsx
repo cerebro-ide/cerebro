@@ -5,7 +5,14 @@ import { render } from '@cerebro-ide/jsx';
 import { Layout, type ToolWindowSpec } from '@cerebro-ide/layout';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QUICK_WINDOW, SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
-import { DRAG_THRESHOLD, findTarget, MIN_EDITOR, ShellLayout, stripeGroups } from '../src/index.js';
+import {
+  DRAG_THRESHOLD,
+  findTarget,
+  focusToolWindow,
+  MIN_EDITOR,
+  ShellLayout,
+  stripeGroups,
+} from '../src/index.js';
 
 const WINDOWS: ToolWindowSpec[] = [
   { id: 'project', title: 'Project', anchor: 'left', icon: 'folder' },
@@ -23,7 +30,14 @@ afterEach(() => {
   cleanup = undefined;
 });
 
-function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean; shortcuts?: boolean } = {}) {
+function mount(
+  options: {
+    windows?: ToolWindowSpec[];
+    icons?: boolean;
+    shortcuts?: boolean;
+    content?: (id: string) => Node;
+  } = {},
+) {
   const layout = new Layout();
   for (const spec of options.windows ?? WINDOWS) layout.toolWindows.register(spec);
   const container = document.createElement('div');
@@ -33,7 +47,7 @@ function mount(options: { windows?: ToolWindowSpec[]; icons?: boolean; shortcuts
     () => (
       <ShellLayout
         layout={layout}
-        content={(id) => <p class="test-content">{id} body</p>}
+        content={options.content ?? ((id) => <p class="test-content">{id} body</p>)}
         editor={() => <p class="test-editor">editor</p>}
         {...(options.icons === false
           ? {}
@@ -250,6 +264,38 @@ describe('opening and closing', () => {
     expect(bottom.right).toBe($('.cerebro-area--right').getBoundingClientRect().right);
     expect($('.cerebro-area--left').getBoundingClientRect().width).toBe(280);
     expect($('.cerebro-area--bottom').getBoundingClientRect().height).toBe(220);
+  });
+});
+
+describe('focusing a tool window', () => {
+  it('gives its content the keyboard: what it marks first, else the first that takes it', async () => {
+    const { tools } = mount({
+      content: (id) =>
+        id === 'project' ? (
+          <div>
+            <button disabled>off</button>
+            <input class="test-field" />
+            <div data-focus-first>
+              <div class="test-list" tabindex="0" />
+            </div>
+          </div>
+        ) : (
+          <div>
+            <button disabled>off</button>
+            <input class="test-field" />
+          </div>
+        ),
+    });
+    tools.show('project');
+    await focusToolWindow('project');
+    expect(document.activeElement?.className).toBe('test-list');
+    // Not the header's buttons, nor a disabled one.
+    tools.show('terminal');
+    await focusToolWindow('terminal');
+    expect(document.activeElement?.className).toBe('test-field');
+    // Not shown: nothing to focus.
+    await focusToolWindow('commit');
+    expect(document.activeElement?.className).toBe('test-field');
   });
 });
 

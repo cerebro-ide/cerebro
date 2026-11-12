@@ -1490,7 +1490,10 @@ export function GitLogView(props: {
               name={env.name}
               worktree={env.id}
             />
-            <div class="playground-log__list">{list}</div>
+            {/* What takes the keyboard as the window is activated, as IntelliJ's commits table. */}
+            <div class="playground-log__list" data-focus-first>
+              {list}
+            </div>
           </div>,
           <Splitter
             line="vertical"
