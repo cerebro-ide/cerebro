@@ -13,13 +13,14 @@ import {
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { diffPath } from './changes.js';
 import { active, activeProject, currentHost, hostFor, type ProjectState } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
-import { setupEdit } from './edit.js';
+import { setupEdit, target } from './edit.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
 import { pluginsPage } from './plugins-page.js';
@@ -356,8 +357,18 @@ export function setupCommands(
       label: tool.title,
       ...(tool.icon === undefined ? {} : { icon: tool.icon }),
       checked: () => tools.isVisible(tool.id),
+      // IntelliJ's ActivateToolWindowAction: shown, its content taking the keyboard; hidden if it
+      // has the keyboard already, the editor taking it back.
       run: () => {
-        tools.toggle(tool.id);
+        if (target()?.closest(`.cerebro-tool-window[data-id="${tool.id}"]`)) {
+          tools.hide(tool.id);
+          const group = ed()?.activeGroup;
+          const tab = group?.tabs.find((t) => t.id === group.active);
+          if (tab) navigation.open(tab);
+        } else {
+          tools.show(tool.id);
+          void focusToolWindow(tool.id);
+        }
       },
     });
     menus.contribute({ menu: 'main/view/tools', item: { command: `view.tool.${tool.id}` } });

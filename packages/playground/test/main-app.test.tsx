@@ -360,13 +360,17 @@ describe('the terminals', () => {
     await expect.poll(writes).toBe(`${before}\u0003`);
     // A modifier alone, and a key bound to nothing, are the program's too.
     await userEvent.keyboard('{Shift}{Alt>}q{/Alt}');
-    // Alt+1 is the Project tool window's.
+    // Alt+1 is the Project tool window's: it takes the keyboard from the terminal, as IntelliJ
+    // activates a window, and Alt+1 again hides it.
     const shown = () => stripe('project').classList.contains('cerebro-stripe-button--active');
     const was = shown();
     await userEvent.keyboard('{Alt>}1{/Alt}');
-    await expect.poll(shown).toBe(!was);
+    await expect
+      .poll(() => document.activeElement?.closest('.cerebro-tool-window')?.getAttribute('data-id'))
+      .toBe('project');
     await userEvent.keyboard('{Alt>}1{/Alt}');
-    await expect.poll(shown).toBe(was);
+    await expect.poll(shown).toBe(false);
+    if (was) await userEvent.click(stripe('project'));
   });
 
   it('are renamed and closed from a tab’s menu; the last one closed hides the window', async () => {
@@ -441,6 +445,12 @@ describe('the Git window', () => {
         refs: ['HEAD -> refs/heads/main'],
       },
     ]);
+    // A commit's files, for below.
+    answers.set('git.changes', [
+      { path: 'src/a.ts', status: 'added' },
+      { path: 'src/b.ts', status: 'added' },
+    ]);
+    answers.set('git.diff', { original: '', text: 'const a = 1;\n' });
     await userEvent.keyboard('{Alt>}9{/Alt}');
     await expect
       .poll(
@@ -450,12 +460,11 @@ describe('the Git window', () => {
       )
       .toBe('First');
     expect(host('/r').params('git.log')).toContainEqual({ worktree: '/r', skip: 0, max: 1000 });
+    // The commits take the keyboard, as IntelliJ's commits table does.
+    await expect
+      .poll(() => document.activeElement?.closest('.playground-log__list'))
+      .not.toBeNull();
     // A commit's file opens its diff in a window of its own, which goes through its files.
-    answers.set('git.changes', [
-      { path: 'src/a.ts', status: 'added' },
-      { path: 'src/b.ts', status: 'added' },
-    ]);
-    answers.set('git.diff', { original: '', text: 'const a = 1;\n' });
     const window = '.cerebro-tool-window[data-id="git"]';
     await userEvent.click(
       document.querySelector(`${window} .playground-log__commits .cerebro-tree-row`) as Element,

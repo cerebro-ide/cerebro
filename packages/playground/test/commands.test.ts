@@ -230,15 +230,51 @@ describe('the main menu', () => {
     await expect.poll(() => picked.mock.calls.length).toBe(1);
   });
 
-  it('shows and hides the menu bar and the tool windows', () => {
+  it('shows and hides the menu bar', () => {
     expect(menuVisible.get()).toBe(false);
     commands().execute('view.mainMenu');
     expect([menuVisible.get(), commands().isChecked('view.mainMenu')]).toEqual([true, true]);
     commands().execute('view.mainMenu');
+    expect(menuVisible.get()).toBe(false);
+  });
+
+  it('activates a tool window, as IntelliJ’s: shown and focused, or hidden if it has the focus', async () => {
+    // The window, as the layout draws it.
+    const window = document.createElement('section');
+    window.className = 'cerebro-tool-window';
+    window.dataset['id'] = 'project';
+    const body = document.createElement('div');
+    body.className = 'cerebro-tool-window__body';
+    const tree = document.createElement('div');
+    tree.tabIndex = 0;
+    body.append(tree);
+    window.append(body);
+    document.body.append(window);
     commands().execute('view.tool.project');
     expect(commands().isChecked('view.tool.project')).toBe(true);
+    await expect.poll(() => document.activeElement).toBe(tree);
+    // Shown but without the focus: it takes it, and stays.
+    tree.blur();
+    const field = document.createElement('input');
+    document.body.append(field);
+    field.focus();
+    commands().execute('view.tool.project');
+    expect(tools.isVisible('project')).toBe(true);
+    await expect.poll(() => document.activeElement).toBe(tree);
+    // With the focus: hidden, the editor's tab taking it back.
+    editor()?.open({ id: 'cerebro/a.ts', title: 'a.ts' });
     commands().execute('view.tool.project');
     expect(tools.isVisible('project')).toBe(false);
+    expect(opened).toEqual(['cerebro/a.ts']);
+    // No tab open: hidden alone.
+    tools.show('project');
+    tree.focus();
+    editor()?.close(editor()?.activeGroup.id as string, 'cerebro/a.ts');
+    commands().execute('view.tool.project');
+    expect(tools.isVisible('project')).toBe(false);
+    expect(opened).toEqual(['cerebro/a.ts']);
+    window.remove();
+    field.remove();
   });
 
   it('says what Cerebro is', () => {

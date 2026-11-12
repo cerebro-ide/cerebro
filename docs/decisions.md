@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
@@ -2364,6 +2365,25 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## A tool window's shortcut activates it (2026-11-12)
+
+From the backlog: after Alt+9, the Project tree still had the keyboard.
+
+- **As IntelliJ's ActivateToolWindowAction** (from its source): a tool window's shortcut (Alt+1,
+  Alt+9, Alt+F12...) and its View → Tool Windows item show the window and give its content the
+  keyboard, unless the window has it already. Then they hide it, and the editor's tab takes the
+  keyboard back. Before, they toggled the window, the focus staying where it was.
+- **What takes the keyboard:** what the window's content marks `data-focus-first` holds, else the
+  first thing in it that takes the focus and isn't disabled, not the header's buttons. The Log
+  marks its commits, as IntelliJ focuses its commits table. The Switcher's chosen window takes it
+  the same way (`focusToolWindow`, `ui-layout`); before, it took the first focusable element, a
+  disabled toolbar button in the Git window since its branches got a toolbar.
+- **Claude's, open to change:** whether "the window has the keyboard" counts what last had it
+  before a menu took it (Edit's `target()`), so the View menu's item hides a window focused before
+  the menu opened, as the shortcut does.
+- **Not yet:** each window's own preferred element beyond the Log's (IntelliJ asks each content
+  for its preferred focus).
 
 ## Edit → Duplicate Line or Selection (2026-11-12)
 

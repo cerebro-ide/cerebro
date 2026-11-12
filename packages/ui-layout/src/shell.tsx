@@ -335,6 +335,27 @@ function Pane(props: { ctx: Context; area: Area; id: string; slot: Slot }): Node
   );
 }
 
+/**
+ * Gives a shown tool window's content the keyboard once it has drawn, as IntelliJ activates a
+ * window: what its content marks `data-focus-first` holds, else the first thing in it that takes
+ * the focus and isn't disabled; not the header's buttons. Settles once it's done.
+ */
+export function focusToolWindow(id: string): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      const body = document.querySelector(
+        `.cerebro-tool-window[data-id="${id}"] .cerebro-tool-window__body`,
+      );
+      const focusable = ':is([tabindex], input, textarea, button, select):not(:disabled)';
+      (
+        body?.querySelector<HTMLElement>(`[data-focus-first] ${focusable}`) ??
+        body?.querySelector<HTMLElement>(focusable)
+      )?.focus();
+      resolve();
+    });
+  });
+}
+
 function startDrag(ctx: Context, tool: ToolWindow, down: PointerEvent): void {
   if (down.button !== 0) return;
   const { drag, tools } = ctx;
