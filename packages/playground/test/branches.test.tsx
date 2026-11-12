@@ -1,10 +1,10 @@
-import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
+import { CommandRegistry, Keymap, MenuRegistry, type CommandSpec } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { Tab } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { setupBranches } from '../src/branches.js';
+import { setupBranches, type BranchRef } from '../src/branches.js';
 import { compareTab, setupCompare } from '../src/compare-branches.js';
 import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
 import { useProjects, workspace } from '../src/environments.js';
@@ -345,6 +345,7 @@ describe('the branches popup', () => {
       'Show Diff with Working Tree',
       "Rebase 'main' onto 'feature'",
       "Merge 'feature' into 'main'",
+      'Update',
       'Rename…',
       'Delete',
     ]);
@@ -353,6 +354,7 @@ describe('the branches popup', () => {
     expect(await branchMenu('main')).toEqual([
       "New Branch from 'main'…",
       'Show Diff with Working Tree',
+      'Update',
       'Rename…',
     ]);
     await userEvent.keyboard('{Escape}');
@@ -364,6 +366,7 @@ describe('the branches popup', () => {
       'Show Diff with Working Tree',
       "Rebase 'main' onto 'side'",
       "Merge 'side' into 'main'",
+      'Update',
       'Rename…',
       'Delete',
     ]);
@@ -1138,6 +1141,37 @@ describe('Rebase Current onto Selected', () => {
     git.result = new Error('invalid upstream');
     await choose('feature', "Rebase 'main' onto 'feature'");
     await expect.poll(() => last()?.title).toBe('Rebase failed');
+  });
+});
+
+describe('Update', () => {
+  it('updates a local branch as the Log’s Update Selected does: off where it tracks none', async () => {
+    git.upstreams = { main: 'origin/main', feature: 'origin/feature' };
+    await popup();
+    const on = (name: string) => commands.isEnabled('git.branch.update', { name, remote: false });
+    const update = commands.get('git.branch.update') as CommandSpec<BranchRef>;
+    const shown = (b: BranchRef) => update.visible?.(b);
+    expect(on('feature')).toBe(true);
+    expect(on('side')).toBe(false);
+    expect(shown({ name: 'origin/side', remote: true })).toBe(false);
+    expect(shown({ name: 'v1', remote: false, tag: true })).toBe(false);
+    // Another: fetched into, and the branches read again.
+    await userEvent.click(row('feature'));
+    await userEvent.click(menuItem('Update'));
+    await expect.poll(() => last()?.title).toBe('Fetched 1 target');
+    expect(host.params('git.updateBranch')).toEqual([{ path: '/r', branch: 'feature' }]);
+    await expect.poll(() => readWorktrees.mock.calls).toEqual([['/r']]);
+    // The one checked out: Update Project.
+    const execute = vi.spyOn(commands, 'execute').mockReturnValue(true);
+    await update.run({ name: 'main', remote: false });
+    expect(execute).toHaveBeenCalledWith('vcs.update');
+    execute.mockRestore();
+    // Not without remotes.
+    git.remotes = false;
+    await readState('/r');
+    expect(shown({ name: 'feature', remote: false })).toBe(false);
+    git.remotes = true;
+    await readState('/r');
   });
 });
 

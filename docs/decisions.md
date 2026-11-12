@@ -3254,10 +3254,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     comparison takes the place of the one before. **Claude's, open to change:** Diff's icon for
     the window (IntelliJ's new UI has a Changes icon). **Not yet:** IntelliJ's Swap Branches and Get
     from Branch.
+  - **Update** (added 2026-11-12), after Merge, as IntelliJ's (`GitUpdateSelectedBranchAction`,
+    read from its source): for a local branch, the current one too, as the Log's branches pane's
+    Update Selected (the same code): the one checked out by Update Project, another fetched from
+    the branch it tracks, there if it's checked out in another worktree. Hidden without remotes;
+    shown but off while a fetch runs, or for a branch that tracks none, as IntelliJ's. **Not
+    yet:** IntelliJ's tooltip saying why it's off ("Tracked branch is not configured for…").
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); Update, Push and
+  now); Push and
   Pull from the menu; View Commits after a delete (IntelliJ's shows the
   commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
