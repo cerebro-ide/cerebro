@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
@@ -2290,6 +2291,43 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Diffs of images and other binary files (2026-11-11)
+
+Ido: "trying to open an image diff currently is loading forever. we should have a diff for images,
+similar to what intellij does, or github is also a good inspiration - ideally it'll support side by
+side, swipe, onion, and even a pixel diff mode which shows which pixels have changed".
+
+- **Why it loaded forever (measured):** between two commits (the Log's diffs), the host read both
+  sides with `git show` as text, binary or not, and the diff compared them as text. Comparing an
+  11 kB PNG with a 50 kB one took 19.7 s in `compare` alone; in the app, a diff window opened from
+  the Log on a 1200x800 PNG still said "Loading…" after 52 s. From the Commit window, the file on
+  disk was refused as binary, and the diff said so.
+- **The host reads a diff's sides as bytes** (`gitBytes`, `bytesAt`). If either side is binary (a
+  NUL in its first 8000 bytes, as git's `buffer_is_binary` decides, and as the editor already
+  refused binary files), `git.diff` gives `{ binary: true, original, text }`, each side in base64,
+  or null when the file isn't on that side. Otherwise it gives the texts as before. In the app, the
+  same Log diff showed in 4 s.
+- **Side by Side is IntelliJ's** (`TwosideBinaryDiffViewer`: each side in the file's own editor,
+  here the image viewer, with its zoom, chessboard and image line), and is shown first. Each side
+  has its name above it: the commits, shortened, or HEAD and "Your version" (that IntelliJ names a
+  file as it is so is a claim, from memory). Under them is IntelliJ's status line, "Files contents
+  are identical" or "Files contents are different" (`DiffBundle.properties`).
+- **Swipe, Onion Skin and Difference are Ido's, from GitHub** (Swipe and Onion Skin by GitHub's
+  names for them, a claim from memory). The two images are drawn one over the other from their top
+  left, in the larger one's frame, on the chessboard, fitted to the area together as the image
+  viewer fits one.
+  - Swipe shows the later image right of a line that a slider moves.
+  - Onion Skin fades the later image in over the earlier one, by a slider.
+  - Difference marks every pixel whose RGBA differs (or that's in one frame alone) in
+    `--cerebro-image-diff-changed`, over the later image in grey, faded three quarters of the way
+    to `--cerebro-image-diff-unchanged`, and counts them ("3 of 6 pixels changed").
+  - An image added or deleted is shown beside "No image", and only side by side.
+
+  Claude's choices, open to change: the modes as buttons above the image, the Difference
+  colours (not measured from anything: IntelliJ has no such mode), and the "Compare by" name.
+- **Another binary file** shows IntelliJ's status line alone, without its contents.
+- **Not yet:** zooming the stacked modes by hand, and keeping the mode chosen between diffs.
 
 ## Cherry-Pick (2026-11-11)
 

@@ -75,9 +75,16 @@ export async function readFileBytes(path: string): Promise<Uint8Array> {
  */
 export async function readTextFile(path: string): Promise<string> {
   const bytes = await readFileBytes(path);
-  if (bytes.subarray(0, 8000).includes(0)) throw new UnreadableFile('binary', path);
-  return new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
+  if (isBinary(bytes)) throw new UnreadableFile('binary', path);
+  return decodeText(bytes);
 }
+
+/** Whether bytes aren't text: a NUL in the first 8000, as git tells (`buffer_is_binary`). */
+export const isBinary = (bytes: Uint8Array): boolean => bytes.subarray(0, 8000).includes(0);
+
+/** Text from its UTF-8 bytes, a byte-order mark kept. */
+export const decodeText = (bytes: Uint8Array): string =>
+  new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes);
 
 /**
  * Whether a file or folder is there: false when it, or a folder on its path, isn't; an error when

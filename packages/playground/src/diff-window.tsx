@@ -30,7 +30,14 @@ import '@cerebro-ide/ui-popup/styles.css';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import type { DiffSpec } from './bridge.js';
-import { FileDiff, setupDiffViewer, type DiffDocument } from './diff-viewer.js';
+import {
+  FileDiff,
+  setupDiffViewer,
+  sideTitles,
+  type DiffDocument,
+  type DiffSides,
+} from './diff-viewer.js';
+import '@cerebro-ide/ui-image/styles.css';
 import { userKeymaps } from './keymap-page.js';
 import { keymapPlatform, PRESETS } from './keymaps.js';
 import { globalSettings, settingsFor } from './settings.js';
@@ -243,8 +250,9 @@ render(
                 ...spec.range,
               });
               await asIs?.read();
-              return (await diff) as { original: string; text: string };
+              return (await diff) as DiffSides;
             }}
+            titles={sideTitles(spec.range)}
             {...(asIs ? { document: asIs.document } : {})}
             version={() => version.get()}
             {...(scrollTo ? { scrollTo } : {})}

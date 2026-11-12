@@ -46,17 +46,38 @@ export class GitError extends Error {
 }
 
 export const git: Git = (cwd, args, env, input) =>
-  timed(`git ${args.join(' ')} in ${cwd}`, () => run(cwd, args, env, input));
+  timed(`git ${args.join(' ')} in ${cwd}`, async () =>
+    (await execute(cwd, args, env, input)).toString('utf8'),
+  );
 
-const run: Git = (cwd, args, env, input) =>
-  new Promise((resolve, reject) => {
+/** Runs git in `cwd`, giving its output as bytes: a file's at a commit, which may not be text. */
+export type GitBytes = (cwd: string, args: readonly string[]) => Promise<Uint8Array>;
+
+export const gitBytes: GitBytes = (cwd, args) =>
+  timed(`git ${args.join(' ')} in ${cwd}`, () => execute(cwd, args));
+
+const execute = (
+  cwd: string,
+  args: readonly string[],
+  env?: Readonly<Record<string, string>>,
+  input?: string,
+) =>
+  new Promise<Buffer>((resolve, reject) => {
     const child = execFile(
       'git',
       [...args],
-      { cwd, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, ...NO_OPTIONAL_LOCKS, ...env } },
+      {
+        cwd,
+        encoding: 'buffer',
+        maxBuffer: 64 * 1024 * 1024,
+        env: { ...process.env, ...NO_OPTIONAL_LOCKS, ...env },
+      },
       (error, stdout, stderr) => {
-        if (error) reject(new GitError(stderr.trim() || error.message, stdout));
-        else resolve(stdout);
+        if (error) {
+          reject(
+            new GitError(stderr.toString('utf8').trim() || error.message, stdout.toString('utf8')),
+          );
+        } else resolve(stdout);
       },
     );
     const stdin = child.stdin as Writable;
@@ -383,23 +404,18 @@ export async function listChangesBetween(
 /** Git's empty tree: what changes made before any commit are compared with. */
 export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-/** A file's text at a commit; empty if it isn't in it (or there's no such commit yet). */
-export async function textAt(
+/** A file's bytes at a commit; undefined if it isn't in it (or there's no such commit yet). */
+export async function bytesAt(
   worktree: string,
   commit: string,
   path: string,
-  run: Git = git,
-): Promise<string> {
+  run: GitBytes = gitBytes,
+): Promise<Uint8Array | undefined> {
   try {
     return await run(worktree, ['show', `${commit}:${path}`]);
   } catch {
-    return '';
+    return undefined;
   }
-}
-
-/** A file's text in the worktree's last commit; empty if it isn't in it (or there's none yet). */
-export function committedText(worktree: string, path: string, run: Git = git): Promise<string> {
-  return textAt(worktree, 'HEAD', path, run);
 }
 
 /** A commit, as the Git tool window's Log lists it. */

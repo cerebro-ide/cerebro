@@ -58,7 +58,8 @@ paths:
   the page's animations; a click that has hit this goes through it. On 2026-11-11 (run
   43118257614, the "back on main" click of the Branch button) it measured one box over 20 frames
   and no animations: the element wasn't moving, and Playwright's log stopped at "scrolling into
-  view if needed". Such a click is forced too.
+  view if needed". Such a click is forced too. Forced, the same test's next click (the popup's row,
+  run 43126178144) hung the same way, so a test that hits this has all its clicks forced.
 - **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
   test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each

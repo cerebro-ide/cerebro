@@ -37,6 +37,8 @@ import {
   exists,
   listFolder,
   readFileBytes,
+  isBinary,
+  decodeText,
   readTextFile,
   UnreadableFile,
   writeTextFile,
@@ -85,8 +87,10 @@ import {
 import {
   addWorktree,
   commit,
-  committedText,
   git as runGit,
+  gitBytes as runGitBytes,
+  type GitBytes,
+  bytesAt,
   listChanges,
   trackedFiles,
   listChangesBetween,
@@ -106,7 +110,6 @@ import {
   listAuthors,
   log,
   rollback,
-  textAt,
   listWorktrees,
   removeWorktree,
   type Git,
@@ -123,6 +126,8 @@ export interface HostOptions {
   /** The repository opened when a request names none. */
   repo: string;
   git?: Git;
+  /** Git giving bytes: a file at a commit, for its diff. */
+  gitBytes?: GitBytes;
   pty?: SpawnPty;
   /** The command an agent's hooks run, the hook's name after it. Default: this host's entry. */
   hookCommand?: string;
@@ -204,6 +209,7 @@ export const nodePty: SpawnPty = (file, args, options) => {
 /** Registers the host's methods on `connection`; the function returned ends what they started. */
 export function serveOn(connection: Connection, options: HostOptions): () => void {
   const git = options.git ?? runGit;
+  const gitBytes = options.gitBytes ?? runGitBytes;
   connection.onRequest('host.ping', () => ({ version: PROTOCOL_VERSION }));
   /** The repository a request names, else the host's own. */
   const repoOf = (params: unknown): string => {
@@ -1002,27 +1008,35 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       : listChanges(worktree, git);
   });
   // A file's two sides for its diff: as last committed (where it was, if renamed), and as it is;
-  // or at one commit and another.
+  // or at one commit and another. Binary, if either side is, in base64: JSON carries no bytes.
   connection.onRequest('git.diff', async (params) => {
     const worktree = text(params, 'path');
     const file = text(params, 'file');
     const between = range(params);
+    let sides: (Uint8Array | undefined)[];
     if (between) {
       const change = (await listChangesBetween(worktree, between.from, between.to, git)).find(
         (c) => c.path === file,
       );
-      const [original, current] = await Promise.all([
-        textAt(worktree, between.from, change?.from ?? file, git),
-        textAt(worktree, between.to, file, git),
+      sides = await Promise.all([
+        bytesAt(worktree, between.from, change?.from ?? file, gitBytes),
+        bytesAt(worktree, between.to, file, gitBytes),
       ]);
-      return { original, text: current };
+    } else {
+      const change = (await listChanges(worktree, git)).find((c) => c.path === file);
+      sides = await Promise.all([
+        bytesAt(worktree, 'HEAD', change?.from ?? file, gitBytes),
+        change?.status === 'deleted' ? undefined : refusing(readFileBytes(join(worktree, file))),
+      ]);
     }
-    const change = (await listChanges(worktree, git)).find((c) => c.path === file);
-    const [original, current] = await Promise.all([
-      committedText(worktree, change?.from ?? file, git),
-      change?.status === 'deleted' ? '' : read(join(worktree, file)),
-    ]);
-    return { original, text: current };
+    const [original, current] = sides;
+    if (sides.some((side) => side !== undefined && isBinary(side))) {
+      const base64 = (side: Uint8Array | undefined) =>
+        side === undefined ? null : Buffer.from(side).toString('base64');
+      return { binary: true, original: base64(original), text: base64(current) };
+    }
+    const decode = (side: Uint8Array | undefined) => (side === undefined ? '' : decodeText(side));
+    return { original: decode(original), text: decode(current) };
   });
   connection.onRequest('git.ignored', (params) => listIgnored(text(params, 'path'), git));
   // Rolls back the files named, as they're changed now; gives the changes left.
