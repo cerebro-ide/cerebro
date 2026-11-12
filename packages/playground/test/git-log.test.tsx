@@ -2,7 +2,7 @@ import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useProjects, workspace } from '../src/environments.js';
+import { projectOf, useProjects, workspace } from '../src/environments.js';
 import type { Tab } from '@cerebro-ide/layout';
 import { userEvent } from 'vitest/browser';
 import { SHOW_DELAY } from '@cerebro-ide/ui-tooltip';
@@ -380,6 +380,22 @@ describe('the Log', () => {
     git.failing = 'git log failed';
     tree().scrollTop = tree().scrollHeight;
     await expect.poll(note).toBe('git log failed');
+  });
+});
+
+describe('the Log, after a checkout', () => {
+  it('is the same Log, its selection kept, when the worktrees are read again', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    await userEvent.click(rows()[1] as HTMLElement);
+    const commits = document.querySelector('.playground-log__commits');
+    // As after a checkout: the worktrees read again, the same, in a new list.
+    const worktrees = projectOf('/r')?.worktrees;
+    worktrees?.set([...worktrees.peek()]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.querySelector('.playground-log__commits')).toBe(commits);
+    expect(rows()[1]?.getAttribute('aria-selected')).toBe('true');
   });
 });
 

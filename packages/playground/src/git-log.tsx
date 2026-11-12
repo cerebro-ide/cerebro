@@ -1364,15 +1364,22 @@ export function GitLogView(props: {
   services: MenuServices;
   open: (tab: Tab, chain?: readonly string[]) => void;
 }): Node {
+  // Read through these, the Log is made again only when they change: the worktrees' list, which
+  // they read, is read again after every checkout.
+  const hostOf = computed(() => {
+    const env = active();
+    return env && hostFor(env.id);
+  });
+  const repository = computed(() => gitRepository.get());
   return (
     <div class="playground-log">
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
-        const host = hostFor(env.id);
+        const host = hostOf.get();
         if (!host)
           return <p class="playground-project__empty">The log shows in the desktop app.</p>;
-        if (!gitRepository.get()) {
+        if (!repository.get()) {
           return <p class="playground-project__empty">Not a git repository</p>;
         }
         const log = new Log(host, env.id);
