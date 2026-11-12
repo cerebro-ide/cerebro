@@ -61,7 +61,7 @@ beforeAll(async () => {
   });
   running = await launch({ CEREBRO_REPO: repo });
   // The Claude tool window takes room from the editor, which these tests click in.
-  await page().locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
+  await page().locator('.cerebro-stripe-button[data-id="claude"]').click();
 });
 
 afterAll(async () => {
@@ -445,8 +445,7 @@ it('scrolls tabs that don’t fit, keeping the active one in view, and lists the
       return !!strip && !!tab && tab.left >= strip.left && tab.right <= strip.right;
     });
   expect(await inView()).toBe(true);
-  // Forced: under xvfb in CI, clicks can wait forever for the button to be "stable".
-  await more.click({ force: true });
+  await more.click();
   await page().keyboard.type('file0.txt');
   await page().locator('.cerebro-popup-item', { hasText: 'file0.txt' }).waitFor();
   await page().keyboard.press('Enter');

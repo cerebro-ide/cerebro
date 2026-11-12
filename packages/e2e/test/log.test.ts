@@ -113,8 +113,7 @@ afterAll(async () => {
 });
 
 it('lists the commits newest first, with the graph and the refs at each', async () => {
-  // Under xvfb in CI a click can wait forever for the button to be "stable" (rule "End-to-end").
-  await page().locator('.cerebro-stripe-button[data-id="git"]').click({ force: true });
+  await page().locator('.cerebro-stripe-button[data-id="git"]').click();
   await expect.poll(subjects, HOST).toEqual(['Merge side', 'On main', 'On the side', 'First']);
   const refs = (row: number) =>
     page()

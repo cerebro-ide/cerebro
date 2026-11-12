@@ -539,9 +539,7 @@ it('merges a branch from Git → Merge…, with the options chosen, as IntelliJ�
   await dialog.locator('.playground-git-branch__field').fill('topic');
   // A merge commit, though it could fast-forward.
   await dialog.locator('button', { hasText: 'Modify options' }).click();
-  await page()
-    .locator('.cerebro-popup-item', { hasText: 'Create a merge commit even if' })
-    .click({ force: true });
+  await page().locator('.cerebro-popup-item', { hasText: 'Create a merge commit even if' }).click();
   await page().keyboard.press('Escape');
   await dialog.locator('.cerebro-dialog__button', { hasText: 'Merge' }).click();
   await expect
