@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
-import { fetchAll, git, merge, pull, tracking, unmerged } from '../src/index.js';
+import { fetchAll, git, merge, pull, tracking, unmerged, updateBranch } from '../src/index.js';
 
 describe('fetching and pulling, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-pull-')));
@@ -43,6 +43,42 @@ describe('fetching and pulling, with real git', () => {
 
   afterAll(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('updates a branch not checked out from the branch it tracks: a fast-forward, with the remote commands’ git', async () => {
+    const { repo, upstream } = cloned();
+    run(repo, 'branch', 'side', '--track', 'origin/main');
+    upstream('second');
+    const remote = vi.fn(git);
+    expect(await updateBranch(repo, 'side', git, remote)).toEqual({});
+    expect(subjects(repo)).toEqual(['first']);
+    expect(run(repo, 'log', '--format=%s', 'side').trim().split('\n')).toEqual(['second', 'first']);
+    expect(remote.mock.calls[0]?.[1]).toContain('fetch');
+    // Not when it has commits of its own: git refuses what isn't a fast-forward.
+    run(repo, 'checkout', '-q', 'side');
+    commit(repo, 'own');
+    run(repo, 'checkout', '-q', 'main');
+    upstream('third');
+    await expect(updateBranch(repo, 'side', git, git)).rejects.toThrow();
+    expect(run(repo, 'log', '-1', '--format=%s', 'side').trim()).toBe('own');
+  });
+
+  it('fast-forwards a branch checked out in another worktree there, saying which', async () => {
+    const { repo, upstream } = cloned();
+    const there = join(root, 'there');
+    run(repo, 'worktree', 'add', '-q', '-b', 'side', there, 'main');
+    run(repo, 'branch', '-q', '--set-upstream-to', 'origin/main', 'side');
+    upstream('second');
+    expect(await updateBranch(repo, 'side', git, git)).toEqual({ worktree: there });
+    expect(subjects(there)).toEqual(['second', 'first']);
+  });
+
+  it('says so for a branch that tracks nothing', async () => {
+    const { repo } = cloned();
+    run(repo, 'branch', 'alone');
+    await expect(updateBranch(repo, 'alone', git, git)).rejects.toThrow(
+      'alone tracks no remote branch',
+    );
   });
 
   it('fetches every remote with the remote commands’ git, saying what was pruned', async () => {

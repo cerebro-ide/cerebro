@@ -14,6 +14,7 @@ import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
+import { fetching } from './fetch-pull.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
@@ -22,6 +23,7 @@ import { branchName, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { isProtected } from './push.js';
+import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
 /** A branch the popup lists: `main`, or a remote one, `origin/main`. */
@@ -597,6 +599,57 @@ export function setupBranches(
       await (ref.startsWith('refs/remotes/')
         ? deleteRemote(name)
         : deleteLocal({ name, remote: false }));
+      await refresh();
+    },
+  });
+  // Update Selected, as IntelliJ's (`updateBranches`): the branch checked out by Update Project;
+  // another from the branch it tracks, a fast-forward, there if it's checked out in another
+  // worktree. Off without a remote, while a fetch runs, and for a branch that tracks none.
+  commands.register<BranchesContext | undefined>({
+    id: 'log.branches.update',
+    label: 'Update Selected',
+    icon: 'update',
+    enabled: (c) => {
+      const at = target();
+      const selection = paneContext(c)?.selection;
+      return (
+        at !== undefined &&
+        stateOf(at.worktree).remotes !== false &&
+        !fetching.get() &&
+        selection?.upstream !== undefined
+      );
+    },
+    run: async (c) => {
+      const { selection, refresh } = paneContext(c) as BranchesContext;
+      const at = selection as NonNullable<BranchesContext['selection']>;
+      if (at.kind === 'head' || at.current) {
+        commands.execute('vcs.update');
+        return;
+      }
+      const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
+      const name = branchName(at.ref);
+      fetching.set(true);
+      try {
+        const updated = (await host.request('git.updateBranch', {
+          path: worktree,
+          branch: name,
+        })) as { worktree?: string };
+        notifications.notify({
+          title:
+            updated.worktree === undefined
+              ? 'Fetched 1 target'
+              : 'Updated 1 branch checked out in other worktrees',
+        });
+      } catch (error) {
+        notifications.notify({
+          title: 'Update failed',
+          content: (error as Error).message,
+          type: 'error',
+          display: 'sticky',
+        });
+      } finally {
+        fetching.set(false);
+      }
       await refresh();
     },
   });

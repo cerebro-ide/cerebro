@@ -1401,6 +1401,7 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
       {button('log.branches.hide', 'arrowCollapse')}
       <span class="playground-log__branches-separator" />
       {button('log.branches.newBranch', 'add')}
+      {button('log.branches.update', 'update')}
       {button('log.branches.delete', 'delete')}
       {button('vcs.fetch', 'fetch')}
       {button('log.branches.navigate', 'locate')}

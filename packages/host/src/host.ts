@@ -54,7 +54,15 @@ import {
   type UpdateMethod,
 } from './update.js';
 import { blame, MOVEMENTS, type BlameOptions } from './blame.js';
-import { fetchAll, merge, MERGE_OPTIONS, pull, PULL_OPTIONS, unmerged } from './pull.js';
+import {
+  fetchAll,
+  merge,
+  MERGE_OPTIONS,
+  pull,
+  PULL_OPTIONS,
+  unmerged,
+  updateBranch,
+} from './pull.js';
 import {
   checkout,
   checkoutDetached,
@@ -629,6 +637,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const only = (params as { remote?: unknown }).remote;
     return fetchAll(text(params, 'path'), git, remote, typeof only === 'string' ? only : undefined);
   });
+  // The Log branches pane's Update Selected, for a branch not checked out here.
+  connection.onRequest('git.updateBranch', (params) =>
+    updateBranch(text(params, 'path'), text(params, 'branch'), git, remote),
+  );
   // Where a pull comes from: the branch, the remotes and the upstream.
   connection.onRequest('git.tracking', (params) => tracking(text(params, 'path'), git));
   /** A dialog's options, each among those it has. */

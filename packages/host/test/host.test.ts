@@ -880,6 +880,23 @@ describe('ignored files and rolling back', () => {
       [...HELPERLESS, 'fetch', '--prune', '--quiet', '--end-of-options', 'origin'],
       ASKING,
     );
+    // The Log's Update Selected: a branch fetched into, from what it tracks.
+    answers['for-each-ref'] = 'origin\trefs/heads/main\n';
+    git.mockClear();
+    expect(await ui.request('git.updateBranch', { path: '/w', branch: 'side' })).toEqual({});
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      [
+        ...HELPERLESS,
+        'fetch',
+        '--quiet',
+        '--end-of-options',
+        'origin',
+        'refs/heads/main:refs/heads/side',
+      ],
+      ASKING,
+    );
+    delete answers['for-each-ref'];
     // One remote, as the Pull dialog asks.
     git.mockClear();
     await ui.request('git.fetch', { path: '/w', remote: 'upstream' });
