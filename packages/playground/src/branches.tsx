@@ -7,7 +7,7 @@
 // Delete. A merge or rebase stopped at conflicts goes through the Conflicts dialog, as Update
 // Project's does.
 
-import type { EnvironmentSpec } from '@cerebro-ide/layout';
+import type { EnvironmentSpec, Tab } from '@cerebro-ide/layout';
 import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
