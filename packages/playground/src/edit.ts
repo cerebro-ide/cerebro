@@ -6,10 +6,16 @@
 // something to do, as IntelliJ's (UndoManagerImpl); elsewhere they need somewhere to type, as Cut and
 // Paste do. Copy needs that or a selection; in a terminal, it copies the terminal's selection. A
 // terminal takes typing and pastes, but its text is the shell's: nothing is cut from it or undone.
+// Duplicate Line or Selection is the code editor's alone, in one that can be changed.
 
 import type { CommandRegistry } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
-import { editorHistory, historyNamesIn } from '@cerebro-ide/ui-editor';
+import {
+  editorDuplicate,
+  editorHistory,
+  historyNamesIn,
+  inChangeableEditor,
+} from '@cerebro-ide/ui-editor';
 
 export type EditAction = 'undo' | 'redo' | 'cut' | 'copy' | 'paste';
 
@@ -116,6 +122,22 @@ export function setupEdit(commands: CommandRegistry): void {
       },
     });
   }
+  commands.register({
+    id: 'edit.duplicate',
+    // IntelliJ's `EditorDuplicate`, which its menu shows with no mnemonic.
+    label: 'Duplicate Line or Selection',
+    enabled: () => {
+      const focused = last();
+      return focused !== undefined && inChangeableEditor(focused);
+    },
+    run: () => {
+      const focused = target();
+      if (focused instanceof HTMLElement) {
+        focused.focus();
+        editorDuplicate(focused);
+      }
+    },
+  });
   for (const [action, label] of [
     ['undo', '&Undo'],
     ['redo', '&Redo'],

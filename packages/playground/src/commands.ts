@@ -340,6 +340,8 @@ export function setupCommands(
       group: id === 'undo' || id === 'redo' ? 'a' : 'b',
     });
   }
+  // In IntelliJ's EditSmartGroup, after Find.
+  menus.contribute({ menu: 'main/edit', item: { command: 'edit.duplicate' }, group: 's' });
   commands.register({
     id: 'view.mainMenu',
     label: 'Show Main &Menu',
@@ -496,6 +498,8 @@ export function setupCommands(
   keymap.bindDefault('Mod+X', 'edit.cut');
   keymap.bindDefault('Mod+C', 'edit.copy');
   keymap.bindDefault('Mod+V', 'edit.paste');
+  // Before Show Diff's Mod+D: in a code editor, its key, as IntelliJ's editor actions come first.
+  keymap.bindDefault('Mod+D', 'edit.duplicate');
   keymap.bindDefault('Mod+Shift+N', 'file.goTo');
   keymap.bindDefault('Ctrl+K Ctrl+T', 'view.darkTheme');
   keymap.bindDefault('Ctrl+Shift+C', 'editor.copyPath');

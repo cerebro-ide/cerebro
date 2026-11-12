@@ -31,6 +31,7 @@ export {
   type FormatEdit,
   type FormatWords,
 } from './format.js';
+export { duplicate, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
 export {

@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2333,6 +2334,26 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Edit → Duplicate Line or Selection (2026-11-12)
+
+The editor's Ctrl+D, which comes before Show Diff's: IntelliJ binds both to Ctrl+D (`$default`),
+and in the editor its editor action takes the key. From Show Diff's Not yet (its shortcut).
+
+- **As IntelliJ's** `EditorDuplicate` (`DuplicateAction`, read in its source): the selection put
+  again right after it, the copy selected; without one, the caret's line put again below it, the
+  caret in the copy at its column. In the Edit menu, after Find (IntelliJ's `EditSmartGroup`), as
+  IntelliJ names it, with no mnemonic; Undo says "Undo Duplicate Line or Selection".
+- **On in a code editor that can be changed,** the one that last had the focus, as Edit's other
+  commands act on it; off in a read-only one, and elsewhere, so the key goes to the next command
+  bound to it (the Commit window's Show Diff, say). Its keys come first in each keymap.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+D (Cmd+D on macOS, and in Visual Studio's,
+  which keep their parents'); NetBeans' Ctrl+Shift+Down and Up besides; Sublime Text's
+  Ctrl+Shift+D (Cmd+Shift+D); Emacs's Meta+D; none in Eclipse's. VS Code's is its Copy Line Down,
+  Shift+Alt+Down from its shortcut sheets (its nearest, Claude's choice, open to change).
+- **Claims and differences:** Cerebro's editor has one caret, so it's done at that one; IntelliJ
+  does it at each. A line in a fold is copied alone; IntelliJ copies the fold's lines with it.
+- **Not yet:** Duplicate Entire Lines (`EditorDuplicateLines`, no key in IntelliJ's keymap).
 
 ## Git → Current File → Show History (2026-11-12)
 
