@@ -1849,7 +1849,16 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     black (dark) or `Gray._50` (light), as SimpleColoredComponent draws a match. **Claims:** the
     expression is read as JavaScript's (git's is POSIX's: one JavaScript can't read marks nothing);
     hashes typed are marked only where a subject has them as typed.
-  - **Not yet:** the field's history.
+  - **Its history** (2026-11-12), as IntelliJ's SearchTextField (VcsLogClassicFilterUi's
+    TextFilterField, "Vcs.Log.Text.Filter.History"): what Enter applied, five, the latest first,
+    trimmed, the same text in another case moved first; one for every repository. Alt+Down
+    (ShowSearchHistory) or a press on the magnifier, once there's a history, shows "Search
+    History" below the field, the field's text added first; a choice is put in the field, applied
+    with Enter (IntelliJ's text filter doesn't apply as one types:
+    `vcs.log.filter.text.on.the.fly`, false). Alt+Up puts the history's texts in the field in
+    turn, from the last. Leaving the field applies its text without remembering it, as IntelliJ's.
+    **Claims:** the popup has a search field, where IntelliJ's list has none; the magnifier is
+    the plain one, where IntelliJ's has an arrow (search with history).
 - **The User and Date filters** (changed 2026-11-07), after Branch, as IntelliJ's
   (UserFilterPopupComponent, DateFilterPopupComponent, MultipleValueFilterPopupComponent,
   VcsLogUserResolverBase, VcsUserUtil, UserNameRegex, FilterComponent):

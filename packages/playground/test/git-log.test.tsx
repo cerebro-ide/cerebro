@@ -15,8 +15,10 @@ import {
   PAGE,
   rangeOf,
   refsOf,
+  rememberText,
   setupLog,
   showInLog,
+  textHistory,
   viewCommits,
   type LogCommit,
   type LogCommitContext,
@@ -1098,6 +1100,40 @@ describe('matchRanges', () => {
   });
 });
 
+describe('the text filter’s history', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('keeps five, the latest first, trimmed, the same in another case moved first', () => {
+    expect(textHistory()).toEqual([]);
+    rememberText('  ');
+    expect(textHistory()).toEqual([]);
+    for (const text of ['a', ' b ', 'c', 'd', 'e', 'f']) rememberText(text);
+    expect(textHistory()).toEqual(['f', 'e', 'd', 'c', 'b']);
+    rememberText('C');
+    expect(textHistory()).toEqual(['C', 'f', 'e', 'd', 'b']);
+    // First already, in any case: left as it was.
+    rememberText('c');
+    expect(textHistory()).toEqual(['C', 'f', 'e', 'd', 'b']);
+  });
+
+  it('reads none from what isn’t a list of texts, and goes on when it can’t be kept', () => {
+    localStorage.setItem('cerebro.log.textHistory', 'not JSON');
+    expect(textHistory()).toEqual([]);
+    localStorage.setItem('cerebro.log.textHistory', '{"a":1}');
+    expect(textHistory()).toEqual([]);
+    localStorage.setItem('cerebro.log.textHistory', '["a",1]');
+    expect(textHistory()).toEqual(['a']);
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+    rememberText('b');
+    setItem.mockRestore();
+    expect(textHistory()).toEqual(['a']);
+  });
+});
+
 describe('the text filter', () => {
   const field = () => document.querySelector('.playground-log__search-field') as HTMLInputElement;
   const filters = () =>
@@ -1159,6 +1195,65 @@ describe('the text filter', () => {
     // Match Case: only the text as typed.
     await userEvent.click(option('Match Case'));
     await expect.poll(marked).toEqual(['fix']);
+  });
+
+  it('remembers what Enter applied, shown on Alt+Down or the magnifier, Alt+Up going round', async () => {
+    localStorage.clear();
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    git.byText.docs = history(1, [], 'd');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const magnifier = document.querySelector('.playground-log__search-history') as HTMLElement;
+    const popup = () => document.querySelector('.cerebro-popup');
+    const items = () =>
+      [...document.querySelectorAll('.cerebro-popup-item__label')].map(
+        (label) => label.textContent,
+      );
+    // No history yet: the magnifier shows nothing.
+    await userEvent.click(magnifier);
+    expect(popup()).toBeNull();
+    await userEvent.click(field());
+    // Nor Alt+Down or Alt+Up.
+    await userEvent.keyboard('{Alt>}{ArrowDown}{ArrowUp}{/Alt}');
+    expect(popup()).toBeNull();
+    expect(field().value).toBe('');
+    await userEvent.keyboard('fix{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    await userEvent.clear(field());
+    await userEvent.keyboard('docs{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('d0');
+    // Leaving the field applies, but isn't remembered, as IntelliJ's.
+    await userEvent.clear(field());
+    await userEvent.keyboard('other');
+    await userEvent.click(rows()[0] as HTMLElement);
+    expect(textHistory()).toEqual(['docs', 'fix']);
+    await userEvent.click(field());
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    expect(popup()?.querySelector('[role="listbox"]')).not.toBeNull();
+    expect(popup()?.getAttribute('aria-label')).toBe('Search History');
+    // Opening it remembers the text in the field, as IntelliJ's.
+    expect(items()).toEqual(['other', 'docs', 'fix']);
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Enter}');
+    expect(popup()).toBeNull();
+    // Put in the field, to apply with Enter.
+    expect(field().value).toBe('fix');
+    expect(rows()[0]?.getAttribute('data-key')).not.toBe('f0');
+    expect(textHistory()).toEqual(['fix', 'other', 'docs']);
+    await userEvent.click(magnifier);
+    expect(items()).toEqual(['fix', 'other', 'docs']);
+    await userEvent.keyboard('{Escape}');
+    // Alt+Up: from the last, round.
+    await userEvent.click(field());
+    await userEvent.keyboard('{Alt>}{ArrowUp}{/Alt}');
+    expect(field().value).toBe('docs');
+    await userEvent.keyboard('{Alt>}{ArrowUp}{ArrowUp}{ArrowUp}{/Alt}');
+    expect(field().value).toBe('docs');
+    // Text not in it is added first.
+    await userEvent.clear(field());
+    await userEvent.keyboard('new{Alt>}{ArrowUp}{/Alt}');
+    expect(textHistory()).toEqual(['new', 'fix', 'other', 'docs']);
+    expect(field().value).toBe('fix');
   });
 
   it('applies as it loses the focus, if changed; its button clears it', async () => {
