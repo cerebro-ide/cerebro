@@ -78,6 +78,12 @@ describe('a tab’s file', () => {
       relative: 'src/a.ts',
     });
     expect(tabFile('diff:src/a.ts', '/r/w', 'linux').system).toBe('/r/w/src/a.ts');
+    // A comparison of branches shows no file.
+    expect(tabFile('compare:main..feature', '/r/w', 'linux')).toEqual({
+      system: undefined,
+      name: undefined,
+      relative: undefined,
+    });
     expect(tabFile('C:/r/w/a.ts', 'C:/r/w', 'win32')).toEqual({
       system: 'C:\\r\\w\\a.ts',
       name: 'a.ts',

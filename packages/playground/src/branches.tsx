@@ -12,6 +12,7 @@ import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
+import { compareWithCurrent } from './compare-branches.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -436,6 +437,16 @@ export function setupBranches(
     visible: (b) => !b.tag,
     run: (b) => newBranch(b.name),
   });
+  // IntelliJ's (`GitCompareWithBranchAction`): for a branch, not the one checked out.
+  commands.register<BranchRef>({
+    id: 'git.branch.compare',
+    label: 'Compare with Current',
+    text: () => `Compare with ${quoted(current())}`,
+    visible: (b) => !isCurrent(b) && !b.tag,
+    run: (b) => {
+      compareWithCurrent(current(), b.name);
+    },
+  });
   commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
@@ -749,6 +760,7 @@ export function setupBranches(
   // IntelliJ's order (`Git.Branch.Backend.Checkout`, `Git.Branch.Backend`), what's here of it.
   const groups: [string, string[]][] = [
     ['a', ['git.branch.checkout', 'git.branch.openWorktree', 'git.branch.newFrom']],
+    ['ab', ['git.branch.compare']],
     ['b', ['git.branch.rebase', 'git.branch.merge']],
     ['c', ['git.branch.rename', 'git.branch.delete']],
   ];

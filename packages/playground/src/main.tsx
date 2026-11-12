@@ -64,6 +64,7 @@ import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
+import { CompareBranches, compareRefs, setupCompare } from './compare-branches.js';
 import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
 import { setupApplyChanges } from './apply-changes.js';
@@ -76,6 +77,7 @@ import { setupSwitcher } from './switcher.js';
 import {
   AgentChangesView,
   diffPath,
+  tabPath,
   diffRange,
   diffTab,
   setupChanges,
@@ -557,7 +559,7 @@ async function recentFiles(editedOnly: boolean): Promise<void> {
   const edited = signal(editedOnly);
   const itemsOf = (tabs: readonly Tab[]) =>
     tabs
-      .filter((tab) => diffPath(tab.id) === undefined)
+      .filter((tab) => tabPath(tab.id) === tab.id)
       .map((tab) => {
         const path =
           root !== undefined && tab.id.startsWith(`${root}/`)
@@ -624,10 +626,10 @@ services.keymap.bindDefault('Mod+E', 'view.recentFiles');
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
 services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
-/** The active tab's file, if it's one (not a diff). */
+/** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {
   const tab = editor()?.activeGroup.activeTab;
-  return tab && diffPath(tab.id) === undefined ? tab : undefined;
+  return tab && tabPath(tab.id) === tab.id ? tab : undefined;
 };
 // It needs an editor with the focus, or its find bar, as IntelliJ's GotoLineAction
 // (EDITOR_EVEN_IF_INACTIVE): elsewhere, as in the Log, its key is free for others (Cmd+L there is
@@ -826,6 +828,7 @@ const environments = setupEnvironments(services.commands, services.menus, (env) 
   if (initial.length === 0) seedFiles(env, tabOf);
 });
 const branches = setupBranches(services, environments);
+setupCompare(services, (tab) => editor()?.open(tab));
 // A project that joins the window shows at once; one asked to open again comes to the front.
 window.cerebro?.project.onAdded(({ replaces, ...project }) => {
   projectAdded(project);
@@ -897,7 +900,7 @@ const indexProgress = (): Progress => {
 /** The active tab's file: a diff tab's too. */
 const activePath = () => {
   const id = editor()?.activeGroup.active;
-  return id === undefined ? undefined : (diffPath(id) ?? id);
+  return id === undefined ? undefined : tabPath(id);
 };
 status.add({
   id: 'env',
@@ -1744,6 +1747,17 @@ render(
             <EditorAreaView
               area={env.editor}
               content={(tab) => {
+                const compared = compareRefs(tab.id);
+                if (compared) {
+                  return (
+                    <CompareBranches
+                      worktree={env.id}
+                      {...compared}
+                      services={services}
+                      open={openTab}
+                    />
+                  );
+                }
                 const diff = diffPath(tab.id);
                 if (diff !== undefined) {
                   const line = diffLines.get(tab.id);
@@ -1757,7 +1771,13 @@ render(
                 );
               }}
               icon={(tab) =>
-                icon(diffPath(tab.id) !== undefined ? 'diff' : isImage(tab.id) ? 'image' : 'file')
+                icon(
+                  diffPath(tab.id) !== undefined || compareRefs(tab.id)
+                    ? 'diff'
+                    : isImage(tab.id)
+                      ? 'image'
+                      : 'file',
+                )
               }
               hasErrors={(tab) => hasErrors(tab.id)}
               empty={() => <Empty />}

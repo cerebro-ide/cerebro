@@ -1207,6 +1207,9 @@ describe('Select Opened File, Expand All and Collapse All', () => {
     await expect
       .poll(() => row(`${UNVERSIONED}:notes.txt`).getAttribute('aria-selected'))
       .toBe('true');
+    // A comparison of branches: no file to select.
+    activeTab = 'compare:main..feature';
+    expect(commands.isEnabled('changes.selectOpened', FROM_VIEW)).toBe(false);
     // Not a changed file: nothing selected anew.
     activeTab = 'elsewhere.ts';
     commands.execute('changes.selectOpened', FROM_VIEW);

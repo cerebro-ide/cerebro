@@ -164,7 +164,7 @@ export interface Authors {
 }
 
 /** What the Log has loaded, and loads. */
-class Log {
+export class Log {
   readonly commits = signal<readonly LogCommit[]>([]);
   readonly graph = new Map<string, GraphRow>();
   /** Why it couldn't be read. */
@@ -487,7 +487,7 @@ function Message(props: { message: string; log: Log }) {
 }
 
 /** A commit's row: its graph and subject, the refs at it, its author and date. */
-function CommitRow(props: { commit: LogCommit; log: Log }) {
+export function CommitRow(props: { commit: LogCommit; log: Log }) {
   const { commit, log } = props;
   // Drawn near the end of what's loaded: the next page loads.
   if (log.indexOf(commit.hash) >= log.commits.peek().length - AHEAD) log.more();
@@ -588,7 +588,7 @@ export function CommitFiles(props: {
 }
 
 /** The selected commit's changed files, then its details. */
-function CommitPane(props: {
+export function CommitPane(props: {
   log: Log;
   host: Host;
   worktree: string;
@@ -618,7 +618,7 @@ function CommitPane(props: {
 }
 
 /** How wide the commit's pane and the branches are to start with, in pixels (claims). */
-const PANE_WIDTH = 400;
+export const PANE_WIDTH = 400;
 const BRANCHES_WIDTH = 200;
 
 /** The Log shown, for its commands. */
@@ -627,8 +627,12 @@ const shown = signal<{ log: Log; branches: Branches } | undefined>(undefined);
 /** Where the toolbar's commands come from. */
 const FROM_LOG = { source: 'log' };
 
-/** What the commit menu acts on, for a commit of `log`. */
-function commitContext(log: Log, branches: Branches, commit: LogCommit): LogCommitContext {
+/** What the commit menu acts on, for a commit of `log`; `refresh` reads it again after a change. */
+export function commitContext(
+  log: Log,
+  commit: LogCommit,
+  refresh: () => Promise<void>,
+): LogCommitContext {
   const head = log.commits
     .peek()
     .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
@@ -637,16 +641,18 @@ function commitContext(log: Log, branches: Branches, commit: LogCommit): LogComm
     worktree: log.worktree,
     host: log.host,
     ...(head ? { head: head.hash } : {}),
-    refresh: () => refresh(log, branches),
+    refresh,
   };
 }
 
 /** What the branches pane's toolbar acts on. */
 function branchesContext(log: Log, branches: Branches): BranchesContext {
+  const current = branches.branches.peek().find((branch) => branch.current);
   return {
     source: 'log',
     selection: branches.selection(),
     refresh: () => refresh(log, branches),
+    ...(current ? { current: branchName(current.ref) } : {}),
   };
 }
 
@@ -675,7 +681,7 @@ export function selectedCommit(): LogCommitContext | undefined {
   if (!at) return undefined;
   const hash = at.log.model.selected;
   const commit = hash === undefined ? undefined : at.log.commit(hash);
-  return commit && commitContext(at.log, at.branches, commit);
+  return commit && commitContext(at.log, commit, () => refresh(at.log, at.branches));
 }
 
 /** From the Log's toolbar, or a shortcut while it has the keyboard. */
@@ -1512,6 +1518,7 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
             {button('log.branches.newBranch', 'add')}
             {button('log.branches.update', 'update')}
             {button('log.branches.delete', 'delete')}
+            {button('log.branches.compare', 'diff')}
             {button('log.branches.showMy', 'search')}
             {button('vcs.fetch', 'fetch')}
             {button('log.branches.toggleFavorite', 'favorite')}
@@ -1653,7 +1660,7 @@ export function GitLogView(props: {
                   props.services,
                   'log/commit',
                   event,
-                  commitContext(log, branches, commit),
+                  commitContext(log, commit, () => refresh(log, branches)),
                 );
               }}
             />

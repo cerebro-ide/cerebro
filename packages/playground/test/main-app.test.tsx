@@ -3,6 +3,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
 import { diffTab } from '../src/changes.js';
+import { compareTab } from '../src/compare-branches.js';
+import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
@@ -85,6 +87,46 @@ describe('the page in the app', () => {
     await userEvent.unhover(item);
     notify('/r', 'index.progress', { worktree: '/r', done: 4, total: 4 });
     await expect.poll(() => status()[2]).toBe('Indexed');
+  });
+});
+
+describe('a comparison’s tab', () => {
+  it('opens from the branches popup, comparing in the worktree, its icon Diff’s', async () => {
+    answers.set('git.branches', [
+      { ref: 'refs/heads/main', current: true },
+      { ref: 'refs/heads/feature', current: false },
+    ]);
+    answers.set('git.tags', []);
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Branches');
+    await expect.poll(popupItems).toContain('Branches…');
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(popupItems).toContain('feature');
+    await userEvent.click(
+      [...document.querySelectorAll('.cerebro-popup-item')].find((item) =>
+        item.textContent.includes('feature'),
+      ) as Element,
+    );
+    await userEvent.click(menuItem("Compare with 'main'"));
+    await expect
+      .poll(() => document.querySelector('.playground-compare__explanation')?.textContent)
+      .toBe("Commits that exist in feature but don't exist in main");
+    expect(env().editor.activeGroup.active).toBe(compareTab('main', 'feature').id);
+    expect(host('/r').params('git.log')).toContainEqual(
+      expect.objectContaining({ worktree: '/r', branches: ['main..feature'] }),
+    );
+    expect(
+      document.querySelector('.cerebro-editor-tab--active .cerebro-editor-tab__icon path')
+        ?.outerHTML,
+    ).toBe((icon('diff') as Element).querySelector('path')?.outerHTML);
+    // It shows no file: none in the status bar, nor in Recent Files.
+    expect(status().join(' ')).not.toContain('compare:');
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    expect(document.querySelector('.cerebro-popup')?.textContent).not.toContain('Compare');
+    await userEvent.keyboard('{Escape}');
+    env().editor.close(env().editor.activeGroup.id, compareTab('main', 'feature').id);
   });
 });
 
