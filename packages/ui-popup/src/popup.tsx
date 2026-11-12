@@ -18,6 +18,11 @@ export interface PickerItem {
   /** How deep in a tree it is, indented as deep: File Structure's members under their types. */
   depth?: number;
   icon?: () => Child;
+  /**
+   * Clicking the item's icon runs this instead of choosing the item, and the popup stays open:
+   * IntelliJ's branches popup marks a favorite so. The list follows what its items read.
+   */
+  iconClick?: () => void;
   /** Items of one group are listed together, under a header with its name. */
   group?: string;
   /** Indices in the label of the characters that matched the query, shown bold. */
@@ -413,7 +418,17 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
             this.choose(index.peek());
           }}
         >
-          <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
+          <span
+            class="cerebro-popup-item__icon"
+            on:click={(event) => {
+              const click = row.item.iconClick;
+              if (!click) return;
+              event.stopPropagation();
+              click();
+            }}
+          >
+            {item.icon?.()}
+          </span>
           <span class="cerebro-popup-item__label">{highlighted(item.label, item.highlight)}</span>
           <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
           <span class="cerebro-popup-item__shortcut">{item.shortcut ?? ''}</span>

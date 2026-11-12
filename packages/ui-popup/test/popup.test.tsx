@@ -434,6 +434,32 @@ describe('openPicker', () => {
     expect(document.querySelectorAll('.cerebro-popup-item__close')).toHaveLength(1);
   });
 
+  it('runs an item’s iconClick for a click on its icon, keeping the popup open', async () => {
+    const marked = signal<string[]>([]);
+    const handle = picker({
+      items: () =>
+        ['a', 'b'].map((label) => ({
+          label,
+          icon: () => <i class="test-icon">{label}</i>,
+          ...(label === 'a'
+            ? {
+                iconClick: () => {
+                  marked.set([...marked.get(), label]);
+                },
+              }
+            : {}),
+        })),
+    });
+    const icons = [...document.querySelectorAll<HTMLElement>('.test-icon')];
+    await userEvent.click(icons[0] as HTMLElement);
+    expect(marked.get()).toEqual(['a']);
+    expect(handle.open).toBe(true);
+    // Without one, a click on the icon chooses the item, as one anywhere else on it.
+    await userEvent.click(icons[1] as HTMLElement);
+    expect(handle.open).toBe(false);
+    expect((await handle.result)?.label).toBe('b');
+  });
+
   it('shows a header, options beside the field, and the highlighted item in a preview', () => {
     const matchCase = signal(false);
     picker({

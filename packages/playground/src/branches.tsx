@@ -16,6 +16,7 @@ import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
+import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
@@ -669,13 +670,25 @@ export function setupBranches(
   }
 
   type Choice = PickerItem & { branch?: BranchRef; run?: () => void };
-  /** A branch's row: its menu beside it, as IntelliJ's. */
-  const row = (branch: BranchRef, group: string): Choice => {
+  const refOf = (branch: BranchRef) => `refs/${branch.remote ? 'remotes' : 'heads'}/${branch.name}`;
+  /**
+   * A branch's row: its menu beside it, as IntelliJ's. Its icon marks a favorite, as IntelliJ's
+   * (GitBranchesTreeIconProvider): a star; on the row highlighted, a muted one to click.
+   */
+  const row = (branch: BranchRef, group: string, repository: string): Choice => {
     const other = elsewhere(branch);
+    const ref = refOf(branch);
     return {
       label: branch.name,
       group,
-      ...(isCurrent(branch) ? { icon: () => icon('check') } : {}),
+      icon: () => () => {
+        if (isCurrent(branch)) return icon('check');
+        if (isFavorite(repository, ref)) return icon('favorite');
+        return <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>;
+      },
+      iconClick: () => {
+        setFavorite(repository, ref, !isFavorite(repository, ref));
+      },
       // The worktree it's checked out in.
       ...(other === undefined ? {} : { detail: other.name }),
       branch,
@@ -708,11 +721,28 @@ export function setupBranches(
         console.error('Reading the branches failed', error);
       });
     }
-    const handle = openPicker<Choice>({
+    const repository = repositoryOf(at?.worktree ?? '');
+    /** IntelliJ's order (GitBranchesTreeModel): the branch checked out, favorites, then the rest. */
+    const rows = (names: readonly string[], remote: boolean, group: string) =>
+      names
+        .map((name) => ({ name, remote }))
+        .map((branch) => ({
+          branch,
+          weight: isCurrent(branch) ? 0 : isFavorite(repository, refOf(branch)) ? 1 : 2,
+        }))
+        .sort((a, b) => a.weight - b.weight)
+        .map(({ branch }) => row(branch, group, repository));
+    const handle: PickerHandle<Choice> = openPicker<Choice>({
       label: 'Branches',
       placeholder: 'Search',
       position: button ? { below: button } : 'top',
       ...(button ? { owner: button } : {}),
+      // Space marks the branch highlighted a favorite, or not, as IntelliJ's; the search takes none.
+      onKey: (event) => {
+        if (event.key !== ' ') return false;
+        handle.highlighted()?.iconClick?.();
+        return true;
+      },
       items: (query) => [
         // IntelliJ's `Git.Branches.List`, what's here of it.
         ...fuzzyFilter(
@@ -725,14 +755,8 @@ export function setupBranches(
           ],
           query,
         ),
-        ...fuzzyFilter(
-          branches.get().local.map((name) => row({ name, remote: false }, 'Local')),
-          query,
-        ),
-        ...fuzzyFilter(
-          branches.get().remote.map((name) => row({ name, remote: true }, 'Remote')),
-          query,
-        ),
+        ...fuzzyFilter(rows(branches.get().local, false, 'Local'), query),
+        ...fuzzyFilter(rows(branches.get().remote, true, 'Remote'), query),
       ],
     });
     void handle.result.then((choice) => choice?.run?.());
