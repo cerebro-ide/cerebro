@@ -831,6 +831,17 @@ describe('the branches’ toolbar', () => {
     ]);
   });
 
+  it('keeps its first buttons in place in a short pane, as one further down is focused', () => {
+    git.log = history(1);
+    mount();
+    const log = document.querySelector('.playground-log') as HTMLElement;
+    log.style.height = '80px';
+    const buttons = [...toolbar().querySelectorAll<HTMLButtonElement>('button')];
+    (buttons.at(-1) as HTMLButtonElement).focus();
+    expect(toolbar().scrollTop).toBe(0);
+    log.style.height = '';
+  });
+
   it('navigates the Log to the head of HEAD or the branch selected; expands and collapses all', async () => {
     git.log = history(3);
     git.branches = [
