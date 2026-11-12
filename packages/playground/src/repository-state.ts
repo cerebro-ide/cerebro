@@ -16,6 +16,8 @@ export interface RepositoryState {
   message?: string;
   /** Whether it has any remote: unknown (undefined) until read. */
   remotes?: boolean;
+  /** A fingerprint of the refs the Log shows, which reads itself again when it changes. */
+  refs?: string;
 }
 
 /** How often the active worktree's state is read, as the Commit window's changes are. */

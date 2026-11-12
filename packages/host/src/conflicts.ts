@@ -4,6 +4,7 @@
 // carrying on with the merge or rebase once none is left. Yours and theirs are as IntelliJ shows
 // them: during a rebase, git's sides swapped, yours being the commit replayed.
 
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Git } from './git.js';
@@ -217,6 +218,27 @@ export interface RepositoryState {
   message?: string;
   /** Whether the repository has any remote: IntelliJ's Fetch is disabled without. */
   remotes: boolean;
+  /**
+   * What the Log shows of the refs, as a fingerprint: the branches', remote branches' and tags'
+   * commits, and HEAD's, with the branch it's on. The Log reads itself again when it changes.
+   */
+  refs: string;
+}
+
+/** The fingerprint of the refs the Log shows: not the agents' turns', under `refs/worktree/`. */
+async function refsPrint(worktree: string, run: Git): Promise<string> {
+  const refs = await run(worktree, [
+    'for-each-ref',
+    '--format=%(objectname) %(refname)',
+    'refs/heads',
+    'refs/remotes',
+    'refs/tags',
+  ]);
+  // Before the first commit, HEAD names nothing.
+  const head = await run(worktree, ['rev-parse', 'HEAD', '--symbolic-full-name', 'HEAD']).catch(
+    () => '',
+  );
+  return createHash('sha1').update(`${refs}\n${head}`).digest('hex');
 }
 
 /**
@@ -229,6 +251,7 @@ export async function repositoryState(worktree: string, run: Git): Promise<Repos
     operation: op,
     conflicts: (await run(worktree, ['ls-files', '-u'])) !== '',
     remotes: (await run(worktree, ['remote'])) !== '',
+    refs: await refsPrint(worktree, run),
   };
   // As IntelliJ's `GitMergeCommitMessageReader`, as git wrote it, its comments kept.
   const message = op === 'merge' ? await gitFile(worktree, 'MERGE_MSG', run) : undefined;

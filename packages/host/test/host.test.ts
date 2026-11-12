@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
@@ -1049,6 +1050,8 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.state', { path: '/w' })).toEqual({
       conflicts: false,
       remotes: false,
+      // What git gave (no refs, and `rev-parse`'s answer), as a fingerprint.
+      refs: createHash('sha1').update('\n/nowhere/state\n').digest('hex'),
     });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
