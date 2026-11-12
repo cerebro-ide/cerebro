@@ -44,6 +44,10 @@ on it:
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
+- **git-log.test's "show in a pane, and filter the Log…" fails when run alone** (measured
+  2026-11-12, `-t "show in a pane"`, with and without #238's change): `feat` isn't expanded by its
+  click and Right (`toContain('x')` times out); in the whole file it passes. Something an earlier
+  test leaves (focus, a stored setting) makes it pass: find what, and make it set that itself.
 - **The Log's ref labels drawn over each other** (seen in the built app, 2026-11-12, QA of the
   branches pane's search, the Git tool window 1280 px wide, five branches at one commit): the
   last label, `feat/login`, overlapped the one before it. Not measured why.

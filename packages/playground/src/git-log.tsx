@@ -851,14 +851,18 @@ export function setupLog(services: MenuServices, show: () => void): void {
     id: 'log.branches.navigate',
     label: 'Navigate Log to Selected Branch Head',
     icon: 'locate',
-    enabled: (c) => c?.selection !== undefined && shown.get() !== undefined,
+    enabled: (c) => paneContext(c)?.selection !== undefined,
     run: (c) => {
       const { log } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
-      const selection = (c as BranchesContext).selection as NonNullable<BranchesSelection>;
+      const selection = (paneContext(c) as BranchesContext)
+        .selection as NonNullable<BranchesSelection>;
       if (selection.kind === 'head') void navigate(log, 'HEAD');
       else void navigate(log, selection.ref, branchName(selection.ref));
     },
   });
+  // Select In's key (Alt+F1, Option+F1 on macOS), while the pane has the keyboard, as IntelliJ's
+  // (`use-shortcut-of="SelectIn"`): bound before Select In, which takes it elsewhere.
+  keymap?.bindDefault('Alt+F1', 'log.branches.navigate');
   // A branch marked a favorite, or not, as IntelliJ's ToggleFavoriteAction: the pane sorts it again.
   commands.register<BranchesContext | undefined>({
     id: 'log.branches.toggleFavorite',

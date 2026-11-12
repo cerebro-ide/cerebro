@@ -2070,9 +2070,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     tree's selection from the pane's actions, as IntelliJ's. Its placeholder is IntelliJ's, "Branch or
     tag" ("Branch" until the pane showed tags). **Claude's, open to change:** the field's text in
     the error's colour when nothing matches (IntelliJ paints its background).
+  - Navigate's key (added 2026-11-12): Select In's, Alt+F1 (Option+F1 on macOS), while the pane
+    has the keyboard, as IntelliJ's (`use-shortcut-of="SelectIn"`); bound before Select In, which
+    takes it elsewhere.
   **Not yet:** Compare with Current, Show My Branches; several branches selected (IntelliJ updates
-  them all at once); Navigate's key
-  (Select In's, Alt+F1, which Select In takes here first).
+  them all at once).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
