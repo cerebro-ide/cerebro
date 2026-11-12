@@ -2035,11 +2035,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     open to change:** the star's drawing.
   - Favorites in the branches popup (added 2026-11-12), shared with the pane, as IntelliJ's
     (GitDefaultBranchesPopup, GitBranchesTreeIconProvider, GitBranchesTreeModel): a favorite's
-    row has a star, and another's a muted one while it's highlighted; a click on it, or Space on
+    row has a filled star (in the pane too), and another's a muted outline while it's highlighted; a click on it, or Space on
     the row highlighted, marks the branch or unmarks it, the popup staying open. Each group lists
     the branch checked out, then favorites, then the rest. The search takes no spaces, as
-    IntelliJ's. **Claude's, open to change:** the branch checked out keeps its check whether it's
-    a favorite or not (IntelliJ has an icon for both); Space on an item that's not a branch does
+    IntelliJ's. **Claude's, open to change:** the star in the text's colour (IntelliJ's is
+    yellow); the branch checked out keeps its check whether it's a favorite or not (IntelliJ has an icon for both); Space on an item that's not a branch does
     nothing.
   **Not yet:** Compare with Current, Show My Branches, the pane's search; several branches selected (IntelliJ updates
   them all at once); Navigate's key

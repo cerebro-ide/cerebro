@@ -240,6 +240,11 @@ describe('the branches popup', () => {
         'origin/side',
       ]);
     expect(mark('side')).toBe('star');
+    // Filled, as IntelliJ's; the one to click, an outline.
+    const fill = (name: string) =>
+      getComputedStyle(row(name).querySelector('.cerebro-popup-item__icon path') as Element).fill;
+    expect(fill('side')).not.toBe('none');
+    expect(fill('feature')).toBe('none');
     expect(document.querySelector('.cerebro-popup')).not.toBeNull();
     expect(document.querySelector('.cerebro-menu')).toBeNull();
     // Space, on the row highlighted: side unmarked, and the search took no space.

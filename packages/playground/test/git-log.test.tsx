@@ -1066,6 +1066,10 @@ describe('the branches’ toolbar', () => {
       toggle.querySelector('path')?.getAttribute('d');
     expect(star('zed')).toBe(true);
     expect(star('alpha')).toBe(false);
+    // Filled, as IntelliJ's.
+    expect(
+      getComputedStyle([...named('zed').querySelectorAll('path')].at(-1) as Element).fill,
+    ).not.toBe('none');
     // main is a favorite to start with, as IntelliJ's; zed unmarked again.
     expect(star('main')).toBe(true);
     await userEvent.click(toggle);

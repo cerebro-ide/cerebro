@@ -1187,6 +1187,11 @@ body,
   min-height: 0;
 }
 
+/* A favorite's star, filled. */
+.playground-icon--filled path {
+  fill: currentColor;
+}
+
 /*
  * In the branches popup, a branch not a favorite: its star, muted, only on the row highlighted, as
  * IntelliJ's NotFavoriteOnHover.

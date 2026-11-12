@@ -10,7 +10,7 @@ import { signal } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { isFavorite, repositoryOf } from './branch-favorites.js';
 import type { Host } from './environments.js';
-import { icon } from './icons.js';
+import { favoriteIcon, icon } from './icons.js';
 
 /** A branch, as the host's `git.branches` gives it. */
 export interface Branch {
@@ -270,7 +270,7 @@ function row(node: BranchNode) {
   }
   return [
     // A favorite's star, as IntelliJ's.
-    icon(node.favorite ? 'favorite' : 'git'),
+    node.favorite ? favoriteIcon() : icon('git'),
     <span
       class={
         node.current

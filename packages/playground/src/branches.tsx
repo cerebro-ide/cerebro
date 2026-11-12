@@ -18,7 +18,7 @@ import { fetching } from './fetch-pull.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
 import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
-import { icon } from './icons.js';
+import { favoriteIcon, icon } from './icons.js';
 import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
 import { branchName, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
@@ -673,7 +673,7 @@ export function setupBranches(
   const refOf = (branch: BranchRef) => `refs/${branch.remote ? 'remotes' : 'heads'}/${branch.name}`;
   /**
    * A branch's row: its menu beside it, as IntelliJ's. Its icon marks a favorite, as IntelliJ's
-   * (GitBranchesTreeIconProvider): a star; on the row highlighted, a muted one to click.
+   * (GitBranchesTreeIconProvider): a filled star; on the row highlighted, a muted outline to click.
    */
   const row = (branch: BranchRef, group: string, repository: string): Choice => {
     const other = elsewhere(branch);
@@ -683,7 +683,7 @@ export function setupBranches(
       group,
       icon: () => () => {
         if (isCurrent(branch)) return icon('check');
-        if (isFavorite(repository, ref)) return icon('favorite');
+        if (isFavorite(repository, ref)) return favoriteIcon();
         return <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>;
       },
       iconClick: () => {

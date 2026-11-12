@@ -101,6 +101,16 @@ export function icon(name: string): Node {
 }
 
 /**
+ * A favorite's star, filled, as IntelliJ's (Nodes.Favorite; its outline, NotFavoriteOnHover, is
+ * `icon('favorite')`). In the text's colour (a claim: IntelliJ's is yellow).
+ */
+export function favoriteIcon(): Element {
+  const star = icon('favorite') as Element;
+  star.classList.add('playground-icon--filled');
+  return star;
+}
+
+/**
  * The letter on a symbol's icon, by its LSP kind, as IntelliJ's nodes: C for a class, m for a
  * method... (a claim: IntelliJ's are coloured badges, these are outlines in the text's colour).
  */
