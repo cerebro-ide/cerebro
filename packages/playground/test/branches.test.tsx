@@ -522,7 +522,7 @@ describe('Checkout', () => {
   it('asks whether to rebase the local branch’s own commits onto the remote one, or drop them', async () => {
     git.ownCommits = true;
     await choose('origin/side', 'Checkout');
-    let box = await dialog();
+    const box = await dialog();
     expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout origin/side');
     expect(box.querySelector('p')?.textContent).toBe(
       "Local branch 'side' has commits that do not exist in 'origin/side'. Rebase 'side' onto 'origin/side', or drop local commits?",
@@ -537,7 +537,7 @@ describe('Checkout', () => {
       { path: '/r', name: 'side', from: 'origin/side', checkout: true, overwrite: true },
     ]);
     await choose('origin/side', 'Checkout');
-    box = await dialog();
+    await dialog();
     await press('Rebase onto Remote');
     await expect.poll(() => last()?.title).toBe('Rebase successful');
     expect(last()?.content).toBe('Checked out side and rebased it on origin/side');
