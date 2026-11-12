@@ -103,6 +103,7 @@ beforeAll(() => {
     activeTab: () => undefined,
     show: () => undefined,
     openAt: () => undefined,
+    showHistory: () => undefined,
   });
   setupShelf(services, {
     open,

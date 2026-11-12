@@ -307,10 +307,24 @@ class Log {
    * Commits, whose tab has only the range and the Log's Paths filter, so the others are cleared.
    */
   showRange(range: HashRange): Promise<void> {
-    this.branch.set(`${range.start}..${range.end}`);
+    return this.showOnly(`${range.start}..${range.end}`, this.paths.peek());
+  }
+
+  /**
+   * Shows the commits of HEAD that change `path`: IntelliJ's file history, whose other branches are
+   * off to start with (`FileHistoryUiProperties`' `isShowOtherBranches`).
+   */
+  showHistory(path: string): Promise<void> {
+    return this.showOnly('HEAD', [path]);
+  }
+
+  /** The branch's commits that change the paths (any, if undefined), the other filters cleared. */
+  private showOnly(branch: BranchFilter, paths: readonly string[] | undefined): Promise<void> {
+    this.branch.set(branch);
     this.text.set(undefined);
     this.users.set(undefined);
     this.period.set(undefined);
+    this.paths.set(paths);
     return this.refilter();
   }
 
@@ -706,8 +720,8 @@ export interface HashRange {
   end: string;
 }
 
-/** The commits View Commits shows, taken by the Log when it shows. */
-const wantedRange = signal<HashRange | undefined>(undefined);
+/** What the Log is asked to show (View Commits' range, Show History's file), taken as it shows. */
+const wantedView = signal<((log: Log) => Promise<void>) | undefined>(undefined);
 
 /** Shows the Git tool window: given by `setupLog`. */
 let showLog: () => void;
@@ -717,7 +731,16 @@ let showLog: () => void;
  * those between (IntelliJ's `GitUpdateInfoAsLog`).
  */
 export function viewCommits(range: HashRange): void {
-  wantedRange.set(range);
+  wantedView.set((log) => log.showRange(range));
+  showLog();
+}
+
+/**
+ * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD that
+ * change the file (`path`, from the repository's top), as IntelliJ's file history.
+ */
+export function showHistory(path: string): void {
+  wantedView.set((log) => log.showHistory(path));
   showLog();
 }
 
@@ -1291,17 +1314,17 @@ export function GitLogView(props: {
           });
           return undefined;
         });
-        const ranging = effect(() => {
-          const range = wantedRange.get();
-          if (!range) return undefined;
-          wantedRange.set(undefined);
-          void first.then(() => log.showRange(range));
+        const viewing = effect(() => {
+          const view = wantedView.get();
+          if (!view) return undefined;
+          wantedView.set(undefined);
+          void first.then(() => view(log));
           return undefined;
         });
         window.addEventListener('focus', reload);
         onCleanup(() => {
           taking.dispose();
-          ranging.dispose();
+          viewing.dispose();
           window.removeEventListener('focus', reload);
           shown.set(undefined);
         });

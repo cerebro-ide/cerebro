@@ -153,6 +153,8 @@ const opened: Tab[] = [];
 /** The files each diff opened goes through. */
 const chains: (readonly string[] | undefined)[] = [];
 const placed: { path: string; line: number; column: number }[] = [];
+/** The paths Show History asked the Log for. */
+const histories: string[] = [];
 /** The line each diff opened starts at, if one. */
 const lines: (number | undefined)[] = [];
 let shown = 0;
@@ -177,6 +179,7 @@ beforeAll(() => {
       shown++;
     },
     openAt: (at) => void placed.push(at),
+    showHistory: (path) => void histories.push(path),
   });
 });
 
@@ -628,6 +631,7 @@ describe('Git → Current File → Compare with Revision…', () => {
       'git.file.showDiff',
       'git.file.compareWithRevision',
       'git.file.compareWithBranch',
+      'git.file.showHistory',
     ]);
   });
 
@@ -646,6 +650,21 @@ describe('Git → Current File → Compare with Revision…', () => {
       .poll(() => logged.mock.calls[0]?.[0] as unknown)
       .toBe('Reading the file’s revisions failed');
     logged.mockRestore();
+  });
+});
+
+describe('Git → Current File → Show History', () => {
+  it('shows the file’s history in the Log; off when Show Diff is', async () => {
+    const id = 'git.file.showHistory';
+    expect(commands.get(id)?.visible?.(undefined)).toBe(false);
+    activeTab = `${wt}/src/main/app.ts`;
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    commands.execute(id);
+    expect(histories.at(-1)).toBe('src/main/app.ts');
+    // A file git hasn't committed has no history, as IntelliJ's.
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
   });
 });
 
