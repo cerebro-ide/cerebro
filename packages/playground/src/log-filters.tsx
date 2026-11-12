@@ -11,8 +11,36 @@ import { chordFromEvent, formatChord, normalizeChord, type Platform } from '@cer
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import {
+  fuzzyFilter,
+  openPicker,
+  type PickerHandle,
+  type PickerItem,
+  type PickerOptions,
+} from '@cerebro-ide/ui-popup';
 import { displayable, ME, ME_LABEL, read, shown, userNames, type Author } from './log-users.js';
+
+/**
+ * A Log filter's popup, as IntelliJ's (VcsLogPopupComponent): it says "Press Delete to clear the
+ * filter" (the Delete action's first shortcut), and Delete clears the filter and closes it.
+ */
+export function openFilterPicker<T extends PickerItem>(
+  options: PickerOptions<T>,
+  platform: Platform,
+  clear: () => void,
+): PickerHandle<T> {
+  const handle = openPicker<T>({
+    ...options,
+    ad: `Press ${formatChord('Delete', platform)} to clear the filter`,
+    onKey: (event) => {
+      if (chordFromEvent(event) !== 'Delete') return false;
+      clear();
+      handle.close();
+      return true;
+    },
+  });
+  return handle;
+}
 
 /** How many choices a filter remembers, IntelliJ's RECENTLY_FILTERED_VALUES_LIMIT. */
 const RECENT_LIMIT = 10;
@@ -172,32 +200,38 @@ async function selectUsers(button: HTMLElement, source: UserSource): Promise<voi
 
 /** The User filter's popup, below its button. */
 export function pickUser(button: HTMLElement, source: UserSource) {
-  const handle = openPicker<UserChoice>({
-    label: 'User',
-    placeholder: 'Search',
-    position: { below: button },
-    owner: button,
-    items: (query) => {
-      const known = source.authors();
-      const me: UserChoice[] = known?.me ? [{ label: ME_LABEL, values: [ME] }] : [];
-      if (query === '') {
-        return [
-          { label: 'Select…' },
-          ...me,
-          ...recentChoices(source.worktree, 'User').map((values) => ({
-            label: displayable(shown(values), 40),
-            values,
-            group: 'Recent',
-          })),
-        ];
-      }
-      const users = userNames(known?.authors ?? []).map((name) => ({
-        label: name,
-        values: [name],
-      }));
-      return fuzzyFilter([...me, ...users], query);
+  const handle = openFilterPicker<UserChoice>(
+    {
+      label: 'User',
+      placeholder: 'Search',
+      position: { below: button },
+      owner: button,
+      items: (query) => {
+        const known = source.authors();
+        const me: UserChoice[] = known?.me ? [{ label: ME_LABEL, values: [ME] }] : [];
+        if (query === '') {
+          return [
+            { label: 'Select…' },
+            ...me,
+            ...recentChoices(source.worktree, 'User').map((values) => ({
+              label: displayable(shown(values), 40),
+              values,
+              group: 'Recent',
+            })),
+          ];
+        }
+        const users = userNames(known?.authors ?? []).map((name) => ({
+          label: name,
+          values: [name],
+        }));
+        return fuzzyFilter([...me, ...users], query);
+      },
     },
-  });
+    source.platform,
+    () => {
+      source.choose(undefined);
+    },
+  );
   void handle.result.then((choice) => {
     if (!choice) return;
     if (!choice.values) {
@@ -300,33 +334,43 @@ async function selectPeriod(current: Period | undefined): Promise<Period | undef
 
 type DateChoice = PickerItem & { since?: number };
 
+/** What the Date filter's popup reads and sets. */
+export interface DateSource {
+  platform: Platform;
+  current: () => Period | undefined;
+  /** The period chosen, or undefined for any time. */
+  choose: (period: Period | undefined) => void;
+}
+
 /** The Date filter's popup, below its button. */
-export function pickDate(
-  button: HTMLElement,
-  current: () => Period | undefined,
-  choose: (period: Period) => void,
-  now = Date.now,
-) {
+export function pickDate(button: HTMLElement, source: DateSource, now = Date.now) {
+  const { current, choose } = source;
   const daysAgo = (days: number) => {
     const date = new Date(now());
     date.setDate(date.getDate() - days);
     return date.getTime();
   };
-  const handle = openPicker<DateChoice>({
-    label: 'Date',
-    placeholder: 'Search',
-    position: { below: button },
-    owner: button,
-    items: (query) =>
-      fuzzyFilter<DateChoice>(
-        [
-          { label: 'Select…' },
-          { label: 'Last 24 hours', since: daysAgo(1) },
-          { label: 'Last 7 days', since: daysAgo(7) },
-        ],
-        query,
-      ),
-  });
+  const handle = openFilterPicker<DateChoice>(
+    {
+      label: 'Date',
+      placeholder: 'Search',
+      position: { below: button },
+      owner: button,
+      items: (query) =>
+        fuzzyFilter<DateChoice>(
+          [
+            { label: 'Select…' },
+            { label: 'Last 24 hours', since: daysAgo(1) },
+            { label: 'Last 7 days', since: daysAgo(7) },
+          ],
+          query,
+        ),
+    },
+    source.platform,
+    () => {
+      choose(undefined);
+    },
+  );
   void handle.result.then(async (choice) => {
     if (!choice) return;
     if (choice.since !== undefined) {

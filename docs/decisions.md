@@ -1870,7 +1870,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - **Claims:** the field for users has no completion, where IntelliJ's completes the authors'
     names; a day chosen in Select Period is its start, in local time; no author known by a name
     shows no commits; the popups' search fields.
-  - **Not yet:** the popups' line "Press Delete to clear the filter".
+  - **Each filter's popup** (Branch's, User's, Date's and Paths') says "Press Delete to clear the
+    filter" below its list, and Delete there clears the filter and closes the popup, on or off, as
+    IntelliJ's VcsLogPopupComponent does with the Delete action's first shortcut (Delete in each
+    of its keymaps, ⌦ on macOS as Cerebro shows keys; added 2026-11-12). **Claude's, open to
+    change:** Backspace only edits the search; IntelliJ's macOS keymap gives the Delete action
+    Backspace too (what its popup does with it wasn't tried).
 - **A narrow toolbar** (changed 2026-11-07) keeps to its width as IntelliJ's toolbars do, from
   ActionToolbarImpl and its NOWRAP layout: the filters and actions that don't fit are hidden, from
   the last, with a » at the row's end; pointing at it (or pressing it) shows the whole row in a

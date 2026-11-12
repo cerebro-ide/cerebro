@@ -13,14 +13,14 @@
 // its first eight). Claims: the lane's width, the dot's size, the columns' widths, and the dates
 // as "Today 10:15" or the system's short date and time.
 
-import { formatSequence } from '@cerebro-ide/commands';
+import { formatSequence, type Platform } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { computed, effect, signal, type Disposable } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { fuzzyFilter, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
@@ -32,7 +32,14 @@ import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { numbered } from './select-in.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
-import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
+import {
+  openFilterPicker,
+  periodText,
+  pickDate,
+  pickUser,
+  usersText,
+  type Period,
+} from './log-filters.js';
 import { pathsText, pickPaths, shortenText } from './log-paths.js';
 import type { FileNode } from './project.js';
 import { resolveUsers, type Author } from './log-users.js';
@@ -859,29 +866,33 @@ async function goToAdjacent(
 type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
 
 /** The Branch filter's popup: All, HEAD, then the local and remote branches. */
-function pickBranch(button: HTMLElement, log: Log, branches: Branches) {
+function pickBranch(button: HTMLElement, log: Log, branches: Branches, platform: Platform) {
   const chosen = (branch: BranchFilter | undefined) =>
     log.branch.peek() === branch ? { icon: () => icon('check') } : {};
-  const handle = openPicker<BranchChoice>({
-    label: 'Branch',
-    placeholder: 'Search',
-    position: { below: button },
-    owner: button,
-    items: (query) =>
-      fuzzyFilter(
-        [
-          { label: 'All', branch: undefined, ...chosen(undefined) },
-          { label: 'HEAD (Current Branch)', branch: 'HEAD', ...chosen('HEAD') },
-          ...branches.branches.get().map((b) => ({
-            label: branchName(b.ref),
-            group: b.ref.startsWith('refs/heads/') ? 'Local' : 'Remote',
-            branch: b.ref,
-            ...chosen(b.ref),
-          })),
-        ],
-        query,
-      ),
-  });
+  const handle = openFilterPicker<BranchChoice>(
+    {
+      label: 'Branch',
+      placeholder: 'Search',
+      position: { below: button },
+      owner: button,
+      items: (query) =>
+        fuzzyFilter(
+          [
+            { label: 'All', branch: undefined, ...chosen(undefined) },
+            { label: 'HEAD (Current Branch)', branch: 'HEAD', ...chosen('HEAD') },
+            ...branches.branches.get().map((b) => ({
+              label: branchName(b.ref),
+              group: b.ref.startsWith('refs/heads/') ? 'Local' : 'Remote',
+              branch: b.ref,
+              ...chosen(b.ref),
+            })),
+          ],
+          query,
+        ),
+    },
+    platform,
+    () => void log.filter(undefined),
+  );
   void handle.result.then((choice) => {
     if (choice) void log.filter(choice.branch);
   });
@@ -1025,7 +1036,7 @@ function LogToolbar(props: {
             services={services}
             label="Branch"
             text={() => filterText('Branch', log.branch.get(), branchText)}
-            popup={(button) => pickBranch(button, log, branches)}
+            popup={(button) => pickBranch(button, log, branches, platform)}
             clear={() => clearing(log.branch.get(), () => void log.filter(undefined))}
           />,
           <ToolbarDropdown
@@ -1049,11 +1060,11 @@ function LogToolbar(props: {
             label="Date"
             text={() => filterText('Date', log.period.get(), periodText)}
             popup={(button) =>
-              pickDate(
-                button,
-                () => log.period.peek(),
-                (period) => void log.filterPeriod(period),
-              )
+              pickDate(button, {
+                platform,
+                current: () => log.period.peek(),
+                choose: (period) => void log.filterPeriod(period),
+              })
             }
             clear={() => clearing(log.period.get(), () => void log.filterPeriod(undefined))}
           />,

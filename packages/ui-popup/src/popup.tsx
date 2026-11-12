@@ -81,6 +81,8 @@ export interface PickerOptions<T extends PickerItem> {
   toolbar?: () => Child;
   /** Below the list: the highlighted item shown in full (Find in Files' code). Read reactively. */
   preview?: (item: T | undefined) => Child;
+  /** A line below the list, IntelliJ's ad text: a hint, such as the Log filters' "Press Delete…". */
+  ad?: string;
   /** Keys pressed in the search field, before the popup's own; returns whether it handled one. */
   onKey?: (event: KeyboardEvent) => boolean;
   /**
@@ -553,6 +555,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           }
         </div>
       ) : null,
+      options.ad === undefined ? null : <div class="cerebro-popup__ad">{options.ad}</div>,
     ];
   }
 }

@@ -1433,6 +1433,46 @@ describe('the User, Date and Paths filters', () => {
     expect(text('Branch')).toBe('Branch');
   });
 
+  it('say in their popups that Delete clears the filter, and Delete does, closing the popup', async () => {
+    git.log = history(3);
+    git.byBranch['refs/heads/main'] = history(1, [], 'm');
+    git.byAuthors['bob@x'] = history(1, [], 'b');
+    git.branches = [branch('refs/heads/main', true)];
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const ad = () => document.querySelector('.cerebro-popup__ad')?.textContent;
+    const deleted = async (label: string) => {
+      await userEvent.click(dropdown(label));
+      await expect.poll(ad).toBe('Press Delete to clear the filter');
+      await userEvent.keyboard('{Delete}');
+      expect(document.querySelector('.cerebro-popup')).toBeNull();
+      await expect.poll(() => text(label)).toBe(label);
+    };
+    // On: Delete clears it.
+    await userEvent.dblClick(
+      await vi.waitUntil(() =>
+        [...document.querySelectorAll<HTMLElement>('.playground-branches .cerebro-tree-row')].find(
+          (row) => row.textContent.trim() === 'main',
+        ),
+      ),
+    );
+    await expect.poll(() => text('Branch')).toBe('Branch: main');
+    await deleted('Branch');
+    await userEvent.click(dropdown('User'));
+    await expect.poll(items).toEqual(['Select…', 'me']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('User')).toBe('User: me');
+    await deleted('User');
+    await userEvent.click(dropdown('Date'));
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    await expect.poll(() => text('Date')).not.toBe('Date');
+    await deleted('Date');
+    // Off, as IntelliJ's: it stays off, and the popup closes.
+    await deleted('Paths');
+    await expect.poll(subjects).toHaveLength(3);
+    expect(asked().filter).toBeUndefined();
+  });
+
   it('read the authors again after the Log is', async () => {
     git.log = history(3);
     git.byAuthors['bob@x'] = history(1, [], 'b');
