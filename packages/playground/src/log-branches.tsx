@@ -7,6 +7,7 @@
 // the order of names (the system's, case and numbers aside), and the groups starting expanded.
 
 import { signal } from '@cerebro-ide/reactive';
+import { match, type Match } from '@cerebro-ide/ui-popup';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { isFavorite, repositoryOf } from './branch-favorites.js';
 import type { Host } from './environments.js';
@@ -204,11 +205,13 @@ const keyOf = (node: BranchNode) => {
 export class Branches {
   readonly branches = signal<readonly Branch[]>([]);
   readonly error = signal<string | undefined>(undefined);
+  /** What the search field holds: the pane shows the branches it matches. (Before the model, which reads it as it's made.) */
+  readonly query = signal('');
   readonly model = new TreeModel<BranchNode>({
     children: (node) =>
       // Only groups have children to ask for.
       node === undefined
-        ? branchTree(this.branches.peek(), paneSettings.byDirectory.peek(), (ref) =>
+        ? branchTree(this.matching(), paneSettings.byDirectory.peek(), (ref) =>
             isFavorite(this.repository, ref),
           )
         : (node as Group).children,
@@ -225,6 +228,44 @@ export class Branches {
   ) {
     this.repository = repositoryOf(worktree);
     for (const group of ['Local', 'Remote']) this.model.expanded.add(`group:${group}`);
+  }
+
+  /** What was expanded as a search started, expanded again once it's cleared. */
+  private expandedBefore: string[] | undefined;
+
+  /** The branches the search matches, by their names (a remote one's with its remote). */
+  private matching(): readonly Branch[] {
+    const query = this.query.peek();
+    const all = this.branches.peek();
+    return query.trim() === '' ? all : all.filter((b) => match(query, branchName(b.ref)));
+  }
+
+  /**
+   * Searches, as IntelliJ's pane (FilteringBranchesTree): only the branches that match, with their
+   * directories, all expanded, the best match selected; cleared, the directories expanded before.
+   */
+  async search(query: string): Promise<void> {
+    const { model } = this;
+    const searching = query.trim() !== '';
+    if (searching && this.expandedBefore === undefined) this.expandedBefore = [...model.expanded];
+    this.query.set(query);
+    await model.refresh();
+    if (!searching) {
+      if (this.expandedBefore === undefined) return;
+      model.expanded.clear();
+      for (const key of this.expandedBefore) model.expanded.add(key);
+      this.expandedBefore = undefined;
+      await model.refresh();
+      return;
+    }
+    await model.expandAll();
+    let best: { key: string; score: number } | undefined;
+    for (const { node, key } of model.rows) {
+      if (node.kind !== 'branch') continue;
+      const score = (match(query, branchName(node.ref)) as Match).score;
+      if (best === undefined || score > best.score) best = { key, score };
+    }
+    if (best) model.select(best.key);
   }
 
   /** The node selected, as the toolbar acts on it. */
@@ -260,8 +301,26 @@ export class Branches {
   }
 }
 
+/** A name, with what the search matched in its full name (`full`, which ends with it) marked. */
+function marked(name: string, full: string, query: string): Node | string {
+  const found = query.trim() === '' ? undefined : match(query, full);
+  if (!found) return name;
+  const offset = full.length - name.length;
+  const at = new Set(found.indices.map((i) => i - offset));
+  const text = document.createDocumentFragment();
+  // Runs of matched characters, and of the others.
+  for (let i = 0; i < name.length;) {
+    let end = i + 1;
+    while (end < name.length && at.has(end) === at.has(i)) end++;
+    const run = name.slice(i, end);
+    text.append(at.has(i) ? <span class="playground-branches__match">{run}</span> : run);
+    i = end;
+  }
+  return text;
+}
+
 /** A row: a directory or a branch, the one checked out marked as IntelliJ's. */
-function row(node: BranchNode) {
+function row(node: BranchNode, query: string) {
   if (node.kind === 'head') {
     return [icon('git'), <span class="playground-branches__name">HEAD (Current Branch)</span>];
   }
@@ -278,26 +337,102 @@ function row(node: BranchNode) {
           : 'playground-branches__name'
       }
     >
-      {node.name}
+      {marked(node.name, branchName(node.ref), query)}
     </span>,
   ];
 }
 
-/** The branches pane: a double click or Enter on a branch, or on HEAD, filters the Log by it. */
+/**
+ * The branches pane: its search field over the tree, as IntelliJ's (BranchesTreeSearchField). A
+ * double click or Enter on a branch, or on HEAD, filters the Log by it.
+ */
 export function BranchesPane(props: {
   branches: Branches;
   filter: (branch: BranchFilter) => void;
 }): Node {
   const { branches } = props;
+  let field!: HTMLInputElement;
+  const tree = () =>
+    field.closest('.playground-branches')?.querySelector<HTMLElement>('.cerebro-tree');
+  const search = (query: string) => {
+    field.value = query;
+    void branches.search(query);
+  };
+  /** Searched, and nothing matched: the field says so, as IntelliJ's. */
+  const nothing = () => {
+    const query = branches.query.get();
+    return (
+      query.trim() !== '' && !branches.branches.get().some((b) => match(query, branchName(b.ref)))
+    );
+  };
   return (
-    <div class="playground-branches">
+    <div
+      class="playground-branches"
+      on:keydown={(event) => {
+        // Typing in the tree types in the field, as IntelliJ's speed search.
+        const typed = event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+        if (!typed || event.target === field || event.key === ' ') return;
+        event.preventDefault();
+        field.focus();
+        search(field.value + event.key);
+      }}
+    >
+      <div
+        class={() =>
+          nothing()
+            ? 'playground-branches__search playground-branches__search--nothing'
+            : 'playground-branches__search'
+        }
+      >
+        {icon('search')}
+        <input
+          class="playground-branches__search-field"
+          type="text"
+          spellcheck={false}
+          placeholder="Branch"
+          aria-label="Git branches search"
+          ref={(input: HTMLInputElement) => {
+            field = input;
+          }}
+          on:input={() => {
+            void branches.search(field.value);
+          }}
+          on:keydown={(event) => {
+            // Up and Down go on in the tree; Escape goes back to it once there's nothing to clear.
+            const keys = event.key === 'ArrowDown' || event.key === 'ArrowUp';
+            if (!keys && !(event.key === 'Escape' && field.value === '')) return;
+            event.preventDefault();
+            event.stopPropagation();
+            const at = tree();
+            at?.focus();
+            if (keys) at?.dispatchEvent(new KeyboardEvent('keydown', { key: event.key }));
+          }}
+        />
+        {() =>
+          branches.query.get() === '' ? null : (
+            <button
+              type="button"
+              class="playground-branches__search-clear"
+              aria-label="Clear"
+              on:mousedown={(event) => {
+                event.preventDefault();
+              }}
+              on:click={() => {
+                search('');
+              }}
+            >
+              {icon('clear')}
+            </button>
+          )
+        }
+      </div>
       {() => {
         const error = branches.error.get();
         return error === undefined ? (
           <TreeView
             model={branches.model}
             label="Branches"
-            row={row}
+            row={(node) => row(node, branches.query.peek())}
             onOpen={(node) => {
               props.filter(node.kind === 'branch' ? node.ref : 'HEAD');
             }}

@@ -1206,6 +1206,14 @@ body,
   visibility: visible;
 }
 
+/*
+ * Nothing matched: in the error's colour (a claim: IntelliJ paints the field's background, as its
+ * speed search's "no hits").
+ */
+.playground-branches__search--nothing .playground-branches__search-field {
+  color: var(--cerebro-error);
+}
+
 /* The branch checked out, in bold (a claim: IntelliJ marks it with an icon of its own). */
 .playground-branches__name--current {
   font-weight: 600;
@@ -1270,7 +1278,8 @@ body,
 }
 
 /* A text filter's match, as IntelliJ's UIUtil.drawSearchMatch: a rounded fill behind it. */
-.playground-log__match {
+.playground-log__match,
+.playground-branches__match {
   border-radius: 2px;
   background: var(--cerebro-list-match);
   color: var(--cerebro-list-match-text);
@@ -1359,7 +1368,8 @@ body,
 
 /* The text filter, first in the Log's toolbar, as IntelliJ's: its options inside it, at its end. */
 /* Narrower, once the filters and actions after it are all behind their ». */
-.playground-log__search {
+.playground-log__search,
+.playground-branches__search {
   display: flex;
   flex: 0 1 240px;
   align-items: center;
@@ -1375,7 +1385,8 @@ body,
   color: var(--cerebro-icon);
 }
 
-.playground-log__search:focus-within {
+.playground-log__search:focus-within,
+.playground-branches__search:focus-within {
   border-color: var(--cerebro-accent);
 }
 
@@ -1386,7 +1397,8 @@ body,
   cursor: pointer;
 }
 
-.playground-log__search-field {
+.playground-log__search-field,
+.playground-branches__search-field {
   flex: auto;
   min-width: 0;
   border: none;
@@ -1397,7 +1409,8 @@ body,
   user-select: text;
 }
 
-.playground-log__search-clear {
+.playground-log__search-clear,
+.playground-branches__search-clear {
   display: flex;
   flex: none;
   padding: 2px;
@@ -1407,8 +1420,15 @@ body,
   color: var(--cerebro-icon);
 }
 
-.playground-log__search-clear:hover {
+.playground-log__search-clear:hover,
+.playground-branches__search-clear:hover {
   background: var(--cerebro-hover);
+}
+
+/* The branches pane's, over its tree, as IntelliJ's: as wide as the pane. */
+.playground-branches__search {
+  flex: none;
+  margin: 4px;
 }
 
 /* Select Period, as IntelliJ's: After and Before, each a day beside its checkbox. */

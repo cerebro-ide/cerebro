@@ -662,7 +662,11 @@ export function paneContext(context: unknown): BranchesContext | undefined {
     return context as BranchesContext;
   const at = shown.get();
   if (!at || !document.activeElement?.closest('.playground-branches')) return undefined;
-  return branchesContext(at.log, at.branches);
+  const pane = branchesContext(at.log, at.branches);
+  // The search field hides the selection from the actions, as IntelliJ's (BranchesTreeSearchField).
+  return document.activeElement.closest('.playground-branches__search')
+    ? { ...pane, selection: undefined }
+    : pane;
 }
 
 /** The Log's selected commit, as its commit menu has it: what its toolbar's Cherry-Pick picks. */
@@ -813,6 +817,22 @@ export function setupLog(services: MenuServices, show: () => void): void {
   });
   // IntelliJ's, Ctrl+L in its default keymap: Cmd+L on macOS, which takes it with Ctrl as Cmd.
   keymap?.bindDefault('Mod+L', 'log.focusTextFilter');
+  // Find's key, in the branches pane: from the tree to its search field, or back, as IntelliJ's
+  // (BranchesDashboardTreeComponent). Before Go To Hash/Branch/Tag, which takes it in the rest of
+  // the Log.
+  commands.register({
+    id: 'log.branches.focusSearch',
+    label: 'Focus Branches Search',
+    enabled: () => paneContext(undefined) !== undefined,
+    run: () => {
+      const pane = (document.activeElement as Element).closest('.playground-branches') as Element;
+      const field = pane.querySelector('.playground-branches__search-field') as HTMLElement;
+      const tree = pane.querySelector<HTMLElement>('.cerebro-tree');
+      // With no tree, its error shown instead, the field keeps it.
+      (document.activeElement === field ? tree : field)?.focus();
+    },
+  });
+  keymap?.bindDefault('Mod+F', 'log.branches.focusSearch');
   commands.register({
     id: 'log.goToRef',
     label: 'Go To Hash/Branch/Tag',

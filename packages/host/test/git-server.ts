@@ -17,11 +17,16 @@ export function hasHttpBackend(): boolean {
 
 /**
  * A git server over HTTP, as a host's would be: `git http-backend` as CGI, behind Basic
- * authentication as `user` with `password`.
+ * authentication as `user` with `password`. `requests` has each one it was sent, with its answer's
+ * status, for a test that failed to print.
  */
 export async function gitServer(root: string, user: string, password: string) {
   const expected = `Basic ${Buffer.from(`${user}:${password}`).toString('base64')}`;
+  const requests: string[] = [];
   const server: Server = createServer((request, response) => {
+    response.on('finish', () => {
+      requests.push(`${request.method ?? ''} ${request.url ?? ''} ${String(response.statusCode)}`);
+    });
     if (request.headers.authorization !== expected) {
       response.writeHead(401, { 'WWW-Authenticate': 'Basic realm="git"' }).end();
       return;
@@ -75,5 +80,5 @@ export async function gitServer(root: string, user: string, password: string) {
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
-  return { url: `http://127.0.0.1:${String(port)}`, server };
+  return { url: `http://127.0.0.1:${String(port)}`, server, requests };
 }
