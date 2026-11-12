@@ -1903,8 +1903,19 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
-  Revert Commit (decision "Cherry-Pick") and New Tag… (decision "Git → New Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
-  keymaps give these none (searched).
+  Revert Commit (decision "Cherry-Pick"), New Branch… (below) and New Tag… (decision "Git → New
+  Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's keymaps give these
+  none (searched), New Branch… aside.
+- **New Branch… from a commit** (added 2026-11-11), in the commit menu before New Tag…, as
+  IntelliJ's `GitCreateNewBranchFromCommitAction`: the Create New Branch dialog, titled "Create
+  Branch from" and the commit's first 8 characters, its name the one branch at the commit if there's
+  one (a remote one's without its remote), as IntelliJ suggests it; the Log read again after. The
+  branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
+  against them once they're in: measured, a branch made since the popup last read them wasn't
+  caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
+  Branch… went nowhere while they were read. **Not yet:** its shortcut,
+  New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
+  first enabled command bound, so Git → New Branch… would take it.
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
   before: a tag made from the Log didn't show after its refresh, nor after Refresh.
