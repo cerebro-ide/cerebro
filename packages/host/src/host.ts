@@ -872,22 +872,35 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
   });
   // The branches popup's, as IntelliJ's: each that changes files recorded in the Local History.
-  connection.onRequest('git.checkout', async (params) => {
+  /**
+   * A checkout, recorded in the Local History as `label`, as IntelliJ's Smart Checkout dialog's
+   * answer asks about local changes in its way: `force` overwrites them; `save` ('stash' or
+   * 'shelve') saves them and puts them back after, and answers whether they went back.
+   */
+  const checkingOut = async (
+    params: unknown,
+    label: string,
+    run: (force: boolean) => Promise<void>,
+  ): Promise<{ restored: boolean } | null> => {
     const worktree = text(params, 'path');
-    const branch = text(params, 'branch');
-    const p = params as { remote?: unknown; force?: unknown; save?: unknown };
-    const remote = p.remote === true;
-    const run = () => checkout(worktree, branch, remote, git, p.force === true);
-    // Smart Checkout: local changes in the way saved, and put back after.
+    const p = params as { force?: unknown; save?: unknown };
     if (p.save === 'stash' || p.save === 'shelve') {
       const how = p.save;
-      const restored = await recording(worktree, `Checkout ${branch}`, git, () =>
-        preserving(worktree, how, 'Checkout', new Date(), git, run),
+      const restored = await recording(worktree, label, git, () =>
+        preserving(worktree, how, 'Checkout', new Date(), git, () => run(false)),
       );
       return { restored };
     }
-    await recording(worktree, `Checkout ${branch}`, git, run);
+    await recording(worktree, label, git, () => run(p.force === true));
     return null;
+  };
+  connection.onRequest('git.checkout', async (params) => {
+    const worktree = text(params, 'path');
+    const branch = text(params, 'branch');
+    const remote = (params as { remote?: unknown }).remote === true;
+    return checkingOut(params, `Checkout ${branch}`, (force) =>
+      checkout(worktree, branch, remote, git, force),
+    );
   });
   // The branches popup's Checkout of a remote branch whose local branch exists.
   connection.onRequest('git.hasCommitsNotIn', (params) =>
@@ -906,10 +919,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.checkoutRevision', async (params) => {
     const worktree = text(params, 'path');
     const reference = text(params, 'reference');
-    await recording(worktree, `Checkout ${reference}`, git, () =>
-      checkoutDetached(worktree, reference, git),
+    return checkingOut(params, `Checkout ${reference}`, (force) =>
+      checkoutDetached(worktree, reference, git, force),
     );
-    return null;
   });
   connection.onRequest('git.createBranch', async (params) => {
     const worktree = text(params, 'path');
@@ -920,10 +932,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       checkout: p.checkout === true,
       overwrite: p.overwrite === true,
     };
-    await recording(worktree, `New Branch ${branch.name}`, git, () =>
-      createBranch(worktree, branch, git),
+    return checkingOut(params, `New Branch ${branch.name}`, (force) =>
+      createBranch(worktree, branch, git, force),
     );
-    return null;
   });
   // Git → New Tag…'s.
   connection.onRequest('git.tags', (params) => listTags(text(params, 'path'), git));

@@ -3307,7 +3307,9 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     are read again: the branch selector, the tab and the status bar follow a checkout.
   - **Smart Checkout** (added 2026-11-12), as IntelliJ's (`GitCheckoutOperation`,
     `GitSmartOperationDialog`, `GitPreservingProcess`, read from their source): where git says
-    local changes would be overwritten by a branch's Checkout, "Git Checkout Problem" lists the
+    local changes would be overwritten by a checkout (a branch's, a tag's, Checkout Tag or Revision…,
+    a new branch checked out from elsewhere, and Checkout's Drop Local Commits; changed
+    2026-11-12, at first a branch's only), "Git Checkout Problem" lists the
     files git names, in IntelliJ's words ("Your local changes to the following files would be
     overwritten by checkout. Cerebro can shelve the changes, checkout and unshelve them after
     that.", or stash and unstash, as Settings' Save changes says). Smart Checkout saves the local
@@ -3318,8 +3320,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     change:** Force Checkout sits beside Smart Checkout (IntelliJ's is at the dialog's left), and
     the dialog's first button has the focus (IntelliJ's Don't Checkout has it); the files are a
     list, not IntelliJ's changes tree with Rollback.
-- **Not yet:** smart merge, and Smart Checkout for a new branch, a tag or a revision (git's error
-  there for now); View Commits after a
+- **Not yet:** smart merge (git's error there for now); View Commits after a
   delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)

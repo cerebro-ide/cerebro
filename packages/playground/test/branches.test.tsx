@@ -70,6 +70,17 @@ const fail = (method: string) => () => {
   if (git.result instanceof Error) throw git.result;
   return method === 'result' ? git.result : null;
 };
+/** A checkout's parameters about local changes in its way. */
+interface Checkout {
+  force?: boolean;
+  save?: string;
+}
+/** A checkout: failing where local changes are in its way, unless forced or saving them. */
+const checkingOut = (p: Checkout) => {
+  if (git.inTheWay && !p.force && !p.save) throw git.inTheWay;
+  fail('checkout')();
+  return p.save ? { restored: git.restored } : null;
+};
 const host = new FakeHost({
   'git.branches': async () => {
     await git.branchesHeld;
@@ -82,17 +93,14 @@ const host = new FakeHost({
       ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
     ];
   },
-  'git.checkout': (p: { force?: boolean; save?: string }) => {
-    if (git.inTheWay && !p.force && !p.save) throw git.inTheWay;
-    fail('checkout')();
-    return p.save ? { restored: git.restored } : null;
-  },
-  'git.checkoutRevision': fail('checkout'),
+  'git.checkout': (p: Checkout) => checkingOut(p),
+  'git.checkoutRevision': (p: Checkout) => checkingOut(p),
   'git.tags': () => {
     if (git.tags instanceof Error) throw git.tags;
     return git.tags;
   },
-  'git.createBranch': fail('create'),
+  'git.createBranch': (p: Checkout & { checkout: boolean }) =>
+    p.checkout ? checkingOut(p) : fail('create')(),
   'git.renameBranch': fail('rename'),
   'git.deleteBranch': () => {
     if (git.result instanceof Error) throw git.result;
@@ -639,6 +647,45 @@ describe('Checkout', () => {
       } finally {
         globalSettings.layers.global.reset('git.saveChanges');
       }
+    });
+
+    it('asks the same for a tag, a revision, a new branch, and a local branch reset', async () => {
+      await choose('v1', 'Checkout');
+      await dialog();
+      await press('Force Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out v1');
+      expect(host.params('git.checkoutRevision').at(-1)).toEqual({
+        path: '/r',
+        reference: 'v1',
+        force: true,
+      });
+      await checkoutReference('v2');
+      await press('OK');
+      await dialog();
+      await press('Smart Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out v2');
+      expect(host.params('git.checkoutRevision').at(-1)).toMatchObject({ save: 'shelve' });
+      // Not checked out: nothing said.
+      await checkoutReference('v2');
+      await press('OK');
+      await dialog();
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.checkoutRevision')).toHaveLength(5);
+      expect(last()?.content).toBe('Checked out v2');
+      await choose('feature', "New Branch from 'feature'…");
+      await answer('fresh');
+      await press('Create');
+      await dialog();
+      await press('Force Checkout');
+      await expect
+        .poll(() => host.params('git.createBranch').at(-1))
+        .toMatchObject({ name: 'fresh', from: 'feature', checkout: true, force: true });
+      git.upstreams = { side: 'origin/side' };
+      await choose('origin/side', 'Checkout');
+      await dialog();
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.createBranch')).toHaveLength(3);
+      expect(last()?.content).toBe('Checked out v2');
     });
 
     it('overwrites them at Force Checkout', async () => {

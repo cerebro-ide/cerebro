@@ -79,9 +79,10 @@ export async function checkoutDetached(
   worktree: string,
   reference: string,
   run: Git,
+  force = false,
 ): Promise<void> {
   if (reference.startsWith('-')) throw new Error(`Not a reference: ${reference}`);
-  await run(worktree, ['checkout', '--detach', reference, '--']);
+  await run(worktree, ['checkout', ...(force ? ['-f'] : []), '--detach', reference, '--']);
 }
 
 export interface NewBranch {
@@ -94,13 +95,18 @@ export interface NewBranch {
   overwrite: boolean;
 }
 
-/** Makes a branch, and checks it out if asked. */
-export async function createBranch(worktree: string, branch: NewBranch, run: Git): Promise<void> {
+/** Makes a branch, and checks it out if asked: with `force`, over local changes in the way. */
+export async function createBranch(
+  worktree: string,
+  branch: NewBranch,
+  run: Git,
+  force = false,
+): Promise<void> {
   const from = branch.from ?? 'HEAD';
   await run(
     worktree,
     branch.checkout
-      ? ['checkout', branch.overwrite ? '-B' : '-b', branch.name, from]
+      ? ['checkout', ...(force ? ['-f'] : []), branch.overwrite ? '-B' : '-b', branch.name, from]
       : ['branch', ...(branch.overwrite ? ['--force'] : []), branch.name, from],
   );
 }

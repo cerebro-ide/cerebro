@@ -1293,6 +1293,24 @@ describe('ignored files and rolling back', () => {
     expect(
       await ui.request('git.checkout', { path: '/w', branch: 'side', save: 'shelve' }),
     ).toEqual({ restored: true });
+    // The same for a tag or revision, and a new branch checked out.
+    expect(
+      await ui.request('git.checkoutRevision', { path: '/w', reference: 'v1', force: true }),
+    ).toBe(null);
+    expect(
+      await ui.request('git.createBranch', { path: '/w', name: 'n', checkout: true, force: true }),
+    ).toBe(null);
+    expect(asked()).toEqual(
+      expect.arrayContaining(['checkout -f --detach v1 --', 'checkout -f -b n HEAD']),
+    );
+    expect(
+      await ui.request('git.createBranch', {
+        path: '/w',
+        name: 'n',
+        checkout: true,
+        save: 'stash',
+      }),
+    ).toEqual({ restored: true });
     // Show Diff with Working Tree's Get from Branch.
     expect(
       await ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: ['a'], remove: ['b'] }),

@@ -410,7 +410,7 @@ export function setupBranches(
       // As IntelliJ's checkout of a new branch from elsewhere (`GitCheckoutOperation`); one at HEAD
       // changes no file (`GitCheckoutNewBranchOperation` saves nothing).
       if (named.checkout && from !== undefined) await saveBeforeGit();
-      await host.request('git.createBranch', {
+      await checkoutSmartly(host, 'git.createBranch', {
         path: worktree,
         ...named,
         ...(from === undefined ? {} : { from }),
@@ -434,9 +434,17 @@ export function setupBranches(
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
         // A tag's commit, HEAD detached at it, as IntelliJ's (`GitCheckoutAction`).
-        if (b.tag)
-          await host.request('git.checkoutRevision', { path: worktree, reference: b.name });
-        else if (!(await checkoutSmartly(host, worktree, b))) return;
+        const checkedOut = b.tag
+          ? await checkoutSmartly(host, 'git.checkoutRevision', {
+              path: worktree,
+              reference: b.name,
+            })
+          : await checkoutSmartly(host, 'git.checkout', {
+              path: worktree,
+              branch: b.name,
+              remote: b.remote,
+            });
+        if (!checkedOut) return;
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
         });
@@ -444,14 +452,14 @@ export function setupBranches(
     },
   });
   /**
-   * Checks a branch out, as IntelliJ's `GitCheckoutOperation`: where local changes are in the way,
-   * asks whether to save them and put them back after (Smart Checkout), overwrite them (Force
-   * Checkout), or not check out. Whether it was checked out.
+   * Checks out with `method` (`git.checkout`, `git.checkoutRevision`, `git.createBranch`), as
+   * IntelliJ's `GitCheckoutOperation`: where local changes are in the way, asks whether to save
+   * them and put them back after (Smart Checkout), overwrite them (Force Checkout), or not check
+   * out. Whether it was checked out.
    */
-  const checkoutSmartly = async (host: Host, worktree: string, b: BranchRef) => {
-    const params = { path: worktree, branch: b.name, remote: b.remote };
+  const checkoutSmartly = async (host: Host, method: string, params: object) => {
     try {
-      await host.request('git.checkout', params);
+      await host.request(method, params);
       return true;
     } catch (error) {
       const files = overwritten((error as Error).message);
@@ -460,10 +468,10 @@ export function setupBranches(
       const choice = await smartOperationDialog(files, save);
       if (choice === undefined) return false;
       if (choice === 'force') {
-        await host.request('git.checkout', { ...params, force: true });
+        await host.request(method, { ...params, force: true });
         return true;
       }
-      const { restored } = (await host.request('git.checkout', { ...params, save })) as {
+      const { restored } = (await host.request(method, { ...params, save })) as {
         restored: boolean;
       };
       if (!restored) notRestored('checkout', save);
@@ -514,14 +522,14 @@ export function setupBranches(
         else notifications.notify({ title: 'Rebase successful', content: done });
         return;
       }
-      await host.request('git.createBranch', {
+      const checkedOut = await checkoutSmartly(host, 'git.createBranch', {
         path: worktree,
         name,
         from: remote,
         checkout: true,
         overwrite: true,
       });
-      notifications.notify({ content: `Checked out ${name}` });
+      if (checkedOut) notifications.notify({ content: `Checked out ${name}` });
     });
   };
   commands.register({
@@ -543,8 +551,9 @@ export function setupBranches(
       if (reference === undefined) return;
       await operate(`Could not checkout ${reference}`, async (host, worktree) => {
         await saveBeforeGit();
-        await host.request('git.checkoutRevision', { path: worktree, reference });
-        notifications.notify({ content: `Checked out ${reference}` });
+        if (await checkoutSmartly(host, 'git.checkoutRevision', { path: worktree, reference })) {
+          notifications.notify({ content: `Checked out ${reference}` });
+        }
       });
     },
   });
