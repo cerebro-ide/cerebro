@@ -167,6 +167,28 @@ export function foldedLines(
   return to - from >= 2 ? { from, to } : undefined;
 }
 
+/**
+ * The fold levels with `line` (from 0) shown on `side`: each fold over it raised until it isn't,
+ * as IntelliJ's caret unfolds the folds it moves into (`CaretImpl`), the diff's nested in levels.
+ */
+export function unfoldedAt(
+  levels: readonly number[],
+  changes: readonly LineRange[],
+  side: 'a' | 'b',
+  lines: number,
+  line: number,
+  context = CONTEXT,
+): number[] {
+  return levels.map((level, i) => {
+    let next = level;
+    for (;;) {
+      const folded = foldedLines(changes, i, side, lines, next, context);
+      if (!folded || line < folded.from || line >= folded.to) return next;
+      next++;
+    }
+  });
+}
+
 /** The band in place of folded lines: clicked, it shows more of them. */
 export class Fold extends WidgetType {
   constructor(
@@ -757,12 +779,15 @@ export function DiffEditor(props: DiffEditorProps): Node {
   if (lines) {
     for (const side of ['a', 'b'] as const) {
       const doc = views[side].state.doc;
-      const at = doc.line(Math.min(lines[side], doc.lines - 1) + 1).from;
+      const line = Math.min(lines[side], doc.lines - 1);
+      levels = unfoldedAt(levels, changes.peek(), side, doc.lines, line, context);
+      const at = doc.line(line + 1).from;
       views[side].dispatch({
         selection: EditorSelection.cursor(at),
         ...(side === 'b' ? { effects: EditorView.scrollIntoView(at, { y: 'center' }) } : {}),
       });
     }
+    mark();
   }
 
   const watch = effect(() => {
