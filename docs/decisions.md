@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1914,8 +1914,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
   Revert Commit (decision "Cherry-Pick"), New Branch… (below) and New Tag… (decision "Git → New
-  Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's keymaps give these
-  none (searched), New Branch… aside.
+  Tag…"), then, after Git's, Go to Child Commit and Go to Parent Commit (below). The commit is
+  selected first, as a tree row is. No keys: IntelliJ's keymaps give these none (searched), New
+  Branch… and the last two aside.
 - **New Branch… from a commit** (added 2026-11-11), in the commit menu before New Tag…, as
   IntelliJ's `GitCreateNewBranchFromCommitAction`: the Create New Branch dialog, titled "Create
   Branch from" and the commit's first 8 characters, its name the one branch at the commit if there's
@@ -1926,6 +1927,18 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   Branch… went nowhere while they were read. **Not yet:** its shortcut,
   New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
   first enabled command bound, so Git → New Branch… would take it.
+- **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
+  `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
+  the commits have the keyboard. The selection moves to the commit's parent or child, loading pages
+  until a parent is there, and the commits keep the keyboard. Of several (a merge's parents, a
+  commit's children) IntelliJ's numbered popup, "Select Parent to Navigate" or "Select Child to
+  Navigate", at the selected row, each commit as IntelliJ names it (`8f3a2c1d "subject" by author
+  on date at time`, the subject cut to 40 characters with "..."). Off with none to go to. The popup
+  is a menu, as Select In's, where IntelliJ's is an action list that also filters as one types:
+  Claude's choice, open to change. **Not yet:** under a filter, a parent it hides is looked for
+  through every page and not gone to, where IntelliJ goes to the row its graph joins (the Log's
+  commits keep git's parents, unrewritten). The author lacks IntelliJ's asterisk for a commit
+  someone else committed (`getAuthorPresentation`), as the Log reads no committers.
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
   before: a tag made from the Log didn't show after its refresh, nor after Refresh.
