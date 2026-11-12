@@ -65,7 +65,6 @@ import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
 import { CompareBranches, compareRefs, setupCompare } from './compare-branches.js';
-import { DiffWithWorkingTree, setupDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
 import { setupApplyChanges } from './apply-changes.js';
@@ -830,19 +829,6 @@ const environments = setupEnvironments(services.commands, services.menus, (env) 
 });
 const branches = setupBranches(services, environments);
 setupCompare(services, (tab) => editor()?.open(tab));
-// Show Diff with Working Tree's Changes tool window, on the left, which appears the first time, as
-// IntelliJ's `ChangesBrowserToolWindow`.
-setupDiffWithWorkingTree(() => {
-  if (!layout.toolWindows.windows.has('vcsChanges')) {
-    layout.toolWindows.register({
-      id: 'vcsChanges',
-      title: 'Changes',
-      anchor: 'left',
-      icon: 'diff',
-    });
-  }
-  layout.toolWindows.show('vcsChanges');
-});
 // A project that joins the window shows at once; one asked to open again comes to the front.
 window.cerebro?.project.onAdded(({ replaces, ...project }) => {
   projectAdded(project);
@@ -1515,7 +1501,6 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
-  if (props.id === 'vcsChanges') return <DiffWithWorkingTree open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
   if (props.id === 'problems') {

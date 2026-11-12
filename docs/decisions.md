@@ -3228,7 +3228,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     favorite has a branch's icon, or a tag's, as IntelliJ's (`GitBranchesTreeIconProvider`: its
     `BranchNode` and `BranchLabel`; the drawings are the Log's branches pane's), which the muted
     star takes the place of on the row highlighted; before, such a row had no icon. **Not yet:**
-    its Push Tag; tags grouped by directory (the popup groups
+    its Push Tag and Show Diff with Working Tree; tags grouped by directory (the popup groups
     nothing yet).
   - **Checkout and Rebase onto Current** (added 2026-11-12), after New Branch from, as IntelliJ's
     (`GitCheckoutWithRebaseAction`, read from its source; its words "Checkout and Rebase onto
@@ -3242,22 +3242,10 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     failed" with git's words. A local branch of that name already there: git's error, where
     IntelliJ asks to reset it (as Checkout's, below). Hidden where it doesn't apply, as the menu's
     other actions (IntelliJ disables it; open to change).
-  - **Show Diff with Working Tree** (added 2026-11-12), after Compare with Current, for any branch
-    or tag, the current one too, as IntelliJ's (`GitShowDiffWithRefAction`,
-    `GitShowDiffWithBranchPanel`, `CompareBranchesDiffPanel`, read from their source): the
-    documents saved first, then a Changes tool window on the left, which appears the first time and
-    stays (IntelliJ's `ChangesBrowserToolWindow`), shown. In it, IntelliJ's words ("Difference
-    between current working tree on main and files in feature:"), then the files that differ
-    (`git diff --name-status feature`: tracked files), each opening its diff, the file in the
-    branch and as it is, as the Log's commit's files do; "No differences" when none do, and git's
-    words where they can't be read (IntelliJ shows an error dialog: open to change). Another
-    comparison takes the place of the one before. **Claude's, open to change:** Diff's icon for
-    the window (IntelliJ's new UI has a Changes icon). **Not yet:** IntelliJ's Swap Branches and Get
-    from Branch.
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); Update, Push and
+  now); Show Diff with Working Tree, Update, Push and
   Pull from the menu; View Commits after a delete (IntelliJ's shows the
   commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 

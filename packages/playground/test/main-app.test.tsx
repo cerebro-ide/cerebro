@@ -130,51 +130,6 @@ describe('a comparison’s tab', () => {
   });
 });
 
-describe('Show Diff with Working Tree', () => {
-  it('shows the files that differ in a Changes tool window on the left, there from then on', async () => {
-    answers.set('git.branches', [
-      { ref: 'refs/heads/main', current: true },
-      { ref: 'refs/heads/feature', current: false },
-    ]);
-    answers.set('git.tags', []);
-    answers.set('git.changes', [{ path: 'src/a.ts', status: 'modified' }]);
-    const showDiff = async (branch: string) => {
-      await userEvent.keyboard('{Shift}{Shift}');
-      await popupItems();
-      await userEvent.keyboard('Branches');
-      await expect.poll(popupItems).toContain('Branches…');
-      await userEvent.keyboard('{Enter}');
-      await expect.poll(popupItems).toContain(branch);
-      await userEvent.click(
-        [...document.querySelectorAll('.cerebro-popup-item')].find(
-          (item) => item.querySelector('.cerebro-popup-item__label')?.textContent === branch,
-        ) as Element,
-      );
-      await userEvent.click(menuItem('Show Diff with Working Tree'));
-    };
-    const window = '.cerebro-tool-window[data-id="vcsChanges"]';
-    const words = () =>
-      document.querySelector(`${window} .playground-compare__explanation`)?.textContent;
-    expect(q('.cerebro-stripe-button[data-id="vcsChanges"]')).toBeNull();
-    await showDiff('feature');
-    await expect
-      .poll(words)
-      .toBe('Difference between current working tree on main and files in feature:');
-    await expect
-      .poll(() => document.querySelector(`${window} .cerebro-tree-row`)?.textContent)
-      .toContain('a.ts');
-    // Again: in the same window, in place of the one before.
-    await showDiff('main');
-    await expect
-      .poll(words)
-      .toBe('Difference between current working tree on main and files in main:');
-    expect(document.querySelectorAll('.cerebro-stripe-button[data-id="vcsChanges"]')).toHaveLength(
-      1,
-    );
-    answers.delete('git.changes');
-  });
-});
-
 describe('a diff tab', () => {
   it('shows the changes the host reads, or why it can’t', async () => {
     const sides = () => [
@@ -1399,17 +1354,15 @@ describe('the Switcher', () => {
     expect(labels('left')).toEqual([
       '|Agent Changes||A',
       '|Bookmarks||2',
-      // Show Diff with Working Tree's window, there since it ran: by name, before Claude.
-      '|Changes||C',
-      '|Claude||3',
+      '|Claude||C',
       '|Commit||0',
       '|Database||D',
       // Find in Files' window, there since it ran.
       '|Find||F',
       '|Git||9',
-      // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
+      // A plugin's: its capital is free, so Notifications takes the first free of 0-9 and A-Z.
       '|Notes||N',
-      '|Notifications||4',
+      '|Notifications||3',
       '|Problems||6',
       '|Project||1',
       '|Services||8',

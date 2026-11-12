@@ -1,12 +1,10 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
-import { render } from '@cerebro-ide/jsx';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { Tab } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { setupBranches } from '../src/branches.js';
 import { compareTab, setupCompare } from '../src/compare-branches.js';
-import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
 import { icon } from '../src/icons.js';
@@ -130,7 +128,6 @@ const readWorktrees = vi.fn(() => Promise.resolve());
 const open = vi.fn();
 const button = document.createElement('button');
 const compared: Tab[] = [];
-let revealed = 0;
 let pick: (button: HTMLElement) => unknown;
 
 beforeAll(() => {
@@ -145,9 +142,6 @@ beforeAll(() => {
   document.body.append(button);
   ({ pick } = setupBranches(services, { readWorktrees, open }));
   setupCompare(services, (tab) => compared.push(tab));
-  setupDiffWithWorkingTree(() => {
-    revealed++;
-  });
 });
 
 beforeEach(() => {
@@ -250,12 +244,7 @@ describe('the branches popup', () => {
 
   it('a tag’s menu: Checkout, Merge and Delete, as IntelliJ’s', async () => {
     await popup();
-    expect(await branchMenu('v1')).toEqual([
-      'Checkout',
-      'Show Diff with Working Tree',
-      "Merge 'v1' into 'main'",
-      'Delete',
-    ]);
+    expect(await branchMenu('v1')).toEqual(['Checkout', "Merge 'v1' into 'main'", 'Delete']);
     await closeAll();
     // Checkout detaches HEAD at it.
     await choose('v2', 'Checkout');
@@ -342,7 +331,6 @@ describe('the branches popup', () => {
       "New Branch from 'feature'…",
       "Checkout and Rebase onto 'main'",
       "Compare with 'main'",
-      'Show Diff with Working Tree',
       "Rebase 'main' onto 'feature'",
       "Merge 'feature' into 'main'",
       'Rename…',
@@ -350,18 +338,13 @@ describe('the branches popup', () => {
     ]);
     await userEvent.keyboard('{Escape}');
     // The current branch: none of what it can't be to itself.
-    expect(await branchMenu('main')).toEqual([
-      "New Branch from 'main'…",
-      'Show Diff with Working Tree',
-      'Rename…',
-    ]);
+    expect(await branchMenu('main')).toEqual(["New Branch from 'main'…", 'Rename…']);
     await userEvent.keyboard('{Escape}');
     // Checked out in another worktree: that worktree opened instead.
     expect(await branchMenu('side')).toEqual([
       'Open Worktree',
       "New Branch from 'side'…",
       "Compare with 'main'",
-      'Show Diff with Working Tree',
       "Rebase 'main' onto 'side'",
       "Merge 'side' into 'main'",
       'Rename…',
@@ -374,7 +357,6 @@ describe('the branches popup', () => {
       "New Branch from 'origin/side'…",
       "Checkout and Rebase onto 'main'",
       "Compare with 'main'",
-      'Show Diff with Working Tree',
       "Rebase 'main' onto 'origin/side'",
       "Merge 'origin/side' into 'main'",
       'Delete',
@@ -1138,25 +1120,6 @@ describe('Rebase Current onto Selected', () => {
     git.result = new Error('invalid upstream');
     await choose('feature', "Rebase 'main' onto 'feature'");
     await expect.poll(() => last()?.title).toBe('Rebase failed');
-  });
-});
-
-describe('Show Diff with Working Tree', () => {
-  it('shows the files that differ from the branch’s or tag’s, the documents saved first, as IntelliJ’s', async () => {
-    const box = document.createElement('div');
-    document.body.append(box);
-    const view = render(() => <DiffWithWorkingTree open={open} />, box);
-    const before = revealed;
-    await unsavedEdit(host, '/r/a.ts');
-    await choose('v1', 'Show Diff with Working Tree');
-    await expect.poll(() => revealed).toBe(before + 1);
-    expect(box.querySelector('.playground-compare__explanation')?.textContent).toBe(
-      'Difference between current working tree on main and files in v1:',
-    );
-    expect(host.params('git.changes')).toContainEqual({ path: '/r', from: 'v1' });
-    expect(savedBefore(host, '/r/a.ts', 'git.changes')).toBe(true);
-    view.dispose();
-    box.remove();
   });
 });
 
