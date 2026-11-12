@@ -8,6 +8,7 @@ export {
   type GitBytes,
   GitError,
   listChanges,
+  trackedFiles,
   listChangesBetween,
   ignoredAmong,
   listIgnored,

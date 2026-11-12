@@ -92,6 +92,7 @@ import {
   type GitBytes,
   bytesAt,
   listChanges,
+  trackedFiles,
   listChangesBetween,
   listIgnored,
   lastMessage,
@@ -991,6 +992,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       remote,
     );
     return null;
+  });
+  connection.onRequest('git.tracked', (params) => {
+    const files = (params as { files?: unknown }).files;
+    if (!Array.isArray(files) || !files.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    return trackedFiles(text(params, 'path'), files, git);
   });
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');

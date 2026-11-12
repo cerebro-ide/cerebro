@@ -326,6 +326,19 @@ describe('changes', () => {
     ]);
   });
 
+  it('says which files git tracks, and checks the list it’s given', async () => {
+    const { ui, git } = connect(vi.fn(() => Promise.resolve('a.ts\0')));
+    expect(await ui.request('git.tracked', { path: '/w', files: ['a.ts', 'b.ts'] })).toEqual([
+      'a.ts',
+    ]);
+    expect(git).toHaveBeenCalledWith('/w', ['ls-files', '-z', '--', 'a.ts', 'b.ts']);
+    for (const files of [undefined, 'a.ts', [1]]) {
+      await expect(ui.request('git.tracked', { path: '/w', files })).rejects.toThrow(
+        'files must be a list of paths',
+      );
+    }
+  });
+
   it('lists a page of the log, and checks what it’s given', async () => {
     const { ui, git } = connect(
       vi.fn(() => Promise.resolve('a\x1f\x1fAnn\x1fa@x\x1f1\x1f\x1fone\0')),
