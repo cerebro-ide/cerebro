@@ -607,8 +607,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     return upTo;
   };
+  /** The local branch a push sends, if not the one checked out. */
+  const sourceOf = (params: unknown) => {
+    const source = (params as { source?: unknown }).source;
+    if (source !== undefined && (typeof source !== 'string' || source.startsWith('-'))) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'source must be a branch name');
+    }
+    return source;
+  };
   connection.onRequest('git.outgoing', (params) =>
-    outgoing(text(params, 'path'), git, destination(params), upToOf(params)),
+    outgoing(text(params, 'path'), git, destination(params), upToOf(params), sourceOf(params)),
   );
   connection.onRequest('git.push', (params) => {
     const to = destination(params);
@@ -626,6 +634,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       remote,
       to && { ...to, setUpstream, ...tags, ...force },
       upToOf(params),
+      sourceOf(params),
     );
   });
   // IntelliJ's check for a diverged remote, and its Fetch of the target to count what it has.

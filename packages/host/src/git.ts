@@ -828,11 +828,16 @@ export interface Tracking {
   upstream: { remote: string; branch: string } | undefined;
 }
 
-export async function tracking(worktree: string, run: Git = git): Promise<Tracking> {
+export async function tracking(
+  worktree: string,
+  run: Git = git,
+  /** A local branch's, if not the one checked out. */
+  source?: string,
+): Promise<Tracking> {
   const remotes = (await run(worktree, ['remote'])).split('\n').filter(Boolean);
   let branch: string;
   try {
-    branch = (await run(worktree, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
+    branch = source ?? (await run(worktree, ['symbolic-ref', '--quiet', '--short', 'HEAD'])).trim();
   } catch {
     return { branch: undefined, remotes, upstream: undefined };
   }
@@ -851,6 +856,10 @@ export async function tracking(worktree: string, run: Git = git): Promise<Tracki
     upstream: remote === '' ? undefined : { remote, branch: ref.replace(/^refs\/heads\//, '') },
   };
 }
+
+/** What a push sends: a local branch, or the one checked out. */
+const pushedHead = (source: string | undefined) =>
+  source === undefined ? 'HEAD' : `refs/heads/${source}`;
 
 /** Where a push goes: a remote, and a branch there. */
 export interface PushTarget {
@@ -884,11 +893,14 @@ export async function outgoing(
   run: Git = git,
   to?: PushTarget,
   upTo?: string,
+  /** The local branch pushed, as the branches popup's Push gives it; the one checked out if not. */
+  source?: string,
 ): Promise<Outgoing> {
-  const { branch, remotes, upstream: tracked } = await tracking(worktree, run);
+  const { branch, remotes, upstream: tracked } = await tracking(worktree, run, source);
+  const head = pushedHead(source);
   // The Log's Push All up to Here…: a commit of the branch's, the ones after it not sent.
   if (upTo !== undefined && branch !== undefined) {
-    await run(worktree, ['merge-base', '--is-ancestor', upTo, 'HEAD']).catch(() => {
+    await run(worktree, ['merge-base', '--is-ancestor', upTo, head]).catch(() => {
       throw new Error('The commit is not in the current branch');
     });
   }
@@ -905,7 +917,7 @@ export async function outgoing(
   // A new branch sends what no branch of the remote has.
   const base = isNew ? [`--remotes=${remote}`] : [there];
   const commits = parseLog(
-    await readLog(worktree, [...DETAILS, upTo ?? 'HEAD', '--not', ...base, '--'], run),
+    await readLog(worktree, [...DETAILS, upTo ?? head, '--not', ...base, '--'], run),
   );
   return { branch, remote, target, isNew, commits, remotes, upstream };
 }
@@ -1097,8 +1109,15 @@ export async function push(
   run: Git = git,
   to?: PushTarget & { setUpstream?: boolean; tags?: PushTags; force?: { lease?: string } },
   upTo?: string,
+  source?: string,
 ): Promise<Pushed> {
-  const out = await outgoing(worktree, run, to && { remote: to.remote, target: to.target }, upTo);
+  const out = await outgoing(
+    worktree,
+    run,
+    to && { remote: to.remote, target: to.target },
+    upTo,
+    source,
+  );
   if (out.branch === undefined) throw new Error('No branch is checked out');
   if (out.remote === undefined) throw new Error('The repository has no remote');
   const target = out.target as string;
@@ -1125,7 +1144,7 @@ export async function push(
             ...(lease === undefined ? [] : [`--force-with-lease=refs/heads/${target}:${lease}`]),
             '--end-of-options',
             out.remote,
-            `${upTo ?? 'HEAD'}:refs/heads/${target}`,
+            `${upTo ?? pushedHead(source)}:refs/heads/${target}`,
           ],
           { GIT_TERMINAL_PROMPT: '0' },
         )

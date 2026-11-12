@@ -763,12 +763,21 @@ async function confirmForcePush(
 /** IntelliJ's description of Push and Force Push while the push waits for a Fetch. */
 const FETCH_FIRST = 'Fetch first. The remote has commits that are not fetched.';
 
-/** Opens the Push dialog for a worktree's branch, and pushes when its Push is pressed. */
-export async function openPush(worktree: string, upTo?: string): Promise<void> {
+/**
+ * Opens the Push dialog for a worktree's branch, and pushes when its Push is pressed: the one
+ * checked out, or `source`, as the branches popup's Push gives it; up to `upTo`, as the Log's Push
+ * All up to Here… does, that commit and the ones before it, not those after.
+ */
+export async function openPush(
+  worktree: string,
+  what: { upTo?: string; source?: string } = {},
+): Promise<void> {
   const host = hostFor(worktree);
   if (!host || pushing.peek()) return;
-  // The Log's Push All up to Here…: that commit and the ones before it, not those after.
-  const up = upTo === undefined ? {} : { upTo };
+  const up = {
+    ...(what.upTo === undefined ? {} : { upTo: what.upTo }),
+    ...(what.source === undefined ? {} : { source: what.source }),
+  };
   const first = (await host.request('git.outgoing', { path: worktree, ...up })) as Outgoing;
   const why = unpushable(first);
   const state: PushState = {
@@ -1024,7 +1033,7 @@ export function setupPush(services: MenuServices): void {
     enabled: (context) => !pushing.get() && pushTarget(context) !== undefined,
     run: (context) => {
       const at = pushTarget(context) as LogCommitContext;
-      return openPush(at.worktree, at.commit.hash).catch((error: unknown) => {
+      return openPush(at.worktree, { upTo: at.commit.hash }).catch((error: unknown) => {
         // As IntelliJ's, when it can't start (its words for the title).
         showError('Push Failed to Start', (error as Error).message);
       });

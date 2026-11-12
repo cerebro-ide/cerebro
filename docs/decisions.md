@@ -3260,10 +3260,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     the branch it tracks, there if it's checked out in another worktree. Hidden without remotes;
     shown but off while a fetch runs, or for a branch that tracks none, as IntelliJ's. **Not
     yet:** IntelliJ's tooltip saying why it's off ("Tracked branch is not configured for…").
+  - **Push…** (added 2026-11-12), after Update, as IntelliJ's (`GitPushBranchAction`,
+    `GitPushSource.create(branch)`, read from their source): the Push dialog for a local branch,
+    the one checked out or another. For another, the host reads what it would send and pushes it by
+    its name (`refs/heads/feature:refs/heads/<target>`) where it pushes HEAD for the one checked
+    out; a new branch's upstream is set as for the one checked out (measured with real git:
+    `--set-upstream` with that refspec sets feature's, and the branch checked out stays as it was).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); Push and
+  now);
   Pull from the menu; View Commits after a delete (IntelliJ's shows the
   commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 

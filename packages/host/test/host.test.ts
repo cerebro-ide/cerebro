@@ -1354,6 +1354,20 @@ describe('ignored files and rolling back', () => {
         message: 'upTo must be a commit hash',
       });
     }
+    // Another branch than the one checked out: by its name, which can't be an option.
+    for (const source of ['-f', 7]) {
+      await expect(ui.request('git.outgoing', { path: '/w', source })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+        message: 'source must be a branch name',
+      });
+    }
+    expect(await ui.request('git.outgoing', { path: '/w', source: 'feature' })).toMatchObject({
+      branch: 'feature',
+    });
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      expect.arrayContaining(['for-each-ref', 'refs/heads/feature']),
+    );
     // A branch: where it's told.
     git.mockImplementation((_cwd: string, args: readonly string[]) =>
       Promise.resolve(
