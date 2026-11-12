@@ -577,8 +577,21 @@ describe('Git → Current File → Show History', () => {
   it('shows the Git window, its Log the editor file’s commits on HEAD', async () => {
     env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
     await userEvent.click(await vi.waitUntil(code));
+    // Once, in CI (#221, 2026-11-12), the popup didn't open: the taps' times and the window's
+    // focus, to show why if it happens again (double Shift wants its taps 400 ms apart at most).
+    const taps: string[] = [];
+    const tapped = (event: Event) => {
+      taps.push(
+        `${event.type} ${String(Math.round(performance.now()))} ${String(document.hasFocus())}`,
+      );
+    };
+    for (const type of ['keyup', 'blur']) window.addEventListener(type, tapped);
     await userEvent.keyboard('{Shift}{Shift}');
-    await popupItems();
+    await popupItems().catch((error: unknown) => {
+      console.log('Double Shift:', taps.join(', '));
+      throw error;
+    });
+    for (const type of ['keyup', 'blur']) window.removeEventListener(type, tapped);
     await userEvent.keyboard('Show History');
     await expect.poll(popupItems).toContain('Show History');
     await userEvent.keyboard('{Enter}');

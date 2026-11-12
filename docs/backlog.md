@@ -39,6 +39,11 @@ on it:
 
 ## Known gaps
 
+- **Double Shift once didn't open Search Everywhere in main-app's Show History test** (CI, #221,
+  2026-11-12; not reproduced in six local runs, three at once). Not measured why: double Shift
+  wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
+  forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
+  open.
 - **Alt+9 shows the Git tool window without moving the focus into it** (seen in the built app,
   2026-11-12: after Alt+9 the Project tree still had it). IntelliJ's tool window shortcuts activate
   the window, focus included (a claim, not measured here); Ctrl+Tab's switcher does move it.
