@@ -123,7 +123,11 @@ it('commits the files put in, tracked ones unless taken out, untracked ones once
   await message().click();
   await page().keyboard.type('Change a, add new');
   await page().keyboard.press('Control+Enter');
-  await expect.poll(() => git('log', '-1', '--format=%s')).toBe('Change a, add new\n');
+  // The host's git, which on Windows has taken longer than a second (CI, 2026-11-12: the next
+  // test found the commit made, and the message cleared as it typed into it).
+  await expect
+    .poll(() => git('log', '-1', '--format=%s'), { timeout: 15_000 })
+    .toBe('Change a, add new\n');
   expect(git('show', '--name-only', '--format=', 'HEAD')).toBe('a.ts\nnew.ts\n');
   expect(git('status', '--porcelain')).toBe(' M b.ts\n');
   // The list follows, and the message is cleared for the next.
@@ -139,7 +143,7 @@ it('amends the last commit, its message put in to edit', async () => {
   await page().keyboard.type('Reworded');
   // Only the message: b.ts taken out before stays out.
   await page().locator('.playground-commit .cerebro-dialog__button--primary').click();
-  await expect.poll(() => git('log', '--format=%s')).toBe('Reworded\nFirst\n');
+  await expect.poll(() => git('log', '--format=%s'), { timeout: 15_000 }).toBe('Reworded\nFirst\n');
   expect(git('status', '--porcelain')).toBe(' M b.ts\n');
   // Turned off once the host replies, which can be after git's log shows the commit (Windows).
   await expect
