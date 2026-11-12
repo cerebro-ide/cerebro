@@ -79,12 +79,21 @@ function grouped(
   return nodes.sort((a, b) => weight(a) - weight(b) || byName(a.name, b.name));
 }
 
-/** The pane's tree: HEAD, then Local and Remote, each if there are any. */
-export function branchTree(branches: readonly Branch[]): BranchNode[] {
+/**
+ * The pane's tree: HEAD, then Local and Remote, each if there are any. Grouped by directory, or
+ * not: a remote's branches are under it either way, as IntelliJ's.
+ */
+export function branchTree(branches: readonly Branch[], byDirectory = true): BranchNode[] {
+  const split = (name: string) => (byDirectory ? name.split('/') : [name]);
   const under = (prefix: string) =>
     branches
       .filter((branch) => branch.ref.startsWith(prefix))
-      .map((branch) => ({ branch, path: branch.ref.slice(prefix.length).split('/') }));
+      .map((branch) => {
+        const name = branch.ref.slice(prefix.length);
+        if (prefix === LOCAL) return { branch, path: split(name) };
+        const slash = name.indexOf('/');
+        return { branch, path: [name.slice(0, slash), ...split(name.slice(slash + 1))] };
+      });
   const tree: BranchNode[] = [{ kind: 'head' }];
   for (const [name, prefix] of [
     ['Local', LOCAL],
@@ -112,6 +121,51 @@ export interface BranchesContext {
   refresh: () => Promise<void>;
 }
 
+/** What a single click on a branch does, as IntelliJ's pane settings ("On Single Click"). */
+export type OnSelection = 'filter' | 'navigate' | undefined;
+
+/** Where the pane's settings are kept: one for every repository, as IntelliJ's. */
+const SETTINGS = 'cerebro.log.branchesPane';
+
+/**
+ * The pane's settings, as kept: a single click doing nothing, and grouped by directory, to start
+ * with, as IntelliJ's (`Change.Log.Filter.on.Branch.Selection`,
+ * `Navigate.Log.To.Branch.on.Branch.Selection`, `git.branches.group.by.directory`).
+ */
+export function readPaneSettings(): { onSelection: OnSelection; byDirectory: boolean } {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS) ?? '{}') as Record<string, unknown>;
+    const { onSelection } = stored;
+    return {
+      onSelection: onSelection === 'filter' || onSelection === 'navigate' ? onSelection : undefined,
+      byDirectory: stored.byDirectory !== false,
+    };
+  } catch {
+    return { onSelection: undefined, byDirectory: true };
+  }
+}
+
+const settings = readPaneSettings();
+export const paneSettings = {
+  onSelection: signal<OnSelection>(settings.onSelection),
+  byDirectory: signal(settings.byDirectory),
+};
+
+/** Keeps the pane's settings as they are now. */
+export function savePaneSettings(): void {
+  try {
+    localStorage.setItem(
+      SETTINGS,
+      JSON.stringify({
+        onSelection: paneSettings.onSelection.peek(),
+        byDirectory: paneSettings.byDirectory.peek(),
+      }),
+    );
+  } catch {
+    // Not kept: they apply until the page is reloaded.
+  }
+}
+
 const keyOf = (node: BranchNode) => {
   if (node.kind === 'head') return 'HEAD';
   return node.kind === 'group' ? `group:${node.key}` : node.ref;
@@ -124,7 +178,9 @@ export class Branches {
   readonly model = new TreeModel<BranchNode>({
     children: (node) =>
       // Only groups have children to ask for.
-      node === undefined ? branchTree(this.branches.peek()) : (node as Group).children,
+      node === undefined
+        ? branchTree(this.branches.peek(), paneSettings.byDirectory.peek())
+        : (node as Group).children,
     key: keyOf,
     isLeaf: (node) => node.kind !== 'group',
   });

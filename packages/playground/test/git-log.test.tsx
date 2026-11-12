@@ -26,7 +26,7 @@ import {
   type LogCommit,
   type LogCommitContext,
 } from '../src/git-log.js';
-import { branchTree, type Branch } from '../src/log-branches.js';
+import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { notifications } from '../src/notifications.js';
@@ -884,6 +884,100 @@ describe('the branches’ toolbar', () => {
     expect(document.querySelector('.playground-log__branches')).toBeNull();
     vi.restoreAllMocks();
     (document.querySelector('.playground-log__branches-stripe') as HTMLButtonElement).click();
+  });
+
+  it('has the pane’s settings in its gear: what a single click does, and grouping by directory, kept', async () => {
+    git.log = history(3);
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/feat/x'),
+      branch('refs/remotes/origin/fix/y'),
+    ];
+    git.revisions = { HEAD: 'c0', 'refs/heads/main': 'c1' };
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'Remote', 'origin']);
+    const gear = toolbar().querySelector('[data-menu="log/branchesSettings"]') as HTMLElement;
+    expect(gear.getAttribute('aria-label')).toBe('Branches Pane Settings');
+    const menu = async () => {
+      await userEvent.click(gear);
+      return [
+        ...document.querySelectorAll<HTMLElement>('.cerebro-menu-heading, [role^="menuitem"]'),
+      ];
+    };
+    const shown = (entries: HTMLElement[]) =>
+      entries.map((entry) => [entry.textContent, entry.getAttribute('aria-checked')]);
+    const choose = async (label: string) => {
+      const entries = await menu();
+      await userEvent.click(entries.find((entry) => entry.textContent === label) as HTMLElement);
+    };
+    expect(shown(await menu())).toEqual([
+      ['On Single Click', null],
+      ['Update Branch Filter', 'false'],
+      ['Navigate Log to Branch Head', 'false'],
+      ['Group by Directory', 'true'],
+    ]);
+    await userEvent.keyboard('{Escape}');
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    const branchesAsked = () => (host.params('git.log').at(-1) as { branches?: string[] }).branches;
+    // Nothing set: selecting does nothing.
+    tree.focus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    expect(branchesAsked()).toBeUndefined();
+    // Update Branch Filter: the branch selected, HEAD, or All for a directory.
+    await choose('Update Branch Filter');
+    expect(readPaneSettings().onSelection).toBe('filter');
+    tree.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    await expect.poll(branchesAsked).toBeUndefined();
+    await userEvent.keyboard('{ArrowDown}');
+    await expect.poll(branchesAsked).toEqual(['refs/heads/main']);
+    await userEvent.keyboard('{Home}');
+    await expect.poll(branchesAsked).toEqual(['HEAD']);
+    // Navigate Log to Branch Head, the other: the Log taken to the head, its filter left.
+    await choose('Navigate Log to Branch Head');
+    expect(shown(await menu()).slice(1, 3)).toEqual([
+      ['Update Branch Filter', 'false'],
+      ['Navigate Log to Branch Head', 'true'],
+    ]);
+    await userEvent.keyboard('{Escape}');
+    await choose('Update Branch Filter');
+    await userEvent.keyboard('{Escape}');
+    await choose('Navigate Log to Branch Head');
+    tree.focus();
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    await expect.poll(selected).toBe('c1');
+    // A directory: nowhere to go.
+    await userEvent.keyboard('{ArrowUp}');
+    expect(selected()).toBe('c1');
+    // Chosen again, it's off.
+    await choose('Navigate Log to Branch Head');
+    expect(readPaneSettings().onSelection).toBeUndefined();
+    // Not grouped by directory: a remote's branches still under it.
+    await choose('Group by Directory');
+    expect(readPaneSettings().byDirectory).toBe(false);
+    await userEvent.click(button('log.branches.expandAll'));
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat/x', 'Remote', 'origin', 'fix/y']);
+    await choose('Group by Directory');
+    await expect.poll(branchNames).toContain('feat');
+  });
+
+  it('keeps the pane’s settings as they were where what’s kept can’t be read or written', () => {
+    localStorage.setItem('cerebro.log.branchesPane', '{"onSelection":"other"}');
+    expect(readPaneSettings()).toEqual({ onSelection: undefined, byDirectory: true });
+    localStorage.setItem('cerebro.log.branchesPane', 'not JSON');
+    expect(readPaneSettings()).toEqual({ onSelection: undefined, byDirectory: true });
+    localStorage.removeItem('cerebro.log.branchesPane');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+    services.commands.execute('log.branches.onSelection.filter');
+    services.commands.execute('log.branches.onSelection.filter');
+    expect(services.commands.isChecked('log.branches.onSelection.filter')).toBe(false);
+    vi.restoreAllMocks();
   });
 
   it('keeps its first buttons in place in a short pane, as one further down is focused', () => {
