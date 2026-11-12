@@ -1,5 +1,5 @@
-// The Log's branches pane, as IntelliJ's: HEAD (Current Branch), then the local branches and the
-// remote ones (under their remote), grouped by directory (the parts of a name before a slash). A
+// The Log's branches pane, as IntelliJ's: HEAD (Current Branch), then the local branches, the
+// remote ones (under their remote) and the tags, grouped by directory (the parts of a name before a slash). A
 // double click or Enter on one filters the log by it, as IntelliJ's Update Branch Filter.
 //
 // From IntelliJ (BranchesTreeModel, BranchTreeNodeComparator): the groups and their names, and
@@ -49,10 +49,16 @@ export type BranchFilter = string;
 
 const LOCAL = 'refs/heads/';
 const REMOTE = 'refs/remotes/';
+const TAG = 'refs/tags/';
 
-/** A branch's name as the Log shows it: `main`, `origin/main`; HEAD as itself. */
-export const branchName = (ref: string): string =>
-  ref.startsWith(LOCAL) ? ref.slice(LOCAL.length) : ref.replace(REMOTE, '');
+/** A branch's name as the Log shows it: `main`, `origin/main`; a tag's, `v1`; HEAD as itself. */
+export const branchName = (ref: string): string => {
+  for (const prefix of [LOCAL, TAG]) if (ref.startsWith(prefix)) return ref.slice(prefix.length);
+  return ref.replace(REMOTE, '');
+};
+
+/** Whether a ref in full is a tag's. */
+export const isTag = (ref: string): boolean => ref.startsWith(TAG);
 
 const byName = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
@@ -68,13 +74,15 @@ const weight = (node: Group | BranchItem) => {
 };
 
 /** Branches grouped by the parts of their names before a slash, under `key`. */
+type Named = { branch: Pick<Branch, 'ref' | 'current'>; path: string[] };
+
 function grouped(
   key: string,
-  branches: readonly { branch: Branch; path: string[] }[],
+  branches: readonly Named[],
   favorite: (ref: string) => boolean,
 ): (Group | BranchItem)[] {
   const nodes: (Group | BranchItem)[] = [];
-  const groups = new Map<string, { branch: Branch; path: string[] }[]>();
+  const groups = new Map<string, Named[]>();
   for (const { branch, path } of branches) {
     const [first, ...rest] = path as [string, ...string[]];
     if (rest.length === 0) {
@@ -104,13 +112,14 @@ function grouped(
 }
 
 /**
- * The pane's tree: HEAD, then Local and Remote, each if there are any. Grouped by directory, or
- * not: a remote's branches are under it either way, as IntelliJ's.
+ * The pane's tree: HEAD, then Local, Remote and Tags, each if there are any. Grouped by directory,
+ * or not: a remote's branches are under it either way, as IntelliJ's.
  */
 export function branchTree(
   branches: readonly Branch[],
   byDirectory = true,
   favorite: (ref: string) => boolean = () => false,
+  tags: readonly string[] = [],
 ): BranchNode[] {
   const split = (name: string) => (byDirectory ? name.split('/') : [name]);
   const under = (prefix: string) =>
@@ -122,12 +131,17 @@ export function branchTree(
         const slash = name.indexOf('/');
         return { branch, path: [name.slice(0, slash), ...split(name.slice(slash + 1))] };
       });
+  const tagged = tags.map((name) => ({
+    branch: { ref: `${TAG}${name}`, current: false },
+    path: split(name),
+  }));
   const tree: BranchNode[] = [{ kind: 'head' }];
-  for (const [name, prefix] of [
-    ['Local', LOCAL],
-    ['Remote', REMOTE],
+  for (const [name, named] of [
+    ['Local', under(LOCAL)],
+    ['Remote', under(REMOTE)],
+    ['Tags', tagged],
   ] as const) {
-    const children = grouped(name, under(prefix), favorite);
+    const children = grouped(name, named, favorite);
     if (children.length > 0) {
       tree.push({ kind: 'group', key: name, name, children, favorite: false });
     }
@@ -162,16 +176,21 @@ const SETTINGS = 'cerebro.log.branchesPane';
  * with, as IntelliJ's (`Change.Log.Filter.on.Branch.Selection`,
  * `Navigate.Log.To.Branch.on.Branch.Selection`, `git.branches.group.by.directory`).
  */
-export function readPaneSettings(): { onSelection: OnSelection; byDirectory: boolean } {
+export function readPaneSettings(): {
+  onSelection: OnSelection;
+  byDirectory: boolean;
+  showTags: boolean;
+} {
   try {
     const stored = JSON.parse(localStorage.getItem(SETTINGS) ?? '{}') as Record<string, unknown>;
     const { onSelection } = stored;
     return {
       onSelection: onSelection === 'filter' || onSelection === 'navigate' ? onSelection : undefined,
       byDirectory: stored.byDirectory !== false,
+      showTags: stored.showTags !== false,
     };
   } catch {
-    return { onSelection: undefined, byDirectory: true };
+    return { onSelection: undefined, byDirectory: true, showTags: true };
   }
 }
 
@@ -179,6 +198,7 @@ const settings = readPaneSettings();
 export const paneSettings = {
   onSelection: signal<OnSelection>(settings.onSelection),
   byDirectory: signal(settings.byDirectory),
+  showTags: signal(settings.showTags),
 };
 
 /** Keeps the pane's settings as they are now. */
@@ -189,6 +209,7 @@ export function savePaneSettings(): void {
       JSON.stringify({
         onSelection: paneSettings.onSelection.peek(),
         byDirectory: paneSettings.byDirectory.peek(),
+        showTags: paneSettings.showTags.peek(),
       }),
     );
   } catch {
@@ -204,6 +225,8 @@ const keyOf = (node: BranchNode) => {
 /** The repository's branches, as the pane shows them, read again with the Log. */
 export class Branches {
   readonly branches = signal<readonly Branch[]>([]);
+  /** The tags' names, while Show Tags is on. */
+  readonly tags = signal<readonly string[]>([]);
   readonly error = signal<string | undefined>(undefined);
   /** What the search field holds: the pane shows the branches it matches. (Before the model, which reads it as it's made.) */
   readonly query = signal('');
@@ -211,8 +234,11 @@ export class Branches {
     children: (node) =>
       // Only groups have children to ask for.
       node === undefined
-        ? branchTree(this.matching(), paneSettings.byDirectory.peek(), (ref) =>
-            isFavorite(this.repository, ref),
+        ? branchTree(
+            this.matching(this.branches.peek(), (branch) => branch.ref),
+            paneSettings.byDirectory.peek(),
+            (ref) => isFavorite(this.repository, ref),
+            this.matching(this.tags.peek(), (tag) => `${TAG}${tag}`),
           )
         : (node as Group).children,
     key: keyOf,
@@ -227,17 +253,16 @@ export class Branches {
     private readonly worktree: string,
   ) {
     this.repository = repositoryOf(worktree);
-    for (const group of ['Local', 'Remote']) this.model.expanded.add(`group:${group}`);
+    for (const group of ['Local', 'Remote', 'Tags']) this.model.expanded.add(`group:${group}`);
   }
 
   /** What was expanded as a search started, expanded again once it's cleared. */
   private expandedBefore: string[] | undefined;
 
-  /** The branches the search matches, by their names (a remote one's with its remote). */
-  private matching(): readonly Branch[] {
+  /** Those the search matches, by their names (a remote branch's with its remote), by `ref`. */
+  private matching<T>(all: readonly T[], ref: (item: T) => string): readonly T[] {
     const query = this.query.peek();
-    const all = this.branches.peek();
-    return query.trim() === '' ? all : all.filter((b) => match(query, branchName(b.ref)));
+    return query.trim() === '' ? all : all.filter((item) => match(query, branchName(ref(item))));
   }
 
   /**
@@ -289,11 +314,21 @@ export class Branches {
 
   async reload(): Promise<void> {
     try {
-      const branches = (await this.host.request('git.branches', {
-        worktree: this.worktree,
-      })) as Branch[];
+      const [branches, tags] = await Promise.all([
+        this.host.request('git.branches', { worktree: this.worktree }) as Promise<Branch[]>,
+        paneSettings.showTags.peek()
+          ? (this.host.request('git.tags', { path: this.worktree }) as Promise<string[]>).catch(
+              (error: unknown) => {
+                // The branches show without them.
+                console.error('Reading the tags failed', error);
+                return [];
+              },
+            )
+          : [],
+      ]);
       this.error.set(undefined);
       this.branches.set(branches);
+      this.tags.set(tags);
       await this.model.refresh();
     } catch (error) {
       this.error.set((error as Error).message);
@@ -329,7 +364,7 @@ function row(node: BranchNode, query: string) {
   }
   return [
     // A favorite's star, as IntelliJ's.
-    node.favorite ? favoriteIcon() : icon('git'),
+    node.favorite ? favoriteIcon() : icon(isTag(node.ref) ? 'tag' : 'git'),
     <span
       class={
         node.current
@@ -362,7 +397,10 @@ export function BranchesPane(props: {
   const nothing = () => {
     const query = branches.query.get();
     return (
-      query.trim() !== '' && !branches.branches.get().some((b) => match(query, branchName(b.ref)))
+      query.trim() !== '' &&
+      ![...branches.branches.get().map((b) => branchName(b.ref)), ...branches.tags.get()].some(
+        (name) => match(query, name),
+      )
     );
   };
   return (
@@ -389,7 +427,7 @@ export function BranchesPane(props: {
           class="playground-branches__search-field"
           type="text"
           spellcheck={false}
-          placeholder="Branch"
+          placeholder="Branch or tag"
           aria-label="Git branches search"
           ref={(input: HTMLInputElement) => {
             field = input;

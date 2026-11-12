@@ -30,6 +30,7 @@ import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.j
 import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { isFavorite, setFavorite } from '../src/branch-favorites.js';
+import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
 
@@ -69,7 +70,7 @@ const git = {
   },
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
-  tags: ['v1', 'v2'] as string[] | Error,
+  tags: [] as string[] | Error,
   /** The refs' fingerprint, in the repository's state. */
   refs: undefined as string | undefined,
   /** The commit each revision names, as `git rev-parse` would. */
@@ -169,6 +170,7 @@ afterEach(() => {
   git.failing = undefined;
   git.branchesFailing = undefined;
   git.branches = [];
+  git.tags = [];
   for (const id of ['/r', '/s', '/n']) workspace.close(id);
 });
 
@@ -952,6 +954,7 @@ describe('the branches’ toolbar', () => {
       ['Update Branch Filter', 'false'],
       ['Navigate Log to Branch Head', 'false'],
       ['Group by Directory', 'true'],
+      ['Show Tags', 'true'],
     ]);
     await userEvent.keyboard('{Escape}');
     const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
@@ -1000,11 +1003,71 @@ describe('the branches’ toolbar', () => {
     await expect.poll(branchNames).toContain('feat');
   });
 
+  it('shows the tags, as IntelliJ’s, unless Show Tags is off; a tag filters, navigates, but isn’t deleted', async () => {
+    git.log = history(2);
+    git.branches = [branch('refs/heads/main', true)];
+    git.tags = ['v1', 'release/v2'];
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'Tags', 'release', 'v1']);
+    // A tag's icon.
+    expect(named('v1').querySelector('.cerebro-tree-row__content path')?.getAttribute('d')).toBe(
+      (icon('tag') as Element).querySelector('path')?.getAttribute('d'),
+    );
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    tree.focus();
+    await userEvent.keyboard('{End}');
+    await expect.poll(() => button('log.branches.navigate').disabled).toBe(false);
+    expect(button('log.branches.delete').disabled).toBe(true);
+    expect(button('log.branches.update').disabled).toBe(true);
+    // Double-clicked, it filters the Log, named as the Log names it.
+    await userEvent.dblClick(named('v1'));
+    await expect
+      .poll(() => (host.params('git.log').at(-1) as { branches?: string[] }).branches)
+      .toEqual(['refs/tags/v1']);
+    // The search finds tags too.
+    const field = document.querySelector(
+      '.playground-branches input[aria-label="Git branches search"]',
+    ) as HTMLInputElement;
+    field.focus();
+    await userEvent.keyboard('rel');
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Tags', 'release', 'v2']);
+    await userEvent.keyboard('{Backspace}{Backspace}{Backspace}');
+    // Off: no tags, and none asked for.
+    services.commands.execute('log.branches.showTags');
+    expect(readPaneSettings().showTags).toBe(false);
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'main']);
+    const tagsAsked = () => host.asked.filter((a) => a.method === 'git.tags').length;
+    const asked = tagsAsked();
+    host.asked.length = 0;
+    services.commands.execute('log.refresh');
+    await expect.poll(() => host.params('git.branches').length).toBeGreaterThan(0);
+    expect(tagsAsked()).toBe(0);
+    expect(asked).toBeGreaterThan(0);
+    // On again, read again; where they can't be read, the branches show without them.
+    git.tags = new Error('no tags');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    services.commands.execute('log.branches.showTags');
+    await expect.poll(() => logged.mock.calls.length).toBeGreaterThan(0);
+    expect(logged).toHaveBeenCalledWith('Reading the tags failed', git.tags);
+    expect(branchNames()).toEqual(['HEAD (Current Branch)', 'Local', 'main']);
+    logged.mockRestore();
+  });
+
   it('keeps the pane’s settings as they were where what’s kept can’t be read or written', () => {
     localStorage.setItem('cerebro.log.branchesPane', '{"onSelection":"other"}');
-    expect(readPaneSettings()).toEqual({ onSelection: undefined, byDirectory: true });
+    expect(readPaneSettings()).toEqual({
+      onSelection: undefined,
+      byDirectory: true,
+      showTags: true,
+    });
     localStorage.setItem('cerebro.log.branchesPane', 'not JSON');
-    expect(readPaneSettings()).toEqual({ onSelection: undefined, byDirectory: true });
+    expect(readPaneSettings()).toEqual({
+      onSelection: undefined,
+      byDirectory: true,
+      showTags: true,
+    });
     localStorage.removeItem('cerebro.log.branchesPane');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('full');
@@ -1053,7 +1116,7 @@ describe('the branches’ toolbar', () => {
     const field = document.querySelector(
       '.playground-branches input[aria-label="Git branches search"]',
     ) as HTMLInputElement;
-    expect(field.placeholder).toBe('Branch');
+    expect(field.placeholder).toBe('Branch or tag');
     const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
     const selectedName = () =>
       document
@@ -1456,6 +1519,10 @@ describe('Go To Hash/Branch/Tag', () => {
   const button = () =>
     document.querySelector('.playground-log__toolbar [data-command="log.goToRef"]') as HTMLElement;
 
+  beforeEach(() => {
+    git.tags = ['v1', 'v2'];
+  });
+
   it('selects the commit a hash, branch or tag names, the branches and tags suggested', async () => {
     git.log = history(3);
     git.branches = [
@@ -1527,7 +1594,6 @@ describe('Go To Hash/Branch/Tag', () => {
     expect(logged).toHaveBeenCalledWith('Reading the tags failed', git.tags);
     await press('Cancel');
     logged.mockRestore();
-    git.tags = ['v1', 'v2'];
   });
 
   it('is IntelliJ’s Cmd+F on macOS', () => {

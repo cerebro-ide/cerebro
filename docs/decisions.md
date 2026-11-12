@@ -2018,8 +2018,16 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     the Branch filter set to the branch or HEAD selected, All for a directory; the Log taken to its
     head); then Group by Directory, a remote's branches under it either way. A single click does
     nothing, and the branches are grouped, to start with (IntelliJ's defaults). Kept between runs,
-    one for every repository. **Not yet:** Group by Repository (one repository here) and Show
-    Tags (no tags in the pane yet); the branches popup's Group by Directory, which IntelliJ shares.
+    one for every repository. **Not yet:** Group by Repository (one repository here); the branches
+    popup's Group by Directory, which IntelliJ shares.
+  - Show Tags (added 2026-11-12), after Group by Directory, as IntelliJ's (`git.branches.show.tags`,
+    on to start with, BranchesDashboardUtil): a Tags group after Remote, grouped by directory as
+    the branches are, expanded to start with as Local and Remote are; turned off, the tags aren't
+    read. A tag filters the Log, takes it to its commit, is a favorite or not, and is found by the
+    pane's search; Update Selected is off for it, having nothing tracked. Where the tags can't be
+    read, the branches show without them. **Claude's, open to change:** the tag's icon's drawing.
+    **Not yet:** Delete Branch on a tag (IntelliJ deletes it), off until then; tags in the
+    branches popup, which IntelliJ shares.
   - What a short pane has no room for goes behind a » at the toolbar's foot (added 2026-11-12), as
     IntelliJ's vertical toolbars: pointing at it shows the whole toolbar in a column over it, kept
     on the screen. It's the Log toolbar's row (`ToolbarRow`, decision "a toolbar that keeps to its
@@ -2049,9 +2057,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     from the field go on in the tree, as does Escape once the field is empty. Cleared, the
     directories expanded before are again. Find's key, in the pane, goes from the tree to the field
     and back (the rest of the Log keeps it for Go To Hash/Branch/Tag), and the field hides the
-    tree's selection from the pane's actions, as IntelliJ's. **Claude's, open to change:** "Branch"
-    for IntelliJ's placeholder "Branch or tag", tags not being shown yet; the field's text in the
-    error's colour when nothing matches (IntelliJ paints its background).
+    tree's selection from the pane's actions, as IntelliJ's. Its placeholder is IntelliJ's, "Branch or
+    tag" ("Branch" until the pane showed tags). **Claude's, open to change:** the field's text in
+    the error's colour when nothing matches (IntelliJ paints its background).
   **Not yet:** Compare with Current, Show My Branches; several branches selected (IntelliJ updates
   them all at once); Navigate's key
   (Select In's, Alt+F1, which Select In takes here first).
