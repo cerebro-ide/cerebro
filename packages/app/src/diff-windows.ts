@@ -27,12 +27,17 @@ export const DIFF_DOCUMENT_ASKED = 'cerebro:diff:document-asked';
 export const DIFF_DOCUMENT_TEXT = 'cerebro:diff:document-text';
 export const DIFF_DOCUMENT_SHOWN = 'cerebro:diff:document-shown';
 
-/** What a diff window shows: a file of a project's worktree, against its last commit or between two. */
+/**
+ * What a diff window shows: a file of a project's worktree, against its last commit, between two,
+ * or against a branch or a tag as it is (a range without `to`).
+ */
 export interface DiffSpec {
   project: string;
   env: string;
   path: string;
-  range?: { from: string; to: string };
+  range?: { from: string; to?: string };
+  /** The worktree's branch, against a branch or a tag: its side's title. None when detached. */
+  branch?: string;
   /**
    * The files Compare Previous and Next File go through, `path` among them, as IntelliJ's diff
    * chain: the list the diff was opened from.
@@ -62,12 +67,14 @@ export function diffSpec(value: unknown): DiffSpec {
   const range = spec?.range;
   const chain = spec?.chain as unknown;
   const line = spec?.line as unknown;
+  const branch = spec?.branch as unknown;
   if (
     !spec ||
     !text(spec.project) ||
     !text(spec.env) ||
     !text(spec.path) ||
-    (range !== undefined && !(text(range.from) && text(range.to))) ||
+    (range !== undefined && !(text(range.from) && (range.to === undefined || text(range.to)))) ||
+    (branch !== undefined && !text(branch)) ||
     (chain !== undefined &&
       !(Array.isArray(chain) && chain.every(text) && chain.includes(spec.path))) ||
     (line !== undefined && !(Number.isInteger(line) && (line as number) >= 0))
@@ -80,7 +87,10 @@ export function diffSpec(value: unknown): DiffSpec {
     project: spec.project as string,
     env: spec.env as string,
     path: spec.path as string,
-    ...(range ? { range: { from: range.from, to: range.to } } : {}),
+    ...(range
+      ? { range: { from: range.from, ...(range.to === undefined ? {} : { to: range.to }) } }
+      : {}),
+    ...(branch === undefined ? {} : { branch: branch as string }),
     ...(chain ? { chain: [...(chain as string[])] } : {}),
     ...(line === undefined ? {} : { line: line as number }),
   };
