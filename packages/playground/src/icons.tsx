@@ -41,6 +41,9 @@ const PATHS: Record<string, string> = {
   locate: 'M8 3.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3',
   expandAll: 'M5 5.5l3-3 3 3M5 10.5l3 3 3-3',
   collapseAll: 'M5 2.5l3 3 3-3M5 13.5l3-3 3 3',
+  // A star: a favorite branch (a claim: not IntelliJ's drawing).
+  favorite:
+    'M8 2.2l1.75 3.6 3.95.55-2.86 2.78.68 3.94L8 11.2l-3.52 1.87.68-3.94L2.3 6.35l3.95-.55z',
   // A side pane hidden and shown, as IntelliJ's ArrowCollapse and ArrowExpand: an arrow to an edge
   // and away from it (a claim: not IntelliJ's drawing).
   arrowCollapse: 'M2.5 3v10M13.5 8H5.5M8.5 5l-3 3 3 3',

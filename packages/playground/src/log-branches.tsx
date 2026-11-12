@@ -6,9 +6,10 @@
 // the order within one: the branch checked out, then directories, then branches, by name. Claims:
 // the order of names (the system's, case and numbers aside), and the groups starting expanded.
 
-import { signal } from '@cerebro-ide/reactive';
+import { signal, untracked } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
-import type { Host } from './environments.js';
+import { isFavorite } from './branch-favorites.js';
+import { projectOf, type Host } from './environments.js';
 import { icon } from './icons.js';
 
 /** A branch, as the host's `git.branches` gives it. */
@@ -25,6 +26,8 @@ interface Group {
   key: string;
   name: string;
   children: BranchNode[];
+  /** Whether a favorite is somewhere under it. */
+  favorite: boolean;
 }
 
 interface BranchItem {
@@ -32,6 +35,7 @@ interface BranchItem {
   ref: string;
   name: string;
   current: boolean;
+  favorite: boolean;
 }
 
 export type BranchNode = { kind: 'head' } | Group | BranchItem;
@@ -52,29 +56,48 @@ export const branchName = (ref: string): string =>
 const byName = (a: string, b: string) =>
   a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
 
+/**
+ * IntelliJ's order (BranchTreeNodeComparator): the branch checked out, favorites, directories with
+ * a favorite under them, other directories, then branches.
+ */
 const weight = (node: Group | BranchItem) => {
-  if (node.kind === 'branch') return node.current ? 0 : 2;
-  return 1;
+  if (node.kind === 'group') return node.favorite ? 2 : 3;
+  if (node.current) return 0;
+  return node.favorite ? 1 : 4;
 };
 
 /** Branches grouped by the parts of their names before a slash, under `key`. */
 function grouped(
   key: string,
   branches: readonly { branch: Branch; path: string[] }[],
+  favorite: (ref: string) => boolean,
 ): (Group | BranchItem)[] {
   const nodes: (Group | BranchItem)[] = [];
   const groups = new Map<string, { branch: Branch; path: string[] }[]>();
   for (const { branch, path } of branches) {
     const [first, ...rest] = path as [string, ...string[]];
     if (rest.length === 0) {
-      nodes.push({ kind: 'branch', ref: branch.ref, name: first, current: branch.current });
+      nodes.push({
+        kind: 'branch',
+        ref: branch.ref,
+        name: first,
+        current: branch.current,
+        favorite: favorite(branch.ref),
+      });
     } else {
       groups.set(first, [...(groups.get(first) ?? []), { branch, path: rest }]);
     }
   }
   for (const [name, children] of groups) {
     const at = `${key}/${name}`;
-    nodes.push({ kind: 'group', key: at, name, children: grouped(at, children) });
+    const under = grouped(at, children, favorite);
+    nodes.push({
+      kind: 'group',
+      key: at,
+      name,
+      children: under,
+      favorite: under.some((node) => node.favorite),
+    });
   }
   return nodes.sort((a, b) => weight(a) - weight(b) || byName(a.name, b.name));
 }
@@ -83,7 +106,11 @@ function grouped(
  * The pane's tree: HEAD, then Local and Remote, each if there are any. Grouped by directory, or
  * not: a remote's branches are under it either way, as IntelliJ's.
  */
-export function branchTree(branches: readonly Branch[], byDirectory = true): BranchNode[] {
+export function branchTree(
+  branches: readonly Branch[],
+  byDirectory = true,
+  favorite: (ref: string) => boolean = () => false,
+): BranchNode[] {
   const split = (name: string) => (byDirectory ? name.split('/') : [name]);
   const under = (prefix: string) =>
     branches
@@ -99,8 +126,10 @@ export function branchTree(branches: readonly Branch[], byDirectory = true): Bra
     ['Local', LOCAL],
     ['Remote', REMOTE],
   ] as const) {
-    const children = grouped(name, under(prefix));
-    if (children.length > 0) tree.push({ kind: 'group', key: name, name, children });
+    const children = grouped(name, under(prefix), favorite);
+    if (children.length > 0) {
+      tree.push({ kind: 'group', key: name, name, children, favorite: false });
+    }
   }
   return tree;
 }
@@ -179,16 +208,23 @@ export class Branches {
     children: (node) =>
       // Only groups have children to ask for.
       node === undefined
-        ? branchTree(this.branches.peek(), paneSettings.byDirectory.peek())
+        ? branchTree(this.branches.peek(), paneSettings.byDirectory.peek(), (ref) =>
+            isFavorite(this.repository, ref),
+          )
         : (node as Group).children,
     key: keyOf,
     isLeaf: (node) => node.kind !== 'group',
   });
 
+  /** The repository's path, which favorites are kept by. */
+  readonly repository: string;
+
   constructor(
     private readonly host: Host,
     private readonly worktree: string,
   ) {
+    // Not followed: the Log is made as the worktrees are read again, not with them.
+    this.repository = untracked(() => projectOf(worktree)?.path) ?? worktree;
     for (const group of ['Local', 'Remote']) this.model.expanded.add(`group:${group}`);
   }
 
@@ -234,7 +270,8 @@ function row(node: BranchNode) {
     return [icon('folder'), <span class="playground-branches__name">{node.name}</span>];
   }
   return [
-    icon('git'),
+    // A favorite's star, as IntelliJ's.
+    icon(node.favorite ? 'favorite' : 'git'),
     <span
       class={
         node.current
