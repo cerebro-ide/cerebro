@@ -997,7 +997,11 @@ describe('the branches’ toolbar', () => {
       [...toolbar().querySelectorAll<HTMLElement>('[data-command], [data-menu]')]
         .filter((item) => item.hidden)
         .map((item) => item.getAttribute('data-command') ?? item.getAttribute('data-menu'));
-    const r = (q: string) => { const e = document.querySelector(q) as HTMLElement | null; const b = e?.getBoundingClientRect(); return e ? `${q}: ${b?.top}-${b?.bottom} ${getComputedStyle(e).display}` : `${q}: none`; };
+    const r = (q: string) => {
+      const e = document.querySelector(q) as HTMLElement | null;
+      const b = e?.getBoundingClientRect();
+      return e ? `${q}: ${b?.top}-${b?.bottom} ${getComputedStyle(e).display}` : `${q}: none`;
+    };
     expect(hidden()).toContain('log.branches.collapseAll');
     expect(hidden()).not.toContain('log.branches.hide');
     // Pointing at it shows the popup over it, as the row's own tests do.
