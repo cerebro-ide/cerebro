@@ -33,7 +33,7 @@ import { notifications } from './notifications.js';
 import { numbered } from './select-in.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
-import { pathsText, pickPaths } from './log-paths.js';
+import { pathsText, pickPaths, shortenText } from './log-paths.js';
 import type { FileNode } from './project.js';
 import { resolveUsers, type Author } from './log-users.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
@@ -776,10 +776,9 @@ interface AdjacentContext {
 
 /** A commit as IntelliJ's popup names it: hash, subject (to 40 characters), author, date and time. */
 function adjacentText(commit: LogCommit): string {
-  const subject = commit.subject.length > 40 ? `${commit.subject.slice(0, 37)}...` : commit.subject;
   const date = new Date(commit.time);
   const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  return `${commit.hash.slice(0, 8)} "${subject}" by ${commit.author} on ${date.toLocaleDateString()} at ${time}`;
+  return `${commit.hash.slice(0, 8)} "${shortenText(commit.subject)}" by ${commit.author} on ${date.toLocaleDateString()} at ${time}`;
 }
 
 /** Selects a commit, loading pages until it's there, and gives the commits the keyboard. */

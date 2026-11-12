@@ -210,7 +210,8 @@ describe('the Log’s Reset Current Branch to Here…', () => {
     expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Git Reset');
     const [target, description] = [...box.querySelectorAll('.playground-reset > p')];
     expect(target?.textContent).toBe(
-      'main -> abc1234d "A subject longer than forty characters,…" by Ada Lovelace',
+      // IntelliJ's StringUtil.shortenTextWithEllipsis(text, 40, 0): 37 characters and "...".
+      'main -> abc1234d "A subject longer than forty character..." by Ada Lovelace',
     );
     expect(description?.textContent).toBe(
       'This will reset the current branch head to the selected commit,' +

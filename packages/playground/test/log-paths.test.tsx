@@ -7,6 +7,7 @@ import {
   pickPaths,
   readPaths,
   shortenPath,
+  shortenText,
   togglePath,
   type PathSource,
 } from '../src/log-paths.js';
@@ -43,6 +44,16 @@ describe('the Paths filter’s paths', () => {
     const long = 'packages/playground/src/log-paths.tsx';
     expect(shortenPath(long)).toBe('packag...und/src/log-paths.tsx');
     expect(shortenPath(long)).toHaveLength(30);
+  });
+
+  it('shorten text as IntelliJ’s StringUtil: to the length given, the last three dots', () => {
+    expect(shortenText('A subject of forty characters, exactly!!')).toHaveLength(40);
+    expect(shortenText('A subject of forty characters, exactly!!')).toBe(
+      'A subject of forty characters, exactly!!',
+    );
+    expect(shortenText('A subject longer than forty characters, by far')).toBe(
+      'A subject longer than forty character...',
+    );
   });
 
   it('show the first, and how many more', () => {
