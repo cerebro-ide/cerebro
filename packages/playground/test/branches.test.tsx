@@ -186,8 +186,8 @@ describe('the branches popup', () => {
     expect(await popupItems()).toEqual([
       'New Branch…',
       'Checkout Tag or Revision…',
-      'feature',
       'main',
+      'feature',
       'side',
       'origin/main',
       'origin/side',
@@ -195,12 +195,66 @@ describe('the branches popup', () => {
     expect(
       [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
     ).toEqual(['Local', 'Remote']);
-    expect(row('main').querySelector('svg')).not.toBeNull();
+    expect(row('main').querySelector('.cerebro-popup-item__icon svg')).not.toBeNull();
     // The worktree a branch is checked out in.
     expect(row('side').textContent).toContain('r-side');
     // Searched.
     await userEvent.keyboard('orig');
     expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
+  });
+
+  it('marks favorites, as IntelliJ’s: starred, after the branch checked out; Space or a click on the icon', async () => {
+    await popup();
+    /** What a row's icon is: the check, a star, or a star shown only on the row highlighted. */
+    const mark = (name: string) => {
+      const at = row(name).querySelector('.cerebro-popup-item__icon') as HTMLElement;
+      const unmarked = at.querySelector('.playground-branches-popup__unmarked');
+      if (unmarked) return getComputedStyle(unmarked).visibility === 'visible' ? 'hover' : 'none';
+      return at.querySelector('path')?.getAttribute('d') === star ? 'star' : 'check';
+    };
+    const star = row('origin/main')
+      .querySelector('.cerebro-popup-item__icon path')
+      ?.getAttribute('d');
+    // origin/main is one to start with, as IntelliJ's; the one checked out keeps its check.
+    expect(['main', 'feature', 'side', 'origin/main', 'origin/side'].map(mark)).toEqual([
+      'check',
+      'none',
+      'none',
+      'star',
+      'none',
+    ]);
+    // A click on side's icon marks it, the popup staying open; it goes after the one checked out.
+    const icon = row('side').querySelector('.cerebro-popup-item__icon') as HTMLElement;
+    await userEvent.hover(icon);
+    expect(mark('side')).toBe('hover');
+    await userEvent.click(icon);
+    await expect
+      .poll(popupItems)
+      .toEqual([
+        'New Branch…',
+        'Checkout Tag or Revision…',
+        'main',
+        'side',
+        'feature',
+        'origin/main',
+        'origin/side',
+      ]);
+    expect(mark('side')).toBe('star');
+    // Filled, as IntelliJ's; the one to click, an outline.
+    const fill = (name: string) =>
+      getComputedStyle(row(name).querySelector('.cerebro-popup-item__icon path') as Element).fill;
+    expect(fill('side')).not.toBe('none');
+    expect(fill('feature')).toBe('none');
+    expect(document.querySelector('.cerebro-popup')).not.toBeNull();
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
+    // Space, on the row highlighted: side unmarked, and the search took no space.
+    await userEvent.keyboard('sid');
+    await userEvent.keyboard(' ');
+    expect(mark('side')).toBe('hover');
+    expect((document.querySelector('.cerebro-popup input') as HTMLInputElement).value).toBe('sid');
+    // On an item that's not a branch, Space does nothing.
+    await userEvent.keyboard('{Backspace}{Backspace}{Backspace} ');
+    expect(await popupItems()).toContain('feature');
   });
 
   it('shows each branch’s actions as IntelliJ’s: only those that apply', async () => {

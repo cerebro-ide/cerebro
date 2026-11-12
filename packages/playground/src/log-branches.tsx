@@ -6,11 +6,11 @@
 // the order within one: the branch checked out, then directories, then branches, by name. Claims:
 // the order of names (the system's, case and numbers aside), and the groups starting expanded.
 
-import { signal, untracked } from '@cerebro-ide/reactive';
+import { signal } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
-import { isFavorite } from './branch-favorites.js';
-import { projectOf, type Host } from './environments.js';
-import { icon } from './icons.js';
+import { isFavorite, repositoryOf } from './branch-favorites.js';
+import type { Host } from './environments.js';
+import { favoriteIcon, icon } from './icons.js';
 
 /** A branch, as the host's `git.branches` gives it. */
 export interface Branch {
@@ -223,8 +223,7 @@ export class Branches {
     private readonly host: Host,
     private readonly worktree: string,
   ) {
-    // Not followed: the Log is made as the worktrees are read again, not with them.
-    this.repository = untracked(() => projectOf(worktree)?.path) ?? worktree;
+    this.repository = repositoryOf(worktree);
     for (const group of ['Local', 'Remote']) this.model.expanded.add(`group:${group}`);
   }
 
@@ -271,7 +270,7 @@ function row(node: BranchNode) {
   }
   return [
     // A favorite's star, as IntelliJ's.
-    icon(node.favorite ? 'favorite' : 'git'),
+    node.favorite ? favoriteIcon() : icon('git'),
     <span
       class={
         node.current

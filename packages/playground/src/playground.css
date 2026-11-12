@@ -1187,6 +1187,25 @@ body,
   min-height: 0;
 }
 
+/* A favorite's star, filled. */
+.playground-icon--filled path {
+  fill: currentColor;
+}
+
+/*
+ * In the branches popup, a branch not a favorite: its star, muted, only on the row highlighted, as
+ * IntelliJ's NotFavoriteOnHover.
+ */
+.playground-branches-popup__unmarked {
+  display: contents;
+  visibility: hidden;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-popup-item--highlighted .playground-branches-popup__unmarked {
+  visibility: visible;
+}
+
 /* The branch checked out, in bold (a claim: IntelliJ marks it with an icon of its own). */
 .playground-branches__name--current {
   font-weight: 600;
