@@ -490,6 +490,23 @@ export function setupBranches(
     },
   });
   commands.register<BranchRef>({
+    // IntelliJ's (`GitUpdateSelectedBranchAction`): a local branch, the current one too, as the
+    // Log's branches pane's Update Selected; not without remotes; off while a fetch runs, or for a
+    // branch that tracks none, or without one (as Find Action asks).
+    id: 'git.branch.update',
+    label: 'Update',
+    visible: (b) => {
+      const at = target();
+      return !b.remote && !b.tag && at !== undefined && stateOf(at.worktree).remotes !== false;
+    },
+    enabled: (b: BranchRef | undefined) =>
+      b !== undefined && !fetching.get() && branches.get().upstreams.has(b.name),
+    run: (b) => {
+      const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
+      return updateBranch(isCurrent(b) ? undefined : b.name, () => after(host, worktree));
+    },
+  });
+  commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
@@ -760,40 +777,47 @@ export function setupBranches(
         selection?.upstream !== undefined
       );
     },
-    run: async (c) => {
+    run: (c) => {
       const { selection, refresh } = paneContext(c) as BranchesContext;
       const at = selection as NonNullable<BranchesContext['selection']>;
-      if (at.kind === 'head' || at.current) {
-        commands.execute('vcs.update');
-        return;
-      }
-      const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
-      const name = branchName(at.ref);
-      fetching.set(true);
-      try {
-        const updated = (await host.request('git.updateBranch', {
-          path: worktree,
-          branch: name,
-        })) as { worktree?: string };
-        notifications.notify({
-          title:
-            updated.worktree === undefined
-              ? 'Fetched 1 target'
-              : 'Updated 1 branch checked out in other worktrees',
-        });
-      } catch (error) {
-        notifications.notify({
-          title: 'Update failed',
-          content: (error as Error).message,
-          type: 'error',
-          display: 'sticky',
-        });
-      } finally {
-        fetching.set(false);
-      }
-      await refresh();
+      const name = at.kind === 'head' || at.current ? undefined : branchName(at.ref);
+      return updateBranch(name, refresh);
     },
   });
+  /**
+   * Updates a branch, as IntelliJ's `updateBranches`: the one checked out (`undefined`) by Update
+   * Project; another from the branch it tracks.
+   */
+  async function updateBranch(name: string | undefined, refresh: () => Promise<void>) {
+    if (name === undefined) {
+      commands.execute('vcs.update');
+      return;
+    }
+    const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
+    fetching.set(true);
+    try {
+      const updated = (await host.request('git.updateBranch', {
+        path: worktree,
+        branch: name,
+      })) as { worktree?: string };
+      notifications.notify({
+        title:
+          updated.worktree === undefined
+            ? 'Fetched 1 target'
+            : 'Updated 1 branch checked out in other worktrees',
+      });
+    } catch (error) {
+      notifications.notify({
+        title: 'Update failed',
+        content: (error as Error).message,
+        type: 'error',
+        display: 'sticky',
+      });
+    } finally {
+      fetching.set(false);
+    }
+    await refresh();
+  }
   // SafeDelete's, while the pane has the keyboard, as IntelliJ's: Alt+Delete, Cmd+Delete on macOS.
   services.keymap?.bindDefault(
     services.keymap.platform === 'mac' ? 'Meta+Delete' : 'Alt+Delete',
@@ -811,7 +835,7 @@ export function setupBranches(
       ],
     ],
     ['ab', ['git.branch.compare', 'git.branch.showDiff']],
-    ['b', ['git.branch.rebase', 'git.branch.merge']],
+    ['b', ['git.branch.rebase', 'git.branch.merge', 'git.branch.update']],
     ['c', ['git.branch.rename', 'git.branch.delete']],
   ];
   for (const [group, ids] of groups) {
