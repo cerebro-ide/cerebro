@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Page } from 'playwright';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { launch, type Running } from './app.js';
+import { launch, shown, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -61,6 +61,7 @@ it('shows the Welcome window with no project, and opens a folder from it in its 
   const opened = running.app.waitForEvent('window');
   await page.locator('.playground-welcome button', { hasText: 'Open' }).click();
   const project = await opened;
+  await shown(running.app, project);
   await project.locator('.cerebro-toolbar').waitFor();
   await expect.poll(titles).toEqual(['repository']);
   // The repository's files, not the samples.
@@ -140,6 +141,7 @@ it('closes the window with its last project, and shows the Welcome window', asyn
   const welcome = running.app.waitForEvent('window');
   await closeProject(running.page);
   const page = await welcome;
+  await shown(running.app, page);
   await page.locator('.playground-welcome').waitFor();
   await expect.poll(titles).toEqual(['Welcome to Cerebro']);
   // The recent projects, the latest first.

@@ -8,7 +8,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { _electron, type ElectronApplication, type Locator, type Page } from 'playwright';
+import { _electron, type ElectronApplication, type Page } from 'playwright';
 import { expect } from 'vitest';
 
 /** The app's package, which Electron runs. */
@@ -61,7 +61,7 @@ export async function findAction(page: Page, name: string): Promise<void> {
     await page
       .locator('.cerebro-popup-item', { hasText: new RegExp(`^${name}`) })
       .first()
-      .click({ force: true });
+      .click();
   } catch (error) {
     // Not found once, after a diff window closed (shelf.test, the whole run): what was shown.
     console.log(
@@ -78,41 +78,6 @@ export async function findAction(page: Page, name: string): Promise<void> {
 }
 
 /**
- * Clicks, and when the click fails, says how the element moved over 20 animation frames (each
- * distinct box, in order) and what animations ran in the page: under xvfb in CI a click waited 5 s
- * for the Branch button to be "stable" while frames kept coming and the window kept its size and
- * focus (#181, 2026-11-11), so its box changes, or Playwright's check fails another way.
- */
-export async function click(
-  target: Locator,
-  options?: Parameters<Locator['click']>[0],
-): Promise<void> {
-  try {
-    await target.click(options);
-  } catch (error) {
-    const seen = await target
-      .evaluate(async (element) => {
-        const boxes: string[] = [];
-        for (let i = 0; i < 20; i++) {
-          await new Promise((resolve) => requestAnimationFrame(resolve));
-          const r = element.getBoundingClientRect();
-          const box = [r.x, r.y, r.width, r.height].map((n) => n.toFixed(2)).join(',');
-          if (boxes.at(-1) !== box) boxes.push(box);
-        }
-        const animations = document.getAnimations().map((a) => {
-          const on = (a.effect as KeyframeEffect | null)?.target;
-          return `${a.constructor.name} ${a.playState} on ${on instanceof Element ? on.className : '?'}`;
-        });
-        return { connected: element.isConnected, boxes, animations };
-      })
-      .catch((reason: unknown) => String(reason));
-    const [why] = (error as Error).message.split('\n');
-    report(`The click failed: ${why ?? ''}: ${JSON.stringify(seen)}`);
-    throw error;
-  }
-}
-
-/**
  * The diff window `open` opens (a diff opens in a window of its own), once it shows the diff, read
  * through the host. Its console goes with the app's.
  */
@@ -120,6 +85,7 @@ export async function diffWindow(running: Running, open: () => Promise<void>): P
   const [window] = await Promise.all([running.app.waitForEvent('window'), open()]);
   window.setDefaultTimeout(5000);
   window.on('console', (message) => running.messages.push(message.text()));
+  await shown(running.app, window);
   await window.locator('.cerebro-editor-diff').waitFor({ timeout: 15_000 });
   return window;
 }
@@ -142,44 +108,41 @@ export interface Running {
 const READY = '.cerebro-toolbar, .playground-welcome';
 
 /**
- * Installed in every page: says on the console when no animation frame came for over a second, the
- * page's visibility and focus then. Playwright's click waits for an element to be "stable" over
- * frames, and under xvfb in CI some clicks waited forever (testing.md): this is to see whether the
- * page stopped making frames then, and why. And when the window is resized or loses focus, either
+ * Waits for `page`'s window to be on screen. The app shows a window at Electron's `ready-to-show`,
+ * once its page has painted; until then the page makes no animation frames, and Playwright's click
+ * waits for an element to be "stable" over frames. Measured under xvfb in CI (#202, 2026-11-12):
+ * the first launch of a run showed its window 1.7 s and 4.6 s after the page had loaded, with no
+ * frames meanwhile; trial clicks failed until it showed, and passed from then on. Later launches
+ * showed it within 50 ms. Background throttling off made no difference.
+ */
+export async function shown(app: ElectronApplication, page: Page): Promise<void> {
+  const window = await app.browserWindow(page);
+  // Its type, as much as is used here: the tests don't depend on Electron's own.
+  type Shown = { isVisible(): boolean; once(event: 'show', listener: () => void): void };
+  await window.evaluate(
+    (w: Shown) =>
+      new Promise<void>((resolve) => {
+        if (w.isVisible()) resolve();
+        else w.once('show', resolve);
+      }),
+  );
+}
+
+/**
+ * Installed in every page: says on the console when its window is resized or loses focus, either
  * of which closes a popup (ui-popup): a forced click on a popup's item failed as "not visible" in CI
  * (#181, 2026-11-11), which is what Playwright says of an element no longer in the page.
  */
-function watchFrames(): void {
-  const page = window as unknown as { framesWatched?: boolean };
-  if (page.framesWatched) return;
-  page.framesWatched = true;
-  let last = performance.now();
-  let stalled = false;
-  const frame = () => {
-    const now = performance.now();
-    if (stalled) {
-      console.warn(`Frames: again after ${String(Math.round(now - last))} ms`);
-      stalled = false;
-    }
-    last = now;
-    requestAnimationFrame(frame);
-  };
-  requestAnimationFrame(frame);
+function watchWindow(): void {
+  const page = window as unknown as { windowWatched?: boolean };
+  if (page.windowWatched) return;
+  page.windowWatched = true;
   window.addEventListener('resize', () => {
     console.warn(`Window: resized to ${String(innerWidth)}x${String(innerHeight)}`);
   });
   window.addEventListener('blur', () => {
     console.warn('Window: lost focus');
   });
-  setInterval(() => {
-    const gap = performance.now() - last;
-    if (stalled || gap < 1000) return;
-    stalled = true;
-    console.warn(
-      `Frames: none for ${String(Math.round(gap))} ms, ${document.visibilityState}, ` +
-        (document.hasFocus() ? 'focused' : 'not focused'),
-    );
-  }, 250);
 }
 
 /**
@@ -200,10 +163,10 @@ async function start(
     env: { ...process.env, CEREBRO_USER_DATA: data, ...env },
   });
   await app.context().tracing.start({ screenshots: true, snapshots: true });
-  await app.context().addInitScript(watchFrames);
+  await app.context().addInitScript(watchWindow);
   const page = await app.firstWindow();
   // The first window may have loaded before the script was added.
-  await page.evaluate(watchFrames).catch(() => undefined);
+  await page.evaluate(watchWindow).catch(() => undefined);
   // Fail fast: a missing element is a failure, not something to wait 30 seconds for.
   page.setDefaultTimeout(5000);
   // But a window to be ready: the first start of a run took over 5 s on macOS and on Windows in CI
@@ -211,8 +174,9 @@ async function start(
   // took is said when it's slow.
   const asked = performance.now();
   await page.waitForSelector(READY, { timeout: 30_000 });
+  await shown(app, page);
   const took = performance.now() - asked;
-  if (took > 2000) report(`The window took ${String(Math.round(took))} ms to be ready`);
+  if (took > 2000) report(`The window took ${String(Math.round(took))} ms to be ready and shown`);
   return { app, page };
 }
 
@@ -224,15 +188,15 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
   const data = await mkdtemp(join(tmpdir(), 'cerebro-e2e-'));
   const messages: string[] = [];
   const output: string[] = [];
-  /** Each window's frames that stopped coming, resizes and lost focus (`watchFrames`), by window and time. */
-  const frames: string[] = [];
+  /** Each window's resizes and lost focus (`watchWindow`), by window and time. */
+  const seen: string[] = [];
   const listen = ({ app, page }: { app: ElectronApplication; page: Page }) => {
     page.on('console', (message) => messages.push(message.text()));
     const watch = (window: Page, name: string) => {
       window.on('console', (message) => {
         const text = message.text();
-        if (/^(Frames|Window): /.test(text)) {
-          frames.push(`${text} (${name}, ${new Date().toISOString().slice(11, 23)})`);
+        if (text.startsWith('Window: ')) {
+          seen.push(`${text} (${name}, ${new Date().toISOString().slice(11, 23)})`);
         }
       });
     };
@@ -270,7 +234,7 @@ export async function launch(env: Record<string, string> = {}): Promise<Running>
         .join('')
         .split('\n')
         .filter((line) => /^(Slow|Blocked): /.test(line));
-      for (const line of [...reported, ...frames]) report(line);
+      for (const line of [...reported, ...seen]) report(line);
       await rm(data, { recursive: true, force: true });
     },
   };

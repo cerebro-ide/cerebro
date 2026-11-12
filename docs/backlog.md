@@ -74,7 +74,13 @@ on it:
   window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
   from their traces). Why isn't known: that it's the OS checking the Electron binary just
   downloaded is a claim. The wait for a window is now 30 s, and a start over 2 s prints how long
-  it took.
+  it took. On Linux under xvfb (#202, 2026-11-12), the first launch took 4.9 s and 2.5 s to its
+  first window, and showed it (Electron's `ready-to-show`) 1.7 s and 4.6 s after its page loaded;
+  later launches, 0.3 s and 50 ms. The tests now wait for the window to show (testing.md).
+- **The editor tabs' e2e test fails in a full local run under xvfb** (2026-11-12, and with main's
+  harness too; passes in CI): "scrolls tabs that don't fit…" finds "Show Hidden Tabs" still shown
+  after its 16 tabs are closed. The local window is 854×682, CI's 1280×900; that the size is why
+  is a claim.
 - **Find Action didn't list "Unstash Changes" once in a full local e2e run** (2026-11-11,
   feat/diff-window: the shelf test "unstashes the stash chosen", right after the test before it
   closed a diff window; the file alone passed five times). The trace was overwritten before it was

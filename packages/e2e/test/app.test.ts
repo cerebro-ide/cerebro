@@ -6,7 +6,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { APP, click, findAction, KEYS, launch, type Running } from './app.js';
+import { APP, findAction, KEYS, launch, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -115,12 +115,9 @@ describe('the window', () => {
       await page().locator(opens).waitFor({ state: 'detached' });
     }
     await page().locator('.cerebro-menubar--takeover').waitFor({ state: 'detached' });
-    // Forced: in CI under xvfb these clicks waited forever for the button, then the item, to be
-    // "stable", which Playwright measures over animation frames (not reproduced locally, even
-    // under xvfb).
-    await page().locator('[aria-label^="Branch:"]').click({ force: true });
+    await page().locator('[aria-label^="Branch:"]').click();
     try {
-      await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click({ force: true });
+      await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     } catch (error) {
       // "Element is not visible" once on macOS in CI (#168, 2026-11-11), 10 ms after the item was
       // seen shown. The popup closes when the window loses the focus or is resized: what was there.
@@ -256,10 +253,8 @@ describe('the window', () => {
 
 describe('dialogs', () => {
   it('creates a branch from the branches popup, refusing one that exists, and checks out another', async () => {
-    // Forced: they waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
-    // Through `click`, which says how the element moved when a click fails (#181).
-    await click(page().locator('[aria-label^="Branch:"]'), { force: true });
-    await click(page().locator('.cerebro-popup-item', { hasText: 'New Branch' }), { force: true });
+    await page().locator('[aria-label^="Branch:"]').click();
+    await page().locator('.cerebro-popup-item', { hasText: 'New Branch' }).click();
     await page().keyboard.type('main');
     await expect
       .poll(() => page().locator('.cerebro-dialog-field__error').textContent())
@@ -271,12 +266,12 @@ describe('dialogs', () => {
     expect(await count('.cerebro-dialog')).toBe(0);
     // Made and checked out by git.
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main-e2e');
-    // Back on main, for the tests after: from its row's menu. Forced, as the click above: in CI
-    // under xvfb the button's click, then the row's (run 43126178144), waited 5 s for "stable"
-    // with the box still over 20 frames and no animations.
-    await click(page().locator('[aria-label^="Branch:"]'), { force: true });
-    await click(page().locator('.cerebro-popup-item', { hasText: /^main$/ }), { force: true });
-    await click(page().locator('.cerebro-menu-item', { hasText: 'Checkout' }), { force: true });
+    // Back on main, for the tests after: from its row's menu.
+    await page().locator('[aria-label^="Branch:"]').click();
+    await page()
+      .locator('.cerebro-popup-item', { hasText: /^main$/ })
+      .click();
+    await page().locator('.cerebro-menu-item', { hasText: 'Checkout' }).click();
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
     expect(await count('.cerebro-popup')).toBe(0);
   });
@@ -294,8 +289,7 @@ describe('dialogs', () => {
     expect(await box.locator('.cerebro-dialog__title').textContent()).toBe('Tag');
     await page().keyboard.type('v1-e2e');
     await box.locator('textarea').fill('The first');
-    // Forced: it waited forever to be "stable" under xvfb in CI (#179, 2026-11-11), as above.
-    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click({ force: true });
+    await box.locator('.cerebro-dialog__button', { hasText: 'Create Tag' }).click();
     expect(await count('.cerebro-dialog')).toBe(0);
     const tag = () =>
       execFileSync('git', ['for-each-ref', '--format=%(objecttype) %(contents)', 'refs/tags'], {

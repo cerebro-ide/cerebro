@@ -42,9 +42,8 @@ beforeAll(async () => {
   // No language servers: these tests are of the index's name matches, what shows without them
   // (language-servers.test.ts has theirs).
   running = await launch({ CEREBRO_REPO: repo, CEREBRO_LANGUAGE_SERVERS: '' });
-  // The Claude tool window takes room from the editor, which these tests click in. Forced, as for
-  // the tree's arrow below: in CI under xvfb this click twice waited for the button to be "stable".
-  await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
+  // The Claude tool window takes room from the editor, which these tests click in.
+  await running.page.locator('.cerebro-stripe-button[data-id="claude"]').click();
 });
 
 afterAll(async () => {
@@ -70,8 +69,7 @@ it('lists actions in Search Everywhere before the Commit tool window has shown',
   const page = running.page;
   // Checking whether the Commit window's commands were enabled built its tree, inside the popup's
   // computed list, which may not write: the list failed.
-  // Forced: under xvfb in CI this click waited forever for the button to be "stable".
-  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click({ force: true });
+  await page.locator('.cerebro-toolbar [data-command="search.everywhere"]').click();
   await page.keyboard.type('Dark Theme');
   await expect
     .poll(() => page.locator('.cerebro-popup-item__label').allTextContents())
@@ -85,11 +83,9 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
   // Folders first; git's own folder isn't shown.
   expect(await names()).toEqual(['src', 'README.md']);
-  // Forced, as in app.test.ts: in CI under xvfb this click waited forever for the arrow to be
-  // "stable" (not reproduced locally, even under xvfb).
   await page
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
-    .click({ force: true });
+    .click();
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
   expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
   await page.evaluate(() => {
@@ -99,8 +95,7 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
       seen.push(`${event.violatedDirective}: ${event.blockedURI}`);
     });
   });
-  // Forced: under xvfb in CI this double-click waited forever for the row to be "stable".
-  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick({ force: true });
+  await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).dblclick();
   expect(await page.locator('.cerebro-statusbar').textContent()).toContain(
     gitPath(repo, 'src', 'app.ts'),
   );
@@ -257,8 +252,7 @@ it('says why a file can’t be opened', async () => {
   writeFileSync(join(repo, 'image.bin'), new Uint8Array([0, 1, 2]));
   // Folders are listed once; reloading reads the main worktree's again.
   await page.reload();
-  // Forced: under xvfb in CI, the row never counted as "stable" (#58's CI).
-  await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick({ force: true });
+  await page.locator('.cerebro-tree-row', { hasText: 'image.bin' }).dblclick();
   await page.locator('.playground-code__note', { hasText: 'binary' }).waitFor();
 });
 
@@ -283,8 +277,7 @@ it('lists the repository’s real worktrees, opening the main one', async () => 
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: main',
   );
-  // Forced: under xvfb in CI this click waited forever for it to be "stable".
-  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
+  await page.locator('[aria-label^="Worktree:"]').click();
   expect(
     await page.locator('.cerebro-popup-item .cerebro-popup-item__label').allTextContents(),
   ).toEqual(['New Worktree…', 'project', 'project-e2e']);
@@ -293,8 +286,7 @@ it('lists the repository’s real worktrees, opening the main one', async () => 
     'Main Worktree',
     'Worktrees',
   ]);
-  // Forced: in CI under xvfb this click waited forever for the item to be "stable" (#68's run).
-  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click({ force: true });
+  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await page.locator('[aria-label^="Branch:"]').getAttribute('aria-label')).toBe(
     'Branch: feat/e2e',
   );
@@ -310,10 +302,8 @@ const gitWorktrees = () =>
 /** Creates a worktree from the environment picker, waiting for git and for its tab. */
 async function createWorktree(name: string) {
   const page = running.page;
-  // Forced: under xvfb in CI this click waited forever for it to be "stable".
-  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
-  // Forced: under xvfb in CI this click waited forever for the item to be "stable" (#72's run).
-  await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click({ force: true });
+  await page.locator('[aria-label^="Worktree:"]').click();
+  await page.locator('.cerebro-popup-item', { hasText: 'New Worktree' }).click();
   await page.keyboard.type(name);
   await page.keyboard.press('Enter');
   await page.locator(`.cerebro-env-tab[data-env="${gitPath(root, name)}"]`).waitFor();
@@ -322,10 +312,7 @@ async function createWorktree(name: string) {
 /** Chooses Remove Worktree… on an environment tab. */
 async function removeFromTab(path: string) {
   const page = running.page;
-  // Forced: under xvfb in CI this click waited forever for the tab to be "stable" (#76's run).
-  await page
-    .locator(`.cerebro-env-tab[data-env="${path}"]`)
-    .click({ button: 'right', force: true });
+  await page.locator(`.cerebro-env-tab[data-env="${path}"]`).click({ button: 'right' });
   await page.locator('.cerebro-menu-item', { hasText: 'Remove Worktree' }).click();
 }
 
@@ -364,10 +351,7 @@ it('removes a worktree after asking, and offers to force one with changes', asyn
 it('offers to remove a linked worktree, but not the main one', async () => {
   const page = running.page;
   const removable = async (path: string) => {
-    // Forced, as in removeFromTab.
-    await page
-      .locator(`.cerebro-env-tab[data-env="${path}"]`)
-      .click({ button: 'right', force: true });
+    await page.locator(`.cerebro-env-tab[data-env="${path}"]`).click({ button: 'right' });
     const disabled = await page
       .locator('.cerebro-menu-item', { hasText: 'Remove Worktree' })
       .getAttribute('aria-disabled');
@@ -375,10 +359,8 @@ it('offers to remove a linked worktree, but not the main one', async () => {
     return disabled === 'false';
   };
   // Two tabs, so the tabs show.
-  // Forced: under xvfb in CI this click waited forever for it to be "stable".
-  await page.locator('[aria-label^="Worktree:"]').click({ force: true });
-  // Forced: in CI under xvfb this click waited forever for the item to be "stable" (#68's run).
-  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click({ force: true });
+  await page.locator('[aria-label^="Worktree:"]').click();
+  await page.locator('.cerebro-popup-item', { hasText: 'project-e2e' }).click();
   expect(await removable(gitPath(root, 'project-e2e'))).toBe(true);
   expect(await removable(gitPath(repo))).toBe(false);
 });
@@ -475,10 +457,8 @@ it('opens more terminals as tabs, each its own shell, renames and closes them, o
   await page.keyboard.press('Enter');
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
   // Renamed from its context menu, as IntelliJ's Rename Session.
-  await window
-    .locator('.cerebro-tool-tab', { hasText: 'Local (2)' })
-    .click({ button: 'right', force: true });
-  await page.locator('.cerebro-menu-item', { hasText: 'Rename Session' }).click({ force: true });
+  await window.locator('.cerebro-tool-tab', { hasText: 'Local (2)' }).click({ button: 'right' });
+  await page.locator('.cerebro-menu-item', { hasText: 'Rename Session' }).click();
   await page.keyboard.type('build');
   await page.keyboard.press('Enter');
   await expect.poll(titles).toEqual(['Local', 'build']);
@@ -496,19 +476,19 @@ it('opens more terminals as tabs, each its own shell, renames and closes them, o
   expect(await titles()).toEqual(['Local', 'build']);
   await expect.poll(shown, { timeout: 5000 }).toContain('second-shell');
   // The first is still there, without it.
-  await window.locator('.cerebro-tool-tab', { hasText: /^Local$/ }).click({ force: true });
+  await window.locator('.cerebro-tool-tab', { hasText: /^Local$/ }).click();
   await expect.poll(shown, { timeout: 5000 }).toContain('cerebro-ok');
   expect(await shown()).not.toContain('second-shell');
   // A shell that ends closes its tab, as IntelliJ's do.
-  await window.locator('.cerebro-tool-tab', { hasText: 'build' }).click({ force: true });
-  await window.locator('.cerebro-terminal__viewport').click({ force: true });
+  await window.locator('.cerebro-tool-tab', { hasText: 'build' }).click();
+  await window.locator('.cerebro-terminal__viewport').click();
   await page.keyboard.type('exit');
   await page.keyboard.press('Enter');
   await expect.poll(titles, { timeout: 5000 }).toEqual(['Local']);
   // Closing the last hides the tool window; shown again, it has a new shell.
-  await window.locator('[aria-label="Close Local"]').click({ force: true });
+  await window.locator('[aria-label="Close Local"]').click();
   await window.waitFor({ state: 'detached' });
-  await page.locator('.cerebro-stripe-button[data-id="terminal"]').click({ force: true });
+  await page.locator('.cerebro-stripe-button[data-id="terminal"]').click();
   expect(await titles()).toEqual(['Local']);
   await expect.poll(shown, { timeout: 5000 }).not.toContain('cerebro-ok');
 });
@@ -552,7 +532,7 @@ it('copies a tab’s path from its context menu: absolute, its name, or from the
   await tab.waitFor();
   const clipboard = () => running.app.evaluate(({ clipboard }) => clipboard.readText());
   const copy = async (item: string) => {
-    await tab.click({ button: 'right', force: true });
+    await tab.click({ button: 'right' });
     await page.locator('.cerebro-menu-item', { hasText: 'Copy Path/Reference…' }).click();
     await page.locator('.cerebro-menu-item', { hasText: item }).click();
   };

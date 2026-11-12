@@ -260,7 +260,7 @@ beforeAll(async () => {
   });
   running = await launch({ CEREBRO_REPO: repo });
   // The Claude tool window takes room from the editor, which these tests click in.
-  await page().locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
+  await page().locator('.cerebro-stripe-button[data-id="claude"]').click();
   await page().locator('.cerebro-statusbar').getByText('Indexed').waitFor({ timeout: 30_000 });
 });
 

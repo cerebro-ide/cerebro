@@ -46,20 +46,14 @@ paths:
 - One app per test file (`launch()` in `test/app.ts`), with a throwaway data folder; tests share it,
   so a test leaves the app as it found it, or later tests expect what earlier ones leave
   (`expect.arrayContaining`).
-- **Under xvfb in CI, Playwright's click can wait forever for an element to be "stable"** (not
-  reproduced locally, even under xvfb). Clicks that hit this use `{ force: true }`, with a comment.
-  Why isn't known: "stable" is measured over animation frames, and every page now says on the
-  console when none came for over a second, and whether it was visible and focused, and when its
-  window is resized or loses focus (`watchFrames` in `test/app.ts`); each file prints those as it
-  ends. Frames kept coming when a forced click on a popup's item failed as "not visible" (#181):
-  Playwright says that of an element gone from the page, and a popup closes on a resize or blur.
-  Then an unforced click of the Branch button waited 5 s with frames coming and no resize or focus
-  lost: `click` in `test/app.ts` says, when a click fails, the element's boxes over 20 frames and
-  the page's animations; a click that has hit this goes through it. On 2026-11-11 (run
-  43118257614, the "back on main" click of the Branch button) it measured one box over 20 frames
-  and no animations: the element wasn't moving, and Playwright's log stopped at "scrolling into
-  view if needed". Such a click is forced too. Forced, the same test's next click (the popup's row,
-  run 43126178144) hung the same way, so a test that hits this has all its clicks forced.
+- **A test drives a window only once it's on screen** (`shown` in `test/app.ts`; `launch()` and
+  `diffWindow()` wait for it, and a test taking a new window itself calls it). The app shows a
+  window at Electron's `ready-to-show`, and until then its page makes no animation frames, so
+  Playwright's click waits forever for an element to be "stable", or to scroll into view. Measured
+  under xvfb in CI (#202, 2026-11-12): the run's first launch showed its window 1.7 s and 4.6 s
+  after the page had loaded, with no frames meanwhile, and trial clicks failed until it showed.
+  That's why clicks there used to be forced. Don't force a click for this; force only when
+  something covers the element on purpose (log.test's "»" under its open popup).
 - **The harness's reports go to the standard error** (`report` in `test/app.ts`): Vitest shows a
   test's `console.log` only when it fails.
 - **`expect.poll` gives up after 1 second.** Anything that goes through Claude Code's hooks (each

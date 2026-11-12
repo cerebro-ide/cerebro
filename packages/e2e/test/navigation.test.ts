@@ -67,7 +67,7 @@ beforeAll(async () => {
   });
   running = await launch({ CEREBRO_REPO: repo });
   // The Claude tool window takes room from the editor, which these tests click in.
-  await page().locator('.cerebro-stripe-button[data-id="claude"]').click({ force: true });
+  await page().locator('.cerebro-stripe-button[data-id="claude"]').click();
   await page().locator('.cerebro-statusbar').getByText('Indexed').waitFor({ timeout: 30_000 });
 });
 
@@ -178,10 +178,10 @@ it('focuses the editor of the file chosen in Go to File, Recent Files or the Pro
       `.cerebro-tool-window[data-id="project"] .cerebro-tree-row[data-key="${repo.replaceAll('\\', '/')}/${name}"]`,
     );
   await blur();
-  await row('d.ts').dblclick({ force: true });
+  await row('d.ts').dblclick();
   await expect.poll(where).toMatchObject({ tab: 'd.ts' });
   await expect.poll(inShownEditor).toBe(true);
-  await row('e.ts').click({ force: true });
+  await row('e.ts').click();
   await page().keyboard.press('Enter');
   await expect.poll(where).toMatchObject({ tab: 'e.ts' });
   await expect.poll(inShownEditor).toBe(true);

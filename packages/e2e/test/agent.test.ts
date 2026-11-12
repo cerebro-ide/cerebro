@@ -80,10 +80,10 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
   it('lists its turn in the Agent Changes tool window, with the file it wrote, and shows its diff', async () => {
     const page = running.page;
     // Not in the Commit window, which lists only what's uncommitted, as IntelliJ's.
-    await page.locator('.cerebro-stripe-button[data-id="commit"]').click({ force: true });
+    await page.locator('.cerebro-stripe-button[data-id="commit"]').click();
     await page.locator('.cerebro-tree-row', { hasText: 'agent.txt' }).first().waitFor();
     expect(await page.locator('.cerebro-tree-row', { hasText: 'Write a file' }).count()).toBe(0);
-    await page.locator('.cerebro-stripe-button[data-id="agentChanges"]').click({ force: true });
+    await page.locator('.cerebro-stripe-button[data-id="agentChanges"]').click();
     // Both runs' turns: the one after the restart wrote the same file again, changing nothing.
     const turns = page.locator('.cerebro-tree-row', { hasText: 'Write a file' });
     // Each hook runs the host's entry as Node: slow, so this waits longer than most.
