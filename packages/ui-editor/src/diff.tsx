@@ -718,6 +718,10 @@ export function DiffEditor(props: DiffEditorProps): Node {
       s.scrollDOM.scrollTop = top;
       if (s.scrollDOM.scrollLeft !== before[0] || s.scrollDOM.scrollTop !== before[1]) {
         following[slave] = s.scrollDOM.scrollTop;
+        // Drawn where it now is. A workaround: CodeMirror (6.43.14) ignores a scroll made before
+        // its IntersectionObserver first reports, and doesn't measure when it does, so a side
+        // scrolled as the diff opens stayed drawn at its top (measured: a gap where it was).
+        s.requestMeasure();
       }
     };
     // Lined up: the same place is as far down on both.
