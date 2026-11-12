@@ -647,6 +647,21 @@ function branchesContext(log: Log, branches: Branches): BranchesContext {
   };
 }
 
+/**
+ * What the branches pane's actions act on: their toolbar's context, or, from the keys, the pane's
+ * selection while it has the keyboard.
+ */
+export function paneContext(context: unknown): BranchesContext | undefined {
+  if (
+    (context as Partial<BranchesContext> | undefined)?.source === 'log' &&
+    'selection' in (context as object)
+  )
+    return context as BranchesContext;
+  const at = shown.get();
+  if (!at || !document.activeElement?.closest('.playground-branches')) return undefined;
+  return branchesContext(at.log, at.branches);
+}
+
 /** The Log's selected commit, as its commit menu has it: what its toolbar's Cherry-Pick picks. */
 export function selectedCommit(): LogCommitContext | undefined {
   const at = shown.get();

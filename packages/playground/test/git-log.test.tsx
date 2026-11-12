@@ -13,6 +13,7 @@ import {
   GitLogView,
   matchRanges,
   PAGE,
+  paneContext,
   rangeOf,
   refsOf,
   rememberText,
@@ -916,6 +917,31 @@ describe('the branches’ toolbar', () => {
       kind: 'head',
       branch: undefined,
     });
+  });
+});
+
+describe('the branches’ actions, from the keys', () => {
+  it('act on the pane’s selection while it has the keyboard, else on what they’re given', async () => {
+    git.log = history(1);
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/side')];
+    mount();
+    const side = await vi.waitUntil(() =>
+      [
+        ...document.querySelectorAll<HTMLElement>('.playground-log__branches .cerebro-tree-row'),
+      ].find((row) => row.textContent.trim() === 'side'),
+    );
+    expect(paneContext(undefined)).toBeUndefined();
+    await userEvent.click(side);
+    expect(paneContext(undefined)).toMatchObject({
+      source: 'log',
+      selection: { kind: 'branch', ref: 'refs/heads/side', current: false },
+    });
+    // Elsewhere: not the pane's.
+    await userEvent.click(rows()[0] as HTMLElement);
+    expect(paneContext(undefined)).toBeUndefined();
+    expect(paneContext({ source: 'log' })).toBeUndefined();
+    const given = { source: 'log', selection: undefined, refresh: () => Promise.resolve() };
+    expect(paneContext(given)).toBe(given);
   });
 });
 

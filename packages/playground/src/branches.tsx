@@ -17,7 +17,7 @@ import { saveBeforeGit } from './documents.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
-import { refsOf, type LogCommitContext } from './git-log.js';
+import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
 import { branchName, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
@@ -561,9 +561,9 @@ export function setupBranches(
     label: 'New Branch',
     icon: 'add',
     dialog: true,
-    enabled: (c) => c?.selection !== undefined,
+    enabled: (c) => paneContext(c)?.selection !== undefined,
     run: async (c) => {
-      const { selection, refresh } = c as BranchesContext;
+      const { selection, refresh } = paneContext(c) as BranchesContext;
       const at = selection as NonNullable<BranchesContext['selection']>;
       if (at.kind === 'head') {
         await newBranch(undefined, undefined, at.branch ?? '');
@@ -585,13 +585,13 @@ export function setupBranches(
     label: 'Delete Branch',
     icon: 'delete',
     enabled: (c) => {
-      const at = c?.selection;
+      const at = paneContext(c)?.selection;
       if (at?.kind !== 'branch' || at.current) return false;
       const name = branchName(at.ref);
       return !at.ref.startsWith('refs/remotes/') || !isProtected(name.slice(name.indexOf('/') + 1));
     },
     run: async (c) => {
-      const { selection, refresh } = c as BranchesContext;
+      const { selection, refresh } = paneContext(c) as BranchesContext;
       const { ref } = selection as { ref: string };
       const name = branchName(ref);
       await (ref.startsWith('refs/remotes/')
@@ -600,6 +600,11 @@ export function setupBranches(
       await refresh();
     },
   });
+  // SafeDelete's, while the pane has the keyboard, as IntelliJ's: Alt+Delete, Cmd+Delete on macOS.
+  services.keymap?.bindDefault(
+    services.keymap.platform === 'mac' ? 'Meta+Delete' : 'Alt+Delete',
+    'log.branches.delete',
+  );
   // IntelliJ's order (`Git.Branch.Backend.Checkout`, `Git.Branch.Backend`), what's here of it.
   const groups: [string, string[]][] = [
     ['a', ['git.branch.checkout', 'git.branch.openWorktree', 'git.branch.newFrom']],
