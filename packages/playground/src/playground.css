@@ -1261,6 +1261,18 @@ body,
   color: var(--cerebro-text);
 }
 
+/* Show Diff with Working Tree's window: its words, then the files filling the rest. */
+.playground-working-tree-diff {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.playground-working-tree-diff > .playground-log__files {
+  display: flex;
+  flex-direction: column;
+}
+
 /* The details: as much as they need, up to half the pane, then they scroll (a claim). */
 .playground-log__details {
   overflow: auto;

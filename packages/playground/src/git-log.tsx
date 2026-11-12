@@ -25,7 +25,7 @@ import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-tool
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { isFavorite, setFavorite } from './branch-favorites.js';
-import { changeContent, diffTab, fileTab, type Change } from './changes.js';
+import { changeContent, diffTab, fileTab, type Change, type Range } from './changes.js';
 import { formatCommitDate } from './dates.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
@@ -529,9 +529,12 @@ const signature = (commit: LogCommit) =>
 export function CommitFiles(props: {
   host: Host;
   worktree: string;
-  range: { from: string; to: string };
+  /** Without `to`: from a commit to the working tree. */
+  range: Range;
   /** What the tree is, for a screen reader. */
   label: string;
+  /** What shows when nothing differs; nothing, if not given. */
+  empty?: string;
   open?: (tab: Tab, chain?: readonly string[]) => void;
   /** The file to select once they're read. */
   selected?: string | undefined;
@@ -544,9 +547,12 @@ export function CommitFiles(props: {
     isLeaf: () => true,
   });
   const failed = signal<string | undefined>(undefined);
+  /** Read, and none differ. */
+  const none = signal(false);
   void props.host.request('git.changes', { path: props.worktree, ...range }).then(
     (listed) => {
       changes.set(listed as Change[]);
+      none.set((listed as Change[]).length === 0);
       void files.load(undefined, true).then(() => {
         files.select(props.selected);
       });
@@ -557,6 +563,9 @@ export function CommitFiles(props: {
   );
   return () => {
     const error = failed.get();
+    if (error === undefined && none.get() && props.empty !== undefined) {
+      return <p class="playground-project__empty">{props.empty}</p>;
+    }
     return error === undefined ? (
       <div
         class="playground-log__files"
