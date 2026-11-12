@@ -1273,6 +1273,15 @@ describe('ignored files and rolling back', () => {
       null,
     );
     expect(await ui.request('git.checkoutRevision', { path: '/w', reference: 'v1' })).toBe(null);
+    // Commits of its own: none counted here.
+    expect(
+      await ui.request('git.hasCommitsNotIn', { path: '/w', branch: 'x', of: 'origin/x' }),
+    ).toBe(false);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'rev-list',
+      '--count',
+      'refs/remotes/origin/x..refs/heads/x',
+    ]);
     expect(await ui.request('git.createBranch', { path: '/w', name: 'n' })).toBe(null);
     expect(
       await ui.request('git.createBranch', {

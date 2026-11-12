@@ -52,6 +52,8 @@ const git = {
   remoteNames: ['origin', 'upstream'] as string[] | Error,
   /** What pushing a tag gives (whether it was sent), or the error it fails with. */
   tagPushed: true as boolean | Error,
+  /** Whether a local branch has commits its remote branch hasn't. */
+  ownCommits: false,
   /** Held until it resolves: a tag's push. */
   tagPushHeld: undefined as Promise<void> | undefined,
   /** What updating a branch gives, or the error it fails with. */
@@ -108,6 +110,7 @@ const host = new FakeHost({
     if (git.remoteNames instanceof Error) throw git.remoteNames;
     return git.remoteNames.map((name) => ({ name, url: `/remotes/${name}` }));
   },
+  'git.hasCommitsNotIn': () => git.ownCommits,
   'git.pushTag': async () => {
     await git.tagPushHeld;
     if (git.tagPushed instanceof Error) throw git.tagPushed;
@@ -178,6 +181,9 @@ beforeEach(() => {
   git.remoteTag = { deleted: [], failed: [] };
   git.remotes = true;
   git.remoteNames = ['origin', 'upstream'];
+  git.local = ['feature', 'main', 'side'];
+  git.remote = ['origin/main', 'origin/side'];
+  git.ownCommits = false;
   git.tagPushed = true;
   git.updated = {};
 });
@@ -490,11 +496,81 @@ describe('Checkout', () => {
   });
 
   it('checks out a remote branch as a local one tracking it', async () => {
+    // One with no local branch yet.
+    git.local = ['feature', 'main'];
+    git.remote = ['origin/main', 'origin/new', 'origin/side'];
+    await choose('origin/new', 'Checkout');
+    await expect.poll(() => last()?.content).toBe('Checked out new');
+    expect(host.params('git.checkout')).toEqual([
+      { path: '/r', branch: 'origin/new', remote: true },
+    ]);
+  });
+
+  it('checks out a remote branch into its local one, moved there, when it has nothing of its own, as IntelliJ’s', async () => {
+    git.upstreams = { side: 'origin/side' };
     await choose('origin/side', 'Checkout');
     await expect.poll(() => last()?.content).toBe('Checked out side');
-    expect(host.params('git.checkout')).toEqual([
-      { path: '/r', branch: 'origin/side', remote: true },
+    expect(host.params('git.hasCommitsNotIn')).toEqual([
+      { path: '/r', branch: 'side', of: 'origin/side' },
     ]);
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side', from: 'origin/side', checkout: true, overwrite: true },
+    ]);
+    expect(host.params('git.checkout')).toEqual([]);
+  });
+
+  it('asks whether to rebase the local branch’s own commits onto the remote one, or drop them', async () => {
+    git.ownCommits = true;
+    await choose('origin/side', 'Checkout');
+    let box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout origin/side');
+    expect(box.querySelector('p')?.textContent).toBe(
+      "Local branch 'side' has commits that do not exist in 'origin/side'. Rebase 'side' onto 'origin/side', or drop local commits?",
+    );
+    await press('Cancel');
+    expect(host.params('git.createBranch')).toEqual([]);
+    await choose('origin/side', 'Checkout');
+    await dialog();
+    await press('Drop Local Commits');
+    await expect.poll(() => last()?.content).toBe('Checked out side');
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side', from: 'origin/side', checkout: true, overwrite: true },
+    ]);
+    await choose('origin/side', 'Checkout');
+    box = await dialog();
+    await press('Rebase onto Remote');
+    await expect.poll(() => last()?.title).toBe('Rebase successful');
+    expect(last()?.content).toBe('Checked out side and rebased it on origin/side');
+    expect(host.params('git.rebase')).toEqual([
+      { path: '/r', upstream: 'origin/side', branch: 'side' },
+    ]);
+    // Stopped at conflicts: as Continue Rebase.
+    git.result = 'conflicts';
+    git.conflicted = ['a.ts'];
+    await choose('origin/side', 'Checkout');
+    await dialog();
+    await press('Rebase onto Remote');
+    await expect
+      .poll(() => document.querySelector('.cerebro-dialog__title')?.textContent)
+      .toBe('Conflicts');
+  });
+
+  it('asks for another name when the local branch tracks another branch, as IntelliJ’s', async () => {
+    git.upstreams = { side: 'origin/main' };
+    await choose('origin/side', 'Checkout');
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout origin/side');
+    expect(box.querySelector('.cerebro-dialog-field__error')?.textContent).toBe(
+      'Branch name side already exists. Change the name or overwrite existing branch',
+    );
+    await answer('side-2');
+    await press('Create');
+    await expect
+      .poll(() => host.params('git.createBranch'))
+      .toEqual([
+        { path: '/r', name: 'side-2', checkout: true, overwrite: false, from: 'origin/side' },
+      ]);
+    expect(host.params('git.hasCommitsNotIn')).toEqual([]);
   });
 
   it('says why it couldn’t, in git’s words', async () => {

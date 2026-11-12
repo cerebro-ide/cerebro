@@ -66,6 +66,7 @@ import {
 import {
   checkout,
   checkoutDetached,
+  hasCommitsNotIn,
   createBranch,
   deleteBranch,
   deleteRemoteBranch,
@@ -878,6 +879,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
     return null;
   });
+  // The branches popup's Checkout of a remote branch whose local branch exists.
+  connection.onRequest('git.hasCommitsNotIn', (params) =>
+    hasCommitsNotIn(text(params, 'path'), text(params, 'branch'), text(params, 'of'), git),
+  );
   connection.onRequest('git.checkoutRevision', async (params) => {
     const worktree = text(params, 'path');
     const reference = text(params, 'reference');

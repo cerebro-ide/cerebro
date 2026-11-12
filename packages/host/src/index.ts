@@ -216,6 +216,7 @@ export {
 export {
   checkout,
   checkoutDetached,
+  hasCommitsNotIn,
   createBranch,
   deleteBranch,
   deleteRemoteBranch,

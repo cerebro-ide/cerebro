@@ -19,6 +19,25 @@ export async function checkout(
 }
 
 /**
+ * Whether local branch `branch` has commits that remote branch `of` (`origin/main`) hasn't, as
+ * IntelliJ's `checkLocalHasMoreCommits` asks before checking `of` out into it. By their full names,
+ * which can't be taken for options.
+ */
+export async function hasCommitsNotIn(
+  worktree: string,
+  branch: string,
+  of: string,
+  run: Git,
+): Promise<boolean> {
+  const count = await run(worktree, [
+    'rev-list',
+    '--count',
+    `refs/remotes/${of}..refs/heads/${branch}`,
+  ]);
+  return Number(count.trim()) > 0;
+}
+
+/**
  * Checks out a branch, tag or commit with HEAD detached at it, as IntelliJ's Checkout Tag or
  * Revision… (`git checkout ref^0` there, for gits older than `--detach`). A reference can't start
  * with "-" (git's `check-ref-format`, and no hash does): git would take it for an option, and its

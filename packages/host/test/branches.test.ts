@@ -11,6 +11,7 @@ import {
   deleteBranch,
   deleteRemoteBranch,
   git,
+  hasCommitsNotIn,
   mergeBranch,
   rebase,
   rebaseOnto,
@@ -61,6 +62,19 @@ describe('branch operations, with real git', () => {
     await checkout(clone, 'origin/side', true, git);
     expect(current(clone)).toBe('side');
     expect(run(clone, 'rev-parse', '--abbrev-ref', 'side@{upstream}').trim()).toBe('origin/side');
+  });
+
+  it('tells whether a local branch has commits its remote branch hasn’t', async () => {
+    const repo = repository();
+    const clone = join(root, 'ahead');
+    run(root, 'clone', '-q', repo, clone);
+    run(clone, 'branch', 'side', 'origin/side');
+    expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(false);
+    // Behind it: still none of its own.
+    run(clone, 'branch', '-f', 'side', 'origin/side~1');
+    expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(false);
+    run(clone, 'branch', '-f', 'side', 'origin/main');
+    expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(true);
   });
 
   it('checks out a tag, a commit or a branch with HEAD detached; not what isn’t a reference', async () => {
