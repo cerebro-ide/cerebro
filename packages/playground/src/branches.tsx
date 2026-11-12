@@ -16,6 +16,7 @@ import { resolveConflicts } from './conflicts.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
+import { refsOf, type LogCommitContext } from './git-log.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { isProtected } from './push.js';
@@ -302,9 +303,18 @@ export function setupBranches(
   const isCurrent = (b: BranchRef) => !b.remote && b.name === branches.get().current;
   const current = () => branches.get().current ?? 'HEAD';
 
-  const newBranch = (from: string | undefined) =>
+  /**
+   * IntelliJ's New Branch: from HEAD, or `from`; the branches read first, which the dialog checks
+   * the name against, as IntelliJ's reads the repository's (the popup may not have read them).
+   */
+  const newBranch = (from: string | undefined, title = 'Create New Branch', value = '') =>
     operate(`Could not create new branch`, async (host, worktree) => {
-      const named = await branchDialog('Create New Branch', 'Create', '', false);
+      // Read as it shows, not before: the name is checked against them once they're in, and
+      // what's typed meanwhile goes into the dialog.
+      readBranches(host, worktree).catch((error: unknown) => {
+        console.error('Reading the branches failed', error);
+      });
+      const named = await branchDialog(title, 'Create', value, false);
       if (!named) return;
       await host.request('git.createBranch', {
         path: worktree,
@@ -353,6 +363,29 @@ export function setupBranches(
         await host.request('git.checkoutRevision', { path: worktree, reference });
         notifications.notify({ content: `Checked out ${reference}` });
       });
+    },
+  });
+  // The Log's commit menu's, as IntelliJ's `GitCreateNewBranchFromCommitAction`: from the commit,
+  // the name of the one branch at it suggested (a remote one's without its remote).
+  commands.register<LogCommitContext>({
+    id: 'log.newBranch',
+    label: 'New Branch',
+    dialog: true,
+    run: async (at) => {
+      const names = refsOf(at.commit.refs).flatMap((ref) =>
+        ref.kind === 'local' || (ref.kind === 'head' && ref.name !== 'HEAD')
+          ? [ref.name]
+          : ref.kind === 'remote'
+            ? [ref.name.slice(ref.name.indexOf('/') + 1)]
+            : [],
+      );
+      const distinct = [...new Set(names)];
+      await newBranch(
+        at.commit.hash,
+        `Create Branch from ${at.commit.hash.slice(0, 8)}`,
+        distinct.length === 1 ? distinct[0] : '',
+      );
+      await at.refresh();
     },
   });
   commands.register<BranchRef>({
@@ -604,5 +637,12 @@ export function setupBranches(
   // IntelliJ's Git menu, its third group: Branches…, New Branch….
   menus.contribute({ menu: 'main/git', item: { command: 'git.branches' }, group: 'an', order: 1 });
   menus.contribute({ menu: 'main/git', item: { command: 'git.newBranch' }, group: 'an', order: 2 });
+  // Before New Tag…, as IntelliJ's (Git.Log.ContextMenu).
+  menus.contribute({
+    menu: 'log/commit',
+    item: { command: 'log.newBranch' },
+    group: 'g',
+    order: 9,
+  });
   return { pick };
 }

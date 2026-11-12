@@ -1903,9 +1903,20 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
-  Revert Commit (decision "Cherry-Pick") and New Tag… (decision "Git → New Tag…"), then, after Git's, Go to Child Commit and Go to Parent Commit (below). The commit is
-  selected first, as a tree row is. No keys: IntelliJ's keymaps give these none (searched), the
-  last two aside.
+  Revert Commit (decision "Cherry-Pick"), New Branch… (below) and New Tag… (decision "Git → New
+  Tag…"), then, after Git's, Go to Child Commit and Go to Parent Commit (below). The commit is
+  selected first, as a tree row is. No keys: IntelliJ's keymaps give these none (searched), New
+  Branch… and the last two aside.
+- **New Branch… from a commit** (added 2026-11-11), in the commit menu before New Tag…, as
+  IntelliJ's `GitCreateNewBranchFromCommitAction`: the Create New Branch dialog, titled "Create
+  Branch from" and the commit's first 8 characters, its name the one branch at the commit if there's
+  one (a remote one's without its remote), as IntelliJ suggests it; the Log read again after. The
+  branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
+  against them once they're in: measured, a branch made since the popup last read them wasn't
+  caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
+  Branch… went nowhere while they were read. **Not yet:** its shortcut,
+  New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
+  first enabled command bound, so Git → New Branch… would take it.
 - **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
   `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
   the commits have the keyboard. The selection moves to the commit's parent or child, loading pages
