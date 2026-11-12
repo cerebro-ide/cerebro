@@ -80,11 +80,16 @@ export interface DiffEditorProps extends Appearance {
   /** Given the diff's controls, once it shows. */
   control?: (diff: DiffControl) => void;
   /**
-   * The change the caret starts at, as IntelliJ's ScrollToPolicy: the first (its default), or the
-   * last, for a file come to by going back from the next one's first change.
+   * Where the caret starts, as IntelliJ's ScrollToPolicy: the first change (its default), or the
+   * last, for a file come to by going back from the next one's first change; or a line of the
+   * right side's (from 0), as IntelliJ's SCROLL_TO_LINE: the editor's caret line, for its file's
+   * Show Diff.
    */
-  scrollTo?: 'firstChange' | 'lastChange';
+  scrollTo?: DiffScroll;
 }
+
+/** Where a diff's caret starts: `DiffEditorProps.scrollTo`. */
+export type DiffScroll = 'firstChange' | 'lastChange' | { line: number };
 
 /** What a toolbar does with a diff: IntelliJ's Previous and Next Difference. */
 export interface DiffControl {
@@ -125,6 +130,21 @@ const start = (change: LineRange, side: Side) => (side === 'a' ? change.start1 :
 const end = (change: LineRange, side: Side) => (side === 'a' ? change.end1 : change.end2);
 
 /**
+ * Each side's line the caret starts at: a change's start, or the right's line asked for and the
+ * left's carried across. None with no change to go to.
+ */
+function startLines(
+  scrollTo: DiffScroll | undefined,
+  changes: readonly LineRange[],
+): Record<Side, number> | undefined {
+  if (typeof scrollTo === 'object') {
+    return { a: transferLine(scrollTo.line, swapped(changes)), b: scrollTo.line };
+  }
+  const change = scrollTo === 'lastChange' ? changes.at(-1) : changes[0];
+  return change && { a: change.start1, b: change.start2 };
+}
+
+/**
  * The unchanged lines folded between changes `index - 1` and `index` on one side, at a level:
  * `context` lines by each change (0), twice as many (1), four times (2), or none folded (3), as
  * IntelliJ's nested folds. Folded only when at least 2 lines would be, as IntelliJ's. The first and
@@ -145,6 +165,28 @@ export function foldedLines(
   const from = before ? Math.min(end(before, side) + shift, lines) : 0;
   const to = after ? Math.max(start(after, side) - shift, 0) : lines;
   return to - from >= 2 ? { from, to } : undefined;
+}
+
+/**
+ * The fold levels with `line` (from 0) shown on `side`: each fold over it raised until it isn't,
+ * as IntelliJ's caret unfolds the folds it moves into (`CaretImpl`), the diff's nested in levels.
+ */
+export function unfoldedAt(
+  levels: readonly number[],
+  changes: readonly LineRange[],
+  side: 'a' | 'b',
+  lines: number,
+  line: number,
+  context = CONTEXT,
+): number[] {
+  return levels.map((level, i) => {
+    let next = level;
+    for (;;) {
+      const folded = foldedLines(changes, i, side, lines, next, context);
+      if (!folded || line < folded.from || line >= folded.to) return next;
+      next++;
+    }
+  });
 }
 
 /** The band in place of folded lines: clicked, it shows more of them. */
@@ -733,16 +775,19 @@ export function DiffEditor(props: DiffEditorProps): Node {
   rediff();
   // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
   // the middle.
-  const first = props.scrollTo === 'lastChange' ? changes.peek().at(-1) : changes.peek()[0];
-  if (first) {
+  const lines = startLines(props.scrollTo, changes.peek());
+  if (lines) {
     for (const side of ['a', 'b'] as const) {
       const doc = views[side].state.doc;
-      const at = doc.line(Math.min(start(first, side), doc.lines - 1) + 1).from;
+      const line = Math.min(lines[side], doc.lines - 1);
+      levels = unfoldedAt(levels, changes.peek(), side, doc.lines, line, context);
+      const at = doc.line(line + 1).from;
       views[side].dispatch({
         selection: EditorSelection.cursor(at),
         ...(side === 'b' ? { effects: EditorView.scrollIntoView(at, { y: 'center' }) } : {}),
       });
     }
+    mark();
   }
 
   const watch = effect(() => {

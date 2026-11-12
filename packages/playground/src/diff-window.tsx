@@ -24,7 +24,7 @@ import {
 } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
-import { diffSource } from '@cerebro-ide/ui-editor';
+import { diffSource, type DiffScroll } from '@cerebro-ide/ui-editor';
 import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import '@cerebro-ide/ui-popup/styles.css';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
@@ -62,7 +62,10 @@ const spec = specOf(location.hash);
 /** The files it goes through, and the one it shows. */
 const chain = spec.chain ?? [spec.path];
 /** The file shown, and where its caret starts: its last change, come back to by Previous Difference. */
-const current = signal<{ path: string; scrollTo?: 'lastChange' }>({ path: spec.path });
+const current = signal<{ path: string; scrollTo?: DiffScroll }>({
+  path: spec.path,
+  ...(spec.line === undefined ? {} : { scrollTo: { line: spec.line } }),
+});
 const at = () => chain.indexOf(current.get().path);
 /** The file `step` away from the one shown, if there's one. */
 const beside = (step: 1 | -1) => chain[at() + step];

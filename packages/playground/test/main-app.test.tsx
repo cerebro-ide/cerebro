@@ -1,7 +1,7 @@
 import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import type { EditorDocument } from '@cerebro-ide/ui-editor';
+import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
 import { diffTab } from '../src/changes.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
@@ -487,6 +487,44 @@ describe('the Git window', () => {
     env().editor.close(group, env().editor.activeGroup.active as string);
     env().editor.activate(group, before as string);
     await userEvent.keyboard('{Alt>}9{/Alt}');
+  });
+});
+
+describe('Git → Current File → Show Diff', () => {
+  it('opens the editor’s file at its caret line, in a tab or a window of its own', async () => {
+    const run = async () => {
+      await userEvent.click(await vi.waitUntil(code));
+      carets.set('/r/src/a.ts', { line: 1, column: 0 });
+      await userEvent.keyboard('{Shift}{Shift}');
+      await popupItems();
+      await userEvent.keyboard('Show Diff');
+      await expect.poll(popupItems).toContain('Show Diff');
+      await userEvent.keyboard('{Enter}');
+    };
+    await run();
+    expect(calls.at(-1)).toEqual(['diff', { project: '/r', env: '/r', path: 'src/a.ts', line: 1 }]);
+    localStorage.setItem('cerebro.diff', JSON.stringify({ inTab: true }));
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await run();
+    const diff = () =>
+      document.querySelector('.cerebro-editor-group--active .cerebro-editor-diff') ?? undefined;
+    await expect.poll(diff).toBeDefined();
+    expect(diffSource(diff() as Element)?.line).toBe(1);
+    env().editor.close(env().editor.activeGroup.id, diffTab('src/a.ts').id);
+    // Open already, behind the file's tab: made again as it's shown, at the line, which isn't kept
+    // for its next opening.
+    env().editor.open(diffTab('src/a.ts'));
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await run();
+    expect(env().editor.activeGroup.active).toBe(diffTab('src/a.ts').id);
+    await expect.poll(diff).toBeDefined();
+    expect(diffSource(diff() as Element)?.line).toBe(1);
+    env().editor.close(env().editor.activeGroup.id, diffTab('src/a.ts').id);
+    env().editor.open(diffTab('src/a.ts'));
+    await expect.poll(diff).toBeDefined();
+    expect(diffSource(diff() as Element)?.line).toBe(0);
+    env().editor.close(env().editor.activeGroup.id, diffTab('src/a.ts').id);
+    localStorage.removeItem('cerebro.diff');
   });
 });
 
@@ -1244,7 +1282,9 @@ describe('saving', () => {
     expect(String(logged.mock.calls[0]?.[0])).toContain('EROFS');
     answers.set('fs.read', new Error('ENOENT'));
     answers.set('fs.exists', false);
-    await userEvent.click(await vi.waitUntil(code));
+    // Not through `vi.waitUntil`, which ticks the fake clock (50 ms a check, measured in Vitest's
+    // source): a tick onto the documents' reading again (every 2 s) would close the tabs first.
+    await userEvent.click(code() as HTMLElement);
     await userEvent.keyboard('{Control>}s{/Control}');
     await expect.poll(tabs).not.toContain('/r/src/a.ts');
   });

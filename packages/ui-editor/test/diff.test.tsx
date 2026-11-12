@@ -4,6 +4,7 @@ import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { EditorView } from '@codemirror/view';
 import {
   DiffEditor,
   diffSource,
@@ -13,7 +14,7 @@ import {
   type HighlightPolicy,
   type IgnorePolicy,
 } from '../src/index.js';
-import { foldedLines } from '../src/diff.js';
+import { foldedLines, unfoldedAt } from '../src/diff.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -304,6 +305,14 @@ describe('foldedLines', () => {
     expect(foldedLines(changes, 1, 'b', 30, 3)).toBeUndefined();
     expect(foldedLines([], 0, 'a', 1, 0)).toBeUndefined();
   });
+
+  it('unfolds as little as shows a line: each fold over it a level deeper till it isn’t', () => {
+    expect(unfoldedAt([0, 0], changes, 'a', 30, 3)).toEqual([1, 0]);
+    expect(unfoldedAt([0, 0], changes, 'a', 30, 0)).toEqual([2, 0]);
+    expect(unfoldedAt([0, 0], changes, 'a', 30, 20)).toEqual([0, 2]);
+    // Shown already: as it was.
+    expect(unfoldedAt([0, 3], changes, 'a', 30, 12)).toEqual([0, 3]);
+  });
 });
 
 describe('synchronized scrolling', () => {
@@ -513,6 +522,44 @@ describe('previous and next difference', () => {
     // Focused: the right side, to start with.
     (control as DiffControl).focus();
     expect(root.activeElement).toBe(root.querySelector('.cm-diff-b .cm-content'));
+  });
+});
+
+describe('a line to start at', () => {
+  it('puts the caret on the right’s line asked for, and the left’s beside it, as IntelliJ’s SCROLL_TO_LINE', () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    // Two lines added at 10: the right's 30 is the left's 28.
+    const text = [...original.slice(0, 10), 'new', 'new', ...original.slice(10)];
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      scrollTo: { line: 30 },
+    });
+    expect(diffSource(root.host)).toEqual({ line: 30, column: 0 });
+    const left = EditorView.findFromDOM(root.querySelector('.cm-diff-a') as HTMLElement);
+    const head = left?.state.selection.main.head ?? -1;
+    expect(left?.state.doc.lineAt(head).number).toBe(29);
+  });
+
+  it('unfolds the unchanged lines the caret starts in, as IntelliJ’s caret does', () => {
+    const original = Array.from({ length: 60 }, (_, i) => `line ${String(i)}`);
+    const text = [...original.slice(0, 10), 'new', 'new', ...original.slice(10)];
+    const root = mount({
+      path: 'a.txt',
+      original: original.join('\n'),
+      text: text.join('\n'),
+      collapse: () => true,
+      scrollTo: { line: 40 },
+    });
+    const [left, right] = [root.querySelector('.cm-diff-a'), root.querySelector('.cm-diff-b')] as [
+      Element,
+      Element,
+    ];
+    expect(lines(right)).toContain('line 38');
+    expect(lines(left)).toContain('line 38');
+    // Folds elsewhere stay: the lines before the change.
+    expect(lines(right)).not.toContain('line 0');
   });
 });
 

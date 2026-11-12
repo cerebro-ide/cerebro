@@ -2343,11 +2343,17 @@ with Branch…, Show History, Show History for Selection).
 - **Off for a file git hasn't committed,** as IntelliJ's (`fileInVcsByFileStatus`: not unknown,
   added or ignored): untracked or added, as the Commit window's lists know it. **Claims:** before
   the Commit window has read the changes, and for an ignored file, it's on (those lists don't say).
+- **At the editor's caret line** (added 2026-11-12), as IntelliJ's (read in its source:
+  `CompareWithTheSameVersionAction` runs `DiffActionExecutor`, which puts the file's editor's caret
+  line in the request as `SCROLL_TO_LINE`, on the local side): the diff's caret starts there in the
+  file as it is, and on its line in the last commit's side, through the changes. In a tab, a window
+  of its own, or the unified view alike. Unchanged lines folded over it are unfolded as far as
+  shows it, as IntelliJ's caret unfolds the folds it moves into (`CaretImpl`, read in its source):
+  seen in the app, the line was hidden in a fold before.
 - **Not yet:** its shortcut. IntelliJ's is Ctrl+D (Cmd+D on macOS), which in the editor duplicates
   the line instead, so it works from the Project view on a selected file; Cerebro's Project view
   doesn't give its file to the Git menu yet.
-  Scrolling the diff to the editor's caret line (IntelliJ's `SCROLL_TO_LINE`); the other items of
-  the submenu.
+  The other items of the submenu.
 
 ## Documents saved before git actions (2026-11-12)
 

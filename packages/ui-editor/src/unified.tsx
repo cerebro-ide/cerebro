@@ -29,6 +29,7 @@ import {
   diffTheme,
   Fold,
   foldedLines,
+  unfoldedAt,
   LAYOUT,
   MARKS,
   marks,
@@ -335,8 +336,22 @@ export function UnifiedDiffEditor(props: Omit<DiffEditorProps, 'syncScroll' | 'a
   rediff();
   // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
   // the middle.
-  const first = props.scrollTo === 'lastChange' ? blocks.peek().at(-1) : blocks.peek()[0];
-  if (first) show(first);
+  const { scrollTo } = props;
+  if (typeof scrollTo === 'object') {
+    // The right's line asked for, where it is among both sides' lines: past the end, the last.
+    const n = unified.lines.findIndex((numbers) => numbers.b === scrollTo.line);
+    const line = n < 0 ? view.state.doc.lines - 1 : n;
+    levels = unfoldedAt(levels, ranges(), 'a', view.state.doc.lines, line, context);
+    mark();
+    const at = view.state.doc.line(line + 1).from;
+    view.dispatch({
+      selection: EditorSelection.cursor(at),
+      effects: EditorView.scrollIntoView(at, { y: 'center' }),
+    });
+  } else {
+    const first = scrollTo === 'lastChange' ? blocks.peek().at(-1) : blocks.peek()[0];
+    if (first) show(first);
+  }
 
   const watch = effect(() => {
     view.dispatch({ effects: settings.reconfigure(configure()) });

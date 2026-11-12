@@ -14,6 +14,7 @@ import {
   HIGHLIGHT_POLICIES,
   IGNORE_POLICIES,
   type DiffControl,
+  type DiffScroll,
   type HighlightPolicy,
   type IgnorePolicy,
 } from '@cerebro-ide/ui-editor';
@@ -375,8 +376,8 @@ export interface DiffViewerProps {
   text: string;
   fontSize: () => number;
   tabSize: () => number;
-  /** The change the caret starts at: the first, or the last (`DiffEditorProps`). */
-  scrollTo?: 'firstChange' | 'lastChange';
+  /** Where the caret starts: the first change, the last, or a line (`DiffEditorProps`). */
+  scrollTo?: DiffScroll;
   /** The diff takes the keyboard as it shows, as IntelliJ's diff window gives it to its editor. */
   focus?: boolean;
   /**

@@ -34,6 +34,8 @@ export interface DiffSpec {
    * chain: the list the diff was opened from.
    */
   chain?: string[];
+  /** The line of the file as it is the caret starts at: the editor's, for its Show Diff. */
+  line?: number;
 }
 
 /** Where Jump to Source goes from a diff window: a place in a file of its worktree. */
