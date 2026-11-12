@@ -6,6 +6,7 @@ import { setupBranches } from '../src/branches.js';
 import { useProjects, workspace } from '../src/environments.js';
 import type { BranchesSelection } from '../src/log-branches.js';
 import { notifications } from '../src/notifications.js';
+import { readState } from '../src/repository-state.js';
 import {
   answer,
   closeAll,
@@ -37,6 +38,10 @@ const git = {
   conflicted: [] as string[],
   /** The tags, or why they can't be read. */
   tags: ['v1', 'v2'] as string[] | Error,
+  /** Whether the repository has remotes, as its state says. */
+  remotes: true,
+  /** What updating a branch gives, or the error it fails with. */
+  updated: {} as { worktree?: string } | Error,
   /** Held until it resolves: the branches' reading. */
   branchesHeld: undefined as Promise<void> | undefined,
 };
@@ -80,7 +85,11 @@ const host = new FakeHost({
   'git.mergeBranch': fail('result'),
   'git.rebaseOnto': fail('result'),
   'git.continue': () => 'done',
-  'git.state': () => ({ conflicts: false }),
+  'git.state': () => ({ conflicts: false, ...(git.remotes ? {} : { remotes: false }) }),
+  'git.updateBranch': () => {
+    if (git.updated instanceof Error) throw git.updated;
+    return git.updated;
+  },
   'git.conflicts': () => ({
     operation: 'merge',
     files: git.conflicted.map((path) => ({ path, yours: 'modified', theirs: 'modified' })),
@@ -123,6 +132,8 @@ beforeEach(() => {
   git.upstreams = {};
   git.tracked = undefined;
   git.remoteFailing = undefined;
+  git.remotes = true;
+  git.updated = {};
 });
 
 afterEach(async () => {
@@ -742,6 +753,69 @@ describe('the Log’s branches pane', () => {
     expect([remote.title, remote.value]).toEqual(['Create Branch from origin/fix/x', 'fix/x']);
     await press('Cancel');
     await remote.done;
+  });
+
+  it('Update Selected: the branch checked out by Update Project; another from what it tracks, as IntelliJ’s', async () => {
+    expect(commands.get('log.branches.update')).toMatchObject({
+      label: 'Update Selected',
+      icon: 'update',
+    });
+    const tracking = (name: string, current = false) =>
+      at({
+        kind: 'branch',
+        ref: `refs/heads/${name}`,
+        current,
+        upstream: 'refs/remotes/origin/main',
+      });
+    const on = (context: unknown) => commands.isEnabled('log.branches.update', context);
+    // Off for a branch that tracks none, a directory, or nothing selected.
+    expect(on(ref('refs/heads/side'))).toBe(false);
+    expect(on(at(undefined))).toBe(false);
+    expect(on(tracking('side'))).toBe(true);
+    expect(on(at({ kind: 'head', branch: 'main', upstream: 'refs/remotes/origin/main' }))).toBe(
+      true,
+    );
+    // The branch checked out: Update Project.
+    const update = vi.fn();
+    commands.register({ id: 'vcs.update', label: 'Update Project', run: update });
+    await run('log.branches.update', tracking('main', true));
+    await run('log.branches.update', at({ kind: 'head', branch: 'main', upstream: 'x' }));
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(host.params('git.updateBranch')).toEqual([]);
+    // Another: fetched into, the Log read again.
+    const notify = vi.spyOn(notifications, 'notify');
+    await run('log.branches.update', tracking('side'));
+    expect(host.params('git.updateBranch')).toEqual([{ path: '/r', branch: 'side' }]);
+    expect(notify).toHaveBeenLastCalledWith({ title: 'Fetched 1 target' });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    git.updated = { worktree: '/r-side' };
+    await run('log.branches.update', tracking('side'));
+    expect(notify).toHaveBeenLastCalledWith({
+      title: 'Updated 1 branch checked out in other worktrees',
+    });
+    git.updated = new Error('not a fast-forward');
+    await run('log.branches.update', tracking('side'));
+    expect(notify).toHaveBeenLastCalledWith({
+      title: 'Update failed',
+      content: 'not a fast-forward',
+      type: 'error',
+      display: 'sticky',
+    });
+    // Off while it runs, as a fetch.
+    git.updated = {};
+    const running = run('log.branches.update', tracking('side'));
+    expect(on(tracking('side'))).toBe(false);
+    await running;
+    expect(on(tracking('side'))).toBe(true);
+    // Off without a remote.
+    git.remotes = false;
+    await readState('/r');
+    expect(on(tracking('side'))).toBe(false);
+    git.remotes = true;
+    await readState('/r');
+    // Without a host, nowhere to update.
+    workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
+    expect(on(tracking('side'))).toBe(false);
   });
 
   it('Delete Branch: SafeDelete’s keys, as IntelliJ’s', () => {

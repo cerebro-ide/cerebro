@@ -16,6 +16,8 @@ export interface Branch {
   ref: string;
   hash: string;
   current: boolean;
+  /** The branch a local one tracks, in full (`refs/remotes/origin/main`), if any. */
+  upstream?: string;
 }
 
 interface Group {
@@ -96,11 +98,11 @@ export function branchTree(branches: readonly Branch[]): BranchNode[] {
 
 /**
  * What the pane's toolbar acts on: HEAD, with the branch checked out if one is; a branch, by its
- * ref in full; or nothing, with a directory or nothing selected.
+ * ref in full; or nothing, with a directory or nothing selected. With what the branch tracks.
  */
 export type BranchesSelection =
-  | { kind: 'head'; branch: string | undefined }
-  | { kind: 'branch'; ref: string; current: boolean }
+  | { kind: 'head'; branch: string | undefined; upstream?: string }
+  | { kind: 'branch'; ref: string; current: boolean; upstream?: string }
   | undefined;
 
 /** The pane's toolbar's context: what's selected, and how to read the Log again after a change. */
@@ -137,13 +139,20 @@ export class Branches {
   /** The node selected, as the toolbar acts on it. */
   selection(): BranchesSelection {
     const node = this.model.rows.find((row) => row.key === this.model.selected)?.node;
+    const tracked = (branch: Branch | undefined) =>
+      branch?.upstream === undefined ? {} : { upstream: branch.upstream };
     if (node?.kind === 'head') {
       const current = this.branches.get().find((branch) => branch.current);
-      return { kind: 'head', branch: current && branchName(current.ref) };
+      return { kind: 'head', branch: current && branchName(current.ref), ...tracked(current) };
     }
-    return node?.kind === 'branch'
-      ? { kind: 'branch', ref: node.ref, current: node.current }
-      : undefined;
+    if (node?.kind !== 'branch') return undefined;
+    const { ref, current } = node;
+    return {
+      kind: 'branch',
+      ref,
+      current,
+      ...tracked(this.branches.get().find((branch) => branch.ref === ref)),
+    };
   }
 
   async reload(): Promise<void> {

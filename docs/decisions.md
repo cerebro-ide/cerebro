@@ -2003,8 +2003,18 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     `Show.Git.Branches`, a property of its Log's tab, shown to start with). **Claude's, open to
     change:** the arrows' drawing (not IntelliJ's), and the commits taking the keyboard when the
     pane had it.
-  **Not yet:** Update Selected, Compare with Current, Show My Branches, Toggle
-  Favorite, the Branches settings, the pane's search; several branches selected; Navigate's key
+  - Update Selected (added 2026-11-12), after New Branch, as IntelliJ's (UpdateSelectedBranchAction,
+    `updateBranches`): the branch checked out is updated by Update Project; another is fetched from
+    the branch it tracks straight into it (`git fetch origin refs/heads/main:refs/heads/side`), a
+    fast-forward, which git refuses otherwise; one checked out in another worktree (an agent's)
+    is fetched and fast-forwarded there (`merge --ff-only FETCH_HEAD`), as git won't move it from
+    here. Off without a remote, while a fetch runs, and for a branch that tracks none. Its
+    notifications are IntelliJ's ("Update failed", "Updated 1 branch checked out in other
+    worktrees"), but "Fetched 1 target" for its "Fetched {0} targets". Its icon is Update
+    Project's, as IntelliJ's (CheckOut).
+  **Not yet:** Compare with Current, Show My Branches, Toggle
+  Favorite, the Branches settings, the pane's search; several branches selected (IntelliJ updates
+  them all at once); Navigate's key
   (Select In's, Alt+F1, which Select In takes here first); a » for the buttons a short pane has no
   room for (they're cut off).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,

@@ -5,7 +5,7 @@
 // pull with `--rebase` goes through Update Project instead (`update.ts`), as IntelliJ's does.
 
 import { operation } from './conflicts.js';
-import type { Git } from './git.js';
+import { listWorktrees, type Git } from './git.js';
 import type { HashRange, Resume } from './update.js';
 
 /** How a fetch went: the remote-tracking branches pruned, and each remote that failed, why. */
@@ -53,6 +53,46 @@ export async function fetchAll(
     fetched.pruned.push(...before.filter((b) => !after.has(b)));
   }
   return fetched;
+}
+
+/**
+ * The Log branches pane's Update Selected, for a branch that isn't checked out here, as IntelliJ's
+ * (`updateBranches`): fetched from the branch it tracks straight into it, a fast-forward
+ * (`remote-branch:branch`). Checked out in another worktree, which git won't move from here, it's
+ * fetched and fast-forwarded there; resolves with that worktree's folder. `remote` runs git's
+ * remote commands.
+ */
+export async function updateBranch(
+  worktree: string,
+  branch: string,
+  run: Git,
+  remote: Git,
+): Promise<{ worktree?: string }> {
+  const [name = '', merge = ''] = (
+    await run(worktree, [
+      'for-each-ref',
+      '--format=%(upstream:remotename)%09%(upstream:remoteref)',
+      '--end-of-options',
+      `refs/heads/${branch}`,
+    ])
+  )
+    .trim()
+    .split('\t');
+  if (name === '' || merge === '') throw new Error(`${branch} tracks no remote branch`);
+  const env = { GIT_TERMINAL_PROMPT: '0' };
+  // Not the one checked out here: Update Project updates that.
+  const elsewhere = (await listWorktrees(worktree, run)).find((other) => other.branch === branch);
+  if (elsewhere) {
+    await remote(elsewhere.path, ['fetch', '--quiet', '--end-of-options', name, merge], env);
+    await run(elsewhere.path, ['merge', '--ff-only', 'FETCH_HEAD']);
+    return { worktree: elsewhere.path };
+  }
+  await remote(
+    worktree,
+    ['fetch', '--quiet', '--end-of-options', name, `${merge}:refs/heads/${branch}`],
+    env,
+  );
+  return {};
 }
 
 /** The Pull dialog's options, as IntelliJ's `GitPullOption` (but `--rebase`, which updates). */

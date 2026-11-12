@@ -825,6 +825,7 @@ describe('the branches’ toolbar', () => {
     ).toEqual([
       'log.branches.hide',
       'log.branches.newBranch',
+      'log.branches.update',
       'log.branches.delete',
       'vcs.fetch',
       'log.branches.navigate',
@@ -934,7 +935,10 @@ describe('the branches’ toolbar', () => {
       run: (context) => given.push(context),
     });
     git.log = history(2);
-    git.branches = [branch('refs/heads/main', true), branch('refs/heads/side')];
+    git.branches = [
+      { ...branch('refs/heads/main', true), upstream: 'refs/remotes/origin/main' },
+      { ...branch('refs/heads/side'), upstream: 'refs/remotes/origin/side' },
+    ];
     mount();
     await expect.poll(branchNames).toContain('side');
     await userEvent.click(branchRows()[0] as HTMLElement);
@@ -942,8 +946,19 @@ describe('the branches’ toolbar', () => {
     await userEvent.click(named('side'));
     await userEvent.click(button('log.branches.newBranch'));
     expect(given).toMatchObject([
-      { source: 'log', selection: { kind: 'head', branch: 'main' } },
-      { source: 'log', selection: { kind: 'branch', ref: 'refs/heads/side', current: false } },
+      {
+        source: 'log',
+        selection: { kind: 'head', branch: 'main', upstream: 'refs/remotes/origin/main' },
+      },
+      {
+        source: 'log',
+        selection: {
+          kind: 'branch',
+          ref: 'refs/heads/side',
+          current: false,
+          upstream: 'refs/remotes/origin/side',
+        },
+      },
     ]);
     const reads = skips().length;
     await (given[1] as { refresh: () => Promise<void> }).refresh();

@@ -191,6 +191,7 @@ export {
   pull,
   PULL_OPTIONS,
   unmerged,
+  updateBranch,
   type Fetched,
   type Merged,
 } from './pull.js';
