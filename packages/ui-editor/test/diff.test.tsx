@@ -339,7 +339,10 @@ describe('synchronized scrolling', () => {
       syncScroll: () => sync.get(),
     });
     const [left, right] = scrollers(root);
-    // To start with, at the first change, the left keeping up.
+    // To start with, at the first change, the left keeping up. The diff scrolls there at its first
+    // measure, which undoes a scroll made before it: measured, the right set to line 200 at once
+    // was back at the first change a frame later (2065 of 7048), as CI once found it.
+    await expect.poll(() => right.scrollTop).toBeGreaterThan(0);
     await expect.poll(() => third(left)).toBeDefined();
     /** What's a third of the way down a side, for when no line is: CI once found none on the left. */
     const under = (scroller: HTMLElement) => {
