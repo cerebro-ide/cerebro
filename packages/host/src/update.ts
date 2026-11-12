@@ -71,20 +71,31 @@ export async function preserving(
   run: Git,
   operation: () => Promise<void>,
 ): Promise<boolean> {
-  const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
-  // Nothing saved, nothing to put back: an empty stash would put back the one before.
-  if (changes.length === 0) {
-    await operation();
-    return true;
-  }
-  const saved = await save(worktree, changes, how, savedMessage(now, name), run);
+  const saved = await saveLocal(worktree, how, name, now, run);
   try {
     await operation();
   } catch (error) {
-    await restore(worktree, saved, run);
+    if (saved) await restore(worktree, saved, run);
     throw error;
   }
-  return restore(worktree, saved, run);
+  return saved ? restore(worktree, saved, run) : true;
+}
+
+/**
+ * Saves the local changes, as `preserving` does, for an operation that puts them back itself
+ * (Smart Merge's, after its conflicts). Undefined when there are none: an empty stash would put
+ * back the one before.
+ */
+export async function saveLocal(
+  worktree: string,
+  how: SaveChanges,
+  name: string,
+  now: Date,
+  run: Git,
+): Promise<Saved | undefined> {
+  const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
+  if (changes.length === 0) return undefined;
+  return save(worktree, changes, how, savedMessage(now, name), run);
 }
 
 /** What stops an update before it starts, as IntelliJ's `isUpdateNotReady`. */
@@ -137,7 +148,7 @@ async function save(
 }
 
 /** Puts saved changes back; says whether it could. */
-function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
+export function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
   return (
     saved.how === 'shelve'
       ? unshelve(worktree, saved.id, run)

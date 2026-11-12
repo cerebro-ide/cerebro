@@ -130,6 +130,12 @@ describe('branch operations, with real git', () => {
       ),
     ).toBe(true);
     expect(run(repo, 'stash', 'list')).toBe('');
+    // Failing with nothing saved: git's words.
+    await expect(
+      preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'nowhere', false, git),
+      ),
+    ).rejects.toThrow(/nowhere/);
     writeFileSync(join(repo, 'shared.txt'), 'mine\n');
     await expect(
       preserving(repo, 'stash', 'Checkout', new Date(), git, () =>

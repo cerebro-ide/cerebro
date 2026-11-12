@@ -137,7 +137,15 @@ const host = new FakeHost({
     if (git.result instanceof Error) throw git.result;
     return null;
   },
-  'git.mergeBranch': fail('result'),
+  'git.mergeBranch': (p: { save?: string }) => {
+    if (git.inTheWay && !p.save) throw git.inTheWay;
+    const result = fail('result')();
+    if (!p.save) return result;
+    return result === 'conflicts'
+      ? { result, saved: { how: p.save } }
+      : { result, restored: git.restored };
+  },
+  'git.restoreSaved': () => git.restored,
   'git.rebaseOnto': fail('result'),
   'git.rebase': fail('result'),
   'git.continue': () => 'done',
@@ -1354,6 +1362,89 @@ describe('Merge into Current', () => {
     await expect.poll(() => last()?.title).toBe('feature Merged with Conflicts');
     expect(last()?.type).toBe('warning');
     expect(host.params('git.continue')).toEqual([]);
+  });
+
+  describe('with local changes in the way, as IntelliJ’s Smart Merge', () => {
+    beforeEach(() => {
+      git.inTheWay = new Error(
+        'error: Your local changes to the following files would be overwritten by merge:\n\ta.ts\nPlease commit your changes or stash them before you merge.\nAborting',
+      );
+    });
+    const merge = async () => {
+      await choose('feature', "Merge 'feature' into 'main'");
+      return dialog();
+    };
+
+    it('asks, with no Force, and merges nothing at Don’t Merge', async () => {
+      const box = await merge();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Git Merge Problem');
+      expect(box.querySelector('p')?.textContent).toBe(
+        'Your local changes to the following files would be overwritten by merge.Cerebro can shelve the changes, merge and unshelve them after that.',
+      );
+      expect(
+        [...box.querySelectorAll('.cerebro-dialog__button')].map((b) => b.textContent),
+      ).toEqual(expect.not.arrayContaining(['Force Checkout']));
+      const told = notifications.all.length;
+      await press("Don't Merge");
+      await expect.poll(() => host.params('git.branches').length).toBeGreaterThan(0);
+      expect(host.params('git.mergeBranch')).toHaveLength(1);
+      expect(notifications.all.length).toBe(told);
+    });
+
+    it('saves them, merges, and puts them back, saying when they couldn’t go back', async () => {
+      await merge();
+      await press('Smart Merge');
+      await expect.poll(() => last()?.content).toBe('Merged feature to main');
+      expect(host.params('git.mergeBranch').at(-1)).toEqual({
+        path: '/r',
+        branch: 'feature',
+        save: 'shelve',
+      });
+      git.restored = false;
+      await merge();
+      await press('Smart Merge');
+      await expect
+        .poll(() => notifications.all.get(1)?.title)
+        .toBe('Local changes were not restored');
+      expect(notifications.all.get(1)?.content).toBe(
+        'Before merge your uncommitted changes were saved to shelf.',
+      );
+    });
+
+    it('at conflicts, puts them back once they’re resolved and the merge committed', async () => {
+      git.result = 'conflicts';
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Accept Yours');
+      await expect.poll(() => last()?.content).toBe('Merged feature to main');
+      expect(host.params('git.restoreSaved')).toEqual([{ path: '/r', saved: { how: 'shelve' } }]);
+      expect(
+        host.asked.map((a) => a.method).filter((m) => /continue|restoreSaved/.test(m)),
+      ).toEqual(['git.continue', 'git.restoreSaved']);
+      git.restored = false;
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Accept Yours');
+      await expect
+        .poll(() => notifications.all.get(1)?.title)
+        .toBe('Local changes were not restored');
+    });
+
+    it('keeps them saved when the conflicts are left, and says so', async () => {
+      git.result = 'conflicts';
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Close');
+      await expect.poll(() => last()?.title).toBe('Local changes were not restored');
+      expect(notifications.all.get(1)?.title).toBe('feature Merged with Conflicts');
+      expect(host.params('git.restoreSaved')).toEqual([]);
+    });
   });
 
   it('says why it couldn’t', async () => {

@@ -232,13 +232,16 @@ function branchDialog(
   }).result;
 }
 
+/** How Settings' Save changes says local changes are saved, for Smart Checkout and Merge. */
+const savingAs = () => globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
+
 /**
  * The files git names in "Your local changes to the following files would be overwritten by
- * checkout", one per line after a tab (IntelliJ's `GitLocalChangesWouldBeOverwrittenDetector`), or
- * undefined if that isn't what it says.
+ * checkout" (or merge), one per line after a tab (IntelliJ's
+ * `GitLocalChangesWouldBeOverwrittenDetector`), or undefined if that isn't what it says.
  */
-function overwritten(message: string): string[] | undefined {
-  const at = message.indexOf('would be overwritten by checkout:');
+function overwritten(message: string, operation: 'checkout' | 'merge'): string[] | undefined {
+  const at = message.indexOf(`would be overwritten by ${operation}:`);
   if (at < 0) return undefined;
   const files: string[] = [];
   for (const line of message.slice(at).split('\n').slice(1)) {
@@ -249,22 +252,25 @@ function overwritten(message: string): string[] | undefined {
 }
 
 /**
- * IntelliJ's `GitSmartOperationDialog` for a checkout: the files in the way, and Smart Checkout
- * (saved as `save` says, and put back), Force Checkout, or Don't Checkout.
+ * IntelliJ's `GitSmartOperationDialog` for a checkout or merge: the files in the way, and Smart
+ * Checkout (saved as `save` says, and put back), Force Checkout (a checkout's only), or Don't
+ * Checkout.
  */
 function smartOperationDialog(
   files: readonly string[],
   save: 'shelve' | 'stash',
+  operation: 'checkout' | 'merge',
 ): Promise<'smart' | 'force' | undefined> {
   const [saved, restored] = save === 'shelve' ? ['shelve', 'unshelve'] : ['stash', 'unstash'];
+  const named = operation === 'checkout' ? 'Checkout' : 'Merge';
   return openDialog<'smart' | 'force'>({
-    title: 'Git Checkout Problem',
+    title: `Git ${named} Problem`,
     width: 520,
     content: () => [
       <p class="cerebro-selectable">
-        Your local changes to the following files would be overwritten by checkout.
+        Your local changes to the following files would be overwritten by {operation}.
         <br />
-        Cerebro can {saved} the changes, checkout and {restored} them after that.
+        Cerebro can {saved} the changes, {operation} and {restored} them after that.
       </p>,
       <ul class="playground-rollback__files">
         {files.map((file) => (
@@ -272,10 +278,20 @@ function smartOperationDialog(
         ))}
       </ul>,
     ],
-    ok: { label: 'Smart Checkout', accept: () => 'smart' },
-    choices: [{ label: 'Force Checkout', accept: () => 'force' }],
-    cancelLabel: "Don't Checkout",
+    ok: { label: `Smart ${named}`, accept: () => 'smart' },
+    // IntelliJ's merge has none (`GitMergeOperation` passes no force button).
+    choices: operation === 'checkout' ? [{ label: 'Force Checkout', accept: () => 'force' }] : [],
+    cancelLabel: `Don't ${named}`,
   }).result;
+}
+
+/** How a merge went. */
+type MergeResult = 'done' | 'upToDate' | 'conflicts';
+/** A Smart Merge's: its changes put back or not, or kept saved at conflicts. */
+interface SmartMerge {
+  result: MergeResult;
+  restored?: boolean;
+  saved?: unknown;
 }
 
 /**
@@ -462,10 +478,10 @@ export function setupBranches(
       await host.request(method, params);
       return true;
     } catch (error) {
-      const files = overwritten((error as Error).message);
+      const files = overwritten((error as Error).message, 'checkout');
       if (files === undefined) throw error;
-      const save = globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
-      const choice = await smartOperationDialog(files, save);
+      const save = savingAs();
+      const choice = await smartOperationDialog(files, save, 'checkout');
       if (choice === undefined) return false;
       if (choice === 'force') {
         await host.request(method, { ...params, force: true });
@@ -766,15 +782,37 @@ export function setupBranches(
       const into = current();
       return operate(`Could not merge ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
-        const result = await host.request('git.mergeBranch', { path: worktree, branch: b.name });
+        const params = { path: worktree, branch: b.name };
+        const save = savingAs();
+        // Smart Merge, as IntelliJ's `GitMergeOperation`, where local changes are in the way: they're
+        // saved, and put back after the merge, or once its conflicts are resolved.
+        const answer = (await host
+          .request('git.mergeBranch', params)
+          .catch(async (error: unknown) => {
+            const files = overwritten((error as Error).message, 'merge');
+            if (files === undefined) throw error;
+            if (!(await smartOperationDialog(files, save, 'merge'))) return undefined;
+            return host.request('git.mergeBranch', { ...params, save });
+          })) as MergeResult | SmartMerge | undefined;
+        if (answer === undefined) return;
+        const smart = typeof answer === 'object' ? answer : undefined;
+        const result = smart ? smart.result : (answer as MergeResult);
         if (result === 'conflicts') {
           // As IntelliJ's: the Conflicts dialog, and the merge committed once none is left.
           if (!(await resolveConflicts(worktree))) {
             notifications.notify({ title: `${b.name} Merged with Conflicts`, type: 'warning' });
+            if (smart?.saved) notRestored('merge', save);
             return;
           }
           await host.request('git.continue', { path: worktree });
-        }
+          if (smart?.saved) {
+            const back = await host.request('git.restoreSaved', {
+              path: worktree,
+              saved: smart.saved,
+            });
+            if (back !== true) notRestored('merge', save);
+          }
+        } else if (smart?.restored === false) notRestored('merge', save);
         notifications.notify({
           content: result === 'upToDate' ? 'Already up to date' : `Merged ${b.name} to ${into}`,
           // IntelliJ proposes deleting a local branch merged.

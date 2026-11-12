@@ -176,6 +176,8 @@ export {
 export {
   continueUpdate,
   preserving,
+  restore,
+  saveLocal,
   savedMessage,
   update,
   type HashRange,

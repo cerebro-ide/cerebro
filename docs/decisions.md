@@ -3320,7 +3320,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     change:** Force Checkout sits beside Smart Checkout (IntelliJ's is at the dialog's left), and
     the dialog's first button has the focus (IntelliJ's Don't Checkout has it); the files are a
     list, not IntelliJ's changes tree with Rollback.
-- **Not yet:** smart merge (git's error there for now); View Commits after a
+  - **Smart Merge** (added 2026-11-12), Merge into Current's, as IntelliJ's (`GitMergeOperation`,
+    read from its source): where git says local changes would be overwritten by the merge, "Git
+    Merge Problem", in the same words with "merge", and Smart Merge or Don't Merge (no Force, as
+    IntelliJ's). The changes are saved ("Uncommitted changes before Merge at …"), and put back
+    after the merge; at its conflicts, once they're resolved and the merge committed, as IntelliJ's
+    (`GitPreservingProcess.execute(myConflictedRepositories::isEmpty)`). **Claude's, open to
+    change:** left with conflicts, they stay saved and "Local changes were not restored" says so;
+    IntelliJ says that too, then tries to put them back over the unmerged files after its Conflicts
+    dialog closes.
+- **Not yet:** View Commits after a
   delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)

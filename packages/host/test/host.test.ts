@@ -1709,6 +1709,72 @@ describe('files', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.InternalError });
   });
 
+  it('merges with local changes in the way saved and put back (Smart Merge), with real git', async () => {
+    const { ui } = connect(vi.fn(runGit));
+    const repo = mkdtempSync(join(tmpdir(), 'cerebro-host-smart-merge-'));
+    const run = (...args: string[]) =>
+      execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+        cwd: repo,
+        encoding: 'utf8',
+      });
+    const read = () => readFileSync(join(repo, 'five.txt'), 'utf8');
+    run('init', '-q', '-b', 'main');
+    run('config', 'core.autocrlf', 'false');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\ne\n');
+    writeFileSync(join(repo, 'other.txt'), 'o\n');
+    run('add', '.');
+    run('commit', '-qm', 'first');
+    // feature changes five's last line, and other.txt as main does: a conflict there.
+    run('checkout', '-q', '-b', 'feature');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\nE\n');
+    run('commit', '-qam', 'feature');
+    run('checkout', '-q', '-b', 'clash');
+    writeFileSync(join(repo, 'other.txt'), 'feature\n');
+    run('commit', '-qam', 'clash');
+    run('checkout', '-q', 'main');
+    writeFileSync(join(repo, 'other.txt'), 'main\n');
+    run('commit', '-qam', 'main');
+    // Nothing to save: merged, nothing saved.
+    run('branch', 'side', 'HEAD~1');
+    expect(
+      await ui.request('git.mergeBranch', { path: repo, branch: 'side', save: 'stash' }),
+    ).toEqual({ result: 'upToDate', restored: true });
+    // In the way: git's error, then saved and put back.
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await expect(ui.request('git.mergeBranch', { path: repo, branch: 'feature' })).rejects.toThrow(
+      /would be overwritten by merge:\n\tfive\.txt/,
+    );
+    expect(
+      await ui.request('git.mergeBranch', { path: repo, branch: 'feature', save: 'stash' }),
+    ).toEqual({ result: 'done', restored: true });
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    // At conflicts: kept saved, given back, and put back once the merge is committed.
+    const smart = (await ui.request('git.mergeBranch', {
+      path: repo,
+      branch: 'clash',
+      save: 'stash',
+    })) as { result: string; saved: unknown };
+    expect(smart).toEqual({ result: 'conflicts', saved: { how: 'stash' } });
+    expect(read()).toBe('a\nb\nc\nd\nE\n');
+    writeFileSync(join(repo, 'other.txt'), 'both\n');
+    run('commit', '-qam', 'merged');
+    expect(await ui.request('git.restoreSaved', { path: repo, saved: smart.saved })).toBe(true);
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    // A merge that fails: put back, git's words; nothing saved, the same.
+    await expect(
+      ui.request('git.mergeBranch', { path: repo, branch: 'nowhere', save: 'stash' }),
+    ).rejects.toThrow(/nowhere/);
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    run('stash', '-q');
+    await expect(
+      ui.request('git.mergeBranch', { path: repo, branch: 'nowhere', save: 'stash' }),
+    ).rejects.toThrow(/nowhere/);
+    await expect(
+      ui.request('git.restoreSaved', { path: repo, saved: { how: 'shelve' } }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    rmSync(repo, { recursive: true, force: true });
+  });
+
   it('lists a folder', async () => {
     const { ui } = connect();
     const entries = (await ui.request('fs.list', { path: import.meta.dirname })) as {
