@@ -1153,6 +1153,8 @@ describe('Update', () => {
     const shown = (b: BranchRef) => update.visible?.(b);
     expect(on('feature')).toBe(true);
     expect(on('side')).toBe(false);
+    // Without a branch, as Find Action asks: off.
+    expect(commands.isEnabled('git.branch.update')).toBe(false);
     expect(shown({ name: 'origin/side', remote: true })).toBe(false);
     expect(shown({ name: 'v1', remote: false, tag: true })).toBe(false);
     // Another: fetched into, and the branches read again.

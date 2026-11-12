@@ -492,14 +492,15 @@ export function setupBranches(
   commands.register<BranchRef>({
     // IntelliJ's (`GitUpdateSelectedBranchAction`): a local branch, the current one too, as the
     // Log's branches pane's Update Selected; not without remotes; off while a fetch runs, or for a
-    // branch that tracks none.
+    // branch that tracks none, or without one (as Find Action asks).
     id: 'git.branch.update',
     label: 'Update',
     visible: (b) => {
       const at = target();
       return !b.remote && !b.tag && at !== undefined && stateOf(at.worktree).remotes !== false;
     },
-    enabled: (b) => !fetching.get() && branches.get().upstreams.has(b.name),
+    enabled: (b: BranchRef | undefined) =>
+      b !== undefined && !fetching.get() && branches.get().upstreams.has(b.name),
     run: (b) => {
       const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
       return updateBranch(isCurrent(b) ? undefined : b.name, () => after(host, worktree));
