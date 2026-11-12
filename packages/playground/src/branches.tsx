@@ -551,14 +551,41 @@ export function setupBranches(
       });
     });
   /**
+   * A tag deleted on the remotes, as IntelliJ's `GitDeleteRemoteTagOperation`: on each that has
+   * it, only where it's still at `hash`; saying where it was, or that none had it, and what failed.
+   */
+  const deleteRemoteTag = (name: string, hash: string, remotes: number) => {
+    const where = remotes === 1 ? 'Remote' : 'Remotes';
+    return operate(`Failed to delete tag ${name} on ${where}`, async (host, worktree) => {
+      const { deleted, failed } = (await host.request('git.deleteRemoteTag', {
+        path: worktree,
+        name,
+        hash,
+      })) as { deleted: string[]; failed: { remote: string; error: string }[] };
+      if (deleted.length > 0) notifications.notify({ title: `Deleted Tag on ${where}: ${name}` });
+      else if (failed.length === 0) {
+        notifications.notify({ title: `Tag Doesn't Exist on ${where}: ${name}` });
+      }
+      if (failed.length > 0) {
+        notifications.notify({
+          title: `Failed to delete tag ${name} on ${where}`,
+          content: failed.map((f) => `${f.remote}: ${f.error}`).join('\n'),
+          type: 'error',
+          display: 'sticky',
+        });
+      }
+    });
+  };
+  /**
    * A tag deleted, as IntelliJ's `GitDeleteTagOperation`: no question asked, and Restore offered,
-   * which says so once it's done.
+   * which says so once it's done; and Delete on Remote, when there are remotes.
    */
   const deleteTag = (name: string) =>
     operate(`Tag ${name} wasn't deleted`, async (host, worktree) => {
-      const { hash } = (await host.request('git.deleteTag', { path: worktree, name })) as {
-        hash: string;
-      };
+      const { hash, remotes } = (await host.request('git.deleteTag', {
+        path: worktree,
+        name,
+      })) as { hash: string; remotes: number };
       notifications.notify({
         title: `Deleted Tag: ${name}`,
         actions: [
@@ -574,6 +601,16 @@ export function setupBranches(
               });
             },
           },
+          ...(remotes > 0
+            ? [
+                {
+                  label: `Delete on ${remotes === 1 ? 'Remote' : 'Remotes'}`,
+                  run: () => {
+                    void deleteRemoteTag(name, hash, remotes);
+                  },
+                },
+              ]
+            : []),
         ],
       });
     });

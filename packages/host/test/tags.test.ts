@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   createTag,
+  deleteRemoteTag,
   deleteTag,
   git,
   listTags,
@@ -82,7 +83,7 @@ describe('tags, with real git', () => {
   it('deletes a tag, keeping what it pointed at, and restores it as it was, annotated or not', async () => {
     const object = run('rev-parse', 'refs/tags/v0');
     const deleted = await deleteTag(repo, 'v0', git);
-    expect(deleted).toEqual({ hash: object });
+    expect(deleted).toEqual({ hash: object, remotes: 0 });
     expect(await listTags(repo, git)).toEqual(['v1']);
     await restoreTag(repo, 'v0', deleted.hash, git);
     expect(run('cat-file', '-t', 'v0')).toBe('tag');
@@ -94,5 +95,64 @@ describe('tags, with real git', () => {
 
   it('says why a tag wasn’t deleted', async () => {
     await expect(deleteTag(repo, 'nowhere', git)).rejects.toThrow(/Needed a single revision/);
+  });
+});
+
+describe('a tag deleted on the remotes, with real git', () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-remote-tags-')));
+  const at = (...path: string[]) => join(root, ...path);
+  const run = (cwd: string, ...args: string[]) =>
+    execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf8' }).trim();
+  for (const bare of ['origin', 'other', 'moved']) run(root, 'init', '-q', '--bare', bare);
+  run(root, 'init', '-q', '-b', 'main', 'work');
+  const work = at('work');
+  run(
+    work,
+    '-c',
+    'user.name=t',
+    '-c',
+    'user.email=t@t',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'one',
+  );
+  run(
+    work,
+    '-c',
+    'user.name=t',
+    '-c',
+    'user.email=t@t',
+    'commit',
+    '-q',
+    '--allow-empty',
+    '-m',
+    'two',
+  );
+  for (const remote of ['origin', 'other', 'moved']) run(work, 'remote', 'add', remote, at(remote));
+  run(work, 'tag', 'v1', 'HEAD~1');
+  run(work, 'push', '-q', 'origin', 'v1');
+  // `moved` has v1 elsewhere: what's deleted here isn't what it has.
+  run(work, 'push', '-q', 'moved', 'HEAD:refs/tags/v1');
+
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('deletes it where the remote has it at what it pointed at here; says where it couldn’t', async () => {
+    const deleted = await deleteTag(work, 'v1', git);
+    expect(deleted.remotes).toBe(3);
+    expect(await deleteRemoteTag(work, 'v1', deleted.hash, git, git)).toEqual({
+      deleted: ['origin'],
+      failed: [{ remote: 'moved', error: expect.stringMatching(/stale info/) as string }],
+    });
+    expect(run(at('origin'), 'tag')).toBe('');
+    expect(run(at('moved'), 'tag')).toBe('v1');
+    // Again: on no remote, nothing to delete.
+    expect(await deleteRemoteTag(work, 'v1', deleted.hash, git, git)).toEqual({
+      deleted: [],
+      failed: [{ remote: 'moved', error: expect.stringMatching(/stale info/) as string }],
+    });
   });
 });

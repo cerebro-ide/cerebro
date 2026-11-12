@@ -33,6 +33,9 @@ const git = {
   tracked: undefined as string | undefined,
   /** Why a remote branch's deletion fails, if it does. */
   remoteFailing: undefined as Error | undefined,
+  tagRemotes: 0,
+  remoteTag: { deleted: [], failed: [] } as
+    { deleted: string[]; failed: { remote: string; error: string }[] } | Error,
   /** What a merge or rebase gives, or the error it fails with. */
   result: 'done' as unknown,
   conflicted: [] as string[],
@@ -84,7 +87,11 @@ const host = new FakeHost({
   'git.restoreBranch': () => null,
   'git.deleteTag': () => {
     if (git.result instanceof Error) throw git.result;
-    return { hash: 'def' };
+    return { hash: 'def', remotes: git.tagRemotes };
+  },
+  'git.deleteRemoteTag': () => {
+    if (git.remoteTag instanceof Error) throw git.remoteTag;
+    return git.remoteTag;
   },
   'git.restoreTag': () => {
     if (git.result instanceof Error) throw git.result;
@@ -140,6 +147,8 @@ beforeEach(() => {
   git.upstreams = {};
   git.tracked = undefined;
   git.remoteFailing = undefined;
+  git.tagRemotes = 0;
+  git.remoteTag = { deleted: [], failed: [] };
   git.remotes = true;
   git.updated = {};
 });
@@ -935,6 +944,45 @@ describe('the Log’s branches pane', () => {
     });
     deleted?.actions[0]?.run();
     await expect.poll(() => last()?.title).toBe('Could not Restore release/v1');
+  });
+
+  it('offers Delete on Remote when there are remotes, as IntelliJ’s', async () => {
+    await run('log.branches.delete', ref('refs/tags/v1'));
+    expect(last()?.actions.map((a) => a.label)).toEqual(['Restore']);
+    git.tagRemotes = 1;
+    git.remoteTag = { deleted: ['origin'], failed: [] };
+    await run('log.branches.delete', ref('refs/tags/v1'));
+    const one = last();
+    expect(one?.actions.map((a) => a.label)).toEqual(['Restore', 'Delete on Remote']);
+    one?.actions[1]?.run();
+    await expect.poll(() => last()?.title).toBe('Deleted Tag on Remote: v1');
+    expect(host.params('git.deleteRemoteTag')).toEqual([{ path: '/r', name: 'v1', hash: 'def' }]);
+    git.tagRemotes = 2;
+    git.remoteTag = { deleted: [], failed: [] };
+    await run('log.branches.delete', ref('refs/tags/v2'));
+    const two = last();
+    expect(two?.actions[1]?.label).toBe('Delete on Remotes');
+    two?.actions[1]?.run();
+    await expect.poll(() => last()?.title).toBe("Tag Doesn't Exist on Remotes: v2");
+    // Where it failed, in git's words, remote by remote; and a failure to ask at all.
+    git.remoteTag = {
+      deleted: ['origin'],
+      failed: [{ remote: 'moved', error: 'rejected (stale info)' }],
+    };
+    two?.actions[1]?.run();
+    await expect.poll(() => last()?.title).toBe('Failed to delete tag v2 on Remotes');
+    expect(last()).toMatchObject({ content: 'moved: rejected (stale info)', type: 'error' });
+    expect(notifications.all.get(1)?.title).toBe('Deleted Tag on Remotes: v2');
+    // Failed on every remote that has it: the failure alone.
+    git.remoteTag = { deleted: [], failed: [{ remote: 'moved', error: 'rejected' }] };
+    const before = notifications.all.length;
+    two?.actions[1]?.run();
+    await expect.poll(() => notifications.all.length).toBe(before + 1);
+    expect(last()).toMatchObject({ title: 'Failed to delete tag v2 on Remotes', type: 'error' });
+    git.remoteTag = new Error('fatal: no such remote');
+    one?.actions[1]?.run();
+    await expect.poll(() => last()?.content).toBe('fatal: no such remote');
+    expect(last()?.title).toBe('Failed to delete tag v1 on Remote');
   });
 });
 

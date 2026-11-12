@@ -231,12 +231,14 @@ export {
 } from './branches.js';
 export {
   createTag,
+  deleteRemoteTag,
   deleteTag,
   listTags,
   resolveRevision,
   restoreTag,
   validRevision,
   type NewTag,
+  type RemoteTagDeletion,
 } from './tags.js';
 export { applyCommit, continueApplying, type Applied, type Applying } from './apply-changes.js';
 export { protectedBranchHolding } from './protected-branches.js';

@@ -2028,9 +2028,16 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     read, the branches show without them. Delete Branch deletes a tag (added 2026-11-12), as
     IntelliJ's (`GitDeleteTagOperation`): unasked, "Deleted Tag: v1" with Restore, which makes it
     again at what it pointed at (an annotated tag's object, so it's as it was) and says "Rollback
-    Successful". **Claude's, open to change:** the tag's icon's drawing. **Not yet:** Delete on
-    Remote, which IntelliJ's notification offers when there are remotes; tags in the branches
-    popup, which IntelliJ shares.
+    Successful". With remotes, it also offers Delete on Remote (added 2026-11-12), as IntelliJ's
+    (`GitDeleteRemoteTagOperation`): on each remote that lists the tag (`ls-remote --tags`), a push
+    deleting it, leased to what it pointed at here (`--force-with-lease`), so a tag moved there
+    isn't deleted; then "Deleted Tag on Remote: v1", or "Tag Doesn't Exist on Remote: v1" when
+    none had it, and "Failed to delete tag v1 on Remote" with each remote's error. Measured with
+    real git: a remote whose tag was elsewhere refused the push ("stale info"). "Remote" or
+    "Remotes" follows the count of remotes: IntelliJ's own results pick it the other way round
+    (one repository with several remotes says "Remote"), which reads as a slip. **Claude's, open
+    to change:** the tag's icon's drawing; the plural. **Not yet:** tags in the branches popup,
+    which IntelliJ shares.
   - What a short pane has no room for goes behind a » at the toolbar's foot (added 2026-11-12), as
     IntelliJ's vertical toolbars: pointing at it shows the whole toolbar in a column over it, kept
     on the screen. It's the Log toolbar's row (`ToolbarRow`, decision "a toolbar that keeps to its
