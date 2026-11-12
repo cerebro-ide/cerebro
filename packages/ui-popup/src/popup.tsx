@@ -6,7 +6,7 @@
 // The caller gives the items for each query, so it decides how to search (fuzzyFilter for a list in
 // hand, the host for a repo's files). Items may be grouped, with a header over each group.
 
-import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
+import { type Child, focusedElement, onCleanup, render } from '@cerebro-ide/jsx';
 import { computed, makeObservable, signal, type Signal } from '@cerebro-ide/reactive';
 
 export interface PickerItem {
@@ -230,8 +230,8 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     this.state.index = this.initial(
       typeof options.initial === 'function' ? undefined : options.initial,
     );
-    // At least the body: a document always has a focused element.
-    this.restoreFocus = document.activeElement as HTMLElement;
+    // Inside an editor's shadow root too.
+    this.restoreFocus = focusedElement();
     this.element = document.createElement('div');
     this.element.className = 'cerebro-popup';
     this.element.setAttribute('role', 'dialog');
