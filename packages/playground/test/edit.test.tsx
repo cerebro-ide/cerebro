@@ -142,6 +142,43 @@ describe('Edit → Cut, Copy and Paste', () => {
   });
 });
 
+describe('Edit → Duplicate Line or Selection', () => {
+  const on = () => commands.isEnabled('edit.duplicate');
+
+  it('duplicates in the code editor that had the focus, and nowhere else', async () => {
+    const content = editor('one\ntwo');
+    await userEvent.click(content);
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    expect(on()).toBe(true);
+    commands.execute('edit.duplicate');
+    expect([...content.querySelectorAll('.cm-line')].map((line) => line.textContent)).toEqual([
+      'one',
+      'one',
+      'two',
+    ]);
+    // Not in a text field, or a read-only editor.
+    await userEvent.click(field());
+    expect(on()).toBe(false);
+    const container = add(document.createElement('div'));
+    const handle = render(() => <CodeEditor path="/b.ts" text="b" />, container);
+    cleanups.push(() => {
+      handle.dispose();
+    });
+    const shadow = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(shadow.querySelector('.cm-content') as HTMLElement);
+    expect(on()).toBe(false);
+  });
+
+  it('does nothing once the editor has gone', async () => {
+    const content = editor('one');
+    await userEvent.click(content);
+    for (const cleanup of cleanups.splice(0)) cleanup();
+    expect(on()).toBe(false);
+    commands.get('edit.duplicate')?.run(undefined);
+  });
+});
+
 describe('Edit → Undo and Redo', () => {
   it('say what they’d do in a code editor, and do it there', async () => {
     const content = editor('one');

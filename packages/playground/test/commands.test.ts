@@ -196,6 +196,8 @@ describe('the main menu', () => {
       'edit.cut',
       'edit.copy',
       'edit.paste',
+      '—',
+      'edit.duplicate',
     ]);
     expect(entries('main/view/tools')).toEqual(['view.tool.project', 'view.tool.notes']);
     expect(commands().get('view.tool.project')?.icon).toBe('folder');

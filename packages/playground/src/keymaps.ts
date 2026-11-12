@@ -76,6 +76,7 @@ export const INTELLIJ: KeymapPreset = {
     'edit.cut': ['Ctrl+X'],
     'edit.copy': ['Ctrl+C'],
     'edit.paste': ['Ctrl+V'],
+    'edit.duplicate': ['Ctrl+D'],
     // Quick Switch Scheme, IntelliJ's nearest.
     'view.darkTheme': ['Ctrl+`'],
     'view.tool.project': ['Alt+1'],
@@ -161,6 +162,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'edit.cut': ['Meta+X'],
     'edit.copy': ['Meta+C'],
     'edit.paste': ['Meta+V'],
+    'edit.duplicate': ['Meta+D'],
     'view.darkTheme': ['Ctrl+`'],
     'view.tool.project': ['Meta+1'],
     'view.tool.bookmarks': ['Meta+2'],
@@ -236,6 +238,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
   name: 'VS Code',
   parent: INTELLIJ,
   bindings: {
+    // Copy Line Down, VS Code's nearest.
+    'edit.duplicate': ['Alt+Shift+Down'],
     // Ctrl+T is its Go to Symbol in Workspace, and it has no Update Project (Cerebro's choice).
     'vcs.update': [],
     // The Command Palette: commands, as Find Action's tab.
@@ -293,6 +297,8 @@ export const VSCODE_MAC: KeymapPreset = {
   name: 'VS Code (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    // Copy Line Down, VS Code's nearest.
+    'edit.duplicate': ['Alt+Shift+Down'],
     'vcs.update': [],
     'action.find': ['Meta+Shift+P', 'F1'],
     'file.goTo': ['Meta+P'],
@@ -358,6 +364,7 @@ export const ECLIPSE: KeymapPreset = {
   name: 'Eclipse',
   parent: INTELLIJ,
   bindings: {
+    'edit.duplicate': [],
     'diff.nextDifference': ['Ctrl+F7'],
     // Left for Next and Right for Previous, as its file has them.
     'diff.nextFile': ['Ctrl+Alt+Shift+Left'],
@@ -404,6 +411,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
   name: 'Eclipse (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'edit.duplicate': [],
     'diff.nextDifference': ['Ctrl+F7'],
     'diff.nextFile': [],
     'diff.previousFile': [],
@@ -463,6 +471,7 @@ export const EMACS: KeymapPreset = {
     'edit.cut': ['Shift+Delete'],
     'edit.copy': ['Ctrl+Insert', 'Alt+C'],
     'edit.paste': ['Shift+Insert', 'Ctrl+Y'],
+    'edit.duplicate': ['Meta+D'],
     'changes.amend': [],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+Alt+G', 'Alt+.'],
     [EDITOR_ACTIONS.findUsages]: ['Alt+F7', 'Alt+Shift+S'],
@@ -536,6 +545,7 @@ export const NETBEANS: KeymapPreset = {
   name: 'NetBeans',
   parent: INTELLIJ,
   bindings: {
+    'edit.duplicate': ['Ctrl+D', 'Ctrl+Shift+Down', 'Ctrl+Shift+Up'],
     'diff.nextFile': ['Ctrl+Alt+PageDown'],
     'diff.previousFile': ['Ctrl+Alt+PageUp'],
     'symbol.goTo': ['Ctrl+Alt+Shift+O'],
@@ -583,6 +593,7 @@ export const SUBLIME: KeymapPreset = {
     'editor.close': ['Ctrl+F4', 'Ctrl+W'],
     'edit.redo': ['Ctrl+Shift+Z', 'Ctrl+Y'],
     'edit.paste': ['Ctrl+Shift+V'],
+    'edit.duplicate': ['Ctrl+Shift+D'],
     'changes.commit': [],
     'vcs.push': [],
     [EDITOR_ACTIONS.goToDefinition]: ['F12'],
@@ -617,6 +628,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     'navigate.fileStructure': ['Meta+R'],
     'edit.redo': ['Meta+Y', 'Meta+Shift+Z'],
     'edit.paste': ['Meta+Shift+V'],
+    'edit.duplicate': ['Meta+Shift+D'],
     'changes.jumpToSource': [],
     'problems.jumpToSource': [],
     'changes.commit': [],
