@@ -44,6 +44,10 @@ on it:
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
+- **The diff's synchronized scrolling test once found no line on the left after its opening
+  scroll** (CI, #223, 2026-11-12: `third(left)` stayed undefined for a second, with the right
+  already scrolled). Not measured why; the test now says what the left had drawn and what's at the
+  point when it finds none.
 - **Edit → Cut and Paste are on in a read-only code editor** (measured 2026-11-12, while adding
   Duplicate Line or Selection): its content is `contenteditable` (CodeMirror's `readOnly` isn't
   `editable`), which `edit.ts`'s `changeable` takes as somewhere to type. `inChangeableEditor`
