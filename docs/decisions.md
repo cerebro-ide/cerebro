@@ -1842,7 +1842,14 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     repository's 615 commits (measured in the app); a claim that it's quick enough for large ones.
     **Claims:** lines to an ancestor drawn as any other (IntelliJ may draw them otherwise; not
     compared), and the field's width (240px).
-  - **Not yet:** the field's history, matches highlighted in the list.
+  - **Its matches are marked in the subjects** (2026-11-12), as IntelliJ's Log does by default
+    (registry `vcs.log.filter.text.highlight.matches`, true; GraphCommitCellRenderer,
+    VcsLogTextFilterImpl.matchingRanges): each place the text is, in any case unless Match Case,
+    or each match of the expression with Regex; filled with Islands' `search-match-bg`, its text
+    black (dark) or `Gray._50` (light), as SimpleColoredComponent draws a match. **Claims:** the
+    expression is read as JavaScript's (git's is POSIX's: one JavaScript can't read marks nothing);
+    hashes typed are marked only where a subject has them as typed.
+  - **Not yet:** the field's history.
 - **The User and Date filters** (changed 2026-11-07), after Branch, as IntelliJ's
   (UserFilterPopupComponent, DateFilterPopupComponent, MultipleValueFilterPopupComponent,
   VcsLogUserResolverBase, VcsUserUtil, UserNameRegex, FilterComponent):

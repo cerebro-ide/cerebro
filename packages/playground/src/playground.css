@@ -1175,6 +1175,13 @@ body,
   text-overflow: ellipsis;
 }
 
+/* A text filter's match, as IntelliJ's UIUtil.drawSearchMatch: a rounded fill behind it. */
+.playground-log__match {
+  border-radius: 2px;
+  background: var(--cerebro-list-match);
+  color: var(--cerebro-list-match-text);
+}
+
 .playground-log__ref {
   display: flex;
   flex: none;

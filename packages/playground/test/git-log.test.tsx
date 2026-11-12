@@ -11,6 +11,7 @@ import {
   EMPTY_TREE,
   formatCommitDate,
   GitLogView,
+  matchRanges,
   PAGE,
   rangeOf,
   refsOf,
@@ -1079,6 +1080,24 @@ describe('Go to Parent and Child Commit', () => {
   });
 });
 
+describe('matchRanges', () => {
+  it('finds the text in any case unless Match Case, or the expression’s matches', () => {
+    const plain = { text: 'a.b', regex: false, matchCase: false };
+    expect(matchRanges('A.B axb a.b', plain)).toEqual([
+      [0, 3],
+      [8, 11],
+    ]);
+    expect(matchRanges('A.B a.b', { ...plain, matchCase: true })).toEqual([[4, 7]]);
+    expect(matchRanges('A.B axb', { ...plain, regex: true })).toEqual([
+      [0, 3],
+      [4, 7],
+    ]);
+    // Empty matches mark nothing; an expression JavaScript can't read, nothing.
+    expect(matchRanges('abc', { text: 'x*', regex: true, matchCase: false })).toEqual([]);
+    expect(matchRanges('a(b', { text: '(', regex: true, matchCase: false })).toEqual([]);
+  });
+});
+
 describe('the text filter', () => {
   const field = () => document.querySelector('.playground-log__search-field') as HTMLInputElement;
   const filters = () =>
@@ -1117,6 +1136,29 @@ describe('the text filter', () => {
     const asked = filters().length;
     await userEvent.click(option('Regex'));
     expect(filters()).toHaveLength(asked);
+  });
+
+  it('marks its matches in the commits’ subjects, as IntelliJ’s Log does', async () => {
+    git.log = history(3);
+    git.byText.fix = [
+      { ...(history(1, [], 'f')[0] as LogCommit), subject: 'Fix the FIX, a prefix' },
+    ];
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const marked = () =>
+      [...document.querySelectorAll('.playground-log__message .playground-log__match')].map(
+        (match) => match.textContent,
+      );
+    expect(marked()).toEqual([]);
+    await userEvent.click(field());
+    await userEvent.keyboard('fix{Enter}');
+    await expect.poll(marked).toEqual(['Fix', 'FIX', 'fix']);
+    expect(document.querySelector('.playground-log__message')?.textContent).toBe(
+      'Fix the FIX, a prefix',
+    );
+    // Match Case: only the text as typed.
+    await userEvent.click(option('Match Case'));
+    await expect.poll(marked).toEqual(['fix']);
   });
 
   it('applies as it loses the focus, if changed; its button clears it', async () => {
