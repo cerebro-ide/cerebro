@@ -48,6 +48,7 @@ import { LanguageServers } from './lsp.js';
 import { formatWithPrettier } from './prettier.js';
 import {
   continueUpdate,
+  preserving,
   update,
   type Resume,
   type SaveChanges,
@@ -874,10 +875,18 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.checkout', async (params) => {
     const worktree = text(params, 'path');
     const branch = text(params, 'branch');
-    const remote = (params as { remote?: unknown }).remote === true;
-    await recording(worktree, `Checkout ${branch}`, git, () =>
-      checkout(worktree, branch, remote, git),
-    );
+    const p = params as { remote?: unknown; force?: unknown; save?: unknown };
+    const remote = p.remote === true;
+    const run = () => checkout(worktree, branch, remote, git, p.force === true);
+    // Smart Checkout: local changes in the way saved, and put back after.
+    if (p.save === 'stash' || p.save === 'shelve') {
+      const how = p.save;
+      const restored = await recording(worktree, `Checkout ${branch}`, git, () =>
+        preserving(worktree, how, 'Checkout', new Date(), git, run),
+      );
+      return { restored };
+    }
+    await recording(worktree, `Checkout ${branch}`, git, run);
     return null;
   });
   // The branches popup's Checkout of a remote branch whose local branch exists.

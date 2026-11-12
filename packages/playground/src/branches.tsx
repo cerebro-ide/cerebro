@@ -15,7 +15,8 @@ import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@ce
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { isProtected, openPush, pushTag, pushing } from './push.js';
-import { updateProject } from './update.js';
+import { globalSettings } from './settings.js';
+import { notRestored, updateProject } from './update.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -232,6 +233,52 @@ function branchDialog(
 }
 
 /**
+ * The files git names in "Your local changes to the following files would be overwritten by
+ * checkout", one per line after a tab (IntelliJ's `GitLocalChangesWouldBeOverwrittenDetector`), or
+ * undefined if that isn't what it says.
+ */
+function overwritten(message: string): string[] | undefined {
+  const at = message.indexOf('would be overwritten by checkout:');
+  if (at < 0) return undefined;
+  const files: string[] = [];
+  for (const line of message.slice(at).split('\n').slice(1)) {
+    if (!line.startsWith('\t')) break;
+    files.push(line.slice(1));
+  }
+  return files;
+}
+
+/**
+ * IntelliJ's `GitSmartOperationDialog` for a checkout: the files in the way, and Smart Checkout
+ * (saved as `save` says, and put back), Force Checkout, or Don't Checkout.
+ */
+function smartOperationDialog(
+  files: readonly string[],
+  save: 'shelve' | 'stash',
+): Promise<'smart' | 'force' | undefined> {
+  const [saved, restored] = save === 'shelve' ? ['shelve', 'unshelve'] : ['stash', 'unstash'];
+  return openDialog<'smart' | 'force'>({
+    title: 'Git Checkout Problem',
+    width: 520,
+    content: () => [
+      <p class="cerebro-selectable">
+        Your local changes to the following files would be overwritten by checkout.
+        <br />
+        Cerebro can {saved} the changes, checkout and {restored} them after that.
+      </p>,
+      <ul class="playground-rollback__files">
+        {files.map((file) => (
+          <li>{file}</li>
+        ))}
+      </ul>,
+    ],
+    ok: { label: 'Smart Checkout', accept: () => 'smart' },
+    choices: [{ label: 'Force Checkout', accept: () => 'force' }],
+    cancelLabel: "Don't Checkout",
+  }).result;
+}
+
+/**
  * IntelliJ's Checkout Tag or Revision… dialog (`GitRefDialog`): "Checkout", a reference typed, the
  * branches and tags that hold what's typed suggested. Its text, trimmed, or undefined if cancelled.
  */
@@ -389,15 +436,40 @@ export function setupBranches(
         // A tag's commit, HEAD detached at it, as IntelliJ's (`GitCheckoutAction`).
         if (b.tag)
           await host.request('git.checkoutRevision', { path: worktree, reference: b.name });
-        else {
-          await host.request('git.checkout', { path: worktree, branch: b.name, remote: b.remote });
-        }
+        else if (!(await checkoutSmartly(host, worktree, b))) return;
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
         });
       });
     },
   });
+  /**
+   * Checks a branch out, as IntelliJ's `GitCheckoutOperation`: where local changes are in the way,
+   * asks whether to save them and put them back after (Smart Checkout), overwrite them (Force
+   * Checkout), or not check out. Whether it was checked out.
+   */
+  const checkoutSmartly = async (host: Host, worktree: string, b: BranchRef) => {
+    const params = { path: worktree, branch: b.name, remote: b.remote };
+    try {
+      await host.request('git.checkout', params);
+      return true;
+    } catch (error) {
+      const files = overwritten((error as Error).message);
+      if (files === undefined) throw error;
+      const save = globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
+      const choice = await smartOperationDialog(files, save);
+      if (choice === undefined) return false;
+      if (choice === 'force') {
+        await host.request('git.checkout', { ...params, force: true });
+        return true;
+      }
+      const { restored } = (await host.request('git.checkout', { ...params, save })) as {
+        restored: boolean;
+      };
+      if (!restored) notRestored('checkout', save);
+      return true;
+    }
+  };
   /**
    * A remote branch checked out where its local branch exists, as IntelliJ's
    * (`GitRemoteBranchCheckoutUtil`, `GitBranchCheckoutOperation`): one that tracks another branch

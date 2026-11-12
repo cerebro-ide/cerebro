@@ -53,8 +53,38 @@ export interface Resume {
 }
 
 /** The message local changes are saved under, as IntelliJ's (`stash.changes.message.with.date`). */
-export function savedMessage(at: Date): string {
-  return `Uncommitted changes before Update at ${at.toLocaleString()}`;
+export function savedMessage(at: Date, operation = 'Update'): string {
+  return `Uncommitted changes before ${operation} at ${at.toLocaleString()}`;
+}
+
+/**
+ * Runs `operation` with the local changes saved first and put back after, as IntelliJ's
+ * `GitPreservingProcess` (Smart Checkout's), saved under "Uncommitted changes before Checkout at
+ * …", `name` being the operation's. Put back too when it fails, which is then thrown. Whether they
+ * went back.
+ */
+export async function preserving(
+  worktree: string,
+  how: SaveChanges,
+  name: string,
+  now: Date,
+  run: Git,
+  operation: () => Promise<void>,
+): Promise<boolean> {
+  const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
+  // Nothing saved, nothing to put back: an empty stash would put back the one before.
+  if (changes.length === 0) {
+    await operation();
+    return true;
+  }
+  const saved = await save(worktree, changes, how, savedMessage(now, name), run);
+  try {
+    await operation();
+  } catch (error) {
+    await restore(worktree, saved, run);
+    throw error;
+  }
+  return restore(worktree, saved, run);
 }
 
 /** What stops an update before it starts, as IntelliJ's `isUpdateNotReady`. */

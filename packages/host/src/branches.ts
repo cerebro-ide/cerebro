@@ -8,14 +8,22 @@
 import { operation } from './conflicts.js';
 import type { Git } from './git.js';
 
-/** Checks out a local branch; a remote one (`origin/x`) as a new local branch tracking it. */
+/**
+ * Checks out a local branch; a remote one (`origin/x`) as a new local branch tracking it. With
+ * `force`, local changes in the way are overwritten (IntelliJ's Force Checkout).
+ */
 export async function checkout(
   worktree: string,
   branch: string,
   remote: boolean,
   run: Git,
+  force = false,
 ): Promise<void> {
-  await run(worktree, remote ? ['checkout', '--track', branch] : ['checkout', branch, '--']);
+  const forced = force ? ['-f'] : [];
+  await run(
+    worktree,
+    remote ? ['checkout', ...forced, '--track', branch] : ['checkout', ...forced, branch, '--'],
+  );
 }
 
 /**

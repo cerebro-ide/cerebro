@@ -19,6 +19,7 @@ import {
   deleteRemoteBranch,
   git,
   getFrom,
+  preserving,
   hasCommitsNotIn,
   mergeBranch,
   rebase,
@@ -83,6 +84,60 @@ describe('branch operations, with real git', () => {
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(false);
     run(clone, 'branch', '-f', 'side', 'origin/main');
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(true);
+  });
+
+  it('checks out with local changes in the way saved and put back (Smart Checkout), or overwritten (Force)', async () => {
+    const repo = repository();
+    // side changes the last line of five; here the first is changed.
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\ne\n');
+    run(repo, 'add', '.');
+    run(repo, 'commit', '-qm', 'five');
+    run(repo, 'checkout', '-q', '-b', 'later');
+    commit(repo, 'later', 'five.txt', 'a\nb\nc\nd\nE\n');
+    run(repo, 'checkout', '-q', 'main');
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await expect(checkout(repo, 'later', false, git)).rejects.toThrow(
+      /Your local changes to the following files would be overwritten by checkout:\n\tfive\.txt/,
+    );
+    const smart = () =>
+      preserving(repo, 'stash', 'Checkout', new Date(2026, 10, 12, 9, 30), git, () =>
+        checkout(repo, 'later', false, git),
+      );
+    expect(await smart()).toBe(true);
+    expect(current(repo)).toBe('later');
+    expect(read(repo, 'five.txt')).toBe('A\nb\nc\nd\nE\n');
+    expect(run(repo, 'stash', 'list')).toBe('');
+    // Changes the checkout's own collide with: kept saved, as IntelliJ's says.
+    run(repo, 'checkout', '-q', '-f', 'main');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\nX\n');
+    expect(await smart()).toBe(false);
+    expect(current(repo)).toBe('later');
+    expect(run(repo, 'stash', 'list')).toMatch(/Uncommitted changes before Checkout at /);
+    // Force: overwritten.
+    run(repo, 'checkout', '-q', '-f', 'main');
+    run(repo, 'stash', 'drop', '-q');
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await checkout(repo, 'later', false, git, true);
+    expect(current(repo)).toBe('later');
+    expect(read(repo, 'five.txt')).toBe('a\nb\nc\nd\nE\n');
+  });
+
+  it('saves nothing with nothing to save, and puts the changes back when the operation fails', async () => {
+    const repo = repository();
+    expect(
+      await preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'side', false, git),
+      ),
+    ).toBe(true);
+    expect(run(repo, 'stash', 'list')).toBe('');
+    writeFileSync(join(repo, 'shared.txt'), 'mine\n');
+    await expect(
+      preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'nowhere', false, git),
+      ),
+    ).rejects.toThrow(/nowhere/);
+    expect(read(repo, 'shared.txt')).toBe('mine\n');
+    expect(run(repo, 'stash', 'list')).toBe('');
   });
 
   it('gets files as a branch has them: checked out, or removed where it has none, staged', async () => {

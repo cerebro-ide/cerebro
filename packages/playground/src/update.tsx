@@ -95,26 +95,32 @@ const DURING = {
   rebase: 'Merge conflicts detected. Resolve them before continuing rebase.',
 } as const;
 
+/**
+ * IntelliJ's, when what was saved before an operation (`update`, `checkout`) stays saved
+ * (`GitPreservingProcess`): View saved changes… shows the shelf, or the stashes.
+ */
+export function notRestored(operation: string, saveChanges: 'shelve' | 'stash'): void {
+  notifications.notify({
+    title: 'Local changes were not restored',
+    content: `Before ${operation} your uncommitted changes were saved to ${saveChanges === 'shelve' ? 'shelf' : 'stash'}.`,
+    type: 'warning',
+    display: 'sticky',
+    actions: [
+      {
+        label: 'View saved changes…',
+        run: () => {
+          commands.execute(saveChanges === 'shelve' ? 'vcs.showShelf' : 'vcs.showStash');
+        },
+      },
+    ],
+  });
+}
+
 /** Says how an update went, as IntelliJ's notifications. */
-function report(
-  worktree: string,
-  updated: Updated,
-  saveChanges: 'shelve' | 'stash',
-  viewSaved: () => void,
-): void {
+function report(worktree: string, updated: Updated, saveChanges: 'shelve' | 'stash'): void {
   const notify = notifications.notify.bind(notifications);
   const failed = (title: string, content: string) => {
     notify({ title, content, type: 'error', display: 'sticky', group: 'update' });
-  };
-  /** IntelliJ's, when what was saved stays saved. */
-  const notRestored = () => {
-    notify({
-      title: 'Local changes were not restored',
-      content: `Before update your uncommitted changes were saved to ${saveChanges === 'shelve' ? 'shelf' : 'stash'}.`,
-      type: 'warning',
-      display: 'sticky',
-      actions: [{ label: 'View saved changes…', run: viewSaved }],
-    });
   };
   switch (updated.kind) {
     case 'unfinished':
@@ -145,7 +151,7 @@ function report(
           },
         ],
       });
-      if (!updated.restored) notRestored();
+      if (!updated.restored) notRestored('update', saveChanges);
       return;
     case 'conflicts': {
       // IntelliJ's `notifyUnresolvedRemain`, its Resolve… showing the dialog again.
@@ -173,7 +179,7 @@ function report(
           },
         ],
       });
-      if (updated.saved) notRestored();
+      if (updated.saved) notRestored('update', saveChanges);
     }
   }
 }
@@ -217,9 +223,7 @@ export async function updateProject(
         resume: updated.resume,
       })) as Updated;
     }
-    report(worktree, updated, saveChanges, () => {
-      commands.execute(saveChanges === 'shelve' ? 'vcs.showShelf' : 'vcs.showStash');
-    });
+    report(worktree, updated, saveChanges);
   } catch (error) {
     // Git's words: the fetch failed, or the merge or rebase couldn't start.
     notifications.notify({

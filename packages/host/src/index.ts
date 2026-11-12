@@ -175,6 +175,7 @@ export {
 } from './history.js';
 export {
   continueUpdate,
+  preserving,
   savedMessage,
   update,
   type HashRange,

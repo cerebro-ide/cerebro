@@ -11,6 +11,7 @@ import { useProjects, workspace } from '../src/environments.js';
 import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
 import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
+import { globalSettings } from '../src/settings.js';
 import { readState } from '../src/repository-state.js';
 import {
   answer,
@@ -54,6 +55,10 @@ const git = {
   tagPushed: true as boolean | Error,
   /** Whether a local branch has commits its remote branch hasn't. */
   ownCommits: false,
+  /** What a checkout fails with, unless forced or saving local changes. */
+  inTheWay: undefined as Error | undefined,
+  /** Whether Smart Checkout put the local changes back. */
+  restored: true,
   /** Held until it resolves: a tag's push. */
   tagPushHeld: undefined as Promise<void> | undefined,
   /** What updating a branch gives, or the error it fails with. */
@@ -77,7 +82,11 @@ const host = new FakeHost({
       ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
     ];
   },
-  'git.checkout': fail('checkout'),
+  'git.checkout': (p: { force?: boolean; save?: string }) => {
+    if (git.inTheWay && !p.force && !p.save) throw git.inTheWay;
+    fail('checkout')();
+    return p.save ? { restored: git.restored } : null;
+  },
   'git.checkoutRevision': fail('checkout'),
   'git.tags': () => {
     if (git.tags instanceof Error) throw git.tags;
@@ -184,6 +193,8 @@ beforeEach(() => {
   git.local = ['feature', 'main', 'side'];
   git.remote = ['origin/main', 'origin/side'];
   git.ownCommits = false;
+  git.inTheWay = undefined;
+  git.restored = true;
   git.tagPushed = true;
   git.updated = {};
 });
@@ -571,6 +582,77 @@ describe('Checkout', () => {
         { path: '/r', name: 'side-2', checkout: true, overwrite: false, from: 'origin/side' },
       ]);
     expect(host.params('git.hasCommitsNotIn')).toEqual([]);
+  });
+
+  describe('with local changes in the way, as IntelliJ’s', () => {
+    beforeEach(() => {
+      git.inTheWay = new Error(
+        'error: Your local changes to the following files would be overwritten by checkout:\n\ta.ts\n\tsrc/b.ts\nPlease commit your changes or stash them before you switch branches.\nAborting',
+      );
+    });
+
+    it('asks, listing the files, and checks out nothing at Don’t Checkout', async () => {
+      const told = notifications.all.length;
+      await choose('feature', 'Checkout');
+      const box = await dialog();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Git Checkout Problem');
+      expect(box.querySelector('p')?.textContent).toBe(
+        'Your local changes to the following files would be overwritten by checkout.Cerebro can shelve the changes, checkout and unshelve them after that.',
+      );
+      expect([...box.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+        'a.ts',
+        'src/b.ts',
+      ]);
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.branches').length).toBeGreaterThan(0);
+      expect(host.params('git.checkout')).toHaveLength(1);
+      // Nothing said, as IntelliJ's with one repository.
+      expect(notifications.all.length).toBe(told);
+    });
+
+    it('saves them and puts them back at Smart Checkout, saying when they couldn’t go back', async () => {
+      globalSettings.layers.global.set('git.saveChanges', 'stash');
+      try {
+        await choose('feature', 'Checkout');
+        expect((await dialog()).querySelector('p')?.textContent).toContain(
+          'Cerebro can stash the changes, checkout and unstash them after that.',
+        );
+        await press('Smart Checkout');
+        await expect.poll(() => last()?.content).toBe('Checked out feature');
+        expect(host.params('git.checkout').at(-1)).toEqual({
+          path: '/r',
+          branch: 'feature',
+          remote: false,
+          save: 'stash',
+        });
+        git.restored = false;
+        await choose('feature', 'Checkout');
+        await dialog();
+        await press('Smart Checkout');
+        await expect.poll(() => last()?.content).toBe('Checked out feature');
+        // Said before it, as checked out.
+        expect(notifications.all.get(1)).toMatchObject({
+          title: 'Local changes were not restored',
+          content: 'Before checkout your uncommitted changes were saved to stash.',
+          type: 'warning',
+        });
+      } finally {
+        globalSettings.layers.global.reset('git.saveChanges');
+      }
+    });
+
+    it('overwrites them at Force Checkout', async () => {
+      await choose('feature', 'Checkout');
+      await dialog();
+      await press('Force Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out feature');
+      expect(host.params('git.checkout').at(-1)).toEqual({
+        path: '/r',
+        branch: 'feature',
+        remote: false,
+        force: true,
+      });
+    });
   });
 
   it('says why it couldn’t, in git’s words', async () => {

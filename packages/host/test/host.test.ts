@@ -1282,6 +1282,17 @@ describe('ignored files and rolling back', () => {
       '--count',
       'refs/remotes/origin/x..refs/heads/x',
     ]);
+    // Force Checkout, and Smart Checkout, which says whether the changes went back (none here).
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'side', force: true })).toBe(
+      null,
+    );
+    expect(asked()).toContain('checkout -f side --');
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'side', save: 'stash' })).toEqual(
+      { restored: true },
+    );
+    expect(
+      await ui.request('git.checkout', { path: '/w', branch: 'side', save: 'shelve' }),
+    ).toEqual({ restored: true });
     // Show Diff with Working Tree's Get from Branch.
     expect(
       await ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: ['a'], remove: ['b'] }),
