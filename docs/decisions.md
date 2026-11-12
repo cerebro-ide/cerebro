@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git)
 - [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
@@ -2329,6 +2330,24 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Git → Current File → Show Diff (2026-11-12)
+
+The Current File submenu's next item after Annotate, toward IntelliJ's `Git.FileActions` (Commit
+File…, Add | Annotate, Compare with the Same Repository Version, Compare with Revision…, Compare
+with Branch…, Show History, Show History for Selection).
+
+- **Show Diff**, after Annotate: IntelliJ's `Compare.SameVersion`, which GitVcs names "Show Diff"
+  (`getCompareWithTheSameVersionActionName`). The active editor's file against its last commit, in
+  the diff Cerebro shows a local change in.
+- **Off for a file git hasn't committed,** as IntelliJ's (`fileInVcsByFileStatus`: not unknown,
+  added or ignored): untracked or added, as the Commit window's lists know it. **Claims:** before
+  the Commit window has read the changes, and for an ignored file, it's on (those lists don't say).
+- **Not yet:** its shortcut. IntelliJ's is Ctrl+D (Cmd+D on macOS), which in the editor duplicates
+  the line instead, so it works from the Project view on a selected file; Cerebro's Project view
+  doesn't give its file to the Git menu yet.
+  Scrolling the diff to the editor's caret line (IntelliJ's `SCROLL_TO_LINE`); the other items of
+  the submenu.
 
 ## Documents saved before git actions (2026-11-12)
 

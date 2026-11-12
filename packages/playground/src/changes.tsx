@@ -794,6 +794,32 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
+  /** The active editor's file, from its worktree's top, if it's in the active worktree's repository. */
+  const editorFile = () => {
+    const env = active();
+    const tab = setup.activeTab();
+    if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
+    return tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
+  };
+  // Git → Current File's Show Diff: IntelliJ's Compare with the Same Repository Version, which it
+  // names so for git (GitVcs). The file against its last commit; not for one git hasn't committed
+  // (untracked or added), as the Commit window's lists know it.
+  commands.register({
+    id: 'git.file.showDiff',
+    label: 'Show Diff',
+    icon: 'diff',
+    visible: () => editorFile() !== undefined,
+    enabled: () => {
+      const path = editorFile();
+      const changes = current();
+      const listed = changes && [...changes.tracked(), ...changes.unversioned()];
+      const status = listed?.find((change) => change.path === path)?.status;
+      return path !== undefined && status !== 'untracked' && status !== 'added';
+    },
+    run: () => {
+      setup.open(diffTab(editorFile() as string));
+    },
+  });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
   const fromDiff = () => {
     const tab = setup.activeTab();
@@ -905,6 +931,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'changes/view', item: { command: 'changes.showIgnored' }, group: 'b' });
 
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.showDiff' }, group: 'a' });
+  // After Annotate, as IntelliJ's Git.FileActions.
+  menus.contribute({ menu: 'main/git/file', item: { command: 'git.file.showDiff' }, order: 1 });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.refresh' }, group: 'c' });
