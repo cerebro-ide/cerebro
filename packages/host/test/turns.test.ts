@@ -8,7 +8,7 @@ import {
   listChangesBetween,
   listTurns,
   snapshot,
-  textAt,
+  bytesAt,
   TurnRecorder,
   TURNS,
 } from '../src/index.js';
@@ -73,8 +73,8 @@ describe('snapshots', () => {
     const repo = repository('empty', true);
     writeFileSync(join(repo, 'a.txt'), 'a');
     const commit = await snapshot(repo, undefined, 'message', git);
-    expect(await textAt(repo, commit, 'a.txt')).toBe('a');
-    expect(await textAt(repo, commit, 'missing.txt')).toBe('');
+    expect(new TextDecoder().decode(await bytesAt(repo, commit, 'a.txt'))).toBe('a');
+    expect(await bytesAt(repo, commit, 'missing.txt')).toBeUndefined();
   });
 });
 

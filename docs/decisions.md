@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
@@ -78,7 +79,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
-- [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
+- [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`; a file edited listed at once, saved as it's committed (changed 2026-11-11)
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
 - [Copy Path/Reference on a tab (2026-11-03)](#copy-pathreference-on-a-tab-2026-11-03): absolute path, file name, path from the content root, as IntelliJ's submenu
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
@@ -1407,6 +1408,16 @@ committing from the Commit tool window, as IntelliJ's non-modal commit does.
   on macOS); Eclipse, NetBeans and Sublime Text have none, nor has Emacs an Amend.
 - **How it went is a notification (changed 2026-11-08),** as IntelliJ's: see "Notifications".
 - **Commit and Push (changed 2026-11-08):** see "Pushing".
+- **A file edited shows at once (changed 2026-11-11),** at Ido's request ("when editing a file the
+  *first* save should happen ASAP or refresh it's colour as an edited file and refresh the commit
+  panel"). Its first edit reads the lists again, and a tracked file edited and not saved yet is
+  listed as Modified, before the save that's up to 15 seconds away (saving when idle). That IntelliJ
+  lists a file as it's edited, not once it's saved, is a claim, from memory. Saving at the first edit
+  instead was rejected (Claude's choice, open to change): a save runs Actions on Save (Prettier's Run
+  on save), which would reformat the file after its first key. Whether git tracks the files edited is
+  the host's `git.tracked` (`git ls-files`); an untracked file is already listed, and an ignored one
+  isn't asked about again until it's saved. **Commit saves the files it commits first,** so what's
+  committed is what the editor shows (a claim that IntelliJ does the same).
 - **Not yet:** partial commits (lines or chunks), changelists, and keeping the message between
   runs.
 
@@ -1903,8 +1914,32 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
-  Revert Commit (decision "Cherry-Pick") and New Tag… (decision "Git → New Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
-  keymaps give these none (searched).
+  Revert Commit (decision "Cherry-Pick"), New Branch… (below) and New Tag… (decision "Git → New
+  Tag…"), then, after Git's, Go to Child Commit and Go to Parent Commit (below). The commit is
+  selected first, as a tree row is. No keys: IntelliJ's keymaps give these none (searched), New
+  Branch… and the last two aside.
+- **New Branch… from a commit** (added 2026-11-11), in the commit menu before New Tag…, as
+  IntelliJ's `GitCreateNewBranchFromCommitAction`: the Create New Branch dialog, titled "Create
+  Branch from" and the commit's first 8 characters, its name the one branch at the commit if there's
+  one (a remote one's without its remote), as IntelliJ suggests it; the Log read again after. The
+  branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
+  against them once they're in: measured, a branch made since the popup last read them wasn't
+  caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
+  Branch… went nowhere while they were read. **Not yet:** its shortcut,
+  New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
+  first enabled command bound, so Git → New Branch… would take it.
+- **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
+  `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
+  the commits have the keyboard. The selection moves to the commit's parent or child, loading pages
+  until a parent is there, and the commits keep the keyboard. Of several (a merge's parents, a
+  commit's children) IntelliJ's numbered popup, "Select Parent to Navigate" or "Select Child to
+  Navigate", at the selected row, each commit as IntelliJ names it (`8f3a2c1d "subject" by author
+  on date at time`, the subject cut to 40 characters with "..."). Off with none to go to. The popup
+  is a menu, as Select In's, where IntelliJ's is an action list that also filters as one types:
+  Claude's choice, open to change. **Not yet:** under a filter, a parent it hides is looked for
+  through every page and not gone to, where IntelliJ goes to the row its graph joins (the Log's
+  commits keep git's parents, unrewritten). The author lacks IntelliJ's asterisk for a commit
+  someone else committed (`getAuthorPresentation`), as the Log reads no committers.
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
   before: a tag made from the Log didn't show after its refresh, nor after Refresh.
@@ -2266,6 +2301,43 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Diffs of images and other binary files (2026-11-11)
+
+Ido: "trying to open an image diff currently is loading forever. we should have a diff for images,
+similar to what intellij does, or github is also a good inspiration - ideally it'll support side by
+side, swipe, onion, and even a pixel diff mode which shows which pixels have changed".
+
+- **Why it loaded forever (measured):** between two commits (the Log's diffs), the host read both
+  sides with `git show` as text, binary or not, and the diff compared them as text. Comparing an
+  11 kB PNG with a 50 kB one took 19.7 s in `compare` alone; in the app, a diff window opened from
+  the Log on a 1200x800 PNG still said "Loading…" after 52 s. From the Commit window, the file on
+  disk was refused as binary, and the diff said so.
+- **The host reads a diff's sides as bytes** (`gitBytes`, `bytesAt`). If either side is binary (a
+  NUL in its first 8000 bytes, as git's `buffer_is_binary` decides, and as the editor already
+  refused binary files), `git.diff` gives `{ binary: true, original, text }`, each side in base64,
+  or null when the file isn't on that side. Otherwise it gives the texts as before. In the app, the
+  same Log diff showed in 4 s.
+- **Side by Side is IntelliJ's** (`TwosideBinaryDiffViewer`: each side in the file's own editor,
+  here the image viewer, with its zoom, chessboard and image line), and is shown first. Each side
+  has its name above it: the commits, shortened, or HEAD and "Your version" (that IntelliJ names a
+  file as it is so is a claim, from memory). Under them is IntelliJ's status line, "Files contents
+  are identical" or "Files contents are different" (`DiffBundle.properties`).
+- **Swipe, Onion Skin and Difference are Ido's, from GitHub** (Swipe and Onion Skin by GitHub's
+  names for them, a claim from memory). The two images are drawn one over the other from their top
+  left, in the larger one's frame, on the chessboard, fitted to the area together as the image
+  viewer fits one.
+  - Swipe shows the later image right of a line that a slider moves.
+  - Onion Skin fades the later image in over the earlier one, by a slider.
+  - Difference marks every pixel whose RGBA differs (or that's in one frame alone) in
+    `--cerebro-image-diff-changed`, over the later image in grey, faded three quarters of the way
+    to `--cerebro-image-diff-unchanged`, and counts them ("3 of 6 pixels changed").
+  - An image added or deleted is shown beside "No image", and only side by side.
+
+  Claude's choices, open to change: the modes as buttons above the image, the Difference
+  colours (not measured from anything: IntelliJ has no such mode), and the "Compare by" name.
+- **Another binary file** shows IntelliJ's status line alone, without its contents.
+- **Not yet:** zooming the stacked modes by hand, and keeping the mode chosen between diffs.
+
 ## Cherry-Pick (2026-11-11)
 
 The Log's Cherry-Pick, next of its toolbar's "Not yet" (decision "The Git Log"). From IntelliJ's
@@ -2600,6 +2672,10 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     window (Claude's choice, open to change; that IntelliJ opens a new one each time is a claim).
   - With the focus back, it reads the diff again, and shows it again only if it changed, so the
     caret stays where it was. A tab was read again as it showed.
+  - Escape closes it (added 2026-11-12, Ido: "a sub window such as the diff window, pressing esc
+    on the keyboard should close it"), as IntelliJ's diff window, a dialog, closes; not when
+    something in it takes the key first (a popup, a shortcut, the editor). Dialogs already closed on
+    Escape, from their editors too (measured: the merge window, its Result focused).
   - 1100 by 750 the first time (a claim: not measured from IntelliJ); after, as its project's was
     left (decision "Windows keep their size and place").
   - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to

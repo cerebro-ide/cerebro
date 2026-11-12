@@ -15,7 +15,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   addWorktree,
   commit,
-  committedText,
+  bytesAt,
   git,
   type Git,
   listChanges,
@@ -36,7 +36,14 @@ import {
   parseWorktrees,
   removeWorktree,
   rollback,
+  trackedFiles,
 } from '../src/index.js';
+
+/** A file's text in the last commit; empty if it isn't in it. */
+async function committedText(worktree: string, path: string): Promise<string> {
+  const bytes = await bytesAt(worktree, 'HEAD', path);
+  return bytes === undefined ? '' : new TextDecoder().decode(bytes);
+}
 
 describe('parseLog', () => {
   it('reads a commit per record: its parents, refs, subject (which may hold commas) and body', () => {
@@ -500,6 +507,30 @@ describe('with real git', () => {
     const index = readFileSync(join(quiet, '.git', 'index'));
     expect(await listChanges(quiet)).toEqual([]);
     expect(readFileSync(join(quiet, '.git', 'index')).equals(index)).toBe(true);
+  });
+
+  it('gives a file’s bytes at a commit as they are, binary too; nothing for one not there', async () => {
+    const binary = join(root, 'binary');
+    execFileSync('git', ['init', '-q', '-b', 'main', binary]);
+    // Not text: NULs, and bytes UTF-8 would replace.
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0, 0xff, 0xfe, 0x0a, 0x80]);
+    writeFileSync(join(binary, 'p.png'), png);
+    run(binary, 'add', '.');
+    run(binary, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+    expect([...((await bytesAt(binary, 'HEAD', 'p.png')) ?? [])]).toEqual([...png]);
+    expect(await bytesAt(binary, 'HEAD', 'gone.png')).toBeUndefined();
+  });
+
+  it('says which of the files given git tracks, so an edit not saved yet can show as changed', async () => {
+    const files = join(root, 'tracked');
+    execFileSync('git', ['init', '-q', '-b', 'main', files]);
+    mkdirSync(join(files, 'src'));
+    writeFileSync(join(files, 'src', 'a.ts'), 'a');
+    run(files, 'add', '.');
+    run(files, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+    writeFileSync(join(files, 'new.ts'), 'n');
+    expect(await trackedFiles(files, ['src/a.ts', 'new.ts', 'gone.ts'])).toEqual(['src/a.ts']);
+    expect(await trackedFiles(files, [])).toEqual([]);
   });
 
   it('lists a repository’s worktrees, from any of them', async () => {
