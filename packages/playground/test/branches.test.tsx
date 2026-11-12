@@ -1,8 +1,10 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import type { Tab } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { setupBranches } from '../src/branches.js';
+import { compareTab, setupCompare } from '../src/compare-branches.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
 import { icon } from '../src/icons.js';
@@ -124,6 +126,7 @@ const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
 const readWorktrees = vi.fn(() => Promise.resolve());
 const open = vi.fn();
 const button = document.createElement('button');
+const compared: Tab[] = [];
 let pick: (button: HTMLElement) => unknown;
 
 beforeAll(() => {
@@ -137,6 +140,7 @@ beforeAll(() => {
   ]);
   document.body.append(button);
   ({ pick } = setupBranches(services, { readWorktrees, open }));
+  setupCompare(services, (tab) => compared.push(tab));
 });
 
 beforeEach(() => {
@@ -324,6 +328,7 @@ describe('the branches popup', () => {
     expect(await branchMenu('feature')).toEqual([
       'Checkout',
       "New Branch from 'feature'…",
+      "Compare with 'main'",
       "Rebase 'main' onto 'feature'",
       "Merge 'feature' into 'main'",
       'Rename…',
@@ -337,6 +342,7 @@ describe('the branches popup', () => {
     expect(await branchMenu('side')).toEqual([
       'Open Worktree',
       "New Branch from 'side'…",
+      "Compare with 'main'",
       "Rebase 'main' onto 'side'",
       "Merge 'side' into 'main'",
       'Rename…',
@@ -347,10 +353,14 @@ describe('the branches popup', () => {
     expect(await branchMenu('origin/side')).toEqual([
       'Checkout',
       "New Branch from 'origin/side'…",
+      "Compare with 'main'",
       "Rebase 'main' onto 'origin/side'",
       "Merge 'origin/side' into 'main'",
       'Delete',
     ]);
+    // Compare with Current opens its tab.
+    await userEvent.click(menuItem("Compare with 'main'"));
+    expect(compared).toEqual([compareTab('main', 'origin/side')]);
   });
 
   it('stays open when a branch’s menu is closed; closes with it when an action is chosen', async () => {

@@ -869,6 +869,7 @@ describe('the branches’ toolbar', () => {
       'log.branches.newBranch',
       'log.branches.update',
       'log.branches.delete',
+      'log.branches.compare',
       'log.branches.showMy',
       'vcs.fetch',
       'log.branches.toggleFavorite',

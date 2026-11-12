@@ -64,6 +64,7 @@ import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
 import { setupBranches } from './branches.js';
+import { CompareBranches, compareRefs, setupCompare } from './compare-branches.js';
 import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
 import { setupApplyChanges } from './apply-changes.js';
@@ -826,6 +827,7 @@ const environments = setupEnvironments(services.commands, services.menus, (env) 
   if (initial.length === 0) seedFiles(env, tabOf);
 });
 const branches = setupBranches(services, environments);
+setupCompare(services, (tab) => editor()?.open(tab));
 // A project that joins the window shows at once; one asked to open again comes to the front.
 window.cerebro?.project.onAdded(({ replaces, ...project }) => {
   projectAdded(project);
@@ -1744,6 +1746,17 @@ render(
             <EditorAreaView
               area={env.editor}
               content={(tab) => {
+                const compared = compareRefs(tab.id);
+                if (compared) {
+                  return (
+                    <CompareBranches
+                      worktree={env.id}
+                      {...compared}
+                      services={services}
+                      open={openTab}
+                    />
+                  );
+                }
                 const diff = diffPath(tab.id);
                 if (diff !== undefined) {
                   const line = diffLines.get(tab.id);
@@ -1757,7 +1770,13 @@ render(
                 );
               }}
               icon={(tab) =>
-                icon(diffPath(tab.id) !== undefined ? 'diff' : isImage(tab.id) ? 'image' : 'file')
+                icon(
+                  diffPath(tab.id) !== undefined || compareRefs(tab.id)
+                    ? 'diff'
+                    : isImage(tab.id)
+                      ? 'image'
+                      : 'file',
+                )
               }
               hasErrors={(tab) => hasErrors(tab.id)}
               empty={() => <Empty />}

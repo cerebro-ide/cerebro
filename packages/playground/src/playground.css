@@ -1226,6 +1226,41 @@ body,
   font-weight: 600;
 }
 
+/*
+ * Compare with Current's tab: two Logs, one over the other, as IntelliJ's (GitCompareBranchesUi),
+ * halves to start with; each says what it lists above it (its explanation's look is a claim).
+ */
+.playground-compare {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.playground-compare__half {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.playground-compare__half > .playground-log {
+  flex: auto;
+  height: auto;
+  min-height: 0;
+}
+
+.playground-compare__explanation {
+  flex: none;
+  margin: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--cerebro-border);
+  color: var(--cerebro-text-muted);
+}
+
+.playground-compare__explanation b {
+  color: var(--cerebro-text);
+}
+
 /* The details: as much as they need, up to half the pane, then they scroll (a claim). */
 .playground-log__details {
   overflow: auto;

@@ -164,6 +164,8 @@ export interface BranchesContext {
   source: 'log';
   selection: BranchesSelection;
   refresh: () => Promise<void>;
+  /** The branch checked out, by its name; none when HEAD is detached. */
+  current?: string;
 }
 
 /** What a single click on a branch does, as IntelliJ's pane settings ("On Single Click"). */

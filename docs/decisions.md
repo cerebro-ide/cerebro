@@ -2085,8 +2085,21 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     real git: a branch at a commit with children elsewhere has none of its own, and a commit only
     a tag holds keeps the one below it from being its branch's alone. **Claude's, open to change:**
     the search icon for Find's.
-  **Not yet:** Compare with Current; several branches selected (IntelliJ updates them all at
-  once); IntelliJ's Show My Branches being off until its log is indexed (there's no index here).
+  - Compare with Current (added 2026-11-12), after Delete Branch, as IntelliJ's
+    (`ShowBranchDiffAction`, Diff's icon; `GitBrancher.compare`, `GitCompareBranchesUi`): for a
+    branch or remote branch that isn't the one checked out (not a tag, nor HEAD). It opens an editor
+    tab, "Compare: feature and main", with Diff's icon; again, it shows the one open. In it, two
+    Logs, one over the other with a splitter between: the commits the branch has that the current
+    one doesn't (`main..feature`), then the other way round, each with a commit's changes and
+    details beside it, the commit menu on its commits, and IntelliJ's words above it ("Commits that
+    exist in feature but don't exist in main"); with none, "main contains all commits from
+    feature", and where git can't read the range, git's error. With HEAD detached, the branch is
+    compared with HEAD. The branches popup has it too, as IntelliJ's ("Compare with 'main'"),
+    after New Branch from.
+  **Not yet:** several branches selected (IntelliJ updates them all at once); IntelliJ's Show My
+  Branches being off until its log is indexed (there's no index here); Compare with Current's key
+  (IntelliJ's is Show Diff's, Ctrl+D), its Logs' filter toolbar, and a detached HEAD
+  named by its short hash, as IntelliJ's, rather than HEAD.
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
@@ -3220,7 +3233,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); Checkout and Rebase onto, Compare with Current, Show Diff with Working Tree, Update, Push and
+  now); Checkout and Rebase onto, Show Diff with Working Tree, Update, Push and
   Pull from the menu; View Commits after a delete (IntelliJ's shows the
   commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
