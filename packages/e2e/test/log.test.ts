@@ -40,7 +40,7 @@ const subjects = () => page().locator('.playground-log__message').allTextContent
 const inToolbar = async (selector: string) => {
   const popup = page().locator('.cerebro-toolbar-row__popup');
   if ((await popup.count()) === 0) {
-    const more = page().locator('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__more');
+    const more = page().locator('.playground-log__toolbar .cerebro-toolbar-row__more');
     // In case it's hidden again (it was, when the window was resized after it showed): what was seen.
     if (!(await more.isVisible()))
       console.log(
@@ -50,12 +50,12 @@ const inToolbar = async (selector: string) => {
           toolbar: document.querySelector('.playground-log__toolbar')?.getBoundingClientRect()
             .width,
           row: document
-            .querySelector('.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row')
+            .querySelector('.playground-log__toolbar .cerebro-toolbar-row')
             ?.getBoundingClientRect().width,
           // Wider than shown, with the » hidden: the row's fit (in an animation frame) hasn't run.
           items: (() => {
             const items = document.querySelector(
-              '.cerebro-tool-window[data-id="git"] .cerebro-toolbar-row__items',
+              '.playground-log__toolbar .cerebro-toolbar-row__items',
             );
             return items && { scroll: items.scrollWidth, client: items.clientWidth };
           })(),
