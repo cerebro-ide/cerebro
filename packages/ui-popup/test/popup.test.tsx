@@ -471,5 +471,13 @@ describe('openPicker', () => {
     expect(key('c', { altKey: true }).defaultPrevented).toBe(true);
     expect(matchCase.get()).toBe(true);
     expect(key('x', { altKey: true }).defaultPrevented).toBe(false);
+    expect(document.querySelector('.cerebro-popup__ad')).toBeNull();
+  });
+
+  it('shows its ad text below the list, as IntelliJ’s popups do', () => {
+    picker({ ad: 'Press Delete to clear the filter' });
+    const ad = document.querySelector('.cerebro-popup__ad') as HTMLElement;
+    expect(ad.textContent).toBe('Press Delete to clear the filter');
+    expect(ad.previousElementSibling?.classList.contains('cerebro-popup__list')).toBe(true);
   });
 });

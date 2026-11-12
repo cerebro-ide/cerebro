@@ -11,9 +11,9 @@
 import type { Platform } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { fuzzyFilter, type PickerItem } from '@cerebro-ide/ui-popup';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
-import { recentChoices, rememberChoice, selectValues } from './log-filters.js';
+import { openFilterPicker, recentChoices, rememberChoice, selectValues } from './log-filters.js';
 import type { FileNode } from './project.js';
 
 /** How many paths the tree takes, IntelliJ's VcsStructureChooser.MAX_FOLDERS. */
@@ -192,13 +192,19 @@ export function pickPaths(button: HTMLElement, source: PathSource) {
       },
     })),
   ];
-  const handle = openPicker<PathChoice>({
-    label: 'Paths',
-    placeholder: 'Search',
-    position: { below: button },
-    owner: button,
-    items: (query) => fuzzyFilter(items(), query),
-  });
+  const handle = openFilterPicker<PathChoice>(
+    {
+      label: 'Paths',
+      placeholder: 'Search',
+      position: { below: button },
+      owner: button,
+      items: (query) => fuzzyFilter(items(), query),
+    },
+    source.platform,
+    () => {
+      source.choose(undefined);
+    },
+  );
   void handle.result.then((choice) => {
     choice?.run();
   });
