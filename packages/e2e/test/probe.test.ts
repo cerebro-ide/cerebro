@@ -31,6 +31,25 @@ async function probe(variant: string) {
   });
   const page = await app.firstWindow();
   log(`${variant} ${at()} first window`);
+  // When the main process shows the window, and what it knows of the GPU then.
+  await app.evaluate(({ BrowserWindow, app: electron }) => {
+    const g = globalThis as unknown as { shown?: string[] };
+    g.shown = [];
+    const t = performance.now();
+    for (const w of BrowserWindow.getAllWindows()) {
+      g.shown.push(`visible at hook ${String(w.isVisible())} ${String(Math.round(t))}`);
+      w.once('ready-to-show', () =>
+        g.shown?.push(`ready-to-show +${String(Math.round(performance.now() - t))}`),
+      );
+      w.once('show', () => g.shown?.push(`show +${String(Math.round(performance.now() - t))}`));
+      w.webContents.once('did-finish-load', () =>
+        g.shown?.push(`did-finish-load +${String(Math.round(performance.now() - t))}`),
+      );
+    }
+    g.shown.push(`gpu ${JSON.stringify(electron.getGPUFeatureStatus())}`);
+  });
+  const shownLog = () =>
+    app.evaluate(() => (globalThis as unknown as { shown?: string[] }).shown?.splice(0) ?? []);
   if (variant === 'throttling-off') {
     await app.evaluate(({ BrowserWindow }) => {
       for (const w of BrowserWindow.getAllWindows()) w.webContents.setBackgroundThrottling(false);
@@ -66,6 +85,7 @@ async function probe(variant: string) {
   let lastRafs = 0;
   let lastCast = 0;
   for (let i = 0; i < 40; i++) {
+    for (const line of await shownLog()) log(`${variant} ${at()} main: ${line}`);
     const state = await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows().map((w) => ({
         visible: w.isVisible(),
@@ -117,7 +137,6 @@ async function probe(variant: string) {
   await app.close();
 }
 
-for (const run of [1, 2, 3]) {
-  it(`probe ${String(run)}, as it is`, { timeout: 120_000 }, () => probe('default'));
-  it(`probe ${String(run)}, throttling off`, { timeout: 120_000 }, () => probe('throttling-off'));
-}
+// Throttling off first: the run's first launch is the one whose window showed late.
+it('probe 1, throttling off', { timeout: 120_000 }, () => probe('throttling-off'));
+it('probe 2, as it is', { timeout: 120_000 }, () => probe('default'));
