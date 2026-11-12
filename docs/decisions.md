@@ -3028,10 +3028,14 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   are cleared instead (open to change). A commit not in the log says so. A press in the gutter (an
   annotation, a line number) leaves the text focused: before, the browser focused the editor's
   scroller, which takes no keys and drew a focus ring (measured in the app, 2026-11-11).
+- **Hidden for a file git hasn't committed** (added 2026-11-12), as IntelliJ's AnnotateToggleAction
+  (no provider enabled: `AnnotateLocalFileAction.isEnabled`, not unknown, added or ignored):
+  untracked or added, as the Commit window's lists know it, as Show Diff's (decision "Git → Current
+  File → Show Diff"). **Claims:** shown before those lists are read, and for an ignored file.
 - **Not yet:** Annotate Revision and Annotate Previous Revision, and Show in File History (they need
   a file's version at a commit, and a Git file history: Git → Current File's history, next); Show
-  Diff On Hover; reading them again after a commit, or a change on disk; the action hidden for an
-  untracked file; the editor's context menu's Git submenu.
+  Diff On Hover; reading them again after a commit, or a change on disk; the editor's context
+  menu's Git submenu.
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

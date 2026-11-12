@@ -5,6 +5,7 @@ import { DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { setupBlame } from '../src/blame.js';
 import {
   AgentChangesView,
   type Change,
@@ -528,7 +529,12 @@ describe('Git → Current File → Show Diff', () => {
     expect(menus.entries('main/git/file')).toContainEqual({ command: 'git.file.showDiff' });
   });
 
-  it('is off for a file git hasn’t committed: untracked or added', async () => {
+  it('is off for a file git hasn’t committed: untracked or added; Annotate hidden for it', async () => {
+    setupBlame(services, {
+      activeTab: () => activeTab,
+      open: () => undefined,
+      showInLog: () => undefined,
+    });
     await changesView();
     for (const [path, on] of [
       ['src/main/app.ts', true],
@@ -538,6 +544,8 @@ describe('Git → Current File → Show Diff', () => {
     ] as const) {
       activeTab = `${wt}/${path}`;
       expect(commands.isEnabled('git.file.showDiff')).toBe(on);
+      // As IntelliJ's AnnotateToggleAction.
+      expect(commands.get('vcs.annotate')?.visible?.(undefined)).toBe(on);
     }
   });
 });
