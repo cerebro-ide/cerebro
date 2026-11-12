@@ -39,16 +39,28 @@ const focused = () =>
     return element ? `${element.tagName}.${element.className}` : null;
   });
 
+/**
+ * Closes a popup left open by an earlier press's late answer (name matches), printing it: two
+ * Windows runs failed every test after the shell one, Go to File never showing (a claim), and a
+ * macOS run's (#253) Alt+F7 opened Usages over one, the focus back in the editor, where Escape
+ * doesn't reach it. Its own field takes the Escape; the focus goes back to the editor after.
+ */
+async function closeLeftPopups(): Promise<void> {
+  let closed = false;
+  while ((await popup().count()) > 0) {
+    console.log('A popup was left open:', await popup().last().textContent());
+    await popup().last().locator('.cerebro-popup__search').focus();
+    await page().keyboard.press('Escape');
+    closed = true;
+  }
+  if (closed && !(await focused())?.startsWith('DIV.cm-content')) {
+    await page().locator('.cm-content:visible').first().focus();
+  }
+}
+
 /** Opens a file with Go to File, the caret at the start of a line holding `text`. */
 async function openAt(name: string, text: string): Promise<void> {
-  // A popup left open (an earlier test's late name matches, a claim: two Windows runs failed every
-  // test after the shell one, Go to File never showing) is printed and closed first.
-  const left = await popup().count();
-  if (left > 0) {
-    console.log('A popup was left open:', await popup().first().textContent());
-    await page().keyboard.press('Escape');
-    await popup().first().waitFor({ state: 'detached' });
-  }
+  await closeLeftPopups();
   await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
@@ -62,6 +74,7 @@ async function openAt(name: string, text: string): Promise<void> {
  * matches show instead, which this closes.
  */
 async function untilAnswered(keys: string, answered: () => Promise<boolean>): Promise<void> {
+  await closeLeftPopups();
   let presses = 0;
   let pressed = 0;
   // Where the page was at each press and after it, printed if no answer comes: a macOS run (#228)
