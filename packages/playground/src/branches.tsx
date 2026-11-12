@@ -13,6 +13,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { compareWithCurrent } from './compare-branches.js';
+import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -478,6 +479,17 @@ export function setupBranches(
     },
   });
   commands.register<BranchRef>({
+    // IntelliJ's (`GitShowDiffWithRefAction`): for any branch or tag, documents saved first.
+    id: 'git.branch.showDiff',
+    label: 'Show Diff with Working Tree',
+    run: (b) => {
+      return operate(`Could not load diff with ${b.name}`, async (host, worktree) => {
+        await saveBeforeGit();
+        showDiffWithWorkingTree({ host, worktree, ref: b.name, current: current() });
+      });
+    },
+  });
+  commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
@@ -798,7 +810,7 @@ export function setupBranches(
         'git.branch.checkoutRebase',
       ],
     ],
-    ['ab', ['git.branch.compare']],
+    ['ab', ['git.branch.compare', 'git.branch.showDiff']],
     ['b', ['git.branch.rebase', 'git.branch.merge']],
     ['c', ['git.branch.rename', 'git.branch.delete']],
   ];
