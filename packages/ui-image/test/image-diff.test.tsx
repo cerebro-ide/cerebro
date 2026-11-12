@@ -167,6 +167,19 @@ describe('the image diff', () => {
     expect(top?.classList).not.toContain('cerebro-image-diff__layer--pixels');
   });
 
+  it('shows them at 1:1 in an area of no size, where there’s nothing to fit to', async () => {
+    show(
+      {
+        before: { bytes: await png(300, 300), title: 'a' },
+        after: { bytes: await png(300, 300, [[1, 1]]), title: 'b' },
+        mode: 'onion',
+      },
+      { width: 0, height: 0 },
+    );
+    await expect.poll(() => all('.cerebro-image-diff__layer')).toHaveLength(2);
+    expect((all('.cerebro-image-diff__layer')[1] as HTMLElement).style.width).toBe('300px');
+  });
+
   it('marks the pixels that changed, in Difference, and counts them', async () => {
     show({
       before: { bytes: await png(2, 2), title: 'a' },
