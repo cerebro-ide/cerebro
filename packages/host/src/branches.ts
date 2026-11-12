@@ -130,6 +130,12 @@ export interface Deleted {
   hash: string;
   unmerged: boolean;
   tracked?: string;
+  /**
+   * Where it wasn't fully merged to, when it wasn't, as IntelliJ's `GitDeleteBranchOperation`
+   * reads it: the upstream git names ("not yet merged to 'refs/remotes/origin/x'"), or the current
+   * branch (HEAD when none is).
+   */
+  base?: string;
 }
 
 const REMOTES = 'refs/remotes/';
@@ -160,15 +166,23 @@ async function trackedAlone(worktree: string, name: string, run: Git) {
 export async function deleteBranch(worktree: string, name: string, run: Git): Promise<Deleted> {
   const hash = (await run(worktree, ['rev-parse', '--verify', `refs/heads/${name}`])).trim();
   const tracked = await trackedAlone(worktree, name, run);
-  let unmerged = false;
+  let base: string | undefined;
   try {
     await run(worktree, ['branch', '--delete', name]);
   } catch (error) {
-    if (!/not fully merged/.test((error as Error).message)) throw error;
+    const message = (error as Error).message;
+    if (!/not fully merged/.test(message)) throw error;
     await run(worktree, ['branch', '--delete', '--force', name]);
-    unmerged = true;
+    base =
+      /'([^']*)', even though it is merged to/.exec(message)?.[1] ??
+      ((await run(worktree, ['branch', '--show-current'])).trim() || 'HEAD');
   }
-  return tracked === undefined ? { hash, unmerged } : { hash, unmerged, tracked };
+  return {
+    hash,
+    unmerged: base !== undefined,
+    ...(tracked === undefined ? {} : { tracked }),
+    ...(base === undefined ? {} : { base }),
+  };
 }
 
 /**

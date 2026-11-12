@@ -16,6 +16,7 @@ import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { isProtected, openPush, pushTag, pushing } from './push.js';
 import { globalSettings } from './settings.js';
+import { showUnmergedCommits } from './unmerged-commits.js';
 import { notRestored, updateProject } from './update.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
@@ -358,6 +359,8 @@ export interface BranchesSetup {
   readWorktrees: (worktree: string) => Promise<void>;
   /** Shows a worktree's environment. */
   open: (worktree: string) => void;
+  /** Opens a tab: a diff from a dialog's commit files. */
+  openTab: (tab: Tab, chain?: readonly string[]) => void;
 }
 
 /** The branches popup's actions, and the popup, for the toolbar's branch selector. */
@@ -885,8 +888,12 @@ export function setupBranches(
       const deleted = (await host.request('git.deleteBranch', {
         path: worktree,
         name: b.name,
-      })) as { hash: string; unmerged: boolean; tracked?: string };
-      const { tracked } = deleted;
+      })) as { hash: string; unmerged: boolean; tracked?: string; base?: string };
+      const { tracked, base } = deleted;
+      const restore = () =>
+        operate(`Could not Restore ${b.name}`, async (h, w) => {
+          await h.request('git.restoreBranch', { path: w, name: b.name, hash: deleted.hash });
+        });
       notifications.notify({
         title: `Deleted Branch: ${b.name}`,
         ...(deleted.unmerged ? { content: 'Unmerged commits were discarded' } : {}),
@@ -894,15 +901,26 @@ export function setupBranches(
           {
             label: 'Restore',
             run: () => {
-              void operate(`Could not Restore ${b.name}`, async (h, w) => {
-                await h.request('git.restoreBranch', {
-                  path: w,
-                  name: b.name,
-                  hash: deleted.hash,
-                });
-              });
+              void restore();
             },
           },
+          // The commits discarded, and Restore there too, as IntelliJ's.
+          ...(base === undefined
+            ? []
+            : [
+                {
+                  label: 'View Commits',
+                  run: () => {
+                    const unmerged = { host, worktree, name: b.name, tip: deleted.hash, base };
+                    void showUnmergedCommits(unmerged, setup.openTab).then(
+                      (again) => (again ? restore() : undefined),
+                      (error: unknown) => {
+                        console.error('Reading the unmerged commits failed', error);
+                      },
+                    );
+                  },
+                },
+              ]),
           // The remote branch it alone tracked, unless it's protected, as IntelliJ's.
           ...(tracked === undefined || isProtected(tracked.slice(tracked.indexOf('/') + 1))
             ? []

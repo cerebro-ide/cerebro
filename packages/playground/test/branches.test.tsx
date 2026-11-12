@@ -59,6 +59,8 @@ const git = {
   inTheWay: undefined as Error | undefined,
   /** Whether Smart Checkout put the local changes back. */
   restored: true,
+  /** The commits a log asks for. */
+  log: [] as unknown[] | Error,
   /** Held until it resolves: a tag's push. */
   tagPushHeld: undefined as Promise<void> | undefined,
   /** What updating a branch gives, or the error it fails with. */
@@ -107,8 +109,13 @@ const host = new FakeHost({
     return {
       hash: 'abc',
       unmerged: git.result === 'unmerged',
+      ...(git.result === 'unmerged' ? { base: 'main' } : {}),
       ...(git.tracked === undefined ? {} : { tracked: git.tracked }),
     };
+  },
+  'git.log': () => {
+    if (git.log instanceof Error) throw git.log;
+    return git.log;
   },
   'git.deleteRemoteBranch': () => {
     if (git.remoteFailing) throw git.remoteFailing;
@@ -171,6 +178,7 @@ const menus = new MenuRegistry();
 const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
 const readWorktrees = vi.fn(() => Promise.resolve());
 const open = vi.fn();
+const openTab = vi.fn();
 const button = document.createElement('button');
 const compared: Tab[] = [];
 let revealed = 0;
@@ -186,7 +194,7 @@ beforeAll(() => {
     project('/s', undefined),
   ]);
   document.body.append(button);
-  ({ pick } = setupBranches(services, { readWorktrees, open }));
+  ({ pick } = setupBranches(services, { readWorktrees, open, openTab }));
   setupCompare(services, (tab) => compared.push(tab));
   setupDiffWithWorkingTree(services, () => {
     revealed++;
@@ -211,6 +219,7 @@ beforeEach(() => {
   git.ownCommits = false;
   git.inTheWay = undefined;
   git.restored = true;
+  git.log = [];
   git.tagPushed = true;
   git.updated = {};
 });
@@ -997,6 +1006,65 @@ describe('Delete', () => {
     expect(last()?.content).toBe('');
   });
 
+  it('shows the unmerged commits discarded, as IntelliJ’s View Commits, restoring from there', async () => {
+    git.result = 'unmerged';
+    const commit = (hash: string, subject: string) => ({
+      hash,
+      parents: ['p'],
+      author: 'Ada',
+      email: 'ada@x.org',
+      time: 0,
+      subject,
+      body: '',
+      refs: [],
+    });
+    git.log = [commit('c2', 'Second'), commit('c1', 'First')];
+    await choose('feature', 'Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted Branch: feature');
+    expect(last()?.actions.map((a) => a.label)).toEqual(['Restore', 'View Commits']);
+    last()?.actions[1]?.run();
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Branch Was Not Fully Merged',
+    );
+    expect(box.querySelector('p')?.textContent).toBe(
+      'The branch feature was not fully merged to main.Below is the list of unmerged commits.',
+    );
+    expect(host.params('git.log')).toEqual([
+      { worktree: '/r', skip: 0, max: 1000, branches: ['main..abc'] },
+    ]);
+    await expect
+      .poll(() => [...box.querySelectorAll('.playground-log__subject')].map((s) => s.textContent))
+      .toEqual(['Second', 'First']);
+    // The first one's files, beside it.
+    await expect
+      .poll(() => host.params('git.changes').at(-1))
+      .toEqual({ path: '/r', from: 'p', to: 'c2' });
+    await press('Close');
+    expect(host.params('git.restoreBranch')).toEqual([]);
+    last()?.actions[1]?.run();
+    await dialog();
+    await press('Restore');
+    await expect
+      .poll(() => host.params('git.restoreBranch'))
+      .toEqual([{ path: '/r', name: 'feature', hash: 'abc' }]);
+    // None left (merged since): no files shown.
+    git.log = [];
+    last()?.actions[1]?.run();
+    const empty = await dialog();
+    expect(empty.querySelector('.playground-log__subject')).toBeNull();
+    expect(empty.querySelector('.playground-unmerged')?.children).toHaveLength(1);
+    await press('Close');
+    // The commits not read: logged.
+    git.log = new Error('bad range');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    last()?.actions[1]?.run();
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the unmerged commits failed');
+    logged.mockRestore();
+  });
+
   it('says why it wasn’t deleted', async () => {
     git.result = new Error('error: cannot delete branch');
     await choose('feature', 'Delete');
@@ -1222,7 +1290,7 @@ describe('the Log’s branches pane', () => {
     const keymap = new Keymap('mac');
     setupBranches(
       { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
-      { readWorktrees, open },
+      { readWorktrees, open, openTab },
     );
     expect(keymap.shortcutsFor('log.branches.delete')).toEqual(['Meta+Delete']);
   });

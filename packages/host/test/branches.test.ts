@@ -231,7 +231,16 @@ describe('branch operations, with real git', () => {
   it('deletes a branch, an unmerged one too, saying so; restores it where it was', async () => {
     const repo = repository();
     const tip = run(repo, 'rev-parse', 'side').trim();
-    expect(await deleteBranch(repo, 'side', git)).toEqual({ hash: tip, unmerged: true });
+    expect(await deleteBranch(repo, 'side', git)).toEqual({
+      hash: tip,
+      unmerged: true,
+      base: 'main',
+    });
+    await restoreBranch(repo, 'side', tip, git);
+    // HEAD detached: not merged to it.
+    run(repo, 'checkout', '-q', '--detach', 'main');
+    expect((await deleteBranch(repo, 'side', git)).base).toBe('HEAD');
+    run(repo, 'checkout', '-q', 'main');
     await restoreBranch(repo, 'side', tip, git);
     expect(run(repo, 'rev-parse', 'side').trim()).toBe(tip);
     run(repo, 'branch', 'merged');
@@ -251,6 +260,16 @@ describe('branch operations, with real git', () => {
       hash: tip,
       unmerged: false,
       tracked: 'origin/side',
+    });
+    // Merged to HEAD, not to where it tracks: not merged there, as git says.
+    run(clone, 'branch', '--track', 'ahead', 'origin/side');
+    run(clone, 'checkout', '-q', 'ahead');
+    commit(clone, 'ahead');
+    run(clone, 'checkout', '-q', 'main');
+    run(clone, 'merge', '-q', '--no-edit', 'ahead');
+    expect(await deleteBranch(clone, 'ahead', git)).toMatchObject({
+      unmerged: true,
+      base: 'refs/remotes/origin/side',
     });
     // Another branch tracking it too: not proposed.
     run(clone, 'branch', '--track', 'one', 'origin/side');

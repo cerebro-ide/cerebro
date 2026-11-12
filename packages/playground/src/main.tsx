@@ -828,7 +828,7 @@ setupSaving(
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (initial.length === 0) seedFiles(env, tabOf);
 });
-const branches = setupBranches(services, environments);
+const branches = setupBranches(services, { ...environments, openTab });
 setupCompare(services, (tab) => editor()?.open(tab));
 // Show Diff with Working Tree's Changes tool window, on the left, which appears the first time, as
 // IntelliJ's `ChangesBrowserToolWindow`.

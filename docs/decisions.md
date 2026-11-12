@@ -3329,8 +3329,15 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     change:** left with conflicts, they stay saved and "Local changes were not restored" says so;
     IntelliJ says that too, then tries to put them back over the unmerged files after its Conflicts
     dialog closes.
-- **Not yet:** View Commits after a
-  delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent.
+  - **View Commits** (added 2026-11-12), on the notification after a branch not fully merged was
+    deleted, as IntelliJ's (`GitDeleteBranchOperation`, `GitBranchIsNotFullyMergedDialog`, read
+    from their source): "Branch Was Not Fully Merged", "The branch X was not fully merged to Y.
+    Below is the list of unmerged commits.", the commits in `Y..X` beside the selected one's files,
+    and Restore or Close. Y is what git names ("not yet merged to 'refs/remotes/origin/x'", its
+    upstream; measured with real git), or else the current branch (HEAD when detached), as
+    IntelliJ's. **Claude's, open to change:** Restore from the dialog leaves the notification up
+    (the notifications have no way to expire one yet); its own Restore stays there too.
+- **Not yet:** the menu opening on hover; favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)
 
