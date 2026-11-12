@@ -1410,12 +1410,76 @@ describe('Checkout and Rebase onto Current', () => {
   });
 
   it('makes a remote branch’s local branch first, tracking it', async () => {
+    git.local = ['feature', 'main'];
     await choose('origin/side', "Checkout and Rebase onto 'main'");
     await expect.poll(() => last()?.content).toBe('Checked out side and rebased it on main');
     expect(host.params('git.createBranch')).toEqual([
       { path: '/r', name: 'side', from: 'origin/side', checkout: false, overwrite: false },
     ]);
     expect(host.params('git.rebase')).toEqual([{ path: '/r', upstream: 'HEAD', branch: 'side' }]);
+  });
+
+  it('resets a local branch of that name to the remote one, when it has nothing of its own', async () => {
+    git.upstreams = { side: 'origin/side' };
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    await expect.poll(() => last()?.content).toBe('Checked out side and rebased it on main');
+    expect(host.params('git.hasCommitsNotIn')).toEqual([
+      { path: '/r', branch: 'side', of: 'origin/side' },
+    ]);
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side', from: 'origin/side', checkout: false, overwrite: true },
+    ]);
+  });
+
+  it('asks before dropping the local branch’s own commits, as IntelliJ’s', async () => {
+    git.ownCommits = true;
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout origin/side');
+    expect(box.querySelector('p')?.textContent).toBe(
+      "Local branch 'side' has commits that do not exist in 'origin/side'. Do you want to drop local commits?",
+    );
+    await press('Cancel');
+    expect(host.params('git.createBranch')).toEqual([]);
+    expect(host.params('git.rebase')).toEqual([]);
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    await dialog();
+    await press('Drop Local Commits');
+    await expect.poll(() => last()?.content).toBe('Checked out side and rebased it on main');
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side', from: 'origin/side', checkout: false, overwrite: true },
+    ]);
+    expect(host.params('git.rebase')).toEqual([{ path: '/r', upstream: 'HEAD', branch: 'side' }]);
+  });
+
+  it('asks for another name when the local branch tracks another, the branch only made', async () => {
+    git.upstreams = { side: 'origin/main' };
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Checkout origin/side');
+    // IntelliJ's dialog here offers Overwrite, not Checkout.
+    expect(
+      [...box.querySelectorAll('.playground-rollback__option')].map((o) => o.textContent.trim()),
+    ).toEqual(['Overwrite existing branch']);
+    await press('Cancel');
+    expect(host.asked).not.toContain('git.createBranch');
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    await dialog();
+    await answer('side-2');
+    await press('Create');
+    await expect.poll(() => last()?.content).toBe('Checked out side-2 and rebased it on main');
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side-2', from: 'origin/side', checkout: false, overwrite: false },
+    ]);
+    expect(host.params('git.rebase')).toEqual([{ path: '/r', upstream: 'HEAD', branch: 'side-2' }]);
+  });
+
+  it('won’t reset the current branch, in IntelliJ’s words', async () => {
+    await choose('origin/main', "Checkout and Rebase onto 'main'");
+    await expect.poll(() => last()?.title).toBe('Checkout and Rebase failed');
+    expect(last()?.content).toBe('Cannot overwrite current branch main');
+    expect(host.params('git.createBranch')).toEqual([]);
+    expect(host.params('git.rebase')).toEqual([]);
   });
 
   it('stopped at conflicts, goes on as Continue Rebase does', async () => {

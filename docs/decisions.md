@@ -3255,8 +3255,14 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     which tracks it by git's `branch.autoSetupMerge`), as IntelliJ's
     `GitCheckoutAndRebaseRemoteBranchWorkflow`. "Rebase successful", "Checked out feature and
     rebased it on main" (IntelliJ's); stopped at conflicts, as Rebase; "Checkout and Rebase
-    failed" with git's words. A local branch of that name already there: git's error, where
-    IntelliJ asks to reset it (as Checkout's, below). Hidden where it doesn't apply, as the menu's
+    failed" with git's words. A local branch of that name already there (added 2026-11-12), as
+    IntelliJ's (`GitCheckoutAndRebaseRemoteBranchWorkflow`, read from its source): reset to the
+    remote branch (`git branch -f side origin/side`) and rebased, after asking "Local branch 'side'
+    has commits that do not exist in 'origin/side'. Do you want to drop local commits?" (Drop Local
+    Commits, Cancel) when it has commits of its own; one that tracks another branch isn't taken
+    over, a name asked for in the New Branch dialog titled "Checkout origin/side", with Overwrite
+    and without Checkout (IntelliJ's `showCheckOutOption = false`); never the current branch
+    ("Cannot overwrite current branch main", IntelliJ's). Hidden where it doesn't apply, as the menu's
     other actions (IntelliJ disables it; open to change).
   - **Show Diff with Working Tree** (added 2026-11-12), after Compare with Current, for any branch
     or tag, the current one too, as IntelliJ's (`GitShowDiffWithRefAction`,
