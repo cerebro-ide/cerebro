@@ -39,14 +39,14 @@ on it:
 
 ## Known gaps
 
-- **language-servers' Python test failed on macOS, and every test after it** (#228, run
-  43264592149, 2026-11-12): Ctrl+B reached lib.py, then 30 s of Alt+F7 never showed walk's usages,
-  though the host, asked directly, found them in 3 ms. The page ended with lib.py's tab active, the
-  focus on the body and a popup of name matches open; Escape, sent to the body, didn't close it,
-  so each later test's Go to File failed behind it. A claim, not measured: a late answer to an
-  earlier Ctrl+B switched tabs while a popup was open, and closing it gave the focus back to
-  main.py's editor, gone by then. The test now prints the tab, focus and popup at each press. Passes
-  locally (Linux, 22/22).
+- **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
+  #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
+  earlier press could still be answered; one press opened a chooser of walk's definitions, another's
+  answer opened lib.py and focused its editor, and the chooser stayed open without the focus, where
+  Escape, sent to the body, didn't close it, so every later test failed behind it (as in #228's
+  run). The test now waits for each press's answer, or the host's name matches, before pressing
+  again. The app's side isn't decided: IntelliJ's choosers close on a click outside and when the
+  window is left, as ours; whether they close when the focus moves elsewhere isn't checked.
 - **Double Shift once didn't open Search Everywhere in main-app's Show History test** (CI, #221,
   2026-11-12; not reproduced in six local runs, three at once). Not measured why: double Shift
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
@@ -142,6 +142,13 @@ on it:
   (The "stall" in "commits a merge started elsewhere", thought to be the same, wasn't one: the
   test pressed Ctrl+Enter before the Commit window listed the resolved file, and Commit said
   "Select files to commit", as IntelliJ's; it now waits for the file to be put in.)
+- **The HTTP login e2e test was never asked to log in, on macOS in CI** (#233, run 43309706008,
+  2026-11-12; passed on #233's two runs before, and on Linux and Windows in the same run; the only
+  such failure in the last 60 failed runs): after Push was clicked, no "Log In to" dialog in 15 s,
+  and the tests after it timed out as if Push stayed busy, then the repository was left mid-merge.
+  Whether git reached the test's server, or asked and the page never showed it, wasn't printed.
+  The test now prints the window, the server's requests and their answers, and whether the login
+  was asked within a minute after.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
