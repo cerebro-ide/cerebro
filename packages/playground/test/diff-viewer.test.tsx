@@ -87,6 +87,8 @@ describe('a diff’s sides’ names', () => {
     // As IntelliJ's `VcsDiffUtil.getRevisionTitle`: "Local" marks the file as it is.
     expect(sideTitles({ from: 'refs/heads/feature' }, 'main')).toEqual(['feature', 'main (Local)']);
     expect(sideTitles({ from: 'refs/tags/v1.0' })).toEqual(['v1.0', 'Local']);
+    // A commit's, as IntelliJ's `DiffActionExecutor`: its hash, and Local.
+    expect(sideTitles({ from: '0123456789ab' }, 'main')).toEqual(['01234567', 'Local']);
     expect(revisionName('refs/remotes/origin/main')).toBe('origin/main');
     expect(revisionName('0123456789ab')).toBe('01234567');
   });

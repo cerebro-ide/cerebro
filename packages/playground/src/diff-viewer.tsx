@@ -634,8 +634,8 @@ export function FileDiff(props: {
 
 /**
  * A diff's sides' names: at two commits, theirs, shortened; against a branch or a tag, its name and
- * the current `branch`'s, as local; else the last commit's and "Your version", as IntelliJ names a
- * file as it is (a claim, from memory).
+ * the current `branch`'s, as local; against a commit, its hash and "Local"; else the last commit's
+ * and "Your version", as IntelliJ names a file as it is (a claim, from memory).
  */
 export const sideTitles = (
   range: { from: string; to?: string } | undefined,
@@ -644,7 +644,10 @@ export const sideTitles = (
   if (!range) return ['HEAD', 'Your version'];
   // IntelliJ's `DvcsCompareWithAction` and `VcsDiffUtil.getRevisionTitle`, read in its source.
   if (range.to === undefined) {
-    return [revisionName(range.from), branch === undefined ? 'Local' : `${branch} (Local)`];
+    // A commit's, or a branch's or tag's: the current branch's as local only beside a ref.
+    const ref = range.from.startsWith('refs/');
+    const local = ref && branch !== undefined ? `${branch} (Local)` : 'Local';
+    return [revisionName(range.from), local];
   }
   return [range.from.slice(0, 8), range.to.slice(0, 8)];
 };

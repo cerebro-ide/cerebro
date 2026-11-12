@@ -37,6 +37,8 @@ import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
+import { formatCommitDate } from './dates.js';
+import type { LogCommit } from './git-log.js';
 import { branchName, natural } from './git-refs.js';
 import { icon } from './icons.js';
 import { carets } from './navigation.js';
@@ -775,6 +777,44 @@ async function pickRef(host: Host, worktree: string): Promise<string | undefined
   return choice?.ref;
 }
 
+/**
+ * IntelliJ's popup for Compare with Revision (`CompareWithSelectedRevisionAction.showListPopup`,
+ * read in its source): "File Revisions", the file's commits newest first, each its hash, date and
+ * author, searchable by them; the highlighted one's commit message below. The first thousand, as
+ * the Log's Paths filter finds them: renames aren't followed, as IntelliJ's file history's are.
+ */
+async function pickRevision(host: Host, worktree: string, path: string) {
+  const commits = (await host.request('git.log', {
+    worktree,
+    skip: 0,
+    max: 1000,
+    filter: { paths: [path] },
+  })) as LogCommit[];
+  type Choice = PickerItem & { commit: LogCommit };
+  const items: Choice[] = commits.map((commit) => ({
+    label: commit.hash,
+    detail: `${formatCommitDate(commit.time)} ${commit.author}`,
+    commit,
+  }));
+  const title = 'File Revisions';
+  const choice = await openPicker<Choice>({
+    label: title,
+    header: () => <span class="playground-popup__title">{title}</span>,
+    position: 'top',
+    items: (query) => fuzzyFilter(items, query),
+    preview: (item) =>
+      item ? (
+        <div class="playground-revisions__message">
+          <div class="playground-revisions__label">Commit message</div>
+          <div class="playground-revisions__text">
+            {[item.commit.subject, item.commit.body].filter(Boolean).join('\n\n')}
+          </div>
+        </div>
+      ) : null,
+  }).result;
+  return choice?.commit.hash;
+}
+
 export function setupChanges(services: MenuServices, setup: ChangesSetup): void {
   const { commands, menus, keymap } = services;
   resolveFromList = () => {
@@ -874,6 +914,27 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
       const caret = carets.get(`${file.worktree}/${file.path}`);
       setup.open(diffTab(file.path), undefined, caret?.line);
+    },
+  });
+  // Git → Current File's Compare with Revision…: IntelliJ's `Compare.Selected`
+  // (`CompareWithSelectedRevisionAction`). The file as it is against one of its commits, chosen in
+  // a popup of them; on when Show Diff is, as IntelliJ's (`AbstractShowDiffAction.updateDiffAction`).
+  commands.register({
+    id: 'git.file.compareWithRevision',
+    label: 'Compare with Revision',
+    dialog: true,
+    visible: () => editorFile() !== undefined,
+    enabled: () => commands.isEnabled('git.file.showDiff'),
+    run: () => {
+      const file = editorFile() as { worktree: string; path: string };
+      pickRevision(hostFor(file.worktree) as Host, file.worktree, file.path).then(
+        (hash) => {
+          if (hash !== undefined) setup.open(diffTab(file.path, { from: hash }));
+        },
+        (error: unknown) => {
+          console.error('Reading the file’s revisions failed', error);
+        },
+      );
     },
   });
   // Git → Current File's Compare with Branch or Tag…: IntelliJ's `GitCompareWithRefAction`. The
@@ -1009,6 +1070,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.showDiff' }, group: 'a' });
   // After Annotate, as IntelliJ's Git.FileActions.
   menus.contribute({ menu: 'main/git/file', item: { command: 'git.file.showDiff' }, order: 1 });
+  menus.contribute({
+    menu: 'main/git/file',
+    item: { command: 'git.file.compareWithRevision' },
+    order: 2,
+  });
   menus.contribute({
     menu: 'main/git/file',
     item: { command: 'git.file.compareWithBranch' },
