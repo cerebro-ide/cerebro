@@ -29,6 +29,7 @@ import {
 import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
+import { isFavorite, setFavorite } from '../src/branch-favorites.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
 
@@ -1072,6 +1073,22 @@ describe('the branches’ toolbar', () => {
       .poll(branchNames)
       .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'alpha', 'zed']);
     expect(star('zed')).toBe(false);
+  });
+
+  it('keeps favorites by the worktree’s own path when no project holds it', async () => {
+    workspace.openOrActivate({ id: '/x', name: 'x', branch: 'main' });
+    git.log = history(1);
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/x')];
+    mount();
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'main', 'x']);
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    tree.focus();
+    await userEvent.keyboard('{End}');
+    await userEvent.click(button('log.branches.toggleFavorite'));
+    expect(isFavorite('/x', 'refs/heads/x')).toBe(true);
+    expect(isFavorite('/r', 'refs/heads/x')).toBe(false);
+    setFavorite('/x', 'refs/heads/x', false);
+    workspace.close('/x');
   });
 
   it('keeps its first buttons in place in a short pane, as one further down is focused', () => {
