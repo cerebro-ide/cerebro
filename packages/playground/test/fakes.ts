@@ -2,8 +2,10 @@
 // the dialogs and popups a person answers.
 
 import { signal } from '@cerebro-ide/reactive';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { expect } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { documentFor } from '../src/documents.js';
 import type { Host, HostWorktree, ProjectState } from '../src/environments.js';
 
 type Answer = (params: never) => unknown;
@@ -25,6 +27,33 @@ export class FakeHost implements Host {
   params(method: string): unknown[] {
     return this.asked.filter((a) => a.method === method).map((a) => a.params);
   }
+}
+
+/**
+ * A file's document, read through `host` and edited, not saved: `host` answers its read and write
+ * (`fs.read`, `fs.write`) if it doesn't already, as a disk would.
+ */
+export async function unsavedEdit(host: FakeHost, path: string): Promise<EditorDocument> {
+  const answers = host.answers;
+  // A disk that has what was written: an edit after a save isn't a conflict.
+  const disk = new Map<string, string>();
+  answers['fs.read'] ??= (params: { path: string }) => ({ text: disk.get(params.path) ?? '' });
+  answers['fs.write'] ??= (params: { path: string; text: string }) => {
+    disk.set(params.path, params.text);
+    return null;
+  };
+  const doc = (await documentFor(path)) as EditorDocument;
+  doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+  return doc;
+}
+
+/** Whether `path` was written (`fs.write`) before the host was first asked for `method`. */
+export function savedBefore(host: FakeHost, path: string, method: string): boolean {
+  const write = host.asked.findIndex(
+    (a) => a.method === 'fs.write' && (a.params as { path: string }).path === path,
+  );
+  const call = host.asked.findIndex((a) => a.method === method);
+  return write !== -1 && call !== -1 && write < call;
 }
 
 /** A worktree, as the host lists it. */

@@ -22,11 +22,14 @@ export const RELOAD_EVERY = 2000;
  */
 export type ConflictResolver = (path: string, doc: EditorDocument, disk: string) => Promise<void>;
 
-// Both set by `setupSaving`, which the page calls before any file is read.
+// All set by `setupSaving`, which the page calls before any file is read.
 let resolveConflict!: ConflictResolver;
 
 /** Closes a deleted file's tabs. */
 let closeDeleted!: (path: string) => void;
+
+/** Says why saving failed. */
+let reportSaving!: (error: unknown) => void;
 
 /** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
 const resolving = new Set<string>();
@@ -190,6 +193,17 @@ export async function saveAll(): Promise<void> {
   await saveFiles();
 }
 
+/**
+ * Saves every modified document before a git action that reads or changes the files, as IntelliJ's
+ * do (`FileDocumentManager.saveAllDocuments()`, in `GitCheckoutOperation`, `GitMergeOperation`,
+ * `GitResetOperation`, `GitRepositoryAction`, `VcsUpdateTask` and the shelf's actions, read from
+ * its source). A file that can't be saved doesn't stop the action, as in IntelliJ's: it's reported
+ * as saving's failures are, and stays modified.
+ */
+export async function saveBeforeGit(): Promise<void> {
+  await saveAll().catch(reportSaving);
+}
+
 /** The saves asked for, one after another. */
 let saved: Promise<unknown> = Promise.resolve();
 
@@ -334,6 +348,7 @@ export function setupSaving(
 ): void {
   resolveConflict = resolver;
   closeDeleted = close;
+  reportSaving = report;
   const save = () => {
     saveAll().catch(report);
   };

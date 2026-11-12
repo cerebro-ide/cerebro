@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
@@ -2301,6 +2302,39 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## Documents saved before git actions (2026-11-12)
+
+From the Cherry-Pick decision's Not yet ("documents saved first, as IntelliJ's does; none of
+Cerebro's git actions does yet"): an edit not saved yet was left out of what git did, or was
+overwritten by it.
+
+- **Which actions:** those IntelliJ saves every modified document before
+  (`FileDocumentManager.saveAllDocuments()`, read in its source, intellij-community master,
+  2026-11-12):
+  - checkout of a branch or a revision (`GitCheckoutOperation`), and of a new branch made from
+    elsewhere, as from the Log's commit menu; a new branch made at HEAD isn't
+    (`GitCheckoutNewBranchOperation` saves nothing), nor one not checked out;
+  - Merge into Current (`GitMergeOperation`); Merge… and Pull (`GitMergeAction`, a
+    `GitRepositoryAction`, which saves in `actionPerformed`);
+  - Reset HEAD… and the Log's Reset Current Branch to Here… (`GitResetOperation`);
+  - Git → New Tag… (`GitTag`, a `GitRepositoryAction`); not the Log's New Tag…
+    (`GitCreateTagAction` saves nothing);
+  - Stash Changes… and Unstash Changes… (`GitStash`, `GitUnstash`); not the stash list's Pop and
+    Apply (`GitStashActions` saves nothing); Shelve Changes… (through its commit workflow,
+    `AbstractCommitWorkflow`) and Unshelve (`UnshelveWithDialogAction`);
+  - Update Project (`VcsUpdateTask`), Rollback (`RollbackDialogAction`), and New Worktree
+    (`GitCreateWorkingTreeService`).
+  - Not cherry-pick nor revert (`GitApplyChangesProcess`), rebase (`GitRebaseProcess`,
+    `GitRebaseUtils`) nor push: IntelliJ's save nothing first. (The Cherry-Pick decision's Not
+    yet had it that IntelliJ's cherry-pick saves first: its source says it doesn't.)
+- **A file that can't be saved doesn't stop the action**, as IntelliJ's `saveAllDocuments` doesn't:
+  it's reported as saving's other failures are (the "Couldn't Save" dialog), and stays modified
+  (`saveBeforeGit` in `documents.ts`).
+- **Commit isn't changed:** it saves the files put in, and stops if one can't be saved (decision
+  "A file edited shows at once"). IntelliJ's saves every document and goes on. **Claude's, open to
+  change:** what's committed is then never other than what was shown.
+- **Not yet:** the actions Cerebro doesn't have.
+
 ## Diffs of images and other binary files (2026-11-11)
 
 Ido: "trying to open an image diff currently is loading forever. we should have a diff for images,
@@ -2387,7 +2421,7 @@ source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
   Cherry-Pick's, as IntelliJ's, which has no Continue Revert: the Commit window finishes one.
 - **Claims:** the icon (two cherries; not IntelliJ's drawing).
 - **Not yet:** several commits at once (the Log selects one; IntelliJ picks them oldest first);
-  documents saved first, as IntelliJ's does (none of Cerebro's git actions does yet); "Stash
+  "Stash
   Changes and Retry" and "Show Files" when local changes are in the way; Abort's notification
   without asking, as IntelliJ's; the Cherry-Pick setting for the suffix and for empty picks;
   Cherry-Pick in a file's history.
@@ -2983,7 +3017,8 @@ operations): the first of the three. Words and behaviour from IntelliJ's source
 - **How the page knows what's under way:** it reads the active worktree's state every 2 seconds, as
   the window gets the focus, and after Cerebro's own git actions, so a merge started in the terminal
   shows (Cerebro's choice, open to change: IntelliJ watches `.git` for changes).
-- **Not yet:** a cherry-pick's or revert's Abort; Edit a rebase's todo (interactive rebase).
+- **Not yet:** Edit a rebase's todo (interactive rebase). (A cherry-pick's and revert's Abort:
+  decision "Cherry-Pick".)
   (Merge… and Rebase…, which start one: their decisions.)
 
 ## Merge conflicts (2026-11-09)

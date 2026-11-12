@@ -5,7 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { setupTag } from '../src/tag.js';
-import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
+import { closeAll, dialog, FakeHost, press, project, savedBefore, unsavedEdit } from './fakes.js';
 
 /** The repository as the host sees it. */
 const git = {
@@ -95,6 +95,15 @@ describe('Git → New Tag…', () => {
       .toEqual([{ path: '/r', name: 'v2', force: false }]);
     await expect.poll(() => last()?.title).toBe('v2');
     expect(last()?.content).toBe('Created tag v2 successfully.');
+  });
+
+  it('saves the documents first, as IntelliJ’s, a `GitRepositoryAction`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    await opened();
+    await userEvent.keyboard('v2');
+    await press('Create Tag');
+    await expect.poll(() => host.params('git.createTag')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.createTag')).toBe(true);
   });
 
   it('takes a tag that exists only with Force, which is off otherwise', async () => {
@@ -253,6 +262,17 @@ describe('the Log’s New Tag…', () => {
       { path: '/r', name: 'v2', commit: 'abc1234def5678' },
     ]);
     expect(notifications.all.get(0)?.title).not.toBe('v2');
+  });
+
+  it('saves no document first, as IntelliJ’s `GitCreateTagAction`', async () => {
+    const doc = await unsavedEdit(host, '/r/b.ts');
+    commands.execute('log.newTag', context());
+    await dialog();
+    await userEvent.type(input(), 'v3');
+    await press('OK');
+    await expect.poll(() => host.params('git.createTag')).toHaveLength(1);
+    expect(host.params('fs.write')).toEqual([]);
+    expect(doc.modified.peek()).toBe(true);
   });
 
   it('says why the tag couldn’t be made, in git’s words, and reads the Log again', async () => {

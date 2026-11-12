@@ -5,7 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { resetting, setupReset } from '../src/reset.js';
-import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
+import { closeAll, dialog, FakeHost, press, project, savedBefore, unsavedEdit } from './fakes.js';
 
 /** What a reset waits on, and fails with, if it does. */
 const git = {
@@ -92,6 +92,14 @@ describe('Git → Reset HEAD…', () => {
     ]);
     await press('Reset');
     await expect.poll(() => host.params('git.reset')).toEqual([{ path: '/r', mode: 'mixed' }]);
+  });
+
+  it('saves the documents first, as IntelliJ’s `GitResetOperation`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    await opened();
+    await press('Reset');
+    await expect.poll(() => host.params('git.reset')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.reset')).toBe(true);
   });
 
   it('resets to the commit with the type chosen, Resetting HEAD… while it runs', async () => {
@@ -256,6 +264,15 @@ describe('the Log’s Reset Current Branch to Here…', () => {
     // Kept: Keep chosen the next time.
     commands.execute('log.reset', context());
     expect(modes(await dialog()).find((m) => m.checked)?.name).toBe('Keep');
+  });
+
+  it('saves the documents first, as Reset HEAD… does', async () => {
+    await unsavedEdit(host, '/r/b.ts');
+    commands.execute('log.reset', context());
+    await dialog();
+    await press('Reset');
+    await expect.poll(() => host.params('git.reset')).toHaveLength(1);
+    expect(savedBefore(host, '/r/b.ts', 'git.reset')).toBe(true);
   });
 
   it('names HEAD with its hash when it’s detached, or alone when it isn’t loaded', async () => {

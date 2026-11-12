@@ -7,7 +7,17 @@ import { useProjects, workspace } from '../src/environments.js';
 import { setupMergeRebase } from '../src/merge-rebase.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
-import { closeAll, dialog, dialogText, FakeHost, popupItems, press, project } from './fakes.js';
+import {
+  closeAll,
+  dialog,
+  dialogText,
+  FakeHost,
+  popupItems,
+  press,
+  project,
+  savedBefore,
+  unsavedEdit,
+} from './fakes.js';
 
 /** The repository as the host sees it, and how what's asked of it goes. */
 const git = {
@@ -381,6 +391,15 @@ describe('Merge…', () => {
       { path: '/r/feature', branch: 'origin/main', options: [] },
     ]);
     expect(last()?.title).toBe('2 files updated in 1 commit');
+  });
+
+  it('saves the documents first, as IntelliJ’s `GitMergeAction`', async () => {
+    await unsavedEdit(host, '/r/feature/a.ts');
+    const { done, type } = await open();
+    await type('origin/main');
+    await press('Merge');
+    await done;
+    expect(savedBefore(host, '/r/feature/a.ts', 'git.merge')).toBe(true);
   });
 
   it('starts at the branch merged last, kept for the repository', async () => {

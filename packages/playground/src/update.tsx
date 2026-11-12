@@ -11,6 +11,7 @@ import { signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { resolveConflicts } from './conflicts.js';
+import { saveBeforeGit } from './documents.js';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { viewCommits, type HashRange } from './git-log.js';
 import { notifications } from './notifications.js';
@@ -197,6 +198,7 @@ export async function updateProject(
   const saveChanges = globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
   updating.set(true);
   try {
+    await saveBeforeGit();
     let updated = (await host.request('git.update', {
       path: worktree,
       method,

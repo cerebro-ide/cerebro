@@ -8,7 +8,16 @@ import { notifications } from '../src/notifications.js';
 import { setupLog } from '../src/git-log.js';
 import { readState } from '../src/repository-state.js';
 import { setupUpdate } from '../src/update.js';
-import { closeAll, dialog, FakeHost, popupItems, press, project } from './fakes.js';
+import {
+  closeAll,
+  dialog,
+  FakeHost,
+  popupItems,
+  press,
+  project,
+  savedBefore,
+  unsavedEdit,
+} from './fakes.js';
 
 /** What the host answers: each test sets what it needs. */
 const git = {
@@ -488,6 +497,14 @@ describe('Pull', () => {
     await press('Pull');
     await expect.poll(() => host.params('git.pull')).toHaveLength(1);
     expect(localStorage.getItem('cerebro.pull.options:/r')).toBeNull();
+  });
+
+  it('saves the documents first, as IntelliJ’s `GitMergeAction`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    commands.execute('vcs.pull');
+    await press('Pull');
+    await expect.poll(() => host.params('git.pull')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.pull')).toBe(true);
   });
 
   it('rebases with --rebase, as Update Project does, from the branch chosen', async () => {

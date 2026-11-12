@@ -13,6 +13,7 @@ import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { setCommitMessage } from './changes.js';
+import { saveBeforeGit } from './documents.js';
 import { active, hostFor, type Host } from './environments.js';
 import { currentBranch, currentBranchRow, revisionField } from './git-fields.js';
 import type { LogCommitContext } from './git-log.js';
@@ -235,6 +236,7 @@ export function setupReset(services: MenuServices): void {
       if (!reset) return;
       resetting.set('Resetting HEAD…');
       try {
+        await saveBeforeGit();
         await host.request('git.reset', { path: worktree, ...reset });
       } catch (error) {
         // As IntelliJ's: titled by the task, git's words under it; nothing said when it works.
@@ -265,6 +267,7 @@ export function setupReset(services: MenuServices): void {
       if (!mode) return;
       resetting.set('Git Reset');
       try {
+        await saveBeforeGit();
         await host.request('git.reset', { path: worktree, mode, commit: commit.hash });
         notifications.notify({ title: 'Reset successful' });
       } catch (error) {

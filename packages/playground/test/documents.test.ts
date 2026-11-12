@@ -7,6 +7,7 @@ import {
   RELOAD_EVERY,
   reloadAll,
   saveAll,
+  saveBeforeGit,
   saveFiles,
   setupSaving,
   SLOW_SAVE,
@@ -532,6 +533,19 @@ describe('on its own', () => {
     edit(failing, '1');
     window.dispatchEvent(new Event('blur'));
     await expect.poll(() => reported.length).toBe(1);
+    failing.resolve('a', 'a');
+  });
+
+  it('saves before a git action, saying why a file couldn’t be, and goes on', async () => {
+    const doc = await file('/r/git.ts', 'a');
+    edit(doc, '1');
+    const failing = await file('/r/readonly-git.ts', 'a');
+    edit(failing, '1');
+    const before = reported.length;
+    await saveBeforeGit();
+    expect(disk.get('/r/git.ts')).toBe('a1');
+    expect(reported.slice(before)).toEqual([new Error('Couldn’t save /r/readonly-git.ts: EACCES')]);
+    expect(failing.modified.peek()).toBe(true);
     failing.resolve('a', 'a');
   });
 

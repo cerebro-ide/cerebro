@@ -16,6 +16,8 @@ import {
   popupItems,
   press,
   project,
+  savedBefore,
+  unsavedEdit,
 } from './fakes.js';
 
 /** The repository as the host sees it, and how what's asked of it goes. */
@@ -277,6 +279,18 @@ describe('Checkout', () => {
     await expect.poll(() => readWorktrees.mock.calls).toEqual([['/r']]);
   });
 
+  it('saves the documents first, a branch or a revision, as IntelliJ’s `GitCheckoutOperation`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    await choose('feature', 'Checkout');
+    await expect.poll(() => host.params('git.checkout')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.checkout')).toBe(true);
+    await unsavedEdit(host, '/r/a.ts');
+    await checkoutReference('v2');
+    await press('OK');
+    await expect.poll(() => host.params('git.checkoutRevision')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.checkoutRevision')).toBe(true);
+  });
+
   it('checks out a remote branch as a local one tracking it', async () => {
     await choose('origin/side', 'Checkout');
     await expect.poll(() => last()?.content).toBe('Checked out side');
@@ -365,6 +379,18 @@ describe('New Branch', () => {
       .toEqual([{ path: '/r', name: 'fresh', checkout: true, overwrite: false }]);
   });
 
+  it('saves no document for a branch at HEAD, as IntelliJ’s `GitCheckoutNewBranchOperation`', async () => {
+    const doc = await unsavedEdit(host, '/r/head.ts');
+    await popup();
+    await userEvent.click(row('New Branch…'));
+    await dialog();
+    await answer('fresh');
+    await press('Create');
+    await expect.poll(() => host.params('git.createBranch')).toHaveLength(1);
+    expect(host.params('fs.write')).toEqual([]);
+    expect(doc.modified.peek()).toBe(true);
+  });
+
   it('refuses a name git won’t take or one taken, unless overwriting', async () => {
     await choose('side', "New Branch from 'side'…");
     const box = await dialog();
@@ -446,6 +472,26 @@ describe('New Branch', () => {
         { path: '/r', name: 'fix', checkout: true, overwrite: false, from: 'abc1234567890def' },
       ]);
       expect(refresh).toHaveBeenCalled();
+    });
+
+    it('saves the documents first when it checks the branch out, else not', async () => {
+      await unsavedEdit(host, '/r/a.ts');
+      const done = run([]);
+      await dialog();
+      await answer('fix');
+      await press('Create');
+      await done;
+      expect(savedBefore(host, '/r/a.ts', 'git.createBranch')).toBe(true);
+      host.asked.length = 0;
+      await unsavedEdit(host, '/r/a.ts');
+      const unchecked = run([]);
+      const box = await dialog();
+      await answer('fix2');
+      await userEvent.click(box.querySelector('input[type="checkbox"]') as HTMLInputElement);
+      await press('Create');
+      await unchecked;
+      expect(host.params('git.createBranch')).toMatchObject([{ name: 'fix2', checkout: false }]);
+      expect(host.params('fs.write')).toEqual([]);
     });
 
     it('suggests the one branch at the commit, a remote one without its remote', async () => {
@@ -653,6 +699,13 @@ describe('Merge into Current', () => {
     await expect
       .poll(() => host.params('git.deleteBranch'))
       .toEqual([{ path: '/r', name: 'feature' }]);
+  });
+
+  it('saves the documents first, as IntelliJ’s `GitMergeOperation`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    await choose('feature', "Merge 'feature' into 'main'");
+    await expect.poll(() => host.params('git.mergeBranch')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.mergeBranch')).toBe(true);
   });
 
   it('proposes nothing for a remote branch, or one already merged', async () => {

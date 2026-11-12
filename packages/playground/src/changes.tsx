@@ -34,7 +34,7 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
-import { onEdited, saveFiles, unsavedFiles } from './documents.js';
+import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
@@ -952,6 +952,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     const env = active();
     if (!env) return;
     try {
+      // As IntelliJ's `RollbackDialogAction`: what's rolled back is what's on disk.
+      await saveBeforeGit();
       await hostFor(env.id)?.request('git.rollback', {
         path: env.id,
         files: files.map((change) => change.path),

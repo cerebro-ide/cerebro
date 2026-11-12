@@ -13,6 +13,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { resolveConflicts } from './conflicts.js';
+import { saveBeforeGit } from './documents.js';
 import { active, hostFor, projectOf, type Host } from './environments.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
@@ -316,6 +317,9 @@ export function setupBranches(
       });
       const named = await branchDialog(title, 'Create', value, false);
       if (!named) return;
+      // As IntelliJ's checkout of a new branch from elsewhere (`GitCheckoutOperation`); one at HEAD
+      // changes no file (`GitCheckoutNewBranchOperation` saves nothing).
+      if (named.checkout && from !== undefined) await saveBeforeGit();
       await host.request('git.createBranch', {
         path: worktree,
         ...named,
@@ -335,6 +339,7 @@ export function setupBranches(
     visible: (b) => !isCurrent(b) && elsewhere(b) === undefined,
     run: (b) => {
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
+        await saveBeforeGit();
         await host.request('git.checkout', { path: worktree, branch: b.name, remote: b.remote });
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
@@ -360,6 +365,7 @@ export function setupBranches(
       const reference = await referenceDialog([...local, ...remote, ...tags]);
       if (reference === undefined) return;
       await operate(`Could not checkout ${reference}`, async (host, worktree) => {
+        await saveBeforeGit();
         await host.request('git.checkoutRevision', { path: worktree, reference });
         notifications.notify({ content: `Checked out ${reference}` });
       });
@@ -427,6 +433,7 @@ export function setupBranches(
     run: (b) => {
       const into = current();
       return operate(`Could not merge ${b.name}`, async (host, worktree) => {
+        await saveBeforeGit();
         const result = await host.request('git.mergeBranch', { path: worktree, branch: b.name });
         if (result === 'conflicts') {
           // As IntelliJ's: the Conflicts dialog, and the merge committed once none is left.

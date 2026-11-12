@@ -15,6 +15,7 @@ import { signal, type Disposable, type Signal } from '@cerebro-ide/reactive';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import type { Project } from './bridge.js';
+import { saveBeforeGit } from './documents.js';
 import { icon } from './icons.js';
 import { closeTerminals, setTerminalProject } from './terminals.js';
 
@@ -348,6 +349,8 @@ export function setupEnvironments(
         // Beside the main worktree, on a new branch of the same name, from the active one's branch.
         const path = `${main.slice(0, main.search(/[\\/][^\\/]*$/))}/${name}`;
         try {
+          // As IntelliJ's `GitCreateWorkingTreeService`.
+          await saveBeforeGit();
           const list = (await host.request('git.addWorktree', {
             path,
             branch: name,
