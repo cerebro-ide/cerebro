@@ -513,6 +513,35 @@ describe('Jump to Source from a diff', () => {
   });
 });
 
+describe('Git → Current File → Show Diff', () => {
+  it('shows the editor’s file against its last commit, as IntelliJ’s Compare with the Same Repository Version', () => {
+    const visible = () => commands.get('git.file.showDiff')?.visible?.(undefined);
+    expect(visible()).toBe(false);
+    activeTab = '/elsewhere/a.ts';
+    expect(visible()).toBe(false);
+    activeTab = `${wt}/src/main/app.ts`;
+    expect(visible()).toBe(true);
+    // The Commit window hasn't read the changes: nothing says git hasn't committed it.
+    expect(commands.isEnabled('git.file.showDiff')).toBe(true);
+    commands.execute('git.file.showDiff');
+    expect(opened.at(-1)?.id).toBe('diff:src/main/app.ts');
+    expect(menus.entries('main/git/file')).toContainEqual({ command: 'git.file.showDiff' });
+  });
+
+  it('is off for a file git hasn’t committed: untracked or added', async () => {
+    await changesView();
+    for (const [path, on] of [
+      ['src/main/app.ts', true],
+      ['notes.txt', false],
+      ['src/main/new.ts', false],
+      ['unchanged.ts', true],
+    ] as const) {
+      activeTab = `${wt}/${path}`;
+      expect(commands.isEnabled('git.file.showDiff')).toBe(on);
+    }
+  });
+});
+
 describe('Rollback', () => {
   it('rolls back the selection’s tracked files, after asking, deleting added ones if told', async () => {
     await changesView();
