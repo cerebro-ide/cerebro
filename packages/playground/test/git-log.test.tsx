@@ -900,6 +900,12 @@ describe('the branches’ toolbar', () => {
       .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'Remote', 'origin']);
     const gear = toolbar().querySelector('[data-menu="log/branchesSettings"]') as HTMLElement;
     expect(gear.getAttribute('aria-label')).toBe('Branches Pane Settings');
+    await userEvent.hover(gear);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent, {
+        timeout: SHOW_DELAY + 1000,
+      })
+      .toBe('Branches Pane Settings');
     const menu = async () => {
       await userEvent.click(gear);
       return [
@@ -978,6 +984,29 @@ describe('the branches’ toolbar', () => {
     services.commands.execute('log.branches.onSelection.filter');
     expect(services.commands.isChecked('log.branches.onSelection.filter')).toBe(false);
     vi.restoreAllMocks();
+  });
+
+  it('shows what a short pane has no room for behind a » at its foot', async () => {
+    git.log = history(1);
+    mount();
+    const log = document.querySelector('.playground-log') as HTMLElement;
+    log.style.height = '120px';
+    const more = () => toolbar().querySelector('.cerebro-toolbar-row__more') as HTMLButtonElement;
+    await expect.poll(() => more().hidden).toBe(false);
+    const hidden = () =>
+      [...toolbar().querySelectorAll<HTMLElement>('[data-command], [data-menu]')]
+        .filter((item) => item.hidden)
+        .map((item) => item.getAttribute('data-command') ?? item.getAttribute('data-menu'));
+    const r = (q: string) => { const e = document.querySelector(q) as HTMLElement | null; const b = e?.getBoundingClientRect(); return e ? `${q}: ${b?.top}-${b?.bottom} ${getComputedStyle(e).display}` : `${q}: none`; };
+    expect(hidden()).toContain('log.branches.collapseAll');
+    expect(hidden()).not.toContain('log.branches.hide');
+    // Pointing at it shows the popup over it, as the row's own tests do.
+    more().click();
+    const popup = document.querySelector('.cerebro-toolbar-row__popup') as HTMLElement;
+    expect(popup.querySelector('[data-command="log.branches.collapseAll"]')).not.toBeNull();
+    await userEvent.keyboard('{Escape}');
+    log.style.height = '';
+    await expect.poll(() => more().hidden).toBe(true);
   });
 
   it('keeps its first buttons in place in a short pane, as one further down is focused', () => {

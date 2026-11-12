@@ -1435,34 +1435,43 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
       aria-label="Branches"
       aria-orientation="vertical"
     >
-      {button('log.branches.hide', 'arrowCollapse')}
-      <span class="playground-log__branches-separator" />
-      {button('log.branches.newBranch', 'add')}
-      {button('log.branches.update', 'update')}
-      {button('log.branches.delete', 'delete')}
-      {button('vcs.fetch', 'fetch')}
-      {button('log.branches.navigate', 'locate')}
-      <span class="playground-log__branches-separator" />
-      <button
-        type="button"
-        class="cerebro-toolbar-button"
-        aria-label="Branches Pane Settings"
-        data-menu="log/branchesSettings"
-        ref={tooltip({ text: () => 'Branches Pane Settings', placement: 'right' })}
-        on:click={(event) => {
-          const anchor = event.currentTarget as HTMLElement;
-          openMenu(
-            services,
-            'log/branchesSettings',
-            { anchor, placement: 'right' },
-            { owner: anchor, context: anchor },
-          );
-        }}
-      >
-        {icon('settings')}
-      </button>
-      {button('log.branches.expandAll', 'expandAll')}
-      {button('log.branches.collapseAll', 'collapseAll')}
+      {/* What doesn't fit, behind a » at the bottom, as IntelliJ's vertical toolbars. */}
+      <ToolbarRow
+        label="Branches Actions"
+        orientation="vertical"
+        items={() => (
+          <>
+            {button('log.branches.hide', 'arrowCollapse')}
+            <span class="playground-log__branches-separator" />
+            {button('log.branches.newBranch', 'add')}
+            {button('log.branches.update', 'update')}
+            {button('log.branches.delete', 'delete')}
+            {button('vcs.fetch', 'fetch')}
+            {button('log.branches.navigate', 'locate')}
+            <span class="playground-log__branches-separator" />
+            <button
+              type="button"
+              class="cerebro-toolbar-button"
+              aria-label="Branches Pane Settings"
+              data-menu="log/branchesSettings"
+              ref={tooltip({ text: () => 'Branches Pane Settings', placement: 'right' })}
+              on:click={(event) => {
+                const anchor = event.currentTarget as HTMLElement;
+                openMenu(
+                  services,
+                  'log/branchesSettings',
+                  { anchor, placement: 'right' },
+                  { owner: anchor, context: anchor },
+                );
+              }}
+            >
+              {icon('settings')}
+            </button>
+            {button('log.branches.expandAll', 'expandAll')}
+            {button('log.branches.collapseAll', 'collapseAll')}
+          </>
+        )}
+      />
     </div>
   );
 }

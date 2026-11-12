@@ -157,3 +157,84 @@ describe('a toolbar row', () => {
     expect(popup()).toBeNull();
   });
 });
+
+describe('a vertical toolbar row', () => {
+  /** Four buttons 30px tall in a column `height` tall, at the window's foot if `low`. */
+  function column(height: number, low = false) {
+    const box = document.createElement('div');
+    box.style.position = 'fixed';
+    box.style.left = '10px';
+    box.style[low ? 'bottom' : 'top'] = '10px';
+    box.style.display = 'flex';
+    box.style.flexDirection = 'column';
+    box.style.height = `${String(height)}px`;
+    document.body.append(box);
+    const handle = render(
+      () => (
+        <ToolbarRow
+          label="Branches"
+          orientation="vertical"
+          items={() =>
+            ['a', 'b', 'c', 'd'].map((name) => (
+              <button
+                type="button"
+                class="item"
+                ref={(b) => {
+                  b.style.height = '30px';
+                  b.style.flex = 'none';
+                }}
+              >
+                {name}
+              </button>
+            ))
+          }
+        />
+      ),
+      box,
+    );
+    cleanup = () => {
+      handle.dispose();
+      box.remove();
+    };
+    return box;
+  }
+
+  it('hides the items that don’t fit, from the last, the » below the rest; all of them in a column over it', async () => {
+    // Four 30px items in 100: the » takes 20, so two fit.
+    const box = column(100);
+    await frames();
+    expect(shown()).toEqual(['a', 'b']);
+    expect(more().hidden).toBe(false);
+    expect(more().getBoundingClientRect().bottom).toBeLessThanOrEqual(110);
+    expect(document.querySelector('.cerebro-toolbar-row--vertical')).not.toBeNull();
+    more().click();
+    expect(popup()?.getAttribute('aria-orientation')).toBe('vertical');
+    expect([...(popup()?.querySelectorAll('.item') ?? [])].map((c) => c.textContent)).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ]);
+    expect((popup() as HTMLElement).style.top).toBe('10px');
+    expect((popup() as HTMLElement).style.left).toBe('10px');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    box.style.height = '200px';
+    await frames();
+    expect(shown()).toEqual(['a', 'b', 'c', 'd']);
+    expect(more().hidden).toBe(true);
+  });
+
+  it('keeps its first items in place as one below them is focused', () => {
+    column(100);
+    (document.querySelectorAll<HTMLElement>('.item')[3] as HTMLElement).focus();
+    expect(row().scrollTop).toBe(0);
+  });
+
+  it('keeps the column over it on the screen, at the window’s foot', async () => {
+    column(100, true);
+    await frames();
+    more().click();
+    const { bottom } = (popup() as HTMLElement).getBoundingClientRect();
+    expect(bottom).toBeLessThanOrEqual(window.innerHeight);
+  });
+});

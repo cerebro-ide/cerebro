@@ -208,6 +208,29 @@
   background: var(--cerebro-hover);
 }
 
+/* A column: as tall as it's given, the » at the bottom, pointing down. */
+.cerebro-toolbar-row--vertical {
+  flex-direction: column;
+}
+
+.cerebro-toolbar-row--vertical .cerebro-toolbar-row__items {
+  flex-direction: column;
+  width: auto;
+  height: 0;
+  min-height: 0;
+  /* Clipped, not hidden: a hidden overflow scrolls to an item focused below it. */
+  overflow: clip;
+}
+
+.cerebro-toolbar-row--vertical .cerebro-toolbar-row__more {
+  width: 26px;
+  height: 20px;
+}
+
+.cerebro-toolbar-row--vertical .cerebro-toolbar-row__more svg {
+  transform: rotate(90deg);
+}
+
 /* The whole row, over it, while some of it is hidden. */
 .cerebro-toolbar-row__popup {
   position: fixed;
@@ -222,4 +245,9 @@
   box-shadow: var(--cerebro-shadow);
   color: var(--cerebro-text);
   white-space: nowrap;
+}
+
+.cerebro-toolbar-row__popup--vertical {
+  flex-direction: column;
+  padding: 4px 2px;
 }
