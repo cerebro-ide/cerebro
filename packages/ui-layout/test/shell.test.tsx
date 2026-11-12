@@ -276,7 +276,7 @@ describe('focusing a tool window', () => {
             <button disabled>off</button>
             <input class="test-field" />
             <div data-focus-first>
-              <div class="test-list" tabindex="0" />
+              <div class="test-list" tabIndex={0} />
             </div>
           </div>
         ) : (
