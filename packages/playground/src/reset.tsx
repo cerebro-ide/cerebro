@@ -3,15 +3,21 @@
 // or Hard) and To Commit (HEAD when empty) with Validate; then `git reset`, "Resetting HEAD…" on the
 // status bar while it runs. And the Log's Reset Current Branch to Here… (`GitResetAction`,
 // `GitNewResetDialog`, `GitResetOperation`): the dialog "Git Reset", the branch and the commit, and
-// Soft, Mixed, Hard or Keep, the one chosen kept for next time; "Git Reset" while it runs.
+// Soft, Mixed, Hard or Keep, the one chosen kept for next time; "Git Reset" while it runs. And its
+// Undo Commit… (`GitUncommitAction`, `GitCommitEditingActionBase`): HEAD's commit taken back, its
+// changes staged and its message in the Commit window, unless a protected branch on a remote has
+// it. Cerebro has no changelists, so there's no "Select Target Changelist" dialog, as IntelliJ's
+// without them.
 
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { setCommitMessage } from './changes.js';
 import { active, hostFor, type Host } from './environments.js';
 import { currentBranch, currentBranchRow, revisionField } from './git-fields.js';
 import type { LogCommitContext } from './git-log.js';
 import { notifications } from './notifications.js';
+import { PROTECTED } from './push.js';
 import { refreshAll } from './shelf.js';
 
 type ResetMode = 'mixed' | 'soft' | 'hard' | 'keep';
@@ -174,6 +180,42 @@ async function logResetDialog(context: LogCommitContext): Promise<ResetMode | un
   return chosen;
 }
 
+/** IntelliJ's Undo Commit…: `at`'s commit, HEAD's, undone; or why it can't be. */
+async function undoCommit(at: LogCommitContext): Promise<void> {
+  const { host, worktree, commit } = at;
+  resetting.set('Undoing Last Commit…');
+  try {
+    const pushed = (await host.request('git.undoCommit', {
+      path: worktree,
+      hash: commit.hash,
+      protected: PROTECTED,
+    })) as string | null;
+    if (pushed !== null) {
+      await openDialog({
+        title: 'Cannot Undo Commit',
+        cancelLabel: 'OK',
+        content: () => <p>The commit is already pushed to protected branch '{pushed}'</p>,
+      }).result;
+      return;
+    }
+    notifications.notify({ title: 'Undo commit successful' });
+    const body = commit.body.trimEnd();
+    setCommitMessage(worktree, body === '' ? commit.subject : `${commit.subject}\n\n${body}`);
+  } catch (error) {
+    notifications.notify({
+      title: 'Undo commit failed',
+      content: (error as Error).message,
+      type: 'error',
+      display: 'sticky',
+    });
+  } finally {
+    resetting.set(undefined);
+  }
+  await Promise.all([at.refresh(), refreshAll(worktree)]).catch((error: unknown) => {
+    console.error('Reading again after Undo Commit', error);
+  });
+}
+
 /** Git → Reset HEAD…: the dialog, then the active worktree's branch reset. */
 export function setupReset(services: MenuServices): void {
   const { commands, menus } = services;
@@ -241,6 +283,26 @@ export function setupReset(services: MenuServices): void {
     },
   });
   menus.contribute({ menu: 'log/commit', item: { command: 'log.reset' }, group: 'g', order: 0 });
+  // After Revert Commit, as IntelliJ's: only for HEAD's commit, not a merge's (IntelliJ's
+  // `checkNotMergeCommit`) nor the first's, which has no parent to go back to (IntelliJ asks, then
+  // takes its first parent: Claude's, open to change).
+  commands.register<LogCommitContext>({
+    id: 'log.undoCommit',
+    label: 'Undo Commit',
+    dialog: true,
+    enabled: (at?: LogCommitContext) =>
+      at !== undefined &&
+      resetting.get() === undefined &&
+      at.head === at.commit.hash &&
+      at.commit.parents.length === 1,
+    run: undoCommit,
+  });
+  menus.contribute({
+    menu: 'log/commit',
+    item: { command: 'log.undoCommit' },
+    group: 'g',
+    order: 2,
+  });
   // IntelliJ's: after New Tag….
   menus.contribute({ menu: 'main/git', item: { command: 'git.reset' }, group: 'an', order: 4 });
 }

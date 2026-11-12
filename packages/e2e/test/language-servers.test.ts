@@ -378,7 +378,24 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
   for (let i = 0; i < 7; i++) await page().keyboard.press('ArrowLeft');
   // The read at the bottom, its mark low on the scrollbar, under the track while the pointer's there.
   const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write)');
-  await mark.waitFor({ timeout: 30_000 });
+  try {
+    await mark.waitFor({ timeout: 30_000 });
+  } catch (error) {
+    // Two read marks on a macOS run (#192), the file having one read: what each mark and each
+    // usage in the text was, to tell a wrong answer (the declaration as read) from marks elsewhere.
+    console.log(
+      await page().evaluate(() => ({
+        marks: [...document.querySelectorAll<HTMLElement>('.cerebro-stripeMark')].map(
+          (m) => `${m.className} top=${m.style.top} in ${String(m.closest('.cm-editor') !== null)}`,
+        ),
+        editors: document.querySelectorAll('.cm-editor').length,
+        usages: [...document.querySelectorAll<HTMLElement>('.cerebro-usage')].map(
+          (u) => `${u.className} top=${u.style.top}`,
+        ),
+      })),
+    );
+    throw error;
+  }
   // Where it stays: lines not drawn yet have estimated heights, so a mark can move once they're
   // measured (a macOS run clicked beside it once).
   type Box = { x: number; y: number; width: number; height: number };
