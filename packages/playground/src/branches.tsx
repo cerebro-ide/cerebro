@@ -20,7 +20,7 @@ import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
 import { favoriteIcon, icon } from './icons.js';
 import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
-import { branchName, type BranchesContext } from './log-branches.js';
+import { branchName, isTag, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { isProtected } from './push.js';
@@ -582,14 +582,14 @@ export function setupBranches(
       await refresh();
     },
   });
-  // Not the current branch, or a protected remote one, as IntelliJ's.
+  // Not the current branch, or a protected remote one, as IntelliJ's; not a tag yet.
   commands.register<BranchesContext | undefined>({
     id: 'log.branches.delete',
     label: 'Delete Branch',
     icon: 'delete',
     enabled: (c) => {
       const at = paneContext(c)?.selection;
-      if (at?.kind !== 'branch' || at.current) return false;
+      if (at?.kind !== 'branch' || at.current || isTag(at.ref)) return false;
       const name = branchName(at.ref);
       return !at.ref.startsWith('refs/remotes/') || !isProtected(name.slice(name.indexOf('/') + 1));
     },

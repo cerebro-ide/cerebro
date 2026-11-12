@@ -917,6 +917,22 @@ export function setupLog(services: MenuServices, show: () => void): void {
     item: { command: 'log.branches.groupByDirectory' },
     group: 'b',
   });
+  // Show Tags, as IntelliJ's (git.branches.show.tags): on to start with; the tags read again.
+  commands.register({
+    id: 'log.branches.showTags',
+    label: 'Show Tags',
+    checked: () => paneSettings.showTags.get(),
+    run: () => {
+      paneSettings.showTags.set(!paneSettings.showTags.peek());
+      savePaneSettings();
+      void shown.peek()?.branches.reload();
+    },
+  });
+  menus.contribute({
+    menu: SETTINGS_MENU,
+    item: { command: 'log.branches.showTags' },
+    group: 'b',
+  });
   for (const [id, label, open] of [
     ['log.branches.expandAll', 'Expand All', true],
     ['log.branches.collapseAll', 'Collapse All', false],
