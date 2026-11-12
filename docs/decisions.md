@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
 - [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git)
 - [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
@@ -2330,6 +2331,31 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Git → Current File → Compare with Branch or Tag (2026-11-12)
+
+The Current File submenu's next item after Show Diff, from that decision's Not yet ("the other
+items of the submenu").
+
+- **Compare with Branch or Tag…,** IntelliJ's `Git.CompareWithBranch` (`GitCompareWithRefAction`,
+  read in its source): the editor's file as it is against a branch or a tag, in the diff Cerebro
+  shows a local change in, its right side the file's document. After Show Diff in the submenu,
+  where IntelliJ's Compare with Revision… would come between (not here yet).
+- **Its popup,** "Select Branch to Compare" (`GitCompareWithBranchPopup`, `DvcsBundle`): the local
+  branches but the current one, the remote ones (not `origin/HEAD`), and the tags, in IntelliJ's
+  natural order, searchable ("Search for branches and tags", `GitBundle`). The choice is named in
+  full (`refs/tags/v1`), as IntelliJ's `getFullName`.
+- **Its sides' titles,** as IntelliJ's (`VcsDiffUtil.getRevisionTitle`, `diff.title.local`): the
+  branch's or tag's name, and the current branch's with "(Local)". A diff window's title adds the
+  branch's or tag's name (Claude's choice, open to change).
+- **A file that isn't in the branch,** and not changed since (untracked), says so in IntelliJ's
+  words: "File src/a.ts doesn't exist in branch 'other'" (or tag), under the diff's "Can't show the
+  changes to …"; IntelliJ's shows the message alone.
+- **Claims and differences:** IntelliJ's is off when there's nothing to compare with
+  (`nothingToCompare`: no other branch); Cerebro's is on for any file of a repository, the popup
+  then empty. IntelliJ's local title with HEAD detached is the short hash; Cerebro's says "Local".
+- **Not yet:** the popup's Recent group, favourites and its settings; Compare with Revision…;
+  comparing a folder.
 
 ## Git → Current File → Show Diff (2026-11-12)
 

@@ -391,14 +391,15 @@ export function parseNameStatus(output: string): Change[] {
   return changes.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
-/** The changes from one commit to another, renames found. */
+/** The changes from one commit to another, or to the files as they are; renames found. */
 export async function listChangesBetween(
   worktree: string,
   from: string,
-  to: string,
+  to: string | undefined,
   run: Git = git,
 ): Promise<Change[]> {
-  return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', from, to]));
+  const between = to === undefined ? [from] : [from, to];
+  return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', ...between]));
 }
 
 /** Git's empty tree: what changes made before any commit are compared with. */

@@ -30,12 +30,14 @@ import {
 } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
+import { branchName, natural } from './git-refs.js';
 import { icon } from './icons.js';
 import { carets } from './navigation.js';
 import { notifications } from './notifications.js';
@@ -58,10 +60,13 @@ export interface Turn {
   time: number;
 }
 
-/** Two commits to compare: a turn's snapshots. */
+/**
+ * Two commits to compare (a turn's snapshots); or a commit, a branch or a tag (named in full, as
+ * `refs/tags/v1`) with the file as it is: Compare with Branch or Tag.
+ */
 export interface Range {
   from: string;
-  to: string;
+  to?: string;
 }
 
 type Group = 'conflicts' | 'changes' | 'unversioned' | 'ignored';
@@ -75,7 +80,8 @@ type Item =
 
 /**
  * A diff tab's id: the file's path in the worktree, marked as a diff, against its last commit
- * (`diff:path`) or between two commits (`diff@from..to:path`).
+ * (`diff:path`), between two commits (`diff@from..to:path`), or against a branch or tag as it is
+ * (`diff@refs/heads/b..:path`). A ref's name has neither `..` nor `:` (git check-ref-format).
  */
 const DIFF = 'diff';
 
@@ -86,11 +92,11 @@ export const fileTab = (worktree: string, path: string): Tab => ({
 });
 
 export const diffTab = (path: string, range?: Range): Tab => ({
-  id: range ? `${DIFF}@${range.from}..${range.to}:${path}` : `${DIFF}:${path}`,
+  id: range ? `${DIFF}@${range.from}..${range.to ?? ''}:${path}` : `${DIFF}:${path}`,
   title: path.split('/').at(-1) as string,
 });
 
-const DIFF_ID = /^diff(?:@([^.:]+)\.\.([^:]+))?:(.*)$/s;
+const DIFF_ID = /^diff(?:@([^:]+?)\.\.([^:]*))?:(.*)$/s;
 
 /** The file a diff tab shows, if it's one. */
 export function diffPath(tabId: string): string | undefined {
@@ -100,7 +106,8 @@ export function diffPath(tabId: string): string | undefined {
 /** The commits a diff tab compares, if it compares two. */
 export function diffRange(tabId: string): Range | undefined {
   const match = DIFF_ID.exec(tabId);
-  return match?.[1] === undefined ? undefined : { from: match[1], to: match[2] as string };
+  if (match?.[1] === undefined) return undefined;
+  return match[2] ? { from: match[1], to: match[2] } : { from: match[1] };
 }
 
 /** How often the list is read again while it shows. */
@@ -733,6 +740,41 @@ async function flipAmend(changes: Changes): Promise<void> {
 }
 
 /** The Commit window's commands, shortcuts and menus. */
+/**
+ * IntelliJ's popup for Compare with Branch or Tag (`GitCompareWithBranchPopup`, read in its
+ * source): the worktree's local branches but the current one, its remote ones and its tags,
+ * searchable; the one chosen, named in full. Its Recent group and favourites aren't here.
+ */
+async function pickRef(host: Host, worktree: string): Promise<string | undefined> {
+  const [refs, tags] = (await Promise.all([
+    host.request('git.branches', { worktree }),
+    host.request('git.tags', { path: worktree }),
+  ])) as [{ ref: string; current: boolean }[], string[]];
+  type Choice = PickerItem & { ref: string };
+  const branches = (prefix: string, group: string): Choice[] =>
+    refs
+      .filter((r) => r.ref.startsWith(prefix) && !r.current)
+      .flatMap((r) => {
+        const name = branchName(r.ref);
+        return name === undefined ? [] : [{ label: name, group, ref: r.ref }];
+      })
+      .sort((a, b) => natural(a.label, b.label));
+  const groups = [
+    branches('refs/heads/', 'Local'),
+    branches('refs/remotes/', 'Remote'),
+    [...tags].sort(natural).map((tag) => ({ label: tag, group: 'Tags', ref: `refs/tags/${tag}` })),
+  ];
+  const title = 'Select Branch to Compare';
+  const choice = await openPicker<Choice>({
+    label: title,
+    header: () => <span class="playground-popup__title">{title}</span>,
+    placeholder: 'Search for branches and tags',
+    position: 'top',
+    items: (query) => groups.flatMap((group) => fuzzyFilter(group, query)),
+  }).result;
+  return choice?.ref;
+}
+
 export function setupChanges(services: MenuServices, setup: ChangesSetup): void {
   const { commands, menus, keymap } = services;
   resolveFromList = () => {
@@ -832,6 +874,26 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
       const caret = carets.get(`${file.worktree}/${file.path}`);
       setup.open(diffTab(file.path), undefined, caret?.line);
+    },
+  });
+  // Git → Current File's Compare with Branch or Tag…: IntelliJ's `GitCompareWithRefAction`. The
+  // file as it is against a branch or a tag, chosen in a popup of them. On for any file, as
+  // IntelliJ's: for one that isn't in the branch, the diff says so.
+  commands.register({
+    id: 'git.file.compareWithBranch',
+    label: 'Compare with Branch or Tag',
+    dialog: true,
+    visible: () => editorFile() !== undefined,
+    run: () => {
+      const file = editorFile() as { worktree: string; path: string };
+      pickRef(hostFor(file.worktree) as Host, file.worktree).then(
+        (ref) => {
+          if (ref !== undefined) setup.open(diffTab(file.path, { from: ref }));
+        },
+        (error: unknown) => {
+          console.error('Reading the branches failed', error);
+        },
+      );
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
@@ -947,6 +1009,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.showDiff' }, group: 'a' });
   // After Annotate, as IntelliJ's Git.FileActions.
   menus.contribute({ menu: 'main/git/file', item: { command: 'git.file.showDiff' }, order: 1 });
+  menus.contribute({
+    menu: 'main/git/file',
+    item: { command: 'git.file.compareWithBranch' },
+    order: 3,
+  });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.refresh' }, group: 'c' });

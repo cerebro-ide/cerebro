@@ -488,12 +488,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await write;
     return null;
   });
-  /** A request's commits to compare (a turn's snapshots), if it names them. */
-  const range = (params: unknown): { from: string; to: string } | undefined => {
+  /**
+   * A request's commits to compare (a turn's snapshots), if it names them; or a commit, a branch
+   * or a tag alone, to compare with the files as they are (Compare with Branch or Tag).
+   */
+  const range = (params: unknown): { from: string; to: string | undefined } | undefined => {
     const p = params as { from?: unknown; to?: unknown };
-    return typeof p.from === 'string' && typeof p.to === 'string'
-      ? { from: p.from, to: p.to }
-      : undefined;
+    if (typeof p.from !== 'string') return undefined;
+    return { from: p.from, to: typeof p.to === 'string' ? p.to : undefined };
   };
   // A worktree's changes since its last commit, or from one commit to another.
   // The Git tool window's Log: a page of commits, `max` after the first `skip`; of the branches
@@ -1028,13 +1030,28 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const between = range(params);
     let sides: (Uint8Array | undefined)[];
     if (between) {
-      const change = (await listChangesBetween(worktree, between.from, between.to, git)).find(
+      const { from, to } = between;
+      const change = (await listChangesBetween(worktree, from, to, git)).find(
         (c) => c.path === file,
       );
       sides = await Promise.all([
-        bytesAt(worktree, between.from, change?.from ?? file, gitBytes),
-        bytesAt(worktree, between.to, file, gitBytes),
+        bytesAt(worktree, from, change?.from ?? file, gitBytes),
+        to !== undefined
+          ? bytesAt(worktree, to, file, gitBytes)
+          : change?.status === 'deleted'
+            ? undefined
+            : refusing(readFileBytes(join(worktree, file))),
       ]);
+      // Not in it, and not changed since (untracked): said, in IntelliJ's words
+      // (`GitCompareWithRefAction`), of a branch or a tag named in full.
+      if (to === undefined && change === undefined && sides[0] === undefined) {
+        const tag = from.startsWith('refs/tags/');
+        const name = from.replace(/^refs\/(heads|remotes|tags)\//, '');
+        throw new ResponseError(
+          ErrorCodes.InvalidParams,
+          `File ${file} doesn't exist in ${tag ? 'tag' : 'branch'} '${name}'`,
+        );
+      }
     } else {
       const change = (await listChanges(worktree, git)).find((c) => c.path === file);
       sides = await Promise.all([

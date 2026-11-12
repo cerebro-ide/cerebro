@@ -8,7 +8,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { globalSettings } from '../src/settings.js';
-import { DiffViewer, diffsInTabs, setupDiffViewer, type DiffMove } from '../src/diff-viewer.js';
+import {
+  DiffViewer,
+  diffsInTabs,
+  revisionName,
+  setupDiffViewer,
+  sideTitles,
+  type DiffMove,
+} from '../src/diff-viewer.js';
 
 /** Set up afresh, as a new session reads the toggles kept. */
 function load(keymap: Keymap | null, move?: DiffMove) {
@@ -69,6 +76,21 @@ const shadow = () =>
 const folds = () => shadow().querySelectorAll('.cm-diff-b .cm-diff-fold').length;
 /** The right side's caret line, zero-based. */
 const caret = () => diffSource(shadow().host)?.line;
+
+describe('a diff’s sides’ names', () => {
+  it('are the commits’, the branch’s or tag’s and the current branch’s as local, or HEAD’s and yours', () => {
+    expect(sideTitles(undefined)).toEqual(['HEAD', 'Your version']);
+    expect(sideTitles({ from: '0123456789ab', to: 'abcdef012345' })).toEqual([
+      '01234567',
+      'abcdef01',
+    ]);
+    // As IntelliJ's `VcsDiffUtil.getRevisionTitle`: "Local" marks the file as it is.
+    expect(sideTitles({ from: 'refs/heads/feature' }, 'main')).toEqual(['feature', 'main (Local)']);
+    expect(sideTitles({ from: 'refs/tags/v1.0' })).toEqual(['v1.0', 'Local']);
+    expect(revisionName('refs/remotes/origin/main')).toBe('origin/main');
+    expect(revisionName('0123456789ab')).toBe('01234567');
+  });
+});
 
 describe('a diff’s toolbar', () => {
   it('goes to the previous and next difference, from the caret at the first to start with', async () => {

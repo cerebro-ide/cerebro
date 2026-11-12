@@ -11,6 +11,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { resolveConflicts, type Conflicts } from './conflicts.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { currentBranch } from './git-fields.js';
+import { branchName, natural } from './git-refs.js';
 import { branchField, gitOptions, type GitOption } from './git-options.js';
 import { mergeAction } from './merge-action.js';
 import { notifications } from './notifications.js';
@@ -230,17 +231,6 @@ interface MergeChoice {
   options: string[];
   message: string;
 }
-
-/** A branch's name as the Merge dialog lists it: `main`, `origin/main`; none for `origin/HEAD`. */
-const branchName = (ref: string) =>
-  ref.startsWith('refs/heads/')
-    ? ref.slice('refs/heads/'.length)
-    : ref.startsWith('refs/remotes/') && !ref.endsWith('/HEAD')
-      ? ref.slice('refs/remotes/'.length)
-      : undefined;
-
-/** IntelliJ's order for branch names (`NaturalComparator`). */
-const natural = new Intl.Collator(undefined, { numeric: true }).compare;
 
 /** Where the branch last merged in a repository is kept, as IntelliJ keeps it per project. */
 const branchKey = (worktree: string) => `cerebro.merge.branch:${worktree}`;
