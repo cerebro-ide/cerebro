@@ -1193,17 +1193,24 @@ body,
 }
 
 /*
- * In the branches popup, a branch not a favorite: its star, muted, only on the row highlighted, as
- * IntelliJ's NotFavoriteOnHover.
+ * In the branches popup, a branch not a favorite: its star, muted, in place of its branch's or tag's
+ * icon on the row highlighted, as IntelliJ's NotFavoriteOnHover.
  */
 .playground-branches-popup__unmarked {
-  display: contents;
-  visibility: hidden;
+  display: none;
   color: var(--cerebro-text-muted);
 }
 
+.playground-branches-popup__kind {
+  display: contents;
+}
+
 .cerebro-popup-item--highlighted .playground-branches-popup__unmarked {
-  visibility: visible;
+  display: contents;
+}
+
+.cerebro-popup-item--highlighted .playground-branches-popup__kind {
+  display: none;
 }
 
 /*

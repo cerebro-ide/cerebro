@@ -20,17 +20,18 @@ import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
 import { favoriteIcon, icon } from './icons.js';
 import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
-import { branchName, isTag, type BranchesContext } from './log-branches.js';
+import { branchName, isTag, paneSettings, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { isProtected } from './push.js';
 import { stateOf } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
-/** A branch the popup lists: `main`, or a remote one, `origin/main`. */
+/** A branch the popup lists: `main`, or a remote one, `origin/main`; or a tag, `v1`. */
 export interface BranchRef {
   name: string;
   remote: boolean;
+  tag?: boolean;
 }
 
 /** The host's `git.branches`. */
@@ -42,11 +43,13 @@ interface HostBranch {
 
 /**
  * The active worktree's branches, as last read; the current one, undefined when detached; and the
- * branch each local one tracks, in full, if any.
+ * branch each local one tracks, in full, if any. Its tags too, while the Branches settings' Show
+ * Tags is on.
  */
 interface Branches {
   local: string[];
   remote: string[];
+  tags: string[];
   current: string | undefined;
   upstreams: ReadonlyMap<string, string>;
 }
@@ -54,18 +57,31 @@ interface Branches {
 const branches = signal<Branches>({
   local: [],
   remote: [],
+  tags: [],
   current: undefined,
   upstreams: new Map(),
 });
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
-  const list = (await host.request('git.branches', { worktree })) as HostBranch[];
+  const [list, tags] = await Promise.all([
+    host.request('git.branches', { worktree }) as Promise<HostBranch[]>,
+    // Where the tags can't be read, the branches show without them.
+    paneSettings.showTags.peek()
+      ? (host.request('git.tags', { path: worktree }) as Promise<string[]>).catch(
+          (error: unknown) => {
+            console.error('Reading the tags failed', error);
+            return [];
+          },
+        )
+      : [],
+  ]);
   const named = (prefix: string) =>
     list.filter((b) => b.ref.startsWith(prefix)).map((b) => b.ref.slice(prefix.length));
   branches.set({
     local: named('refs/heads/'),
     remote: named('refs/remotes/'),
+    tags,
     current: list.find((b) => b.current)?.ref.slice('refs/heads/'.length),
     upstreams: new Map(
       list.flatMap((b) =>
@@ -78,7 +94,7 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
 /** The worktree another environment has `branch` checked out in, if one has. */
 function elsewhere(branch: BranchRef): EnvironmentSpec | undefined {
   const env = active();
-  if (!env || branch.remote) return undefined;
+  if (!env || branch.remote || branch.tag) return undefined;
   return projectOf(env.id)
     ?.worktrees.get()
     .find((w) => w.id !== env.id && w.branch === branch.name);
@@ -305,7 +321,7 @@ export function setupBranches(
       console.error(`Reading again after "${failure}"`, error);
     });
   };
-  const isCurrent = (b: BranchRef) => !b.remote && b.name === branches.get().current;
+  const isCurrent = (b: BranchRef) => !b.remote && !b.tag && b.name === branches.get().current;
   const current = () => branches.get().current ?? 'HEAD';
 
   /**
@@ -344,7 +360,12 @@ export function setupBranches(
     run: (b) => {
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
-        await host.request('git.checkout', { path: worktree, branch: b.name, remote: b.remote });
+        // A tag's commit, HEAD detached at it, as IntelliJ's (`GitCheckoutAction`).
+        if (b.tag)
+          await host.request('git.checkoutRevision', { path: worktree, reference: b.name });
+        else {
+          await host.request('git.checkout', { path: worktree, branch: b.name, remote: b.remote });
+        }
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
         });
@@ -411,13 +432,15 @@ export function setupBranches(
     label: 'New Branch from Selected',
     text: (b) => `New Branch from ${quoted(b.name)}`,
     dialog: true,
+    // IntelliJ's offers it for branches.
+    visible: (b) => !b.tag,
     run: (b) => newBranch(b.name),
   });
   commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
-    visible: (b) => !isCurrent(b),
+    visible: (b) => !isCurrent(b) && !b.tag,
     // IntelliJ's: not with HEAD detached.
     enabled: () => branches.get().current !== undefined,
     run: (b) => {
@@ -451,7 +474,7 @@ export function setupBranches(
           content: result === 'upToDate' ? 'Already up to date' : `Merged ${b.name} to ${into}`,
           // IntelliJ proposes deleting a local branch merged.
           actions:
-            b.remote || result === 'upToDate'
+            b.remote || b.tag || result === 'upToDate'
               ? []
               : [
                   {
@@ -467,7 +490,7 @@ export function setupBranches(
     id: 'git.branch.rename',
     label: '&Rename',
     dialog: true,
-    visible: (b) => !b.remote,
+    visible: (b) => !b.remote && !b.tag,
     run: (b) => {
       return operate(`Could not rename ${b.name}`, async (host, worktree) => {
         const named = await branchDialog(`Rename Branch ${b.name}`, 'Rename', b.name, true);
@@ -618,7 +641,7 @@ export function setupBranches(
     id: 'git.branch.delete',
     label: '&Delete',
     visible: (b) => !isCurrent(b),
-    run: (b) => (b.remote ? deleteRemote(b.name) : deleteLocal(b)),
+    run: (b) => (b.tag ? deleteTag(b.name) : b.remote ? deleteRemote(b.name) : deleteLocal(b)),
   });
   // The Log's branches pane's toolbar's, as IntelliJ's (BranchesDashboardActions): New Branch from
   // HEAD, the current branch's name suggested; or from a branch's commit (`name^0`, so the new one
@@ -734,10 +757,12 @@ export function setupBranches(
   }
 
   type Choice = PickerItem & { branch?: BranchRef; run?: () => void };
-  const refOf = (branch: BranchRef) => `refs/${branch.remote ? 'remotes' : 'heads'}/${branch.name}`;
+  const refOf = (branch: BranchRef) =>
+    `refs/${branch.tag ? 'tags' : branch.remote ? 'remotes' : 'heads'}/${branch.name}`;
   /**
    * A branch's row: its menu beside it, as IntelliJ's. Its icon marks a favorite, as IntelliJ's
-   * (GitBranchesTreeIconProvider): a filled star; on the row highlighted, a muted outline to click.
+   * (GitBranchesTreeIconProvider): a filled star; on the row highlighted, a muted outline to click;
+   * otherwise a branch's or a tag's, as the Log's branches pane's.
    */
   const row = (branch: BranchRef, group: string, repository: string): Choice => {
     const other = elsewhere(branch);
@@ -748,7 +773,10 @@ export function setupBranches(
       icon: () => () => {
         if (isCurrent(branch)) return icon('check');
         if (isFavorite(repository, ref)) return favoriteIcon();
-        return <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>;
+        return [
+          <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>,
+          <span class="playground-branches-popup__kind">{icon(branch.tag ? 'tag' : 'git')}</span>,
+        ];
       },
       iconClick: () => {
         setFavorite(repository, ref, !isFavorite(repository, ref));
@@ -787,9 +815,13 @@ export function setupBranches(
     }
     const repository = repositoryOf(at?.worktree ?? '');
     /** IntelliJ's order (GitBranchesTreeModel): the branch checked out, favorites, then the rest. */
-    const rows = (names: readonly string[], remote: boolean, group: string) =>
+    const rows = (names: readonly string[], kind: 'local' | 'remote' | 'tag', group: string) =>
       names
-        .map((name) => ({ name, remote }))
+        .map((name) => ({
+          name,
+          remote: kind === 'remote',
+          ...(kind === 'tag' ? { tag: true } : {}),
+        }))
         .map((branch) => ({
           branch,
           weight: isCurrent(branch) ? 0 : isFavorite(repository, refOf(branch)) ? 1 : 2,
@@ -819,8 +851,10 @@ export function setupBranches(
           ],
           query,
         ),
-        ...fuzzyFilter(rows(branches.get().local, false, 'Local'), query),
-        ...fuzzyFilter(rows(branches.get().remote, true, 'Remote'), query),
+        ...fuzzyFilter(rows(branches.get().local, 'local', 'Local'), query),
+        ...fuzzyFilter(rows(branches.get().remote, 'remote', 'Remote'), query),
+        // As IntelliJ's (GitBranchesTreeModel): the tags after, while Show Tags is on.
+        ...fuzzyFilter(rows(branches.get().tags, 'tag', 'Tags'), query),
       ],
     });
     void handle.result.then((choice) => choice?.run?.());

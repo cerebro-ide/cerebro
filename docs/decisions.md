@@ -77,7 +77,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
-- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); Checkout Tag or Revision…; from Git → Branches… too (changed 2026-11-11)
+- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); Checkout Tag or Revision…; the tags, with Checkout, Merge and Delete; from Git → Branches… too (changed 2026-11-12)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number and Options; a click shows the commit in the Log
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -2036,8 +2036,8 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     real git: a remote whose tag was elsewhere refused the push ("stale info"). "Remote" or
     "Remotes" follows the count of remotes: IntelliJ's own results pick it the other way round
     (one repository with several remotes says "Remote"), which reads as a slip. **Claude's, open
-    to change:** the tag's icon's drawing; the plural. **Not yet:** tags in the branches popup,
-    which IntelliJ shares.
+    to change:** the tag's icon's drawing; the plural. The branches popup lists the tags too
+    (added 2026-11-12, decision "Branches").
   - What a short pane has no room for goes behind a » at the toolbar's foot (added 2026-11-12), as
     IntelliJ's vertical toolbars: pointing at it shows the whole toolbar in a column over it, kept
     on the screen. It's the Log toolbar's row (`ToolbarRow`, decision "a toolbar that keeps to its
@@ -3191,6 +3191,18 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     the field is empty (Claude's: IntelliJ's leaves it to git). A reference starting with "-" is
     refused, git taking it for an option (checkout doesn't take `--end-of-options`: measured, git
     2.43). Not yet: IntelliJ's disabling it in a repository with no commits.
+  - **Tags** (added 2026-11-12), a Tags group after Remote, as IntelliJ's (`GitBranchesTreeModel`),
+    while the Log's branches pane's Show Tags is on (IntelliJ's one setting for both); where they
+    can't be read, the branches show without them. Favorites as the branches' (decision "Branches
+    in the Log", Favorites in the branches popup). A tag's menu, as IntelliJ's
+    (`GitBranchesTreeActionsForSelectionTest`'s tag actions): Checkout (HEAD detached at it, as
+    Checkout Tag or Revision…), Merge into Current (no deletion proposed after), and Delete (as the
+    pane's: unasked, with Restore and Delete on Remote). A row that's neither checked out nor a
+    favorite has a branch's icon, or a tag's, as IntelliJ's (`GitBranchesTreeIconProvider`: its
+    `BranchNode` and `BranchLabel`; the drawings are the Log's branches pane's), which the muted
+    star takes the place of on the row highlighted; before, such a row had no icon. **Not yet:**
+    its Push Tag and Show Diff with Working Tree; tags grouped by directory (the popup groups
+    nothing yet).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for

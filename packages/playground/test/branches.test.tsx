@@ -4,7 +4,8 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { userEvent } from 'vitest/browser';
 import { setupBranches } from '../src/branches.js';
 import { useProjects, workspace } from '../src/environments.js';
-import type { BranchesSelection } from '../src/log-branches.js';
+import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
+import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
 import {
@@ -165,7 +166,7 @@ const last = () => notifications.all.get(0);
 /** Opens the popup, with the branches read. */
 const popup = async () => {
   pick(button);
-  await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
+  await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(9);
 };
 /** A row of the popup, by its branch's name. */
 const row = (name: string) =>
@@ -190,7 +191,7 @@ describe('the branches popup', () => {
     expect(entries.indexOf('git.branches')).toBeLessThan(entries.indexOf('git.newBranch'));
     expect(commands.get('git.branches')?.label).toBe('&Branches');
     commands.execute('git.branches');
-    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
+    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(9);
     // Centred, not below the toolbar's button.
     const shown = (document.querySelector('.cerebro-popup') as HTMLElement).getBoundingClientRect();
     expect(Math.abs(shown.left + shown.width / 2 - window.innerWidth / 2)).toBeLessThanOrEqual(1);
@@ -198,7 +199,7 @@ describe('the branches popup', () => {
     expect(commands.isEnabled('git.branches')).toBe(false);
   });
 
-  it('lists New Branch… and Checkout Tag or Revision…, then the local and remote branches, the current checked', async () => {
+  it('lists New Branch… and Checkout Tag or Revision…, then the local and remote branches and the tags, the current checked', async () => {
     await popup();
     expect(await popupItems()).toEqual([
       'New Branch…',
@@ -208,10 +209,12 @@ describe('the branches popup', () => {
       'side',
       'origin/main',
       'origin/side',
+      'v1',
+      'v2',
     ]);
     expect(
       [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
-    ).toEqual(['Local', 'Remote']);
+    ).toEqual(['Local', 'Remote', 'Tags']);
     expect(row('main').querySelector('.cerebro-popup-item__icon svg')).not.toBeNull();
     // The worktree a branch is checked out in.
     expect(row('side').textContent).toContain('r-side');
@@ -220,31 +223,71 @@ describe('the branches popup', () => {
     expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
   });
 
+  it('lists the tags while Show Tags is on, as IntelliJ’s; without them where they can’t be read', async () => {
+    paneSettings.showTags.set(false);
+    pick(button);
+    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
+    expect(host.params('git.tags')).toEqual([]);
+    await closeAll();
+    paneSettings.showTags.set(true);
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.tags = new Error('fatal: bad object');
+    pick(button);
+    await expect.poll(() => logged.mock.calls[0]?.[0] as unknown).toBe('Reading the tags failed');
+    await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
+  });
+
+  it('a tag’s menu: Checkout, Merge and Delete, as IntelliJ’s', async () => {
+    await popup();
+    expect(await branchMenu('v1')).toEqual(['Checkout', "Merge 'v1' into 'main'", 'Delete']);
+    await closeAll();
+    // Checkout detaches HEAD at it.
+    await choose('v2', 'Checkout');
+    await expect.poll(() => last()?.content).toBe('Checked out v2');
+    expect(host.params('git.checkoutRevision')).toEqual([{ path: '/r', reference: 'v2' }]);
+    // Merged, with no deletion proposed.
+    await choose('v1', "Merge 'v1' into 'main'");
+    await expect.poll(() => last()?.content).toBe('Merged v1 to main');
+    expect(last()?.actions).toEqual([]);
+    await choose('v1', 'Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted Tag: v1');
+    expect(host.params('git.deleteTag')).toEqual([{ path: '/r', name: 'v1' }]);
+  });
+
   it('marks favorites, as IntelliJ’s: starred, after the branch checked out; Space or a click on the icon', async () => {
     await popup();
-    /** What a row's icon is: the check, a star, or a star shown only on the row highlighted. */
+    /** What a row's icon is: the check, a star, a star shown on the row highlighted, or its kind's. */
     const mark = (name: string) => {
       const at = row(name).querySelector('.cerebro-popup-item__icon') as HTMLElement;
       const unmarked = at.querySelector('.playground-branches-popup__unmarked');
-      if (unmarked) return getComputedStyle(unmarked).visibility === 'visible' ? 'hover' : 'none';
+      if (unmarked) {
+        if (getComputedStyle(unmarked).display !== 'none') return 'hover';
+        const kind = at.querySelector('.playground-branches-popup__kind path')?.getAttribute('d');
+        return kind === branchIcon ? 'branch' : kind === tagIcon ? 'tag' : 'none';
+      }
       return at.querySelector('path')?.getAttribute('d') === star ? 'star' : 'check';
     };
+    const drawn = (name: string) =>
+      (icon(name) as Element).querySelector('path')?.getAttribute('d') as string;
+    const [branchIcon, tagIcon] = [drawn('git'), drawn('tag')];
     const star = row('origin/main')
       .querySelector('.cerebro-popup-item__icon path')
       ?.getAttribute('d');
-    // origin/main is one to start with, as IntelliJ's; the one checked out keeps its check.
-    expect(['main', 'feature', 'side', 'origin/main', 'origin/side'].map(mark)).toEqual([
+    // origin/main is one to start with, as IntelliJ's; the one checked out keeps its check; the
+    // others have a branch's icon, or a tag's.
+    expect(['main', 'feature', 'side', 'origin/main', 'origin/side', 'v1'].map(mark)).toEqual([
       'check',
-      'none',
-      'none',
+      'branch',
+      'branch',
       'star',
-      'none',
+      'branch',
+      'tag',
     ]);
     // A click on side's icon marks it, the popup staying open; it goes after the one checked out.
-    const icon = row('side').querySelector('.cerebro-popup-item__icon') as HTMLElement;
-    await userEvent.hover(icon);
+    const sideIcon = row('side').querySelector('.cerebro-popup-item__icon') as HTMLElement;
+    await userEvent.hover(sideIcon);
     expect(mark('side')).toBe('hover');
-    await userEvent.click(icon);
+    await userEvent.click(sideIcon);
     await expect
       .poll(popupItems)
       .toEqual([
@@ -255,6 +298,8 @@ describe('the branches popup', () => {
         'feature',
         'origin/main',
         'origin/side',
+        'v1',
+        'v2',
       ]);
     expect(mark('side')).toBe('star');
     // Filled, as IntelliJ's; the one to click, an outline.
