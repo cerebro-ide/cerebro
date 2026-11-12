@@ -108,6 +108,10 @@
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #32593d;
   --cerebro-search-match-selected: #2e5f9a;
+  /* A match in a list (the Log's text filter's): Islands' search-match-bg (ManyIslandsDark's
+     SearchMatch), its text Gray._0 as SimpleColoredComponent draws it. */
+  --cerebro-list-match: #ba9752;
+  --cerebro-list-match-text: #000000;
   --cerebro-editor-line-number: #4b5059;
   --cerebro-editor-line-number-active: #a1a3ab;
   --cerebro-editor-gutter-line: #313438;
@@ -308,6 +312,9 @@
   /* Find's matches in the editor, and the one selected: not measured from IntelliJ. */
   --cerebro-search-match: #ffe88c;
   --cerebro-search-match-selected: #a6d2ff;
+  /* ManyIslandsLight's search-match-bg; Gray._50 for its text. */
+  --cerebro-list-match: #fee6b1;
+  --cerebro-list-match-text: #323232;
   --cerebro-editor-line-number: #aeb3c2;
   --cerebro-editor-line-number-active: #767a8a;
   --cerebro-editor-gutter-line: #ebecf0;

@@ -14,7 +14,7 @@
 // as "Today 10:15" or the system's short date and time.
 
 import { formatSequence, type Platform } from '@cerebro-ide/commands';
-import { onCleanup } from '@cerebro-ide/jsx';
+import { onCleanup, type Child } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { computed, effect, signal, type Disposable } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
@@ -431,6 +431,51 @@ class Log {
   }
 }
 
+/**
+ * Where a message matches the text filter, as IntelliJ's matchingRanges: each place the text is,
+ * from the end of the last (in any case unless Match Case), or each match of the expression.
+ */
+export function matchRanges(message: string, filter: TextFilter): [number, number][] {
+  let pattern: RegExp;
+  try {
+    const source = filter.regex ? filter.text : filter.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    pattern = new RegExp(source, filter.matchCase ? 'g' : 'gi');
+  } catch {
+    // git's expressions aren't all JavaScript's: one JavaScript can't read shows no matches.
+    return [];
+  }
+  return [...message.matchAll(pattern)]
+    .filter((match) => match[0] !== '')
+    .map((match) => [match.index, match.index + match[0].length]);
+}
+
+/** A message with the text filter's matches marked, as IntelliJ's Log marks them (on by default). */
+function Message(props: { message: string; log: Log }) {
+  const { message, log } = props;
+  return (
+    <span class="playground-log__message">
+      {() => {
+        const text = log.text.get();
+        if (text === undefined) return message;
+        const ranges = matchRanges(message, {
+          text,
+          regex: log.regex.get(),
+          matchCase: log.matchCase.get(),
+        });
+        const parts: Child[] = [];
+        let at = 0;
+        for (const [start, end] of ranges) {
+          parts.push(message.slice(at, start));
+          parts.push(<span class="playground-log__match">{message.slice(start, end)}</span>);
+          at = end;
+        }
+        parts.push(message.slice(at));
+        return parts;
+      }}
+    </span>
+  );
+}
+
 /** A commit's row: its graph and subject, the refs at it, its author and date. */
 function CommitRow(props: { commit: LogCommit; log: Log }) {
   const { commit, log } = props;
@@ -439,7 +484,7 @@ function CommitRow(props: { commit: LogCommit; log: Log }) {
   return [
     <Graph row={log.graph.get(commit.hash) as GraphRow} />,
     <span class="playground-log__subject">
-      <span class="playground-log__message">{commit.subject}</span>
+      <Message message={commit.subject} log={log} />
       {refsOf(commit.refs).map((ref) => (
         <span class={`playground-log__ref playground-log__ref--${ref.kind}`}>{ref.name}</span>
       ))}
