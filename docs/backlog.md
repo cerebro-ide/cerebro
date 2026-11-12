@@ -60,6 +60,11 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **ui-editor's synchronized scrolling test failed once in CI** (2026-11-12, #213's check, its
+  change elsewhere): after the right side scrolled to line 200, a third of the way down the left
+  was no line at all for the poll's second ("undefined ≠ line 98"). Not seen in the recent failed
+  runs before it. Its failure now says what each side had drawn and what was at that point; the
+  cause is for the next failure to show.
 - **The Log's Checkout submenu needs menu items made from the context** (found 2026-11-11, adding
   the Log's commit menu, #182): IntelliJ's lists the commit's branches (then Checkout Revision),
   which change from commit to commit, but `@cerebro-ide/commands`' menus are contributed once and
@@ -104,6 +109,13 @@ on it:
   done", the terminal "pretend claude: --resume fake-session" (the second run started), nothing in
   the standard error. Whether its hooks ran isn't shown: the pretend claude now prints each hook's
   end, how long it took, or its error.
+  Again on macOS (#213, run 43207833335, 2026-11-12): one turn; the second run's hooks both ran
+  (UserPromptSubmit in 1274 ms, Stop in 324 ms), so the turn was lost after them. A candidate, not
+  measured: the host tells the UI "done" before it takes the turn's last snapshot and writes its
+  ref, and the first test restarts the app as soon as "done" shows, which kills the host. Locally
+  the ref was written by then in 4 runs of 4, but in one of them 6 ms before "done" was seen. The test now prints the turns' refs when the first
+  run was done and when it fails (each id starts with the time it was kept), which tells which
+  turn is missing.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is
