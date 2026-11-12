@@ -44,6 +44,10 @@ on it:
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
+- **The diff's synchronized scrolling test once found no line on the left after its opening
+  scroll** (CI, #223, 2026-11-12: `third(left)` stayed undefined for a second, with the right
+  already scrolled). Not measured why; the test now says what the left had drawn and what's at the
+  point when it finds none.
 - **Alt+9 shows the Git tool window without moving the focus into it** (seen in the built app,
   2026-11-12: after Alt+9 the Project tree still had it). IntelliJ's tool window shortcuts activate
   the window, focus included (a claim, not measured here); Ctrl+Tab's switcher does move it.
