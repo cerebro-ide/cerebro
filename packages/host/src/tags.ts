@@ -79,17 +79,63 @@ export async function createTag(worktree: string, tag: NewTag, run: Git): Promis
 
 /**
  * Deletes a tag, as IntelliJ's `GitDeleteTagOperation`: what it pointed at kept, an annotated
- * tag's object, to restore it as it was.
+ * tag's object, to restore it as it was; and how many remotes there are, which it may be deleted
+ * on too.
  */
 export async function deleteTag(
   worktree: string,
   name: string,
   run: Git,
-): Promise<{ hash: string }> {
+): Promise<{ hash: string; remotes: number }> {
   const ref = `refs/tags/${name}`;
   const hash = (await run(worktree, ['rev-parse', '--verify', '--end-of-options', ref])).trim();
   await run(worktree, ['tag', '--delete', '--', name]);
-  return { hash };
+  return { hash, remotes: (await remotesOf(worktree, run)).length };
+}
+
+const remotesOf = async (worktree: string, run: Git) =>
+  (await run(worktree, ['remote'])).split('\n').filter(Boolean);
+
+/** Where a tag was deleted on the remotes, and where it couldn't be, with git's words. */
+export interface RemoteTagDeletion {
+  deleted: string[];
+  failed: { remote: string; error: string }[];
+}
+
+/**
+ * Deletes a tag deleted here on each remote that has it, as IntelliJ's
+ * `GitDeleteRemoteTagOperation`: a push of nothing to it, with the remote commands' git
+ * (`remote`), leased on what the tag here pointed at, so one the remote has elsewhere stays.
+ */
+export async function deleteRemoteTag(
+  worktree: string,
+  name: string,
+  hash: string,
+  run: Git,
+  remote: Git,
+): Promise<RemoteTagDeletion> {
+  const ref = `refs/tags/${name}`;
+  const quiet = { GIT_TERMINAL_PROMPT: '0' };
+  const result: RemoteTagDeletion = { deleted: [], failed: [] };
+  for (const at of await remotesOf(worktree, run)) {
+    try {
+      const listed = await remote(
+        worktree,
+        ['ls-remote', '--tags', '--end-of-options', at, ref],
+        quiet,
+      );
+      if (!listed.split('\n').some((line) => line.split('\t')[1] === ref)) continue;
+      await remote(
+        worktree,
+        ['push', `--force-with-lease=${ref}:${hash}`, '--end-of-options', at, `:${ref}`],
+        quiet,
+      );
+      result.deleted.push(at);
+    } catch (error) {
+      result.failed.push({ remote: at, error: (error as Error).message });
+    }
+  }
+  return result;
 }
 
 /** Makes a deleted tag again, at what it pointed at: IntelliJ's Restore. */

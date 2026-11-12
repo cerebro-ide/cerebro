@@ -1197,7 +1197,12 @@ describe('ignored files and rolling back', () => {
     const { ui } = connect(git);
     expect(await ui.request('git.deleteTag', { path: '/w', name: 'v1' })).toEqual({
       hash: 'abc1234',
+      remotes: 0,
     });
+    // On the remotes, those that have it (none, here).
+    expect(
+      await ui.request('git.deleteRemoteTag', { path: '/w', name: 'v1', hash: 'abc1234' }),
+    ).toEqual({ deleted: [], failed: [] });
     expect(git).toHaveBeenCalledWith('/w', ['tag', '--delete', '--', 'v1']);
     expect(await ui.request('git.restoreTag', { path: '/w', name: 'v1', hash: 'abc1234' })).toBe(
       null,

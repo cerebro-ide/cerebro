@@ -80,6 +80,7 @@ import {
 } from './branches.js';
 import {
   createTag,
+  deleteRemoteTag,
   deleteTag,
   listTags,
   resolveRevision,
@@ -908,6 +909,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // The Log's branches pane's Delete, on a tag, and its Restore.
   connection.onRequest('git.deleteTag', (params) =>
     deleteTag(text(params, 'path'), text(params, 'name'), git),
+  );
+  connection.onRequest('git.deleteRemoteTag', (params) =>
+    deleteRemoteTag(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git, remote),
   );
   connection.onRequest('git.restoreTag', async (params) => {
     await restoreTag(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git);
