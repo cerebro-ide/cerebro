@@ -141,6 +141,8 @@ function branchDialog(
   ok: string,
   value: string,
   renaming: boolean,
+  // IntelliJ's `showCheckOutOption`: off where the branch is only made (Checkout and Rebase).
+  offersCheckout = !renaming,
 ): Promise<NamedBranch | undefined> {
   const name = signal(value);
   const checkout = signal(true);
@@ -200,16 +202,18 @@ function branchDialog(
       </label>,
       renaming ? null : (
         <div class="playground-branch-options">
-          <label class="playground-rollback__option">
-            <input
-              type="checkbox"
-              checked={checkout.get()}
-              on:change={(event) => {
-                checkout.set((event.currentTarget as HTMLInputElement).checked);
-              }}
-            />
-            Checkout branch
-          </label>
+          {offersCheckout ? (
+            <label class="playground-rollback__option">
+              <input
+                type="checkbox"
+                checked={checkout.get()}
+                on:change={(event) => {
+                  checkout.set((event.currentTarget as HTMLInputElement).checked);
+                }}
+              />
+              Checkout branch
+            </label>
+          ) : null}
           <label class="playground-rollback__option">
             <input
               type="checkbox"
@@ -533,19 +537,11 @@ export function setupBranches(
     text: () => `Checkout and Rebase onto ${quoted(current())}`,
     visible: (b) => !isCurrent(b) && !b.tag && elsewhere(b) === undefined,
     enabled: given,
-    run: (b) => {
-      const name = b.remote ? b.name.replace(/^[^/]*\//, '') : b.name;
-      const done = `Checked out ${name} and rebased it on ${current()}`;
-      return operate('Checkout and Rebase failed', async (host, worktree) => {
-        if (b.remote) {
-          await host.request('git.createBranch', {
-            path: worktree,
-            name,
-            from: b.name,
-            checkout: false,
-            overwrite: false,
-          });
-        }
+    run: (b) =>
+      operate('Checkout and Rebase failed', async (host, worktree) => {
+        const name = b.remote ? await localFor(host, worktree, b.name) : b.name;
+        if (name === undefined) return;
+        const done = `Checked out ${name} and rebased it on ${current()}`;
         const result = await host.request('git.rebase', {
           path: worktree,
           upstream: 'HEAD',
@@ -553,9 +549,55 @@ export function setupBranches(
         });
         if (result === 'conflicts') await continueRebase(host, worktree, 'stopped', done);
         else notifications.notify({ title: 'Rebase successful', content: done });
-      });
-    },
+      }),
   });
+  /**
+   * The local branch Checkout and Rebase makes for `remote`, as IntelliJ's
+   * (`GitCheckoutWithRebaseAction`, `GitCheckoutAndRebaseRemoteBranchWorkflow`): named as it
+   * without its remote; where a branch of that name tracks another, a name asked for, the branch
+   * only made (no Checkout option). One already there is reset to the remote branch, after asking
+   * when it has commits of its own; never the current one. Its name, or undefined if not made.
+   */
+  const localFor = async (host: Host, worktree: string, remote: string) => {
+    let name = remote.replace(/^[^/]*\//, '');
+    const tracked = branches.peek().upstreams.get(name);
+    if (tracked !== undefined && tracked !== `refs/remotes/${remote}`) {
+      const named = await branchDialog(`Checkout ${remote}`, 'Create', name, false, false);
+      if (!named) return undefined;
+      name = named.name;
+    }
+    if (name === branches.peek().current)
+      throw new Error(`Cannot overwrite current branch ${name}`);
+    const overwrite = branches.peek().local.includes(name);
+    if (overwrite) {
+      const own = (await host.request('git.hasCommitsNotIn', {
+        path: worktree,
+        branch: name,
+        of: remote,
+      })) as boolean;
+      if (own) {
+        const drop = await openDialog<true>({
+          title: `Checkout ${remote}`,
+          content: () => (
+            <p class="cerebro-selectable">
+              Local branch '{name}' has commits that do not exist in '{remote}'. Do you want to drop
+              local commits?
+            </p>
+          ),
+          ok: { label: 'Drop Local Commits', accept: () => true },
+        }).result;
+        if (!drop) return undefined;
+      }
+    }
+    await host.request('git.createBranch', {
+      path: worktree,
+      name,
+      from: remote,
+      checkout: false,
+      overwrite,
+    });
+    return name;
+  };
   commands.register<BranchRef>({
     // IntelliJ's (`GitShowDiffWithRefAction`): for any branch or tag, documents saved first.
     id: 'git.branch.showDiff',
