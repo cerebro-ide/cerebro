@@ -44,6 +44,9 @@ on it:
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
+- **The Log's ref labels drawn over each other** (seen in the built app, 2026-11-12, QA of the
+  branches pane's search, the Git tool window 1280 px wide, five branches at one commit): the
+  last label, `feat/login`, overlapped the one before it. Not measured why.
 - **The diff's synchronized scrolling test once found no line on the left after its opening
   scroll** (CI, #223, 2026-11-12: `third(left)` stayed undefined for a second, with the right
   already scrolled). Not measured why; the test now says what the left had drawn and what's at the
