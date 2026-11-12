@@ -80,11 +80,16 @@ export interface DiffEditorProps extends Appearance {
   /** Given the diff's controls, once it shows. */
   control?: (diff: DiffControl) => void;
   /**
-   * The change the caret starts at, as IntelliJ's ScrollToPolicy: the first (its default), or the
-   * last, for a file come to by going back from the next one's first change.
+   * Where the caret starts, as IntelliJ's ScrollToPolicy: the first change (its default), or the
+   * last, for a file come to by going back from the next one's first change; or a line of the
+   * right side's (from 0), as IntelliJ's SCROLL_TO_LINE: the editor's caret line, for its file's
+   * Show Diff.
    */
-  scrollTo?: 'firstChange' | 'lastChange';
+  scrollTo?: DiffScroll;
 }
+
+/** Where a diff's caret starts: `DiffEditorProps.scrollTo`. */
+export type DiffScroll = 'firstChange' | 'lastChange' | { line: number };
 
 /** What a toolbar does with a diff: IntelliJ's Previous and Next Difference. */
 export interface DiffControl {
@@ -123,6 +128,21 @@ const swapped = (ranges: readonly LineRange[]): LineRange[] =>
 
 const start = (change: LineRange, side: Side) => (side === 'a' ? change.start1 : change.start2);
 const end = (change: LineRange, side: Side) => (side === 'a' ? change.end1 : change.end2);
+
+/**
+ * Each side's line the caret starts at: a change's start, or the right's line asked for and the
+ * left's carried across. None with no change to go to.
+ */
+function startLines(
+  scrollTo: DiffScroll | undefined,
+  changes: readonly LineRange[],
+): Record<Side, number> | undefined {
+  if (typeof scrollTo === 'object') {
+    return { a: transferLine(scrollTo.line, swapped(changes)), b: scrollTo.line };
+  }
+  const change = scrollTo === 'lastChange' ? changes.at(-1) : changes[0];
+  return change && { a: change.start1, b: change.start2 };
+}
 
 /**
  * The unchanged lines folded between changes `index - 1` and `index` on one side, at a level:
@@ -733,11 +753,11 @@ export function DiffEditor(props: DiffEditorProps): Node {
   rediff();
   // The caret at the first change, as IntelliJ opens a diff (or the last, if asked), scrolled to
   // the middle.
-  const first = props.scrollTo === 'lastChange' ? changes.peek().at(-1) : changes.peek()[0];
-  if (first) {
+  const lines = startLines(props.scrollTo, changes.peek());
+  if (lines) {
     for (const side of ['a', 'b'] as const) {
       const doc = views[side].state.doc;
-      const at = doc.line(Math.min(start(first, side), doc.lines - 1) + 1).from;
+      const at = doc.line(Math.min(lines[side], doc.lines - 1) + 1).from;
       views[side].dispatch({
         selection: EditorSelection.cursor(at),
         ...(side === 'b' ? { effects: EditorView.scrollIntoView(at, { y: 'center' }) } : {}),

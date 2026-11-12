@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { diffSource } from '@cerebro-ide/ui-editor';
 import type { DiffSpec } from '../src/bridge.js';
 
 // A diff window of a file as it is (diff-window.test has one between commits): its right side is
@@ -10,7 +11,8 @@ import type { DiffSpec } from '../src/bridge.js';
 const asked: [string, string | null][] = [];
 let told: (path: string, text: string | null) => void = () => undefined;
 const FILE = '/r/w/src/a.ts';
-const SPEC: DiffSpec = { project: '/r', env: '/r/w', path: 'src/a.ts' };
+// At a line, as Show Diff opens it from the editor's caret: its first, not the change at its second.
+const SPEC: DiffSpec = { project: '/r', env: '/r/w', path: 'src/a.ts', line: 0 };
 
 beforeAll(async () => {
   window.cerebro = {
@@ -54,6 +56,10 @@ describe('a diff window of a file as it is', () => {
   it('shows its opener’s document on the right, its edits unsaved too', async () => {
     await expect.poll(sides).toEqual(['onetwo', 'oneedited']);
     expect(asked).toEqual([[FILE, null]]);
+  });
+
+  it('starts at the line it was opened at', () => {
+    expect(diffSource(root()?.host as Element)).toEqual({ line: 0, column: 0 });
   });
 
   it('edits the document through its opener, its own edits told back no news', async () => {

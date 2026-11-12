@@ -225,6 +225,19 @@ describe('the unified diff editor', () => {
     expect(root.activeElement).toBe(root.querySelector('.cm-content'));
   });
 
+  it('starts at the right’s line asked for, or the last line past its end', () => {
+    const root = mount({
+      path: 'a.txt',
+      original: 'a\nold\nb\nc',
+      text: 'a\nnew\nb\nc',
+      scrollTo: { line: 2 },
+    });
+    expect(diffSource(root.host)).toEqual({ line: 2, column: 0 });
+    cleanup?.();
+    const past = mount({ path: 'a.txt', original: 'a\nb', text: 'a\nB', scrollTo: { line: 9 } });
+    expect(diffSource(past.host)).toEqual({ line: 1, column: 0 });
+  });
+
   it('jumps to the right’s line from an added or unchanged line, and to its change’s from a removed one', async () => {
     const root = mount({ path: 'a.txt', original: 'a\nold\nb', text: 'a\nnew\nb' });
     // The caret on "old", the first change's removed line: where the change is on the right.

@@ -252,10 +252,13 @@ const editor = () => active()?.editor;
  * Opens a tab in the active environment; in the desktop app a diff opens in a window of its own,
  * as IntelliJ's (Ido: "new window instead of as a tab"), unless chosen to open as a tab.
  */
-function openTab(tab: Tab, chain?: readonly string[]): void {
+function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
   const path = diffPath(tab.id);
   const env = active()?.id;
   if (path === undefined || !window.cerebro || env === undefined || diffsInTabs()) {
+    // Taken as the tab's diff is made: Show Diff runs from the file's tab, so the diff's isn't the
+    // one showing, and is made as it's opened, or activated if it's open already.
+    if (line !== undefined) diffLines.set(tab.id, line);
     editor()?.open(tab);
     return;
   }
@@ -267,8 +270,12 @@ function openTab(tab: Tab, chain?: readonly string[]): void {
     path,
     ...(range ? { range } : {}),
     ...(chain && chain.length > 1 ? { chain: [...chain] } : {}),
+    ...(line === undefined ? {} : { line }),
   });
 }
+
+/** The line a diff tab opened at a line starts at (Show Diff's), until the tab's diff is made. */
+const diffLines = new Map<string, number>();
 
 // Navigation by name, through the host's index; Search Everywhere's commands open places with it.
 const navigation = setupNavigation(editor);
@@ -1648,7 +1655,13 @@ function Code(props: { path: string; env: string }) {
  * commits (an agent's turn's snapshots). As it is, its right side is the file's document, as
  * IntelliJ's: its edits, unsaved too, and edited there.
  */
-function Diff(props: { path: string; env: string; range: Range | undefined }) {
+function Diff(props: {
+  path: string;
+  env: string;
+  range: Range | undefined;
+  /** The line of the file as it is the caret starts at, if not the first change. */
+  line: number | undefined;
+}) {
   const settings = settingsFor(props.env);
   const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
@@ -1676,6 +1689,7 @@ function Diff(props: { path: string; env: string; range: Range | undefined }) {
         return (await diff) as DiffSides;
       }}
       titles={sideTitles(props.range)}
+      {...(props.line === undefined ? {} : { scrollTo: { line: props.line } })}
       {...(document ? { document } : {})}
       fontSize={() => settings.get('editor.fontSize') as number}
       tabSize={() => settings.get('editor.tabSize') as number}
@@ -1727,7 +1741,9 @@ render(
               content={(tab) => {
                 const diff = diffPath(tab.id);
                 if (diff !== undefined) {
-                  return <Diff path={diff} env={env.id} range={diffRange(tab.id)} />;
+                  const line = diffLines.get(tab.id);
+                  diffLines.delete(tab.id);
+                  return <Diff path={diff} env={env.id} range={diffRange(tab.id)} line={line} />;
                 }
                 return isImage(tab.id) ? (
                   <ImageTab path={tab.id} services={services} />

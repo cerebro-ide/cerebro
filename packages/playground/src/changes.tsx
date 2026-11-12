@@ -37,6 +37,7 @@ import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
+import { carets } from './navigation.js';
 import { notifications } from './notifications.js';
 import { openPush } from './push.js';
 import { stateOf } from './repository-state.js';
@@ -618,8 +619,8 @@ const viewOf = (context: unknown): View | undefined =>
   ((context as { source?: string } | undefined)?.source as View | undefined) ?? focused.get();
 
 export interface ChangesSetup {
-  /** Opens a tab in the active editor. */
-  open: (tab: Tab, chain?: readonly string[]) => void;
+  /** Opens a tab in the active editor; a diff tab at a line of the file as it is, if given. */
+  open: (tab: Tab, chain?: readonly string[], line?: number) => void;
   /** The active editor tab's id: Select Opened File selects its file. */
   activeTab: () => string | undefined;
   /** Shows the Commit tool window. */
@@ -827,7 +828,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       return file !== undefined && !notCommitted(file.worktree, file.path);
     },
     run: () => {
-      setup.open(diffTab((editorFile() as { path: string }).path));
+      const file = editorFile() as { worktree: string; path: string };
+      // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
+      const caret = carets.get(`${file.worktree}/${file.path}`);
+      setup.open(diffTab(file.path), undefined, caret?.line);
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */

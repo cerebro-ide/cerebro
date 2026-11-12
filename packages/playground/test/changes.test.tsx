@@ -24,6 +24,7 @@ import {
 } from '../src/changes.js';
 import { documentFor, unsavedFiles } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { carets } from '../src/navigation.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
 import {
@@ -124,6 +125,8 @@ const opened: Tab[] = [];
 /** The files each diff opened goes through. */
 const chains: (readonly string[] | undefined)[] = [];
 const placed: { path: string; line: number; column: number }[] = [];
+/** The line each diff opened starts at, if one. */
+const lines: (number | undefined)[] = [];
 let shown = 0;
 let activeTab: string | undefined;
 let dispose: (() => void) | undefined;
@@ -136,9 +139,10 @@ beforeAll(() => {
     { ...project('/n', host), git: false },
   ]);
   setupChanges(services, {
-    open: (tab, chain) => {
+    open: (tab, chain, line) => {
       opened.push(tab);
       chains.push(chain);
+      lines.push(line);
     },
     activeTab: () => activeTab,
     show: () => {
@@ -163,6 +167,7 @@ afterEach(async () => {
   document.body.replaceChildren();
   opened.length = 0;
   chains.length = 0;
+  lines.length = 0;
   placed.length = 0;
   host.asked.length = 0;
   git.failing = undefined;
@@ -526,7 +531,17 @@ describe('Git → Current File → Show Diff', () => {
     expect(commands.isEnabled('git.file.showDiff')).toBe(true);
     commands.execute('git.file.showDiff');
     expect(opened.at(-1)?.id).toBe('diff:src/main/app.ts');
+    // No caret known: the diff starts at its first change.
+    expect(lines.at(-1)).toBeUndefined();
     expect(menus.entries('main/git/file')).toContainEqual({ command: 'git.file.showDiff' });
+  });
+
+  it('opens at the editor’s caret line, as IntelliJ’s SCROLL_TO_LINE', () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    carets.set(activeTab, { line: 12, column: 3 });
+    commands.execute('git.file.showDiff');
+    carets.delete(activeTab);
+    expect(lines.at(-1)).toBe(12);
   });
 
   it('is off for a file git hasn’t committed: untracked or added; Annotate hidden for it', async () => {

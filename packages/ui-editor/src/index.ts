@@ -39,6 +39,7 @@ export {
   transferLine,
   type DiffControl,
   type DiffEditorProps,
+  type DiffScroll,
 } from './diff.js';
 export { UnifiedDiffEditor } from './unified.js';
 export {
