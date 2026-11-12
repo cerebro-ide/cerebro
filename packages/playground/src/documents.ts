@@ -68,6 +68,14 @@ export function documentRead(path: string): EditorDocument | undefined {
   return read.get(path);
 }
 
+/** The files whose documents have edits not saved yet: the Commit window lists them as changed. */
+export function unsavedFiles(): string[] {
+  // Not read reactively: the Commit window reads its lists as it's shown.
+  return untracked(() =>
+    [...read.entries()].filter(([, doc]) => doc.modified.peek()).map(([path]) => path),
+  );
+}
+
 /** Told of each change to a file's text that leaves it unsaved: an edit, not a read from disk. */
 const editListeners = new Set<(path: string) => void>();
 

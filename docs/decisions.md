@@ -78,7 +78,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
 - [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
-- [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`
+- [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`; a file edited listed at once, saved as it's committed (changed 2026-11-11)
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
 - [Copy Path/Reference on a tab (2026-11-03)](#copy-pathreference-on-a-tab-2026-11-03): absolute path, file name, path from the content root, as IntelliJ's submenu
 - [Changing keys on the Keymap page (2026-11-01)](#changing-keys-on-the-keymap-page-2026-11-01): any action's shortcuts, as IntelliJ's page; kept per ready-made keymap
@@ -1407,6 +1407,16 @@ committing from the Commit tool window, as IntelliJ's non-modal commit does.
   on macOS); Eclipse, NetBeans and Sublime Text have none, nor has Emacs an Amend.
 - **How it went is a notification (changed 2026-11-08),** as IntelliJ's: see "Notifications".
 - **Commit and Push (changed 2026-11-08):** see "Pushing".
+- **A file edited shows at once (changed 2026-11-11),** at Ido's request ("when editing a file the
+  *first* save should happen ASAP or refresh it's colour as an edited file and refresh the commit
+  panel"). Its first edit reads the lists again, and a tracked file edited and not saved yet is
+  listed as Modified, before the save that's up to 15 seconds away (saving when idle). That IntelliJ
+  lists a file as it's edited, not once it's saved, is a claim, from memory. Saving at the first edit
+  instead was rejected (Claude's choice, open to change): a save runs Actions on Save (Prettier's Run
+  on save), which would reformat the file after its first key. Whether git tracks the files edited is
+  the host's `git.tracked` (`git ls-files`); an untracked file is already listed, and an ignored one
+  isn't asked about again until it's saved. **Commit saves the files it commits first,** so what's
+  committed is what the editor shows (a claim that IntelliJ does the same).
 - **Not yet:** partial commits (lines or chunks), changelists, and keeping the message between
   runs.
 
