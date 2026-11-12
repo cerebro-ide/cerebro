@@ -2073,8 +2073,20 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - Navigate's key (added 2026-11-12): Select In's, Alt+F1 (Option+F1 on macOS), while the pane
     has the keyboard, as IntelliJ's (`use-shortcut-of="SelectIn"`); bound before Select In, which
     takes it elsewhere.
-  **Not yet:** Compare with Current, Show My Branches; several branches selected (IntelliJ updates
-  them all at once).
+  - Show My Branches (added 2026-11-12), after Delete Branch, as IntelliJ's (ShowMyBranchesAction,
+    a toggle with Find's icon; BranchesDashboardUtil, `exclusiveCommits`): on, the pane shows only
+    the local and remote branches whose exclusive commits are all by "me", as the User filter has
+    "me" (by the name, or the email's); no tags, and not a branch with none of its own. A branch's
+    exclusive commits are IntelliJ's, in the Log's graph (every ref, as the Log reads them): its
+    head, and below it each commit whose children all are, that's no other branch's head. The host
+    reads the whole graph once with its authors (`git log --date-order`, as the Log's order) and
+    walks it for each branch; IntelliJ uses its log index. Found again as the Log is read again;
+    where they can't be found, all show. Off to start with each time, as IntelliJ's. Measured with
+    real git: a branch at a commit with children elsewhere has none of its own, and a commit only
+    a tag holds keeps the one below it from being its branch's alone. **Claude's, open to change:**
+    the search icon for Find's.
+  **Not yet:** Compare with Current; several branches selected (IntelliJ updates them all at
+  once); IntelliJ's Show My Branches being off until its log is indexed (there's no index here).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as

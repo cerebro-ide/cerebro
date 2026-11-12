@@ -26,6 +26,7 @@ import {
   lastMessage,
   listBranches,
   hashesIn,
+  exclusiveAuthors,
   listAuthors,
   log,
   type LogFilter,
@@ -427,6 +428,70 @@ describe('with real git', () => {
     expect((await listAuthors(people, isolated)).me).toBeUndefined();
     run(people, 'config', 'user.email', 'me@x');
     expect((await listAuthors(people, isolated)).me).toEqual({ name: '', email: 'me@x' });
+  });
+
+  it('finds each branch’s exclusive commits’ authors, as IntelliJ’s Show My Branches', async () => {
+    const mine = join(root, 'mine');
+    execFileSync('git', ['init', '-q', '-b', 'main', mine]);
+    let n = 0;
+    const commitAs = (name: string) => {
+      n += 1;
+      execFileSync('git', ['commit', '-q', '--allow-empty', '-m', `${name} ${String(n)}`], {
+        cwd: mine,
+        env: {
+          ...process.env,
+          GIT_AUTHOR_NAME: name,
+          GIT_AUTHOR_EMAIL: `${name}@x`,
+          GIT_COMMITTER_NAME: name,
+          GIT_COMMITTER_EMAIL: `${name}@x`,
+          GIT_AUTHOR_DATE: `${String(1_700_000_000 + n * 1000)} +0000`,
+          GIT_COMMITTER_DATE: `${String(1_700_000_000 + n * 1000)} +0000`,
+        },
+      });
+    };
+    const branch = (name: string, at: string) => {
+      run(mine, 'checkout', '-q', '-b', name, at);
+    };
+    commitAs('me');
+    commitAs('me');
+    branch('mine', 'main~1');
+    commitAs('me');
+    commitAs('me');
+    branch('theirs', 'main~1');
+    commitAs('ann');
+    branch('mixed', 'main~1');
+    commitAs('me');
+    commitAs('ann');
+    // At a commit with children elsewhere: none of its own.
+    branch('behind', 'main~1');
+    // A tag's commit is the Log's too: below it, not mine alone.
+    branch('tagged', 'main~1');
+    commitAs('me');
+    commitAs('me');
+    run(mine, 'tag', 'v1');
+    run(mine, 'checkout', '-q', '-B', 'tagged', 'HEAD~1');
+    run(mine, 'config', 'user.name', 'me');
+    run(mine, 'config', 'user.email', 'me@x');
+    const me = { name: 'me', email: 'me@x' };
+    const ann = { name: 'ann', email: 'ann@x' };
+    expect(await exclusiveAuthors(mine)).toEqual({
+      branches: {
+        'refs/heads/behind': [],
+        'refs/heads/main': [me],
+        'refs/heads/mine': [me],
+        'refs/heads/mixed': [ann, me],
+        'refs/heads/tagged': [],
+        'refs/heads/theirs': [ann],
+      },
+      me,
+    });
+    // A shallow clone's oldest commit, whose parent it doesn't have.
+    const shallow = join(root, 'shallow');
+    execFileSync('git', ['clone', '-q', '--depth=1', '--branch=mine', `file://${mine}`, shallow]);
+    expect((await exclusiveAuthors(shallow)).branches).toEqual({
+      'refs/heads/mine': [me],
+      'refs/remotes/origin/mine': [me],
+    });
   });
 
   it('filters the log by paths, files or folders, as named, through a merge', async () => {

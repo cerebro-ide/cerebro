@@ -863,6 +863,18 @@ export function setupLog(services: MenuServices, show: () => void): void {
   // Select In's key (Alt+F1, Option+F1 on macOS), while the pane has the keyboard, as IntelliJ's
   // (`use-shortcut-of="SelectIn"`): bound before Select In, which takes it elsewhere.
   keymap?.bindDefault('Alt+F1', 'log.branches.navigate');
+  // Show My Branches, as IntelliJ's (ShowMyBranchesAction, a toggle, its icon Find's).
+  commands.register({
+    id: 'log.branches.showMy',
+    label: 'Show My Branches',
+    icon: 'search',
+    enabled: () => shown.get() !== undefined,
+    checked: () => shown.get()?.branches.onlyMy.get() === true,
+    run: () => {
+      const { branches } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
+      void branches.showOnlyMy(!branches.onlyMy.peek());
+    },
+  });
   // A branch marked a favorite, or not, as IntelliJ's ToggleFavoriteAction: the pane sorts it again.
   commands.register<BranchesContext | undefined>({
     id: 'log.branches.toggleFavorite',
@@ -1500,6 +1512,7 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
             {button('log.branches.newBranch', 'add')}
             {button('log.branches.update', 'update')}
             {button('log.branches.delete', 'delete')}
+            {button('log.branches.showMy', 'search')}
             {button('vcs.fetch', 'fetch')}
             {button('log.branches.toggleFavorite', 'favorite')}
             {button('log.branches.navigate', 'locate')}

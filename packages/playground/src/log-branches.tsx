@@ -12,6 +12,7 @@ import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { isFavorite, repositoryOf } from './branch-favorites.js';
 import type { Host } from './environments.js';
 import { favoriteIcon, icon } from './icons.js';
+import { exactly, ME, resolveUsers, type Author } from './log-users.js';
 
 /** A branch, as the host's `git.branches` gives it. */
 export interface Branch {
@@ -230,15 +231,20 @@ export class Branches {
   readonly error = signal<string | undefined>(undefined);
   /** What the search field holds: the pane shows the branches it matches. (Before the model, which reads it as it's made.) */
   readonly query = signal('');
+  /** Show My Branches, on: IntelliJ's starts off each time, and isn't kept. */
+  readonly onlyMy = signal(false);
+  /** The branches that are mine, by ref, once they're found while Show My Branches is on. */
+  private mine: ReadonlySet<string> | undefined;
   readonly model = new TreeModel<BranchNode>({
     children: (node) =>
       // Only groups have children to ask for.
       node === undefined
         ? branchTree(
-            this.matching(this.branches.peek(), (branch) => branch.ref),
+            this.matching(this.mineOf(this.branches.peek()), (branch) => branch.ref),
             paneSettings.byDirectory.peek(),
             (ref) => isFavorite(this.repository, ref),
-            this.matching(this.tags.peek(), (tag) => `${TAG}${tag}`),
+            // Only branches can be mine, as IntelliJ's.
+            this.mine ? [] : this.matching(this.tags.peek(), (tag) => `${TAG}${tag}`),
           )
         : (node as Group).children,
     key: keyOf,
@@ -254,6 +260,41 @@ export class Branches {
   ) {
     this.repository = repositoryOf(worktree);
     for (const group of ['Local', 'Remote', 'Tags']) this.model.expanded.add(`group:${group}`);
+  }
+
+  /** The branches, those that are mine alone once they're found while Show My Branches is on. */
+  private mineOf(branches: readonly Branch[]): readonly Branch[] {
+    const { mine } = this;
+    return mine ? branches.filter((branch) => mine.has(branch.ref)) : branches;
+  }
+
+  /**
+   * Show My Branches, as IntelliJ's (ShowMyBranchesAction, BranchesDashboardUtil): only the local
+   * and remote branches whose exclusive commits, if they have any, are all by "me", as the User
+   * filter has "me". Until they're found, all show; where they can't be, all do.
+   */
+  async showOnlyMy(on: boolean): Promise<void> {
+    this.onlyMy.set(on);
+    this.mine = on ? await this.findMine() : undefined;
+    await this.model.refresh();
+  }
+
+  private async findMine(): Promise<ReadonlySet<string> | undefined> {
+    try {
+      const { branches, me } = (await this.host.request('git.exclusiveAuthors', {
+        path: this.worktree,
+      })) as { branches: Record<string, Author[]>; me: Author | undefined };
+      const authors = Object.values(branches).flat();
+      const mine = new Set(resolveUsers([ME], authors, me));
+      return new Set(
+        Object.entries(branches)
+          .filter(([, by]) => by.length > 0 && by.every((author) => mine.has(exactly(author))))
+          .map(([ref]) => ref),
+      );
+    } catch (error) {
+      console.error('Finding my branches failed', error);
+      return undefined;
+    }
   }
 
   /** What was expanded as a search started, expanded again once it's cleared. */
@@ -329,6 +370,8 @@ export class Branches {
       this.error.set(undefined);
       this.branches.set(branches);
       this.tags.set(tags);
+      // Found again, as IntelliJ's, while it's on.
+      if (this.onlyMy.peek()) this.mine = await this.findMine();
       await this.model.refresh();
     } catch (error) {
       this.error.set((error as Error).message);

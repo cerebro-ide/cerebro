@@ -16,6 +16,7 @@ export {
   listWorktrees,
   lastMessage,
   listBranches,
+  exclusiveAuthors,
   listAuthors,
   hashesIn,
   log,

@@ -417,6 +417,21 @@ describe('changes', () => {
     });
   });
 
+  it('finds the branches’ exclusive authors, for Show My Branches', async () => {
+    const { ui } = connect(
+      vi.fn<Git>((_cwd, args) => {
+        const [command] = bare(args);
+        if (command === 'config') return Promise.reject(new Error('unset'));
+        if (command === 'for-each-ref') return Promise.resolve('refs/heads/main\tabc\t*\t\t\n');
+        return Promise.resolve('abc\x1f\x1fAnn\x1fa@x\0');
+      }),
+    );
+    expect(await ui.request('git.exclusiveAuthors', { path: '/w' })).toEqual({
+      branches: { 'refs/heads/main': [{ name: 'Ann', email: 'a@x' }] },
+      me: undefined,
+    });
+  });
+
   it('lists the branches', async () => {
     const { ui, git } = connect(
       vi.fn(() => Promise.resolve('refs/heads/main\tabc\t*\t\nrefs/heads/b\tdef\t \t\n')),

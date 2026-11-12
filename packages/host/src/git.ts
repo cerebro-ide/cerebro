@@ -703,6 +703,11 @@ export async function listAuthors(
     const [name, email] = line.split('\x1f') as [string, string];
     return { name, email };
   });
+  return { authors, me: await whoAmI(worktree, run) };
+}
+
+/** The user git commits as (`user.name`, `user.email`), if it's set: the User filter's "me". */
+async function whoAmI(worktree: string, run: Git): Promise<Author | undefined> {
   // Unset, git config fails.
   const config = (key: string) =>
     run(worktree, ['config', key]).then(
@@ -710,7 +715,76 @@ export async function listAuthors(
       () => '',
     );
   const me = { name: await config('user.name'), email: await config('user.email') };
-  return { authors, me: me.name === '' && me.email === '' ? undefined : me };
+  return me.name === '' && me.email === '' ? undefined : me;
+}
+
+/**
+ * Show My Branches' (IntelliJ's `BranchesDashboardUtil.checkIsMyBranchesSynchronously`): each
+ * local and remote branch's exclusive commits' authors, each once, and who "me" is. A branch's
+ * exclusive commits are IntelliJ's (`exclusiveCommits`, `exclusiveNodes`), in the Log's graph (all
+ * the refs, as the Log has them): its head's, and below it each commit whose children all are,
+ * that's no other branch's head.
+ */
+export async function exclusiveAuthors(
+  worktree: string,
+  run: Git = git,
+): Promise<{ branches: Record<string, Author[]>; me: Author | undefined }> {
+  const [branches, output, me] = await Promise.all([
+    listBranches(worktree, run),
+    readLog(
+      worktree,
+      ['-z', '--date-order', '--format=%H%x1f%P%x1f%an%x1f%ae', ...ALL, '--'],
+      run,
+      undefined,
+      ['-c', 'log.mailmap=false'],
+    ),
+    whoAmI(worktree, run),
+  ]);
+  // In the Log's order: a commit's children before it.
+  const commits = output
+    .split('\0')
+    .filter((record) => record !== '')
+    .map((record) => {
+      const [hash, parents, name, email] = record.split('\x1f') as [string, string, string, string];
+      return { hash, parents: parents === '' ? [] : parents.split(' '), author: { name, email } };
+    });
+  const index = new Map(commits.map((commit, i) => [commit.hash, i]));
+  const children = commits.map((): number[] => []);
+  commits.forEach((commit, i) => {
+    for (const parent of commit.parents)
+      (children[index.get(parent) as number] as number[]).push(i);
+  });
+  const heads = new Set(branches.map((branch) => branch.hash));
+  const exclusive = (start: number) => {
+    const found = new Set<number>();
+    const next = new Set([start]);
+    for (let i = start; next.size > 0; i++) {
+      if (!next.delete(i)) continue;
+      const isHead = i !== start && heads.has((commits[i] as (typeof commits)[number]).hash);
+      if (isHead || !(children[i] as number[]).every((child) => found.has(child))) continue;
+      found.add(i);
+      // Every parent is in the Log (a shallow clone's oldest commits show none: measured).
+      for (const parent of (commits[i] as (typeof commits)[number]).parents) {
+        next.add(index.get(parent) as number);
+      }
+    }
+    return found;
+  };
+  const authorsOf = (start: number) => {
+    const unique = new Map<string, Author>();
+    for (const i of exclusive(start)) {
+      const { author } = commits[i] as (typeof commits)[number];
+      unique.set(`${author.name}\x1f${author.email}`, author);
+    }
+    return [...unique.values()];
+  };
+  return {
+    branches: Object.fromEntries(
+      // Every branch's head is in the Log.
+      branches.map((branch) => [branch.ref, authorsOf(index.get(branch.hash) as number)]),
+    ),
+    me,
+  };
 }
 
 /** A local or remote branch, for the Log's branches. */
