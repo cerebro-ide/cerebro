@@ -171,6 +171,8 @@ describe('diff windows', () => {
     expect(diffSpec({ ...spec, range, extra: 1 })).toEqual({ ...spec, range });
     const chain = ['b.ts', spec.path];
     expect(diffSpec({ ...spec, chain })).toEqual({ ...spec, chain });
+    // Show Diff's: the editor's caret line, kept.
+    expect(diffSpec({ ...spec, line: 0 })).toEqual({ ...spec, line: 0 });
     for (const bad of [
       null,
       {},
@@ -179,6 +181,9 @@ describe('diff windows', () => {
       { ...spec, chain: 'b.ts' },
       { ...spec, chain: ['b.ts'] },
       { ...spec, chain: [spec.path, 1] },
+      { ...spec, line: -1 },
+      { ...spec, line: 1.5 },
+      { ...spec, line: '3' },
     ]) {
       expect(() => diffSpec(bad)).toThrow('A diff needs');
     }
