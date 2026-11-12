@@ -1233,7 +1233,7 @@ describe('ignored files and rolling back', () => {
     ]);
     expect(pushed?.[2]).toMatchObject({
       GIT_TERMINAL_PROMPT: '0',
-      GIT_ASKPASS: expect.any(String),
+      GIT_ASKPASS: expect.any(String) as string,
     });
     expect(await ui.request('git.restoreTag', { path: '/w', name: 'v1', hash: 'abc1234' })).toBe(
       null,
