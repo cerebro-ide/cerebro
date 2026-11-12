@@ -102,6 +102,7 @@ const host = new FakeHost({
   },
   'git.mergeBranch': fail('result'),
   'git.rebaseOnto': fail('result'),
+  'git.rebase': fail('result'),
   'git.continue': () => 'done',
   'git.state': () => ({ conflicts: false, ...(git.remotes ? {} : { remotes: false }) }),
   'git.updateBranch': () => {
@@ -328,6 +329,7 @@ describe('the branches popup', () => {
     expect(await branchMenu('feature')).toEqual([
       'Checkout',
       "New Branch from 'feature'…",
+      "Checkout and Rebase onto 'main'",
       "Compare with 'main'",
       "Rebase 'main' onto 'feature'",
       "Merge 'feature' into 'main'",
@@ -353,6 +355,7 @@ describe('the branches popup', () => {
     expect(await branchMenu('origin/side')).toEqual([
       'Checkout',
       "New Branch from 'origin/side'…",
+      "Checkout and Rebase onto 'main'",
       "Compare with 'main'",
       "Rebase 'main' onto 'origin/side'",
       "Merge 'origin/side' into 'main'",
@@ -1117,6 +1120,42 @@ describe('Rebase Current onto Selected', () => {
     git.result = new Error('invalid upstream');
     await choose('feature', "Rebase 'main' onto 'feature'");
     await expect.poll(() => last()?.title).toBe('Rebase failed');
+  });
+});
+
+describe('Checkout and Rebase onto Current', () => {
+  it('checks out the branch and rebases it onto the current one in one step, as IntelliJ’s', async () => {
+    await choose('feature', "Checkout and Rebase onto 'main'");
+    await expect.poll(() => last()?.title).toBe('Rebase successful');
+    expect(last()?.content).toBe('Checked out feature and rebased it on main');
+    expect(host.params('git.rebase')).toEqual([
+      { path: '/r', upstream: 'HEAD', branch: 'feature' },
+    ]);
+    expect(host.params('git.createBranch')).toEqual([]);
+  });
+
+  it('makes a remote branch’s local branch first, tracking it', async () => {
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    await expect.poll(() => last()?.content).toBe('Checked out side and rebased it on main');
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'side', from: 'origin/side', checkout: false, overwrite: false },
+    ]);
+    expect(host.params('git.rebase')).toEqual([{ path: '/r', upstream: 'HEAD', branch: 'side' }]);
+  });
+
+  it('stopped at conflicts, goes on as Continue Rebase does', async () => {
+    git.result = 'conflicts';
+    git.conflicted = ['a.ts'];
+    await choose('feature', "Checkout and Rebase onto 'main'");
+    await dialog();
+  });
+
+  it('says why it couldn’t, in git’s words', async () => {
+    git.result = new Error('a branch named side already exists');
+    await choose('origin/side', "Checkout and Rebase onto 'main'");
+    await expect.poll(() => last()?.title).toBe('Checkout and Rebase failed');
+    expect(last()?.content).toBe('a branch named side already exists');
+    expect(host.params('git.rebase')).toEqual([]);
   });
 });
 

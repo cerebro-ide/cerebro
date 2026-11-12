@@ -3230,10 +3230,22 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     star takes the place of on the row highlighted; before, such a row had no icon. **Not yet:**
     its Push Tag and Show Diff with Working Tree; tags grouped by directory (the popup groups
     nothing yet).
+  - **Checkout and Rebase onto Current** (added 2026-11-12), after New Branch from, as IntelliJ's
+    (`GitCheckoutWithRebaseAction`, read from its source; its words "Checkout and Rebase onto
+    'main'"): for a branch that isn't checked out here or in another worktree, not a tag. `git
+    rebase HEAD feature`, as IntelliJ's `rebaseOnCurrent` (measured, git 2.43: feature is checked
+    out and rebased onto what HEAD was), local changes stashed as Rebase's. A remote branch's local
+    branch is made first, named without its remote and tracking it (`git branch side origin/side`,
+    which tracks it by git's `branch.autoSetupMerge`), as IntelliJ's
+    `GitCheckoutAndRebaseRemoteBranchWorkflow`. "Rebase successful", "Checked out feature and
+    rebased it on main" (IntelliJ's); stopped at conflicts, as Rebase; "Checkout and Rebase
+    failed" with git's words. A local branch of that name already there: git's error, where
+    IntelliJ asks to reset it (as Checkout's, below). Hidden where it doesn't apply, as the menu's
+    other actions (IntelliJ disables it; open to change).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); Checkout and Rebase onto, Show Diff with Working Tree, Update, Push and
+  now); Show Diff with Working Tree, Update, Push and
   Pull from the menu; View Commits after a delete (IntelliJ's shows the
   commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 

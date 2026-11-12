@@ -271,7 +271,10 @@ describe('dialogs', () => {
     await page()
       .locator('.cerebro-popup-item', { hasText: /^main$/ })
       .click();
-    await page().locator('.cerebro-menu-item', { hasText: 'Checkout' }).click();
+    // Its label alone: "Checkout and Rebase onto 'main-e2e'" is in the same menu.
+    await page()
+      .locator('.cerebro-menu-item__label', { hasText: /^Checkout$/ })
+      .click();
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
     expect(await count('.cerebro-popup')).toBe(0);
   });
