@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { userEvent } from 'vitest/browser';
 import { setupBranches } from '../src/branches.js';
 import { useProjects, workspace } from '../src/environments.js';
+import type { BranchesSelection } from '../src/log-branches.js';
 import { notifications } from '../src/notifications.js';
 import {
   answer,
@@ -686,6 +687,84 @@ describe('Delete', () => {
       await expect.poll(() => host.params('git.deleteBranch').length).toBe(1);
       await expect.poll(() => last()?.actions.map((a) => a.label)).toEqual(['Restore']);
     }
+  });
+});
+
+describe('the Log’s branches pane', () => {
+  const refresh = vi.fn(() => Promise.resolve());
+  const at = (selection: BranchesSelection) => ({ source: 'log' as const, selection, refresh });
+  const head = (branch?: string) => at({ kind: 'head', branch });
+  const ref = (name: string, current = false) => at({ kind: 'branch', ref: name, current });
+  const run = (id: string, context: unknown) => Promise.resolve(commands.get(id)?.run(context));
+  afterEach(() => {
+    refresh.mockClear();
+  });
+
+  it('New Branch: from HEAD, its branch suggested; or from a branch’s commit, as IntelliJ’s', async () => {
+    expect(commands.get('log.branches.newBranch')).toMatchObject({
+      label: 'New Branch',
+      icon: 'add',
+      dialog: true,
+    });
+    // Off for a directory, or nothing selected.
+    expect(commands.isEnabled('log.branches.newBranch', at(undefined))).toBe(false);
+    expect(commands.isEnabled('log.branches.newBranch', undefined)).toBe(false);
+    expect(commands.isEnabled('log.branches.newBranch', head('main'))).toBe(true);
+    const shown = async (context: unknown) => {
+      const done = run('log.branches.newBranch', context);
+      const box = await dialog();
+      const title = box.querySelector('.cerebro-dialog__title')?.textContent;
+      const value = (box.querySelector('input') as HTMLInputElement).value;
+      return { done, title, value };
+    };
+    const fromHead = await shown(head('main'));
+    expect([fromHead.title, fromHead.value]).toEqual(['Create New Branch', 'main']);
+    await answer('fix');
+    await press('Create');
+    await fromHead.done;
+    expect(host.params('git.createBranch')).toEqual([
+      { path: '/r', name: 'fix', checkout: true, overwrite: false },
+    ]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    // HEAD detached: nothing suggested.
+    const detached = await shown(head());
+    expect(detached.value).toBe('');
+    await press('Cancel');
+    await detached.done;
+    const local = await shown(ref('refs/heads/side'));
+    expect([local.title, local.value]).toEqual(['Create Branch from side', 'side']);
+    await answer('side2');
+    await press('Create');
+    await local.done;
+    expect(host.params('git.createBranch').at(-1)).toMatchObject({ name: 'side2', from: 'side^0' });
+    // A remote one's name without its remote.
+    const remote = await shown(ref('refs/remotes/origin/fix/x'));
+    expect([remote.title, remote.value]).toEqual(['Create Branch from origin/fix/x', 'fix/x']);
+    await press('Cancel');
+    await remote.done;
+  });
+
+  it('Delete Branch: not the current one or a protected remote one; the Log read again', async () => {
+    expect(commands.get('log.branches.delete')).toMatchObject({
+      label: 'Delete Branch',
+      icon: 'delete',
+    });
+    const on = (context: unknown) => commands.isEnabled('log.branches.delete', context);
+    expect([on(undefined), on(at(undefined)), on(head('main'))]).toEqual([false, false, false]);
+    expect(on(ref('refs/heads/main', true))).toBe(false);
+    expect(on(ref('refs/remotes/origin/main'))).toBe(false);
+    expect(on(ref('refs/remotes/origin/side'))).toBe(true);
+    expect(on(ref('refs/heads/feature'))).toBe(true);
+    await run('log.branches.delete', ref('refs/heads/feature'));
+    expect(last()?.title).toBe('Deleted Branch: feature');
+    expect(host.params('git.deleteBranch')).toEqual([{ path: '/r', name: 'feature' }]);
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const remote = run('log.branches.delete', ref('refs/remotes/origin/side'));
+    expect(await dialogText()).toBe('Delete remote branch origin/side?');
+    await press('Delete');
+    await remote;
+    expect(host.params('git.deleteRemoteBranch')).toEqual([{ path: '/r', name: 'origin/side' }]);
+    expect(refresh).toHaveBeenCalledTimes(2);
   });
 });
 

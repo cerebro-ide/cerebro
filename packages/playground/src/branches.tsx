@@ -18,6 +18,7 @@ import { active, hostFor, projectOf, type Host } from './environments.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { refsOf, type LogCommitContext } from './git-log.js';
+import { branchName, type BranchesContext } from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { isProtected } from './push.js';
@@ -551,6 +552,53 @@ export function setupBranches(
     label: '&Delete',
     visible: (b) => !isCurrent(b),
     run: (b) => (b.remote ? deleteRemote(b.name) : deleteLocal(b)),
+  });
+  // The Log's branches pane's toolbar's, as IntelliJ's (BranchesDashboardActions): New Branch from
+  // HEAD, the current branch's name suggested; or from a branch's commit (`name^0`, so the new one
+  // tracks nothing), its name suggested, a remote one's without its remote.
+  commands.register<BranchesContext | undefined>({
+    id: 'log.branches.newBranch',
+    label: 'New Branch',
+    icon: 'add',
+    dialog: true,
+    enabled: (c) => c?.selection !== undefined,
+    run: async (c) => {
+      const { selection, refresh } = c as BranchesContext;
+      const at = selection as NonNullable<BranchesContext['selection']>;
+      if (at.kind === 'head') {
+        await newBranch(undefined, undefined, at.branch ?? '');
+      } else {
+        const name = branchName(at.ref);
+        const remote = at.ref.startsWith('refs/remotes/');
+        await newBranch(
+          `${name}^0`,
+          `Create Branch from ${name}`,
+          remote ? name.slice(name.indexOf('/') + 1) : name,
+        );
+      }
+      await refresh();
+    },
+  });
+  // Not the current branch, or a protected remote one, as IntelliJ's.
+  commands.register<BranchesContext | undefined>({
+    id: 'log.branches.delete',
+    label: 'Delete Branch',
+    icon: 'delete',
+    enabled: (c) => {
+      const at = c?.selection;
+      if (at?.kind !== 'branch' || at.current) return false;
+      const name = branchName(at.ref);
+      return !at.ref.startsWith('refs/remotes/') || !isProtected(name.slice(name.indexOf('/') + 1));
+    },
+    run: async (c) => {
+      const { selection, refresh } = c as BranchesContext;
+      const { ref } = selection as { ref: string };
+      const name = branchName(ref);
+      await (ref.startsWith('refs/remotes/')
+        ? deleteRemote(name)
+        : deleteLocal({ name, remote: false }));
+      await refresh();
+    },
   });
   // IntelliJ's order (`Git.Branch.Backend.Checkout`, `Git.Branch.Backend`), what's here of it.
   const groups: [string, string[]][] = [

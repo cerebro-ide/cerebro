@@ -21,6 +21,7 @@ const DEFAULTS: Record<string, (params: Record<string, unknown>) => unknown> = {
 for (const method of [
   'fs.list',
   'git.files',
+  'git.branches',
   'git.changes',
   'git.ignored',
   'git.shelves',
