@@ -160,4 +160,22 @@ describe('Reformat Code', () => {
     expect(historyNamesIn(content)?.undo).toBe('Reindent File with 2 Spaces');
     expect(reindentIn(document.body, 'Reindent')).toBe(false);
   });
+
+  it('parses the whole file however long it takes, so a slow machine reindents it all too', () => {
+    // Parsed as it opens up to a time budget, the rest later: lines past what's parsed get no
+    // indentation, and kept theirs. CodeMirror's parse stops at a deadline it reads from
+    // `Date.now()`: here 10 s pass at each read, so any deadline is past after the first piece
+    // (a 5 s one left tabs in CI on #233).
+    const doc = new EditorDocument('if (a) {\n\tb();\n}\n'.repeat(2_000));
+    const root = mount({ document: doc, indent: () => ({ tabs: false, size: 2 }) });
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    let now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => (now += 10_000));
+    try {
+      reindentIn(content, 'Reindent File with 2 Spaces');
+    } finally {
+      clock.mockRestore();
+    }
+    expect(doc.text.peek().toString()).not.toContain('\t');
+  });
 });
