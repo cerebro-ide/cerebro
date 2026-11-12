@@ -77,6 +77,7 @@ import { setupSwitcher } from './switcher.js';
 import {
   AgentChangesView,
   diffPath,
+  tabPath,
   diffRange,
   diffTab,
   setupChanges,
@@ -558,7 +559,7 @@ async function recentFiles(editedOnly: boolean): Promise<void> {
   const edited = signal(editedOnly);
   const itemsOf = (tabs: readonly Tab[]) =>
     tabs
-      .filter((tab) => diffPath(tab.id) === undefined)
+      .filter((tab) => tabPath(tab.id) === tab.id)
       .map((tab) => {
         const path =
           root !== undefined && tab.id.startsWith(`${root}/`)
@@ -625,10 +626,10 @@ services.keymap.bindDefault('Mod+E', 'view.recentFiles');
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
 services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
-/** The active tab's file, if it's one (not a diff). */
+/** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {
   const tab = editor()?.activeGroup.activeTab;
-  return tab && diffPath(tab.id) === undefined ? tab : undefined;
+  return tab && tabPath(tab.id) === tab.id ? tab : undefined;
 };
 // It needs an editor with the focus, or its find bar, as IntelliJ's GotoLineAction
 // (EDITOR_EVEN_IF_INACTIVE): elsewhere, as in the Log, its key is free for others (Cmd+L there is
@@ -899,7 +900,7 @@ const indexProgress = (): Progress => {
 /** The active tab's file: a diff tab's too. */
 const activePath = () => {
   const id = editor()?.activeGroup.active;
-  return id === undefined ? undefined : (diffPath(id) ?? id);
+  return id === undefined ? undefined : tabPath(id);
 };
 status.add({
   id: 'env',

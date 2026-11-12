@@ -120,6 +120,12 @@ describe('a comparison’s tab', () => {
       document.querySelector('.cerebro-editor-tab--active .cerebro-editor-tab__icon path')
         ?.outerHTML,
     ).toBe((icon('diff') as Element).querySelector('path')?.outerHTML);
+    // It shows no file: none in the status bar, nor in Recent Files.
+    expect(status().join(' ')).not.toContain('compare:');
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    expect(document.querySelector('.cerebro-popup')?.textContent).not.toContain('Compare');
+    await userEvent.keyboard('{Escape}');
     env().editor.close(env().editor.activeGroup.id, compareTab('main', 'feature').id);
   });
 });

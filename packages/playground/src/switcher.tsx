@@ -17,7 +17,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import { openSwitcher, type Modifier, type SwitcherItem } from '@cerebro-ide/ui-popup';
-import { diffPath } from './changes.js';
+import { tabPath } from './changes.js';
 import { active } from './environments.js';
 import { icon } from './icons.js';
 import { recentTabs } from './navigation.js';
@@ -80,13 +80,13 @@ function tabEntries(area: EditorArea | undefined, count: number): Entry[] {
       : [
           ...shown,
           ...recent
-            .filter((tab) => !open.has(tab.id) && diffPath(tab.id) === undefined)
+            .filter((tab) => !open.has(tab.id) && tabPath(tab.id) === tab.id)
             .slice(0, count),
         ];
   const root = active()?.id;
   /** A file's folder: in full, and from the project's folder. */
   const folders = (tab: Tab) => {
-    const path = diffPath(tab.id) ?? tab.id;
+    const path = tabPath(tab.id) ?? '';
     const folder = path.slice(0, Math.max(0, path.lastIndexOf('/')));
     const inProject = root !== undefined && folder.startsWith(`${root}/`);
     return { full: folder, relative: inProject ? folder.slice(root.length + 1) : folder };

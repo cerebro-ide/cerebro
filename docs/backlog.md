@@ -39,6 +39,11 @@ on it:
 
 ## Known gaps
 
+- **A narrow Log hides its commits' subjects** (seen in QA of Compare with Current, 2026-11-12):
+  the author and date columns have fixed widths (140 px and 130 px), so a commits list about
+  225 px wide (each half of a comparison in a 1280 px window, beside its 400 px details) shows the
+  graph, refs, author and date, and no subject; the Git window's Log does the same at that width.
+  How IntelliJ's commits table shares out a narrow width isn't checked yet.
 - **language-servers' Python test failed on macOS, and every test after it** (#228, run
   43264592149, 2026-11-12): Ctrl+B reached lib.py, then 30 s of Alt+F7 never showed walk's usages,
   though the host, asked directly, found them in 3 ms. The page ended with lib.py's tab active, the

@@ -41,6 +41,7 @@ import { target } from './edit.js';
 import { projectFile } from './project.js';
 import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
+import { compareRefs } from './compare-branches.js';
 import { branchName, natural } from './git-refs.js';
 import { icon } from './icons.js';
 import { carets } from './navigation.js';
@@ -105,6 +106,11 @@ const DIFF_ID = /^diff(?:@([^:]+?)\.\.([^:]*))?:(.*)$/s;
 /** The file a diff tab shows, if it's one. */
 export function diffPath(tabId: string): string | undefined {
   return DIFF_ID.exec(tabId)?.[3];
+}
+
+/** The file a tab shows: its own (its id), or its diff's; none for a comparison of branches. */
+export function tabPath(tabId: string): string | undefined {
+  return compareRefs(tabId) ? undefined : (diffPath(tabId) ?? tabId);
 }
 
 /** The commits a diff tab compares, if it compares two. */
@@ -1047,11 +1053,13 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'changes.selectOpened',
     label: 'Select &Opened File',
     icon: 'locate',
-    enabled: (c) => here(c) && current() !== undefined && setup.activeTab() !== undefined,
+    enabled: (c) => {
+      const tab = setup.activeTab();
+      return here(c) && current() !== undefined && tab !== undefined && tabPath(tab) !== undefined;
+    },
     run: () => {
-      const tab = setup.activeTab() as string;
       const changes = current() as Changes;
-      const path = diffPath(tab) ?? tab;
+      const path = tabPath(setup.activeTab() as string) as string;
       const root = `${changes.path}/`;
       void reveal(changes, path.startsWith(root) ? path.slice(root.length) : path);
     },

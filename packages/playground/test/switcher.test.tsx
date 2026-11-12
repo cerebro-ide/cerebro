@@ -77,6 +77,19 @@ describe('the Switcher’s command', () => {
     expect(keys.filter((key) => key === '')).toHaveLength(4);
   });
 
+  it('lists a comparison’s tab as the tabs, with no folder: it shows no file', async () => {
+    area = new EditorArea();
+    area.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    area.open({ id: 'compare:main..feature/x', title: 'Compare: feature/x and main' });
+    commands.execute('view.switcher');
+    expect(labels('right')).toEqual(['|a.ts||', '|Compare: feature/x and main||']);
+    const status = () => document.querySelector('.cerebro-switcher__status')?.textContent;
+    expect(status()).toBe('/r/src');
+    await userEvent.keyboard('{ArrowDown}');
+    expect(selected()).toBe('Compare: feature/x and main');
+    expect(status()).toBe('');
+  });
+
   it('closes a tab in the groups that have it', async () => {
     area = new EditorArea();
     area.open({ id: '/r/a.ts', title: 'a.ts' });

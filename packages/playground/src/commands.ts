@@ -15,7 +15,7 @@ import { computed, effect, signal, type Signal } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import { openSettings } from '@cerebro-ide/ui-settings';
-import { diffPath } from './changes.js';
+import { tabPath } from './changes.js';
 import { active, activeProject, currentHost, hostFor, type ProjectState } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
@@ -42,7 +42,7 @@ interface TabFile {
 }
 
 /**
- * The file a tab shows (its diff's too), from its id: a path, absolute or (as the Commit window
+ * The file a tab shows (its diff's too; none for a comparison), from its id: a path, absolute or (as the Commit window
  * opens them) the active worktree's.
  */
 export function tabFile(
@@ -50,12 +50,12 @@ export function tabFile(
   worktree: string | undefined = active()?.id,
   platform: string | undefined = window.cerebro?.platform,
 ): TabFile {
-  const path = diffPath(tab) ?? tab;
+  const none = { system: undefined, name: undefined, relative: undefined };
+  const path = tabPath(tab);
+  if (path === undefined) return none;
   const absolute = /^(\/|[A-Za-z]:\/)/.test(path);
   const full = absolute ? path : worktree === undefined ? undefined : `${worktree}/${path}`;
-  if (full === undefined || (!absolute && path.startsWith('untitled-'))) {
-    return { system: undefined, name: undefined, relative: undefined };
-  }
+  if (full === undefined || (!absolute && path.startsWith('untitled-'))) return none;
   const root = worktree === undefined ? undefined : `${worktree}/`;
   return {
     system: platform === 'win32' ? full.replaceAll('/', '\\') : full,
