@@ -2602,6 +2602,10 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     window (Claude's choice, open to change; that IntelliJ opens a new one each time is a claim).
   - With the focus back, it reads the diff again, and shows it again only if it changed, so the
     caret stays where it was. A tab was read again as it showed.
+  - Escape closes it (added 2026-11-12, Ido: "a sub window such as the diff window, pressing esc
+    on the keyboard should close it"), as IntelliJ's diff window, a dialog, closes; not when
+    something in it takes the key first (a popup, a shortcut, the editor). Dialogs already closed on
+    Escape, from their editors too (measured: the merge window, its Result focused).
   - 1100 by 750 the first time (a claim: not measured from IntelliJ); after, as its project's was
     left (decision "Windows keep their size and place").
   - Local History's diff stays in its own dialog, as IntelliJ's; a browser, with no windows to
