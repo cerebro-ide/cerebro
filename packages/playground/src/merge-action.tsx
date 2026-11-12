@@ -3,6 +3,7 @@
 // committed.
 
 import { resolveConflicts } from './conflicts.js';
+import { saveBeforeGit } from './documents.js';
 import type { Host } from './environments.js';
 import { viewCommits, type HashRange } from './git-log.js';
 import { notifications } from './notifications.js';
@@ -70,6 +71,8 @@ export async function mergeAction(
   run: () => Promise<unknown>,
   commit: boolean,
 ): Promise<void> {
+  // Both are IntelliJ's `GitMergeAction`, whose `GitRepositoryAction` saves first.
+  await saveBeforeGit();
   try {
     const merged = (await run()) as Merged;
     if (merged.kind === 'merged') {

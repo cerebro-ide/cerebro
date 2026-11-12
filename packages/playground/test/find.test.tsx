@@ -435,6 +435,23 @@ describe('Replace in Files', () => {
     await done;
   });
 
+  it('replaces with the search that ran, when nothing was typed since', async () => {
+    await file('/r/r6/x.ts', 'iota\n');
+    const { done } = await find('iota', { replacing: true });
+    const asked = host.params('search.text').length;
+    await userEvent.clear(q('.playground-find__replace'));
+    await userEvent.type(q('.playground-find__replace'), 'kappa');
+    // The search for what was typed has run: none is waiting.
+    await expect.poll(() => host.params('search.text').at(-1)).toMatchObject({ replace: 'kappa' });
+    expect(host.params('search.text').length).toBeGreaterThan(asked);
+    await expect.poll(labels).toEqual(['iota']);
+    await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY * 2));
+    await userEvent.click(button('Replace'));
+    await expect.poll(() => disk.get('/r/r6/x.ts')).toBe('kappa\n');
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
   it('leaves a line changed since the search, and says so', async () => {
     const doc = await file('/r/r2/x.ts', 'delta\n');
     await find('delta', { replacing: true });

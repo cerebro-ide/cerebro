@@ -25,6 +25,7 @@ import {
   type Change,
   type Range,
 } from './changes.js';
+import { saveBeforeGit } from './documents.js';
 import { active, currentHost, gitRepository, hostFor } from './environments.js';
 import { icon } from './icons.js';
 import { readState } from './repository-state.js';
@@ -395,7 +396,10 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
         `The changes shelved as “${shelf.message}” will be applied to the files, and leave the shelf.`,
         'Unshelve',
       );
-      if (agreed) await change(path, 'Couldn’t Unshelve', 'git.unshelve', { id: shelf.id });
+      if (!agreed) return;
+      // As IntelliJ's `UnshelveWithDialogAction`.
+      await saveBeforeGit();
+      await change(path, 'Couldn’t Unshelve', 'git.unshelve', { id: shelf.id });
     },
   });
   commands.register({
@@ -546,6 +550,8 @@ async function shelve(offered: { files: Change[]; chosen: Change[] }): Promise<v
     ),
   }).result;
   if (!files) return;
+  // As IntelliJ's, through its commit workflow (`AbstractCommitWorkflow`).
+  await saveBeforeGit();
   await change(path, 'Couldn’t Shelve', 'git.shelve', { files, message: message.peek() });
 }
 
@@ -594,6 +600,8 @@ async function stash(): Promise<void> {
     ),
   }).result;
   if (!agreed) return;
+  // As IntelliJ's `GitStash`, a `GitRepositoryAction`.
+  await saveBeforeGit();
   await change(path, 'Couldn’t Stash', 'git.stash', {
     message: message.peek(),
     keepIndex: keepIndex.peek(),
@@ -657,6 +665,8 @@ async function unstash(): Promise<void> {
   }).result;
   const chosenRef = ref.peek();
   if (pop === undefined || chosenRef === undefined) return;
+  // As IntelliJ's `GitUnstash`, a `GitRepositoryAction`; the stash list's Apply and Pop don't.
+  await saveBeforeGit();
   await change(path, 'Couldn’t Unstash', 'git.unstash', {
     ref: chosenRef,
     pop,

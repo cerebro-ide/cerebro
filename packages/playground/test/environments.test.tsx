@@ -28,6 +28,8 @@ import {
   popupItems,
   press,
   project,
+  savedBefore,
+  unsavedEdit,
   worktree,
 } from './fakes.js';
 
@@ -257,6 +259,16 @@ describe('environments', () => {
       ]);
       expect(main.branches.get()).toEqual(['main', 'feat/x', 'fresh']);
       expect(commands.get('branch.checkout.fresh')).toBeDefined();
+    });
+
+    it('saves the documents first, as IntelliJ’s `GitCreateWorkingTreeService`', async () => {
+      start({ 'git.addWorktree': () => [worktree('/r/main', 'main', true)] });
+      await unsavedEdit(host, '/r/main/a.ts');
+      commands.execute('env.new');
+      await answer('fresh');
+      await press('Create');
+      await expect.poll(() => host.params('git.addWorktree')).toHaveLength(1);
+      expect(savedBefore(host, '/r/main/a.ts', 'git.addWorktree')).toBe(true);
     });
 
     it('shows why it couldn’t, and does nothing when cancelled', async () => {

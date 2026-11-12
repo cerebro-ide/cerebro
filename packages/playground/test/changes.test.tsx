@@ -25,7 +25,17 @@ import { documentFor, unsavedFiles } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
-import { closeAll, dialog, dialogText, FakeHost, menuItems, press, project } from './fakes.js';
+import {
+  closeAll,
+  dialog,
+  dialogText,
+  FakeHost,
+  menuItems,
+  press,
+  project,
+  savedBefore,
+  unsavedEdit,
+} from './fakes.js';
 
 /** The worktree as git sees it, and what the host was asked to do to it. */
 const git = {
@@ -517,6 +527,17 @@ describe('Rollback', () => {
     await expect
       .poll(() => host.params('git.rollback'))
       .toEqual([{ path: wt, files: ['src/main/app.ts', 'src/main/new.ts'], deleteAdded: true }]);
+  });
+
+  it('saves the documents first, as IntelliJ’s `RollbackDialogAction`: what’s rolled back is on disk', async () => {
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    await unsavedEdit(host, `${wt}/src/main/app.ts`);
+    await userEvent.click(row(`${GROUP}:src/main/`));
+    commands.execute('changes.rollback', FROM_VIEW);
+    await press('Rollback');
+    await expect.poll(() => host.params('git.rollback')).toHaveLength(1);
+    expect(savedBefore(host, `${wt}/src/main/app.ts`, 'git.rollback')).toBe(true);
   });
 
   it('asks about one file, rolls back nothing if cancelled, and says why it couldn’t', async () => {

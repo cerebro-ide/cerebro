@@ -7,6 +7,7 @@
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { saveBeforeGit } from './documents.js';
 import { active, hostFor, type Host } from './environments.js';
 import type { LogCommitContext } from './git-log.js';
 import { currentBranchRow, revisionField } from './git-fields.js';
@@ -143,6 +144,8 @@ export function setupTag(services: MenuServices): void {
       const tag = await tagDialog(host, worktree, tags);
       if (!tag) return;
       try {
+        // Git → New Tag… is a `GitRepositoryAction`, which saves first; the Log's doesn't.
+        await saveBeforeGit();
         await host.request('git.createTag', { path: worktree, ...tag });
         notifications.notify({ title: tag.name, content: `Created tag ${tag.name} successfully.` });
       } catch (error) {

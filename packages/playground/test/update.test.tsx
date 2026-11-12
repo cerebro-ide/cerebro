@@ -7,7 +7,16 @@ import { notifications } from '../src/notifications.js';
 import { globalSettings } from '../src/settings.js';
 import { setupLog } from '../src/git-log.js';
 import { setupUpdate, updateProject, updating } from '../src/update.js';
-import { closeAll, dialog, dialogText, FakeHost, press, project } from './fakes.js';
+import {
+  closeAll,
+  dialog,
+  dialogText,
+  FakeHost,
+  press,
+  project,
+  savedBefore,
+  unsavedEdit,
+} from './fakes.js';
 
 /** How the host says the update went: what it gives, or the error it fails with. */
 /** HEAD before and after an update. */
@@ -123,6 +132,14 @@ describe('Update Project', () => {
       ['Merge', false],
       ['Rebase', true],
     ]);
+  });
+
+  it('saves the documents first, as IntelliJ’s `VcsUpdateTask`', async () => {
+    await unsavedEdit(host, '/r/a.ts');
+    commands.execute('vcs.update');
+    await press('OK');
+    await expect.poll(() => host.params('git.update')).toHaveLength(1);
+    expect(savedBefore(host, '/r/a.ts', 'git.update')).toBe(true);
   });
 
   it('rebases on another remote branch without asking, as Pull’s --rebase', async () => {

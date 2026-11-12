@@ -14,7 +14,17 @@ import {
   type Shelf,
   type Stash,
 } from '../src/shelf.js';
-import { closeAll, dialog, dialogText, FakeHost, menuItems, press, project } from './fakes.js';
+import {
+  closeAll,
+  dialog,
+  dialogText,
+  FakeHost,
+  menuItems,
+  press,
+  project,
+  savedBefore,
+  unsavedEdit,
+} from './fakes.js';
 
 /** The worktree as git sees it. */
 const git = {
@@ -535,6 +545,55 @@ describe('the Git menu’s Uncommitted Changes', () => {
     commands.execute('vcs.unstash');
     await press('Cancel');
     expect(host.params('git.unstash')).toHaveLength(2);
+  });
+
+  it('saves the documents first, as IntelliJ’s: before Shelve, Stash, Unstash… and Unshelve', async () => {
+    git.changes = [{ path: 'a.ts', status: 'modified' }];
+    await showTab('Shelf');
+    const saved = async (method: string, run: () => Promise<void>) => {
+      host.asked.length = 0;
+      await unsavedEdit(host, `${wt}/a.ts`);
+      await run();
+      await expect.poll(() => host.params(method)).toHaveLength(1);
+      return savedBefore(host, `${wt}/a.ts`, method);
+    };
+    await expect.poll(() => commands.isEnabled('vcs.shelve')).toBe(true);
+    const shelve = async () => {
+      commands.execute('vcs.shelve');
+      await dialog();
+      await expect
+        .poll(() => document.activeElement?.className)
+        .toBe('playground-shelf__message-field');
+      await userEvent.keyboard('Later');
+      await press('Shelve Changes');
+    };
+    expect(await saved('git.shelve', shelve)).toBe(true);
+    const stash = async () => {
+      commands.execute('vcs.stash');
+      await press('Create Stash');
+    };
+    expect(await saved('git.stash', stash)).toBe(true);
+    const unstash = async () => {
+      commands.execute('vcs.unstash');
+      await press('Apply Stash');
+    };
+    expect(await saved('git.unstash', unstash)).toBe(true);
+    const unshelve = async () => {
+      commands.execute('shelf.unshelve', FROM_SHELF);
+      await press('Unshelve');
+    };
+    await userEvent.click(row('shelf:s1'));
+    expect(await saved('git.unshelve', unshelve)).toBe(true);
+    // The stash list's Apply doesn't, as IntelliJ's (`GitStashActions`).
+    await userEvent.click(tab('Stash'));
+    await expect.poll(() => row('stash:h1')).not.toBeNull();
+    await userEvent.click(row('stash:h1'));
+    const apply = () => {
+      commands.execute('stash.apply', FROM_STASH);
+      return Promise.resolve();
+    };
+    expect(await saved('git.unstash', apply)).toBe(false);
+    expect(host.params('fs.write')).toEqual([]);
   });
 
   it('says when there are no stashes to unstash, or they can’t be read', async () => {
