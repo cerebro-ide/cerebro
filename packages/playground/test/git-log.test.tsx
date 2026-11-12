@@ -1315,6 +1315,13 @@ describe('the branches’ toolbar', () => {
     await userEvent.click(branchRows().at(-1) as HTMLElement);
     await userEvent.click(navigate);
     await expect.poll(() => notifications.all.get(0)?.title).toBe('origin/main not found');
+    // Select In's key, while the pane has the keyboard, before Select In, as IntelliJ's.
+    expect(services.keymap?.commandsFor('Alt+F1')[0]).toBe('log.branches.navigate');
+    await userEvent.click(named('x'));
+    commands.execute('log.branches.navigate');
+    await expect.poll(selected).toBe('c2');
+    (document.querySelector('.playground-log__commits .cerebro-tree') as HTMLElement).focus();
+    expect(commands.isEnabled('log.branches.navigate')).toBe(false);
     await userEvent.click(button('log.branches.collapseAll'));
     await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'Remote']);
     git.revisions = {};
