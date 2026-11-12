@@ -343,7 +343,6 @@ describe('synchronized scrolling', () => {
     // measure, which undoes a scroll made before it: measured, the right set to line 200 at once
     // was back at the first change a frame later (2065 of 7048), as CI once found it.
     await expect.poll(() => right.scrollTop).toBeGreaterThan(0);
-    await expect.poll(() => third(left)).toBeDefined();
     /** What's a third of the way down a side, for when no line is: CI once found none on the left. */
     const under = (scroller: HTMLElement) => {
       const box = scroller.getBoundingClientRect();
@@ -355,6 +354,7 @@ describe('synchronized scrolling', () => {
         .map((e) => e.className)
         .join(' < ')}`;
     };
+    await expect.poll(() => third(left) ?? `no line: ${under(left)}`).toMatch(/^line \d+$/);
     const level = () => {
       const [a, b] = [third(left), third(right)];
       if (a !== undefined && a === b) return a;

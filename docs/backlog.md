@@ -44,6 +44,10 @@ on it:
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
+- **The diff's synchronized scrolling test once found no line on the left after its opening
+  scroll** (CI, #223, 2026-11-12: `third(left)` stayed undefined for a second, with the right
+  already scrolled). Not measured why; the test now says what the left had drawn and what's at the
+  point when it finds none.
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
