@@ -13,7 +13,7 @@ import { ObservableMap, signal } from '@cerebro-ide/reactive';
 import type { AskAnnotation, LineAnnotation, TextAnnotation } from '@cerebro-ide/ui-editor';
 import type { Tab } from '@cerebro-ide/layout';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { diffTab } from './changes.js';
+import { diffTab, notCommitted } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
 import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
@@ -412,7 +412,11 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   commands.register({
     id: 'vcs.annotate',
     label: 'A&nnotate with Git Blame',
-    visible: (c) => fileIn(target(c)) !== undefined,
+    // Hidden for a file git hasn't committed, as IntelliJ's AnnotateToggleAction.
+    visible: (c) => {
+      const file = fileIn(target(c));
+      return file !== undefined && !notCommitted(file.worktree, file.path);
+    },
     checked: (c) => annotated.has(target(c) as string),
     run: (c) => {
       const file = target(c) as string;

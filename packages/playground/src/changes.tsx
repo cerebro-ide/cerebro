@@ -582,6 +582,18 @@ export function toShelve(context: unknown): { files: Change[]; chosen: Change[] 
   return { files, chosen };
 }
 
+/**
+ * Whether the Commit window's lists know a file as one git hasn't committed: untracked, or added.
+ * IntelliJ's Annotate and Show Diff are off for it (`fileInVcsByFileStatus`). Unknown until they're
+ * read: false.
+ */
+export function notCommitted(worktree: string, path: string): boolean {
+  const changes = lists.get(worktree);
+  const listed = changes && [...changes.tracked(), ...changes.unversioned()];
+  const status = listed?.find((change) => change.path === path)?.status;
+  return status === 'untracked' || status === 'added';
+}
+
 /** Reads a worktree's changes again, if the Commit window has shown them: after shelving. */
 export async function refreshChanges(worktree: string): Promise<void> {
   await lists.get(worktree)?.refresh(true);
@@ -794,12 +806,13 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
-  /** The active editor's file, from its worktree's top, if it's in the active worktree's repository. */
+  /** The active editor's file and its worktree, if it's in the active worktree's repository. */
   const editorFile = () => {
     const env = active();
     const tab = setup.activeTab();
     if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
-    return tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
+    const path = tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
+    return path === undefined ? undefined : { worktree: env.id, path };
   };
   // Git → Current File's Show Diff: IntelliJ's Compare with the Same Repository Version, which it
   // names so for git (GitVcs). The file against its last commit; not for one git hasn't committed
@@ -810,14 +823,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     icon: 'diff',
     visible: () => editorFile() !== undefined,
     enabled: () => {
-      const path = editorFile();
-      const changes = current();
-      const listed = changes && [...changes.tracked(), ...changes.unversioned()];
-      const status = listed?.find((change) => change.path === path)?.status;
-      return path !== undefined && status !== 'untracked' && status !== 'added';
+      const file = editorFile();
+      return file !== undefined && !notCommitted(file.worktree, file.path);
     },
     run: () => {
-      setup.open(diffTab(editorFile() as string));
+      setup.open(diffTab((editorFile() as { path: string }).path));
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
