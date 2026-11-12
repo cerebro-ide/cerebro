@@ -2,7 +2,8 @@
 // NOWRAP layout): the items that don't fit are hidden, from the last, and a » shows at the row's
 // end. Pointing at the » (or pressing it) shows the whole row in a popup over it, which
 // goes when the pointer leaves it, on a click outside or on Escape, but not while a dropdown in it
-// is open (IntelliJ's isActionPopupStackEmpty).
+// is open (IntelliJ's isActionPopupStackEmpty). A vertical one (IntelliJ's vertical toolbars, as
+// the Log's branches pane's) keeps to its height the same way, its » at the bottom.
 
 import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
 
@@ -11,11 +12,17 @@ export interface ToolbarRowProps {
   label: string;
   /** The items, rendered in the row and again in the popup. */
   items: () => Child;
+  /** A row, or a column; a row to start with. */
+  orientation?: 'horizontal' | 'vertical';
 }
 
 export function ToolbarRow(props: ToolbarRowProps): Node {
   /** Closes the popup, while it's open. */
   let popup: (() => void) | undefined;
+  const vertical = props.orientation === 'vertical';
+  /** Whether the items take more room than the row has. */
+  const over = () =>
+    vertical ? items.scrollHeight > items.clientHeight : items.scrollWidth > items.clientWidth;
   const items = (<div class="cerebro-toolbar-row__items">{props.items()}</div>) as HTMLElement;
   const more = (
     <button
@@ -44,7 +51,11 @@ export function ToolbarRow(props: ToolbarRowProps): Node {
     </button>
   ) as HTMLElement;
   const row = (
-    <div class="cerebro-toolbar-row" role="group" aria-label={props.label}>
+    <div
+      class={vertical ? 'cerebro-toolbar-row cerebro-toolbar-row--vertical' : 'cerebro-toolbar-row'}
+      role="group"
+      aria-label={props.label}
+    >
       {items}
       {more}
     </div>
@@ -55,9 +66,9 @@ export function ToolbarRow(props: ToolbarRowProps): Node {
     const children = [...items.children] as HTMLElement[];
     for (const child of children) child.hidden = false;
     more.hidden = true;
-    if (items.scrollWidth <= items.clientWidth) return;
+    if (!over()) return;
     more.hidden = false;
-    for (let i = children.length - 1; i >= 0 && items.scrollWidth > items.clientWidth; i--) {
+    for (let i = children.length - 1; i >= 0 && over(); i--) {
       (children[i] as HTMLElement).hidden = true;
     }
   };
@@ -83,16 +94,21 @@ export function ToolbarRow(props: ToolbarRowProps): Node {
   const show = () => {
     if (popup) return;
     const element = document.createElement('div');
-    element.className = 'cerebro-toolbar-row__popup';
+    element.className = vertical
+      ? 'cerebro-toolbar-row__popup cerebro-toolbar-row__popup--vertical'
+      : 'cerebro-toolbar-row__popup';
     element.setAttribute('role', 'toolbar');
+    if (vertical) element.setAttribute('aria-orientation', 'vertical');
     element.setAttribute('aria-label', props.label);
     document.body.append(element);
     const handle = render(props.items, element);
     // Over the row, where it starts; kept on the screen.
     const at = row.getBoundingClientRect();
-    const width = element.getBoundingClientRect().width;
-    element.style.left = `${String(Math.max(0, Math.min(at.left, window.innerWidth - width)))}px`;
-    element.style.top = `${String(at.top)}px`;
+    const { width, height } = element.getBoundingClientRect();
+    const x = vertical ? at.left : Math.max(0, Math.min(at.left, window.innerWidth - width));
+    const y = vertical ? Math.max(0, Math.min(at.top, window.innerHeight - height)) : at.top;
+    element.style.left = `${String(x)}px`;
+    element.style.top = `${String(y)}px`;
     const busy = () => element.querySelector('[aria-expanded="true"]') !== null;
     const outside = (event: PointerEvent) => {
       if (!element.contains(event.target as Node) && !busy()) close();

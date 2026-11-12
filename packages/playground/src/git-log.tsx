@@ -16,7 +16,7 @@
 import { formatSequence, type Platform } from '@cerebro-ide/commands';
 import { onCleanup, type Child } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { computed, effect, signal, type Disposable } from '@cerebro-ide/reactive';
+import { computed, effect, signal, untracked, type Disposable } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
@@ -37,6 +37,8 @@ import {
   branchName,
   Branches,
   BranchesPane,
+  paneSettings,
+  savePaneSettings,
   type BranchesContext,
   type BranchesSelection,
   type BranchFilter,
@@ -846,6 +848,41 @@ export function setupLog(services: MenuServices, show: () => void): void {
       showBranches(false);
     },
   });
+  // The pane's settings, in its gear's menu as IntelliJ's (`Git.Log.Branches.Settings`): what a
+  // single click does, one or neither; then how the branches are grouped.
+  const SETTINGS_MENU = 'log/branchesSettings';
+  menus.contribute({ menu: SETTINGS_MENU, item: { heading: 'On Single Click' }, group: 'a' });
+  for (const [mode, label] of [
+    ['filter', 'Update Branch Filter'],
+    ['navigate', 'Navigate Log to Branch Head'],
+  ] as const) {
+    const id = `log.branches.onSelection.${mode}`;
+    commands.register({
+      id,
+      label,
+      checked: () => paneSettings.onSelection.get() === mode,
+      run: () => {
+        paneSettings.onSelection.set(paneSettings.onSelection.peek() === mode ? undefined : mode);
+        savePaneSettings();
+      },
+    });
+    menus.contribute({ menu: SETTINGS_MENU, item: { command: id }, group: 'a' });
+  }
+  commands.register({
+    id: 'log.branches.groupByDirectory',
+    label: 'Group by Directory',
+    checked: () => paneSettings.byDirectory.get(),
+    run: () => {
+      paneSettings.byDirectory.set(!paneSettings.byDirectory.peek());
+      savePaneSettings();
+      void shown.peek()?.branches.model.refresh();
+    },
+  });
+  menus.contribute({
+    menu: SETTINGS_MENU,
+    item: { command: 'log.branches.groupByDirectory' },
+    group: 'b',
+  });
   for (const [id, label, open] of [
     ['log.branches.expandAll', 'Expand All', true],
     ['log.branches.collapseAll', 'Collapse All', false],
@@ -1398,16 +1435,43 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
       aria-label="Branches"
       aria-orientation="vertical"
     >
-      {button('log.branches.hide', 'arrowCollapse')}
-      <span class="playground-log__branches-separator" />
-      {button('log.branches.newBranch', 'add')}
-      {button('log.branches.update', 'update')}
-      {button('log.branches.delete', 'delete')}
-      {button('vcs.fetch', 'fetch')}
-      {button('log.branches.navigate', 'locate')}
-      <span class="playground-log__branches-separator" />
-      {button('log.branches.expandAll', 'expandAll')}
-      {button('log.branches.collapseAll', 'collapseAll')}
+      {/* What doesn't fit, behind a » at the bottom, as IntelliJ's vertical toolbars. */}
+      <ToolbarRow
+        label="Branches Actions"
+        orientation="vertical"
+        items={() => (
+          <>
+            {button('log.branches.hide', 'arrowCollapse')}
+            <span class="playground-log__branches-separator" />
+            {button('log.branches.newBranch', 'add')}
+            {button('log.branches.update', 'update')}
+            {button('log.branches.delete', 'delete')}
+            {button('vcs.fetch', 'fetch')}
+            {button('log.branches.navigate', 'locate')}
+            <span class="playground-log__branches-separator" />
+            <button
+              type="button"
+              class="cerebro-toolbar-button"
+              aria-label="Branches Pane Settings"
+              data-menu="log/branchesSettings"
+              ref={tooltip({ text: () => 'Branches Pane Settings', placement: 'right' })}
+              on:click={(event) => {
+                const anchor = event.currentTarget as HTMLElement;
+                openMenu(
+                  services,
+                  'log/branchesSettings',
+                  { anchor, placement: 'right' },
+                  { owner: anchor, context: anchor },
+                );
+              }}
+            >
+              {icon('settings')}
+            </button>
+            {button('log.branches.expandAll', 'expandAll')}
+            {button('log.branches.collapseAll', 'collapseAll')}
+          </>
+        )}
+      />
     </div>
   );
 }
@@ -1459,6 +1523,25 @@ export function GitLogView(props: {
           });
           return undefined;
         });
+        // A single click on a branch, as the pane's settings say (IntelliJ's
+        // BranchesDashboardTreeController): the Branch filter set to it (All for a directory), or
+        // the Log taken to its head.
+        let clicked = untracked(() => branches.model.selected);
+        const selecting = effect(() => {
+          const key = branches.model.selected;
+          if (key === clicked) return undefined;
+          clicked = key;
+          untracked(() => {
+            const mode = paneSettings.onSelection.peek();
+            const at = branches.selection();
+            const ref = at && (at.kind === 'head' ? 'HEAD' : at.ref);
+            if (mode === 'filter') void log.filter(ref);
+            else if (mode === 'navigate' && ref !== undefined) {
+              void navigate(log, ref, branchName(ref));
+            }
+          });
+          return undefined;
+        });
         // As IntelliJ's Log follows the repository: read again when the refs change, whatever
         // changed them (Cerebro, a terminal, an agent), as the repository's state is read.
         let refs: string | undefined;
@@ -1481,6 +1564,7 @@ export function GitLogView(props: {
         onCleanup(() => {
           taking.dispose();
           following.dispose();
+          selecting.dispose();
           viewing.dispose();
           window.removeEventListener('focus', reload);
           shown.set(undefined);

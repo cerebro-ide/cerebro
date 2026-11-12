@@ -2012,11 +2012,24 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     notifications are IntelliJ's ("Update failed", "Updated 1 branch checked out in other
     worktrees"), but "Fetched 1 target" for its "Fetched {0} targets". Its icon is Update
     Project's, as IntelliJ's (CheckOut).
+  - The pane's settings (added 2026-11-12), a gear before Expand All, as IntelliJ's
+    (`Git.Log.Branches.Settings`, "Branches Pane Settings"): under "On Single Click", Update
+    Branch Filter or Navigate Log to Branch Head, one or neither (BranchesDashboardTreeController:
+    the Branch filter set to the branch or HEAD selected, All for a directory; the Log taken to its
+    head); then Group by Directory, a remote's branches under it either way. A single click does
+    nothing, and the branches are grouped, to start with (IntelliJ's defaults). Kept between runs,
+    one for every repository. **Not yet:** Group by Repository (one repository here) and Show
+    Tags (no tags in the pane yet); the branches popup's Group by Directory, which IntelliJ shares.
+  - What a short pane has no room for goes behind a » at the toolbar's foot (added 2026-11-12), as
+    IntelliJ's vertical toolbars: pointing at it shows the whole toolbar in a column over it, kept
+    on the screen. It's the Log toolbar's row (`ToolbarRow`, decision "a toolbar that keeps to its
+    width"), now also a column. Measured before: in the default layout the pane showed 179 px of
+    the toolbar's 270, so the gear and Expand and Collapse All were out of reach. The column is
+    clipped, not hidden, so a button further down taking the focus doesn't scroll it.
   **Not yet:** Compare with Current, Show My Branches, Toggle
-  Favorite, the Branches settings, the pane's search; several branches selected (IntelliJ updates
+  Favorite, the pane's search; several branches selected (IntelliJ updates
   them all at once); Navigate's key
-  (Select In's, Alt+F1, which Select In takes here first); a » for the buttons a short pane has no
-  room for (they're cut off).
+  (Select In's, Alt+F1, which Select In takes here first).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
