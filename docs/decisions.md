@@ -1993,7 +1993,8 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - The Log is read again after New Branch and Delete Branch.
   **Not yet:** Hide Branches, Update Selected, Compare with Current, Show My Branches, Toggle
   Favorite, the Branches settings, the pane's search; several branches selected; Delete's keys
-  (SafeDelete's) and Navigate's (Select In's); the Log isn't read again after a Fetch (backlog).
+  (SafeDelete's) and Navigate's (Select In's); a » for the buttons a short pane has no room for
+  (they're cut off); the Log isn't read again after a Fetch (backlog).
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 
