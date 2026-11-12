@@ -575,8 +575,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   const remote = askPass.git(git);
   const silentRemote = askPass.git(git, true);
   // What a push would send, and the push, of the checked-out branch: where it says, or by default.
+  /** The commit Push All up to Here… pushes up to, as `upTo`; HEAD, without it. */
+  const upToOf = (params: unknown) => {
+    const upTo = (params as { upTo?: unknown }).upTo;
+    if (upTo !== undefined && (typeof upTo !== 'string' || !/^[0-9a-f]{4,64}$/i.test(upTo))) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'upTo must be a commit hash');
+    }
+    return upTo;
+  };
   connection.onRequest('git.outgoing', (params) =>
-    outgoing(text(params, 'path'), git, destination(params)),
+    outgoing(text(params, 'path'), git, destination(params), upToOf(params)),
   );
   connection.onRequest('git.push', (params) => {
     const to = destination(params);
@@ -589,7 +597,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     // A force push, expecting the remote's branch at `lease` when given.
     const force =
       p.force === true ? { force: typeof p.lease === 'string' ? { lease: p.lease } : {} } : {};
-    return push(text(params, 'path'), remote, to && { ...to, setUpstream, ...tags, ...force });
+    return push(
+      text(params, 'path'),
+      remote,
+      to && { ...to, setUpstream, ...tags, ...force },
+      upToOf(params),
+    );
   });
   // IntelliJ's check for a diverged remote, and its Fetch of the target to count what it has.
   connection.onRequest('git.divergence', (params) =>

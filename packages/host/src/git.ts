@@ -808,8 +808,15 @@ export async function outgoing(
   worktree: string,
   run: Git = git,
   to?: PushTarget,
+  upTo?: string,
 ): Promise<Outgoing> {
   const { branch, remotes, upstream: tracked } = await tracking(worktree, run);
+  // The Log's Push All up to Here…: a commit of the branch's, the ones after it not sent.
+  if (upTo !== undefined && branch !== undefined) {
+    await run(worktree, ['merge-base', '--is-ancestor', upTo, 'HEAD']).catch(() => {
+      throw new Error('The commit is not in the current branch');
+    });
+  }
   const nothing = { remote: undefined, target: undefined, isNew: false, commits: [], remotes };
   if (branch === undefined) return { branch, ...nothing, upstream: undefined };
   const upstream = tracked && { remote: tracked.remote, target: tracked.branch };
@@ -823,7 +830,7 @@ export async function outgoing(
   // A new branch sends what no branch of the remote has.
   const base = isNew ? [`--remotes=${remote}`] : [there];
   const commits = parseLog(
-    await readLog(worktree, [...DETAILS, 'HEAD', '--not', ...base, '--'], run),
+    await readLog(worktree, [...DETAILS, upTo ?? 'HEAD', '--not', ...base, '--'], run),
   );
   return { branch, remote, target, isNew, commits, remotes, upstream };
 }
@@ -1014,8 +1021,9 @@ export async function push(
   worktree: string,
   run: Git = git,
   to?: PushTarget & { setUpstream?: boolean; tags?: PushTags; force?: { lease?: string } },
+  upTo?: string,
 ): Promise<Pushed> {
-  const out = await outgoing(worktree, run, to && { remote: to.remote, target: to.target });
+  const out = await outgoing(worktree, run, to && { remote: to.remote, target: to.target }, upTo);
   if (out.branch === undefined) throw new Error('No branch is checked out');
   if (out.remote === undefined) throw new Error('The repository has no remote');
   const target = out.target as string;
@@ -1037,16 +1045,26 @@ export async function push(
             // A line per ref, on its output: the tags it made there ("*" and "[new tag]").
             'push',
             '--porcelain',
-            ...(setUpstream ? ['--set-upstream'] : []),
+            ...(setUpstream && upTo === undefined ? ['--set-upstream'] : []),
             ...(tags === undefined ? [] : [tags === 'all' ? '--tags' : '--follow-tags']),
             ...(lease === undefined ? [] : [`--force-with-lease=refs/heads/${target}:${lease}`]),
             '--end-of-options',
             out.remote,
-            `HEAD:refs/heads/${target}`,
+            `${upTo ?? 'HEAD'}:refs/heads/${target}`,
           ],
           { GIT_TERMINAL_PROMPT: '0' },
         )
       ).split('\n');
+      // A commit pushed, not a branch: git sets no upstream for it (measured, git 2.43), so it's
+      // set after, the push having made the remote's branch here.
+      if (setUpstream && upTo !== undefined) {
+        await run(worktree, [
+          'branch',
+          `--set-upstream-to=${out.remote}/${target}`,
+          '--end-of-options',
+          out.branch,
+        ]);
+      }
     } catch (error) {
       // The refs it couldn't push ("!", with "[rejected]") are on its output, not in its message.
       const refused = error instanceof GitError ? refusedRefs(error.output) : [];
