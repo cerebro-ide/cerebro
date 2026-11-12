@@ -744,6 +744,16 @@ describe('the Log’s branches pane', () => {
     await remote.done;
   });
 
+  it('Delete Branch: SafeDelete’s keys, as IntelliJ’s', () => {
+    expect(services.keymap?.shortcutsFor('log.branches.delete')).toEqual(['Alt+Delete']);
+    const keymap = new Keymap('mac');
+    setupBranches(
+      { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
+      { readWorktrees, open },
+    );
+    expect(keymap.shortcutsFor('log.branches.delete')).toEqual(['Meta+Delete']);
+  });
+
   it('Delete Branch: not the current one or a protected remote one; the Log read again', async () => {
     expect(commands.get('log.branches.delete')).toMatchObject({
       label: 'Delete Branch',

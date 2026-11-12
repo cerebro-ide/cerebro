@@ -1993,9 +1993,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     found" if the Log hasn't it, as Go To Hash/Branch/Tag.
   - The Log is read again after New Branch and Delete Branch.
   **Not yet:** Hide Branches, Update Selected, Compare with Current, Show My Branches, Toggle
-  Favorite, the Branches settings, the pane's search; several branches selected; Delete's keys
-  (SafeDelete's) and Navigate's (Select In's); a » for the buttons a short pane has no room for
-  (they're cut off).
+  Favorite, the Branches settings, the pane's search; several branches selected; Navigate's key
+  (Select In's, Alt+F1, which Select In takes here first); a » for the buttons a short pane has no
+  room for (they're cut off).
+  - Delete Branch's keys (added 2026-11-12), while the pane has the keyboard: SafeDelete's, as
+    IntelliJ's (`DeleteBranchAction` takes them), Alt+Delete, Cmd+Delete on macOS (its `$default`
+    and macOS keymaps). New Branch and Delete Branch act on the pane's selection from the keys too.
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
