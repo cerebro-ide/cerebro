@@ -60,11 +60,6 @@ on it:
   (on its last, empty line), and the text was reloaded around a second later, the caret staying
   there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
-- **ui-editor's synchronized scrolling test failed once in CI** (2026-11-12, #213's check, its
-  change elsewhere): after the right side scrolled to line 200, a third of the way down the left
-  was no line at all for the poll's second ("undefined ≠ line 98"). Not seen in the recent failed
-  runs before it. Its failure now says what each side had drawn and what was at that point; the
-  cause is for the next failure to show.
 - **The Log's Checkout submenu needs menu items made from the context** (found 2026-11-11, adding
   the Log's commit menu, #182): IntelliJ's lists the commit's branches (then Checkout Revision),
   which change from commit to commit, but `@cerebro-ide/commands`' menus are contributed once and
