@@ -14,7 +14,8 @@
   color: var(--cerebro-text);
   font-family: var(--cerebro-font);
   font-size: var(--cerebro-font-size);
-  white-space: nowrap;
+  /* A line each, where the text breaks them (the Paths filter's paths). */
+  white-space: pre;
   pointer-events: none;
   user-select: none;
 }

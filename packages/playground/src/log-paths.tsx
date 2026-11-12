@@ -70,6 +70,12 @@ export function pathsText(paths: readonly string[]): string {
   return paths.length === 1 ? text : `${text} + ${String(paths.length - 1)}`;
 }
 
+/** The Paths filter's tooltip while it's on, as IntelliJ's: the first ten paths, a line each. */
+export function pathsTooltip(paths: readonly string[]): string {
+  const shown = [...paths].sort().slice(0, 10);
+  return ['Paths:', ...shown, ...(paths.length > 10 ? ['...'] : [])].join('\n');
+}
+
 const slashes = (path: string) => path.replaceAll('\\', '/');
 
 /** Paths as typed, from the repository's top: one in it given in full is made so, as IntelliJ's. */

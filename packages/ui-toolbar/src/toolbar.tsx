@@ -91,6 +91,8 @@ export interface ToolbarDropdownProps {
   text: () => string;
   /** For the tooltip and screen readers (but a filter's text has it): what is being chosen. */
   label: string;
+  /** The tooltip, when it's more than the label: the Paths filter's, its paths in full. */
+  tooltip?: () => string;
   /** Leads the label: an icon, or a badge with a name's initials. */
   icon?: Child;
   badge?: () => string;
@@ -155,7 +157,7 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
       data-menu={props.menu}
       ref={(button) => {
         element = button;
-        tooltip({ text: () => props.label })(button);
+        tooltip({ text: () => props.tooltip?.() ?? props.label })(button);
       }}
       on:pointerdown={(event) => {
         if (event.button === 0) toggle(false);

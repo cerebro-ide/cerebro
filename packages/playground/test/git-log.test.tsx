@@ -1365,6 +1365,8 @@ describe('the User, Date and Paths filters', () => {
     mount();
     await expect.poll(subjects).toHaveLength(3);
     expect(text('Paths')).toBe('Paths');
+    await userEvent.hover(dropdown('Paths'));
+    await expect.poll(() => document.querySelector('.cerebro-tooltip')?.textContent).toBe('Paths');
     await userEvent.click(dropdown('Paths'));
     await expect.poll(items).toEqual(['Select…', 'Select in Tree…']);
     await userEvent.keyboard('{Enter}');
@@ -1404,6 +1406,11 @@ describe('the User, Date and Paths filters', () => {
     expect(asked().filter?.paths).toEqual(['src/main.ts']);
     expect(text('Paths')).toBe('Paths: src/main.ts');
     expect(host.params('fs.list')).toEqual([{ path: '/r' }, { path: '/r/src' }]);
+    // Its tooltip lists the paths, as IntelliJ's.
+    const tip = () => document.querySelector('.cerebro-tooltip')?.textContent;
+    await userEvent.hover(dropdown('Paths'));
+    await expect.poll(tip).toBe('Paths:\nsrc/main.ts');
+    await userEvent.unhover(dropdown('Paths'));
     // A recent choice, then cleared with its X.
     await userEvent.click(dropdown('Paths'));
     await expect.poll(items).toEqual(['Select…', 'Select in Tree…', 'src/main.ts', 'a.txt + 1']);

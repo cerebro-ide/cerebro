@@ -374,6 +374,13 @@ describe('ToolbarDropdown', () => {
     vi.advanceTimersByTime(SHOW_DELAY);
     expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Choice');
     button.dispatchEvent(new PointerEvent('pointerleave'));
+    cleanup?.();
+    // Or what it's given: a filter's value in full.
+    const paths = dropdown({ tooltip: () => 'Paths:\nsrc/' });
+    paths.button.dispatchEvent(new PointerEvent('pointerenter'));
+    vi.advanceTimersByTime(SHOW_DELAY);
+    expect(document.querySelector('.cerebro-tooltip')?.textContent).toBe('Paths:\nsrc/');
+    paths.button.dispatchEvent(new PointerEvent('pointerleave'));
     vi.useRealTimers();
   });
 });
