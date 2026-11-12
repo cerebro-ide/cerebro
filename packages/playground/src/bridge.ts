@@ -28,7 +28,12 @@ export interface DiffSpec {
   project: string;
   env: string;
   path: string;
-  range?: { from: string; to: string };
+  range?: { from: string; to?: string };
+  /**
+   * The worktree's branch, for a diff against another branch or a tag: its local side's title.
+   * Undefined when HEAD is detached.
+   */
+  branch?: string | undefined;
   /**
    * The files Compare Previous and Next File go through, `path` among them, as IntelliJ's diff
    * chain: the list the diff was opened from.

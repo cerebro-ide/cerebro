@@ -115,6 +115,11 @@ describe('its title', () => {
   it('is the file’s name, and the commits it’s between', async () => {
     const { titleOf } = await import('../src/diff-window.js');
     expect(titleOf({ project: '/r', env: '/r', path: 'a/b.ts' })).toBe('b.ts');
+    // Against a branch or a tag, as it is: its name.
+    const spec = { project: '/r', env: '/r', path: 'a/b.ts' };
+    expect(titleOf({ ...spec, range: { from: 'refs/remotes/origin/main' } })).toBe(
+      'b.ts (origin/main)',
+    );
   });
 
   it('moves to a tab of its opener, between the same commits, from its Settings', async () => {

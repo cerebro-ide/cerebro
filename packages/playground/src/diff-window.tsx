@@ -33,6 +33,7 @@ import type { DiffSpec } from './bridge.js';
 import {
   FileDiff,
   setupDiffViewer,
+  revisionName,
   sideTitles,
   type DiffDocument,
   type DiffSides,
@@ -49,12 +50,16 @@ export function specOf(hash: string): DiffSpec {
   return JSON.parse(decodeURIComponent(hash.replace(/^#diff=/, ''))) as DiffSpec;
 }
 
-/** The window's title: the file's name, and the commits it's between if it's a range's. */
+/**
+ * The window's title: the file's name, and the commits it's between if it's a range's, or the
+ * branch or tag it's against.
+ */
 export function titleOf(spec: DiffSpec): string {
   const name = spec.path.split('/').at(-1) as string;
-  return spec.range
-    ? `${name} (${spec.range.from.slice(0, 8)}..${spec.range.to.slice(0, 8)})`
-    : name;
+  const { range } = spec;
+  if (!range) return name;
+  if (range.to === undefined) return `${name} (${revisionName(range.from)})`;
+  return `${name} (${range.from.slice(0, 8)}..${range.to.slice(0, 8)})`;
 }
 
 const app = window.cerebro as NonNullable<Window['cerebro']>;
@@ -241,7 +246,8 @@ render(
         // Made again for each file, as IntelliJ's window shows the next.
         const { path, scrollTo } = current.get();
         // Between commits, nothing to edit.
-        const asIs = spec.range ? undefined : documentOf(path);
+        // The file as it is, but for a diff between two commits.
+        const asIs = spec.range?.to !== undefined ? undefined : documentOf(path);
         return (
           <FileDiff
             services={services}
@@ -255,7 +261,7 @@ render(
               await asIs?.read();
               return (await diff) as DiffSides;
             }}
-            titles={sideTitles(spec.range)}
+            titles={sideTitles(spec.range, spec.branch)}
             {...(asIs ? { document: asIs.document } : {})}
             version={() => version.get()}
             {...(scrollTo ? { scrollTo } : {})}

@@ -70,6 +70,7 @@ import { setupApplyChanges } from './apply-changes.js';
 import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
+import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
 import {
@@ -269,6 +270,7 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
     env,
     path,
     ...(range ? { range } : {}),
+    ...(range && range.to === undefined ? { branch: currentBranch(env) } : {}),
     ...(chain && chain.length > 1 ? { chain: [...chain] } : {}),
     ...(line === undefined ? {} : { line }),
   });
@@ -1666,14 +1668,16 @@ function Diff(props: {
   const host = hostFor(props.env);
   if (!host) return <p class="playground-code__note">Diffs show in the desktop app.</p>;
   const file = `${props.env}/${props.path}`;
-  const document = props.range
-    ? undefined
-    : {
-        text: () => documentRead(file)?.text.get().toString(),
-        edit: (text: string) => {
-          documentRead(file)?.replace(text);
-        },
-      };
+  // The file as it is, but for a diff between two commits.
+  const document =
+    props.range?.to !== undefined
+      ? undefined
+      : {
+          text: () => documentRead(file)?.text.get().toString(),
+          edit: (text: string) => {
+            documentRead(file)?.replace(text);
+          },
+        };
   return (
     <FileDiff
       services={services}
@@ -1688,7 +1692,7 @@ function Diff(props: {
         if (document) await documentFor(file);
         return (await diff) as DiffSides;
       }}
-      titles={sideTitles(props.range)}
+      titles={sideTitles(props.range, currentBranch(props.env))}
       {...(props.line === undefined ? {} : { scrollTo: { line: props.line } })}
       {...(document ? { document } : {})}
       fontSize={() => settings.get('editor.fontSize') as number}

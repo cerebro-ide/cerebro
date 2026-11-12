@@ -528,6 +528,38 @@ describe('Git → Current File → Show Diff', () => {
   });
 });
 
+describe('Git → Current File → Compare with Branch or Tag…', () => {
+  it('opens the file against the branch chosen, in a window named after the current branch', async () => {
+    answers.set('git.branches', [
+      { ref: 'refs/heads/main', current: true },
+      { ref: 'refs/heads/other', current: false },
+    ]);
+    answers.set('git.tags', []);
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Compare with Branch');
+    await expect.poll(popupItems).toContain('Compare with Branch or Tag…');
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(popupItems).toEqual(['other']);
+    await userEvent.keyboard('{Enter}');
+    // Then the file's text, told to the window: its right side is the file as it is.
+    await expect
+      .poll(() => calls.filter((call) => call[0] === 'diff').at(-1))
+      .toEqual([
+        'diff',
+        {
+          project: '/r',
+          env: '/r',
+          path: 'src/a.ts',
+          range: { from: 'refs/heads/other' },
+          branch: 'main',
+        },
+      ]);
+  });
+});
+
 describe('the Commit window', () => {
   it('is shown by Commit, its changes and shelved files opening their diffs', async () => {
     answers.set('git.changes', ({ from }: { from?: string }) =>

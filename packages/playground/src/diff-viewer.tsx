@@ -633,11 +633,27 @@ export function FileDiff(props: {
 }
 
 /**
- * A diff's sides' names: at two commits, theirs, shortened; else the last commit's and "Your
- * version", as IntelliJ names a file as it is (a claim, from memory).
+ * A diff's sides' names: at two commits, theirs, shortened; against a branch or a tag, its name and
+ * the current `branch`'s, as local; else the last commit's and "Your version", as IntelliJ names a
+ * file as it is (a claim, from memory).
  */
-export const sideTitles = (range: { from: string; to: string } | undefined): [string, string] =>
-  range ? [range.from.slice(0, 8), range.to.slice(0, 8)] : ['HEAD', 'Your version'];
+export const sideTitles = (
+  range: { from: string; to?: string } | undefined,
+  branch?: string,
+): [string, string] => {
+  if (!range) return ['HEAD', 'Your version'];
+  // IntelliJ's `DvcsCompareWithAction` and `VcsDiffUtil.getRevisionTitle`, read in its source.
+  if (range.to === undefined) {
+    return [revisionName(range.from), branch === undefined ? 'Local' : `${branch} (Local)`];
+  }
+  return [range.from.slice(0, 8), range.to.slice(0, 8)];
+};
+
+/** A revision's name to show: a branch's or a tag's (`refs/tags/v1` is `v1`), or a short hash. */
+export const revisionName = (revision: string): string => {
+  const ref = /^refs\/(?:heads|remotes|tags)\/(.+)$/.exec(revision);
+  return ref ? (ref[1] as string) : revision.slice(0, 8);
+};
 
 /** A side's bytes, from base64. */
 const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));

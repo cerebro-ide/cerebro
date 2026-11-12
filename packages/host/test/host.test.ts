@@ -19,6 +19,7 @@ import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   defaultHookCommand,
   git as runGit,
+  gitBytes as realBytes,
   GitError,
   hookSettings,
   makeSpawnHelperExecutable,
@@ -484,6 +485,45 @@ describe('changes', () => {
       original: 'at c1:b.ts',
       text: 'at c2:b.ts',
     });
+  });
+
+  it('gives a file’s sides in a branch or tag and as it is, saying when it isn’t in it', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-ref-')));
+    const run = (...args: string[]) =>
+      execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], { cwd: dir });
+    run('init', '-q', '-b', 'main');
+    writeFileSync(join(dir, 'old.ts'), 'old\n');
+    writeFileSync(join(dir, 'b.ts'), 'b\n');
+    writeFileSync(join(dir, 'gone.ts'), 'gone\n');
+    run('add', '.');
+    run('commit', '-qm', 'first');
+    run('branch', 'other');
+    run('tag', 'v1.0');
+    run('mv', 'old.ts', 'new.ts');
+    writeFileSync(join(dir, 'added.ts'), 'added\n');
+    run('add', '.');
+    run('commit', '-qm', 'second');
+    writeFileSync(join(dir, 'b.ts'), 'b changed\n');
+    writeFileSync(join(dir, 'untracked.ts'), 'u\n');
+    rmSync(join(dir, 'gone.ts'));
+    const { ui, stop } = connect(vi.fn<Git>(runGit), undefined, undefined, undefined, realBytes);
+    const sides = (from: string, file: string) => ui.request('git.diff', { path: dir, from, file });
+    // Where it was, if renamed since; as it is now, unsaved edits aside.
+    expect(await sides('refs/heads/other', 'new.ts')).toEqual({ original: 'old\n', text: 'old\n' });
+    expect(await sides('refs/heads/other', 'b.ts')).toEqual({
+      original: 'b\n',
+      text: 'b changed\n',
+    });
+    expect(await sides('refs/tags/v1.0', 'added.ts')).toEqual({ original: '', text: 'added\n' });
+    expect(await sides('refs/heads/other', 'gone.ts')).toEqual({ original: 'gone\n', text: '' });
+    await expect(sides('refs/heads/other', 'untracked.ts')).rejects.toMatchObject({
+      message: "File untracked.ts doesn't exist in branch 'other'",
+    });
+    await expect(sides('refs/tags/v1.0', 'untracked.ts')).rejects.toMatchObject({
+      message: "File untracked.ts doesn't exist in tag 'v1.0'",
+    });
+    stop();
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it('gives a binary file’s sides at two commits, one missing as null', async () => {

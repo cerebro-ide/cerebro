@@ -81,7 +81,7 @@ function listsOf(worktree: string): Lists {
     const stashes = signal<Stash[]>([]);
     /** A list's files never change: read once, when it's first expanded. */
     const read = new Map<string, Promise<Change[]>>();
-    const filesOf = async (list: Item, range: Range): Promise<Item[]> => {
+    const filesOf = async (list: Item, range: Required<Range>): Promise<Item[]> => {
       const id = `${range.from}..${range.to}`;
       let files = read.get(id);
       if (!files) {

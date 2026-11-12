@@ -33,6 +33,7 @@ import {
   dialogText,
   FakeHost,
   menuItems,
+  popupItems,
   press,
   project,
   savedBefore,
@@ -71,6 +72,17 @@ const host = new FakeHost({
     return changes;
   },
   'agent.turns': () => git.turns,
+  'git.branches': () => [
+    { ref: 'refs/heads/main', current: true },
+    { ref: 'refs/heads/feature-10', current: false },
+    { ref: 'refs/heads/feature-9', current: false },
+    { ref: 'refs/remotes/origin/HEAD', current: false },
+    { ref: 'refs/remotes/origin/main', current: false },
+  ],
+  'git.tags': () => {
+    fails('git.tags');
+    return ['v1.0'];
+  },
   'git.state': () => git.state,
   'git.ignored': () => git.ignored,
   'git.commit': async () => {
@@ -562,6 +574,52 @@ describe('Git → Current File → Show Diff', () => {
       // As IntelliJ's AnnotateToggleAction.
       expect(commands.get('vcs.annotate')?.visible?.(undefined)).toBe(on);
     }
+  });
+});
+
+describe('Git → Current File → Compare with Branch or Tag…', () => {
+  const groups = () =>
+    [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent);
+
+  it('shows the file as it is against a branch or tag chosen, as IntelliJ’s', async () => {
+    const visible = () => commands.get('git.file.compareWithBranch')?.visible?.(undefined);
+    expect(visible()).toBe(false);
+    // Any file, git's or not: the diff says if it isn't in the branch.
+    activeTab = `${wt}/notes.txt`;
+    expect(visible()).toBe(true);
+    commands.execute('git.file.compareWithBranch');
+    // The current branch left out, and origin/HEAD; in IntelliJ's order.
+    expect(await popupItems()).toEqual(['feature-9', 'feature-10', 'origin/main', 'v1.0']);
+    expect(groups()).toEqual(['Local', 'Remote', 'Tags']);
+    expect(document.querySelector('.playground-popup__title')?.textContent).toBe(
+      'Select Branch to Compare',
+    );
+    await userEvent.keyboard('v1{Enter}');
+    expect(opened.at(-1)).toEqual(diffTab('notes.txt', { from: 'refs/tags/v1.0' }));
+    expect(opened.at(-1)?.id).toBe('diff@refs/tags/v1.0..:notes.txt');
+    expect(diffRange('diff@refs/tags/v1.0..:notes.txt')).toEqual({ from: 'refs/tags/v1.0' });
+    expect(diffPath('diff@refs/tags/v1.0..:notes.txt')).toBe('notes.txt');
+    // Escape: nothing opened.
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(opened).toHaveLength(1);
+    expect(menus.entries('main/git/file')).toContainEqual({
+      command: 'git.file.compareWithBranch',
+    });
+  });
+
+  it('says on the console when the branches can’t be read', async () => {
+    activeTab = `${wt}/notes.txt`;
+    git.failing = 'git.tags';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    commands.execute('git.file.compareWithBranch');
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the branches failed');
+    logged.mockRestore();
+    expect(document.querySelector('.cerebro-popup')).toBeNull();
   });
 });
 
