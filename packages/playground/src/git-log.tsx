@@ -20,7 +20,7 @@ import { computed, effect, signal, type Disposable } from '@cerebro-ide/reactive
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { fuzzyFilter, type PickerItem } from '@cerebro-ide/ui-popup';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
@@ -952,9 +952,43 @@ const shortcutOf = (services: MenuServices, command: string) => () => {
   return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);
 };
 
+/** Where the text filter's history is kept: one for every repository, as IntelliJ's. */
+const TEXT_HISTORY = 'cerebro.log.textHistory';
+
+/** The text filter's history, the latest first. */
+export function textHistory(): string[] {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(TEXT_HISTORY) ?? '[]');
+    return Array.isArray(stored) ? stored.filter((text) => typeof text === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Adds text to the history, as IntelliJ's SearchTextField: trimmed, none if blank, the same in
+ * another case moved first (left as it was if first already), five at most.
+ */
+export function rememberText(text: string): void {
+  const item = text.trim();
+  const history = textHistory();
+  const same = (other: string) => other.toLowerCase() === item.toLowerCase();
+  if (item === '' || (history[0] !== undefined && same(history[0]))) return;
+  try {
+    localStorage.setItem(
+      TEXT_HISTORY,
+      JSON.stringify([item, ...history.filter((other) => !same(other))].slice(0, 5)),
+    );
+  } catch {
+    // Not remembered: the history stays as it was.
+  }
+}
+
 /**
  * The text filter, as IntelliJ's: the text typed applies on Enter, or as the field loses the focus
- * changed; emptied, or cleared with its button, it's off. Regex and Match Case sit in it.
+ * changed; emptied, or cleared with its button, it's off. Regex and Match Case sit in it. Its
+ * history (SearchTextField's): what Enter applied, in a popup on Alt+Down or a click on the
+ * magnifier, a choice put in the field to apply; Alt+Up goes round it in the field.
  */
 function TextFilterField(props: { services: MenuServices; log: Log; name: string }): Node {
   const { log } = props;
@@ -968,6 +1002,42 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
     void log.search(typed.peek());
   };
   let field: HTMLInputElement | undefined;
+  let search: HTMLElement | undefined;
+  const put = (text: string) => {
+    (field as HTMLInputElement).value = text;
+    typed.set(text);
+  };
+  const showHistory = () => {
+    rememberText(typed.peek());
+    const history = textHistory();
+    if (history.length === 0) return;
+    const below = search as HTMLElement;
+    const handle = openPicker({
+      label: 'Search History',
+      placeholder: 'Search',
+      position: { below },
+      owner: below,
+      items: (query) =>
+        fuzzyFilter(
+          history.map((label) => ({ label })),
+          query,
+        ),
+    });
+    void handle.result.then((choice) => {
+      if (!choice) return;
+      put(choice.label);
+      rememberText(choice.label);
+    });
+  };
+  // Where Alt+Up is in the history, as IntelliJ's myCurrentHistoryIndex.
+  let at = 0;
+  const previous = () => {
+    if (!textHistory().includes(typed.peek())) rememberText(typed.peek());
+    const history = textHistory();
+    if (history.length < 2) return;
+    at = (at - 1 + history.length) % history.length;
+    put(history[at] as string);
+  };
   // The filter changed from elsewhere (cleared, to show a commit it left out): the field follows.
   // Never at first, when they agree: by then the field is there.
   const following = effect(() => {
@@ -992,8 +1062,23 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
     />
   );
   return (
-    <div class="playground-log__search">
-      {icon('search')}
+    <div
+      class="playground-log__search"
+      ref={(element: HTMLElement) => {
+        search = element;
+      }}
+    >
+      <span
+        class="playground-log__search-history"
+        on:mousedown={(event) => {
+          // The field keeps the focus, as IntelliJ's, until the popup takes it.
+          event.preventDefault();
+          // Only once there's a history, as IntelliJ's.
+          if (textHistory().length > 0) showHistory();
+        }}
+      >
+        {icon('search')}
+      </span>
       <input
         class="playground-log__search-field"
         type="text"
@@ -1012,7 +1097,14 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
           typed.set((event.currentTarget as HTMLInputElement).value);
         }}
         on:keydown={(event) => {
-          if (event.key === 'Enter') apply();
+          if (event.key === 'Enter') {
+            rememberText(typed.peek());
+            apply();
+          } else if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+            event.preventDefault();
+            if (event.key === 'ArrowDown') showHistory();
+            else previous();
+          }
         }}
         on:blur={() => {
           if (!same()) apply();

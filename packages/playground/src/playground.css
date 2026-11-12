@@ -1285,8 +1285,11 @@ body,
   border-color: var(--cerebro-accent);
 }
 
-.playground-log__search > svg {
+/* The magnifier, which shows the field's history, as IntelliJ's SearchTextField. */
+.playground-log__search-history {
+  display: flex;
   flex: none;
+  cursor: pointer;
 }
 
 .playground-log__search-field {
