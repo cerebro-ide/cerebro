@@ -46,6 +46,12 @@ right (a claim, to check against its sources before building).
 
 ## Known gaps
 
+- **The branches popup's branch actions show in Find Action, where they can't run** (found
+  2026-11-12, while adding the popup's Update; read from the code, not run): Find Action lists
+  every command enabled with no context, and Checkout, Merge, Rebase and the others have no
+  `enabled`, so they're listed; run from there, they get no branch and throw. Update and Push are
+  off without a branch. A fix might keep a menu's commands out of Find Action, or give them
+  `enabled`; not decided.
 - **A narrow Log hides its commits' subjects** (seen in QA of Compare with Current, 2026-11-12):
   the author and date columns have fixed widths (140 px and 130 px), so a commits list about
   225 px wide (each half of a comparison in a 1280 px window, beside its 400 px details) shows the

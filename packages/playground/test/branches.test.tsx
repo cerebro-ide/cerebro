@@ -346,6 +346,7 @@ describe('the branches popup', () => {
       "Rebase 'main' onto 'feature'",
       "Merge 'feature' into 'main'",
       'Update',
+      'Push…',
       'Rename…',
       'Delete',
     ]);
@@ -355,6 +356,7 @@ describe('the branches popup', () => {
       "New Branch from 'main'…",
       'Show Diff with Working Tree',
       'Update',
+      'Push…',
       'Rename…',
     ]);
     await userEvent.keyboard('{Escape}');
@@ -367,6 +369,7 @@ describe('the branches popup', () => {
       "Rebase 'main' onto 'side'",
       "Merge 'side' into 'main'",
       'Update',
+      'Push…',
       'Rename…',
       'Delete',
     ]);
@@ -1174,6 +1177,23 @@ describe('Update', () => {
     expect(shown({ name: 'feature', remote: false })).toBe(false);
     git.remotes = true;
     await readState('/r');
+  });
+});
+
+describe('Push', () => {
+  it('opens the Push dialog for the branch, checked out or not, as IntelliJ’s', async () => {
+    // What it would push isn't answered here: the dialog doesn't open, and that's logged.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await choose('feature', 'Push…');
+    await expect
+      .poll(() => host.params('git.outgoing'))
+      .toEqual([{ path: '/r', source: 'feature' }]);
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading what to push failed');
+    await choose('main', 'Push…');
+    expect(commands.isEnabled('git.branch.push')).toBe(false);
+    await expect.poll(() => host.params('git.outgoing').at(-1)).toEqual({ path: '/r' });
   });
 });
 

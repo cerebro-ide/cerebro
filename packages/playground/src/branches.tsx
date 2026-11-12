@@ -14,6 +14,7 @@ import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
+import { openPush } from './push.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -507,6 +508,21 @@ export function setupBranches(
     },
   });
   commands.register<BranchRef>({
+    // IntelliJ's (`GitPushBranchAction`): the Push dialog for a local branch, checked out or not.
+    id: 'git.branch.push',
+    label: 'Push',
+    dialog: true,
+    visible: (b) => !b.remote && !b.tag,
+    // Not without a branch, as Find Action asks.
+    enabled: (b: BranchRef | undefined) => b !== undefined,
+    run: (b) => {
+      const { worktree } = target() as NonNullable<ReturnType<typeof target>>;
+      return openPush(worktree, isCurrent(b) ? {} : { source: b.name }).catch((error: unknown) => {
+        console.error('Reading what to push failed', error);
+      });
+    },
+  });
+  commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
@@ -835,7 +851,7 @@ export function setupBranches(
       ],
     ],
     ['ab', ['git.branch.compare', 'git.branch.showDiff']],
-    ['b', ['git.branch.rebase', 'git.branch.merge', 'git.branch.update']],
+    ['b', ['git.branch.rebase', 'git.branch.merge', 'git.branch.update', 'git.branch.push']],
     ['c', ['git.branch.rename', 'git.branch.delete']],
   ];
   for (const [group, ids] of groups) {

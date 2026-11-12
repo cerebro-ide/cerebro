@@ -99,6 +99,41 @@ describe('pushing, with real git', () => {
     expect(run(repo, 'rev-parse', '--abbrev-ref', 'feature@{u}').trim()).toBe('origin/feature');
   });
 
+  it('pushes a branch that isn’t checked out, as the branches popup’s Push does, and makes its upstream', async () => {
+    const { repo, remote } = cloned('source');
+    run(repo, 'checkout', '-q', '-b', 'feature');
+    commit(repo, 'mine');
+    run(repo, 'checkout', '-q', 'main');
+    commit(repo, 'on main');
+    const out = await outgoing(repo, undefined, undefined, undefined, 'feature');
+    expect(out).toMatchObject({
+      branch: 'feature',
+      remote: 'origin',
+      target: 'feature',
+      isNew: true,
+    });
+    expect(out.commits.map((c) => c.subject)).toEqual(['mine']);
+    expect(await push(repo, undefined, undefined, undefined, 'feature')).toMatchObject({
+      commits: 1,
+      target: 'feature',
+      isNew: true,
+    });
+    expect(run(remote, 'log', '-1', '--format=%s', 'feature').trim()).toBe('mine');
+    // Its upstream made, the one checked out's left alone, and main not pushed.
+    expect(run(repo, 'rev-parse', '--abbrev-ref', 'feature@{u}').trim()).toBe('origin/feature');
+    expect(run(remote, 'log', '-1', '--format=%s', 'main').trim()).toBe('first');
+    expect(run(repo, 'branch', '--show-current').trim()).toBe('main');
+    // Then what it has that its upstream doesn't.
+    run(repo, 'checkout', '-q', 'feature');
+    commit(repo, 'more');
+    run(repo, 'checkout', '-q', 'main');
+    expect(
+      (await outgoing(repo, undefined, undefined, undefined, 'feature')).commits.map(
+        (c) => c.subject,
+      ),
+    ).toEqual(['more']);
+  });
+
   it('pushes to the upstream’s branch, and to the only remote when there’s no origin', async () => {
     const { repo, remote } = cloned('elsewhere');
     run(repo, 'remote', 'rename', 'origin', 'mine');
