@@ -64,7 +64,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
-- [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git)
+- [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git); Ctrl+D from the Project view
 - [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
@@ -2435,10 +2435,17 @@ with Branch…, Show History, Show History for Selection).
   of its own, or the unified view alike. Unchanged lines folded over it are unfolded as far as
   shows it, as IntelliJ's caret unfolds the folds it moves into (`CaretImpl`, read in its source):
   seen in the app, the line was hidden in a fold before.
-- **Not yet:** its shortcut. IntelliJ's is Ctrl+D (Cmd+D on macOS), which in the editor duplicates
-  the line instead, so it works from the Project view on a selected file; Cerebro's Project view
-  doesn't give its file to the Git menu yet.
-  The other items of the submenu.
+- **Its shortcut** (added 2026-11-12): IntelliJ's Ctrl+D (Cmd+D on macOS; `Compare.SameVersion`
+  in `$default`, which no other keymap changes). In the editor, Duplicate Line or Selection takes
+  it, as IntelliJ's editor action does, and the Commit window's own Show Diff there; so it's the
+  Project view's, on its selected file.
+- **The file, from the focus** (added 2026-11-12), for Git → Current File's items: the Project
+  view's selected file while it has the focus (none for a folder); none while another tool window
+  has it, so Ctrl+D in the Log doesn't show the editor's file; else the active editor's. IntelliJ
+  takes the files of the view with the focus (`VcsContextUtil`, read in its source); **claim:** that
+  a tool window without files gives none, from its data context, not measured.
+- **Not yet:** Show Diff for several files selected in the Project view, or a folder (IntelliJ
+  shows their changes).
 
 ## Documents saved before git actions (2026-11-12)
 

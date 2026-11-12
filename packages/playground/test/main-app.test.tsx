@@ -528,6 +528,51 @@ describe('Git → Current File → Show Diff', () => {
   });
 });
 
+describe('Ctrl+D', () => {
+  it('duplicates in the editor, shows the Project view’s file’s diff, and nothing elsewhere', async () => {
+    const diffs = () => calls.filter((call) => call[0] === 'diff');
+    answers.set('fs.list', [
+      { path: '/r/src', name: 'src', kind: 'directory' },
+      { path: '/r/b.ts', name: 'b.ts', kind: 'file' },
+    ]);
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    const before = diffs().length;
+    const lines = () => code()?.querySelectorAll('.cm-line').length ?? 0;
+    const count = lines();
+    await userEvent.keyboard('{Control>}d{/Control}');
+    expect(lines()).toBe(count + 1);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(lines()).toBe(count);
+    expect(diffs()).toHaveLength(before);
+    // The Project view's selected file, as IntelliJ's Compare.SameVersion takes it there.
+    if (!document.querySelector('.cerebro-tool-window[data-id="project"]')) {
+      await userEvent.click(stripe('project'));
+    }
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/b.ts')));
+    await userEvent.keyboard('{Control>}d{/Control}');
+    await expect
+      .poll(() => diffs().at(-1))
+      .toEqual(['diff', { project: '/r', env: '/r', path: 'b.ts' }]);
+    // A folder: no file to show.
+    await userEvent.click(row('/r/src'));
+    await userEvent.keyboard('{Control>}d{/Control}');
+    // Another tool window, which has no file: not the editor's.
+    await userEvent.click(stripe('git'));
+    await vi.waitUntil(() =>
+      document.querySelector('.cerebro-tool-window[data-id="git"] .cerebro-tree'),
+    );
+    (
+      document.querySelector('.cerebro-tool-window[data-id="git"] .cerebro-tree') as HTMLElement
+    ).focus();
+    await userEvent.keyboard('{Control>}d{/Control}');
+    expect(diffs()).toHaveLength(before + 1);
+    await userEvent.click(stripe('git'));
+    answers.delete('fs.list');
+  });
+});
+
 describe('Git → Current File → Show History', () => {
   it('shows the Git window, its Log the editor file’s commits on HEAD', async () => {
     env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
