@@ -71,6 +71,13 @@ const git = {
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
   tags: [] as string[] | Error,
+  /** Each branch's exclusive commits' authors, and "me", or why they can't be found. */
+  exclusive: { branches: {}, me: undefined } as
+    | {
+        branches: Record<string, { name: string; email: string }[]>;
+        me: { name: string; email: string } | undefined;
+      }
+    | Error,
   /** The refs' fingerprint, in the repository's state. */
   refs: undefined as string | undefined,
   /** The commit each revision names, as `git rev-parse` would. */
@@ -110,6 +117,10 @@ const host = new FakeHost({
     return git.changes[`${from}..${to}`] ?? [];
   },
   'git.authors': () => git.authors,
+  'git.exclusiveAuthors': () => {
+    if (git.exclusive instanceof Error) throw git.exclusive;
+    return git.exclusive;
+  },
   'git.cherryPick': () => 'picked',
   'git.state': () => ({ conflicts: false, refs: git.refs }),
   'git.status': () => ({ files: [] }),
@@ -171,6 +182,7 @@ afterEach(() => {
   git.branchesFailing = undefined;
   git.branches = [];
   git.tags = [];
+  git.exclusive = { branches: {}, me: undefined };
   for (const id of ['/r', '/s', '/n']) workspace.close(id);
 });
 
@@ -857,6 +869,7 @@ describe('the branches’ toolbar', () => {
       'log.branches.newBranch',
       'log.branches.update',
       'log.branches.delete',
+      'log.branches.showMy',
       'vcs.fetch',
       'log.branches.toggleFavorite',
       'log.branches.navigate',
@@ -1208,6 +1221,65 @@ describe('the branches’ toolbar', () => {
     expect(paneContext(undefined)?.selection?.kind).toBe('branch');
     field.focus();
     expect(paneContext(undefined)?.selection).toBeUndefined();
+  });
+
+  it('shows my branches alone, as IntelliJ’s: those whose own commits are all mine', async () => {
+    git.log = history(1);
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/alpha'),
+      branch('refs/heads/zed'),
+      branch('refs/remotes/origin/zed'),
+    ];
+    git.tags = ['v1'];
+    const me = { name: 'Ann Lee', email: 'ann@x' };
+    git.exclusive = {
+      branches: {
+        // None of its own: not mine.
+        'refs/heads/main': [],
+        'refs/heads/alpha': [{ name: 'Bob', email: 'bob@x' }, me],
+        // "me" as the User filter has it: by the name, or the email's.
+        'refs/heads/zed': [me, { name: 'ann lee', email: 'other@x' }],
+        'refs/remotes/origin/zed': [{ name: 'Ann.Lee', email: 'ann@x' }],
+      },
+      me,
+    };
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual([
+        'HEAD (Current Branch)',
+        'Local',
+        'main',
+        'alpha',
+        'zed',
+        'Remote',
+        'origin',
+        'Tags',
+        'v1',
+      ]);
+    const toggle = button('log.branches.showMy');
+    expect(toggle.getAttribute('aria-label')).toBe('Show My Branches');
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    await userEvent.click(toggle);
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'zed', 'Remote', 'origin']);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    // Found again as the Log is read again.
+    git.exclusive = { branches: { 'refs/heads/alpha': [me] }, me };
+    await commands.execute('log.refresh');
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'alpha']);
+    // Where they can't be found, all show.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.exclusive = new Error('fatal: bad object');
+    await commands.execute('log.refresh');
+    await expect.poll(() => branchNames().length).toBe(9);
+    expect(logged.mock.calls[0]?.[0] as unknown).toBe('Finding my branches failed');
+    // Off: all.
+    await userEvent.click(toggle);
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    expect(host.params('git.exclusiveAuthors')).toHaveLength(3);
   });
 
   it('marks a branch a favorite, or not: starred, after the branch checked out', async () => {
