@@ -251,6 +251,18 @@ describe('the branches popup', () => {
     expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
   });
 
+  it('keeps a branch’s actions off without a branch, so Find Action, which lists those on, doesn’t', async () => {
+    await popup();
+    const ids = menus
+      .entries('git/branch')
+      .flatMap((entry) => ('command' in entry ? [entry.command] : []));
+    // Each of them, Push to a remote too.
+    expect(ids).toEqual(
+      expect.arrayContaining(['git.branch.checkout', 'git.branch.delete', 'git.tag.push.origin']),
+    );
+    expect(ids.filter((id) => commands.isEnabled(id))).toEqual([]);
+  });
+
   it('lists the tags while Show Tags is on, as IntelliJ’s; without them where they can’t be read', async () => {
     paneSettings.showTags.set(false);
     pick(button);
