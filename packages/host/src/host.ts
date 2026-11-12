@@ -124,6 +124,7 @@ import {
   outgoing,
   push,
   tracking,
+  exclusiveAuthors,
   listAuthors,
   log,
   rollback,
@@ -543,6 +544,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   // The User filter's choices: the commits' authors, and who "me" is.
   connection.onRequest('git.authors', (params) => listAuthors(text(params, 'worktree'), git));
+  // Show My Branches': each branch's exclusive commits' authors, and who "me" is.
+  connection.onRequest('git.exclusiveAuthors', (params) =>
+    exclusiveAuthors(text(params, 'path'), git),
+  );
   // The Log's branches pane: the local and remote branches.
   connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
   /** Where a request's push goes, if it says: a remote and a branch there. */
