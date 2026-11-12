@@ -189,6 +189,20 @@ export function parseStatus(output: string): Change[] {
   return changes.sort((a, b) => (a.path < b.path ? -1 : 1));
 }
 
+/**
+ * Which of `files` (from the worktree's top) git tracks: the Commit window's unsaved edits are
+ * changes only in those, not in a file git ignores.
+ */
+export async function trackedFiles(
+  worktree: string,
+  files: readonly string[],
+  run: Git = git,
+): Promise<string[]> {
+  if (files.length === 0) return [];
+  const out = await run(worktree, ['ls-files', '-z', '--', ...files]);
+  return out.split('\0').filter((file) => file !== '');
+}
+
 /** The worktree's changes against its last commit, staged or not, untracked files included. */
 export async function listChanges(worktree: string, run: Git = git): Promise<Change[]> {
   return parseStatus(

@@ -36,6 +36,7 @@ import {
   parseWorktrees,
   removeWorktree,
   rollback,
+  trackedFiles,
 } from '../src/index.js';
 
 describe('parseLog', () => {
@@ -500,6 +501,18 @@ describe('with real git', () => {
     const index = readFileSync(join(quiet, '.git', 'index'));
     expect(await listChanges(quiet)).toEqual([]);
     expect(readFileSync(join(quiet, '.git', 'index')).equals(index)).toBe(true);
+  });
+
+  it('says which of the files given git tracks, so an edit not saved yet can show as changed', async () => {
+    const files = join(root, 'tracked');
+    execFileSync('git', ['init', '-q', '-b', 'main', files]);
+    mkdirSync(join(files, 'src'));
+    writeFileSync(join(files, 'src', 'a.ts'), 'a');
+    run(files, 'add', '.');
+    run(files, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+    writeFileSync(join(files, 'new.ts'), 'n');
+    expect(await trackedFiles(files, ['src/a.ts', 'new.ts', 'gone.ts'])).toEqual(['src/a.ts']);
+    expect(await trackedFiles(files, [])).toEqual([]);
   });
 
   it('lists a repository’s worktrees, from any of them', async () => {

@@ -6,6 +6,7 @@ export {
   git,
   GitError,
   listChanges,
+  trackedFiles,
   listChangesBetween,
   ignoredAmong,
   listIgnored,

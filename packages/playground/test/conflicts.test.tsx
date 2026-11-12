@@ -299,6 +299,22 @@ describe('the Conflicts dialog', () => {
     await expect.poll(rows).toHaveLength(2);
   });
 
+  it('closes the merge window with Escape, from its editors too, as a dialog', async () => {
+    void resolveConflicts('/r');
+    await userEvent.dblClick(await row('a.ts'));
+    const window = await mergeWindow();
+    const content = () =>
+      [...window.querySelectorAll('*')].flatMap((e) =>
+        e.shadowRoot ? [...e.shadowRoot.querySelectorAll<HTMLElement>('.cm-content')] : [],
+      );
+    await expect.poll(() => content().length).toBeGreaterThan(0);
+    await userEvent.click(content()[1] as HTMLElement);
+    expect(document.activeElement?.shadowRoot?.activeElement?.className).toBe('cm-content');
+    await userEvent.keyboard('{Escape}');
+    // Back to the Conflicts dialog under it.
+    await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
+  });
+
   it('applies with changes left once told to, and takes a side with Accept Left or Right', async () => {
     void resolveConflicts('/r');
     await dialog();
