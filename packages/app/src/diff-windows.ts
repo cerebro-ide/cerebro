@@ -38,6 +38,8 @@ export interface DiffSpec {
    * chain: the list the diff was opened from.
    */
   chain?: string[];
+  /** The line of the file as it is the caret starts at (from 0): the editor's, for Show Diff. */
+  line?: number;
 }
 
 /** A window, as diff windows see it: the one that opens them, or one of them. */
@@ -59,6 +61,7 @@ export function diffSpec(value: unknown): DiffSpec {
   const spec = value as Partial<DiffSpec> | null;
   const range = spec?.range;
   const chain = spec?.chain as unknown;
+  const line = spec?.line as unknown;
   if (
     !spec ||
     !text(spec.project) ||
@@ -66,10 +69,11 @@ export function diffSpec(value: unknown): DiffSpec {
     !text(spec.path) ||
     (range !== undefined && !(text(range.from) && text(range.to))) ||
     (chain !== undefined &&
-      !(Array.isArray(chain) && chain.every(text) && chain.includes(spec.path)))
+      !(Array.isArray(chain) && chain.every(text) && chain.includes(spec.path))) ||
+    (line !== undefined && !(Number.isInteger(line) && (line as number) >= 0))
   ) {
     throw new Error(
-      'A diff needs a project, a worktree, a path, commits if a range, and its path in its files',
+      'A diff needs a project, a worktree, a path, commits if a range, its path in its files, and a line from 0',
     );
   }
   return {
@@ -78,6 +82,7 @@ export function diffSpec(value: unknown): DiffSpec {
     path: spec.path as string,
     ...(range ? { range: { from: range.from, to: range.to } } : {}),
     ...(chain ? { chain: [...(chain as string[])] } : {}),
+    ...(line === undefined ? {} : { line: line as number }),
   };
 }
 
