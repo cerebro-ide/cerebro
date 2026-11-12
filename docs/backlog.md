@@ -142,6 +142,13 @@ on it:
   (The "stall" in "commits a merge started elsewhere", thought to be the same, wasn't one: the
   test pressed Ctrl+Enter before the Commit window listed the resolved file, and Commit said
   "Select files to commit", as IntelliJ's; it now waits for the file to be put in.)
+- **The HTTP login e2e test was never asked to log in, on macOS in CI** (#233, run 43309706008,
+  2026-11-12; passed on #233's two runs before, and on Linux and Windows in the same run; the only
+  such failure in the last 60 failed runs): after Push was clicked, no "Log In to" dialog in 15 s,
+  and the tests after it timed out as if Push stayed busy, then the repository was left mid-merge.
+  Whether git reached the test's server, or asked and the page never showed it, wasn't printed.
+  The test now prints the window, the server's requests and their answers, and whether the login
+  was asked within a minute after.
 - **Push's e2e test "says why a push failed" found no Push dialog on Windows in CI** (twice in a
   row on 2026-11-09, PR #157, runs 42630517881 and 42632719305; passed on the next run and on
   Linux and macOS): Ctrl+Shift+K opened no dialog (none in the page), the commit there and its
