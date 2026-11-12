@@ -1107,6 +1107,35 @@ body,
   height: 26px;
 }
 
+/*
+ * The branches hidden: a stripe as wide as their toolbar, its icon at the top and its name up the
+ * side, as IntelliJ's ExpandStripeButton.
+ */
+.playground-log__branches-stripe {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 34px;
+  padding: 6px 0;
+  border: none;
+  border-right: 1px solid var(--cerebro-separator);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.playground-log__branches-stripe:hover {
+  background: var(--cerebro-hover);
+}
+
+.playground-log__branches-stripe-text {
+  transform: rotate(180deg);
+  writing-mode: vertical-rl;
+}
+
 .playground-log__branches-separator {
   width: 16px;
   height: 1px;

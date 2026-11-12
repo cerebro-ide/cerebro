@@ -1995,7 +1995,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - Delete Branch's keys (added 2026-11-12), while the pane has the keyboard: SafeDelete's, as
     IntelliJ's (`DeleteBranchAction` takes them), Alt+Delete, Cmd+Delete on macOS (its `$default`
     and macOS keymaps). New Branch and Delete Branch act on the pane's selection from the keys too.
-  **Not yet:** Hide Branches, Update Selected, Compare with Current, Show My Branches, Toggle
+  - Hide Git Branches (added 2026-11-12), first, a separator after it, as IntelliJ's
+    (`Git.Log.Hide.Branches`, BranchesInGitLogUiFactoryProvider): the pane and its splitter go, and
+    a stripe as wide as the toolbar shows them again, its icon at the top and "Branches" up its side
+    (IntelliJ's ExpandStripeButton). The same pane comes back, its selection and what's expanded
+    kept. Whether they show is kept between runs, one for every repository (IntelliJ's
+    `Show.Git.Branches`, a property of its Log's tab, shown to start with). **Claude's, open to
+    change:** the arrows' drawing (not IntelliJ's), and the commits taking the keyboard when the
+    pane had it.
+  **Not yet:** Update Selected, Compare with Current, Show My Branches, Toggle
   Favorite, the Branches settings, the pane's search; several branches selected; Navigate's key
   (Select In's, Alt+F1, which Select In takes here first); a » for the buttons a short pane has no
   room for (they're cut off).

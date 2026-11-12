@@ -46,6 +46,14 @@ right (a claim, to check against its sources before building).
 
 ## Known gaps
 
+- **language-servers' Python test failed on macOS, and every test after it** (#228, run
+  43264592149, 2026-11-12): Ctrl+B reached lib.py, then 30 s of Alt+F7 never showed walk's usages,
+  though the host, asked directly, found them in 3 ms. The page ended with lib.py's tab active, the
+  focus on the body and a popup of name matches open; Escape, sent to the body, didn't close it,
+  so each later test's Go to File failed behind it. A claim, not measured: a late answer to an
+  earlier Ctrl+B switched tabs while a popup was open, and closing it gave the focus back to
+  main.py's editor, gone by then. The test now prints the tab, focus and popup at each press. Passes
+  locally (Linux, 22/22).
 - **Double Shift once didn't open Search Everywhere in main-app's Show History test** (CI, #221,
   2026-11-12; not reproduced in six local runs, three at once). Not measured why: double Shift
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus

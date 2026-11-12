@@ -836,6 +836,16 @@ export function setupLog(services: MenuServices, show: () => void): void {
       else void navigate(log, selection.ref, branchName(selection.ref));
     },
   });
+  // The pane hidden, as IntelliJ's (`Git.Log.Hide.Branches`): a stripe shows it again.
+  commands.register({
+    id: 'log.branches.hide',
+    label: 'Hide Git Branches',
+    icon: 'arrowCollapse',
+    enabled: () => shown.get() !== undefined && branchesShown.get(),
+    run: () => {
+      showBranches(false);
+    },
+  });
   for (const [id, label, open] of [
     ['log.branches.expandAll', 'Expand All', true],
     ['log.branches.collapseAll', 'Collapse All', false],
@@ -1026,6 +1036,30 @@ const shortcutOf = (services: MenuServices, command: string) => () => {
   const key = keymap?.shortcutsFor(command)[0];
   return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);
 };
+
+/** Where whether the Log shows its branches is kept: one for every repository. */
+const BRANCHES_SHOWN = 'cerebro.log.showBranches';
+
+/** Whether the Log shows its branches pane, as kept; shown to start with, as IntelliJ's. */
+export function readBranchesShown(): boolean {
+  try {
+    return localStorage.getItem(BRANCHES_SHOWN) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+/** IntelliJ's `Show.Git.Branches`, a property of the Log's tab. */
+const branchesShown = signal(readBranchesShown());
+
+function showBranches(show: boolean): void {
+  branchesShown.set(show);
+  try {
+    localStorage.setItem(BRANCHES_SHOWN, String(show));
+  } catch {
+    // Not kept: it applies until the page is reloaded.
+  }
+}
 
 /** Where the text filter's history is kept: one for every repository, as IntelliJ's. */
 const TEXT_HISTORY = 'cerebro.log.textHistory';
@@ -1364,6 +1398,8 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
       aria-label="Branches"
       aria-orientation="vertical"
     >
+      {button('log.branches.hide', 'arrowCollapse')}
+      <span class="playground-log__branches-separator" />
       {button('log.branches.newBranch', 'add')}
       {button('log.branches.delete', 'delete')}
       {button('vcs.fetch', 'fetch')}
@@ -1470,6 +1506,12 @@ export function GitLogView(props: {
             />
           );
         };
+        // What takes the keyboard as the window is activated, as IntelliJ's commits table.
+        const commits = (
+          <div class="playground-log__list" data-focus-first>
+            {list}
+          </div>
+        ) as HTMLElement;
         const pane = (
           <div class="playground-log__pane">
             <CommitPane log={log} host={host} worktree={env.id} open={props.open} />
@@ -1488,15 +1530,38 @@ export function GitLogView(props: {
           </div>
         ) as HTMLElement;
         side.style.width = `${String(BRANCHES_WIDTH)}px`;
-        return [
-          side,
+        const splitter = (
           <Splitter
             line="vertical"
             start={() => side.offsetWidth}
             onDrag={(width, delta) => {
               side.style.width = `${String(Math.max(0, width + delta))}px`;
             }}
-          />,
+          />
+        );
+        // Hidden, a stripe in its toolbar's place shows it again, as IntelliJ's ExpandStripeButton.
+        const stripe = (
+          <button
+            type="button"
+            class="playground-log__branches-stripe"
+            title="Branches"
+            on:click={() => {
+              showBranches(true);
+            }}
+          >
+            {icon('arrowExpand')}
+            <span class="playground-log__branches-stripe-text">Branches</span>
+          </button>
+        );
+        return [
+          () => {
+            if (branchesShown.get()) return [side, splitter];
+            // What had the keyboard goes with the pane: the commits take it.
+            if (side.contains(document.activeElement)) {
+              commits.querySelector<HTMLElement>('[tabindex]')?.focus();
+            }
+            return stripe;
+          },
           <div class="playground-log__commits">
             <LogToolbar
               services={props.services}
@@ -1505,10 +1570,7 @@ export function GitLogView(props: {
               name={env.name}
               worktree={env.id}
             />
-            {/* What takes the keyboard as the window is activated, as IntelliJ's commits table. */}
-            <div class="playground-log__list" data-focus-first>
-              {list}
-            </div>
+            {commits}
           </div>,
           <Splitter
             line="vertical"

@@ -15,6 +15,7 @@ import {
   PAGE,
   paneContext,
   rangeOf,
+  readBranchesShown,
   refsOf,
   rememberText,
   setupLog,
@@ -822,6 +823,7 @@ describe('the branches’ toolbar', () => {
     expect(
       [...toolbar().querySelectorAll('[data-command]')].map((b) => b.getAttribute('data-command')),
     ).toEqual([
+      'log.branches.hide',
       'log.branches.newBranch',
       'log.branches.delete',
       'vcs.fetch',
@@ -829,6 +831,58 @@ describe('the branches’ toolbar', () => {
       'log.branches.expandAll',
       'log.branches.collapseAll',
     ]);
+  });
+
+  it('hides the branches, which a stripe shows again; kept between runs', async () => {
+    git.log = history(1);
+    git.branches = [branch('refs/heads/main', true)];
+    mount();
+    const stripe = () =>
+      document.querySelector<HTMLButtonElement>('.playground-log__branches-stripe');
+    const hide = button('log.branches.hide');
+    expect(hide.getAttribute('aria-label')).toBe('Hide Git Branches');
+    // The pane had the keyboard: the commits take it.
+    await expect.poll(branchNames).toContain('main');
+    // Focused with the keys, the pane selects its first row (its rows may be made again meanwhile).
+    (document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement).focus();
+    const head = () => named('HEAD (Current Branch)').getAttribute('aria-selected');
+    await expect.poll(head).toBe('true');
+    await userEvent.click(hide);
+    expect(document.querySelector('.playground-log__branches')).toBeNull();
+    expect(document.querySelectorAll('.playground-log > .cerebro-splitter')).toHaveLength(1);
+    expect(document.activeElement?.closest('.playground-log__list')).not.toBeNull();
+    expect(stripe()?.textContent).toBe('Branches');
+    expect(readBranchesShown()).toBe(false);
+    expect(services.commands.isEnabled('log.branches.hide')).toBe(false);
+    await userEvent.click(stripe() as HTMLButtonElement);
+    expect(stripe()).toBeNull();
+    // The same pane, as it was.
+    expect(head()).toBe('true');
+    expect(document.querySelectorAll('.playground-log > .cerebro-splitter')).toHaveLength(2);
+    expect(readBranchesShown()).toBe(true);
+    // Hidden with nothing of it focused, the focus stays where it is.
+    const field = document.querySelector<HTMLInputElement>('.playground-log__toolbar input');
+    (field as HTMLInputElement).focus();
+    services.commands.execute('log.branches.hide');
+    expect(document.activeElement).toBe(field);
+    (stripe() as HTMLButtonElement).click();
+  });
+
+  it('shows the branches when what’s kept can’t be read, and hides them for the run when it can’t be written', async () => {
+    const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(readBranchesShown()).toBe(true);
+    read.mockRestore();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+    git.log = history(1);
+    mount();
+    await userEvent.click(button('log.branches.hide'));
+    expect(document.querySelector('.playground-log__branches')).toBeNull();
+    vi.restoreAllMocks();
+    (document.querySelector('.playground-log__branches-stripe') as HTMLButtonElement).click();
   });
 
   it('keeps its first buttons in place in a short pane, as one further down is focused', () => {
