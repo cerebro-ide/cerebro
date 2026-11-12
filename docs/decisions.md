@@ -2026,8 +2026,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     width"), now also a column. Measured before: in the default layout the pane showed 179 px of
     the toolbar's 270, so the gear and Expand and Collapse All were out of reach. The column is
     clipped, not hidden, so a button further down taking the focus doesn't scroll it.
-  **Not yet:** Compare with Current, Show My Branches, Toggle
-  Favorite, the pane's search; several branches selected (IntelliJ updates
+  - Toggle Favorite (added 2026-11-12), after Fetch, as IntelliJ's (ToggleFavoriteAction,
+    DvcsBranchManager, GitBranchManager): `main` and `master`, local and on `origin`, are
+    favorites until unmarked; any other branch once marked; kept for each repository (by its
+    project's path), in the browser's storage. A favorite has a star, and the pane orders as
+    IntelliJ's BranchTreeNodeComparator: the branch checked out, favorites, directories with a
+    favorite under them, other directories, then branches. Off for HEAD and a directory. **Claude's,
+    open to change:** the star's drawing. **Not yet:** favorites in the branches popup, which
+    IntelliJ shares.
+  **Not yet:** Compare with Current, Show My Branches, the pane's search; several branches selected (IntelliJ updates
   them all at once); Navigate's key
   (Select In's, Alt+F1, which Select In takes here first).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,

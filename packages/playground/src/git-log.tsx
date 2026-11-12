@@ -24,6 +24,7 @@ import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup'
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
+import { isFavorite, setFavorite } from './branch-favorites.js';
 import { changeContent, diffTab, fileTab, type Change } from './changes.js';
 import { formatCommitDate } from './dates.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
@@ -838,6 +839,19 @@ export function setupLog(services: MenuServices, show: () => void): void {
       else void navigate(log, selection.ref, branchName(selection.ref));
     },
   });
+  // A branch marked a favorite, or not, as IntelliJ's ToggleFavoriteAction: the pane sorts it again.
+  commands.register<BranchesContext | undefined>({
+    id: 'log.branches.toggleFavorite',
+    label: 'Toggle Favorite',
+    icon: 'favorite',
+    enabled: (c) => c?.selection?.kind === 'branch' && shown.get() !== undefined,
+    run: (c) => {
+      const { branches } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
+      const { ref } = (c as BranchesContext).selection as { ref: string };
+      setFavorite(branches.repository, ref, !isFavorite(branches.repository, ref));
+      void branches.model.refresh();
+    },
+  });
   // The pane hidden, as IntelliJ's (`Git.Log.Hide.Branches`): a stripe shows it again.
   commands.register({
     id: 'log.branches.hide',
@@ -1447,6 +1461,7 @@ function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Br
             {button('log.branches.update', 'update')}
             {button('log.branches.delete', 'delete')}
             {button('vcs.fetch', 'fetch')}
+            {button('log.branches.toggleFavorite', 'favorite')}
             {button('log.branches.navigate', 'locate')}
             <span class="playground-log__branches-separator" />
             <button

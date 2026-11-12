@@ -29,6 +29,7 @@ import {
 import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
+import { isFavorite, setFavorite } from '../src/branch-favorites.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
 
@@ -674,6 +675,33 @@ describe('the branches', () => {
     expect(names(branchTree([]))).toEqual(['HEAD']);
   });
 
+  it('put favorites after the branch checked out, and directories with one before the others', () => {
+    const names = (nodes: ReturnType<typeof branchTree>): unknown[] =>
+      nodes.map((node) =>
+        node.kind === 'head'
+          ? 'HEAD'
+          : node.kind === 'branch'
+            ? node.name
+            : { [node.name]: names(node.children) },
+      );
+    const favorites = new Set(['refs/heads/zed', 'refs/heads/fix/y']);
+    expect(
+      names(
+        branchTree(
+          [
+            branch('refs/heads/main', true),
+            branch('refs/heads/alpha'),
+            branch('refs/heads/zed'),
+            branch('refs/heads/feat/x'),
+            branch('refs/heads/fix/y'),
+          ],
+          true,
+          (ref) => favorites.has(ref),
+        ),
+      ),
+    ).toEqual(['HEAD', { Local: ['main', 'zed', { fix: ['y'] }, { feat: ['x'] }, 'alpha'] }]);
+  });
+
   const branchRows = () => [
     ...document.querySelectorAll<HTMLElement>('.playground-log__branches .cerebro-tree-row'),
   ];
@@ -828,6 +856,7 @@ describe('the branches’ toolbar', () => {
       'log.branches.update',
       'log.branches.delete',
       'vcs.fetch',
+      'log.branches.toggleFavorite',
       'log.branches.navigate',
       'log.branches.expandAll',
       'log.branches.collapseAll',
@@ -1006,6 +1035,60 @@ describe('the branches’ toolbar', () => {
     await userEvent.keyboard('{Escape}');
     log.style.height = '';
     await expect.poll(() => more().hidden).toBe(true);
+  });
+
+  it('marks a branch a favorite, or not: starred, after the branch checked out', async () => {
+    git.log = history(1);
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/alpha'),
+      branch('refs/heads/zed'),
+    ];
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'alpha', 'zed']);
+    const toggle = button('log.branches.toggleFavorite');
+    expect(toggle.getAttribute('aria-label')).toBe('Toggle Favorite');
+    // Off for HEAD, a directory, or nothing selected.
+    expect(toggle.disabled).toBe(true);
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    tree.focus();
+    expect(toggle.disabled).toBe(true);
+    await userEvent.keyboard('{End}');
+    await expect.poll(() => toggle.disabled).toBe(false);
+    await userEvent.click(toggle);
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'zed', 'alpha']);
+    const star = (name: string) =>
+      [...named(name).querySelectorAll('path')].at(-1)?.getAttribute('d') ===
+      toggle.querySelector('path')?.getAttribute('d');
+    expect(star('zed')).toBe(true);
+    expect(star('alpha')).toBe(false);
+    // main is a favorite to start with, as IntelliJ's; zed unmarked again.
+    expect(star('main')).toBe(true);
+    await userEvent.click(toggle);
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'alpha', 'zed']);
+    expect(star('zed')).toBe(false);
+  });
+
+  it('keeps favorites by the worktree’s own path when no project holds it', async () => {
+    workspace.openOrActivate({ id: '/x', name: 'x', branch: 'main' });
+    git.log = history(1);
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/x')];
+    mount();
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'main', 'x']);
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    tree.focus();
+    await userEvent.keyboard('{End}');
+    await userEvent.click(button('log.branches.toggleFavorite'));
+    expect(isFavorite('/x', 'refs/heads/x')).toBe(true);
+    expect(isFavorite('/r', 'refs/heads/x')).toBe(false);
+    setFavorite('/x', 'refs/heads/x', false);
+    workspace.close('/x');
   });
 
   it('keeps its first buttons in place in a short pane, as one further down is focused', () => {
