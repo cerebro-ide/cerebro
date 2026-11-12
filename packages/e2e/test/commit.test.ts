@@ -53,13 +53,13 @@ async function seen(): Promise<void> {
 }
 
 /** How long `done` takes to hold after a test gave up on it, up to a minute: slow, or stuck. */
-async function measure(done: () => boolean): Promise<void> {
+async function measure(done: () => boolean | Promise<boolean>): Promise<void> {
   const start = performance.now();
-  while (!done() && performance.now() - start < 60_000) {
+  while (!(await done()) && performance.now() - start < 60_000) {
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
   console.log(
-    done()
+    (await done())
       ? `Done ${String(Math.round(performance.now() - start))} ms after the test gave up`
       : 'Still not done a minute after the test gave up',
   );
@@ -293,52 +293,67 @@ it('commits and pushes, with Commit and Push…, to the branch’s upstream', as
 });
 
 // Git for Windows and macOS's git have git's HTTP backend; a git without it can't serve the test.
-it.skipIf(!hasHttpBackend())('logs in to push over HTTP, and keeps the password', async () => {
-  // The remote, now behind a login.
-  const { url, server } = await gitServer(root, 'ido', 'secret');
-  git('remote', 'set-url', 'origin', `${url}/remote.git`);
-  const push = async (subject: string) => {
-    writeFileSync(join(repo, 'pushed.txt'), subject);
-    git('add', 'pushed.txt');
-    git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', subject);
-    await page().keyboard.press(KEYS.push);
-    const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
+it.skipIf(!hasHttpBackend())(
+  'logs in to push over HTTP, and keeps the password',
+  async () => {
+    // The remote, now behind a login.
+    const { url, server, requests } = await gitServer(root, 'ido', 'secret');
+    git('remote', 'set-url', 'origin', `${url}/remote.git`);
+    const push = async (subject: string) => {
+      writeFileSync(join(repo, 'pushed.txt'), subject);
+      git('add', 'pushed.txt');
+      git('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', subject);
+      await page().keyboard.press(KEYS.push);
+      const dialog = page().locator('.cerebro-dialog', { has: page().locator('.playground-push') });
+      await expect
+        .poll(() => dialog.locator('.playground-push__commit').allTextContents(), {
+          timeout: 15_000,
+        })
+        .toEqual([subject]);
+      await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
+    };
+    const pushed = () =>
+      execFileSync('git', ['log', '-1', '--format=%s', 'main'], {
+        cwd: join(root, 'remote.git'),
+        encoding: 'utf8',
+      });
+    await push('Logged in');
+    const login = page().locator('.cerebro-dialog', { hasText: 'Log In to' });
+    try {
+      await login.waitFor({ timeout: 15_000 });
+    } catch (error) {
+      // Not asked in time on macOS in CI, once (#233, 2026-11-12), and Push stayed busy for the
+      // tests after: what was seen, whether git reached the server, and whether it asked later.
+      await seen();
+      console.log('Requests:', requests);
+      await measure(() => login.isVisible());
+      console.log('Requests by then:', requests);
+      throw error;
+    }
+    await page().keyboard.type('ido');
+    await login.locator('input[type=password]').fill('secret');
+    await login.locator('.cerebro-dialog__button', { hasText: 'Log In' }).click();
+    await expect.poll(pushed, { timeout: 15_000 }).toBe('Logged in\n');
+    // The remote has it before git is done (seen on Windows in CI): Push waits for the push to end.
     await expect
-      .poll(() => dialog.locator('.playground-push__commit').allTextContents(), {
+      .poll(() => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible(), {
         timeout: 15_000,
       })
-      .toEqual([subject]);
-    await dialog.locator('.cerebro-dialog__button', { hasText: 'Push' }).click();
-  };
-  const pushed = () =>
-    execFileSync('git', ['log', '-1', '--format=%s', 'main'], {
-      cwd: join(root, 'remote.git'),
-      encoding: 'utf8',
-    });
-  await push('Logged in');
-  const login = page().locator('.cerebro-dialog', { hasText: 'Log In to' });
-  await login.waitFor({ timeout: 15_000 });
-  await page().keyboard.type('ido');
-  await login.locator('input[type=password]').fill('secret');
-  await login.locator('.cerebro-dialog__button', { hasText: 'Log In' }).click();
-  await expect.poll(pushed, { timeout: 15_000 }).toBe('Logged in\n');
-  // The remote has it before git is done (seen on Windows in CI): Push waits for the push to end.
-  await expect
-    .poll(() => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible(), {
-      timeout: 15_000,
-    })
-    .toBe(false);
-  // Again: the login and password kept answer, unasked.
-  await push('Kept');
-  await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
-  expect(await login.count()).toBe(0);
-  const pushing = () => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible();
-  console.log('Pushing… once the remote has it:', await pushing());
-  // Push is off until it ends, and the next test pushes. Not the measured cause of that test's
-  // failures on Windows (see the backlog): it had ended when the remote had it, in the run after.
-  await expect.poll(pushing, { timeout: 15_000 }).toBe(false);
-  server.close();
-});
+      .toBe(false);
+    // Again: the login and password kept answer, unasked.
+    await push('Kept');
+    await expect.poll(pushed, { timeout: 15_000 }).toBe('Kept\n');
+    expect(await login.count()).toBe(0);
+    const pushing = () => page().locator('.cerebro-statusbar').getByText('Pushing…').isVisible();
+    console.log('Pushing… once the remote has it:', await pushing());
+    // Push is off until it ends, and the next test pushes. Not the measured cause of that test's
+    // failures on Windows (see the backlog): it had ended when the remote had it, in the run after.
+    await expect.poll(pushing, { timeout: 15_000 }).toBe(false);
+    server.close();
+    // Room for its failure's minute of measuring: the default 30 s would cut it short.
+  },
+  120_000,
+);
 
 it('says why a push failed in git’s words alone', async () => {
   git('remote', 'set-url', 'origin', join(root, 'missing.git'));
