@@ -28,6 +28,7 @@ import { branchTree, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
 import { answer, dialog, FakeHost, press, project } from './fakes.js';
 import { notifications } from '../src/notifications.js';
+import { readState } from '../src/repository-state.js';
 
 /** A line of `count` commits, newest first, the first with `refs`. */
 function history(count: number, refs: string[] = [], prefix = 'c'): LogCommit[] {
@@ -66,6 +67,8 @@ const git = {
   branches: [] as Branch[],
   branchesFailing: undefined as string | undefined,
   tags: ['v1', 'v2'] as string[] | Error,
+  /** The refs' fingerprint, in the repository's state. */
+  refs: undefined as string | undefined,
   /** The commit each revision names, as `git rev-parse` would. */
   revisions: {} as Record<string, string>,
 };
@@ -104,7 +107,7 @@ const host = new FakeHost({
   },
   'git.authors': () => git.authors,
   'git.cherryPick': () => 'picked',
-  'git.state': () => ({ conflicts: false }),
+  'git.state': () => ({ conflicts: false, refs: git.refs }),
   'git.status': () => ({ files: [] }),
   'git.shelves': () => [],
   'git.stashes': () => [],
@@ -396,6 +399,29 @@ describe('the Log, after a checkout', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(document.querySelector('.playground-log__commits')).toBe(commits);
     expect(rows()[1]?.getAttribute('aria-selected')).toBe('true');
+  });
+});
+
+describe('the Log, following the repository', () => {
+  it('reads itself again when the refs change, whatever changed them, as IntelliJ’s', async () => {
+    git.log = history(2);
+    git.refs = 'a';
+    await readState('/r');
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    const reads = skips().length;
+    // The same refs: nothing to read.
+    await readState('/r');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(skips()).toHaveLength(reads);
+    // A commit made in a terminal, say: the Log and its branches read again.
+    git.log = history(3);
+    git.refs = 'b';
+    const branchReads = host.params('git.branches').length;
+    await readState('/r');
+    await expect.poll(subjects).toHaveLength(3);
+    expect(host.params('git.branches').length).toBe(branchReads + 1);
+    git.refs = undefined;
   });
 });
 

@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1994,7 +1994,19 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   **Not yet:** Hide Branches, Update Selected, Compare with Current, Show My Branches, Toggle
   Favorite, the Branches settings, the pane's search; several branches selected; Delete's keys
   (SafeDelete's) and Navigate's (Select In's); a » for the buttons a short pane has no room for
-  (they're cut off); the Log isn't read again after a Fetch (backlog).
+  (they're cut off).
+- **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
+  when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
+  Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
+  the window gets the focus (decision "Committing a merge, and the Git menu's merge and rebase
+  actions"), carries a fingerprint of them: `git for-each-ref` of the branches, remote branches
+  and tags, and HEAD's commit and branch; not the agents' turns under `refs/worktree/`, which the
+  Log doesn't show. As IntelliJ's Log follows the repository's changes (a claim: it watches `.git`
+  through its file system, not measured here). **Claude's, open to change:** one more git process
+  each read.
+- **The Log stays the same Log after a checkout** (fixed 2026-11-12): its view read the projects'
+  worktrees, read again in a new list after every checkout, so the Log was made again, its
+  selection and the branches pane's expanded directories lost (measured in the built app).
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 

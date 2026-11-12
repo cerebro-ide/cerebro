@@ -31,6 +31,7 @@ import { Toggle } from './find.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
+import { stateOf } from './repository-state.js';
 import { numbered } from './select-in.js';
 import {
   branchName,
@@ -1406,6 +1407,17 @@ export function GitLogView(props: {
           });
           return undefined;
         });
+        // As IntelliJ's Log follows the repository: read again when the refs change, whatever
+        // changed them (Cerebro, a terminal, an agent), as the repository's state is read.
+        let refs: string | undefined;
+        const following = effect(() => {
+          const now = stateOf(env.id).refs;
+          if (now === undefined || now === refs) return undefined;
+          const seen = refs !== undefined;
+          refs = now;
+          if (seen) reload();
+          return undefined;
+        });
         const viewing = effect(() => {
           const view = wantedView.get();
           if (!view) return undefined;
@@ -1416,6 +1428,7 @@ export function GitLogView(props: {
         window.addEventListener('focus', reload);
         onCleanup(() => {
           taking.dispose();
+          following.dispose();
           viewing.dispose();
           window.removeEventListener('focus', reload);
           shown.set(undefined);

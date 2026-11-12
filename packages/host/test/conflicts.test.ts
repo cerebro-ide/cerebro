@@ -231,9 +231,16 @@ describe('merge conflicts, with real git', () => {
     expect(await continueOperation(rebased, git)).toBe('done');
   });
 
+  /** A repository's state, but its refs' fingerprint. */
+  const stateOf = async (repo: string) => {
+    const { refs, ...rest } = await repositoryState(repo, git);
+    expect(refs).toMatch(/^[0-9a-f]{40}$/);
+    return rest;
+  };
+
   it('says what’s under way, whether files are in conflict, and a merge’s message', async () => {
     const repo = merging();
-    expect(await repositoryState(repo, git)).toEqual({
+    expect(await stateOf(repo)).toEqual({
       operation: 'merge',
       conflicts: true,
       message: "Merge branch 'feature'\n\n# Conflicts:\n#\tdel.txt\n#\tf.txt\n#\tg.txt\n",
@@ -244,13 +251,13 @@ describe('merge conflicts, with real git', () => {
       operation: 'merge',
       conflicts: false,
     });
-    expect(await repositoryState(rebasing(), git)).toEqual({
+    expect(await stateOf(rebasing())).toEqual({
       operation: 'rebase',
       conflicts: true,
       remotes: false,
     });
     const quiet = diverged();
-    expect(await repositoryState(quiet, git)).toEqual({
+    expect(await stateOf(quiet)).toEqual({
       operation: undefined,
       conflicts: false,
       remotes: false,
@@ -258,6 +265,33 @@ describe('merge conflicts, with real git', () => {
     // And whether it has a remote, as IntelliJ's Fetch asks.
     run(quiet, 'remote', 'add', 'origin', 'https://example.com/r.git');
     expect(await repositoryState(quiet, git)).toMatchObject({ remotes: true });
+  });
+
+  it('gives a fingerprint of the refs the Log shows, which changes as they do', async () => {
+    const repo = diverged();
+    const refs = async () => (await repositoryState(repo, git)).refs;
+    const prints = [await refs()];
+    expect(await refs()).toBe(prints[0]);
+    // A commit, a tag, a branch, a checkout of another branch at the same commit, HEAD detached.
+    write(repo, { 'f.txt': 'new\n' });
+    commit(repo, 'more');
+    prints.push(await refs());
+    run(repo, 'tag', 'v1');
+    prints.push(await refs());
+    run(repo, 'branch', 'other');
+    prints.push(await refs());
+    run(repo, 'checkout', '-q', 'other');
+    prints.push(await refs());
+    run(repo, 'checkout', '-q', '--detach');
+    prints.push(await refs());
+    expect(new Set(prints).size).toBe(prints.length);
+    // Not an agent's turn, which the Log doesn't show.
+    run(repo, 'update-ref', 'refs/worktree/cerebro/turns/1', 'HEAD');
+    expect(await refs()).toBe(prints.at(-1));
+    // Before the first commit, as well.
+    const empty = join(root, `r${String(++repos)}`);
+    run(root, 'init', '-q', '-b', 'main', empty);
+    expect((await repositoryState(empty, git)).refs).toMatch(/^[0-9a-f]{40}$/);
   });
 
   it('skips the commit a rebase stopped at, as IntelliJ’s Skip Commit', async () => {
@@ -270,7 +304,7 @@ describe('merge conflicts, with real git', () => {
   it('aborts a merge or a rebase, back to where it started', async () => {
     const repo = merging();
     await abortOperation(repo, 'merge', git);
-    expect(await repositoryState(repo, git)).toEqual({
+    expect(await stateOf(repo)).toEqual({
       operation: undefined,
       conflicts: false,
       remotes: false,
