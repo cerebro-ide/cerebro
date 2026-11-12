@@ -3197,8 +3197,12 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     in the Log", Favorites in the branches popup). A tag's menu, as IntelliJ's
     (`GitBranchesTreeActionsForSelectionTest`'s tag actions): Checkout (HEAD detached at it, as
     Checkout Tag or Revision…), Merge into Current (no deletion proposed after), and Delete (as the
-    pane's: unasked, with Restore and Delete on Remote). **Not yet:** its Push Tag and Show Diff
-    with Working Tree; tags grouped by directory (the popup groups nothing yet).
+    pane's: unasked, with Restore and Delete on Remote). A row that's neither checked out nor a
+    favorite has a branch's icon, or a tag's, as IntelliJ's (`GitBranchesTreeIconProvider`: its
+    `BranchNode` and `BranchLabel`; the drawings are the Log's branches pane's), which the muted
+    star takes the place of on the row highlighted; before, such a row had no icon. **Not yet:**
+    its Push Tag and Show Diff with Working Tree; tags grouped by directory (the popup groups
+    nothing yet).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for

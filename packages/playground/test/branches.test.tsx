@@ -5,6 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { setupBranches } from '../src/branches.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
+import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
 import { readState } from '../src/repository-state.js';
 import {
@@ -232,7 +233,7 @@ describe('the branches popup', () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     git.tags = new Error('fatal: bad object');
     pick(button);
-    await expect.poll(() => logged.mock.calls[0]?.[0]).toBe('Reading the tags failed');
+    await expect.poll(() => logged.mock.calls[0]?.[0] as unknown).toBe('Reading the tags failed');
     await expect.poll(() => document.querySelectorAll('.cerebro-popup-item').length).toBe(7);
   });
 
@@ -255,29 +256,38 @@ describe('the branches popup', () => {
 
   it('marks favorites, as IntelliJ’s: starred, after the branch checked out; Space or a click on the icon', async () => {
     await popup();
-    /** What a row's icon is: the check, a star, or a star shown only on the row highlighted. */
+    /** What a row's icon is: the check, a star, a star shown on the row highlighted, or its kind's. */
     const mark = (name: string) => {
       const at = row(name).querySelector('.cerebro-popup-item__icon') as HTMLElement;
       const unmarked = at.querySelector('.playground-branches-popup__unmarked');
-      if (unmarked) return getComputedStyle(unmarked).visibility === 'visible' ? 'hover' : 'none';
+      if (unmarked) {
+        if (getComputedStyle(unmarked).display !== 'none') return 'hover';
+        const kind = at.querySelector('.playground-branches-popup__kind path')?.getAttribute('d');
+        return kind === branchIcon ? 'branch' : kind === tagIcon ? 'tag' : 'none';
+      }
       return at.querySelector('path')?.getAttribute('d') === star ? 'star' : 'check';
     };
+    const drawn = (name: string) =>
+      (icon(name) as Element).querySelector('path')?.getAttribute('d') as string;
+    const [branchIcon, tagIcon] = [drawn('git'), drawn('tag')];
     const star = row('origin/main')
       .querySelector('.cerebro-popup-item__icon path')
       ?.getAttribute('d');
-    // origin/main is one to start with, as IntelliJ's; the one checked out keeps its check.
-    expect(['main', 'feature', 'side', 'origin/main', 'origin/side'].map(mark)).toEqual([
+    // origin/main is one to start with, as IntelliJ's; the one checked out keeps its check; the
+    // others have a branch's icon, or a tag's.
+    expect(['main', 'feature', 'side', 'origin/main', 'origin/side', 'v1'].map(mark)).toEqual([
       'check',
-      'none',
-      'none',
+      'branch',
+      'branch',
       'star',
-      'none',
+      'branch',
+      'tag',
     ]);
     // A click on side's icon marks it, the popup staying open; it goes after the one checked out.
-    const icon = row('side').querySelector('.cerebro-popup-item__icon') as HTMLElement;
-    await userEvent.hover(icon);
+    const sideIcon = row('side').querySelector('.cerebro-popup-item__icon') as HTMLElement;
+    await userEvent.hover(sideIcon);
     expect(mark('side')).toBe('hover');
-    await userEvent.click(icon);
+    await userEvent.click(sideIcon);
     await expect
       .poll(popupItems)
       .toEqual([

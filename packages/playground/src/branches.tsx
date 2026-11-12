@@ -761,7 +761,8 @@ export function setupBranches(
     `refs/${branch.tag ? 'tags' : branch.remote ? 'remotes' : 'heads'}/${branch.name}`;
   /**
    * A branch's row: its menu beside it, as IntelliJ's. Its icon marks a favorite, as IntelliJ's
-   * (GitBranchesTreeIconProvider): a filled star; on the row highlighted, a muted outline to click.
+   * (GitBranchesTreeIconProvider): a filled star; on the row highlighted, a muted outline to click;
+   * otherwise a branch's or a tag's, as the Log's branches pane's.
    */
   const row = (branch: BranchRef, group: string, repository: string): Choice => {
     const other = elsewhere(branch);
@@ -772,7 +773,10 @@ export function setupBranches(
       icon: () => () => {
         if (isCurrent(branch)) return icon('check');
         if (isFavorite(repository, ref)) return favoriteIcon();
-        return <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>;
+        return [
+          <span class="playground-branches-popup__unmarked">{icon('favorite')}</span>,
+          <span class="playground-branches-popup__kind">{icon(branch.tag ? 'tag' : 'git')}</span>,
+        ];
       },
       iconClick: () => {
         setFavorite(repository, ref, !isFavorite(repository, ref));
