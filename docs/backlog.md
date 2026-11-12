@@ -105,6 +105,13 @@ on it:
   done", the terminal "pretend claude: --resume fake-session" (the second run started), nothing in
   the standard error. Whether its hooks ran isn't shown: the pretend claude now prints each hook's
   end, how long it took, or its error.
+  Again on macOS (#213, run 43207833335, 2026-11-12): one turn; the second run's hooks both ran
+  (UserPromptSubmit in 1274 ms, Stop in 324 ms), so the turn was lost after them. A candidate, not
+  measured: the host tells the UI "done" before it takes the turn's last snapshot and writes its
+  ref, and the first test restarts the app as soon as "done" shows, which kills the host. Locally
+  the ref was written by then in 4 runs of 4, but in one of them 6 ms before "done" was seen. The test now prints the turns' refs when the first
+  run was done and when it fails (each id starts with the time it was kept), which tells which
+  turn is missing.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is
