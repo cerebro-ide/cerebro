@@ -84,7 +84,10 @@ it('goes back and forward through the places the caret was, within a file and ac
   await page().keyboard.press('Home');
   // To the definition, in the same file.
   await page().keyboard.press('ControlOrMeta+b');
-  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  // The language server's answer: another process's.
+  await expect
+    .poll(where, { timeout: 15_000 })
+    .toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   await open('b.ts');
   await expect.poll(where).toEqual({ tab: 'b.ts', line: 'export const b = 1;' });
   await page().keyboard.press(back);
@@ -267,7 +270,10 @@ it('goes back to a place as it was scrolled, not just to its caret', async () =>
   await expect.poll(top).not.toBe('target();');
   const scrolled = await top();
   await page().keyboard.press('ControlOrMeta+b');
-  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  // The language server's answer: another process's.
+  await expect
+    .poll(where, { timeout: 15_000 })
+    .toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   await page().keyboard.press(mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft');
   await expect.poll(where).toEqual({ tab: 'a.ts', line: 'target();' });
   // Polling could catch the moment before, which may match by chance.
@@ -280,7 +286,10 @@ it('keeps where a file was scrolled when its tab is chosen again, after going to
   await open('a.ts');
   await page().keyboard.press('ControlOrMeta+Home');
   await page().keyboard.press('ControlOrMeta+b');
-  await expect.poll(where).toEqual({ tab: 'a.ts', line: 'export function target() {}' });
+  // The language server's answer: another process's.
+  await expect
+    .poll(where, { timeout: 15_000 })
+    .toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   // Scrolled away from the definition: the tab chosen again shows this, not the definition again.
   await page().locator('.cm-line', { hasText: 'export function target' }).hover();
   await page().mouse.wheel(0, -300);
