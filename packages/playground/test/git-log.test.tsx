@@ -1167,7 +1167,7 @@ describe('the text filter', () => {
 describe('the User, Date and Paths filters', () => {
   const dropdown = (label: string) =>
     document.querySelector(
-      `.playground-log__toolbar .cerebro-toolbar-dropdown[aria-label^="${label}:"]`,
+      `.playground-log__toolbar .cerebro-toolbar-dropdown[aria-label^="${label}"]`,
     ) as HTMLElement;
   const text = (label: string) =>
     dropdown(label).querySelector('.cerebro-toolbar-dropdown__text')?.textContent;

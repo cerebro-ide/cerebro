@@ -206,7 +206,7 @@ it('filters by user and by date, each cleared with its X', async () => {
   );
   await (await inToolbar('[data-command="log.refresh"]')).click({ force: true });
   await expect.poll(async () => (await subjects())[0], HOST).toBe('By Bob');
-  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="User:"]')).click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="User"]')).click({ force: true });
   await page().keyboard.type('bob');
   await page().locator('.cerebro-popup-item', { hasText: 'Bob' }).first().waitFor(HOST);
   await page().keyboard.press('Enter');
@@ -214,7 +214,7 @@ it('filters by user and by date, each cleared with its X', async () => {
   await (await inToolbar('[aria-label="Clear User"]')).click({ force: true });
   await expect.poll(subjects, HOST).toHaveLength(7);
   // The commits here were made in 2023: none in the last 24 hours.
-  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Date:"]')).click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Date"]')).click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'Last 24 hours' }).waitFor();
   await page().keyboard.press('ArrowDown');
   await page().keyboard.press('Enter');
@@ -224,7 +224,7 @@ it('filters by user and by date, each cleared with its X', async () => {
 });
 
 it('filters by paths typed or checked in the tree, cleared with its X', async () => {
-  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths:"]')).click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths"]')).click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'Select…' }).waitFor();
   await page().keyboard.press('Enter');
   await page().locator('.playground-values__field:focus').waitFor();
@@ -232,7 +232,7 @@ it('filters by paths typed or checked in the tree, cleared with its X', async ()
   await page().keyboard.press('ControlOrMeta+Enter');
   await expect.poll(subjects, HOST).toEqual(['On main']);
   // In the tree: other.txt unchecked, file.txt checked.
-  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths:"]')).click({ force: true });
+  await (await inToolbar('.cerebro-toolbar-dropdown[aria-label^="Paths"]')).click({ force: true });
   await page().locator('.cerebro-popup-item', { hasText: 'Select in Tree…' }).waitFor();
   await page().keyboard.press('ArrowDown');
   await page().keyboard.press('Enter');

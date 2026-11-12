@@ -89,7 +89,7 @@ export interface ToolbarDropdownProps {
   /** Opens a popup below the button instead of a menu. */
   popup?: (button: HTMLElement) => DropdownPopup;
   text: () => string;
-  /** For the tooltip and screen readers: what is being chosen. */
+  /** For the tooltip and screen readers (but a filter's text has it): what is being chosen. */
   label: string;
   /** Leads the label: an icon, or a badge with a name's initials. */
   icon?: Child;
@@ -148,7 +148,8 @@ export function ToolbarDropdown(props: ToolbarDropdownProps): Node {
           ? 'cerebro-toolbar-dropdown cerebro-toolbar-dropdown--open'
           : 'cerebro-toolbar-dropdown'
       }
-      aria-label={() => `${props.label}: ${props.text()}`}
+      // A filter's text names it already ("Branch: side"), as IntelliJ's does.
+      aria-label={() => (props.clear ? props.text() : `${props.label}: ${props.text()}`)}
       aria-haspopup={props.popup ? 'dialog' : 'menu'}
       aria-expanded={() => String(state.open)}
       data-menu={props.menu}
