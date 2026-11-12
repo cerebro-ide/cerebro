@@ -17,6 +17,7 @@ import { saveBeforeGit } from './documents.js';
 import { active, hostFor, type Host } from './environments.js';
 import { currentBranch, currentBranchRow, revisionField } from './git-fields.js';
 import type { LogCommitContext } from './git-log.js';
+import { shortenText } from './log-paths.js';
 import { notifications } from './notifications.js';
 import { PROTECTED } from './push.js';
 import { refreshAll } from './shelf.js';
@@ -112,9 +113,6 @@ const LOG_MODES: [ResetMode, string, string[]][] = [
   ],
 ];
 
-/** IntelliJ's `shortenTextWithEllipsis(text, 40, 0)`: up to 40 characters, the last an ellipsis. */
-const shorten = (text: string) => (text.length > 40 ? `${text.slice(0, 39)}…` : text);
-
 /** Where the Log's mode chosen is kept, per repository, as IntelliJ's settings keep it per project. */
 const modeKey = (worktree: string) => `cerebro.reset.mode:${worktree}`;
 
@@ -141,8 +139,8 @@ async function logResetDialog(context: LogCommitContext): Promise<ResetMode | un
     content: () => (
       <div class="playground-reset">
         <p>
-          <b>{source}</b> -&gt; <b>{commit.hash.slice(0, 8)}</b> "{shorten(commit.subject)}" by{' '}
-          <code>{shorten(commit.author)}</code>
+          <b>{source}</b> -&gt; <b>{commit.hash.slice(0, 8)}</b> "{shortenText(commit.subject)}" by{' '}
+          <code>{shortenText(commit.author)}</code>
         </p>
         <p>
           This will reset the current branch head to the selected commit,

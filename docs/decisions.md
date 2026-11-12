@@ -2522,7 +2522,8 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
 - **The Log's Reset Current Branch to Here…** (added 2026-11-11), on a commit's menu, first in
   IntelliJ's Git group: its newer dialog (`GitResetAction`, `GitNewResetDialog`,
   `GitResetOperation`), "Git Reset": "{branch} -> {short hash} "{subject}" by {author}" (subject
-  and author cut to 40 characters with an ellipsis, as IntelliJ's; HEAD with its short hash when
+  and author cut to 40 characters, the last three "...", as IntelliJ's `shortenTextWithEllipsis`
+  (corrected 2026-11-12: it was 39 and an ellipsis character); HEAD with its short hash when
   detached, HEAD alone when that commit isn't loaded), IntelliJ's description, then Soft, Mixed,
   Hard and Keep, each with its comment; Reset. `git reset --<mode> <hash> --`, recorded as "Git
   reset"; "Git Reset" on the status bar while it runs; "Reset successful", or "Reset failed" with

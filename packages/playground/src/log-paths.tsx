@@ -49,11 +49,18 @@ export function togglePath(
   return selected;
 }
 
+/**
+ * IntelliJ's StringUtil.shortenTextWithEllipsis: past `max` characters, its start, `...`, and its
+ * last `end` characters, `max` in all (a commit's subject in its dialogs, at 40 and none).
+ */
+export function shortenText(text: string, max = 40, end = 0): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - end - 3)}...${text.slice(text.length - end)}`;
+}
+
 /** IntelliJ's StringUtil.shortenPathWithEllipsis: its start and its end, `...` between. */
 export function shortenPath(path: string, max = 30): string {
-  if (path.length <= max) return path;
-  const end = Math.floor(max * 0.7);
-  return `${path.slice(0, max - end - 3)}...${path.slice(path.length - end)}`;
+  return shortenText(path, max, Math.floor(max * 0.7));
 }
 
 /** The Paths filter's text, as IntelliJ's: the first path, shortened, and how many more. */
