@@ -15,6 +15,7 @@ import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@ce
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { openPush } from './push.js';
+import { updateProject } from './update.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -522,6 +523,25 @@ export function setupBranches(
       });
     },
   });
+  // IntelliJ's (`GitPullBranchAction`): Update Project from a remote branch into the one checked
+  // out, by rebase or merge; not with HEAD detached, nor without a branch (as Find Action asks).
+  for (const method of ['rebase', 'merge'] as const) {
+    const how = method === 'rebase' ? 'Rebase' : 'Merge';
+    commands.register<BranchRef>({
+      id: `git.branch.pull${how}`,
+      label: `Pull into Current Using ${how}`,
+      text: () => `Pull into ${quoted(current())} Using ${how}`,
+      visible: (b) => b.remote,
+      enabled: (b: BranchRef | undefined) =>
+        b !== undefined && branches.get().current !== undefined,
+      run: (b) => {
+        const { worktree } = target() as NonNullable<ReturnType<typeof target>>;
+        const slash = b.name.indexOf('/');
+        const from = { remote: b.name.slice(0, slash), branch: b.name.slice(slash + 1) };
+        return updateProject(worktree, from, method);
+      },
+    });
+  }
   commands.register<BranchRef>({
     id: 'git.branch.rebase',
     label: 'Rebase Current onto Selected',
@@ -851,7 +871,17 @@ export function setupBranches(
       ],
     ],
     ['ab', ['git.branch.compare', 'git.branch.showDiff']],
-    ['b', ['git.branch.rebase', 'git.branch.merge', 'git.branch.update', 'git.branch.push']],
+    [
+      'b',
+      [
+        'git.branch.rebase',
+        'git.branch.merge',
+        'git.branch.update',
+        'git.branch.push',
+        'git.branch.pullRebase',
+        'git.branch.pullMerge',
+      ],
+    ],
     ['c', ['git.branch.rename', 'git.branch.delete']],
   ];
   for (const [group, ids] of groups) {

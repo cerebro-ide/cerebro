@@ -77,10 +77,6 @@ right (a claim, to check against its sources before building).
 - **The Log's ref labels drawn over each other** (seen in the built app, 2026-11-12, QA of the
   branches pane's search, the Git tool window 1280 px wide, five branches at one commit): the
   last label, `feat/login`, overlapped the one before it. Not measured why.
-- **The diff's synchronized scrolling test once found no line on the left after its opening
-  scroll** (CI, #223, 2026-11-12: `third(left)` stayed undefined for a second, with the right
-  already scrolled). Not measured why; the test now says what the left had drawn and what's at the
-  point when it finds none.
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:

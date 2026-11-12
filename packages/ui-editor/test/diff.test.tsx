@@ -21,6 +21,7 @@ let cleanup: (() => void) | undefined;
 afterEach(() => {
   cleanup?.();
   cleanup = undefined;
+  vi.unstubAllGlobals();
 });
 
 function mount(props: DiffEditorProps) {
@@ -329,6 +330,27 @@ describe('synchronized scrolling', () => {
     const at = root.elementsFromPoint(box.left + 80, box.top + box.height / 3);
     return at.find((e) => e.classList.contains('cm-line'))?.textContent;
   };
+
+  it('draws the side it scrolled at once, though CodeMirror hasn’t seen it on screen yet', async () => {
+    // CodeMirror (6.43.14) ignores a scroll made before its IntersectionObserver first reports, and
+    // doesn't measure when it does: the left stayed drawn at the top, a gap where it was scrolled
+    // to (CI, #223 and #245). An observer that never reports makes that moment last.
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+        takeRecords() {
+          return [];
+        }
+      },
+    );
+    const root = mount({ path: 'a.txt', original: original.join('\n'), text: text.join('\n') });
+    const [left, right] = scrollers(root);
+    await expect.poll(() => right.scrollTop).toBeGreaterThan(0);
+    await expect.poll(() => third(left)).toMatch(/^line \d+$/);
+  });
 
   it('scrolls the other side to the same line, carried across the changes', async () => {
     const sync = signal(true);

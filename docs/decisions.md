@@ -3266,10 +3266,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     its name (`refs/heads/feature:refs/heads/<target>`) where it pushes HEAD for the one checked
     out; a new branch's upstream is set as for the one checked out (measured with real git:
     `--set-upstream` with that refspec sets feature's, and the branch checked out stays as it was).
+  - **Pull into Current Using Rebase** and **Using Merge** (added 2026-11-12), after Push, for a
+    remote branch, as IntelliJ's (`GitPullBranchAction`, read from its source; "Pull into 'main'
+    Using Rebase"): Update Project from that remote branch into the one checked out, by that
+    method, whatever Update Project's own is (its fetch, saved changes, conflicts and report).
+    Measured with real git: the merge makes a merge commit over both. Off with HEAD detached
+    (IntelliJ's does nothing there: open to change).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
 - **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); a remote branch's Pull into Current Using Rebase and Using Merge; View Commits after a
+  now); View Commits after a
   delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent; a remote branch whose local branch exists already.
 
 ## Annotate with Git Blame (2026-11-09)
