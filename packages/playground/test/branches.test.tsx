@@ -34,20 +34,25 @@ const git = {
   conflicted: [] as string[],
   /** The tags, or why they can't be read. */
   tags: ['v1', 'v2'] as string[] | Error,
+  /** Held until it resolves: the branches' reading. */
+  branchesHeld: undefined as Promise<void> | undefined,
 };
 const fail = (method: string) => () => {
   if (git.result instanceof Error) throw git.result;
   return method === 'result' ? git.result : null;
 };
 const host = new FakeHost({
-  'git.branches': () => [
-    ...git.local.map((b) => ({
-      ref: `refs/heads/${b}`,
-      current: b === git.current,
-      ...(git.upstreams[b] === undefined ? {} : { upstream: `refs/remotes/${git.upstreams[b]}` }),
-    })),
-    ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
-  ],
+  'git.branches': async () => {
+    await git.branchesHeld;
+    return [
+      ...git.local.map((b) => ({
+        ref: `refs/heads/${b}`,
+        current: b === git.current,
+        ...(git.upstreams[b] === undefined ? {} : { upstream: `refs/remotes/${git.upstreams[b]}` }),
+      })),
+      ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
+    ];
+  },
   'git.checkout': fail('checkout'),
   'git.checkoutRevision': fail('checkout'),
   'git.tags': () => {
@@ -404,6 +409,90 @@ describe('New Branch', () => {
     await answer('fresh');
     await press('Create');
     await expect.poll(() => last()?.title).toBe('Could not create new branch');
+  });
+
+  describe('from a commit, in the Log’s menu', () => {
+    const refresh = vi.fn(() => Promise.resolve());
+    const at = (refs: string[]) => ({
+      commit: {
+        hash: 'abc1234567890def',
+        parents: [],
+        author: 't',
+        email: 't@t',
+        time: 0,
+        subject: 's',
+        body: '',
+        refs,
+      },
+      worktree: '/r',
+      host,
+      refresh,
+    });
+    const run = (refs: string[]) => Promise.resolve(commands.get('log.newBranch')?.run(at(refs)));
+
+    it('makes a branch from the commit, as IntelliJ’s, and reads the Log again', async () => {
+      expect(menus.entries('log/commit')).toEqual([{ command: 'log.newBranch' }]);
+      expect(commands.get('log.newBranch')).toMatchObject({ label: 'New Branch', dialog: true });
+      const done = run(['tag: refs/tags/v1']);
+      const box = await dialog();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+        'Create Branch from abc12345',
+      );
+      expect((box.querySelector('input') as HTMLInputElement).value).toBe('');
+      await answer('fix');
+      await press('Create');
+      await done;
+      expect(host.params('git.createBranch')).toEqual([
+        { path: '/r', name: 'fix', checkout: true, overwrite: false, from: 'abc1234567890def' },
+      ]);
+      expect(refresh).toHaveBeenCalled();
+    });
+
+    it('suggests the one branch at the commit, a remote one without its remote', async () => {
+      const suggested = async (refs: string[]) => {
+        const done = run(refs);
+        const value = ((await dialog()).querySelector('input') as HTMLInputElement).value;
+        await press('Cancel');
+        await done;
+        return value;
+      };
+      expect(await suggested(['HEAD -> refs/heads/main', 'refs/remotes/origin/main'])).toBe('main');
+      expect(await suggested(['refs/remotes/origin/side'])).toBe('side');
+      expect(await suggested(['HEAD', 'refs/heads/a', 'refs/heads/b'])).toBe('');
+      expect(host.params('git.createBranch')).toEqual([]);
+    });
+
+    it('checks the name against the branches as they are now, read as the dialog shows', async () => {
+      git.local = [...git.local, 'later'];
+      let release: () => void = () => undefined;
+      git.branchesHeld = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const done = run([]);
+      // Shown at once, as IntelliJ's: what's typed before they're read isn't lost.
+      const box = await dialog();
+      await answer('later');
+      expect(box.querySelector('.cerebro-dialog-field__error')?.textContent).toBe('');
+      release();
+      git.branchesHeld = undefined;
+      await expect
+        .poll(() => box.querySelector('.cerebro-dialog-field__error')?.textContent)
+        .toBe('Branch name later already exists. Change the name or overwrite existing branch');
+      await press('Cancel');
+      await done;
+      git.local = git.local.filter((b) => b !== 'later');
+      // Unread, it's logged, and checked against those read before.
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      git.branchesHeld = Promise.reject(new Error('gone'));
+      const failing = run([]);
+      await dialog();
+      await expect
+        .poll(() => logged.mock.calls[0])
+        .toEqual(['Reading the branches failed', new Error('gone')]);
+      git.branchesHeld = undefined;
+      await press('Cancel');
+      await failing;
+    });
   });
 });
 
