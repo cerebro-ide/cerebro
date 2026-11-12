@@ -71,7 +71,7 @@ import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { currentBranch } from './git-fields.js';
-import { GitLogView, setupLog, showInLog } from './git-log.js';
+import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
 import {
   AgentChangesView,
@@ -342,6 +342,7 @@ setupChanges(services, {
     layout.toolWindows.show('commit');
   },
   openAt: navigation.openAt,
+  showHistory,
 });
 setupShelf(services, {
   open: openTab,

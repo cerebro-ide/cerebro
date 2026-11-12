@@ -17,6 +17,7 @@ import {
   refsOf,
   rememberText,
   setupLog,
+  showHistory,
   showInLog,
   textHistory,
   viewCommits,
@@ -555,6 +556,45 @@ describe('View Commits, after an update', () => {
     await expect
       .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
       .toBe(`${start}..${end}`);
+  });
+});
+
+describe('Show History, from Git → Current File', () => {
+  it('shows the Git window, its Log the commits of HEAD that change the file, other filters cleared', async () => {
+    git.log = history(3);
+    git.byText.fix = history(1, [], 'f');
+    git.byPaths['src/a.ts'] = history(2, [], 'h');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    const field = document.querySelector('.playground-log__search-field') as HTMLInputElement;
+    await userEvent.click(field);
+    await userEvent.keyboard('fix{Enter}');
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('f0');
+    const before = shownLog;
+    showHistory('src/a.ts');
+    expect(shownLog).toBe(before + 1);
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('h0');
+    expect(field.value).toBe('');
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: PAGE,
+      branches: ['HEAD'],
+      filter: { paths: ['src/a.ts'] },
+    });
+    const texts = [
+      ...document.querySelectorAll('.playground-log__toolbar .cerebro-toolbar-dropdown__text'),
+    ].map((text) => text.textContent);
+    expect(texts).toContain('Branch: HEAD');
+    expect(texts).toContain('Paths: src/a.ts');
+    // View Commits after it keeps the Paths filter, as IntelliJ's tab for it has the Log's paths.
+    git.byPaths['src/a.ts'] = history(1, [], 'u');
+    viewCommits({ start: 'a1', end: 'b2' });
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('u0');
+    expect(host.params('git.log').at(-1)).toMatchObject({
+      branches: ['a1..b2'],
+      filter: { paths: ['src/a.ts'] },
+    });
   });
 });
 

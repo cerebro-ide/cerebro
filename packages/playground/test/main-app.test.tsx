@@ -528,6 +528,30 @@ describe('Git → Current File → Show Diff', () => {
   });
 });
 
+describe('Git → Current File → Show History', () => {
+  it('shows the Git window, its Log the editor file’s commits on HEAD', async () => {
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Shift}{Shift}');
+    await popupItems();
+    await userEvent.keyboard('Show History');
+    await expect.poll(popupItems).toContain('Show History');
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .poll(() => host('/r').params('git.log').at(-1))
+      .toEqual({
+        worktree: '/r',
+        skip: 0,
+        max: 1000,
+        branches: ['HEAD'],
+        filter: { paths: ['src/a.ts'] },
+      });
+    expect(document.querySelector('.cerebro-tool-window[data-id="git"]')).not.toBeNull();
+    // Closed, and its filters back, for the tests after.
+    await userEvent.keyboard('{Alt>}9{/Alt}');
+  });
+});
+
 describe('Git → Current File → Compare with Branch or Tag…', () => {
   it('opens the file against the branch chosen, in a window named after the current branch', async () => {
     answers.set('git.branches', [

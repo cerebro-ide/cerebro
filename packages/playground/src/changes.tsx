@@ -636,6 +636,8 @@ export interface ChangesSetup {
   show: () => void;
   /** Opens a file at a line and column, zero-based. */
   openAt: (at: { path: string; line: number; column: number }) => void;
+  /** Shows a file's history in the Log, its path from the repository's top. */
+  showHistory: (path: string) => void;
 }
 
 /** The commit message's field, if it shows. */
@@ -957,6 +959,18 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
+  // Git → Current File's Show History: IntelliJ's `Vcs.ShowTabbedFileHistory`, the file's commits
+  // in a Log of their own. On when Show Diff is: IntelliJ's checks the same
+  // (`TabbedShowHistoryAction`, `fileInVcsByFileStatus`).
+  commands.register({
+    id: 'git.file.showHistory',
+    label: 'Show History',
+    visible: () => editorFile() !== undefined,
+    enabled: () => commands.isEnabled('git.file.showDiff'),
+    run: () => {
+      setup.showHistory((editorFile() as { worktree: string; path: string }).path);
+    },
+  });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
   const fromDiff = () => {
     const tab = setup.activeTab();
@@ -1079,6 +1093,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     menu: 'main/git/file',
     item: { command: 'git.file.compareWithBranch' },
     order: 3,
+  });
+  menus.contribute({
+    menu: 'main/git/file',
+    item: { command: 'git.file.showHistory' },
+    order: 4,
   });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });

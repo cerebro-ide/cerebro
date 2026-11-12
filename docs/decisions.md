@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
 - [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git)
@@ -2332,6 +2333,24 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## Git → Current File → Show History (2026-11-12)
+
+The Current File submenu's item after Compare with Branch or Tag, toward IntelliJ's
+`Git.FileActions` (Show History, then Show History for Selection).
+
+- **Show History,** IntelliJ's `Vcs.ShowTabbedFileHistory` (`TabbedShowHistoryAction`, read in its
+  source): the editor's file's history, shown by the Log. On when Show Diff is: IntelliJ's checks
+  the same (`fileInVcsByFileStatus`).
+- **The Log shows it,** as View Commits: the Git tool window shown, the Branch filter HEAD, the
+  Paths filter the file, the Text, User and Date filters cleared. HEAD, as IntelliJ's file history
+  starts with the other branches off (`FileHistoryUiProperties`' `isShowOtherBranches`, false).
+  IntelliJ opens a tab of its own for a file's history, "History: a.ts", built on the Log
+  (`FileHistoryUi`); here the one Log shows it (Claude's choice, open to change, as View Commits':
+  a second Log is a tab beside it, not here yet).
+- **Not yet:** following renames, as IntelliJ's does (`FileHistory`); its own tab, with its toolbar
+  (Show All Branches, a revision's diff beside the list); its icon (IntelliJ's `Vcs.History`);
+  Show History for Selection.
 
 ## Git → Current File → Compare with Revision (2026-11-12)
 
