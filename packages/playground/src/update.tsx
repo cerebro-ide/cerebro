@@ -180,17 +180,19 @@ function report(
 
 /**
  * Updates a worktree's branch from its upstream, after the Update Project dialog while Show options
- * before update is on; or rebases it on another remote branch, as Pull's --rebase does (IntelliJ's
- * `GitPull` runs the update for it).
+ * before update is on; or from another remote branch: rebased on it, as Pull's --rebase does
+ * (IntelliJ's `GitPull` runs the update for it), or by `method`, as the branches popup's Pull into
+ * Current Using Rebase and Using Merge do.
  */
 export async function updateProject(
   worktree: string,
   from?: { remote: string; branch: string },
+  given?: UpdateMethod,
 ): Promise<void> {
   const host = hostFor(worktree);
   if (!host || updating.peek()) return;
   const method: UpdateMethod | undefined = from
-    ? 'rebase'
+    ? (given ?? 'rebase')
     : globalSettings.get('vcs.showUpdateOptions') === false
       ? (globalSettings.get('git.updateMethod') as UpdateMethod)
       : await askMethod();

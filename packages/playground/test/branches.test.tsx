@@ -383,6 +383,8 @@ describe('the branches popup', () => {
       'Show Diff with Working Tree',
       "Rebase 'main' onto 'origin/side'",
       "Merge 'origin/side' into 'main'",
+      "Pull into 'main' Using Rebase",
+      "Pull into 'main' Using Merge",
       'Delete',
     ]);
     // Compare with Current opens its tab.
@@ -1186,10 +1188,33 @@ describe('Push', () => {
     await expect
       .poll(() => host.params('git.outgoing'))
       .toEqual([{ path: '/r', source: 'feature' }]);
-    await expect.poll(() => logged.mock.calls[0]?.[0] as unknown).toBe('Reading what to push failed');
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading what to push failed');
     await choose('main', 'Push…');
     expect(commands.isEnabled('git.branch.push')).toBe(false);
     await expect.poll(() => host.params('git.outgoing').at(-1)).toEqual({ path: '/r' });
+  });
+});
+
+describe('Pull into Current', () => {
+  it('updates the current branch from a remote one, by rebase or merge, as IntelliJ’s', async () => {
+    // The update isn't answered here: it fails, and says so.
+    await choose('origin/side', "Pull into 'main' Using Merge");
+    await expect.poll(() => last()?.title).toBe('Update failed');
+    await choose('origin/side', "Pull into 'main' Using Rebase");
+    await expect.poll(() => host.params('git.update')).toHaveLength(2);
+    expect(host.params('git.update')).toMatchObject([
+      { path: '/r', method: 'merge', from: { remote: 'origin', branch: 'side' } },
+      { path: '/r', method: 'rebase', from: { remote: 'origin', branch: 'side' } },
+    ]);
+    // Off with HEAD detached, or without a branch, as Find Action asks.
+    const side = { name: 'origin/side', remote: true };
+    expect(commands.isEnabled('git.branch.pullMerge', side)).toBe(true);
+    expect(commands.isEnabled('git.branch.pullMerge')).toBe(false);
+    git.current = undefined;
+    await popup();
+    expect(commands.isEnabled('git.branch.pullRebase', side)).toBe(false);
   });
 });
 

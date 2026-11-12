@@ -112,6 +112,19 @@ describe('updating the project, with real git', () => {
     expect(await update(repo, { ...rebase, from }, git, git)).toEqual({ kind: 'nothing' });
   });
 
+  it('merges another remote branch when asked (the branches popup’s Pull into Current Using Merge)', async () => {
+    const { repo, upstream } = cloned();
+    upstream('theirs');
+    run(repo, 'checkout', '-q', '-b', 'alone');
+    commit(repo, 'alone');
+    const from = { remote: 'origin', branch: 'main' };
+    expect(await update(repo, { ...merge, from }, git, git)).toMatchObject({ kind: 'updated' });
+    // A merge commit over both.
+    expect(run(repo, 'log', '-1', '--format=%p', 'HEAD').trim().split(' ')).toHaveLength(2);
+    expect(subjects(repo)).toContain('theirs');
+    expect(run(repo, 'branch', '--show-current').trim()).toBe('alone');
+  });
+
   it('saves local changes only when they’re in the way of a merge, and puts them back', async () => {
     const { repo, upstream } = cloned();
     const lines = (...changed: [number, string][]) => {
