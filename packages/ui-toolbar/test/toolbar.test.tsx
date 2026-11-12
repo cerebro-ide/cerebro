@@ -281,6 +281,13 @@ describe('ToolbarDropdown', () => {
     expect(withIcon.button.querySelector('.cerebro-toolbar-dropdown__badge')).toBeNull();
   });
 
+  it('is named by its text when it’s a filter, which names the filter already', () => {
+    // IntelliJ's filters read "Branch: side", or "Branch" while off: not "Branch: Branch: side".
+    const { button, value } = dropdown({ clear: () => undefined });
+    value.set('Choice: two');
+    expect(button.getAttribute('aria-label')).toBe('Choice: two');
+  });
+
   it('clears its choice with an X in its arrow’s place, or Delete or Backspace, while it has one', async () => {
     const cleared: string[] = [];
     const chosen = signal(true);
