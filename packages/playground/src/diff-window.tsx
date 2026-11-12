@@ -172,6 +172,9 @@ const dispatcher = new KeyDispatcher(keymap, services.commands);
 window.addEventListener('keydown', (event) => {
   const chord = chordFromEvent(event);
   if (chord !== undefined && dispatcher.press(chord) !== 'unhandled') event.preventDefault();
+  // Escape closes it, as IntelliJ's diff window (a dialog), unless something in it took the key:
+  // a popup, a shortcut, or the editor (its search, its carets).
+  if (event.key === 'Escape' && !event.defaultPrevented) window.close();
 });
 
 /** The opener's documents' texts, by file, as it tells them: null for one that can't be read. */

@@ -1,16 +1,17 @@
-// The repository's state, as IntelliJ's GitRepository keeps it: the merge, rebase or cherry-pick
-// under way, whether files are in conflict, a merge's message, and whether there are remotes. The
-// Git menu shows Commit Merge, Abort Merge, the Rebase menu, Continue and Abort Cherry-Pick and
-// Resolve Conflicts… by it, Fetch is off without remotes, and the Commit window starts with a
-// merge's message. The active worktree's is read every few seconds and as the window gets the
-// focus, as the Commit window reads its changes, and after Cerebro's own git changes.
+// The repository's state, as IntelliJ's GitRepository keeps it: the merge, rebase, cherry-pick or
+// revert under way, whether files are in conflict, a merge's message, and whether there are
+// remotes. The Git menu shows Commit Merge, Abort Merge, the Rebase menu, Abort Revert, Continue and
+// Abort Cherry-Pick and Resolve Conflicts… by it, Fetch is off without remotes, and the Commit
+// window starts with a merge's message. The active worktree's is read every few seconds and as the
+// window gets the focus, as the Commit window reads its changes, and after Cerebro's own git
+// changes.
 
 import { ObservableMap } from '@cerebro-ide/reactive';
 import { active, hostFor, projectOf } from './environments.js';
 
 /** The host's `git.state`. */
 export interface RepositoryState {
-  operation?: 'merge' | 'rebase' | 'cherry-pick';
+  operation?: 'merge' | 'rebase' | 'cherry-pick' | 'revert';
   conflicts: boolean;
   message?: string;
   /** Whether it has any remote: unknown (undefined) until read. */

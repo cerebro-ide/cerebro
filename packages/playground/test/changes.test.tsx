@@ -1,12 +1,13 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
-import { DiffEditor } from '@cerebro-ide/ui-editor';
+import { DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
   AgentChangesView,
+  type Change,
   ChangesView,
   diffPath,
   diffRange,
@@ -15,11 +16,12 @@ import {
   readOptions,
   REFRESH_MS,
   refreshChanges,
+  setCommitMessage,
   setupChanges,
   toShelve,
-  type Change,
   type Turn,
 } from '../src/changes.js';
+import { documentFor, unsavedFiles } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
@@ -37,6 +39,8 @@ const git = {
   failing: undefined as string | undefined,
   /** Held until it resolves: a commit under way. */
   hold: undefined as Promise<void> | undefined,
+  /** The files on disk, by path. */
+  disk: {} as Record<string, string>,
   /** The next read of the changes held until it resolves. */
   holdChanges: undefined as Promise<void> | undefined,
 };
@@ -71,6 +75,14 @@ const host = new FakeHost({
     return null;
   },
   'fs.exists': ({ path }: { path: string }) => !path.endsWith('gone.ts'),
+  'fs.read': ({ path }: { path: string }) => ({ text: git.disk[path] ?? '' }),
+  'fs.write': ({ path, text }: { path: string; text: string }) => {
+    git.disk[path] = text;
+    return null;
+  },
+  // What git tracks: anything but a file named so.
+  'git.tracked': ({ files }: { files: string[] }) =>
+    files.filter((file) => !file.includes('untracked')),
   'git.outgoing': () => {
     fails('git.outgoing');
     return {
@@ -544,6 +556,68 @@ describe('Rollback, the environment closed meanwhile', () => {
   });
 });
 
+describe('a file edited, not saved yet', () => {
+  const edit = async (path: string) => {
+    const doc = (await documentFor(path)) as EditorDocument;
+    doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+    return doc;
+  };
+
+  it('shows as modified at its first edit, as IntelliJ’s, if git tracks it', async () => {
+    await changesView([]);
+    expect(empty()).toBe('No changes');
+    const reads = () => host.params('git.changes').length;
+    const before = reads();
+    await edit(`${wt}/src/a.ts`);
+    await expect.poll(rows).toEqual(['Changes1 file', 'src1 file', 'a.ts']);
+    expect(
+      row('\u0000changes:src/a.ts').querySelector('.playground-change--modified'),
+    ).not.toBeNull();
+    expect(host.params('git.tracked')).toEqual([{ path: wt, files: ['src/a.ts'] }]);
+    // Typing on doesn't read the lists again: it's listed.
+    await edit(`${wt}/src/a.ts`);
+    expect(reads()).toBe(before + 1);
+    // One git doesn't track is asked about once, until it's saved; one elsewhere, not at all.
+    await edit(`${wt}/untracked.ts`);
+    await expect.poll(reads).toBe(before + 2);
+    await edit(`${wt}/untracked.ts`);
+    await edit('/elsewhere/b.ts');
+    expect(reads()).toBe(before + 2);
+    expect(rows()).toEqual(['Changes1 file', 'src1 file', 'a.ts']);
+    // Listed by git as well (once saved, say): once.
+    git.changes = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'c.ts', status: 'modified' },
+    ];
+    await refreshChanges(wt);
+    expect(rows()).toEqual(['Changes2 files', 'src1 file', 'a.ts', 'c.ts']);
+    // A file listed already isn't asked about.
+    await edit(`${wt}/c.ts`);
+    expect(reads()).toBe(before + 3);
+    // A read that fails is logged.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.failing = 'git.changes';
+    await edit(`${wt}/d.ts`);
+    await expect
+      .poll(() => logged.mock.calls[0])
+      .toEqual(['Reading the changes failed', new Error('git.changes failed')]);
+  });
+
+  it('is saved as it’s committed, so the commit has the edit', async () => {
+    await changesView([]);
+    git.disk[`${wt}/b.ts`] = 'b';
+    const doc = await edit(`${wt}/b.ts`);
+    await expect.poll(rows).toEqual(['Changes1 file', 'b.ts']);
+    const message = document.querySelector('.playground-commit__message') as HTMLTextAreaElement;
+    await userEvent.type(message, 'Edit b');
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    await expect.poll(() => host.params('git.commit')).toHaveLength(1);
+    expect(git.disk[`${wt}/b.ts`]).toBe('xb');
+    expect(doc.modified.peek()).toBe(false);
+    expect(unsavedFiles()).not.toContain(`${wt}/b.ts`);
+  });
+});
+
 describe('what goes into the commit', () => {
   it('is every tracked file, untracked ones once put in, flipped by a checkbox or Space', async () => {
     await changesView();
@@ -784,6 +858,16 @@ describe('a merge’s message', () => {
     await merge(MERGING);
     await merge({ ...MERGING, message: "Merge branch 'g'\n" });
     expect(message().value).toBe("Merge branch 'g'\n");
+  });
+});
+
+describe('a message put in from elsewhere', () => {
+  it('shows in the Commit window: Undo Commit’s, to commit again', async () => {
+    await changesView();
+    setCommitMessage(wt, 'Fix it\n\nWhy');
+    const box = document.querySelector('.playground-commit__message') as HTMLTextAreaElement;
+    await expect.poll(() => box.value).toBe('Fix it\n\nWhy');
+    setCommitMessage(wt, '');
   });
 });
 

@@ -18,7 +18,7 @@ export interface ConflictedFile {
 }
 
 /** What's under way. */
-export type Operation = 'merge' | 'rebase' | 'cherry-pick';
+export type Operation = 'merge' | 'rebase' | 'cherry-pick' | 'revert';
 
 export interface Conflicts {
   operation: Operation | undefined;
@@ -27,7 +27,7 @@ export interface Conflicts {
   yours?: string;
   /** The branch merged, or rebased onto. */
   theirs?: string;
-  /** During a rebase: where onto, and the commit replayed; during a cherry-pick, the commit picked. */
+  /** During a rebase: where onto, and the commit replayed; during a cherry-pick or a revert, its commit. */
   onto?: string;
   commit?: { hash: string; author: string; message: string };
 }
@@ -48,11 +48,12 @@ async function rebaseFolder(worktree: string, run: Git): Promise<string | undefi
   return (await gitFile(worktree, 'rebase-merge', run)) ?? gitFile(worktree, 'rebase-apply', run);
 }
 
-/** The merge, rebase or cherry-pick under way, if any. */
+/** The merge, rebase, cherry-pick or revert under way, if any. */
 export async function operation(worktree: string, run: Git): Promise<Operation | undefined> {
   if (await rebaseFolder(worktree, run)) return 'rebase';
   if (await gitFile(worktree, 'MERGE_HEAD', run)) return 'merge';
-  return (await gitFile(worktree, 'CHERRY_PICK_HEAD', run)) ? 'cherry-pick' : undefined;
+  if (await gitFile(worktree, 'CHERRY_PICK_HEAD', run)) return 'cherry-pick';
+  return (await gitFile(worktree, 'REVERT_HEAD', run)) ? 'revert' : undefined;
 }
 
 /** A commit's short hash, author and message, as the Conflicts dialog names it. */
@@ -133,8 +134,9 @@ export async function listConflicts(worktree: string, run: Git): Promise<Conflic
     conflicts.commit = await commitOf(worktree, 'REBASE_HEAD', run);
     return conflicts;
   }
-  if (op === 'cherry-pick') {
-    return { operation: op, files, commit: await commitOf(worktree, 'CHERRY_PICK_HEAD', run) };
+  if (op === 'cherry-pick' || op === 'revert') {
+    const head = op === 'revert' ? 'REVERT_HEAD' : 'CHERRY_PICK_HEAD';
+    return { operation: op, files, commit: await commitOf(worktree, head, run) };
   }
   return { operation: op, files };
 }

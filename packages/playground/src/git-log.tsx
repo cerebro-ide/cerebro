@@ -16,10 +16,10 @@
 import { formatSequence } from '@cerebro-ide/commands';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { computed, effect, signal } from '@cerebro-ide/reactive';
+import { computed, effect, signal, type Disposable } from '@cerebro-ide/reactive';
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
-import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
@@ -30,6 +30,7 @@ import { Toggle } from './find.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
+import { numbered } from './select-in.js';
 import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
 import { periodText, pickDate, pickUser, usersText, type Period } from './log-filters.js';
 import { pathsText, pickPaths } from './log-paths.js';
@@ -371,16 +372,37 @@ class Log {
    * filters cleared if they leave it out. Says whether it was found.
    */
   async select(hash: string): Promise<boolean> {
-    const find = async () => {
-      while (this.indexOf(hash) < 0 && !this.done && this.error.peek() === undefined) {
-        this.more();
-        await this.loading;
-      }
-      return this.indexOf(hash) >= 0;
-    };
-    const found = (await find()) || (this.filtered() && (await this.clearFilters(), await find()));
+    const found =
+      (await this.find(hash)) ||
+      (this.filtered() && (await this.clearFilters(), await this.find(hash)));
     if (found) this.model.select(hash);
     return found;
+  }
+
+  /** Loads pages until a commit is among them, or all are; says whether it is. */
+  async find(hash: string): Promise<boolean> {
+    while (this.indexOf(hash) < 0 && !this.done && this.error.peek() === undefined) {
+      this.more();
+      await this.loading;
+    }
+    return this.indexOf(hash) >= 0;
+  }
+
+  /**
+   * The commits a commit's row joins in the graph, in the Log's order, as IntelliJ's
+   * `getAdjacentRows`: its parents (those not loaded yet last, in git's order), or its children,
+   * all loaded before it (the list is in `--date-order`).
+   */
+  adjacent(commit: LogCommit, parents: boolean): string[] {
+    const commits = this.commits.peek();
+    if (!parents) {
+      return commits.filter((c) => c.parents.includes(commit.hash)).map((c) => c.hash);
+    }
+    const at = (hash: string) => {
+      const index = this.indexOf(hash);
+      return index < 0 ? commits.length : index;
+    };
+    return [...commit.parents].sort((a, b) => at(a) - at(b));
   }
 
   /** Whether any filter applies. */
@@ -709,6 +731,130 @@ export function setupLog(services: MenuServices, show: () => void): void {
     run: (c) => navigator.clipboard.writeText(c.commit.hash),
   });
   menus.contribute({ menu: 'log/commit', item: { command: 'log.copyRevision' }, group: 'a' });
+  // Last in IntelliJ's commit menu, after Git's; Right and Left while the commits have the keyboard.
+  for (const [id, parent] of [
+    ['log.goToChild', false],
+    ['log.goToParent', true],
+  ] as const) {
+    /** The commit right-clicked, or with the keys, the one selected. */
+    const target = (context: unknown) => {
+      const at = shown.peek();
+      const commit =
+        (context as Partial<LogCommitContext> | undefined)?.commit ??
+        (document.activeElement?.closest('.playground-log__list') == null
+          ? undefined
+          : selectedCommit()?.commit);
+      return at && commit && { log: at.log, commit };
+    };
+    commands.register({
+      id,
+      label: parent ? 'Go to Parent Commit' : 'Go to Child Commit',
+      enabled: (context) => {
+        const at = target(context);
+        return at !== undefined && at.log.adjacent(at.commit, parent).length > 0;
+      },
+      run: (context) => {
+        const at = target(context);
+        return at && goToAdjacent(services, at.log, at.commit, parent);
+      },
+    });
+    menus.contribute({ menu: 'log/commit', item: { command: id }, group: 'z' });
+  }
+  keymap?.bindDefault('ArrowRight', 'log.goToParent');
+  keymap?.bindDefault('ArrowLeft', 'log.goToChild');
+}
+
+const ADJACENT = 'log/adjacent';
+
+/** What the Go to Parent or Child popup's items act on: the commits to choose from, and their Log. */
+interface AdjacentContext {
+  log: Log;
+  rows: readonly string[];
+  /** Each one's item, as IntelliJ's names it. */
+  texts: readonly string[];
+}
+
+/** A commit as IntelliJ's popup names it: hash, subject (to 40 characters), author, date and time. */
+function adjacentText(commit: LogCommit): string {
+  const subject = commit.subject.length > 40 ? `${commit.subject.slice(0, 37)}...` : commit.subject;
+  const date = new Date(commit.time);
+  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  return `${commit.hash.slice(0, 8)} "${subject}" by ${commit.author} on ${date.toLocaleDateString()} at ${time}`;
+}
+
+/** Selects a commit, loading pages until it's there, and gives the commits the keyboard. */
+async function goTo(log: Log, hash: string): Promise<void> {
+  if (!(await log.find(hash))) return;
+  log.model.select(hash);
+  document.querySelector<HTMLElement>('.playground-log__list .cerebro-tree')?.focus();
+}
+
+/**
+ * The popup's items registered so far, one command for each place in it: they stay, as a menu runs
+ * its item's command once it's closed.
+ */
+let adjacentItems = 0;
+
+/**
+ * IntelliJ's Go to Parent Commit and Go to Child Commit (`GoToParentOrChildAction`): the one
+ * selected, the commits given the keyboard; of several, a numbered popup at the selected row
+ * ("Select Parent to Navigate") to choose from.
+ */
+async function goToAdjacent(
+  services: MenuServices,
+  log: Log,
+  commit: LogCommit,
+  parent: boolean,
+): Promise<void> {
+  const rows = log.adjacent(commit, parent);
+  if (rows.length === 1) {
+    await goTo(log, rows[0] as string);
+    return;
+  }
+  const { commands, menus } = services;
+  for (; adjacentItems < rows.length; adjacentItems++) {
+    const i = adjacentItems;
+    commands.register<AdjacentContext>({
+      id: `log.adjacent.${String(i)}`,
+      label: 'Go to Commit',
+      // Only from the popup: not among Find Action's.
+      enabled: (context?: AdjacentContext) => context?.rows[i] !== undefined,
+      text: (context) => numbered(i, context.texts[i] as string),
+      run: (context) => goTo(context.log, context.rows[i] as string),
+    });
+  }
+  const texts = rows.map((hash) => {
+    const loaded = log.commit(hash);
+    return (loaded ? adjacentText(loaded) : hash.slice(0, 8)).replaceAll('&', '&&');
+  });
+  const contributions: Disposable[] = [
+    menus.contribute({
+      menu: ADJACENT,
+      item: { heading: parent ? 'Select Parent to Navigate' : 'Select Child to Navigate' },
+    }),
+    ...rows.map((_, i) =>
+      menus.contribute({
+        menu: ADJACENT,
+        item: { command: `log.adjacent.${String(i)}` },
+        order: i,
+      }),
+    ),
+  ];
+  const row = document
+    .querySelector('.playground-log__list .cerebro-tree-row--selected')
+    ?.getBoundingClientRect();
+  openMenu(
+    services,
+    ADJACENT,
+    { x: row?.left ?? 0, y: row?.bottom ?? 0 },
+    {
+      context: { log, rows, texts } satisfies AdjacentContext,
+      focusFirst: true,
+      onClose: () => {
+        for (const c of contributions) c.dispose();
+      },
+    },
+  );
 }
 
 type BranchChoice = PickerItem & { branch: BranchFilter | undefined };
