@@ -2025,9 +2025,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     the branches are, expanded to start with as Local and Remote are; turned off, the tags aren't
     read. A tag filters the Log, takes it to its commit, is a favorite or not, and is found by the
     pane's search; Update Selected is off for it, having nothing tracked. Where the tags can't be
-    read, the branches show without them. **Claude's, open to change:** the tag's icon's drawing.
-    **Not yet:** Delete Branch on a tag (IntelliJ deletes it), off until then; tags in the
-    branches popup, which IntelliJ shares.
+    read, the branches show without them. Delete Branch deletes a tag (added 2026-11-12), as
+    IntelliJ's (`GitDeleteTagOperation`): unasked, "Deleted Tag: v1" with Restore, which makes it
+    again at what it pointed at (an annotated tag's object, so it's as it was) and says "Rollback
+    Successful". **Claude's, open to change:** the tag's icon's drawing. **Not yet:** Delete on
+    Remote, which IntelliJ's notification offers when there are remotes; tags in the branches
+    popup, which IntelliJ shares.
   - What a short pane has no room for goes behind a » at the toolbar's foot (added 2026-11-12), as
     IntelliJ's vertical toolbars: pointing at it shows the whole toolbar in a column over it, kept
     on the screen. It's the Log toolbar's row (`ToolbarRow`, decision "a toolbar that keeps to its

@@ -78,7 +78,15 @@ import {
   type NewBranch,
   type RebaseParams,
 } from './branches.js';
-import { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
+import {
+  createTag,
+  deleteTag,
+  listTags,
+  resolveRevision,
+  restoreTag,
+  validRevision,
+  type NewTag,
+} from './tags.js';
 import { applyCommit, continueApplying } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
@@ -895,6 +903,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       force: p.force === true,
     };
     await createTag(text(params, 'path'), tag, git);
+    return null;
+  });
+  // The Log's branches pane's Delete, on a tag, and its Restore.
+  connection.onRequest('git.deleteTag', (params) =>
+    deleteTag(text(params, 'path'), text(params, 'name'), git),
+  );
+  connection.onRequest('git.restoreTag', async (params) => {
+    await restoreTag(text(params, 'path'), text(params, 'name'), text(params, 'hash'), git);
     return null;
   });
   // Git → Reset HEAD…'s and the Log's reset, recorded in Local History as IntelliJ's ("Git reset").

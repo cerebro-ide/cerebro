@@ -229,7 +229,15 @@ export {
   type Deleted,
   type NewBranch,
 } from './branches.js';
-export { createTag, listTags, resolveRevision, validRevision, type NewTag } from './tags.js';
+export {
+  createTag,
+  deleteTag,
+  listTags,
+  resolveRevision,
+  restoreTag,
+  validRevision,
+  type NewTag,
+} from './tags.js';
 export { applyCommit, continueApplying, type Applied, type Applying } from './apply-changes.js';
 export { protectedBranchHolding } from './protected-branches.js';
 export { resetHead, undoCommit, type ResetMode } from './reset.js';

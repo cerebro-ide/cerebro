@@ -82,6 +82,14 @@ const host = new FakeHost({
     return null;
   },
   'git.restoreBranch': () => null,
+  'git.deleteTag': () => {
+    if (git.result instanceof Error) throw git.result;
+    return { hash: 'def' };
+  },
+  'git.restoreTag': () => {
+    if (git.result instanceof Error) throw git.result;
+    return null;
+  },
   'git.mergeBranch': fail('result'),
   'git.rebaseOnto': fail('result'),
   'git.continue': () => 'done',
@@ -903,6 +911,30 @@ describe('the Log’s branches pane', () => {
     await remote;
     expect(host.params('git.deleteRemoteBranch')).toEqual([{ path: '/r', name: 'origin/side' }]);
     expect(refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it('Delete Branch on a tag: deleted unasked, and restored, as IntelliJ’s', async () => {
+    expect(commands.isEnabled('log.branches.delete', ref('refs/tags/v1'))).toBe(true);
+    await run('log.branches.delete', ref('refs/tags/release/v1'));
+    expect(host.params('git.deleteTag')).toEqual([{ path: '/r', name: 'release/v1' }]);
+    expect(last()?.title).toBe('Deleted Tag: release/v1');
+    expect(refresh).toHaveBeenCalledTimes(1);
+    const deleted = last();
+    deleted?.actions[0]?.run();
+    await expect.poll(() => last()?.title).toBe('Rollback Successful');
+    expect(last()?.content).toBe('Restored tag release/v1');
+    expect(host.params('git.restoreTag')).toEqual([
+      { path: '/r', name: 'release/v1', hash: 'def' },
+    ]);
+    // Why it wasn't, in git's words; a restore that fails too.
+    git.result = new Error('fatal: tag not found');
+    await run('log.branches.delete', ref('refs/tags/v1'));
+    expect(last()).toMatchObject({
+      title: "Tag v1 wasn't deleted",
+      content: 'fatal: tag not found',
+    });
+    deleted?.actions[0]?.run();
+    await expect.poll(() => last()?.title).toBe('Could not Restore release/v1');
   });
 });
 

@@ -3,7 +3,15 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { createTag, git, listTags, resolveRevision, validRevision } from '../src/index.js';
+import {
+  createTag,
+  deleteTag,
+  git,
+  listTags,
+  resolveRevision,
+  restoreTag,
+  validRevision,
+} from '../src/index.js';
 
 describe('tags, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-tags-')));
@@ -69,5 +77,22 @@ describe('tags, with real git', () => {
     expect(await resolveRevision(repo, 'v0', git)).toBe(first);
     expect(await resolveRevision(repo, 'nowhere', git)).toBeUndefined();
     expect(await resolveRevision(repo, '--all', git)).toBeUndefined();
+  });
+
+  it('deletes a tag, keeping what it pointed at, and restores it as it was, annotated or not', async () => {
+    const object = run('rev-parse', 'refs/tags/v0');
+    const deleted = await deleteTag(repo, 'v0', git);
+    expect(deleted).toEqual({ hash: object });
+    expect(await listTags(repo, git)).toEqual(['v1']);
+    await restoreTag(repo, 'v0', deleted.hash, git);
+    expect(run('cat-file', '-t', 'v0')).toBe('tag');
+    expect(run('tag', '-l', '--format=%(contents)', 'v0')).toBe('The # first');
+    const light = await deleteTag(repo, 'v1', git);
+    await restoreTag(repo, 'v1', light.hash, git);
+    expect(run('rev-parse', 'v1')).toBe(run('rev-parse', 'HEAD~1'));
+  });
+
+  it('says why a tag wasn’t deleted', async () => {
+    await expect(deleteTag(repo, 'nowhere', git)).rejects.toThrow(/Needed a single revision/);
   });
 });

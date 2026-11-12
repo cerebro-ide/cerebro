@@ -1190,6 +1190,24 @@ describe('ignored files and rolling back', () => {
     });
   });
 
+  it('deletes a tag and restores it, as asked', async () => {
+    const git = vi.fn<Git>((_cwd, args) =>
+      Promise.resolve(bare(args)[0] === 'rev-parse' ? 'abc1234\n' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.deleteTag', { path: '/w', name: 'v1' })).toEqual({
+      hash: 'abc1234',
+    });
+    expect(git).toHaveBeenCalledWith('/w', ['tag', '--delete', '--', 'v1']);
+    expect(await ui.request('git.restoreTag', { path: '/w', name: 'v1', hash: 'abc1234' })).toBe(
+      null,
+    );
+    expect(git).toHaveBeenCalledWith('/w', ['tag', '--', 'v1', 'abc1234']);
+    await expect(ui.request('git.restoreTag', { path: '/w', name: 'v1' })).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+
   it('resets HEAD, as asked', async () => {
     const git = vi.fn<Git>(() => Promise.resolve(''));
     const { ui } = connect(git);

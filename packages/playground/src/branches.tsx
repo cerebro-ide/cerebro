@@ -550,6 +550,33 @@ export function setupBranches(
         ],
       });
     });
+  /**
+   * A tag deleted, as IntelliJ's `GitDeleteTagOperation`: no question asked, and Restore offered,
+   * which says so once it's done.
+   */
+  const deleteTag = (name: string) =>
+    operate(`Tag ${name} wasn't deleted`, async (host, worktree) => {
+      const { hash } = (await host.request('git.deleteTag', { path: worktree, name })) as {
+        hash: string;
+      };
+      notifications.notify({
+        title: `Deleted Tag: ${name}`,
+        actions: [
+          {
+            label: 'Restore',
+            run: () => {
+              void operate(`Could not Restore ${name}`, async (h, w) => {
+                await h.request('git.restoreTag', { path: w, name, hash });
+                notifications.notify({
+                  title: 'Rollback Successful',
+                  content: `Restored tag ${name}`,
+                });
+              });
+            },
+          },
+        ],
+      });
+    });
   commands.register<BranchRef>({
     id: 'git.branch.delete',
     label: '&Delete',
@@ -582,14 +609,14 @@ export function setupBranches(
       await refresh();
     },
   });
-  // Not the current branch, or a protected remote one, as IntelliJ's; not a tag yet.
+  // Not the current branch, or a protected remote one, as IntelliJ's; a tag too.
   commands.register<BranchesContext | undefined>({
     id: 'log.branches.delete',
     label: 'Delete Branch',
     icon: 'delete',
     enabled: (c) => {
       const at = paneContext(c)?.selection;
-      if (at?.kind !== 'branch' || at.current || isTag(at.ref)) return false;
+      if (at?.kind !== 'branch' || at.current) return false;
       const name = branchName(at.ref);
       return !at.ref.startsWith('refs/remotes/') || !isProtected(name.slice(name.indexOf('/') + 1));
     },
@@ -597,9 +624,9 @@ export function setupBranches(
       const { selection, refresh } = paneContext(c) as BranchesContext;
       const { ref } = selection as { ref: string };
       const name = branchName(ref);
-      await (ref.startsWith('refs/remotes/')
-        ? deleteRemote(name)
-        : deleteLocal({ name, remote: false }));
+      if (isTag(ref)) await deleteTag(name);
+      else if (ref.startsWith('refs/remotes/')) await deleteRemote(name);
+      else await deleteLocal({ name, remote: false });
       await refresh();
     },
   });
