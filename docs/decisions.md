@@ -2041,7 +2041,17 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     IntelliJ's. **Claude's, open to change:** the star in the text's colour (IntelliJ's is
     yellow); the branch checked out keeps its check whether it's a favorite or not (IntelliJ has an icon for both); Space on an item that's not a branch does
     nothing.
-  **Not yet:** Compare with Current, Show My Branches, the pane's search; several branches selected (IntelliJ updates
+  - The pane's search (added 2026-11-12), as IntelliJ's (BranchesTreeSearchField,
+    FilteringBranchesTree, read from its source): a field over the tree, "Git branches search".
+    Only the branches whose names (a remote one's with its remote) match, as the popups' fuzzy
+    search matches, show, with their directories, all expanded; HEAD always shows. The best match
+    is selected, and what matched is marked. Typing in the tree types in the field; Up and Down
+    from the field go on in the tree, as does Escape once the field is empty. Cleared, the
+    directories expanded before are again. **Claude's, open to change:** "Branch" for IntelliJ's
+    placeholder "Branch or tag", tags not being shown yet; the field's text in the error's colour
+    when nothing matches (IntelliJ paints its background). **Not yet:** Find's key toggling between
+    the field and the tree.
+  **Not yet:** Compare with Current, Show My Branches; several branches selected (IntelliJ updates
   them all at once); Navigate's key
   (Select In's, Alt+F1, which Select In takes here first).
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,

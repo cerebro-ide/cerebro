@@ -1037,6 +1037,82 @@ describe('the branches’ toolbar', () => {
     await expect.poll(() => more().hidden).toBe(true);
   });
 
+  it('searches, as IntelliJ’s: the branches matched, expanded, the best selected; cleared, as before', async () => {
+    git.log = history(1);
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/feat/login'),
+      branch('refs/heads/feat/logout'),
+      branch('refs/heads/fix/typo'),
+      branch('refs/remotes/origin/feat/login'),
+    ];
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'fix', 'Remote', 'origin']);
+    const field = document.querySelector(
+      '.playground-branches input[aria-label="Git branches search"]',
+    ) as HTMLInputElement;
+    expect(field.placeholder).toBe('Branch');
+    const tree = document.querySelector('.playground-log__branches .cerebro-tree') as HTMLElement;
+    const selectedName = () =>
+      document
+        .querySelector('.playground-log__branches .cerebro-tree-row--selected')
+        ?.textContent.trim();
+    // Typed in the tree, it goes to the field: what matches stays, with HEAD; directories opened.
+    tree.focus();
+    await userEvent.keyboard('login');
+    expect(document.activeElement).toBe(field);
+    expect(field.value).toBe('login');
+    await expect
+      .poll(branchNames)
+      .toEqual([
+        'HEAD (Current Branch)',
+        'Local',
+        'feat',
+        'login',
+        'Remote',
+        'origin',
+        'feat',
+        'login',
+      ]);
+    // The best match selected; what matched marked.
+    expect(selectedName()).toBe('login');
+    const marks = [
+      ...document.querySelectorAll('.playground-log__branches .playground-branches__match'),
+    ];
+    expect(marks.map((mark) => mark.textContent)).toEqual(['login', 'login']);
+    // Down goes on in the tree.
+    await userEvent.keyboard('{ArrowDown}');
+    expect(document.activeElement).toBe(tree);
+    await expect.poll(selectedName).toBe('Remote');
+    // Nothing matched: the field says so.
+    field.focus();
+    await userEvent.keyboard('zz');
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)']);
+    expect(field.closest('.playground-branches__search--nothing')).not.toBeNull();
+    // Cleared, the directories as they were; Escape, with nothing to clear, back to the tree.
+    await userEvent.click(
+      document.querySelector(
+        '.playground-branches .playground-branches__search-clear',
+      ) as HTMLElement,
+    );
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'fix', 'Remote', 'origin']);
+    expect(field.value).toBe('');
+    field.focus();
+    await userEvent.keyboard('{Escape}');
+    expect(document.activeElement).toBe(tree);
+    // Up, from the field, goes on in the tree too; other keys stay in the field.
+    field.focus();
+    await userEvent.keyboard('{ArrowUp}');
+    expect(document.activeElement).toBe(tree);
+    field.focus();
+    await userEvent.keyboard('{Home}');
+    expect(document.activeElement).toBe(field);
+  });
+
   it('marks a branch a favorite, or not: starred, after the branch checked out', async () => {
     git.log = history(1);
     git.branches = [
