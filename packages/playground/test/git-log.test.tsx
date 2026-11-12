@@ -1101,7 +1101,22 @@ describe('the branches’ toolbar', () => {
       .poll(branchNames)
       .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'fix', 'Remote', 'origin']);
     expect(field.value).toBe('');
+    // Spaces alone search nothing: the tree stays as it is.
     field.focus();
+    await userEvent.keyboard(' ');
+    await expect
+      .poll(() => document.querySelector('.playground-branches__search-clear'))
+      .not.toBeNull();
+    expect(branchNames()).toEqual([
+      'HEAD (Current Branch)',
+      'Local',
+      'main',
+      'feat',
+      'fix',
+      'Remote',
+      'origin',
+    ]);
+    await userEvent.keyboard('{Backspace}');
     await userEvent.keyboard('{Escape}');
     expect(document.activeElement).toBe(tree);
     // Up, from the field, goes on in the tree too; other keys stay in the field.
@@ -1111,6 +1126,26 @@ describe('the branches’ toolbar', () => {
     field.focus();
     await userEvent.keyboard('{Home}');
     expect(document.activeElement).toBe(field);
+    // Find's key, in the pane: from the tree to the field and back, before Go To Hash/Branch/Tag,
+    // which takes it in the rest of the Log.
+    expect(services.keymap?.commandsFor('Ctrl+F')).toEqual([
+      'log.branches.focusSearch',
+      'log.goToRef',
+    ]);
+    tree.focus();
+    commands.execute('log.branches.focusSearch');
+    expect(document.activeElement).toBe(field);
+    commands.execute('log.branches.focusSearch');
+    expect(document.activeElement).toBe(tree);
+    (document.querySelector('.playground-log__commits .cerebro-tree') as HTMLElement).focus();
+    expect(commands.isEnabled('log.branches.focusSearch')).toBe(false);
+    // The field hides the tree's selection from the pane's actions, as IntelliJ's.
+    tree.focus();
+    await userEvent.keyboard('{Home}{ArrowDown}{ArrowDown}');
+    expect(selectedName()).toBe('main');
+    expect(paneContext(undefined)?.selection?.kind).toBe('branch');
+    field.focus();
+    expect(paneContext(undefined)?.selection).toBeUndefined();
   });
 
   it('marks a branch a favorite, or not: starred, after the branch checked out', async () => {

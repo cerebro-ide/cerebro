@@ -2047,10 +2047,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     search matches, show, with their directories, all expanded; HEAD always shows. The best match
     is selected, and what matched is marked. Typing in the tree types in the field; Up and Down
     from the field go on in the tree, as does Escape once the field is empty. Cleared, the
-    directories expanded before are again. **Claude's, open to change:** "Branch" for IntelliJ's
-    placeholder "Branch or tag", tags not being shown yet; the field's text in the error's colour
-    when nothing matches (IntelliJ paints its background). **Not yet:** Find's key toggling between
-    the field and the tree.
+    directories expanded before are again. Find's key, in the pane, goes from the tree to the field
+    and back (the rest of the Log keeps it for Go To Hash/Branch/Tag), and the field hides the
+    tree's selection from the pane's actions, as IntelliJ's. **Claude's, open to change:** "Branch"
+    for IntelliJ's placeholder "Branch or tag", tags not being shown yet; the field's text in the
+    error's colour when nothing matches (IntelliJ paints its background).
   **Not yet:** Compare with Current, Show My Branches; several branches selected (IntelliJ updates
   them all at once); Navigate's key
   (Select In's, Alt+F1, which Select In takes here first).
