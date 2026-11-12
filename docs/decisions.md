@@ -3337,7 +3337,11 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     upstream; measured with real git), or else the current branch (HEAD when detached), as
     IntelliJ's. **Claude's, open to change:** Restore from the dialog leaves the notification up
     (the notifications have no way to expire one yet); its own Restore stays there too.
-- **Not yet:** the menu opening on hover; favourites and Recent.
+- **A branch's menu opens on a click, Enter or Right only, not on hover:** as IntelliJ's
+  (`GitBranchesPopupStepBase.isAutoSelectionEnabled()` is false there, so its hover timer opens
+  nothing; read from its source). It was listed below as not yet done until then (changed
+  2026-11-12).
+- **Not yet:** favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)
 
