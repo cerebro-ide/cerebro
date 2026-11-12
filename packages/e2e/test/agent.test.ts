@@ -56,6 +56,16 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
+  /** The turns' refs the host has written: each id starts with the time the turn was kept. */
+  const turnRefs = () =>
+    execFileSync('git', ['for-each-ref', '--format=%(refname)', 'refs/worktree/cerebro/turns/'], {
+      cwd: repo,
+    })
+      .toString()
+      .trim();
+  /** The refs as the first run's "done" showed, just before the restart, and when that was. */
+  let refsAtDone = '';
+
   /** What the terminals show, their lines joined: the Claude tool window's is narrow. */
   const shown = () =>
     running.page.evaluate(() =>
@@ -71,6 +81,7 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
     await expect.poll(() => status.innerText(), { timeout: 15_000 }).toContain('Claude is done');
     await expect.poll(shown).toContain('pretend claude:');
     expect(await shown()).not.toContain('--resume');
+    refsAtDone = `${String(Date.now())}: ${turnRefs() || 'none'}`;
     await running.restart();
     await expect
       .poll(shown, { timeout: 15_000 })
@@ -97,6 +108,10 @@ describe.skipIf(process.platform === 'win32')('the agent', () => {
       console.log('Status bar:', await page.locator('.cerebro-statusbar').innerText());
       console.log('Terminal:', await shown());
       console.log('Standard error:', running.output.join(''));
+      // Whether the first run's turn was kept before the restart quit its host: the host says
+      // "done" before it takes the turn's last snapshot.
+      console.log('Turns when the first run was done:', refsAtDone);
+      console.log('Turns now:', turnRefs() || 'none', `(${String(Date.now())})`);
       throw error;
     }
     const file = page.locator('.cerebro-tree-row[data-key^="turn:"][data-key$=":agent.txt"]');
