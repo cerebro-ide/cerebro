@@ -335,6 +335,11 @@ export function setupBranches(
       console.error(`Reading again after "${failure}"`, error);
     });
   };
+  /**
+   * Whether a branch is given: a branch's actions are off without one, as Find Action, which lists
+   * what's on with none, asks; run from there, they'd have nothing to act on.
+   */
+  const given = (b: BranchRef | undefined): b is BranchRef => b !== undefined;
   const isCurrent = (b: BranchRef) => !b.remote && !b.tag && b.name === branches.get().current;
   const current = () => branches.get().current ?? 'HEAD';
 
@@ -371,6 +376,7 @@ export function setupBranches(
     id: 'git.branch.checkout',
     label: '&Checkout',
     visible: (b) => !isCurrent(b) && elsewhere(b) === undefined,
+    enabled: given,
     run: (b) => {
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
@@ -437,6 +443,7 @@ export function setupBranches(
     id: 'git.branch.openWorktree',
     label: 'Open Worktree',
     visible: (b) => elsewhere(b) !== undefined,
+    enabled: given,
     run: (b) => {
       setup.open((elsewhere(b) as EnvironmentSpec).id);
     },
@@ -448,6 +455,7 @@ export function setupBranches(
     dialog: true,
     // IntelliJ's offers it for branches.
     visible: (b) => !b.tag,
+    enabled: given,
     run: (b) => newBranch(b.name),
   });
   // IntelliJ's (`GitCompareWithBranchAction`): for a branch, not the one checked out.
@@ -456,6 +464,7 @@ export function setupBranches(
     label: 'Compare with Current',
     text: () => `Compare with ${quoted(current())}`,
     visible: (b) => !isCurrent(b) && !b.tag,
+    enabled: given,
     run: (b) => {
       compareWithCurrent(current(), b.name);
     },
@@ -467,6 +476,7 @@ export function setupBranches(
     label: 'Checkout and Rebase onto Current',
     text: () => `Checkout and Rebase onto ${quoted(current())}`,
     visible: (b) => !isCurrent(b) && !b.tag && elsewhere(b) === undefined,
+    enabled: given,
     run: (b) => {
       const name = b.remote ? b.name.replace(/^[^/]*\//, '') : b.name;
       const done = `Checked out ${name} and rebased it on ${current()}`;
@@ -494,6 +504,7 @@ export function setupBranches(
     // IntelliJ's (`GitShowDiffWithRefAction`): for any branch or tag, documents saved first.
     id: 'git.branch.showDiff',
     label: 'Show Diff with Working Tree',
+    enabled: given,
     run: (b) => {
       return operate(`Could not load diff with ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
@@ -512,7 +523,7 @@ export function setupBranches(
       return !b.remote && !b.tag && at !== undefined && stateOf(at.worktree).remotes !== false;
     },
     enabled: (b: BranchRef | undefined) =>
-      b !== undefined && !fetching.get() && branches.get().upstreams.has(b.name),
+      given(b) && !fetching.get() && branches.get().upstreams.has(b.name),
     run: (b) => {
       const { host, worktree } = target() as NonNullable<ReturnType<typeof target>>;
       return updateBranch(isCurrent(b) ? undefined : b.name, () => after(host, worktree));
@@ -524,8 +535,7 @@ export function setupBranches(
     label: 'Push',
     dialog: true,
     visible: (b) => !b.remote && !b.tag,
-    // Not without a branch, as Find Action asks.
-    enabled: (b: BranchRef | undefined) => b !== undefined,
+    enabled: given,
     run: (b) => {
       const { worktree } = target() as NonNullable<ReturnType<typeof target>>;
       return openPush(worktree, isCurrent(b) ? {} : { source: b.name }).catch((error: unknown) => {
@@ -542,8 +552,7 @@ export function setupBranches(
       label: `Pull into Current Using ${how}`,
       text: () => `Pull into ${quoted(current())} Using ${how}`,
       visible: (b) => b.remote,
-      enabled: (b: BranchRef | undefined) =>
-        b !== undefined && branches.get().current !== undefined,
+      enabled: (b: BranchRef | undefined) => given(b) && branches.get().current !== undefined,
       run: (b) => {
         const { worktree } = target() as NonNullable<ReturnType<typeof target>>;
         const slash = b.name.indexOf('/');
@@ -558,7 +567,7 @@ export function setupBranches(
     text: (b) => `Rebase ${quoted(current())} onto ${quoted(b.name)}`,
     visible: (b) => !isCurrent(b) && !b.tag,
     // IntelliJ's: not with HEAD detached.
-    enabled: () => branches.get().current !== undefined,
+    enabled: (b: BranchRef | undefined) => given(b) && branches.get().current !== undefined,
     run: (b) => {
       const done = `Rebased ${current()} on ${b.name}`;
       return operate('Rebase failed', async (host, worktree) => {
@@ -573,6 +582,7 @@ export function setupBranches(
     label: 'Merge into Current',
     text: (b) => `Merge ${quoted(b.name)} into ${quoted(current())}`,
     visible: (b) => !isCurrent(b),
+    enabled: given,
     run: (b) => {
       const into = current();
       return operate(`Could not merge ${b.name}`, async (host, worktree) => {
@@ -607,6 +617,7 @@ export function setupBranches(
     label: '&Rename',
     dialog: true,
     visible: (b) => !b.remote && !b.tag,
+    enabled: given,
     run: (b) => {
       return operate(`Could not rename ${b.name}`, async (host, worktree) => {
         const named = await branchDialog(`Rename Branch ${b.name}`, 'Rename', b.name, true);
@@ -757,6 +768,7 @@ export function setupBranches(
     id: 'git.branch.delete',
     label: '&Delete',
     visible: (b) => !isCurrent(b),
+    enabled: given,
     run: (b) => (b.tag ? deleteTag(b.name) : b.remote ? deleteRemote(b.name) : deleteLocal(b)),
   });
   // The Log's branches pane's toolbar's, as IntelliJ's (BranchesDashboardActions): New Branch from
