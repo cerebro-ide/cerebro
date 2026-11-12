@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1941,8 +1941,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar (New Branch, Delete, Fetch, Navigate Log to Branch Head, favourites) and
-  its own search; tags in the pane; grouping the files by directory; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; grouping the files by directory; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
@@ -1977,6 +1976,24 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
   before: a tag made from the Log didn't show after its refresh, nor after Refresh.
+- **The branches pane's toolbar** (added 2026-11-12), down the pane's left side as IntelliJ's
+  (`Git.Log.Branches`, a vertical toolbar), with what Cerebro has of its actions, in IntelliJ's
+  order (BranchesDashboardActions): New Branch, Delete Branch, Fetch, Navigate Log to Selected
+  Branch Head, then Expand All and Collapse All. As IntelliJ's:
+  - New Branch with HEAD selected starts at HEAD, the current branch's name suggested (none when
+    detached); with a branch, at its commit (`name^0`, so the new branch tracks nothing), titled
+    "Create Branch from" its name, its name suggested, a remote one's without its remote. Off for
+    a directory or nothing selected.
+  - Delete Branch, as the branch's Delete in the branches popup; off for the current branch and a
+    protected remote one (IntelliJ's defaults, as Push's). Its icon is the new UI's for
+    Actions.GC, a bin (`general/delete.svg`, from IntelliJ's icon mappings).
+  - Fetch is Git → Fetch.
+  - Navigate Log to Selected Branch Head selects the commit HEAD or the branch is at, "x not
+    found" if the Log hasn't it, as Go To Hash/Branch/Tag.
+  - The Log is read again after New Branch and Delete Branch.
+  **Not yet:** Hide Branches, Update Selected, Compare with Current, Show My Branches, Toggle
+  Favorite, the Branches settings, the pane's search; several branches selected; Delete's keys
+  (SafeDelete's) and Navigate's (Select In's); the Log isn't read again after a Fetch (backlog).
 
 ## Prettier, the first plugin, and Settings → Plugins (2026-11-04)
 

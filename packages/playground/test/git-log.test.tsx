@@ -757,6 +757,115 @@ describe('the branches', () => {
   });
 });
 
+describe('the branches’ toolbar', () => {
+  const branchRows = () => [
+    ...document.querySelectorAll<HTMLElement>('.playground-log__branches .cerebro-tree-row'),
+  ];
+  const branchNames = () => branchRows().map((row) => row.textContent.trim());
+  const named = (name: string) =>
+    branchRows().find((row) => row.textContent.trim() === name) as HTMLElement;
+  const toolbar = () => document.querySelector('.playground-log__branches-toolbar') as HTMLElement;
+  const button = (id: string) =>
+    toolbar().querySelector(`[data-command="${id}"]`) as HTMLButtonElement;
+  const selected = () =>
+    document
+      .querySelector('.playground-log__commits .cerebro-tree-row[aria-selected="true"]')
+      ?.getAttribute('data-key');
+
+  it('runs down their side, in IntelliJ’s order: what of it is here', () => {
+    git.log = history(1);
+    mount();
+    expect(toolbar().getAttribute('aria-orientation')).toBe('vertical');
+    expect(
+      [...toolbar().querySelectorAll('[data-command]')].map((b) => b.getAttribute('data-command')),
+    ).toEqual([
+      'log.branches.newBranch',
+      'log.branches.delete',
+      'vcs.fetch',
+      'log.branches.navigate',
+      'log.branches.expandAll',
+      'log.branches.collapseAll',
+    ]);
+  });
+
+  it('navigates the Log to the head of HEAD or the branch selected; expands and collapses all', async () => {
+    git.log = history(3);
+    git.branches = [
+      branch('refs/heads/main', true),
+      branch('refs/heads/feat/x'),
+      branch('refs/remotes/origin/main'),
+    ];
+    git.revisions = { HEAD: 'c0', 'refs/heads/feat/x': 'c2' };
+    mount();
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'Remote', 'origin']);
+    const navigate = button('log.branches.navigate');
+    expect(navigate.getAttribute('aria-label')).toBe('Navigate Log to Selected Branch Head');
+    // Nothing selected, or a directory: nowhere to go.
+    expect(navigate.disabled).toBe(true);
+    await userEvent.click(named('Local'));
+    expect(navigate.disabled).toBe(true);
+    await userEvent.click(button('log.branches.expandAll'));
+    await expect
+      .poll(branchNames)
+      .toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat', 'x', 'Remote', 'origin', 'main']);
+    await userEvent.click(named('x'));
+    await userEvent.click(navigate);
+    await expect.poll(selected).toBe('c2');
+    expect(host.params('git.resolveRevision').at(-1)).toEqual({
+      path: '/r',
+      revision: 'refs/heads/feat/x',
+    });
+    await userEvent.click(branchRows()[0] as HTMLElement);
+    await userEvent.click(navigate);
+    await expect.poll(selected).toBe('c0');
+    // One git can't find, by its name.
+    await userEvent.click(branchRows().at(-1) as HTMLElement);
+    await userEvent.click(navigate);
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('origin/main not found');
+    await userEvent.click(button('log.branches.collapseAll'));
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'Remote']);
+    git.revisions = {};
+  });
+
+  it('gives its actions what’s selected, with the branch checked out, and a way to read the Log again', async () => {
+    const given: unknown[] = [];
+    commands.register({
+      id: 'log.branches.newBranch',
+      label: 'New Branch',
+      run: (context) => given.push(context),
+    });
+    git.log = history(2);
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/side')];
+    mount();
+    await expect.poll(branchNames).toContain('side');
+    await userEvent.click(branchRows()[0] as HTMLElement);
+    await userEvent.click(button('log.branches.newBranch'));
+    await userEvent.click(named('side'));
+    await userEvent.click(button('log.branches.newBranch'));
+    expect(given).toMatchObject([
+      { source: 'log', selection: { kind: 'head', branch: 'main' } },
+      { source: 'log', selection: { kind: 'branch', ref: 'refs/heads/side', current: false } },
+    ]);
+    const reads = skips().length;
+    await (given[1] as { refresh: () => Promise<void> }).refresh();
+    expect(skips().length).toBe(reads + 1);
+    // HEAD detached: no branch to suggest.
+    git.branches = [branch('refs/heads/side')];
+    window.dispatchEvent(new Event('focus'));
+    await expect
+      .poll(() => document.querySelector('.playground-branches__name--current'))
+      .toBeNull();
+    await userEvent.click(branchRows()[0] as HTMLElement);
+    await userEvent.click(button('log.branches.newBranch'));
+    expect((given[2] as { selection: unknown }).selection).toEqual({
+      kind: 'head',
+      branch: undefined,
+    });
+  });
+});
+
 describe('Refresh', () => {
   it('reads the Log and its branches again: from the toolbar, or while the Log has the keyboard', async () => {
     git.log = history(1);

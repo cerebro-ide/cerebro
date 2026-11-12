@@ -32,7 +32,14 @@ import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { numbered } from './select-in.js';
-import { branchName, Branches, BranchesPane, type BranchFilter } from './log-branches.js';
+import {
+  branchName,
+  Branches,
+  BranchesPane,
+  type BranchesContext,
+  type BranchesSelection,
+  type BranchFilter,
+} from './log-branches.js';
 import {
   openFilterPicker,
   periodText,
@@ -630,6 +637,15 @@ function commitContext(log: Log, branches: Branches, commit: LogCommit): LogComm
   };
 }
 
+/** What the branches pane's toolbar acts on. */
+function branchesContext(log: Log, branches: Branches): BranchesContext {
+  return {
+    source: 'log',
+    selection: branches.selection(),
+    refresh: () => refresh(log, branches),
+  };
+}
+
 /** The Log's selected commit, as its commit menu has it: what its toolbar's Cherry-Pick picks. */
 export function selectedCommit(): LogCommitContext | undefined {
   const at = shown.get();
@@ -705,12 +721,17 @@ async function goToRef(log: Log, branches: Branches): Promise<void> {
     ),
   }).result;
   if (reference === undefined) return;
+  await navigate(log, reference);
+}
+
+/** Selects the commit `revision` names in the Log; says so if it isn't there, by `name`. */
+async function navigate(log: Log, revision: string, name = revision): Promise<void> {
   const hash = (await log.host.request('git.resolveRevision', {
     path: log.worktree,
-    revision: reference,
+    revision,
   })) as string | null;
   if (hash === null || !(await log.select(hash))) {
-    notifications.notify({ title: `${reference} not found`, type: 'warning' });
+    notifications.notify({ title: `${name} not found`, type: 'warning' });
   }
 }
 
@@ -785,6 +806,36 @@ export function setupLog(services: MenuServices, show: () => void): void {
   });
   // IntelliJ's takes Find's shortcut: Ctrl+F, Cmd+F on macOS.
   keymap?.bindDefault('Mod+F', 'log.goToRef');
+  // The branches pane's toolbar's (IntelliJ's BranchesDashboardActions): the Log at the commit
+  // HEAD or the branch selected is at, and the pane's groups opened or closed.
+  commands.register<BranchesContext | undefined>({
+    id: 'log.branches.navigate',
+    label: 'Navigate Log to Selected Branch Head',
+    icon: 'locate',
+    enabled: (c) => c?.selection !== undefined && shown.get() !== undefined,
+    run: (c) => {
+      const { log } = shown.peek() as NonNullable<ReturnType<typeof shown.peek>>;
+      const selection = (c as BranchesContext).selection as NonNullable<BranchesSelection>;
+      if (selection.kind === 'head') void navigate(log, 'HEAD');
+      else void navigate(log, selection.ref, branchName(selection.ref));
+    },
+  });
+  for (const [id, label, open] of [
+    ['log.branches.expandAll', 'Expand All', true],
+    ['log.branches.collapseAll', 'Collapse All', false],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      icon: open ? 'expandAll' : 'collapseAll',
+      enabled: () => shown.get() !== undefined,
+      run: () => {
+        const { model } = (shown.peek() as NonNullable<ReturnType<typeof shown.peek>>).branches;
+        if (open) void model.expandAll();
+        else model.collapseAll();
+      },
+    });
+  }
   // A commit's menu, first in IntelliJ's (Vcs.Log.ContextMenu): the full hash, as its own copies.
   commands.register<LogCommitContext>({
     id: 'log.copyRevision',
@@ -1274,6 +1325,40 @@ function LogToolbar(props: {
   );
 }
 
+/**
+ * The branches pane's toolbar, down its side as IntelliJ's (`Git.Log.Branches`): what of its
+ * actions are here, in its order.
+ */
+function BranchesToolbar(props: { services: MenuServices; log: Log; branches: Branches }): Node {
+  const { services } = props;
+  const context = () => branchesContext(props.log, props.branches);
+  const button = (command: string, name: string) => (
+    <ToolbarButton
+      commands={services.commands}
+      command={command}
+      icon={icon(name)}
+      shortcut={shortcutOf(services, command)}
+      context={context}
+    />
+  );
+  return (
+    <div
+      class="playground-log__branches-toolbar"
+      role="toolbar"
+      aria-label="Branches"
+      aria-orientation="vertical"
+    >
+      {button('log.branches.newBranch', 'add')}
+      {button('log.branches.delete', 'delete')}
+      {button('vcs.fetch', 'fetch')}
+      {button('log.branches.navigate', 'locate')}
+      <span class="playground-log__branches-separator" />
+      {button('log.branches.expandAll', 'expandAll')}
+      {button('log.branches.collapseAll', 'collapseAll')}
+    </div>
+  );
+}
+
 /** The Git tool window's Log, of the active environment's repository. */
 export function GitLogView(props: {
   services: MenuServices;
@@ -1358,6 +1443,7 @@ export function GitLogView(props: {
         pane.style.width = `${String(PANE_WIDTH)}px`;
         const side = (
           <div class="playground-log__branches">
+            <BranchesToolbar services={props.services} log={log} branches={branches} />
             <BranchesPane
               branches={branches}
               filter={(branch) => {

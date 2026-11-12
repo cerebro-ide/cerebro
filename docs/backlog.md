@@ -39,6 +39,11 @@ on it:
 
 ## Known gaps
 
+- **The Log isn't read again after Git operations from outside it** (from the code, 2026-11-12,
+  adding the branches pane's toolbar): Fetch, Pull, Push and the branches popup's actions read the
+  worktree's state again (`refreshAll` in `shelf.tsx`), not the Log, which waits for the window's
+  focus or Refresh. So the pane's Fetch leaves its remote branches as they were. IntelliJ's Log
+  follows the repository's changes; the Log listening for what `refreshAll` reads is one way.
 - **Alt+9 shows the Git tool window without moving the focus into it** (seen in the built app,
   2026-11-12: after Alt+9 the Project tree still had it). IntelliJ's tool window shortcuts activate
   the window, focus included (a claim, not measured here); Ctrl+Tab's switcher does move it.

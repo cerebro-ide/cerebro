@@ -65,6 +65,9 @@ const PATHS: Record<string, string> = {
   // A list's Add and Remove, as IntelliJ's toolbar over a table (a claim: not IntelliJ's drawing).
   add: 'M8 3v10M3 8h10',
   remove: 'M3 8h10',
+  // Delete, as the new UI's (`general/delete.svg`, Actions.GC's there): a bin (a claim: not its
+  // drawing).
+  delete: 'M2.5 4.5h11M6 4.5v-2h4v2M4 4.5l.5 9h7l.5-9M6.8 7v4M9.2 7v4',
   // The diff's viewers: two panes, side by side, or one with its lines (a claim: not IntelliJ's
   // drawing).
   sideBySide: 'M2.5 3.5h11v9h-11zM8 3.5v9',

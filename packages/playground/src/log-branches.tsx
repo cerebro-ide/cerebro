@@ -94,6 +94,22 @@ export function branchTree(branches: readonly Branch[]): BranchNode[] {
   return tree;
 }
 
+/**
+ * What the pane's toolbar acts on: HEAD, with the branch checked out if one is; a branch, by its
+ * ref in full; or nothing, with a directory or nothing selected.
+ */
+export type BranchesSelection =
+  | { kind: 'head'; branch: string | undefined }
+  | { kind: 'branch'; ref: string; current: boolean }
+  | undefined;
+
+/** The pane's toolbar's context: what's selected, and how to read the Log again after a change. */
+export interface BranchesContext {
+  source: 'log';
+  selection: BranchesSelection;
+  refresh: () => Promise<void>;
+}
+
 const keyOf = (node: BranchNode) => {
   if (node.kind === 'head') return 'HEAD';
   return node.kind === 'group' ? `group:${node.key}` : node.ref;
@@ -116,6 +132,18 @@ export class Branches {
     private readonly worktree: string,
   ) {
     for (const group of ['Local', 'Remote']) this.model.expanded.add(`group:${group}`);
+  }
+
+  /** The node selected, as the toolbar acts on it. */
+  selection(): BranchesSelection {
+    const node = this.model.rows.find((row) => row.key === this.model.selected)?.node;
+    if (node?.kind === 'head') {
+      const current = this.branches.get().find((branch) => branch.current);
+      return { kind: 'head', branch: current && branchName(current.ref) };
+    }
+    return node?.kind === 'branch'
+      ? { kind: 'branch', ref: node.ref, current: node.current }
+      : undefined;
   }
 
   async reload(): Promise<void> {
