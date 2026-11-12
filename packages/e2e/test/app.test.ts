@@ -271,8 +271,9 @@ describe('dialogs', () => {
     expect(await count('.cerebro-dialog')).toBe(0);
     // Made and checked out by git.
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main-e2e');
-    // Back on main, for the tests after: from its row's menu.
-    await click(page().locator('[aria-label^="Branch:"]'));
+    // Back on main, for the tests after: from its row's menu. Forced, as the click above: in CI
+    // under xvfb it waited 5 s after "scrolling into view", its box still over 20 frames.
+    await click(page().locator('[aria-label^="Branch:"]'), { force: true });
     await click(page().locator('.cerebro-popup-item', { hasText: /^main$/ }));
     await click(page().locator('.cerebro-menu-item', { hasText: 'Checkout' }));
     await expect.poll(branch, { timeout: 15_000 }).toBe('Branch: main');
