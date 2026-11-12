@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -60,10 +60,10 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
-- [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu
+- [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11)
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -1902,10 +1902,22 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
-  (decision "Cherry-Pick"), then Reset
-  Current Branch to Here… (decision "Git → Reset HEAD…") and New Tag… (decision "Git → New
-  Tag…"). The commit is selected first, as a tree row is. No keys: IntelliJ's
-  keymaps give these none (searched).
+  (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
+  Revert Commit (decision "Cherry-Pick") and New Tag… (decision "Git → New Tag…"), then, after Git's, Go to Child Commit and Go to Parent Commit (below). The commit is
+  selected first, as a tree row is. No keys: IntelliJ's keymaps give these none (searched), the
+  last two aside.
+- **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
+  `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
+  the commits have the keyboard. The selection moves to the commit's parent or child, loading pages
+  until a parent is there, and the commits keep the keyboard. Of several (a merge's parents, a
+  commit's children) IntelliJ's numbered popup, "Select Parent to Navigate" or "Select Child to
+  Navigate", at the selected row, each commit as IntelliJ names it (`8f3a2c1d "subject" by author
+  on date at time`, the subject cut to 40 characters with "..."). Off with none to go to. The popup
+  is a menu, as Select In's, where IntelliJ's is an action list that also filters as one types:
+  Claude's choice, open to change. **Not yet:** under a filter, a parent it hides is looked for
+  through every page and not gone to, where IntelliJ goes to the row its graph joins (the Log's
+  commits keep git's parents, unrewritten). The author lacks IntelliJ's asterisk for a commit
+  someone else committed (`getAuthorPresentation`), as the Log reads no committers.
 - **Read again, the Log keeps its list when the first page's commits are the same** (above): the
   same refs too, since 2026-11-11, so a tag or branch made at a listed commit shows. Measured
   before: a tag made from the Log didn't show after its refresh, nor after Refresh.
@@ -2293,6 +2305,18 @@ source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
   IntelliJ hides it while Resolve Conflicts… shows) and Abort Cherry-Pick, last in it as IntelliJ's;
   Abort asks first ("Abort cherry-pick?"), as Abort Merge does. Update Project isn't stopped by
   one, only by its unmerged files, as IntelliJ's `isUpdateNotReady`.
+- **Revert Commit** (added 2026-11-11), in the commit menu after Reset Current Branch to Here…, as
+  IntelliJ's (`GitRevertAction`, `GitRevertProcess`): the same process as the pick, with
+  `git revert` and IntelliJ's words for it ("Revert successful", "Nothing to revert", "All changes
+  from … have already been reverted", "Revert was performed with conflicts", Abort Revert). Off for
+  a merge commit, as IntelliJ's. The message is git's own (`Revert "…"`, "This reverts commit …"),
+  with no editor. Measured (git 2.43): an empty revert says "nothing to commit" and leaves no
+  REVERT_HEAD, which is how IntelliJ's `isEmptyCommit` tells it; one resolved to nothing at
+  `--continue` leaves REVERT_HEAD, and is skipped with `--skip`. The Conflicts dialog says
+  "Conflicts during revert of commit … made by …" and the subject, as IntelliJ's revert does;
+  its merge window's sides are IntelliJ's defaults. A revert under way is the host's fourth
+  operation (REVERT_HEAD); the Git menu then shows Abort Revert ("Abort revert?"), before
+  Cherry-Pick's, as IntelliJ's, which has no Continue Revert: the Commit window finishes one.
 - **Claims:** the icon (two cherries; not IntelliJ's drawing).
 - **Not yet:** several commits at once (the Log selects one; IntelliJ picks them oldest first);
   documents saved first, as IntelliJ's does (none of Cerebro's git actions does yet); "Stash
@@ -2406,6 +2430,21 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   - **Not yet:** IntelliJ's smart reset (when local changes would be overwritten, it offers to
     stash or shelve them first; here git refuses, and says why); the radio buttons' mnemonics
     (Cerebro's dialogs have none yet).
+- **The Log's Undo Commit…** (added 2026-11-11), in the commit menu after Revert Commit, as
+  IntelliJ's Git group (`GitUncommitAction`, `GitSingleCommitEditingAction`,
+  `GitCommitEditingActionBase`, `GitProtectedBranches.kt`, read from its source). It's for HEAD's
+  commit alone, and not for a merge's (IntelliJ's `checkNotMergeCommit`). `git reset --soft` to the
+  commit's first parent, recorded as "Git undo commit" (IntelliJ's activity's name), "Undoing Last
+  Commit…" on the status bar while it runs, then "Undo commit successful", or "Undo commit failed"
+  with why. The commit's message goes into the Commit window, to commit the changes again, as
+  IntelliJ's. Not when a protected branch on a remote has the commit (`main` or `master`, as Push's
+  and Cherry-Pick's, matched by its name there): "Cannot Undo Commit", "The commit is already pushed
+  to protected branch 'origin/main'", and nothing done. The host checks HEAD is still the commit
+  first, as a Log read earlier may be out of date. Cerebro has no changelists, so there's no "Select
+  Target Changelist" dialog, as IntelliJ's without them; the ellipsis stays, as IntelliJ's text.
+  **Claude's, open to change:** off for the first commit, which has no parent to go back to (IntelliJ
+  asks "Are you sure you want to edit the initial commit?", then takes the parent it hasn't: read
+  from its source, not seen running).
 
 ## Git → New Tag… (2026-11-11)
 

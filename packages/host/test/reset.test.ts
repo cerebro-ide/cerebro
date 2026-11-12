@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from '
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { git, resetHead } from '../src/index.js';
+import { git, protectedBranchHolding, resetHead, undoCommit } from '../src/index.js';
 
 describe('Reset HEAD, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-reset-')));
@@ -77,5 +77,32 @@ describe('Reset HEAD, with real git', () => {
     expect(staged()).toBe('');
     await expect(resetHead(repo, 'mixed', 'a.txt', git)).rejects.toThrow();
     expect(file()).toBe('local\n');
+  });
+
+  it('Undo Commit: HEAD’s commit undone, its changes staged', async () => {
+    expect(await undoCommit(repo, second, () => true, git)).toBe(null);
+    expect(run('rev-parse', 'HEAD')).toBe(first);
+    expect(file()).toBe('two\n');
+    expect(staged()).toBe('a.txt');
+  });
+
+  it('Undo Commit: not a commit HEAD has moved past, nor one on a protected branch of a remote', async () => {
+    await expect(undoCommit(repo, first, () => true, git)).rejects.toThrow(
+      'The selected commit is not the last in the current branch',
+    );
+    run('update-ref', 'refs/remotes/origin/main', second);
+    run('symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/main');
+    try {
+      const main = (name: string) => name === 'main';
+      expect(await undoCommit(repo, second, main, git)).toBe('origin/main');
+      expect(run('rev-parse', 'HEAD')).toBe(second);
+      // Other branches, and a remote's HEAD, aren't protected ones.
+      expect(await protectedBranchHolding(repo, second, () => false, git)).toBeUndefined();
+      expect(await protectedBranchHolding(repo, second, (n) => n === 'HEAD', git)).toBeUndefined();
+      expect(await undoCommit(repo, second, (n) => n === 'side', git)).toBe(null);
+    } finally {
+      run('symbolic-ref', '--delete', 'refs/remotes/origin/HEAD');
+      run('update-ref', '-d', 'refs/remotes/origin/main');
+    }
   });
 });
