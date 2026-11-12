@@ -1537,7 +1537,7 @@ export function GitLogView(props: {
             const ref = at && (at.kind === 'head' ? 'HEAD' : at.ref);
             if (mode === 'filter') void log.filter(ref);
             else if (mode === 'navigate' && ref !== undefined) {
-              void navigate(log, ref, ref === 'HEAD' ? ref : branchName(ref));
+              void navigate(log, ref, branchName(ref));
             }
           });
           return undefined;
