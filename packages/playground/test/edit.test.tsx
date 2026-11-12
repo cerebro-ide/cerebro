@@ -123,6 +123,21 @@ describe('Edit → Cut, Copy and Paste', () => {
     expect(enabled('paste')).toBe(false);
   });
 
+  it('don’t cut or paste in a read-only code editor, which copies', async () => {
+    const container = add(document.createElement('div'));
+    const handle = render(() => <CodeEditor path="/b.ts" text="b" />, container);
+    cleanups.push(() => {
+      handle.dispose();
+    });
+    const shadow = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(shadow.querySelector('.cm-content') as HTMLElement);
+    expect([enabled('cut'), enabled('paste'), enabled('copy')]).toEqual([false, false, true]);
+    // One that can be changed: both.
+    await userEvent.click(editor('a'));
+    expect([enabled('cut'), enabled('paste')]).toEqual([true, true]);
+  });
+
   it('copy a selection anywhere, but don’t cut from a terminal', async () => {
     const paragraph = add(document.createElement('p'));
     paragraph.textContent = 'some words';

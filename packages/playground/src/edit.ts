@@ -61,9 +61,13 @@ export function target(): Element | undefined {
   return active && !inMenu(active) ? active : last();
 }
 
-/** Where text is typed: a text field, or an editable code editor. */
+/**
+ * Where text is typed: a text field, or an editable code editor; not a read-only one, whose content
+ * is `contenteditable` all the same (CodeMirror's `readOnly` keeps its caret).
+ */
 function editable(element: Element | undefined): boolean {
   if (!element) return false;
+  if (element.closest('.cm-content')) return inChangeableEditor(element);
   if (element instanceof HTMLTextAreaElement) return !element.readOnly && !element.disabled;
   if (element instanceof HTMLInputElement) {
     const text = ['text', 'search', 'url', 'email', 'tel', 'password', 'number'];
