@@ -837,7 +837,8 @@ describe('the branches’ toolbar', () => {
     git.log = history(1);
     git.branches = [branch('refs/heads/main', true)];
     mount();
-    const stripe = () => document.querySelector<HTMLButtonElement>('.playground-log__branches-stripe');
+    const stripe = () =>
+      document.querySelector<HTMLButtonElement>('.playground-log__branches-stripe');
     const hide = button('log.branches.hide');
     expect(hide.getAttribute('aria-label')).toBe('Hide Git Branches');
     // The pane had the keyboard: the commits take it.
