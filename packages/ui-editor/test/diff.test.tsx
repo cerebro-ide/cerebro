@@ -332,9 +332,21 @@ describe('synchronized scrolling', () => {
     const [left, right] = scrollers(root);
     // To start with, at the first change, the left keeping up.
     await expect.poll(() => third(left)).toBeDefined();
+    /** What's a third of the way down a side, for when no line is: CI once found none on the left. */
+    const under = (scroller: HTMLElement) => {
+      const box = scroller.getBoundingClientRect();
+      const root = scroller.getRootNode() as ShadowRoot;
+      const at = root.elementsFromPoint(box.left + 80, box.top + box.height / 3);
+      const lines = scroller.querySelectorAll('.cm-line');
+      return `scrolled ${String(scroller.scrollTop)} of ${String(scroller.scrollHeight)}, ${String(lines.length)} lines drawn (${String(lines[0]?.textContent)} to ${String(lines[lines.length - 1]?.textContent)}), at the point: ${at
+        .slice(0, 3)
+        .map((e) => e.className)
+        .join(' < ')}`;
+    };
     const level = () => {
       const [a, b] = [third(left), third(right)];
-      return a !== undefined && a === b ? a : `${String(a)} ≠ ${String(b)}`;
+      if (a !== undefined && a === b) return a;
+      return `${String(a)} ≠ ${String(b)}; left ${under(left)}; right ${under(right)}`;
     };
     right.scrollTop = 200 * 22;
     await expect.poll(level).toMatch(/^line \d+$/);
