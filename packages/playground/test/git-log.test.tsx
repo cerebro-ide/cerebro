@@ -1003,7 +1003,7 @@ describe('the branches’ toolbar', () => {
     await expect.poll(branchNames).toContain('feat');
   });
 
-  it('shows the tags, as IntelliJ’s, unless Show Tags is off; a tag filters, navigates, but isn’t deleted', async () => {
+  it('shows the tags, as IntelliJ’s, unless Show Tags is off; a tag filters and navigates', async () => {
     git.log = history(2);
     git.branches = [branch('refs/heads/main', true)];
     git.tags = ['v1', 'release/v2'];
@@ -1019,7 +1019,6 @@ describe('the branches’ toolbar', () => {
     tree.focus();
     await userEvent.keyboard('{End}');
     await expect.poll(() => button('log.branches.navigate').disabled).toBe(false);
-    expect(button('log.branches.delete').disabled).toBe(true);
     expect(button('log.branches.update').disabled).toBe(true);
     // Double-clicked, it filters the Log, named as the Log names it.
     await userEvent.dblClick(named('v1'));

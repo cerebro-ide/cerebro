@@ -76,3 +76,28 @@ export async function createTag(worktree: string, tag: NewTag, run: Git): Promis
     tag.message,
   );
 }
+
+/**
+ * Deletes a tag, as IntelliJ's `GitDeleteTagOperation`: what it pointed at kept, an annotated
+ * tag's object, to restore it as it was.
+ */
+export async function deleteTag(
+  worktree: string,
+  name: string,
+  run: Git,
+): Promise<{ hash: string }> {
+  const ref = `refs/tags/${name}`;
+  const hash = (await run(worktree, ['rev-parse', '--verify', '--end-of-options', ref])).trim();
+  await run(worktree, ['tag', '--delete', '--', name]);
+  return { hash };
+}
+
+/** Makes a deleted tag again, at what it pointed at: IntelliJ's Restore. */
+export async function restoreTag(
+  worktree: string,
+  name: string,
+  hash: string,
+  run: Git,
+): Promise<void> {
+  await run(worktree, ['tag', '--', name, hash]);
+}
