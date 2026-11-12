@@ -30,6 +30,13 @@ on it:
 - shfmt, which bash-language-server formats with: without it, Reformat Code leaves bash files
   as they are.
 
+### Markdown preview, as IntelliJ's
+
+From Ido (2026-11-12): "create a markdown preview feature similar to intellij, allowing the user
+to choose between the "code" the "view" or a side by side display of both". IntelliJ's Markdown
+editor has the three as Editor, Preview and Editor and Preview, picked from buttons at its top
+right (a claim, to check against its sources before building).
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
