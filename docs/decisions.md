@@ -1992,7 +1992,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
   branches pane's toolbar's other actions (below) and its own search; tags in the pane; their menu's other items
-  (Show Diff in a New Tab or Window, Open Repository Version, Create
+  (Show Diff in a New Tab or Window, Create
   Patch…, Get, Show Changes from Parents) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
@@ -2047,6 +2047,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   around a hunk as Revert's (measured the same, git 2.43). Recorded in Local History as "Apply
   patch"; if it doesn't apply, "Apply Changes" and "Failed to apply changes: " with git's words
   (`VcsBundle`). Off where Revert Selected Changes is.
+- **Open Repository Version in a commit's file's menu** (added 2026-11-13), after Edit Source, as
+  IntelliJ's (`Vcs.OpenRepositoryVersion`, read from its source): the file as the commit left it,
+  in a read-only editor tab named as IntelliJ's (`AbstractVcsVirtualFile.getPresentableName`): the
+  file's name and the revision, "a.ts (hash)". Off for a file the commit deleted. The host reads it
+  (`git.fileAt`: `git show hash:path`). **Not yet:** a binary file (an image) only says it's
+  binary, where IntelliJ opens its viewer; IntelliJ opens one tab for each file selected.
 - **Show Only Affected Changes over a commit's files** (added 2026-11-13), before Group By, as
   IntelliJ's (`Vcs.Log.ShowOnlyAffectedChanges`, read from its source): there only while the Paths
   filter is on (and off in Find Action otherwise), pressed while on, off to start with, and kept.

@@ -1189,6 +1189,18 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const decode = (side: Uint8Array | undefined) => (side === undefined ? '' : decodeText(side));
     return { original: decode(original), text: decode(current) };
   });
+  // A file as it was at a commit, for Open Repository Version: its text, or that it's binary;
+  // null where the commit hasn't it.
+  connection.onRequest('git.fileAt', async (params) => {
+    const bytes = await bytesAt(
+      text(params, 'path'),
+      hashOf(params),
+      text(params, 'file'),
+      gitBytes,
+    );
+    if (bytes === undefined) return null;
+    return isBinary(bytes) ? { binary: true } : { text: decodeText(bytes) };
+  });
   connection.onRequest('git.ignored', (params) => listIgnored(text(params, 'path'), git));
   // Rolls back the files named, as they're changed now; gives the changes left.
   connection.onRequest('git.rollback', async (params) => {
