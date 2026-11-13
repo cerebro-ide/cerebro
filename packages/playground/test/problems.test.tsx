@@ -7,13 +7,15 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
   askProblems,
+  compareProblems,
   fileProblems,
   hasErrors,
   hasErrorsBeneath,
   ProblemsView,
+  readViewOptions,
   setupProblems,
 } from '../src/problems.js';
-import { closeAll, menuItems } from './fakes.js';
+import { closeAll, menuItem, menuItems } from './fakes.js';
 
 const commands = new CommandRegistry();
 const menus = new MenuRegistry();
@@ -197,6 +199,128 @@ describe('the Problems tool window', () => {
     // The file's row has no menu.
     await userEvent.click(row(box, 'problems'), { button: 'right' });
     expect(document.querySelector('.cerebro-menu')).toBeNull();
+  });
+});
+
+describe('the View Options', () => {
+  /** Whether each View Option is on, by its command. */
+  const options = () =>
+    Object.fromEntries(
+      [
+        'problems.show.warning',
+        'problems.show.weak',
+        'problems.sortBySeverity',
+        'problems.sortByName',
+      ].map((id) => [id, commands.isChecked(id)]),
+    );
+
+  afterEach(() => {
+    // Back to IntelliJ's defaults, for the tests after.
+    for (const [id, on] of Object.entries(options())) {
+      if (on !== (id !== 'problems.sortByName')) commands.execute(id);
+    }
+    localStorage.clear();
+  });
+
+  it('are a menu from the window’s toolbar: Show, then Sort By, as IntelliJ’s', async () => {
+    mount();
+    const button = document.querySelector('[aria-label="View Options"]') as Element;
+    await userEvent.hover(button);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('View Options');
+    await userEvent.click(button);
+    expect(await menuItems()).toEqual(['Warning', 'Weak Warning', 'Severity', 'Name']);
+    expect(
+      [...document.querySelectorAll('.cerebro-menu-heading')].map((h) => h.textContent),
+    ).toEqual(['Show', 'Sort By']);
+    expect(options()).toEqual({
+      'problems.show.warning': true,
+      'problems.show.weak': true,
+      'problems.sortBySeverity': true,
+      'problems.sortByName': false,
+    });
+    await userEvent.click(menuItem('Weak Warning'));
+    expect(commands.isChecked('problems.show.weak')).toBe(false);
+  });
+
+  it('hide warnings and weak ones, not errors, and say problems could be filtered out', async () => {
+    const box = mount();
+    file.set('/w/src/a.ts');
+    await askProblems('/w/src/a.ts', () => Promise.resolve(PROBLEMS));
+    await expect.poll(() => rows(box).length).toBe(5);
+    commands.execute('problems.show.warning');
+    commands.execute('problems.show.weak');
+    await expect
+      .poll(() => rows(box))
+      .toEqual([
+        'a.ts/w/src2 problems',
+        "Type 'string' is not assignable.:1",
+        "Cannot find name 'y'.:10",
+      ]);
+    // Only warnings: none shown, and why there may be none.
+    await askProblems('/w/src/a.ts', () => Promise.resolve(PROBLEMS.slice(0, 1)));
+    const empty = () => box.querySelector('.playground-project__empty');
+    await expect
+      .poll(() => empty()?.textContent)
+      .toBe('No problems in a.tsProblems could be filtered out');
+    // On a line of its own.
+    expect(empty()?.querySelector('br')).not.toBeNull();
+    commands.execute('problems.show.warning');
+    await expect.poll(() => rows(box).length).toBe(2);
+  });
+
+  it('sort by name, or by place without severity, and are kept', async () => {
+    const box = mount();
+    file.set('/w/src/a.ts');
+    await askProblems('/w/src/a.ts', () => Promise.resolve(PROBLEMS));
+    await expect.poll(() => rows(box).length).toBe(5);
+    commands.execute('problems.sortBySeverity');
+    await expect
+      .poll(() => rows(box).slice(1))
+      .toEqual([
+        "Type 'string' is not assignable.:1",
+        'Missing semicolon.:3',
+        "'x' is declared but never used.:5",
+        "Cannot find name 'y'.:10",
+      ]);
+    commands.execute('problems.sortByName');
+    await expect
+      .poll(() => rows(box).slice(1))
+      .toEqual([
+        "'x' is declared but never used.:5",
+        "Cannot find name 'y'.:10",
+        'Missing semicolon.:3',
+        "Type 'string' is not assignable.:1",
+      ]);
+    commands.execute('problems.show.weak');
+    expect(readViewOptions()).toEqual({
+      hidden: ['weak'],
+      sortBySeverity: false,
+      sortByName: true,
+    });
+  });
+
+  it('read as IntelliJ’s defaults when not kept, or unreadable', () => {
+    const defaults = { hidden: [], sortBySeverity: true, sortByName: false };
+    expect(readViewOptions()).toEqual(defaults);
+    localStorage.setItem('cerebro.problems.view', '{"hidden":["error","weak"]}');
+    expect(readViewOptions()).toEqual({ ...defaults, hidden: ['weak'] });
+    localStorage.setItem('cerebro.problems.view', '{"hidden":"weak"}');
+    expect(readViewOptions()).toEqual(defaults);
+    localStorage.setItem('cerebro.problems.view', '{unreadable');
+    expect(readViewOptions()).toEqual(defaults);
+  });
+
+  it('compare as IntelliJ’s: numbers in messages by their value, then by place', () => {
+    const p = (message: string, line: number, column = 0) =>
+      ({ severity: 'error', message, line, column }) as const;
+    const by = { severity: true, name: true };
+    expect(compareProblems(p('item 9', 1), p('item 10', 0), by)).toBeLessThan(0);
+    expect(compareProblems(p('same', 2, 1), p('same', 2, 0), by)).toBeGreaterThan(0);
+    // By place, then by message.
+    const place = { severity: false, name: false };
+    expect(compareProblems(p('b', 3), p('a', 3), place)).toBeGreaterThan(0);
   });
 });
 

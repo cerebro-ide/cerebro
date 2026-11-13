@@ -76,7 +76,7 @@ diff's model for one link (CLAUDE.md).
   a press is a claim, not measured. The test now gives its page the focus before it starts.
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
-  Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
+  Problems window's Project Errors tab and Group by Inspection, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
