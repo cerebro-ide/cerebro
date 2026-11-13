@@ -442,13 +442,18 @@ describe('mouse', () => {
 
   it('gives focus back when it closes', () => {
     const { services } = setup();
+    // Inside a shadow root, as an editor's content is.
+    const host = document.createElement('div');
     const button = document.createElement('button');
-    document.body.append(button);
+    host.attachShadow({ mode: 'open' }).append(button);
+    document.body.append(host);
     button.focus();
     open(services, 'test', { x: 10, y: 10 });
+    // Taken meanwhile: the menu takes none itself.
+    button.blur();
     key('Escape');
-    expect(document.activeElement).toBe(button);
-    button.remove();
+    expect(host.shadowRoot?.activeElement).toBe(button);
+    host.remove();
   });
 });
 

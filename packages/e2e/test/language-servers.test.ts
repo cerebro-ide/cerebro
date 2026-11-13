@@ -39,16 +39,28 @@ const focused = () =>
     return element ? `${element.tagName}.${element.className}` : null;
   });
 
+/**
+ * Closes a popup left open by an earlier press's late answer (name matches), printing it: two
+ * Windows runs failed every test after the shell one, Go to File never showing (a claim), and a
+ * macOS run's (#253) Alt+F7 opened Usages over one, the focus back in the editor, where Escape
+ * doesn't reach it. Its own field takes the Escape; the focus goes back to the editor after.
+ */
+async function closeLeftPopups(): Promise<void> {
+  let closed = false;
+  while ((await popup().count()) > 0) {
+    console.log('A popup was left open:', await popup().last().textContent());
+    await popup().last().locator('.cerebro-popup__search').focus();
+    await page().keyboard.press('Escape');
+    closed = true;
+  }
+  if (closed && !(await focused())?.startsWith('DIV.cm-content')) {
+    await page().locator('.cm-content:visible').first().focus();
+  }
+}
+
 /** Opens a file with Go to File, the caret at the start of a line holding `text`. */
 async function openAt(name: string, text: string): Promise<void> {
-  // A popup left open (an earlier test's late name matches, a claim: two Windows runs failed every
-  // test after the shell one, Go to File never showing) is printed and closed first.
-  const left = await popup().count();
-  if (left > 0) {
-    console.log('A popup was left open:', await popup().first().textContent());
-    await page().keyboard.press('Escape');
-    await popup().first().waitFor({ state: 'detached' });
-  }
+  await closeLeftPopups();
   await page().keyboard.press(KEYS.goToFile);
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
@@ -62,8 +74,8 @@ async function openAt(name: string, text: string): Promise<void> {
  * matches show instead, which this closes.
  */
 async function untilAnswered(keys: string, answered: () => Promise<boolean>): Promise<void> {
+  await closeLeftPopups();
   let presses = 0;
-  let pressed = 0;
   // Where the page was at each press and after it, printed if no answer comes: a macOS run (#228)
   // ended with lib.py's tab active, the focus on the body and a popup of name matches open.
   const trail: string[] = [];
@@ -81,18 +93,22 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
   await expect
     .poll(
       async () => {
-        // An answer can come after the check (the host waits up to 3 s for a server): pressing
-        // again from where it went asks something else (a Windows run ended in lib.py, with the
-        // name matches of a Ctrl+B pressed there).
         if (await answered()) return true;
         presses++;
-        pressed = Date.now();
         await note(`before ${keys} #${String(presses)}`);
         await page().keyboard.press(keys);
-        await page().waitForTimeout(500);
+        // Its answer, or the name matches the host shows when a server doesn't answer in 3 s
+        // (`PATIENCE`), before pressing again: a press while another may still be answered lands
+        // where that answer goes. A macOS run (#233) ended Ctrl+B in lib.py with a chooser of
+        // walk's definitions open from a second press and the focus in the editor, where Escape
+        // didn't close it; a Windows run, in lib.py with the name matches of a press there.
+        const names = () => popup().getByText('Name matches').count();
+        const start = performance.now();
+        while (performance.now() - start < 3_500 && !(await answered()) && (await names()) === 0) {
+          await page().waitForTimeout(250);
+        }
         await note('after');
-        const names = await popup().getByText('Name matches').count();
-        if (names > 0) {
+        if ((await names()) > 0) {
           await page().keyboard.press('Escape');
           await note('after Escape');
           return false;
@@ -106,9 +122,6 @@ async function untilAnswered(keys: string, answered: () => Promise<boolean>): Pr
       console.log(`The presses of ${keys}:\n${trail.join('\n')}`);
       throw error;
     });
-  // An earlier press's answer may still come, and go there again after the next test has moved on
-  // (a Windows run went back to lib.sh from scope.ts): it's waited for, as long as the host waits.
-  if (presses > 1) await page().waitForTimeout(Math.max(0, pressed + 3_500 - Date.now()));
 }
 
 /**

@@ -9,6 +9,7 @@
 // Duplicate Line or Selection is the code editor's alone, in one that can be changed.
 
 import type { CommandRegistry } from '@cerebro-ide/commands';
+import { focusedElement } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import {
   editorDuplicate,
@@ -25,13 +26,6 @@ export type EditAction = 'undo' | 'redo' | 'cut' | 'copy' | 'paste';
  */
 const lastFocused = signal<Element | undefined>(undefined);
 
-/** The focused element, inside shadow roots: an editor's content, or its find bar's field. */
-function deepActive(): Element | undefined {
-  let active = document.activeElement;
-  while (active?.shadowRoot?.activeElement) active = active.shadowRoot.activeElement;
-  return active ?? undefined;
-}
-
 /** Whether an element is a menu's, its bar's, or the page itself: never what's edited. */
 function inMenu(element: Element): boolean {
   return (
@@ -45,8 +39,8 @@ function inMenu(element: Element): boolean {
  * so it's also read before each key and press, which come before a menu opens.
  */
 function follow(): void {
-  const active = deepActive();
-  if (active && !inMenu(active)) lastFocused.set(active);
+  const active = focusedElement();
+  if (!inMenu(active)) lastFocused.set(active);
 }
 
 /** What last had the focus outside a menu, while it's still on the page (a closed editor isn't). */
@@ -57,8 +51,8 @@ function last(): Element | undefined {
 
 /** What a command acts on: what has the focus, or had it before a menu took it. */
 export function target(): Element | undefined {
-  const active = deepActive();
-  return active && !inMenu(active) ? active : last();
+  const active = focusedElement();
+  return inMenu(active) ? last() : active;
 }
 
 /**

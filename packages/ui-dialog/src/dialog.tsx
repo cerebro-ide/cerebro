@@ -9,7 +9,7 @@
 // OK may have options, as IntelliJ's option buttons (the Push dialog's Force Push): an arrow beside
 // it lists them, and the button does the first one enabled.
 
-import { render, type Child } from '@cerebro-ide/jsx';
+import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 
 export interface DialogOk<T> {
@@ -105,8 +105,8 @@ class Dialog<T> implements DialogHandle<T> {
     this.result = new Promise((resolve) => {
       this.resolve = resolve;
     });
-    // At least the body: a document always has a focused element.
-    this.restoreFocus = document.activeElement as HTMLElement;
+    // Inside an editor's shadow root too.
+    this.restoreFocus = focusedElement();
     this.layer = document.createElement('div');
     this.layer.className = 'cerebro-dialog-layer';
     // Presses outside the dialog don't take the focus from it.

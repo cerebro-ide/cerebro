@@ -529,10 +529,18 @@ describe('Replace in Files', () => {
   it('replaces the highlighted line’s matches, saves the file, and searches again', async () => {
     await file('/r/r1/x.ts', 'beta beta\nbeta\n');
     const { done } = await find('beta', { replacing: true });
-    await userEvent.type(q('.playground-find__replace'), 'Gamma');
-    // At once, not with an earlier answer.
-    await userEvent.click(button('Replace'));
-    await expect.poll(() => disk.get('/r/r1/x.ts')).toBe('Gamma Gamma\nbeta\n');
+    // At once, not with an earlier answer: the typed search's timer held, as typing then a
+    // press quicker than its delay would (taking longer, under a loaded run's, left this untested).
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      await userEvent.type(q('.playground-find__replace'), 'Gamma');
+      await userEvent.click(button('Replace'));
+      await expect.poll(() => disk.get('/r/r1/x.ts')).toBe('Gamma Gamma\nbeta\n');
+      // The search again, after.
+      vi.runOnlyPendingTimers();
+    } finally {
+      vi.useRealTimers();
+    }
     expect(host.params('fs.write').at(-1)).toMatchObject({ label: 'Replace in Files' });
     await expect.poll(labels).toEqual(['beta']);
     await userEvent.click(toggle('Preserve case (Alt+E)'));
