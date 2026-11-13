@@ -11,6 +11,7 @@ import type { EnvironmentSpec, Tab } from '@cerebro-ide/layout';
 import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@cerebro-ide/ui-popup';
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
@@ -26,7 +27,13 @@ import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
 import { favoriteIcon, icon } from './icons.js';
 import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
-import { branchName, isTag, paneSettings, type BranchesContext } from './log-branches.js';
+import {
+  branchName,
+  isTag,
+  paneSettings,
+  savePaneSettings,
+  type BranchesContext,
+} from './log-branches.js';
 import { continueRebase } from './merge-rebase.js';
 import { notifications } from './notifications.js';
 import { stateOf } from './repository-state.js';
@@ -74,6 +81,9 @@ const branches = signal<Branches>({
   upstreams: new Map(),
   fresh: false,
 });
+
+/** The popup's settings menu, from the button at its search field's end. */
+const SETTINGS_MENU = 'git/branches/settings';
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
@@ -1253,11 +1263,13 @@ export function setupBranches(
   /** The popup, below the toolbar's button; from the Git menu or its key, at the window's top. */
   const pick = (button?: HTMLElement) => {
     const at = target();
-    if (at) {
+    const read = () => {
+      if (!at) return;
       readBranches(at.host, at.worktree).catch((error: unknown) => {
         console.error('Reading the branches failed', error);
       });
-    }
+    };
+    read();
     const repository = repositoryOf(at?.worktree ?? '');
     /** IntelliJ's order (GitBranchesTreeModel): the branch checked out, favorites, then the rest. */
     const rows = (names: readonly string[], kind: 'local' | 'remote' | 'tag', group: string) =>
@@ -1273,12 +1285,34 @@ export function setupBranches(
         }))
         .sort((a, b) => a.weight - b.weight)
         .map(({ branch }) => row(branch, group, repository));
-    /** The recent branches, in the order they were checked out (IntelliJ's emptyBranchComparator). */
+    /** The recent branches, while shown, in the order they were checked out (IntelliJ's emptyBranchComparator). */
+    const recent = () => (paneSettings.showRecent.get() ? branches.get().recent : []);
     const recentRows = () =>
-      branches.get().recent.map((name) => row({ name, remote: false }, 'Recent', repository));
+      recent().map((name) => row({ name, remote: false }, 'Recent', repository));
+
     const handle: PickerHandle<Choice> = openPicker<Choice>({
       label: 'Branches',
       placeholder: 'Search',
+      // Its settings, as IntelliJ's (Git.Branches.Popup.Settings), at the search field's end.
+      options: () => (
+        <button
+          type="button"
+          class="cerebro-toolbar-button"
+          aria-label="Settings"
+          data-menu={SETTINGS_MENU}
+          ref={tooltip({ text: () => 'Settings' })}
+          on:mousedown={(event) => {
+            // Keeps the focus in the search field, where it goes back as the menu closes.
+            event.preventDefault();
+          }}
+          on:click={(event) => {
+            const anchor = event.currentTarget as HTMLElement;
+            openMenu(services, SETTINGS_MENU, { anchor, placement: 'below' }, { owner: anchor });
+          }}
+        >
+          {icon('settings')}
+        </button>
+      ),
       position: button ? { below: button } : 'top',
       ...(button ? { owner: button } : {}),
       // Space marks the branch highlighted a favorite, or not, as IntelliJ's; the search takes none.
@@ -1301,7 +1335,7 @@ export function setupBranches(
               disabled: !commands.isEnabled(command),
               run: () => commands.execute(command),
             })),
-          ],
+          ].filter(() => query.trim() === '' || paneSettings.actionsInSearch.get()),
           query,
         ),
         // As IntelliJ's (GitBranchesTreeModel): the recent first, as checked out, then Local
@@ -1309,7 +1343,7 @@ export function setupBranches(
         ...fuzzyFilter(recentRows(), query),
         ...fuzzyFilter(
           rows(
-            branches.get().local.filter((name) => !branches.get().recent.includes(name)),
+            branches.get().local.filter((name) => !recent().includes(name)),
             'local',
             'Local',
           ),
@@ -1317,10 +1351,24 @@ export function setupBranches(
         ),
         ...fuzzyFilter(rows(branches.get().remote, 'remote', 'Remote'), query),
         // As IntelliJ's (GitBranchesTreeModel): the tags after, while Show Tags is on.
-        ...fuzzyFilter(rows(branches.get().tags, 'tag', 'Tags'), query),
+        ...fuzzyFilter(
+          rows(paneSettings.showTags.get() ? branches.get().tags : [], 'tag', 'Tags'),
+          query,
+        ),
       ],
     });
-    void handle.result.then((choice) => choice?.run?.());
+    // The tags read again as Show Tags is turned on from its settings while it's open.
+    let first = true;
+    const tagging = effect(() => {
+      const on = paneSettings.showTags.get();
+      if (!first && on) read();
+      first = false;
+      return undefined;
+    });
+    void handle.result.then((choice) => {
+      tagging.dispose();
+      choice?.run?.();
+    });
     return handle;
   };
   commands.register({
@@ -1332,6 +1380,35 @@ export function setupBranches(
       pick();
     },
   });
+  // Its settings that apply with one repository, as IntelliJ's (Git.Branches.Popup.Settings):
+  // Show Actions in Search Results (its text with one), then Show Recent Branches and Show Tags,
+  // the Log's branches pane's (one setting for both, as IntelliJ's).
+  for (const [id, label, setting] of [
+    [
+      'git.branches.actionsInSearch',
+      'Show Actions in Search Results',
+      paneSettings.actionsInSearch,
+    ],
+    ['git.branches.showRecent', 'Show Recent Branches', paneSettings.showRecent],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      checked: () => setting.get(),
+      run: () => {
+        setting.set(!setting.peek());
+        savePaneSettings();
+      },
+    });
+  }
+  menus.contribute({
+    menu: SETTINGS_MENU,
+    item: { command: 'git.branches.actionsInSearch' },
+    group: 'a',
+  });
+  for (const command of ['git.branches.showRecent', 'log.branches.showTags']) {
+    menus.contribute({ menu: SETTINGS_MENU, item: { command }, group: 'b' });
+  }
   // IntelliJ's Git menu, its third group: Branches…, New Branch….
   menus.contribute({ menu: 'main/git', item: { command: 'git.branches' }, group: 'an', order: 1 });
   menus.contribute({ menu: 'main/git', item: { command: 'git.newBranch' }, group: 'an', order: 2 });

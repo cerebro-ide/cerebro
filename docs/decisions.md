@@ -3392,6 +3392,18 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     does not have any commits yet"), which was logged as an error each time the popup opened.
     **Not yet:** IntelliJ's description saying why ("Creating new branch is not possible before
     the first commit."), which Cerebro's popups have nowhere to show.
+  - **Its settings** (added 2026-11-13): a gear at the search field's end, as IntelliJ's
+    (`Git.Branches.Popup.Settings`, read from its source: `AllIcons.General.Settings` in the new
+    UI), opens a menu below it with Show Actions in Search Results, then Show Recent Branches and
+    Show Tags, checked while on, all on by default (IntelliJ's words and order). With actions off,
+    New Branch… and Checkout Tag or Revision… don't show among what's typed, and show again once
+    the field is empty; with Recent off, the recent branches are listed under Local. Show Tags is
+    the Log's branches pane's own setting, one for both as IntelliJ's (`GitVcsSettings`); turning
+    it on with the popup open reads the tags again. The settings are kept with the pane's. The
+    popup stays open while its menu is used: a click in a menu opened from it isn't outside it.
+    The search field keeps the focus, so typing goes on there once the menu closes.
+    **Not yet:** Group by Directory and Restore Popup Size from the same menu, and the filters that
+    apply with more than one repository.
   - **Tags** (added 2026-11-12), a Tags group after Remote, as IntelliJ's (`GitBranchesTreeModel`),
     while the Log's branches pane's Show Tags is on (IntelliJ's one setting for both); where they
     can't be read, the branches show without them. Favorites as the branches' (decision "Branches
@@ -3513,7 +3525,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
   a detached checkout's "to" is `HEAD` or a hash, so only names that are branches are kept
   (measured, git 2.43). Before a first commit there's no reflog to read (git fails), so there's no
   Recent. Favourites were done on 2026-11-12, in the Log's branches pane's entry.
-- **Not yet:** IntelliJ's Show Recent Branches setting (Recent is always shown, its default); the
+- **Not yet:** the
   branch IntelliJ remembers as recent for a clone's first branch, which the reflog has no checkout
   for.
 

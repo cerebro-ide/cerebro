@@ -8,7 +8,7 @@ import { setupBranches, type BranchRef } from '../src/branches.js';
 import { compareTab, setupCompare } from '../src/compare-branches.js';
 import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
 import { useProjects, workspace } from '../src/environments.js';
-import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
+import { paneSettings, readPaneSettings, type BranchesSelection } from '../src/log-branches.js';
 import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
 import { globalSettings } from '../src/settings.js';
@@ -208,6 +208,15 @@ beforeAll(() => {
   document.body.append(button);
   ({ pick } = setupBranches(services, { readWorktrees, open, openTab }));
   setupCompare(services, (tab) => compared.push(tab));
+  // The Log's Show Tags, in the popup's settings too, as the Log has it.
+  commands.register({
+    id: 'log.branches.showTags',
+    label: 'Show Tags',
+    checked: () => paneSettings.showTags.get(),
+    run: () => {
+      paneSettings.showTags.set(!paneSettings.showTags.peek());
+    },
+  });
   setupDiffWithWorkingTree(services, () => {
     revealed++;
   });
@@ -380,6 +389,62 @@ describe('the branches popup', () => {
       expect.arrayContaining(['git.branch.checkout', 'git.branch.delete', 'git.tag.push.origin']),
     );
     expect(ids.filter((id) => commands.isEnabled(id))).toEqual([]);
+  });
+
+  it('has IntelliJ’s settings at its search field’s end: actions searched, recent and tags shown', async () => {
+    git.checkouts = ['side', 'main'];
+    pick(button);
+    await expect.poll(popupItems).toContain('v2');
+    const settings = document.querySelector(
+      '.cerebro-popup [aria-label="Settings"]',
+    ) as HTMLElement;
+    const toggle = async (label: string) => {
+      await userEvent.click(settings);
+      await userEvent.click(menuItem(label));
+    };
+    await userEvent.hover(settings);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Settings');
+    await userEvent.click(settings);
+    expect(await menuItems()).toEqual([
+      'Show Actions in Search Results',
+      'Show Recent Branches',
+      'Show Tags',
+    ]);
+    expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(1);
+    await userEvent.keyboard('{Escape}');
+    // Recent off: no Recent group, its branches under Local; the popup stays open.
+    expect(
+      [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
+    ).toEqual(['Recent', 'Local', 'Remote', 'Tags']);
+    await toggle('Show Recent Branches');
+    await expect
+      .poll(() => [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent))
+      .toEqual(['Local', 'Remote', 'Tags']);
+    expect(readPaneSettings().showRecent).toBe(false);
+    // Tags off and on again: read again as they show.
+    await toggle('Show Tags');
+    await expect.poll(popupItems).not.toContain('v2');
+    const read = host.params('git.tags').length;
+    await toggle('Show Tags');
+    await expect.poll(popupItems).toContain('v2');
+    expect(host.params('git.tags').length).toBe(read + 1);
+    // Actions off: none among what's searched; all of them with nothing typed.
+    // Typed after its menu closes: the search field keeps the focus.
+    const field = document.querySelector('.cerebro-popup input') as HTMLInputElement;
+    expect(document.activeElement).toBe(field);
+    await userEvent.keyboard('n');
+    expect(field.value).toBe('n');
+    await expect.poll(popupItems).toContain('New Branch…');
+    await toggle('Show Actions in Search Results');
+    await expect.poll(popupItems).not.toContain('New Branch…');
+    expect(readPaneSettings().actionsInSearch).toBe(false);
+    await userEvent.clear(field);
+    await expect.poll(popupItems).toContain('New Branch…');
+    expect(document.querySelector('.cerebro-popup')).not.toBeNull();
+    paneSettings.showRecent.set(true);
+    paneSettings.actionsInSearch.set(true);
   });
 
   it('lists the tags while Show Tags is on, as IntelliJ’s; without them where they can’t be read', async () => {

@@ -247,9 +247,26 @@ describe('openPicker', () => {
       const handle = picker({ owner });
       press(search());
       press(owner);
+      // A menu opened over it (its settings) is part of it; one there before it isn't.
+      const menu = (after: boolean) => {
+        const element = document.createElement('div');
+        element.className = 'cerebro-menu';
+        if (after) document.body.append(element);
+        else document.body.prepend(element);
+        return element;
+      };
+      const over = menu(true);
+      press(over);
       expect(handle.open).toBe(true);
+      over.remove();
+      if (how === 'outside') {
+        const under = menu(false);
+        press(under);
+        under.remove();
+        expect(await handle.result).toBeUndefined();
+        continue;
+      }
       if (how === 'escape') key('Escape');
-      else if (how === 'outside') press(document.body);
       else window.dispatchEvent(new Event(how));
       expect(await handle.result).toBeUndefined();
     }

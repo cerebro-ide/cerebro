@@ -320,8 +320,9 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private readonly onPointerDown = (event: PointerEvent) => {
     if (this.submenuOpen) return;
     const target = event.target as Node;
-    // A popup opened over this one (its search history) is part of it while it's open.
-    const over = (target as Element).closest('.cerebro-popup');
+    // A popup or menu opened over this one (its search history, its settings) is part of it while
+    // it's open.
+    const over = (target as Element).closest('.cerebro-popup, .cerebro-menu');
     const later =
       over != null &&
       (this.element.compareDocumentPosition(over) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
