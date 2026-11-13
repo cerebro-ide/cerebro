@@ -171,18 +171,24 @@ export interface BranchesContext {
 /** What a single click on a branch does, as IntelliJ's pane settings ("On Single Click"). */
 export type OnSelection = 'filter' | 'navigate' | undefined;
 
-/** Where the pane's settings are kept: one for every repository, as IntelliJ's. */
+/**
+ * Where the branches' settings are kept, the pane's and the popup's together, as IntelliJ keeps them
+ * (`GitVcsSettings`): one for every repository, as IntelliJ's.
+ */
 const SETTINGS = 'cerebro.log.branchesPane';
 
 /**
- * The pane's settings, as kept: a single click doing nothing, and grouped by directory, to start
- * with, as IntelliJ's (`Change.Log.Filter.on.Branch.Selection`,
- * `Navigate.Log.To.Branch.on.Branch.Selection`, `git.branches.group.by.directory`).
+ * The branches' settings, as kept: a single click doing nothing, grouped by directory, the tags, the
+ * popup's recent branches and its actions in search results shown, to start with, as IntelliJ's
+ * (`Change.Log.Filter.on.Branch.Selection`, `Navigate.Log.To.Branch.on.Branch.Selection`,
+ * `git.branches.group.by.directory`, `GitVcsOptions`).
  */
 export function readPaneSettings(): {
   onSelection: OnSelection;
   byDirectory: boolean;
   showTags: boolean;
+  showRecent: boolean;
+  actionsInSearch: boolean;
 } {
   try {
     const stored = JSON.parse(localStorage.getItem(SETTINGS) ?? '{}') as Record<string, unknown>;
@@ -191,9 +197,17 @@ export function readPaneSettings(): {
       onSelection: onSelection === 'filter' || onSelection === 'navigate' ? onSelection : undefined,
       byDirectory: stored.byDirectory !== false,
       showTags: stored.showTags !== false,
+      showRecent: stored.showRecent !== false,
+      actionsInSearch: stored.actionsInSearch !== false,
     };
   } catch {
-    return { onSelection: undefined, byDirectory: true, showTags: true };
+    return {
+      onSelection: undefined,
+      byDirectory: true,
+      showTags: true,
+      showRecent: true,
+      actionsInSearch: true,
+    };
   }
 }
 
@@ -202,6 +216,8 @@ export const paneSettings = {
   onSelection: signal<OnSelection>(settings.onSelection),
   byDirectory: signal(settings.byDirectory),
   showTags: signal(settings.showTags),
+  showRecent: signal(settings.showRecent),
+  actionsInSearch: signal(settings.actionsInSearch),
 };
 
 /** Keeps the pane's settings as they are now. */
@@ -213,6 +229,8 @@ export function savePaneSettings(): void {
         onSelection: paneSettings.onSelection.peek(),
         byDirectory: paneSettings.byDirectory.peek(),
         showTags: paneSettings.showTags.peek(),
+        showRecent: paneSettings.showRecent.peek(),
+        actionsInSearch: paneSettings.actionsInSearch.peek(),
       }),
     );
   } catch {

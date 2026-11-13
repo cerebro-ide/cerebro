@@ -1467,12 +1467,16 @@ describe('the branches’ toolbar', () => {
       onSelection: undefined,
       byDirectory: true,
       showTags: true,
+      showRecent: true,
+      actionsInSearch: true,
     });
     localStorage.setItem('cerebro.log.branchesPane', 'not JSON');
     expect(readPaneSettings()).toEqual({
       onSelection: undefined,
       byDirectory: true,
       showTags: true,
+      showRecent: true,
+      actionsInSearch: true,
     });
     localStorage.removeItem('cerebro.log.branchesPane');
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
