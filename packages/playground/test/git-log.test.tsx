@@ -727,6 +727,35 @@ describe('a commit’s pane', () => {
     commands.execute('log.files.showChangesToParents');
   });
 
+  it('shows a filtered commit’s own changes, its graph joined to the commit shown below it', async () => {
+    git.log = history(1);
+    const [h0, , h2] = history(3, [], 'h') as [LogCommit, LogCommit, LogCommit];
+    // The Paths filter hides h1: h0 is joined to h2, its parent still h1.
+    expect(h0.parents).toEqual(['h1']);
+    git.byPaths['src/'] = [{ ...h0, joins: ['h2'] }, h2];
+    git.changes['h1..h0'] = [{ path: 'src/a.ts', status: 'modified' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    showHistory('src/');
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect
+      .poll(() => host.params('git.changes').at(-1))
+      .toEqual({ path: '/r', from: 'h1', to: 'h0' });
+    // h2 on h0's line, which would run on past it, waiting for h1, and Go to Parent Commit there.
+    expect(rows()[1]?.querySelector('.playground-log__graph')?.getAttribute('width')).toBe(
+      rows()[0]?.querySelector('.playground-log__graph')?.getAttribute('width'),
+    );
+    commands.execute('log.goToParent');
+    await expect
+      .poll(
+        () =>
+          document.querySelector('.playground-log__commits .cerebro-tree-row--selected')
+            ?.textContent,
+      )
+      .toContain('Change 2');
+  });
+
   it('shows no commit once the selected one is gone, the Log read again', async () => {
     const [c0, c1] = history(2) as [LogCommit, LogCommit];
     git.log = [c0, c1];
