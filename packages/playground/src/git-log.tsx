@@ -2374,7 +2374,8 @@ function LogToolbar(props: {
               );
             }}
           >
-            {icon('graphOptions')}
+            {/* Badged while anything but by date is chosen, as IntelliJ's. */}
+            {() => icon('graphOptions', log.graphOptions.get() !== 'date' || log.noMerges.get())}
           </button>,
           <ToolbarButton
             commands={services.commands}

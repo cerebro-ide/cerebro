@@ -2304,8 +2304,12 @@ describe('Graph Options', () => {
       ['No Merges', 'false'],
     ]);
     expect(asked()).toEqual([undefined, undefined]);
+    // Badged, as IntelliJ's, while anything but the default is on.
+    const badged = () => button().querySelector('.playground-icon__badge') !== null;
+    expect(badged()).toBe(false);
     await choose('Topologically');
     await expect.poll(asked).toEqual(['topological', undefined]);
+    expect(badged()).toBe(true);
     expect(localStorage.getItem('cerebro.log.graph')).toBe('topological');
     // One at a time: First Parent replaces the sort, and off, back to by date.
     await choose('First Parent');
@@ -2342,6 +2346,7 @@ describe('Graph Options', () => {
     await expect.poll(subjects).toHaveLength(2);
     await choose('No Merges');
     await expect.poll(asked).toEqual([undefined, true]);
+    expect(button().querySelector('.playground-icon__badge')).not.toBeNull();
     expect((await menu()).at(-1)?.getAttribute('aria-checked')).toBe('true');
     await userEvent.keyboard('{Escape}');
     await choose('No Merges');

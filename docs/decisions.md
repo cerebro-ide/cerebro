@@ -2017,10 +2017,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   Measured (git 2.43): `--first-parent` still gives a merge's other parents, so the host joins the
   graph to the first alone, and down first parents under a filter. **Claims:** Topologically is
   git's order, not IntelliJ's own (its "Bek" sort, incoming commits directly below the merge,
-  which git's matches for one merge, measured); the icon (not IntelliJ's drawing). **Not yet:**
-  Linearize Merges (off in IntelliJ unless its registry turns it on), the branch actions after
-  Options (Collapse and Expand Linear Branches, Long Edges), and the icon's badge when anything
-  but the default is on.
+  which git's matches for one merge, measured); the icon (not IntelliJ's drawing). Its icon is
+  badged while anything but By Commit Date is chosen, or No Merges is on, as IntelliJ's
+  (`withIconBadge`, `IconBadge.SUCCESS`): a dot where IntelliJ's `BadgeDotProvider` puts it, cut
+  into the icon. Its colour (`--cerebro-icon-badge-success`) is IntelliJ's from its source
+  (`IconBadge.successBackground`, no theme overriding it), not measured. **Not yet:** Linearize
+  Merges (off in IntelliJ unless its registry turns it on), and the branch actions after Options
+  (Collapse and Expand Linear Branches, Long Edges).
 - **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
   (Show Diff in a New Tab or Window, Create
   Patch…); Ctrl+P there; a commit's right-click menu's other
