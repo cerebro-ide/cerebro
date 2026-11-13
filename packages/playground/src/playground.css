@@ -226,8 +226,14 @@ body,
   cursor: pointer;
 }
 
-.playground-link:hover {
+.playground-link:hover:not(:disabled) {
   text-decoration: underline;
+}
+
+/* Off, as the dialogs' buttons are. */
+.playground-link:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 /* New, Upstream, or New & Upstream after the target, as IntelliJ's small rounded labels. */
@@ -1946,6 +1952,11 @@ body,
   gap: 8px;
   align-items: center;
   margin-bottom: 6px;
+}
+
+/* IntelliJ's separator before it, as space. */
+.playground-merge__resolve {
+  margin-left: 8px;
 }
 
 .playground-merge__left {

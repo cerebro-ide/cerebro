@@ -3,12 +3,14 @@
 // three in IntelliJ's colours, its lines aligned by spacers, as the two-way diff aligns them; beside
 // each side's, between the panes, an arrow takes it into the result and a cross ignores it. Once a
 // side of a conflict is taken, the other's arrow adds it after. A change taken or ignored is
-// resolved and no longer marked. The panes scroll together, in one frame.
+// resolved and no longer marked. A conflict that can be merged word by word has a Resolve button in
+// the result's gutter, as IntelliJ's. The panes scroll together, in one frame.
 
 import { syntaxHighlighting } from '@codemirror/language';
 import {
   Compartment,
   EditorState,
+  RangeSet,
   StateEffect,
   StateField,
   Text,
@@ -18,6 +20,8 @@ import {
 import {
   Decoration,
   EditorView,
+  gutter,
+  GutterMarker,
   lineNumbers,
   WidgetType,
   type DecorationSet,
@@ -26,7 +30,7 @@ import { onCleanup } from '@cerebro-ide/jsx';
 import { effect, signal } from '@cerebro-ide/reactive';
 import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
 import { languageFor } from './languages.js';
-import { mergeChanges, type Lines, type MergeChange } from './merge.js';
+import { linesText, mergeChanges, resolveConflict, type Lines, type MergeChange } from './merge.js';
 import { fullWidth } from './width.js';
 
 export interface MergeEditorProps {
@@ -61,6 +65,13 @@ export interface MergeControl {
   modified(): boolean;
   /** Takes the changes that aren't in conflict: one side's, or both's (IntelliJ's Apply non-conflicting changes). */
   applyNonConflicting(side: 'yours' | 'theirs' | 'all'): void;
+  /** Read reactively: whether Resolve Simple Conflicts has something to do. */
+  canResolveSimple(): boolean;
+  /**
+   * IntelliJ's Resolve Simple Conflicts (`applyResolvableConflictedChanges`): the changes not in
+   * conflict taken, and each conflict that merges word by word resolved.
+   */
+  resolveSimple(): void;
 }
 
 type Side = 'yours' | 'theirs';
@@ -72,6 +83,8 @@ interface Tracked {
   from: number;
   to: number;
   done: Record<Side, 'no' | 'taken' | 'ignored'>;
+  /** A conflict's lines merged word by word, if they can be (IntelliJ's `canBeResolved`). */
+  simple?: string[];
 }
 
 /** The pane of the side that didn't make a change, by its kind. */
@@ -91,6 +104,30 @@ function colour(t: Tracked): string {
   const lines = kind === 'theirs' ? t.change.theirs : t.change.yours;
   if (base.from === base.to) return 'inserted';
   return lines.from === lines.to ? 'deleted' : 'modified';
+}
+
+/** A conflict's Resolve button, in the result's gutter at its first line. */
+class ResolveMarker extends GutterMarker {
+  constructor(
+    readonly t: Tracked,
+    readonly run: () => void,
+  ) {
+    super();
+  }
+  override eq(other: ResolveMarker) {
+    return other.t === this.t;
+  }
+  override toDOM() {
+    const b = document.createElement('button');
+    b.className = 'cm-merge3-control cm-merge3-resolve';
+    // IntelliJ's words (DiffBundle's `action.presentation.merge.resolve.text`); a star for its magic
+    // wand (a claim: not IntelliJ's drawing).
+    b.title = 'Resolve';
+    b.setAttribute('aria-label', 'Resolve');
+    b.textContent = '✦';
+    b.addEventListener('click', this.run);
+    return b;
+  }
 }
 
 /** A gap that keeps a change's lines level with the other panes'. */
@@ -125,6 +162,17 @@ const marks = StateField.define<DecorationSet>({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+/**
+ * The Resolve buttons, as the merge sets them: kept by the editor, which moves them with its
+ * changes, as a marker found from the changes' own positions would read them before they're moved.
+ */
+const setResolvers = StateEffect.define<RangeSet<GutterMarker>>();
+const resolvers = StateField.define<RangeSet<GutterMarker>>({
+  create: () => RangeSet.empty,
+  update: (value, tr) =>
+    tr.effects.reduce((v, e) => (e.is(setResolvers) ? e.value : v), value.map(tr.changes)),
+});
+
 /** The changes' colours, from IntelliJ's colour schemes. */
 const mergeTheme = EditorView.theme({
   '.cm-merge3-modified': { backgroundColor: variable('diff-modified') },
@@ -149,6 +197,8 @@ const LAYOUT = `
   background: transparent; color: var(--cerebro-text); font: 12px/16px sans-serif; cursor: pointer;
 }
 .cm-merge3-control:hover { background: var(--cerebro-diff-edge); }
+.cm-merge3-resolve-gutter { width: 18px; }
+.cm-merge3-resolve { position: static; }
 `;
 
 /** A three-way merge of one file. */
@@ -168,6 +218,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
 
   let tracked: Tracked[] = [];
   const left = signal<MergeLeft>({ changes: 0, conflicts: 0 });
+  const simple = signal(false);
 
   const language = languageFor(props.path);
   const settings = [new Compartment(), new Compartment(), new Compartment()] as const;
@@ -186,18 +237,25 @@ export function MergeEditor(props: MergeEditorProps): Node {
         fullWidth,
         selection,
         editable
-          ? EditorView.updateListener.of((update) => {
-              if (!update.docChanged) return;
-              modified = true;
-              // Typed at a change's first line, it's in the change; at the line after, it isn't.
-              // The change being taken or ignored is placed by `replace`.
-              for (const t of tracked) {
-                if (t === applying) continue;
-                t.from = update.changes.mapPos(t.from, -1);
-                t.to = Math.max(t.from, update.changes.mapPos(t.to, -1));
-              }
-              if (!applying) queueMicrotask(refresh);
-            })
+          ? [
+              resolvers,
+              gutter({
+                class: 'cm-merge3-resolve-gutter',
+                markers: (view) => view.state.field(resolvers),
+              }),
+              EditorView.updateListener.of((update) => {
+                if (!update.docChanged) return;
+                modified = true;
+                // Typed at a change's first line, it's in the change; at the line after, it isn't.
+                // The change being taken or ignored is placed by `replace`.
+                for (const t of tracked) {
+                  if (t === applying) continue;
+                  t.from = update.changes.mapPos(t.from, -1);
+                  t.to = Math.max(t.from, update.changes.mapPos(t.to, -1));
+                }
+                if (!applying) queueMicrotask(refresh);
+              }),
+            ]
           : EditorState.readOnly.of(true),
         marks,
         theme,
@@ -231,6 +289,17 @@ export function MergeEditor(props: MergeEditorProps): Node {
   const texts = { yours: views.yours.state.doc, theirs: views.theirs.state.doc };
   const base = views.result.state.doc;
   const at = (doc: Text, line: number) => (line < doc.lines ? doc.line(line + 1).from : doc.length);
+  /** A conflict merged word by word, as lines; none where a side is empty, as IntelliJ's. */
+  const merged = (change: MergeChange) => {
+    const sides = [change.base, change.yours, change.theirs];
+    if (change.kind !== 'conflict' || sides.some((lines) => lines.from === lines.to)) return {};
+    const text = resolveConflict(
+      linesText(base, change.base),
+      linesText(texts.yours, change.yours),
+      linesText(texts.theirs, change.theirs),
+    );
+    return text === undefined ? {} : { simple: text.replace(/\n$/, '').split('\n') };
+  };
   tracked = mergeChanges(base, texts.yours, texts.theirs).map((change) => ({
     change,
     from: at(base, change.base.from),
@@ -239,6 +308,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
       yours: change.kind === 'theirs' ? 'ignored' : 'no',
       theirs: change.kind === 'yours' ? 'ignored' : 'no',
     },
+    ...merged(change),
   }));
 
   /** The result's lines a change has now: a position at a line's start begins that line. */
@@ -290,6 +360,27 @@ export function MergeEditor(props: MergeEditorProps): Node {
     if (t.change.kind !== 'conflict' && t.done[other] === 'no') t.done[other] = 'ignored';
     refresh();
   };
+  /**
+   * Whether a conflict can be resolved now: neither side taken or ignored, and its lines in the
+   * result not edited (IntelliJ's `canResolveChangeAutomatically`).
+   */
+  function resolvable(t: Tracked): boolean {
+    return (
+      t.simple !== undefined &&
+      t.done.yours === 'no' &&
+      t.done.theirs === 'no' &&
+      linesText(views.result.state.doc, resultLines(t)) === linesText(base, t.change.base)
+    );
+  }
+  function resolve(t: Tracked) {
+    replace(t, t.simple as string[]);
+    t.done = { yours: 'taken', theirs: 'taken' };
+    refresh();
+  }
+  /** Takes a change not in conflict: its side's. */
+  const takeChange = (t: Tracked) => {
+    take(t, t.change.kind === 'theirs' ? 'theirs' : 'yours');
+  };
   const ignore = (t: Tracked, side: Side) => {
     t.done[side] = 'ignored';
     if (t.change.kind === 'both') t.done[side === 'yours' ? 'theirs' : 'yours'] = 'ignored';
@@ -331,13 +422,26 @@ export function MergeEditor(props: MergeEditorProps): Node {
         }
       }
     }
+    const resolving = tracked.filter(resolvable).map((t) =>
+      new ResolveMarker(t, () => {
+        resolve(t);
+      }).range(t.from),
+    );
     for (const name of ['yours', 'result', 'theirs'] as const) {
-      views[name].dispatch({ effects: setMarks.of(Decoration.set(sets[name], true)) });
+      views[name].dispatch({
+        effects: [
+          setMarks.of(Decoration.set(sets[name], true)),
+          ...(name === 'result' ? [setResolvers.of(RangeSet.of(resolving, true))] : []),
+        ],
+      });
     }
     left.set({
       changes: tracked.filter((t) => !resolved(t) && t.change.kind !== 'conflict').length,
       conflicts: tracked.filter((t) => !resolved(t) && t.change.kind === 'conflict').length,
     });
+    simple.set(
+      tracked.some((t) => (!resolved(t) && t.change.kind !== 'conflict') || resolvable(t)),
+    );
     place();
   }
 
@@ -402,8 +506,14 @@ export function MergeEditor(props: MergeEditorProps): Node {
     applyNonConflicting(side) {
       for (const t of tracked) {
         if (resolved(t) || t.change.kind === 'conflict') continue;
-        const which: Side = t.change.kind === 'theirs' ? 'theirs' : 'yours';
-        if (side === 'all' || side === which || t.change.kind === 'both') take(t, which);
+        if (side === 'all' || side === t.change.kind || t.change.kind === 'both') takeChange(t);
+      }
+    },
+    canResolveSimple: () => simple.get(),
+    resolveSimple() {
+      for (const t of tracked) {
+        if (resolvable(t)) resolve(t);
+        else if (!resolved(t) && t.change.kind !== 'conflict') takeChange(t);
       }
     },
   });
