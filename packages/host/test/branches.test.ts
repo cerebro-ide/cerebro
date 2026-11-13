@@ -30,8 +30,13 @@ import {
 
 describe('branch operations, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-branches-')));
+  // Someone to commit as, in clones too (CI's git has no one).
   const run = (cwd: string, ...args: string[]) =>
-    execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf8' });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+      cwd,
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
   const commit = (cwd: string, message: string, file = `${message}.txt`, text = message) => {
     writeFileSync(join(cwd, file), text);
     run(cwd, 'add', '.');
@@ -43,7 +48,7 @@ describe('branch operations, with real git', () => {
     const repo = join(root, `r${String(++repos)}`);
     run(root, 'init', '-q', '-b', 'main', repo);
     run(repo, 'config', 'core.autocrlf', 'false');
-    // Someone the merges commit as (CI's git has no one).
+    // Someone the host's merges commit as.
     run(repo, 'config', 'user.name', 't');
     run(repo, 'config', 'user.email', 't@t');
     commit(repo, 'first', 'shared.txt', 'one\n');
