@@ -2284,13 +2284,14 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     details beside it, the commit menu on its commits, and IntelliJ's words above it ("Commits that
     exist in feature but don't exist in main"); with none, "main contains all commits from
     feature", and where git can't read the range, git's error. With HEAD detached, the branch is
-    compared with HEAD. The branches popup has it too, as IntelliJ's ("Compare with 'main'"),
+    compared with HEAD, named so, as IntelliJ's (`compareWithCurrent`: the current branch or
+    `GitUtil.HEAD`, read from its source; corrected 2026-11-13 from a Not yet that had it named
+    by its short hash). The branches popup has it too, as IntelliJ's ("Compare with 'main'"),
     after New Branch from.
   - Compare with Current's keys (added 2026-11-13), while the pane has the keyboard: Show Diff's,
     as IntelliJ's (`ShowBranchDiffAction` takes Diff.ShowDiff's), Ctrl+D, Cmd+D on macOS.
   **Not yet:** several branches selected (IntelliJ updates them all at once); IntelliJ's Show My
-  Branches being off until its log is indexed (there's no index here); its Logs' filter toolbar,
-  and a detached HEAD named by its short hash, as IntelliJ's, rather than HEAD.
+  Branches being off until its log is indexed (there's no index here); its Logs' filter toolbar.
 - **The Log follows the repository** (added 2026-11-12): it reads itself again, with its branches,
   when the refs it shows change, whatever changed them: Cerebro's own Git actions (Fetch, Pull,
   Push, the branches popup's), a terminal, an agent. The repository's state, read every 2 s and as
