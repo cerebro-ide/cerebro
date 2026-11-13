@@ -70,6 +70,18 @@ function editable(element: Element | undefined): boolean {
   return element instanceof HTMLElement && element.isContentEditable;
 }
 
+/**
+ * Whether an element is a text field (an input to type in, or a text area), not a terminal's: its
+ * editing keys are the Edit commands', wherever it is.
+ */
+export function isTextField(element: EventTarget | undefined): boolean {
+  return (
+    (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) &&
+    editable(element) &&
+    !element.closest('.cerebro-terminal')
+  );
+}
+
 /** Where text is typed and can be changed: not a terminal, which only takes what's typed. */
 function changeable(element: Element | undefined): boolean {
   return editable(element) && !element?.closest('.cerebro-terminal');

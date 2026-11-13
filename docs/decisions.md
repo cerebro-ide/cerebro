@@ -664,7 +664,15 @@ new UI.
   accelerators such as `Command+Plus`). Claims, still to check on a Mac:
   - the page still receives the keys of shortcuts the menu shows (if the menu took them first,
     those commands would do nothing);
-  - copy and paste in text fields work without an Edit menu of Electron's roles.
+  - copy and paste in text fields work without an Edit menu of Electron's roles. **Not so**
+    (changed 2026-11-13), by Ido's report from a Mac: Cmd+V didn't paste in the search popup,
+    whose field keeps the app's shortcuts from it. So a text field's editing keys (Undo, Redo,
+    Cut, Copy, Paste) are the Edit commands' anywhere, popups', dialogs' and the find bar's fields
+    too, as a field's own are in IntelliJ: the page runs them before the field's own handlers.
+    Measured on Linux by a test (a popup's Ctrl+V reaches the app's paste); on a Mac, still a
+    claim. Rejected: Electron's Edit roles in the macOS menu, since the page's keymap runs the
+    same keys and whether both would run (pasting twice) can't be checked without a Mac. Open to
+    change.
 - **A Content-Security-Policy** (2026-10-26) in the built page: only the page's own scripts, styles,
   images and fonts (the last two also as data: URLs); no inline scripts or styles, no eval, no
   objects, no `<base>`, no forms. Added by a Vite plugin at build time only, since the dev server

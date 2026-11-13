@@ -20,7 +20,7 @@ import { active, activeProject, currentHost, hostFor, type ProjectState } from '
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
-import { setupEdit, target } from './edit.js';
+import { isTextField, setupEdit, target } from './edit.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
 import { pluginsPage } from './plugins-page.js';
@@ -80,6 +80,9 @@ const TOOL_SHORTCUTS: Readonly<Record<string, string>> = {
 };
 
 /** The menu bar is hidden by default, as in IntelliJ's new UI. */
+/** The Edit commands a text field's keys run. */
+const EDIT_COMMANDS = ['edit.undo', 'edit.redo', 'edit.cut', 'edit.copy', 'edit.paste'];
+
 export const menuVisible = signal(false);
 
 export function setDark(value: boolean): void {
@@ -530,6 +533,27 @@ export function setupCommands(
     const sequence = taps.keyup(event);
     if (sequence !== undefined) dispatcher.press(sequence);
   });
+  // A text field's editing keys (Undo, Cut, Copy, Paste…) are the Edit commands', in any field, as
+  // a field's own are in IntelliJ: before popups, dialogs and the find bar, which keep the app's
+  // other shortcuts from their fields. On macOS a field has no editing keys of its own without an
+  // Edit menu of Electron's roles, which the app doesn't have (Ido: Cmd+V didn't paste in the
+  // search popup).
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      const chord = chordFromEvent(event);
+      if (chord === undefined || dispatcher.waiting || !isTextField(event.composedPath()[0])) {
+        return;
+      }
+      const edit = keymap.commandsFor(chord).filter((id) => EDIT_COMMANDS.includes(id));
+      if (edit.some((id) => commands.execute(id))) {
+        event.preventDefault();
+        event.stopPropagation();
+        taps.reset();
+      }
+    },
+    true,
+  );
   window.addEventListener('keydown', (event) => {
     taps.keydown(event);
     const chord = chordFromEvent(event);
