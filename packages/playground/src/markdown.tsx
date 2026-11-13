@@ -12,8 +12,10 @@ import { MarkdownPreview } from '@cerebro-ide/ui-editor';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tabPath } from './changes.js';
+import { hostFor } from './environments.js';
 import type { TabContext } from './commands.js';
 import { icon } from './icons.js';
+import { imageType } from './images.js';
 
 /** What a Markdown file's editor shows: IntelliJ's SHOW_EDITOR, SHOW_EDITOR_AND_PREVIEW, SHOW_PREVIEW. */
 export type MarkdownLayout = 'editor' | 'split' | 'preview';
@@ -95,6 +97,61 @@ export function chooseLayout(path: string, layout: MarkdownLayout): void {
   keep();
 }
 
+/** The media types of the images a preview shows: the image viewer's, and SVG, safe in an image. */
+function imageMedia(path: string): string | undefined {
+  return /\.svg$/i.test(path) ? 'image/svg+xml' : imageType(path);
+}
+
+/**
+ * The file an image's address names, beside the Markdown file: a relative path, `..` and `.`
+ * resolved. None for an address on the web or from the root (`/a.png`), or one that isn't an image.
+ */
+export function imagePath(file: string, address: string): string | undefined {
+  const path = decodeURI(address.replace(/[?#].*$/, ''));
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('/') || !imageMedia(path)) {
+    return undefined;
+  }
+  const parts = file.split('/').slice(0, -1);
+  for (const part of path.split('/')) {
+    if (part === '..') parts.pop();
+    else if (part !== '.' && part !== '') parts.push(part);
+  }
+  return parts.join('/');
+}
+
+/**
+ * Loads a Markdown file's images, as `data:` URLs (the page's policy allows no other): its own,
+ * read through the host once each; a `data:` image as it is.
+ */
+export function imageLoader(
+  file: string,
+  read: (path: string) => Promise<string>,
+): (address: string) => Promise<string | undefined> {
+  const loaded = new Map<string, Promise<string | undefined>>();
+  return (address) => {
+    if (/^data:image\//i.test(address)) return Promise.resolve(address);
+    const path = imagePath(file, address);
+    if (path === undefined) return Promise.resolve(undefined);
+    let image = loaded.get(path);
+    if (!image) {
+      image = read(path).then(
+        (data) => `data:${imageMedia(path) as string};base64,${data}`,
+        () => undefined,
+      );
+      loaded.set(path, image);
+    }
+    return image;
+  };
+}
+
+/** A file's bytes, as base64, through its host. */
+async function readBytes(path: string): Promise<string> {
+  const host = hostFor(path);
+  if (!host) throw new Error('Files are read in the desktop app');
+  const { data } = (await host.request('fs.readBytes', { path })) as { data: string };
+  return data;
+}
+
 /** The share a drag gives the text, kept clear of either end. */
 function clamp(value: number): number {
   return Math.min(0.9, Math.max(0.1, value));
@@ -108,6 +165,7 @@ export function MarkdownEditor(props: {
   /** The editor's top line, which the preview follows. Read reactively. */
   line: () => number;
 }): Node {
+  const image = imageLoader(props.path, readBytes);
   const layout = () => layoutOf(props.path);
   const text = (
     <div class="playground-markdown__text" hidden={() => layout() === 'preview'}>
@@ -151,7 +209,9 @@ export function MarkdownEditor(props: {
         ) : null
       }
       {() =>
-        layout() === 'editor' ? null : <MarkdownPreview text={props.text} line={props.line} />
+        layout() === 'editor' ? null : (
+          <MarkdownPreview text={props.text} line={props.line} image={image} />
+        )
       }
     </div>
   );

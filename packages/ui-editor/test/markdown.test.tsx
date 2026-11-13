@@ -56,6 +56,26 @@ describe('Markdown drawn as a page', () => {
     expect(body.textContent).toBe('site and https://c.d, a cat');
   });
 
+  it('shows an image once its source comes, its words until then or without one', async () => {
+    const asked: string[] = [];
+    const image = (address: string) => {
+      asked.push(address);
+      if (address === 'gone.png') return Promise.reject(new Error('gone'));
+      return Promise.resolve(address === 'cat.png' ? 'data:image/png;base64,AA==' : undefined);
+    };
+    const body = page('![a cat](cat.png) ![a dog](dog.png) ![gone](gone.png) ![ref][x]', {
+      ...style,
+      image,
+    });
+    expect(body.textContent).toBe('a cat a dog gone ref');
+    await expect.poll(() => body.querySelector('img')).not.toBeNull();
+    const img = body.querySelector('img') as HTMLImageElement;
+    expect([img.getAttribute('src'), img.alt]).toEqual(['data:image/png;base64,AA==', 'a cat']);
+    expect(body.querySelectorAll('img')).toHaveLength(1);
+    expect(body.textContent).toBe(' a dog gone ref');
+    expect(asked).toEqual(['cat.png', 'dog.png', 'gone.png']);
+  });
+
   it('highlights code in a language it knows', () => {
     const code = page('```ts\nconst a = 1;\n```').querySelector('pre') as HTMLElement;
     expect(code.querySelector('.kw')?.textContent).toBe('const');
@@ -87,6 +107,25 @@ describe('a Markdown preview', () => {
     text.set('## Changed');
     expect(root.querySelector('h1')).toBeNull();
     expect(root.querySelector('h2')?.textContent).toBe('Changed');
+  });
+
+  it('shows images from where it’s told', async () => {
+    const container = document.body.appendChild(document.createElement('div'));
+    const handle = render(
+      () => (
+        <MarkdownPreview
+          text={() => '![dot](dot.png)'}
+          image={() => Promise.resolve('data:image/png;base64,AA==')}
+        />
+      ),
+      container,
+    );
+    dispose = () => {
+      handle.dispose();
+    };
+    const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await expect.poll(() => root.querySelector('img')?.alt).toBe('dot');
   });
 });
 
