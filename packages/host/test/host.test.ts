@@ -1298,6 +1298,25 @@ describe('ignored files and rolling back', () => {
       '--',
       'a.ts',
     ]);
+    // The working tree's changes: since HEAD, or before the first commit, since nothing.
+    await ui.request('git.createPatch', { path: '/w', reverse: false, base: '/w', untracked: [] });
+    expect(git).toHaveBeenLastCalledWith('/w', [
+      'diff',
+      '--binary',
+      '-M',
+      '--no-color',
+      '--no-ext-diff',
+      'HEAD',
+      '--',
+    ]);
+    const fresh = vi.fn((_cwd: string, args: readonly string[]) =>
+      args[0] === 'rev-parse' ? Promise.reject(new Error('no HEAD')) : Promise.resolve(''),
+    );
+    await connect(fresh).ui.request('git.createPatch', { path: '/w', reverse: false, base: '/w' });
+    expect(fresh).toHaveBeenLastCalledWith(
+      '/w',
+      expect.arrayContaining(['4b825dc642cb6eb9a060e54bf8d69288fbee4904']),
+    );
     for (const bad of [
       { from: '-p' },
       { files: 'a.ts' },
@@ -1305,6 +1324,8 @@ describe('ignored files and rolling back', () => {
       { message: 1 },
       { base: 1 },
       { file: 1 },
+      { untracked: 'new.ts' },
+      { to: '--all' },
     ]) {
       await expect(ui.request('git.createPatch', { ...params, ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,

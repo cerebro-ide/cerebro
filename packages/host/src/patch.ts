@@ -4,6 +4,7 @@
 // which IntelliJ's own writer follows ("diff --git" headers, "a/" and "b/" paths, binaries as
 // git's), with the message first as IntelliJ writes it.
 
+import { existsSync } from 'node:fs';
 import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -88,9 +89,11 @@ export async function createPatch(
   const temporary = await mkdtemp(join(tmpdir(), 'cerebro-patch-'));
   try {
     const env = { GIT_INDEX_FILE: join(temporary, 'index') };
-    const index = resolve(worktree, await run(worktree, ['rev-parse', '--git-path', 'index']));
-    // A repository with nothing added yet has no index: the copy starts empty.
-    await copyFile(index, env.GIT_INDEX_FILE).catch(() => undefined);
+    const index = (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim();
+    // A repository with nothing added yet has no index (measured): the copy starts empty.
+    if (existsSync(resolve(worktree, index))) {
+      await copyFile(resolve(worktree, index), env.GIT_INDEX_FILE);
+    }
     await run(worktree, ['add', '-N', '--', ...untracked], env);
     return messageHeader(options.message) + (await run(worktree, args, env));
   } finally {

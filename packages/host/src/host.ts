@@ -146,6 +146,7 @@ import {
   type PushTags,
   type TextFilter,
   ignoredAmong,
+  EMPTY_TREE,
 } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
@@ -1352,10 +1353,19 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       message?: unknown;
       file?: unknown;
     };
-    const range = {
-      from: hashOf(params, 'from'),
-      to: p.to === undefined ? undefined : hashOf(params, 'to'),
-    };
+    // The working tree's changes are since HEAD, or before the first commit, since nothing.
+    const head = () =>
+      git(worktree, ['rev-parse', '--verify', '--quiet', 'HEAD']).then(
+        () => 'HEAD',
+        () => EMPTY_TREE,
+      );
+    const range =
+      p.to === undefined && (params as { from?: unknown }).from === undefined
+        ? { from: await head() }
+        : {
+            from: hashOf(params, 'from'),
+            to: p.to === undefined ? undefined : hashOf(params, 'to'),
+          };
     const paths = p.files === undefined ? [] : [...files(params)];
     if (typeof p.reverse !== 'boolean') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'reverse must be true or false');
