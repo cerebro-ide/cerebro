@@ -51,6 +51,31 @@ export function countMatches(state: EditorState): { current: number; total: numb
   return { current, total };
 }
 
+/** The longest selection Find in Files takes, as IntelliJ's (FindUtil). */
+export const SELECTION_LIMIT = 10_000;
+
+/**
+ * What Find in Files starts with from the editor an element is in, as IntelliJ's
+ * (`FindInProjectUtil.initStringToFindFromDataContext`): the selection's text, if shorter than
+ * SELECTION_LIMIT; without a selection, the find bar's search and replacement while it's open.
+ * Undefined outside an editor, and for a selection over several lines: Find in Files searches
+ * within lines (Claude's, open to change; IntelliJ's searches over several).
+ */
+export function findTextIn(element: Element): { search: string; replace?: string } | undefined {
+  const editor = element.closest('.cm-editor');
+  const view = editor && EditorView.findFromDOM(editor as HTMLElement);
+  if (!view) return undefined;
+  const { state } = view;
+  const { from, to, empty } = state.selection.main;
+  if (!empty) {
+    const text = state.sliceDoc(from, to);
+    return text.length < SELECTION_LIMIT && !text.includes('\n') ? { search: text } : undefined;
+  }
+  if (!searchPanelOpen(state)) return undefined;
+  const query = getSearchQuery(state);
+  return { search: query.search, replace: query.replace };
+}
+
 /** What can change in a query from the bar. */
 type QueryChanges = Partial<
   Pick<SearchQuery, 'search' | 'caseSensitive' | 'wholeWord' | 'regexp' | 'replace'>

@@ -10,7 +10,7 @@
 
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
-import { applyCase, CodeEditor, preserveCaseIcon } from '@cerebro-ide/ui-editor';
+import { applyCase, CodeEditor, findTextIn, preserveCaseIcon } from '@cerebro-ide/ui-editor';
 import {
   openPicker,
   SearchHistoryButton,
@@ -19,6 +19,7 @@ import {
   type PickerItem,
 } from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
+import { target } from './edit.js';
 import { documentFor, saveFiles } from './documents.js';
 import type { Occurrences } from './find-window.js';
 import { active, hostFor } from './environments.js';
@@ -270,7 +271,15 @@ export async function findInFiles(options: FindOptions): Promise<void> {
   if (!host || worktree === undefined) return;
   const within = file?.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : '';
   const directory = signal(within.split('/').slice(0, -1).join('/'));
-  const query = signal('');
+  // The editor's selection, or its find bar's text; else the last search, and the last
+  // replacement, as IntelliJ's popup opens with (initStringToFindFromDataContext, then
+  // getMostRecentFindString).
+  const focused = target();
+  const asked = focused && findTextIn(focused);
+  const query = signal(asked?.search || (searchHistory.texts()[0] ?? ''));
+  if (replacing) {
+    replacement.set(asked?.replace || (replaceHistory.texts()[0] ?? replacement.peek()));
+  }
   const matchCase = signal(false);
   const words = signal(false);
   const regex = signal(false);
@@ -490,6 +499,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     });
   };
   const picker = openPicker<Choice>({
+    query: query.peek(),
     history: {
       label: 'Search History',
       icon: icon('searchHistory'),
@@ -642,6 +652,8 @@ export async function findInFiles(options: FindOptions): Promise<void> {
       return true;
     },
   });
+  // The last search, found again.
+  search();
   const chosen = await picker.result;
   clearTimeout(timer);
   // As IntelliJ's popup saves its settings as it closes.

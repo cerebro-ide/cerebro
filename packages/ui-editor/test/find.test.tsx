@@ -6,7 +6,8 @@ import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { CodeEditor, EditorDocument, type CodeEditorProps } from '../src/index.js';
-import { COUNT_LIMIT, countMatches } from '../src/find.js';
+import { EditorView } from '@codemirror/view';
+import { COUNT_LIMIT, countMatches, findTextIn, SELECTION_LIMIT } from '../src/find.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -235,5 +236,34 @@ describe('countMatches', () => {
       total: COUNT_LIMIT,
     });
     expect(countMatches(state('a', '('))).toEqual({ current: 0, total: 0 });
+  });
+});
+
+describe('what Find in Files starts with', () => {
+  it('is the selection, on one line and not too long; else the open find bar’s text', async () => {
+    const root = mount({ path: 'a.txt', text: `${TEXT}${'x'.repeat(SELECTION_LIMIT)}` });
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    const view = EditorView.findFromDOM(content) as EditorView;
+    const select = (from: number, to: number) => {
+      view.dispatch({ selection: { anchor: from, head: to } });
+    };
+    expect(findTextIn(document.body)).toBeUndefined();
+    // No selection, no find bar: nothing.
+    expect(findTextIn(content)).toBeUndefined();
+    select(4, 9);
+    expect(findTextIn(content)).toEqual({ search: 'shape' });
+    select(0, 14);
+    expect(findTextIn(content)).toBeUndefined();
+    const long = TEXT.length;
+    select(long, long + SELECTION_LIMIT - 1);
+    expect(findTextIn(content)?.search).toHaveLength(SELECTION_LIMIT - 1);
+    select(long, long + SELECTION_LIMIT);
+    expect(findTextIn(content)).toBeUndefined();
+    select(0, 0);
+    await focusEditor(root);
+    await userEvent.keyboard('{Control>}f{/Control}');
+    await userEvent.keyboard('two');
+    view.dispatch({ selection: { anchor: 0 } });
+    expect(findTextIn(content)).toEqual({ search: 'two', replace: '' });
   });
 });

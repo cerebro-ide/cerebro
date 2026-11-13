@@ -66,6 +66,8 @@ export interface PickerOptions<T extends PickerItem> {
   items: (query: string) => readonly T[];
   position: PopupPosition;
   placeholder?: string;
+  /** The text the search field starts with, selected, so what's typed replaces it. */
+  query?: string;
   /** Default: 600 at the top, 360 below an element. */
   width?: number;
   /** Shown when nothing matches. Default: Nothing found. */
@@ -232,6 +234,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     this.result = new Promise((resolve) => {
       this.resolve = resolve;
     });
+    this.state.query = options.query ?? '';
     this.items = computed(() => options.items(this.state.query));
     this.state.index = this.initial(
       typeof options.initial === 'function' ? undefined : options.initial,
@@ -254,7 +257,9 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     window.addEventListener('pointerdown', this.onPointerDown, true);
     window.addEventListener('blur', this.onBlur);
     window.addEventListener('resize', this.onBlur);
-    (this.element.querySelector('.cerebro-popup__search') as HTMLElement).focus();
+    const search = this.element.querySelector('.cerebro-popup__search') as HTMLInputElement;
+    search.focus();
+    search.select();
   }
 
   close(): void {
@@ -532,6 +537,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
         type="text"
         spellcheck={false}
         placeholder={options.placeholder ?? ''}
+        value={state.query}
         aria-label={options.label}
         aria-controls="cerebro-popup-list"
         on:input={(event) => {

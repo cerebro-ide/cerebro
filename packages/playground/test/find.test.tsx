@@ -1,4 +1,5 @@
-import { EditorDocument } from '@cerebro-ide/ui-editor';
+import { render } from '@cerebro-ide/jsx';
+import { CodeEditor, EditorDocument } from '@cerebro-ide/ui-editor';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { documentFor, setupSaving } from '../src/documents.js';
@@ -120,6 +121,8 @@ afterEach(async () => {
   failing = undefined;
   holding = false;
   host.asked.length = 0;
+  // No search to start the next test's popup with.
+  localStorage.clear();
 });
 
 const q = (selector: string) => document.querySelector(selector) as HTMLElement;
@@ -145,7 +148,7 @@ async function find(
     replacing,
   });
   await expect.poll(() => document.querySelector('.cerebro-popup')).not.toBeNull();
-  if (query !== '') await userEvent.type(search(), query);
+  if (query !== '') await userEvent.fill(search(), query);
   return { done };
 }
 
@@ -391,7 +394,9 @@ describe('Find in Files', () => {
     expect(shown[1]?.title).toBe(
       "Occurrences of 'alpha' in Directory src with mask '*.ts, !*.test.ts'",
     );
+    // The last search fills the field: cleared.
     await find('');
+    await userEvent.clear(search());
     await userEvent.click(q('.playground-find__mask input'));
     await userEvent.click(button('In Project'));
     // Nothing to search for: nothing opens, and Ctrl+Alt+Enter isn't Find's.
@@ -438,6 +443,47 @@ describe('the search history', () => {
     await userEvent.keyboard('{Escape}{Escape}');
     await done;
     expect(searchHistory.texts()).toEqual(['beta', 'alpha']);
+  });
+
+  it('opens with the last search and replacement, selected, and finds it, as IntelliJ’s', async () => {
+    let { done } = await find('omega', { replacing: true });
+    await userEvent.type(input('.playground-find__replace'), 'psi');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    host.asked.length = 0;
+    ({ done } = await find('', { replacing: true }));
+    const field = search();
+    expect(field.value).toBe('omega');
+    expect([field.selectionStart, field.selectionEnd]).toEqual([0, 5]);
+    expect(input('.playground-find__replace').value).toBe('psi');
+    await expect.poll(() => searches().at(-1)?.query).toBe('omega');
+    // What's typed replaces it.
+    await userEvent.keyboard('alpha');
+    expect(field.value).toBe('alpha');
+    await userEvent.clear(input('.playground-find__replace'));
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
+  it('opens with the editor’s selection instead, as IntelliJ’s', async () => {
+    searchHistory.remember('omega');
+    const container = document.body.appendChild(document.createElement('div'));
+    const handle = render(
+      () => <CodeEditor path="/r/src/a.ts" document={new EditorDocument('const beta = 2;\n')} />,
+      container,
+    );
+    const root = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement, {
+      position: { x: 1, y: 5 },
+    });
+    await userEvent.keyboard('{Home}{Shift>}{End}{/Shift}');
+    const { done } = await find('');
+    expect(search().value).toBe('const beta = 2;');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    handle.dispose();
+    container.remove();
   });
 
   it('keeps what was replaced with, with its own history at the Replace field', async () => {
@@ -566,6 +612,7 @@ describe('Replace in Files', () => {
     expect(await dialogText()).toBe('Nothing found.');
     await press('Close');
     await find('', { replacing: true });
+    await userEvent.clear(search());
     await userEvent.click(button('Replace All'));
     expect(document.querySelector('.cerebro-dialog')).toBeNull();
     await closeAll();
