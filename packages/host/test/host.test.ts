@@ -1432,6 +1432,19 @@ describe('ignored files and rolling back', () => {
     await expect(
       ui.request('git.drop', { path: '/w', hash: 'abc1234', head: 'HEAD' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Undone: HEAD is still where the edit left it, and it made no commit.
+    expect(
+      await ui.request('git.undoEdit', {
+        path: '/w',
+        before: 'def5678',
+        after: 'abc1234',
+        protected: ['main'],
+      }),
+    ).toBeNull();
+    expect(git).toHaveBeenCalledWith('/w', ['reset', '--keep', 'def5678']);
+    await expect(
+      ui.request('git.undoEdit', { path: '/w', before: 'HEAD', after: 'abc1234', protected: [] }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
   it('lists tags, checks a revision and makes a tag, as asked', async () => {

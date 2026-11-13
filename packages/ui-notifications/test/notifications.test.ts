@@ -43,6 +43,17 @@ describe('Notifications', () => {
     expect(second.balloon.get()).toBe(true);
   });
 
+  it('expires one: its balloon closed, gone from the timeline, once', () => {
+    const notifications = new Notifications();
+    const one = notifications.notify({ content: 'one' });
+    const two = notifications.notify({ content: 'two' });
+    notifications.expire(one);
+    expect(one.balloon.get()).toBe(false);
+    expect(notifications.all.toArray()).toEqual([two]);
+    notifications.expire(one);
+    expect(notifications.all.toArray()).toEqual([two]);
+  });
+
   it('clears them all, their balloons too', () => {
     const notifications = new Notifications();
     const one = notifications.notify({ content: 'one' });

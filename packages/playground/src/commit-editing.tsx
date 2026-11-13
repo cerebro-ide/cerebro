@@ -6,9 +6,12 @@
 // "Rewording…" on the status bar while the host makes the commits again (`git.reword`), "Commit
 // message changed" after. Or Drop Commit (`GitDropLogAction`): asked first, unless told not to ask
 // again; "Dropping commit…" while the host drops it (`git.drop`), "Dropped 1 commit" after.
-// IntelliJ's notifications have Undo, and Edit Again for HEAD's commit: Cerebro's haven't yet.
+// Either notification's Undo (`GitCommitEditingNotifications`) puts HEAD back (`git.undoEdit`)
+// unless it has moved since, and the notification goes. IntelliJ's Edit Again for HEAD's commit:
+// not yet.
 
 import { signal } from '@cerebro-ide/reactive';
+import type { Notification } from '@cerebro-ide/ui-notifications';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { saveBeforeGit } from './documents.js';
@@ -27,6 +30,73 @@ const FAILURE: Record<Editing, string> = {
   reword: 'Could not Edit Commit Message',
   drop: 'Could not Drop Commits',
 };
+
+/** IntelliJ's words for an edit's Undo: while it's done, when it can't be, and when it fails. */
+const UNDO: Record<Editing, { progress: string; impossible: string; failed: string }> = {
+  reword: {
+    progress: 'Undoing reword…',
+    impossible: 'Cannot undo commit message edit',
+    failed: 'Undo commit message edit failed',
+  },
+  drop: { progress: 'Undoing drop…', impossible: 'Cannot undo drop', failed: 'Undo drop failed' },
+};
+
+/**
+ * Says an edit was done, as IntelliJ's `notifySuccess`, with Undo: HEAD back from `after` to
+ * `before`. Done, or found impossible, the notification goes; failed, it stays.
+ */
+function notifyEdited(
+  at: LogCommitContext,
+  editing: Editing,
+  said: { title: string; content?: string },
+  before: string,
+  after: string,
+): void {
+  const { host, worktree } = at;
+  const words = UNDO[editing];
+  const undo = async () => {
+    resetting.set(words.progress);
+    try {
+      await saveBeforeGit();
+      const result = (await host.request('git.undoEdit', {
+        path: worktree,
+        before,
+        after,
+        protected: PROTECTED,
+      })) as { refused: string } | null;
+      if (result !== null) {
+        notifications.notify({
+          title: words.impossible,
+          content: result.refused,
+          type: 'error',
+          display: 'sticky',
+        });
+      }
+      notifications.expire(notification);
+    } catch (error) {
+      notifications.notify({
+        title: words.failed,
+        content: (error as Error).message,
+        type: 'error',
+        display: 'sticky',
+      });
+    } finally {
+      resetting.set(undefined);
+    }
+    await reread(at, words.progress);
+  };
+  const notification: Notification = notifications.notify({
+    ...said,
+    actions: [
+      {
+        label: 'Undo',
+        run: () => {
+          void undo();
+        },
+      },
+    ],
+  });
+}
 
 /** IntelliJ's warning before the first commit is edited; whether to go on. */
 async function initialCommitAsked(): Promise<boolean> {
@@ -115,13 +185,14 @@ async function rewordCommit(at: LogCommitContext): Promise<void> {
   resetting.set('Rewording…');
   let reworded: string | undefined;
   try {
-    reworded = (await host.request('git.reword', {
+    const made = (await host.request('git.reword', {
       path: worktree,
       hash: commit.hash,
       message,
       head,
-    })) as string;
-    notifications.notify({ title: 'Commit message changed' });
+    })) as { commit: string; head: string };
+    reworded = made.commit;
+    notifyEdited(at, 'reword', { title: 'Commit message changed' }, head, made.head);
   } catch (error) {
     // IntelliJ's in-memory reword's title, its words under it.
     notifications.notify({
@@ -194,11 +265,13 @@ async function dropCommit(at: LogCommitContext): Promise<void> {
   resetting.set('Dropping commit…');
   try {
     await saveBeforeGit();
-    await host.request('git.drop', { path: worktree, hash: commit.hash, head });
-    notifications.notify({
-      title: 'Dropped 1 commit',
-      content: `"${shortenText(commit.subject)}"`,
-    });
+    const made = (await host.request('git.drop', {
+      path: worktree,
+      hash: commit.hash,
+      head,
+    })) as string;
+    const said = { title: 'Dropped 1 commit', content: `"${shortenText(commit.subject)}"` };
+    notifyEdited(at, 'drop', said, head, made);
   } catch (error) {
     notifications.notify({
       title: FAILURE.drop,

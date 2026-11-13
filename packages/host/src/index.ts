@@ -260,5 +260,5 @@ export {
 } from './apply-changes.js';
 export { createPatch, messageHeader, writePatch, type PatchOptions } from './patch.js';
 export { protectedBranchHolding } from './protected-branches.js';
-export { drop, editCheck, reword, type Editing } from './commit-editing.js';
+export { drop, editCheck, reword, undoEdit, type Editing } from './commit-editing.js';
 export { resetHead, undoCommit, type ResetMode } from './reset.js';

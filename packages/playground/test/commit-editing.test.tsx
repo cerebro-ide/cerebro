@@ -13,18 +13,25 @@ const git = {
   check: { head: 'abc1234def5678' } as { head: string } | { refused: string },
   done: Promise.resolve(),
   failure: undefined as Error | undefined,
+  /** Undo's answer: done, refused, or failed. */
+  undo: null as { refused: string } | null | Error,
 };
 const host = new FakeHost({
   'git.editCheck': () => git.check,
   'git.reword': async () => {
     await git.done;
     if (git.failure) throw git.failure;
-    return 'fedcba9876';
+    return { commit: 'fedcba9876', head: 'aaaa1111' };
   },
   'git.drop': async () => {
     await git.done;
     if (git.failure) throw git.failure;
-    return null;
+    return 'bbbb2222';
+  },
+  'git.undoEdit': async () => {
+    await git.done;
+    if (git.undo instanceof Error) throw git.undo;
+    return git.undo;
   },
   'git.status': () => ({ files: [] }),
   'git.shelves': () => [],
@@ -77,6 +84,7 @@ beforeEach(() => {
   git.check = { head: commit.hash };
   git.done = Promise.resolve();
   git.failure = undefined;
+  git.undo = null;
   read.mockClear();
   select.mockClear();
 });
@@ -315,5 +323,69 @@ describe('the Log’s Drop Commit', () => {
       type: 'error',
     });
     expect(logged).toHaveBeenCalledWith('Reading again after Drop Commit', new Error('gone'));
+  });
+});
+
+describe('Undo, in the notification, as IntelliJ’s', () => {
+  // Dropped without the question.
+  beforeEach(() => {
+    localStorage.setItem('cerebro.drop.ask', 'false');
+  });
+  const undo = (notification = last()) => {
+    const action = notification?.actions.find((a) => a.label === 'Undo');
+    action?.run();
+  };
+
+  it('puts HEAD back after a message edit, and the notification goes', async () => {
+    const done = reword();
+    await dialog();
+    await press('OK');
+    await done;
+    const said = last();
+    expect(said?.actions.map((a) => a.label)).toEqual(['Undo']);
+    read.mockClear();
+    let release: () => void = () => undefined;
+    git.done = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    undo();
+    await expect.poll(() => resetting.get()).toBe('Undoing reword…');
+    release();
+    await expect.poll(() => resetting.get()).toBeUndefined();
+    expect(host.params('git.undoEdit').at(-1)).toEqual({
+      path: '/r',
+      before: commit.hash,
+      after: 'aaaa1111',
+      protected: expect.any(Array) as unknown,
+    });
+    expect(notifications.all.toArray()).not.toContain(said);
+    await expect.poll(() => read.mock.calls.length).toBe(1);
+  });
+
+  it('says why it can’t, in IntelliJ’s words, and the notification goes', async () => {
+    await drop();
+    const said = last();
+    git.undo = { refused: 'Repository has already been changed' };
+    undo(said);
+    await expect.poll(() => last()?.title).toBe('Cannot undo drop');
+    expect(last()).toMatchObject({
+      content: 'Repository has already been changed',
+      type: 'error',
+    });
+    expect(host.params('git.undoEdit').at(-1)).toMatchObject({
+      before: commit.hash,
+      after: 'bbbb2222',
+    });
+    expect(notifications.all.toArray()).not.toContain(said);
+  });
+
+  it('says why it failed, in git’s words, and Undo stays', async () => {
+    await drop();
+    const said = last();
+    git.undo = new Error('error: Entry two.txt not uptodate. Cannot merge.');
+    undo(said);
+    await expect.poll(() => last()?.title).toBe('Undo drop failed');
+    expect(last()?.content).toBe('error: Entry two.txt not uptodate. Cannot merge.');
+    expect(notifications.all.toArray()).toContain(said);
   });
 });

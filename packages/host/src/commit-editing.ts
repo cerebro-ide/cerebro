@@ -160,8 +160,8 @@ async function laterCommits(
  * Gives `hash` `message`, as IntelliJ's `GitInMemoryRewordOperation`; `head` is HEAD's commit when
  * it was checked (`editCheck`), and nothing's done if HEAD has moved since. Each commit from
  * `hash` to HEAD is made again, the branch (or a detached HEAD) moved to the last; the working tree
- * and the index stay as they are. Gives the commit's new hash. Throws, nothing changed, if a merge
- * or the first commit is between them, in IntelliJ's words.
+ * and the index stay as they are. Gives the commit's new hash, and HEAD's. Throws, nothing changed,
+ * if a merge or the first commit is between them, in IntelliJ's words.
  */
 export async function reword(
   worktree: string,
@@ -169,7 +169,7 @@ export async function reword(
   message: string,
   head: string,
   run: Git,
-): Promise<string> {
+): Promise<{ commit: string; head: string }> {
   await stillAt(worktree, head, run);
   const target = (await run(worktree, ['rev-parse', hash])).trim();
   const later = await laterCommits(worktree, target, head, run);
@@ -192,7 +192,7 @@ export async function reword(
   } catch {
     throw moved();
   }
-  return reworded;
+  return { commit: reworded, head: made };
 }
 
 /** Git's empty tree, the first commit's parent's, as it were. */
@@ -205,8 +205,14 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
  * Then the branch is reset to the last, keeping local changes (`reset --keep`, which refuses where
  * they'd be lost, in git's words). `head` is HEAD's commit when it was checked (`editCheck`): if
  * it has moved, or a later commit's changes conflict, nothing's changed, and git's words say why.
+ * Gives HEAD's new commit.
  */
-export async function drop(worktree: string, hash: string, head: string, run: Git): Promise<void> {
+export async function drop(
+  worktree: string,
+  hash: string,
+  head: string,
+  run: Git,
+): Promise<string> {
   await stillAt(worktree, head, run);
   const target = (await run(worktree, ['rev-parse', hash])).trim();
   const later = await laterCommits(worktree, target, head, run);
@@ -244,4 +250,37 @@ export async function drop(worktree: string, hash: string, head: string, run: Gi
   await run(worktree, ['reset', '--keep', base], {
     GIT_REFLOG_ACTION: `drop ${target} by Cerebro`,
   });
+  return base;
+}
+
+/**
+ * Undoes an edit that moved HEAD from `before` to `after`, as IntelliJ's notification's Undo
+ * (`GitCommitEditingOperationResult.Complete`): refused in its words (`{ refused }`) once HEAD has
+ * moved, or the first commit made is on a protected branch of a remote (`branches` names them);
+ * otherwise HEAD reset to `before`, keeping local changes (`reset --keep`, which refuses, in git's
+ * words, where they'd be lost).
+ */
+export async function undoEdit(
+  worktree: string,
+  before: string,
+  after: string,
+  branches: (name: string) => boolean,
+  run: Git,
+): Promise<{ refused: string } | null> {
+  if ((await run(worktree, ['rev-parse', 'HEAD'])).trim() !== after) {
+    return { refused: 'Repository has already been changed' };
+  }
+  // The commits made, oldest first: none where HEAD's was dropped.
+  const [first] = (await run(worktree, ['rev-list', '--reverse', `${before}..${after}`]))
+    .split('\n')
+    .filter((line) => line !== '');
+  const pushed =
+    first === undefined ? undefined : await protectedBranchHolding(worktree, first, branches, run);
+  if (pushed !== undefined) {
+    return {
+      refused: `Commits from current branch have already been pushed to protected branch ${pushed}`,
+    };
+  }
+  await run(worktree, ['reset', '--keep', before]);
+  return null;
 }
