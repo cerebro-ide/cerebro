@@ -1762,6 +1762,11 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* An error or warning row takes room only while it says something, as IntelliJ's. */
+.playground-patch > .playground-form__row:has(> [role='alert']:empty) {
+  display: none;
+}
+
 /* A commit's field, Validate beside it: New Tag's, Reset HEAD's. */
 .playground-form__revision {
   display: flex;
