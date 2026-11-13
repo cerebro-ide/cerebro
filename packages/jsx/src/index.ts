@@ -1,5 +1,6 @@
 export { render } from './render.js';
 export { onCleanup } from './owner.js';
+export { focusedElement } from './focus.js';
 export { Fragment, type JSX } from './jsx-runtime.js';
 export type {
   Child,
