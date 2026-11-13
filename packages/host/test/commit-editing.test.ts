@@ -143,6 +143,20 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
     expect(run('rev-parse', 'HEAD')).toBe(second);
   });
 
+  it('signs the commits it makes where commit.gpgSign is set, as git commit would', async () => {
+    // A signer that fails: each edit tries it, and changes nothing.
+    run('config', 'commit.gpgSign', 'true');
+    run('config', 'gpg.program', 'false');
+    try {
+      await expect(reword(repo, second, 'no', third, git)).rejects.toThrow(/gpg failed to sign/);
+      await expect(drop(repo, second, third, git)).rejects.toThrow(/gpg failed to sign/);
+      expect(run('rev-parse', 'HEAD')).toBe(third);
+    } finally {
+      run('config', '--unset', 'commit.gpgSign');
+      run('config', '--unset', 'gpg.program');
+    }
+  });
+
   describe('its checks, in IntelliJ’s words', () => {
     it('gives HEAD’s commit where it can be done', async () => {
       expect(await editCheck(repo, first, 'reword', nobody, git)).toEqual({ head: third });

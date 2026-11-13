@@ -87,16 +87,33 @@ async function read(worktree: string, hash: string, run: Git): Promise<Commit> {
   };
 }
 
-/** Makes a commit again (`commit-tree`), on `parents`, with `message`; its new hash. */
-async function remake(
-  worktree: string,
-  commit: Commit,
+/** Makes a commit again: its tree and author, on `parents`, with `message`; its new hash. */
+type Remake = (
+  commit: Pick<Commit, 'tree' | 'author'>,
   parents: readonly string[],
   message: string,
-  run: Git,
-): Promise<string> {
-  const args = ['commit-tree', commit.tree, ...parents.flatMap((p) => ['-p', p]), '-F', '-'];
-  return (await run(worktree, args, commit.author, message)).trim();
+) => Promise<string>;
+
+/**
+ * Makes commits again (`commit-tree`), signed where `commit.gpgSign` is set, as IntelliJ's
+ * `GitObjectRepository.commitTree`: `commit-tree` doesn't read it (measured, git 2.43).
+ */
+async function remaking(worktree: string, run: Git): Promise<Remake> {
+  const sign = await run(worktree, ['config', '--bool', 'commit.gpgSign']).then(
+    (out) => out.trim() === 'true',
+    () => false,
+  );
+  return async (commit, parents, message) => {
+    const args = [
+      'commit-tree',
+      ...(sign ? ['--gpg-sign'] : []),
+      commit.tree,
+      ...parents.flatMap((p) => ['-p', p]),
+      '-F',
+      '-',
+    ];
+    return (await run(worktree, args, commit.author, message)).trim();
+  };
 }
 
 /**
@@ -174,17 +191,12 @@ export async function reword(
   const target = (await run(worktree, ['rev-parse', hash])).trim();
   const later = await laterCommits(worktree, target, head, run);
   const original = await read(worktree, target, run);
-  const reworded = await remake(
-    worktree,
-    original,
-    original.parents,
-    await cleanUp(worktree, message, run),
-    run,
-  );
+  const remake = await remaking(worktree, run);
+  const reworded = await remake(original, original.parents, await cleanUp(worktree, message, run));
   let made = reworded;
   for (const hash of later) {
     const commit = await read(worktree, hash, run);
-    made = await remake(worktree, commit, [made], commit.message, run);
+    made = await remake(commit, [made], commit.message);
   }
   // Moved only from where it was checked: `update-ref` refuses if HEAD has moved meanwhile.
   try {
@@ -218,6 +230,7 @@ export async function drop(
   const later = await laterCommits(worktree, target, head, run);
   let base = (await read(worktree, target, run)).parents[0];
   let tree = base === undefined ? EMPTY_TREE : (await read(worktree, base, run)).tree;
+  const remake = await remaking(worktree, run);
   for (const hash of later) {
     const commit = await read(worktree, hash, run);
     // `merge-tree` takes commits: the empty tree's, for nothing before.
@@ -236,16 +249,10 @@ export async function drop(
     const made = merged.trim();
     if (made === tree) continue;
     tree = made;
-    base = await remake(
-      worktree,
-      { ...commit, tree },
-      base === undefined ? [] : [base],
-      commit.message,
-      run,
-    );
+    base = await remake({ ...commit, tree }, base === undefined ? [] : [base], commit.message);
   }
   // As IntelliJ's in-memory rebase, an empty commit where none's left.
-  base ??= (await run(worktree, ['commit-tree', EMPTY_TREE], {}, '')).trim();
+  base ??= await remake({ tree: EMPTY_TREE, author: {} }, [], '');
   await stillAt(worktree, head, run);
   await run(worktree, ['reset', '--keep', base], {
     GIT_REFLOG_ACTION: `drop ${target} by Cerebro`,
