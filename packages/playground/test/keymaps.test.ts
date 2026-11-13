@@ -111,6 +111,8 @@ describe('the editor’s keys', () => {
       matchBrace: ['Ctrl-Shift-m'],
       extendSelection: ['Ctrl-w'],
       shrinkSelection: ['Ctrl-Shift-w'],
+      scrollUp: ['Ctrl-ArrowUp'],
+      scrollDown: ['Ctrl-ArrowDown'],
       undo: [],
       redo: [],
     });
@@ -140,6 +142,8 @@ describe('the editor’s keys', () => {
       'matchBrace',
       'extendSelection',
       'shrinkSelection',
+      'scrollUp',
+      'scrollDown',
       'find',
       'replace',
     ]);

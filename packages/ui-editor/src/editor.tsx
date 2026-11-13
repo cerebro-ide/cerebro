@@ -58,6 +58,7 @@ import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { startingNewLine } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
+import { scrollingBy } from './scroll.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -241,6 +242,9 @@ export interface EditorKeys {
   /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
   extendSelection?: readonly string[];
   shrinkSelection?: readonly string[];
+  /** Scroll Up and Scroll Down: the text a line, the caret staying. */
+  scrollUp?: readonly string[];
+  scrollDown?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -276,6 +280,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   matchBrace: ['Mod-Shift-m'],
   extendSelection: ['Mod-w'],
   shrinkSelection: ['Mod-Shift-w'],
+  scrollUp: ['Ctrl-ArrowUp'],
+  scrollDown: ['Ctrl-ArrowDown'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -842,6 +848,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.matchBrace.map((key) => ({ key, run: cursorMatchingBracket })),
         ...keys.extendSelection.map((key) => ({ key, run: extendingSelection })),
         ...keys.shrinkSelection.map((key) => ({ key, run: shrinkingSelection })),
+        ...keys.scrollUp.map((key) => ({ key, run: scrollingBy(-1) })),
+        ...keys.scrollDown.map((key) => ({ key, run: scrollingBy(1) })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,
