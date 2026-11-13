@@ -29,6 +29,8 @@ const MARKS = new Set([
   'LinkMark',
   'LinkTitle',
   'LinkLabel',
+  // A link's definition (`[x]: https://x.y`), which other links name.
+  'LinkReference',
   'ListMark',
   'HeaderMark',
   'QuoteMark',

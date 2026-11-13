@@ -56,6 +56,10 @@ describe('Markdown drawn as a page', () => {
     expect(body.textContent).toBe('site and https://c.d, a cat');
   });
 
+  it('draws nothing for a link’s definition, as GitHub’s page', () => {
+    expect(page('[x]: https://x.y "Title"\n\nText').innerHTML).toBe('<p>Text</p>');
+  });
+
   it('shows an image once its source comes, its words until then or without one', async () => {
     const asked: string[] = [];
     const image = (address: string) => {
