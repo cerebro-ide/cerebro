@@ -141,3 +141,24 @@ export async function blame(
       .sort((a, b) => b.time - a.time),
   };
 }
+
+/**
+ * The last commit on HEAD that changed a file, as IntelliJ's `GitHistoryUtils.getCurrentRevision`
+ * reads it (`git log -n1 HEAD -- <path>`): an annotation's base, which closes it when it moves. Null
+ * for a file no commit has, or with no commit yet.
+ */
+export async function lastCommitOf(
+  worktree: string,
+  path: string,
+  run: Git,
+): Promise<string | null> {
+  const output = await run(worktree, [
+    'log',
+    '-n1',
+    '--format=%H',
+    'HEAD',
+    '--',
+    `:(literal)${path}`,
+  ]).catch(() => '');
+  return output.trim() === '' ? null : output.trim();
+}

@@ -3817,9 +3817,18 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   asked twice (measured: a test counting the questions). And an answer that comes once they've
   closed is dropped: it had failed measuring a gutter no longer there (measured: the app's test
   closed them with a question in flight).
+- **Closed when the file's last commit moves** (added 2026-11-13), as IntelliJ's
+  (`VcsAnnotationLocalChangesListenerImpl`, `GitFileAnnotation.isBaseRevisionChanged`,
+  `GitHistoryUtils.getCurrentRevision`, read from its source): each annotation keeps its base, the
+  file's last commit on HEAD as it was blamed (`git log -n1 HEAD -- <path>`, `git.lastCommit`).
+  When the worktree's refs change (the repository's state, read as the window gets the focus,
+  every 2 seconds and after Cerebro's own git changes), the base is read again, and where it moved
+  (a commit of the file, a checkout, a pull, a reset) the annotations close, as IntelliJ closes
+  them rather than reading them again. A file with no commit, or whose base couldn't be read,
+  isn't closed, as IntelliJ's null revision; a repository version's never moves.
 - **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
-  Hover; reading them again after a commit, or a change on disk; the editor's context menu's Git
-  submenu; Annotate with Git Blame in a repository version's gutter menu.
+  Hover; the editor's context menu's Git submenu; Annotate with Git Blame in a repository
+  version's gutter menu.
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

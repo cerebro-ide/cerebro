@@ -16,6 +16,7 @@ import {
 import { revisionTab } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
+import { readState } from '../src/repository-state.js';
 import { closeAll, FakeHost, menuItem, menuItems, project } from './fakes.js';
 
 const DAY = 86_400_000;
@@ -460,6 +461,61 @@ describe('Annotate with Git Blame', () => {
     // Not in Find Action, which asks with no annotation.
     expect(annotate('annotate.revision')?.enabled?.(undefined)).toBe(false);
     expect(annotate('annotate.previousRevision')?.enabled?.(undefined)).toBe(false);
+  });
+
+  it('close when the file’s last commit moves, as the repository’s refs change, as IntelliJ’s', async () => {
+    let base = 'base1';
+    let refs = 'refs1';
+    host.answers['git.lastCommit'] = () => base;
+    host.answers['git.state'] = () => ({ conflicts: false, refs });
+    await readState('/r');
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    await annotationFor('/r/a.ts')?.('text');
+    expect(host.params('git.lastCommit')).toEqual([{ path: '/r', file: 'a.ts' }]);
+    // The refs change, the file's last commit doesn't (a commit of another file): still annotated.
+    refs = 'refs2';
+    await readState('/r');
+    await vi.waitFor(() => {
+      expect(host.params('git.lastCommit')).toHaveLength(2);
+    });
+    expect(annotationFor('/r/a.ts')).toBeDefined();
+    // It moves: closed.
+    base = 'base2';
+    refs = 'refs3';
+    await readState('/r');
+    await vi.waitFor(() => {
+      expect(annotationFor('/r/a.ts')).toBeUndefined();
+    });
+    // Annotated again, the new base; a file no commit has (none) never closes, nor one unread.
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    await annotationFor('/r/a.ts')?.('text');
+    base = 'base3';
+    refs = 'refs4';
+    await readState('/r');
+    await vi.waitFor(() => {
+      expect(annotationFor('/r/a.ts')).toBeUndefined();
+    });
+    host.answers['git.lastCommit'] = () => null;
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    await annotationFor('/r/a.ts')?.('text');
+    host.answers['git.lastCommit'] = () => 'base4';
+    refs = 'refs5';
+    await readState('/r');
+    expect(annotationFor('/r/a.ts')).toBeDefined();
+    // Where git can't say, it says why, and it stays.
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    host.answers['git.lastCommit'] = () => 'base5';
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    await annotationFor('/r/a.ts')?.('text');
+    delete host.answers['git.lastCommit'];
+    const error = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    refs = 'refs6';
+    await readState('/r');
+    await vi.waitFor(() => {
+      expect(error).toHaveBeenCalledWith('Reading an annotation’s base failed', expect.any(Error));
+    });
+    expect(annotationFor('/r/a.ts')).toBeDefined();
+    delete host.answers['git.state'];
   });
 
   it('has IntelliJ’s Options, kept with the view, asked of git and shown', async () => {

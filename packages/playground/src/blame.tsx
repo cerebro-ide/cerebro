@@ -10,7 +10,7 @@
 // click on one shows its commit in the Log (`GitFileAnnotation.showAffectedPaths`). The view and the
 // options are kept in the browser's storage.
 
-import { ObservableMap, signal } from '@cerebro-ide/reactive';
+import { effect, ObservableMap, signal } from '@cerebro-ide/reactive';
 import {
   translateLine,
   type AskAnnotation,
@@ -23,6 +23,7 @@ import { diffTab, notCommitted, revisionTab } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
 import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
+import { stateOf } from './repository-state.js';
 
 /** The host's `git.blame`. */
 export interface Blame {
@@ -303,6 +304,12 @@ interface Annotated {
 /** The files annotated, by their tabs' ids. */
 const annotated = new ObservableMap<string, Annotated>();
 
+/**
+ * Each annotation's base, as IntelliJ's `GitFileAnnotation` keeps it: the file's last commit on HEAD
+ * when it was last blamed (null: none). When it moves, the annotation closes.
+ */
+const bases = new WeakMap<Annotated, string | null>();
+
 /** What the menus on an annotation are given: the file's tab, the line's commit, and the line. */
 export interface AnnotationContext {
   file: string;
@@ -327,13 +334,22 @@ export function annotationFor(file: string): AskAnnotation | undefined {
   return async (text) => {
     const host = hostFor(target.worktree);
     try {
-      const blame = (await host?.request('git.blame', {
-        path: target.worktree,
-        file: target.path,
-        ...(target.hash === undefined ? { contents: text } : { hash: target.hash }),
-        ignoreWhitespace: shown.ignoreWhitespace,
-        movements: shown.movements,
-      })) as Blame;
+      const [blame, base] = (await Promise.all([
+        host?.request('git.blame', {
+          path: target.worktree,
+          file: target.path,
+          ...(target.hash === undefined ? { contents: text } : { hash: target.hash }),
+          ignoreWhitespace: shown.ignoreWhitespace,
+          movements: shown.movements,
+        }),
+        // A commit's version doesn't move. Unread, none: as IntelliJ's, which then never closes it.
+        target.hash === undefined
+          ? host
+              ?.request('git.lastCommit', { path: target.worktree, file: target.path })
+              .catch(() => null)
+          : undefined,
+      ])) as [Blame, string | null | undefined];
+      if (base !== undefined) bases.set(target, base);
       const commits = new Map(blame.commits.map((c) => [c.hash, c]));
       const context = (line: number): AnnotationContext => {
         const commit = commits.get(blame.lines[line] as string) as BlameCommit;
@@ -421,10 +437,44 @@ function fileIn(tab: string | undefined): Annotated | undefined {
   return tab.startsWith(prefix) ? { worktree: env.id, path: tab.slice(prefix.length) } : undefined;
 }
 
+/**
+ * Closes a worktree's annotations whose base has moved, as IntelliJ's
+ * `VcsAnnotationLocalChangesListenerImpl` does (`isBaseRevisionChanged`): after a commit, a
+ * checkout, a pull or a reset that changed the file.
+ */
+async function closeMoved(worktree: string): Promise<void> {
+  const host = hostFor(worktree);
+  for (const [file, target] of [...annotated.entries()]) {
+    const base = bases.get(target);
+    if (target.worktree !== worktree || base === undefined || base === null) continue;
+    try {
+      const now = await host?.request('git.lastCommit', { path: worktree, file: target.path });
+      if (now !== base && annotated.get(file) === target) annotated.delete(file);
+    } catch (error) {
+      console.error('Reading an annotation’s base failed', error);
+    }
+  }
+}
+
+/** The refs each worktree with annotations had when last looked at. */
+const refsSeen = new Map<string, string | undefined>();
+
 /** Annotate with Git Blame, its menus, and the menu on an annotation. */
 export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   menuServices = services;
   blameSetup = setup;
+  // When a worktree's refs change (the repository's state, read as the window gets the focus,
+  // every few seconds, and after Cerebro's own git changes), its annotations' bases are checked.
+  effect(() => {
+    const worktrees = new Set([...annotated.values()].map((target) => target.worktree));
+    for (const worktree of refsSeen.keys()) if (!worktrees.has(worktree)) refsSeen.delete(worktree);
+    for (const worktree of worktrees) {
+      const refs = stateOf(worktree).refs;
+      if (refsSeen.has(worktree) && refsSeen.get(worktree) !== refs) void closeMoved(worktree);
+      refsSeen.set(worktree, refs);
+    }
+    return undefined;
+  });
   const { commands, menus } = services;
   /** The file a command is for: the gutter's, or the active editor's. */
   const target = (c: unknown) => (c as { file?: string } | undefined)?.file ?? setup.activeTab();
