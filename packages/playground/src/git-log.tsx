@@ -76,6 +76,8 @@ import { SearchHistory } from './search-history.js';
 export interface LogCommit {
   hash: string;
   parents: string[];
+  /** In a filtered log, the graph's parents: its nearest ancestors listed. */
+  joins?: string[];
   author: string;
   email: string;
   time: number;
@@ -83,6 +85,9 @@ export interface LogCommit {
   body: string;
   refs: string[];
 }
+
+/** A commit's parents in the graph: those it's joined to in a filtered log, else its own. */
+const joined = (commit: LogCommit) => commit.joins ?? commit.parents;
 
 /** How many commits a page holds. */
 export const PAGE = 1000;
@@ -267,7 +272,8 @@ export class Log {
   }
 
   private take(page: readonly LogCommit[], from: readonly LogCommit[]): void {
-    for (const [i, row] of this.layout.add(page).entries()) {
+    const lines = page.map((commit) => ({ hash: commit.hash, parents: joined(commit) }));
+    for (const [i, row] of this.layout.add(lines).entries()) {
       this.graph.set((page[i] as LogCommit).hash, row);
     }
     this.done = page.length < PAGE;
@@ -428,13 +434,13 @@ export class Log {
   adjacent(commit: LogCommit, parents: boolean): string[] {
     const commits = this.commits.peek();
     if (!parents) {
-      return commits.filter((c) => c.parents.includes(commit.hash)).map((c) => c.hash);
+      return commits.filter((c) => joined(c).includes(commit.hash)).map((c) => c.hash);
     }
     const at = (hash: string) => {
       const index = this.indexOf(hash);
       return index < 0 ? commits.length : index;
     };
-    return [...commit.parents].sort((a, b) => at(a) - at(b));
+    return [...joined(commit)].sort((a, b) => at(a) - at(b));
   }
 
   /** Whether any filter applies. */

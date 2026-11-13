@@ -1904,8 +1904,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   semicolons) shows the commits they start, and those whose messages name them, in every branch
   whatever the other filters; if there are none, it's searched for as text.
   - **The graph joins what a filter shows:** git gives a commit's own parents, hidden or not, even
-    with `--parents` (measured, git 2.43), so the host rewrites each commit's parents to its
-    nearest ancestors shown. It reads the whole history for each page to do it: 63 ms for this
+    with `--parents` (measured, git 2.43), so the host joins each commit to its nearest ancestors
+    shown (`joins`), for the graph and Go to Parent or Child Commit. Its parents stay its own
+    (changed 2026-11-13: they were rewritten, so a filtered commit's files were all the changes
+    since the commit shown below it, a commit hidden between included, and the actions that ask
+    how many parents a commit has asked the graph). It reads the whole history for each page to do it: 63 ms for this
     repository's 615 commits (measured in the app); a claim that it's quick enough for large ones.
     **Claims:** lines to an ancestor drawn as any other (IntelliJ may draw them otherwise; not
     compared), and the field's width (240px).

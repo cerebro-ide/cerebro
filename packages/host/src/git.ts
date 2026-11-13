@@ -454,6 +454,11 @@ export async function bytesAt(
 export interface LogCommit {
   hash: string;
   parents: string[];
+  /**
+   * In a filtered log, the graph's parents: its nearest ancestors listed, where git's own are
+   * hidden. Its `parents` stay its own, which its files and the actions on it go by.
+   */
+  joins?: string[];
   author: string;
   email: string;
   /** When it was authored, in milliseconds since the epoch. */
@@ -601,8 +606,8 @@ export function hashesIn(text: string): string[] | undefined {
 const unique = (hashes: readonly string[]) => [...new Set(hashes)];
 
 /**
- * The commits listed, each one's parents the nearest of its ancestors among them: the graph of a
- * filtered log joins what it shows, where git gives the parents it hides.
+ * The commits listed, each one joined to the nearest of its ancestors among them (`joins`): the graph
+ * of a filtered log joins what it shows, where git gives the parents it hides.
  */
 export function rewriteParents(
   commits: readonly LogCommit[],
@@ -616,7 +621,7 @@ export function rewriteParents(
   for (const [hash, its] of [...parents].reverse()) {
     if (!shown.has(hash)) nearest.set(hash, unique(its.flatMap(below)));
   }
-  return commits.map((commit) => ({ ...commit, parents: unique(commit.parents.flatMap(below)) }));
+  return commits.map((commit) => ({ ...commit, joins: unique(commit.parents.flatMap(below)) }));
 }
 
 /**

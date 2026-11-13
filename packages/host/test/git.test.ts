@@ -437,14 +437,15 @@ describe('with real git', () => {
     commitAt(4, `fix aside, after ${between.slice(0, 7)}`);
     run(texts, 'checkout', '-q', 'main');
     const hash = (ref: string) => run(texts, 'rev-parse', ref).trim();
-    // Any case, as typed; the parents of those shown are the nearest of them.
+    // Any case, as typed; those shown are joined to the nearest of them, their parents their own.
     const fixes = await log(texts, 0, 10, git, undefined, text('fix'));
     expect(subjects(fixes)).toEqual([
       'fix aside, after ' + between.slice(0, 7),
       'fix (the end)',
       'Fix the start',
     ]);
-    expect(fixes.map((c) => c.parents)).toEqual([[hash('main~2')], [hash('main~2')], []]);
+    expect(fixes.map((c) => c.joins)).toEqual([[hash('main~2')], [hash('main~2')], []]);
+    expect(fixes.map((c) => c.parents)).toEqual([[hash('main~2')], [between], []]);
     expect(subjects(await log(texts, 1, 1, git, undefined, text('fix')))).toEqual([
       'fix (the end)',
     ]);
@@ -658,7 +659,8 @@ describe('with real git', () => {
       body: '',
       refs: [],
     });
-    // m merges b and c, both from a; only m and a are shown, and a's parent isn't known.
+    // m merges b and c, both from a; only m and a are shown, and a's parent isn't known. Each
+    // keeps its own parents, for its files and the actions on it.
     const parents = new Map([
       ['m', ['b', 'c']],
       ['b', ['a']],
@@ -666,8 +668,8 @@ describe('with real git', () => {
       ['a', ['z']],
     ]);
     expect(rewriteParents([commit('m', ['b', 'c']), commit('a', ['z'])], parents)).toEqual([
-      commit('m', ['a']),
-      commit('a', []),
+      { ...commit('m', ['b', 'c']), joins: ['a'] },
+      { ...commit('a', ['z']), joins: [] },
     ]);
   });
 
