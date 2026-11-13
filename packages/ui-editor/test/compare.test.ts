@@ -1,6 +1,6 @@
 import { Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { compare, kindOf, type Change } from '../src/compare.js';
+import { compare, kindOf, translateLine, type Change } from '../src/compare.js';
 
 const text = (lines: readonly string[]) => Text.of([...lines]);
 const run = (
@@ -120,5 +120,22 @@ describe('comparing two texts', () => {
         parts: undefined,
       },
     ]);
+  });
+});
+
+describe('carrying a line into another text, as IntelliJ’s Diff.translateLine', () => {
+  const before = 'a\nb\nc\nd\ne\n';
+  // A line added before b, c changed to two lines, and e indented: the same line, trimmed.
+  const after = 'a\r\nnew\r\nb\r\nC1\r\nC2\r\nd\r\n  e\r\n';
+  it('shifts a line by the changes before it, unchanged ones trimmed', () => {
+    expect(translateLine(before, after, 0)).toBe(0);
+    expect(translateLine(before, after, 1)).toBe(2);
+    expect(translateLine(before, after, 3)).toBe(5);
+    expect(translateLine(before, after, 4)).toBe(6);
+  });
+  it('puts a line in a change at the change’s first line', () => {
+    expect(translateLine(before, after, 2)).toBe(3);
+    // Deleted: where it was.
+    expect(translateLine('a\nx\nb', 'a\rb', 1)).toBe(1);
   });
 });

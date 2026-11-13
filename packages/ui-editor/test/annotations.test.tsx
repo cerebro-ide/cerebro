@@ -95,6 +95,19 @@ describe('text annotations', () => {
     expect(third?.title).toBe('line 2');
   });
 
+  it('are asked once as an editor opens annotated, each read of them a new ask', async () => {
+    const asked = vi.fn();
+    const root = mount({
+      text: 'a\nb\nc\n',
+      annotate: () => (text) => {
+        asked(text);
+        return Promise.resolve(annotation());
+      },
+    });
+    await expect.poll(() => drawn(root)).toHaveLength(2);
+    expect(asked).toHaveBeenCalledTimes(1);
+  });
+
   it('keep their width with no annotated line in view', async () => {
     const text = Array.from({ length: 200 }, (_, i) => `line ${String(i)}`).join('\n');
     const lines = [{ texts: ['Today', 'Ada'] }];
@@ -151,6 +164,20 @@ describe('text annotations', () => {
     // Lines past the text's end: left out.
     const shorter = mount({ text: 'a', annotate: () => () => Promise.resolve(annotation()) });
     await expect.poll(() => drawn(shorter)).toEqual(['1: Yesterday | Lovelace']);
+  });
+
+  it('leave an answer that comes once they’re closed unshown', async () => {
+    let answer: (found: TextAnnotation | undefined) => void = () => undefined;
+    const ask: AskAnnotation = () =>
+      new Promise((resolve) => {
+        answer = resolve;
+      });
+    const shown = signal(true);
+    const root = mount({ text: 'a\nb\n', annotate: () => (shown.get() ? ask : undefined) });
+    shown.set(false);
+    answer(annotation());
+    await wait(50);
+    expect(root.querySelector('.cerebro-annotations')).toBeNull();
   });
 
   it('open their line’s menu on a right-click; none where a line has none', async () => {

@@ -42,7 +42,7 @@ describe('blame, with real git', () => {
     writeFileSync(join(repo, 'f.txt'), 'a\nB\nc\nd\n');
     run({}, 'add', '.');
     commitAs('Bob', 2, 'Second');
-    const found = await blame(repo, 'f.txt', 'a\nB\nC!\nd\nnew\n', git);
+    const found = await blame(repo, 'f.txt', { text: 'a\nB\nC!\nd\nnew\n' }, git);
     const [bob, ada] = found.commits;
     expect(found.commits.map((c) => [c.author, c.email, c.time, c.message, c.path])).toEqual([
       ['Bob', 'bob@x.org', 2 * 86_400_000, 'Second', undefined],
@@ -70,7 +70,7 @@ describe('blame, with real git', () => {
       '-qam',
       'Changed',
     );
-    const [changed, added] = (await blame(repo, 'p.txt', 'a\nb\n', git)).commits;
+    const [changed, added] = (await blame(repo, 'p.txt', { text: 'a\nb\n' }, git)).commits;
     expect(changed?.time).toBe(5 * 86_400_000);
     expect(changed?.committed).toBe(6 * 86_400_000);
     expect(changed?.previous).toEqual({ hash: added?.hash, path: 'p.txt' });
@@ -95,7 +95,7 @@ describe('blame, with real git', () => {
     writeFileSync(join(repo, 'from.txt'), '');
     commitAs('Bob', 8, 'Moved');
     const by = async (options: Parameters<typeof blame>[4]) => {
-      const found = await blame(repo, 'm.txt', text, git, options);
+      const found = await blame(repo, 'm.txt', { text }, git, options);
       const names = new Map(found.commits.map((c) => [c.hash, c.author]));
       return found.lines.map((hash) => names.get(hash as string));
     };
@@ -112,13 +112,28 @@ describe('blame, with real git', () => {
     expect(await by({ ignoreWhitespace: true, movements: 'across' })).toEqual(ada(12));
   });
 
+  it('blames the file as it was at a commit, as Annotate Revision does', async () => {
+    writeFileSync(join(repo, 'r.txt'), 'one\n');
+    run({}, 'add', '.');
+    commitAs('Ada', 9, 'One');
+    const first = run({}, 'rev-parse', 'HEAD').trim();
+    writeFileSync(join(repo, 'r.txt'), 'one\ntwo\n');
+    commitAs('Bob', 10, 'Two');
+    // Changed since, in the worktree too: neither is in it.
+    writeFileSync(join(repo, 'r.txt'), 'zero\none\ntwo\nthree\n');
+    const found = await blame(repo, 'r.txt', { revision: first }, git);
+    expect(found.commits.map((c) => [c.author, c.message])).toEqual([['Ada', 'One']]);
+    expect(found.lines).toEqual([first]);
+    run({}, 'checkout', '-q', '--', 'r.txt');
+  });
+
   it('says why it can’t: a file not committed', async () => {
     writeFileSync(join(repo, 'new.txt'), 'x\n');
-    await expect(blame(repo, 'new.txt', 'x\n', git)).rejects.toThrow('no such path');
+    await expect(blame(repo, 'new.txt', { text: 'x\n' }, git)).rejects.toThrow('no such path');
     // An empty one: nothing to say.
     writeFileSync(join(repo, 'empty.txt'), '');
     run({}, 'add', '.');
     commitAs('Ada', 3, 'Empty');
-    expect(await blame(repo, 'empty.txt', '', git)).toEqual({ lines: [], commits: [] });
+    expect(await blame(repo, 'empty.txt', { text: '' }, git)).toEqual({ lines: [], commits: [] });
   });
 });

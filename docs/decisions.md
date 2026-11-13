@@ -80,7 +80,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
 - [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); Checkout Tag or Revision…; the tags, with Checkout, Merge and Delete; Recent first; from Git → Branches… too (changed 2026-11-13)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
-- [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number and Options; a click shows the commit in the Log
+- [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number, Annotate Revision, Annotate Previous Revision and Options; a click shows the commit in the Log
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
 - [File Structure (2026-11-04)](#file-structure-2026-11-04): the file's symbols in a popup on Ctrl+F12, as a tree, narrowed as one types; bash's flat symbols nested by the host; JSON, CSS and HTML's from Cerebro's server; each keymap's keys
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
@@ -3800,10 +3800,26 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   (no provider enabled: `AnnotateLocalFileAction.isEnabled`, not unknown, added or ignored):
   untracked or added, as the Commit window's lists know it, as Show Diff's (decision "Git → Current
   File → Show Diff"). **Claims:** shown before those lists are read, and for an ignored file.
-- **Not yet:** Annotate Revision and Annotate Previous Revision, and Show in File History (they need
-  a file's version at a commit, and a Git file history: Git → Current File's history, next); Show
-  Diff On Hover; reading them again after a commit, or a change on disk; the editor's context
-  menu's Git submenu.
+- **Annotate Revision and Annotate Previous Revision** (added 2026-11-13), as IntelliJ's
+  (`AnnotateCurrentRevisionAction`, `AnnotatePreviousRevisionAction`, `AnnotateRevisionActionBase`,
+  read from its source), after Copy Revision Number and a separator, before Options: the file as it
+  was at the line's commit, or at the commit before that changed it (`previous`), at its path there,
+  in a repository version's tab (decision "The Git Log", its Open Repository Version), annotated:
+  blamed at that commit (`git blame <hash> -- <path>`), so it can be annotated back again. It opens
+  at the line asked on, carried into that version as IntelliJ's `Diff.translateLine` carries it
+  (lines compared trimmed; one in a change goes to the change's first line). Annotate Previous
+  Revision is disabled where the commit added the file, as IntelliJ's (no revision: no file). Its
+  annotations close as a file's do (Close Annotations); the tab's own Annotate toggle in the gutter
+  isn't there yet. The version's text is read twice, once to carry the line and once by the tab
+  (open to change).
+- **Asked once as an editor opens annotated** (fixed 2026-11-13): the editor read its annotations
+  as it was made and again as its effect first ran, and each read is a new question, so they were
+  asked twice (measured: a test counting the questions). And an answer that comes once they've
+  closed is dropped: it had failed measuring a gutter no longer there (measured: the app's test
+  closed them with a question in flight).
+- **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
+  Hover; reading them again after a commit, or a change on disk; the editor's context menu's Git
+  submenu; Annotate with Git Blame in a repository version's gutter menu.
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

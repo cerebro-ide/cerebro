@@ -8,7 +8,7 @@
 // then of whole words.
 
 import { diff } from '@codemirror/merge';
-import type { Text } from '@codemirror/state';
+import { Text } from '@codemirror/state';
 
 /** What's not a difference, as IntelliJ's Ignore Differences. */
 export const IGNORE_POLICIES = ['none', 'trim', 'whitespaces', 'whitespacesAndEmptyLines'] as const;
@@ -203,4 +203,20 @@ export function compare(
     changes.push(...(highlight === 'split' ? split(change, textA, textB) : [change]));
   }
   return changes;
+}
+
+/**
+ * A line of `before` in `after`, as IntelliJ carries the line Annotate Revision was asked on into
+ * the revision it opens (`Diff.translateLine`, approximate): the lines compared trimmed; after a
+ * change, shifted by it; in one, its first line in `after`.
+ */
+export function translateLine(before: string, after: string, line: number): number {
+  const text = (lines: string) => Text.of(lines.split(/\r\n?|\n/));
+  let result = line;
+  for (const change of compare(text(before), text(after), 'trim', 'lines')) {
+    if (line < change.start1) break;
+    if (line < change.end1) return change.start2;
+    result += change.end2 - change.start2 - (change.end1 - change.start1);
+  }
+  return result;
 }

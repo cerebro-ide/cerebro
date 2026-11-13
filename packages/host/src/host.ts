@@ -786,9 +786,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   // Merge conflicts: the files, their versions, resolving them, and carrying on after.
   // Who last changed each line of a file, given its text as the editor has it: IntelliJ's Annotate.
+  // The editor's text (`contents`), or the file at a commit (`hash`): one of them.
   connection.onRequest('git.blame', (params) => {
-    const { contents } = params as { contents?: unknown };
-    if (typeof contents !== 'string') {
+    const { contents, hash } = params as { contents?: unknown; hash?: unknown };
+    if ((contents === undefined) === (hash === undefined)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'contents or hash must be given, not both');
+    }
+    if (contents !== undefined && typeof contents !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'contents must be a string');
     }
     // IntelliJ's Options on an annotation; its defaults when not given.
@@ -805,7 +809,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
         `ignoreWhitespace must be a boolean, movements among ${MOVEMENTS.join(', ')}`,
       );
     }
-    return blame(text(params, 'path'), text(params, 'file'), contents, git, {
+    const blamed = typeof contents === 'string' ? { text: contents } : { revision: hashOf(params) };
+    return blame(text(params, 'path'), text(params, 'file'), blamed, git, {
       ignoreWhitespace,
       movements: movements as BlameOptions['movements'],
     });
