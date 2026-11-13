@@ -30,7 +30,7 @@ export function scrollFor(
   line: number,
   end: { line: number; top: number },
 ): number {
-  let index = blocks.findLastIndex((block) => block.line <= line);
+  const index = blocks.findLastIndex((block) => block.line <= line);
   if (index < 0) return 0;
   const block = blocks[index] as { line: number; top: number };
   const next = blocks[index + 1] ?? end;

@@ -115,7 +115,7 @@ describe('the preview following the editor', () => {
     ).toBe(30);
   });
 
-  it('shows the editor’s top line’s block at its top', async () => {
+  it('shows the editor’s top line’s block at its top', () => {
     const line = signal(0);
     const text = Array.from({ length: 40 }, (_, i) => `## Part ${String(i)}\n\nText.\n`).join('\n');
     const container = document.body.appendChild(document.createElement('div'));
