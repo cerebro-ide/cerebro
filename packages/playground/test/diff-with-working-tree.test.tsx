@@ -85,6 +85,8 @@ describe('Show Diff with Working Tree’s window', () => {
   it('says nothing is compared before anything is', () => {
     mount();
     expect(text('.playground-project__empty')).toBe('Nothing compared');
+    // As Find Action lists it then.
+    expect(services.commands.get('vcsChanges.get')?.text?.(undefined)).toBe('Get from Branch');
   });
 
   it('lists the files that differ, in IntelliJ’s words, each opening its diff', async () => {
