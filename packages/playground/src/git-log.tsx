@@ -1237,8 +1237,14 @@ export function CommitPane(props: {
   open: (tab: Tab, chain?: readonly string[]) => void;
 }) {
   const { log } = props;
-  return () => {
+  // The selected commit's hash while the Log has it: none once it's gone, read again (after Undo
+  // Commit, say), and the same as more are loaded, so its files aren't made again.
+  const shown = computed(() => {
     const hash = log.model.selected;
+    return log.commits.get().some((commit) => commit.hash === hash) ? hash : undefined;
+  });
+  return () => {
+    const hash = shown.get();
     const commit = hash === undefined ? undefined : log.commit(hash);
     if (!commit) return <p class="playground-project__empty">No commits selected</p>;
     return [
