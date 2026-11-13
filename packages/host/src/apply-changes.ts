@@ -3,7 +3,9 @@
 // `git revert` of a commit, which may stop at conflicts; one whose changes are already here (or
 // already undone) is skipped, as IntelliJ's default (`EmptyCherryPickResolutionStrategy.SKIP`).
 
-import { GitError, type Git } from './git.js';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { GitError, type Git, type GitBytes } from './git.js';
 
 /** What applies a commit's changes: picks them, or undoes them. */
 export type Applying = 'cherry-pick' | 'revert';
@@ -106,4 +108,28 @@ export async function applyChanges(
   ]);
   if (patch === '') return;
   await run(worktree, ['apply', ...(reverse ? ['-R'] : []), '-C1', '-'], undefined, patch);
+}
+
+/**
+ * The file in the working tree as `hash` has it, or deleted where `hash` hasn't it: IntelliJ's Get
+ * from Revision in the Log (`GetVersionFromRepositoryActionProvider` and `GetVersionAction`, read
+ * from their source), which writes the change's after-version, or deletes the file. Whether the
+ * commit has it is asked first, so a commit git can't read fails rather than deleting the file.
+ */
+export async function getVersion(
+  worktree: string,
+  hash: string,
+  path: string,
+  run: Git,
+  runBytes: GitBytes,
+): Promise<void> {
+  const file = join(worktree, path);
+  const listed = await run(worktree, ['ls-tree', '--name-only', hash, '--', path]);
+  if (listed.trim() === '') {
+    await rm(file, { force: true });
+    return;
+  }
+  const bytes = await runBytes(worktree, ['show', `${hash}:${path}`]);
+  await mkdir(dirname(file), { recursive: true });
+  await writeFile(file, bytes);
 }

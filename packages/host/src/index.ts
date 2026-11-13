@@ -252,6 +252,7 @@ export {
   applyChanges,
   applyCommit,
   continueApplying,
+  getVersion,
   type Applied,
   type Applying,
 } from './apply-changes.js';

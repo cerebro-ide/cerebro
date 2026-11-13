@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -8,7 +16,9 @@ import {
   applyChanges,
   applyCommit,
   continueApplying,
+  getVersion,
   git,
+  gitBytes,
   listConflicts,
   operation,
   repositoryState,
@@ -228,5 +238,28 @@ describe('cherry-pick and revert, with real git', () => {
     expect(run(repo, 'diff', '--', 'a.txt')).toContain('+mine');
     // A file the commit didn't change: nothing to undo.
     await applyChanges(repo, { from: before, to: after }, ['b.txt'], true, git);
+  });
+
+  it('gets a file as a commit has it, or deletes it where the commit hasn’t it', async () => {
+    const { repo } = repository();
+    mkdirSync(join(repo, 'src'));
+    write(repo, { 'a.txt': 'then a\n', 'src/c.txt': 'then\n' });
+    const then = commit(repo, 'then');
+    write(repo, { 'a.txt': 'mine\n' });
+    rmSync(join(repo, 'src'), { recursive: true });
+    // Over a local change, and into a folder that's gone: as the commit has them, unstaged.
+    await getVersion(repo, then, 'a.txt', git, gitBytes);
+    await getVersion(repo, then, 'src/c.txt', git, gitBytes);
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('then a\n');
+    expect(readFileSync(join(repo, 'src/c.txt'), 'utf8')).toBe('then\n');
+    expect(run(repo, 'status', '--porcelain')).toBe('');
+    // Not in the commit: deleted.
+    write(repo, { 'new.txt': 'new\n' });
+    await getVersion(repo, then, 'new.txt', git, gitBytes);
+    expect(existsSync(join(repo, 'new.txt'))).toBe(false);
+    // A commit git can't read: it fails, and the file stays.
+    write(repo, { 'a.txt': 'kept\n' });
+    await expect(getVersion(repo, 'deadbeef', 'a.txt', git, gitBytes)).rejects.toThrow();
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('kept\n');
   });
 });

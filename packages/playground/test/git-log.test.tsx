@@ -36,6 +36,7 @@ import {
   answer,
   closeAll,
   dialog,
+  dialogText,
   FakeHost,
   menuItem,
   menuItems,
@@ -876,6 +877,7 @@ describe('a commit’s pane', () => {
       'Open Repository Version',
       'Revert Selected Changes',
       'Cherry-Pick Selected Changes',
+      'Get from Revision',
       'History Up to Here',
     ]);
     expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
@@ -921,6 +923,65 @@ describe('a commit’s pane', () => {
     await menuOn('moved.ts');
     expect(off()).toEqual(['Compare Before with Local']);
     await closeAll();
+  });
+
+  it('gets a file as the commit left it, asking first over a local change, as IntelliJ’s Get', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'a.ts', status: 'modified' },
+      { path: 'gone.ts', status: 'deleted' },
+    ];
+    /** The working tree's changes. */
+    let here: { path: string; status: string }[] = [];
+    const committed = host.answers['git.changes'] as (params: never) => unknown;
+    host.answers['git.changes'] = (params: { from?: string }) =>
+      params.from === undefined ? here : committed(params as never);
+    host.answers['git.getVersion'] = () => null;
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(2);
+    const get = async (name: string) => {
+      await closeAll();
+      await userEvent.click(
+        fileRows().find((row) => row.textContent.includes(name)) as HTMLElement,
+        {
+          button: 'right',
+        },
+      );
+      await userEvent.click(menuItem('Get from Revision'));
+    };
+    // Unchanged here: got at once. A file the commit deleted too (the host deletes it).
+    await get('a.ts');
+    await expect
+      .poll(() => host.params('git.getVersion'))
+      .toEqual([{ path: '/r', hash: 'c0', file: 'a.ts' }]);
+    await get('gone.ts');
+    await expect.poll(() => host.params('git.getVersion')).toHaveLength(2);
+    // Changed here: asked, in IntelliJ's words; cancelled, nothing got.
+    here = [{ path: 'a.ts', status: 'modified' }];
+    await get('a.ts');
+    expect(await dialogText()).toBe('File a.ts has been locally modified.');
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Get Revision',
+    );
+    await press('Cancel');
+    expect(host.params('git.getVersion')).toHaveLength(2);
+    await get('a.ts');
+    await press('Overwrite Modified File');
+    await expect.poll(() => host.params('git.getVersion')).toHaveLength(3);
+    // Where it can't be got, why, in IntelliJ's words.
+    here = [];
+    host.answers['git.getVersion'] = () => {
+      throw new Error('fatal: bad object');
+    };
+    await get('a.ts');
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Get Revision Content');
+    expect(shown.querySelector('p')?.textContent).toBe('Cannot load revision: fatal: bad object');
+    await closeAll();
+    host.answers['git.changes'] = committed;
+    delete host.answers['git.getVersion'];
   });
 
   it('expands and collapses all its folders from its toolbar’s end, as IntelliJ’s', async () => {
