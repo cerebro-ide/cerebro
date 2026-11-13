@@ -129,6 +129,9 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+Shift++'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
+    // A Markdown file's layouts: none here; VS Code's keymaps have keys for two.
+    'markdown.layout.split': [],
+    'markdown.layout.preview': [],
   },
 };
 
@@ -212,6 +215,9 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Meta+Shift++'],
     [EDITOR_ACTIONS.nextProblem]: ['F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2'],
+    // A Markdown file's layouts: none here; VS Code's keymaps have keys for two.
+    'markdown.layout.split': [],
+    'markdown.layout.preview': [],
   },
 };
 
