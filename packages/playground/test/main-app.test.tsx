@@ -1198,7 +1198,7 @@ describe('Annotate with Git Blame', () => {
     expect(
       host('/r')
         .params('git.blame')
-        .filter((p) => p.file === 'src/blamed.ts'),
+        .filter((p) => (p as { file: string }).file === 'src/blamed.ts'),
     ).toEqual([
       {
         path: '/r',

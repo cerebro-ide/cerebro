@@ -2719,6 +2719,8 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   Pull…, Fetch; Merge…, Commit Merge and Abort Merge (while merging), Rebase…, the Rebase menu;
   Branches…, New Branch…, New Tag…, Reset HEAD…; Stash Changes…, Unstash Changes…; Manage
   Remotes…; Abort Revert, Abort Cherry-Pick, Continue Cherry-Pick (while under way).
+- **When:** while the active worktree is a git repository with a host, as IntelliJ's `GitMenu`
+  shows only for files under Git (it asks of the files; here, of the worktree). Not in a browser.
 - **Where:** after Local History (Cerebro's choice, open to change: IntelliJ adds its VCS group to
   the editor's menu by `VcsGroup`, whose place there wasn't read). Labelled "Git", without a
   mnemonic (not read either).
@@ -3897,6 +3899,11 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   blamed at its commit, toggled as a file's. The version's editor gets the gutter's menu, shared
   with a file's editor; a right-click in its text opens nothing yet (IntelliJ's editor menu there
   isn't read).
+- **The annotation's own commands only on an annotation** (fixed 2026-11-13): Close Annotations,
+  Show Diff, Copy Revision Number, Annotate Revision and Annotate Previous Revision are disabled
+  with no annotation asked about, so Find Action, which asks with none, doesn't list them, as
+  IntelliJ's, which take the annotation from the gutter's popup. Before, the first three were
+  listed there, and running one threw (measured: a test asking with none).
 - **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
   Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
 
