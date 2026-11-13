@@ -12,14 +12,17 @@ import type { Host } from './environments.js';
 import { notifications } from './notifications.js';
 import { fileManagerLabel } from './select-in.js';
 
-/** What a patch is made of: a commit's changes, in some files or all of them. */
+/** What a patch is made of: a commit's changes, or the working tree's, in some files or all of them. */
 export interface PatchRequest {
   host: Host;
   worktree: string;
-  from: string;
-  to: string;
+  /** A commit's changes, from its parent; without them, the working tree's since HEAD. */
+  from?: string;
+  to?: string;
   /** The files it keeps to; all the commit changed, if none. */
   files?: readonly string[];
+  /** The working tree's untracked files among them, in the patch as new files. */
+  untracked?: readonly string[];
   /** The paths of the changes in it, in the repository, for the base path it needs. */
   changed: readonly string[];
   /** The commit's message, the patch's header and its file's name; none for "unnamed". */
@@ -299,16 +302,47 @@ async function created(file: string): Promise<void> {
   answer?.();
 }
 
+/** What `git.createPatch` is asked for, from a request: which changes. */
+function patchParams(request: PatchRequest) {
+  return {
+    path: request.worktree,
+    ...(request.from === undefined ? {} : { from: request.from }),
+    ...(request.to === undefined ? {} : { to: request.to }),
+    ...(request.files === undefined ? {} : { files: request.files }),
+    ...(request.untracked === undefined ? {} : { untracked: request.untracked }),
+  };
+}
+
+/**
+ * Copy as Patch to Clipboard, as IntelliJ's (`CreatePatchFromChangesAction.Clipboard`): no dialog,
+ * its paths from the repository's top, no message; "Patch copied to clipboard", or IntelliJ's
+ * "Patch Creation Failed" with why.
+ */
+export async function copyPatch(request: PatchRequest): Promise<void> {
+  try {
+    const { text } = (await request.host.request('git.createPatch', {
+      ...patchParams(request),
+      base: request.worktree,
+      reverse: false,
+    })) as { text: string };
+    await navigator.clipboard.writeText(text);
+    notifications.notify({ title: 'Patch copied to clipboard' });
+  } catch (error) {
+    notifications.notify({
+      title: 'Patch Creation Failed',
+      content: (error as Error).message,
+      type: 'error',
+    });
+  }
+}
+
 /** Create Patch…: the dialog, then the patch, written or copied. */
 export async function createPatch(request: PatchRequest): Promise<void> {
   const settings = await settingsDialog(request);
   if (settings === undefined) return;
   keep(TO_CLIPBOARD, String(settings.file === undefined));
   const params = {
-    path: request.worktree,
-    from: request.from,
-    to: request.to,
-    ...(request.files === undefined ? {} : { files: request.files }),
+    ...patchParams(request),
     base: settings.base,
     reverse: settings.reverse,
     ...(request.message === undefined ? {} : { message: request.message }),

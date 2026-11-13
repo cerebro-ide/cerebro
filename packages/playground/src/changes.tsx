@@ -35,6 +35,7 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
+import { copyPatch, createPatch, type PatchRequest } from './create-patch.js';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
@@ -918,6 +919,43 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     enabled: (c) => here(c) && rollbackable(current()).length > 0,
     run: () => rollback(current() as Changes),
   });
+  // Create Patch… and Copy as Patch to Clipboard, as IntelliJ's (ChangesViewPopupMenu's
+  // ChangesView.CreatePatch and ChangesView.CreatePatchToClipboard): the changes selected, else
+  // those included, untracked files as new ones; saved first. Create Patch's message is the
+  // commit message being written, as IntelliJ's commit executor takes it.
+  const toPatch = (c: unknown): PatchRequest | undefined => {
+    const changes = current();
+    const host = changes && hostFor(changes.path);
+    const chosen = here(c) ? (toShelve(c)?.chosen ?? []) : [];
+    if (!changes || !host || chosen.length === 0) return undefined;
+    const paths = chosen.flatMap((change) =>
+      change.from === undefined ? [change.path] : [change.from, change.path],
+    );
+    const message = changes.message.peek().trim();
+    return {
+      host,
+      worktree: changes.path,
+      files: paths,
+      changed: paths,
+      untracked: chosen.filter((change) => change.status === 'untracked').map((c) => c.path),
+      ...(message === '' ? {} : { message }),
+    };
+  };
+  for (const [id, label, make] of [
+    ['changes.createPatch', 'Create Patch…', createPatch],
+    ['changes.copyPatch', 'Copy as Patch to Clipboard', copyPatch],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: (c) => toPatch(c) !== undefined,
+      run: async (c) => {
+        const request = toPatch(c) as PatchRequest;
+        await saveBeforeGit();
+        await make(id === 'changes.copyPatch' ? { ...request, message: undefined } : request);
+      },
+    });
+  }
   commands.register({
     id: 'changes.showDiff',
     label: 'Show &Diff',
@@ -1163,6 +1201,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });
+  // Before Shelve Changes, as IntelliJ's.
+  for (const command of ['changes.createPatch', 'changes.copyPatch']) {
+    menus.contribute({ menu: 'changes/item', item: { command }, group: 'b' });
+  }
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.refresh' }, group: 'c' });
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.showDiff' }, group: 'a' });
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
