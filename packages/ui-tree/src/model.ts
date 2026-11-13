@@ -40,6 +40,8 @@ export class TreeModel<T> {
   readonly errors = new ObservableMap<string, string>();
   /** Loads under way, by parent's key. */
   readonly #pending = new Map<string, Promise<void>>();
+  /** Reloads asked for while a load was under way, by parent's key: one read after it. */
+  readonly #again = new Map<string, Promise<void>>();
 
   constructor(private readonly source: TreeSource<T>) {
     makeObservable(this);
@@ -72,17 +74,33 @@ export class TreeModel<T> {
    * Loads a node's children (the roots for `undefined`), once, unless `reload`. While they're
    * loading, resolves when they've loaded. Children loaded before stay while they're read again,
    * not marked loading, and stay as they were if they're the same, so a tree read again and again
-   * (to follow the disk) doesn't change under the pointer.
+   * (to follow the disk) doesn’t change under the pointer. A reload asked for while they load reads
+   * them again after.
    */
   load(node: T | undefined, reload = false): Promise<void> {
     const key = node === undefined ? ROOT : this.source.key(node);
     const pending = this.#pending.get(key);
-    if (pending) return pending;
+    if (pending && !reload) return pending;
+    if (pending) {
+      // That load read the children before whatever made this one asked for, so read them again
+      // once it's done: once, for every reload asked for meanwhile.
+      const again =
+        this.#again.get(key) ??
+        pending.then(() => {
+          this.#again.delete(key);
+          return this.load(node, true);
+        });
+      this.#again.set(key, again);
+      return again;
+    }
     const before = this.loaded.get(key);
     if (before && !reload) return Promise.resolve();
     if (!before) this.loading.add(key);
     this.errors.delete(key);
+    // Read from the next microtask, so a source that throws at once still finds this load pending
+    // when it ends, and clears it.
     const loading = (async () => {
+      await Promise.resolve();
       try {
         const children = await this.source.children(node);
         if (!before || !sameNodes(before, children)) this.loaded.set(key, [...children]);

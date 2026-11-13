@@ -12,7 +12,7 @@ import { formatCommitDate } from './dates.js';
 import type { Host } from './environments.js';
 import {
   CommitFiles,
-  otherParents,
+  mergeParents,
   PAGE,
   rangeOf,
   sizeColumns,
@@ -85,7 +85,7 @@ export async function showUnmergedCommits(
                 host={host}
                 worktree={worktree}
                 range={rangeOf(commit)}
-                merged={otherParents(commit)}
+                parents={mergeParents(commit, (parent) => commits.find((c) => c.hash === parent))}
                 label={`Changes in ${commit.hash.slice(0, 8)}`}
                 open={open}
               />
