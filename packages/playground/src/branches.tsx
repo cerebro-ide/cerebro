@@ -1301,6 +1301,10 @@ export function setupBranches(
           aria-label="Settings"
           data-menu={SETTINGS_MENU}
           ref={tooltip({ text: () => 'Settings' })}
+          on:mousedown={(event) => {
+            // Keeps the focus in the search field, where it goes back as the menu closes.
+            event.preventDefault();
+          }}
           on:click={(event) => {
             const anchor = event.currentTarget as HTMLElement;
             openMenu(services, SETTINGS_MENU, { anchor, placement: 'below' }, { owner: anchor });

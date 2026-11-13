@@ -431,8 +431,11 @@ describe('the branches popup', () => {
     await expect.poll(popupItems).toContain('v2');
     expect(host.params('git.tags').length).toBe(read + 1);
     // Actions off: none among what's searched; all of them with nothing typed.
+    // Typed after its menu closes: the search field keeps the focus.
     const field = document.querySelector('.cerebro-popup input') as HTMLInputElement;
-    await userEvent.type(field, 'n');
+    expect(document.activeElement).toBe(field);
+    await userEvent.keyboard('n');
+    expect(field.value).toBe('n');
     await expect.poll(popupItems).toContain('New Branch…');
     await toggle('Show Actions in Search Results');
     await expect.poll(popupItems).not.toContain('New Branch…');

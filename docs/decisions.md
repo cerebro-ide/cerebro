@@ -3401,6 +3401,7 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     the Log's branches pane's own setting, one for both as IntelliJ's (`GitVcsSettings`); turning
     it on with the popup open reads the tags again. The settings are kept with the pane's. The
     popup stays open while its menu is used: a click in a menu opened from it isn't outside it.
+    The search field keeps the focus, so typing goes on there once the menu closes.
     **Not yet:** Group by Directory and Restore Popup Size from the same menu, and the filters that
     apply with more than one repository.
   - **Tags** (added 2026-11-12), a Tags group after Remote, as IntelliJ's (`GitBranchesTreeModel`),
