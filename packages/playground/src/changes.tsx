@@ -925,15 +925,14 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   // being written, as IntelliJ's takes the change list's comment.
   const toPatch = (c: unknown): PatchRequest | undefined => {
     const changes = current();
-    const host = changes && hostFor(changes.path);
     const chosen = here(c) ? (toShelve(c)?.chosen ?? []) : [];
-    if (!changes || !host || chosen.length === 0) return undefined;
+    if (!changes || chosen.length === 0) return undefined;
     const paths = chosen.flatMap((change) =>
       change.from === undefined ? [change.path] : [change.from, change.path],
     );
     const message = changes.message.peek().trim();
     return {
-      host,
+      host: hostFor(changes.path) as Host,
       worktree: changes.path,
       files: paths,
       changed: paths,

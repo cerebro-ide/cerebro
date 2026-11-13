@@ -1309,6 +1309,15 @@ describe('ignored files and rolling back', () => {
       'HEAD',
       '--',
     ]);
+    // Since a commit.
+    await ui.request('git.createPatch', {
+      path: '/w',
+      from: 'abc1234',
+      reverse: false,
+      base: '/w',
+    });
+    expect(git).toHaveBeenLastCalledWith('/w', expect.arrayContaining(['abc1234', '--']));
+    expect(git).not.toHaveBeenLastCalledWith('/w', expect.arrayContaining(['def5678']));
     const fresh = vi.fn((_cwd: string, args: readonly string[]) =>
       args[0] === 'rev-parse' ? Promise.reject(new Error('no HEAD')) : Promise.resolve(''),
     );
