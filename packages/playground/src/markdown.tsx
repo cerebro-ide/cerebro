@@ -101,7 +101,13 @@ function clamp(value: number): number {
 }
 
 /** A Markdown file's text and its preview, as its layout says. */
-export function MarkdownEditor(props: { path: string; editor: Node; text: () => string }): Node {
+export function MarkdownEditor(props: {
+  path: string;
+  editor: Node;
+  text: () => string;
+  /** The editor's top line, which the preview follows. Read reactively. */
+  line: () => number;
+}): Node {
   const layout = () => layoutOf(props.path);
   const text = (
     <div class="playground-markdown__text" hidden={() => layout() === 'preview'}>
@@ -144,7 +150,9 @@ export function MarkdownEditor(props: { path: string; editor: Node; text: () => 
           />
         ) : null
       }
-      {() => (layout() === 'editor' ? null : <MarkdownPreview text={props.text} />)}
+      {() =>
+        layout() === 'editor' ? null : <MarkdownPreview text={props.text} line={props.line} />
+      }
     </div>
   );
 }

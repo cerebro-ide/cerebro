@@ -5,6 +5,7 @@ import { tagHighlighter, tags } from '@lezer/highlight';
 import { afterEach, describe, expect, it } from 'vitest';
 import { drawMarkdown, gfmParser, type MarkdownStyle } from '../src/markdown.js';
 import { MarkdownPreview } from '../src/index.js';
+import { scrollFor } from '../src/markdown-preview.js';
 
 const style: MarkdownStyle = {
   highlighter: tagHighlighter([{ tag: tags.keyword, class: 'kw' }]),
@@ -86,5 +87,55 @@ describe('a Markdown preview', () => {
     text.set('## Changed');
     expect(root.querySelector('h1')).toBeNull();
     expect(root.querySelector('h2')?.textContent).toBe('Changed');
+  });
+});
+
+describe('the preview following the editor', () => {
+  it('scrolls to the block a line is in, as far into it as the line is into its lines', () => {
+    const blocks = [
+      { line: 2, top: 0 },
+      { line: 4, top: 100 },
+      { line: 10, top: 160 },
+    ];
+    const end = { line: Number.MAX_SAFE_INTEGER, top: 400 };
+    expect(scrollFor(blocks, 0, end)).toBe(0);
+    expect(scrollFor(blocks, 3, end)).toBe(50);
+    expect(scrollFor(blocks, 7, end)).toBe(130);
+    expect(scrollFor(blocks, 10, end)).toBe(160);
+    expect(scrollFor(blocks, 40, end)).toBeCloseTo(160, 0);
+    expect(
+      scrollFor(
+        [
+          { line: 2, top: 0 },
+          { line: 2, top: 30 },
+        ],
+        2,
+        end,
+      ),
+    ).toBe(30);
+  });
+
+  it('shows the editor’s top line’s block at its top', async () => {
+    const line = signal(0);
+    const text = Array.from({ length: 40 }, (_, i) => `## Part ${String(i)}\n\nText.\n`).join('\n');
+    const container = document.body.appendChild(document.createElement('div'));
+    container.style.cssText = 'position: fixed; left: 0; top: 0; width: 500px; height: 300px;';
+    const handle = render(
+      () => <MarkdownPreview text={() => text} line={() => line.get()} />,
+      container,
+    );
+    const preview = container.querySelector('.cerebro-markdown-preview') as HTMLElement;
+    preview.style.height = '300px';
+    const root = preview.shadowRoot as ShadowRoot;
+    // Part 10 starts at line 40: four lines a part.
+    line.set(40);
+    const heading = [...root.querySelectorAll('h2')][10] as HTMLElement;
+    expect(heading.getBoundingClientRect().top - preview.getBoundingClientRect().top).toBeCloseTo(
+      0,
+      0,
+    );
+    expect(preview.scrollTop).toBeGreaterThan(0);
+    handle.dispose();
+    container.remove();
   });
 });

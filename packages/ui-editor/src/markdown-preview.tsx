@@ -5,6 +5,7 @@
 // page's own scrollbars draw over it.
 
 import { onCleanup, render } from '@cerebro-ide/jsx';
+import { effect } from '@cerebro-ide/reactive';
 import { tagHighlighter, type Highlighter } from '@lezer/highlight';
 import { highlight } from './editor.js';
 import { drawMarkdown, gfmParser, type MarkdownStyle } from './markdown.js';
@@ -12,6 +13,30 @@ import { drawMarkdown, gfmParser, type MarkdownStyle } from './markdown.js';
 export interface MarkdownPreviewProps {
   /** The Markdown, read reactively. */
   text: () => string;
+  /**
+   * The editor's top line, zero-based, read reactively: the preview scrolls to show what it's
+   * drawn from at its top, as IntelliJ's auto-scroll (MarkdownEditorWithPreview).
+   */
+  line?: () => number;
+}
+
+/**
+ * Where to scroll to show a line at the top: the block drawn from it, or the part of the block
+ * that holds it, by how far into the block's lines it is. Blocks are the page's elements, each with
+ * the line it starts at.
+ */
+export function scrollFor(
+  blocks: readonly { line: number; top: number }[],
+  line: number,
+  end: { line: number; top: number },
+): number {
+  let index = blocks.findLastIndex((block) => block.line <= line);
+  if (index < 0) return 0;
+  const block = blocks[index] as { line: number; top: number };
+  const next = blocks[index + 1] ?? end;
+  const share =
+    next.line > block.line ? Math.min(1, (line - block.line) / (next.line - block.line)) : 0;
+  return block.top + share * (next.top - block.top);
 }
 
 /** The page's look, from the theme's variables. A claim: not measured from IntelliJ's. */
@@ -95,18 +120,44 @@ export function MarkdownPreview(props: MarkdownPreviewProps): Node {
   sheet.replaceSync(`${STYLES}\n${colours.rules}`);
   shadow.adoptedStyleSheets = [sheet];
   const style: MarkdownStyle = { highlighter: colours.highlighter, headings: true };
+  /** Each top-level block's first line, by its element. */
+  const lines = new WeakMap<Element, number>();
+  let body: HTMLElement | undefined;
+  /** Scrolls to the editor's top line. */
+  const follow = (line: number) => {
+    if (!body) return;
+    const origin = body.getBoundingClientRect().top - container.scrollTop;
+    const blocks = [...body.children].map((element) => ({
+      line: lines.get(element) ?? 0,
+      top: element.getBoundingClientRect().top - origin,
+    }));
+    const end = { line: Number.MAX_SAFE_INTEGER, top: body.scrollHeight };
+    container.scrollTop = scrollFor(blocks, line, end);
+  };
   const page = () => {
     const text = props.text();
-    const body = document.createElement('div');
+    body = document.createElement('div');
     body.className = 'cerebro-markdown';
     const tree = gfmParser.parse(text);
+    let line = 0;
+    let at = 0;
     for (let child = tree.topNode.firstChild; child; child = child.nextSibling) {
+      for (; at < child.from; at++) if (text[at] === '\n') line++;
+      const before = body.lastElementChild;
       drawMarkdown(child, text, body, style);
+      const drawn = body.lastElementChild;
+      if (drawn && drawn !== before) lines.set(drawn, line);
     }
     return body;
   };
   const handle = render(() => <>{page}</>, shadow);
+  const following = effect(() => {
+    const line = props.line?.();
+    if (line !== undefined) follow(line);
+    return undefined;
+  });
   onCleanup(() => {
+    following.dispose();
     handle.dispose();
   });
   return container;

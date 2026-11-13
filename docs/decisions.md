@@ -2518,9 +2518,13 @@ choose between the "code" the "view" or a side by side display of both". From In
   own (style-mod, which CodeMirror uses, isn't a dependency of ours). It's drawn again as the text
   changes, unsaved too. **Claude's, open to change:** its look (GitHub-like spacing in the theme's
   colours), not measured from IntelliJ's stylesheet.
-- **Not yet:** the preview scrolling with the editor (IntelliJ's auto-scroll); images (their
-  words show); links opened; HTML drawn; IntelliJ's Find Action names ("View as Editor"…); its
-  Split Layout menu.
+- **The preview follows the editor's scrolling,** as IntelliJ's auto-scroll (on to start with;
+  `MarkdownEditorWithPreview`'s visible area listener scrolls it to the editor's top line): the
+  block drawn from the top line at the preview's top, or as far into it as the line is into the
+  block's lines (Claude's, open to change; IntelliJ's page finds the element by its source
+  offset).
+- **Not yet:** IntelliJ's setting to turn the auto-scroll off; images (their words show); links
+  opened; HTML drawn; IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
 
 ## A tool window's shortcut activates it (2026-11-12)
 

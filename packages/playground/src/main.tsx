@@ -1565,6 +1565,8 @@ function Code(props: { path: string; env: string }) {
   const settings = settingsFor(props.env);
   const indent = () => settingsIndent(settings);
   const loaded = signal<EditorDocument | { error: string } | undefined>(undefined);
+  /** The editor's top line, which a Markdown file's preview follows. */
+  const topLine = signal(0);
   void documentFor(props.path, () => sampleText(props.path)).then((result) => {
     loaded.set(result);
     if (!('error' in result) && navigation.available()) {
@@ -1617,7 +1619,10 @@ function Code(props: { path: string; env: string }) {
               if (selected) selections.set(props.path, selected);
               else selections.delete(props.path);
             }}
-            onScroll={(top) => tops.set(props.path, top)}
+            onScroll={(top) => {
+              tops.set(props.path, top);
+              topLine.set(top);
+            }}
             annotate={() => annotationFor(props.path)}
             {...(navigation.available()
               ? {
@@ -1679,6 +1684,7 @@ function Code(props: { path: string; env: string }) {
             path={props.path}
             editor={code}
             text={() => state.text.get().toString()}
+            line={() => topLine.get()}
           />
         ) : (
           code

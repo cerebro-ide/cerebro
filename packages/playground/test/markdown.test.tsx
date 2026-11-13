@@ -105,11 +105,11 @@ describe('the layouts', () => {
     const container = mount(() => (
       <>
         <div class="test-actions">{markdownActions(commands, { group: 'g', tab: '/r/d.md' })}</div>
-        <MarkdownEditor path="/r/d.md" editor={editor} text={() => '# Hi'} />
+        <MarkdownEditor path="/r/d.md" editor={editor} text={() => '# Hi'} line={() => 0} />
       </>
     ));
     container.style.cssText = 'position: fixed; inset: 0; width: 800px; height: 400px;';
-    const q = (selector: string) => container.querySelector(selector) as HTMLElement | null;
+    const q = (selector: string) => container.querySelector<HTMLElement>(selector);
     const shown = () => ({
       text: !(q('.playground-markdown__text') as HTMLElement).hidden,
       preview: q('.cerebro-markdown-preview') !== null,
