@@ -1127,6 +1127,7 @@ export function commitContext(
     host: log.host,
     ...(head ? { head: head.hash } : {}),
     refresh,
+    select: (hash) => log.select(hash),
   };
 }
 
@@ -1196,6 +1197,8 @@ export interface LogCommitContext {
   head?: string;
   /** Reads the Log again, as Refresh: after an action changed what it shows (a tag made). */
   refresh: () => Promise<void>;
+  /** Selects a commit in the Log, as IntelliJ focuses one an action made; whether it's there. */
+  select: (hash: string) => Promise<boolean>;
 }
 
 /** Shows a commit in the Log (the Git tool window shown by the caller), its file selected. */

@@ -72,7 +72,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11)
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -3046,6 +3046,33 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   **Claude's, open to change:** off for the first commit, which has no parent to go back to (IntelliJ
   asks "Are you sure you want to edit the initial commit?", then takes the parent it hasn't: read
   from its source, not seen running).
+- **The Log's Edit Commit Message…** (added 2026-11-13), in the commit menu after Undo Commit, as
+  IntelliJ's (`GitRewordAction`, `GitCommitEditingActionBase`, `GitSingleCommitEditingAction`,
+  `GitNewCommitMessageActionDialog`, `GitRewordService`, `GitInMemoryRewordOperation`,
+  `GitObjectRepository`, `GitCommitMessageFormatter`, read from its source). Off for a merge but at
+  HEAD (IntelliJ amends a merge there). Before the dialog the host checks, and "Could not Edit
+  Commit Message" says why not, in IntelliJ's words: "The commit is not in the current branch",
+  "The commit is already pushed to protected branch 'origin/main'" (Undo Commit's protected
+  branches), "Cannot reword during merge" (or rebase, cherry-pick, revert; a rebase allows HEAD's
+  commit). The first commit is asked about ("Editing Initial Commit", Continue). The dialog, "Edit
+  Commit Message": "Edit message for commit {short hash} by {author}", the message to edit, the
+  caret at its start, OK off while it's blank. "Rewording…" on the status bar while it runs, then
+  "Commit message changed" and the commit made with the message selected in the Log (IntelliJ's
+  `commitToFocus`), or "Failed to reword" with why.
+  - **Made as IntelliJ's in-memory reword,** which it tries first: the commit made again with the
+    message (`git commit-tree`, its tree, parents and author kept, the committer now), each later
+    commit made again on it as it was, then HEAD moved to the last (`git update-ref`, given the
+    HEAD checked before the dialog: if HEAD has moved since, "HEAD moved during the commit editing
+    operation" and nothing changed). The working tree and the index aren't touched, so nothing is
+    recorded in Local History. The message is cleaned up as `git commit` would by `commit.cleanup`
+    (`git stripspace`), as IntelliJ's formatter does, since `commit-tree` doesn't.
+  - **Cerebro's, open to change:** where a merge lies between the commit and HEAD, IntelliJ falls
+    back on an interactive rebase; Cerebro says "Commit {hash} has 2 parents" (IntelliJ's in-memory
+    words) and changes nothing. The reflog says "reword {hash} by Cerebro" (IntelliJ's "… by
+    {product} Git plugin").
+  - **Not yet:** the notification's Undo, and Edit Again for HEAD's commit; IntelliJ's notes copied
+    and `post-rewrite` hook run for the commits made again; signing them (`--gpg-sign`) when
+    `commit.gpgSign` is set; the Commit window's message replaced where it was the old one.
 
 ## Git → New Tag… (2026-11-11)
 
