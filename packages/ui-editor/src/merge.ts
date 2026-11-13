@@ -142,24 +142,77 @@ export function mergeChanges(base: Text, yours: Text, theirs: Text): MergeChange
 /** A text's words, runs of white space, and each other character, as IntelliJ's word diff splits it. */
 const WORDS = /[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s]/gu;
 
+/** A word as it's compared (its key), and where it is in its text. */
+interface Word {
+  key: string;
+  from: number;
+  to: number;
+}
+
+/** The words of a text, white space among them or not. */
+const wordsOf =
+  (space: boolean) =>
+  (text: string): Word[] =>
+    [...text.matchAll(WORDS)]
+      .filter((match) => space || !/^\s/u.test(match[0]))
+      .map((match) => ({ key: match[0], from: match.index, to: match.index + match[0].length }));
+
+/**
+ * A conflict resolved with its words compared one way (IntelliJ's `trySimpleResolve`): each side's
+ * changed words taken where the other didn't change them, or made the same change (yours, then);
+ * between them, the text a side changed (white space, compared without it), yours first
+ * (`appendBase`). Undefined where both changed the same words differently, or inserted different
+ * words in one place.
+ */
+function resolveBy(
+  wordsIn: (text: string) => Word[],
+  base: string,
+  yours: string,
+  theirs: string,
+): string | undefined {
+  interface Text {
+    text: string;
+    words: Word[];
+  }
+  const [b, y, t] = [base, yours, theirs].map((text) => ({ text, words: wordsIn(text) })) as [
+    Text,
+    Text,
+    Text,
+  ];
+  const keys = (side: Text, range: Lines = { from: 0, to: side.words.length }) =>
+    side.words.slice(range.from, range.to).map((word) => word.key);
+  /** A side's text from the end of one word to the start of another, or its ends. */
+  const between = (side: Text, after: number, before: number) =>
+    side.text.slice(side.words[after - 1]?.to ?? 0, side.words[before]?.from ?? side.text.length);
+  /** A side's changed words, and the text between them. */
+  const of = (side: Text, range: Lines) => {
+    const [first, last] = [side.words[range.from], side.words[range.to - 1]];
+    return first && last && range.from < range.to ? side.text.slice(first.from, last.to) : '';
+  };
+  let resolved = '';
+  let done = { base: 0, yours: 0, theirs: 0 };
+  /** Words neither changed: the text between them as a side changed it, yours first. */
+  const unchanged = (to: typeof done) => {
+    const mine = between(y, done.yours, to.yours);
+    resolved += mine !== between(b, done.base, to.base) ? mine : between(t, done.theirs, to.theirs);
+  };
+  for (const c of combine([changesOf(keys(b), keys(y)), changesOf(keys(b), keys(t))])) {
+    const [mine, others] = [keys(y, c.yours).join('\0'), keys(t, c.theirs).join('\0')];
+    if (c.changed.yours && c.changed.theirs && mine !== others) return undefined;
+    unchanged({ base: c.base.from, yours: c.yours.from, theirs: c.theirs.from });
+    resolved += c.changed.yours ? of(y, c.yours) : of(t, c.theirs);
+    done = { base: c.base.to, yours: c.yours.to, theirs: c.theirs.to };
+  }
+  unchanged({ base: b.words.length, yours: y.words.length, theirs: t.words.length });
+  return resolved;
+}
+
 /**
  * A conflict's lines resolved, as IntelliJ's Resolve Simple Conflicts (`MergeResolveUtil.tryResolve`,
- * read from its source): compared word by word, each side's changes are taken where the other
- * didn't change those words, or made the same change; undefined where both changed the same words
- * differently, or inserted different words in the same place, whose order can't be known.
+ * read from its source): compared word by word, and if that fails, again ignoring white space.
  */
 export function resolveConflict(base: string, yours: string, theirs: string): string | undefined {
-  const words = (text: string): string[] => text.match(WORDS) ?? [];
-  const [b, y, t] = [words(base), words(yours), words(theirs)];
-  const piece = (words: readonly string[], lines: Lines) =>
-    words.slice(lines.from, lines.to).join('');
-  let resolved = '';
-  let done = 0;
-  for (const c of combine([changesOf(b, y), changesOf(b, t)])) {
-    const [mine, others] = [piece(y, c.yours), piece(t, c.theirs)];
-    if (c.changed.yours && c.changed.theirs && mine !== others) return undefined;
-    resolved += piece(b, { from: done, to: c.base.from }) + (c.changed.yours ? mine : others);
-    done = c.base.to;
-  }
-  return resolved + piece(b, { from: done, to: b.length });
+  return (
+    resolveBy(wordsOf(true), base, yours, theirs) ?? resolveBy(wordsOf(false), base, yours, theirs)
+  );
 }
