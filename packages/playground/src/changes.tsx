@@ -924,9 +924,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   // those included, untracked files as new ones; saved first. Their message is the commit message
   // being written, as IntelliJ's takes the change list's comment.
   const toPatch = (c: unknown): PatchRequest | undefined => {
-    const changes = current();
-    const chosen = here(c) ? (toShelve(c)?.chosen ?? []) : [];
-    if (!changes || chosen.length === 0) return undefined;
+    // Offered only once the Commit window has read its lists.
+    const chosen = here(c) ? toShelve(c)?.chosen : undefined;
+    if (!chosen?.length) return undefined;
+    const changes = current() as Changes;
     const paths = chosen.flatMap((change) =>
       change.from === undefined ? [change.path] : [change.from, change.path],
     );
