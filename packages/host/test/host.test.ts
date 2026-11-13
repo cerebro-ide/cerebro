@@ -1260,7 +1260,7 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('checks a commit’s message can be edited, then edits it, as asked', async () => {
+  it('checks a commit can be edited, then edits its message or drops it, as asked', async () => {
     const git = vi.fn<Git>((_cwd, args) => {
       const [command] = bare(args);
       if (command === 'merge-base' || command === 'config') {
@@ -1276,8 +1276,21 @@ describe('ignored files and rolling back', () => {
     });
     const { ui } = connect(git);
     expect(
-      await ui.request('git.rewordCheck', { path: '/w', hash: 'abc1234', protected: ['main'] }),
+      await ui.request('git.editCheck', {
+        path: '/w',
+        hash: 'abc1234',
+        editing: 'drop',
+        protected: ['main'],
+      }),
     ).toEqual({ refused: 'The commit is not in the current branch' });
+    await expect(
+      ui.request('git.editCheck', {
+        path: '/w',
+        hash: 'abc1234',
+        editing: 'squash',
+        protected: [],
+      }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     await ui.request('git.reword', {
       path: '/w',
       hash: 'abc1234',
@@ -1300,6 +1313,14 @@ describe('ignored files and rolling back', () => {
         code: ErrorCodes.InvalidParams,
       });
     }
+    // The only commit dropped (the fake's has no parent): reset to an empty one made for it.
+    await ui.request('git.drop', { path: '/w', hash: 'abc1234', head: 'abc1234' });
+    expect(git).toHaveBeenCalledWith('/w', ['reset', '--keep', 'made'], {
+      GIT_REFLOG_ACTION: 'drop abc1234 by Cerebro',
+    });
+    await expect(
+      ui.request('git.drop', { path: '/w', hash: 'abc1234', head: 'HEAD' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
   });
 
   it('lists tags, checks a revision and makes a tag, as asked', async () => {

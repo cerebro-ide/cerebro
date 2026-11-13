@@ -3,9 +3,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { git, reword, rewordCheck, type Git } from '../src/index.js';
+import { drop, editCheck, git, reword, type Git } from '../src/index.js';
 
-describe('Edit Commit Message, with real git', () => {
+describe('Edit Commit Message and Drop Commit, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-reword-')));
   const run = (...args: string[]) =>
     execFileSync('git', args, { cwd: repo, stdio: 'pipe', encoding: 'utf8' }).trim();
@@ -142,14 +142,14 @@ describe('Edit Commit Message, with real git', () => {
 
   describe('its checks, in IntelliJ’s words', () => {
     it('gives HEAD’s commit where it can be done', async () => {
-      expect(await rewordCheck(repo, first, nobody, git)).toEqual({ head: third });
+      expect(await editCheck(repo, first, 'reword', nobody, git)).toEqual({ head: third });
     });
 
     it('refuses a commit not in the current branch', async () => {
       run('checkout', '-q', '-b', 'side', first);
       const side = commit('elsewhere');
       run('checkout', '-q', 'main');
-      expect(await rewordCheck(repo, side, nobody, git)).toEqual({
+      expect(await editCheck(repo, side, 'reword', nobody, git)).toEqual({
         refused: 'The commit is not in the current branch',
       });
     });
@@ -157,23 +157,90 @@ describe('Edit Commit Message, with real git', () => {
     it('refuses a commit on a protected branch of a remote', async () => {
       run('update-ref', 'refs/remotes/origin/main', second);
       const named = (name: string) => name === 'main';
-      expect(await rewordCheck(repo, first, named, git)).toEqual({
+      expect(await editCheck(repo, first, 'reword', named, git)).toEqual({
         refused: "The commit is already pushed to protected branch 'origin/main'",
       });
-      expect(await rewordCheck(repo, third, named, git)).toEqual({ head: third });
+      expect(await editCheck(repo, third, 'reword', named, git)).toEqual({ head: third });
     });
 
     it('refuses while something’s under way, but a rebase allows HEAD’s commit', async () => {
       writeFileSync(join(repo, '.git', 'MERGE_HEAD'), `${first}\n`);
-      expect(await rewordCheck(repo, third, nobody, git)).toEqual({
+      expect(await editCheck(repo, third, 'reword', nobody, git)).toEqual({
         refused: 'Cannot reword during merge',
       });
       rmSync(join(repo, '.git', 'MERGE_HEAD'));
       mkdirSync(join(repo, '.git', 'rebase-merge'));
-      expect(await rewordCheck(repo, second, nobody, git)).toEqual({
+      expect(await editCheck(repo, second, 'reword', nobody, git)).toEqual({
         refused: 'Cannot reword during rebase',
       });
-      expect(await rewordCheck(repo, third, nobody, git)).toEqual({ head: third });
+      expect(await editCheck(repo, third, 'reword', nobody, git)).toEqual({ head: third });
+      // Dropping, not even HEAD's.
+      expect(await editCheck(repo, third, 'drop', nobody, git)).toEqual({
+        refused: 'Cannot drop during rebase',
+      });
+    });
+  });
+
+  describe('Drop Commit', () => {
+    it('drops a commit, each later one’s changes applied on what’s before it, local changes kept', async () => {
+      writeFileSync(join(repo, 'one.txt'), 'local\n');
+      await drop(repo, second, third, git);
+      expect(run('log', '--format=%s', 'main')).toBe('three\none');
+      expect(run('ls-tree', '--name-only', 'HEAD')).toBe('one.txt\nthree.txt');
+      expect(show('%an %ad', 'HEAD')).toBe(show('%an %ad', third));
+      expect(run('status', '--porcelain')).toBe('M one.txt');
+      expect(run('reflog', '-1', '--format=%gs')).toBe(`drop ${second} by Cerebro: updating HEAD`);
+    });
+
+    it('drops HEAD’s commit, and the first, the next made the first', async () => {
+      await drop(repo, third, third, git);
+      expect(run('log', '--format=%s', 'main')).toBe('two\none');
+      run('reset', '-q', '--hard', third);
+      await drop(repo, first, third, git);
+      expect(run('log', '--format=%s %P', 'main')).toBe(`three ${run('rev-parse', 'HEAD~1')}\ntwo`);
+      expect(run('ls-tree', '--name-only', 'HEAD')).toBe('three.txt\ntwo.txt');
+    });
+
+    it('drops a later commit left with no changes of its own, and leaves an empty commit if none’s left', async () => {
+      // A commit that only undoes the one dropped.
+      run('rm', '-q', 'three.txt');
+      run('commit', '-qm', 'undo three');
+      await drop(repo, third, run('rev-parse', 'HEAD'), git);
+      expect(run('log', '--format=%s', 'main')).toBe('two\none');
+      // The only commit there is, dropped.
+      run('checkout', '-q', '--orphan', 'alone');
+      run('rm', '-rq', '--cached', '.');
+      writeFileSync(join(repo, 'alone.txt'), 'alone\n');
+      run('add', 'alone.txt');
+      run('commit', '-qm', 'alone');
+      const alone = run('rev-parse', 'HEAD');
+      await drop(repo, alone, alone, git);
+      expect(run('log', '--format=%T %P|%B', 'alone')).toBe(
+        '4b825dc642cb6eb9a060e54bf8d69288fbee4904 |',
+      );
+      run('checkout', '-q', '-f', 'main');
+      run('branch', '-q', '-D', 'alone');
+      run('clean', '-qfd');
+    });
+
+    it('changes nothing where a later commit’s changes conflict, saying where', async () => {
+      writeFileSync(join(repo, 'two.txt'), 'two, again\n');
+      run('commit', '-qam', 'two again');
+      const head = run('rev-parse', 'HEAD');
+      await expect(drop(repo, second, head, git)).rejects.toThrow(
+        'CONFLICT (modify/delete): two.txt deleted in',
+      );
+      expect(run('rev-parse', 'HEAD')).toBe(head);
+    });
+
+    it('changes nothing where local changes would be lost, in git’s words, or HEAD moved', async () => {
+      writeFileSync(join(repo, 'two.txt'), 'local\n');
+      await expect(drop(repo, second, third, git)).rejects.toThrow(/two\.txt/);
+      expect(run('rev-parse', 'HEAD')).toBe(third);
+      run('checkout', '--', 'two.txt');
+      await expect(drop(repo, second, second, git)).rejects.toThrow(
+        'HEAD moved during the commit editing operation',
+      );
     });
   });
 });
