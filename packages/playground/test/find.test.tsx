@@ -1,4 +1,5 @@
-import { EditorDocument } from '@cerebro-ide/ui-editor';
+import { render } from '@cerebro-ide/jsx';
+import { CodeEditor, EditorDocument } from '@cerebro-ide/ui-editor';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { documentFor, setupSaving } from '../src/documents.js';
@@ -462,6 +463,27 @@ describe('the search history', () => {
     await userEvent.clear(input('.playground-find__replace'));
     await userEvent.keyboard('{Escape}');
     await done;
+  });
+
+  it('opens with the editor’s selection instead, as IntelliJ’s', async () => {
+    searchHistory.remember('omega');
+    const container = document.body.appendChild(document.createElement('div'));
+    const handle = render(
+      () => <CodeEditor path="/r/src/a.ts" document={new EditorDocument('const beta = 2;\n')} />,
+      container,
+    );
+    const root = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement, {
+      position: { x: 1, y: 5 },
+    });
+    await userEvent.keyboard('{Home}{Shift>}{End}{/Shift}');
+    const { done } = await find('');
+    expect(search().value).toBe('const beta = 2;');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    handle.dispose();
+    container.remove();
   });
 
   it('keeps what was replaced with, with its own history at the Replace field', async () => {

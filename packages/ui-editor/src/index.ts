@@ -83,4 +83,4 @@ export {
   type Usage,
 } from './usages.js';
 export { applyCase } from './preserve-case.js';
-export { preserveCaseIcon } from './find.js';
+export { findTextIn, preserveCaseIcon, SELECTION_LIMIT } from './find.js';

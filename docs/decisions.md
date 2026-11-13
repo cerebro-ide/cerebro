@@ -4170,9 +4170,14 @@ after IntelliJ, open to change.
     `FindPopupPanel.initByModel`, which takes `getMostRecentFindString` and
     `getMostRecentReplaceString` when nothing else asks for a text, and selects the field's all
     (read from its source).
+  - Before the last search, the focused editor's selection, as IntelliJ's
+    (`FindInProjectUtil.initStringToFindFromDataContext`, read from its source): if shorter than
+    10,000 characters; without a selection, its find bar's search and replacement while the bar
+    is open. **Claude's, open to change:** a selection over several lines isn't taken, since the
+    search is within lines (IntelliJ's searches over several).
 - **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
-  options; Replace All undone as one step across files; the field filled with the editor's
-  selection, which IntelliJ takes before the last search.
+  options; Replace All undone as one step across files; the selection escaped for Regex
+  (IntelliJ's, when Regex is on as the popup opens: ours always opens with it off).
 
 ## Editing and saving (2026-10-26)
 
