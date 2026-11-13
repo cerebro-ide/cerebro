@@ -56,6 +56,10 @@ describe('Markdown drawn as a page', () => {
     expect(body.textContent).toBe('site and https://c.d, a cat');
   });
 
+  it('draws nothing for a link’s definition, as GitHub’s page', () => {
+    expect(page('[x]: https://x.y "Title"\n\nText').innerHTML).toBe('<p>Text</p>');
+  });
+
   it('highlights code in a language it knows', () => {
     const code = page('```ts\nconst a = 1;\n```').querySelector('pre') as HTMLElement;
     expect(code.querySelector('.kw')?.textContent).toBe('const');
