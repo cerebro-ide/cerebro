@@ -1095,6 +1095,20 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('says a file’s last commit on HEAD: an annotation’s base', async () => {
+    const git = vi.fn<Git>(() => Promise.resolve('abcd\n'));
+    const { ui } = connect(git);
+    expect(await ui.request('git.lastCommit', { path: '/w', file: 'a.txt' })).toBe('abcd');
+    expect(git.mock.calls[0]?.[1]).toEqual([
+      'log',
+      '-n1',
+      '--format=%H',
+      'HEAD',
+      '--',
+      ':(literal)a.txt',
+    ]);
+  });
+
   it('blames a file at a commit, as Annotate Revision does', async () => {
     const git = vi.fn<Git>(() => Promise.resolve(''));
     const { ui } = connect(git);

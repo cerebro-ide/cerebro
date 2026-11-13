@@ -192,6 +192,7 @@ export {
 } from './update.js';
 export {
   blame,
+  lastCommitOf,
   parseBlame,
   type Blame,
   type BlameCommit,

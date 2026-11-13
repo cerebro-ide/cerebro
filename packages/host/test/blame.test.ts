@@ -3,7 +3,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { blame, git } from '../src/index.js';
+import { blame, git, lastCommitOf } from '../src/index.js';
 
 describe('blame, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-blame-')));
@@ -125,6 +125,23 @@ describe('blame, with real git', () => {
     expect(found.commits.map((c) => [c.author, c.message])).toEqual([['Ada', 'One']]);
     expect(found.lines).toEqual([first]);
     run({}, 'checkout', '-q', '--', 'r.txt');
+  });
+
+  it('says the last commit on HEAD that changed a file, or none', async () => {
+    writeFileSync(join(repo, 'l.txt'), 'l\n');
+    run({}, 'add', '.');
+    commitAs('Ada', 11, 'L');
+    const changed = run({}, 'rev-parse', 'HEAD').trim();
+    writeFileSync(join(repo, 'other.txt'), 'o\n');
+    run({}, 'add', '.');
+    commitAs('Bob', 12, 'Other');
+    expect(await lastCommitOf(repo, 'l.txt', git)).toBe(changed);
+    expect(await lastCommitOf(repo, 'never.txt', git)).toBeNull();
+    // No commit yet: none.
+    const fresh = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-blame-fresh-')));
+    execFileSync('git', ['init', '-q'], { cwd: fresh });
+    expect(await lastCommitOf(fresh, 'l.txt', git)).toBeNull();
+    rmSync(fresh, { recursive: true, force: true });
   });
 
   it('says why it can’t: a file not committed', async () => {

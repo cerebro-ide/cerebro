@@ -57,7 +57,7 @@ import {
   type Saved,
   type UpdateMethod,
 } from './update.js';
-import { blame, MOVEMENTS, type BlameOptions } from './blame.js';
+import { blame, lastCommitOf, MOVEMENTS, type BlameOptions } from './blame.js';
 import {
   fetchAll,
   merge,
@@ -786,6 +786,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   });
   // Merge conflicts: the files, their versions, resolving them, and carrying on after.
   // Who last changed each line of a file, given its text as the editor has it: IntelliJ's Annotate.
+  // An annotation's base: the file's last commit on HEAD.
+  connection.onRequest('git.lastCommit', (params) =>
+    lastCommitOf(text(params, 'path'), text(params, 'file'), git),
+  );
   // The editor's text (`contents`), or the file at a commit (`hash`): one of them.
   connection.onRequest('git.blame', (params) => {
     const { contents, hash } = params as { contents?: unknown; hash?: unknown };
