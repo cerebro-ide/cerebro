@@ -19,7 +19,7 @@ import {
 } from '@cerebro-ide/ui-editor';
 import type { Tab } from '@cerebro-ide/layout';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { diffTab, notCommitted, revisionTab } from './changes.js';
+import { diffTab, notCommitted, revisionOf, revisionTab } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
 import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
@@ -429,10 +429,13 @@ const OPTIONS: readonly {
   },
 ];
 
-/** A file in the active git worktree, by its tab's id. */
+/** A file in the active git worktree, or one as it was at a commit, by its tab's id. */
 function fileIn(tab: string | undefined): Annotated | undefined {
   const env = active();
   if (!env || tab === undefined || !hostFor(env.id) || !gitRepository.get()) return undefined;
+  // A repository version, as IntelliJ's AnnotateVcsVirtualFileAction annotates it.
+  const version = revisionOf(tab);
+  if (version) return { worktree: env.id, ...version };
   const prefix = `${env.id}/`;
   return tab.startsWith(prefix) ? { worktree: env.id, path: tab.slice(prefix.length) } : undefined;
 }
@@ -484,7 +487,9 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     // Hidden for a file git hasn't committed, as IntelliJ's AnnotateToggleAction.
     visible: (c) => {
       const file = fileIn(target(c));
-      return file !== undefined && !notCommitted(file.worktree, file.path);
+      return (
+        file !== undefined && (file.hash !== undefined || !notCommitted(file.worktree, file.path))
+      );
     },
     checked: (c) => annotated.has(target(c) as string),
     run: (c) => {

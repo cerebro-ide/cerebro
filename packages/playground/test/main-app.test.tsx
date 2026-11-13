@@ -197,6 +197,34 @@ describe('a repository version’s tab', () => {
       document.querySelector('.cerebro-editor-group--active .cerebro-editor-tab--active')
         ?.textContent,
     ).toContain('a.ts (c0ffee)');
+    // Its gutter's menu: Annotate with Git Blame, blamed at its commit; none in its text.
+    const root = () =>
+      document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
+    await userEvent.click(root()?.querySelector('.cm-content') as HTMLElement, { button: 'right' });
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
+    const hash = 'a'.repeat(40);
+    answers.set('git.blame', {
+      lines: [hash],
+      commits: [{ hash, author: 'Ada Lovelace', email: '', time: 0, committed: 0, message: 'M' }],
+    });
+    await userEvent.click(root()?.querySelector('.cm-gutters') as HTMLElement, { button: 'right' });
+    expect(await menuItems()).toEqual(['Annotate with Git Blame']);
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    const annotations = () =>
+      [...(root()?.querySelectorAll('.cerebro-annotation') ?? [])]
+        .map((a) => a.textContent)
+        .join('');
+    await expect.poll(annotations).toContain('Lovelace');
+    expect(host('/r').params('git.blame').at(-1)).toMatchObject({
+      file: 'src/a.ts',
+      hash: 'c0ffee',
+    });
+    // Again: closed.
+    await userEvent.click(root()?.querySelector('.cm-gutters') as HTMLElement, { button: 'right' });
+    await menuItems();
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    await expect.poll(annotations).toBe('');
+    answers.delete('git.blame');
     env().editor.close(env().editor.activeGroup.id, revisionTab('src/a.ts', 'c0ffee').id);
     answers.delete('git.fileAt');
   });
@@ -1166,7 +1194,12 @@ describe('Annotate with Git Blame', () => {
         (a) => a.textContent !== '',
       );
     await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
-    expect(host('/r').params('git.blame')).toEqual([
+    // Earlier tests blame other files.
+    expect(
+      host('/r')
+        .params('git.blame')
+        .filter((p) => p.file === 'src/blamed.ts'),
+    ).toEqual([
       {
         path: '/r',
         file: 'src/blamed.ts',

@@ -320,6 +320,22 @@ describe('Annotate with Git Blame', () => {
     expect(labels('editor/gutter', { file: '/s/a.ts' })).toEqual([]);
   });
 
+  it('annotates a repository version, blamed at its commit, as IntelliJ’s AnnotateVcsVirtualFileAction', async () => {
+    const version = revisionTab('src/a.ts', cy.hash).id;
+    expect(labels('editor/gutter', { file: version })).toEqual(['Annotate with Git Blame']);
+    annotate('vcs.annotate')?.run({ file: version });
+    await annotationFor(version)?.('then');
+    expect(host.params('git.blame').at(-1)).toEqual({
+      path: '/r',
+      file: 'src/a.ts',
+      hash: cy.hash,
+      ignoreWhitespace: true,
+      movements: 'none',
+    });
+    annotate('vcs.annotate')?.run({ file: version });
+    expect(annotationFor(version)).toBeUndefined();
+  });
+
   it('shows the file’s annotations, asked of git with its text, until closed', async () => {
     expect(annotationFor('/r/a.ts')).toBeUndefined();
     annotate('vcs.annotate')?.run({ file: '/r/a.ts' });

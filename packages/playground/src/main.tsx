@@ -291,6 +291,22 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
 }
 
 /**
+ * An editor's context menu: the gutter's, for its tab's file, where that has items; else the text's,
+ * where the editor has one.
+ */
+function editorMenu(event: MouseEvent, file: string, content: string | undefined): void {
+  // An annotation's own menu opened.
+  if (event.defaultPrevented) return;
+  const inGutter = event
+    .composedPath()
+    .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
+  if (!inGutter && content !== undefined) openContextMenu(services, content, event);
+  else if (inGutter && visibleEntries(services, 'editor/gutter', { file }).length > 0) {
+    openContextMenu(services, 'editor/gutter', event, { file });
+  } else event.preventDefault();
+}
+
+/**
  * The line a tab opened at a line starts at, until it's made: a diff's (Show Diff's), or a
  * repository version's (Annotate Revision's).
  */
@@ -1588,15 +1604,7 @@ function Code(props: { path: string; env: string }) {
     <div
       class="playground-code"
       on:contextmenu={(event) => {
-        // An annotation's own menu opened.
-        if (event.defaultPrevented) return;
-        const inGutter = event
-          .composedPath()
-          .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
-        if (!inGutter) openContextMenu(services, 'editor/content', event);
-        else if (visibleEntries(services, 'editor/gutter', { file: props.path }).length > 0) {
-          openContextMenu(services, 'editor/gutter', event, { file: props.path });
-        } else event.preventDefault();
+        editorMenu(event, props.path, 'editor/content');
       }}
       on:focusout={() => {
         // The editor's file is saved when the focus leaves it, for the window or somewhere else in
@@ -1826,6 +1834,9 @@ render(
                       {...version}
                       line={line}
                       annotate={() => annotationFor(tab.id)}
+                      onContextMenu={(event) => {
+                        editorMenu(event, tab.id, undefined);
+                      }}
                       fontSize={() => settings.get('editor.fontSize') as number}
                       tabSize={() => settings.get('editor.tabSize') as number}
                     />

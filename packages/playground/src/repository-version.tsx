@@ -21,6 +21,8 @@ export function RepositoryVersion(props: {
   line?: number | undefined;
   /** What asks for its annotations while it's annotated. */
   annotate: () => AskAnnotation | undefined;
+  /** A right-click in it: its gutter's menu (Annotate with Git Blame). */
+  onContextMenu: (event: MouseEvent) => void;
 }) {
   const { host } = props;
   if (!host) {
@@ -38,7 +40,7 @@ export function RepositoryVersion(props: {
     },
   );
   return (
-    <div class="playground-code">
+    <div class="playground-code" on:contextmenu={props.onContextMenu}>
       {() => {
         const state = loaded.get();
         if (state === undefined) return <p class="playground-code__note">Loading…</p>;
