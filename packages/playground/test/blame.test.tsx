@@ -474,9 +474,16 @@ describe('Annotate with Git Blame', () => {
     // Where the file was added, nothing before it: disabled.
     expect(annotate('annotate.previousRevision')?.enabled?.({ commit: cy })).toBe(false);
     expect(annotate('annotate.previousRevision')?.enabled?.({ commit: ada })).toBe(true);
-    // Not in Find Action, which asks with no annotation.
-    expect(annotate('annotate.revision')?.enabled?.(undefined)).toBe(false);
-    expect(annotate('annotate.previousRevision')?.enabled?.(undefined)).toBe(false);
+    // Not in Find Action, which asks with no annotation; nor are the annotation's other commands.
+    for (const id of [
+      'annotate.revision',
+      'annotate.previousRevision',
+      'annotate.close',
+      'annotate.showDiff',
+      'annotate.copyRevision',
+    ]) {
+      expect(commands.isEnabled(id)).toBe(false);
+    }
   });
 
   it('close when the file’s last commit moves, as the repository’s refs change, as IntelliJ’s', async () => {
