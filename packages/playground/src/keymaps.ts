@@ -45,6 +45,7 @@ export const EDITOR_ACTIONS = {
   deleteLine: 'editor.deleteLine',
   startNewLine: 'editor.startNewLine',
   joinLines: 'editor.joinLines',
+  toggleCase: 'editor.toggleCase',
   matchBrace: 'editor.matchBrace',
   extendSelection: 'editor.extendSelection',
   shrinkSelection: 'editor.shrinkSelection',
@@ -157,6 +158,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+W'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+W'],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
+    [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U'],
   },
 };
 
@@ -258,6 +260,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Down'],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
+    [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+U'],
   },
 };
 
@@ -491,6 +494,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+P'],
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+Down'],
+    [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U', 'Ctrl+Shift+X', 'Ctrl+Shift+Y'],
   },
 };
 
@@ -545,6 +549,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.deleteLine]: ['Meta+D'],
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Down'],
+    [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+X', 'Meta+Shift+Y'],
   },
 };
 
@@ -678,6 +683,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: [],
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift+>'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+<'],
+    [EDITOR_ACTIONS.toggleCase]: ['Ctrl+U S'],
   },
 };
 
@@ -727,6 +733,7 @@ export const SUBLIME: KeymapPreset = {
     ],
     [EDITOR_ACTIONS.shrinkSelection]: [],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+J'],
+    [EDITOR_ACTIONS.toggleCase]: ['Ctrl+K Ctrl+U', 'Ctrl+K Ctrl+L'],
   },
 };
 
@@ -773,6 +780,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     ],
     [EDITOR_ACTIONS.shrinkSelection]: [],
     [EDITOR_ACTIONS.joinLines]: ['Meta+J'],
+    [EDITOR_ACTIONS.toggleCase]: ['Meta+K Meta+U', 'Meta+K Meta+L'],
   },
 };
 

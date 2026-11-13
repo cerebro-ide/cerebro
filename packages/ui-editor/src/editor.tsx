@@ -57,6 +57,7 @@ import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { startingNewLine } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
+import { togglingCase } from './toggle-case.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -233,6 +234,8 @@ export interface EditorKeys {
   startNewLine?: readonly string[];
   /** Join Lines: the caret's line and the next, or the selection's lines, made one. */
   joinLines?: readonly string[];
+  /** Toggle Case: the selection, or the word at the caret, in lower case or upper. */
+  toggleCase?: readonly string[];
   /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
   matchBrace?: readonly string[];
   /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
@@ -269,6 +272,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   deleteLine: ['Mod-y'],
   startNewLine: ['Shift-Enter'],
   joinLines: ['Ctrl-Shift-j'],
+  toggleCase: ['Mod-Shift-u'],
   matchBrace: ['Mod-Shift-m'],
   extendSelection: ['Mod-w'],
   shrinkSelection: ['Mod-Shift-w'],
@@ -869,6 +873,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
               ...keys.deleteLine.map((key) => ({ key, run: deleteLine })),
               ...keys.startNewLine.map((key) => ({ key, run: startingNewLine })),
               ...keys.joinLines.map((key) => ({ key, run: joiningLines })),
+              ...keys.toggleCase.map((key) => ({ key, run: togglingCase })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]
