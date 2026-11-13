@@ -395,13 +395,13 @@ describe('openPicker', () => {
           label: flag,
           option: {
             checked: checked.get().includes(flag),
-            // Each goes only without the other.
-            enabled: checked.get().every((c) => c === flag),
             run: () => {
               const now = checked.peek();
               checked.set(now.includes(flag) ? now.filter((c) => c !== flag) : [...now, flag]);
             },
           },
+          // Each goes only without the other.
+          disabled: !checked.get().every((c) => c === flag),
         })),
     });
     const disabled = () =>
@@ -412,13 +412,31 @@ describe('openPicker', () => {
     expect(checked.get()).toEqual(['--rebase']);
     expect(handle.open).toBe(true);
     expect(disabled()).toEqual([false, true]);
-    // Greyed: nothing.
-    await userEvent.click(document.querySelectorAll('.cerebro-popup-item')[1] as Element);
+    // Greyed: nothing. (Forced: Playwright clicks nothing aria-disabled, which is what's tried.)
+    await userEvent.click(document.querySelectorAll('.cerebro-popup-item')[1] as Element, {
+      force: true,
+    });
     expect(checked.get()).toEqual(['--rebase']);
     key('Enter');
     expect(checked.get()).toEqual([]);
     expect(disabled()).toEqual([false, false]);
     expect(handle.open).toBe(true);
+  });
+
+  it('greys an action that can’t be done, which choosing does nothing to', async () => {
+    const handle = picker({
+      items: () => [{ label: 'New Branch…', disabled: true }, { label: 'main' }],
+    });
+    const rows = [...document.querySelectorAll('.cerebro-popup-item')];
+    expect(rows.map((r) => r.getAttribute('aria-disabled'))).toEqual(['true', null]);
+    expect(rows[0]?.classList.contains('cerebro-popup-item--disabled')).toBe(true);
+    key('Enter');
+    // Forced: Playwright clicks nothing aria-disabled, which is what's tried.
+    await userEvent.click(rows[0] as Element, { force: true });
+    expect(handle.open).toBe(true);
+    key('ArrowDown');
+    key('Enter');
+    expect(await handle.result).toEqual({ label: 'main' });
   });
 
   it('closes an item with its close button, keeping the popup open', async () => {

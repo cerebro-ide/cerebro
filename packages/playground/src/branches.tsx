@@ -60,6 +60,8 @@ interface Branches {
   remotes: string[];
   current: string | undefined;
   upstreams: ReadonlyMap<string, string>;
+  /** No commit yet, which IntelliJ disables its branch actions in (`Repository.isFresh`). */
+  fresh: boolean;
 }
 
 const branches = signal<Branches>({
@@ -70,13 +72,23 @@ const branches = signal<Branches>({
   remotes: [],
   current: undefined,
   upstreams: new Map(),
+  fresh: false,
 });
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
-  const [list, checkouts, tags, remotes] = await Promise.all([
+  const [list, head, checkouts, tags, remotes] = await Promise.all([
     host.request('git.branches', { worktree }) as Promise<HostBranch[]>,
-    // Where they can't be read (no commit yet), none is recent.
+    // Where it can't be read, the actions stay on: git says why, if they fail.
+    (
+      host.request('git.resolveRevision', { path: worktree, revision: 'HEAD' }) as Promise<
+        string | null
+      >
+    ).catch((error: unknown) => {
+      console.error('Reading HEAD failed', error);
+      return 'HEAD';
+    }),
+    // Where they can't be read, none is recent.
     (host.request('git.recentCheckouts', { path: worktree }) as Promise<string[]>).catch(
       (error: unknown) => {
         console.error('Reading the recent branches failed', error);
@@ -117,6 +129,7 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
         b.upstream === undefined ? [] : [[b.ref.slice('refs/heads/'.length), b.upstream]],
       ),
     ),
+    fresh: head === null,
   });
 }
 
@@ -452,7 +465,8 @@ export function setupBranches(
     id: 'git.newBranch',
     label: 'New Branch',
     dialog: true,
-    enabled: () => target() !== undefined,
+    // Not before the first commit, as IntelliJ's (`DvcsUtil.disableActionIfAnyRepositoryIsFresh`).
+    enabled: () => target() !== undefined && !branches.get().fresh,
     run: () => newBranch(undefined),
   });
   commands.register<BranchRef>({
@@ -568,7 +582,7 @@ export function setupBranches(
     id: 'git.checkoutRevision',
     label: 'Checkout Tag or Revision',
     dialog: true,
-    enabled: () => target() !== undefined,
+    enabled: () => target() !== undefined && !branches.get().fresh,
     run: async () => {
       const at = target() as NonNullable<ReturnType<typeof target>>;
       // The tags as well as the branches, read first (IntelliJ reads them as the dialog opens).
@@ -1277,11 +1291,16 @@ export function setupBranches(
         // IntelliJ's `Git.Branches.List`, what's here of it.
         ...fuzzyFilter(
           [
-            { label: 'New Branch…', run: () => commands.execute('git.newBranch') },
-            {
-              label: 'Checkout Tag or Revision…',
-              run: () => commands.execute('git.checkoutRevision'),
-            },
+            ...(
+              [
+                ['New Branch…', 'git.newBranch'],
+                ['Checkout Tag or Revision…', 'git.checkoutRevision'],
+              ] as const
+            ).map(([label, command]) => ({
+              label,
+              disabled: !commands.isEnabled(command),
+              run: () => commands.execute(command),
+            })),
           ],
           query,
         ),

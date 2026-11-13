@@ -829,6 +829,13 @@ const RECENT_CHECKOUTS = 50;
  * branch's name, or `HEAD` or a commit's hash for a detached HEAD: the caller keeps its branches.
  */
 export async function recentCheckouts(worktree: string, run: Git = git): Promise<string[]> {
+  // None before the first commit, whose HEAD's reflog git can't read (measured, git 2.43: "your
+  // current branch 'main' does not have any commits yet").
+  try {
+    await run(worktree, ['rev-parse', '--verify', '--quiet', 'HEAD']);
+  } catch {
+    return [];
+  }
   const output = await run(worktree, [
     'reflog',
     '--max-count',

@@ -49,6 +49,8 @@ const git = {
   tags: ['v1', 'v2'] as string[] | Error,
   /** What the reflog says was checked out last, or why it can't be read. */
   checkouts: [] as string[] | Error,
+  /** HEAD's commit: null before the first. */
+  head: 'c0' as string | null | Error,
   /** Whether the repository has remotes, as its state says. */
   remotes: true,
   /** Its remotes' names, or why they can't be read. */
@@ -99,6 +101,10 @@ const host = new FakeHost({
   },
   'git.checkout': (p: Checkout) => checkingOut(p),
   'git.checkoutRevision': (p: Checkout) => checkingOut(p),
+  'git.resolveRevision': () => {
+    if (git.head instanceof Error) throw git.head;
+    return git.head;
+  },
   'git.recentCheckouts': () => {
     if (git.checkouts instanceof Error) throw git.checkouts;
     return git.checkouts;
@@ -229,6 +235,7 @@ beforeEach(() => {
   git.log = [];
   git.tagPushed = true;
   git.updated = {};
+  git.head = 'c0';
 });
 
 afterEach(async () => {
@@ -298,6 +305,33 @@ describe('the branches popup', () => {
     // Searched.
     await userEvent.keyboard('orig');
     expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
+  });
+
+  it('greys New Branch… and Checkout Tag or Revision… before the first commit, as IntelliJ’s', async () => {
+    git.head = null;
+    git.local = [];
+    git.remote = [];
+    git.tags = [];
+    pick(button);
+    const off = () =>
+      [...document.querySelectorAll('.cerebro-popup-item')].map(
+        (item) => item.getAttribute('aria-disabled') === 'true',
+      );
+    await expect.poll(off).toEqual([true, true]);
+    expect(await popupItems()).toEqual(['New Branch…', 'Checkout Tag or Revision…']);
+    expect(commands.isEnabled('git.newBranch')).toBe(false);
+    expect(commands.isEnabled('git.checkoutRevision')).toBe(false);
+    // Chosen: nothing, and the popup stays.
+    await userEvent.keyboard('{Enter}');
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(document.querySelector('.cerebro-popup')).not.toBeNull();
+    await closeAll();
+    // Where HEAD can't be read, on: git says why, if they fail.
+    git.head = new Error('fatal: not a git repository');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    pick(button);
+    await expect.poll(off).toEqual([false, false]);
+    expect(logged).toHaveBeenCalledWith('Reading HEAD failed', git.head);
   });
 
   it('lists the branches checked out last first, as IntelliJ’s Recent; Local without them', async () => {

@@ -3382,7 +3382,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     `--detach`), "Checked out ref", or "Could not checkout ref" with git's words. OK is off while
     the field is empty (Claude's: IntelliJ's leaves it to git). A reference starting with "-" is
     refused, git taking it for an option (checkout doesn't take `--end-of-options`: measured, git
-    2.43). Not yet: IntelliJ's disabling it in a repository with no commits.
+    2.43).
+  - **Before the first commit** (added 2026-11-13), New Branch… and Checkout Tag or Revision… are
+    greyed in the popup, and off in the Git menu and Find Action, as IntelliJ's
+    (`DvcsUtil.disableActionIfAnyRepositoryIsFresh`, read from its source): there's no commit to
+    start a branch at or to check out. Choosing one greyed does nothing. Where HEAD can't be read,
+    they stay on, and git says why if they fail. Recent is empty then without an error: git can't
+    read the reflog of a branch with no commit (measured, git 2.43: "your current branch 'main'
+    does not have any commits yet"), which was logged as an error each time the popup opened.
+    **Not yet:** IntelliJ's description saying why ("Creating new branch is not possible before
+    the first commit."), which Cerebro's popups have nowhere to show.
   - **Tags** (added 2026-11-12), a Tags group after Remote, as IntelliJ's (`GitBranchesTreeModel`),
     while the Log's branches pane's Show Tags is on (IntelliJ's one setting for both); where they
     can't be read, the branches show without them. Favorites as the branches' (decision "Branches

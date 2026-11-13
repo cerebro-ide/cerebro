@@ -69,11 +69,11 @@ export function gitOptions(
             ...(checked ? { icon: () => icon('check') } : {}),
             option: {
               checked,
-              enabled: suitable(all, o.flag, chosen.get()),
               run: () => {
                 toggle(o.flag);
               },
             },
+            disabled: !suitable(all, o.flag, chosen.get()),
           };
         }),
     });
