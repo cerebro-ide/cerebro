@@ -1039,29 +1039,33 @@ describe('a commit’s pane', () => {
     git.log = [{ ...history(1)[0], body: 'Why.' } as LogCommit];
     git.changes[`${EMPTY_TREE}..c0`] = [
       { path: 'lib/moved.ts', status: 'renamed', from: 'old.ts' },
+      { path: 'top.ts', status: 'modified' },
     ];
     host.answers['fs.exists'] = (params: { path: string }) => params.path === '/r';
     host.answers['git.createPatch'] = () => null;
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     await userEvent.click(rows()[0] as HTMLElement);
-    await expect.poll(files).toHaveLength(2);
-    await userEvent.click(fileRows()[1] as HTMLElement, { button: 'right' });
-    await userEvent.click(menuItem('Create Patch…'));
-    await dialog();
-    await press('OK');
-    await press('Close');
+    await expect.poll(files).toHaveLength(3);
+    for (const row of [1, 2]) {
+      await userEvent.click(fileRows()[row] as HTMLElement, { button: 'right' });
+      await userEvent.click(menuItem('Create Patch…'));
+      await dialog();
+      await press('OK');
+      await press('Close');
+    }
+    const patch = {
+      path: '/r',
+      from: EMPTY_TREE,
+      to: 'c0',
+      base: '/r',
+      reverse: false,
+      message: 'Change 0\n\nWhy.',
+      file: '/r/Change_0__Why_.patch',
+    };
     expect(host.params('git.createPatch')).toEqual([
-      {
-        path: '/r',
-        from: EMPTY_TREE,
-        to: 'c0',
-        files: ['old.ts', 'lib/moved.ts'],
-        base: '/r',
-        reverse: false,
-        message: 'Change 0\n\nWhy.',
-        file: '/r/Change_0__Why_.patch',
-      },
+      { ...patch, files: ['old.ts', 'lib/moved.ts'] },
+      { ...patch, files: ['top.ts'] },
     ]);
   });
 
