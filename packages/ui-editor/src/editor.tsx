@@ -8,11 +8,12 @@
 // custom properties are inherited into shadow roots.
 
 import {
-  defaultKeymap,
   historyField,
   indentWithTab,
   isolateHistory,
   redo,
+  simplifySelection,
+  standardKeymap,
   undo,
 } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
@@ -912,12 +913,12 @@ export function CodeEditor(props: CodeEditorProps): Node {
       : [],
     keyed.of(actions()),
     keymap.of([
-      // Not CodeMirror's Mod-[ and Mod-] (indent less and more): they're Back and Forward on
-      // macOS, as IntelliJ's; Tab and Shift+Tab indent. Nor its comments' keys: the keymap's run
-      // IntelliJ's comments (above).
-      ...defaultKeymap.filter(
-        (binding) => !['Mod-[', 'Mod-]', 'Mod-/', 'Alt-A'].includes(binding.key as string),
-      ),
+      // CodeMirror's basic editing (the caret's moves, Enter, Backspace, Select All), and Escape
+      // dropping the selection, as IntelliJ's. Not the rest of its `defaultKeymap`: its keys are
+      // IntelliJ's for other actions, and went to the editor first (measured in the app: Ctrl+Shift+K,
+      // Push, also deleted the line; Alt+Shift+Down copied it, where IntelliJ moves it).
+      { key: 'Escape', run: simplifySelection },
+      ...standardKeymap,
     ]),
     EditorView.domEventHandlers({
       mousedown: (event, v) => {

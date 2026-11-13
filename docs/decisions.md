@@ -2860,8 +2860,7 @@ the ones the file's language gives CodeMirror (`commentTokens`): none in JSON, s
   CodeMirror reads as Ctrl+/ (a character key's Shift is in the character); a US keyboard's `?`
   is Ctrl+Shift+/. **Claim:** that Chrome sends `?` from a real keyboard (not measured here).
 - **Not yet:** a Code menu (IntelliJ's has them, as Reformat Code and the editor's other actions;
-  they're keys only here, not commands, so not in Find Action either); CodeMirror's other default
-  keys, which aren't IntelliJ's (Alt+Up and Down move lines, Ctrl+Shift+K deletes one).
+  they're keys only here, not commands, so not in Find Action either).
 
 ## Git → Current File → Show History (2026-11-12)
 
@@ -4799,6 +4798,14 @@ choices below are Claude's, after IntelliJ, open to change.
   default (Ido asked for saving after a while; IntelliJ's is off), with the seconds 1 to 300 and 15
   by default (`GeneralSettings.SAVE_FILES_AFTER_IDLE_SEC`). The seconds are on the checkbox's
   row, after it, as Sync with OS is on the Theme's. A change counts from the next key or move.
+- **CodeMirror's own keys are its basic editing alone** (fixed 2026-11-13): the caret's moves,
+  Enter, Backspace and Delete, Select All (its `standardKeymap`), and Escape dropping the
+  selection, as IntelliJ's. The rest of its `defaultKeymap` is gone: its keys are IntelliJ's for
+  other actions, and the editor took them before the app's keymap (measured in the app: Ctrl+Shift+K,
+  Push, also deleted the line; Alt+Shift+Down copied it, where IntelliJ moves it; Alt+Left and
+  Right, Ctrl+I, Ctrl+Alt+Up and Down are IntelliJ's too). What it did there (moving and copying
+  lines, a blank line below, selecting a line, matching brackets) comes back as IntelliJ's actions,
+  on the keymap's keys.
 - **Not yet:** Undo's names in a text field (only the editor's are known).
 
 ## Opening a project (2026-10-26)
