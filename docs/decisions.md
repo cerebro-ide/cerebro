@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project
+- [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
@@ -2486,6 +2487,40 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
     alone when its language can't tell.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
+
+## A Markdown file's preview (2026-11-13)
+
+Ido (2026-11-12): "create a markdown preview feature similar to intellij, allowing the user to
+choose between the "code" the "view" or a side by side display of both". From IntelliJ's source
+(`TextEditorWithPreview`, `MarkdownEditorWithPreview`, `ChangePreviewLayoutAction`, IdeBundle's
+`tab.title.*`).
+
+- **Three layouts, IntelliJ's:** Editor, Editor and Preview, and Preview. Editor and Preview is
+  the default, side by side, as IntelliJ's Markdown editor opens. Each tab keeps its own layout,
+  and a new tab takes the last one chosen. That's kept between runs, one for every repository, as
+  IntelliJ keeps the last layout (`PropertiesComponent`).
+- **Choosing Editor and Preview again turns the split round,** from side by side to one above the
+  other and back, as IntelliJ's `ChangePreviewLayoutAction` does. The direction is kept for every
+  file, as IntelliJ's Markdown setting is.
+- **The split is dragged,** its share kept for every file, as IntelliJ's one splitter proportion;
+  it starts at halves.
+- **The buttons are at the tab bar's end,** for the active tab, where IntelliJ's new UI shows an
+  editor's tab actions (`getTabActions`, while tabs are shown). Pressed shows the one in use. Their
+  icons are drawn after IntelliJ's (a claim: not its drawings). `ui-layout`'s editor area takes a
+  tab's actions (`tabActions`) for them.
+- **Keys:** VS Code's keymaps have Ctrl+Shift+V for Preview and Ctrl+K V for Editor and Preview
+  (Cmd on macOS), as IntelliJ's files for them have; the others have none, as IntelliJ's.
+- **The preview is drawn by Cerebro, not a browser page:** the Markdown as DOM nodes from
+  `@lezer/markdown`'s tree with GitHub's extensions (tables, strikethrough, task lists, bare
+  links). Quick Documentation's drawing (decision "Quick Documentation") moved to `markdown.ts` and
+  serves both. HTML in the file shows as text, so a file can't put markup or scripts in the page.
+  Code blocks take the editor's colours: its highlight style's rules, as classes of the preview's
+  own (style-mod, which CodeMirror uses, isn't a dependency of ours). It's drawn again as the text
+  changes, unsaved too. **Claude's, open to change:** its look (GitHub-like spacing in the theme's
+  colours), not measured from IntelliJ's stylesheet.
+- **Not yet:** the preview scrolling with the editor (IntelliJ's auto-scroll); images (their
+  words show); links opened; HTML drawn; IntelliJ's Find Action names ("View as Editor"…); its
+  Split Layout menu.
 
 ## A tool window's shortcut activates it (2026-11-12)
 

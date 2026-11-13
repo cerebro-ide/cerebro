@@ -352,6 +352,32 @@ body,
   height: 100%;
 }
 
+/* A Markdown file's text and preview, side by side or one above the other (markdown.tsx). */
+.playground-markdown {
+  display: flex;
+  height: 100%;
+}
+
+.playground-markdown--vertical {
+  flex-direction: column;
+}
+
+.playground-markdown__text,
+.cerebro-markdown-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* While both show, the text's share is set (its flex basis); the preview takes the rest. */
+.playground-markdown[data-layout='split'] > .playground-markdown__text {
+  flex: none;
+}
+
+.playground-markdown__text[hidden] {
+  display: none;
+}
+
 /* A diff and its toolbar, as the image viewer's. */
 .playground-diff {
   display: flex;

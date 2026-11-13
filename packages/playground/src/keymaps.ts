@@ -249,6 +249,9 @@ const VSCODE_WINDOWS: KeymapPreset = {
     'vcs.update': [],
     // The Command Palette: commands, as Find Action's tab.
     'action.find': ['Ctrl+Shift+P', 'F1'],
+    // Its Markdown preview's, as IntelliJ's file has them for the layouts.
+    'markdown.layout.preview': ['Ctrl+Shift+V'],
+    'markdown.layout.split': ['Ctrl+K V'],
     'file.goTo': ['Ctrl+P'],
     'symbol.goTo': ['Ctrl+T'],
     // VS Code has no Go to Class; IntelliJ's Ctrl+N is its New File.
@@ -306,6 +309,8 @@ export const VSCODE_MAC: KeymapPreset = {
     'edit.duplicate': ['Alt+Shift+Down'],
     'vcs.update': [],
     'action.find': ['Meta+Shift+P', 'F1'],
+    'markdown.layout.preview': ['Meta+Shift+V'],
+    'markdown.layout.split': ['Meta+K V'],
     'file.goTo': ['Meta+P'],
     'symbol.goTo': ['Meta+T'],
     // No Go to Class, as on Windows; IntelliJ's Cmd+O would be VS Code's Open.

@@ -35,6 +35,11 @@ export interface EditorAreaViewProps {
   hasErrors?: (tab: Tab) => boolean;
   /** A tab was right-clicked (or the context-menu key pressed on it): open its context menu. */
   onTabContextMenu?: (event: MouseEvent, group: EditorGroup, tab: Tab) => void;
+  /**
+   * The active tab's own actions, at the tab bar's end, as IntelliJ's new UI shows an editor's tab
+   * actions (a Markdown file's layouts); none when it gives none.
+   */
+  tabActions?: (tab: Tab, group: EditorGroup) => Child;
 }
 
 /** Where a dragged tab would land. */
@@ -239,6 +244,11 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
             })
           }
         />
+        {() => {
+          const tab = group.activeTab;
+          const actions = tab && ctx.props.tabActions?.(tab, group);
+          return actions ? <div class="cerebro-editor-tab-actions">{actions}</div> : null;
+        }}
       </div>
       <div
         class="cerebro-editor-content"

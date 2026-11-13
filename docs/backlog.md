@@ -40,13 +40,6 @@ needs the range, the tab id's encoding, the Diff view's sides (titles, the edita
 diff window's parameters to carry which side is which. Proposed before doing it, as it reshapes the
 diff's model for one link (CLAUDE.md).
 
-### Markdown preview, as IntelliJ's
-
-From Ido (2026-11-12): "create a markdown preview feature similar to intellij, allowing the user
-to choose between the "code" the "view" or a side by side display of both". IntelliJ's Markdown
-editor has the three as Editor, Preview and Editor and Preview, picked from buttons at its top
-right (a claim, to check against its sources before building).
-
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

@@ -165,6 +165,13 @@ import type { Settings } from '@cerebro-ide/settings';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
+import {
+  isMarkdown,
+  isMarkdownTab,
+  MarkdownEditor,
+  markdownActions,
+  setupMarkdown,
+} from './markdown.js';
 import { editorKeys } from './keymaps.js';
 import { agentTerminal, setLastShellClosed, setTerminalKeys, shellsFor } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
@@ -308,6 +315,7 @@ setupLog(services, () => {
   layout.toolWindows.show('git');
 });
 setupImages(services);
+setupMarkdown(services.commands, () => editor()?.activeGroup.active);
 // In the app, Show Diff in Separate Window from a diff tab: every diff tab closes, and opens in a
 // window, as IntelliJ's `reopenDiffEditorsForFiles` moves every diff open; the one it was chosen
 // in last, so its window is the one in front.
@@ -1598,7 +1606,7 @@ function Code(props: { path: string; env: string }) {
           text: doc.text.peek().toString(),
           ...at,
         });
-        return (
+        const code = (
           <CodeEditor
             path={props.path}
             document={state}
@@ -1665,6 +1673,15 @@ function Code(props: { path: string; env: string }) {
             onIndent={(used, detected) => indents.set(props.path, { indent: used, detected })}
             keys={() => editorKeys(services.keymap)}
           />
+        );
+        return isMarkdown(props.path) ? (
+          <MarkdownEditor
+            path={props.path}
+            editor={code}
+            text={() => state.text.get().toString()}
+          />
+        ) : (
+          code
         );
       }}
     </div>
@@ -1795,6 +1812,11 @@ render(
                 )
               }
               hasErrors={(tab) => hasErrors(tab.id)}
+              tabActions={(tab, group) =>
+                isMarkdownTab(tab.id)
+                  ? markdownActions(services.commands, { group: group.id, tab: tab.id })
+                  : null
+              }
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
                 openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
