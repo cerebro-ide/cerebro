@@ -755,8 +755,30 @@ body,
   min-height: 32px;
 }
 
-.playground-find__replace {
+/* The Replace field with its history button inside its border, as IntelliJ's. */
+.playground-find__history-field {
+  display: flex;
+  box-sizing: border-box;
   flex: 1;
+  align-items: center;
+  height: 24px;
+  border: 1px solid var(--cerebro-input-border);
+  border-radius: 4px;
+  background: var(--cerebro-input);
+}
+
+.playground-find__history-field .cerebro-popup__history {
+  margin-left: 2px;
+}
+
+.playground-find__history-field .playground-find__replace {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  padding-left: 2px;
+  border: none;
+  background: none;
+  outline: none;
 }
 
 .playground-find__button {

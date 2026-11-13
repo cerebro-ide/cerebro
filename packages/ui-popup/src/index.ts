@@ -14,3 +14,9 @@ export {
   type SwitcherOptions,
   type SwitcherSide,
 } from './switcher.js';
+export {
+  SearchHistoryButton,
+  showSearchHistory,
+  showsHistory,
+  type SearchHistoryOptions,
+} from './history.js';

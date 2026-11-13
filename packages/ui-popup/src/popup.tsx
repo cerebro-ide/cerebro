@@ -8,6 +8,7 @@
 
 import { type Child, focusedElement, onCleanup, render } from '@cerebro-ide/jsx';
 import { computed, makeObservable, signal, type Signal } from '@cerebro-ide/reactive';
+import { SearchHistoryButton, showSearchHistory, showsHistory } from './history.js';
 
 export interface PickerItem {
   label: string;
@@ -101,6 +102,11 @@ export interface PickerOptions<T extends PickerItem> {
    * leaves to it (`data-alt-keys`).
    */
   altKeys?: string;
+  /**
+   * The search field's history, as IntelliJ's Find in Files' (SearchTextArea): its button at the
+   * field's start, and Alt+Down; the text chosen is put in the field, as if typed.
+   */
+  history?: { label: string; icon: Child; texts: () => readonly string[] };
 }
 
 export interface PickerHandle<T> {
@@ -305,7 +311,14 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private readonly onPointerDown = (event: PointerEvent) => {
     if (this.submenuOpen) return;
     const target = event.target as Node;
-    if (!this.element.contains(target) && !this.options.owner?.contains(target)) this.close();
+    // A popup opened over this one (its search history) is part of it while it's open.
+    const over = (target as Element).closest('.cerebro-popup');
+    const later =
+      over != null &&
+      (this.element.compareDocumentPosition(over) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
+    if (!this.element.contains(target) && !this.options.owner?.contains(target) && !later) {
+      this.close();
+    }
   };
 
   /** Highlights the item at `index`, scrolling it into view. */
@@ -495,6 +508,24 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
     onCleanup(() => {
       for (const row of this.rows.values()) row.dispose();
     });
+    const { history } = options;
+    let row: HTMLElement | undefined;
+    const showHistory = (
+      shown: NonNullable<PickerOptions<T>['history']>,
+      field: HTMLInputElement,
+    ) => {
+      void showSearchHistory({
+        label: shown.label,
+        texts: shown.texts(),
+        below: row as HTMLElement,
+      }).then((text) => {
+        if (text === undefined) return;
+        field.value = text;
+        state.query = text;
+        state.index = this.initial();
+        options.onQueryChange?.(text);
+      });
+    };
     const input = (
       <input
         class="cerebro-popup__search"
@@ -508,15 +539,37 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
           state.index = this.initial();
           options.onQueryChange?.(state.query);
         }}
-        on:keydown={this.onKey}
+        on:keydown={(event) => {
+          if (history && showsHistory(event)) {
+            event.preventDefault();
+            event.stopPropagation();
+            showHistory(history, event.currentTarget as HTMLInputElement);
+            return;
+          }
+          this.onKey(event);
+        }}
       />
-    );
+    ) as HTMLInputElement;
     return [
       options.header ? <div class="cerebro-popup__header">{options.header()}</div> : null,
-      options.options ? (
-        <div class="cerebro-popup__search-row">
+      options.options || history ? (
+        <div
+          class="cerebro-popup__search-row"
+          ref={(element: HTMLElement) => {
+            row = element;
+          }}
+        >
+          {history ? (
+            <SearchHistoryButton
+              label={history.label}
+              icon={history.icon}
+              show={() => {
+                showHistory(history, input);
+              }}
+            />
+          ) : null}
           {input}
-          <div class="cerebro-popup__options">{options.options()}</div>
+          {options.options ? <div class="cerebro-popup__options">{options.options()}</div> : null}
         </div>
       ) : (
         input
