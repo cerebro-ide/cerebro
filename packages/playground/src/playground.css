@@ -1282,6 +1282,11 @@ body,
   padding: 2px 4px;
 }
 
+.playground-log__files-tree-actions {
+  display: flex;
+  margin-left: auto;
+}
+
 .playground-log__files-toolbar .cerebro-toolbar-button {
   width: 26px;
   height: 26px;

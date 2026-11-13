@@ -714,6 +714,8 @@ interface FilesTarget {
   /** The file selected, if any and it can be opened. */
   selected: () => Change | undefined;
   showDiff: (change: Change) => void;
+  /** Its rows, which Expand and Collapse All open and close. */
+  tree: TreeModel<ChangeNode>;
 }
 
 /** The list of a commit's files that has the keyboard, if one has. */
@@ -788,6 +790,7 @@ export function CommitFiles(props: {
       return open ? changes.get().find((c) => c.path === key) : undefined;
     },
     showDiff,
+    tree: files,
   };
   onCleanup(() => {
     if (focusedFiles.peek() === target) focusedFiles.set(undefined);
@@ -871,6 +874,17 @@ export function CommitFiles(props: {
           >
             {icon('groupBy')}
           </button>
+          {/* At its end, as IntelliJ's TreeActionsToolbarPanel puts them. */}
+          <div class="playground-log__files-tree-actions">
+            {(['log.files.expandAll', 'log.files.collapseAll'] as const).map((command) => (
+              <ToolbarButton
+                commands={props.services.commands}
+                command={command}
+                icon={icon(command === 'log.files.expandAll' ? 'expandAll' : 'collapseAll')}
+                context={() => ({ files: target })}
+              />
+            ))}
+          </div>
         </div>
         <TreeView
           model={files}
@@ -1267,6 +1281,23 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
+  // At the toolbar's end, as IntelliJ's changes browser's (TreeActionsToolbarPanel.createTreeActions).
+  for (const [id, label, open] of [
+    ['log.files.expandAll', 'Expand All', true],
+    ['log.files.collapseAll', 'Collapse All', false],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      icon: open ? 'expandAll' : 'collapseAll',
+      enabled: (context) => filesOf(context) !== undefined,
+      run: (context) => {
+        const { tree } = filesOf(context) as FilesTarget;
+        if (open) void tree.expandAll();
+        else tree.collapseAll();
+      },
+    });
+  }
   // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not.
   commands.register({
     id: 'log.files.groupByDirectory',

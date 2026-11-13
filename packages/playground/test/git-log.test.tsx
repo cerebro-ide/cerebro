@@ -710,6 +710,28 @@ describe('a commit’s pane', () => {
     expect(commands.isEnabled('log.files.showDiff')).toBe(false);
   });
 
+  it('expands and collapses all its folders from its toolbar’s end, as IntelliJ’s', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'a.ts', 'b.ts']);
+    const end = pane().querySelector('.playground-log__files-tree-actions') as HTMLElement;
+    const [expand, collapse] = [...end.querySelectorAll('button')];
+    expect([expand?.ariaLabel, collapse?.ariaLabel]).toEqual(['Expand All', 'Collapse All']);
+    await userEvent.click(collapse as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'b.ts']);
+    await userEvent.click(expand as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'a.ts', 'b.ts']);
+    // Without a list, from its button or with the keyboard, none.
+    (document.activeElement as HTMLElement).blur();
+    expect(commands.isEnabled('log.files.expandAll')).toBe(false);
+  });
+
   it('says why a commit’s files couldn’t be read', async () => {
     git.log = history(1);
     mount();
