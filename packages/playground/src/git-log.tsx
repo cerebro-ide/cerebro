@@ -31,6 +31,7 @@ import {
   diffTab,
   fileTab,
   folderContent,
+  replacing,
   revisionTab,
   type Change,
   type Range,
@@ -753,6 +754,8 @@ interface FilesTarget {
   open: (tab: Tab) => void;
   /** Applies to the files what the commit changed in one, or undoes it (`reverse`). */
   apply: (change: Change, reverse: boolean) => Promise<void>;
+  /** Makes a file as the commit left it: Get from Revision. */
+  get: (change: Change) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
   /** The Log's Paths filter's paths, which Show Only Affected Changes keeps to; none, if none. */
@@ -871,6 +874,21 @@ export function CommitFiles(props: {
         // IntelliJ's words (VcsBundle's, `choice` for each).
         const [title, verb] = reverse ? ['Revert', 'revert'] : ['Apply', 'apply'];
         showError(`${title} Changes`, `Failed to ${verb} changes: ${(error as Error).message}`);
+      }
+      await refreshAll(props.worktree);
+    },
+    get: async (change) => {
+      await saveBeforeGit();
+      // Changed here, untracked too: asked first, as IntelliJ's.
+      if (!(await replacing(props.host, props.worktree, change.path, 'Get Revision'))) return;
+      try {
+        await props.host.request('git.getVersion', {
+          path: props.worktree,
+          hash: range.to,
+          file: change.path,
+        });
+      } catch (error) {
+        showError('Get Revision Content', `Cannot load revision: ${(error as Error).message}`);
       }
       await refreshAll(props.worktree);
     },
@@ -1447,6 +1465,17 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('F4', 'log.files.editSource');
+  // The file made as the commit left it, or deleted if the commit deleted it, as IntelliJ's Get in
+  // the Log (Vcs.GetVersion, named there by GetVersionFromRepositoryActionProvider).
+  commands.register({
+    id: 'log.files.get',
+    label: 'Get from Revision',
+    enabled: atCommit,
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      return files.get(files.selected() as Change);
+    },
+  });
   // The file as the commit left it, read-only, as IntelliJ's Open Repository Version
   // (Vcs.OpenRepositoryVersion): not one the commit deleted.
   commands.register({
@@ -1468,6 +1497,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.files.openRepositoryVersion', 'b'],
     ['log.files.revert', 'c'],
     ['log.files.cherryPick', 'c'],
+    ['log.files.get', 'c'],
     ['log.files.showHistory', 'c'],
   ] as const) {
     menus.contribute({ menu: FILES_MENU, item: { command }, group });

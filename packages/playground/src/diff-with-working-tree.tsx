@@ -11,7 +11,7 @@ import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
-import type { Change } from './changes.js';
+import { replacing, type Change } from './changes.js';
 import { saveBeforeGit } from './documents.js';
 import type { Host } from './environments.js';
 import { CommitFiles } from './git-log.js';
@@ -76,17 +76,7 @@ export function setupDiffWithWorkingTree(services: MenuServices, show: () => voi
 async function getFromBranch(diff: WorkingTreeDiff, change: Change): Promise<void> {
   const { host, worktree, ref } = diff;
   try {
-    const local = (await host.request('git.changes', { path: worktree })) as Change[];
-    if (local.some((c) => c.path === change.path)) {
-      const overwrite = await openDialog<true>({
-        title: `Get from Branch '${ref}'`,
-        content: () => (
-          <p class="cerebro-selectable">File {change.path} has been locally modified.</p>
-        ),
-        ok: { label: 'Overwrite Modified File', accept: () => true },
-      }).result;
-      if (!overwrite) return;
-    }
+    if (!(await replacing(host, worktree, change.path, `Get from Branch '${ref}'`))) return;
     await saveBeforeGit();
     await host.request('git.getFrom', {
       path: worktree,

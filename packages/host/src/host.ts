@@ -95,7 +95,7 @@ import {
   validRevision,
   type NewTag,
 } from './tags.js';
-import { applyChanges, applyCommit, continueApplying } from './apply-changes.js';
+import { applyChanges, applyCommit, continueApplying, getVersion } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import {
@@ -1281,6 +1281,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     await recording(worktree, reverse ? 'Rollback' : 'Apply patch', git, () =>
       applyChanges(worktree, { from, to }, paths, reverse, git),
+    );
+    return null;
+  });
+  // Get from Revision: the file as the commit has it, in the Local History as IntelliJ's activity.
+  connection.onRequest('git.getVersion', async (params) => {
+    const worktree = text(params, 'path');
+    const hash = hashOf(params);
+    const file = text(params, 'file');
+    await recording(worktree, 'Get from VCS', git, () =>
+      getVersion(worktree, hash, file, git, gitBytes),
     );
     return null;
   });

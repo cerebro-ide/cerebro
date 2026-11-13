@@ -1161,6 +1161,22 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('gets a file as a commit has it, and not from what isn’t a commit hash', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'cerebro-get-'));
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'ls-tree' ? 'a.ts\n' : 'then'),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.getVersion', { path: dir, hash: 'abc1234', file: 'a.ts' })).toBe(
+      null,
+    );
+    expect(readFileSync(join(dir, 'a.ts'), 'utf8')).toBe('then');
+    await expect(
+      ui.request('git.getVersion', { path: dir, hash: '--all', file: 'a.ts' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    rmSync(dir, { recursive: true });
+  });
+
   it('applies or reverts a commit’s files named, as a patch or reversed, and not with none named', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'diff' ? 'the patch' : ''),
