@@ -312,6 +312,56 @@ describe('the main menu', () => {
   });
 });
 
+describe('a text field’s editing keys', () => {
+  /** The app's menu bridge, with the edit actions it was asked for. */
+  function app(): string[] {
+    const asked: string[] = [];
+    window.cerebro = {
+      menu: { edit: (action: string) => asked.push(action) },
+    } as unknown as NonNullable<Window['cerebro']>;
+    return asked;
+  }
+
+  it('run the Edit commands in a popup’s field, which keeps the app’s other keys', async () => {
+    commands().execute('file.goTo');
+    await popupItems();
+    const asked = app();
+    await userEvent.keyboard('{Control>}v{/Control}{Control>}c{/Control}{Control>}z{/Control}');
+    expect(asked).toEqual(['paste', 'copy', 'undo']);
+    await userEvent.keyboard('{Escape}');
+  });
+
+  it('run them once in a field elsewhere', async () => {
+    const field = document.body.appendChild(document.createElement('input'));
+    await userEvent.click(field);
+    const asked = app();
+    await userEvent.keyboard('{Control>}v{/Control}');
+    expect(asked).toEqual(['paste']);
+    field.remove();
+  });
+
+  it('are left to a terminal’s field, and to what isn’t one', async () => {
+    const terminal = document.body.appendChild(document.createElement('div'));
+    terminal.className = 'cerebro-terminal';
+    const area = terminal.appendChild(document.createElement('textarea'));
+    await userEvent.click(area);
+    const asked = app();
+    const pressed = vi.fn();
+    area.addEventListener('keydown', pressed);
+    await userEvent.keyboard('{Control>}v{/Control}');
+    expect(pressed).toHaveBeenCalled();
+    terminal.remove();
+    const button = document.body.appendChild(document.createElement('button'));
+    button.focus();
+    button.addEventListener('keydown', pressed);
+    pressed.mockClear();
+    await userEvent.keyboard('{Control>}x{/Control}');
+    expect(pressed).toHaveBeenCalled();
+    button.remove();
+    expect(asked).not.toContain('cut');
+  });
+});
+
 describe('Search Everywhere', () => {
   it('lists the sample files and the recent ones in a browser', async () => {
     recent.push(tabOf('src/main.ts'));
