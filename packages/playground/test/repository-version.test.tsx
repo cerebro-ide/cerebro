@@ -2,6 +2,7 @@ import { render } from '@cerebro-ide/jsx';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { revisionOf, revisionTab, tabPath } from '../src/changes.js';
+import type { AskAnnotation } from '@cerebro-ide/ui-editor';
 import { RepositoryVersion } from '../src/repository-version.js';
 import { FakeHost } from './fakes.js';
 
@@ -13,7 +14,11 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-function show(host: FakeHost | undefined, path = 'src/a.ts') {
+function show(
+  host: FakeHost | undefined,
+  path = 'src/a.ts',
+  more: { line?: number; annotate?: () => AskAnnotation | undefined } = {},
+) {
   const box = document.createElement('div');
   box.style.height = '300px';
   document.body.append(box);
@@ -26,6 +31,8 @@ function show(host: FakeHost | undefined, path = 'src/a.ts') {
         hash="c0ffee"
         fontSize={() => 13}
         tabSize={() => 4}
+        line={more.line}
+        annotate={more.annotate ?? (() => undefined)}
       />
     ),
     box,
@@ -67,6 +74,30 @@ describe('a file as it was at a commit', () => {
     await userEvent.keyboard('x');
     expect(content.textContent).toBe('const then = 1;');
     expect(host.params('git.fileAt')).toEqual([{ path: '/r', hash: 'c0ffee', file: 'src/a.ts' }]);
+  });
+
+  it('opens at a line, annotated, as Annotate Revision opens it', async () => {
+    const host = new FakeHost({ 'git.fileAt': () => ({ text: 'one\ntwo\nthree' }) });
+    const asked: string[] = [];
+    show(host, 'src/a.ts', {
+      line: 2,
+      annotate: () => (text) => {
+        asked.push(text);
+        return Promise.resolve({
+          lines: [null, null, { texts: ['Ada'], latest: true }],
+          tooltip: () => '',
+          menu: () => undefined,
+          click: () => undefined,
+        });
+      },
+    });
+    const root = () => document.querySelector('.cerebro-editor-code')?.shadowRoot;
+    const annotated = () =>
+      [...(root()?.querySelectorAll('.cerebro-annotation') ?? [])].map((a) => a.textContent);
+    await expect.poll(() => annotated().join('')).toBe('Ada');
+    expect(asked).toEqual(['one\ntwo\nthree']);
+    // The caret on that line.
+    expect(root()?.querySelector('.cm-activeLine')?.textContent).toBe('three');
   });
 
   it('says why where it can’t show it: binary, not there, or git’s words', async () => {

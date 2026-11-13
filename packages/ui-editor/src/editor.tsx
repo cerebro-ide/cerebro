@@ -840,7 +840,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
     props.onCaret?.(placeOf(state, state.selection.main.head), selectedIn(state));
   };
   const annotating = new Compartment();
-  let annotated = props.annotate?.();
+  // Shown by the effect below as it first runs: read here too, a new ask each time, they'd be asked
+  // twice.
+  let annotated: AskAnnotation | undefined;
   const indenting = new Compartment();
   /** The indent last told, as `unit detected`. */
   let told: string | undefined;
@@ -862,7 +864,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   };
   const extensions: Extension[] = [
     // Before the line numbers, as IntelliJ's new UI.
-    annotating.of(annotated ? textAnnotations(annotated) : []),
+    annotating.of([]),
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],

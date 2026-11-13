@@ -270,9 +270,9 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
   const path = diffPath(tab.id);
   const env = active()?.id;
   if (path === undefined || !window.cerebro || env === undefined || diffsInTabs()) {
-    // Taken as the tab's diff is made: Show Diff runs from the file's tab, so the diff's isn't the
-    // one showing, and is made as it's opened, or activated if it's open already.
-    if (line !== undefined) diffLines.set(tab.id, line);
+    // Taken as the tab's diff or file is made: Show Diff runs from the file's tab, so the diff's
+    // isn't the one showing, and is made as it's opened, or activated if it's open already.
+    if (line !== undefined) tabLines.set(tab.id, line);
     editor()?.open(tab);
     return;
   }
@@ -289,8 +289,11 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
   });
 }
 
-/** The line a diff tab opened at a line starts at (Show Diff's), until the tab's diff is made. */
-const diffLines = new Map<string, number>();
+/**
+ * The line a tab opened at a line starts at, until it's made: a diff's (Show Diff's), or a
+ * repository version's (Annotate Revision's).
+ */
+const tabLines = new Map<string, number>();
 
 // Navigation by name, through the host's index; Search Everywhere's commands open places with it.
 const navigation = setupNavigation(editor);
@@ -378,7 +381,9 @@ watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupBlame(services, {
   activeTab: () => editor()?.activeGroup.active,
-  open: openTab,
+  open: (tab, line) => {
+    openTab(tab, undefined, line);
+  },
   showInLog: (hash, path) => {
     layout.toolWindows.show('git');
     showInLog(hash, path);
@@ -1803,18 +1808,22 @@ render(
                 }
                 const diff = diffPath(tab.id);
                 if (diff !== undefined) {
-                  const line = diffLines.get(tab.id);
-                  diffLines.delete(tab.id);
+                  const line = tabLines.get(tab.id);
+                  tabLines.delete(tab.id);
                   return <Diff path={diff} env={env.id} range={diffRange(tab.id)} line={line} />;
                 }
                 const version = revisionOf(tab.id);
                 if (version) {
                   const settings = settingsFor(env.id);
+                  const line = tabLines.get(tab.id);
+                  tabLines.delete(tab.id);
                   return (
                     <RepositoryVersion
                       host={hostFor(env.id)}
                       worktree={env.id}
                       {...version}
+                      line={line}
+                      annotate={() => annotationFor(tab.id)}
                       fontSize={() => settings.get('editor.fontSize') as number}
                       tabSize={() => settings.get('editor.tabSize') as number}
                     />

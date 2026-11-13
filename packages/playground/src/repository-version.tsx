@@ -1,5 +1,5 @@
 import { signal } from '@cerebro-ide/reactive';
-import { CodeEditor } from '@cerebro-ide/ui-editor';
+import { CodeEditor, type AskAnnotation } from '@cerebro-ide/ui-editor';
 import type { Host } from './environments.js';
 
 /** What the host gives for a file at a commit: its text, that it's binary, or null if not there. */
@@ -7,7 +7,8 @@ type FileAt = { text: string } | { binary: true } | null;
 
 /**
  * A file as it was at a commit, read-only, as IntelliJ's Open Repository Version opens it
- * (`ContentRevisionVirtualFile`, which isn't writable).
+ * (`ContentRevisionVirtualFile`, which isn't writable): at a line, if given, as Annotate Revision
+ * opens it, and annotated while it's asked to be.
  */
 export function RepositoryVersion(props: {
   host: Host | undefined;
@@ -16,11 +17,17 @@ export function RepositoryVersion(props: {
   hash: string;
   fontSize: () => number;
   tabSize: () => number;
+  /** The line it opens at, zero-based. */
+  line?: number | undefined;
+  /** What asks for its annotations while it's annotated. */
+  annotate: () => AskAnnotation | undefined;
 }) {
   const { host } = props;
   if (!host) {
     return <p class="playground-code__note">Repository versions show in the desktop app.</p>;
   }
+  // Revealed once, as each object is.
+  const at = props.line === undefined ? undefined : { line: props.line, column: 0 };
   const loaded = signal<FileAt | { error: string } | undefined>(undefined);
   host.request('git.fileAt', { path: props.worktree, hash: props.hash, file: props.path }).then(
     (result) => {
@@ -58,6 +65,8 @@ export function RepositoryVersion(props: {
             text={state.text}
             fontSize={props.fontSize}
             tabSize={props.tabSize}
+            reveal={() => at}
+            annotate={props.annotate}
           />
         );
       }}

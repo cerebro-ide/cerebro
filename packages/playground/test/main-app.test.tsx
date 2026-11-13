@@ -1182,8 +1182,40 @@ describe('Annotate with Git Blame', () => {
       'Show Diff',
       'View',
       'Copy Revision Number',
+      'Annotate Revision',
+      'Annotate Previous Revision',
       'Options',
     ]);
+    // Annotate Previous Revision: none, where the commit added the file.
+    expect(menuItem('Annotate Previous Revision').getAttribute('aria-disabled')).toBe('true');
+    // Annotate Revision: the file at that commit, annotated in a tab of its own, at the line asked on.
+    answers.set('git.fileAt', { text: 'then\n// /r/src/blamed.ts\n' });
+    await userEvent.click(menuItem('Annotate Revision'));
+    const version = revisionTab('src/blamed.ts', hash);
+    await expect
+      .poll(
+        () =>
+          document.querySelector('.cerebro-editor-group--active .cerebro-editor-tab--active')
+            ?.textContent,
+      )
+      .toContain(`blamed.ts (${hash})`);
+    await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
+    expect(host('/r').params('git.blame').at(-1)).toEqual({
+      path: '/r',
+      file: 'src/blamed.ts',
+      hash,
+      ignoreWhitespace: true,
+      movements: 'none',
+    });
+    // The line asked on, the first, is the second there.
+    expect(editorRoot()?.querySelector('.cm-activeLine')?.textContent).toBe('// /r/src/blamed.ts');
+    env().editor.close(env().editor.activeGroup.id, version.id);
+    answers.delete('git.fileAt');
+    // Back to the file: earlier tests leave others open.
+    env().editor.open({ id: '/r/src/blamed.ts', title: 'blamed.ts' });
+    await expect.poll(() => annotation()?.textContent).toContain('Lovelace');
+    await userEvent.click(annotation() as HTMLElement, { button: 'right' });
+    await menuItems();
     // Show Diff: the commit's changes to the file, in a window of its own.
     await userEvent.click(menuItem('Show Diff'));
     expect(calls.at(-1)).toMatchObject(['diff', { env: '/r', path: 'src/blamed.ts' }]);

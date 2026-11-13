@@ -48,6 +48,7 @@ export {
   IGNORE_POLICIES,
   type HighlightPolicy,
   type IgnorePolicy,
+  translateLine,
   type LineRange,
 } from './compare.js';
 export {

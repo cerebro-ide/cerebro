@@ -1081,11 +1081,27 @@ describe('ignored files and rolling back', () => {
     });
     expect(git.mock.calls.at(-1)?.[1]).toContain('-C');
     expect(git.mock.calls.at(-1)?.[1]).not.toContain('-w');
-    for (const bad of [{ contents: 3 }, { ignoreWhitespace: 'yes' }, { movements: 'far' }]) {
+    for (const bad of [
+      { contents: 3 },
+      { ignoreWhitespace: 'yes' },
+      { movements: 'far' },
+      { hash: 'abcd1234' },
+      { contents: undefined, hash: '--output=x' },
+      { contents: undefined },
+    ]) {
       await expect(
         ui.request('git.blame', { path: '/w', file: 'a.txt', contents: '', ...bad }),
       ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
     }
+  });
+
+  it('blames a file at a commit, as Annotate Revision does', async () => {
+    const git = vi.fn<Git>(() => Promise.resolve(''));
+    const { ui } = connect(git);
+    await ui.request('git.blame', { path: '/w', file: 'a.txt', hash: 'abcd1234' });
+    expect(git.mock.calls[0]?.[1].slice(-3)).toEqual(['abcd1234', '--', 'a.txt']);
+    expect(git.mock.calls[0]?.[1]).not.toContain('--contents');
+    expect(git.mock.calls[0]?.[3]).toBeUndefined();
   });
 
   it('lists conflicts, gives their versions, and resolves them, as told', async () => {

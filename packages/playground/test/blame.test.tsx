@@ -13,6 +13,7 @@ import {
   type AnnotationView,
   type Blame,
 } from '../src/blame.js';
+import { revisionTab } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { closeAll, FakeHost, menuItem, menuItems, project } from './fakes.js';
@@ -332,7 +333,7 @@ describe('Annotate with Git Blame', () => {
     expect(annotationFor('/r/a.ts')).toBeUndefined();
   });
 
-  it('has IntelliJ’s menu on an annotation: Close Annotations, Show Diff, View, Copy Revision Number, Options', async () => {
+  it('has IntelliJ’s menu on an annotation: Close Annotations, Show Diff, View, Copy Revision Number, Annotate Revision, Annotate Previous Revision, Options', async () => {
     annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
     const shown = await annotationFor('/r/a.ts')?.('text');
     shown?.menu(2, new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }));
@@ -341,6 +342,8 @@ describe('Annotate with Git Blame', () => {
       'Show Diff',
       'View',
       'Copy Revision Number',
+      'Annotate Revision',
+      'Annotate Previous Revision',
       'Options',
     ]);
     expect(labels('editor/annotation')).toEqual([
@@ -348,6 +351,9 @@ describe('Annotate with Git Blame', () => {
       'Show Diff',
       'View',
       'Copy Revision Number',
+      '-',
+      'Annotate Revision',
+      'Annotate Previous Revision',
       '-',
       'Options',
     ]);
@@ -412,6 +418,48 @@ describe('Annotate with Git Blame', () => {
       id: `diff@4b825dc642cb6eb9a060e54bf8d69288fbee4904..${cy.hash}:old/a.ts`,
       title: 'a.ts',
     });
+  });
+
+  it('annotates a line’s commit, or the one before, in a tab of its own, at the line carried into it', async () => {
+    host.answers['git.fileAt'] = () => ({ text: 'zero\none\ntwo\n' });
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    const shown = await annotationFor('/r/a.ts')?.('one\ntwo\nthree\nfour\nfive\n');
+    shown?.menu(0, new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }));
+    await menuItems();
+    menuItem('Annotate Revision').click();
+    // Line 0, "one", is line 1 in that commit's file.
+    const at = revisionTab('a.ts', ada.hash);
+    await vi.waitFor(() => {
+      expect(open).toHaveBeenLastCalledWith(at, 1);
+    });
+    expect(host.params('git.fileAt').at(-1)).toEqual({ path: '/r', hash: ada.hash, file: 'a.ts' });
+    // Its annotations: the file at that commit, blamed.
+    await annotationFor(at.id)?.('zero\none\ntwo\n');
+    expect(host.params('git.blame').at(-1)).toEqual({
+      path: '/r',
+      file: 'a.ts',
+      hash: ada.hash,
+      ignoreWhitespace: true,
+      movements: 'none',
+    });
+    annotate('annotate.close')?.run({ file: at.id });
+    // The commit before that changed the file, at its path there; where it's not, the line as is.
+    host.answers['git.fileAt'] = () => null;
+    const context = { file: '/r/a.ts', worktree: '/r', line: 3, text: 'a\n' };
+    await annotate('annotate.previousRevision')?.run({ ...context, commit: ada });
+    expect(open).toHaveBeenLastCalledWith(revisionTab('a.ts', bob.hash), 3);
+    annotate('annotate.close')?.run({ file: revisionTab('a.ts', bob.hash).id });
+    // Where git can't say: likewise.
+    delete host.answers['git.fileAt'];
+    await annotate('annotate.revision')?.run({ ...context, hash: cy.hash, path: 'old/a.ts' });
+    expect(open).toHaveBeenLastCalledWith(revisionTab('old/a.ts', cy.hash), 3);
+    annotate('annotate.close')?.run({ file: revisionTab('old/a.ts', cy.hash).id });
+    // Where the file was added, nothing before it: disabled.
+    expect(annotate('annotate.previousRevision')?.enabled?.({ commit: cy })).toBe(false);
+    expect(annotate('annotate.previousRevision')?.enabled?.({ commit: ada })).toBe(true);
+    // Not in Find Action, which asks with no annotation.
+    expect(annotate('annotate.revision')?.enabled?.(undefined)).toBe(false);
+    expect(annotate('annotate.previousRevision')?.enabled?.(undefined)).toBe(false);
   });
 
   it('has IntelliJ’s Options, kept with the view, asked of git and shown', async () => {

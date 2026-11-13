@@ -1,7 +1,8 @@
 // IntelliJ's Annotate with Git Blame (`GitAnnotationProvider`, `GitFileAnnotation`, read from its
 // source): who last changed each line of a file, and when, from `git blame --porcelain`. The text
 // blamed is the editor's, given on git's input (`--contents -`): lines changed since the last
-// commit have no commit, as IntelliJ shows none for them.
+// commit have no commit, as IntelliJ shows none for them. Or the file as it was at a commit, as
+// IntelliJ's Annotate Revision blames it (`GitAnnotationProvider.annotate(file, revision)`).
 
 import type { Git } from './git.js';
 
@@ -87,15 +88,18 @@ export function parseBlame(
   return { lines, commits };
 }
 
+/** What's blamed: a file's text, as the editor has it, or the file at a revision. */
+export type Blamed = { text: string } | { revision: string };
+
 /**
- * Blames a file's text, as the editor has it, against the worktree's last commit: as IntelliJ's,
- * `git blame --porcelain -l -t --encoding=UTF-8`, with its options. Each commit's whole message is
- * read after.
+ * Blames a file's text against the worktree's last commit, or the file at a revision: as
+ * IntelliJ's, `git blame --porcelain -l -t --encoding=UTF-8`, with its options. Each commit's
+ * whole message is read after.
  */
 export async function blame(
   worktree: string,
   path: string,
-  text: string,
+  blamed: Blamed,
   run: Git,
   options: BlameOptions = { ignoreWhitespace: true, movements: 'none' },
 ): Promise<Blame> {
@@ -109,13 +113,12 @@ export async function blame(
       '--encoding=UTF-8',
       ...(options.ignoreWhitespace ? ['-w'] : []),
       ...({ none: [], within: ['-M'], across: ['-C'] } as const)[options.movements],
-      '--contents',
-      '-',
+      ...('text' in blamed ? ['--contents', '-'] : [blamed.revision]),
       '--',
       path,
     ],
     undefined,
-    text,
+    'text' in blamed ? blamed.text : undefined,
   );
   const { lines, commits } = parseBlame(output, path);
   const messages = new Map<string, string>();

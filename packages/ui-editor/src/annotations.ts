@@ -139,11 +139,12 @@ function widthsOf(view: EditorView, annotation: TextAnnotation): number[] {
 export function textAnnotations(ask: AskAnnotation, after = ANNOTATIONS_AFTER): Extension {
   const asker = ViewPlugin.define((view) => {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let closed = false;
     const request = () => {
       const { doc } = view.state;
       void ask(doc.toString()).then((found) => {
-        // Edited since: a later question answers.
-        if (view.state.doc !== doc || !found) return;
+        // Edited since: a later question answers. Closed since: none is shown.
+        if (closed || view.state.doc !== doc || !found) return;
         view.dispatch({
           effects: setAnnotation.of({ annotation: found, widths: widthsOf(view, found) }),
         });
@@ -157,6 +158,7 @@ export function textAnnotations(ask: AskAnnotation, after = ANNOTATIONS_AFTER): 
         timer = setTimeout(request, after);
       },
       destroy() {
+        closed = true;
         clearTimeout(timer);
       },
     };

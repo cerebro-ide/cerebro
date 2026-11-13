@@ -190,7 +190,14 @@ export {
   type Updated,
   type UpdateMethod,
 } from './update.js';
-export { blame, parseBlame, type Blame, type BlameCommit, type BlameOptions } from './blame.js';
+export {
+  blame,
+  parseBlame,
+  type Blame,
+  type BlameCommit,
+  type BlameOptions,
+  type Blamed,
+} from './blame.js';
 export {
   fetchAll,
   merge,

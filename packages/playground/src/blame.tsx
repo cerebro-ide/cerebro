@@ -5,15 +5,21 @@
 // gutter's menu, or Git → Current File. Lines changed since the last commit show nothing. Its menu,
 // on an annotation (`EditorGutterComponentImpl.getTextAnnotationPopupActions`, then
 // `AnnotateToggleAction`'s): Close Annotations, Show Diff, View (the columns, their colours, how
-// names show), Copy Revision Number, and Options (`GitToggleAnnotationOptionsActionProvider`). A
+// names show), Copy Revision Number, Annotate Revision and Annotate Previous Revision
+// (`AnnotateRevisionActionBase`), and Options (`GitToggleAnnotationOptionsActionProvider`). A
 // click on one shows its commit in the Log (`GitFileAnnotation.showAffectedPaths`). The view and the
 // options are kept in the browser's storage.
 
 import { ObservableMap, signal } from '@cerebro-ide/reactive';
-import type { AskAnnotation, LineAnnotation, TextAnnotation } from '@cerebro-ide/ui-editor';
+import {
+  translateLine,
+  type AskAnnotation,
+  type LineAnnotation,
+  type TextAnnotation,
+} from '@cerebro-ide/ui-editor';
 import type { Tab } from '@cerebro-ide/layout';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { diffTab, notCommitted } from './changes.js';
+import { diffTab, notCommitted, revisionTab } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
 import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
@@ -287,22 +293,27 @@ export function present(
   };
 }
 
-/** A file annotated: its worktree, and its path in it. */
+/** A file annotated: its worktree, its path in it, and the commit it's at, if not the worktree's. */
 interface Annotated {
   worktree: string;
   path: string;
+  hash?: string;
 }
 
 /** The files annotated, by their tabs' ids. */
 const annotated = new ObservableMap<string, Annotated>();
 
-/** What the menus on an annotation are given: the file's tab, and the line's commit. */
+/** What the menus on an annotation are given: the file's tab, the line's commit, and the line. */
 export interface AnnotationContext {
   file: string;
+  worktree: string;
   hash: string;
   /** The file's path in its worktree at that commit. */
   path: string;
   commit: BlameCommit;
+  /** The line asked on, zero-based, in the file's text as annotated. */
+  line: number;
+  text: string;
 }
 
 let menuServices: MenuServices | undefined;
@@ -319,14 +330,22 @@ export function annotationFor(file: string): AskAnnotation | undefined {
       const blame = (await host?.request('git.blame', {
         path: target.worktree,
         file: target.path,
-        contents: text,
+        ...(target.hash === undefined ? { contents: text } : { hash: target.hash }),
         ignoreWhitespace: shown.ignoreWhitespace,
         movements: shown.movements,
       })) as Blame;
       const commits = new Map(blame.commits.map((c) => [c.hash, c]));
       const context = (line: number): AnnotationContext => {
         const commit = commits.get(blame.lines[line] as string) as BlameCommit;
-        return { file, hash: commit.hash, path: commit.path ?? target.path, commit };
+        return {
+          file,
+          worktree: target.worktree,
+          hash: commit.hash,
+          path: commit.path ?? target.path,
+          commit,
+          line,
+          text,
+        };
       };
       return present(blame, shown, {
         menu: (line, event) => {
@@ -353,8 +372,8 @@ export function annotationFor(file: string): AskAnnotation | undefined {
 export interface BlameSetup {
   /** The active editor tab's id. */
   activeTab: () => string | undefined;
-  /** Opens a tab in the editor: Show Diff's. */
-  open: (tab: Tab) => void;
+  /** Opens a tab in the editor, at a line if given: Show Diff's, Annotate Revision's. */
+  open: (tab: Tab, line?: number) => void;
   /** Shows a commit in the Git tool window's Log, a file (in the worktree) selected in it. */
   showInLog: (hash: string, path: string) => void;
 }
@@ -447,6 +466,44 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
       },
     });
   }
+  // The file at a commit, at its path there, annotated in a tab of its own, as IntelliJ's: opened at
+  // the line asked on, carried into it (`Diff.translateLine`). The commit's, or the one before it
+  // that changed the file: none where it was added.
+  const annotateAt = async (c: AnnotationContext, at: { hash: string; path: string }) => {
+    const tab = revisionTab(at.path, at.hash);
+    annotated.set(tab.id, { worktree: c.worktree, path: at.path, hash: at.hash });
+    let line = c.line;
+    try {
+      const file = (await hostFor(c.worktree)?.request('git.fileAt', {
+        path: c.worktree,
+        hash: at.hash,
+        file: at.path,
+      })) as { text?: string } | null;
+      if (typeof file?.text === 'string') line = translateLine(c.text, file.text, c.line);
+    } catch {
+      // At the line as it is: the tab says why it can't show the file.
+    }
+    setup.open(tab, line);
+  };
+  // Only on an annotation: Find Action, asking with none, doesn't list them.
+  commands.register<AnnotationContext | undefined>({
+    id: 'annotate.revision',
+    label: 'Annotate Revision',
+    enabled: (c) => c !== undefined,
+    run: (c) => {
+      const { hash, path } = c as AnnotationContext;
+      return annotateAt(c as AnnotationContext, { hash, path });
+    },
+  });
+  commands.register<AnnotationContext | undefined>({
+    id: 'annotate.previousRevision',
+    label: 'Annotate Previous Revision',
+    enabled: (c) => c?.commit.previous !== undefined,
+    run: (c) => {
+      const context = c as AnnotationContext;
+      return annotateAt(context, context.commit.previous as { hash: string; path: string });
+    },
+  });
   commands.register<AnnotationContext>({
     id: 'annotate.copyRevision',
     label: 'Copy Revision Number',
@@ -493,7 +550,7 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   });
   menus.contribute({ menu: 'main/git/file', item: { command: 'vcs.annotate' } });
   // On an annotation, as IntelliJ's: Close Annotations, Show Diff, View, Copy Revision Number;
-  // then (after Annotate Revision's group, not yet here) Options.
+  // then Annotate Revision and Annotate Previous Revision; then Options.
   const first = ['annotate.close', 'annotate.showDiff', 'view', 'annotate.copyRevision'];
   first.forEach((id, order) => {
     menus.contribute({
@@ -503,6 +560,9 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
       order,
     });
   });
+  for (const id of ['annotate.revision', 'annotate.previousRevision']) {
+    menus.contribute({ menu: 'editor/annotation', item: { command: id }, group: 'b' });
+  }
   menus.contribute({
     menu: 'editor/annotation',
     item: { submenu: 'editor/annotation/options', label: 'Options' },
