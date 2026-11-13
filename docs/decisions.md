@@ -3847,9 +3847,13 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   (a commit of the file, a checkout, a pull, a reset) the annotations close, as IntelliJ closes
   them rather than reading them again. A file with no commit, or whose base couldn't be read,
   isn't closed, as IntelliJ's null revision; a repository version's never moves.
+- **In a repository version** (added 2026-11-13), as IntelliJ's `AnnotateVcsVirtualFileAction`:
+  Annotate with Git Blame in its gutter's menu, and Git → Current File's with its tab active,
+  blamed at its commit, toggled as a file's. The version's editor gets the gutter's menu, shared
+  with a file's editor; a right-click in its text opens nothing yet (IntelliJ's editor menu there
+  isn't read).
 - **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
-  Hover; Annotate with Git Blame in a repository version's gutter menu. (The editor's context
-  menu's Git submenu: decision "The editor's Git submenu".)
+  Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

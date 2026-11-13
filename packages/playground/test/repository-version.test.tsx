@@ -1,5 +1,5 @@
 import { render } from '@cerebro-ide/jsx';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { revisionOf, revisionTab, tabPath } from '../src/changes.js';
 import type { AskAnnotation } from '@cerebro-ide/ui-editor';
@@ -17,7 +17,11 @@ afterEach(() => {
 function show(
   host: FakeHost | undefined,
   path = 'src/a.ts',
-  more: { line?: number; annotate?: () => AskAnnotation | undefined } = {},
+  more: {
+    line?: number;
+    annotate?: () => AskAnnotation | undefined;
+    onContextMenu?: (event: MouseEvent) => void;
+  } = {},
 ) {
   const box = document.createElement('div');
   box.style.height = '300px';
@@ -33,6 +37,7 @@ function show(
         tabSize={() => 4}
         line={more.line}
         annotate={more.annotate ?? (() => undefined)}
+        onContextMenu={more.onContextMenu ?? (() => undefined)}
       />
     ),
     box,
@@ -74,6 +79,17 @@ describe('a file as it was at a commit', () => {
     await userEvent.keyboard('x');
     expect(content.textContent).toBe('const then = 1;');
     expect(host.params('git.fileAt')).toEqual([{ path: '/r', hash: 'c0ffee', file: 'src/a.ts' }]);
+  });
+
+  it('gives a right-click in it to its menu', async () => {
+    const menu = vi.fn();
+    show(new FakeHost({ 'git.fileAt': () => ({ text: 'x' }) }), 'src/a.ts', {
+      onContextMenu: menu,
+    });
+    const root = () => document.querySelector('.cerebro-editor-code')?.shadowRoot;
+    await expect.poll(() => root()?.querySelector('.cm-gutters')).toBeTruthy();
+    await userEvent.click(root()?.querySelector('.cm-gutters') as HTMLElement, { button: 'right' });
+    expect(menu).toHaveBeenCalledWith(expect.any(MouseEvent));
   });
 
   it('opens at a line, annotated, as Annotate Revision opens it', async () => {
