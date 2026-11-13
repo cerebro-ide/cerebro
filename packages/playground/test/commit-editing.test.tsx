@@ -5,7 +5,7 @@ import { userEvent } from 'vitest/browser';
 import { useProjects } from '../src/environments.js';
 import { notifications } from '../src/notifications.js';
 import { resetting, setupReset } from '../src/reset.js';
-import { setupReword } from '../src/reword.js';
+import { setupCommitEditing } from '../src/commit-editing.js';
 import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
 /** What the host answers: its check, and what rewording waits on and fails with. */
@@ -15,11 +15,16 @@ const git = {
   failure: undefined as Error | undefined,
 };
 const host = new FakeHost({
-  'git.rewordCheck': () => git.check,
+  'git.editCheck': () => git.check,
   'git.reword': async () => {
     await git.done;
     if (git.failure) throw git.failure;
     return 'fedcba9876';
+  },
+  'git.drop': async () => {
+    await git.done;
+    if (git.failure) throw git.failure;
+    return null;
   },
   'git.status': () => ({ files: [] }),
   'git.shelves': () => [],
@@ -53,6 +58,8 @@ const context = (changed: Partial<typeof commit> = {}, head: string | null = com
 });
 const reword = (changed: Partial<typeof commit> = {}) =>
   Promise.resolve(commands.get('log.reword')?.run(context(changed)));
+const drop = (changed: Partial<typeof commit> = {}) =>
+  Promise.resolve(commands.get('log.drop')?.run(context(changed)));
 const last = () => notifications.all.get(0);
 const field = (box: HTMLElement) => box.querySelector('textarea') as HTMLTextAreaElement;
 const ok = (box: HTMLElement) =>
@@ -63,7 +70,7 @@ const ok = (box: HTMLElement) =>
 beforeAll(() => {
   useProjects([project('/r', host)]);
   setupReset(services);
-  setupReword(services);
+  setupCommitEditing(services);
 });
 
 beforeEach(() => {
@@ -90,6 +97,7 @@ describe('the Log’s Edit Commit Message…', () => {
       { command: 'log.reset' },
       { command: 'log.undoCommit' },
       { command: 'log.reword' },
+      { command: 'log.drop' },
     ]);
     expect(commands.isEnabled('log.reword', context())).toBe(true);
     expect(commands.isEnabled('log.reword', context({}, 'other'))).toBe(true);
@@ -113,8 +121,8 @@ describe('the Log’s Edit Commit Message…', () => {
     await press('Cancel');
     await done;
     expect(host.params('git.reword')).toEqual([]);
-    expect(host.params('git.rewordCheck')).toEqual([
-      { path: '/r', hash: commit.hash, protected: ['main', 'master'] },
+    expect(host.params('git.editCheck')).toEqual([
+      { path: '/r', hash: commit.hash, editing: 'reword', protected: ['main', 'master'] },
     ]);
   });
 
@@ -152,14 +160,14 @@ describe('the Log’s Edit Commit Message…', () => {
     expect(box.textContent).toContain('The commit is not in the current branch');
     await press('OK');
     await done;
-    host.answers['git.rewordCheck'] = () => {
+    host.answers['git.editCheck'] = () => {
       throw new Error('fatal: bad object');
     };
     const failed = reword();
     expect((await dialog()).textContent).toContain('fatal: bad object');
     await press('OK');
     await failed;
-    host.answers['git.rewordCheck'] = () => git.check;
+    host.answers['git.editCheck'] = () => git.check;
     expect(host.params('git.reword')).toEqual([]);
     expect(read).not.toHaveBeenCalled();
   });
@@ -205,5 +213,107 @@ describe('the Log’s Edit Commit Message…', () => {
       'Reading again after Edit Commit Message',
       new Error('gone'),
     );
+  });
+});
+
+describe('the Log’s Drop Commit', () => {
+  beforeEach(() => {
+    localStorage.removeItem('cerebro.drop.ask');
+  });
+
+  it('is after Edit Commit Message, not for a merge, as IntelliJ’s', () => {
+    expect(commands.get('log.drop')?.label).toBe('Drop Commit');
+    expect(commands.isEnabled('log.drop', context())).toBe(true);
+    expect(commands.isEnabled('log.drop', context({ parents: [] }))).toBe(true);
+    expect(commands.isEnabled('log.drop', context({ parents: ['a', 'b'] }))).toBe(false);
+    expect(commands.isEnabled('log.drop')).toBe(false);
+  });
+
+  it('asks first, in IntelliJ’s words, and drops it, Dropping commit… while it runs', async () => {
+    let release: () => void = () => undefined;
+    git.done = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const done = drop({ subject: 'A subject longer than forty characters, to be cut' });
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Drop Commit');
+    expect(box.querySelector('p')?.innerHTML).toBe(
+      'Do you want to drop 1 commit from the <b>main</b> branch?',
+    );
+    await press('OK');
+    await expect.poll(() => resetting.get()).toBe('Dropping commit…');
+    expect(commands.isEnabled('log.drop', context())).toBe(false);
+    release();
+    await done;
+    expect(resetting.get()).toBeUndefined();
+    expect(host.params('git.editCheck').at(-1)).toMatchObject({ editing: 'drop' });
+    expect(host.params('git.drop')).toEqual([{ path: '/r', hash: commit.hash, head: commit.hash }]);
+    expect(last()).toMatchObject({
+      title: 'Dropped 1 commit',
+      content: '"A subject longer than forty character..."',
+    });
+    expect(read).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
+  });
+
+  it('does nothing when cancelled, and asks no more once told not to', async () => {
+    const cancelled = drop();
+    await dialog();
+    await press('Cancel');
+    await cancelled;
+    expect(host.params('git.drop')).toEqual([]);
+    const told = drop();
+    const box = () => document.querySelector('.cerebro-dialog input[type=checkbox]');
+    await expect.poll(box).not.toBeNull();
+    await userEvent.click(box() as Element);
+    await press('Cancel');
+    await told;
+    expect(host.params('git.drop')).toEqual([]);
+    // Not asked.
+    await drop();
+    expect(host.params('git.drop')).toHaveLength(1);
+  });
+
+  it('names a detached HEAD, and asks when the storage fails', async () => {
+    useProjects([project('/r', host, [{ id: '/r', branch: 'detached' }])]);
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    const done = drop();
+    const box = await dialog();
+    expect(box.querySelector('p')?.textContent).toBe(
+      'The repository is in the detached HEAD state. Do you want to drop 1 commit?',
+    );
+    await userEvent.click(box.querySelector('input[type=checkbox]') as Element);
+    await press('OK');
+    await done;
+    expect(host.params('git.drop')).toHaveLength(1);
+    useProjects([project('/r', host)]);
+  });
+
+  it('says why it can’t first, or why it failed, in git’s words', async () => {
+    git.check = { refused: 'Cannot drop during merge' };
+    const refused = drop();
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Could not Drop Commits');
+    await press('OK');
+    await refused;
+    git.check = { head: commit.hash };
+    git.failure = new Error('CONFLICT (content): Merge conflict in a.ts');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    read.mockRejectedValueOnce(new Error('gone'));
+    const failed = drop();
+    await dialog();
+    await press('OK');
+    await failed;
+    expect(last()).toMatchObject({
+      title: 'Could not Drop Commits',
+      content: 'CONFLICT (content): Merge conflict in a.ts',
+      type: 'error',
+    });
+    expect(logged).toHaveBeenCalledWith('Reading again after Drop Commit', new Error('gone'));
   });
 });

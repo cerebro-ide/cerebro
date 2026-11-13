@@ -565,8 +565,8 @@ body,
   min-height: 0;
 }
 
-/* The Open Project dialog's question and its checkbox. */
-.playground-open-project p {
+/* A question over its "don't ask again" checkbox: Open Project's, Drop Commit's. */
+.playground-question p {
   margin: 0 0 12px;
 }
 
