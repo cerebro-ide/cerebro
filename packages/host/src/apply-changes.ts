@@ -78,3 +78,29 @@ export async function continueApplying(
     return stopped(worktree, how, error, run);
   }
 }
+
+/**
+ * Undoes what `from..to` changed in `paths`, in the files as they are, uncommitted: IntelliJ's
+ * Revert Selected Changes (`RevertCommittedStuffAbstractAction`, read from its source), which applies
+ * the changes' patch reversed. A rename needs both its paths, to be undone as one. With one line
+ * around a hunk if all of them don't match, so it applies where its lines moved to: a hunk at line 1
+ * with two lines before its change stays anchored to the file's start with `-C2` (measured, git
+ * 2.43), and applies with `-C1`. If it doesn't apply, nothing is changed.
+ */
+export async function revertChanges(
+  worktree: string,
+  range: { from: string; to: string },
+  paths: readonly string[],
+  run: Git,
+): Promise<void> {
+  const patch = await run(worktree, [
+    'diff',
+    '--binary',
+    '-M',
+    range.from,
+    range.to,
+    '--',
+    ...paths,
+  ]);
+  if (patch !== '') await run(worktree, ['apply', '-R', '-C1', '-'], undefined, patch);
+}

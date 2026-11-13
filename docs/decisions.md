@@ -1991,7 +1991,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Revert Selected Changes, Show Only Affected Changes); their right-click menu (IntelliJ's
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their right-click menu (IntelliJ's
   Vcs.RepositoryChangesBrowserMenu) and Ctrl+P there; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
@@ -2018,6 +2018,19 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   range's are). IntelliJ opens a file history tab; the Log here has no tabs (above). Off against
   the working tree, which has no commit, and in the Push dialog, where the Log would show behind
   it. **Claude's, open to change:** the icon's drawing.
+- **Revert Selected Changes over a commit's files** (added 2026-11-13), between Show Diff and History
+  Up to Here as in IntelliJ's toolbar (`Vcs.RevertSelectedChanges`, `RevertCommittedStuffAbstractAction`,
+  read from its source): what the commit changed in the selected file is undone in it, uncommitted,
+  by the patch of that change applied reversed (`git apply -R`), as IntelliJ applies it; a rename's
+  both paths, so it's undone as one. Documents are saved first, and it's recorded in Local History
+  as "Rollback" (IntelliJ's activity). If the patch doesn't apply, nothing is changed and a "Revert
+  Changes" dialog says "Failed to revert changes: " and git's words (IntelliJ's, from `VcsBundle`;
+  its applier goes on to offer a merge, which Cerebro's doesn't). Cerebro has no changelists, so
+  there's no Select Target Changelist dialog, as IntelliJ's without them. Off where History Up to
+  Here is. A hunk is matched with one line around it if all of them don't, so it applies where its
+  lines moved to: with two, a hunk at a file's first line stays anchored there (measured, git 2.43).
+  - **Not yet:** several files or a folder at once (the list selects one file); IntelliJ's merge
+    when the patch doesn't apply.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),

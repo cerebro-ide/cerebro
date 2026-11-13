@@ -35,14 +35,16 @@ import {
   type Range,
 } from './changes.js';
 import { directoryTree } from './directory-tree.js';
+import { saveBeforeGit } from './documents.js';
 import { formatCommitDate } from './dates.js';
-import { active, gitRepository, hostFor, type Host } from './environments.js';
+import { active, gitRepository, hostFor, showError, type Host } from './environments.js';
 import { Toggle } from './find.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { stateOf } from './repository-state.js';
 import { numbered } from './select-in.js';
+import { refreshAll } from './shelf.js';
 import {
   branchName,
   Branches,
@@ -716,6 +718,8 @@ interface FilesTarget {
   showDiff: (change: Change) => void;
   /** The commit its files are at, if it can be shown: not the working tree. */
   revision: string | undefined;
+  /** Undoes in the files what the commit changed in one. */
+  revert: (change: Change) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
 }
@@ -726,6 +730,12 @@ const focusedFiles = signal<FilesTarget | undefined>(undefined);
 /** The list a command acts on: the one it came from, else the one with the keyboard. */
 const filesOf = (context: unknown) =>
   (context as { files?: FilesTarget } | undefined)?.files ?? focusedFiles.get();
+
+/** Whether a file is selected in a commit's files, not the working tree's. */
+const atCommit = (context: unknown) => {
+  const files = filesOf(context);
+  return files?.revision !== undefined && files.selected() !== undefined;
+};
 
 /** A row of a commit's files: a file's change, or a folder of them. */
 type ChangeNode =
@@ -793,6 +803,23 @@ export function CommitFiles(props: {
     },
     showDiff,
     revision: range.to,
+    revert: async (change) => {
+      // As IntelliJ's, which saves all documents first.
+      await saveBeforeGit();
+      try {
+        await props.host.request('git.revertChanges', {
+          path: props.worktree,
+          from: range.from,
+          to: range.to,
+          // A rename's both, undone as one.
+          files: change.from === undefined ? [change.path] : [change.from, change.path],
+        });
+      } catch (error) {
+        // IntelliJ's words (VcsBundle).
+        showError('Revert Changes', `Failed to revert changes: ${(error as Error).message}`);
+      }
+      await refreshAll(props.worktree);
+    },
     tree: files,
   };
   onCleanup(() => {
@@ -857,6 +884,12 @@ export function CommitFiles(props: {
             command="log.files.showDiff"
             icon={icon('diff')}
             shortcut={shortcutOf(props.services, 'log.files.showDiff')}
+            context={() => ({ files: target })}
+          />
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.revert"
+            icon={icon('rollback')}
             context={() => ({ files: target })}
           />
           <ToolbarButton
@@ -1290,16 +1323,26 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
-  // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.ShowHistoryForRevision): the
+  // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.RevertSelectedChanges): what the
+  // commit changed in the file undone in it, uncommitted. Cerebro has no changelists, so there's no
+  // Select Target Changelist dialog, as IntelliJ's without them.
+  commands.register({
+    id: 'log.files.revert',
+    label: 'Revert Selected Changes',
+    icon: 'rollback',
+    enabled: atCommit,
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      return files.revert(files.selected() as Change);
+    },
+  });
+  // Then (Vcs.ShowHistoryForRevision): the
   // file's commits up to this one, in the Log as Git → Current File → Show History shows them.
   commands.register({
     id: 'log.files.showHistory',
     label: 'History Up to Here',
     icon: 'history',
-    enabled: (context) => {
-      const files = filesOf(context);
-      return files?.revision !== undefined && files.selected() !== undefined;
-    },
+    enabled: atCommit,
     run: (context) => {
       const files = filesOf(context) as FilesTarget;
       showHistory((files.selected() as Change).path, files.revision);

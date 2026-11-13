@@ -248,6 +248,12 @@ export {
   type NewTag,
   type RemoteTagDeletion,
 } from './tags.js';
-export { applyCommit, continueApplying, type Applied, type Applying } from './apply-changes.js';
+export {
+  applyCommit,
+  continueApplying,
+  revertChanges,
+  type Applied,
+  type Applying,
+} from './apply-changes.js';
 export { protectedBranchHolding } from './protected-branches.js';
 export { resetHead, undoCommit, type ResetMode } from './reset.js';

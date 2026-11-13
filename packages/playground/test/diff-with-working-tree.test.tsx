@@ -105,10 +105,13 @@ describe('Show Diff with Working Tree’s window', () => {
     await userEvent.dblClick(document.querySelector('.cerebro-tree-row') as HTMLElement);
     expect(opened).toEqual([
       [diffTab('a.ts', { from: 'feature' }), ['a.ts', 'b.ts', 'c.ts', 'd.ts']],
-    ]); // Against the working tree: no commit to show the file's history up to.
-    expect(
-      (document.querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement).disabled,
-    ).toBe(true);
+    ]);
+    // Against the working tree: no commit to show the file's history up to, or revert.
+    for (const label of ['History Up to Here', 'Revert Selected Changes']) {
+      expect(
+        (document.querySelector(`[aria-label="${label}"]`) as HTMLButtonElement).disabled,
+      ).toBe(true);
+    }
   });
 
   it('says when none differ, or why they can’t be read; each comparison in place of the last', async () => {

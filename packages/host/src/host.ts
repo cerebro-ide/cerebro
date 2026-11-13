@@ -95,7 +95,7 @@ import {
   validRevision,
   type NewTag,
 } from './tags.js';
-import { applyCommit, continueApplying } from './apply-changes.js';
+import { applyCommit, continueApplying, revertChanges } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import {
@@ -824,10 +824,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return null;
   });
   /** A commit's hash, as the Log gives it: never an option. */
-  const hashOf = (params: unknown) => {
-    const hash = text(params, 'hash');
+  const hashOf = (params: unknown, key = 'hash') => {
+    const hash = text(params, key);
     if (!/^[0-9a-f]{4,64}$/i.test(hash)) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'hash must be a commit hash');
+      throw new ResponseError(ErrorCodes.InvalidParams, `${key} must be a commit hash`);
     }
     return hash;
   };
@@ -1250,6 +1250,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = text(params, 'path');
     const id = named(params, 'id', SHELF_ID);
     await recording(worktree, 'Unshelve', git, () => unshelve(worktree, id, git));
+    return null;
+  });
+  // A commit's files' Revert Selected Changes, recorded as IntelliJ's activity is named.
+  connection.onRequest('git.revertChanges', async (params) => {
+    const worktree = text(params, 'path');
+    const from = hashOf(params, 'from');
+    const to = hashOf(params, 'to');
+    const paths = [...files(params)];
+    // None would be all of them.
+    if (paths.length === 0) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    await recording(worktree, 'Rollback', git, () =>
+      revertChanges(worktree, { from, to }, paths, git),
+    );
     return null;
   });
   connection.onRequest('git.deleteShelf', (params) =>

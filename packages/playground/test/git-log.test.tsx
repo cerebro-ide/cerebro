@@ -710,6 +710,52 @@ describe('a commit’s pane', () => {
     expect(commands.isEnabled('log.files.showDiff')).toBe(false);
   });
 
+  it('reverts the selected file’s changes from the toolbar, a rename’s both, or says why not', async () => {
+    const hash = 'c'.repeat(40);
+    git.log = [{ ...(history(1)[0] as LogCommit), hash }];
+    git.changes[`${EMPTY_TREE}..${hash}`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'renamed', from: 'old.ts' },
+    ];
+    let failing: string | undefined;
+    host.answers['git.revertChanges'] = () => {
+      if (failing !== undefined) throw new Error(failing);
+      return null;
+    };
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // After Show Diff, as in IntelliJ's toolbar.
+    const button = pane().querySelector(
+      '[aria-label="Revert Selected Changes"]',
+    ) as HTMLButtonElement;
+    expect(button.previousElementSibling?.getAttribute('aria-label')).toMatch(/^Show Diff/);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    await userEvent.click(button);
+    await expect.poll(() => host.params('git.revertChanges')).toHaveLength(1);
+    expect(host.params('git.revertChanges')[0]).toEqual({
+      path: '/r',
+      from: EMPTY_TREE,
+      to: hash,
+      files: ['src/a.ts'],
+    });
+    await userEvent.click(fileRows()[2] as HTMLElement);
+    failing = 'error: patch failed: b.ts:1';
+    await userEvent.click(button);
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Revert Changes');
+    expect(shown.querySelector('p')?.textContent).toBe(
+      'Failed to revert changes: error: patch failed: b.ts:1',
+    );
+    expect(host.params('git.revertChanges')[1]).toMatchObject({ files: ['old.ts', 'b.ts'] });
+    delete host.answers['git.revertChanges'];
+  });
+
   it('shows a file’s history up to the commit, in the Log, as IntelliJ’s', async () => {
     const hash = 'c'.repeat(40);
     git.log = [{ ...(history(1)[0] as LogCommit), hash }];
@@ -722,9 +768,11 @@ describe('a commit’s pane', () => {
     await expect.poll(subjects).toEqual(['Change 0']);
     await userEvent.click(rows()[0] as HTMLElement);
     await expect.poll(files).toHaveLength(3);
-    // Next to Show Diff, as in IntelliJ's toolbar.
+    // After Revert Selected Changes, as in IntelliJ's toolbar.
     const button = pane().querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement;
-    expect(button.previousElementSibling?.getAttribute('aria-label')).toMatch(/^Show Diff/);
+    expect(button.previousElementSibling?.getAttribute('aria-label')).toBe(
+      'Revert Selected Changes',
+    );
     // Nothing selected, or a folder: off.
     expect(button.disabled).toBe(true);
     await userEvent.click(fileRows()[0] as HTMLElement);

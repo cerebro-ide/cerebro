@@ -201,10 +201,10 @@ describe('Push', () => {
     expect(second?.title).toMatch(/^First-ha {2}.+ {2}by Ann\n\nFirst$/);
     await userEvent.click(second as HTMLElement);
     await expect.poll(files).toEqual(['base..First-hash.ts']);
-    // A diff opens in the editor, and the Log in its window, behind the dialog: both are off here.
+    // A diff opens in the editor, and the Log in its window, behind the dialog: they're off here.
     const file = document.querySelector('.playground-push__files .cerebro-tree-row') as HTMLElement;
     await userEvent.click(file);
-    for (const label of ['Show Diff', 'History Up to Here']) {
+    for (const label of ['Show Diff', 'Revert Selected Changes', 'History Up to Here']) {
       expect(
         document.querySelector<HTMLButtonElement>(
           `.playground-push__files [aria-label^="${label}"]`,
