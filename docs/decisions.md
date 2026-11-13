@@ -1539,8 +1539,14 @@ them.
 - **Weak warnings have the warning's icon** (a claim: IntelliJ's own wasn't found among its status
   icons). The icons carry their colours, so they show outside the editor's shadow root too.
 - **The folder is the full path:** IntelliJ shortens it under the home folder (`~/...`).
-- **Not yet:** the Problems window's Project Errors tab, its View Options (filtering by severity,
-  grouping) and its preview; shell scripts' problems, which bash-language-server gets from
+- **View Options** (added 2026-11-13), from an eye button in a toolbar down the window's left, as
+  IntelliJ's File tab has them (its source, `ProblemsViewState` and `ProblemsView.Options`): Show
+  Warning and Weak Warning (errors always show), then Sort By Severity (on) and Name (off). By name,
+  messages compare with numbers by their value, then by place; else by place, then by message
+  (`ProblemsViewNodeComparator`). With a severity hidden, an empty file says "Problems could be
+  filtered out" under "No problems in a.ts", as IntelliJ's. They're kept in the page's storage, as
+  the Commit window's are.
+- **Not yet:** the Problems window's Project Errors tab, its Group by Inspection, and its preview; shell scripts' problems, which bash-language-server gets from
   `shellcheck`, not bundled (a claim, from its documentation). Quick fixes have their own entry
   ("Quick fixes: Alt+Enter").
 

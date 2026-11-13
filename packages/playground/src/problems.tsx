@@ -17,7 +17,8 @@ import {
   signal,
   untracked,
 } from '@cerebro-ide/reactive';
-import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { problemIcon, type Problem } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { icon } from './icons.js';
@@ -77,16 +78,90 @@ type ProblemRow = Extract<Row, { kind: 'problem' }>;
 
 const RANK = { error: 0, warning: 1, weak: 2 } as const;
 
+/** The View Options, as IntelliJ's (`ProblemsViewState`), kept in the browser's storage. */
+const OPTIONS_KEY = 'cerebro.problems.view';
+
+interface ViewOptions {
+  /** The severities not shown: errors always are, as IntelliJ's filters stop below them. */
+  hidden: ('warning' | 'weak')[];
+  sortBySeverity: boolean;
+  sortByName: boolean;
+}
+
+/** The View Options as kept, or IntelliJ's defaults: all shown, by severity, not by name. */
+export function readViewOptions(): ViewOptions {
+  try {
+    // What's kept may be anything: read as what it might be.
+    const stored = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? '{}') as {
+      hidden?: unknown;
+      sortBySeverity?: unknown;
+      sortByName?: unknown;
+    };
+    return {
+      hidden: Array.isArray(stored.hidden)
+        ? stored.hidden.filter((s): s is 'warning' | 'weak' => s === 'warning' || s === 'weak')
+        : [],
+      sortBySeverity: stored.sortBySeverity !== false,
+      sortByName: stored.sortByName === true,
+    };
+  } catch {
+    return { hidden: [], sortBySeverity: true, sortByName: false };
+  }
+}
+
+const viewOptions = readViewOptions();
+const hidden = new ObservableSet<'warning' | 'weak'>(viewOptions.hidden);
+const sortBySeverity = signal(viewOptions.sortBySeverity);
+const sortByName = signal(viewOptions.sortByName);
+
+function saveViewOptions(): void {
+  try {
+    localStorage.setItem(
+      OPTIONS_KEY,
+      JSON.stringify({
+        hidden: [...hidden],
+        sortBySeverity: sortBySeverity.peek(),
+        sortByName: sortByName.peek(),
+      }),
+    );
+  } catch {
+    // Not kept: they still apply until the page is reloaded.
+  }
+}
+
+/** Two texts in order, numbers by their value (IntelliJ's `naturalCompare`). */
+const natural = new Intl.Collator(undefined, { numeric: true }).compare;
+
+type Shown = Pick<ProblemRow, 'severity' | 'message' | 'line' | 'column'>;
+
 /**
- * A file's problems as rows: errors, warnings and weak warnings, the worst first, then in order.
- * A row's key is what it says, so a new answer keeps the same problem selected.
+ * Two problems in the View Options' order, as IntelliJ's ProblemsViewNodeComparator: the worst
+ * first, if sorted by severity; then by message and place, if by name, else by place and message.
+ */
+export function compareProblems(
+  a: Shown,
+  b: Shown,
+  by: { severity: boolean; name: boolean },
+): number {
+  const place = a.line - b.line || a.column - b.column;
+  return (
+    (by.severity ? RANK[a.severity] - RANK[b.severity] : 0) ||
+    (by.name ? natural(a.message, b.message) || place : place || natural(a.message, b.message))
+  );
+}
+
+/**
+ * A file's problems as rows: errors, warnings and weak warnings, as the View Options show and
+ * sort them. A row's key is what it says, so a new answer keeps the same problem selected.
  */
 function rowsOf(path: string): ProblemRow[] {
   const keys = new Set<string>();
+  const by = { severity: sortBySeverity.get(), name: sortByName.get() };
   return (fileProblems.get(path) ?? [])
     .filter((p): p is Problem & { severity: ProblemRow['severity'] } => p.severity !== 'hint')
+    .filter((p) => p.severity === 'error' || !hidden.has(p.severity))
     .map((p) => ({ severity: p.severity, message: p.message, ...p.from }))
-    .sort((a, b) => RANK[a.severity] - RANK[b.severity] || a.line - b.line || a.column - b.column)
+    .sort((a, b) => compareProblems(a, b, by))
     .map((p) => {
       const said = `${path}#${p.severity}:${String(p.line)}:${String(p.column)}:${p.message}`;
       // The same problem twice is two rows.
@@ -133,7 +208,45 @@ export function setupProblems(services: MenuServices, setup: ProblemsSetup): voi
     item: { command: 'problems.jumpToSource' },
     group: 'a',
   });
+  // View Options, as IntelliJ's for the File tab (ProblemsView.Options): Show, then Sort By.
+  menus.contribute({ menu: VIEW_MENU, item: { heading: 'Show' }, group: 'a' });
+  for (const [severity, label] of [
+    ['warning', 'Warning'],
+    ['weak', 'Weak Warning'],
+  ] as const) {
+    const id = `problems.show.${severity}`;
+    commands.register({
+      id,
+      label,
+      checked: () => !hidden.has(severity),
+      run: () => {
+        if (hidden.has(severity)) hidden.delete(severity);
+        else hidden.add(severity);
+        saveViewOptions();
+      },
+    });
+    menus.contribute({ menu: VIEW_MENU, item: { command: id }, group: 'a' });
+  }
+  menus.contribute({ menu: VIEW_MENU, item: { heading: 'Sort By' }, group: 'b' });
+  for (const [id, label, option] of [
+    ['problems.sortBySeverity', 'Severity', sortBySeverity],
+    ['problems.sortByName', 'Name', sortByName],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      checked: () => option.get(),
+      run: () => {
+        option.set(!option.peek());
+        saveViewOptions();
+      },
+    });
+    menus.contribute({ menu: VIEW_MENU, item: { command: id }, group: 'b' });
+  }
 }
+
+/** The View Options' menu. */
+const VIEW_MENU = 'problems/view';
 
 /** The File tab: the active file's problems, in a tree under the file. */
 export function ProblemsView(props: {
@@ -145,13 +258,35 @@ export function ProblemsView(props: {
 }): Node {
   return (
     <div class="playground-problems">
-      {() => {
-        const path = props.file();
-        if (path === undefined) {
-          return <p class="playground-project__empty">Open file in editor to see problems</p>;
-        }
-        return untracked(() => <FileView path={path} {...props} />);
-      }}
+      <div
+        class="playground-problems__toolbar"
+        role="toolbar"
+        aria-label="Problems"
+        aria-orientation="vertical"
+      >
+        <button
+          type="button"
+          class="cerebro-toolbar-button"
+          aria-label="View Options"
+          data-menu={VIEW_MENU}
+          ref={tooltip({ text: () => 'View Options', placement: 'right' })}
+          on:click={(event) => {
+            const anchor = event.currentTarget as HTMLElement;
+            openMenu(props.services, VIEW_MENU, { anchor, placement: 'right' }, { owner: anchor });
+          }}
+        >
+          {icon('eye')}
+        </button>
+      </div>
+      <div class="playground-problems__file">
+        {() => {
+          const path = props.file();
+          if (path === undefined) {
+            return <p class="playground-project__empty">Open file in editor to see problems</p>;
+          }
+          return untracked(() => <FileView path={path} {...props} />);
+        }}
+      </div>
     </div>
   );
 }
@@ -175,7 +310,19 @@ function FileView(props: {
           return <p class="playground-project__empty">Analyzing {fileName(path)}</p>;
         }
         if (now === 'none') {
-          return <p class="playground-project__empty">No problems in {fileName(path)}</p>;
+          return (
+            <p class="playground-project__empty">
+              No problems in {fileName(path)}
+              {() =>
+                hidden.size > 0 ? (
+                  <>
+                    <br />
+                    Problems could be filtered out
+                  </>
+                ) : null
+              }
+            </p>
+          );
         }
         return untracked(() => <FileProblems {...props} />);
       }}
@@ -197,9 +344,9 @@ function FileProblems(props: {
   const model = new TreeModel(source);
   // The file shows open, as IntelliJ's.
   model.expanded.add(path);
-  // New answers show as they come, the selection kept where it was.
+  // New answers, and the View Options, show as they come, the selection kept where it was.
   const watch = effect(() => {
-    fileProblems.get(path);
+    rowsOf(path);
     void untracked(() => model.refresh());
     return undefined;
   });

@@ -1063,7 +1063,28 @@ body,
 .playground-problems {
   display: flex;
   flex: auto;
+  min-height: 0;
+}
+
+/* The View Options, in a toolbar down the window's left, as IntelliJ's Problems window has. */
+.playground-problems__toolbar {
+  display: flex;
+  flex: none;
   flex-direction: column;
+  align-items: center;
+  padding: 0 4px;
+}
+
+.playground-problems__toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
+.playground-problems__file {
+  display: flex;
+  flex: auto;
+  flex-direction: column;
+  min-width: 0;
   min-height: 0;
 }
 
