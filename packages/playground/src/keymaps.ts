@@ -43,6 +43,8 @@ export const EDITOR_ACTIONS = {
   moveLineUp: 'editor.moveLineUp',
   moveLineDown: 'editor.moveLineDown',
   deleteLine: 'editor.deleteLine',
+  startNewLine: 'editor.startNewLine',
+  matchBrace: 'editor.matchBrace',
   find: 'editor.find',
   replace: 'editor.replace',
 } as const;
@@ -147,6 +149,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Y'],
+    [EDITOR_ACTIONS.startNewLine]: ['Shift+Enter'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+M'],
   },
 };
 
@@ -243,6 +247,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Meta+Backspace'],
+    [EDITOR_ACTIONS.startNewLine]: ['Shift+Enter'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+M'],
   },
 };
 
@@ -333,6 +339,9 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Down'],
     // Delete Line, its sheets'.
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Shift+K'],
+    // Insert Line Below and Jump to Matching Bracket, its sheets'.
+    [EDITOR_ACTIONS.startNewLine]: ['Ctrl+Enter'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+|'],
   },
 };
 
@@ -396,6 +405,9 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Down'],
     // Delete Line, its sheets'.
     [EDITOR_ACTIONS.deleteLine]: ['Meta+Shift+K'],
+    // Insert Line Below and Jump to Matching Bracket, its sheets'.
+    [EDITOR_ACTIONS.startNewLine]: ['Meta+Enter'],
+    [EDITOR_ACTIONS.matchBrace]: ['Meta+Shift+|'],
   },
 };
 
@@ -461,6 +473,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+D'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+P'],
   },
 };
 
@@ -641,6 +654,7 @@ export const NETBEANS: KeymapPreset = {
     'navigate.fileStructure': ['Ctrl+F12', 'Ctrl+Shift+F12'],
     [EDITOR_ACTIONS.lineComment]: ['Ctrl+/', 'Ctrl+Shift+C'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+E'],
+    [EDITOR_ACTIONS.matchBrace]: [],
   },
 };
 
@@ -680,6 +694,8 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Shift+K'],
+    [EDITOR_ACTIONS.startNewLine]: ['Ctrl+Enter'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+M'],
   },
 };
 
@@ -717,6 +733,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: ['Ctrl+Meta+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Ctrl+Meta+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Shift+K'],
+    [EDITOR_ACTIONS.startNewLine]: ['Meta+Enter'],
   },
 };
 
@@ -774,6 +791,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+L', 'Ctrl+Shift+L'],
+    [EDITOR_ACTIONS.matchBrace]: ['Ctrl+]'],
   },
 };
 
@@ -830,6 +848,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
     [EDITOR_ACTIONS.deleteLine]: ['Meta+Shift+L'],
+    [EDITOR_ACTIONS.matchBrace]: ['Meta+]'],
   },
 };
 

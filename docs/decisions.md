@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2888,6 +2888,20 @@ saving").
   Visual Studio's Ctrl+L and Ctrl+Shift+L (Cmd+Shift+L on macOS); none in Emacs's. VS Code's
   Ctrl+Shift+K (Cmd+Shift+K), from its shortcut sheets. Each keymap whose Redo is Ctrl+Y gives it
   another key.
+- **Start New Line** (added 2026-11-13), IntelliJ's `EditorStartNewLine`, which CodeMirror had
+  done on Ctrl+Enter: an indented line after the caret's, wherever the caret is in it, the caret on
+  it (CodeMirror's `insertBlankLine`). Undo says "Undo Start New Line". Its keys: Shift+Enter
+  (`$default`, macOS's); Sublime Text's Ctrl+Enter (Cmd+Enter); VS Code's Insert Line Below,
+  Ctrl+Enter (Cmd+Enter), from its sheets.
+- **Move Caret to Matching Brace** (added 2026-11-13), IntelliJ's `EditorMatchBrace`, which
+  CodeMirror had done on Ctrl+Shift+\\: from a bracket at the caret to the one it pairs with
+  (CodeMirror's `cursorMatchingBracket`), in a read-only editor too. Its keys: Ctrl+Shift+M
+  (`$default`), Ctrl+M on macOS; Eclipse's Ctrl+Shift+P, Sublime Text's Ctrl+M, Visual Studio's
+  Ctrl+] (Cmd+] on macOS), none in NetBeans'; VS Code's Jump to Matching Bracket,
+  Ctrl+Shift+\\ (Cmd+Shift+\\), from its sheets. **Claim:** IntelliJ's also goes from inside a
+  pair to its brace (not checked against its source); CodeMirror's needs the caret at a bracket.
+- **Not yet:** Extend Selection and Shrink Selection (`EditorSelectWord`, `EditorUnSelectWord`,
+  Ctrl+W and Ctrl+Shift+W), which CodeMirror's Ctrl+I came near.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.

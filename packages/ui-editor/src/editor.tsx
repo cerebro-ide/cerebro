@@ -8,6 +8,7 @@
 // custom properties are inherited into shadow roots.
 
 import {
+  cursorMatchingBracket,
   deleteLine,
   historyField,
   indentWithTab,
@@ -54,6 +55,7 @@ import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
+import { startingNewLine } from './start-new-line.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
@@ -225,6 +227,10 @@ export interface EditorKeys {
   moveLineDown?: readonly string[];
   /** Delete Line: the caret's line, or the selection's, gone; the caret at its column below. */
   deleteLine?: readonly string[];
+  /** Start New Line: an indented line after the caret's, the caret on it. */
+  startNewLine?: readonly string[];
+  /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
+  matchBrace?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -254,6 +260,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   moveLineUp: ['Alt-Shift-ArrowUp'],
   moveLineDown: ['Alt-Shift-ArrowDown'],
   deleteLine: ['Mod-y'],
+  startNewLine: ['Shift-Enter'],
+  matchBrace: ['Mod-Shift-m'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -816,6 +824,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
           run: atCursor(() => props.onGoToDefinition),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
+        // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
+        ...keys.matchBrace.map((key) => ({ key, run: cursorMatchingBracket })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,
@@ -845,6 +855,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
               ...keys.moveLineDown.map((key) => ({ key, run: moveLinesDown })),
               // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
               ...keys.deleteLine.map((key) => ({ key, run: deleteLine })),
+              ...keys.startNewLine.map((key) => ({ key, run: startingNewLine })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]
