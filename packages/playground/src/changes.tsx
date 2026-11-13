@@ -602,7 +602,8 @@ export function notCommitted(worktree: string, path: string): boolean {
 /**
  * Whether to go on making `path` as a commit or branch has it: at once where it has no change here,
  * else as answered when asked, in IntelliJ's words (`ReplaceFileConfirmationDialog`), its changes
- * being lost. `title` is the action's.
+ * being lost. `title` is the action's. An edit not saved yet is a change, as IntelliJ's file status
+ * has it (`FileStatusManagerImpl`, a modified document's file MODIFIED).
  */
 export async function replacing(
   host: Host,
@@ -610,8 +611,10 @@ export async function replacing(
   path: string,
   title: string,
 ): Promise<boolean> {
-  const here = (await host.request('git.changes', { path: worktree })) as Change[];
-  if (!here.some((c) => c.path === path)) return true;
+  if (!unsavedFiles().includes(`${worktree}/${path}`)) {
+    const here = (await host.request('git.changes', { path: worktree })) as Change[];
+    if (!here.some((c) => c.path === path)) return true;
+  }
   const overwrite = await openDialog<true>({
     title,
     content: () => <p class="cerebro-selectable">File {path} has been locally modified.</p>,

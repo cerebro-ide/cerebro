@@ -31,6 +31,8 @@ import {
   type LogCommitContext,
   readFilesSettings,
 } from '../src/git-log.js';
+import { documentFor } from '../src/documents.js';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
 import {
@@ -1149,8 +1151,19 @@ describe('a commit’s pane', () => {
     await get('a.ts');
     await press('Overwrite Modified File');
     await expect.poll(() => host.params('git.getVersion')).toHaveLength(3);
-    // Where it can't be got, why, in IntelliJ's words.
+    // An edit not saved yet is a change too, as IntelliJ's: asked first; cancelled, not saved.
     here = [];
+    host.answers['fs.read'] = () => ({ text: 'a' });
+    const doc = (await documentFor('/r/a.ts')) as EditorDocument;
+    doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+    await get('a.ts');
+    expect(await dialogText()).toBe('File a.ts has been locally modified.');
+    await press('Cancel');
+    expect(doc.modified.peek()).toBe(true);
+    expect(host.params('git.getVersion')).toHaveLength(3);
+    doc.edit([{ from: 0, to: 1, insert: '' }]);
+    delete host.answers['fs.read'];
+    // Where it can't be got, why, in IntelliJ's words.
     host.answers['git.getVersion'] = () => {
       throw new Error('fatal: bad object');
     };

@@ -11,6 +11,8 @@ import {
   showDiffWithWorkingTree,
 } from '../src/diff-with-working-tree.js';
 import { setupLog } from '../src/git-log.js';
+import { documentFor } from '../src/documents.js';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
 import { useProjects } from '../src/environments.js';
 import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
@@ -205,6 +207,21 @@ describe('Show Diff with Working Tree’s window', () => {
     await dialog();
     await press('Overwrite Modified File');
     await expect.poll(() => asked().length).toBe(1);
+  });
+
+  it('asks over an edit not saved yet too, as IntelliJ’s, and saves it only once it may go', async () => {
+    const doc = (await documentFor('/r/a.ts')) as EditorDocument;
+    doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+    mount();
+    show('feature');
+    await userEvent.click(await fileRow('a.ts'));
+    await userEvent.click(getButton());
+    const box = await dialog();
+    expect(box.querySelector('p')?.textContent).toBe('File a.ts has been locally modified.');
+    await press('Cancel');
+    expect(asked()).toEqual([]);
+    expect(doc.modified.peek()).toBe(true);
+    doc.edit([{ from: 0, to: 1, insert: '' }]);
   });
 
   it('says why it couldn’t, in IntelliJ’s error dialog', async () => {

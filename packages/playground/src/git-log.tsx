@@ -819,8 +819,9 @@ const GRAPH_MENU = 'log/graphOptions';
 
 /**
  * Makes the file at `path` as commit `hash` has it at `source` (where it was, if renamed since),
- * or deletes it where the commit hasn't it, as IntelliJ's Get (`GetVersionAction`): unsaved edits
- * saved, and asked first where the file has a change here, untracked too; then read again.
+ * or deletes it where the commit hasn't it, as IntelliJ's Get (`GetVersionAction`): asked first
+ * where the file has a change here, untracked or not saved yet too, then the edits saved; then read
+ * again.
  */
 export async function getRevision(
   host: Host,
@@ -829,8 +830,8 @@ export async function getRevision(
   path: string,
   source = path,
 ): Promise<void> {
-  await saveBeforeGit();
   if (!(await replacing(host, worktree, path, 'Get Revision'))) return;
+  await saveBeforeGit();
   try {
     await host.request('git.getVersion', {
       path: worktree,
