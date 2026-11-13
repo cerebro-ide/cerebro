@@ -1282,6 +1282,48 @@ describe('ignored files and rolling back', () => {
       '--count',
       'refs/remotes/origin/x..refs/heads/x',
     ]);
+    // Force Checkout, and Smart Checkout, which says whether the changes went back (none here).
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'side', force: true })).toBe(
+      null,
+    );
+    expect(asked()).toContain('checkout -f side --');
+    expect(await ui.request('git.checkout', { path: '/w', branch: 'side', save: 'stash' })).toEqual(
+      { restored: true },
+    );
+    expect(
+      await ui.request('git.checkout', { path: '/w', branch: 'side', save: 'shelve' }),
+    ).toEqual({ restored: true });
+    // The same for a tag or revision, and a new branch checked out.
+    expect(
+      await ui.request('git.checkoutRevision', { path: '/w', reference: 'v1', force: true }),
+    ).toBe(null);
+    expect(
+      await ui.request('git.createBranch', { path: '/w', name: 'n', checkout: true, force: true }),
+    ).toBe(null);
+    expect(asked()).toEqual(
+      expect.arrayContaining(['checkout -f --detach v1 --', 'checkout -f -b n HEAD']),
+    );
+    expect(
+      await ui.request('git.createBranch', {
+        path: '/w',
+        name: 'n',
+        checkout: true,
+        save: 'stash',
+      }),
+    ).toEqual({ restored: true });
+    // Show Diff with Working Tree's Get from Branch.
+    expect(
+      await ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: ['a'], remove: ['b'] }),
+    ).toBe(null);
+    expect(asked()).toEqual(
+      expect.arrayContaining(['rm -q -f -- b', 'restore --source=side --staged --worktree -- a']),
+    );
+    await expect(
+      ui.request('git.getFrom', { path: '/w', ref: 'side', checkout: 'a', remove: [] }),
+    ).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+      message: 'checkout must be a list of paths',
+    });
     expect(await ui.request('git.createBranch', { path: '/w', name: 'n' })).toBe(null);
     expect(
       await ui.request('git.createBranch', {
@@ -1665,6 +1707,75 @@ describe('files', () => {
     await expect(
       broken.request('search.text', { path: import.meta.dirname, query: 'x' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InternalError });
+  });
+
+  it('merges with local changes in the way saved and put back (Smart Merge), with real git', async () => {
+    const { ui } = connect(vi.fn(runGit));
+    const repo = mkdtempSync(join(tmpdir(), 'cerebro-host-smart-merge-'));
+    const run = (...args: string[]) =>
+      execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+        cwd: repo,
+        encoding: 'utf8',
+      });
+    const read = () => readFileSync(join(repo, 'five.txt'), 'utf8');
+    run('init', '-q', '-b', 'main');
+    run('config', 'core.autocrlf', 'false');
+    // The merge the host commits needs an identity: CI's runners have none (measured).
+    run('config', 'user.name', 't');
+    run('config', 'user.email', 't@t');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\ne\n');
+    writeFileSync(join(repo, 'other.txt'), 'o\n');
+    run('add', '.');
+    run('commit', '-qm', 'first');
+    // feature changes five's last line, and other.txt as main does: a conflict there.
+    run('checkout', '-q', '-b', 'feature');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\nE\n');
+    run('commit', '-qam', 'feature');
+    run('checkout', '-q', '-b', 'clash');
+    writeFileSync(join(repo, 'other.txt'), 'feature\n');
+    run('commit', '-qam', 'clash');
+    run('checkout', '-q', 'main');
+    writeFileSync(join(repo, 'other.txt'), 'main\n');
+    run('commit', '-qam', 'main');
+    // Nothing to save: merged, nothing saved.
+    run('branch', 'side', 'HEAD~1');
+    expect(
+      await ui.request('git.mergeBranch', { path: repo, branch: 'side', save: 'stash' }),
+    ).toEqual({ result: 'upToDate', restored: true });
+    // In the way: git's error, then saved and put back.
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await expect(ui.request('git.mergeBranch', { path: repo, branch: 'feature' })).rejects.toThrow(
+      /would be overwritten by merge:\n\tfive\.txt/,
+    );
+    expect(
+      await ui.request('git.mergeBranch', { path: repo, branch: 'feature', save: 'stash' }),
+    ).toEqual({ result: 'done', restored: true });
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    // At conflicts: kept saved, given back, and put back once the merge is committed.
+    const smart = (await ui.request('git.mergeBranch', {
+      path: repo,
+      branch: 'clash',
+      save: 'stash',
+    })) as { result: string; saved: unknown };
+    expect(smart).toEqual({ result: 'conflicts', saved: { how: 'stash' } });
+    expect(read()).toBe('a\nb\nc\nd\nE\n');
+    writeFileSync(join(repo, 'other.txt'), 'both\n');
+    run('commit', '-qam', 'merged');
+    expect(await ui.request('git.restoreSaved', { path: repo, saved: smart.saved })).toBe(true);
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    // A merge that fails: put back, git's words; nothing saved, the same.
+    await expect(
+      ui.request('git.mergeBranch', { path: repo, branch: 'nowhere', save: 'stash' }),
+    ).rejects.toThrow(/nowhere/);
+    expect(read()).toBe('A\nb\nc\nd\nE\n');
+    run('stash', '-q');
+    await expect(
+      ui.request('git.mergeBranch', { path: repo, branch: 'nowhere', save: 'stash' }),
+    ).rejects.toThrow(/nowhere/);
+    await expect(
+      ui.request('git.restoreSaved', { path: repo, saved: { how: 'shelve' } }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    rmSync(repo, { recursive: true, force: true });
   });
 
   it('lists a folder', async () => {

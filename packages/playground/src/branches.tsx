@@ -7,7 +7,7 @@
 // Delete. A merge or rebase stopped at conflicts goes through the Conflicts dialog, as Update
 // Project's does.
 
-import type { EnvironmentSpec } from '@cerebro-ide/layout';
+import type { EnvironmentSpec, Tab } from '@cerebro-ide/layout';
 import { computed, effect, signal, untracked } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
@@ -15,7 +15,9 @@ import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@ce
 import { compareWithCurrent } from './compare-branches.js';
 import { showDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { isProtected, openPush, pushTag, pushing } from './push.js';
-import { updateProject } from './update.js';
+import { globalSettings } from './settings.js';
+import { showUnmergedCommits } from './unmerged-commits.js';
+import { notRestored, updateProject } from './update.js';
 import { resolveConflicts } from './conflicts.js';
 import { saveBeforeGit } from './documents.js';
 import { fetching } from './fetch-pull.js';
@@ -231,6 +233,68 @@ function branchDialog(
   }).result;
 }
 
+/** How Settings' Save changes says local changes are saved, for Smart Checkout and Merge. */
+const savingAs = () => globalSettings.get('git.saveChanges') as 'shelve' | 'stash';
+
+/**
+ * The files git names in "Your local changes to the following files would be overwritten by
+ * checkout" (or merge), one per line after a tab (IntelliJ's
+ * `GitLocalChangesWouldBeOverwrittenDetector`), or undefined if that isn't what it says.
+ */
+function overwritten(message: string, operation: 'checkout' | 'merge'): string[] | undefined {
+  const at = message.indexOf(`would be overwritten by ${operation}:`);
+  if (at < 0) return undefined;
+  const files: string[] = [];
+  for (const line of message.slice(at).split('\n').slice(1)) {
+    if (!line.startsWith('\t')) break;
+    files.push(line.slice(1));
+  }
+  return files;
+}
+
+/**
+ * IntelliJ's `GitSmartOperationDialog` for a checkout or merge: the files in the way, and Smart
+ * Checkout (saved as `save` says, and put back), Force Checkout (a checkout's only), or Don't
+ * Checkout.
+ */
+function smartOperationDialog(
+  files: readonly string[],
+  save: 'shelve' | 'stash',
+  operation: 'checkout' | 'merge',
+): Promise<'smart' | 'force' | undefined> {
+  const [saved, restored] = save === 'shelve' ? ['shelve', 'unshelve'] : ['stash', 'unstash'];
+  const named = operation === 'checkout' ? 'Checkout' : 'Merge';
+  return openDialog<'smart' | 'force'>({
+    title: `Git ${named} Problem`,
+    width: 520,
+    content: () => [
+      <p class="cerebro-selectable">
+        Your local changes to the following files would be overwritten by {operation}.
+        <br />
+        Cerebro can {saved} the changes, {operation} and {restored} them after that.
+      </p>,
+      <ul class="playground-rollback__files">
+        {files.map((file) => (
+          <li>{file}</li>
+        ))}
+      </ul>,
+    ],
+    ok: { label: `Smart ${named}`, accept: () => 'smart' },
+    // IntelliJ's merge has none (`GitMergeOperation` passes no force button).
+    choices: operation === 'checkout' ? [{ label: 'Force Checkout', accept: () => 'force' }] : [],
+    cancelLabel: `Don't ${named}`,
+  }).result;
+}
+
+/** How a merge went. */
+type MergeResult = 'done' | 'upToDate' | 'conflicts';
+/** A Smart Merge's: its changes put back or not, or kept saved at conflicts. */
+interface SmartMerge {
+  result: MergeResult;
+  restored?: boolean;
+  saved?: unknown;
+}
+
 /**
  * IntelliJ's Checkout Tag or Revision… dialog (`GitRefDialog`): "Checkout", a reference typed, the
  * branches and tags that hold what's typed suggested. Its text, trimmed, or undefined if cancelled.
@@ -295,6 +359,8 @@ export interface BranchesSetup {
   readWorktrees: (worktree: string) => Promise<void>;
   /** Shows a worktree's environment. */
   open: (worktree: string) => void;
+  /** Opens a tab: a diff from a dialog's commit files. */
+  openTab: (tab: Tab, chain?: readonly string[]) => void;
 }
 
 /** The branches popup's actions, and the popup, for the toolbar's branch selector. */
@@ -363,7 +429,7 @@ export function setupBranches(
       // As IntelliJ's checkout of a new branch from elsewhere (`GitCheckoutOperation`); one at HEAD
       // changes no file (`GitCheckoutNewBranchOperation` saves nothing).
       if (named.checkout && from !== undefined) await saveBeforeGit();
-      await host.request('git.createBranch', {
+      await checkoutSmartly(host, 'git.createBranch', {
         path: worktree,
         ...named,
         ...(from === undefined ? {} : { from }),
@@ -387,17 +453,50 @@ export function setupBranches(
       return operate(`Could not checkout ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
         // A tag's commit, HEAD detached at it, as IntelliJ's (`GitCheckoutAction`).
-        if (b.tag)
-          await host.request('git.checkoutRevision', { path: worktree, reference: b.name });
-        else {
-          await host.request('git.checkout', { path: worktree, branch: b.name, remote: b.remote });
-        }
+        const checkedOut = b.tag
+          ? await checkoutSmartly(host, 'git.checkoutRevision', {
+              path: worktree,
+              reference: b.name,
+            })
+          : await checkoutSmartly(host, 'git.checkout', {
+              path: worktree,
+              branch: b.name,
+              remote: b.remote,
+            });
+        if (!checkedOut) return;
         notifications.notify({
           content: `Checked out ${b.remote ? b.name.replace(/^[^/]*\//, '') : b.name}`,
         });
       });
     },
   });
+  /**
+   * Checks out with `method` (`git.checkout`, `git.checkoutRevision`, `git.createBranch`), as
+   * IntelliJ's `GitCheckoutOperation`: where local changes are in the way, asks whether to save
+   * them and put them back after (Smart Checkout), overwrite them (Force Checkout), or not check
+   * out. Whether it was checked out.
+   */
+  const checkoutSmartly = async (host: Host, method: string, params: object) => {
+    try {
+      await host.request(method, params);
+      return true;
+    } catch (error) {
+      const files = overwritten((error as Error).message, 'checkout');
+      if (files === undefined) throw error;
+      const save = savingAs();
+      const choice = await smartOperationDialog(files, save, 'checkout');
+      if (choice === undefined) return false;
+      if (choice === 'force') {
+        await host.request(method, { ...params, force: true });
+        return true;
+      }
+      const { restored } = (await host.request(method, { ...params, save })) as {
+        restored: boolean;
+      };
+      if (!restored) notRestored('checkout', save);
+      return true;
+    }
+  };
   /**
    * A remote branch checked out where its local branch exists, as IntelliJ's
    * (`GitRemoteBranchCheckoutUtil`, `GitBranchCheckoutOperation`): one that tracks another branch
@@ -442,14 +541,14 @@ export function setupBranches(
         else notifications.notify({ title: 'Rebase successful', content: done });
         return;
       }
-      await host.request('git.createBranch', {
+      const checkedOut = await checkoutSmartly(host, 'git.createBranch', {
         path: worktree,
         name,
         from: remote,
         checkout: true,
         overwrite: true,
       });
-      notifications.notify({ content: `Checked out ${name}` });
+      if (checkedOut) notifications.notify({ content: `Checked out ${name}` });
     });
   };
   commands.register({
@@ -471,8 +570,9 @@ export function setupBranches(
       if (reference === undefined) return;
       await operate(`Could not checkout ${reference}`, async (host, worktree) => {
         await saveBeforeGit();
-        await host.request('git.checkoutRevision', { path: worktree, reference });
-        notifications.notify({ content: `Checked out ${reference}` });
+        if (await checkoutSmartly(host, 'git.checkoutRevision', { path: worktree, reference })) {
+          notifications.notify({ content: `Checked out ${reference}` });
+        }
       });
     },
   });
@@ -685,15 +785,37 @@ export function setupBranches(
       const into = current();
       return operate(`Could not merge ${b.name}`, async (host, worktree) => {
         await saveBeforeGit();
-        const result = await host.request('git.mergeBranch', { path: worktree, branch: b.name });
+        const params = { path: worktree, branch: b.name };
+        const save = savingAs();
+        // Smart Merge, as IntelliJ's `GitMergeOperation`, where local changes are in the way: they're
+        // saved, and put back after the merge, or once its conflicts are resolved.
+        const answer = (await host
+          .request('git.mergeBranch', params)
+          .catch(async (error: unknown) => {
+            const files = overwritten((error as Error).message, 'merge');
+            if (files === undefined) throw error;
+            if (!(await smartOperationDialog(files, save, 'merge'))) return undefined;
+            return host.request('git.mergeBranch', { ...params, save });
+          })) as MergeResult | SmartMerge | undefined;
+        if (answer === undefined) return;
+        const smart = typeof answer === 'object' ? answer : undefined;
+        const result = smart ? smart.result : (answer as MergeResult);
         if (result === 'conflicts') {
           // As IntelliJ's: the Conflicts dialog, and the merge committed once none is left.
           if (!(await resolveConflicts(worktree))) {
             notifications.notify({ title: `${b.name} Merged with Conflicts`, type: 'warning' });
+            if (smart?.saved) notRestored('merge', save);
             return;
           }
           await host.request('git.continue', { path: worktree });
-        }
+          if (smart?.saved) {
+            const back = await host.request('git.restoreSaved', {
+              path: worktree,
+              saved: smart.saved,
+            });
+            if (back !== true) notRestored('merge', save);
+          }
+        } else if (smart?.restored === false) notRestored('merge', save);
         notifications.notify({
           content: result === 'upToDate' ? 'Already up to date' : `Merged ${b.name} to ${into}`,
           // IntelliJ proposes deleting a local branch merged.
@@ -766,8 +888,12 @@ export function setupBranches(
       const deleted = (await host.request('git.deleteBranch', {
         path: worktree,
         name: b.name,
-      })) as { hash: string; unmerged: boolean; tracked?: string };
-      const { tracked } = deleted;
+      })) as { hash: string; unmerged: boolean; tracked?: string; base?: string };
+      const { tracked, base } = deleted;
+      const restore = () =>
+        operate(`Could not Restore ${b.name}`, async (h, w) => {
+          await h.request('git.restoreBranch', { path: w, name: b.name, hash: deleted.hash });
+        });
       notifications.notify({
         title: `Deleted Branch: ${b.name}`,
         ...(deleted.unmerged ? { content: 'Unmerged commits were discarded' } : {}),
@@ -775,15 +901,26 @@ export function setupBranches(
           {
             label: 'Restore',
             run: () => {
-              void operate(`Could not Restore ${b.name}`, async (h, w) => {
-                await h.request('git.restoreBranch', {
-                  path: w,
-                  name: b.name,
-                  hash: deleted.hash,
-                });
-              });
+              void restore();
             },
           },
+          // The commits discarded, and Restore there too, as IntelliJ's.
+          ...(base === undefined
+            ? []
+            : [
+                {
+                  label: 'View Commits',
+                  run: () => {
+                    const unmerged = { host, worktree, name: b.name, tip: deleted.hash, base };
+                    void showUnmergedCommits(unmerged, setup.openTab).then(
+                      (again) => (again ? restore() : undefined),
+                      (error: unknown) => {
+                        console.error('Reading the unmerged commits failed', error);
+                      },
+                    );
+                  },
+                },
+              ]),
           // The remote branch it alone tracked, unless it's protected, as IntelliJ's.
           ...(tracked === undefined || isProtected(tracked.slice(tracked.indexOf('/') + 1))
             ? []

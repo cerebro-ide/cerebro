@@ -53,8 +53,49 @@ export interface Resume {
 }
 
 /** The message local changes are saved under, as IntelliJ's (`stash.changes.message.with.date`). */
-export function savedMessage(at: Date): string {
-  return `Uncommitted changes before Update at ${at.toLocaleString()}`;
+export function savedMessage(at: Date, operation = 'Update'): string {
+  return `Uncommitted changes before ${operation} at ${at.toLocaleString()}`;
+}
+
+/**
+ * Runs `operation` with the local changes saved first and put back after, as IntelliJ's
+ * `GitPreservingProcess` (Smart Checkout's), saved under "Uncommitted changes before Checkout at
+ * …", `name` being the operation's. Put back too when it fails, which is then thrown. Whether they
+ * went back.
+ */
+export async function preserving(
+  worktree: string,
+  how: SaveChanges,
+  name: string,
+  now: Date,
+  run: Git,
+  operation: () => Promise<void>,
+): Promise<boolean> {
+  const saved = await saveLocal(worktree, how, name, now, run);
+  try {
+    await operation();
+  } catch (error) {
+    if (saved) await restore(worktree, saved, run);
+    throw error;
+  }
+  return saved ? restore(worktree, saved, run) : true;
+}
+
+/**
+ * Saves the local changes, as `preserving` does, for an operation that puts them back itself
+ * (Smart Merge's, after its conflicts). Undefined when there are none: an empty stash would put
+ * back the one before.
+ */
+export async function saveLocal(
+  worktree: string,
+  how: SaveChanges,
+  name: string,
+  now: Date,
+  run: Git,
+): Promise<Saved | undefined> {
+  const changes = (await listChanges(worktree, run)).filter((c) => c.status !== 'untracked');
+  if (changes.length === 0) return undefined;
+  return save(worktree, changes, how, savedMessage(now, name), run);
 }
 
 /** What stops an update before it starts, as IntelliJ's `isUpdateNotReady`. */
@@ -107,7 +148,7 @@ async function save(
 }
 
 /** Puts saved changes back; says whether it could. */
-function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
+export function restore(worktree: string, saved: Saved, run: Git): Promise<boolean> {
   return (
     saved.how === 'shelve'
       ? unshelve(worktree, saved.id, run)

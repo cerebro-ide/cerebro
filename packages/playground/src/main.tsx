@@ -828,11 +828,11 @@ setupSaving(
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
   if (initial.length === 0) seedFiles(env, tabOf);
 });
-const branches = setupBranches(services, environments);
+const branches = setupBranches(services, { ...environments, openTab });
 setupCompare(services, (tab) => editor()?.open(tab));
 // Show Diff with Working Tree's Changes tool window, on the left, which appears the first time, as
 // IntelliJ's `ChangesBrowserToolWindow`.
-setupDiffWithWorkingTree(() => {
+setupDiffWithWorkingTree(services, () => {
   if (!layout.toolWindows.windows.has('vcsChanges')) {
     layout.toolWindows.register({
       id: 'vcsChanges',
@@ -1515,7 +1515,7 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
-  if (props.id === 'vcsChanges') return <DiffWithWorkingTree open={openTab} />;
+  if (props.id === 'vcsChanges') return <DiffWithWorkingTree services={services} open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
   if (props.id === 'problems') {

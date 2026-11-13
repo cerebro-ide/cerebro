@@ -11,6 +11,7 @@ import { useProjects, workspace } from '../src/environments.js';
 import { paneSettings, type BranchesSelection } from '../src/log-branches.js';
 import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
+import { globalSettings } from '../src/settings.js';
 import { readState } from '../src/repository-state.js';
 import {
   answer,
@@ -54,6 +55,12 @@ const git = {
   tagPushed: true as boolean | Error,
   /** Whether a local branch has commits its remote branch hasn't. */
   ownCommits: false,
+  /** What a checkout fails with, unless forced or saving local changes. */
+  inTheWay: undefined as Error | undefined,
+  /** Whether Smart Checkout put the local changes back. */
+  restored: true,
+  /** The commits a log asks for. */
+  log: [] as unknown[] | Error,
   /** Held until it resolves: a tag's push. */
   tagPushHeld: undefined as Promise<void> | undefined,
   /** What updating a branch gives, or the error it fails with. */
@@ -64,6 +71,17 @@ const git = {
 const fail = (method: string) => () => {
   if (git.result instanceof Error) throw git.result;
   return method === 'result' ? git.result : null;
+};
+/** A checkout's parameters about local changes in its way. */
+interface Checkout {
+  force?: boolean;
+  save?: string;
+}
+/** A checkout: failing where local changes are in its way, unless forced or saving them. */
+const checkingOut = (p: Checkout) => {
+  if (git.inTheWay && !p.force && !p.save) throw git.inTheWay;
+  fail('checkout')();
+  return p.save ? { restored: git.restored } : null;
 };
 const host = new FakeHost({
   'git.branches': async () => {
@@ -77,21 +95,27 @@ const host = new FakeHost({
       ...git.remote.map((b) => ({ ref: `refs/remotes/${b}`, current: false })),
     ];
   },
-  'git.checkout': fail('checkout'),
-  'git.checkoutRevision': fail('checkout'),
+  'git.checkout': (p: Checkout) => checkingOut(p),
+  'git.checkoutRevision': (p: Checkout) => checkingOut(p),
   'git.tags': () => {
     if (git.tags instanceof Error) throw git.tags;
     return git.tags;
   },
-  'git.createBranch': fail('create'),
+  'git.createBranch': (p: Checkout & { checkout: boolean }) =>
+    p.checkout ? checkingOut(p) : fail('create')(),
   'git.renameBranch': fail('rename'),
   'git.deleteBranch': () => {
     if (git.result instanceof Error) throw git.result;
     return {
       hash: 'abc',
       unmerged: git.result === 'unmerged',
+      ...(git.result === 'unmerged' ? { base: 'main' } : {}),
       ...(git.tracked === undefined ? {} : { tracked: git.tracked }),
     };
+  },
+  'git.log': () => {
+    if (git.log instanceof Error) throw git.log;
+    return git.log;
   },
   'git.deleteRemoteBranch': () => {
     if (git.remoteFailing) throw git.remoteFailing;
@@ -120,7 +144,15 @@ const host = new FakeHost({
     if (git.result instanceof Error) throw git.result;
     return null;
   },
-  'git.mergeBranch': fail('result'),
+  'git.mergeBranch': (p: { save?: string }) => {
+    if (git.inTheWay && !p.save) throw git.inTheWay;
+    const result = fail('result')();
+    if (!p.save) return result;
+    return result === 'conflicts'
+      ? { result, saved: { how: p.save } }
+      : { result, restored: git.restored };
+  },
+  'git.restoreSaved': () => git.restored,
   'git.rebaseOnto': fail('result'),
   'git.rebase': fail('result'),
   'git.continue': () => 'done',
@@ -146,6 +178,7 @@ const menus = new MenuRegistry();
 const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
 const readWorktrees = vi.fn(() => Promise.resolve());
 const open = vi.fn();
+const openTab = vi.fn();
 const button = document.createElement('button');
 const compared: Tab[] = [];
 let revealed = 0;
@@ -161,9 +194,9 @@ beforeAll(() => {
     project('/s', undefined),
   ]);
   document.body.append(button);
-  ({ pick } = setupBranches(services, { readWorktrees, open }));
+  ({ pick } = setupBranches(services, { readWorktrees, open, openTab }));
   setupCompare(services, (tab) => compared.push(tab));
-  setupDiffWithWorkingTree(() => {
+  setupDiffWithWorkingTree(services, () => {
     revealed++;
   });
 });
@@ -184,6 +217,9 @@ beforeEach(() => {
   git.local = ['feature', 'main', 'side'];
   git.remote = ['origin/main', 'origin/side'];
   git.ownCommits = false;
+  git.inTheWay = undefined;
+  git.restored = true;
+  git.log = [];
   git.tagPushed = true;
   git.updated = {};
 });
@@ -573,6 +609,116 @@ describe('Checkout', () => {
     expect(host.params('git.hasCommitsNotIn')).toEqual([]);
   });
 
+  describe('with local changes in the way, as IntelliJ’s', () => {
+    beforeEach(() => {
+      git.inTheWay = new Error(
+        'error: Your local changes to the following files would be overwritten by checkout:\n\ta.ts\n\tsrc/b.ts\nPlease commit your changes or stash them before you switch branches.\nAborting',
+      );
+    });
+
+    it('asks, listing the files, and checks out nothing at Don’t Checkout', async () => {
+      const told = notifications.all.length;
+      await choose('feature', 'Checkout');
+      const box = await dialog();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Git Checkout Problem');
+      expect(box.querySelector('p')?.textContent).toBe(
+        'Your local changes to the following files would be overwritten by checkout.Cerebro can shelve the changes, checkout and unshelve them after that.',
+      );
+      expect([...box.querySelectorAll('li')].map((li) => li.textContent)).toEqual([
+        'a.ts',
+        'src/b.ts',
+      ]);
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.branches').length).toBeGreaterThan(0);
+      expect(host.params('git.checkout')).toHaveLength(1);
+      // Nothing said, as IntelliJ's with one repository.
+      expect(notifications.all.length).toBe(told);
+    });
+
+    it('saves them and puts them back at Smart Checkout, saying when they couldn’t go back', async () => {
+      globalSettings.layers.global.set('git.saveChanges', 'stash');
+      try {
+        await choose('feature', 'Checkout');
+        expect((await dialog()).querySelector('p')?.textContent).toContain(
+          'Cerebro can stash the changes, checkout and unstash them after that.',
+        );
+        await press('Smart Checkout');
+        await expect.poll(() => last()?.content).toBe('Checked out feature');
+        expect(host.params('git.checkout').at(-1)).toEqual({
+          path: '/r',
+          branch: 'feature',
+          remote: false,
+          save: 'stash',
+        });
+        git.restored = false;
+        await choose('feature', 'Checkout');
+        await dialog();
+        await press('Smart Checkout');
+        await expect.poll(() => last()?.content).toBe('Checked out feature');
+        // Said before it, as checked out.
+        expect(notifications.all.get(1)).toMatchObject({
+          title: 'Local changes were not restored',
+          content: 'Before checkout your uncommitted changes were saved to stash.',
+          type: 'warning',
+        });
+      } finally {
+        globalSettings.layers.global.reset('git.saveChanges');
+      }
+    });
+
+    it('asks the same for a tag, a revision, a new branch, and a local branch reset', async () => {
+      await choose('v1', 'Checkout');
+      await dialog();
+      await press('Force Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out v1');
+      expect(host.params('git.checkoutRevision').at(-1)).toEqual({
+        path: '/r',
+        reference: 'v1',
+        force: true,
+      });
+      await checkoutReference('v2');
+      await press('OK');
+      await dialog();
+      await press('Smart Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out v2');
+      expect(host.params('git.checkoutRevision').at(-1)).toMatchObject({ save: 'shelve' });
+      // Not checked out: nothing said.
+      await checkoutReference('v2');
+      await press('OK');
+      await dialog();
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.checkoutRevision')).toHaveLength(5);
+      expect(last()?.content).toBe('Checked out v2');
+      await choose('feature', "New Branch from 'feature'…");
+      await answer('fresh');
+      await press('Create');
+      await dialog();
+      await press('Force Checkout');
+      await expect
+        .poll(() => host.params('git.createBranch').at(-1))
+        .toMatchObject({ name: 'fresh', from: 'feature', checkout: true, force: true });
+      git.upstreams = { side: 'origin/side' };
+      await choose('origin/side', 'Checkout');
+      await dialog();
+      await press("Don't Checkout");
+      await expect.poll(() => host.params('git.createBranch')).toHaveLength(3);
+      expect(last()?.content).toBe('Checked out v2');
+    });
+
+    it('overwrites them at Force Checkout', async () => {
+      await choose('feature', 'Checkout');
+      await dialog();
+      await press('Force Checkout');
+      await expect.poll(() => last()?.content).toBe('Checked out feature');
+      expect(host.params('git.checkout').at(-1)).toEqual({
+        path: '/r',
+        branch: 'feature',
+        remote: false,
+        force: true,
+      });
+    });
+  });
+
   it('says why it couldn’t, in git’s words', async () => {
     git.result = new Error('Your local changes would be overwritten');
     await choose('feature', 'Checkout');
@@ -860,6 +1006,65 @@ describe('Delete', () => {
     expect(last()?.content).toBe('');
   });
 
+  it('shows the unmerged commits discarded, as IntelliJ’s View Commits, restoring from there', async () => {
+    git.result = 'unmerged';
+    const commit = (hash: string, subject: string) => ({
+      hash,
+      parents: ['p'],
+      author: 'Ada',
+      email: 'ada@x.org',
+      time: 0,
+      subject,
+      body: '',
+      refs: [],
+    });
+    git.log = [commit('c2', 'Second'), commit('c1', 'First')];
+    await choose('feature', 'Delete');
+    await expect.poll(() => last()?.title).toBe('Deleted Branch: feature');
+    expect(last()?.actions.map((a) => a.label)).toEqual(['Restore', 'View Commits']);
+    last()?.actions[1]?.run();
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Branch Was Not Fully Merged',
+    );
+    expect(box.querySelector('p')?.textContent).toBe(
+      'The branch feature was not fully merged to main.Below is the list of unmerged commits.',
+    );
+    expect(host.params('git.log')).toEqual([
+      { worktree: '/r', skip: 0, max: 1000, branches: ['main..abc'] },
+    ]);
+    await expect
+      .poll(() => [...box.querySelectorAll('.playground-log__subject')].map((s) => s.textContent))
+      .toEqual(['Second', 'First']);
+    // The first one's files, beside it.
+    await expect
+      .poll(() => host.params('git.changes').at(-1))
+      .toEqual({ path: '/r', from: 'p', to: 'c2' });
+    await press('Close');
+    expect(host.params('git.restoreBranch')).toEqual([]);
+    last()?.actions[1]?.run();
+    await dialog();
+    await press('Restore');
+    await expect
+      .poll(() => host.params('git.restoreBranch'))
+      .toEqual([{ path: '/r', name: 'feature', hash: 'abc' }]);
+    // None left (merged since): no files shown.
+    git.log = [];
+    last()?.actions[1]?.run();
+    const empty = await dialog();
+    expect(empty.querySelector('.playground-log__subject')).toBeNull();
+    expect(empty.querySelector('.playground-unmerged')?.children).toHaveLength(1);
+    await press('Close');
+    // The commits not read: logged.
+    git.log = new Error('bad range');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    last()?.actions[1]?.run();
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the unmerged commits failed');
+    logged.mockRestore();
+  });
+
   it('says why it wasn’t deleted', async () => {
     git.result = new Error('error: cannot delete branch');
     await choose('feature', 'Delete');
@@ -1085,7 +1290,7 @@ describe('the Log’s branches pane', () => {
     const keymap = new Keymap('mac');
     setupBranches(
       { commands: new CommandRegistry(), menus: new MenuRegistry(), keymap },
-      { readWorktrees, open },
+      { readWorktrees, open, openTab },
     );
     expect(keymap.shortcutsFor('log.branches.delete')).toEqual(['Meta+Delete']);
   });
@@ -1225,6 +1430,89 @@ describe('Merge into Current', () => {
     await expect.poll(() => last()?.title).toBe('feature Merged with Conflicts');
     expect(last()?.type).toBe('warning');
     expect(host.params('git.continue')).toEqual([]);
+  });
+
+  describe('with local changes in the way, as IntelliJ’s Smart Merge', () => {
+    beforeEach(() => {
+      git.inTheWay = new Error(
+        'error: Your local changes to the following files would be overwritten by merge:\n\ta.ts\nPlease commit your changes or stash them before you merge.\nAborting',
+      );
+    });
+    const merge = async () => {
+      await choose('feature', "Merge 'feature' into 'main'");
+      return dialog();
+    };
+
+    it('asks, with no Force, and merges nothing at Don’t Merge', async () => {
+      const box = await merge();
+      expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Git Merge Problem');
+      expect(box.querySelector('p')?.textContent).toBe(
+        'Your local changes to the following files would be overwritten by merge.Cerebro can shelve the changes, merge and unshelve them after that.',
+      );
+      expect(
+        [...box.querySelectorAll('.cerebro-dialog__button')].map((b) => b.textContent),
+      ).toEqual(expect.not.arrayContaining(['Force Checkout']));
+      const told = notifications.all.length;
+      await press("Don't Merge");
+      await expect.poll(() => host.params('git.branches').length).toBeGreaterThan(0);
+      expect(host.params('git.mergeBranch')).toHaveLength(1);
+      expect(notifications.all.length).toBe(told);
+    });
+
+    it('saves them, merges, and puts them back, saying when they couldn’t go back', async () => {
+      await merge();
+      await press('Smart Merge');
+      await expect.poll(() => last()?.content).toBe('Merged feature to main');
+      expect(host.params('git.mergeBranch').at(-1)).toEqual({
+        path: '/r',
+        branch: 'feature',
+        save: 'shelve',
+      });
+      git.restored = false;
+      await merge();
+      await press('Smart Merge');
+      await expect
+        .poll(() => notifications.all.get(1)?.title)
+        .toBe('Local changes were not restored');
+      expect(notifications.all.get(1)?.content).toBe(
+        'Before merge your uncommitted changes were saved to shelf.',
+      );
+    });
+
+    it('at conflicts, puts them back once they’re resolved and the merge committed', async () => {
+      git.result = 'conflicts';
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Accept Yours');
+      await expect.poll(() => last()?.content).toBe('Merged feature to main');
+      expect(host.params('git.restoreSaved')).toEqual([{ path: '/r', saved: { how: 'shelve' } }]);
+      expect(
+        host.asked.map((a) => a.method).filter((m) => /continue|restoreSaved/.test(m)),
+      ).toEqual(['git.continue', 'git.restoreSaved']);
+      git.restored = false;
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Accept Yours');
+      await expect
+        .poll(() => notifications.all.get(1)?.title)
+        .toBe('Local changes were not restored');
+    });
+
+    it('keeps them saved when the conflicts are left, and says so', async () => {
+      git.result = 'conflicts';
+      git.conflicted = ['a.ts'];
+      await merge();
+      await press('Smart Merge');
+      await dialog();
+      await press('Close');
+      await expect.poll(() => last()?.title).toBe('Local changes were not restored');
+      expect(notifications.all.get(1)?.title).toBe('feature Merged with Conflicts');
+      expect(host.params('git.restoreSaved')).toEqual([]);
+    });
   });
 
   it('says why it couldn’t', async () => {
@@ -1383,7 +1671,7 @@ describe('Show Diff with Working Tree', () => {
   it('shows the files that differ from the branch’s or tag’s, the documents saved first, as IntelliJ’s', async () => {
     const box = document.createElement('div');
     document.body.append(box);
-    const view = render(() => <DiffWithWorkingTree open={open} />, box);
+    const view = render(() => <DiffWithWorkingTree services={services} open={open} />, box);
     const before = revealed;
     await unsavedEdit(host, '/r/a.ts');
     await choose('v1', 'Show Diff with Working Tree');

@@ -175,6 +175,9 @@ export {
 } from './history.js';
 export {
   continueUpdate,
+  preserving,
+  restore,
+  saveLocal,
   savedMessage,
   update,
   type HashRange,
@@ -216,6 +219,7 @@ export {
 export {
   checkout,
   checkoutDetached,
+  getFrom,
   hasCommitsNotIn,
   createBranch,
   deleteBranch,

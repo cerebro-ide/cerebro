@@ -30,6 +30,16 @@ on it:
 - shfmt, which bash-language-server formats with: without it, Reformat Code leaves bash files
   as they are.
 
+### Swap Branches in Show Diff with Working Tree (proposed: a reshaping, for Ido's word)
+
+IntelliJ's link after the window's label (`CompareBranchesDiffPanel.swapSides`): a saved setting
+(`DvcsCompareSettings`) that turns the label round ("Difference between files in feature and
+current working tree on main:") and each change's sides. A diff tab can't show the working tree on
+its left yet: its `Range` is a ref against a ref, or against the working tree on the right. Swapping
+needs the range, the tab id's encoding, the Diff view's sides (titles, the editable one) and the
+diff window's parameters to carry which side is which. Proposed before doing it, as it reshapes the
+diff's model for one link (CLAUDE.md).
+
 ### Markdown preview, as IntelliJ's
 
 From Ido (2026-11-12): "create a markdown preview feature similar to intellij, allowing the user

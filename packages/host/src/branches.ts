@@ -8,14 +8,46 @@
 import { operation } from './conflicts.js';
 import type { Git } from './git.js';
 
-/** Checks out a local branch; a remote one (`origin/x`) as a new local branch tracking it. */
+/**
+ * Checks out a local branch; a remote one (`origin/x`) as a new local branch tracking it. With
+ * `force`, local changes in the way are overwritten (IntelliJ's Force Checkout).
+ */
 export async function checkout(
   worktree: string,
   branch: string,
   remote: boolean,
   run: Git,
+  force = false,
 ): Promise<void> {
-  await run(worktree, remote ? ['checkout', '--track', branch] : ['checkout', branch, '--']);
+  const forced = force ? ['-f'] : [];
+  await run(
+    worktree,
+    remote ? ['checkout', ...forced, '--track', branch] : ['checkout', ...forced, branch, '--'],
+  );
+}
+
+/**
+ * IntelliJ's Get from Branch (`GitLocalCommitCompareInfo.copyChangesFromBranch`): files made as
+ * they are in `ref`, `checkout` checked out from it and `remove` removed where it has none, both
+ * in the index too, as IntelliJ's. Paths are taken as they are, not as patterns.
+ */
+export async function getFrom(
+  worktree: string,
+  ref: string,
+  checkout: readonly string[],
+  remove: readonly string[],
+  run: Git,
+): Promise<void> {
+  const literal = { GIT_LITERAL_PATHSPECS: '1' };
+  if (remove.length > 0) await run(worktree, ['rm', '-q', '-f', '--', ...remove], literal);
+  if (checkout.length > 0) {
+    // As `git checkout <ref> -- <paths>`, which takes no `--end-of-options` (git 2.43, measured).
+    await run(
+      worktree,
+      ['restore', `--source=${ref}`, '--staged', '--worktree', '--', ...checkout],
+      literal,
+    );
+  }
 }
 
 /**
@@ -47,9 +79,10 @@ export async function checkoutDetached(
   worktree: string,
   reference: string,
   run: Git,
+  force = false,
 ): Promise<void> {
   if (reference.startsWith('-')) throw new Error(`Not a reference: ${reference}`);
-  await run(worktree, ['checkout', '--detach', reference, '--']);
+  await run(worktree, ['checkout', ...(force ? ['-f'] : []), '--detach', reference, '--']);
 }
 
 export interface NewBranch {
@@ -62,13 +95,18 @@ export interface NewBranch {
   overwrite: boolean;
 }
 
-/** Makes a branch, and checks it out if asked. */
-export async function createBranch(worktree: string, branch: NewBranch, run: Git): Promise<void> {
+/** Makes a branch, and checks it out if asked: with `force`, over local changes in the way. */
+export async function createBranch(
+  worktree: string,
+  branch: NewBranch,
+  run: Git,
+  force = false,
+): Promise<void> {
   const from = branch.from ?? 'HEAD';
   await run(
     worktree,
     branch.checkout
-      ? ['checkout', branch.overwrite ? '-B' : '-b', branch.name, from]
+      ? ['checkout', ...(force ? ['-f'] : []), branch.overwrite ? '-B' : '-b', branch.name, from]
       : ['branch', ...(branch.overwrite ? ['--force'] : []), branch.name, from],
   );
 }
@@ -92,6 +130,12 @@ export interface Deleted {
   hash: string;
   unmerged: boolean;
   tracked?: string;
+  /**
+   * Where it wasn't fully merged to, when it wasn't, as IntelliJ's `GitDeleteBranchOperation`
+   * reads it: the upstream git names ("not yet merged to 'refs/remotes/origin/x'"), or the current
+   * branch (HEAD when none is).
+   */
+  base?: string;
 }
 
 const REMOTES = 'refs/remotes/';
@@ -122,15 +166,23 @@ async function trackedAlone(worktree: string, name: string, run: Git) {
 export async function deleteBranch(worktree: string, name: string, run: Git): Promise<Deleted> {
   const hash = (await run(worktree, ['rev-parse', '--verify', `refs/heads/${name}`])).trim();
   const tracked = await trackedAlone(worktree, name, run);
-  let unmerged = false;
+  let base: string | undefined;
   try {
     await run(worktree, ['branch', '--delete', name]);
   } catch (error) {
-    if (!/not fully merged/.test((error as Error).message)) throw error;
+    const message = (error as Error).message;
+    if (!/not fully merged/.test(message)) throw error;
     await run(worktree, ['branch', '--delete', '--force', name]);
-    unmerged = true;
+    base =
+      /'([^']*)', even though it is merged to/.exec(message)?.[1] ??
+      ((await run(worktree, ['branch', '--show-current'])).trim() || 'HEAD');
   }
-  return tracked === undefined ? { hash, unmerged } : { hash, unmerged, tracked };
+  return {
+    hash,
+    unmerged: base !== undefined,
+    ...(tracked === undefined ? {} : { tracked }),
+    ...(base === undefined ? {} : { base }),
+  };
 }
 
 /**

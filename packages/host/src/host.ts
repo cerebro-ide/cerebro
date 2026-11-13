@@ -48,9 +48,13 @@ import { LanguageServers } from './lsp.js';
 import { formatWithPrettier } from './prettier.js';
 import {
   continueUpdate,
+  preserving,
+  restore,
+  saveLocal,
   update,
   type Resume,
   type SaveChanges,
+  type Saved,
   type UpdateMethod,
 } from './update.js';
 import { blame, MOVEMENTS, type BlameOptions } from './blame.js';
@@ -66,6 +70,7 @@ import {
 import {
   checkout,
   checkoutDetached,
+  getFrom,
   hasCommitsNotIn,
   createBranch,
   deleteBranch,
@@ -870,26 +875,56 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
   });
   // The branches popup's, as IntelliJ's: each that changes files recorded in the Local History.
+  /**
+   * A checkout, recorded in the Local History as `label`, as IntelliJ's Smart Checkout dialog's
+   * answer asks about local changes in its way: `force` overwrites them; `save` ('stash' or
+   * 'shelve') saves them and puts them back after, and answers whether they went back.
+   */
+  const checkingOut = async (
+    params: unknown,
+    label: string,
+    run: (force: boolean) => Promise<void>,
+  ): Promise<{ restored: boolean } | null> => {
+    const worktree = text(params, 'path');
+    const p = params as { force?: unknown; save?: unknown };
+    if (p.save === 'stash' || p.save === 'shelve') {
+      const how = p.save;
+      const restored = await recording(worktree, label, git, () =>
+        preserving(worktree, how, 'Checkout', new Date(), git, () => run(false)),
+      );
+      return { restored };
+    }
+    await recording(worktree, label, git, () => run(p.force === true));
+    return null;
+  };
   connection.onRequest('git.checkout', async (params) => {
     const worktree = text(params, 'path');
     const branch = text(params, 'branch');
     const remote = (params as { remote?: unknown }).remote === true;
-    await recording(worktree, `Checkout ${branch}`, git, () =>
-      checkout(worktree, branch, remote, git),
+    return checkingOut(params, `Checkout ${branch}`, (force) =>
+      checkout(worktree, branch, remote, git, force),
     );
-    return null;
   });
   // The branches popup's Checkout of a remote branch whose local branch exists.
   connection.onRequest('git.hasCommitsNotIn', (params) =>
     hasCommitsNotIn(text(params, 'path'), text(params, 'branch'), text(params, 'of'), git),
   );
+  // Show Diff with Working Tree's Get from Branch, recorded in the Local History as IntelliJ's.
+  connection.onRequest('git.getFrom', async (params) => {
+    const worktree = text(params, 'path');
+    const ref = text(params, 'ref');
+    const [checkout, remove] = [files(params, 'checkout'), files(params, 'remove')];
+    await recording(worktree, `Get from ${ref}`, git, () =>
+      getFrom(worktree, ref, [...checkout], [...remove], git),
+    );
+    return null;
+  });
   connection.onRequest('git.checkoutRevision', async (params) => {
     const worktree = text(params, 'path');
     const reference = text(params, 'reference');
-    await recording(worktree, `Checkout ${reference}`, git, () =>
-      checkoutDetached(worktree, reference, git),
+    return checkingOut(params, `Checkout ${reference}`, (force) =>
+      checkoutDetached(worktree, reference, git, force),
     );
-    return null;
   });
   connection.onRequest('git.createBranch', async (params) => {
     const worktree = text(params, 'path');
@@ -900,10 +935,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       checkout: p.checkout === true,
       overwrite: p.overwrite === true,
     };
-    await recording(worktree, `New Branch ${branch.name}`, git, () =>
-      createBranch(worktree, branch, git),
+    return checkingOut(params, `New Branch ${branch.name}`, (force) =>
+      createBranch(worktree, branch, git, force),
     );
-    return null;
   });
   // Git → New Tag…'s.
   connection.onRequest('git.tags', (params) => listTags(text(params, 'path'), git));
@@ -978,7 +1012,34 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('git.mergeBranch', (params) => {
     const worktree = text(params, 'path');
     const branch = text(params, 'branch');
-    return recording(worktree, `Merge ${branch}`, git, () => mergeBranch(worktree, branch, git));
+    const how = (params as { save?: unknown }).save;
+    if (how !== 'stash' && how !== 'shelve') {
+      return recording(worktree, `Merge ${branch}`, git, () => mergeBranch(worktree, branch, git));
+    }
+    // Smart Merge: local changes in the way saved first, and put back after; at conflicts, kept
+    // saved and given back, for `git.restoreSaved` once the merge is committed.
+    return recording(worktree, `Merge ${branch}`, git, async () => {
+      const saved = await saveLocal(worktree, how, 'Merge', new Date(), git);
+      let result: Awaited<ReturnType<typeof mergeBranch>>;
+      try {
+        result = await mergeBranch(worktree, branch, git);
+      } catch (error) {
+        if (saved) await restore(worktree, saved, git);
+        throw error;
+      }
+      if (result === 'conflicts' && saved) return { result, saved };
+      return { result, restored: saved ? await restore(worktree, saved, git) : true };
+    });
+  });
+  // Smart Merge's changes, put back once its conflicts are resolved: whether they went back.
+  connection.onRequest('git.restoreSaved', (params) => {
+    const saved = (params as { saved?: { how?: unknown; id?: unknown } }).saved;
+    const valid =
+      saved?.how === 'stash' || (saved?.how === 'shelve' && typeof saved.id === 'string');
+    if (!valid) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'saved must be where changes were saved');
+    }
+    return restore(text(params, 'path'), saved as Saved, git);
   });
   connection.onRequest('git.rebaseOnto', (params) => {
     const worktree = text(params, 'path');
@@ -1152,13 +1213,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await commit(worktree, changes, message, p.amend === true, git);
     return listChanges(worktree, git);
   });
-  /** A request's list of files, by path. */
-  const files = (params: unknown): Set<string> => {
-    const p = params as { files?: unknown };
-    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+  /** A request's list of files, by path: its `files`, or another `key`. */
+  const files = (params: unknown, key = 'files'): Set<string> => {
+    const list = (params as Record<string, unknown>)[key];
+    if (!Array.isArray(list) || !list.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, `${key} must be a list of paths`);
     }
-    return new Set(p.files);
+    return new Set(list);
   };
   /** A request's shelved list, stash or record, as the lists name them. */
   const named = (params: unknown, key: 'id' | 'ref' | 'commit', pattern: RegExp): string => {

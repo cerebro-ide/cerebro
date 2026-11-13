@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -11,6 +18,8 @@ import {
   deleteBranch,
   deleteRemoteBranch,
   git,
+  getFrom,
+  preserving,
   hasCommitsNotIn,
   mergeBranch,
   rebase,
@@ -21,8 +30,13 @@ import {
 
 describe('branch operations, with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-branches-')));
+  // Someone to commit as, in clones too (CI's git has no one).
   const run = (cwd: string, ...args: string[]) =>
-    execFileSync('git', args, { cwd, stdio: 'pipe', encoding: 'utf8' });
+    execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+      cwd,
+      stdio: 'pipe',
+      encoding: 'utf8',
+    });
   const commit = (cwd: string, message: string, file = `${message}.txt`, text = message) => {
     writeFileSync(join(cwd, file), text);
     run(cwd, 'add', '.');
@@ -34,7 +48,7 @@ describe('branch operations, with real git', () => {
     const repo = join(root, `r${String(++repos)}`);
     run(root, 'init', '-q', '-b', 'main', repo);
     run(repo, 'config', 'core.autocrlf', 'false');
-    // Someone the merges commit as (CI's git has no one).
+    // Someone the host's merges commit as.
     run(repo, 'config', 'user.name', 't');
     run(repo, 'config', 'user.email', 't@t');
     commit(repo, 'first', 'shared.txt', 'one\n');
@@ -75,6 +89,87 @@ describe('branch operations, with real git', () => {
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(false);
     run(clone, 'branch', '-f', 'side', 'origin/main');
     expect(await hasCommitsNotIn(clone, 'side', 'origin/side', git)).toBe(true);
+  });
+
+  it('checks out with local changes in the way saved and put back (Smart Checkout), or overwritten (Force)', async () => {
+    const repo = repository();
+    // side changes the last line of five; here the first is changed.
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\ne\n');
+    run(repo, 'add', '.');
+    run(repo, 'commit', '-qm', 'five');
+    run(repo, 'checkout', '-q', '-b', 'later');
+    commit(repo, 'later', 'five.txt', 'a\nb\nc\nd\nE\n');
+    run(repo, 'checkout', '-q', 'main');
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await expect(checkout(repo, 'later', false, git)).rejects.toThrow(
+      /Your local changes to the following files would be overwritten by checkout:\n\tfive\.txt/,
+    );
+    const smart = () =>
+      preserving(repo, 'stash', 'Checkout', new Date(2026, 10, 12, 9, 30), git, () =>
+        checkout(repo, 'later', false, git),
+      );
+    expect(await smart()).toBe(true);
+    expect(current(repo)).toBe('later');
+    expect(read(repo, 'five.txt')).toBe('A\nb\nc\nd\nE\n');
+    expect(run(repo, 'stash', 'list')).toBe('');
+    // Changes the checkout's own collide with: kept saved, as IntelliJ's says.
+    run(repo, 'checkout', '-q', '-f', 'main');
+    writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\nX\n');
+    expect(await smart()).toBe(false);
+    expect(current(repo)).toBe('later');
+    expect(run(repo, 'stash', 'list')).toMatch(/Uncommitted changes before Checkout at /);
+    // Force: overwritten.
+    run(repo, 'checkout', '-q', '-f', 'main');
+    run(repo, 'stash', 'drop', '-q');
+    writeFileSync(join(repo, 'five.txt'), 'A\nb\nc\nd\ne\n');
+    await checkout(repo, 'later', false, git, true);
+    expect(current(repo)).toBe('later');
+    expect(read(repo, 'five.txt')).toBe('a\nb\nc\nd\nE\n');
+  });
+
+  it('saves nothing with nothing to save, and puts the changes back when the operation fails', async () => {
+    const repo = repository();
+    expect(
+      await preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'side', false, git),
+      ),
+    ).toBe(true);
+    expect(run(repo, 'stash', 'list')).toBe('');
+    // Failing with nothing saved: git's words.
+    await expect(
+      preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'nowhere', false, git),
+      ),
+    ).rejects.toThrow(/nowhere/);
+    writeFileSync(join(repo, 'shared.txt'), 'mine\n');
+    await expect(
+      preserving(repo, 'stash', 'Checkout', new Date(), git, () =>
+        checkout(repo, 'nowhere', false, git),
+      ),
+    ).rejects.toThrow(/nowhere/);
+    expect(read(repo, 'shared.txt')).toBe('mine\n');
+    expect(run(repo, 'stash', 'list')).toBe('');
+  });
+
+  it('gets files as a branch has them: checked out, or removed where it has none, staged', async () => {
+    const repo = repository();
+    // On main: main.txt is main's own; shared.txt changed here; side.txt is side's.
+    writeFileSync(join(repo, 'shared.txt'), 'changed\n');
+    await getFrom(repo, 'side', ['side.txt', 'shared.txt'], ['main.txt'], git);
+    expect(read(repo, 'side.txt')).toBe('side');
+    expect(read(repo, 'shared.txt')).toBe('one\n');
+    expect(existsSync(join(repo, 'main.txt'))).toBe(false);
+    expect(run(repo, 'status', '--porcelain').split('\n').filter(Boolean).sort()).toEqual([
+      'A  side.txt',
+      'D  main.txt',
+    ]);
+    // Nothing to do: git isn't run.
+    await getFrom(repo, 'side', [], [], git);
+    // A path is a path, not a pattern.
+    writeFileSync(join(repo, '*.txt'), 'star');
+    run(repo, 'add', '*.txt');
+    await getFrom(repo, 'side', [], ['*.txt'], git);
+    expect(existsSync(join(repo, 'side.txt'))).toBe(true);
   });
 
   it('checks out a tag, a commit or a branch with HEAD detached; not what isn’t a reference', async () => {
@@ -141,7 +236,16 @@ describe('branch operations, with real git', () => {
   it('deletes a branch, an unmerged one too, saying so; restores it where it was', async () => {
     const repo = repository();
     const tip = run(repo, 'rev-parse', 'side').trim();
-    expect(await deleteBranch(repo, 'side', git)).toEqual({ hash: tip, unmerged: true });
+    expect(await deleteBranch(repo, 'side', git)).toEqual({
+      hash: tip,
+      unmerged: true,
+      base: 'main',
+    });
+    await restoreBranch(repo, 'side', tip, git);
+    // HEAD detached: not merged to it.
+    run(repo, 'checkout', '-q', '--detach', 'main');
+    expect((await deleteBranch(repo, 'side', git)).base).toBe('HEAD');
+    run(repo, 'checkout', '-q', 'main');
     await restoreBranch(repo, 'side', tip, git);
     expect(run(repo, 'rev-parse', 'side').trim()).toBe(tip);
     run(repo, 'branch', 'merged');
@@ -161,6 +265,16 @@ describe('branch operations, with real git', () => {
       hash: tip,
       unmerged: false,
       tracked: 'origin/side',
+    });
+    // Merged to HEAD, not to where it tracks: not merged there, as git says.
+    run(clone, 'branch', '--track', 'ahead', 'origin/side');
+    run(clone, 'checkout', '-q', 'ahead');
+    commit(clone, 'ahead');
+    run(clone, 'checkout', '-q', 'main');
+    run(clone, 'merge', '-q', '--no-edit', 'ahead');
+    expect(await deleteBranch(clone, 'ahead', git)).toMatchObject({
+      unmerged: true,
+      base: 'refs/remotes/origin/side',
     });
     // Another branch tracking it too: not proposed.
     run(clone, 'branch', '--track', 'one', 'origin/side');

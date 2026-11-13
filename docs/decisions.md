@@ -3274,8 +3274,17 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     branch and as it is, as the Log's commit's files do; "No differences" when none do, and git's
     words where they can't be read (IntelliJ shows an error dialog: open to change). Another
     comparison takes the place of the one before. **Claude's, open to change:** Diff's icon for
-    the window (IntelliJ's new UI has a Changes icon). **Not yet:** IntelliJ's Swap Branches and Get
-    from Branch.
+    the window (IntelliJ's new UI has a Changes icon). **Get from Branch** (added 2026-11-12), in
+    the window's toolbar and a file's menu, as IntelliJ's (`GetVersionActionProvider`,
+    `GitLocalCommitCompareInfo.copyChangesFromBranch`, `ReplaceFileConfirmationDialog`, read from
+    their source): the selected file made as the branch has it, in the index too (`git restore
+    --source=feature --staged --worktree`, or `git rm` where the branch has none; a renamed one,
+    the branch's path back in place of this one), recorded in the Local History as "Get from
+    feature", the documents saved first, then the list read again. A file with local changes asks
+    first ("File a.ts has been locally modified.", Overwrite Modified File); git's words in IntelliJ's
+    "Cannot Copy Changes" error dialog. Its icon, an arrow down onto a line, is IntelliJ's
+    `AllIcons.Actions.Download` (a claim: not IntelliJ's drawing). **Not yet:** IntelliJ's Swap
+    Branches; several files at once (the list selects one); the window's toolbar's other actions.
   - **Update** (added 2026-11-12), after Merge, as IntelliJ's (`GitUpdateSelectedBranchAction`,
     read from its source): for a local branch, the current one too, as the Log's branches pane's
     Update Selected (the same code): the one checked out by Update Project, another fetched from
@@ -3296,9 +3305,43 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     (IntelliJ's does nothing there: open to change).
   - After each, the Commit window's lists, the repository's state, the branches and the worktrees
     are read again: the branch selector, the tab and the status bar follow a checkout.
-- **Not yet:** IntelliJ's smart checkout and smart merge (local changes in the way: git's error for
-  now); View Commits after a
-  delete (IntelliJ's shows the commits discarded in its not fully merged dialog); the menu opening on hover; favourites and Recent.
+  - **Smart Checkout** (added 2026-11-12), as IntelliJ's (`GitCheckoutOperation`,
+    `GitSmartOperationDialog`, `GitPreservingProcess`, read from their source): where git says
+    local changes would be overwritten by a checkout (a branch's, a tag's, Checkout Tag or Revision…,
+    a new branch checked out from elsewhere, and Checkout's Drop Local Commits; changed
+    2026-11-12, at first a branch's only), "Git Checkout Problem" lists the
+    files git names, in IntelliJ's words ("Your local changes to the following files would be
+    overwritten by checkout. Cerebro can shelve the changes, checkout and unshelve them after
+    that.", or stash and unstash, as Settings' Save changes says). Smart Checkout saves the local
+    changes ("Uncommitted changes before Checkout at …"), checks out, and puts them back; where they
+    don't go back, they stay saved, and IntelliJ's "Local changes were not restored" says so, with
+    View saved changes…, as Update's. Force Checkout overwrites them (`git checkout -f`). Don't
+    Checkout does nothing, and says nothing (IntelliJ's, with one repository). **Claude's, open to
+    change:** Force Checkout sits beside Smart Checkout (IntelliJ's is at the dialog's left), and
+    the dialog's first button has the focus (IntelliJ's Don't Checkout has it); the files are a
+    list, not IntelliJ's changes tree with Rollback.
+  - **Smart Merge** (added 2026-11-12), Merge into Current's, as IntelliJ's (`GitMergeOperation`,
+    read from its source): where git says local changes would be overwritten by the merge, "Git
+    Merge Problem", in the same words with "merge", and Smart Merge or Don't Merge (no Force, as
+    IntelliJ's). The changes are saved ("Uncommitted changes before Merge at …"), and put back
+    after the merge; at its conflicts, once they're resolved and the merge committed, as IntelliJ's
+    (`GitPreservingProcess.execute(myConflictedRepositories::isEmpty)`). **Claude's, open to
+    change:** left with conflicts, they stay saved and "Local changes were not restored" says so;
+    IntelliJ says that too, then tries to put them back over the unmerged files after its Conflicts
+    dialog closes.
+  - **View Commits** (added 2026-11-12), on the notification after a branch not fully merged was
+    deleted, as IntelliJ's (`GitDeleteBranchOperation`, `GitBranchIsNotFullyMergedDialog`, read
+    from their source): "Branch Was Not Fully Merged", "The branch X was not fully merged to Y.
+    Below is the list of unmerged commits.", the commits in `Y..X` beside the selected one's files,
+    and Restore or Close. Y is what git names ("not yet merged to 'refs/remotes/origin/x'", its
+    upstream; measured with real git), or else the current branch (HEAD when detached), as
+    IntelliJ's. **Claude's, open to change:** Restore from the dialog leaves the notification up
+    (the notifications have no way to expire one yet); its own Restore stays there too.
+- **A branch's menu opens on a click, Enter or Right only, not on hover:** as IntelliJ's
+  (`GitBranchesPopupStepBase.isAutoSelectionEnabled()` is false there, so its hover timer opens
+  nothing; read from its source). It was listed below as not yet done until then (changed
+  2026-11-12).
+- **Not yet:** favourites and Recent.
 
 ## Annotate with Git Blame (2026-11-09)
 

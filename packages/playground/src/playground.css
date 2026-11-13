@@ -112,6 +112,19 @@ body,
   gap: 6px;
 }
 
+/* Branch Was Not Fully Merged: the commits, and beside them the selected one's files. */
+.playground-unmerged {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  height: 320px;
+  margin-top: 10px;
+}
+
+.playground-unmerged__commits {
+  min-height: 0;
+}
+
 /* The Create New Branch dialog's checkboxes, under the name. */
 .playground-branch-options {
   display: flex;
@@ -1296,12 +1309,14 @@ body,
   color: var(--cerebro-text-muted);
 }
 
-.playground-log__commits .cerebro-tree-row__arrow {
+.playground-log__commits .cerebro-tree-row__arrow,
+.playground-unmerged__commits .cerebro-tree-row__arrow {
   display: none;
 }
 
 /* The row's content takes its width: the author and date in columns at its end. */
-.playground-log__commits .cerebro-tree-row__content {
+.playground-log__commits .cerebro-tree-row__content,
+.playground-unmerged__commits .cerebro-tree-row__content {
   flex: auto;
 }
 
