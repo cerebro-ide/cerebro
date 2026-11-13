@@ -727,6 +727,23 @@ describe('a commit’s pane', () => {
     commands.execute('log.files.showChangesToParents');
   });
 
+  it('shows no commit once the selected one is gone, the Log read again', async () => {
+    const [c0, c1] = history(2) as [LogCommit, LogCommit];
+    git.log = [c0, c1];
+    git.changes['c1..c0'] = [{ path: 'a.ts', status: 'modified' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['a.ts']);
+    // Replaced, as by Undo Commit.
+    git.log = [c1];
+    commands.execute('log.refresh');
+    await expect.poll(subjects).toEqual(['Change 1']);
+    await expect
+      .poll(() => pane().querySelector('.playground-project__empty')?.textContent)
+      .toBe('No commits selected');
+  });
+
   it('shows the selected commit’s files and details, and opens a file’s diff or the file', async () => {
     git.log = history(2);
     git.changes['c1..c0'] = [
