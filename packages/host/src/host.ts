@@ -98,6 +98,7 @@ import {
 import { applyChanges, applyCommit, continueApplying, getVersion } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
+import { reword, rewordCheck } from './reword.js';
 import {
   abortOperation,
   acceptSide,
@@ -848,6 +849,20 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       undoCommit(worktree, hash, named, git),
     );
   });
+  // The Log's Edit Commit Message…: first whether it can be done (HEAD's commit, or why not), then
+  // the message given, if HEAD is still there. Files aren't touched, so nothing's recorded.
+  connection.onRequest('git.rewordCheck', (params) =>
+    rewordCheck(text(params, 'path'), hashOf(params), protectedOf(params), git),
+  );
+  connection.onRequest('git.reword', (params) =>
+    reword(
+      text(params, 'path'),
+      hashOf(params),
+      text(params, 'message'),
+      hashOf(params, 'head'),
+      git,
+    ),
+  );
   // The Log's Cherry-Pick: `protected` names the branches on a remote that make a commit
   // published, its message then saying where it's from.
   connection.onRequest('git.cherryPick', async (params) => {

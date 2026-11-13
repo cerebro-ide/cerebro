@@ -1260,6 +1260,48 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('checks a commit’s message can be edited, then edits it, as asked', async () => {
+    const git = vi.fn<Git>((_cwd, args) => {
+      const [command] = bare(args);
+      if (command === 'merge-base' || command === 'config') {
+        return Promise.reject(new Error('exit 1'));
+      }
+      if (command === 'rev-list') return Promise.resolve('');
+      if (command === 'cat-file') {
+        return Promise.resolve(
+          'tree t\nauthor A <a@x> 1 +0000\ncommitter A <a@x> 1 +0000\n\nold\n',
+        );
+      }
+      return Promise.resolve(command === 'rev-parse' ? 'abc1234\n' : 'made\n');
+    });
+    const { ui } = connect(git);
+    expect(
+      await ui.request('git.rewordCheck', { path: '/w', hash: 'abc1234', protected: ['main'] }),
+    ).toEqual({ refused: 'The commit is not in the current branch' });
+    await ui.request('git.reword', {
+      path: '/w',
+      hash: 'abc1234',
+      message: 'new',
+      head: 'abc1234',
+    });
+    expect(git).toHaveBeenCalledWith('/w', [
+      'update-ref',
+      '-m',
+      'reword abc1234 by Cerebro',
+      'HEAD',
+      'made',
+      'abc1234',
+    ]);
+    for (const params of [
+      { hash: 'abc1234', message: 'new', head: '--x' },
+      { hash: 'abc1234', head: 'abc1234' },
+    ]) {
+      await expect(ui.request('git.reword', { path: '/w', ...params })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('lists tags, checks a revision and makes a tag, as asked', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       bare(args)[0] === 'rev-parse'
