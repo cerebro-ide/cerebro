@@ -15,6 +15,8 @@ const git = {
   failure: undefined as Error | undefined,
   /** Undo's answer: done, refused, or failed. */
   undo: null as { refused: string } | null | Error,
+  /** HEAD's commit, as the Log reads it for Edit again. */
+  head: [] as unknown[] | Error,
 };
 const host = new FakeHost({
   'git.editCheck': () => git.check,
@@ -27,6 +29,10 @@ const host = new FakeHost({
     await git.done;
     if (git.failure) throw git.failure;
     return 'bbbb2222';
+  },
+  'git.log': () => {
+    if (git.head instanceof Error) throw git.head;
+    return git.head;
   },
   'git.undoEdit': async () => {
     await git.done;
@@ -85,6 +91,7 @@ beforeEach(() => {
   git.done = Promise.resolve();
   git.failure = undefined;
   git.undo = null;
+  git.head = [];
   read.mockClear();
   select.mockClear();
 });
@@ -342,7 +349,7 @@ describe('Undo, in the notification, as IntelliJ’s', () => {
     await press('OK');
     await done;
     const said = last();
-    expect(said?.actions.map((a) => a.label)).toEqual(['Undo']);
+    expect(said?.actions.map((a) => a.label)).toEqual(['Undo', 'Edit again']);
     read.mockClear();
     let release: () => void = () => undefined;
     git.done = new Promise<void>((resolve) => {
@@ -387,5 +394,57 @@ describe('Undo, in the notification, as IntelliJ’s', () => {
     await expect.poll(() => last()?.title).toBe('Undo drop failed');
     expect(last()?.content).toBe('error: Entry two.txt not uptodate. Cannot merge.');
     expect(notifications.all.toArray()).toContain(said);
+  });
+
+  it('has Edit again for HEAD’s commit, which rewords HEAD’s commit as it is then', async () => {
+    const done = reword();
+    await dialog();
+    await press('OK');
+    await done;
+    const said = last();
+    expect(said?.actions.map((a) => a.label)).toEqual(['Undo', 'Edit again']);
+    git.head = [{ ...commit, hash: 'aaaa1111', subject: 'Fixed', body: '' }];
+    said?.actions[1]?.run();
+    expect(notifications.all.toArray()).not.toContain(said);
+    const box = await dialog();
+    expect(box.textContent).toContain('Edit message for commit aaaa1111 by Ada');
+    expect(field(box).value).toBe('Fixed');
+    await press('OK');
+    await expect.poll(() => host.params('git.reword').at(-1)).toMatchObject({ hash: 'aaaa1111' });
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: 1,
+      branches: ['HEAD'],
+    });
+  });
+
+  it('has no Edit again for an older commit, and does nothing without HEAD’s commit', async () => {
+    git.check = { head: 'ffff0000' };
+    const done = reword();
+    await dialog();
+    await press('OK');
+    await done;
+    expect(last()?.actions.map((a) => a.label)).toEqual(['Undo']);
+    // HEAD's commit, reworded; then none read, or the reading fails.
+    git.check = { head: commit.hash };
+    const again = reword();
+    await dialog();
+    await press('OK');
+    await again;
+    const said = last();
+    const asked = host.params('git.reword').length;
+    said?.actions[1]?.run();
+    await expect.poll(() => host.params('git.log').length).toBeGreaterThan(0);
+    const failed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.head = new Error('no HEAD');
+    const next = reword();
+    await dialog();
+    await press('OK');
+    await next;
+    last()?.actions[1]?.run();
+    await expect.poll(() => failed.mock.calls.length).toBe(1);
+    expect(host.params('git.reword')).toHaveLength(asked + 1);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
   });
 });
