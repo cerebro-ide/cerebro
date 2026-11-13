@@ -2666,7 +2666,12 @@ items of the submenu").
 - **Claims and differences:** IntelliJ's is off when there's nothing to compare with
   (`nothingToCompare`: no other branch); Cerebro's is on for any file of a repository, the popup
   then empty. IntelliJ's local title with HEAD detached is the short hash; Cerebro's says "Local".
-- **Not yet:** the popup's Recent group, favourites and its settings; comparing a folder.
+- **Recent and favorites** (added 2026-11-13), as IntelliJ's (`GitCompareWithBranchesTreeModel`,
+  read from its source): the branches popup's Recent group (decision "Branches"), but the current
+  branch, before Local, which lists the others; in each group favorites first, then by name, a
+  favorite with its star, which can't be clicked here (IntelliJ's `favoriteToggleOnClickSupported`
+  is false for this popup).
+- **Not yet:** the popup's settings; comparing a folder.
 
 ## Git → Current File → Show Diff (2026-11-12)
 

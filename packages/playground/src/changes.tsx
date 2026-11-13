@@ -43,7 +43,8 @@ import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
 import { compareRefs } from './compare-branches.js';
 import { branchName, natural } from './git-refs.js';
-import { icon } from './icons.js';
+import { isFavorite, repositoryOf } from './branch-favorites.js';
+import { favoriteIcon, icon } from './icons.js';
 import { carets } from './navigation.js';
 import { notifications } from './notifications.js';
 import { openPush } from './push.js';
@@ -754,37 +755,65 @@ async function flipAmend(changes: Changes): Promise<void> {
 /** The Commit window's commands, shortcuts and menus. */
 /**
  * IntelliJ's popup for Compare with Branch or Tag (`GitCompareWithBranchPopup`, read in its
- * source): the worktree's local branches but the current one, its remote ones and its tags,
- * searchable; the one chosen, named in full. Its Recent group and favourites aren't here.
+ * source): the worktree's recent branches but the current one, as checked out; its other local
+ * branches, its remote ones and its tags, favorites first, searchable; the one chosen, named in
+ * full. A favorite has its star, which can't be clicked here, as IntelliJ's.
  */
 async function pickRef(host: Host, worktree: string): Promise<string | undefined> {
-  const [refs, tags] = (await Promise.all([
+  const [refs, tags, checkouts] = (await Promise.all([
     host.request('git.branches', { worktree }),
     host.request('git.tags', { path: worktree }),
-  ])) as [{ ref: string; current: boolean }[], string[]];
+    // Where they can't be read (no commit yet), none is recent.
+    (host.request('git.recentCheckouts', { path: worktree }) as Promise<string[]>).catch(
+      (error: unknown) => {
+        console.error('Reading the recent branches failed', error);
+        return [];
+      },
+    ),
+  ])) as [{ ref: string; current: boolean }[], string[], string[]];
+  const repository = repositoryOf(worktree);
   type Choice = PickerItem & { ref: string };
+  const choice = (ref: string, label: string, group: string): Choice => ({
+    label,
+    group,
+    ref,
+    ...(isFavorite(repository, ref) ? { icon: () => favoriteIcon() } : {}),
+  });
+  /** IntelliJ's order (GitBranchesTreeModel): favorites first, then by name. */
+  const sorted = (choices: Choice[]) =>
+    choices.sort(
+      (a, b) =>
+        Number(isFavorite(repository, b.ref)) - Number(isFavorite(repository, a.ref)) ||
+        natural(a.label, b.label),
+    );
+  const others = refs.filter((r) => !r.current);
+  const recent = checkouts.filter((name) => others.some((r) => r.ref === `refs/heads/${name}`));
   const branches = (prefix: string, group: string): Choice[] =>
-    refs
-      .filter((r) => r.ref.startsWith(prefix) && !r.current)
-      .flatMap((r) => {
-        const name = branchName(r.ref);
-        return name === undefined ? [] : [{ label: name, group, ref: r.ref }];
-      })
-      .sort((a, b) => natural(a.label, b.label));
+    sorted(
+      others
+        .filter((r) => r.ref.startsWith(prefix))
+        .flatMap((r) => {
+          const name = branchName(r.ref);
+          return name === undefined || (group === 'Local' && recent.includes(name))
+            ? []
+            : [choice(r.ref, name, group)];
+        }),
+    );
   const groups = [
+    recent.map((name) => choice(`refs/heads/${name}`, name, 'Recent')),
     branches('refs/heads/', 'Local'),
     branches('refs/remotes/', 'Remote'),
-    [...tags].sort(natural).map((tag) => ({ label: tag, group: 'Tags', ref: `refs/tags/${tag}` })),
+    sorted(tags.map((tag) => choice(`refs/tags/${tag}`, tag, 'Tags'))),
   ];
   const title = 'Select Branch to Compare';
-  const choice = await openPicker<Choice>({
+  const chosen = await openPicker<Choice>({
     label: title,
     header: () => <span class="playground-popup__title">{title}</span>,
     placeholder: 'Search for branches and tags',
     position: 'top',
     items: (query) => groups.flatMap((group) => fuzzyFilter(group, query)),
   }).result;
-  return choice?.ref;
+  return chosen?.ref;
 }
 
 /**

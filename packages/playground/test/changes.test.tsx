@@ -39,6 +39,7 @@ import {
   savedBefore,
   unsavedEdit,
 } from './fakes.js';
+import { repositoryOf, setFavorite } from '../src/branch-favorites.js';
 
 /** The worktree as git sees it, and what the host was asked to do to it. */
 const git = {
@@ -50,6 +51,8 @@ const git = {
   lastMessage: 'The last commit',
   state: { conflicts: false } as Record<string, unknown>,
   failing: undefined as string | undefined,
+  /** What the reflog says was checked out last. */
+  checkouts: [] as string[],
   /** Held until it resolves: a commit under way. */
   hold: undefined as Promise<void> | undefined,
   /** The files on disk, by path. */
@@ -98,6 +101,10 @@ const host = new FakeHost({
   'git.tags': () => {
     fails('git.tags');
     return ['v1.0'];
+  },
+  'git.recentCheckouts': () => {
+    fails('git.recentCheckouts');
+    return git.checkouts;
   },
   'git.state': () => git.state,
   'git.ignored': () => git.ignored,
@@ -202,6 +209,7 @@ afterEach(async () => {
   placed.length = 0;
   host.asked.length = 0;
   git.failing = undefined;
+  git.checkouts = [];
   activeTab = undefined;
   workspace.close(wt);
   vi.restoreAllMocks();
@@ -699,6 +707,35 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
     expect(menus.entries('main/git/file')).toContainEqual({
       command: 'git.file.compareWithBranch',
     });
+  });
+
+  it('lists the recent branches first, but the current one, and favorites first, as IntelliJ’s', async () => {
+    activeTab = `${wt}/notes.txt`;
+    // The latest first; the current branch and a detached HEAD's passed over.
+    git.checkouts = ['main', 'feature-10', 'HEAD'];
+    setFavorite(repositoryOf(wt), 'refs/tags/v1.0', true);
+    commands.execute('git.file.compareWithBranch');
+    expect(await popupItems()).toEqual(['feature-10', 'feature-9', 'origin/main', 'v1.0']);
+    expect(groups()).toEqual(['Recent', 'Local', 'Remote', 'Tags']);
+    await closeAll();
+    // Favorites first, with their star (origin/main is one, as IntelliJ's main is).
+    git.checkouts = [];
+    setFavorite(repositoryOf(wt), 'refs/heads/feature-10', true);
+    commands.execute('git.file.compareWithBranch');
+    expect(await popupItems()).toEqual(['feature-10', 'feature-9', 'origin/main', 'v1.0']);
+    const starred = [...document.querySelectorAll('.cerebro-popup-item')]
+      .filter((item) => item.querySelector('.cerebro-popup-item__icon svg'))
+      .map((item) => item.querySelector('.cerebro-popup-item__label')?.textContent);
+    expect(starred).toEqual(['feature-10', 'origin/main', 'v1.0']);
+    await closeAll();
+    setFavorite(repositoryOf(wt), 'refs/heads/feature-10', false);
+    setFavorite(repositoryOf(wt), 'refs/tags/v1.0', false);
+    // Where the recent can't be read (no commit yet), none is recent.
+    git.failing = 'git.recentCheckouts';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    commands.execute('git.file.compareWithBranch');
+    expect(await popupItems()).toEqual(['feature-9', 'feature-10', 'origin/main', 'v1.0']);
+    expect(logged.mock.calls[0]?.[0]).toBe('Reading the recent branches failed');
   });
 
   it('says on the console when the branches can’t be read', async () => {
