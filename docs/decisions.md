@@ -4165,9 +4165,14 @@ after IntelliJ, open to change.
   - **Claude's, open to change:** a blank text isn't kept; nothing opens with no history yet
     (IntelliJ's shows an empty list); the list has a search field and is at least 360 pixels
     wide (IntelliJ's is a plain list, as wide as its texts up to the field's width and 200 more).
+  - The popup opens with the last search in its field, selected so typing replaces it, and finds
+    it; Replace in Files' Replace field has the last replacement (2026-11-13). As IntelliJ's
+    `FindPopupPanel.initByModel`, which takes `getMostRecentFindString` and
+    `getMostRecentReplaceString` when nothing else asks for a text, and selects the field's all
+    (read from its source).
 - **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
-  options; Replace All undone as one step across files; the field filled with the last search as
-  the popup opens, as IntelliJ's (`getMostRecentFindString`).
+  options; Replace All undone as one step across files; the field filled with the editor's
+  selection, which IntelliJ takes before the last search.
 
 ## Editing and saving (2026-10-26)
 

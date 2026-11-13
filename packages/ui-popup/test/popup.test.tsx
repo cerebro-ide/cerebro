@@ -68,6 +68,15 @@ describe('openPicker', () => {
     expect(highlightedLabel()).toBe('README.md');
   });
 
+  it('opens with text in its field when asked, selected, its items those it finds', async () => {
+    picker({ query: 'shell' });
+    expect(search().value).toBe('shell');
+    expect([search().selectionStart, search().selectionEnd]).toEqual([0, 5]);
+    expect(labels()).toEqual(['shell.tsx']);
+    await userEvent.keyboard('main');
+    expect(labels()).toEqual(['main.ts']);
+  });
+
   it('opens with another item highlighted when asked, until the query changes', () => {
     picker({ initial: 1 });
     expect(highlightedLabel()).toBe('main.ts');

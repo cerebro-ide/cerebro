@@ -270,7 +270,10 @@ export async function findInFiles(options: FindOptions): Promise<void> {
   if (!host || worktree === undefined) return;
   const within = file?.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : '';
   const directory = signal(within.split('/').slice(0, -1).join('/'));
-  const query = signal('');
+  // The last search, and the last replacement, as IntelliJ's popup opens with
+  // (getMostRecentFindString).
+  const query = signal(searchHistory.texts()[0] ?? '');
+  if (replacing) replacement.set(replaceHistory.texts()[0] ?? replacement.peek());
   const matchCase = signal(false);
   const words = signal(false);
   const regex = signal(false);
@@ -490,6 +493,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     });
   };
   const picker = openPicker<Choice>({
+    query: query.peek(),
     history: {
       label: 'Search History',
       icon: icon('searchHistory'),
@@ -642,6 +646,8 @@ export async function findInFiles(options: FindOptions): Promise<void> {
       return true;
     },
   });
+  // The last search, found again.
+  search();
   const chosen = await picker.result;
   clearTimeout(timer);
   // As IntelliJ's popup saves its settings as it closes.
