@@ -1181,6 +1181,7 @@ describe('ignored files and rolling back', () => {
     );
     const { ui } = connect(git);
     expect(await ui.request('git.tags', { path: '/w' })).toEqual(['v1', 'v2']);
+    expect(await ui.request('git.recentCheckouts', { path: '/w' })).toEqual([]);
     expect(await ui.request('git.validRevision', { path: '/w', revision: 'nope' })).toBe(false);
     expect(await ui.request('git.resolveRevision', { path: '/w', revision: 'nope' })).toBe(null);
     expect(await ui.request('git.createTag', { path: '/w', name: 'v3' })).toBe(null);

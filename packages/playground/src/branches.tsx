@@ -53,6 +53,8 @@ interface HostBranch {
  */
 interface Branches {
   local: string[];
+  /** The local branches checked out last, the latest first (IntelliJ's Recent). */
+  recent: string[];
   remote: string[];
   tags: string[];
   remotes: string[];
@@ -62,6 +64,7 @@ interface Branches {
 
 const branches = signal<Branches>({
   local: [],
+  recent: [],
   remote: [],
   tags: [],
   remotes: [],
@@ -71,8 +74,15 @@ const branches = signal<Branches>({
 
 /** Reads the active worktree's branches. */
 async function readBranches(host: Host, worktree: string): Promise<void> {
-  const [list, tags, remotes] = await Promise.all([
+  const [list, checkouts, tags, remotes] = await Promise.all([
     host.request('git.branches', { worktree }) as Promise<HostBranch[]>,
+    // Where they can't be read (no commit yet), none is recent.
+    (host.request('git.recentCheckouts', { path: worktree }) as Promise<string[]>).catch(
+      (error: unknown) => {
+        console.error('Reading the recent branches failed', error);
+        return [];
+      },
+    ),
     // Where the tags can't be read, the branches show without them.
     paneSettings.showTags.peek()
       ? (host.request('git.tags', { path: worktree }) as Promise<string[]>).catch(
@@ -93,8 +103,11 @@ async function readBranches(host: Host, worktree: string): Promise<void> {
   ]);
   const named = (prefix: string) =>
     list.filter((b) => b.ref.startsWith(prefix)).map((b) => b.ref.slice(prefix.length));
+  const local = named('refs/heads/');
   branches.set({
-    local: named('refs/heads/'),
+    local,
+    // Those still branches: not a detached HEAD's commit, nor a branch since deleted.
+    recent: checkouts.filter((name) => local.includes(name)),
     remote: named('refs/remotes/'),
     tags,
     remotes,
@@ -1246,6 +1259,9 @@ export function setupBranches(
         }))
         .sort((a, b) => a.weight - b.weight)
         .map(({ branch }) => row(branch, group, repository));
+    /** The recent branches, in the order they were checked out (IntelliJ's emptyBranchComparator). */
+    const recentRows = () =>
+      branches.get().recent.map((name) => row({ name, remote: false }, 'Recent', repository));
     const handle: PickerHandle<Choice> = openPicker<Choice>({
       label: 'Branches',
       placeholder: 'Search',
@@ -1269,7 +1285,17 @@ export function setupBranches(
           ],
           query,
         ),
-        ...fuzzyFilter(rows(branches.get().local, 'local', 'Local'), query),
+        // As IntelliJ's (GitBranchesTreeModel): the recent first, as checked out, then Local
+        // without them.
+        ...fuzzyFilter(recentRows(), query),
+        ...fuzzyFilter(
+          rows(
+            branches.get().local.filter((name) => !branches.get().recent.includes(name)),
+            'local',
+            'Local',
+          ),
+          query,
+        ),
         ...fuzzyFilter(rows(branches.get().remote, 'remote', 'Remote'), query),
         // As IntelliJ's (GitBranchesTreeModel): the tags after, while Show Tags is on.
         ...fuzzyFilter(rows(branches.get().tags, 'tag', 'Tags'), query),
