@@ -44,6 +44,7 @@ import type { LogCommit } from './git-log.js';
 import { compareRefs } from './compare-branches.js';
 import { branchName, natural } from './git-refs.js';
 import { isFavorite, repositoryOf } from './branch-favorites.js';
+import { directoryTree } from './directory-tree.js';
 import { favoriteIcon, icon } from './icons.js';
 import { carets } from './navigation.js';
 import { notifications } from './notifications.js';
@@ -168,9 +169,8 @@ const fileKey = (scope: string, path: string) => `${scope}:${path}`;
 const isDirectory = (change: Change) => change.path.endsWith('/');
 
 /**
- * A list of files as rows: by name, or grouped by directory, folders first. A folder holding only
- * one folder shows as one row (`src/main`), as IntelliJ shows them. `opened` is told each folder's
- * key, to expand the ones it hasn't seen before.
+ * A list of files as rows: by name, or grouped by directory (`directoryTree`). `opened` is told
+ * each folder's key, to expand the ones it hasn't seen before.
  */
 function tree(
   scope: string,
@@ -184,51 +184,17 @@ function tree(
     change,
     ...(turn ? { turn } : {}),
   });
-  const sorted = [...changes].sort((a, b) => a.path.localeCompare(b.path));
-  if (!byDirectory.peek()) return sorted.map(file);
-  interface Dir {
-    dirs: Map<string, Dir>;
-    files: Change[];
+  if (!byDirectory.peek()) {
+    return [...changes].sort((a, b) => a.path.localeCompare(b.path)).map(file);
   }
-  const root: Dir = { dirs: new Map(), files: [] };
-  for (const change of sorted) {
-    const parts = change.path.replace(/\/$/, '').split('/');
-    let dir = root;
-    for (const part of parts.slice(0, -1)) {
-      let next = dir.dirs.get(part);
-      if (!next) {
-        next = { dirs: new Map(), files: [] };
-        dir.dirs.set(part, next);
-      }
-      dir = next;
-    }
-    dir.files.push(change);
-  }
-  const count = (dir: Dir): number =>
-    dir.files.length + [...dir.dirs.values()].reduce((sum, d) => sum + count(d), 0);
-  const items = (dir: Dir, prefix: string): Item[] => [
-    ...[...dir.dirs].map(([name, sub]): Item => {
-      let label = name;
-      let inner = sub;
-      // A folder holding only one folder shows as one row.
-      while (inner.files.length === 0 && inner.dirs.size === 1) {
-        const [childName, child] = [...inner.dirs][0] as [string, Dir];
-        label = `${label}/${childName}`;
-        inner = child;
-      }
-      const key = fileKey(scope, `${prefix}${label}/`);
+  return directoryTree<Change, Item>(changes, (change) => change.path, {
+    file,
+    folder: ({ path, name, count, children }) => {
+      const key = fileKey(scope, path);
       opened(key);
-      return {
-        kind: 'folder',
-        key,
-        name: label,
-        count: count(inner),
-        children: items(inner, `${prefix}${label}/`),
-      };
-    }),
-    ...dir.files.map(file),
-  ];
-  return items(root, '');
+      return { kind: 'folder', key, name, count, children };
+    },
+  });
 }
 
 interface Changes {
@@ -1309,13 +1275,7 @@ function content(item: Item): Node[] {
         : []),
     ] as Node[];
   }
-  if (item.kind === 'folder') {
-    return [
-      icon('folder'),
-      <span class="playground-change">{item.name}</span>,
-      <span class="playground-change__folder">{files(item.count)}</span>,
-    ] as Node[];
-  }
+  if (item.kind === 'folder') return folderContent(item.name, item.count);
   if (item.kind === 'turn') {
     return [
       icon('agent'),
@@ -1325,6 +1285,15 @@ function content(item: Item): Node[] {
     ] as Node[];
   }
   return changeContent(item.change);
+}
+
+/** A folder's row in a tree of changes: its name, then how many files are under it. */
+export function folderContent(name: string, count: number): Node[] {
+  return [
+    icon('folder'),
+    <span class="playground-change">{name}</span>,
+    <span class="playground-change__folder">{files(count)}</span>,
+  ] as Node[];
 }
 
 /** A changed file's row: its name in its status's colour, then its folder if the list is flat. */

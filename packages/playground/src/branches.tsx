@@ -925,7 +925,7 @@ export function setupBranches(
                   label: 'View Commits',
                   run: () => {
                     const unmerged = { host, worktree, name: b.name, tip: deleted.hash, base };
-                    void showUnmergedCommits(unmerged, setup.openTab).then(
+                    void showUnmergedCommits(unmerged, services, setup.openTab).then(
                       (again) => (again ? restore() : undefined),
                       (error: unknown) => {
                         console.error('Reading the unmerged commits failed', error);

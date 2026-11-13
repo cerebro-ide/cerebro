@@ -159,6 +159,15 @@ describe('Show Diff with Working Tree’s window', () => {
     ]);
   });
 
+  it('has no menu on a folder’s row, only on a file’s', async () => {
+    differing.inFolders = [{ path: 'src/a.ts', status: 'modified' }];
+    mount();
+    show('inFolders');
+    await userEvent.click(await fileRow('folder:src/'), { button: 'right' });
+    expect(document.querySelector('.cerebro-menu')).toBeNull();
+    expect(asked()).toEqual([]);
+  });
+
   it('is off with no file selected', async () => {
     mount();
     show('feature');

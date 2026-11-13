@@ -6,6 +6,7 @@
 import type { Tab } from '@cerebro-ide/layout';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { formatCommitDate } from './dates.js';
 import type { Host } from './environments.js';
@@ -23,6 +24,7 @@ export interface Unmerged {
 /** Shows the commits; whether Restore was chosen. */
 export async function showUnmergedCommits(
   branch: Unmerged,
+  services: MenuServices,
   open: (tab: Tab, chain?: readonly string[]) => void,
 ): Promise<boolean> {
   const { host, worktree, name, tip, base } = branch;
@@ -72,6 +74,7 @@ export async function showUnmergedCommits(
             const commit = commits.find((c) => c.hash === list.selected);
             return commit ? (
               <CommitFiles
+                services={services}
                 host={host}
                 worktree={worktree}
                 range={rangeOf(commit)}

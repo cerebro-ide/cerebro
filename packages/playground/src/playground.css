@@ -1269,6 +1269,24 @@ body,
   min-height: 0;
 }
 
+/* A commit's files under their toolbar, as IntelliJ's changes browser in the Log. */
+.playground-log__files {
+  display: flex;
+  flex-direction: column;
+}
+
+.playground-log__files-toolbar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.playground-log__files-toolbar .cerebro-toolbar-button {
+  width: 26px;
+  height: 26px;
+}
+
 /* A favorite's star, filled. */
 .playground-icon--filled path {
   fill: currentColor;
@@ -1347,11 +1365,6 @@ body,
 .playground-working-tree-diff {
   display: flex;
   height: 100%;
-  flex-direction: column;
-}
-
-.playground-working-tree-diff > .playground-log__files {
-  display: flex;
   flex-direction: column;
 }
 

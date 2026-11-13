@@ -136,6 +136,7 @@ export function DiffWithWorkingTree(props: {
           />
         </div>
         <CommitFiles
+          services={services}
           host={diff.host}
           worktree={diff.worktree}
           range={{ from: diff.ref }}

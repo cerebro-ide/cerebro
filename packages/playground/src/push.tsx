@@ -596,6 +596,7 @@ function PushLog(props: { worktree: string; state: PushState; host: Host }): Nod
           const oldest = commits.at(-1) as LogCommit;
           return (
             <CommitFiles
+              services={menuServices as MenuServices}
               host={props.host}
               worktree={props.worktree}
               range={{ from: oldest.parents[0] ?? EMPTY_TREE, to: (commits[0] as LogCommit).hash }}
@@ -768,6 +769,9 @@ const FETCH_FIRST = 'Fetch first. The remote has commits that are not fetched.';
  * checked out, or `source`, as the branches popup's Push gives it; up to `upTo`, as the Log's Push
  * All up to Here… does, that commit and the ones before it, not those after.
  */
+/** The app's commands and menus, for the dialog's: set up before a push can be asked for. */
+let menuServices: MenuServices | undefined;
+
 export async function openPush(
   worktree: string,
   what: { upTo?: string; source?: string } = {},
@@ -1041,6 +1045,7 @@ const pushTarget = (context: unknown): LogCommitContext | undefined =>
     : (context as LogCommitContext);
 
 export function setupPush(services: MenuServices): void {
+  menuServices = services;
   const { commands, menus, keymap } = services;
   commands.register({
     id: 'vcs.push',

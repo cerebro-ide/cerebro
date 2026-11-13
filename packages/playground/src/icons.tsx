@@ -49,6 +49,9 @@ const PATHS: Record<string, string> = {
   rollback: 'M3 6.5h7a3 3 0 0 1 0 6H6M5.5 4L3 6.5 5.5 9',
   diff: 'M2.5 3.5h4.5v9H2.5zM9 3.5h4.5v9H9zM4 6.5h1.5M10.5 9.5H12',
   eye: 'M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8s-2.5 4.5-6.5 4.5S1.5 8 1.5 8zM8 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z',
+  // Group By, for a changes tree's grouping (IntelliJ's AllIcons.Actions.GroupBy; this drawing is
+  // Claude's): a folder's rows under it.
+  groupBy: 'M2.5 3.5h5M5 6.5h8.5M5 9.5h8.5M5 12.5h8.5M3 4v8.5h2M3 6.5h2M3 9.5h2',
   // IntelliJ's ⋮ (moreVertical), for a tool window's Options.
   more: 'M7.4 3.5a.6.6 0 1 0 1.2 0a.6.6 0 1 0-1.2 0zM7.4 8a.6.6 0 1 0 1.2 0a.6.6 0 1 0-1.2 0zM7.4 12.5a.6.6 0 1 0 1.2 0a.6.6 0 1 0-1.2 0z',
   locate: 'M8 3.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9zM8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3',
