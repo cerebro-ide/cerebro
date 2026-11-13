@@ -72,7 +72,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13)
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13); the Log's Drop Commit, as its in-memory drop (changed 2026-11-13)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -3073,6 +3073,28 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   - **Not yet:** the notification's Undo, and Edit Again for HEAD's commit; IntelliJ's notes copied
     and `post-rewrite` hook run for the commits made again; signing them (`--gpg-sign`) when
     `commit.gpgSign` is set; the Commit window's message replaced where it was the old one.
+- **The Log's Drop Commit** (added 2026-11-13), in the commit menu after Edit Commit Message…
+  (IntelliJ's Fixup and Squash Into come between; Cerebro hasn't them), as IntelliJ's
+  (`GitDropLogAction`, `InMemoryRebaseOperations`, `GitInMemoryInteractiveRebaseProcess`,
+  `GitObjectRepositoryExtensions`, read from its source). Off for a merge. Edit Commit Message…'s
+  checks first, under "Could not Drop Commits" (a rebase allows none); the first commit asked about.
+  Then IntelliJ's question, "Drop Commit": "Do you want to drop 1 commit from the **main** branch?"
+  (or "The repository is in the detached HEAD state. Do you want to drop 1 commit?"), with "Don't
+  ask again", kept whichever button is pressed, as IntelliJ's. Documents saved first; "Dropping
+  commit…" on the status bar; "Dropped 1 commit" with its subject in quotes (cut to 40), or "Could
+  not Drop Commits" with git's words. Recorded in Local History as "Drop Commit" (Cerebro's name).
+  - **Made as IntelliJ's in-memory drop:** each later commit's changes applied on what's before it
+    now, three-way (`git merge-tree --write-tree --merge-base=<its parent>`, as IntelliJ's
+    `rebaseCommit` merges trees), made again with its message and author; one left with no changes
+    of its own dropped too (`--empty=drop`), and an empty commit made where none is left. Then the
+    branch reset to the last with `git reset --keep`, if HEAD hasn't moved since the check.
+  - **Cerebro's, open to change:** a conflict changes nothing, git's words under "Could not Drop
+    Commits" (IntelliJ says "In-memory rebase failed", "Falling back to regular rebase", and
+    rebases, stopping at the conflict); `reset --keep` refuses where local changes would be lost,
+    in git's words (IntelliJ stashes them around the reset); "Don't ask again" is kept in the
+    page's storage (IntelliJ's in its application settings). After it, no commit is selected
+    (the backlog's "The Log's details keep showing a commit that's gone").
+  - **Not yet:** several commits at once (the Log selects one); Undo in the notification.
 
 ## Git → New Tag… (2026-11-11)
 

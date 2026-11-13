@@ -257,5 +257,5 @@ export {
   type Applying,
 } from './apply-changes.js';
 export { protectedBranchHolding } from './protected-branches.js';
-export { reword, rewordCheck } from './reword.js';
+export { drop, editCheck, reword, type Editing } from './commit-editing.js';
 export { resetHead, undoCommit, type ResetMode } from './reset.js';

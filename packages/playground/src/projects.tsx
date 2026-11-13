@@ -55,7 +55,7 @@ async function askWhere(): Promise<OpenIn | undefined> {
     ok: { label: 'This Window', accept: () => 'this' },
     choices: [{ label: 'New Window', accept: () => 'new' }],
     content: () => (
-      <div class="playground-open-project">
+      <div class="playground-question">
         <p>Where would you like to open the project?</p>
         <label class="playground-checkbox">
           <input

@@ -98,7 +98,7 @@ import {
 import { applyChanges, applyCommit, continueApplying, getVersion } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
-import { reword, rewordCheck } from './reword.js';
+import { drop, editCheck, reword } from './commit-editing.js';
 import {
   abortOperation,
   acceptSide,
@@ -849,11 +849,15 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       undoCommit(worktree, hash, named, git),
     );
   });
-  // The Log's Edit Commit Message…: first whether it can be done (HEAD's commit, or why not), then
-  // the message given, if HEAD is still there. Files aren't touched, so nothing's recorded.
-  connection.onRequest('git.rewordCheck', (params) =>
-    rewordCheck(text(params, 'path'), hashOf(params), protectedOf(params), git),
-  );
+  // The Log's Edit Commit Message… and Drop Commit: first whether it can be done (HEAD's commit, or
+  // why not), then done, if HEAD is still there. Rewording touches no file, so nothing's recorded.
+  connection.onRequest('git.editCheck', (params) => {
+    const editing = (params as { editing?: unknown }).editing;
+    if (editing !== 'reword' && editing !== 'drop') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'editing must be reword or drop');
+    }
+    return editCheck(text(params, 'path'), hashOf(params), editing, protectedOf(params), git);
+  });
   connection.onRequest('git.reword', (params) =>
     reword(
       text(params, 'path'),
@@ -863,6 +867,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       git,
     ),
   );
+  connection.onRequest('git.drop', (params) => {
+    const worktree = text(params, 'path');
+    const hash = hashOf(params);
+    const head = hashOf(params, 'head');
+    return recording(worktree, 'Drop Commit', git, () => drop(worktree, hash, head, git));
+  });
   // The Log's Cherry-Pick: `protected` names the branches on a remote that make a commit
   // published, its message then saying where it's from.
   connection.onRequest('git.cherryPick', async (params) => {
