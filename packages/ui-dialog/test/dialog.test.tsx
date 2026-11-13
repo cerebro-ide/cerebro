@@ -113,8 +113,11 @@ describe('openDialog', () => {
   });
 
   it('accepts with OK, giving what it accepts, and gives the focus back', async () => {
+    // Inside a shadow root, as an editor's content is.
+    const host = document.createElement('div');
     const before = document.createElement('button');
-    document.body.append(before);
+    host.attachShadow({ mode: 'open' }).append(before);
+    document.body.append(host);
     before.focus();
     const handle = dialog({ ok: { accept: () => 42 }, platform: 'other' });
     expect(buttons()).toEqual(['OK', 'Cancel']);
@@ -123,7 +126,7 @@ describe('openDialog', () => {
     expect(await handle.result).toBe(42);
     expect(handle.open).toBe(false);
     expect(document.querySelector('.cerebro-dialog-layer')).toBeNull();
-    expect(document.activeElement).toBe(before);
+    expect(host.shadowRoot?.activeElement).toBe(before);
     handle.close(7);
     expect(await handle.result).toBe(42);
   });

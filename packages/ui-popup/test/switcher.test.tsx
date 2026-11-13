@@ -114,6 +114,19 @@ describe('the Switcher', () => {
     expect(await handle.result).toBeUndefined();
   });
 
+  it('gives the focus back when it closes, inside a shadow root too (an editor’s content)', async () => {
+    const host = document.createElement('div');
+    const before = document.createElement('button');
+    host.attachShadow({ mode: 'open' }).append(before);
+    document.body.append(host);
+    before.focus();
+    const handle = switcher();
+    await userEvent.keyboard('{Escape}');
+    await handle.result;
+    expect(host.shadowRoot?.activeElement).toBe(before);
+    host.remove();
+  });
+
   it('closes the selected item with Delete or Backspace, if it goes', async () => {
     const closed: string[] = [];
     switcher({

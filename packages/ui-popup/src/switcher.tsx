@@ -9,7 +9,7 @@
 //
 // From IntelliJ's source (Switcher.kt, SwitcherActions.kt): all of the above.
 
-import { render, type Child } from '@cerebro-ide/jsx';
+import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
 
 export interface SwitcherItem {
@@ -97,8 +97,8 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     });
     this.state = new SwitcherState<T>(options);
     this.held = options.held ?? [];
-    // At least the body: a document always has a focused element.
-    this.restoreFocus = document.activeElement as HTMLElement;
+    // Inside an editor's shadow root too.
+    this.restoreFocus = focusedElement();
     this.element = document.createElement('div');
     this.element.className = 'cerebro-popup cerebro-switcher';
     this.element.setAttribute('role', 'dialog');
