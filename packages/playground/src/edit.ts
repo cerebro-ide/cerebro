@@ -132,22 +132,28 @@ export function setupEdit(commands: CommandRegistry): void {
       },
     });
   }
-  commands.register({
-    id: 'edit.duplicate',
-    // IntelliJ's `EditorDuplicate`, which its menu shows with no mnemonic.
-    label: 'Duplicate Line or Selection',
-    enabled: () => {
-      const focused = last();
-      return focused !== undefined && inChangeableEditor(focused);
-    },
-    run: () => {
-      const focused = target();
-      if (focused instanceof HTMLElement) {
-        focused.focus();
-        editorDuplicate(focused);
-      }
-    },
-  });
+  // IntelliJ's `EditorDuplicate`, which its menu shows with no mnemonic, and `EditorDuplicateLines`,
+  // in no menu and bound to no key.
+  for (const [id, label, lines] of [
+    ['edit.duplicate', 'Duplicate Line or Selection', false],
+    ['edit.duplicateLines', 'Duplicate Entire Lines', true],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: () => {
+        const focused = last();
+        return focused !== undefined && inChangeableEditor(focused);
+      },
+      run: () => {
+        const focused = target();
+        if (focused instanceof HTMLElement) {
+          focused.focus();
+          editorDuplicate(focused, lines);
+        }
+      },
+    });
+  }
   for (const [action, label] of [
     ['undo', '&Undo'],
     ['redo', '&Redo'],

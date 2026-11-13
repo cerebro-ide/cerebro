@@ -63,7 +63,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The editor's Git submenu (2026-11-13)](#the-editors-git-submenu-2026-11-13): IntelliJ's `Git.ContextMenu` in the editor's context menu, after Local History: the file's actions, Resolve Conflicts, then the repository's, of the commands Cerebro has
 - [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
-- [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
+- [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2811,7 +2811,15 @@ and in the editor its editor action takes the key. From Show Diff's Not yet (its
   Shift+Alt+Down from its shortcut sheets (its nearest, Claude's choice, open to change).
 - **Claims and differences:** Cerebro's editor has one caret, so it's done at that one; IntelliJ
   does it at each. A line in a fold is copied alone; IntelliJ copies the fold's lines with it.
-- **Not yet:** Duplicate Entire Lines (`EditorDuplicateLines`, no key in IntelliJ's keymap).
+- **Duplicate Entire Lines,** as IntelliJ's `EditorDuplicateLines` (`DuplicateLinesAction` and
+  `DuplicateAction.duplicateLinesRange`, read in its source): the whole lines a selection touches
+  put again below them, the copy selected with its line break (none after the document's last
+  line); a selection ending at a line's start leaves that line out. Without a selection, the
+  caret's line, as Duplicate Line or Selection. In Find Action only: IntelliJ puts it in no menu,
+  and none of the keymap files in its platform binds it (searched: the 10 in
+  platform/platform-resources). Undo says "Undo Duplicate Entire Lines".
+  - **A difference:** IntelliJ leaves the caret at its column in the copy, inside the selection;
+    CodeMirror's caret is a selection's end, so it's at the copy's end on the side it was on.
 
 ## Git → Current File → Show History (2026-11-12)
 
@@ -4547,6 +4555,11 @@ below, other than following IntelliJ, are Claude's and open to change.
   (IntelliJ's `MULTIPLE_CONTRIBUTORS_ELEMENTS_LIMIT`) and keeps the popup open. A new query or
   another tab starts over. The row is small and muted, as the group headers are. The popup's items
   can now show more instead of being chosen (`PickerItem.more`).
+- **The actions are those of what had the focus before it opened** (added 2026-11-13), read once
+  as it opens, as IntelliJ's Find Action takes its context from the component focused before it
+  (`GotoActionModel`, read in its source). Read as one typed, they were the popup's own field's,
+  so the code editor's commands (Duplicate Line or Selection, Duplicate Entire Lines) weren't
+  listed.
 - **Not yet:**
   - "Include non-project items", the filter and "Open In Right Split" from IntelliJ's popup.
   - Double Shift while the popup is open, which IntelliJ uses to include non-project items.

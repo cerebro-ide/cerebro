@@ -194,6 +194,23 @@ describe('Edit → Duplicate Line or Selection', () => {
   });
 });
 
+describe('Duplicate Entire Lines', () => {
+  it('duplicates the selection’s lines in the code editor that had the focus', async () => {
+    const content = editor('one\ntwo');
+    await userEvent.click(content);
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Shift>}{ArrowRight}{/Shift}');
+    expect(commands.isEnabled('edit.duplicateLines')).toBe(true);
+    commands.execute('edit.duplicateLines');
+    expect([...content.querySelectorAll('.cm-line')].map((line) => line.textContent)).toEqual([
+      'one',
+      'one',
+      'two',
+    ]);
+    await userEvent.click(field());
+    expect(commands.isEnabled('edit.duplicateLines')).toBe(false);
+  });
+});
+
 describe('Edit → Undo and Redo', () => {
   it('say what they’d do in a code editor, and do it there', async () => {
     const content = editor('one');
