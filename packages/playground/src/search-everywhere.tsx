@@ -38,7 +38,10 @@ export interface SearchSources {
   files: () => readonly Result[];
   /** The files opened lately, most recent first: what Files and All show before anything's typed. */
   recent: () => readonly Result[];
-  /** The commands. */
+  /**
+   * The commands, as they are when the popup opens: what had the focus before it, as IntelliJ's
+   * Find Action takes its context from (`GotoActionModel`), not its own search field.
+   */
   actions: () => readonly Result[];
   /** Opens a file at a place. */
   open: (at: Place) => void;
@@ -69,6 +72,7 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
   const classes = signal<Result[]>([]);
   const symbols = signal<Result[]>([]);
   const text = signal<Result[]>([]);
+  const actions = sources.actions();
   const worktree = active()?.id;
   const host = worktree === undefined ? undefined : hostFor(worktree);
   const relative = (path: string) =>
@@ -163,7 +167,7 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
       case 'symbols':
         return symbols.get();
       case 'actions':
-        return grouped(fuzzyFilter(sources.actions(), q), undefined);
+        return grouped(fuzzyFilter(actions, q), undefined);
       case 'text':
         return text.get();
       case 'all': {
@@ -175,7 +179,7 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
           ...some(classes.get(), 'Classes'),
           ...some(files(q), typed ? 'Files' : 'Recent Files'),
           ...some(others, 'Symbols'),
-          ...(typed ? some(fuzzyFilter(sources.actions(), q), 'Actions') : []),
+          ...(typed ? some(fuzzyFilter(actions, q), 'Actions') : []),
         ];
       }
     }

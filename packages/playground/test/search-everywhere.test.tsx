@@ -57,10 +57,11 @@ const opened: Place[] = [];
 const ran: string[] = [];
 const result = (label: string): Result => ({ label, run: () => void ran.push(label) });
 let recent: Result[] = [];
+let actions = ['Close Widget', 'Undo'];
 const sources: SearchSources = {
   files: () => ['widget.ts', 'window.ts', 'README.md'].map(result),
   recent: () => recent,
-  actions: () => ['Close Widget', 'Undo'].map(result),
+  actions: () => actions.map(result),
   open: (at) => void opened.push(at),
 };
 
@@ -74,6 +75,7 @@ afterEach(async () => {
   opened.length = 0;
   ran.length = 0;
   recent = [];
+  actions = ['Close Widget', 'Undo'];
   failing = false;
   host.asked.length = 0;
 });
@@ -243,6 +245,16 @@ describe('Search Everywhere', () => {
     await userEvent.keyboard('{Escape}');
     await done;
     expect(ran).toEqual([]);
+  });
+
+  it('lists the actions as they were when it opened, not as its own field changes them', async () => {
+    const { done } = await open('actions');
+    // As the Edit commands, which are off once the focus is in the popup's field.
+    actions = [];
+    await userEvent.type(search(), 'o');
+    expect(rows()).toEqual(['Undo', 'Close Widget']);
+    await userEvent.keyboard('{Escape}');
+    await done;
   });
 
   it('lists only files and actions with no worktree open', async () => {
