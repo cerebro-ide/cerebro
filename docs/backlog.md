@@ -49,12 +49,6 @@ diff's model for one link (CLAUDE.md).
 
 ## Known gaps
 
-- **Get from Branch may overwrite unsaved edits without asking** (found 2026-11-13, reading
-  `getFromBranch` while sharing its question with the Log's Get from Revision; not measured in the
-  app). It asks whether the file has local changes from git's status, then saves the documents, then
-  gets the file: an edit not yet saved isn't in the status, so it's saved and overwritten unasked.
-  The Log's Get from Revision saves first, then asks. Whether IntelliJ counts an unsaved edit as a
-  local change there is a claim, not read.
 - **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
   #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
   earlier press could still be answered; one press opened a chooser of walk's definitions, another's

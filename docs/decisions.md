@@ -2109,9 +2109,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   `GetVersionFromRepositoryActionProvider`; `GetVersionAction`, read from their source): the file in
   the working tree made as the commit left it, unstaged, or deleted where the commit deleted it;
   the Local History records it as "Get from VCS", IntelliJ's activity. Where the file has a change
-  here (untracked too), it asks first, in IntelliJ's words (`ReplaceFileConfirmationDialog`): "Get
-  Revision", "File a.ts has been locally modified.", Overwrite Modified File or Cancel. Unsaved
-  edits are saved first, as before any Git action. Where it can't be got, "Get Revision Content"
+  here (untracked, or an edit not saved yet, too), it asks first, in IntelliJ's words
+  (`ReplaceFileConfirmationDialog`): "Get Revision", "File a.ts has been locally modified.",
+  Overwrite Modified File or Cancel. An edit not saved yet is a change as IntelliJ's file status
+  has it (`FileStatusManagerImpl`: a modified document's file is MODIFIED), read from its source;
+  unsaved edits are saved once it's answered, as before any Git action (changed 2026-11-13: they
+  were saved before it asked, so cancelling had saved them). Where it can't be got, "Get Revision Content"
   says "Cannot load revision: " and git's words. The host asks git whether the commit has the file
   (`git ls-tree`) before deleting it, so a commit git can't read fails and the file stays.
   **Claims:** the file is named from the repository's top, where IntelliJ shows its whole path cut
@@ -3584,8 +3587,10 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     their source): the selected file made as the branch has it, in the index too (`git restore
     --source=feature --staged --worktree`, or `git rm` where the branch has none; a renamed one,
     the branch's path back in place of this one), recorded in the Local History as "Get from
-    feature", the documents saved first, then the list read again. A file with local changes asks
-    first ("File a.ts has been locally modified.", Overwrite Modified File); git's words in IntelliJ's
+    feature", then the list read again. A file with local changes, an
+    edit not saved yet among them, asks first ("File a.ts has been locally modified.", Overwrite
+    Modified File), then the documents are saved (changed 2026-11-13: an unsaved edit wasn't
+    asked about, and was overwritten); git's words in IntelliJ's
     "Cannot Copy Changes" error dialog. Its icon, an arrow down onto a line, is IntelliJ's
     `AllIcons.Actions.Download` (a claim: not IntelliJ's drawing). **Not yet:** IntelliJ's Swap
     Branches; several files at once (the list selects one); the window's toolbar's other actions.
