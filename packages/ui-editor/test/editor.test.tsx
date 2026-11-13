@@ -673,6 +673,26 @@ describe('CodeEditor', () => {
     expect(taken).toEqual([false]);
   });
 
+  it('leaves the keys of IntelliJ’s other actions to the app, Escape dropping the selection', async () => {
+    const root = mount({ path: 'a.txt', document: new EditorDocument('one\ntwo') });
+    const view = EditorView.findFromDOM(
+      root.querySelector('.cm-content') as HTMLElement,
+    ) as EditorView;
+    const taken: boolean[] = [];
+    const seen = (event: KeyboardEvent) => taken.push(event.defaultPrevented);
+    window.addEventListener('keydown', seen);
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    // Push, and Move Line Down: CodeMirror's deleted and copied the line.
+    await userEvent.keyboard('{Control>}{Shift>}K{/Shift}{/Control}');
+    await userEvent.keyboard('{Alt>}{Shift>}{ArrowDown}{/Shift}{/Alt}');
+    window.removeEventListener('keydown', seen);
+    expect(view.state.doc.toString()).toBe('one\ntwo');
+    expect(taken.filter(Boolean)).toEqual([]);
+    view.dispatch({ selection: { anchor: 0, head: 2 } });
+    await userEvent.keyboard('{Escape}');
+    expect(view.state.selection.main.empty).toBe(true);
+  });
+
   it('takes its actions’ keys from the keymap, as they change', async () => {
     const onGoToDefinition = vi.fn();
     const onFindUsages = vi.fn();
