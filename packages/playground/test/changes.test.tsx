@@ -846,7 +846,7 @@ describe('Create Patch… and Copy as Patch to Clipboard', () => {
     const copied = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
     await changesView();
     await expect.poll(rows).toHaveLength(9);
-    setCommitMessage(wt, 'Not in it');
+    setCommitMessage(wt, 'Add notes');
     await userEvent.click(row(`${UNVERSIONED}:notes.txt`));
     commands.execute('changes.copyPatch', FROM_VIEW);
     await expect.poll(() => copied.mock.calls).toEqual([['the patch']]);
@@ -856,13 +856,19 @@ describe('Create Patch… and Copy as Patch to Clipboard', () => {
       untracked: ['notes.txt'],
       base: wt,
       reverse: false,
+      message: 'Add notes',
     });
     expect(notifications.all.get(0)?.title).toBe('Patch copied to clipboard');
     git.failing = 'git.createPatch';
     commands.execute('changes.copyPatch', FROM_VIEW);
     await expect.poll(() => notifications.all.get(0)?.title).toBe('Patch Creation Failed');
     expect(notifications.all.get(0)?.content).toBe('git.createPatch failed');
+    // No message being written: no header.
+    git.failing = undefined;
     setCommitMessage(wt, '');
+    commands.execute('changes.copyPatch', FROM_VIEW);
+    await expect.poll(() => copied.mock.calls).toHaveLength(2);
+    expect(host.params('git.createPatch').at(-1)).not.toHaveProperty('message');
     // From the agent's changes: not theirs.
     expect(commands.isEnabled('changes.copyPatch', { source: 'agent' })).toBe(false);
   });

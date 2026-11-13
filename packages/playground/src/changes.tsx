@@ -921,8 +921,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   });
   // Create Patch… and Copy as Patch to Clipboard, as IntelliJ's (ChangesViewPopupMenu's
   // ChangesView.CreatePatch and ChangesView.CreatePatchToClipboard): the changes selected, else
-  // those included, untracked files as new ones; saved first. Create Patch's message is the
-  // commit message being written, as IntelliJ's commit executor takes it.
+  // those included, untracked files as new ones; saved first. Their message is the commit message
+  // being written, as IntelliJ's takes the change list's comment.
   const toPatch = (c: unknown): PatchRequest | undefined => {
     const changes = current();
     const host = changes && hostFor(changes.path);
@@ -952,7 +952,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       run: async (c) => {
         const request = toPatch(c) as PatchRequest;
         await saveBeforeGit();
-        await make(id === 'changes.copyPatch' ? { ...request, message: undefined } : request);
+        await make(request);
       },
     });
   }

@@ -2062,10 +2062,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     `ChangesView.CreatePatch` and `ChangesView.CreatePatchToClipboard`): Create Patch… and Copy as
     Patch to Clipboard, before Shelve Changes, for the selection's changes, else those going into
     the commit, untracked files as new ones (`git add -N` in a copy of the index, so the
-    repository's own isn't touched, measured with git 2.43); the documents saved first. Create
-    Patch's name is the commit message being written, as IntelliJ's commit executor takes it. Copy
-    as Patch to Clipboard asks nothing: paths from the repository's top, not reversed, no message;
-    "Patch copied to clipboard", or IntelliJ's "Patch Creation Failed" with why.
+    repository's own isn't touched, measured with git 2.43); the documents saved first. Their
+    message, the file's name and the patch's header, is the commit message being written, as
+    IntelliJ's takes the change list's comment (`extractCommitMessage`). Copy as Patch to
+    Clipboard asks nothing: paths from the repository's top (IntelliJ's
+    `calculateBaseDirForWritingPatch`, the VCS root), not reversed, the message's header still
+    written (`writeAsPatchToClipboard`); "Patch copied to clipboard", or IntelliJ's "Patch Creation
+    Failed" with why.
   - **Claude's, open to change:** IntelliJ's Create Patch from the Commit window first shows a
     commit-like dialog of the changes to choose from; here it takes the selection as it is, as
     Shelve Changes does, and goes straight to Patch File Settings.

@@ -315,8 +315,8 @@ function patchParams(request: PatchRequest) {
 
 /**
  * Copy as Patch to Clipboard, as IntelliJ's (`CreatePatchFromChangesAction.Clipboard`): no dialog,
- * its paths from the repository's top, no message; "Patch copied to clipboard", or IntelliJ's
- * "Patch Creation Failed" with why.
+ * its paths from the repository's top, not reversed, under the message, if any; "Patch copied to
+ * clipboard", or IntelliJ's "Patch Creation Failed" with why.
  */
 export async function copyPatch(request: PatchRequest): Promise<void> {
   try {
@@ -324,6 +324,7 @@ export async function copyPatch(request: PatchRequest): Promise<void> {
       ...patchParams(request),
       base: request.worktree,
       reverse: false,
+      ...(request.message === undefined ? {} : { message: request.message }),
     })) as { text: string };
     await navigator.clipboard.writeText(text);
     notifications.notify({ title: 'Patch copied to clipboard' });
