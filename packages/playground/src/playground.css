@@ -1418,20 +1418,60 @@ body,
   content: '';
 }
 
-.playground-log__ref--head::before {
+.playground-log__ref[hidden],
+.playground-log__rest[hidden] {
+  display: none;
+}
+
+.playground-log__ref--head::before,
+.playground-log__mark--head {
   background: var(--cerebro-log-ref-head);
 }
 
-.playground-log__ref--local::before {
+.playground-log__ref--local::before,
+.playground-log__mark--local {
   background: var(--cerebro-log-ref-local);
 }
 
-.playground-log__ref--remote::before {
+.playground-log__ref--remote::before,
+.playground-log__mark--remote {
   background: var(--cerebro-log-ref-remote);
 }
 
-.playground-log__ref--tag::before {
+.playground-log__ref--tag::before,
+.playground-log__mark--tag {
   background: var(--cerebro-log-ref-tag);
+}
+
+/* The labels that don't fit, as one mark: theirs, each over the one before, 3px on (a claim on
+   IntelliJ's look); the first's name, cut short to the labels' room, when no label fits. */
+.playground-log__rest {
+  display: flex;
+  min-width: 0;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  color: var(--cerebro-text-muted);
+}
+
+.playground-log__marks {
+  display: flex;
+  flex: none;
+}
+
+.playground-log__mark {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.playground-log__mark + .playground-log__mark {
+  margin-left: -5px;
+}
+
+.playground-log__rest-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .playground-log__author,

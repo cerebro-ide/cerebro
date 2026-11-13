@@ -74,9 +74,6 @@ diff's model for one link (CLAUDE.md).
   focus, the first click's press gave it, the fake host answered at once, and the row pressed was
   gone before the click (measured). In the app, that a click is lost when the host answers within
   a press is a claim, not measured. The test now gives its page the focus before it starts.
-- **The Log's ref labels drawn over each other** (seen in the built app, 2026-11-12, QA of the
-  branches pane's search, the Git tool window 1280 px wide, five branches at one commit): the
-  last label, `feat/login`, overlapped the one before it. Not measured why.
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
