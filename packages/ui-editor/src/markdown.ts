@@ -111,10 +111,10 @@ function image(
   source: string,
   load: NonNullable<MarkdownStyle['image']>,
 ): HTMLElement {
-  const marks = node.getChildren('LinkMark');
+  const [open, close] = node.getChildren('LinkMark') as [SyntaxNode, SyntaxNode];
   const url = node.getChild('URL');
-  // Its words are between `![` and `]`.
-  const words = source.slice(marks[0]?.to ?? node.from, marks[1]?.from ?? node.from);
+  // Its words are between `![` and `]`, which an image always has.
+  const words = source.slice(open.to, close.from);
   const element = document.createElement('span');
   element.textContent = words;
   if (!url) return element;
