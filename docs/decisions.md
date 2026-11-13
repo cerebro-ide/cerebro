@@ -3166,7 +3166,7 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
     `commit.gpgSign` is set; the old message replaced by the new one in IntelliJ's last commit message,
     its Commit Message History and its change lists' comments (`VcsConfiguration.replaceMessage`,
     `GitRewordService`, read from its source), which Cerebro keeps none of yet. (Corrected
-    2026-11-13: this said the Commit window's message, which IntelliJ doesn't touch.)
+    2026-11-13: this said the Commit window's message; the source replaces these three.)
 - **The Log's Drop Commit** (added 2026-11-13), in the commit menu after Edit Commit Message…
   (IntelliJ's Fixup and Squash Into come between; Cerebro hasn't them), as IntelliJ's
   (`GitDropLogAction`, `InMemoryRebaseOperations`, `GitInMemoryInteractiveRebaseProcess`,
