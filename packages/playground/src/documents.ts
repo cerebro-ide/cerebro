@@ -314,24 +314,31 @@ function readAgain(path: string, doc: EditorDocument, host: Host): Promise<void>
  */
 export async function reloadAll(): Promise<void> {
   if (!currentHost()) return;
-  for (const [path, doc] of await opened()) {
-    const host = hostFor(path);
-    // A file asked about is left alone: its question waits on the person.
-    if (!host || resolving.has(path) || saving.has(path)) continue;
-    const waiting = readNext.get(path);
-    if (waiting) {
-      await waiting;
-      continue;
-    }
-    const running = reading.get(path);
-    if (!running) {
-      await readAgain(path, doc, host);
-      continue;
-    }
-    const next = running.catch(() => undefined).then(() => readAgain(path, doc, host));
-    readNext.set(path, next);
-    await next;
-  }
+  for (const [path, doc] of await opened()) await reload(path, doc);
+}
+
+/** Reads an open file again, after the read under way, if any: one for all asked meanwhile. */
+async function reload(path: string, doc: EditorDocument): Promise<void> {
+  const host = hostFor(path);
+  // A file asked about is left alone: its question waits on the person.
+  if (!host || resolving.has(path) || saving.has(path)) return;
+  const waiting = readNext.get(path);
+  if (waiting) return waiting;
+  const running = reading.get(path);
+  if (!running) return readAgain(path, doc, host);
+  const next = running.catch(() => undefined).then(() => readAgain(path, doc, host));
+  readNext.set(path, next);
+  return next;
+}
+
+/**
+ * Reads a file again if it's open, as the window's focus does, so a place in it found on disk (a
+ * diff read from disk, say) is in its text; undefined, at once, if it isn't open.
+ */
+export function reloadOpen(path: string): Promise<void> | undefined {
+  const loaded = documents.get(path);
+  if (!loaded || !currentHost()) return undefined;
+  return loaded.then((doc) => (doc instanceof EditorDocument ? reload(path, doc) : undefined));
 }
 
 /**

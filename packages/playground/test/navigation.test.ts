@@ -1,5 +1,6 @@
 import type { EditorArea } from '@cerebro-ide/layout';
 import type { Mark } from '@cerebro-ide/ui-editor';
+import { effect } from '@cerebro-ide/reactive';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -106,6 +107,26 @@ describe('each environment’s Recent Files', () => {
     workspace.activate('/s');
     expect(recentTabs()?.edited).toEqual([]);
     workspace.close('/s');
+  });
+});
+
+describe('a jump to a place', () => {
+  it('reads an open file again first, so the place is in what’s changed on disk since', async () => {
+    answers['fs.read'] = { text: 'old' };
+    const doc = (await documentFor('/r/changed.ts', () => 'sample')) as EditorDocument;
+    // Changed outside Cerebro: a diff read from disk names a line the editor doesn't have yet.
+    answers['fs.read'] = { text: 'one\ntwo\nthree' };
+    const seen: string[] = [];
+    const watching = effect(() => {
+      if (reveals.get('/r/changed.ts')) seen.push(doc.text.peek().toString());
+      return undefined;
+    });
+    nav.openAt(at('/r/changed.ts', 2));
+    expect(reveals.has('/r/changed.ts')).toBe(false);
+    await expect.poll(() => seen).toEqual(['one\ntwo\nthree']);
+    expect(reveals.get('/r/changed.ts')).toEqual({ line: 2, column: 2 });
+    watching.dispose();
+    delete answers['fs.read'];
   });
 });
 
