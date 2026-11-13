@@ -630,12 +630,13 @@ describe('a commit’s pane', () => {
     expect(opened).toEqual([{ id: 'diff@c1..c0:src/a.ts', title: 'a.ts' }]);
     // Through the commit's files, as IntelliJ's.
     expect(chains).toEqual([['src/a.ts', 'gone.ts']]);
-    // F4 opens the file itself; not one that's deleted, nor on other keys.
-    await userEvent.keyboard('{F4}');
+    // Edit Source, on F4 while the list has the keyboard, opens the file itself; not one that's
+    // deleted.
+    expect(services.keymap?.shortcutsFor('log.files.editSource')).toContain('F4');
+    commands.execute('log.files.editSource');
     expect(opened.at(-1)).toEqual({ id: '/r/src/a.ts', title: 'a.ts' });
-    await userEvent.keyboard('x');
     await userEvent.click(file('gone.ts'));
-    await userEvent.keyboard('{F4}');
+    expect(commands.isEnabled('log.files.editSource')).toBe(false);
     expect(opened).toHaveLength(2);
     // The root commit, compared with the empty tree; with no body, no paragraph for it.
     await userEvent.click(rows()[1] as HTMLElement);
@@ -677,6 +678,214 @@ describe('a commit’s pane', () => {
     localStorage.setItem('cerebro.log.files', '{unreadable');
     expect(readFilesGrouping()).toBe(true);
     localStorage.removeItem('cerebro.log.files');
+  });
+
+  it('shows the selected file’s diff from the toolbar or Ctrl+D, as IntelliJ’s', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    const button = pane().querySelector('[aria-label^="Show Diff"]') as HTMLButtonElement;
+    // Nothing selected, or a folder: off.
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    await userEvent.click(button);
+    expect(opened).toEqual([{ id: `diff@${EMPTY_TREE}..c0:src/a.ts`, title: 'a.ts' }]);
+    expect(chains.at(-1)).toEqual(['src/a.ts', 'b.ts']);
+    // With the keyboard in the list, its key's command acts on it.
+    await userEvent.click(fileRows()[2] as HTMLElement);
+    expect(commands.isEnabled('log.files.showDiff')).toBe(true);
+    commands.execute('log.files.showDiff');
+    expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..c0:b.ts`, title: 'b.ts' });
+    expect(services.keymap?.shortcutsFor('log.files.showDiff')).not.toEqual([]);
+    // Elsewhere, none.
+    (document.activeElement as HTMLElement).blur();
+    expect(commands.isEnabled('log.files.showDiff')).toBe(false);
+  });
+
+  it('reverts the selected file’s changes from the toolbar, a rename’s both, or says why not', async () => {
+    const hash = 'c'.repeat(40);
+    git.log = [{ ...(history(1)[0] as LogCommit), hash }];
+    git.changes[`${EMPTY_TREE}..${hash}`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'renamed', from: 'old.ts' },
+    ];
+    host.answers['git.applyChanges'] = () => null;
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // After Show Diff, as in IntelliJ's toolbar.
+    const button = pane().querySelector(
+      '[aria-label="Revert Selected Changes"]',
+    ) as HTMLButtonElement;
+    expect(button.previousElementSibling?.getAttribute('aria-label')).toMatch(/^Show Diff/);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    await userEvent.click(button);
+    await expect.poll(() => host.params('git.applyChanges')).toHaveLength(1);
+    expect(host.params('git.applyChanges')[0]).toEqual({
+      path: '/r',
+      from: EMPTY_TREE,
+      to: hash,
+      files: ['src/a.ts'],
+      reverse: true,
+    });
+    await userEvent.click(fileRows()[2] as HTMLElement);
+    host.answers['git.applyChanges'] = () => {
+      throw new Error('error: patch failed: b.ts:1');
+    };
+    await userEvent.click(button);
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Revert Changes');
+    expect(shown.querySelector('p')?.textContent).toBe(
+      'Failed to revert changes: error: patch failed: b.ts:1',
+    );
+    expect(host.params('git.applyChanges')[1]).toMatchObject({ files: ['old.ts', 'b.ts'] });
+    delete host.answers['git.applyChanges'];
+  });
+
+  it('shows a file’s history up to the commit, in the Log, as IntelliJ’s', async () => {
+    const hash = 'c'.repeat(40);
+    git.log = [{ ...(history(1)[0] as LogCommit), hash }];
+    git.changes[`${EMPTY_TREE}..${hash}`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    git.byPaths['src/a.ts'] = history(2, [], 'h');
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // After Revert Selected Changes, as in IntelliJ's toolbar.
+    const button = pane().querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement;
+    expect(button.previousElementSibling?.getAttribute('aria-label')).toBe(
+      'Revert Selected Changes',
+    );
+    // Nothing selected, or a folder: off.
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    const before = shownLog;
+    await userEvent.click(button);
+    expect(shownLog).toBe(before + 1);
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('h0');
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: PAGE,
+      branches: [hash],
+      filter: { paths: ['src/a.ts'] },
+    });
+    // Its hash short in the Branch filter.
+    const texts = [
+      ...document.querySelectorAll('.playground-log__toolbar .cerebro-toolbar-dropdown__text'),
+    ].map((text) => text.textContent);
+    expect(texts).toContain('Branch: cccccccc');
+  });
+
+  it('has IntelliJ’s menu on a file, comparing its versions with the working tree', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'a.ts', status: 'modified' },
+      { path: 'new.ts', status: 'added' },
+      { path: 'gone.ts', status: 'deleted' },
+      { path: 'moved.ts', status: 'renamed', from: 'old.ts' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(4);
+    const file = (name: string) =>
+      fileRows().find((row) => row.textContent.includes(name)) as HTMLElement;
+    const menuOn = async (name: string) => {
+      await closeAll();
+      await userEvent.click(file(name), { button: 'right' });
+      return menuItems();
+    };
+    expect(await menuOn('a.ts')).toEqual([
+      'Show Diff',
+      'Compare with Local',
+      'Compare Before with Local',
+      'Edit Source',
+      'Revert Selected Changes',
+      'Cherry-Pick Selected Changes',
+      'History Up to Here',
+    ]);
+    expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
+    // The commit's version, then the one before it, against the working tree.
+    await userEvent.click(menuItem('Compare with Local'));
+    expect(opened.at(-1)).toEqual({ id: 'diff@c0..:a.ts', title: 'a.ts' });
+    await menuOn('a.ts');
+    await userEvent.click(menuItem('Compare Before with Local'));
+    expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..:a.ts`, title: 'a.ts' });
+    // Not a version the commit hasn't, nor a rename's path before, which isn't the file's now.
+    const off = () =>
+      [...document.querySelectorAll('.cerebro-menu-item[aria-disabled="true"]')].map(
+        (item) => item.querySelector('.cerebro-menu-item__label')?.textContent,
+      );
+    // The commit's change to the file applied to it, or why it couldn't be, in IntelliJ's words.
+    host.answers['git.applyChanges'] = () => {
+      throw new Error('error: patch failed: a.ts:1');
+    };
+    await menuOn('a.ts');
+    await userEvent.click(menuItem('Cherry-Pick Selected Changes'));
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Apply Changes');
+    expect(shown.querySelector('p')?.textContent).toBe(
+      'Failed to apply changes: error: patch failed: a.ts:1',
+    );
+    expect(host.params('git.applyChanges').at(-1)).toEqual({
+      path: '/r',
+      from: EMPTY_TREE,
+      to: 'c0',
+      files: ['a.ts'],
+      reverse: false,
+    });
+    delete host.answers['git.applyChanges'];
+    await menuOn('new.ts');
+
+    expect(off()).toEqual(['Compare Before with Local']);
+    await menuOn('gone.ts');
+    expect(off()).toEqual(['Compare with Local', 'Edit Source']);
+    await menuOn('moved.ts');
+    expect(off()).toEqual(['Compare Before with Local']);
+    await closeAll();
+  });
+
+  it('expands and collapses all its folders from its toolbar’s end, as IntelliJ’s', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'a.ts', 'b.ts']);
+    const end = pane().querySelector('.playground-log__files-tree-actions') as HTMLElement;
+    const [expand, collapse] = [...end.querySelectorAll('button')];
+    expect([expand?.ariaLabel, collapse?.ariaLabel]).toEqual(['Expand All', 'Collapse All']);
+    await userEvent.click(collapse as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'b.ts']);
+    await userEvent.click(expand as HTMLElement);
+    await expect.poll(files).toEqual(['src1 file', 'a.ts', 'b.ts']);
+    // Without a list, from its button or with the keyboard, none.
+    (document.activeElement as HTMLElement).blur();
+    expect(commands.isEnabled('log.files.expandAll')).toBe(false);
   });
 
   it('says why a commit’s files couldn’t be read', async () => {

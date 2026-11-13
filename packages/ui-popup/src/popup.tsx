@@ -47,10 +47,14 @@ export interface PickerItem {
   submenu?: (row: HTMLElement) => Promise<boolean>;
   /**
    * An option, checked or not, as IntelliJ's options popups have (the Pull dialog's Add Pull
-   * Options): choosing it runs `run`, and the popup stays open. One that can't go with those
-   * checked is greyed, and choosing it does nothing. Its check mark is its `icon`.
+   * Options): choosing it runs `run`, and the popup stays open. Its check mark is its `icon`.
    */
-  option?: { checked: boolean; enabled: boolean; run: () => void };
+  option?: { checked: boolean; run: () => void };
+  /**
+   * Greyed, and choosing it does nothing: an option that can't go with those checked, an action
+   * that can't be done here (the branches popup's New Branch… before the first commit).
+   */
+  disabled?: boolean;
 }
 
 /**
@@ -186,7 +190,7 @@ function rowKey(item: PickerItem): string {
     item.close?.label,
     item.submenu !== undefined,
     item.option?.checked,
-    item.option?.enabled,
+    item.disabled,
   ]);
 }
 
@@ -387,10 +391,10 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   private choose(index: number): void {
     const item = this.items.get()[index];
+    if (item?.disabled) return;
     if (item?.more) item.more();
-    else if (item?.option) {
-      if (item.option.enabled) item.option.run();
-    } else if (item?.submenu) void this.openSubmenu(item.submenu, index);
+    else if (item?.option) item.option.run();
+    else if (item?.submenu) void this.openSubmenu(item.submenu, index);
     else if (item) this.finish(item);
   }
 
@@ -417,11 +421,12 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
             cls(
               'cerebro-popup-item',
               item.more && 'cerebro-popup-item--more',
-              item.option?.enabled === false && 'cerebro-popup-item--disabled',
+              item.disabled && 'cerebro-popup-item--disabled',
               state.index === index.get() && 'cerebro-popup-item--highlighted',
             )
           }
           role="option"
+          {...(item.disabled ? { 'aria-disabled': 'true' } : {})}
           aria-selected={() => String(state.index === index.get())}
           data-index={() => index.get()}
           on:pointermove={(event) => {

@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   abortOperation,
+  applyChanges,
   applyCommit,
   continueApplying,
   git,
@@ -166,5 +167,66 @@ describe('cherry-pick and revert, with real git', () => {
     await expect(applyCommit(repo, 'revert', 'HEAD', false, git)).rejects.toThrow(
       /local changes to the following files would be overwritten/,
     );
+  });
+
+  it('reverts a commit’s files named, uncommitted, a rename as one, the rest as they were', async () => {
+    const { repo } = repository();
+    write(repo, { 'a.txt': 'one\ntwo\nthree\nfour\nfive\n', 'b.txt': 'b\n', 'old.txt': 'moved\n' });
+    const before = commit(repo, 'before');
+    write(repo, { 'a.txt': 'one\ntwo\nTHREE\nfour\nfive\n', 'b.txt': 'B\n', 'new.txt': 'new\n' });
+    run(repo, 'mv', 'old.txt', 'moved.txt');
+    const after = commit(repo, 'after');
+    // Lines added above it since: still undone, where its lines are now.
+    write(repo, { 'a.txt': 'zero\none\ntwo\nTHREE\nfour\nfive\n' });
+    await applyChanges(
+      repo,
+      { from: before, to: after },
+      ['a.txt', 'new.txt', 'old.txt', 'moved.txt'],
+      true,
+      git,
+    );
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('zero\none\ntwo\nthree\nfour\nfive\n');
+    const status = run(repo, 'status', '--porcelain', '--untracked-files=all');
+    expect(
+      status
+        .split('\n')
+        .map((line) => line.trim())
+        .sort(),
+    ).toEqual(['?? old.txt', 'D moved.txt', 'D new.txt', 'M a.txt']);
+    expect(run(repo, 'diff', '--', 'a.txt')).toContain('-THREE\n+three');
+    // b.txt, not named: as it was, and nothing committed.
+    expect(run(repo, 'show', 'HEAD:b.txt')).toBe('B');
+    expect(subjects(repo)[0]).toBe('after');
+  });
+
+  it('cherry-picks a commit’s files named onto the files as they are, uncommitted', async () => {
+    const { repo } = repository();
+    write(repo, { 'a.txt': 'one\ntwo\nthree\nfour\nfive\n' });
+    const before = commit(repo, 'before');
+    run(repo, 'checkout', '-q', '-b', 'other');
+    write(repo, { 'a.txt': 'one\ntwo\nTHREE\nfour\nfive\n', 'b.txt': 'B\n' });
+    const after = commit(repo, 'after');
+    run(repo, 'checkout', '-q', 'main');
+    // Lines added above it here: still applied, where its lines are.
+    write(repo, { 'a.txt': 'zero\none\ntwo\nthree\nfour\nfive\n' });
+    await applyChanges(repo, { from: before, to: after }, ['a.txt'], false, git);
+    expect(readFileSync(join(repo, 'a.txt'), 'utf8')).toBe('zero\none\ntwo\nTHREE\nfour\nfive\n');
+    // b.txt, not named, as it was; nothing committed.
+    expect(run(repo, 'status', '--porcelain')).toBe('M a.txt');
+    expect(subjects(repo)[0]).toBe('before');
+  });
+
+  it('changes nothing when a file changed since where the commit did', async () => {
+    const { repo } = repository();
+    const before = run(repo, 'rev-parse', 'HEAD');
+    write(repo, { 'a.txt': 'again\n' });
+    const after = commit(repo, 'again');
+    write(repo, { 'a.txt': 'mine\n' });
+    await expect(
+      applyChanges(repo, { from: before, to: after }, ['a.txt'], true, git),
+    ).rejects.toThrow(/patch does not apply/);
+    expect(run(repo, 'diff', '--', 'a.txt')).toContain('+mine');
+    // A file the commit didn't change: nothing to undo.
+    await applyChanges(repo, { from: before, to: after }, ['b.txt'], true, git);
   });
 });

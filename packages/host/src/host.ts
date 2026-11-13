@@ -95,7 +95,7 @@ import {
   validRevision,
   type NewTag,
 } from './tags.js';
-import { applyCommit, continueApplying } from './apply-changes.js';
+import { applyChanges, applyCommit, continueApplying } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import {
@@ -824,10 +824,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     return null;
   });
   /** A commit's hash, as the Log gives it: never an option. */
-  const hashOf = (params: unknown) => {
-    const hash = text(params, 'hash');
+  const hashOf = (params: unknown, key = 'hash') => {
+    const hash = text(params, key);
     if (!/^[0-9a-f]{4,64}$/i.test(hash)) {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'hash must be a commit hash');
+      throw new ResponseError(ErrorCodes.InvalidParams, `${key} must be a commit hash`);
     }
     return hash;
   };
@@ -1250,6 +1250,26 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = text(params, 'path');
     const id = named(params, 'id', SHELF_ID);
     await recording(worktree, 'Unshelve', git, () => unshelve(worktree, id, git));
+    return null;
+  });
+  // A commit's files' Cherry-Pick or Revert Selected Changes, recorded as IntelliJ's activities are
+  // named.
+  connection.onRequest('git.applyChanges', async (params) => {
+    const worktree = text(params, 'path');
+    const from = hashOf(params, 'from');
+    const to = hashOf(params, 'to');
+    const paths = [...files(params)];
+    // None would be all of them.
+    if (paths.length === 0) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    const { reverse } = params as { reverse?: unknown };
+    if (typeof reverse !== 'boolean') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'reverse must be true or false');
+    }
+    await recording(worktree, reverse ? 'Rollback' : 'Apply patch', git, () =>
+      applyChanges(worktree, { from, to }, paths, reverse, git),
+    );
     return null;
   });
   connection.onRequest('git.deleteShelf', (params) =>

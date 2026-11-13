@@ -297,8 +297,8 @@ describe('with real git', () => {
   it('lists what was checked out last, the latest first, each once, as IntelliJ’s Recent', async () => {
     const recent = join(root, 'recent');
     execFileSync('git', ['init', '-q', '-b', 'main', recent]);
-    // None before the first commit: git has no HEAD to read the reflog of (measured, git 2.43).
-    await expect(recentCheckouts(recent)).rejects.toThrow();
+    // None before the first commit, which git has no reflog to read of (measured, git 2.43).
+    expect(await recentCheckouts(recent)).toEqual([]);
     run(
       recent,
       '-c',

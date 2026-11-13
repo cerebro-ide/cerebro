@@ -1991,7 +1991,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Show Diff, Expand and Collapse All, Show Only Affected Changes) and Ctrl+P there; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their menu's other items
+  (Show Diff in a New Tab or Window, Open Repository Version, Create
+  Patch…, Get, Show Changes from Parents) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
@@ -2002,6 +2004,49 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   The setting is kept apart from the Commit window's, as IntelliJ keeps it, and is the same
   wherever a commit's files show: the Log, Compare with Current, Push, a deleted branch's commits,
   Show Diff with Working Tree. **Claude's, open to change:** the button's icon's drawing.
+- **Show Diff over a commit's files** (added 2026-11-13), first in their toolbar, as IntelliJ's
+  changes browser has it (`ChangesBrowserBase.createToolbarActions`, read from its source), and
+  Ctrl+D (Cmd+D) while the list has the keyboard: the selected file's diff, as a double click opens
+  it. Off for a folder, and in the Push dialog, whose diffs would open behind it.
+- **Expand All and Collapse All over a commit's files** (added 2026-11-13), at the end of their
+  toolbar, as IntelliJ's horizontal changes-browser toolbars have them (`TreeActionsToolbarPanel`,
+  read from its source). Collapse All moves a selection inside a folder to its top row, as the
+  branches pane's does.
+- **History Up to Here over a commit's files** (added 2026-11-13), next to Show Diff as in
+  IntelliJ's toolbar (`Vcs.RepositoryChangesBrowserToolbar`'s `Vcs.ShowHistoryForRevision`, read
+  from its source): the selected file's commits up to that commit, in the Log as Git → Current
+  File → Show History shows them, with the commit in the Branch filter (its hash short there, as a
+  range's are). IntelliJ opens a file history tab; the Log here has no tabs (above). Off against
+  the working tree, which has no commit, and in the Push dialog, where the Log would show behind
+  it. **Claude's, open to change:** the icon's drawing.
+- **Revert Selected Changes over a commit's files** (added 2026-11-13), between Show Diff and History
+  Up to Here as in IntelliJ's toolbar (`Vcs.RevertSelectedChanges`, `RevertCommittedStuffAbstractAction`,
+  read from its source): what the commit changed in the selected file is undone in it, uncommitted,
+  by the patch of that change applied reversed (`git apply -R`), as IntelliJ applies it; a rename's
+  both paths, so it's undone as one. Documents are saved first, and it's recorded in Local History
+  as "Rollback" (IntelliJ's activity). If the patch doesn't apply, nothing is changed and a "Revert
+  Changes" dialog says "Failed to revert changes: " and git's words (IntelliJ's, from `VcsBundle`;
+  its applier goes on to offer a merge, which Cerebro's doesn't). Cerebro has no changelists, so
+  there's no Select Target Changelist dialog, as IntelliJ's without them. Off where History Up to
+  Here is. A hunk is matched with one line around it if all of them don't, so it applies where its
+  lines moved to: with two, a hunk at a file's first line stays anchored there (measured, git 2.43).
+  - **Not yet:** several files or a folder at once (the list selects one file); IntelliJ's merge
+    when the patch doesn't apply.
+- **A commit's file's right-click menu** (added 2026-11-13), IntelliJ's `Vcs.Log.ChangesBrowser.Popup`
+  in its order, with what Cerebro has of it: Show Diff; Compare with Local and Compare Before with
+  Local (the commit's version of the file, or the one before it, against the working tree;
+  `Vcs.ShowDiffWithLocal`), Edit Source; Revert Selected Changes and History Up to Here. Each is off
+  for a version that isn't there: Compare with Local and Edit Source for a file the commit deleted,
+  Compare Before with Local for one it added, and for a rename, whose path before isn't the file's
+  now. Edit Source is a command now, on F4 (and Cmd+Down on macOS) as the Commit window's Jump to
+  Source, where F4 was a key the list caught itself. Wherever a commit's files show and can open
+  something; not in the Push dialog, whose items would all be off.
+- **Cherry-Pick Selected Changes in that menu** (added 2026-11-13), after Revert Selected Changes,
+  as IntelliJ's (`Vcs.ApplySelectedChanges`, the same action not reversed, read from its source):
+  what the commit changed in the file applied to it as it is, uncommitted, the patch with one line
+  around a hunk as Revert's (measured the same, git 2.43). Recorded in Local History as "Apply
+  patch"; if it doesn't apply, "Apply Changes" and "Failed to apply changes: " with git's words
+  (`VcsBundle`). Off where Revert Selected Changes is.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
@@ -3337,7 +3382,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
     `--detach`), "Checked out ref", or "Could not checkout ref" with git's words. OK is off while
     the field is empty (Claude's: IntelliJ's leaves it to git). A reference starting with "-" is
     refused, git taking it for an option (checkout doesn't take `--end-of-options`: measured, git
-    2.43). Not yet: IntelliJ's disabling it in a repository with no commits.
+    2.43).
+  - **Before the first commit** (added 2026-11-13), New Branch… and Checkout Tag or Revision… are
+    greyed in the popup, and off in the Git menu and Find Action, as IntelliJ's
+    (`DvcsUtil.disableActionIfAnyRepositoryIsFresh`, read from its source): there's no commit to
+    start a branch at or to check out. Choosing one greyed does nothing. Where HEAD can't be read,
+    they stay on, and git says why if they fail. Recent is empty then without an error: git can't
+    read the reflog of a branch with no commit (measured, git 2.43: "your current branch 'main'
+    does not have any commits yet"), which was logged as an error each time the popup opened.
+    **Not yet:** IntelliJ's description saying why ("Creating new branch is not possible before
+    the first commit."), which Cerebro's popups have nowhere to show.
   - **Tags** (added 2026-11-12), a Tags group after Remote, as IntelliJ's (`GitBranchesTreeModel`),
     while the Log's branches pane's Show Tags is on (IntelliJ's one setting for both); where they
     can't be read, the branches show without them. Favorites as the branches' (decision "Branches

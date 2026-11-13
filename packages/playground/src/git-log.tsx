@@ -35,14 +35,16 @@ import {
   type Range,
 } from './changes.js';
 import { directoryTree } from './directory-tree.js';
+import { saveBeforeGit } from './documents.js';
 import { formatCommitDate } from './dates.js';
-import { active, gitRepository, hostFor, type Host } from './environments.js';
+import { active, gitRepository, hostFor, showError, type Host } from './environments.js';
 import { Toggle } from './find.js';
 import { branchField } from './git-options.js';
 import { icon } from './icons.js';
 import { notifications } from './notifications.js';
 import { stateOf } from './repository-state.js';
 import { numbered } from './select-in.js';
+import { refreshAll } from './shelf.js';
 import {
   branchName,
   Branches,
@@ -335,8 +337,8 @@ export class Log {
    * Shows the commits of HEAD that change `path`: IntelliJ's file history, whose other branches are
    * off to start with (`FileHistoryUiProperties`' `isShowOtherBranches`).
    */
-  showHistory(path: string): Promise<void> {
-    return this.showOnly('HEAD', [path]);
+  showHistory(path: string, revision = 'HEAD'): Promise<void> {
+    return this.showOnly(revision, [path]);
   }
 
   /** The branch's commits that change the paths (any, if undefined), the other filters cleared. */
@@ -706,8 +708,40 @@ export function readFilesGrouping(): boolean {
 
 const filesByDirectory = signal(readFilesGrouping());
 
+/** A file's right-click menu among a commit's files. */
+const FILES_MENU = 'log/files';
+
 /** The files' Group By menu, from the button over them. */
 const FILES_GROUP_BY = 'log/files/groupBy';
+
+/** A commit's files' list, as its commands act on it. */
+interface FilesTarget {
+  /** The file selected, if any and it can be opened. */
+  selected: () => Change | undefined;
+  showDiff: (change: Change) => void;
+  /** What its files differ between: without `to`, the working tree. */
+  range: Range;
+  worktree: string;
+  /** Opens a tab: a file, or a diff. */
+  open: (tab: Tab) => void;
+  /** Applies to the files what the commit changed in one, or undoes it (`reverse`). */
+  apply: (change: Change, reverse: boolean) => Promise<void>;
+  /** Its rows, which Expand and Collapse All open and close. */
+  tree: TreeModel<ChangeNode>;
+}
+
+/** The list of a commit's files that has the keyboard, if one has. */
+const focusedFiles = signal<FilesTarget | undefined>(undefined);
+
+/** The list a command acts on: the one it came from, else the one with the keyboard. */
+const filesOf = (context: unknown) =>
+  (context as { files?: FilesTarget } | undefined)?.files ?? focusedFiles.get();
+
+/** Whether a file is selected in a commit's files, not the working tree's. */
+const atCommit = (context: unknown) => {
+  const files = filesOf(context);
+  return files?.range.to !== undefined && files.selected() !== undefined;
+};
 
 /** A row of a commit's files: a file's change, or a folder of them. */
 type ChangeNode =
@@ -761,6 +795,46 @@ export function CommitFiles(props: {
   });
   /** The rows' last loading. */
   let loading: Promise<void> = Promise.resolve();
+  const showDiff = (change: Change) => {
+    // Through the commit's files, as IntelliJ's.
+    open?.(
+      diffTab(change.path, range),
+      changes.peek().map((c) => c.path),
+    );
+  };
+  const target: FilesTarget = {
+    selected: () => {
+      const key = files.selected;
+      return open ? changes.get().find((c) => c.path === key) : undefined;
+    },
+    showDiff,
+    range,
+    worktree: props.worktree,
+    open: (tab) => open?.(tab),
+    apply: async (change, reverse) => {
+      // As IntelliJ's, which saves all documents first.
+      await saveBeforeGit();
+      try {
+        await props.host.request('git.applyChanges', {
+          path: props.worktree,
+          from: range.from,
+          to: range.to,
+          // A rename's both, applied as one.
+          files: change.from === undefined ? [change.path] : [change.from, change.path],
+          reverse,
+        });
+      } catch (error) {
+        // IntelliJ's words (VcsBundle's, `choice` for each).
+        const [title, verb] = reverse ? ['Revert', 'revert'] : ['Apply', 'apply'];
+        showError(`${title} Changes`, `Failed to ${verb} changes: ${(error as Error).message}`);
+      }
+      await refreshAll(props.worktree);
+    },
+    tree: files,
+  };
+  onCleanup(() => {
+    if (focusedFiles.peek() === target) focusedFiles.set(undefined);
+  });
   // Again as they're read, or grouped otherwise.
   const grouping = effect(() => {
     nodes = fileNodes(changes.get(), (key) => {
@@ -799,15 +873,34 @@ export function CommitFiles(props: {
     return error === undefined ? (
       <div
         class="playground-log__files"
-        on:keydown={(event) => {
-          // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
-          const selected = changes.peek().find((c) => c.path === files.selected);
-          if (event.key !== 'F4' || !open || !selected || selected.status === 'deleted') return;
-          event.preventDefault();
-          open(fileTab(props.worktree, selected.path));
+        on:focusin={() => {
+          focusedFiles.set(target);
+        }}
+        on:focusout={(event) => {
+          const to = event.relatedTarget as Node | null;
+          if (!(event.currentTarget as HTMLElement).contains(to)) focusedFiles.set(undefined);
         }}
       >
         <div class="playground-log__files-toolbar" role="toolbar" aria-label="Changes">
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.showDiff"
+            icon={icon('diff')}
+            shortcut={shortcutOf(props.services, 'log.files.showDiff')}
+            context={() => ({ files: target })}
+          />
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.revert"
+            icon={icon('rollback')}
+            context={() => ({ files: target })}
+          />
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.showHistory"
+            icon={icon('history')}
+            context={() => ({ files: target })}
+          />
           <button
             type="button"
             class="cerebro-toolbar-button"
@@ -826,6 +919,17 @@ export function CommitFiles(props: {
           >
             {icon('groupBy')}
           </button>
+          {/* At its end, as IntelliJ's TreeActionsToolbarPanel puts them. */}
+          <div class="playground-log__files-tree-actions">
+            {(['log.files.expandAll', 'log.files.collapseAll'] as const).map((command) => (
+              <ToolbarButton
+                commands={props.services.commands}
+                command={command}
+                icon={icon(command === 'log.files.expandAll' ? 'expandAll' : 'collapseAll')}
+                context={() => ({ files: target })}
+              />
+            ))}
+          </div>
         </div>
         <TreeView
           model={files}
@@ -835,22 +939,19 @@ export function CommitFiles(props: {
               ? folderContent(node.name, node.count)
               : changeContent(node.change, !filesByDirectory.peek())
           }
-          {...(menu
+          {...(menu || open
             ? {
-                // A file's; a folder has none.
+                // A file's: the one given, else IntelliJ's for a commit's; a folder has none.
                 onContextMenu: (event: MouseEvent, node: ChangeNode) => {
-                  if (node.kind === 'file') menu(event, node.change);
+                  if (node.kind !== 'file') return;
+                  if (menu) menu(event, node.change);
+                  else openContextMenu(props.services, FILES_MENU, event, { files: target });
                 },
               }
             : {})}
           onOpen={(node) => {
             // Only files are leaves: a folder opens and closes instead.
-            const { change } = node as Extract<ChangeNode, { kind: 'file' }>;
-            // Through the commit's files, as IntelliJ's.
-            open?.(
-              diffTab(change.path, range),
-              changes.peek().map((c) => c.path),
-            );
+            showDiff((node as Extract<ChangeNode, { kind: 'file' }>).change);
           }}
         />
       </div>
@@ -1064,8 +1165,8 @@ export function viewCommits(range: HashRange): void {
  * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD that
  * change the file (`path`, from the repository's top), as IntelliJ's file history.
  */
-export function showHistory(path: string): void {
-  wantedView.set((log) => log.showHistory(path));
+export function showHistory(path: string, revision?: string): void {
+  wantedView.set((log) => log.showHistory(path, revision));
   showLog();
 }
 
@@ -1214,6 +1315,122 @@ export function setupLog(services: MenuServices, show: () => void): void {
     item: { command: 'log.branches.groupByDirectory' },
     group: 'b',
   });
+  // A commit's files' Show Diff, as IntelliJ's changes browser's (its first action), on the file
+  // selected in the list it came from or that has the keyboard.
+  commands.register({
+    id: 'log.files.showDiff',
+    label: 'Show Diff',
+    icon: 'diff',
+    enabled: (context) => filesOf(context)?.selected() !== undefined,
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      files.showDiff(files.selected() as Change);
+    },
+  });
+  keymap?.bindDefault('Mod+D', 'log.files.showDiff');
+  // The file in the working tree against the commit's version of it, or the one before: IntelliJ's
+  // Compare with Local and Compare Before with Local (Vcs.ShowDiffWithLocal and its .Before). Not
+  // for a version the commit hasn't: it deleted the file, or added it.
+  for (const [id, label, before] of [
+    ['log.files.compareWithLocal', 'Compare with Local', false],
+    ['log.files.compareBeforeWithLocal', 'Compare Before with Local', true],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: (context) => {
+        const status = filesOf(context)?.selected()?.status;
+        return (
+          atCommit(context) &&
+          status !== (before ? 'added' : 'deleted') &&
+          // Its path before isn't the one in the working tree.
+          !(before && status === 'renamed')
+        );
+      },
+      run: (context) => {
+        const files = filesOf(context) as FilesTarget;
+        const { path } = files.selected() as Change;
+        const { from, to } = files.range as Required<Range>;
+        files.open(diffTab(path, { from: before ? from : to }));
+      },
+    });
+  }
+  // The file itself, as IntelliJ's Edit Source (Vcs.EditSource), on F4 as the Commit window's Jump
+  // to Source; not one the commit deleted.
+  commands.register({
+    id: 'log.files.editSource',
+    label: 'Edit Source',
+    enabled: (context) => {
+      const status = filesOf(context)?.selected()?.status;
+      return status !== undefined && status !== 'deleted';
+    },
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      files.open(fileTab(files.worktree, (files.selected() as Change).path));
+    },
+  });
+  keymap?.bindDefault('F4', 'log.files.editSource');
+  // IntelliJ's (Vcs.Log.ChangesBrowser.Popup): its changes browser's Show Diff, then
+  // Vcs.RepositoryChangesBrowserMenu with what Cerebro has of it.
+  for (const [command, group] of [
+    ['log.files.showDiff', 'a'],
+    ['log.files.compareWithLocal', 'b'],
+    ['log.files.compareBeforeWithLocal', 'b'],
+    ['log.files.editSource', 'b'],
+    ['log.files.revert', 'c'],
+    ['log.files.cherryPick', 'c'],
+    ['log.files.showHistory', 'c'],
+  ] as const) {
+    menus.contribute({ menu: FILES_MENU, item: { command }, group });
+  }
+  // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.RevertSelectedChanges): what the
+  // commit changed in the file undone in it, uncommitted. Cerebro has no changelists, so there's no
+  // Select Target Changelist dialog, as IntelliJ's without them.
+  // Its menu's Cherry-Pick Selected Changes (Vcs.ApplySelectedChanges) is the same, not reversed.
+  for (const [id, label, reverse] of [
+    ['log.files.revert', 'Revert Selected Changes', true],
+    ['log.files.cherryPick', 'Cherry-Pick Selected Changes', false],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      ...(reverse ? { icon: 'rollback' } : {}),
+      enabled: atCommit,
+      run: (context) => {
+        const files = filesOf(context) as FilesTarget;
+        return files.apply(files.selected() as Change, reverse);
+      },
+    });
+  }
+  // Then (Vcs.ShowHistoryForRevision): the
+  // file's commits up to this one, in the Log as Git → Current File → Show History shows them.
+  commands.register({
+    id: 'log.files.showHistory',
+    label: 'History Up to Here',
+    icon: 'history',
+    enabled: atCommit,
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      showHistory((files.selected() as Change).path, files.range.to);
+    },
+  });
+  // At the toolbar's end, as IntelliJ's changes browser's (TreeActionsToolbarPanel.createTreeActions).
+  for (const [id, label, open] of [
+    ['log.files.expandAll', 'Expand All', true],
+    ['log.files.collapseAll', 'Collapse All', false],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      icon: open ? 'expandAll' : 'collapseAll',
+      enabled: (context) => filesOf(context) !== undefined,
+      run: (context) => {
+        const { tree } = filesOf(context) as FilesTarget;
+        if (open) void tree.expandAll();
+        else tree.collapseAll();
+      },
+    });
+  }
   // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not.
   commands.register({
     id: 'log.files.groupByDirectory',
@@ -1617,13 +1834,12 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
 
 /** A filter's text, as IntelliJ's: its name alone while it's off, else its name and value. */
 /** The Branch filter's: a branch's name, or a range's ends shortened (Claude's, open to change). */
+/** A branch's name; a commit's hash, or a range's, short. */
 const branchText = (branch: BranchFilter) =>
-  branch.includes('..')
-    ? branch
-        .split('..')
-        .map((hash) => hash.slice(0, 8))
-        .join('..')
-    : branchName(branch);
+  branch
+    .split('..')
+    .map((part) => (/^[0-9a-f]{40}$/.test(part) ? part.slice(0, 8) : branchName(part)))
+    .join('..');
 
 const filterText = <T,>(name: string, value: T | undefined, text: (value: T) => string) =>
   value === undefined ? name : `${name}: ${text(value)}`;

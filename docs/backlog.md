@@ -75,6 +75,11 @@ diff's model for one link (CLAUDE.md).
   Alt+Enter" (the bulb, commands, fixes across files).
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
+- **Unshelve may not apply a change near a file's start after lines are added above it**
+  (found 2026-11-13, adding the Log's Revert Selected Changes): it applies with `git apply -C2`,
+  and a reversed hunk starting at line 1 with two lines before its change failed with `-C2` and
+  applied with `-C1` (measured, git 2.43). Not measured on Unshelve itself; its test's change has
+  three lines before it. Revert Selected Changes uses `-C1`.
 - **The Log's Checkout submenu needs menu items made from the context** (found 2026-11-11, adding
   the Log's commit menu, #182): IntelliJ's lists the commit's branches (then Checkout Revision),
   which change from commit to commit, but `@cerebro-ide/commands`' menus are contributed once and

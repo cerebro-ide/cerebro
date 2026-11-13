@@ -1144,6 +1144,51 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('applies or reverts a commit’s files named, as a patch or reversed, and not with none named', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(bare(args)[0] === 'diff' ? 'the patch' : ''),
+    );
+    const { ui } = connect(git);
+    expect(
+      await ui.request('git.applyChanges', {
+        path: '/w',
+        from: 'abc1234',
+        to: 'def5678',
+        files: ['a.ts'],
+        reverse: true,
+      }),
+    ).toBe(null);
+    expect(git).toHaveBeenCalledWith('/w', [
+      'diff',
+      '--binary',
+      '-M',
+      'abc1234',
+      'def5678',
+      '--',
+      'a.ts',
+    ]);
+    expect(git).toHaveBeenCalledWith('/w', ['apply', '-R', '-C1', '-'], undefined, 'the patch');
+    await ui.request('git.applyChanges', {
+      path: '/w',
+      from: 'abc1234',
+      to: 'def5678',
+      files: ['a.ts'],
+      reverse: false,
+    });
+    expect(git).toHaveBeenCalledWith('/w', ['apply', '-C1', '-'], undefined, 'the patch');
+    for (const params of [
+      { from: '-p', to: 'def5678', files: ['a.ts'], reverse: true },
+      { from: 'abc1234', to: '--all', files: ['a.ts'], reverse: true },
+      { from: 'abc1234', to: 'def5678', files: [], reverse: true },
+      { from: 'abc1234', to: 'def5678', files: 'a.ts' },
+      { from: 'abc1234', to: 'def5678', files: ['a.ts'], reverse: 'yes' },
+    ]) {
+      await expect(ui.request('git.applyChanges', { path: '/w', ...params })).rejects.toMatchObject(
+        { code: ErrorCodes.InvalidParams },
+      );
+    }
+  });
+
   it('undoes HEAD’s commit, unless a protected branch on a remote has it', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(
