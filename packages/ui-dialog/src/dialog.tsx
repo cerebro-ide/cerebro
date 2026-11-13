@@ -68,6 +68,11 @@ export interface DialogOptions<T> {
   footer?: () => Child;
   /** Default: Cancel, or Close without an OK button. */
   cancelLabel?: string;
+  /**
+   * Asked when the dialog is cancelled (Cancel, Escape, its close button): it stays open when this
+   * gives false, as IntelliJ's merge window asks before its edits are lost.
+   */
+  confirmCancel?: () => Promise<boolean>;
   /** The dialog's width in pixels; by default it fits its content. */
   width?: number;
   /** Which order the buttons go in. Default: from the browser's platform. */
@@ -136,6 +141,18 @@ class Dialog<T> implements DialogHandle<T> {
     this.layer.remove();
     this.restoreFocus.focus();
     this.resolve(result);
+  }
+
+  /** Cancels it, if `confirmCancel` agrees. */
+  private cancel(): void {
+    const { confirmCancel } = this.options;
+    if (!confirmCancel) {
+      this.close();
+      return;
+    }
+    void confirmCancel().then((sure) => {
+      if (sure) this.close();
+    });
   }
 
   /** While an action's check runs. */
@@ -219,7 +236,7 @@ class Dialog<T> implements DialogHandle<T> {
     const target = event.target as HTMLElement;
     if (event.key === 'Escape') {
       event.preventDefault();
-      this.close();
+      this.cancel();
     } else if (
       event.key === 'Enter' &&
       !(target instanceof HTMLButtonElement) &&
@@ -304,7 +321,7 @@ class Dialog<T> implements DialogHandle<T> {
         type="button"
         class="cerebro-dialog__button"
         on:click={() => {
-          this.close();
+          this.cancel();
         }}
       >
         {options.cancelLabel ?? (ok ? 'Cancel' : 'Close')}
@@ -340,7 +357,7 @@ class Dialog<T> implements DialogHandle<T> {
             aria-label="Close"
             tabIndex={-1}
             on:click={() => {
-              this.close();
+              this.cancel();
             }}
           >
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

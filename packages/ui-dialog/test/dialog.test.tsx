@@ -142,6 +142,28 @@ describe('openDialog', () => {
     }
   });
 
+  it('asks before it’s cancelled, if told to, staying open unless the answer is yes', async () => {
+    for (const how of ['cancel', 'close', 'escape']) {
+      let answer = false;
+      const asked = vi.fn(() => Promise.resolve(answer));
+      const handle = dialog({ ok: { accept: () => 1 }, confirmCancel: asked });
+      const cancel = () => {
+        if (how === 'cancel') button('Cancel').click();
+        else if (how === 'close')
+          (element().querySelector('.cerebro-dialog__close') as HTMLElement).click();
+        else key(element(), 'Escape');
+      };
+      cancel();
+      await expect.poll(() => asked.mock.calls.length).toBe(1);
+      await Promise.resolve();
+      expect(handle.open).toBe(true);
+      answer = true;
+      cancel();
+      expect(await handle.result).toBeUndefined();
+      expect(handle.open).toBe(false);
+    }
+  });
+
   it('puts Cancel first on macOS, and names the buttons as asked', () => {
     dialog({
       ok: { label: 'Create', accept: () => 1 },

@@ -54,6 +54,11 @@ export interface MergeControl {
   text(): string;
   /** Read reactively. */
   left(): MergeLeft;
+  /**
+   * Whether the result has changed since the window opened, typed into or a change taken (IntelliJ's
+   * `getContentModified`): what's lost if the merge is cancelled.
+   */
+  modified(): boolean;
   /** Takes the changes that aren't in conflict: one side's, or both's (IntelliJ's Apply non-conflicting changes). */
   applyNonConflicting(side: 'yours' | 'theirs' | 'all'): void;
 }
@@ -170,6 +175,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
   ];
+  let modified = false;
   const pane = (doc: string, compartment: Compartment, editable: boolean) =>
     new EditorView({
       doc,
@@ -182,6 +188,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
         editable
           ? EditorView.updateListener.of((update) => {
               if (!update.docChanged) return;
+              modified = true;
               // Typed at a change's first line, it's in the change; at the line after, it isn't.
               // The change being taken or ignored is placed by `replace`.
               for (const t of tracked) {
@@ -391,6 +398,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
   props.control?.({
     text: () => views.result.state.doc.toString(),
     left: () => left.get(),
+    modified: () => modified,
     applyNonConflicting(side) {
       for (const t of tracked) {
         if (resolved(t) || t.change.kind === 'conflict') continue;

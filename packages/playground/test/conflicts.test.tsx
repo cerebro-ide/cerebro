@@ -315,6 +315,38 @@ describe('the Conflicts dialog', () => {
     await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
   });
 
+  it('asks before its changes are lost, cancelled or a side taken, as IntelliJ’s', async () => {
+    void resolveConflicts('/r');
+    await userEvent.dblClick(await row('a.ts'));
+    const window = await mergeWindow();
+    const question = async () => {
+      await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(3);
+      return document.querySelectorAll('.cerebro-dialog')[2] as HTMLElement;
+    };
+    await userEvent.click(
+      [
+        ...window.querySelectorAll<HTMLElement>('.playground-merge__toolbar button'),
+      ][1] as HTMLElement,
+    );
+    // Accept Left, the result changed: asked, and Continue Merge goes back to it.
+    await pressIn(window, 'Accept Left');
+    let asked = await question();
+    expect(asked.querySelector('.cerebro-dialog__title')?.textContent).toBe('Accept Left');
+    expect(asked.querySelector('.playground-merge__question')?.textContent).toBe(
+      'There are unsaved changes in the result file. Discard changes and accept left anyway?',
+    );
+    await pressIn(asked, 'Continue Merge');
+    await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(2);
+    expect(host.params('git.acceptSide')).toEqual([]);
+    // Cancel: asked too; discarded, the merge window closes, nothing resolved.
+    await pressIn(window, 'Cancel');
+    asked = await question();
+    expect(asked.querySelector('.cerebro-dialog__title')?.textContent).toBe('Cancel Merge');
+    await pressIn(asked, 'Discard Changes and Cancel Merge');
+    await expect.poll(() => document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
+    expect(host.params('git.resolve')).toEqual([]);
+  });
+
   it('applies with changes left once told to, and takes a side with Accept Left or Right', async () => {
     void resolveConflicts('/r');
     await dialog();
