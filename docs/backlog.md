@@ -176,11 +176,6 @@ diff's model for one link (CLAUDE.md).
   for askpass: the host's reply failed with EPIPE). That the prompt's hook then returns before the
   host's snapshot, or that the host's `socket.end()` errors, is a claim, not measured. Askpass now
   sends its question as a line (`askpass.ts`); the hooks could do the same.
-- **A tree doesn't widen when a row's own content does** (`ui-tree`'s fit runs when its rows
-  change, it's resized or scrolled): measured 2026-11-08, the Push dialog's row grew from 359 to
-  407 pixels while its branch was typed (field and "Set upstream"), and was cut at the pane's
-  edge. Worked around by a narrower field (110 pixels); a longer remote or branch name still
-  overflows. The fix is likely the tree refitting when a row's content resizes.
 - **The macOS menu bar with several windows** is the menu of the window that last sent one, not of
   the focused one.
 - **The editor test "edits its document by real typing, with undo" failed once in CI** (Linux,

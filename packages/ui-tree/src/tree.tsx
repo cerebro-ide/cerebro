@@ -127,6 +127,23 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
     if (overflow > 0) spacer.style.width = `${String(spacer.clientWidth + overflow)}px`;
   };
 
+  /**
+   * A row's content resized (typed into, say), the rows the same: they widen to it, on the next
+   * frame, as fitting resizes what's observed. The content is cut at the row (so text can be cut
+   * short); what's in it isn't, so that's observed too.
+   */
+  let refit = 0;
+  const contents = new ResizeObserver(() => {
+    cancelAnimationFrame(refit);
+    refit = requestAnimationFrame(() => {
+      fit(false);
+    });
+  });
+  onCleanup(() => {
+    cancelAnimationFrame(refit);
+    contents.disconnect();
+  });
+
   const Row = (p: { row: TreeRow<T>; index: number }) => {
     const { row, index } = p;
     return (
@@ -183,7 +200,18 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
             />
           </svg>
         </span>
-        <span class="cerebro-tree-row__content">{props.row(row.node)}</span>
+        <span
+          class="cerebro-tree-row__content"
+          ref={(content) => {
+            const observed = [content, ...content.children];
+            for (const element of observed) contents.observe(element);
+            onCleanup(() => {
+              for (const element of observed) contents.unobserve(element);
+            });
+          }}
+        >
+          {props.row(row.node)}
+        </span>
         {row.loading ? <span class="cerebro-tree-row__note">Loading…</span> : null}
       </div>
     );
