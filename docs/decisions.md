@@ -2939,7 +2939,8 @@ saving").
   read from its source), which CodeMirror hasn't: the text scrolled one line's height, the caret
   left where it is, even off screen; in a read-only editor too. Their keys, from IntelliJ's keymap
   files: Ctrl+Up and Ctrl+Down (`$default`; Cmd in IntelliJ's classic macOS keymap, none in its
-  macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS. **Difference:**
+  macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS; VS Code's Scroll Line
+  Up and Down, Ctrl+Up and Down (Ctrl+PageUp and PageDown on macOS), from its sheets. **Difference:**
   IntelliJ's scroll is animated (its smooth scrolling); this one jumps.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line

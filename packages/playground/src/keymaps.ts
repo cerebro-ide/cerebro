@@ -432,6 +432,8 @@ export const VSCODE_MAC: KeymapPreset = {
     // Expand and Shrink Selection, its sheets'.
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Meta+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Meta+Left'],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
   },
 };
 
