@@ -132,6 +132,36 @@ describe('TreeView', () => {
     expect(again.getBoundingClientRect().width).toBe(tree.clientWidth - 24);
   });
 
+  it('widens as a row’s own content does, its rows the same', async () => {
+    const model = new TreeModel<Item>({
+      children: (node) => (node ? [] : [{ path: 'grows.ts', folder: false }]),
+      key: (node) => node.path,
+      isLeaf: (node) => !node.folder,
+    });
+    const growing = document.createElement('span');
+    growing.textContent = 'short';
+    const container = document.createElement('div');
+    container.style.cssText = 'position: fixed; left: 0; top: 0; width: 200px; height: 200px;';
+    document.body.append(container);
+    const handle = render(
+      () => <TreeView model={model} label="Project" row={() => growing} />,
+      container,
+    );
+    cleanup = () => {
+      handle.dispose();
+      container.remove();
+    };
+    await settle();
+    const tree = container.querySelector('.cerebro-tree') as HTMLElement;
+    expect(tree.scrollWidth).toBe(tree.clientWidth);
+    // Typed into, say: the row is the same one, its content wider than the tree.
+    growing.textContent = `${'a-very-long-name-'.repeat(4)}end`;
+    const row = container.querySelector('[data-key="grows.ts"]') as HTMLElement;
+    await expect.poll(() => row.clientWidth).toBeGreaterThan(176);
+    expect(row.scrollWidth).toBe(row.clientWidth);
+    expect(tree.scrollWidth).toBeGreaterThan(tree.clientWidth);
+  });
+
   it('keeps that width while scrolling down past the long row', async () => {
     const long = `${'a-very-long-folder-name-'.repeat(4)}end`;
     const files = Array.from({ length: 100 }, (_, i) => ({
