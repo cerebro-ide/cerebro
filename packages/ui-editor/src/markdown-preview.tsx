@@ -18,6 +18,8 @@ export interface MarkdownPreviewProps {
    * drawn from at its top, as IntelliJ's auto-scroll (MarkdownEditorWithPreview).
    */
   line?: () => number;
+  /** An image's source for its address, as `MarkdownStyle`'s. */
+  image?: MarkdownStyle['image'];
 }
 
 /**
@@ -89,6 +91,7 @@ const STYLES = `
 }
 .cerebro-markdown th { font-weight: 600; }
 .cerebro-markdown hr { height: 1px; margin: 24px 0; border: 0; background: var(--cerebro-border); }
+.cerebro-markdown img { max-width: 100%; }
 .cerebro-doc__link { color: var(--cerebro-link); }
 `;
 
@@ -119,7 +122,11 @@ export function MarkdownPreview(props: MarkdownPreviewProps): Node {
   const colours = codeColours();
   sheet.replaceSync(`${STYLES}\n${colours.rules}`);
   shadow.adoptedStyleSheets = [sheet];
-  const style: MarkdownStyle = { highlighter: colours.highlighter, headings: true };
+  const style: MarkdownStyle = {
+    highlighter: colours.highlighter,
+    headings: true,
+    ...(props.image ? { image: props.image } : {}),
+  };
   /** Each top-level block's first line, by its element. */
   const lines = new WeakMap<Element, number>();
   // Drawn by `page` before anything follows the editor.

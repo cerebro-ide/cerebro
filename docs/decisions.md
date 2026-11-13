@@ -2523,8 +2523,13 @@ choose between the "code" the "view" or a side by side display of both". From In
   block drawn from the top line at the preview's top, or as far into it as the line is into the
   block's lines (Claude's, open to change; IntelliJ's page finds the element by its source
   offset).
-- **Not yet:** IntelliJ's setting to turn the auto-scroll off; images (their words show); links
-  opened; HTML drawn; IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
+- **Images** (added 2026-11-13): the file's own, by a path relative to it, read through the host
+  once per tab and shown as `data:` URLs (the page's policy allows no other), SVG too, which an
+  image can't run scripts from; a `data:` image as it is. Until an image comes, and where it can't
+  be read, its words show. **Not yet:** images on the web (the page's policy allows none), and
+  paths from the repository's root (`/logo.png`).
+- **Not yet:** IntelliJ's setting to turn the auto-scroll off; links opened; HTML drawn;
+  IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
 
 ## A tool window's shortcut activates it (2026-11-12)
 

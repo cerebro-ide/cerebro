@@ -2,8 +2,11 @@ import { CommandRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { useProjects } from '../src/environments.js';
 import {
   chooseLayout,
+  imageLoader,
+  imagePath,
   isMarkdown,
   isMarkdownTab,
   layoutOf,
@@ -12,12 +15,17 @@ import {
   readKept,
   setupMarkdown,
 } from '../src/markdown.js';
+import { FakeHost, project } from './fakes.js';
 
 const KEY = 'cerebro.markdown.editor';
 const commands = new CommandRegistry();
 let active: string | undefined;
+const host = new FakeHost({
+  'fs.readBytes': ({ path }: { path: string }) => ({ data: btoa(path) }),
+});
 beforeAll(() => {
   setupMarkdown(commands, () => active);
+  useProjects([project('/r', host), project('/s', undefined)]);
 });
 
 const cleanups: (() => void)[] = [];
@@ -152,5 +160,60 @@ describe('the layouts', () => {
     drag(100, 0);
     expect(text.getBoundingClientRect().height).toBeCloseTo(200, 0);
     chooseLayout('/r/d.md', 'split');
+  });
+});
+
+describe('a Markdown file’s images', () => {
+  it('are files beside it, by a relative path; not on the web, from the root, or not images', () => {
+    expect(imagePath('/r/docs/a.md', 'img/cat.png')).toBe('/r/docs/img/cat.png');
+    expect(imagePath('/r/docs/a.md', './cat.PNG?raw=1#top')).toBe('/r/docs/cat.PNG');
+    expect(imagePath('/r/docs/a.md', '../my%20logo.svg')).toBe('/r/my logo.svg');
+    expect(imagePath('/r/docs/a.md', 'https://x.y/cat.png')).toBeUndefined();
+    expect(imagePath('/r/docs/a.md', '/cat.png')).toBeUndefined();
+    expect(imagePath('/r/docs/a.md', 'notes.txt')).toBeUndefined();
+  });
+
+  it('load as data URLs, each read once; a data image as it is; none that can’t be read', async () => {
+    const read = vi.fn((path: string) =>
+      path.endsWith('bad.png') ? Promise.reject(new Error('gone')) : Promise.resolve('QQ=='),
+    );
+    const load = imageLoader('/r/a.md', read);
+    expect(await load('cat.png')).toBe('data:image/png;base64,QQ==');
+    expect(await load('./cat.png')).toBe('data:image/png;base64,QQ==');
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(await load('logo.svg')).toBe('data:image/svg+xml;base64,QQ==');
+    expect(await load('data:image/gif;base64,R0')).toBe('data:image/gif;base64,R0');
+    expect(await load('https://x.y/a.png')).toBeUndefined();
+    expect(await load('bad.png')).toBeUndefined();
+  });
+
+  it('show in the preview, read through the file’s host; not where there’s none', async () => {
+    chooseLayout('/r/e.md', 'split');
+    chooseLayout('/s/e.md', 'split');
+    const container = mount(() => (
+      <>
+        <MarkdownEditor
+          path="/r/e.md"
+          editor={document.createElement('div')}
+          text={() => '![dot](dot.png)'}
+          line={() => 0}
+        />
+        <MarkdownEditor
+          path="/s/e.md"
+          editor={document.createElement('div')}
+          text={() => '![dot](dot.png)'}
+          line={() => 0}
+        />
+      </>
+    ));
+    const [here, elsewhere] = [...container.querySelectorAll('.cerebro-markdown-preview')].map(
+      (preview) =>
+        (preview.shadowRoot as ShadowRoot).querySelector('.cerebro-markdown') as HTMLElement,
+    );
+    await expect
+      .poll(() => here?.querySelector('img')?.getAttribute('src'))
+      .toBe(`data:image/png;base64,${btoa('/r/dot.png')}`);
+    expect(elsewhere?.querySelector('img')).toBeNull();
+    expect(elsewhere?.textContent).toBe('dot');
   });
 });

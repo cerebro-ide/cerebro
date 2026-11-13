@@ -14,6 +14,11 @@ export interface MarkdownStyle {
   highlighter: Highlighter;
   /** Headings as h1–h6, as a page's (the preview's); else as a paragraph set apart (a tooltip's). */
   headings: boolean;
+  /**
+   * An image's source (a `data:` URL: the page's policy allows no other) for its address; without
+   * one, or until it comes, its words show.
+   */
+  image?: (address: string) => Promise<string | undefined>;
 }
 
 /** Marks that are Markdown's syntax, not what it says. */
@@ -102,6 +107,32 @@ function link(address: string | undefined): HTMLElement {
   return element;
 }
 
+/** An image: its words until its source comes, the image once it does. */
+function image(
+  node: SyntaxNode,
+  source: string,
+  load: NonNullable<MarkdownStyle['image']>,
+): HTMLElement {
+  const [open, close] = node.getChildren('LinkMark') as [SyntaxNode, SyntaxNode];
+  const url = node.getChild('URL');
+  // Its words are between `![` and `]`, which an image always has.
+  const words = source.slice(open.to, close.from);
+  const element = document.createElement('span');
+  element.textContent = words;
+  if (!url) return element;
+  void load(source.slice(url.from, url.to)).then(
+    (src) => {
+      if (src === undefined) return;
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = words;
+      element.replaceChildren(img);
+    },
+    () => undefined,
+  );
+  return element;
+}
+
 /** The element a node is drawn as, if it's drawn as one rather than as its contents. */
 function elementFor(
   node: SyntaxNode,
@@ -146,6 +177,10 @@ export function drawMarkdown(
       element.textContent = address;
       parent.appendChild(element);
     }
+    return;
+  }
+  if (name === 'Image' && style.image) {
+    parent.appendChild(image(node, source, style.image));
     return;
   }
   if (name === 'FencedCode' || name === 'CodeBlock') {
