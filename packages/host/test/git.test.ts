@@ -720,6 +720,12 @@ describe('with real git', () => {
       { ...commit('m', ['b', 'c']), joins: ['a'] },
       { ...commit('a', ['z']), joins: [] },
     ]);
+    // A commit the ancestry didn't read (its branch moved between the two reads) joins through
+    // its own parents.
+    expect(rewriteParents([commit('n', ['a']), commit('a', [])], new Map())).toEqual([
+      { ...commit('n', ['a']), joins: ['a'] },
+      { ...commit('a', []), joins: [] },
+    ]);
   });
 
   it('reads hashes as IntelliJ does: 7 to 64 hex digits, between spaces, commas or semicolons', () => {
