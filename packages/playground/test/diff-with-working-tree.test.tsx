@@ -240,7 +240,7 @@ describe('a commit’s Compare with Local', () => {
     });
     differing[hash] = differing.feature;
     mount();
-    await services.commands.execute('log.compareWithLocal', {
+    services.commands.execute('log.compareWithLocal', {
       host,
       worktree: '/r',
       commit: { hash },
@@ -257,7 +257,7 @@ describe('a commit’s Compare with Local', () => {
     host.answers['git.getVersion'] = () => null;
     differing[hash] = differing.feature;
     mount();
-    await services.commands.execute('log.compareWithLocal', {
+    services.commands.execute('log.compareWithLocal', {
       host,
       worktree: '/r',
       commit: { hash },
