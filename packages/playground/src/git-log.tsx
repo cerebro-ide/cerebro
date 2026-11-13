@@ -10,8 +10,9 @@
 //
 // From IntelliJ: the refs' colours (VcsLogStandardColors: the current branch and HEAD in the tip's
 // yellow, local branches green, remote ones purple, tags grey) and the graph's (DefaultColorGenerator,
-// its first eight). Claims: the lane's width, the dot's size, the columns' widths, and the dates
-// as "Today 10:15" or the system's short date and time.
+// its first eight), and the author's and date's columns sized from what they show
+// (VcsLogGraphTable). Claims: the lane's width, the dot's size, and the dates as "Today 10:15" or
+// the system's short date and time.
 
 import { formatSequence, type Platform } from '@cerebro-ide/commands';
 import { onCleanup, type Child } from '@cerebro-ide/jsx';
@@ -590,6 +591,58 @@ function Subject(props: { commit: LogCommit; log: Log }): Node {
     observer.disconnect();
   });
   return subject;
+}
+
+/**
+ * How many rows a column is measured from, and the widest it's made: IntelliJ's
+ * (VcsLogGraphTable's MAX_ROWS_TO_CALC_WIDTH and MAX_DEFAULT_DYNAMIC_COLUMN_WIDTH).
+ */
+const MEASURED_ROWS = 1000;
+const MAX_COLUMN = 300;
+
+/**
+ * A column's width from what its rows show, as IntelliJ's (VcsLogStringCellRenderer): the widest of
+ * the first rows' texts with a `*` after it, at most 300 pixels.
+ */
+export function columnWidth(texts: readonly string[], measure: (text: string) => number): number {
+  const widths = texts.slice(0, MEASURED_ROWS).map((text) => measure(`${text}*`));
+  return Math.min(MAX_COLUMN, Math.ceil(Math.max(0, ...widths)));
+}
+
+/**
+ * Sizes the author's and date's columns of the commits listed in `element` from what they show, as
+ * IntelliJ's, again as they change.
+ */
+export function sizeColumns(element: HTMLElement, commits: () => readonly LogCommit[]): Disposable {
+  const metrics = document.createElement('canvas').getContext('2d') as CanvasRenderingContext2D;
+  const size = (shown: readonly LogCommit[]) => {
+    metrics.font = getComputedStyle(element).font;
+    const measure = (text: string) => metrics.measureText(text).width;
+    for (const [name, texts] of [
+      ['author', shown.map((commit) => commit.author)],
+      ['date', shown.map((commit) => formatCommitDate(commit.time))],
+    ] as const) {
+      element.style.setProperty(
+        `--playground-log-${name}`,
+        `${String(columnWidth(texts, measure))}px`,
+      );
+    }
+  };
+  const sizing = effect(() => {
+    size(commits());
+    return undefined;
+  });
+  // Its font is known once it's on the page: measured again then.
+  const observer = new ResizeObserver(() => {
+    size(untracked(commits));
+  });
+  observer.observe(element);
+  return {
+    dispose() {
+      sizing.dispose();
+      observer.disconnect();
+    },
+  };
 }
 
 /** A commit's row: its graph and subject, the refs at it, its author and date. */
@@ -1764,6 +1817,10 @@ export function GitLogView(props: {
           </div>
         ) as HTMLElement;
         pane.style.width = `${String(PANE_WIDTH)}px`;
+        const sizing = sizeColumns(commits, () => log.commits.get());
+        onCleanup(() => {
+          sizing.dispose();
+        });
         const side = (
           <div class="playground-log__branches">
             <BranchesToolbar services={props.services} log={log} branches={branches} />

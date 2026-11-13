@@ -4,11 +4,12 @@
 // puts the branch back, and Close, the default, leaves it deleted.
 
 import type { Tab } from '@cerebro-ide/layout';
+import { onCleanup } from '@cerebro-ide/jsx';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { formatCommitDate } from './dates.js';
 import type { Host } from './environments.js';
-import { CommitFiles, PAGE, rangeOf, type LogCommit } from './git-log.js';
+import { CommitFiles, PAGE, rangeOf, sizeColumns, type LogCommit } from './git-log.js';
 
 /** A branch deleted unmerged: its name, where it was, and where it wasn't merged to. */
 export interface Unmerged {
@@ -41,13 +42,8 @@ export async function showUnmergedCommits(
   const restored = await openDialog<true>({
     title: 'Branch Was Not Fully Merged',
     width: 860,
-    content: () => [
-      <p class="cerebro-selectable">
-        The branch {name} was not fully merged to {base}.
-        <br />
-        Below is the list of unmerged commits.
-      </p>,
-      <div class="playground-unmerged">
+    content: () => {
+      const columns = (
         <div class="playground-unmerged__commits">
           <TreeView
             model={list}
@@ -59,20 +55,34 @@ export async function showUnmergedCommits(
             ]}
           />
         </div>
-        {() => {
-          const commit = commits.find((c) => c.hash === list.selected);
-          return commit ? (
-            <CommitFiles
-              host={host}
-              worktree={worktree}
-              range={rangeOf(commit)}
-              label={`Changes in ${commit.hash.slice(0, 8)}`}
-              open={open}
-            />
-          ) : null;
-        }}
-      </div>,
-    ],
+      ) as HTMLElement;
+      const sizing = sizeColumns(columns, () => commits);
+      onCleanup(() => {
+        sizing.dispose();
+      });
+      return [
+        <p class="cerebro-selectable">
+          The branch {name} was not fully merged to {base}.
+          <br />
+          Below is the list of unmerged commits.
+        </p>,
+        <div class="playground-unmerged">
+          {columns}
+          {() => {
+            const commit = commits.find((c) => c.hash === list.selected);
+            return commit ? (
+              <CommitFiles
+                host={host}
+                worktree={worktree}
+                range={rangeOf(commit)}
+                label={`Changes in ${commit.hash.slice(0, 8)}`}
+                open={open}
+              />
+            ) : null;
+          }}
+        </div>,
+      ];
+    },
     ok: { label: 'Restore', accept: () => true },
     cancelLabel: 'Close',
   }).result;

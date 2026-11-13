@@ -49,11 +49,6 @@ diff's model for one link (CLAUDE.md).
 
 ## Known gaps
 
-- **A narrow Log hides its commits' subjects** (seen in QA of Compare with Current, 2026-11-12):
-  the author and date columns have fixed widths (140 px and 130 px), so a commits list about
-  225 px wide (each half of a comparison in a 1280 px window, beside its 400 px details) shows the
-  graph, refs, author and date, and no subject; the Git window's Log does the same at that width.
-  How IntelliJ's commits table shares out a narrow width isn't checked yet.
 - **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
   #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
   earlier press could still be answered; one press opened a chooser of walk's definitions, another's
