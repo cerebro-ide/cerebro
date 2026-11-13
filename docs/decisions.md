@@ -735,6 +735,8 @@ new UI.
   window.
 - **API:** `openDialog({ title, content, ok: { label, enabled, accept }, cancelLabel, width })`
   returns a handle whose `result` resolves with what OK accepted, or undefined. Dialogs stack.
+  `confirmCancel` (added 2026-11-13, for the merge window) is asked before Cancel, Escape or the
+  close button closes it.
 - **`prompt()`** asks for a line of text: OK is enabled once the text is non-blank and valid, and
   the reason it isn't shows under the field in the error colour. It replaced the playground's
   `window.prompt` for New Worktree and New Branch.
@@ -3561,7 +3563,15 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
 - **Rejected:** CodeMirror's own merge view (`@codemirror/merge`), which compares two documents,
   not three. Telling a both-added file's sides apart line by line: with no base, it's one conflict
   (Cerebro's choice, open to change).
-- **Not yet:** undo in the merge window, and asking before Cancel ("Cancel File Merge"); merging a
+- **Asking before the result's changes are lost** (added 2026-11-13): once the result has changed
+  (a change taken, or typed), Cancel (Escape, the close button) and Accept Left or Right ask first,
+  as IntelliJ's (MergeUtil.showConfirmDiscardChangesDialog, its words from DiffBundle, read from
+  its source): titled with the button's name, "There are unsaved changes in the result file.
+  Discard changes and cancel merge anyway?", with Discard Changes and Cancel Merge (or Accept Left,
+  Right) and Continue Merge. Changed means changed since the window opened, even if back as it was,
+  as IntelliJ's flag. ("Cancel File Merge", thought to be it, is IntelliJ's question when a
+  conflict is outdated.)
+- **Not yet:** undo in the merge window; merging a
   binary file (it says to accept a side); Group by directory and Resolve Simple Conflicts.
   (changed 2026-11-09: the Git menu's Continue Rebase, Abort Rebase and Abort Merge, Resolve
   Conflicts… shown only with conflicts, and committing a merge from the Commit window are done,

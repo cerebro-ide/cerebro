@@ -72,8 +72,22 @@ describe('the merge editor', () => {
     expect(marked(theirs, 'modified')).toEqual(['X']);
     expect(control.left()).toEqual({ changes: 2, conflicts: 0 });
     expect(control.text()).toBe(base);
+    expect(control.modified()).toBe(false);
     const colour = getComputedStyle(yours.querySelector('.cm-merge3-modified') as Element);
     expect(colour.backgroundColor).toBe('rgb(56, 85, 112)');
+  });
+
+  it('is modified once its result changes, by a change taken or typed, and stays so', async () => {
+    const taken = mount({ path: 'a.txt', base, yours: 'A\nb\nc\nd\ne\n', theirs: base });
+    taken.control.applyNonConflicting('all');
+    expect(taken.control.modified()).toBe(true);
+    cleanup?.();
+    const typed = mount({ path: 'b.txt', base, yours: base, theirs: base });
+    await userEvent.click(typed.result.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('x{Backspace}');
+    // Back as it was: IntelliJ's flag stays set too.
+    expect(typed.control.text()).toBe(base);
+    expect(typed.control.modified()).toBe(true);
   });
 
   it('marks a conflict, an insertion and a deletion, and keeps their lines level', async () => {

@@ -110,6 +110,25 @@ export function unprocessedText({ changes, conflicts }: MergeLeft): string {
 /** How a file's merge ended: one side's version, or the text merged. */
 type Merged = { side: 'yours' | 'theirs' } | { text: string };
 
+/**
+ * Asked before the result's changes are lost, as IntelliJ's (MergeUtil.showConfirmDiscardChangesDialog,
+ * its words from DiffBundle): `action` is the button's name.
+ */
+async function discardChanges(action: string): Promise<boolean> {
+  const sure = await openDialog<true>({
+    title: action,
+    content: () => (
+      <p class="playground-merge__question">
+        There are unsaved changes in the result file. Discard changes and {action.toLowerCase()}{' '}
+        anyway?
+      </p>
+    ),
+    ok: { label: `Discard Changes and ${action}`, accept: () => true },
+    cancelLabel: 'Continue Merge',
+  }).result;
+  return sure === true;
+}
+
 /** The merge window for one file: what to resolve it with, or undefined if cancelled. */
 async function mergeFile(
   worktree: string,
@@ -130,6 +149,15 @@ async function mergeFile(
   // Given as the merge editor shows, after the toolbar that reads it.
   const control = signal<MergeControl | undefined>(undefined);
   const [leftTitle, rightTitle] = paneTitles(conflicts);
+  /** Whether to go on with `action`: asked first if the result has changed, as IntelliJ. */
+  const unlessChanged = (action: string) =>
+    (control.peek() as MergeControl).modified() ? discardChanges(action) : Promise.resolve(true);
+  /** Takes a side as the result, asked first if the result has changed. */
+  const accept = (side: 'yours' | 'theirs', action: string) => {
+    void unlessChanged(action).then((sure) => {
+      if (sure) handle.close({ side });
+    });
+  };
   const handle = openDialog<Merged>({
     title: `Merge Revisions for ${worktree}/${path}`,
     width: Math.min(window.innerWidth - 80, 1400),
@@ -181,7 +209,7 @@ async function mergeFile(
         <button
           class="cerebro-dialog__button"
           on:click={() => {
-            handle.close({ side: 'yours' });
+            accept('yours', 'Accept Left');
           }}
         >
           Accept Left
@@ -189,7 +217,7 @@ async function mergeFile(
         <button
           class="cerebro-dialog__button"
           on:click={() => {
-            handle.close({ side: 'theirs' });
+            accept('theirs', 'Accept Right');
           }}
         >
           Accept Right
@@ -219,6 +247,7 @@ async function mergeFile(
       },
       accept: () => ({ text: (control.peek() as MergeControl).text() }),
     },
+    confirmCancel: () => unlessChanged('Cancel Merge'),
   });
   return handle.result;
 }
