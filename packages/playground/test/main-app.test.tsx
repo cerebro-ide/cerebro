@@ -160,8 +160,11 @@ describe('Show Diff with Working Tree', () => {
     await expect
       .poll(words)
       .toBe('Difference between current working tree on main and files in feature:');
+    // Under its folder, as IntelliJ's changes trees group them.
     await expect
-      .poll(() => document.querySelector(`${window} .cerebro-tree-row`)?.textContent)
+      .poll(() =>
+        [...document.querySelectorAll(`${window} .cerebro-tree-row`)].map((r) => r.textContent),
+      )
       .toContain('a.ts');
     // Again: in the same window, in place of the one before.
     await showDiff('main');
@@ -556,8 +559,11 @@ describe('the Git window', () => {
     await userEvent.click(
       document.querySelector(`${window} .playground-log__commits .cerebro-tree-row`) as Element,
     );
+    // Under its folder, as IntelliJ's changes trees group them.
     const file = await vi.waitUntil(() =>
-      document.querySelector(`${window} .playground-log__files .cerebro-tree-row`),
+      [...document.querySelectorAll(`${window} .playground-log__files .cerebro-tree-row`)].find(
+        (row) => row.textContent === 'a.ts',
+      ),
     );
     await userEvent.dblClick(file);
     expect(calls.at(-1)).toEqual([
