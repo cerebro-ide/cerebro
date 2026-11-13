@@ -3161,9 +3161,11 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
     back on an interactive rebase; Cerebro says "Commit {hash} has 2 parents" (IntelliJ's in-memory
     words) and changes nothing. The reflog says "reword {hash} by Cerebro" (IntelliJ's "… by
     {product} Git plugin").
+  - **Signed** (added 2026-11-13): where `commit.gpgSign` is set, the commits made again are
+    signed (`commit-tree --gpg-sign`), as IntelliJ's `GitObjectRepository.commitTree`, since
+    `commit-tree` doesn't read the setting (measured, git 2.43). Drop Commit's are too.
   - **Not yet:** IntelliJ's notes copied
-    and `post-rewrite` hook run for the commits made again; signing them (`--gpg-sign`) when
-    `commit.gpgSign` is set; the old message replaced by the new one in IntelliJ's last commit message,
+    and `post-rewrite` hook run for the commits made again; the old message replaced by the new one in IntelliJ's last commit message,
     its Commit Message History and its change lists' comments (`VcsConfiguration.replaceMessage`,
     `GitRewordService`, read from its source), which Cerebro keeps none of yet. (Corrected
     2026-11-13: this said the Commit window's message; the source replaces these three.)
