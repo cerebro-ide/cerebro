@@ -23,6 +23,10 @@ const PATHS: Record<string, string> = {
   // Two cherries on their stems: IntelliJ's Cherry-Pick (a claim: not IntelliJ's drawing).
   cherryPick:
     'M5 9.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM11 8.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM5 9.5L9 2.5l2 6M9 2.5h3.5',
+  // A graph's two lines, a dot on each, and lines of text beside: IntelliJ's IntelliSort, Graph
+  // Options' (a claim: not IntelliJ's drawing).
+  graphOptions:
+    'M4 2.5v11M4 10c0-2.5 3-2.5 3-5V2.5M4 12a.6.6 0 1 0 0 .01M7 4a.6.6 0 1 0 0 .01M9.5 4h4M9.5 8h4M9.5 12h4',
   git: 'M5 3v10M5 9c0-2 6-1 6-4M11 5a1.5 1.5 0 1 0 0-.01M5 13a1.5 1.5 0 1 0 0-.01',
   bell: 'M4 11V7a4 4 0 0 1 8 0v4l1 1.5H3zM6.5 14h3',
   // With a dot: notifications not seen yet (a claim: IntelliJ's dot is coloured).
@@ -104,20 +108,43 @@ const PATHS: Record<string, string> = {
     'M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4',
 };
 
-export function icon(name: string): Node {
+export function icon(name: string, badge = false): Node {
+  const path = (
+    <path
+      d={PATHS[name] ?? 'M4 4h8v8H4z'}
+      fill="none"
+      stroke="currentColor"
+      stroke-width="0.95"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  );
+  if (!badge) {
+    return (
+      <svg viewBox="1.5 1.5 13 13" width="16" height="16" aria-hidden="true">
+        {path}
+      </svg>
+    );
+  }
+  // IntelliJ's badge (BadgeDotProvider): a dot at 16.5 and 3.5 of the icon's 20, 3.5 across, cut
+  // into it 1.5 wider; in this view box's units.
+  const id = `cerebro-badge-${String(++badges)}`;
+  const [x, y] = [1.5 + (13 * 16.5) / 20, 1.5 + (13 * 3.5) / 20];
+  const radius = (13 * 3.5) / 20;
   return (
     <svg viewBox="1.5 1.5 13 13" width="16" height="16" aria-hidden="true">
-      <path
-        d={PATHS[name] ?? 'M4 4h8v8H4z'}
-        fill="none"
-        stroke="currentColor"
-        stroke-width="0.95"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      />
+      <mask id={id}>
+        <rect x="1.5" y="1.5" width="13" height="13" fill="white" />
+        <circle cx={String(x)} cy={String(y)} r={String(radius + (13 * 1.5) / 20)} fill="black" />
+      </mask>
+      <g mask={`url(#${id})`}>{path}</g>
+      <circle class="playground-icon__badge" cx={String(x)} cy={String(y)} r={String(radius)} />
     </svg>
   );
 }
+
+/** Badges drawn: each one's mask a name of its own. */
+let badges = 0;
 
 /**
  * A favorite's star, filled, as IntelliJ's (Nodes.Favorite; its outline, NotFavoriteOnHover, is

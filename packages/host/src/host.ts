@@ -171,12 +171,13 @@ export interface HostOptions {
 
 /** Whether a request's `filter` is a log filter: its text, authors and dates, as given. */
 function isLogFilter(filter: Partial<Record<keyof LogFilter, unknown>>): boolean {
-  const { text, authors, after, before, paths } = filter as {
+  const { text, authors, after, before, paths, noMerges } = filter as {
     text?: Partial<Record<keyof TextFilter, unknown>>;
     authors?: unknown;
     after?: unknown;
     before?: unknown;
     paths?: unknown;
+    noMerges?: unknown;
   };
   const time = (value: unknown) => value === undefined || Number.isInteger(value);
   const strings = (value: unknown) =>
@@ -191,7 +192,8 @@ function isLogFilter(filter: Partial<Record<keyof LogFilter, unknown>>): boolean
     strings(authors) &&
     time(after) &&
     time(before) &&
-    strings(paths)
+    strings(paths) &&
+    (noMerges === undefined || typeof noMerges === 'boolean')
   );
 }
 
@@ -543,6 +545,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (filter !== undefined && !isLogFilter(filter)) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'filter must be a log filter');
     }
+    const { graph } = params as { graph?: unknown };
+    if (
+      graph !== undefined &&
+      !(graph === 'date' || graph === 'topological' || graph === 'firstParent')
+    ) {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'graph must be date, topological or firstParent',
+      );
+    }
     return log(
       text(params, 'worktree'),
       skip as number,
@@ -550,6 +562,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       git,
       branches as string[] | undefined,
       filter as LogFilter | undefined,
+      graph,
     );
   });
   // The User filter's choices: the commits' authors, and who "me" is.

@@ -86,6 +86,32 @@ export interface LogCommit {
   refs: string[];
 }
 
+/**
+ * How the graph is laid out, as IntelliJ's Graph Options (`PermanentGraph.Options`), one at a time:
+ * by commit date (IntelliJ's default), topologically, or by first parents alone (`git.log`'s
+ * `graph`).
+ */
+export type LogGraph = 'date' | 'topological' | 'firstParent';
+
+const GRAPH_KEY = 'cerebro.log.graph';
+
+function readGraph(): LogGraph {
+  try {
+    const stored = localStorage.getItem(GRAPH_KEY);
+    return stored === 'topological' || stored === 'firstParent' ? stored : 'date';
+  } catch {
+    return 'date';
+  }
+}
+
+function saveGraph(graph: LogGraph): void {
+  try {
+    localStorage.setItem(GRAPH_KEY, graph);
+  } catch {
+    // Not kept, where storage can't be had.
+  }
+}
+
 /** A commit's parents in the graph: those it's joined to in a filtered log, else its own. */
 const joined = (commit: LogCommit) => commit.joins ?? commit.parents;
 
@@ -173,6 +199,7 @@ export interface LogFilter {
   authors?: string[];
   after?: number;
   before?: number;
+  noMerges?: boolean;
   paths?: readonly string[];
 }
 
@@ -204,6 +231,10 @@ export class Log {
   readonly period = signal<Period | undefined>(undefined);
   /** The Paths filter's files and folders, from the repository's top; any, if none. */
   readonly paths = signal<readonly string[] | undefined>(undefined);
+  /** Graph Options' No Merges, a filter as IntelliJ's (its parent filter): off to start with. */
+  readonly noMerges = signal(false);
+  /** How the graph is laid out, Graph Options' other choice: kept, as IntelliJ's. */
+  readonly graphOptions = signal<LogGraph>(readGraph());
   /** The authors, once read: what the User filter's names stand for, and its popup lists. */
   readonly authors = signal<Authors | undefined>(undefined);
   private reading: Promise<Authors> | undefined;
@@ -257,6 +288,7 @@ export class Log {
     Object.assign(filter, this.period.peek());
     const paths = this.paths.peek();
     if (paths) filter.paths = paths;
+    if (this.noMerges.peek()) filter.noMerges = true;
     return Object.keys(filter).length === 0 ? undefined : filter;
   }
 
@@ -268,6 +300,7 @@ export class Log {
       max: PAGE,
       ...(this.branch.peek() === undefined ? {} : { branches: [this.branch.peek()] }),
       ...(filter ? { filter } : {}),
+      ...(this.graphOptions.peek() === 'date' ? {} : { graph: this.graphOptions.peek() }),
     })) as LogCommit[];
   }
 
@@ -327,6 +360,19 @@ export class Log {
     return this.refilter();
   }
 
+  /** Shows the commits that aren't merges alone, or all. */
+  filterMerges(noMerges: boolean): Promise<void> {
+    this.noMerges.set(noMerges);
+    return this.refilter();
+  }
+
+  /** Lays the graph out another way, kept for the Logs read from now on. */
+  layOut(graph: LogGraph): Promise<void> {
+    this.graphOptions.set(graph);
+    saveGraph(graph);
+    return this.refilter();
+  }
+
   /** Shows the commits made in a period alone, or at any time (undefined). */
   filterPeriod(period: Period | undefined): Promise<void> {
     this.period.set(period);
@@ -356,6 +402,7 @@ export class Log {
     this.users.set(undefined);
     this.period.set(undefined);
     this.paths.set(paths);
+    this.noMerges.set(false);
     return this.refilter();
   }
 
@@ -402,6 +449,7 @@ export class Log {
     this.users.set(undefined);
     this.period.set(undefined);
     this.paths.set(undefined);
+    this.noMerges.set(false);
     return this.refilter();
   }
 
@@ -445,8 +493,11 @@ export class Log {
 
   /** Whether any filter applies. */
   private filtered(): boolean {
-    return [this.branch, this.text, this.users, this.period, this.paths].some(
-      (filter) => filter.peek() !== undefined,
+    return (
+      this.noMerges.peek() ||
+      [this.branch, this.text, this.users, this.period, this.paths].some(
+        (filter) => filter.peek() !== undefined,
+      )
     );
   }
 
@@ -763,6 +814,8 @@ const FILES_MENU = 'log/files';
 
 /** The files' Group By menu, from the button over them. */
 const FILES_GROUP_BY = 'log/files/groupBy';
+/** Graph Options' menu, from its button after the filters. */
+const GRAPH_MENU = 'log/graphOptions';
 
 /**
  * Makes the file at `path` as commit `hash` has it at `source` (where it was, if renamed since),
@@ -1470,6 +1523,44 @@ export function setupLog(services: MenuServices, show: () => void): void {
   });
   // IntelliJ's Refresh, in its macOS keymap and the others.
   keymap?.bindDefault(keymap.platform === 'mac' ? 'Mod+R' : 'Ctrl+F5', 'log.refresh');
+  // Graph Options, as IntelliJ's (VcsLogGraphOptionsChooserGroup): how the graph is sorted, or its
+  // first parents alone (one of them at a time, First Parent off back to by date), and No Merges.
+  const showing = () => shown.peek()?.log as Log;
+  for (const [id, label, graph] of [
+    ['log.graph.byDate', 'By Commit Date', 'date'],
+    ['log.graph.topological', 'Topologically', 'topological'],
+    ['log.graph.firstParent', 'First Parent', 'firstParent'],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: (c) => here(c) && shown.get() !== undefined,
+      checked: () => shown.get()?.log.graphOptions.get() === graph,
+      run: () => {
+        const log = showing();
+        const on = log.graphOptions.peek() === graph;
+        void log.layOut(graph === 'firstParent' && on ? 'date' : graph);
+      },
+    });
+  }
+  commands.register({
+    id: 'log.graph.noMerges',
+    label: 'No Merges',
+    enabled: (c) => here(c) && shown.get() !== undefined,
+    checked: () => shown.get()?.log.noMerges.get() === true,
+    run: () => {
+      const log = showing();
+      void log.filterMerges(!log.noMerges.peek());
+    },
+  });
+  menus.contribute({ menu: GRAPH_MENU, item: { heading: 'Sort' }, group: 'a' });
+  for (const id of ['log.graph.byDate', 'log.graph.topological']) {
+    menus.contribute({ menu: GRAPH_MENU, item: { command: id }, group: 'a' });
+  }
+  menus.contribute({ menu: GRAPH_MENU, item: { heading: 'Options' }, group: 'b' });
+  for (const id of ['log.graph.firstParent', 'log.graph.noMerges']) {
+    menus.contribute({ menu: GRAPH_MENU, item: { command: id }, group: 'b' });
+  }
   commands.register({
     id: 'log.focusTextFilter',
     label: 'Focus Text Filter',
@@ -2266,6 +2357,26 @@ function LogToolbar(props: {
             }
             clear={() => clearing(log.paths.get(), () => void log.filterPaths(undefined))}
           />,
+          // After the filters, as IntelliJ's (VcsLogClassicFilterUi's graph component).
+          <button
+            type="button"
+            class="cerebro-toolbar-button"
+            aria-label="Graph Options"
+            data-menu={GRAPH_MENU}
+            ref={tooltip({ text: () => 'Graph Options' })}
+            on:click={(event) => {
+              const anchor = event.currentTarget as HTMLElement;
+              openMenu(
+                services,
+                GRAPH_MENU,
+                { anchor, placement: 'below' },
+                { owner: anchor, context: FROM_LOG },
+              );
+            }}
+          >
+            {/* Badged while anything but by date is chosen, as IntelliJ's. */}
+            {() => icon('graphOptions', log.graphOptions.get() !== 'date' || log.noMerges.get())}
+          </button>,
           <ToolbarButton
             commands={services.commands}
             command="log.refresh"

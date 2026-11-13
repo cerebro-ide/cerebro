@@ -31,6 +31,7 @@ import {
   exclusiveAuthors,
   listAuthors,
   log,
+  type LogCommit,
   type LogFilter,
   parseLog,
   rewriteParents,
@@ -411,6 +412,67 @@ describe('with real git', () => {
     expect(await recentCheckouts('/w', () => Promise.resolve('checkout: elsewhere\n'))).toEqual([]);
   });
 
+  it('lays the log out by date, topologically or by first parents, with or without merges, as IntelliJ’s Graph Options', async () => {
+    const graphs = join(root, 'graphs');
+    execFileSync('git', ['init', '-q', '-b', 'main', graphs]);
+    const commitAt = (n: number, message: string, args: string[]) =>
+      execFileSync('git', [...args, '-q', '-m', message], {
+        cwd: graphs,
+        env: {
+          ...process.env,
+          ...IDENTITY,
+          GIT_AUTHOR_DATE: `${String(1_700_000_000 + n)} +0000`,
+          GIT_COMMITTER_DATE: `${String(1_700_000_000 + n)} +0000`,
+        },
+      });
+    // A, then B on side and C on main, merged as M.
+    commitAt(1, 'A', ['commit', '--allow-empty']);
+    run(graphs, 'checkout', '-q', '-b', 'side');
+    commitAt(2, 'B', ['commit', '--allow-empty']);
+    run(graphs, 'checkout', '-q', 'main');
+    commitAt(3, 'C', ['commit', '--allow-empty']);
+    commitAt(4, 'M', ['merge', '--no-ff', 'side']);
+    const hash = (ref: string) => run(graphs, 'rev-parse', ref).trim();
+    const [a, b, c] = [hash('main~2'), hash('side'), hash('main~1')];
+    const shown = (commits: LogCommit[]) =>
+      commits.map((commit) => [commit.subject, commit.parents.length, commit.joins]);
+    expect(shown(await log(graphs, 0, 10, git))).toEqual([
+      ['M', 2, undefined],
+      ['C', 1, undefined],
+      ['B', 1, undefined],
+      ['A', 0, undefined],
+    ]);
+    // A branch's commits together, below the merge that brings them in.
+    expect(
+      (await log(graphs, 0, 10, git, undefined, undefined, 'topological')).map((c) => c.subject),
+    ).toEqual(['M', 'B', 'C', 'A']);
+    // Each joined to its first parent alone; side's head still listed, as a ref's.
+    expect(shown(await log(graphs, 0, 10, git, undefined, undefined, 'firstParent'))).toEqual([
+      ['M', 2, [c]],
+      ['C', 1, [a]],
+      ['B', 1, [a]],
+      ['A', 0, []],
+    ]);
+    // Filtered too: joined down first parents.
+    const some = { text: { text: 'M|B|A', regex: true, matchCase: true } };
+    expect(shown(await log(graphs, 0, 10, git, undefined, some, 'firstParent'))).toEqual([
+      ['M', 2, [a]],
+      ['B', 1, [a]],
+      ['A', 0, []],
+    ]);
+    expect(shown(await log(graphs, 0, 10, git, undefined, some))).toEqual([
+      ['M', 2, [a, b]],
+      ['B', 1, [a]],
+      ['A', 0, []],
+    ]);
+    // No merges: those below one joined across it.
+    expect(shown(await log(graphs, 0, 10, git, undefined, { noMerges: true }))).toEqual([
+      ['C', 1, [a]],
+      ['B', 1, [a]],
+      ['A', 0, []],
+    ]);
+  });
+
   it('filters the log by text, as IntelliJ’s, its graph joined across what it hides', async () => {
     const texts = join(root, 'texts');
     execFileSync('git', ['init', '-q', '-b', 'main', texts]);
@@ -670,6 +732,12 @@ describe('with real git', () => {
     expect(rewriteParents([commit('m', ['b', 'c']), commit('a', ['z'])], parents)).toEqual([
       { ...commit('m', ['b', 'c']), joins: ['a'] },
       { ...commit('a', ['z']), joins: [] },
+    ]);
+    // A commit the ancestry didn't read (its branch moved between the two reads) joins through
+    // its own parents.
+    expect(rewriteParents([commit('n', ['a']), commit('a', [])], new Map())).toEqual([
+      { ...commit('n', ['a']), joins: ['a'] },
+      { ...commit('a', []), joins: [] },
     ]);
   });
 

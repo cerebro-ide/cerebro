@@ -387,16 +387,31 @@ describe('changes', () => {
       undefined,
       undefined,
     );
+    // In the graph's order, as given.
+    await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, graph: 'topological' });
+    expect(git).toHaveBeenLastCalledWith(
+      '/w',
+      expect.arrayContaining(['--topo-order']),
+      undefined,
+      undefined,
+    );
     // Filtered: by the text, as given.
     const filter = {
       text: { text: 'fix', regex: true, matchCase: true },
       after: 0,
       paths: ['src'],
+      noMerges: true,
     };
     await ui.request('git.log', { worktree: '/w', skip: 0, max: 5, filter });
     expect(git).toHaveBeenCalledWith(
       '/w',
-      expect.arrayContaining(['--grep=fix', '--extended-regexp', '--after=@0', ':(literal)src']),
+      expect.arrayContaining([
+        '--grep=fix',
+        '--extended-regexp',
+        '--after=@0',
+        '--no-merges',
+        ':(literal)src',
+      ]),
       undefined,
       undefined,
     );
@@ -415,6 +430,8 @@ describe('changes', () => {
       { skip: 0, max: 1, filter: { paths: [''] } },
       { skip: 0, max: 1, filter: { after: 1.5 } },
       { skip: 0, max: 1, filter: { before: '1' } },
+      { skip: 0, max: 1, filter: { noMerges: 'yes' } },
+      { skip: 0, max: 1, graph: 'bek' },
     ]) {
       await expect(ui.request('git.log', { worktree: '/w', ...bad })).rejects.toMatchObject({
         code: ErrorCodes.InvalidParams,

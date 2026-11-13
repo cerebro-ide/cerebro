@@ -1298,6 +1298,11 @@ body,
   fill: currentColor;
 }
 
+/* An icon's badge: something it opens isn't as it is by default. */
+.playground-icon__badge {
+  fill: var(--cerebro-icon-badge-success);
+}
+
 /*
  * In the branches popup, a branch not a favorite: its star, muted, in place of its branch's or tag's
  * icon on the row highlighted, as IntelliJ's NotFavoriteOnHover.

@@ -51,6 +51,7 @@ export {
   type Branch,
   type LogCommit,
   type LogFilter,
+  type LogGraph,
   type TextFilter,
   type Author,
   type NewWorktree,

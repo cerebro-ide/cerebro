@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -2006,8 +2006,25 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   `rev-parse --verify x^{commit}`) or the Log doesn't have it. **Claude's, open to change:** a
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
-- **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; their menu's other items
+- **Graph Options** (added 2026-11-13), a button after the filters, as IntelliJ's
+  (`VcsLogGraphOptionsChooserGroup`, after the Paths filter in `VcsLogClassicFilterUi`): a menu
+  with IntelliJ's headings and words. Sort: By Commit Date (the default, `PermanentGraph.Options`'
+  `Default`, git's `--date-order`) or Topologically (git's `--topo-order`). Options: First Parent
+  (git's `--first-parent`, each commit joined to its first parent alone) and No Merges
+  (`--no-merges`). The sort and First Parent are one choice, as IntelliJ's: First Parent turned off
+  is By Commit Date again. That choice is kept (`cerebro.log.graph`); No Merges is a filter, as
+  IntelliJ's parent filter, cleared with the others (a commit it hides, shown, and Show History).
+  Measured (git 2.43): `--first-parent` still gives a merge's other parents, so the host joins the
+  graph to the first alone, and down first parents under a filter. **Claims:** Topologically is
+  git's order, not IntelliJ's own (its "Bek" sort, incoming commits directly below the merge,
+  which git's matches for one merge, measured); the icon (not IntelliJ's drawing). Its icon is
+  badged while anything but By Commit Date is chosen, or No Merges is on, as IntelliJ's
+  (`withIconBadge`, `IconBadge.SUCCESS`): a dot where IntelliJ's `BadgeDotProvider` puts it, cut
+  into the icon. Its colour (`--cerebro-icon-badge-success`) is IntelliJ's from its source
+  (`IconBadge.successBackground`, no theme overriding it), not measured. **Not yet:** Linearize
+  Merges (off in IntelliJ unless its registry turns it on), and the branch actions after Options
+  (Collapse and Expand Linear Branches, Long Edges).
+- **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
   (Show Diff in a New Tab or Window, Create
   Patch…); Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
