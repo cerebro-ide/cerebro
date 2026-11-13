@@ -25,6 +25,8 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['comment.block', 'Comment with Block Comment'],
   ['move.line.up', 'Move Line Up'],
   ['move.line.down', 'Move Line Down'],
+  // Before Start New Line's, whose event it starts with.
+  ['input.startNewLineBefore', 'Start New Line Before Current'],
   ['input.startNewLine', 'Start New Line'],
   ['input.joinLines', 'Join Lines'],
   ['input.toggleCase', 'Toggle Case'],

@@ -44,6 +44,7 @@ export const EDITOR_ACTIONS = {
   moveLineDown: 'editor.moveLineDown',
   deleteLine: 'editor.deleteLine',
   startNewLine: 'editor.startNewLine',
+  startNewLineBefore: 'editor.startNewLineBefore',
   joinLines: 'editor.joinLines',
   toggleCase: 'editor.toggleCase',
   expandWord: 'editor.cyclicExpandWord',
@@ -167,6 +168,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Down'],
     [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Alt+Enter'],
   },
 };
 
@@ -273,6 +275,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.scrollDown]: [],
     [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Alt+Enter'],
   },
 };
 
@@ -369,6 +372,7 @@ const VSCODE_WINDOWS: KeymapPreset = {
     // Expand and Shrink Selection, its sheets'.
     [EDITOR_ACTIONS.extendSelection]: ['Shift+Alt+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Shift+Alt+Left'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
   },
 };
 
@@ -438,6 +442,7 @@ export const VSCODE_MAC: KeymapPreset = {
     // Expand and Shrink Selection, its sheets'.
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Meta+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Meta+Left'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
   },
 };
 
@@ -754,6 +759,7 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: [],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+J'],
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+K Ctrl+U', 'Ctrl+K Ctrl+L'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
   },
 };
 
@@ -803,6 +809,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Meta+K Meta+U', 'Meta+K Meta+L'],
     [EDITOR_ACTIONS.scrollUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Alt+Down'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
   },
 };
 
@@ -864,6 +871,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift++', 'Ctrl+Alt+Right', 'Ctrl+W'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+_', 'Ctrl+Alt+Left', 'Ctrl+Shift+W'],
     [EDITOR_ACTIONS.expandWordBackward]: [],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Enter'],
   },
 };
 
@@ -923,6 +931,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: ['Meta+]'],
     [EDITOR_ACTIONS.extendSelection]: ['Meta+Alt+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Meta+Alt+Left'],
+    [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Enter'],
   },
 };
 
