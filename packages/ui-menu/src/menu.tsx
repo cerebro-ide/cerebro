@@ -17,7 +17,7 @@ import {
   type MenuEntry,
   type MenuRegistry,
 } from '@cerebro-ide/commands';
-import { render, type Child } from '@cerebro-ide/jsx';
+import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
 
 export interface MenuServices {
@@ -156,8 +156,8 @@ class MenuSession implements MenuHandle {
     position: MenuPosition,
     private readonly options: MenuOptions,
   ) {
-    // At least the body: a document always has a focused element.
-    this.restoreFocus = document.activeElement as HTMLElement;
+    // Inside an editor's shadow root too.
+    this.restoreFocus = focusedElement();
     this.layer = document.createElement('div');
     this.layer.className = 'cerebro-menu-layer';
     document.body.append(this.layer);
