@@ -1991,8 +1991,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their right-click menu (IntelliJ's
-  Vcs.RepositoryChangesBrowserMenu) and Ctrl+P there; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their menu's other items
+  (Show Diff in a New Tab or Window, Open Repository Version, Cherry-Pick Selected Changes, Create
+  Patch…, Get, Show Changes from Parents) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
@@ -2031,6 +2032,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   lines moved to: with two, a hunk at a file's first line stays anchored there (measured, git 2.43).
   - **Not yet:** several files or a folder at once (the list selects one file); IntelliJ's merge
     when the patch doesn't apply.
+- **A commit's file's right-click menu** (added 2026-11-13), IntelliJ's `Vcs.Log.ChangesBrowser.Popup`
+  in its order, with what Cerebro has of it: Show Diff; Compare with Local and Compare Before with
+  Local (the commit's version of the file, or the one before it, against the working tree;
+  `Vcs.ShowDiffWithLocal`), Edit Source; Revert Selected Changes and History Up to Here. Each is off
+  for a version that isn't there: Compare with Local and Edit Source for a file the commit deleted,
+  Compare Before with Local for one it added, and for a rename, whose path before isn't the file's
+  now. Edit Source is a command now, on F4 (and Cmd+Down on macOS) as the Commit window's Jump to
+  Source, where F4 was a key the list caught itself. Wherever a commit's files show and can open
+  something; not in the Push dialog, whose items would all be off.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),

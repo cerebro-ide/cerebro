@@ -630,12 +630,13 @@ describe('a commit’s pane', () => {
     expect(opened).toEqual([{ id: 'diff@c1..c0:src/a.ts', title: 'a.ts' }]);
     // Through the commit's files, as IntelliJ's.
     expect(chains).toEqual([['src/a.ts', 'gone.ts']]);
-    // F4 opens the file itself; not one that's deleted, nor on other keys.
-    await userEvent.keyboard('{F4}');
+    // Edit Source, on F4 while the list has the keyboard, opens the file itself; not one that's
+    // deleted.
+    expect(services.keymap?.shortcutsFor('log.files.editSource')).toContain('F4');
+    commands.execute('log.files.editSource');
     expect(opened.at(-1)).toEqual({ id: '/r/src/a.ts', title: 'a.ts' });
-    await userEvent.keyboard('x');
     await userEvent.click(file('gone.ts'));
-    await userEvent.keyboard('{F4}');
+    expect(commands.isEnabled('log.files.editSource')).toBe(false);
     expect(opened).toHaveLength(2);
     // The root commit, compared with the empty tree; with no body, no paragraph for it.
     await userEvent.click(rows()[1] as HTMLElement);
@@ -717,11 +718,7 @@ describe('a commit’s pane', () => {
       { path: 'src/a.ts', status: 'modified' },
       { path: 'b.ts', status: 'renamed', from: 'old.ts' },
     ];
-    let failing: string | undefined;
-    host.answers['git.revertChanges'] = () => {
-      if (failing !== undefined) throw new Error(failing);
-      return null;
-    };
+    host.answers['git.revertChanges'] = () => null;
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     await userEvent.click(rows()[0] as HTMLElement);
@@ -745,7 +742,9 @@ describe('a commit’s pane', () => {
       files: ['src/a.ts'],
     });
     await userEvent.click(fileRows()[2] as HTMLElement);
-    failing = 'error: patch failed: b.ts:1';
+    host.answers['git.revertChanges'] = () => {
+      throw new Error('error: patch failed: b.ts:1');
+    };
     await userEvent.click(button);
     const shown = await dialog();
     expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Revert Changes');
@@ -795,6 +794,54 @@ describe('a commit’s pane', () => {
       ...document.querySelectorAll('.playground-log__toolbar .cerebro-toolbar-dropdown__text'),
     ].map((text) => text.textContent);
     expect(texts).toContain('Branch: cccccccc');
+  });
+
+  it('has IntelliJ’s menu on a file, comparing its versions with the working tree', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'a.ts', status: 'modified' },
+      { path: 'new.ts', status: 'added' },
+      { path: 'gone.ts', status: 'deleted' },
+      { path: 'moved.ts', status: 'renamed', from: 'old.ts' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(4);
+    const file = (name: string) =>
+      fileRows().find((row) => row.textContent.includes(name)) as HTMLElement;
+    const menuOn = async (name: string) => {
+      await closeAll();
+      await userEvent.click(file(name), { button: 'right' });
+      return menuItems();
+    };
+    expect(await menuOn('a.ts')).toEqual([
+      'Show Diff',
+      'Compare with Local',
+      'Compare Before with Local',
+      'Edit Source',
+      'Revert Selected Changes',
+      'History Up to Here',
+    ]);
+    expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
+    // The commit's version, then the one before it, against the working tree.
+    await userEvent.click(menuItem('Compare with Local'));
+    expect(opened.at(-1)).toEqual({ id: 'diff@c0..:a.ts', title: 'a.ts' });
+    await menuOn('a.ts');
+    await userEvent.click(menuItem('Compare Before with Local'));
+    expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..:a.ts`, title: 'a.ts' });
+    // Not a version the commit hasn't, nor a rename's path before, which isn't the file's now.
+    const off = () =>
+      [...document.querySelectorAll('.cerebro-menu-item[aria-disabled="true"]')].map(
+        (item) => item.querySelector('.cerebro-menu-item__label')?.textContent,
+      );
+    await menuOn('new.ts');
+    expect(off()).toEqual(['Compare Before with Local']);
+    await menuOn('gone.ts');
+    expect(off()).toEqual(['Compare with Local', 'Edit Source']);
+    await menuOn('moved.ts');
+    expect(off()).toEqual(['Compare Before with Local']);
+    await closeAll();
   });
 
   it('expands and collapses all its folders from its toolbar’s end, as IntelliJ’s', async () => {

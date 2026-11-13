@@ -708,6 +708,9 @@ export function readFilesGrouping(): boolean {
 
 const filesByDirectory = signal(readFilesGrouping());
 
+/** A file's right-click menu among a commit's files. */
+const FILES_MENU = 'log/files';
+
 /** The files' Group By menu, from the button over them. */
 const FILES_GROUP_BY = 'log/files/groupBy';
 
@@ -716,8 +719,11 @@ interface FilesTarget {
   /** The file selected, if any and it can be opened. */
   selected: () => Change | undefined;
   showDiff: (change: Change) => void;
-  /** The commit its files are at, if it can be shown: not the working tree. */
-  revision: string | undefined;
+  /** What its files differ between: without `to`, the working tree. */
+  range: Range;
+  worktree: string;
+  /** Opens a tab: a file, or a diff. */
+  open: (tab: Tab) => void;
   /** Undoes in the files what the commit changed in one. */
   revert: (change: Change) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
@@ -734,7 +740,7 @@ const filesOf = (context: unknown) =>
 /** Whether a file is selected in a commit's files, not the working tree's. */
 const atCommit = (context: unknown) => {
   const files = filesOf(context);
-  return files?.revision !== undefined && files.selected() !== undefined;
+  return files?.range.to !== undefined && files.selected() !== undefined;
 };
 
 /** A row of a commit's files: a file's change, or a folder of them. */
@@ -802,7 +808,9 @@ export function CommitFiles(props: {
       return open ? changes.get().find((c) => c.path === key) : undefined;
     },
     showDiff,
-    revision: range.to,
+    range,
+    worktree: props.worktree,
+    open: (tab) => open?.(tab),
     revert: async (change) => {
       // As IntelliJ's, which saves all documents first.
       await saveBeforeGit();
@@ -870,13 +878,6 @@ export function CommitFiles(props: {
           const to = event.relatedTarget as Node | null;
           if (!(event.currentTarget as HTMLElement).contains(to)) focusedFiles.set(undefined);
         }}
-        on:keydown={(event) => {
-          // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
-          const selected = changes.peek().find((c) => c.path === files.selected);
-          if (event.key !== 'F4' || !open || !selected || selected.status === 'deleted') return;
-          event.preventDefault();
-          open(fileTab(props.worktree, selected.path));
-        }}
       >
         <div class="playground-log__files-toolbar" role="toolbar" aria-label="Changes">
           <ToolbarButton
@@ -936,11 +937,13 @@ export function CommitFiles(props: {
               ? folderContent(node.name, node.count)
               : changeContent(node.change, !filesByDirectory.peek())
           }
-          {...(menu
+          {...(menu || open
             ? {
-                // A file's; a folder has none.
+                // A file's: the one given, else IntelliJ's for a commit's; a folder has none.
                 onContextMenu: (event: MouseEvent, node: ChangeNode) => {
-                  if (node.kind === 'file') menu(event, node.change);
+                  if (node.kind !== 'file') return;
+                  if (menu) menu(event, node.change);
+                  else openContextMenu(props.services, FILES_MENU, event, { files: target });
                 },
               }
             : {})}
@@ -1323,6 +1326,60 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
+  // The file in the working tree against the commit's version of it, or the one before: IntelliJ's
+  // Compare with Local and Compare Before with Local (Vcs.ShowDiffWithLocal and its .Before). Not
+  // for a version the commit hasn't: it deleted the file, or added it.
+  for (const [id, label, before] of [
+    ['log.files.compareWithLocal', 'Compare with Local', false],
+    ['log.files.compareBeforeWithLocal', 'Compare Before with Local', true],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: (context) => {
+        const status = filesOf(context)?.selected()?.status;
+        return (
+          atCommit(context) &&
+          status !== (before ? 'added' : 'deleted') &&
+          // Its path before isn't the one in the working tree.
+          !(before && status === 'renamed')
+        );
+      },
+      run: (context) => {
+        const files = filesOf(context) as FilesTarget;
+        const { path } = files.selected() as Change;
+        const { from, to } = files.range as Required<Range>;
+        files.open(diffTab(path, { from: before ? from : to }));
+      },
+    });
+  }
+  // The file itself, as IntelliJ's Edit Source (Vcs.EditSource), on F4 as the Commit window's Jump
+  // to Source; not one the commit deleted.
+  commands.register({
+    id: 'log.files.editSource',
+    label: 'Edit Source',
+    enabled: (context) => {
+      const status = filesOf(context)?.selected()?.status;
+      return status !== undefined && status !== 'deleted';
+    },
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      files.open(fileTab(files.worktree, (files.selected() as Change).path));
+    },
+  });
+  keymap?.bindDefault('F4', 'log.files.editSource');
+  // IntelliJ's (Vcs.Log.ChangesBrowser.Popup): its changes browser's Show Diff, then
+  // Vcs.RepositoryChangesBrowserMenu with what Cerebro has of it.
+  for (const [command, group] of [
+    ['log.files.showDiff', 'a'],
+    ['log.files.compareWithLocal', 'b'],
+    ['log.files.compareBeforeWithLocal', 'b'],
+    ['log.files.editSource', 'b'],
+    ['log.files.revert', 'c'],
+    ['log.files.showHistory', 'c'],
+  ] as const) {
+    menus.contribute({ menu: FILES_MENU, item: { command }, group });
+  }
   // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.RevertSelectedChanges): what the
   // commit changed in the file undone in it, uncommitted. Cerebro has no changelists, so there's no
   // Select Target Changelist dialog, as IntelliJ's without them.
@@ -1345,7 +1402,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     enabled: atCommit,
     run: (context) => {
       const files = filesOf(context) as FilesTarget;
-      showHistory((files.selected() as Change).path, files.revision);
+      showHistory((files.selected() as Change).path, files.range.to);
     },
   });
   // At the toolbar's end, as IntelliJ's changes browser's (TreeActionsToolbarPanel.createTreeActions).

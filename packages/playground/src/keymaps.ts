@@ -93,6 +93,7 @@ export const INTELLIJ: KeymapPreset = {
     // SafeDelete's, which IntelliJ's Delete Branch takes in the Log's branches.
     'log.branches.delete': ['Alt+Delete'],
     'changes.jumpToSource': ['F4'],
+    'log.files.editSource': ['F4'],
     'problems.jumpToSource': ['F4'],
     'changes.rollback': ['Ctrl+Alt+Z'],
     'changes.groupByDirectory': ['Ctrl+Alt+P'],
@@ -184,6 +185,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'git.file.showDiff': ['Meta+D'],
     'log.branches.delete': ['Meta+Delete'],
     'changes.jumpToSource': ['Meta+Down', 'F4'],
+    'log.files.editSource': ['Meta+Down', 'F4'],
     'problems.jumpToSource': ['Meta+Down', 'F4'],
     'changes.rollback': ['Meta+Alt+Z'],
     'changes.groupByDirectory': ['Ctrl+P'],
@@ -546,6 +548,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     'file.new': ['Ctrl+Shift+N'],
     'view.tool.terminal': ['Ctrl+Meta+T', 'Alt+F12'],
     'changes.jumpToSource': ['F4'],
+    'log.files.editSource': ['F4'],
     'problems.jumpToSource': ['F4'],
     [EDITOR_ACTIONS.findUsages]: ['Ctrl+U', 'Alt+F7'],
     [EDITOR_ACTIONS.quickDocumentation]: ['Meta+I', 'F1'],
