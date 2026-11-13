@@ -65,6 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2861,6 +2862,26 @@ the ones the file's language gives CodeMirror (`commentTokens`): none in JSON, s
   is Ctrl+Shift+/. **Claim:** that Chrome sends `?` from a real keyboard (not measured here).
 - **Not yet:** a Code menu (IntelliJ's has them, as Reformat Code and the editor's other actions;
   they're keys only here, not commands, so not in Find Action either).
+
+## Move Line Up and Down (2026-11-13)
+
+IntelliJ's Code → Move Line Up and Move Line Down (`MoveLineUp`, `MoveLineDown`), which CodeMirror
+had done on Alt+Up and Down until its keys were kept to its basic editing (decision "Editing and
+saving").
+
+- **What they do:** CodeMirror's `moveLineUp` and `moveLineDown`: the caret's line, or the lines a
+  selection touches, swapped with the line above or below, the caret or selection with them; a
+  line a selection ends at the start of is left out, as IntelliJ's; nothing at the document's
+  first or last line, where the key goes on. Undo says "Undo Move Line Up" or "Move Line Down".
+- **Their keys,** from IntelliJ's keymap files: Alt+Shift+Up and Down (`$default`, and macOS's,
+  NetBeans'); none in Eclipse's and Visual Studio's, which take them away; Sublime Text's
+  Ctrl+Shift+Up and Down (Ctrl+Cmd on macOS). VS Code's are Alt+Up and Down, from its shortcut
+  sheets.
+- **Claims and differences:** a fold's lines aren't moved as one, where IntelliJ's moves over a
+  folded region whole (not checked against its source).
+- **The editor's actions' changes are named through one piece** (`command-change.ts`): a
+  CodeMirror command's transaction, made again with the app's user event, as Comment with Line
+  Comment's.
 
 ## Git → Current File → Show History (2026-11-12)
 

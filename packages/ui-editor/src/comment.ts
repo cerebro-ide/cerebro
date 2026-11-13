@@ -8,10 +8,9 @@ import {
   EditorSelection,
   type EditorState,
   type SelectionRange,
-  type Transaction,
   type TransactionSpec,
 } from '@codemirror/state';
-import type { Command, EditorView } from '@codemirror/view';
+import { changeOf, dispatching } from './command-change.js';
 
 interface Tokens {
   open: string;
@@ -30,13 +29,7 @@ function blockTokens(state: EditorState, pos: number): Tokens | undefined {
  * started there. Undefined where the language has no line comment, or the editor's read-only.
  */
 export function lineComment(state: EditorState): TransactionSpec | undefined {
-  let made: Transaction | undefined;
-  toggleLineComment({
-    state,
-    dispatch: (tr) => {
-      made = tr;
-    },
-  });
+  const made = changeOf(toggleLineComment, state);
   if (!made) return undefined;
   const after = made.state;
   const down = state.selection.ranges.every(
@@ -169,15 +162,6 @@ export function blockComment(state: EditorState): TransactionSpec | undefined {
     selection: made.range,
     scrollIntoView: true,
     userEvent: 'comment.block',
-  };
-}
-
-/** A command dispatching a change, where there's one. */
-function dispatching(change: (state: EditorState) => TransactionSpec | undefined): Command {
-  return (view: EditorView) => {
-    const spec = change(view.state);
-    if (spec) view.dispatch(spec);
-    return spec !== undefined;
   };
 }
 

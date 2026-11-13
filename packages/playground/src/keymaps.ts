@@ -40,6 +40,8 @@ export const EDITOR_ACTIONS = {
   contextActions: 'editor.showContextActions',
   lineComment: 'editor.commentWithLineComment',
   blockComment: 'editor.commentWithBlockComment',
+  moveLineUp: 'editor.moveLineUp',
+  moveLineDown: 'editor.moveLineDown',
   find: 'editor.find',
   replace: 'editor.replace',
 } as const;
@@ -141,6 +143,8 @@ export const INTELLIJ: KeymapPreset = {
     'markdown.layout.preview': [],
     [EDITOR_ACTIONS.lineComment]: ['Ctrl+/'],
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?'],
+    [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
   },
 };
 
@@ -234,6 +238,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'markdown.layout.preview': [],
     [EDITOR_ACTIONS.lineComment]: ['Meta+/'],
     [EDITOR_ACTIONS.blockComment]: ['Meta+Alt+/', 'Ctrl+Shift+?'],
+    [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
   },
 };
 
@@ -319,6 +325,9 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
     // Toggle Block Comment, its sheets'; Toggle Line Comment's is IntelliJ's.
     [EDITOR_ACTIONS.blockComment]: ['Shift+Alt+A'],
+    // Move Line Up and Down, its sheets'.
+    [EDITOR_ACTIONS.moveLineUp]: ['Alt+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Alt+Down'],
   },
 };
 
@@ -377,6 +386,9 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
     // Toggle Block Comment, its sheets'; Toggle Line Comment's is IntelliJ's.
     [EDITOR_ACTIONS.blockComment]: ['Shift+Alt+A'],
+    // Move Line Up and Down, its sheets'.
+    [EDITOR_ACTIONS.moveLineUp]: ['Alt+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Alt+Down'],
   },
 };
 
@@ -439,6 +451,8 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+*'],
     [EDITOR_ACTIONS.nextProblem]: [],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F1'],
+    [EDITOR_ACTIONS.moveLineUp]: [],
+    [EDITOR_ACTIONS.moveLineDown]: [],
   },
 };
 
@@ -488,6 +502,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.foldAll]: ['Meta+Shift+/'],
     [EDITOR_ACTIONS.unfoldAll]: ['Meta+*'],
     [EDITOR_ACTIONS.blockComment]: ['Meta+Shift+?'],
+    [EDITOR_ACTIONS.moveLineUp]: [],
+    [EDITOR_ACTIONS.moveLineDown]: [],
   },
 };
 
@@ -650,6 +666,8 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.unfold]: ['Ctrl+Shift+}'],
     [EDITOR_ACTIONS.foldAll]: ['Ctrl+K Ctrl+1'],
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+K Ctrl+J', 'Ctrl+K Ctrl+0'],
+    [EDITOR_ACTIONS.moveLineUp]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Ctrl+Shift+Down'],
   },
 };
 
@@ -684,6 +702,8 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unfold]: ['Meta+Alt+]'],
     [EDITOR_ACTIONS.foldAll]: ['Meta+K Meta+1'],
     [EDITOR_ACTIONS.unfoldAll]: ['Meta+K Meta+J', 'Meta+K Meta+0'],
+    [EDITOR_ACTIONS.moveLineUp]: ['Ctrl+Meta+Up'],
+    [EDITOR_ACTIONS.moveLineDown]: ['Ctrl+Meta+Down'],
   },
 };
 
@@ -738,6 +758,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
     [EDITOR_ACTIONS.lineComment]: ['Ctrl+Alt+/', 'Ctrl+K C', 'Ctrl+K Ctrl+C'],
+    [EDITOR_ACTIONS.moveLineUp]: [],
+    [EDITOR_ACTIONS.moveLineDown]: [],
   },
 };
 
@@ -791,6 +813,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
     [EDITOR_ACTIONS.lineComment]: ['Meta+Alt+/', 'Meta+K C', 'Meta+K Meta+C'],
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Meta+/'],
+    [EDITOR_ACTIONS.moveLineUp]: [],
+    [EDITOR_ACTIONS.moveLineDown]: [],
   },
 };
 

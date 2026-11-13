@@ -52,6 +52,7 @@ import { formattable, formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
+import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
@@ -218,6 +219,9 @@ export interface EditorKeys {
   /** Comment with Line Comment and with Block Comment: the lines, or the selection, (un)commented. */
   lineComment?: readonly string[];
   blockComment?: readonly string[];
+  /** Move Line Up and Down: the caret's line, or the selection's, swapped with the next one. */
+  moveLineUp?: readonly string[];
+  moveLineDown?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -244,6 +248,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   previousProblem: ['Shift-F2'],
   lineComment: ['Mod-/'],
   blockComment: ['Mod-Shift-/'],
+  moveLineUp: ['Alt-Shift-ArrowUp'],
+  moveLineDown: ['Alt-Shift-ArrowDown'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -831,6 +837,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
           ? [
               ...keys.lineComment.map((key) => ({ key, run: commentByLine })),
               ...keys.blockComment.map((key) => ({ key, run: commentByBlock })),
+              ...keys.moveLineUp.map((key) => ({ key, run: moveLinesUp })),
+              ...keys.moveLineDown.map((key) => ({ key, run: moveLinesDown })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]
