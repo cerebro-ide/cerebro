@@ -131,6 +131,21 @@ describe('the shelf', () => {
     expect(await listShelves(repo, git)).toHaveLength(1);
   });
 
+  it('unshelves a change at a file’s start after lines are added above it', async () => {
+    const repo = repository('moved');
+    // The lines as written, whatever the machine's git converts them to (Windows' to CRLF).
+    run(repo, 'config', 'core.autocrlf', 'false');
+    writeFileSync(join(repo, 'b.txt'), 'one\ntwo\nthree\nfour\nfive\n');
+    run(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'lines');
+    writeFileSync(join(repo, 'b.txt'), 'one\nTWO\nthree\nfour\nfive\n');
+    const id = await shelve(repo, await listChanges(repo), 'Aside', git);
+    // An update, say, adds a line at the top: the hunk, at line 1, has moved.
+    writeFileSync(join(repo, 'b.txt'), 'zero\none\ntwo\nthree\nfour\nfive\n');
+    await unshelve(repo, id, git);
+    expect(read(repo, 'b.txt')).toBe('zero\none\nTWO\nthree\nfour\nfive\n');
+    expect(await listShelves(repo, git)).toEqual([]);
+  });
+
   it('shelves before the first commit, against the empty tree', async () => {
     const repo = repository('no-commits', true);
     writeFileSync(join(repo, 'a.txt'), 'a');
