@@ -481,6 +481,23 @@ describe('changes', () => {
     rmSync(dir, { recursive: true });
   });
 
+  it('gives a file as it was at a commit: its text, that it’s binary, or null', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) => {
+      if (args[1] === 'c0ffee:a.ts') return Promise.resolve('then');
+      if (args[1] === 'c0ffee:b.bin') return Promise.resolve('\0\x01');
+      return Promise.reject(new Error(`fatal: path '${String(args[1])}' does not exist`));
+    });
+    const { ui } = connect(git);
+    const at = (file: string) => ui.request('git.fileAt', { path: '/w', hash: 'c0ffee', file });
+    expect(await at('a.ts')).toEqual({ text: 'then' });
+    expect(await at('b.bin')).toEqual({ binary: true });
+    expect(await at('gone.ts')).toBeNull();
+    expect(git).toHaveBeenCalledWith('/w', ['show', 'c0ffee:a.ts']);
+    await expect(
+      ui.request('git.fileAt', { path: '/w', hash: '-x', file: 'a.ts' }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+  });
+
   it('lists the changes between two commits, and gives a file’s sides at each', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) => {
       if (args[0] === 'diff') return Promise.resolve('R100\0old.ts\0new.ts\0M\0b.ts\0');

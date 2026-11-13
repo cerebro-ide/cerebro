@@ -2,7 +2,7 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
-import { diffTab } from '../src/changes.js';
+import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
@@ -175,6 +175,30 @@ describe('Show Diff with Working Tree', () => {
       1,
     );
     answers.delete('git.changes');
+  });
+});
+
+describe('a repository version’s tab', () => {
+  it('shows the file as it was at the commit, as Open Repository Version opens it', async () => {
+    answers.set('git.fileAt', { text: 'then\n' });
+    env().editor.open(revisionTab('src/a.ts', 'c0ffee'));
+    await expect
+      .poll(
+        () =>
+          document
+            .querySelector('.cerebro-editor-group--active .cerebro-editor-code')
+            ?.shadowRoot?.querySelector('.cm-content')?.textContent,
+      )
+      .toBe('then');
+    expect(host('/r').params('git.fileAt')).toEqual([
+      { path: '/r', hash: 'c0ffee', file: 'src/a.ts' },
+    ]);
+    expect(
+      document.querySelector('.cerebro-editor-group--active .cerebro-editor-tab--active')
+        ?.textContent,
+    ).toContain('a.ts (c0ffee)');
+    env().editor.close(env().editor.activeGroup.id, revisionTab('src/a.ts', 'c0ffee').id);
+    answers.delete('git.fileAt');
   });
 });
 

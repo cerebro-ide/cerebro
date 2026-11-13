@@ -873,11 +873,16 @@ describe('a commit’s pane', () => {
       'Compare with Local',
       'Compare Before with Local',
       'Edit Source',
+      'Open Repository Version',
       'Revert Selected Changes',
       'Cherry-Pick Selected Changes',
       'History Up to Here',
     ]);
     expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
+    // The file as the commit left it, named as IntelliJ's tab is.
+    await userEvent.click(menuItem('Open Repository Version'));
+    expect(opened.at(-1)).toEqual({ id: 'rev@c0:a.ts', title: 'a.ts (c0)' });
+    await menuOn('a.ts');
     // The commit's version, then the one before it, against the working tree.
     await userEvent.click(menuItem('Compare with Local'));
     expect(opened.at(-1)).toEqual({ id: 'diff@c0..:a.ts', title: 'a.ts' });
@@ -912,7 +917,7 @@ describe('a commit’s pane', () => {
 
     expect(off()).toEqual(['Compare Before with Local']);
     await menuOn('gone.ts');
-    expect(off()).toEqual(['Compare with Local', 'Edit Source']);
+    expect(off()).toEqual(['Compare with Local', 'Edit Source', 'Open Repository Version']);
     await menuOn('moved.ts');
     expect(off()).toEqual(['Compare Before with Local']);
     await closeAll();

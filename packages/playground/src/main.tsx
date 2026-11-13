@@ -81,9 +81,11 @@ import {
   tabPath,
   diffRange,
   diffTab,
+  revisionOf,
   setupChanges,
   type Range,
 } from './changes.js';
+import { RepositoryVersion } from './repository-version.js';
 import { setupCredentials } from './credentials.js';
 import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
@@ -1802,6 +1804,19 @@ render(
                   const line = diffLines.get(tab.id);
                   diffLines.delete(tab.id);
                   return <Diff path={diff} env={env.id} range={diffRange(tab.id)} line={line} />;
+                }
+                const version = revisionOf(tab.id);
+                if (version) {
+                  const settings = settingsFor(env.id);
+                  return (
+                    <RepositoryVersion
+                      host={hostFor(env.id)}
+                      worktree={env.id}
+                      {...version}
+                      fontSize={() => settings.get('editor.fontSize') as number}
+                      tabSize={() => settings.get('editor.tabSize') as number}
+                    />
+                  );
                 }
                 return isImage(tab.id) ? (
                   <ImageTab path={tab.id} services={services} />

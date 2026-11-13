@@ -110,9 +110,29 @@ export function diffPath(tabId: string): string | undefined {
   return DIFF_ID.exec(tabId)?.[3];
 }
 
-/** The file a tab shows: its own (its id), or its diff's; none for a comparison of branches. */
+/**
+ * A file as it was at a commit, read-only: IntelliJ's Open Repository Version, its tab named as
+ * IntelliJ's (`AbstractVcsVirtualFile.getPresentableName`), the file's name and the revision.
+ */
+export const revisionTab = (path: string, hash: string): Tab => ({
+  id: `rev@${hash}:${path}`,
+  title: `${path.split('/').at(-1) as string} (${hash})`,
+});
+
+const REVISION_ID = /^rev@([^:]+):(.*)$/s;
+
+/** The file and commit a repository version's tab shows, if it's one. */
+export function revisionOf(tabId: string): { path: string; hash: string } | undefined {
+  const match = REVISION_ID.exec(tabId);
+  return match ? { hash: match[1] as string, path: match[2] as string } : undefined;
+}
+
+/**
+ * The file a tab shows: its own (its id), its diff's, or the one a repository version is of; none
+ * for a comparison of branches.
+ */
 export function tabPath(tabId: string): string | undefined {
-  return compareRefs(tabId) ? undefined : (diffPath(tabId) ?? tabId);
+  return compareRefs(tabId) ? undefined : (diffPath(tabId) ?? revisionOf(tabId)?.path ?? tabId);
 }
 
 /** The commits a diff tab compares, if it compares two. */

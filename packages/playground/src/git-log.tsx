@@ -31,6 +31,7 @@ import {
   diffTab,
   fileTab,
   folderContent,
+  revisionTab,
   type Change,
   type Range,
 } from './changes.js';
@@ -1446,6 +1447,17 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('F4', 'log.files.editSource');
+  // The file as the commit left it, read-only, as IntelliJ's Open Repository Version
+  // (Vcs.OpenRepositoryVersion): not one the commit deleted.
+  commands.register({
+    id: 'log.files.openRepositoryVersion',
+    label: 'Open Repository Version',
+    enabled: (context) => atCommit(context) && filesOf(context)?.selected()?.status !== 'deleted',
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      files.open(revisionTab((files.selected() as Change).path, files.range.to as string));
+    },
+  });
   // IntelliJ's (Vcs.Log.ChangesBrowser.Popup): its changes browser's Show Diff, then
   // Vcs.RepositoryChangesBrowserMenu with what Cerebro has of it.
   for (const [command, group] of [
@@ -1453,6 +1465,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.files.compareWithLocal', 'b'],
     ['log.files.compareBeforeWithLocal', 'b'],
     ['log.files.editSource', 'b'],
+    ['log.files.openRepositoryVersion', 'b'],
     ['log.files.revert', 'c'],
     ['log.files.cherryPick', 'c'],
     ['log.files.showHistory', 'c'],
