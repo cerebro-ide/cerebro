@@ -336,13 +336,13 @@ describe('TreeModel, all at once', () => {
     await model.refresh();
     expect(loadedRoots()).toBe(same);
     // A folder's children read anew, the same all the way down: kept; one changed below, not.
-    roots = [{ path: 'd', children: [{ path: 'd/e' }] }];
+    roots = [{ path: 'd', children: [{ path: 'd/e' }] }] as Item[];
     await model.refresh();
     const nested = loadedRoots();
-    roots = [{ path: 'd', children: [{ path: 'd/e' }] }];
+    roots = [{ path: 'd', children: [{ path: 'd/e' }] }] as Item[];
     await model.refresh();
     expect(loadedRoots()).toBe(nested);
-    roots = [{ path: 'd', children: [{ path: 'd/f' }] }];
+    roots = [{ path: 'd', children: [{ path: 'd/f' }] }] as Item[];
     await model.refresh();
     expect(loadedRoots()).not.toBe(nested);
     // An object not made as data (a class's) is the same only as itself, and an array isn't an
