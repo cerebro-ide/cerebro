@@ -511,7 +511,28 @@ const revisions = (branches?: readonly string[]) =>
   branches ? ['--end-of-options', ...branches] : ALL;
 
 /** A commit's details, newest first with each after its children, as the Log lists them. */
-const DETAILS = ['-z', '--date-order', '--decorate=full', `--format=${LOG_FORMAT}`];
+/**
+ * How the Log's graph is laid out, as IntelliJ's Graph Options (`PermanentGraph.Options`), one of
+ * them at a time: its commits by date (IntelliJ's default), topologically, or the first parents
+ * alone.
+ */
+export type LogGraph = 'date' | 'topological' | 'firstParent';
+
+/** git's options for each. */
+const ORDER: Record<LogGraph, readonly string[]> = {
+  date: ['--date-order'],
+  topological: ['--topo-order'],
+  firstParent: ['--date-order', '--first-parent'],
+};
+
+/** What `git log` reads of each commit, in the graph's order. */
+const details = (graph: LogGraph) => [
+  '-z',
+  ...ORDER[graph],
+  '--decorate=full',
+  `--format=${LOG_FORMAT}`,
+];
+const DETAILS = details('date');
 
 /** Runs `git log`, after `config` (`-c` options); nothing in a repository with no commits yet. */
 async function readLog(
@@ -530,11 +551,19 @@ async function readLog(
   }
 }
 
-/** Each commit's parents, the commits in the Log's order (a commit before its parents). */
-async function ancestry(worktree: string, revs: readonly string[], run: Git) {
+/**
+ * Each commit's parents, the commits in the Log's order (a commit before its parents): its first
+ * alone, in the graph of first parents.
+ */
+async function ancestry(
+  worktree: string,
+  revs: readonly string[],
+  run: Git,
+  graph: LogGraph = 'date',
+) {
   const output = await readLog(
     worktree,
-    ['-z', '--date-order', '--format=%H%x1f%P', ...revs, '--'],
+    ['-z', ...ORDER[graph], '--format=%H%x1f%P', ...revs, '--'],
     run,
   );
   return new Map(
@@ -543,7 +572,8 @@ async function ancestry(worktree: string, revs: readonly string[], run: Git) {
       .filter((record) => record !== '')
       .map((record) => {
         const [hash, parents] = record.split('\x1f') as [string, string];
-        return [hash, parents === '' ? [] : parents.split(' ')];
+        const all = parents === '' ? [] : parents.split(' ');
+        return [hash, graph === 'firstParent' ? all.slice(0, 1) : all];
       }),
   );
 }
@@ -565,6 +595,8 @@ export interface LogFilter {
   before?: number;
   /** Files and folders, from the worktree: the Paths filter's. Only the commits that change them. */
   paths?: readonly string[];
+  /** No merge commits: IntelliJ's No Merges (a parent filter, in its Graph Options). */
+  noMerges?: boolean;
 }
 
 /** An author exactly, as an extended regular expression: IntelliJ's UserNameRegex. */
@@ -589,6 +621,7 @@ function filterOptions(filter: LogFilter): string[] {
     ...(filter.after === undefined ? [] : [`--after=${seconds(filter.after)}`]),
     ...(filter.before === undefined ? [] : [`--before=${seconds(filter.before)}`]),
     ...(filter.paths ? ['--full-history', '--simplify-merges'] : []),
+    ...(filter.noMerges ? ['--no-merges'] : []),
   ];
 }
 
@@ -621,7 +654,10 @@ export function rewriteParents(
   for (const [hash, its] of [...parents].reverse()) {
     if (!shown.has(hash)) nearest.set(hash, unique(its.flatMap(below)));
   }
-  return commits.map((commit) => ({ ...commit, joins: unique(commit.parents.flatMap(below)) }));
+  return commits.map((commit) => ({
+    ...commit,
+    joins: unique((parents.get(commit.hash) ?? commit.parents).flatMap(below)),
+  }));
 }
 
 /**
@@ -634,7 +670,9 @@ async function filtered(
   branches: readonly string[] | undefined,
   filter: LogFilter,
   run: Git,
+  graph: LogGraph,
 ): Promise<LogCommit[]> {
+  // Hashes find their commits whatever the other filters and the graph's options.
   const words = filter.text && hashesIn(filter.text.text);
   if (words) {
     const all = await ancestry(worktree, ALL, run);
@@ -675,14 +713,14 @@ async function filtered(
   const commits = parseLog(
     await readLog(
       worktree,
-      [...DETAILS, ...filterOptions(filter), ...revs, '--', ...pathspecs(filter)],
+      [...details(graph), ...filterOptions(filter), ...revs, '--', ...pathspecs(filter)],
       run,
       undefined,
       // The authors as written in the commits, as IntelliJ asks for them: not as a mailmap has them.
       filter.authors ? ['-c', 'log.mailmap=false'] : [],
     ),
   );
-  return rewriteParents(commits, await ancestry(worktree, revs, run));
+  return rewriteParents(commits, await ancestry(worktree, revs, run, graph));
 }
 
 /**
@@ -691,7 +729,7 @@ async function filtered(
  * the first `skip`. None in a repository with no commits yet. Cerebro's own refs aren't among them.
  * Given `branches` (refs in full, or HEAD), only theirs: the Log's Branch filter. Given a `filter`,
  * those it matches: the whole history is read for each page, to join the graph (a claim that it's
- * quick enough).
+ * quick enough). In the `graph`'s order; in the graph of first parents, each joined to its first.
  */
 export async function log(
   worktree: string,
@@ -700,13 +738,16 @@ export async function log(
   run: Git = git,
   branches?: readonly string[],
   filter?: LogFilter,
+  graph: LogGraph = 'date',
 ): Promise<LogCommit[]> {
-  if (filter) return (await filtered(worktree, branches, filter, run)).slice(skip, skip + max);
-  return parseLog(
+  if (filter) {
+    return (await filtered(worktree, branches, filter, run, graph)).slice(skip, skip + max);
+  }
+  const commits = parseLog(
     await readLog(
       worktree,
       [
-        ...DETAILS,
+        ...details(graph),
         `--skip=${String(skip)}`,
         `--max-count=${String(max)}`,
         ...revisions(branches),
@@ -715,6 +756,9 @@ export async function log(
       run,
     ),
   );
+  return graph === 'firstParent'
+    ? commits.map((commit) => ({ ...commit, joins: commit.parents.slice(0, 1) }))
+    : commits;
 }
 
 /** A commit's author, or the user git commits as. */

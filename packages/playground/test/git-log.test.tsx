@@ -26,6 +26,7 @@ import {
   showInLog,
   logTextHistory,
   viewCommits,
+  Log,
   type LogCommit,
   type LogCommitContext,
   readFilesSettings,
@@ -2256,6 +2257,122 @@ describe('Refresh', () => {
       () => undefined,
     );
     expect(keymap.shortcutsFor('log.refresh')).toEqual(['Meta+R']);
+  });
+});
+
+describe('Graph Options', () => {
+  const button = () =>
+    document.querySelector(
+      '.playground-log__toolbar [data-menu="log/graphOptions"]',
+    ) as HTMLElement;
+  const menu = async () => {
+    await closeAll();
+    await userEvent.click(button());
+    return [...document.querySelectorAll<HTMLElement>('.cerebro-menu-heading, [role^="menuitem"]')];
+  };
+  const shown = (entries: HTMLElement[]) =>
+    entries.map((entry) => [entry.textContent, entry.getAttribute('aria-checked')]);
+  const choose = async (label: string) => {
+    const entries = await menu();
+    await userEvent.click(entries.find((entry) => entry.textContent === label) as HTMLElement);
+  };
+  const asked = () => {
+    const { graph, filter } = host.params('git.log').at(-1) as {
+      graph?: string;
+      filter?: { noMerges?: boolean };
+    };
+    return [graph, filter?.noMerges];
+  };
+
+  afterEach(() => {
+    localStorage.removeItem('cerebro.log.graph');
+  });
+
+  it('sorts the graph by date or topologically, or lays out first parents alone, kept, as IntelliJ’s', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    // After the filters, before Refresh.
+    expect(button().getAttribute('aria-label')).toBe('Graph Options');
+    expect(button().nextElementSibling?.getAttribute('data-command')).toBe('log.refresh');
+    expect(shown(await menu())).toEqual([
+      ['Sort', null],
+      ['By Commit Date', 'true'],
+      ['Topologically', 'false'],
+      ['Options', null],
+      ['First Parent', 'false'],
+      ['No Merges', 'false'],
+    ]);
+    expect(asked()).toEqual([undefined, undefined]);
+    await choose('Topologically');
+    await expect.poll(asked).toEqual(['topological', undefined]);
+    expect(localStorage.getItem('cerebro.log.graph')).toBe('topological');
+    // One at a time: First Parent replaces the sort, and off, back to by date.
+    await choose('First Parent');
+    await expect.poll(asked).toEqual(['firstParent', undefined]);
+    expect(shown(await menu()).slice(1, 5)).toEqual([
+      ['By Commit Date', 'false'],
+      ['Topologically', 'false'],
+      ['Options', null],
+      ['First Parent', 'true'],
+    ]);
+    await userEvent.keyboard('{Escape}');
+    await choose('First Parent');
+    await expect.poll(asked).toEqual([undefined, undefined]);
+    await choose('Topologically');
+    await expect.poll(asked).toEqual(['topological', undefined]);
+    await choose('By Commit Date');
+    await expect.poll(asked).toEqual([undefined, undefined]);
+    // Kept for the Logs read after.
+    await choose('First Parent');
+    await expect.poll(asked).toEqual(['firstParent', undefined]);
+    dispose?.();
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    expect(asked()).toEqual(['firstParent', undefined]);
+    // Off without the Log, as its other actions.
+    dispose?.();
+    dispose = undefined;
+    expect(commands.isEnabled('log.graph.byDate', { source: 'log' })).toBe(false);
+  });
+
+  it('hides merges, a filter as IntelliJ’s, cleared with the others', async () => {
+    git.log = history(2);
+    mount();
+    await expect.poll(subjects).toHaveLength(2);
+    await choose('No Merges');
+    await expect.poll(asked).toEqual([undefined, true]);
+    expect((await menu()).at(-1)?.getAttribute('aria-checked')).toBe('true');
+    await userEvent.keyboard('{Escape}');
+    await choose('No Merges');
+    await expect.poll(asked).toEqual([undefined, undefined]);
+    // A commit it hides, shown: the filters cleared, as IntelliJ's (the fake lists c0 alone).
+    await choose('No Merges');
+    await expect.poll(asked).toEqual([undefined, true]);
+    await expect.poll(subjects).toEqual(['Change 0']);
+    showInLog('c1', 'a.ts');
+    await expect.poll(asked).toEqual([undefined, undefined]);
+    // Show History shows a file's commits alone, as IntelliJ's.
+    await choose('No Merges');
+    await expect.poll(asked).toEqual([undefined, true]);
+    showHistory('src/');
+    await expect.poll(asked).toEqual([undefined, undefined]);
+  });
+
+  it('keeps by date where what’s kept is something else or can’t be read or written', () => {
+    localStorage.setItem('cerebro.log.graph', 'bek');
+    expect(new Log(host, '/r').graphOptions.peek()).toBe('date');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('denied');
+    });
+    expect(new Log(host, '/r').graphOptions.peek()).toBe('date');
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('full');
+    });
+    const log = new Log(host, '/r');
+    void log.layOut('topological');
+    expect(log.graphOptions.peek()).toBe('topological');
+    vi.restoreAllMocks();
   });
 });
 
