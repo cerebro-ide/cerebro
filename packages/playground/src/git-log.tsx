@@ -686,27 +686,53 @@ const signature = (commit: LogCommit) =>
   ).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`;
 
 /**
- * The files changed between two commits, as a tree: the Log's selected commit's, and the Push
- * dialog's. With `open`, Enter or a double click opens a file's diff, and F4 the file itself, as
- * IntelliJ's Jump to Source.
- */
-/**
- * Whether a commit's files are grouped by directory, as IntelliJ's changes trees are to start with
- * (ChangesTree's DEFAULT_GROUPING_KEYS); kept apart from the Commit window's, as IntelliJ keeps
- * them, in the browser's storage.
+ * How a commit's files show, kept in the browser's storage:
+ * - grouped by directory, as IntelliJ's changes trees are to start with (ChangesTree's
+ *   DEFAULT_GROUPING_KEYS), kept apart from the Commit window's, as IntelliJ keeps them;
+ * - only those the Log's Paths filter holds, or all (IntelliJ's Show Only Affected Changes, off to
+ *   start with: VcsLogUiPropertiesImpl).
  */
 const FILES_KEY = 'cerebro.log.files';
 
-export function readFilesGrouping(): boolean {
+export function readFilesSettings(): { byDirectory: boolean; onlyAffected: boolean } {
   try {
-    const stored = JSON.parse(localStorage.getItem(FILES_KEY) ?? '{}') as { byDirectory?: unknown };
-    return stored.byDirectory !== false;
+    const stored = JSON.parse(localStorage.getItem(FILES_KEY) ?? '{}') as {
+      byDirectory?: unknown;
+      onlyAffected?: unknown;
+    };
+    return {
+      byDirectory: stored.byDirectory !== false,
+      onlyAffected: stored.onlyAffected === true,
+    };
   } catch {
-    return true;
+    return { byDirectory: true, onlyAffected: false };
   }
 }
 
-const filesByDirectory = signal(readFilesGrouping());
+const filesSettings = readFilesSettings();
+const filesByDirectory = signal(filesSettings.byDirectory);
+const onlyAffected = signal(filesSettings.onlyAffected);
+
+function saveFilesSettings() {
+  try {
+    localStorage.setItem(
+      FILES_KEY,
+      JSON.stringify({ byDirectory: filesByDirectory.peek(), onlyAffected: onlyAffected.peek() }),
+    );
+  } catch {
+    // Not kept: it still applies until the page is reloaded.
+  }
+}
+
+/**
+ * Whether a change touches one of `paths` (the Paths filter's: a folder's ends with "/"), before
+ * or after a rename, as IntelliJ's (FileHistoryUtil.affectsFile and affectsDirectory).
+ */
+const affects = (change: Change, paths: readonly string[]) =>
+  [change.path, change.from].some(
+    (path) =>
+      path !== undefined && paths.some((p) => (p.endsWith('/') ? path.startsWith(p) : path === p)),
+  );
 
 /** A file's right-click menu among a commit's files. */
 const FILES_MENU = 'log/files';
@@ -728,6 +754,8 @@ interface FilesTarget {
   apply: (change: Change, reverse: boolean) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
+  /** The Log's Paths filter's paths, which Show Only Affected Changes keeps to; none, if none. */
+  affected: () => readonly string[] | undefined;
 }
 
 /** The list of a commit's files that has the keyboard, if one has. */
@@ -766,6 +794,11 @@ function fileNodes(changes: readonly Change[], opened: (key: string) => void): C
   });
 }
 
+/**
+ * The files changed between two commits, as a tree: the Log's selected commit's, and the Push
+ * dialog's. With `open`, Enter or a double click opens a file's diff, and F4 the file itself, as
+ * IntelliJ's Jump to Source.
+ */
 export function CommitFiles(props: {
   services: MenuServices;
   host: Host;
@@ -783,9 +816,19 @@ export function CommitFiles(props: {
   selection?: (selected: () => Change | undefined) => void;
   /** A file's context menu: the file is selected first. */
   onContextMenu?: (event: MouseEvent, change: Change) => void;
+  /** The Log's Paths filter's paths, read reactively: Show Only Affected Changes keeps to them. */
+  affected?: () => readonly string[] | undefined;
 }) {
   const { range, open, onContextMenu: menu } = props;
-  const changes = signal<readonly Change[]>([]);
+  /** All it changes, as read. */
+  const read = signal<readonly Change[]>([]);
+  const affected = () => props.affected?.();
+  /** Those shown: under Show Only Affected Changes, those the Paths filter's paths touch. */
+  const changes = computed(() => {
+    const paths = affected();
+    const all = read.get();
+    return onlyAffected.get() && paths ? all.filter((change) => affects(change, paths)) : all;
+  });
   let nodes: ChangeNode[] = [];
   const files = new TreeModel<ChangeNode>({
     // Only the root and folders have any.
@@ -831,6 +874,7 @@ export function CommitFiles(props: {
       await refreshAll(props.worktree);
     },
     tree: files,
+    affected,
   };
   onCleanup(() => {
     if (focusedFiles.peek() === target) focusedFiles.set(undefined);
@@ -851,11 +895,13 @@ export function CommitFiles(props: {
     return changes.get().find((c) => c.path === key);
   });
   const failed = signal<string | undefined>(undefined);
+  /** Some were read, and Show Only Affected Changes hides them all. */
+  const allHidden = computed(() => changes.get().length === 0 && read.get().length > 0);
   /** Read, and none differ. */
   const none = signal(false);
   void props.host.request('git.changes', { path: props.worktree, ...range }).then(
     (listed) => {
-      changes.set(listed as Change[]);
+      read.set(listed as Change[]);
       none.set((listed as Change[]).length === 0);
       void loading.then(() => {
         files.select(props.selected);
@@ -901,6 +947,17 @@ export function CommitFiles(props: {
             icon={icon('history')}
             context={() => ({ files: target })}
           />
+          {/* While the Log has a Paths filter, as IntelliJ's (HAS_AFFECTED_FILES). */}
+          {() =>
+            affected() ? (
+              <ToolbarButton
+                commands={props.services.commands}
+                command="log.files.showOnlyAffected"
+                icon={icon('folder')}
+                context={() => ({ files: target })}
+              />
+            ) : null
+          }
           <button
             type="button"
             class="cerebro-toolbar-button"
@@ -931,29 +988,47 @@ export function CommitFiles(props: {
             ))}
           </div>
         </div>
-        <TreeView
-          model={files}
-          label={props.label}
-          row={(node) =>
-            node.kind === 'folder'
-              ? folderContent(node.name, node.count)
-              : changeContent(node.change, !filesByDirectory.peek())
-          }
-          {...(menu || open
-            ? {
-                // A file's: the one given, else IntelliJ's for a commit's; a folder has none.
-                onContextMenu: (event: MouseEvent, node: ChangeNode) => {
-                  if (node.kind !== 'file') return;
-                  if (menu) menu(event, node.change);
-                  else openContextMenu(props.services, FILES_MENU, event, { files: target });
-                },
+        {() =>
+          allHidden.get() ? (
+            // IntelliJ's words (VcsLogChangesTreeComponents), and its link that shows them all.
+            <p class="playground-project__empty">
+              No changes that affect selected paths.{' '}
+              <button
+                type="button"
+                class="playground-link"
+                on:click={() => {
+                  props.services.commands.execute('log.files.showOnlyAffected', { files: target });
+                }}
+              >
+                Show changes for all paths
+              </button>
+            </p>
+          ) : (
+            <TreeView
+              model={files}
+              label={props.label}
+              row={(node) =>
+                node.kind === 'folder'
+                  ? folderContent(node.name, node.count)
+                  : changeContent(node.change, !filesByDirectory.peek())
               }
-            : {})}
-          onOpen={(node) => {
-            // Only files are leaves: a folder opens and closes instead.
-            showDiff((node as Extract<ChangeNode, { kind: 'file' }>).change);
-          }}
-        />
+              {...(menu || open
+                ? {
+                    // A file's: the one given, else IntelliJ's for a commit's; a folder has none.
+                    onContextMenu: (event: MouseEvent, node: ChangeNode) => {
+                      if (node.kind !== 'file') return;
+                      if (menu) menu(event, node.change);
+                      else openContextMenu(props.services, FILES_MENU, event, { files: target });
+                    },
+                  }
+                : {})}
+              onOpen={(node) => {
+                // Only files are leaves: a folder opens and closes instead.
+                showDiff((node as Extract<ChangeNode, { kind: 'file' }>).change);
+              }}
+            />
+          )
+        }
       </div>
     ) : (
       <p class="playground-project__empty">{error}</p>
@@ -983,6 +1058,7 @@ export function CommitPane(props: {
         label={`${commit.subject} changes`}
         open={props.open}
         selected={log.file.peek()?.hash === hash ? log.file.peek()?.path : undefined}
+        affected={() => log.paths.get()}
       />,
       <div class="playground-log__details cerebro-selectable">
         <p class="playground-log__details-subject">{commit.subject}</p>
@@ -1438,11 +1514,21 @@ export function setupLog(services: MenuServices, show: () => void): void {
     checked: () => filesByDirectory.get(),
     run: () => {
       filesByDirectory.set(!filesByDirectory.peek());
-      try {
-        localStorage.setItem(FILES_KEY, JSON.stringify({ byDirectory: filesByDirectory.peek() }));
-      } catch {
-        // Not kept: it still applies until the page is reloaded.
-      }
+      saveFilesSettings();
+    },
+  });
+  // Before Group By, as IntelliJ's (Vcs.Log.ShowOnlyAffectedChanges): only the files the Log's
+  // Paths filter holds, or all; kept for every commit.
+  commands.register({
+    id: 'log.files.showOnlyAffected',
+    label: 'Show Only Affected Changes',
+    icon: 'folder',
+    // Off, and so out of Find Action, without a Paths filter (IntelliJ hides it then).
+    enabled: (context) => filesOf(context)?.affected() !== undefined,
+    checked: () => onlyAffected.get(),
+    run: () => {
+      onlyAffected.set(!onlyAffected.peek());
+      saveFilesSettings();
     },
   });
   menus.contribute({ menu: FILES_GROUP_BY, item: { heading: 'Group By' }, group: 'a' });

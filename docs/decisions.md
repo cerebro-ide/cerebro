@@ -1991,7 +1991,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their menu's other items
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; their menu's other items
   (Show Diff in a New Tab or Window, Open Repository Version, Create
   Patch…, Get, Show Changes from Parents) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
@@ -2047,6 +2047,14 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   around a hunk as Revert's (measured the same, git 2.43). Recorded in Local History as "Apply
   patch"; if it doesn't apply, "Apply Changes" and "Failed to apply changes: " with git's words
   (`VcsBundle`). Off where Revert Selected Changes is.
+- **Show Only Affected Changes over a commit's files** (added 2026-11-13), before Group By, as
+  IntelliJ's (`Vcs.Log.ShowOnlyAffectedChanges`, read from its source): there only while the Paths
+  filter is on (and off in Find Action otherwise), pressed while on, off to start with, and kept.
+  On, a commit's files are only those the filter's paths touch: a file named, or one in a folder
+  named, before or after a rename (`FileHistoryUtil.affectsFile` and `affectsDirectory`). Where the
+  commit changed none of them, IntelliJ's words show, "No changes that affect selected paths.",
+  with its link "Show changes for all paths", which turns it off. Its icon is the folder's,
+  IntelliJ's (`AllIcons.Nodes.Folder`).
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),
