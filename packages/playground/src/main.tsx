@@ -380,7 +380,10 @@ setupApplyChanges(services);
 setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
-setupEditorGitMenu(services.menus);
+setupEditorGitMenu(services.menus, () => {
+  const env = active();
+  return env !== undefined && hostFor(env.id) !== undefined && gitRepository.get();
+});
 setupBlame(services, {
   activeTab: () => editor()?.activeGroup.active,
   open: (tab, line) => {

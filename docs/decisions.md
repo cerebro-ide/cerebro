@@ -2718,6 +2718,8 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   Pull…, Fetch; Merge…, Commit Merge and Abort Merge (while merging), Rebase…, the Rebase menu;
   Branches…, New Branch…, New Tag…, Reset HEAD…; Stash Changes…, Unstash Changes…; Manage
   Remotes…; Abort Revert, Abort Cherry-Pick, Continue Cherry-Pick (while under way).
+- **When:** while the active worktree is a git repository with a host, as IntelliJ's `GitMenu`
+  shows only for files under Git (it asks of the files; here, of the worktree). Not in a browser.
 - **Where:** after Local History (Cerebro's choice, open to change: IntelliJ adds its VCS group to
   the editor's menu by `VcsGroup`, whose place there wasn't read). Labelled "Git", without a
   mnemonic (not read either).
