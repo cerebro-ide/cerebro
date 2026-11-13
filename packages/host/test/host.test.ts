@@ -1265,6 +1265,53 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('creates a patch: answered for the clipboard, or written to its file', async () => {
+    const git = vi.fn(() => Promise.resolve('the diff'));
+    const { ui } = connect(git);
+    const params = { path: '/w', from: 'abc1234', to: 'def5678', reverse: false, base: '/w' };
+    expect(await ui.request('git.createPatch', { ...params, message: 'Fix' })).toEqual({
+      text: 'Subject: [PATCH] Fix\n---\nthe diff',
+    });
+    expect(git).toHaveBeenCalledWith('/w', [
+      'diff',
+      '--binary',
+      '-M',
+      '--no-color',
+      '--no-ext-diff',
+      'abc1234',
+      'def5678',
+      '--',
+    ]);
+    const file = join(mkdtempSync(join(tmpdir(), 'cerebro-patch-')), 'a', 'x.patch');
+    expect(
+      await ui.request('git.createPatch', { ...params, files: ['a.ts'], reverse: true, file }),
+    ).toBe(null);
+    expect(readFileSync(file, 'utf8')).toBe('the diff');
+    expect(git).toHaveBeenLastCalledWith('/w', [
+      'diff',
+      '--binary',
+      '-M',
+      '--no-color',
+      '--no-ext-diff',
+      'def5678',
+      'abc1234',
+      '--',
+      'a.ts',
+    ]);
+    for (const bad of [
+      { from: '-p' },
+      { files: 'a.ts' },
+      { reverse: 'yes' },
+      { message: 1 },
+      { base: 1 },
+      { file: 1 },
+    ]) {
+      await expect(ui.request('git.createPatch', { ...params, ...bad })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('undoes HEAD’s commit, unless a protected branch on a remote has it', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(

@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -2029,10 +2029,38 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   Merges (off in IntelliJ unless its registry turns it on), and the branch actions after Options
   (Collapse and Expand Linear Branches, Long Edges).
 - **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
-  (Show Diff in a New Tab or Window, Create
-  Patch…); a commit's right-click menu's other
+  (Show Diff in a New Tab or Window); a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **Create Patch…** (added 2026-11-13), as IntelliJ's (`CreatePatchFromChangesAction`,
+  `CreatePatchCommitExecutor`, `CreatePatchConfigurationPanel`, `PatchWriter`, their words in
+  `VcsBundle` and `IdeBundle`, read from its source): in a commit's menu after Copy Revision
+  Number, for all it changed against its first parent (IntelliJ's changes of a commit), and in its
+  files' menu after Cherry-Pick Selected Changes, for the file (a rename's both paths).
+  - The dialog "Patch File Settings": To file, its name the commit's message as IntelliJ makes it
+    (`PathUtil.suggestFileName`: what a file name can't hold, dots and spaces as `_`; "unnamed";
+    90 characters), the first of `name.patch`, `name1.patch`… not there, in the folder written to
+    last (the repository's to start with); or To clipboard, the choice kept. Base path, the
+    repository's to start with; Reverse patch. IntelliJ's checks as they're typed in: "Name
+    cannot be empty", "File path should not be too long.", a file there already as a warning that
+    leaves OK on; "Base path cannot be empty!", "Base dir doesn't exist", "Base path doesn't
+    contain all selected changes (use …)", the folder holding them all.
+  - A file there already is asked over ("Save Patch File", Overwrite). Once written, "Successfully
+    created patch …" offers to show it in the file manager (Select In's target's name), with
+    "Don't ask again", which keeps the answer and acts on it unasked; to the clipboard, the
+    notification "Patch copied to clipboard"; a failure, "Error creating patch: …".
+  - The patch (`git.createPatch` in the host): git's diff (`--binary`, renames found), which
+    IntelliJ's writer follows ("diff --git", "a/" and "b/", git's binary patches), under
+    IntelliJ's header for the message, "Subject: [PATCH] …" then "---". Its paths are relative to
+    the base path: a folder in the repository is git's `--relative`, one above it prefixes the
+    folders between. Reversed, it's the diff from the commit to its parent, as `-R` would swap
+    "a/" and "b/" too (measured, git 2.43). Tested applying with `git apply`.
+  - **Claude's, open to change:** git's diff rather than IntelliJ's own text: IntelliJ also writes
+    an "Index:" line, its "IDEA additional info" (the file's encoding), a line of `=`, and the
+    revisions after the paths, and makes its own hunks. The warning's colour (the muted text's).
+  - **Not yet:** the fields' browse buttons (a save dialog the app hasn't); Encoding (UTF-8 here);
+    Create Patch in the Commit window and the Shelf, and Copy as Patch to Clipboard (IntelliJ's
+    `ChangesView.CreatePatchToClipboard`), which go with the working tree's changes.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
   are to start with (ChangesTree's DEFAULT_GROUPING_KEYS, read from its source): folders first,
   open, a folder holding only one folder as one row, as the Commit window's (the same code,
@@ -2926,7 +2954,7 @@ source: `VcsCherryPickAction`, `GitCherryPickProcess`, `GitApplyChangesProcess`,
 
 - **Where:** the Log's toolbar, after Refresh (IntelliJ's `Vcs.Log.Toolbar`, between Refresh and
   the presentation settings), on the selected commit, off with none; and the commit menu, after
-  Copy Revision Number (IntelliJ's comes after Create Patch, which Cerebro hasn't). No key:
+  Copy Revision Number and Create Patch…, as IntelliJ's. No key:
   IntelliJ's keymaps give it none (searched). Off while a pick runs in that worktree, as IntelliJ's
   is while one is started.
 - **The pick:** `git cherry-pick <hash>` with no editor (`GIT_EDITOR=true`), so the commit keeps its

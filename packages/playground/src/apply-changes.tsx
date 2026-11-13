@@ -165,7 +165,7 @@ export function setupApplyChanges(services: MenuServices): void {
       return at && apply('cherry-pick', at);
     },
   });
-  // After Copy Revision Number (and Create Patch, which Cerebro hasn't), as IntelliJ's.
+  // After Copy Revision Number and Create Patch…, as IntelliJ's.
   menus.contribute({
     menu: 'log/commit',
     item: { command: 'log.cherryPick' },

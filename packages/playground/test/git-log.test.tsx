@@ -1035,6 +1035,40 @@ describe('a commit’s pane', () => {
     expect(texts).toContain('Branch: cccccccc');
   });
 
+  it('creates a patch of a file, as IntelliJ’s Create Patch… on it: a rename’s both paths', async () => {
+    git.log = [{ ...history(1)[0], body: 'Why.' } as LogCommit];
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'lib/moved.ts', status: 'renamed', from: 'old.ts' },
+      { path: 'top.ts', status: 'modified' },
+    ];
+    host.answers['fs.exists'] = (params: { path: string }) => params.path === '/r';
+    host.answers['git.createPatch'] = () => null;
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    for (const row of [1, 2]) {
+      await userEvent.click(fileRows()[row] as HTMLElement, { button: 'right' });
+      await userEvent.click(menuItem('Create Patch…'));
+      await dialog();
+      await press('OK');
+      await press('Close');
+    }
+    const patch = {
+      path: '/r',
+      from: EMPTY_TREE,
+      to: 'c0',
+      base: '/r',
+      reverse: false,
+      message: 'Change 0\n\nWhy.',
+      file: '/r/Change_0__Why_.patch',
+    };
+    expect(host.params('git.createPatch')).toEqual([
+      { ...patch, files: ['old.ts', 'lib/moved.ts'] },
+      { ...patch, files: ['top.ts'] },
+    ]);
+  });
+
   it('has IntelliJ’s menu on a file, comparing its versions with the working tree', async () => {
     git.log = history(1);
     git.changes[`${EMPTY_TREE}..c0`] = [
@@ -1062,6 +1096,7 @@ describe('a commit’s pane', () => {
       'Open Repository Version',
       'Revert Selected Changes',
       'Cherry-Pick Selected Changes',
+      'Create Patch…',
       'Get from Revision',
       'History Up to Here',
       'Show Changes to Parents',
@@ -2553,6 +2588,7 @@ describe('a commit’s menu', () => {
     // Cherry-Pick after it, as IntelliJ's.
     expect(items().map((item) => item.textContent)).toEqual([
       'Copy Revision Number',
+      'Create Patch…',
       'Cherry-Pick',
       'Revert Commit',
       'Go to Child CommitLeft',
@@ -2560,6 +2596,55 @@ describe('a commit’s menu', () => {
     ]);
     await userEvent.click(items()[0] as HTMLElement);
     expect(write).toHaveBeenCalledWith('c1');
+  });
+
+  it('creates a patch of all the commit changed against its first parent, under its message, as IntelliJ’s', async () => {
+    git.log = [
+      { ...history(1)[0], parents: ['c1'], body: 'Why.' } as LogCommit,
+      ...history(3).slice(1),
+    ];
+    git.changes['c1..c0'] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'lib/b.ts', status: 'renamed', from: 'src/b.ts' },
+    ];
+    host.answers['fs.exists'] = (params: { path: string }) =>
+      ['/r', '/r/src'].includes(params.path);
+    host.answers['git.createPatch'] = () => null;
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    (rows()[0] as HTMLElement).dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+    );
+    await userEvent.click(menuItem('Create Patch…'));
+    const settings = await dialog();
+    expect(settings.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Patch File Settings',
+    );
+    await expect
+      .poll(() => (settings.querySelector('input[aria-label="To file"]') as HTMLInputElement).value)
+      .toBe('/r/Change_0__Why_.patch');
+    // All its changes are under the repository: no folder in it holds them all.
+    const base = settings.querySelector('input[aria-label="Base path"]') as HTMLInputElement;
+    await userEvent.clear(base);
+    await userEvent.type(base, '/r/src');
+    await expect
+      .poll(() => [...settings.querySelectorAll('[role="alert"]')].at(-1)?.textContent)
+      .toBe("Base path doesn't contain all selected changes (use /r)");
+    await userEvent.clear(base);
+    await userEvent.type(base, '/r');
+    await press('OK');
+    await press('Close');
+    expect(host.params('git.createPatch')).toEqual([
+      {
+        path: '/r',
+        from: 'c1',
+        to: 'c0',
+        base: '/r',
+        reverse: false,
+        message: 'Change 0\n\nWhy.',
+        file: '/r/Change_0__Why_.patch',
+      },
+    ]);
   });
 
   it('gives its commands the commit, its worktree and host, HEAD’s, and ways to read the Log again and select a commit', async () => {
