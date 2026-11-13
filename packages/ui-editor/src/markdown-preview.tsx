@@ -36,8 +36,8 @@ export function scrollFor(
   if (index < 0) return 0;
   const block = blocks[index] as { line: number; top: number };
   const next = blocks[index + 1] ?? end;
-  const share =
-    next.line > block.line ? Math.min(1, (line - block.line) / (next.line - block.line)) : 0;
+  // Blocks start on lines of their own: the next starts after this one.
+  const share = Math.min(1, (line - block.line) / (next.line - block.line));
   return block.top + share * (next.top - block.top);
 }
 
@@ -129,13 +129,13 @@ export function MarkdownPreview(props: MarkdownPreviewProps): Node {
   };
   /** Each top-level block's first line, by its element. */
   const lines = new WeakMap<Element, number>();
-  let body: HTMLElement | undefined;
+  // Drawn by `page` before anything follows the editor.
+  let body!: HTMLElement;
   /** Scrolls to the editor's top line. */
   const follow = (line: number) => {
-    if (!body) return;
     const origin = body.getBoundingClientRect().top - container.scrollTop;
     const blocks = [...body.children].map((element) => ({
-      line: lines.get(element) ?? 0,
+      line: lines.get(element) as number,
       top: element.getBoundingClientRect().top - origin,
     }));
     const end = { line: Number.MAX_SAFE_INTEGER, top: body.scrollHeight };

@@ -156,7 +156,9 @@ describe('the preview following the editor', () => {
 
   it('shows the editor’s top line’s block at its top', () => {
     const line = signal(0);
-    const text = Array.from({ length: 40 }, (_, i) => `## Part ${String(i)}\n\nText.\n`).join('\n');
+    const parts = Array.from({ length: 40 }, (_, i) => `## Part ${String(i)}\n\nText.\n`);
+    // A link's definition draws nothing: no block.
+    const text = `[x]: https://x.y\n${parts.join('\n')}`;
     const container = document.body.appendChild(document.createElement('div'));
     container.style.cssText = 'position: fixed; left: 0; top: 0; width: 500px; height: 300px;';
     const handle = render(
@@ -166,8 +168,8 @@ describe('the preview following the editor', () => {
     const preview = container.querySelector('.cerebro-markdown-preview') as HTMLElement;
     preview.style.height = '300px';
     const root = preview.shadowRoot as ShadowRoot;
-    // Part 10 starts at line 40: four lines a part.
-    line.set(40);
+    // Part 10 starts at line 41: four lines a part, after the definition.
+    line.set(41);
     const heading = [...root.querySelectorAll('h2')][10] as HTMLElement;
     expect(heading.getBoundingClientRect().top - preview.getBoundingClientRect().top).toBeCloseTo(
       0,
