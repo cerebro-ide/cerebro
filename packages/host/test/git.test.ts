@@ -267,7 +267,20 @@ describe('with real git', () => {
     write('ours.txt', 'main\n');
     const main = commitAll('main');
     // The conflict in both.txt resolved as neither had it.
-    run(merging, 'merge', '-q', side, '-m', 'merge', '-X', 'ours');
+    run(
+      merging,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'merge',
+      '-q',
+      side,
+      '-m',
+      'merge',
+      '-X',
+      'ours',
+    );
     write('both.txt', 'resolved\n');
     run(merging, 'add', 'both.txt');
     run(
@@ -719,6 +732,12 @@ describe('with real git', () => {
     expect(rewriteParents([commit('m', ['b', 'c']), commit('a', ['z'])], parents)).toEqual([
       { ...commit('m', ['b', 'c']), joins: ['a'] },
       { ...commit('a', ['z']), joins: [] },
+    ]);
+    // A commit the ancestry didn't read (its branch moved between the two reads) joins through
+    // its own parents.
+    expect(rewriteParents([commit('n', ['a']), commit('a', [])], new Map())).toEqual([
+      { ...commit('n', ['a']), joins: ['a'] },
+      { ...commit('a', []), joins: [] },
     ]);
   });
 
