@@ -22,8 +22,8 @@ export interface PatchRequest {
   files?: readonly string[];
   /** The paths of the changes in it, in the repository, for the base path it needs. */
   changed: readonly string[];
-  /** The commit's message, the patch's header and its file's name. */
-  message?: string;
+  /** The commit's message, the patch's header and its file's name; none for "unnamed". */
+  message?: string | undefined;
 }
 
 /** What the dialog chose. */

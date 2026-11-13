@@ -1080,7 +1080,7 @@ export function CommitFiles(props: {
         to: range.to as string,
         files: paths,
         changed: paths,
-        ...(props.message === undefined ? {} : { message: props.message }),
+        message: props.message,
       });
     },
     tree: files,
