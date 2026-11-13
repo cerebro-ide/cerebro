@@ -60,6 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project; Resolve Simple Conflicts, Group by directory and undo in the merge window (2026-11-13)
+- [The editor's Git submenu (2026-11-13)](#the-editors-git-submenu-2026-11-13): IntelliJ's `Git.ContextMenu` in the editor's context menu, after Local History: the file's actions, Resolve Conflicts, then the repository's, of the commands Cerebro has
 - [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
@@ -2706,6 +2707,26 @@ IndentStatusBarUIContributor). Claude's choices, open to change.
 - **Not yet:** per-language code style; continuation indent and Keep indents on empty lines;
   EditorConfig.
 
+## The editor's Git submenu (2026-11-13)
+
+From the Annotate decision's Not yet. As IntelliJ's `Git.ContextMenu` (git4idea's plugin.xml, read
+from its source), in the editor's context menu: Git, with its groups in its order, of the commands
+Cerebro has. They act on the active editor's file, as Git → Current File's do.
+
+- **Its items:** Annotate with Git Blame, Show Diff, Compare with Revision…, Compare with Branch or
+  Tag…, Show History (`Git.FileActions`); Resolve Conflicts…; then `GitRepositoryActions`: Push…,
+  Pull…, Fetch; Merge…, Commit Merge and Abort Merge (while merging), Rebase…, the Rebase menu;
+  Branches…, New Branch…, New Tag…, Reset HEAD…; Stash Changes…, Unstash Changes…; Manage
+  Remotes…; Abort Revert, Abort Cherry-Pick, Continue Cherry-Pick (while under way).
+- **When:** while the active worktree is a git repository with a host, as IntelliJ's `GitMenu`
+  shows only for files under Git (it asks of the files; here, of the worktree). Not in a browser.
+- **Where:** after Local History (Cerebro's choice, open to change: IntelliJ adds its VCS group to
+  the editor's menu by `VcsGroup`, whose place there wasn't read). Labelled "Git", without a
+  mnemonic (not read either).
+- **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
+  for Selection, Show Current Revision, Rollback… and Revert Selected Changes for the file, Revert
+  Resolved, the staging area's, Clone…. The editor tab's menu's Git submenu.
+
 ## A Markdown file's preview (2026-11-13)
 
 Ido (2026-11-12): "create a markdown preview feature similar to intellij, allowing the user to
@@ -3827,8 +3848,8 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   them rather than reading them again. A file with no commit, or whose base couldn't be read,
   isn't closed, as IntelliJ's null revision; a repository version's never moves.
 - **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
-  Hover; the editor's context menu's Git submenu; Annotate with Git Blame in a repository
-  version's gutter menu.
+  Hover; Annotate with Git Blame in a repository version's gutter menu. (The editor's context
+  menu's Git submenu: decision "The editor's Git submenu".)
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 
