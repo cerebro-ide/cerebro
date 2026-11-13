@@ -40,7 +40,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
-- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile
+- [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
 - [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
@@ -1145,6 +1145,14 @@ change.
   one that doesn't answer within 3 seconds (a claim) falls back to the index's "Name matches". A
   server's answer shows without that heading. Find usages leaves the declaration out, as
   IntelliJ's.
+- **Go to definition on a declaration shows its usages** (added 2026-11-13; Ido: "in intellij I
+  can jump from source to usages as well, not just to the source"), as IntelliJ's Go to
+  Declaration or Usages (`GotoDeclarationOrUsageHandler2`, `gtdu.kt`'s `fromTargetData`, read from
+  its source): Ctrl+B or Ctrl+click on a reference goes to its declaration; on the declaration
+  itself, which refers to nothing else, "Usages of x" lists its usages, as Find Usages does. The
+  declaration is told by its definitions all starting at the word under the caret, the server's
+  or else the index's. Measured in the built app with TypeScript's server: Ctrl+B on
+  `export function run() {}` listed its two calls, and on a call went to it.
 - **Not yet:**
   - **HTML, CSS, JSON and Markdown:** (changed 2026-11-04: JSON, CSS and HTML have a server of
     Cerebro's own; see "JSON, CSS and HTML: a language server of Cerebro's own".) They gain little for navigation. With diagnostics,

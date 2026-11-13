@@ -314,6 +314,61 @@ describe('Go to Definition', () => {
     await none;
   });
 
+  it('shows the usages on a declaration, as IntelliJ’s, its definition being where the caret is', async () => {
+    // The caret at `b` (column 10): a definition starting there is the declaration itself.
+    answers = {
+      'lsp.definitions': [at('/r/a.ts', 0, { column: 10 })],
+      'lsp.usages': [at('/r/src/u1.ts', 1)],
+    };
+    let done = nav.goToDefinition('b', asked);
+    expect(await labels()).toEqual({ items: ['u1.ts'], groups: [], details: ['src/u1.ts:2'] });
+    expect(title()).toBe('Usages of b');
+    expect(host.params('lsp.usages')).toEqual([{ worktree: '/r', ...asked }]);
+    await userEvent.keyboard('{Escape}');
+    await done;
+    // Anywhere in the word: the caret at its end.
+    answers = { ...answers, 'lsp.definitions': [at('/r/a.ts', 0, { column: 9 })] };
+    done = nav.goToDefinition('b', asked);
+    await expect.poll(title).toBe('Usages of b');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    // The index's name matches, without a server: the same.
+    answers = {
+      'lsp.definitions': null,
+      'index.definitions': [at('/r/a.ts', 0, { column: 10 })],
+      'index.usages': [at('/r/u2.ts', 4)],
+    };
+    done = nav.goToDefinition('b', asked);
+    expect(await labels()).toEqual({
+      items: ['u2.ts'],
+      groups: ['Name matches'],
+      details: ['u2.ts:5'],
+    });
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
+  it('goes to the definition from anywhere else, and lists several with the declaration among them', async () => {
+    const elsewhere = [
+      // Another file; another line; before the word; after it.
+      at('/r/b.ts', 0, { column: 10 }),
+      at('/r/a.ts', 1, { column: 10 }),
+      at('/r/a.ts', 0, { column: 8 }),
+      at('/r/a.ts', 0, { column: 11 }),
+    ];
+    for (const place of elsewhere) {
+      answers = { 'lsp.definitions': [place] };
+      await nav.goToDefinition('b', asked);
+      expect(host.params('lsp.usages')).toEqual([]);
+    }
+    expect(editor().activeGroup.active).toBe('/r/a.ts');
+    answers = { 'lsp.definitions': [at('/r/a.ts', 0, { column: 10 }), at('/r/b.ts', 3)] };
+    const done = nav.goToDefinition('b', asked);
+    await expect.poll(title).toBe('Definitions of b');
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
   it('finds no definitions without an environment', async () => {
     workspace.close('/r');
     try {
