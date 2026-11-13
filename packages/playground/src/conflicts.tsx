@@ -4,13 +4,15 @@
 // with Accept Yours, Accept Theirs and Merge…; it closes once none is left. Merge… opens the merge
 // window on each file selected: yours, the result and theirs (`MergeEditor`), with Apply
 // non-conflicting changes, Accept Left, Accept Right and Apply. Git → Resolve Conflicts… and the
-// Commit window's Merge Conflicts group open the dialog; so does Update Project, at conflicts.
+// Commit window's Merge Conflicts group open the dialog; so does Update Project, at conflicts. Its
+// files can be grouped by directory, as IntelliJ's ("Group by directory", kept).
 
-import { signal } from '@cerebro-ide/reactive';
+import { signal, untracked } from '@cerebro-ide/reactive';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { MergeEditor, type MergeControl, type MergeLeft } from '@cerebro-ide/ui-editor';
-import { changeContent } from './changes.js';
+import { changeContent, folderContent } from './changes.js';
+import { directoryTree } from './directory-tree.js';
 import { active, currentHost, hostFor, showError, type Host } from './environments.js';
 import { stateOf } from './repository-state.js';
 import { settingsFor } from './settings.js';
@@ -34,6 +36,56 @@ type Revisions =
 
 /** While the dialog shows: Resolve Conflicts… can't open another. */
 export const resolving = signal(false);
+
+/** IntelliJ's Group by directory (`GROUP_MULTIFILE_MERGE_BY_DIRECTORY`): off to start, kept. */
+const GROUP_KEY = 'cerebro.conflicts.groupByDirectory';
+
+/** Whether the dialog groups its files, as last chosen; not where nothing can be kept. */
+function grouped(): boolean {
+  try {
+    return localStorage.getItem(GROUP_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+type ConflictFile = Conflicts['files'][number];
+
+/**
+ * A row of the list: a file, or grouped by directory, a folder (its key ends in `/`), indented by
+ * its depth. Selecting a folder selects the files under it, as IntelliJ's (`VcsTreeModelData.selected`).
+ */
+type Row =
+  | { key: string; depth: number; file: ConflictFile }
+  | { key: string; depth: number; folder: { name: string; count: number } };
+
+interface Node {
+  row: (depth: number) => Row;
+  children: Node[];
+}
+
+/** The list's rows: the files as the host lists them, or by directory, every folder open. */
+function rowsOf(files: readonly ConflictFile[], grouped: boolean): Row[] {
+  if (!grouped) return files.map((file) => ({ key: file.path, depth: 0, file }));
+  const nodes = directoryTree<ConflictFile, Node>(files, (file) => file.path, {
+    file: (file) => ({ row: (depth) => ({ key: file.path, depth, file }), children: [] }),
+    folder: ({ path, name, count, children }) => ({
+      row: (depth) => ({ key: path, depth, folder: { name, count } }),
+      children,
+    }),
+  });
+  const flat = (list: Node[], depth: number): Row[] =>
+    list.flatMap((node) => [node.row(depth), ...flat(node.children, depth + 1)]);
+  return flat(nodes, 0);
+}
+
+/** The files the selected rows stand for: a folder's, those under it. */
+const filesOf = (keys: readonly string[], files: readonly ConflictFile[]) =>
+  files
+    .map((file) => file.path)
+    .filter((path) =>
+      keys.some((key) => key === path || (key.endsWith('/') && path.startsWith(key))),
+    );
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
@@ -273,13 +325,17 @@ export async function resolveConflicts(worktree: string, description?: string): 
   const first = await read();
   if (first.files.length === 0) return true;
   const conflicts = signal(first);
+  const byDirectory = signal(grouped());
+  const rows = () => rowsOf(conflicts.get().files, byDirectory.get());
+  /** The rows selected, by key; the first file's to start with, as IntelliJ's. */
   const selected = signal<readonly string[]>([first.files[0]?.path as string]);
   const busy = signal(false);
-  /** Reads the files again: the selection keeps those still there, else the first. */
+  /** Reads the files again: the selection keeps the rows still there, else the first file's. */
   const reload = async () => {
     const now = await read();
     conflicts.set(now);
-    const kept = selected.peek().filter((p) => now.files.some((f) => f.path === p));
+    const there = new Set(rowsOf(now.files, byDirectory.peek()).map((row) => row.key));
+    const kept = selected.peek().filter((key) => there.has(key));
     selected.set(kept.length > 0 || !now.files[0] ? kept : [now.files[0].path]);
     return now;
   };
@@ -292,7 +348,7 @@ export async function resolveConflicts(worktree: string, description?: string): 
       const act = async (run: (files: readonly string[]) => Promise<void>) => {
         busy.set(true);
         try {
-          await run(selected.peek());
+          await run(filesOf(selected.peek(), conflicts.peek().files));
         } catch (error) {
           showError('Cannot Resolve Conflict', (error as Error).message);
         } finally {
@@ -316,22 +372,34 @@ export async function resolveConflicts(worktree: string, description?: string): 
           }
         });
       const none = () => selected.get().length === 0 || busy.get();
-      const select = (path: string, event: MouseEvent) => {
-        const files = conflicts.peek().files.map((f) => f.path);
+      const keys = () => untracked(rows).map((row) => row.key);
+      const select = (key: string, event: MouseEvent) => {
         if (event.ctrlKey || event.metaKey) {
           const now = selected.peek();
-          selected.set(now.includes(path) ? now.filter((p) => p !== path) : [...now, path]);
+          selected.set(now.includes(key) ? now.filter((k) => k !== key) : [...now, key]);
         } else if (event.shiftKey && selected.peek().length > 0) {
-          const from = files.indexOf(selected.peek()[0] as string);
-          const to = files.indexOf(path);
-          selected.set(files.slice(Math.min(from, to), Math.max(from, to) + 1));
-        } else selected.set([path]);
+          const all = keys();
+          const from = all.indexOf(selected.peek()[0] as string);
+          const to = all.indexOf(key);
+          selected.set(all.slice(Math.min(from, to), Math.max(from, to) + 1));
+        } else selected.set([key]);
       };
       const moveBy = (step: number) => {
-        const files = conflicts.peek().files.map((f) => f.path);
-        const at = files.indexOf(selected.peek().at(-1) as string);
+        const all = keys();
+        const at = all.indexOf(selected.peek().at(-1) as string);
         // There's always one: the dialog closes when none is left.
-        selected.set([files[Math.min(Math.max(at + step, 0), files.length - 1)] as string]);
+        selected.set([all[Math.min(Math.max(at + step, 0), all.length - 1)] as string]);
+      };
+      /** Grouped or not, the same files stay selected, as IntelliJ's (`OnGroupingChangeTreeStateStrategy`). */
+      const group = (grouped: boolean) => {
+        const files = filesOf(selected.peek(), conflicts.peek().files);
+        byDirectory.set(grouped);
+        try {
+          localStorage.setItem(GROUP_KEY, String(grouped));
+        } catch {
+          // Not kept: it still applies until the page is reloaded.
+        }
+        selected.set(files);
       };
       const status = (side: ConflictSide) => (side === 'modified' ? 'Modified' : 'Deleted');
       const column = (name: string, branch: string | undefined) =>
@@ -363,25 +431,35 @@ export async function resolveConflicts(worktree: string, description?: string): 
                 </thead>
                 <tbody>
                   {() =>
-                    conflicts.get().files.map((file) => (
+                    rows().map((row) => (
                       <tr
                         class="playground-conflicts__row"
-                        aria-selected={() => String(selected.get().includes(file.path))}
+                        aria-selected={() => String(selected.get().includes(row.key))}
                         on:mousedown={(event) => {
-                          select(file.path, event);
+                          select(row.key, event);
                         }}
                         on:dblclick={() => {
-                          selected.set([file.path]);
+                          // A folder's double click is its tree's, as IntelliJ's: no merge.
+                          if (!('file' in row)) return;
+                          selected.set([row.key]);
                           void merge();
                         }}
                       >
                         <td>
-                          <span class="playground-conflicts__name">
-                            {changeContent({ path: file.path, status: 'conflict' }, true)}
+                          <span
+                            class="playground-conflicts__name"
+                            style={{ '--depth': String(row.depth) }}
+                          >
+                            {'file' in row
+                              ? changeContent(
+                                  { path: row.file.path, status: 'conflict' },
+                                  !byDirectory.peek(),
+                                )
+                              : folderContent(row.folder.name, row.folder.count)}
                           </span>
                         </td>
-                        <td>{status(file.yours)}</td>
-                        <td>{status(file.theirs)}</td>
+                        <td>{'file' in row ? status(row.file.yours) : ''}</td>
+                        <td>{'file' in row ? status(row.file.theirs) : ''}</td>
                       </tr>
                     ))
                   }
@@ -408,6 +486,16 @@ export async function resolveConflicts(worktree: string, description?: string): 
               </button>
             </div>
           </div>
+          <label class="playground-conflicts__group">
+            <input
+              type="checkbox"
+              checked={() => byDirectory.get()}
+              on:change={(event) => {
+                group((event.target as HTMLInputElement).checked);
+              }}
+            />
+            Group by directory
+          </label>
         </div>
       );
     },
