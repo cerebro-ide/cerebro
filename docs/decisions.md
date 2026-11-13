@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -2006,7 +2006,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
 - **Not yet:** the toolbar's other actions (Graph Options); the
   branches pane's toolbar's other actions (below) and its own search; their menu's other items
   (Show Diff in a New Tab or Window, Create
-  Patch…) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
+  Patch…); Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
@@ -2050,8 +2050,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   Local (the commit's version of the file, or the one before it, against the working tree;
   `Vcs.ShowDiffWithLocal`), Edit Source; Revert Selected Changes and History Up to Here. Each is off
   for a version that isn't there: Compare with Local and Edit Source for a file the commit deleted,
-  Compare Before with Local for one it added, and for a rename, whose path before isn't the file's
-  now. Edit Source is a command now, on F4 (and Cmd+Down on macOS) as the Commit window's Jump to
+  Compare Before with Local for one it added. For a rename (changed 2026-11-13: it was off),
+  Compare Before with Local shows the version before at its old path against the file as it's named
+  now, as IntelliJ's (`ShowDiffWithLocalAction.getChangeWithLocal`, read from its source, which
+  takes the local file at the other path when there's none at the old one): the host finds the
+  rename between that version and the working tree. **Not yet:** IntelliJ compares with the old
+  path's local file when one is there again; and it doesn't turn either off where the local file
+  is there (nothing against it, for a file added or deleted). Edit Source is a command now, on F4 (and Cmd+Down on macOS) as the Commit window's Jump to
   Source, where F4 was a key the list caught itself. Wherever a commit's files show and can open
   something; not in the Push dialog, whose items would all be off.
 - **Cherry-Pick Selected Changes in that menu** (added 2026-11-13), after Revert Selected Changes,

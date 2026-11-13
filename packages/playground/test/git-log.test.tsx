@@ -1038,7 +1038,7 @@ describe('a commit’s pane', () => {
     await menuOn('a.ts');
     await userEvent.click(menuItem('Compare Before with Local'));
     expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..:a.ts`, title: 'a.ts' });
-    // Not a version the commit hasn't, nor a rename's path before, which isn't the file's now.
+    // Not a version the commit hasn't.
     const off = () =>
       [...document.querySelectorAll('.cerebro-menu-item[aria-disabled="true"]')].map(
         (item) => item.querySelector('.cerebro-menu-item__label')?.textContent,
@@ -1063,13 +1063,15 @@ describe('a commit’s pane', () => {
     });
     delete host.answers['git.applyChanges'];
     await menuOn('new.ts');
-
     expect(off()).toEqual(['Compare Before with Local']);
     await menuOn('gone.ts');
     expect(off()).toEqual(['Compare with Local', 'Edit Source', 'Open Repository Version']);
+    // A rename's version before, at its old path, against the file as it's named now: the host
+    // finds the rename in the working tree.
     await menuOn('moved.ts');
-    expect(off()).toEqual(['Compare Before with Local']);
-    await closeAll();
+    expect(off()).toEqual([]);
+    await userEvent.click(menuItem('Compare Before with Local'));
+    expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..:moved.ts`, title: 'moved.ts' });
   });
 
   it('gets a file as the commit left it, asking first over a local change, as IntelliJ’s Get', async () => {
