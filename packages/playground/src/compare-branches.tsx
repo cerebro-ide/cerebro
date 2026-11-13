@@ -143,7 +143,7 @@ export function compareWithCurrent(current: string, branch: string): void {
 
 /**
  * The Log's branches pane's Compare with Current, as IntelliJ's (`ShowBranchDiffAction`, its icon
- * Diff's): for a branch that isn't the current one; and where its tabs open.
+ * Diff's, and Show Diff's keys): for a branch that isn't the current one; and where its tabs open.
  */
 export function setupCompare(services: MenuServices, open: (tab: Tab) => void): void {
   openTab = open;
@@ -161,4 +161,6 @@ export function setupCompare(services: MenuServices, open: (tab: Tab) => void): 
       compareWithCurrent(pane.current ?? 'HEAD', branchName(ref));
     },
   });
+  // Show Diff's, while the pane has the keyboard, as IntelliJ's: Ctrl+D, Cmd+D on macOS.
+  services.keymap?.bindDefault('Mod+D', 'log.branches.compare');
 }
