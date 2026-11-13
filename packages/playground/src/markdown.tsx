@@ -169,14 +169,14 @@ export function MarkdownEditor(props: {
   text: () => string;
   /** The editor's top line, which the preview follows. Read reactively. */
   line: () => number;
-  /** Opens a file a link names. */
-  open: (path: string) => void;
+  /** Opens a file a link names, in a tab. */
+  open: (tab: { id: string; title: string }) => void;
 }): Node {
   const image = imageLoader(props.path, readBytes);
   // A link to a file beside it opens it; one to the web can't yet, with no way to a browser.
   const link = (address: string) => {
     const path = localPath(props.path, address);
-    if (path !== undefined) props.open(path);
+    if (path !== undefined) props.open({ id: path, title: path.split('/').at(-1) as string });
   };
   const layout = () => layoutOf(props.path);
   const text = (
