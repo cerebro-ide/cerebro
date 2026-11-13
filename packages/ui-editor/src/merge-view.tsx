@@ -4,8 +4,11 @@
 // each side's, between the panes, an arrow takes it into the result and a cross ignores it. Once a
 // side of a conflict is taken, the other's arrow adds it after. A change taken or ignored is
 // resolved and no longer marked. A conflict that can be merged word by word has a Resolve button in
-// the result's gutter, as IntelliJ's. The panes scroll together, in one frame.
+// the result's gutter, as IntelliJ's. Each of these, and what's typed in the result, is undone and
+// redone in the result as IntelliJ's merge commands are, what was done with each change with it.
+// The panes scroll together, in one frame.
 
+import { history, invertedEffects, isolateHistory, redo, undo } from '@codemirror/commands';
 import { syntaxHighlighting } from '@codemirror/language';
 import {
   Compartment,
@@ -22,13 +25,22 @@ import {
   EditorView,
   gutter,
   GutterMarker,
+  keymap,
   lineNumbers,
   WidgetType,
   type DecorationSet,
 } from '@codemirror/view';
 import { onCleanup } from '@cerebro-ide/jsx';
 import { effect, signal } from '@cerebro-ide/reactive';
-import { gutterObstacle, highlight, scroller, selection, theme, variable } from './editor.js';
+import {
+  DEFAULT_KEYS,
+  gutterObstacle,
+  highlight,
+  scroller,
+  selection,
+  theme,
+  variable,
+} from './editor.js';
 import { languageFor } from './languages.js';
 import { linesText, mergeChanges, resolveConflict, type Lines, type MergeChange } from './merge.js';
 import { fullWidth } from './width.js';
@@ -86,6 +98,21 @@ interface Tracked {
   /** A conflict's lines merged word by word, if they can be (IntelliJ's `canBeResolved`). */
   simple?: string[];
 }
+
+/** What a merge action does to a change: lines put in its place in the result, and its sides' state. */
+interface Step {
+  t: Tracked;
+  lines?: readonly string[];
+  done: Tracked['done'];
+}
+
+/** The changes' places and states, kept with each merge action in the result's history. */
+type Snapshot = Pick<Tracked, 'from' | 'to' | 'done'>[];
+
+/** A merge action, in the transaction that does it. */
+const mergeAction = StateEffect.define();
+/** The changes put back as they were, by an undo or a redo. */
+const restore = StateEffect.define<Snapshot>();
 
 /** The pane of the side that didn't make a change, by its kind. */
 const other: Partial<Record<MergeChange['kind'], Side>> = { yours: 'theirs', theirs: 'yours' };
@@ -239,21 +266,46 @@ export function MergeEditor(props: MergeEditorProps): Node {
         editable
           ? [
               resolvers,
+              history(),
+              // IntelliJ's keys, as the editor's.
+              keymap.of([
+                ...DEFAULT_KEYS.undo.map((key) => ({ key, run: undo, preventDefault: true })),
+                ...DEFAULT_KEYS.redo.map((key) => ({ key, run: redo, preventDefault: true })),
+              ]),
+              // Each merge action undone puts the changes back as they were before it; redone, as
+              // after. Asked as the action's transaction is made: the changes are as before it.
+              invertedEffects.of((tr) =>
+                tr.effects.some((e) => e.is(mergeAction) || e.is(restore))
+                  ? [restore.of(snapshot())]
+                  : [],
+              ),
               gutter({
                 class: 'cm-merge3-resolve-gutter',
                 markers: (view) => view.state.field(resolvers),
               }),
               EditorView.updateListener.of((update) => {
-                if (!update.docChanged) return;
-                modified = true;
-                // Typed at a change's first line, it's in the change; at the line after, it isn't.
-                // The change being taken or ignored is placed by `replace`.
-                for (const t of tracked) {
-                  if (t === applying) continue;
-                  t.from = update.changes.mapPos(t.from, -1);
-                  t.to = Math.max(t.from, update.changes.mapPos(t.to, -1));
+                const restored = update.transactions
+                  .flatMap((tr) => tr.effects)
+                  .filter((e) => e.is(restore));
+                if (update.docChanged) modified = true;
+                // Undone or redone: as they were. Several joined: the earliest, given last.
+                const snapshot = restored.at(-1)?.value;
+                if (snapshot) {
+                  for (const [i, state] of snapshot.entries()) {
+                    Object.assign(tracked[i] as Tracked, { ...state, done: { ...state.done } });
+                  }
+                } else if (update.docChanged) {
+                  // Typed at a change's first line, it's in the change; at the line after, it
+                  // isn't. The changes a merge action puts lines in are placed by `act`.
+                  for (const t of tracked) {
+                    if (applying.has(t)) continue;
+                    t.from = update.changes.mapPos(t.from, -1);
+                    t.to = Math.max(t.from, update.changes.mapPos(t.to, -1));
+                  }
                 }
-                if (!applying) queueMicrotask(refresh);
+                if ((snapshot || update.docChanged) && applying.size === 0) {
+                  queueMicrotask(refresh);
+                }
               }),
             ]
           : EditorState.readOnly.of(true),
@@ -321,44 +373,65 @@ export function MergeEditor(props: MergeEditorProps): Node {
     return { from: line(t.from), to: line(t.to) };
   };
 
-  let applying: Tracked | undefined;
+  /** The changes a merge action is putting lines in: placed by it, not by the edit's mapping. */
+  let applying = new Set<Tracked>();
   /** The line height the spacers were made for. */
   let spaced = 0;
+  const snapshot = (): Snapshot =>
+    tracked.map((t) => ({ from: t.from, to: t.to, done: { ...t.done } }));
   /**
-   * Puts lines in place of a change's in the result, as lines: where the change reaches the end, the
-   * newline before it goes with it, so a text with no last newline keeps none.
+   * A merge action, as one step of the result's history (IntelliJ's `executeMergeCommand`): lines
+   * put in place of changes', as lines (where a change reaches the end, the newline before it goes
+   * with it, so a text with no last newline keeps none), and what's been done with each side.
    */
-  const replace = (t: Tracked, lines: readonly string[]) => {
+  const act = (steps: readonly Step[]) => {
+    if (steps.length === 0) return;
     const doc = views.result.state.doc;
-    const { from, to } = resultLines(t);
-    const change =
+    const edits = steps
+      .filter((step) => step.lines !== undefined)
+      .map((step) => ({ step, lines: step.lines as readonly string[], at: resultLines(step.t) }))
+      .sort((a, b) => a.at.from - b.at.from);
+    const changes = edits.map(({ lines, at: { from, to } }) =>
       to < doc.lines
         ? { from: at(doc, from), to: at(doc, to), insert: lines.map((l) => `${l}\n`).join('') }
         : from > 0
           ? { from: doc.line(from).to, to: doc.length, insert: lines.map((l) => `\n${l}`).join('') }
-          : { from: 0, to: doc.length, insert: lines.join('\n') };
-    applying = t;
-    views.result.dispatch({ changes: change });
-    applying = undefined;
+          : { from: 0, to: doc.length, insert: lines.join('\n') },
+    );
+    applying = new Set(edits.map(({ step }) => step.t));
+    views.result.dispatch({
+      changes,
+      effects: mergeAction.of(null),
+      annotations: isolateHistory.of('full'),
+    });
+    applying = new Set();
+    // Each change's lines, after those put in before it.
     const after = views.result.state.doc;
-    t.from = at(after, from);
-    t.to = at(after, from + lines.length);
+    let shift = 0;
+    for (const { step, lines, at: range } of edits) {
+      step.t.from = at(after, range.from + shift);
+      step.t.to = at(after, range.from + shift + lines.length);
+      shift += lines.length - (range.to - range.from);
+    }
+    for (const step of steps) step.t.done = step.done;
+    refresh();
   };
 
-  /** Takes a side's change into the result: in its place, or after the other side's, if taken. */
-  const take = (t: Tracked, side: Side) => {
+  /** Taking a side's change into the result: in its place, or after the other side's, if taken. */
+  const taking = (t: Tracked, side: Side): Step => {
     const lines = linesOf(texts[side], t.change[side]);
     const other: Side = side === 'yours' ? 'theirs' : 'yours';
-    replace(
-      t,
-      t.done[other] === 'taken'
-        ? [...linesOf(views.result.state.doc, resultLines(t)), ...lines]
-        : lines,
-    );
-    t.done[side] = 'taken';
+    const done = { ...t.done, [side]: 'taken' };
     // One side's change, or the same on both: nothing more to do with it.
-    if (t.change.kind !== 'conflict' && t.done[other] === 'no') t.done[other] = 'ignored';
-    refresh();
+    if (t.change.kind !== 'conflict' && done[other] === 'no') done[other] = 'ignored';
+    return {
+      t,
+      lines:
+        t.done[other] === 'taken'
+          ? [...linesOf(views.result.state.doc, resultLines(t)), ...lines]
+          : lines,
+      done,
+    };
   };
   /**
    * Whether a conflict can be resolved now: neither side taken or ignored, and its lines in the
@@ -372,19 +445,23 @@ export function MergeEditor(props: MergeEditorProps): Node {
       linesText(views.result.state.doc, resultLines(t)) === linesText(base, t.change.base)
     );
   }
+  const resolving = (t: Tracked): Step => ({
+    t,
+    lines: t.simple as string[],
+    done: { yours: 'taken', theirs: 'taken' },
+  });
   function resolve(t: Tracked) {
-    replace(t, t.simple as string[]);
-    t.done = { yours: 'taken', theirs: 'taken' };
-    refresh();
+    act([resolving(t)]);
   }
-  /** Takes a change not in conflict: its side's. */
-  const takeChange = (t: Tracked) => {
-    take(t, t.change.kind === 'theirs' ? 'theirs' : 'yours');
+  /** Taking a change not in conflict: its side's. */
+  const takingChange = (t: Tracked) => taking(t, t.change.kind === 'theirs' ? 'theirs' : 'yours');
+  const take = (t: Tracked, side: Side) => {
+    act([taking(t, side)]);
   };
   const ignore = (t: Tracked, side: Side) => {
-    t.done[side] = 'ignored';
-    if (t.change.kind === 'both') t.done[side === 'yours' ? 'theirs' : 'yours'] = 'ignored';
-    refresh();
+    const done = { ...t.done, [side]: 'ignored' as const };
+    if (t.change.kind === 'both') done[side === 'yours' ? 'theirs' : 'yours'] = 'ignored';
+    act([{ t, done }]);
   };
 
   /** Marks each change in each pane, with spacers to keep them level, and places the controls. */
@@ -504,17 +581,28 @@ export function MergeEditor(props: MergeEditorProps): Node {
     left: () => left.get(),
     modified: () => modified,
     applyNonConflicting(side) {
-      for (const t of tracked) {
-        if (resolved(t) || t.change.kind === 'conflict') continue;
-        if (side === 'all' || side === t.change.kind || t.change.kind === 'both') takeChange(t);
-      }
+      act(
+        tracked
+          .filter(
+            (t) =>
+              !resolved(t) &&
+              t.change.kind !== 'conflict' &&
+              (side === 'all' || side === t.change.kind || t.change.kind === 'both'),
+          )
+          .map(takingChange),
+      );
     },
     canResolveSimple: () => simple.get(),
     resolveSimple() {
-      for (const t of tracked) {
-        if (resolvable(t)) resolve(t);
-        else if (!resolved(t) && t.change.kind !== 'conflict') takeChange(t);
-      }
+      act(
+        tracked.flatMap((t) =>
+          resolvable(t)
+            ? [resolving(t)]
+            : !resolved(t) && t.change.kind !== 'conflict'
+              ? [takingChange(t)]
+              : [],
+        ),
+      );
     },
   });
   onCleanup(() => {

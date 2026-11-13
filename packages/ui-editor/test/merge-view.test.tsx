@@ -370,6 +370,97 @@ describe('the merge editor', () => {
     expect(control.canResolveSimple()).toBe(false);
   });
 
+  it('undoes and redoes each merge action as one, what was done with its changes with it', async () => {
+    const { root, result, control } = mount({
+      path: 'a.txt',
+      base,
+      yours: 'A\nb\nc\nd\ne\n',
+      theirs: 'a\nb\nc\nX\ne\n',
+    });
+    await frame();
+    const [, takeYours] = root.querySelectorAll<HTMLElement>('.cm-merge3-control');
+    await userEvent.click(takeYours as HTMLElement);
+    const [ignoreTheirs] = [...root.querySelectorAll<HTMLElement>('.cm-merge3-control')].filter(
+      (b) => b.title === 'Ignore',
+    );
+    await userEvent.click(ignoreTheirs as HTMLElement);
+    expect(control.left()).toEqual({ changes: 0, conflicts: 0 });
+    await userEvent.click(result.querySelector('.cm-line') as HTMLElement);
+    // The ignore undone: theirs is left again, the text as it was.
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe('A\nb\nc\nd\ne\n');
+    expect(control.left()).toEqual({ changes: 1, conflicts: 0 });
+    await frame();
+    expect(controls(root)).toEqual(['Accept', 'Ignore']);
+    // The take undone: yours is back too, the result the base.
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe(base);
+    expect(control.left()).toEqual({ changes: 2, conflicts: 0 });
+    expect(marked(result, 'modified')).toEqual(['a', 'd']);
+    // Both redone.
+    await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
+    expect(control.text()).toBe('A\nb\nc\nd\ne\n');
+    expect(control.left()).toEqual({ changes: 1, conflicts: 0 });
+    await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
+    expect(control.left()).toEqual({ changes: 0, conflicts: 0 });
+    await frame();
+    expect(controls(root)).toEqual([]);
+  });
+
+  it('undoes a batch of changes taken as one, and a conflict resolved', async () => {
+    const { result, control } = mount({
+      path: 'a.txt',
+      base: 'a b\nkeep\nx = 1\nkeep\nend\n',
+      yours: 'A b\nkeep\nx = 2\nkeep\nend\n',
+      theirs: 'a B\nkeep\nx = 3\nkeep\nEND\n',
+    });
+    control.resolveSimple();
+    expect(control.text()).toBe('A B\nkeep\nx = 1\nkeep\nEND\n');
+    await userEvent.click(result.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe('a b\nkeep\nx = 1\nkeep\nend\n');
+    expect(control.left()).toEqual({ changes: 1, conflicts: 2 });
+    expect(control.canResolveSimple()).toBe(true);
+    await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
+    expect(control.text()).toBe('A B\nkeep\nx = 1\nkeep\nEND\n');
+    expect(control.left()).toEqual({ changes: 0, conflicts: 1 });
+    // Changes taken before lines put in ahead of them: each in its place.
+    control.applyNonConflicting('all');
+    expect(control.text()).toBe('A B\nkeep\nx = 1\nkeep\nEND\n');
+  });
+
+  it('undoes typing apart from a merge action, the changes kept in place', async () => {
+    const { root, result, control } = mount({
+      path: 'a.txt',
+      base,
+      yours: 'a\nb\nc\nd\nE\n',
+      theirs: base,
+    });
+    await frame();
+    await userEvent.click(result.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Home}new\n');
+    expect(control.text()).toBe(`new\n${base}`);
+    await userEvent.click(
+      root.querySelectorAll<HTMLElement>('.cm-merge3-control')[1] as HTMLElement,
+    );
+    expect(control.text()).toBe('new\na\nb\nc\nd\nE\n');
+    await userEvent.click(result.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe(`new\n${base}`);
+    expect(control.left()).toEqual({ changes: 1, conflicts: 0 });
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe(base);
+    expect(marked(result, 'modified')).toEqual(['e']);
+    // Nothing left to undo: as it opened.
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(control.text()).toBe(base);
+    await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
+    expect(control.text()).toBe(`new\n${base}`);
+    await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
+    expect(control.text()).toBe('new\na\nb\nc\nd\nE\n');
+    expect(control.left()).toEqual({ changes: 0, conflicts: 0 });
+  });
+
   it('follows the font size and the tab size', async () => {
     const fontSize = signal(13);
     const { result } = mount({
