@@ -2058,9 +2058,22 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - **Claude's, open to change:** git's diff rather than IntelliJ's own text: IntelliJ also writes
     an "Index:" line, its "IDEA additional info" (the file's encoding), a line of `=`, and the
     revisions after the paths, and makes its own hunks. The warning's colour (the muted text's).
+  - **In the Commit window** (added 2026-11-13), as IntelliJ's (`ChangesViewPopupMenu`'s
+    `ChangesView.CreatePatch` and `ChangesView.CreatePatchToClipboard`): Create Patch… and Copy as
+    Patch to Clipboard, before Shelve Changes, for the selection's changes, else those going into
+    the commit, untracked files as new ones (`git add -N` in a copy of the index, so the
+    repository's own isn't touched, measured with git 2.43); the documents saved first. Their
+    message, the file's name and the patch's header, is the commit message being written, as
+    IntelliJ's takes the change list's comment (`extractCommitMessage`). Copy as Patch to
+    Clipboard asks nothing: paths from the repository's top (IntelliJ's
+    `calculateBaseDirForWritingPatch`, the VCS root), not reversed, the message's header still
+    written (`writeAsPatchToClipboard`); "Patch copied to clipboard", or IntelliJ's "Patch Creation
+    Failed" with why.
+  - **Claude's, open to change:** IntelliJ's Create Patch from the Commit window first shows a
+    commit-like dialog of the changes to choose from; here it takes the selection as it is, as
+    Shelve Changes does, and goes straight to Patch File Settings.
   - **Not yet:** the fields' browse buttons (a save dialog the app hasn't); Encoding (UTF-8 here);
-    Create Patch in the Commit window and the Shelf, and Copy as Patch to Clipboard (IntelliJ's
-    `ChangesView.CreatePatchToClipboard`), which go with the working tree's changes.
+    Create Patch in the Shelf.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
   are to start with (ChangesTree's DEFAULT_GROUPING_KEYS, read from its source): folders first,
   open, a folder holding only one folder as one row, as the Commit window's (the same code,

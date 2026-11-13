@@ -24,8 +24,7 @@ const request: PatchRequest = {
 
 /** The request, without a message. */
 function noMessage(from: PatchRequest): PatchRequest {
-  const { host, worktree, from: start, to, files, changed } = from;
-  return { host, worktree, from: start, to, changed, ...(files === undefined ? {} : { files }) };
+  return { ...from, message: undefined };
 }
 
 beforeEach(() => {

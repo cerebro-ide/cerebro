@@ -146,6 +146,7 @@ import {
   type PushTags,
   type TextFilter,
   ignoredAmong,
+  EMPTY_TREE,
 } from './git.js';
 
 /** The protocol's version: the UI checks it on connecting. */
@@ -1339,12 +1340,32 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     );
     return null;
   });
-  // Create Patch…: what a commit changed in `files` (all, if none), written to `file`, or answered
-  // for the clipboard.
+  // Create Patch…: what a commit changed in `files` (all, if none), or without `to`, the working
+  // tree's changes (`untracked` files among them), written to `file`, or answered for the
+  // clipboard.
   connection.onRequest('git.createPatch', async (params) => {
     const worktree = text(params, 'path');
-    const range = { from: hashOf(params, 'from'), to: hashOf(params, 'to') };
-    const p = params as { files?: unknown; reverse?: unknown; message?: unknown; file?: unknown };
+    const p = params as {
+      to?: unknown;
+      files?: unknown;
+      untracked?: unknown;
+      reverse?: unknown;
+      message?: unknown;
+      file?: unknown;
+    };
+    // The working tree's changes are since HEAD, or before the first commit, since nothing.
+    const head = () =>
+      git(worktree, ['rev-parse', '--verify', '--quiet', 'HEAD']).then(
+        () => 'HEAD',
+        () => EMPTY_TREE,
+      );
+    const range =
+      p.to === undefined && (params as { from?: unknown }).from === undefined
+        ? { from: await head() }
+        : {
+            from: hashOf(params, 'from'),
+            to: p.to === undefined ? undefined : hashOf(params, 'to'),
+          };
     const paths = p.files === undefined ? [] : [...files(params)];
     if (typeof p.reverse !== 'boolean') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'reverse must be true or false');
@@ -1359,6 +1380,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       {
         base: text(params, 'base'),
         reverse: p.reverse,
+        ...(p.untracked === undefined ? {} : { untracked: [...files(params, 'untracked')] }),
         ...(p.message === undefined ? {} : { message: p.message }),
       },
       git,

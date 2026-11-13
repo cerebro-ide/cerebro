@@ -121,7 +121,12 @@ const host = new FakeHost({
     fails('git.rollback');
     return null;
   },
-  'fs.exists': ({ path }: { path: string }) => !path.endsWith('gone.ts'),
+  // No patch file there yet.
+  'fs.exists': ({ path }: { path: string }) => !/(gone\.ts|\.patch)$/.test(path),
+  'git.createPatch': ({ file }: { file?: string }) => {
+    fails('git.createPatch');
+    return file === undefined ? { text: 'the patch' } : null;
+  },
   'fs.read': ({ path }: { path: string }) => ({ text: git.disk[path] ?? '' }),
   'fs.write': ({ path, text }: { path: string; text: string }) => {
     git.disk[path] = text;
@@ -799,6 +804,73 @@ describe('Rollback', () => {
     // The whole group of changes, every tracked file.
     await userEvent.click(row(GROUP));
     expect(commands.isEnabled('changes.rollback', FROM_VIEW)).toBe(true);
+  });
+});
+
+describe('Create Patch… and Copy as Patch to Clipboard', () => {
+  it('make a patch of the selection, saved first, under the commit message, as IntelliJ’s', async () => {
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    setCommitMessage(wt, 'Fix it\n');
+    await unsavedEdit(host, `${wt}/src/main/app.ts`);
+    await userEvent.click(row(GROUP));
+    expect(commands.isEnabled('changes.createPatch', FROM_VIEW)).toBe(true);
+    commands.execute('changes.createPatch', FROM_VIEW);
+    await expect.poll(async () => (await dialog()).textContent).toContain('Patch File Settings');
+    await press('OK');
+    await expect.poll(dialogText).toContain(`Successfully created patch ${wt}/Fix_it.patch`);
+    await press('Close');
+    const tracked = [
+      'src/main/app.ts',
+      'src/main/new.ts',
+      'README.md',
+      'guide.md',
+      'docs/guide.md',
+    ];
+    expect(host.params('git.createPatch')).toEqual([
+      {
+        path: wt,
+        files: tracked,
+        untracked: [],
+        base: wt,
+        reverse: false,
+        message: 'Fix it',
+        file: `${wt}/Fix_it.patch`,
+      },
+    ]);
+    expect(savedBefore(host, `${wt}/src/main/app.ts`, 'git.createPatch')).toBe(true);
+    setCommitMessage(wt, '');
+  });
+
+  it('copies an untracked file’s as a new one, without asking; says why it couldn’t', async () => {
+    const copied = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    setCommitMessage(wt, 'Add notes');
+    await userEvent.click(row(`${UNVERSIONED}:notes.txt`));
+    commands.execute('changes.copyPatch', FROM_VIEW);
+    await expect.poll(() => copied.mock.calls).toEqual([['the patch']]);
+    expect(host.params('git.createPatch').at(-1)).toEqual({
+      path: wt,
+      files: ['notes.txt'],
+      untracked: ['notes.txt'],
+      base: wt,
+      reverse: false,
+      message: 'Add notes',
+    });
+    expect(notifications.all.get(0)?.title).toBe('Patch copied to clipboard');
+    git.failing = 'git.createPatch';
+    commands.execute('changes.copyPatch', FROM_VIEW);
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Patch Creation Failed');
+    expect(notifications.all.get(0)?.content).toBe('git.createPatch failed');
+    // No message being written: no header.
+    git.failing = undefined;
+    setCommitMessage(wt, '');
+    commands.execute('changes.copyPatch', FROM_VIEW);
+    await expect.poll(() => copied.mock.calls).toHaveLength(2);
+    expect(host.params('git.createPatch').at(-1)).not.toHaveProperty('message');
+    // From the agent's changes: not theirs.
+    expect(commands.isEnabled('changes.copyPatch', { source: 'agent' })).toBe(false);
   });
 });
 

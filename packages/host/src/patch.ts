@@ -1,11 +1,13 @@
 // Create Patch…, as IntelliJ's (`CreatePatchCommitExecutor`, `PatchWriter`, `UnifiedDiffWriter`,
-// read from its source): what a commit changed, in files or all of them, as a patch whose paths
-// are relative to a base path, reversed or not, under the commit's message. Its diff is git's,
+// read from its source): what a commit changed, or the working tree's changes, in files or all of
+// them, as a patch whose paths are relative to a base path, reversed or not, under a message. Its diff is git's,
 // which IntelliJ's own writer follows ("diff --git" headers, "a/" and "b/" paths, binaries as
 // git's), with the message first as IntelliJ writes it.
 
-import { mkdir, writeFile } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { Git } from './git.js';
 
 export interface PatchOptions {
@@ -15,6 +17,8 @@ export interface PatchOptions {
   reverse: boolean;
   /** Written first, as IntelliJ's "Subject: [PATCH] …" header, if any. */
   message?: string;
+  /** Untracked files among the working tree's changes, in the patch as new files. */
+  untracked?: readonly string[];
 }
 
 /** IntelliJ's header for a commit message (`writeCommitMessageHeader`): none for no message. */
@@ -32,38 +36,69 @@ function between(from: string, to: string): string {
 const outside = (path: string) => path === '..' || path.startsWith('../') || isAbsolute(path);
 
 /**
- * The patch of what `from..to` changed in `paths` (all of them, if none), its paths relative to
- * `options.base`. A base in the repository keeps to what's under it (git's `--relative`), so
- * changes outside it aren't in the patch, which the dialog doesn't allow; a base above the
- * repository prefixes its paths with the folders between.
+ * The patch of what `from..to` changed in `paths` (all of them, if none), or without `to`, the
+ * working tree's changes since `from`; its paths relative to `options.base`. A base in the
+ * repository keeps to what's under it (git's `--relative`), so changes outside it aren't in the
+ * patch, which the dialog doesn't allow; a base above the repository prefixes its paths with the
+ * folders between. Untracked files are in it as new files: marked to be added (`add -N`) in a copy
+ * of the index, which git's diff is given, so the repository's own index isn't touched (measured,
+ * git 2.43).
  */
 export async function createPatch(
   worktree: string,
-  range: { from: string; to: string },
+  range: { from: string; to?: string | undefined },
   paths: readonly string[],
   options: PatchOptions,
   run: Git,
 ): Promise<string> {
-  const where = (): string[] => {
-    const inside = between(worktree, options.base);
-    if (!outside(inside)) return inside === '' ? [] : [`--relative=${inside}`];
+  // The paths' folder: below the repository's (`--relative`), or the folders above it as prefixes.
+  const inside = between(worktree, options.base);
+  let folder = '';
+  if (outside(inside)) {
     const above = between(options.base, worktree);
     if (outside(above)) throw new Error(`${options.base} holds none of the repository`);
-    return [`--src-prefix=a/${above}/`, `--dst-prefix=b/${above}/`];
-  };
-  const diff = await run(worktree, [
+    folder = `${above}/`;
+  }
+  const working = range.to === undefined;
+  // The working tree's side has no name to put first: reversed, it's `-R`, which swaps the "a/"
+  // and "b/" too, so they're given swapped (measured, git 2.43). A commit's is from `to` to `from`.
+  const swapped = working && options.reverse;
+  const [src, dst] = swapped ? ['b/', 'a/'] : ['a/', 'b/'];
+  const ends = working
+    ? [range.from]
+    : options.reverse
+      ? [range.to as string, range.from]
+      : [range.from, range.to as string];
+  const args = [
     'diff',
     '--binary',
     '-M',
     '--no-color',
     '--no-ext-diff',
-    ...where(),
-    // Reversed from `to` to `from`, not with `-R`, which swaps the "a/" and "b/" too (measured).
-    ...(options.reverse ? [range.to, range.from] : [range.from, range.to]),
+    ...(swapped ? ['-R'] : []),
+    ...(inside === '' || folder !== '' ? [] : [`--relative=${inside}`]),
+    ...(folder === '' && !swapped
+      ? []
+      : [`--src-prefix=${src}${folder}`, `--dst-prefix=${dst}${folder}`]),
+    ...ends,
     '--',
     ...paths,
-  ]);
-  return messageHeader(options.message) + diff;
+  ];
+  const untracked = working ? (options.untracked ?? []) : [];
+  if (untracked.length === 0) return messageHeader(options.message) + (await run(worktree, args));
+  const temporary = await mkdtemp(join(tmpdir(), 'cerebro-patch-'));
+  try {
+    const env = { GIT_INDEX_FILE: join(temporary, 'index') };
+    const index = (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim();
+    // A repository with nothing added yet has no index (measured): the copy starts empty.
+    if (existsSync(resolve(worktree, index))) {
+      await copyFile(resolve(worktree, index), env.GIT_INDEX_FILE);
+    }
+    await run(worktree, ['add', '-N', '--', ...untracked], env);
+    return messageHeader(options.message) + (await run(worktree, args, env));
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 }
 
 /** Writes a patch to `file`, making its folders first, as IntelliJ's `PatchWriter`. */

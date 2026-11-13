@@ -91,6 +91,53 @@ describe('Create Patch, with real git', () => {
     ).rejects.toThrow(`${join(root, 'other')} holds none of the repository`);
   });
 
+  it('is the working tree’s changes, untracked files as new, the index untouched', async () => {
+    write(repo, { 'a.txt': 'a3\n', 'new.txt': 'new\n' });
+    const patch = await createPatch(
+      repo,
+      { from: 'HEAD' },
+      ['a.txt', 'new.txt'],
+      { base: repo, reverse: false, untracked: ['new.txt'] },
+      git,
+    );
+    expect(patch).toContain('diff --git a/a.txt b/a.txt\n');
+    expect(patch).toContain('-a2\n+a3\n');
+    expect(patch).toContain('diff --git a/new.txt b/new.txt\nnew file mode 100644\n');
+    expect(run(repo, 'status', '--porcelain')).toBe('M a.txt\n?? new.txt');
+    // Reversed, still "a/" then "b/", above the repository too.
+    const reversed = await createPatch(
+      repo,
+      { from: 'HEAD' },
+      ['a.txt', 'new.txt'],
+      { base: root, reverse: true, untracked: ['new.txt'] },
+      git,
+    );
+    expect(reversed).toContain('--- a/projects/r/a.txt\n+++ b/projects/r/a.txt\n');
+    expect(reversed).toContain('-a3\n+a2\n');
+    expect(reversed).toContain('deleted file mode 100644');
+    // Without untracked files, no index of its own.
+    expect(
+      await createPatch(repo, { from: 'HEAD' }, ['a.txt'], { base: repo, reverse: false }, git),
+    ).toContain('+a3\n');
+    run(repo, 'checkout', '-q', '--', 'a.txt');
+    rmSync(join(repo, 'new.txt'));
+  });
+
+  it('is a new repository’s files, before anything was added: its index not there yet', async () => {
+    const fresh = join(root, 'fresh');
+    run(root, 'init', '-q', fresh);
+    write(fresh, { 'f.txt': 'f\n' });
+    const patch = await createPatch(
+      fresh,
+      { from: '4b825dc642cb6eb9a060e54bf8d69288fbee4904' },
+      [],
+      { base: fresh, reverse: false, untracked: ['f.txt'] },
+      git,
+    );
+    expect(patch).toContain('diff --git a/f.txt b/f.txt\nnew file mode 100644\n');
+    expect(run(fresh, 'status', '--porcelain')).toBe('?? f.txt');
+  });
+
   it('is written to its file, its folders made', async () => {
     const file = join(root, 'out', 'deep', 'x.patch');
     await writePatch(file, 'the patch');
