@@ -710,6 +710,45 @@ describe('a commit’s pane', () => {
     expect(commands.isEnabled('log.files.showDiff')).toBe(false);
   });
 
+  it('shows a file’s history up to the commit, in the Log, as IntelliJ’s', async () => {
+    const hash = 'c'.repeat(40);
+    git.log = [{ ...(history(1)[0] as LogCommit), hash }];
+    git.changes[`${EMPTY_TREE}..${hash}`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    git.byPaths['src/a.ts'] = history(2, [], 'h');
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // Next to Show Diff, as in IntelliJ's toolbar.
+    const button = pane().querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement;
+    expect(button.previousElementSibling?.getAttribute('aria-label')).toMatch(/^Show Diff/);
+    // Nothing selected, or a folder: off.
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    const before = shownLog;
+    await userEvent.click(button);
+    expect(shownLog).toBe(before + 1);
+    await expect.poll(() => rows()[0]?.getAttribute('data-key')).toBe('h0');
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: '/r',
+      skip: 0,
+      max: PAGE,
+      branches: [hash],
+      filter: { paths: ['src/a.ts'] },
+    });
+    // Its hash short in the Branch filter.
+    const texts = [
+      ...document.querySelectorAll('.playground-log__toolbar .cerebro-toolbar-dropdown__text'),
+    ].map((text) => text.textContent);
+    expect(texts).toContain('Branch: cccccccc');
+  });
+
   it('expands and collapses all its folders from its toolbar’s end, as IntelliJ’s', async () => {
     git.log = history(1);
     git.changes[`${EMPTY_TREE}..c0`] = [

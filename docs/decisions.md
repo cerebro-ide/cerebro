@@ -1991,7 +1991,8 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Revert Selected Changes, Show History for Revision, Show Only Affected Changes) and Ctrl+P there; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Revert Selected Changes, Show Only Affected Changes); their right-click menu (IntelliJ's
+  Vcs.RepositoryChangesBrowserMenu) and Ctrl+P there; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
@@ -2010,6 +2011,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   toolbar, as IntelliJ's horizontal changes-browser toolbars have them (`TreeActionsToolbarPanel`,
   read from its source). Collapse All moves a selection inside a folder to its top row, as the
   branches pane's does.
+- **History Up to Here over a commit's files** (added 2026-11-13), next to Show Diff as in
+  IntelliJ's toolbar (`Vcs.RepositoryChangesBrowserToolbar`'s `Vcs.ShowHistoryForRevision`, read
+  from its source): the selected file's commits up to that commit, in the Log as Git → Current
+  File → Show History shows them, with the commit in the Branch filter (its hash short there, as a
+  range's are). IntelliJ opens a file history tab; the Log here has no tabs (above). Off against
+  the working tree, which has no commit, and in the Push dialog, where the Log would show behind
+  it. **Claude's, open to change:** the icon's drawing.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),

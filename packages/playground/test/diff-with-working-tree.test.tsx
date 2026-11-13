@@ -10,6 +10,7 @@ import {
   setupDiffWithWorkingTree,
   showDiffWithWorkingTree,
 } from '../src/diff-with-working-tree.js';
+import { setupLog } from '../src/git-log.js';
 import { closeAll, dialog, FakeHost, press } from './fakes.js';
 
 /** The files each ref differs in from the working tree, as `git.changes` is asked for them. */
@@ -45,6 +46,7 @@ const services: MenuServices = {
   keymap: new Keymap('other'),
 };
 setupDiffWithWorkingTree(services, reveal);
+setupLog(services, () => undefined);
 const opened: [Tab, readonly string[] | undefined][] = [];
 
 let dispose: (() => void) | undefined;
@@ -103,7 +105,10 @@ describe('Show Diff with Working Tree’s window', () => {
     await userEvent.dblClick(document.querySelector('.cerebro-tree-row') as HTMLElement);
     expect(opened).toEqual([
       [diffTab('a.ts', { from: 'feature' }), ['a.ts', 'b.ts', 'c.ts', 'd.ts']],
-    ]);
+    ]); // Against the working tree: no commit to show the file's history up to.
+    expect(
+      (document.querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   it('says when none differ, or why they can’t be read; each comparison in place of the last', async () => {

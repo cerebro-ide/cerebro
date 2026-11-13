@@ -201,13 +201,16 @@ describe('Push', () => {
     expect(second?.title).toMatch(/^First-ha {2}.+ {2}by Ann\n\nFirst$/);
     await userEvent.click(second as HTMLElement);
     await expect.poll(files).toEqual(['base..First-hash.ts']);
-    // A diff opens in the editor, behind the dialog: Show Diff is off here.
+    // A diff opens in the editor, and the Log in its window, behind the dialog: both are off here.
     const file = document.querySelector('.playground-push__files .cerebro-tree-row') as HTMLElement;
     await userEvent.click(file);
-    expect(
-      document.querySelector<HTMLButtonElement>('.playground-push__files [aria-label^="Show Diff"]')
-        ?.disabled,
-    ).toBe(true);
+    for (const label of ['Show Diff', 'History Up to Here']) {
+      expect(
+        document.querySelector<HTMLButtonElement>(
+          `.playground-push__files [aria-label^="${label}"]`,
+        )?.disabled,
+      ).toBe(true);
+    }
     // The first commit of all: from git's empty tree.
     git.outgoing = { ...git.outgoing, commits: [{ ...commit('Root'), body: 'Why' }] };
     await closeAll();

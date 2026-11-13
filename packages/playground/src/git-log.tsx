@@ -335,8 +335,8 @@ export class Log {
    * Shows the commits of HEAD that change `path`: IntelliJ's file history, whose other branches are
    * off to start with (`FileHistoryUiProperties`' `isShowOtherBranches`).
    */
-  showHistory(path: string): Promise<void> {
-    return this.showOnly('HEAD', [path]);
+  showHistory(path: string, revision = 'HEAD'): Promise<void> {
+    return this.showOnly(revision, [path]);
   }
 
   /** The branch's commits that change the paths (any, if undefined), the other filters cleared. */
@@ -714,6 +714,8 @@ interface FilesTarget {
   /** The file selected, if any and it can be opened. */
   selected: () => Change | undefined;
   showDiff: (change: Change) => void;
+  /** The commit its files are at, if it can be shown: not the working tree. */
+  revision: string | undefined;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
 }
@@ -790,6 +792,7 @@ export function CommitFiles(props: {
       return open ? changes.get().find((c) => c.path === key) : undefined;
     },
     showDiff,
+    revision: range.to,
     tree: files,
   };
   onCleanup(() => {
@@ -854,6 +857,12 @@ export function CommitFiles(props: {
             command="log.files.showDiff"
             icon={icon('diff')}
             shortcut={shortcutOf(props.services, 'log.files.showDiff')}
+            context={() => ({ files: target })}
+          />
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.showHistory"
+            icon={icon('history')}
             context={() => ({ files: target })}
           />
           <button
@@ -1118,8 +1127,8 @@ export function viewCommits(range: HashRange): void {
  * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD that
  * change the file (`path`, from the repository's top), as IntelliJ's file history.
  */
-export function showHistory(path: string): void {
-  wantedView.set((log) => log.showHistory(path));
+export function showHistory(path: string, revision?: string): void {
+  wantedView.set((log) => log.showHistory(path, revision));
   showLog();
 }
 
@@ -1281,6 +1290,21 @@ export function setupLog(services: MenuServices, show: () => void): void {
     },
   });
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
+  // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.ShowHistoryForRevision): the
+  // file's commits up to this one, in the Log as Git → Current File → Show History shows them.
+  commands.register({
+    id: 'log.files.showHistory',
+    label: 'History Up to Here',
+    icon: 'history',
+    enabled: (context) => {
+      const files = filesOf(context);
+      return files?.revision !== undefined && files.selected() !== undefined;
+    },
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      showHistory((files.selected() as Change).path, files.revision);
+    },
+  });
   // At the toolbar's end, as IntelliJ's changes browser's (TreeActionsToolbarPanel.createTreeActions).
   for (const [id, label, open] of [
     ['log.files.expandAll', 'Expand All', true],
@@ -1701,13 +1725,12 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
 
 /** A filter's text, as IntelliJ's: its name alone while it's off, else its name and value. */
 /** The Branch filter's: a branch's name, or a range's ends shortened (Claude's, open to change). */
+/** A branch's name; a commit's hash, or a range's, short. */
 const branchText = (branch: BranchFilter) =>
-  branch.includes('..')
-    ? branch
-        .split('..')
-        .map((hash) => hash.slice(0, 8))
-        .join('..')
-    : branchName(branch);
+  branch
+    .split('..')
+    .map((part) => (/^[0-9a-f]{40}$/.test(part) ? part.slice(0, 8) : branchName(part)))
+    .join('..');
 
 const filterText = <T,>(name: string, value: T | undefined, text: (value: T) => string) =>
   value === undefined ? name : `${name}: ${text(value)}`;
