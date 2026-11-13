@@ -1608,7 +1608,9 @@ export function setupLog(services: MenuServices, show: () => void): void {
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
   // The file in the working tree against the commit's version of it, or the one before: IntelliJ's
   // Compare with Local and Compare Before with Local (Vcs.ShowDiffWithLocal and its .Before). Not
-  // for a version the commit hasn't: it deleted the file, or added it.
+  // for a version the commit hasn't: it deleted the file, or added it. A rename's version before is
+  // at its old path: the host finds the rename to the working tree, as IntelliJ compares the old
+  // path's version with the file renamed.
   for (const [id, label, before] of [
     ['log.files.compareWithLocal', 'Compare with Local', false],
     ['log.files.compareBeforeWithLocal', 'Compare Before with Local', true],
@@ -1618,12 +1620,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
       label,
       enabled: (context) => {
         const status = filesOf(context)?.selected()?.status;
-        return (
-          atCommit(context) &&
-          status !== (before ? 'added' : 'deleted') &&
-          // Its path before isn't the one in the working tree.
-          !(before && status === 'renamed')
-        );
+        return atCommit(context) && status !== (before ? 'added' : 'deleted');
       },
       run: (context) => {
         const files = filesOf(context) as FilesTarget;
