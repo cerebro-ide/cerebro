@@ -1720,6 +1720,9 @@ describe('files', () => {
     const read = () => readFileSync(join(repo, 'five.txt'), 'utf8');
     run('init', '-q', '-b', 'main');
     run('config', 'core.autocrlf', 'false');
+    // The merge the host commits needs an identity: CI's runners have none (measured).
+    run('config', 'user.name', 't');
+    run('config', 'user.email', 't@t');
     writeFileSync(join(repo, 'five.txt'), 'a\nb\nc\nd\ne\n');
     writeFileSync(join(repo, 'other.txt'), 'o\n');
     run('add', '.');
