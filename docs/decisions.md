@@ -1991,9 +1991,17 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; grouping the files by directory; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Show Diff, Expand and Collapse All, Show Only Affected Changes) and Ctrl+P there; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
+  are to start with (ChangesTree's DEFAULT_GROUPING_KEYS, read from its source): folders first,
+  open, a folder holding only one folder as one row, as the Commit window's (the same code,
+  `directory-tree.ts`). A Group By button over them, as IntelliJ's changes browser in the Log has
+  its Group By (`Vcs.Log.ChangesBrowser.PresentationSettings`), opens a menu with "Directory".
+  The setting is kept apart from the Commit window's, as IntelliJ keeps it, and is the same
+  wherever a commit's files show: the Log, Compare with Current, Push, a deleted branch's commits,
+  Show Diff with Working Tree. **Claude's, open to change:** the button's icon's drawing.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),

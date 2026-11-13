@@ -94,7 +94,13 @@ function CompareHalf(props: {
   };
   const pane = (
     <div class="playground-log__pane">
-      <CommitPane log={log} host={props.host} worktree={props.worktree} open={props.open} />
+      <CommitPane
+        services={props.services}
+        log={log}
+        host={props.host}
+        worktree={props.worktree}
+        open={props.open}
+      />
     </div>
   ) as HTMLElement;
   pane.style.width = `${String(PANE_WIDTH)}px`;

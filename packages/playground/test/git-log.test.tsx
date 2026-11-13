@@ -28,10 +28,20 @@ import {
   viewCommits,
   type LogCommit,
   type LogCommitContext,
+  readFilesGrouping,
 } from '../src/git-log.js';
 import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
-import { answer, dialog, FakeHost, press, project } from './fakes.js';
+import {
+  answer,
+  closeAll,
+  dialog,
+  FakeHost,
+  menuItem,
+  menuItems,
+  press,
+  project,
+} from './fakes.js';
 import { isFavorite, setFavorite } from '../src/branch-favorites.js';
 import { icon } from '../src/icons.js';
 import { notifications } from '../src/notifications.js';
@@ -600,8 +610,8 @@ describe('a commit’s pane', () => {
       'No commits selected',
     );
     await userEvent.click(rows()[0] as HTMLElement);
-    // The file's folder after its name, as a flat list has it.
-    await expect.poll(files).toEqual(['a.tssrc', 'gone.ts']);
+    // By directory, folders first and open, as IntelliJ's changes trees to start with.
+    await expect.poll(files).toEqual(['src1 file', 'a.ts', 'gone.ts']);
     expect(host.params('git.changes')).toEqual([{ path: '/r', from: 'c1', to: 'c0' }]);
     const commit = git.log[0] as LogCommit;
     const when = new Date(commit.time).toLocaleString(undefined, {
@@ -631,6 +641,42 @@ describe('a commit’s pane', () => {
     await userEvent.click(rows()[1] as HTMLElement);
     await expect.poll(files).toEqual(['first.ts']);
     expect(details()).toHaveLength(2);
+  });
+
+  it('groups its files by directory or not, from Group By over them, kept, as IntelliJ’s', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'src/main/a.ts', status: 'modified' },
+      { path: 'src/main/b.ts', status: 'added' },
+      { path: 'top.ts', status: 'deleted' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    // A folder holding only one folder is one row.
+    await expect.poll(files).toEqual(['src/main2 files', 'a.ts', 'b.ts', 'top.ts']);
+    // A folder opens nothing; its context menu is none of a file's.
+    await userEvent.dblClick(fileRows()[0] as HTMLElement);
+    expect(opened).toEqual([]);
+    const button = pane().querySelector('[aria-label="Group By"]') as HTMLElement;
+    await userEvent.hover(button);
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toBe('Group By');
+    await userEvent.click(button);
+    expect(await menuItems()).toEqual(['Directory']);
+    expect(document.querySelector('.cerebro-menu-heading')?.textContent).toBe('Group By');
+    await userEvent.click(menuItem('Directory'));
+    // Flat: each file's folder after its name, as git lists them.
+    await expect.poll(files).toEqual(['a.tssrc/main', 'b.tssrc/main', 'top.ts']);
+    expect(readFilesGrouping()).toBe(false);
+    await closeAll();
+    commands.execute('log.files.groupByDirectory');
+    await expect.poll(files).toHaveLength(4);
+    expect(readFilesGrouping()).toBe(true);
+    localStorage.setItem('cerebro.log.files', '{unreadable');
+    expect(readFilesGrouping()).toBe(true);
+    localStorage.removeItem('cerebro.log.files');
   });
 
   it('says why a commit’s files couldn’t be read', async () => {
@@ -690,7 +736,7 @@ describe('showing a commit, as from an annotation', () => {
     mount();
     await expect.poll(selected).toBe(hash);
     expect(skips()).toEqual([0, PAGE]);
-    await expect.poll(selectedFile).toBe('b.tssrc');
+    await expect.poll(selectedFile).toBe('b.ts');
     // Another commit chosen: no file selected among its changes.
     const other = rows().find((row) => row.getAttribute('data-key') !== hash) as HTMLElement;
     await userEvent.click(other);

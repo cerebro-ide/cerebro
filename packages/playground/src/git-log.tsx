@@ -26,7 +26,15 @@ import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-tool
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { isFavorite, setFavorite } from './branch-favorites.js';
-import { changeContent, diffTab, fileTab, type Change, type Range } from './changes.js';
+import {
+  changeContent,
+  diffTab,
+  fileTab,
+  folderContent,
+  type Change,
+  type Range,
+} from './changes.js';
+import { directoryTree } from './directory-tree.js';
 import { formatCommitDate } from './dates.js';
 import { active, gitRepository, hostFor, type Host } from './environments.js';
 import { Toggle } from './find.js';
@@ -680,7 +688,52 @@ const signature = (commit: LogCommit) =>
  * dialog's. With `open`, Enter or a double click opens a file's diff, and F4 the file itself, as
  * IntelliJ's Jump to Source.
  */
+/**
+ * Whether a commit's files are grouped by directory, as IntelliJ's changes trees are to start with
+ * (ChangesTree's DEFAULT_GROUPING_KEYS); kept apart from the Commit window's, as IntelliJ keeps
+ * them, in the browser's storage.
+ */
+const FILES_KEY = 'cerebro.log.files';
+
+export function readFilesGrouping(): boolean {
+  try {
+    const stored = JSON.parse(localStorage.getItem(FILES_KEY) ?? '{}') as { byDirectory?: unknown };
+    return stored.byDirectory !== false;
+  } catch {
+    return true;
+  }
+}
+
+const filesByDirectory = signal(readFilesGrouping());
+
+/** The files' Group By menu, from the button over them. */
+const FILES_GROUP_BY = 'log/files/groupBy';
+
+/** A row of a commit's files: a file's change, or a folder of them. */
+type ChangeNode =
+  | { kind: 'file'; change: Change }
+  | { kind: 'folder'; path: string; name: string; count: number; children: ChangeNode[] };
+
+/** A row's key: a file's is its path, which selects it from outside. */
+const fileNodeKey = (node: ChangeNode) =>
+  node.kind === 'file' ? node.change.path : `folder:${node.path}`;
+
+/** The files as rows: by directory, all folders open, as IntelliJ's; else as git lists them. */
+function fileNodes(changes: readonly Change[], opened: (key: string) => void): ChangeNode[] {
+  const file = (change: Change): ChangeNode => ({ kind: 'file', change });
+  if (!filesByDirectory.get()) return changes.map(file);
+  return directoryTree<Change, ChangeNode>(changes, (change) => change.path, {
+    file,
+    folder: (folder) => {
+      const node: ChangeNode = { kind: 'folder', ...folder };
+      opened(fileNodeKey(node));
+      return node;
+    },
+  });
+}
+
 export function CommitFiles(props: {
+  services: MenuServices;
   host: Host;
   worktree: string;
   /** Without `to`: from a commit to the working tree. */
@@ -697,12 +750,27 @@ export function CommitFiles(props: {
   /** A file's context menu: the file is selected first. */
   onContextMenu?: (event: MouseEvent, change: Change) => void;
 }) {
-  const { range, open } = props;
+  const { range, open, onContextMenu: menu } = props;
   const changes = signal<readonly Change[]>([]);
-  const files = new TreeModel<Change>({
-    children: () => changes.peek(),
-    key: (change) => change.path,
-    isLeaf: () => true,
+  let nodes: ChangeNode[] = [];
+  const files = new TreeModel<ChangeNode>({
+    // Only the root and folders have any.
+    children: (node) => (node?.kind === 'folder' ? node.children : nodes),
+    key: fileNodeKey,
+    isLeaf: (node) => node.kind === 'file',
+  });
+  /** The rows' last loading. */
+  let loading: Promise<void> = Promise.resolve();
+  // Again as they're read, or grouped otherwise.
+  const grouping = effect(() => {
+    nodes = fileNodes(changes.get(), (key) => {
+      files.expanded.add(key);
+    });
+    loading = untracked(() => files.load(undefined, true));
+    return undefined;
+  });
+  onCleanup(() => {
+    grouping.dispose();
   });
   props.selection?.(() => {
     const key = files.selected;
@@ -715,7 +783,7 @@ export function CommitFiles(props: {
     (listed) => {
       changes.set(listed as Change[]);
       none.set((listed as Change[]).length === 0);
-      void files.load(undefined, true).then(() => {
+      void loading.then(() => {
         files.select(props.selected);
       });
     },
@@ -739,12 +807,45 @@ export function CommitFiles(props: {
           open(fileTab(props.worktree, selected.path));
         }}
       >
+        <div class="playground-log__files-toolbar" role="toolbar" aria-label="Changes">
+          <button
+            type="button"
+            class="cerebro-toolbar-button"
+            aria-label="Group By"
+            data-menu={FILES_GROUP_BY}
+            ref={tooltip({ text: () => 'Group By' })}
+            on:click={(event) => {
+              const anchor = event.currentTarget as HTMLElement;
+              openMenu(
+                props.services,
+                FILES_GROUP_BY,
+                { anchor, placement: 'below' },
+                { owner: anchor },
+              );
+            }}
+          >
+            {icon('groupBy')}
+          </button>
+        </div>
         <TreeView
           model={files}
           label={props.label}
-          row={(change) => changeContent(change, true)}
-          {...(props.onContextMenu ? { onContextMenu: props.onContextMenu } : {})}
-          onOpen={(change) => {
+          row={(node) =>
+            node.kind === 'folder'
+              ? folderContent(node.name, node.count)
+              : changeContent(node.change, !filesByDirectory.peek())
+          }
+          {...(menu
+            ? {
+                // A file's; a folder has none.
+                onContextMenu: (event: MouseEvent, node: ChangeNode) => {
+                  if (node.kind === 'file') menu(event, node.change);
+                },
+              }
+            : {})}
+          onOpen={(node) => {
+            // Only files are leaves: a folder opens and closes instead.
+            const { change } = node as Extract<ChangeNode, { kind: 'file' }>;
             // Through the commit's files, as IntelliJ's.
             open?.(
               diffTab(change.path, range),
@@ -761,6 +862,7 @@ export function CommitFiles(props: {
 
 /** The selected commit's changed files, then its details. */
 export function CommitPane(props: {
+  services: MenuServices;
   log: Log;
   host: Host;
   worktree: string;
@@ -773,6 +875,7 @@ export function CommitPane(props: {
     if (!commit) return <p class="playground-project__empty">No commits selected</p>;
     return [
       <CommitFiles
+        services={props.services}
         host={props.host}
         worktree={props.worktree}
         range={rangeOf(commit)}
@@ -1110,6 +1213,26 @@ export function setupLog(services: MenuServices, show: () => void): void {
     menu: SETTINGS_MENU,
     item: { command: 'log.branches.groupByDirectory' },
     group: 'b',
+  });
+  // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not.
+  commands.register({
+    id: 'log.files.groupByDirectory',
+    label: 'Directory',
+    checked: () => filesByDirectory.get(),
+    run: () => {
+      filesByDirectory.set(!filesByDirectory.peek());
+      try {
+        localStorage.setItem(FILES_KEY, JSON.stringify({ byDirectory: filesByDirectory.peek() }));
+      } catch {
+        // Not kept: it still applies until the page is reloaded.
+      }
+    },
+  });
+  menus.contribute({ menu: FILES_GROUP_BY, item: { heading: 'Group By' }, group: 'a' });
+  menus.contribute({
+    menu: FILES_GROUP_BY,
+    item: { command: 'log.files.groupByDirectory' },
+    group: 'a',
   });
   // Show Tags, as IntelliJ's (git.branches.show.tags): on to start with; the tags read again.
   commands.register({
@@ -1813,7 +1936,13 @@ export function GitLogView(props: {
         ) as HTMLElement;
         const pane = (
           <div class="playground-log__pane">
-            <CommitPane log={log} host={host} worktree={env.id} open={props.open} />
+            <CommitPane
+              services={props.services}
+              log={log}
+              host={host}
+              worktree={env.id}
+              open={props.open}
+            />
           </div>
         ) as HTMLElement;
         pane.style.width = `${String(PANE_WIDTH)}px`;
