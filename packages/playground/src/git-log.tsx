@@ -1220,7 +1220,7 @@ export function CommitFiles(props: {
                 props.services,
                 FILES_GROUP_BY,
                 { anchor, placement: 'below' },
-                { owner: anchor },
+                { owner: anchor, context: { files: target } },
               );
             }}
           >
@@ -1828,10 +1828,12 @@ export function setupLog(services: MenuServices, show: () => void): void {
       },
     });
   }
-  // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not.
+  // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not. Its
+  // key, as theirs, acts in a commit's files only.
   commands.register({
     id: 'log.files.groupByDirectory',
     label: 'Directory',
+    enabled: (context) => filesOf(context) !== undefined,
     checked: () => filesByDirectory.get(),
     run: () => {
       filesByDirectory.set(!filesByDirectory.peek());
@@ -1869,6 +1871,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     item: { command: 'log.files.showChangesToParents' },
     group: 'z',
   });
+  keymap?.bindDefault('Mod+P', 'log.files.groupByDirectory');
   menus.contribute({ menu: FILES_GROUP_BY, item: { heading: 'Group By' }, group: 'a' });
   menus.contribute({
     menu: FILES_GROUP_BY,

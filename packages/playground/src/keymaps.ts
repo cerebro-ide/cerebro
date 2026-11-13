@@ -97,6 +97,7 @@ export const INTELLIJ: KeymapPreset = {
     'problems.jumpToSource': ['F4'],
     'changes.rollback': ['Ctrl+Alt+Z'],
     'changes.groupByDirectory': ['Ctrl+Alt+P'],
+    'log.files.groupByDirectory': ['Ctrl+Alt+P'],
     'changes.expandAll': ['Ctrl+=', 'Ctrl++'],
     'changes.collapseAll': ['Ctrl+-'],
     // The image viewer's: Zoom In and Out take Expand All's and Collapse All's keys, as IntelliJ's.
@@ -189,6 +190,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'problems.jumpToSource': ['Meta+Down', 'F4'],
     'changes.rollback': ['Meta+Alt+Z'],
     'changes.groupByDirectory': ['Ctrl+P'],
+    'log.files.groupByDirectory': ['Ctrl+P'],
     'changes.expandAll': ['Meta+=', 'Meta++'],
     'changes.collapseAll': ['Meta+-'],
     'image.toggleGrid': ["Meta+'"],
@@ -527,6 +529,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     'view.tool.git': ['Meta+9'],
     'view.tool.commit': ['Meta+0'],
     'changes.groupByDirectory': ['Ctrl+P'],
+    'log.files.groupByDirectory': ['Ctrl+P'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],
     // Its file gives Ctrl+Space, over the swap's Meta+Space.

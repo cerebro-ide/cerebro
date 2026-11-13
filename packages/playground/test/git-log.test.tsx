@@ -163,6 +163,8 @@ const host = new FakeHost({
 });
 const commands = new CommandRegistry();
 const services: MenuServices = { commands, menus: new MenuRegistry(), keymap: new Keymap('other') };
+/** Group By's Directory, as from a commit's files' menu. */
+const groupByDirectory = () => commands.execute('log.files.groupByDirectory', { files: {} });
 const opened: Tab[] = [];
 /** The files each diff opened goes through. */
 const chains: (readonly string[] | undefined)[] = [];
@@ -684,7 +686,7 @@ describe('a commit’s pane', () => {
       { path: 'other.ts', status: 'modified' },
     ];
     git.changes['h2..h0'] = [{ path: 'other.ts', status: 'modified' }];
-    commands.execute('log.files.groupByDirectory');
+    groupByDirectory();
     commands.execute('log.files.showChangesToParents');
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
@@ -699,7 +701,7 @@ describe('a commit’s pane', () => {
     await expect.poll(files).toEqual(['a.tssrc', 'Changes to h1 Change 1', 'a.tssrc']);
     await userEvent.click(toggle());
     commands.execute('log.files.showChangesToParents');
-    commands.execute('log.files.groupByDirectory');
+    groupByDirectory();
   });
 
   it('says a merge has no merged conflicts over its parents’ changes, and why they can’t be read', async () => {
@@ -851,7 +853,12 @@ describe('a commit’s pane', () => {
     await expect.poll(files).toEqual(['a.tssrc/main', 'b.tssrc/main', 'top.ts']);
     expect(readFilesSettings().byDirectory).toBe(false);
     await closeAll();
-    commands.execute('log.files.groupByDirectory');
+    // Its key, as IntelliJ's, acts with the keyboard in a commit's files only.
+    expect(services.keymap?.commandsFor('Ctrl+P')).toContain('log.files.groupByDirectory');
+    (document.activeElement as HTMLElement).blur();
+    expect(commands.isEnabled('log.files.groupByDirectory')).toBe(false);
+    await userEvent.click(fileRows()[2] as HTMLElement);
+    expect(commands.execute('log.files.groupByDirectory')).toBe(true);
     await expect.poll(files).toHaveLength(4);
     expect(readFilesSettings().byDirectory).toBe(true);
     localStorage.setItem('cerebro.log.files', '{unreadable');
@@ -870,7 +877,7 @@ describe('a commit’s pane', () => {
     ];
     git.changes[`${EMPTY_TREE}..t0`] = [{ path: 'other.ts', status: 'added' }];
     // Flat, each file's folder after its name.
-    commands.execute('log.files.groupByDirectory');
+    groupByDirectory();
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     const toggle = () => pane().querySelector('[data-command="log.files.showOnlyAffected"]');
@@ -908,7 +915,7 @@ describe('a commit’s pane', () => {
     );
     await expect.poll(files).toEqual(['other.ts']);
     expect(readFilesSettings().onlyAffected).toBe(false);
-    commands.execute('log.files.groupByDirectory');
+    groupByDirectory();
   });
 
   it('shows the selected file’s diff from the toolbar or Ctrl+D, as IntelliJ’s', async () => {
