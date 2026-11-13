@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2900,8 +2900,21 @@ saving").
   Ctrl+] (Cmd+] on macOS), none in NetBeans'; VS Code's Jump to Matching Bracket,
   Ctrl+Shift+\\ (Cmd+Shift+\\), from its sheets. **Claim:** IntelliJ's also goes from inside a
   pair to its brace (not checked against its source); CodeMirror's needs the caret at a bracket.
-- **Not yet:** Extend Selection and Shrink Selection (`EditorSelectWord`, `EditorUnSelectWord`,
-  Ctrl+W and Ctrl+Shift+W), which CodeMirror's Ctrl+I came near.
+- **Extend Selection and Shrink Selection** (added 2026-11-13), IntelliJ's `EditorSelectWord` and
+  `EditorUnSelectWord`, which CodeMirror's Ctrl+I came near (its `selectParentSyntax`): the word
+  at the caret, then each larger piece of code around the selection, as the language's syntax tree
+  has them, a bracketed piece's contents (without white space at their ends) before the piece with
+  its brackets; then the whole text. Shrink goes back through the selections Extend grew from; any
+  other change of the selection or the text forgets them. In a read-only editor too. Their keys,
+  from IntelliJ's keymap files: Ctrl+W and Ctrl+Shift+W (`$default`), Alt+Up and Alt+Down on
+  macOS; Eclipse's Alt+Shift+Up and Down (Ctrl+Shift on macOS); Emacs's Ctrl+Alt+W; NetBeans'
+  Alt+Shift+. and Alt+Shift+,; Sublime Text's four (Ctrl+Shift+Space, A, J, M; Cmd on macOS but
+  M), no Shrink; Visual Studio's Alt+Shift+=, Ctrl+Alt+Right and Ctrl+W, and their Shrink's (Cmd+Alt
+  on macOS). VS Code's Expand and Shrink Selection, Shift+Alt+Right and Left (Ctrl+Shift+Cmd on
+  macOS), from its sheets.
+  - **Claims and differences** (IntelliJ's selectioners per language aren't read): IntelliJ also
+    stops at a word's camel-case parts, a string's contents, whole lines and a comment; Shrink of a
+    selection Extend didn't make does nothing here, where IntelliJ works out the smaller one.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.

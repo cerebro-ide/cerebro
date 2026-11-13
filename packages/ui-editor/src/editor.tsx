@@ -56,6 +56,7 @@ import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { startingNewLine } from './start-new-line.js';
+import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
@@ -231,6 +232,9 @@ export interface EditorKeys {
   startNewLine?: readonly string[];
   /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
   matchBrace?: readonly string[];
+  /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
+  extendSelection?: readonly string[];
+  shrinkSelection?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -262,6 +266,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   deleteLine: ['Mod-y'],
   startNewLine: ['Shift-Enter'],
   matchBrace: ['Mod-Shift-m'],
+  extendSelection: ['Mod-w'],
+  shrinkSelection: ['Mod-Shift-w'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -826,6 +832,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
         // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
         ...keys.matchBrace.map((key) => ({ key, run: cursorMatchingBracket })),
+        ...keys.extendSelection.map((key) => ({ key, run: extendingSelection })),
+        ...keys.shrinkSelection.map((key) => ({ key, run: shrinkingSelection })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,
@@ -936,6 +944,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
           if (update.selectionSet) caret(update.state);
         })
       : [],
+    selectionSteps,
     keyed.of(actions()),
     keymap.of([
       // CodeMirror's basic editing (the caret's moves, Enter, Backspace, Select All), and Escape
