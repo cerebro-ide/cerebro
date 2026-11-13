@@ -487,6 +487,111 @@ function Message(props: { message: string; log: Log }) {
   );
 }
 
+/** The space between a commit's subject and its labels, and between labels (the CSS's). */
+const LABEL_GAP = 8;
+/** A label's mark's width, and how far each mark after it in a combined mark goes (the CSS's). */
+const MARK = 8;
+const MARK_STEP = 3;
+
+/**
+ * The room the refs' labels have in a subject `column` pixels wide, whose message takes `message`
+ * (IntelliJ's GraphCommitCellRenderer.getAvailableWidth): what the message leaves, and at least
+ * half the column, or all but 80 pixels of it, the message cut short to make it.
+ */
+export function labelsRoom(column: number, message: number): number {
+  return Math.max(0, column - message, column / 2, column - 80);
+}
+
+/**
+ * How many labels, `widths` wide, show with their names in `room`; the rest show as one mark,
+ * `rest(i)` wide for those from the i-th on (IntelliJ's LabelPainter): each while it fits with
+ * room for the mark of those after it.
+ */
+export function fittingLabels(
+  widths: readonly number[],
+  rest: (from: number) => number,
+  room: number,
+): number {
+  let used = 0;
+  for (const [i, width] of widths.entries()) {
+    const next = used + (i > 0 ? LABEL_GAP : 0) + width;
+    const after = i < widths.length - 1 ? LABEL_GAP + rest(i + 1) : 0;
+    if (next + after > room) return i;
+    used = next;
+  }
+  return widths.length;
+}
+
+/**
+ * The kinds a combined mark shows, as IntelliJ's LabelPainter.getColors: each once, in order,
+ * twice if more than one ref is of it.
+ */
+export function markKinds(refs: readonly Ref[]): Ref['kind'][] {
+  const counts = new Map<Ref['kind'], number>();
+  for (const { kind } of refs) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+  return [...counts].flatMap(([kind, count]) => (count > 1 ? [kind, kind] : [kind]));
+}
+
+/**
+ * A commit's subject: its message, then the labels of its refs, as many as fit with their names
+ * and the rest as one mark (with the first's name, cut short, when none fits), as IntelliJ's.
+ * They're fitted again as the subject's width changes.
+ */
+function Subject(props: { commit: LogCommit; log: Log }): Node {
+  const refs = refsOf(props.commit.refs);
+  const message = (<Message message={props.commit.subject} log={props.log} />) as HTMLElement;
+  const labels = refs.map(
+    (ref) =>
+      (
+        <span class={`playground-log__ref playground-log__ref--${ref.kind}`}>{ref.name}</span>
+      ) as HTMLElement,
+  );
+  const rest = (<span class="playground-log__rest" hidden />) as HTMLElement;
+  const subject = (
+    <span class="playground-log__subject">
+      {message}
+      {labels}
+      {rest}
+    </span>
+  ) as HTMLElement;
+  if (refs.length === 0) return subject;
+  const fit = () => {
+    for (const label of labels) label.hidden = false;
+    rest.hidden = true;
+    const widths = labels.map((label) => label.getBoundingClientRect().width);
+    const room = labelsRoom(subject.clientWidth, message.scrollWidth + LABEL_GAP);
+    const shown = fittingLabels(
+      widths,
+      (from) => MARK + (markKinds(refs.slice(from)).length - 1) * MARK_STEP,
+      room,
+    );
+    for (const [i, label] of labels.entries()) label.hidden = i >= shown;
+    if (shown === refs.length) return;
+    rest.replaceChildren(
+      <span class="playground-log__marks">
+        {markKinds(refs.slice(shown)).map((kind) => (
+          <span class={`playground-log__mark playground-log__mark--${kind}`} />
+        ))}
+      </span>,
+      ...(shown === 0
+        ? [<span class="playground-log__rest-name">{(refs[0] as Ref).name}</span>]
+        : []),
+    );
+    rest.style.maxWidth = `${String(room)}px`;
+    rest.title = refs
+      .slice(shown)
+      .map((ref) => ref.name)
+      .join(', ');
+    rest.hidden = false;
+  };
+  const observer = new ResizeObserver(fit);
+  observer.observe(subject);
+  onCleanup(() => {
+    observer.disconnect();
+  });
+  return subject;
+}
+
 /** A commit's row: its graph and subject, the refs at it, its author and date. */
 export function CommitRow(props: { commit: LogCommit; log: Log }) {
   const { commit, log } = props;
@@ -494,12 +599,7 @@ export function CommitRow(props: { commit: LogCommit; log: Log }) {
   if (log.indexOf(commit.hash) >= log.commits.peek().length - AHEAD) log.more();
   return [
     <Graph row={log.graph.get(commit.hash) as GraphRow} />,
-    <span class="playground-log__subject">
-      <Message message={commit.subject} log={log} />
-      {refsOf(commit.refs).map((ref) => (
-        <span class={`playground-log__ref playground-log__ref--${ref.kind}`}>{ref.name}</span>
-      ))}
-    </span>,
+    <Subject commit={commit} log={log} />,
     <span class="playground-log__author" title={commit.email}>
       {commit.author}
     </span>,

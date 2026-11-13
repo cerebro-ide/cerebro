@@ -17,6 +17,9 @@ import {
   rangeOf,
   readBranchesShown,
   refsOf,
+  fittingLabels,
+  labelsRoom,
+  markKinds,
   setupLog,
   showHistory,
   showInLog,
@@ -258,6 +261,35 @@ describe('a commit’s refs', () => {
     ]);
     expect(refsOf(['HEAD'])).toEqual([{ name: 'HEAD', kind: 'head' }]);
   });
+
+  it('have the room the message leaves, and at least half the subject or all but 80 pixels', () => {
+    expect(labelsRoom(600, 100)).toBe(520);
+    expect(labelsRoom(600, 50)).toBe(550);
+    expect(labelsRoom(120, 100)).toBe(60);
+    expect(labelsRoom(0, 100)).toBe(0);
+  });
+
+  it('show with their names while they fit with room for the rest’s mark, as IntelliJ’s', () => {
+    const rest = () => 10;
+    // 8 pixels between: 40 + 8 + 40 + 8 + 40 = 136.
+    expect(fittingLabels([40, 40, 40], rest, 136)).toBe(3);
+    expect(fittingLabels([40, 40, 40], rest, 135)).toBe(2);
+    // The second fits, but not with the third's mark after it.
+    expect(fittingLabels([40, 40, 40], rest, 105)).toBe(1);
+    expect(fittingLabels([40, 40, 40], rest, 106)).toBe(2);
+    expect(fittingLabels([40], rest, 30)).toBe(0);
+    expect(fittingLabels([], rest, 0)).toBe(0);
+  });
+
+  it('that don’t fit are one mark of their kinds, each twice if more than one ref is of it', () => {
+    expect(
+      markKinds([
+        { name: 'a', kind: 'local' },
+        { name: 'b', kind: 'remote' },
+        { name: 'c', kind: 'local' },
+      ]),
+    ).toEqual(['local', 'local', 'remote']);
+  });
 });
 
 describe('a commit’s date', () => {
@@ -289,6 +321,61 @@ describe('the Log', () => {
     expect(note()).toBe('Not a git repository');
     for (const id of ['/r', '/s', '/n']) workspace.close(id);
     expect(note()).toBe('No environment open');
+  });
+
+  it('fits the refs’ labels in the subject, the rest as one mark, again as it’s resized', async () => {
+    git.log = history(2, [
+      'HEAD -> refs/heads/main',
+      'refs/heads/feat/login',
+      'refs/heads/feat/search',
+      'refs/heads/release/1.0',
+      'refs/remotes/origin/main',
+    ]);
+    const box = mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    const first = rows()[0] as HTMLElement;
+    const subject = first.querySelector('.playground-log__subject') as HTMLElement;
+    const rest = first.querySelector('.playground-log__rest') as HTMLElement;
+    /** Whether the mark, whole, ends inside the subject. */
+    const inside = () => {
+      const marks = [...rest.querySelectorAll('.playground-log__mark')];
+      const end = Math.max(
+        rest.getBoundingClientRect().right,
+        ...marks.map((mark) => mark.getBoundingClientRect().right),
+      );
+      return end <= subject.getBoundingClientRect().right + 0.5;
+    };
+    const shown = () =>
+      [...first.querySelectorAll<HTMLElement>('.playground-log__ref')]
+        .filter((label) => !label.hidden)
+        .map((label) => label.textContent);
+    // Wide: all of them, no mark.
+    await expect.poll(shown).toHaveLength(5);
+    expect(rest.hidden).toBe(true);
+    // Narrow: those that fit, inside the subject, then one mark for the rest, named on the pointer.
+    box.style.width = '1200px';
+    await expect.poll(() => rest.hidden).toBe(false);
+    expect(shown()).toEqual(['main', 'feat/login']);
+    expect(rest.title).toBe('feat/search, release/1.0, origin/main');
+    expect(inside()).toBe(true);
+    expect(rest.querySelector('.playground-log__rest-name')).toBeNull();
+    // None fits: the mark of all of them, with the first's name.
+    box.style.width = '1000px';
+    await expect.poll(shown).toEqual([]);
+    expect(rest.querySelector('.playground-log__rest-name')?.textContent).toBe('main');
+    expect(
+      [...rest.querySelectorAll('.playground-log__mark')].map((mark) => mark.className),
+    ).toEqual([
+      'playground-log__mark playground-log__mark--head',
+      'playground-log__mark playground-log__mark--local',
+      'playground-log__mark playground-log__mark--local',
+      'playground-log__mark playground-log__mark--remote',
+    ]);
+    expect(inside()).toBe(true);
+    // Wide again: all of them.
+    box.style.width = '1400px';
+    await expect.poll(shown).toHaveLength(5);
+    expect(rest.hidden).toBe(true);
   });
 
   it('lists the commits, each with its graph, subject, refs, author and date', async () => {
