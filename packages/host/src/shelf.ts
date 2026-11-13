@@ -127,14 +127,17 @@ async function shelfOf(worktree: string, id: string, run: Git): Promise<Shelf> {
 }
 
 /**
- * Unshelves a list, as IntelliJ's Unshelve: its changes are applied to the files as they are, and
- * it leaves the shelf. If they don't apply (a file changed since in the same place), nothing is
+ * Unshelves a list, as IntelliJ's Unshelve: its changes are applied to the files as they are, where
+ * their lines are, and it leaves the shelf. If they don't apply (a file changed since in the same place), nothing is
  * changed and it stays shelved.
  */
 export async function unshelve(worktree: string, id: string, run: Git): Promise<void> {
   const shelf = await shelfOf(worktree, id, run);
   const patch = await run(worktree, ['diff', '--binary', '-M', shelf.base, shelf.commit]);
-  if (patch !== '') await run(worktree, ['apply', '-'], undefined, patch);
+  // With fewer lines around a hunk if all of them don't match, so it applies where its lines
+  // moved to: git anchors a hunk at line 1 to the file's start until it drops some (measured,
+  // git 2.43), as IntelliJ's applier finds them elsewhere.
+  if (patch !== '') await run(worktree, ['apply', '-C2', '-'], undefined, patch);
   await deleteShelf(worktree, id, run);
 }
 

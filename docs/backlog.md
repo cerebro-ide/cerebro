@@ -78,12 +78,6 @@ diff's model for one link (CLAUDE.md).
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
-- **Unshelving won't apply a hunk whose lines moved** (measured 2026-11-09, writing Update
-  Project's tests): the shelf applies its patch with `git apply`, which anchors a hunk that starts
-  at line 1 to the file's start, so a line added above it (by an update, say) makes it fail, where
-  IntelliJ's own applier finds the lines elsewhere. Update Project then says "Local changes were
-  not restored", the changes kept on the shelf. `git apply --3way` or an applier of Cerebro's own
-  are options.
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
 - **Jump to Source can land before an open file reads a change made outside Cerebro** (measured
   2026-11-11, writing the diff viewer's e2e test): the file changed on disk while its tab was open;
