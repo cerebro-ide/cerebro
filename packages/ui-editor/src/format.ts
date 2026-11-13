@@ -5,7 +5,7 @@
 // IntelliJ's (from the status bar's indent), indents every line again, through `reindentIn`.
 
 import { isolateHistory } from '@codemirror/commands';
-import { indentRange } from '@codemirror/language';
+import { forceParsing, indentRange } from '@codemirror/language';
 import { ChangeSet, Facet, type Extension } from '@codemirror/state';
 import { EditorView, keymap } from '@codemirror/view';
 import { changesTo } from './document.js';
@@ -131,6 +131,11 @@ export function formatIn(element: Element, ask: AskFormat, words?: FormatWords):
 export function reindentIn(element: Element, name: string): boolean {
   const view = editingView(element);
   if (!view) return false;
+  // Parsed to its end first, the state given the tree: CodeMirror parses a file as it opens up to
+  // a time budget, the rest later, and a line past what's parsed gets no indentation, so kept its
+  // own (measured). With no time limit: a parse cut short would leave the rest as it was, and
+  // 60,000 lines took more than 5 s in CI (#233).
+  forceParsing(view, view.state.doc.length, Infinity);
   const changes = indentRange(view.state, 0, view.state.doc.length);
   view.dispatch({
     changes,

@@ -160,15 +160,18 @@ describe('openPicker', () => {
   });
 
   it('chooses with Enter or a click, giving the focus back', async () => {
+    // Inside a shadow root, as an editor's content is.
+    const host = document.createElement('div');
     const before = document.createElement('button');
-    document.body.append(before);
+    host.attachShadow({ mode: 'open' }).append(before);
+    document.body.append(host);
     before.focus();
     const first = picker();
     key('ArrowDown');
     key('Enter');
     expect(await first.result).toEqual(FILES[1]);
     expect(document.querySelector('.cerebro-popup')).toBeNull();
-    expect(document.activeElement).toBe(before);
+    expect(host.shadowRoot?.activeElement).toBe(before);
     const second = picker();
     const item = document.querySelectorAll('.cerebro-popup-item')[2] as HTMLElement;
     const down = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
