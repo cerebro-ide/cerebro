@@ -105,7 +105,8 @@ describe('Show Diff with Working Tree’s window', () => {
     await userEvent.dblClick(document.querySelector('.cerebro-tree-row') as HTMLElement);
     expect(opened).toEqual([
       [diffTab('a.ts', { from: 'feature' }), ['a.ts', 'b.ts', 'c.ts', 'd.ts']],
-    ]); // Against the working tree: no commit to show the file's history up to.
+    ]);
+    // Against the working tree: no commit to show the file's history up to.
     expect(
       (document.querySelector('[aria-label="History Up to Here"]') as HTMLButtonElement).disabled,
     ).toBe(true);
