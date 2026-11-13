@@ -67,10 +67,13 @@ diff's model for one link (CLAUDE.md).
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
-- **git-log.test's "show in a pane, and filter the Log…" fails when run alone** (measured
-  2026-11-12, `-t "show in a pane"`, with and without #238's change): `feat` isn't expanded by its
-  click and Right (`toContain('x')` times out); in the whole file it passes. Something an earlier
-  test leaves (focus, a stored setting) makes it pass: find what, and make it set that itself.
+- **A click into the Log as its window gets the focus may be lost** (found 2026-11-13, fixing
+  git-log.test's "show in a pane…", which failed when run alone): the Log reads its branches and
+  commits again when the window gets the focus (IntelliJ's refresh on activation), and the branches
+  pane draws all its rows again, the same ones too. In the test, whose page started without the
+  focus, the first click's press gave it, the fake host answered at once, and the row pressed was
+  gone before the click (measured). In the app, that a click is lost when the host answers within
+  a press is a claim, not measured. The test now gives its page the focus before it starts.
 - **The Log's ref labels drawn over each other** (seen in the built app, 2026-11-12, QA of the
   branches pane's search, the Git tool window 1280 px wide, five branches at one commit): the
   last label, `feat/login`, overlapped the one before it. Not measured why.
