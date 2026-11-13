@@ -1,6 +1,7 @@
 // Navigation: go to definition and find usages from the editor, asking the file's language server
 // first (meanings, not names) and the index when none answers. The index matches names, not
-// meanings, so its lists say "Name matches". Go to Symbol is Search Everywhere's.
+// meanings, so its lists say "Name matches". Go to definition on a declaration shows its usages, as
+// IntelliJ's Go to Declaration or Usages. Go to Symbol is Search Everywhere's.
 
 import {
   NavigationHistory,
@@ -43,6 +44,26 @@ interface Located {
 }
 
 type Choice = PickerItem & { at: Located };
+
+/**
+ * Whether the definitions found are the word asked about itself: the caret is on a declaration,
+ * where IntelliJ's Go to Declaration shows its usages instead (GotoDeclarationOrUsageHandler2's
+ * `fromTargetData`: a reference goes to what it refers to; a declaration, referring to nothing
+ * else, to its usages). Each starts at the word's start, on the caret's line.
+ */
+function declaredAt(places: readonly Located[], name: string, asked: Asked | undefined): boolean {
+  return (
+    asked !== undefined &&
+    places.length > 0 &&
+    places.every(
+      (place) =>
+        place.path === asked.path &&
+        place.line === asked.line &&
+        place.column <= asked.column &&
+        asked.column <= place.column + name.length,
+    )
+  );
+}
 
 /** A gutter marker, as the host gives it: where it goes too. */
 interface Marked extends Mark {
@@ -214,6 +235,24 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     } catch {
       return null;
     }
+  };
+  /** Find Usages: the language server's, or else the index's by name. */
+  const findUsages = async (name: string, asked?: Asked) => {
+    const precise = await ask('lsp.usages', asked);
+    if (precise) {
+      await choose(
+        `Usages of ${name}`,
+        `No usages of ${name}`,
+        precise.map((u) => choice(u, relative(u.path).split('/').at(-1) as string, null)),
+      );
+      return;
+    }
+    const found = await request('index.usages', { name });
+    await choose(
+      `Usages of ${name}`,
+      `No usages of ${name}`,
+      found.map((u) => choice(u, relative(u.path).split('/').at(-1) as string)),
+    );
   };
   /** A list to choose a place from, opening the one chosen. */
   const choose = async (label: string, empty: string, items: Choice[]) => {
@@ -455,7 +494,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     async goToDefinition(name: string, asked?: Asked) {
       const precise = await ask('lsp.definitions', asked);
       if (precise) {
-        if (precise.length === 1) openAt(precise[0] as Located);
+        if (declaredAt(precise, name, asked)) await findUsages(name, asked);
+        else if (precise.length === 1) openAt(precise[0] as Located);
         else {
           await choose(
             `Definitions of ${name}`,
@@ -466,7 +506,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         return;
       }
       const found = await request('index.definitions', { name });
-      if (found.length === 1) openAt(found[0] as Located);
+      if (declaredAt(found, name, asked)) await findUsages(name, asked);
+      else if (found.length === 1) openAt(found[0] as Located);
       else {
         await choose(
           `Definitions of ${name}`,
@@ -476,22 +517,6 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       }
     },
 
-    async findUsages(name: string, asked?: Asked) {
-      const precise = await ask('lsp.usages', asked);
-      if (precise) {
-        await choose(
-          `Usages of ${name}`,
-          `No usages of ${name}`,
-          precise.map((u) => choice(u, relative(u.path).split('/').at(-1) as string, null)),
-        );
-        return;
-      }
-      const found = await request('index.usages', { name });
-      await choose(
-        `Usages of ${name}`,
-        `No usages of ${name}`,
-        found.map((u) => choice(u, relative(u.path).split('/').at(-1) as string)),
-      );
-    },
+    findUsages,
   };
 }
