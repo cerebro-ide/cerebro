@@ -530,6 +530,14 @@
   background: var(--cerebro-panel);
 }
 
+.cerebro-editor-tab-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  padding-left: 4px;
+}
+
 .cerebro-editor-tabs {
   display: flex;
   flex: 1;

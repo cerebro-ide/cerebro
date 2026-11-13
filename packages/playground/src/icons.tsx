@@ -33,6 +33,13 @@ const PATHS: Record<string, string> = {
   // The magnifier with an arrow down beside it: IntelliJ's SearchWithHistory, a search field with a
   // history (a claim: not IntelliJ's drawing).
   searchHistory: 'M5.5 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM8 8.5l3 3M11 4.5l1.5 1.5L14 4.5',
+  // A Markdown file's layouts, as IntelliJ's (LayoutEditorOnly, LayoutEditorPreview and its
+  // EditorPreviewVertical, LayoutPreviewOnly; a claim: not IntelliJ's drawings): its text, both side
+  // by side or one above the other, and the page.
+  layoutEditor: 'M2.5 3.5h11v9h-11zM5 6.5h6M5 9.5h4',
+  layoutEditorPreview: 'M2.5 3.5h11v9h-11zM8 3.5v9M4 6.5h2.5M4 9.5h2',
+  layoutEditorPreviewVertical: 'M2.5 3.5h11v9h-11zM2.5 8h11M5 5.75h6',
+  layoutPreview: 'M2.5 3.5h11v9h-11zM4.5 10.5l2.5-3 2 2 1.5-1.5 1.5 2.5',
   // A search field's clear button.
   clear: 'M5 5l6 6M11 5l-6 6',
   file: 'M4 2.5h5l3 3v8H4zM9 2.5v3h3',

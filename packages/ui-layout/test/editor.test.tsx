@@ -24,7 +24,11 @@ function shape(node: EditorNode): string {
 
 function mount(
   tabs: string[] = ['a', 'b', 'c'],
-  options: { empty?: boolean; errors?: ObservableSet<string> } = {},
+  options: {
+    empty?: boolean;
+    errors?: ObservableSet<string>;
+    tabActions?: (t: { id: string }) => Node | null;
+  } = {},
 ) {
   const area = new EditorArea();
   for (const id of tabs) area.open(tab(id));
@@ -47,6 +51,7 @@ function mount(
               hasErrors: (t: { id: string }) => (options.errors as ObservableSet<string>).has(t.id),
             }
           : {})}
+        {...(options.tabActions ? { tabActions: options.tabActions } : {})}
       />
     ),
     container,
@@ -124,6 +129,19 @@ describe('rendering', () => {
     expect($('.cerebro-editor-group').classList.contains('cerebro-editor-group--active')).toBe(
       true,
     );
+  });
+
+  it('shows the active tab’s own actions at the tab bar’s end, if it has any', () => {
+    const { area, $, container } = mount(['a', 'b'], {
+      tabActions: (t) => (t.id === 'a' ? <button class="test-action">{t.id}</button> : null),
+    });
+    const group = area.groups[0] as EditorGroup;
+    area.activate(group.id, 'a');
+    expect(
+      $('.cerebro-editor-tab-bar > .cerebro-editor-tab-actions .test-action').textContent,
+    ).toBe('a');
+    area.activate(group.id, 'b');
+    expect(container.querySelector('.cerebro-editor-tab-actions')).toBeNull();
   });
 
   it('marks the title of a tab whose file has errors with the error colour’s wave', () => {
