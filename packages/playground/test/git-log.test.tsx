@@ -154,7 +154,15 @@ let dispose: (() => void) | undefined;
 /** How many times View Commits showed the Git tool window. */
 let shownLog = 0;
 
-beforeAll(() => {
+beforeAll(async () => {
+  // The page has the focus from the start, as a window being used does: the Log reads itself again
+  // when the window gets it, and a test's first click would otherwise give it mid-click, the rows
+  // drawn again under the pointer (measured: the clicked row gone before its click, run alone).
+  const button = document.body.appendChild(document.createElement('button'));
+  button.textContent = 'Focus';
+  await userEvent.click(button);
+  button.remove();
+  expect(document.hasFocus()).toBe(true);
   setupApplyChanges(services);
   setupLog(services, () => {
     shownLog++;
