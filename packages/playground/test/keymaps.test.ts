@@ -105,6 +105,8 @@ describe('the editor’s keys', () => {
       moveLineUp: ['Alt-Shift-ArrowUp'],
       moveLineDown: ['Alt-Shift-ArrowDown'],
       deleteLine: ['Ctrl-y'],
+      startNewLine: ['Shift-Enter'],
+      matchBrace: ['Ctrl-Shift-m'],
       undo: [],
       redo: [],
     });
@@ -128,6 +130,8 @@ describe('the editor’s keys', () => {
       'moveLineUp',
       'moveLineDown',
       'deleteLine',
+      'startNewLine',
+      'matchBrace',
       'find',
       'replace',
     ]);

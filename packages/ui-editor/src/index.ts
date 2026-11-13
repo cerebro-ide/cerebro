@@ -33,6 +33,7 @@ export {
 } from './format.js';
 export { blockComment, lineComment } from './comment.js';
 export { moveLine } from './move-line.js';
+export { startNewLine } from './start-new-line.js';
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName } from './languages.js';
