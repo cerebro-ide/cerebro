@@ -56,6 +56,10 @@ describe('Markdown drawn as a page', () => {
     expect(body.textContent).toBe('site and https://c.d, a cat');
   });
 
+  it('draws nothing for a link’s definition, as GitHub’s page', () => {
+    expect(page('[x]: https://x.y "Title"\n\nText').innerHTML).toBe('<p>Text</p>');
+  });
+
   it('opens a link’s address when it’s pressed, if it’s told how; not one without an address', () => {
     const opened: string[] = [];
     const body = page('[a](a.md) https://c.d [ref][x]', {
