@@ -28,7 +28,7 @@ import {
   viewCommits,
   type LogCommit,
   type LogCommitContext,
-  readFilesGrouping,
+  readFilesSettings,
 } from '../src/git-log.js';
 import { branchTree, readPaneSettings, type Branch } from '../src/log-branches.js';
 import { setupApplyChanges } from '../src/apply-changes.js';
@@ -670,14 +670,66 @@ describe('a commit’s pane', () => {
     await userEvent.click(menuItem('Directory'));
     // Flat: each file's folder after its name, as git lists them.
     await expect.poll(files).toEqual(['a.tssrc/main', 'b.tssrc/main', 'top.ts']);
-    expect(readFilesGrouping()).toBe(false);
+    expect(readFilesSettings().byDirectory).toBe(false);
     await closeAll();
     commands.execute('log.files.groupByDirectory');
     await expect.poll(files).toHaveLength(4);
-    expect(readFilesGrouping()).toBe(true);
+    expect(readFilesSettings().byDirectory).toBe(true);
     localStorage.setItem('cerebro.log.files', '{unreadable');
-    expect(readFilesGrouping()).toBe(true);
+    expect(readFilesSettings().byDirectory).toBe(true);
     localStorage.removeItem('cerebro.log.files');
+  });
+
+  it('shows only the files the Paths filter holds, from its toolbar, kept, as IntelliJ’s Show Only Affected Changes', async () => {
+    git.log = history(1);
+    git.byPaths['src/'] = history(2, [], 'h');
+    git.byPaths['top.ts'] = history(1, [], 't');
+    git.changes['h1..h0'] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'lib/b.ts', from: 'src/b.ts', status: 'renamed' },
+      { path: 'top.ts', status: 'modified' },
+    ];
+    git.changes[`${EMPTY_TREE}..t0`] = [{ path: 'other.ts', status: 'added' }];
+    // Flat, each file's folder after its name.
+    commands.execute('log.files.groupByDirectory');
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    const toggle = () => pane().querySelector('[data-command="log.files.showOnlyAffected"]');
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // Without a Paths filter, none: off, so out of Find Action too.
+    expect(toggle()).toBeNull();
+    expect(commands.isEnabled('log.files.showOnlyAffected')).toBe(false);
+    showHistory('src/');
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    // Before Group By, off to start with.
+    const button = toggle() as HTMLButtonElement;
+    expect(button.nextElementSibling?.getAttribute('aria-label')).toBe('Group By');
+    expect(button.getAttribute('aria-label')).toBe('Show Only Affected Changes');
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    // On: the files in the folder, before or after a rename; kept.
+    await userEvent.click(button);
+    await expect.poll(files).toEqual(['a.tssrc', 'b.tslib ← src/b.ts']);
+    expect(button.getAttribute('aria-pressed')).toBe('true');
+    expect(readFilesSettings().onlyAffected).toBe(true);
+    // A file: only it. None the commit changed: IntelliJ's words, and its link shows them all.
+    showHistory('top.ts');
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect
+      .poll(
+        () =>
+          pane().querySelector('.playground-log__files .playground-project__empty')?.textContent,
+      )
+      .toBe('No changes that affect selected paths. Show changes for all paths');
+    await userEvent.click(
+      pane().querySelector('.playground-log__files .playground-link') as HTMLElement,
+    );
+    await expect.poll(files).toEqual(['other.ts']);
+    expect(readFilesSettings().onlyAffected).toBe(false);
+    commands.execute('log.files.groupByDirectory');
   });
 
   it('shows the selected file’s diff from the toolbar or Ctrl+D, as IntelliJ’s', async () => {
