@@ -1685,9 +1685,7 @@ function Code(props: { path: string; env: string }) {
             editor={code}
             text={() => state.text.get().toString()}
             line={() => topLine.get()}
-            open={(path) => {
-              navigation.open({ id: path, title: path.split('/').at(-1) as string });
-            }}
+            open={navigation.open}
           />
         ) : (
           code
