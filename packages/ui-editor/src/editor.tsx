@@ -50,6 +50,7 @@ import { foldKeys, folding, type AskFolds } from './folding.js';
 import { formattable, formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
+import { commentByBlock, commentByLine } from './comment.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
 import { goToProblem, problemHighlights, type AskProblems } from './problems.js';
@@ -213,6 +214,9 @@ export interface EditorKeys {
   /** Next and Previous Highlighted Error: the next problem, or the previous. */
   nextProblem?: readonly string[];
   previousProblem?: readonly string[];
+  /** Comment with Line Comment and with Block Comment: the lines, or the selection, (un)commented. */
+  lineComment?: readonly string[];
+  blockComment?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -237,6 +241,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   contextActions: ['Alt-Enter'],
   nextProblem: ['F2'],
   previousProblem: ['Shift-F2'],
+  lineComment: ['Mod-/'],
+  blockComment: ['Mod-Shift-/'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -822,6 +828,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
           : []),
         ...(doc
           ? [
+              ...keys.lineComment.map((key) => ({ key, run: commentByLine })),
+              ...keys.blockComment.map((key) => ({ key, run: commentByBlock })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]
@@ -905,8 +913,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     keyed.of(actions()),
     keymap.of([
       // Not CodeMirror's Mod-[ and Mod-] (indent less and more): they're Back and Forward on
-      // macOS, as IntelliJ's; Tab and Shift+Tab indent.
-      ...defaultKeymap.filter((binding) => binding.key !== 'Mod-[' && binding.key !== 'Mod-]'),
+      // macOS, as IntelliJ's; Tab and Shift+Tab indent. Nor its comments' keys: the keymap's run
+      // IntelliJ's comments (above).
+      ...defaultKeymap.filter(
+        (binding) => !['Mod-[', 'Mod-]', 'Mod-/', 'Alt-A'].includes(binding.key as string),
+      ),
     ]),
     EditorView.domEventHandlers({
       mousedown: (event, v) => {

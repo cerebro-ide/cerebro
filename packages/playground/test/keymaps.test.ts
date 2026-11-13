@@ -76,6 +76,7 @@ describe('the editor’s keys', () => {
     expect(codeMirrorKey('Meta+Shift+>')).toBe('Meta-Shift-.');
     expect(codeMirrorKey('Ctrl+Shift++')).toBe('Ctrl-Shift-=');
     expect(codeMirrorKey('Ctrl+Shift+/')).toBe('Ctrl-Shift-/');
+    expect(codeMirrorKey('Ctrl+Shift+?')).toBe('Ctrl-Shift-/');
     expect(codeMirrorKey('Ctrl+Shift+Z')).toBe('Ctrl-Shift-z');
   });
 
@@ -99,6 +100,8 @@ describe('the editor’s keys', () => {
       contextActions: ['Alt-Enter'],
       find: ['Ctrl-f'],
       replace: ['Ctrl-r'],
+      lineComment: ['Ctrl-/'],
+      blockComment: ['Ctrl-Shift-/'],
       undo: [],
       redo: [],
     });
@@ -117,6 +120,8 @@ describe('the editor’s keys', () => {
       'nextProblem',
       'previousProblem',
       'contextActions',
+      'lineComment',
+      'blockComment',
       'find',
       'replace',
     ]);

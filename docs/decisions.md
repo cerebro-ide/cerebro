@@ -64,6 +64,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
+- [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2822,6 +2823,45 @@ and in the editor its editor action takes the key. From Show Diff's Not yet (its
   platform/platform-resources). Undo says "Undo Duplicate Entire Lines".
   - **A difference:** IntelliJ leaves the caret at its column in the copy, inside the selection;
     CodeMirror's caret is a selection's end, so it's at the copy's end on the side it was on.
+
+## Comment with Line Comment and Block Comment (2026-11-13)
+
+IntelliJ's Code → Comment with Line Comment and Comment with Block Comment, from its source
+(`CommentByLineCommentHandler`, `CommentByBlockCommentHandler`). Before, CodeMirror's own keys did
+them (its `defaultKeymap`: Mod-/ and Alt-A), the same in every keymap. The comment's tokens are
+the ones the file's language gives CodeMirror (`commentTokens`): none in JSON, so nothing happens.
+
+- **Line Comment:** CodeMirror's toggle of the lines' comments (`// ` at the lines' least indent),
+  then, as IntelliJ's with no selection, the caret goes a line down, at its column (its advanced
+  setting `editor.comment.line.caret.down`, on to start with); not from the last line, and on a
+  blank line it stays after the comment started there (`PUT_AT_COMMENT_START`). **Claims and
+  differences:** where IntelliJ puts the comment and its space is each language's code style
+  (`LINE_COMMENT_AT_FIRST_COLUMN`, `LINE_COMMENT_ADD_SPACE`); here it's CodeMirror's for all.
+  IntelliJ comments a blank line only when the command before wasn't this one.
+- **Block Comment,** as IntelliJ's with its defaults (`BLOCK_COMMENT_ADD_SPACE` off,
+  `BLOCK_COMMENT_AT_FIRST_COLUMN` on):
+  - No selection: `/**/` at the caret, the caret inside; in a comment, the comment taken away.
+  - A selection: put in a comment, `/*` and `*/` with no spaces, the comment selected; whole
+    lines get the tokens on lines of their own. A selection holding an end of a comment takes
+    that comment away (its tokens' lines too, where they're on their own); one inside a comment,
+    holding neither end, changes nothing (IntelliJ warns that it'd break the comment: not shown
+    here). The comment's found by the syntax tree's node, the language's.
+  - **A difference:** IntelliJ's caret stays by its text inside the selection; CodeMirror's caret
+    is a selection's end, so it's at the end it was on.
+- **Undo** says "Undo Comment with Line Comment" or "Undo Comment with Block Comment".
+- **Their keys,** from IntelliJ's keymap files (the numeric keypad's `DIVIDE` left out, as the
+  other keypad keys): Ctrl+/ and Ctrl+Shift+/ (`$default`); on macOS Cmd+/, and Cmd+Alt+/ and
+  Ctrl+Shift+/ (and in macOS System Shortcuts'); IntelliJ Classic's block, Ctrl+Shift+/ and
+  Cmd+Shift+/; Eclipse's block on macOS, Cmd+Shift+/; Emacs's line, Alt+;; NetBeans' line, Ctrl+/
+  and Ctrl+Shift+C; Visual Studio's line, Ctrl+Alt+/ and Ctrl+K C (Cmd on macOS), and its block on
+  macOS, Ctrl+Cmd+/. VS Code's block is Shift+Alt+A, from its Windows and macOS shortcut sheets;
+  its line, Ctrl+/ (Cmd+/), is IntelliJ's.
+- **Measured in the app:** Playwright's `Control+Shift+/` sends `/` with Shift held, which
+  CodeMirror reads as Ctrl+/ (a character key's Shift is in the character); a US keyboard's `?`
+  is Ctrl+Shift+/. **Claim:** that Chrome sends `?` from a real keyboard (not measured here).
+- **Not yet:** a Code menu (IntelliJ's has them, as Reformat Code and the editor's other actions;
+  they're keys only here, not commands, so not in Find Action either); CodeMirror's other default
+  keys, which aren't IntelliJ's (Alt+Up and Down move lines, Ctrl+Shift+K deletes one).
 
 ## Git → Current File → Show History (2026-11-12)
 

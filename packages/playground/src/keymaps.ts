@@ -38,6 +38,8 @@ export const EDITOR_ACTIONS = {
   nextProblem: 'editor.nextProblem',
   previousProblem: 'editor.previousProblem',
   contextActions: 'editor.showContextActions',
+  lineComment: 'editor.commentWithLineComment',
+  blockComment: 'editor.commentWithBlockComment',
   find: 'editor.find',
   replace: 'editor.replace',
 } as const;
@@ -137,6 +139,8 @@ export const INTELLIJ: KeymapPreset = {
     // A Markdown file's layouts: none here; VS Code's keymaps have keys for two.
     'markdown.layout.split': [],
     'markdown.layout.preview': [],
+    [EDITOR_ACTIONS.lineComment]: ['Ctrl+/'],
+    [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?'],
   },
 };
 
@@ -228,6 +232,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     // A Markdown file's layouts: none here; VS Code's keymaps have keys for two.
     'markdown.layout.split': [],
     'markdown.layout.preview': [],
+    [EDITOR_ACTIONS.lineComment]: ['Meta+/'],
+    [EDITOR_ACTIONS.blockComment]: ['Meta+Alt+/', 'Ctrl+Shift+?'],
   },
 };
 
@@ -311,6 +317,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+K Ctrl+J'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
+    // Toggle Block Comment, its sheets'; Toggle Line Comment's is IntelliJ's.
+    [EDITOR_ACTIONS.blockComment]: ['Shift+Alt+A'],
   },
 };
 
@@ -367,6 +375,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Meta+K Meta+J'],
     [EDITOR_ACTIONS.nextProblem]: ['F8'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F8'],
+    // Toggle Block Comment, its sheets'; Toggle Line Comment's is IntelliJ's.
+    [EDITOR_ACTIONS.blockComment]: ['Shift+Alt+A'],
   },
 };
 
@@ -477,6 +487,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unfold]: ['Meta++'],
     [EDITOR_ACTIONS.foldAll]: ['Meta+Shift+/'],
     [EDITOR_ACTIONS.unfoldAll]: ['Meta+*'],
+    [EDITOR_ACTIONS.blockComment]: ['Meta+Shift+?'],
   },
 };
 
@@ -509,6 +520,7 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2', 'Ctrl+Shift+X `'],
     [EDITOR_ACTIONS.format]: [],
     [EDITOR_ACTIONS.foldAll]: [],
+    [EDITOR_ACTIONS.lineComment]: ['Alt+;'],
   },
 };
 
@@ -539,6 +551,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     // Its file gives Ctrl+Space, over the swap's Meta+Space.
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+J'],
+    [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?', 'Meta+Shift+?'],
   },
 };
 
@@ -600,6 +613,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['F2', 'Ctrl+.'],
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F2', 'Ctrl+,'],
     'navigate.fileStructure': ['Ctrl+F12', 'Ctrl+Shift+F12'],
+    [EDITOR_ACTIONS.lineComment]: ['Ctrl+/', 'Ctrl+Shift+C'],
   },
 };
 
@@ -723,6 +737,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+M X', 'Ctrl+M Ctrl+X'],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
+    [EDITOR_ACTIONS.lineComment]: ['Ctrl+Alt+/', 'Ctrl+K C', 'Ctrl+K Ctrl+C'],
   },
 };
 
@@ -774,6 +789,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+M X', 'Ctrl+M Ctrl+X'],
     [EDITOR_ACTIONS.nextProblem]: ['Alt+PageDown'],
     [EDITOR_ACTIONS.previousProblem]: ['Alt+PageUp'],
+    [EDITOR_ACTIONS.lineComment]: ['Meta+Alt+/', 'Meta+K C', 'Meta+K Meta+C'],
+    [EDITOR_ACTIONS.blockComment]: ['Ctrl+Meta+/'],
   },
 };
 
