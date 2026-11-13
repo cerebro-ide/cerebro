@@ -675,11 +675,18 @@ export function CommitRow(props: { commit: LogCommit; log: Log }) {
 /** Git's empty tree: what a commit with no parent is compared with (the host's EMPTY_TREE). */
 export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-/** The commits a commit's changes are between: its first parent's, as IntelliJ shows a merge's. */
+/**
+ * The commits a commit's changes are between: its first parent and it. A merge's files are those
+ * it changes against its other parents too (`otherParents`), each shown against the first, where
+ * IntelliJ's diff shows all its parents (not yet).
+ */
 export const rangeOf = (commit: LogCommit) => ({
   from: commit.parents[0] ?? EMPTY_TREE,
   to: commit.hash,
 });
+
+/** A merge's parents after the first, whose changes it's compared with too, as IntelliJ's. */
+export const otherParents = (commit: LogCommit) => commit.parents.slice(1);
 
 /** A commit's author and when, as IntelliJ's details give them, after its short hash. */
 const signature = (commit: LogCommit) =>
@@ -841,6 +848,11 @@ export function CommitFiles(props: {
   label: string;
   /** What shows when nothing differs; nothing, if not given. */
   empty?: string;
+  /**
+   * A merge's other parents: its files are only those it changes against each of them too, as
+   * IntelliJ lists a merge's ("No merged conflicts" when there are none).
+   */
+  merged?: readonly string[];
   open?: (tab: Tab, chain?: readonly string[]) => void;
   /** The file to select once they're read. */
   selected?: string | undefined;
@@ -932,22 +944,30 @@ export function CommitFiles(props: {
   const allHidden = computed(() => changes.get().length === 0 && read.get().length > 0);
   /** Read, and none differ. */
   const none = signal(false);
-  void props.host.request('git.changes', { path: props.worktree, ...range }).then(
-    (listed) => {
-      read.set(listed as Change[]);
-      none.set((listed as Change[]).length === 0);
-      void loading.then(() => {
-        files.select(props.selected);
-      });
-    },
-    (error: unknown) => {
-      failed.set((error as Error).message);
-    },
-  );
+  const merged = props.merged ?? [];
+  const empty = merged.length > 0 ? 'No merged conflicts' : props.empty;
+  void props.host
+    .request('git.changes', {
+      path: props.worktree,
+      ...range,
+      ...(merged.length > 0 ? { merged } : {}),
+    })
+    .then(
+      (listed) => {
+        read.set(listed as Change[]);
+        none.set((listed as Change[]).length === 0);
+        void loading.then(() => {
+          files.select(props.selected);
+        });
+      },
+      (error: unknown) => {
+        failed.set((error as Error).message);
+      },
+    );
   return () => {
     const error = failed.get();
-    if (error === undefined && none.get() && props.empty !== undefined) {
-      return <p class="playground-project__empty">{props.empty}</p>;
+    if (error === undefined && none.get() && empty !== undefined) {
+      return <p class="playground-project__empty">{empty}</p>;
     }
     return error === undefined ? (
       <div
@@ -1088,6 +1108,7 @@ export function CommitPane(props: {
         host={props.host}
         worktree={props.worktree}
         range={rangeOf(commit)}
+        merged={otherParents(commit)}
         label={`${commit.subject} changes`}
         open={props.open}
         selected={log.file.peek()?.hash === hash ? log.file.peek()?.path : undefined}

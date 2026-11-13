@@ -598,6 +598,24 @@ describe('a commit’s pane', () => {
     expect(rangeOf(root)).toEqual({ from: EMPTY_TREE, to: 'c0' });
   });
 
+  it('lists a merge’s files as IntelliJ, against all its parents, or says there are none', async () => {
+    const [c0, c1, c2] = history(3) as [LogCommit, LogCommit, LogCommit];
+    git.log = [{ ...c0, parents: ['c1', 'c2'] }, c1, c2];
+    git.changes['c1..c0'] = [{ path: 'resolved.ts', status: 'modified' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['resolved.ts']);
+    expect(host.params('git.changes')).toEqual([
+      { path: '/r', from: 'c1', to: 'c0', merged: ['c2'] },
+    ]);
+    git.changes['c1..c0'] = [];
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(rows()[1] as HTMLElement);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(() => pane().textContent).toContain('No merged conflicts');
+  });
+
   it('shows the selected commit’s files and details, and opens a file’s diff or the file', async () => {
     git.log = history(2);
     git.changes['c1..c0'] = [

@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -1862,8 +1862,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   details (the subject, the rest of its message, its short hash, author, email and date). A double
   click or Enter opens a file's diff, between the commit and its first parent (the empty tree for
   a root commit), in the diff tab the Commit window and the shelf use; F4 opens the file itself,
-  as IntelliJ's Jump to Source. A merge is compared with its first parent alone, where IntelliJ
-  also offers the others. `git.log` gives each commit's message whole, so the details need no
+  as IntelliJ's Jump to Source. A merge's files are only those it changes against every parent, as
+  IntelliJ lists a merge's (`VcsStatusMerger`, read from its source; changed 2026-11-13: it was
+  all it changed against its first parent, wrongly said to be IntelliJ's); "No merged conflicts"
+  when there are none. Each file's status is its change against the first parent, unless they
+  differ: a delete against any is a delete, otherwise a change. Its diff is against the first
+  parent; **not yet:** IntelliJ's diff of a merge's file shows its parents too, and its Show Changes
+  to Parents lists the changes against each parent under "Changes to …". `git.log` gives each commit's message whole, so the details need no
   request of their own. **Claims:** the pane's starting width (400px), the details' share (up to
   half the pane), the date's format, and "No commits selected".
 - **The branches pane** (the third PR), on the Log's left as IntelliJ's, a splitter between: HEAD

@@ -119,6 +119,7 @@ import {
   listChanges,
   trackedFiles,
   listChangesBetween,
+  listMergedChanges,
   listIgnored,
   lastMessage,
   listBranches,
@@ -1161,9 +1162,24 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     }
     return trackedFiles(text(params, 'path'), files, git);
   });
+  // With `merged`, a merge's other parents: its changes against all of them, as IntelliJ's.
   connection.onRequest('git.changes', (params) => {
     const worktree = text(params, 'path');
     const between = range(params);
+    const merged = (params as { merged?: unknown }).merged;
+    if (merged !== undefined) {
+      if (
+        !between?.to ||
+        !Array.isArray(merged) ||
+        !merged.every((p) => typeof p === 'string' && /^[0-9a-f]{4,64}$/i.test(p))
+      ) {
+        throw new ResponseError(
+          ErrorCodes.InvalidParams,
+          'merged must be commit hashes, with from and to',
+        );
+      }
+      return listMergedChanges(worktree, [between.from, ...merged], between.to, git);
+    }
     return between
       ? listChangesBetween(worktree, between.from, between.to, git)
       : listChanges(worktree, git);
