@@ -36,6 +36,7 @@ import {
   type Change,
   type Range,
 } from './changes.js';
+import { createPatch } from './create-patch.js';
 import { directoryTree } from './directory-tree.js';
 import { saveBeforeGit } from './documents.js';
 import { formatCommitDate } from './dates.js';
@@ -742,6 +743,10 @@ export const rangeOf = (commit: LogCommit) => ({
   to: commit.hash,
 });
 
+/** A commit's whole message: its subject, then its body. */
+export const messageOf = (commit: LogCommit) =>
+  commit.body === '' ? commit.subject : `${commit.subject}\n\n${commit.body}`;
+
 /** A commit's author and when, as IntelliJ's details give them, after its short hash. */
 const signature = (commit: LogCommit) =>
   `${commit.hash.slice(0, 8)} ${commit.author} <${commit.email}> on ${new Date(
@@ -864,6 +869,8 @@ interface FilesTarget {
   apply: (change: Change, reverse: boolean) => Promise<void>;
   /** Makes a file as the commit left it: Get from Revision. */
   get: (change: Change) => Promise<void>;
+  /** Create Patch… of what the commit changed in one. */
+  createPatch: (change: Change) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
   /** The Log's Paths filter's paths, which Show Only Affected Changes keeps to; none, if none. */
@@ -982,6 +989,8 @@ export function CommitFiles(props: {
   onContextMenu?: (event: MouseEvent, change: Change) => void;
   /** The Log's Paths filter's paths, read reactively: Show Only Affected Changes keeps to them. */
   affected?: () => readonly string[] | undefined;
+  /** The commit's message, a patch's header. */
+  message?: string;
 }) {
   const { range, open, onContextMenu: menu } = props;
   /** All it changes, as read. */
@@ -1061,6 +1070,19 @@ export function CommitFiles(props: {
       await refreshAll(props.worktree);
     },
     get: (change) => getRevision(props.host, props.worktree, range.to as string, change.path),
+    createPatch: (change) => {
+      // A rename's both, as one.
+      const paths = change.from === undefined ? [change.path] : [change.from, change.path];
+      return createPatch({
+        host: props.host,
+        worktree: props.worktree,
+        from: rangeFor(selectedFile()).from,
+        to: range.to as string,
+        files: paths,
+        changed: paths,
+        ...(props.message === undefined ? {} : { message: props.message }),
+      });
+    },
     tree: files,
     affected,
   };
@@ -1318,6 +1340,7 @@ export function CommitPane(props: {
         open={props.open}
         selected={log.file.peek()?.hash === hash ? log.file.peek()?.path : undefined}
         affected={() => log.paths.get()}
+        message={messageOf(commit)}
       />,
       <div class="playground-log__details cerebro-selectable">
         <p class="playground-log__details-subject">{commit.subject}</p>
@@ -1754,6 +1777,17 @@ export function setupLog(services: MenuServices, show: () => void): void {
       return files.get(files.selected() as Change);
     },
   });
+  // Create Patch… of the file selected, as IntelliJ's (ChangesView.CreatePatchFromChanges in
+  // Vcs.RepositoryChangesBrowserMenu): what the commit changed in it.
+  commands.register({
+    id: 'log.files.createPatch',
+    label: 'Create Patch…',
+    enabled: (context) => atCommit(context),
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      return files.createPatch(files.selected() as Change);
+    },
+  });
   // The file as the commit left it, read-only, as IntelliJ's Open Repository Version
   // (Vcs.OpenRepositoryVersion): not one the commit deleted.
   commands.register({
@@ -1775,6 +1809,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.files.openRepositoryVersion', 'b'],
     ['log.files.revert', 'c'],
     ['log.files.cherryPick', 'c'],
+    ['log.files.createPatch', 'c'],
     ['log.files.get', 'c'],
     ['log.files.showHistory', 'c'],
   ] as const) {
@@ -1917,6 +1952,27 @@ export function setupLog(services: MenuServices, show: () => void): void {
     run: (c) => navigator.clipboard.writeText(c.commit.hash),
   });
   menus.contribute({ menu: 'log/commit', item: { command: 'log.copyRevision' }, group: 'a' });
+  // Next, as IntelliJ's (ChangesView.CreatePatchFromChanges): all the commit changed, against its
+  // first parent, as IntelliJ takes a commit's changes.
+  commands.register<LogCommitContext>({
+    id: 'log.createPatch',
+    label: 'Create Patch…',
+    enabled: (at?: LogCommitContext) => at !== undefined,
+    run: async ({ host, worktree, commit }) => {
+      const range = rangeOf(commit);
+      const changes = (await host.request('git.changes', { path: worktree, ...range })) as Change[];
+      await createPatch({
+        host,
+        worktree,
+        ...range,
+        changed: changes.flatMap((change) =>
+          change.from === undefined ? [change.path] : [change.from, change.path],
+        ),
+        message: messageOf(commit),
+      });
+    },
+  });
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.createPatch' }, group: 'a' });
   // Last in IntelliJ's commit menu, after Git's; Right and Left while the commits have the keyboard.
   for (const [id, parent] of [
     ['log.goToChild', false],
