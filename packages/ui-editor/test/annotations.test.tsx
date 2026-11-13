@@ -142,6 +142,19 @@ describe('text annotations', () => {
       .toEqual(['1: Yesterday | Lovelace', '3: 1/2/26 | Babbage']);
   });
 
+  it('stay drawn when asked again gives the same lines', async () => {
+    const document = new EditorDocument('a\nb\nc\n');
+    const lines = annotation().lines;
+    const ask = vi.fn<AskAnnotation>(() => Promise.resolve(annotation({ lines })));
+    const root = mount({ document, annotate: () => ask });
+    await expect.poll(() => drawn(root)).toHaveLength(2);
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End}x');
+    await wait(ANNOTATIONS_AFTER + 100);
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(drawn(root)).toEqual(['1: Yesterday | Lovelace', '3: 1/2/26 | Babbage']);
+  });
+
   it('leave an answer for an older text, or none, unshown', async () => {
     const document = new EditorDocument('a\nb\n');
     let answer: (found: TextAnnotation | undefined) => void = () => undefined;
