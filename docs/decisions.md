@@ -2030,7 +2030,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   (Collapse and Expand Linear Branches, Long Edges).
 - **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
   (Show Diff in a New Tab or Window, Create
-  Patch…); Ctrl+P there; a commit's right-click menu's other
+  Patch…); a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
@@ -2040,7 +2040,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   its Group By (`Vcs.Log.ChangesBrowser.PresentationSettings`), opens a menu with "Directory".
   The setting is kept apart from the Commit window's, as IntelliJ keeps it, and is the same
   wherever a commit's files show: the Log, Compare with Current, Push, a deleted branch's commits,
-  Show Diff with Working Tree. **Claude's, open to change:** the button's icon's drawing.
+  Show Diff with Working Tree. Its key is the Commit window's, as IntelliJ's one action
+  (ChangesView.GroupBy.Directory: Ctrl+Alt+P, Ctrl+P on macOS, from its keymap files), while a
+  commit's files have the keyboard (added 2026-11-13). **Claude's, open to change:** the button's
+  icon's drawing.
 - **Show Diff over a commit's files** (added 2026-11-13), first in their toolbar, as IntelliJ's
   changes browser has it (`ChangesBrowserBase.createToolbarActions`, read from its source), and
   Ctrl+D (Cmd+D) while the list has the keyboard: the selected file's diff, as a double click opens
