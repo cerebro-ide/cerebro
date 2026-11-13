@@ -682,9 +682,9 @@ describe('CodeEditor', () => {
     const seen = (event: KeyboardEvent) => taken.push(event.defaultPrevented);
     window.addEventListener('keydown', seen);
     await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
-    // Push, and Move Line Down: CodeMirror's deleted and copied the line.
+    // Push, and Next Method: CodeMirror's deleted the line, and moved one.
     await userEvent.keyboard('{Control>}{Shift>}K{/Shift}{/Control}');
-    await userEvent.keyboard('{Alt>}{Shift>}{ArrowDown}{/Shift}{/Alt}');
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
     window.removeEventListener('keydown', seen);
     expect(view.state.doc.toString()).toBe('one\ntwo');
     expect(taken.filter(Boolean)).toEqual([]);

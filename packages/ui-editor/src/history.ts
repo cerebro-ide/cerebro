@@ -23,6 +23,8 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['input.duplicate', 'Duplicate Line or Selection'],
   ['comment.line', 'Comment with Line Comment'],
   ['comment.block', 'Comment with Block Comment'],
+  ['move.line.up', 'Move Line Up'],
+  ['move.line.down', 'Move Line Down'],
   ['delete.cut', 'Cut'],
   ['delete.backward', 'Backspace'],
   ['delete.forward', 'Delete'],
