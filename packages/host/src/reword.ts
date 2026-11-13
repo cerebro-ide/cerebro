@@ -68,13 +68,17 @@ async function read(worktree: string, hash: string, run: Git): Promise<Commit> {
       .filter((line) => line.startsWith(`${name} `))
       .map((line) => line.slice(name.length + 1));
   // "Name <email> 1700000000 +0200"
-  const [, name, email, date] = /^(.*) <(.*)> (\d+ [+-]\d{4})$/.exec(
-    value('author')[0] as string,
-  ) as [string, string, string, string];
+  const author = value('author')[0] as string;
+  const open = author.lastIndexOf(' <');
+  const close = author.lastIndexOf('> ');
   return {
     tree: value('tree')[0] as string,
     parents: value('parent'),
-    author: { GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_AUTHOR_DATE: date },
+    author: {
+      GIT_AUTHOR_NAME: author.slice(0, open),
+      GIT_AUTHOR_EMAIL: author.slice(open + 2, close),
+      GIT_AUTHOR_DATE: author.slice(close + 2),
+    },
     message: object.slice(end + 2),
   };
 }
