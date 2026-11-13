@@ -25,8 +25,9 @@ import {
   type Change,
   type Range,
 } from './changes.js';
+import { copyPatch, createPatch, patchPaths } from './create-patch.js';
 import { saveBeforeGit } from './documents.js';
-import { active, currentHost, gitRepository, hostFor } from './environments.js';
+import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { readState } from './repository-state.js';
 
@@ -417,6 +418,38 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
       if (agreed) await change(path, 'Couldn’t Delete', 'git.deleteShelf', { id: shelf.id });
     },
   });
+  // Create Patch… and Copy as Patch to Clipboard, as IntelliJ's shelf (ShelvedChangesPopupMenu,
+  // after Show Diff): the selected file's changes, or all its list's; under the list's message
+  // (`extractCommitMessage`, the shelved list's description).
+  for (const [id, label, make] of [
+    ['shelf.createPatch', 'Create Patch…', createPatch],
+    ['shelf.copyPatch', 'Copy as Patch to Clipboard', copyPatch],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      enabled: (c) => selectedShelf(c) !== undefined,
+      run: async (c) => {
+        const shelf = selectedShelf(c) as Shelf;
+        const item = selected('shelf') as Item;
+        const path = worktree();
+        const host = hostFor(path) as Host;
+        const range = { from: shelf.base, to: shelf.commit };
+        const files = item.kind === 'file' ? patchPaths(item.change) : undefined;
+        const changed =
+          files ??
+          ((await host.request('git.changes', { path, ...range })) as Change[]).flatMap(patchPaths);
+        await make({
+          host,
+          worktree: path,
+          ...range,
+          ...(files === undefined ? {} : { files }),
+          changed,
+          message: shelf.message,
+        });
+      },
+    });
+  }
   const unstashing = (id: string, label: string, pop: boolean) => {
     commands.register({
       id,
@@ -484,6 +517,8 @@ export function setupShelf(services: MenuServices, setup: ShelfSetup): void {
   add('changes/item', 'vcs.shelve', 'b');
   add('shelf/item', 'shelf.unshelve', 'a');
   add('shelf/item', 'shelf.showDiff', 'a');
+  add('shelf/item', 'shelf.createPatch', 'a');
+  add('shelf/item', 'shelf.copyPatch', 'a');
   add('shelf/item', 'shelf.delete', 'b');
   add('stash/item', 'shelf.showDiff', 'a');
   add('stash/item', 'stash.pop', 'b');

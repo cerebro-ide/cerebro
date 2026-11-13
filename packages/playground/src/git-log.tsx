@@ -36,7 +36,7 @@ import {
   type Change,
   type Range,
 } from './changes.js';
-import { createPatch } from './create-patch.js';
+import { createPatch, patchPaths } from './create-patch.js';
 import { directoryTree } from './directory-tree.js';
 import { saveBeforeGit } from './documents.js';
 import { formatCommitDate } from './dates.js';
@@ -1071,8 +1071,7 @@ export function CommitFiles(props: {
     },
     get: (change) => getRevision(props.host, props.worktree, range.to as string, change.path),
     createPatch: (change) => {
-      // A rename's both, as one.
-      const paths = change.from === undefined ? [change.path] : [change.from, change.path];
+      const paths = patchPaths(change);
       return createPatch({
         host: props.host,
         worktree: props.worktree,
@@ -1965,9 +1964,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
         host,
         worktree,
         ...range,
-        changed: changes.flatMap((change) =>
-          change.from === undefined ? [change.path] : [change.from, change.path],
-        ),
+        changed: changes.flatMap(patchPaths),
         message: messageOf(commit),
       });
     },

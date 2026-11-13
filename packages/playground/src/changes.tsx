@@ -35,7 +35,7 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
-import { copyPatch, createPatch, type PatchRequest } from './create-patch.js';
+import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
@@ -927,9 +927,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     const changes = current();
     const chosen = here(c) ? (toShelve(c)?.chosen ?? []) : [];
     if (!changes || chosen.length === 0) return undefined;
-    const paths = chosen.flatMap((change) =>
-      change.from === undefined ? [change.path] : [change.from, change.path],
-    );
+    const paths = chosen.flatMap(patchPaths);
     const message = changes.message.peek().trim();
     return {
       host: hostFor(changes.path) as Host,
