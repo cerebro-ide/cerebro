@@ -1171,7 +1171,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
       if (
         !between?.to ||
         !Array.isArray(merged) ||
-        !merged.every((p) => typeof p === 'string' && /^[0-9a-f]{4,64}$/i.test(p))
+        !merged.every((p): p is string => typeof p === 'string' && /^[0-9a-f]{4,64}$/i.test(p))
       ) {
         throw new ResponseError(
           ErrorCodes.InvalidParams,
