@@ -3879,7 +3879,10 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
     (`ComparisonPolicy.IGNORE_WHITESPACES`): the words compared without the white space between
     them, which goes with the text neither changed; there, a side's changed white space is taken,
     yours if both changed it (`appendBase`), and where both changed words alike, yours.
-  - **Not yet:** scrolling to the first conflict left, as IntelliJ does after.
+  - **The first change left shown** (added 2026-11-13): after it, and after Apply non-conflicting
+    changes, each pane's caret goes to the first change left, which is scrolled to, as IntelliJ's
+    (`doScrollToChange`). Claude's, open to change: it's centred (CodeMirror's), where IntelliJ's
+    `makeVisible` wasn't read.
 - **Group by directory** (added 2026-11-13), the Conflicts dialog's checkbox under its list, as
   IntelliJ's (`OneShotMergeFlowDelegate`, `MultipleFileMergeDialog`, VcsBundle's words, read from
   its source): off to start with, and kept (IntelliJ's `GROUP_MULTIFILE_MERGE_BY_DIRECTORY`, a

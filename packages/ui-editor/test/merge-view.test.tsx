@@ -3,6 +3,7 @@ import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EditorView } from '@codemirror/view';
 import { userEvent } from 'vitest/browser';
 import { MergeEditor, type MergeControl, type MergeEditorProps } from '../src/index.js';
 
@@ -459,6 +460,45 @@ describe('the merge editor', () => {
     await userEvent.keyboard('{Control>}{Shift>}Z{/Shift}{/Control}');
     expect(control.text()).toBe('new\na\nb\nc\nd\nE\n');
     expect(control.left()).toEqual({ changes: 0, conflicts: 0 });
+  });
+
+  it('shows the first change left after a batch, each caret at its first line, as IntelliJ’s', async () => {
+    const many = Array.from({ length: 120 }, (_, i) => `line ${String(i)}`);
+    const text = (edit: (lines: string[]) => void): string => {
+      const lines = [...many];
+      edit(lines);
+      return `${lines.join('\n')}\n`;
+    };
+    const { root, control, yours, result, theirs } = mount({
+      path: 'a.txt',
+      base: text(() => undefined),
+      yours: text((l) => {
+        l[0] = 'mine first';
+        l[100] = 'mine';
+      }),
+      theirs: text((l) => {
+        l[100] = 'theirs';
+        l.splice(50, 0, 'added');
+      }),
+    });
+    // Its height, as the app gives it: the frame scrolls.
+    (root.host as HTMLElement).style.height = '100%';
+    await frame();
+    control.applyNonConflicting('all');
+    await frame();
+    const head = (editor: Element) => {
+      const view = EditorView.findFromDOM(editor as HTMLElement) as EditorView;
+      return view.state.doc.lineAt(view.state.selection.main.head).number;
+    };
+    // The conflict at the base's line 101: yours' 101, the result's 102 (theirs' line added), theirs' 102.
+    expect([head(yours), head(result), head(theirs)]).toEqual([101, 102, 102]);
+    const line = [...result.querySelectorAll('.cm-line')].find((l) => l.textContent === 'line 100');
+    const box = (line as HTMLElement).getBoundingClientRect();
+    expect(box.top).toBeGreaterThan(0);
+    expect(box.bottom).toBeLessThan(400);
+    // With none left, nothing moves.
+    control.resolveSimple();
+    expect(head(result)).toBe(102);
   });
 
   it('follows the font size and the tab size', async () => {
