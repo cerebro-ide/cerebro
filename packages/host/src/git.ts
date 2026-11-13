@@ -402,6 +402,37 @@ export async function listChangesBetween(
   return parseNameStatus(await run(worktree, ['diff', '--name-status', '-z', '-M', ...between]));
 }
 
+/**
+ * A merge's changes as IntelliJ lists them (`VcsStatusMerger`): only the files it changes against
+ * every one of its `parents`, a rename by its new path. Each is as against the first parent,
+ * unless they differ: a delete against any is a delete; a rename from different paths, or changes
+ * of different kinds, a change.
+ */
+export async function listMergedChanges(
+  worktree: string,
+  parents: readonly string[],
+  merge: string,
+  run: Git = git,
+): Promise<Change[]> {
+  const each = await Promise.all(
+    parents.map(async (parent) => {
+      const changes = await listChangesBetween(worktree, parent, merge, run);
+      return new Map(changes.map((change) => [change.path, change]));
+    }),
+  );
+  const [first, ...others] = each as [Map<string, Change>, ...Map<string, Change>[]];
+  return [...first.values()].flatMap((change): Change[] => {
+    const all = [change, ...others.map((changes) => changes.get(change.path))];
+    if (all.includes(undefined)) return [];
+    const statuses = new Set(all.map((c) => (c as Change).status));
+    const { path } = change;
+    if (statuses.size > 1)
+      return [{ path, status: statuses.has('deleted') ? 'deleted' : 'modified' }];
+    const sources = new Set(all.map((c) => (c as Change).from));
+    return [sources.size > 1 ? { path, status: 'modified' } : change];
+  });
+}
+
 /** Git's empty tree: what changes made before any commit are compared with. */
 export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 

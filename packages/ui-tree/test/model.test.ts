@@ -138,6 +138,28 @@ describe('TreeModel', () => {
     expect(calls).toBe(3);
   });
 
+  it('reads again a reload asked for while loading, once for all asked meanwhile', async () => {
+    let roots = tree({ 'a.ts': null });
+    let calls = 0;
+    const model = new TreeModel<Item>({
+      ...source(FILES),
+      children: () => {
+        calls++;
+        return Promise.resolve(roots);
+      },
+    });
+    roots = tree({ 'a.ts': null, 'b.ts': null });
+    const first = model.load(undefined, true);
+    roots = tree({ 'a.ts': null, 'b.ts': null, 'c.ts': null });
+    const second = model.load(undefined, true);
+    expect(model.load(undefined, true)).toBe(second);
+    expect(model.load(undefined)).not.toBe(second);
+    await Promise.all([first, second]);
+    expect(shown(model)).toEqual(['a.ts', 'b.ts', 'c.ts']);
+    // The first read, the one under way, and one more.
+    expect(calls).toBe(2);
+  });
+
   it('keeps why a folder couldn’t be read, and tries again on reload', async () => {
     const model = new TreeModel(source(FILES, { fail: 'docs' }));
     await settle();

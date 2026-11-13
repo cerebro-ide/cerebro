@@ -675,7 +675,11 @@ export function CommitRow(props: { commit: LogCommit; log: Log }) {
 /** Git's empty tree: what a commit with no parent is compared with (the host's EMPTY_TREE). */
 export const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 
-/** The commits a commit's changes are between: its first parent's, as IntelliJ shows a merge's. */
+/**
+ * The commits a commit's changes are between: its first parent and it. A merge's files are those
+ * it changes against its other parents too (`otherParents`), each shown against the first, where
+ * IntelliJ's diff shows all its parents (not yet).
+ */
 export const rangeOf = (commit: LogCommit) => ({
   from: commit.parents[0] ?? EMPTY_TREE,
   to: commit.hash,
@@ -696,30 +700,42 @@ const signature = (commit: LogCommit) =>
  */
 const FILES_KEY = 'cerebro.log.files';
 
-export function readFilesSettings(): { byDirectory: boolean; onlyAffected: boolean } {
+export function readFilesSettings(): {
+  byDirectory: boolean;
+  onlyAffected: boolean;
+  toParents: boolean;
+} {
   try {
     const stored = JSON.parse(localStorage.getItem(FILES_KEY) ?? '{}') as {
       byDirectory?: unknown;
       onlyAffected?: unknown;
+      toParents?: unknown;
     };
     return {
       byDirectory: stored.byDirectory !== false,
       onlyAffected: stored.onlyAffected === true,
+      toParents: stored.toParents === true,
     };
   } catch {
-    return { byDirectory: true, onlyAffected: false };
+    return { byDirectory: true, onlyAffected: false, toParents: false };
   }
 }
 
 const filesSettings = readFilesSettings();
 const filesByDirectory = signal(filesSettings.byDirectory);
 const onlyAffected = signal(filesSettings.onlyAffected);
+/** IntelliJ's Show Changes to Parents: a merge's changes against each parent too, under its own. */
+const toParents = signal(filesSettings.toParents);
 
 function saveFilesSettings() {
   try {
     localStorage.setItem(
       FILES_KEY,
-      JSON.stringify({ byDirectory: filesByDirectory.peek(), onlyAffected: onlyAffected.peek() }),
+      JSON.stringify({
+        byDirectory: filesByDirectory.peek(),
+        onlyAffected: onlyAffected.peek(),
+        toParents: toParents.peek(),
+      }),
     );
   } catch {
     // Not kept: it still applies until the page is reloaded.
@@ -774,9 +790,13 @@ export async function getRevision(
 interface FilesTarget {
   /** The file selected, if any and it can be opened. */
   selected: () => Change | undefined;
-  showDiff: (change: Change) => void;
-  /** What its files differ between: without `to`, the working tree. */
-  range: Range;
+  /** Opens the selected file's diff, with one selected. */
+  showDiff: () => void;
+  /**
+   * What the selected file differs between: the commit's, or under "Changes to …" a merge's parent
+   * and it. Without `to`, the working tree.
+   */
+  range: () => Range;
   worktree: string;
   /** Opens a tab: a file, or a diff. */
   open: (tab: Tab) => void;
@@ -800,30 +820,76 @@ const filesOf = (context: unknown) =>
 /** Whether a file is selected in a commit's files, not the working tree's. */
 const atCommit = (context: unknown) => {
   const files = filesOf(context);
-  return files?.range.to !== undefined && files.selected() !== undefined;
+  return files?.range().to !== undefined && files.selected() !== undefined;
 };
 
 /** A row of a commit's files: a file's change, or a folder of them. */
+/** A file or folder under "Changes to …" has `parent`, the merge's parent its change is against. */
 type ChangeNode =
-  | { kind: 'file'; change: Change }
-  | { kind: 'folder'; path: string; name: string; count: number; children: ChangeNode[] };
+  | { kind: 'file'; change: Change; parent?: string }
+  | {
+      kind: 'folder';
+      path: string;
+      name: string;
+      count: number;
+      children: ChangeNode[];
+      parent?: string;
+    }
+  /** IntelliJ's "Changes to …": a merge's changes against one of its parents. */
+  | { kind: 'parent'; hash: string; text: string; children: ChangeNode[] }
+  /** IntelliJ's row where a merge has no changes of its own, over its parents'. */
+  | { kind: 'note'; text: string };
 
-/** A row's key: a file's is its path, which selects it from outside. */
-const fileNodeKey = (node: ChangeNode) =>
-  node.kind === 'file' ? node.change.path : `folder:${node.path}`;
+/** A row's key: a file's is its path, which selects it from outside; under a parent, after it. */
+function fileNodeKey(node: ChangeNode): string {
+  const under = (parent: string | undefined) => (parent === undefined ? '' : `${parent}:`);
+  switch (node.kind) {
+    case 'file':
+      return `${under(node.parent)}${node.change.path}`;
+    case 'folder':
+      return `folder:${under(node.parent)}${node.path}`;
+    case 'parent':
+      return `parent:${node.hash}`;
+    case 'note':
+      return 'note';
+  }
+}
 
-/** The files as rows: by directory, all folders open, as IntelliJ's; else as git lists them. */
-function fileNodes(changes: readonly Change[], opened: (key: string) => void): ChangeNode[] {
-  const file = (change: Change): ChangeNode => ({ kind: 'file', change });
+/**
+ * The files as rows: by directory, all folders open, as IntelliJ's; else as git lists them. Under
+ * "Changes to …", `parent` is the merge's parent they're against.
+ */
+function fileNodes(
+  changes: readonly Change[],
+  opened: (key: string) => void,
+  parent?: string,
+): ChangeNode[] {
+  const under = parent === undefined ? {} : { parent };
+  const file = (change: Change): ChangeNode => ({ kind: 'file', change, ...under });
   if (!filesByDirectory.get()) return changes.map(file);
   return directoryTree<Change, ChangeNode>(changes, (change) => change.path, {
     file,
     folder: (folder) => {
-      const node: ChangeNode = { kind: 'folder', ...folder };
+      const node: ChangeNode = { kind: 'folder', ...folder, ...under };
       opened(fileNodeKey(node));
       return node;
     },
   });
+}
+
+/** A merge's parents, each with its subject where it's known; none for another commit. */
+export const mergeParents = (
+  commit: LogCommit,
+  find: (hash: string) => LogCommit | undefined,
+): MergeParent[] | undefined =>
+  commit.parents.length > 1
+    ? commit.parents.map((hash) => ({ hash, subject: find(hash)?.subject }))
+    : undefined;
+
+/** A merge's parent, as its files name it ("Changes to …"). */
+interface MergeParent {
+  hash: string;
+  subject?: string | undefined;
 }
 
 /**
@@ -841,6 +907,12 @@ export function CommitFiles(props: {
   label: string;
   /** What shows when nothing differs; nothing, if not given. */
   empty?: string;
+  /**
+   * A merge's parents: its files are only those it changes against all of them, as IntelliJ lists
+   * a merge's ("No merged conflicts" when there are none); under Show Changes to Parents, its
+   * changes against each parent too.
+   */
+  parents?: readonly MergeParent[] | undefined;
   open?: (tab: Tab, chain?: readonly string[]) => void;
   /** The file to select once they're read. */
   selected?: string | undefined;
@@ -861,29 +933,52 @@ export function CommitFiles(props: {
     const all = read.get();
     return onlyAffected.get() && paths ? all.filter((change) => affects(change, paths)) : all;
   });
+  const parents = props.parents ?? [];
+  /** The merge's parents but the first, whose changes it's compared with too. */
+  const merged = parents.slice(1).map((parent) => parent.hash);
+  const showingParents = computed(() => toParents.get() && parents.length > 0);
+  /** Under Show Changes to Parents, what it changes against each parent, as read. */
+  const byParent = signal<readonly { parent: MergeParent; changes: readonly Change[] }[]>([]);
   let nodes: ChangeNode[] = [];
+  /** The file rows, by key, as they were last made. */
+  let fileByKey = new Map<string, Extract<ChangeNode, { kind: 'file' }>>();
   const files = new TreeModel<ChangeNode>({
-    // Only the root and folders have any.
-    children: (node) => (node?.kind === 'folder' ? node.children : nodes),
+    // Only the root, folders and parents have any.
+    children: (node) =>
+      node?.kind === 'folder' || node?.kind === 'parent' ? node.children : nodes,
     key: fileNodeKey,
-    isLeaf: (node) => node.kind === 'file',
+    isLeaf: (node) => node.kind === 'file' || node.kind === 'note',
   });
+  /** The selected file's row. */
+  const selectedFile = () => {
+    const key = files.selected;
+    return key === undefined ? undefined : fileByKey.get(key);
+  };
+  /** What a file's change is between: under "Changes to …", that parent and the merge. */
+  const rangeFor = (node: Extract<ChangeNode, { kind: 'file' }> | undefined): Range =>
+    node?.parent === undefined ? range : { ...range, from: node.parent };
+  const failed = signal<string | undefined>(undefined);
   /** The rows' last loading. */
   let loading: Promise<void> = Promise.resolve();
-  const showDiff = (change: Change) => {
-    // Through the commit's files, as IntelliJ's.
+  const showDiff = (node: Extract<ChangeNode, { kind: 'file' }>) => {
+    // Through the files beside it, as IntelliJ's.
+    const beside = [...fileByKey.values()].filter((other) => other.parent === node.parent);
     open?.(
-      diffTab(change.path, range),
-      changes.peek().map((c) => c.path),
+      diffTab(node.change.path, rangeFor(node)),
+      beside.map((other) => other.change.path),
     );
   };
   const target: FilesTarget = {
     selected: () => {
-      const key = files.selected;
-      return open ? changes.get().find((c) => c.path === key) : undefined;
+      // Read again as the rows change.
+      changes.get();
+      byParent.get();
+      return open ? selectedFile()?.change : undefined;
     },
-    showDiff,
-    range,
+    showDiff: () => {
+      showDiff(selectedFile() as Extract<ChangeNode, { kind: 'file' }>);
+    },
+    range: () => rangeFor(selectedFile()),
     worktree: props.worktree,
     open: (tab) => open?.(tab),
     apply: async (change, reverse) => {
@@ -892,7 +987,7 @@ export function CommitFiles(props: {
       try {
         await props.host.request('git.applyChanges', {
           path: props.worktree,
-          from: range.from,
+          from: rangeFor(selectedFile()).from,
           to: range.to,
           // A rename's both, applied as one.
           files: change.from === undefined ? [change.path] : [change.from, change.path],
@@ -914,40 +1009,102 @@ export function CommitFiles(props: {
   });
   // Again as they're read, or grouped otherwise.
   const grouping = effect(() => {
-    nodes = fileNodes(changes.get(), (key) => {
+    const opened = (key: string) => {
       files.expanded.add(key);
-    });
-    loading = untracked(() => files.load(undefined, true));
+    };
+    const own = changes.get();
+    nodes = fileNodes(own, opened);
+    if (showingParents.get()) {
+      const paths = affected();
+      const groups = byParent.get().flatMap(({ parent, changes: all }): ChangeNode[] => {
+        const shown =
+          onlyAffected.get() && paths ? all.filter((change) => affects(change, paths)) : all;
+        if (shown.length === 0) return [];
+        const subject = parent.subject === undefined ? '' : ` ${shortenText(parent.subject, 50)}`;
+        const node: ChangeNode = {
+          kind: 'parent',
+          hash: parent.hash,
+          text: `Changes to ${parent.hash.slice(0, 8)}${subject}`,
+          children: fileNodes(shown, opened, parent.hash),
+        };
+        opened(fileNodeKey(node));
+        return [node];
+      });
+      nodes = [
+        ...(own.length === 0 ? [{ kind: 'note', text: 'No merged conflicts' } as const] : []),
+        ...nodes,
+        ...groups,
+      ];
+    }
+    fileByKey = new Map();
+    const index = (node: ChangeNode) => {
+      if (node.kind === 'file') fileByKey.set(fileNodeKey(node), node);
+      if (node.kind === 'folder' || node.kind === 'parent') node.children.forEach(index);
+    };
+    nodes.forEach(index);
+    // The roots and every group and folder loaded, for what each holds now.
+    loading = untracked(() => files.refresh());
+    return undefined;
+  });
+  // Each parent's changes, read the first time they're shown.
+  let parentsAsked = false;
+  const readingParents = effect(() => {
+    if (!showingParents.get() || parentsAsked) return undefined;
+    parentsAsked = true;
+    Promise.all(
+      parents.map(
+        (parent) =>
+          props.host.request('git.changes', {
+            path: props.worktree,
+            from: parent.hash,
+            to: range.to,
+          }) as Promise<Change[]>,
+      ),
+    ).then(
+      (lists) => {
+        byParent.set(parents.map((parent, i) => ({ parent, changes: lists[i] as Change[] })));
+      },
+      (error: unknown) => {
+        failed.set((error as Error).message);
+      },
+    );
     return undefined;
   });
   onCleanup(() => {
     grouping.dispose();
+    readingParents.dispose();
   });
   props.selection?.(() => {
-    const key = files.selected;
-    return changes.get().find((c) => c.path === key);
+    changes.get();
+    return selectedFile()?.change;
   });
-  const failed = signal<string | undefined>(undefined);
   /** Some were read, and Show Only Affected Changes hides them all. */
   const allHidden = computed(() => changes.get().length === 0 && read.get().length > 0);
   /** Read, and none differ. */
   const none = signal(false);
-  void props.host.request('git.changes', { path: props.worktree, ...range }).then(
-    (listed) => {
-      read.set(listed as Change[]);
-      none.set((listed as Change[]).length === 0);
-      void loading.then(() => {
-        files.select(props.selected);
-      });
-    },
-    (error: unknown) => {
-      failed.set((error as Error).message);
-    },
-  );
+  const empty = merged.length > 0 ? 'No merged conflicts' : props.empty;
+  void props.host
+    .request('git.changes', {
+      path: props.worktree,
+      ...range,
+      ...(merged.length > 0 ? { merged } : {}),
+    })
+    .then(
+      (listed) => {
+        read.set(listed as Change[]);
+        none.set((listed as Change[]).length === 0);
+        void loading.then(() => {
+          files.select(props.selected);
+        });
+      },
+      (error: unknown) => {
+        failed.set((error as Error).message);
+      },
+    );
   return () => {
     const error = failed.get();
-    if (error === undefined && none.get() && props.empty !== undefined) {
-      return <p class="playground-project__empty">{props.empty}</p>;
+    if (error === undefined && none.get() && empty !== undefined && !showingParents.get()) {
+      return <p class="playground-project__empty">{empty}</p>;
     }
     return error === undefined ? (
       <div
@@ -1040,11 +1197,13 @@ export function CommitFiles(props: {
             <TreeView
               model={files}
               label={props.label}
-              row={(node) =>
-                node.kind === 'folder'
-                  ? folderContent(node.name, node.count)
-                  : changeContent(node.change, !filesByDirectory.peek())
-              }
+              row={(node) => {
+                if (node.kind === 'folder') return folderContent(node.name, node.count);
+                if (node.kind === 'file') {
+                  return changeContent(node.change, !filesByDirectory.peek());
+                }
+                return <span>{node.text}</span>;
+              }}
               {...(menu || open
                 ? {
                     // A file's: the one given, else IntelliJ's for a commit's; a folder has none.
@@ -1056,8 +1215,8 @@ export function CommitFiles(props: {
                   }
                 : {})}
               onOpen={(node) => {
-                // Only files are leaves: a folder opens and closes instead.
-                showDiff((node as Extract<ChangeNode, { kind: 'file' }>).change);
+                // A folder or a parent opens and closes instead; a note does nothing.
+                if (node.kind === 'file') showDiff(node);
               }}
             />
           )
@@ -1088,6 +1247,7 @@ export function CommitPane(props: {
         host={props.host}
         worktree={props.worktree}
         range={rangeOf(commit)}
+        parents={mergeParents(commit, (parent) => log.commit(parent))}
         label={`${commit.subject} changes`}
         open={props.open}
         selected={log.file.peek()?.hash === hash ? log.file.peek()?.path : undefined}
@@ -1436,7 +1596,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     enabled: (context) => filesOf(context)?.selected() !== undefined,
     run: (context) => {
       const files = filesOf(context) as FilesTarget;
-      files.showDiff(files.selected() as Change);
+      files.showDiff();
     },
   });
   keymap?.bindDefault('Mod+D', 'log.files.showDiff');
@@ -1462,7 +1622,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
       run: (context) => {
         const files = filesOf(context) as FilesTarget;
         const { path } = files.selected() as Change;
-        const { from, to } = files.range as Required<Range>;
+        const { from, to } = files.range() as Required<Range>;
         files.open(diffTab(path, { from: before ? from : to }));
       },
     });
@@ -1501,7 +1661,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     enabled: (context) => atCommit(context) && filesOf(context)?.selected()?.status !== 'deleted',
     run: (context) => {
       const files = filesOf(context) as FilesTarget;
-      files.open(revisionTab((files.selected() as Change).path, files.range.to as string));
+      files.open(revisionTab((files.selected() as Change).path, files.range().to as string));
     },
   });
   // IntelliJ's (Vcs.Log.ChangesBrowser.Popup): its changes browser's Show Diff, then
@@ -1547,7 +1707,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     enabled: atCommit,
     run: (context) => {
       const files = filesOf(context) as FilesTarget;
-      showHistory((files.selected() as Change).path, files.range.to);
+      showHistory((files.selected() as Change).path, files.range().to);
     },
   });
   // At the toolbar's end, as IntelliJ's changes browser's (TreeActionsToolbarPanel.createTreeActions).
@@ -1590,6 +1750,23 @@ export function setupLog(services: MenuServices, show: () => void): void {
       onlyAffected.set(!onlyAffected.peek());
       saveFilesSettings();
     },
+  });
+  // Last in a file's menu, as IntelliJ's (Vcs.Log.ChangesBrowser.Popup's
+  // Vcs.Log.ShowChangesFromParents, off to start with): a merge's changes against each parent too,
+  // under "Changes to …"; kept for every commit.
+  commands.register({
+    id: 'log.files.showChangesToParents',
+    label: 'Show Changes to Parents',
+    checked: () => toParents.get(),
+    run: () => {
+      toParents.set(!toParents.peek());
+      saveFilesSettings();
+    },
+  });
+  menus.contribute({
+    menu: FILES_MENU,
+    item: { command: 'log.files.showChangesToParents' },
+    group: 'z',
   });
   menus.contribute({ menu: FILES_GROUP_BY, item: { heading: 'Group By' }, group: 'a' });
   menus.contribute({

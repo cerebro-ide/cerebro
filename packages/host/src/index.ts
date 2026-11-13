@@ -10,6 +10,7 @@ export {
   listChanges,
   trackedFiles,
   listChangesBetween,
+  listMergedChanges,
   ignoredAmong,
   listIgnored,
   listFiles,

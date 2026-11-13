@@ -19,6 +19,7 @@ import {
   git,
   type Git,
   listChanges,
+  listMergedChanges,
   listFiles,
   ignoredAmong,
   listIgnored,
@@ -198,6 +199,34 @@ const IDENTITY = {
   GIT_COMMITTER_EMAIL: 't@t',
 };
 
+describe('a merge’s changes, of what git lists against each parent', () => {
+  /** Git listing, against each parent in turn, what's given for it. */
+  const listing =
+    (...each: string[]): Git =>
+    (_cwd, args) =>
+      Promise.resolve(each[['p1', 'p2'].indexOf(args.at(-2) as string)] as string);
+
+  it('keeps a change as it is against the first parent where all agree', async () => {
+    const run = listing('R100\0old\0new\0A\0added\0', 'R100\0old\0new\0A\0added\0');
+    expect(await listMergedChanges('/r', ['p1', 'p2'], 'm', run)).toEqual([
+      { path: 'added', status: 'added' },
+      { path: 'new', status: 'renamed', from: 'old' },
+    ]);
+  });
+
+  it('makes a delete of a delete against any, and a change of other kinds or renames', async () => {
+    const run = listing(
+      'D\0gone\0M\0mixed\0R100\0old\0new\0',
+      'M\0gone\0A\0mixed\0R100\0older\0new\0',
+    );
+    expect(await listMergedChanges('/r', ['p1', 'p2'], 'm', run)).toEqual([
+      { path: 'gone', status: 'deleted' },
+      { path: 'mixed', status: 'modified' },
+      { path: 'new', status: 'modified' },
+    ]);
+  });
+});
+
 describe('with real git', () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-')));
   const repo = join(root, 'repo');
@@ -213,6 +242,65 @@ describe('with real git', () => {
 
   afterAll(() => {
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it('lists a merge’s changes as IntelliJ: only the files changed against every parent', async () => {
+    const merging = join(root, 'merging');
+    execFileSync('git', ['init', '-q', '-b', 'main', merging]);
+    const write = (file: string, text: string) => {
+      writeFileSync(join(merging, file), text);
+    };
+    const commitAll = (message: string) => {
+      run(merging, 'add', '-A');
+      run(merging, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', message);
+      return run(merging, 'rev-parse', 'HEAD').trim();
+    };
+    for (const file of ['both.txt', 'ours.txt', 'theirs.txt']) write(file, `${file}\n`);
+    commitAll('base');
+    run(merging, 'checkout', '-q', '-b', 'side');
+    write('both.txt', 'side\n');
+    write('theirs.txt', 'side\n');
+    const side = commitAll('side');
+    run(merging, 'checkout', '-q', 'main');
+    write('both.txt', 'main\n');
+    write('ours.txt', 'main\n');
+    const main = commitAll('main');
+    // The conflict in both.txt resolved as neither had it.
+    run(
+      merging,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'merge',
+      '-q',
+      side,
+      '-m',
+      'merge',
+      '-X',
+      'ours',
+    );
+    write('both.txt', 'resolved\n');
+    run(merging, 'add', 'both.txt');
+    run(
+      merging,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'commit',
+      '-q',
+      '--amend',
+      '--no-edit',
+    );
+    const merge = run(merging, 'rev-parse', 'HEAD').trim();
+    expect(await listMergedChanges(merging, [main, side], merge)).toEqual([
+      { path: 'both.txt', status: 'modified' },
+    ]);
+    expect(await listMergedChanges(merging, [main], merge)).toEqual([
+      { path: 'both.txt', status: 'modified' },
+      { path: 'theirs.txt', status: 'modified' },
+    ]);
   });
 
   it('lists the log: every branch, remote and tag, and HEAD, newest first, a page at a time', async () => {

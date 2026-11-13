@@ -10,7 +10,14 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { formatCommitDate } from './dates.js';
 import type { Host } from './environments.js';
-import { CommitFiles, PAGE, rangeOf, sizeColumns, type LogCommit } from './git-log.js';
+import {
+  CommitFiles,
+  mergeParents,
+  PAGE,
+  rangeOf,
+  sizeColumns,
+  type LogCommit,
+} from './git-log.js';
 
 /** A branch deleted unmerged: its name, where it was, and where it wasn't merged to. */
 export interface Unmerged {
@@ -78,6 +85,7 @@ export async function showUnmergedCommits(
                 host={host}
                 worktree={worktree}
                 range={rangeOf(commit)}
+                parents={mergeParents(commit, (parent) => commits.find((c) => c.hash === parent))}
                 label={`Changes in ${commit.hash.slice(0, 8)}`}
                 open={open}
               />

@@ -598,6 +598,135 @@ describe('a commit’s pane', () => {
     expect(rangeOf(root)).toEqual({ from: EMPTY_TREE, to: 'c0' });
   });
 
+  it('lists a merge’s files as IntelliJ, against all its parents, or says there are none', async () => {
+    const [c0, c1, c2] = history(3) as [LogCommit, LogCommit, LogCommit];
+    git.log = [{ ...c0, parents: ['c1', 'c2'] }, c1, c2];
+    git.changes['c1..c0'] = [{ path: 'resolved.ts', status: 'modified' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['resolved.ts']);
+    expect(host.params('git.changes')).toEqual([
+      { path: '/r', from: 'c1', to: 'c0', merged: ['c2'] },
+    ]);
+    git.changes['c1..c0'] = [];
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(rows()[1] as HTMLElement);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(() => pane().textContent).toContain('No merged conflicts');
+  });
+
+  it('shows a merge’s changes to each parent too, under Show Changes to Parents, as IntelliJ’s', async () => {
+    const [c0, c1, c2] = history(3) as [LogCommit, LogCommit, LogCommit];
+    git.log = [{ ...c0, parents: ['c1', 'c2', 'c9'] }, c1, c2];
+    // The merge's own (against all), and against each parent: the fake keys them by range.
+    git.changes['c1..c0'] = [{ path: 'resolved.ts', status: 'modified' }];
+    git.changes['c2..c0'] = [
+      { path: 'resolved.ts', status: 'modified' },
+      { path: 'src/ours.ts', status: 'modified' },
+    ];
+    git.changes['c9..c0'] = [{ path: 'resolved.ts', status: 'modified' }];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toEqual(['resolved.ts']);
+    // Last in a file's menu, off to start with.
+    expect(services.menus.entries('log/files').at(-1)).toEqual({
+      command: 'log.files.showChangesToParents',
+    });
+    expect(commands.isChecked('log.files.showChangesToParents')).toBe(false);
+    commands.execute('log.files.showChangesToParents');
+    expect(readFilesSettings().toParents).toBe(true);
+    // Each parent's, named by its hash and subject (a parent not loaded by its hash alone).
+    await expect
+      .poll(files)
+      .toEqual([
+        'resolved.ts',
+        'Changes to c1 Change 1',
+        'resolved.ts',
+        'Changes to c2 Change 2',
+        'src1 file',
+        'ours.ts',
+        'resolved.ts',
+        'Changes to c9',
+        'resolved.ts',
+      ]);
+    expect(host.params('git.changes').slice(-3)).toEqual([
+      { path: '/r', from: 'c1', to: 'c0' },
+      { path: '/r', from: 'c2', to: 'c0' },
+      { path: '/r', from: 'c9', to: 'c0' },
+    ]);
+    // A file under a parent: its diff, and its commands, against that parent; through the files
+    // beside it.
+    await userEvent.dblClick(fileRows()[5] as HTMLElement);
+    expect(opened.at(-1)).toEqual({ id: 'diff@c2..c0:src/ours.ts', title: 'ours.ts' });
+    expect(chains.at(-1)).toEqual(['src/ours.ts', 'resolved.ts']);
+    await userEvent.click(fileRows()[5] as HTMLElement);
+    commands.execute('log.files.compareBeforeWithLocal');
+    expect(opened.at(-1)).toEqual({ id: 'diff@c2..:src/ours.ts', title: 'ours.ts' });
+    // A parent's row opens and closes; it's no file.
+    await userEvent.dblClick(fileRows()[3] as HTMLElement);
+    expect(opened).toHaveLength(2);
+    commands.execute('log.files.showChangesToParents');
+    await expect.poll(files).toEqual(['resolved.ts']);
+    expect(readFilesSettings().toParents).toBe(false);
+  });
+
+  it('shows under each parent only the files the Paths filter holds, with Show Only Affected Changes', async () => {
+    git.log = history(1);
+    const [h0, h1, h2] = history(3, [], 'h') as [LogCommit, LogCommit, LogCommit];
+    git.byPaths['src/'] = [{ ...h0, parents: ['h1', 'h2'] }, h1, h2];
+    git.changes['h1..h0'] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'other.ts', status: 'modified' },
+    ];
+    git.changes['h2..h0'] = [{ path: 'other.ts', status: 'modified' }];
+    commands.execute('log.files.groupByDirectory');
+    commands.execute('log.files.showChangesToParents');
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    showHistory('src/');
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(7);
+    const toggle = () =>
+      pane().querySelector('[data-command="log.files.showOnlyAffected"]') as HTMLElement;
+    await userEvent.click(toggle());
+    // A parent none of whose files it holds isn't listed.
+    await expect.poll(files).toEqual(['a.tssrc', 'Changes to h1 Change 1', 'a.tssrc']);
+    await userEvent.click(toggle());
+    commands.execute('log.files.showChangesToParents');
+    commands.execute('log.files.groupByDirectory');
+  });
+
+  it('says a merge has no merged conflicts over its parents’ changes, and why they can’t be read', async () => {
+    const [c0, c1, c2] = history(3) as [LogCommit, LogCommit, LogCommit];
+    git.log = [{ ...c0, parents: ['c1', 'c2'] }, c1, c2];
+    git.changes['c1..c0'] = [];
+    git.changes['c2..c0'] = [{ path: 'theirs.ts', status: 'modified' }];
+    commands.execute('log.files.showChangesToParents');
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    // A parent with none isn't listed.
+    await expect
+      .poll(files)
+      .toEqual(['No merged conflicts', 'Changes to c2 Change 2', 'theirs.ts']);
+    // The note does nothing.
+    await userEvent.dblClick(fileRows()[0] as HTMLElement);
+    expect(opened).toEqual([]);
+    const listed = host.answers['git.changes'] as (params: never) => unknown;
+    host.answers['git.changes'] = (params: { from: string; merged?: string[] }) => {
+      if (params.from === 'c2') throw new Error('fatal: bad revision');
+      return listed(params as never);
+    };
+    await userEvent.click(rows()[1] as HTMLElement);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(() => pane().textContent).toContain('fatal: bad revision');
+    host.answers['git.changes'] = listed;
+    commands.execute('log.files.showChangesToParents');
+  });
+
   it('shows the selected commit’s files and details, and opens a file’s diff or the file', async () => {
     git.log = history(2);
     git.changes['c1..c0'] = [
@@ -879,8 +1008,9 @@ describe('a commit’s pane', () => {
       'Cherry-Pick Selected Changes',
       'Get from Revision',
       'History Up to Here',
+      'Show Changes to Parents',
     ]);
-    expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
+    expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(3);
     // The file as the commit left it, named as IntelliJ's tab is.
     await userEvent.click(menuItem('Open Repository Version'));
     expect(opened.at(-1)).toEqual({ id: 'rev@c0:a.ts', title: 'a.ts (c0)' });

@@ -1150,9 +1150,9 @@ describe('Delete', () => {
 
   it('shows the unmerged commits discarded, as IntelliJ’s View Commits, restoring from there', async () => {
     git.result = 'unmerged';
-    const commit = (hash: string, subject: string) => ({
+    const commit = (hash: string, subject: string, parents = ['p']) => ({
       hash,
-      parents: ['p'],
+      parents,
       author: 'Ada',
       email: 'ada@x.org',
       time: 0,
@@ -1160,7 +1160,8 @@ describe('Delete', () => {
       body: '',
       refs: [],
     });
-    git.log = [commit('c2', 'Second'), commit('c1', 'First')];
+    // The first, a merge of the second.
+    git.log = [commit('c2', 'Second', ['p', 'c1']), commit('c1', 'First')];
     await choose('feature', 'Delete');
     await expect.poll(() => last()?.title).toBe('Deleted Branch: feature');
     expect(last()?.actions.map((a) => a.label)).toEqual(['Restore', 'View Commits']);
@@ -1181,10 +1182,10 @@ describe('Delete', () => {
     // Its author's and date's columns as wide as what they show, as the Log's.
     const columns = box.querySelector('.playground-unmerged__commits') as HTMLElement;
     expect(columns.style.getPropertyValue('--playground-log-author')).toMatch(/^\d+px$/);
-    // The first one's files, beside it.
+    // The first one's files, beside it: a merge's, against all its parents.
     await expect
       .poll(() => host.params('git.changes').at(-1))
-      .toEqual({ path: '/r', from: 'p', to: 'c2' });
+      .toEqual({ path: '/r', from: 'p', to: 'c2', merged: ['c1'] });
     await press('Close');
     expect(host.params('git.restoreBranch')).toEqual([]);
     last()?.actions[1]?.run();

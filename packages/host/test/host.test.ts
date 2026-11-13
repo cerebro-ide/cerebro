@@ -328,6 +328,23 @@ describe('changes', () => {
     ]);
   });
 
+  it('lists a merge’s changes against all its parents, and checks them', async () => {
+    const { ui, git } = connect(vi.fn(() => Promise.resolve('M\0a.ts\0')));
+    expect(
+      await ui.request('git.changes', { path: '/w', from: 'aaaa', to: 'cccc', merged: ['bbbb'] }),
+    ).toEqual([{ path: 'a.ts', status: 'modified' }]);
+    expect(git).toHaveBeenCalledWith('/w', ['diff', '--name-status', '-z', '-M', 'bbbb', 'cccc']);
+    for (const params of [
+      { from: 'aaaa', merged: ['bbbb'] },
+      { from: 'aaaa', to: 'cccc', merged: 'bbbb' },
+      { from: 'aaaa', to: 'cccc', merged: ['--x'] },
+    ]) {
+      await expect(ui.request('git.changes', { path: '/w', ...params })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('says which files git tracks, and checks the list it’s given', async () => {
     const { ui, git } = connect(vi.fn(() => Promise.resolve('a.ts\0')));
     expect(await ui.request('git.tracked', { path: '/w', files: ['a.ts', 'b.ts'] })).toEqual([
