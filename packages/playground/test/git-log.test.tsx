@@ -679,6 +679,37 @@ describe('a commit’s pane', () => {
     localStorage.removeItem('cerebro.log.files');
   });
 
+  it('shows the selected file’s diff from the toolbar or Ctrl+D, as IntelliJ’s', async () => {
+    git.log = history(1);
+    git.changes[`${EMPTY_TREE}..c0`] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'added' },
+    ];
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0']);
+    await userEvent.click(rows()[0] as HTMLElement);
+    await expect.poll(files).toHaveLength(3);
+    const button = pane().querySelector('[aria-label^="Show Diff"]') as HTMLButtonElement;
+    // Nothing selected, or a folder: off.
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[0] as HTMLElement);
+    expect(button.disabled).toBe(true);
+    await userEvent.click(fileRows()[1] as HTMLElement);
+    await expect.poll(() => button.disabled).toBe(false);
+    await userEvent.click(button);
+    expect(opened).toEqual([{ id: `diff@${EMPTY_TREE}..c0:src/a.ts`, title: 'a.ts' }]);
+    expect(chains.at(-1)).toEqual(['src/a.ts', 'b.ts']);
+    // With the keyboard in the list, its key's command acts on it.
+    await userEvent.click(fileRows()[2] as HTMLElement);
+    expect(commands.isEnabled('log.files.showDiff')).toBe(true);
+    commands.execute('log.files.showDiff');
+    expect(opened.at(-1)).toEqual({ id: `diff@${EMPTY_TREE}..c0:b.ts`, title: 'b.ts' });
+    expect(services.keymap?.shortcutsFor('log.files.showDiff')).not.toEqual([]);
+    // Elsewhere, none.
+    (document.activeElement as HTMLElement).blur();
+    expect(commands.isEnabled('log.files.showDiff')).toBe(false);
+  });
+
   it('says why a commit’s files couldn’t be read', async () => {
     git.log = history(1);
     mount();

@@ -709,6 +709,20 @@ const filesByDirectory = signal(readFilesGrouping());
 /** The files' Group By menu, from the button over them. */
 const FILES_GROUP_BY = 'log/files/groupBy';
 
+/** A commit's files' list, as its commands act on it. */
+interface FilesTarget {
+  /** The file selected, if any and it can be opened. */
+  selected: () => Change | undefined;
+  showDiff: (change: Change) => void;
+}
+
+/** The list of a commit's files that has the keyboard, if one has. */
+const focusedFiles = signal<FilesTarget | undefined>(undefined);
+
+/** The list a command acts on: the one it came from, else the one with the keyboard. */
+const filesOf = (context: unknown) =>
+  (context as { files?: FilesTarget } | undefined)?.files ?? focusedFiles.get();
+
 /** A row of a commit's files: a file's change, or a folder of them. */
 type ChangeNode =
   | { kind: 'file'; change: Change }
@@ -761,6 +775,23 @@ export function CommitFiles(props: {
   });
   /** The rows' last loading. */
   let loading: Promise<void> = Promise.resolve();
+  const showDiff = (change: Change) => {
+    // Through the commit's files, as IntelliJ's.
+    open?.(
+      diffTab(change.path, range),
+      changes.peek().map((c) => c.path),
+    );
+  };
+  const target: FilesTarget = {
+    selected: () => {
+      const key = files.selected;
+      return open ? changes.get().find((c) => c.path === key) : undefined;
+    },
+    showDiff,
+  };
+  onCleanup(() => {
+    if (focusedFiles.peek() === target) focusedFiles.set(undefined);
+  });
   // Again as they're read, or grouped otherwise.
   const grouping = effect(() => {
     nodes = fileNodes(changes.get(), (key) => {
@@ -799,6 +830,13 @@ export function CommitFiles(props: {
     return error === undefined ? (
       <div
         class="playground-log__files"
+        on:focusin={() => {
+          focusedFiles.set(target);
+        }}
+        on:focusout={(event) => {
+          const to = event.relatedTarget as Node | null;
+          if (!(event.currentTarget as HTMLElement).contains(to)) focusedFiles.set(undefined);
+        }}
         on:keydown={(event) => {
           // F4 opens the file itself, as IntelliJ's Jump to Source; one deleted is gone.
           const selected = changes.peek().find((c) => c.path === files.selected);
@@ -808,6 +846,13 @@ export function CommitFiles(props: {
         }}
       >
         <div class="playground-log__files-toolbar" role="toolbar" aria-label="Changes">
+          <ToolbarButton
+            commands={props.services.commands}
+            command="log.files.showDiff"
+            icon={icon('diff')}
+            shortcut={shortcutOf(props.services, 'log.files.showDiff')}
+            context={() => ({ files: target })}
+          />
           <button
             type="button"
             class="cerebro-toolbar-button"
@@ -845,12 +890,7 @@ export function CommitFiles(props: {
             : {})}
           onOpen={(node) => {
             // Only files are leaves: a folder opens and closes instead.
-            const { change } = node as Extract<ChangeNode, { kind: 'file' }>;
-            // Through the commit's files, as IntelliJ's.
-            open?.(
-              diffTab(change.path, range),
-              changes.peek().map((c) => c.path),
-            );
+            showDiff((node as Extract<ChangeNode, { kind: 'file' }>).change);
           }}
         />
       </div>
@@ -1214,6 +1254,19 @@ export function setupLog(services: MenuServices, show: () => void): void {
     item: { command: 'log.branches.groupByDirectory' },
     group: 'b',
   });
+  // A commit's files' Show Diff, as IntelliJ's changes browser's (its first action), on the file
+  // selected in the list it came from or that has the keyboard.
+  commands.register({
+    id: 'log.files.showDiff',
+    label: 'Show Diff',
+    icon: 'diff',
+    enabled: (context) => filesOf(context)?.selected() !== undefined,
+    run: (context) => {
+      const files = filesOf(context) as FilesTarget;
+      files.showDiff(files.selected() as Change);
+    },
+  });
+  keymap?.bindDefault('Mod+D', 'log.files.showDiff');
   // A commit's files, as IntelliJ's changes trees (ChangesView.GroupBy): by directory or not.
   commands.register({
     id: 'log.files.groupByDirectory',

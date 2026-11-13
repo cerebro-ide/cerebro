@@ -88,6 +88,7 @@ export const INTELLIJ: KeymapPreset = {
     'view.tool.commit': ['Alt+0'],
     'view.tool.terminal': ['Alt+F12'],
     'changes.showDiff': ['Ctrl+D'],
+    'log.files.showDiff': ['Ctrl+D'],
     'git.file.showDiff': ['Ctrl+D'],
     // SafeDelete's, which IntelliJ's Delete Branch takes in the Log's branches.
     'log.branches.delete': ['Alt+Delete'],
@@ -179,6 +180,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'view.tool.commit': ['Meta+0'],
     'view.tool.terminal': ['Alt+F12'],
     'changes.showDiff': ['Meta+D'],
+    'log.files.showDiff': ['Meta+D'],
     'git.file.showDiff': ['Meta+D'],
     'log.branches.delete': ['Meta+Delete'],
     'changes.jumpToSource': ['Meta+Down', 'F4'],

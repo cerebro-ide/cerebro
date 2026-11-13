@@ -3,7 +3,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { useProjects, workspace } from '../src/environments.js';
-import type { LogCommit } from '../src/git-log.js';
+import { setupLog, type LogCommit } from '../src/git-log.js';
 import { notifications } from '../src/notifications.js';
 import {
   cleanUpBranchName,
@@ -109,6 +109,8 @@ const services: MenuServices = { commands, menus, keymap };
 beforeAll(() => {
   useProjects([project('/r', host), project('/s', undefined)]);
   setupPush(services);
+  // The commits' files' toolbar acts through the Log's commands.
+  setupLog(services, () => undefined);
 });
 
 beforeEach(() => {
@@ -199,6 +201,13 @@ describe('Push', () => {
     expect(second?.title).toMatch(/^First-ha {2}.+ {2}by Ann\n\nFirst$/);
     await userEvent.click(second as HTMLElement);
     await expect.poll(files).toEqual(['base..First-hash.ts']);
+    // A diff opens in the editor, behind the dialog: Show Diff is off here.
+    const file = document.querySelector('.playground-push__files .cerebro-tree-row') as HTMLElement;
+    await userEvent.click(file);
+    expect(
+      document.querySelector<HTMLButtonElement>('.playground-push__files [aria-label^="Show Diff"]')
+        ?.disabled,
+    ).toBe(true);
     // The first commit of all: from git's empty tree.
     git.outgoing = { ...git.outgoing, commits: [{ ...commit('Root'), body: 'Why' }] };
     await closeAll();
@@ -900,7 +909,7 @@ describe('Push All up to Here…, from the Log', () => {
   const context = { commit: upTo, worktree: '/r', host, refresh: () => Promise.resolve() };
 
   it('sits in the commit menu, as IntelliJ’s, for the commit right-clicked or selected', () => {
-    expect(menus.entries('log/commit')).toEqual([{ command: 'log.pushUpTo' }]);
+    expect(menus.entries('log/commit')).toContainEqual({ command: 'log.pushUpTo' });
     expect(commands.get('log.pushUpTo')).toMatchObject({
       label: 'Push All up to Here',
       dialog: true,
