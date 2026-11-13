@@ -30,7 +30,7 @@ import type {
   Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
-import { documentFor, onEdited, saveAll, saveFiles } from './documents.js';
+import { documentFor, onEdited, reloadOpen, saveAll, saveFiles } from './documents.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 import { openStructure, type FileSymbol } from './structure.js';
@@ -196,7 +196,14 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     if (editor()?.activeGroup.active === at.path) history()?.record();
     editor()?.open({ id: at.path, title: at.path.split('/').at(-1) as string });
     // A new object each time, so revealing the same place again works.
-    reveals.set(at.path, { line: at.line, column: at.column });
+    const reveal = () => {
+      reveals.set(at.path, { line: at.line, column: at.column });
+    };
+    // Open, it's read again first: the place may be in what's changed on disk since (measured: F4
+    // from a diff put the caret in the editor's old text, read again a second later).
+    const reading = reloadOpen(at.path);
+    if (reading) void reading.finally(reveal);
+    else reveal();
   };
   /** Opens a file with its editor focused, as IntelliJ does after a file is chosen from a list. */
   const open = (tab: Tab) => {

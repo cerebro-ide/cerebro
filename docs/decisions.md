@@ -4275,7 +4275,10 @@ choices below are Claude's, after IntelliJ, open to change.
 - **Files changed on disk** (by an agent, git, a terminal) are read again when the window gets the
   focus and every 2 seconds while it has it, as IntelliJ synchronizes on frame activation. Reading
   again isn't undoable. Polling was chosen over watching files for now: a few open files read every
-  2 seconds is a claim of small cost, not measured.
+  2 seconds is a claim of small cost, not measured. A jump to a place in an open file (Jump to
+  Source from a diff, a usage, a declaration) reads it again first, and goes there once it's read
+  (added 2026-11-13): a diff read from disk named lines the editor didn't have yet, and F4 put the
+  caret in its old text (measured). A jump to a file that isn't open goes at once.
 - **A file changed both in the editor and on disk is a conflict** (2026-10-27, Ido: "a popup should
   prompt the user to select between the two OR open a merge window"), found when it's read again or
   before it's saved (saving reads the file first, and doesn't write over a change it didn't read).

@@ -79,11 +79,6 @@ diff's model for one link (CLAUDE.md).
   Problems window's Project Errors tab and View Options, shell scripts) and "Quick fixes:
   Alt+Enter" (the bulb, commands, fixes across files).
 - **Merge conflicts:** see "Not yet" in the decision "Merge conflicts".
-- **Jump to Source can land before an open file reads a change made outside Cerebro** (measured
-  2026-11-11, writing the diff viewer's e2e test): the file changed on disk while its tab was open;
-  the diff, read from disk, had the new lines, but F4 from it put the caret in the editor's old text
-  (on its last, empty line), and the text was reloaded around a second later, the caret staying
-  there. The jump should wait for the reload, or the reload be asked for first.
 - **The diff viewer:** see "Not yet" in the decision "The diff viewer, as IntelliJ's".
 - **The Log's Checkout submenu needs menu items made from the context** (found 2026-11-11, adding
   the Log's commit menu, #182): IntelliJ's lists the commit's branches (then Checkout Revision),

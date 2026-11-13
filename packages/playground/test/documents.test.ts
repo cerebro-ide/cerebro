@@ -6,6 +6,7 @@ import {
   onEdited,
   RELOAD_EVERY,
   reloadAll,
+  reloadOpen,
   saveAll,
   saveBeforeGit,
   saveFiles,
@@ -114,6 +115,22 @@ describe('a file’s document', () => {
     projects.set([project('cerebro', undefined)]);
     const doc = (await documentFor('cerebro/none.md')) as EditorDocument;
     expect(doc.content()).toBe('');
+    projects.set(list);
+  });
+
+  it('is read again when asked, before a jump into it; not if it isn’t open, or in a browser', async () => {
+    const doc = await file('/r/jump.ts', 'one');
+    disk.set('/r/jump.ts', 'two');
+    await reloadOpen('/r/jump.ts');
+    expect(doc.content()).toBe('two');
+    expect(reloadOpen('/r/not-open.ts')).toBeUndefined();
+    // Still being read, and it can't be: there's nothing to read again.
+    const reading = documentFor('/r/gone.ts', () => '');
+    expect(await reloadOpen('/r/gone.ts')).toBeUndefined();
+    expect(await reading).toEqual({ error: 'ENOENT: /r/gone.ts' });
+    const list = projects.get();
+    projects.set([project('cerebro', undefined)]);
+    expect(reloadOpen('/r/jump.ts')).toBeUndefined();
     projects.set(list);
   });
 

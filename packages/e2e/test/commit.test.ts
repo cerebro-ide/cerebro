@@ -181,12 +181,7 @@ it('goes to the next change with F7 and back with Shift+F7, from the first to st
     '// Shapes, longer\n// and more.\nexport class Shape {}\n// added\n',
   );
   const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
-  // The file's tab, left by the test before, has the change once the watcher's told it.
-  await expect
-    .poll(() => page().locator('.cerebro-editor-code:visible .cm-line').allTextContents(), {
-      timeout: 15_000,
-    })
-    .toContain('// added');
+  // The file's tab, left by the test before, isn't waited for: F4 reads it again before the jump.
   // The diff's window, with the focus back, reads the diff again: the caret at the first change.
   // (The event, as the Log's test sends it: a window brought to the front may not tell its page.)
   await diff.bringToFront();
