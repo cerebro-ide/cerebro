@@ -111,10 +111,11 @@ export async function applyChanges(
 }
 
 /**
- * The file in the working tree as `hash` has it, or deleted where `hash` hasn't it: IntelliJ's Get
- * from Revision in the Log (`GetVersionFromRepositoryActionProvider` and `GetVersionAction`, read
- * from their source), which writes the change's after-version, or deletes the file. Whether the
- * commit has it is asked first, so a commit git can't read fails rather than deleting the file.
+ * The file at `path` in the working tree as `hash` has it at `source` (where it was, if renamed
+ * since), or deleted where `hash` hasn't it: IntelliJ's Get (`GetVersionAction`, read from its
+ * source, and its providers: the Log's, which writes a change's after-version, and Compare with
+ * Local's, its before-version), which deletes the file where there's none. Whether the commit has
+ * it is asked first, so a commit git can't read fails rather than deleting the file.
  */
 export async function getVersion(
   worktree: string,
@@ -122,14 +123,15 @@ export async function getVersion(
   path: string,
   run: Git,
   runBytes: GitBytes,
+  source = path,
 ): Promise<void> {
   const file = join(worktree, path);
-  const listed = await run(worktree, ['ls-tree', '--name-only', hash, '--', path]);
+  const listed = await run(worktree, ['ls-tree', '--name-only', hash, '--', source]);
   if (listed.trim() === '') {
     await rm(file, { force: true });
     return;
   }
-  const bytes = await runBytes(worktree, ['show', `${hash}:${path}`]);
+  const bytes = await runBytes(worktree, ['show', `${hash}:${source}`]);
   await mkdir(dirname(file), { recursive: true });
   await writeFile(file, bytes);
 }

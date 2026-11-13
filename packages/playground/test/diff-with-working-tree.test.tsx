@@ -2,7 +2,7 @@ import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffTab } from '../src/changes.js';
 import {
@@ -11,7 +11,8 @@ import {
   showDiffWithWorkingTree,
 } from '../src/diff-with-working-tree.js';
 import { setupLog } from '../src/git-log.js';
-import { closeAll, dialog, FakeHost, press } from './fakes.js';
+import { useProjects } from '../src/environments.js';
+import { closeAll, dialog, FakeHost, press, project } from './fakes.js';
 
 /** The files each ref differs in from the working tree, as `git.changes` is asked for them. */
 const differing: Record<string, unknown> = {
@@ -84,6 +85,8 @@ describe('Show Diff with Working Tree’s window', () => {
   it('says nothing is compared before anything is', () => {
     mount();
     expect(text('.playground-project__empty')).toBe('Nothing compared');
+    // As Find Action lists it then.
+    expect(services.commands.get('vcsChanges.get')?.text?.(undefined)).toBe('Get from Branch');
   });
 
   it('lists the files that differ, in IntelliJ’s words, each opening its diff', async () => {
@@ -181,7 +184,7 @@ describe('Show Diff with Working Tree’s window', () => {
     show('feature');
     await fileRow('a.ts');
     expect(getButton().disabled).toBe(true);
-    await services.commands.get('vcsChanges.getFromBranch')?.run(undefined);
+    await services.commands.get('vcsChanges.get')?.run(undefined);
     expect(asked()).toEqual([]);
   });
 
@@ -214,5 +217,69 @@ describe('Show Diff with Working Tree’s window', () => {
     expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Cannot Copy Changes');
     expect(box.querySelector('p')?.textContent).toBe('fatal: could not write a.ts');
     await press('OK');
+  });
+});
+
+describe('a commit’s Compare with Local', () => {
+  const hash = 'c0ffee0123456789';
+  // Its Get reads the worktree's state again, from its project's host.
+  beforeAll(() => {
+    useProjects([project('/r', host)]);
+    host.answers['git.shelves'] = () => [];
+    host.answers['git.stashes'] = () => [];
+    host.answers['git.state'] = () => ({ conflicts: false });
+  });
+  const row = async (path: string) => {
+    await expect
+      .poll(() => document.querySelector(`.cerebro-tree-row[data-key="${path}"]`))
+      .not.toBeNull();
+    return document.querySelector(`.cerebro-tree-row[data-key="${path}"]`) as HTMLElement;
+  };
+
+  it('is in the Log’s commit menu, and shows what differs in the window, in IntelliJ’s words', async () => {
+    expect(services.menus.entries('log/commit')).toContainEqual({
+      command: 'log.compareWithLocal',
+    });
+    differing[hash] = differing.feature;
+    mount();
+    services.commands.execute('log.compareWithLocal', {
+      host,
+      worktree: '/r',
+      commit: { hash },
+    });
+    await expect
+      .poll(() => text('.playground-compare__explanation'))
+      .toBe('Changes Between c0ffee01 and local version');
+    expect(reveal).toHaveBeenCalled();
+    await row('a.ts');
+    expect(host.params('git.changes').at(-1)).toEqual({ path: '/r', from: hash });
+  });
+
+  it('gets a file as the commit has it, from where it was if renamed since', async () => {
+    host.answers['git.getVersion'] = () => null;
+    differing[hash] = differing.feature;
+    mount();
+    services.commands.execute('log.compareWithLocal', {
+      host,
+      worktree: '/r',
+      commit: { hash },
+    });
+    const get = () => document.querySelector('[aria-label="Get"]') as HTMLButtonElement;
+    /** How often the window has read what differs from the commit. */
+    const reads = () =>
+      host.params('git.changes').filter((p) => (p as { from?: string }).from === hash).length;
+    for (const path of ['d.ts', 'b.ts']) {
+      await userEvent.click(await row(path));
+      const before = reads();
+      await userEvent.click(get());
+      // Read again after each.
+      await expect.poll(reads).toBeGreaterThan(before);
+    }
+    // Added since: not in the commit, so the host deletes it.
+    expect(host.params('git.getVersion')).toEqual([
+      { path: '/r', hash, file: 'd.ts', source: 'old.ts' },
+      { path: '/r', hash, file: 'b.ts' },
+    ]);
+    delete host.answers['git.getVersion'];
   });
 });

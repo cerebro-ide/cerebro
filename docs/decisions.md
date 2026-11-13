@@ -2053,6 +2053,19 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   file's name and the revision, "a.ts (hash)". Off for a file the commit deleted. The host reads it
   (`git.fileAt`: `git show hash:path`). **Not yet:** a binary file (an image) only says it's
   binary, where IntelliJ opens its viewer; IntelliJ opens one tab for each file selected.
+- **Compare with Local in a commit's menu** (added 2026-11-13), after Copy Revision Number and
+  Cherry-Pick, as IntelliJ's (`Vcs.ShowDiffWithLocal` in `Vcs.Log.ContextMenu`;
+  `ShowDiffAfterWithLocalFromLogActionProvider`, `GitLogDiffHandler.showDiffForPaths`,
+  `CompareWithLocalDialog`, read from their source): what differs between the commit and the
+  working tree, documents saved first, in the Changes tool window that Show Diff with Working Tree
+  uses, as IntelliJ's shows it as a tab there (`CompareWithLocalDialog.showAsTab`). Over the files,
+  IntelliJ's title, "Changes Between abc12345 and local version"; its toolbar's and file menu's Get
+  makes the file as the commit has it, unstaged, from where it was if renamed since, or deletes it
+  where the commit hasn't it (`CompareWithLocalDialog.GetVersionActionProvider`), asking first over
+  a local change as the Log's Get from Revision does; the list is read again after. The window
+  takes what it shows from the caller (its words over the files, its Get), so a branch's comparison
+  keeps its own. **Not yet:** with a Paths filter, IntelliJ compares only those paths ("... in
+  paths"); IntelliJ's Refresh in that tab.
 - **Get from Revision in a commit's file's menu** (added 2026-11-13), after Cherry-Pick Selected
   Changes, as IntelliJ's (`Vcs.GetVersion`, named in the Log by
   `GetVersionFromRepositoryActionProvider`; `GetVersionAction`, read from their source): the file in

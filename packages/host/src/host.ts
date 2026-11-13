@@ -1289,8 +1289,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const worktree = text(params, 'path');
     const hash = hashOf(params);
     const file = text(params, 'file');
+    // Where the commit has it, if not there (renamed since).
+    const source =
+      (params as { source?: unknown }).source === undefined ? file : text(params, 'source');
     await recording(worktree, 'Get from VCS', git, () =>
-      getVersion(worktree, hash, file, git, gitBytes),
+      getVersion(worktree, hash, file, git, gitBytes, source),
     );
     return null;
   });
