@@ -31,6 +31,7 @@ import {
   diffTab,
   fileTab,
   folderContent,
+  replacing,
   revisionTab,
   type Change,
   type Range,
@@ -878,19 +879,8 @@ export function CommitFiles(props: {
     },
     get: async (change) => {
       await saveBeforeGit();
-      // Changed here, untracked too: asked first, as IntelliJ's (ReplaceFileConfirmationDialog),
-      // in its words.
-      const here = (await props.host.request('git.changes', { path: props.worktree })) as Change[];
-      if (here.some((c) => c.path === change.path)) {
-        const overwrite = await openDialog<true>({
-          title: 'Get Revision',
-          ok: { label: 'Overwrite Modified File', accept: () => true },
-          content: () => (
-            <p class="cerebro-selectable">{`File ${change.path} has been locally modified.`}</p>
-          ),
-        }).result;
-        if (!overwrite) return;
-      }
+      // Changed here, untracked too: asked first, as IntelliJ's.
+      if (!(await replacing(props.host, props.worktree, change.path, 'Get Revision'))) return;
       try {
         await props.host.request('git.getVersion', {
           path: props.worktree,

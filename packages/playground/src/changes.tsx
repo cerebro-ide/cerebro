@@ -599,6 +599,27 @@ export function notCommitted(worktree: string, path: string): boolean {
   return status === 'untracked' || status === 'added';
 }
 
+/**
+ * Whether to go on making `path` as a commit or branch has it: at once where it has no change here,
+ * else as answered when asked, in IntelliJ's words (`ReplaceFileConfirmationDialog`), its changes
+ * being lost. `title` is the action's.
+ */
+export async function replacing(
+  host: Host,
+  worktree: string,
+  path: string,
+  title: string,
+): Promise<boolean> {
+  const here = (await host.request('git.changes', { path: worktree })) as Change[];
+  if (!here.some((c) => c.path === path)) return true;
+  const overwrite = await openDialog<true>({
+    title,
+    content: () => <p class="cerebro-selectable">File {path} has been locally modified.</p>,
+    ok: { label: 'Overwrite Modified File', accept: () => true },
+  }).result;
+  return overwrite === true;
+}
+
 /** Reads a worktree's changes again, if the Commit window has shown them: after shelving. */
 export async function refreshChanges(worktree: string): Promise<void> {
   await lists.get(worktree)?.refresh(true);
