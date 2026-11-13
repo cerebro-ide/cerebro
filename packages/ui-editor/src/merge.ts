@@ -55,10 +55,14 @@ const LAST = 0xd7ff;
 
 /** The lines a side changed in the base, by a diff of the lines as characters. */
 export function lineChanges(base: Text, side: Text): LineRange[] {
+  return changesOf(base.toJSON(), side.toJSON());
+}
+
+/** What a side changed in the base's pieces (lines, or words), by a diff of each as a character. */
+function changesOf(base: readonly string[], side: readonly string[]): LineRange[] {
   const codes = new Map<string, string>();
-  const encode = (doc: Text) =>
-    doc
-      .toJSON()
+  const encode = (pieces: readonly string[]) =>
+    pieces
       .map((line) => {
         let code = codes.get(line);
         if (code === undefined) {
@@ -77,15 +81,25 @@ export function lineChanges(base: Text, side: Text): LineRange[] {
   }));
 }
 
-/** The changes yours and theirs made to the base, in order. */
-export function mergeChanges(base: Text, yours: Text, theirs: Text): MergeChange[] {
-  const sides = [lineChanges(base, yours), lineChanges(base, theirs)] as const;
+/** A stretch of the base that one side changed, or both: what of it each has, and who changed it. */
+interface Combined {
+  base: Lines;
+  yours: Lines;
+  theirs: Lines;
+  changed: { yours: boolean; theirs: boolean };
+}
+
+/**
+ * Yours' and theirs' changes to the base's pieces, combined where they touch or overlap, as
+ * IntelliJ's `ComparisonMergeUtil` does.
+ */
+function combine(sides: readonly [LineRange[], LineRange[]]): Combined[] {
   const next = [0, 0];
-  const changes: MergeChange[] = [];
+  const combined: Combined[] = [];
   const at = (side: 0 | 1) => sides[side][next[side] as number];
   for (;;) {
     const [y, t] = [at(0), at(1)];
-    if (!y && !t) return changes;
+    if (!y && !t) return combined;
     const before = [...next];
     const start = Math.min(y?.start1 ?? Infinity, t?.start1 ?? Infinity);
     let end = start;
@@ -100,15 +114,52 @@ export function mergeChanges(base: Text, yours: Text, theirs: Text): MergeChange
     function nextTouching(): 0 | 1 | undefined {
       return ([0, 1] as const).find((side) => (at(side)?.start1 ?? Infinity) <= end);
     }
-    const yoursLines = span(sides[0], before[0] as number, next[0] as number, start, end);
-    const theirsLines = span(sides[1], before[1] as number, next[1] as number, start, end);
-    const kind: MergeKind = !taken[1]
-      ? 'yours'
-      : !taken[0]
-        ? 'theirs'
-        : linesText(yours, yoursLines) === linesText(theirs, theirsLines)
-          ? 'both'
-          : 'conflict';
-    changes.push({ kind, base: { from: start, to: end }, yours: yoursLines, theirs: theirsLines });
+    combined.push({
+      base: { from: start, to: end },
+      yours: span(sides[0], before[0] as number, next[0] as number, start, end),
+      theirs: span(sides[1], before[1] as number, next[1] as number, start, end),
+      changed: { yours: taken[0] as boolean, theirs: taken[1] as boolean },
+    });
   }
+}
+
+/** The changes yours and theirs made to the base, in order. */
+export function mergeChanges(base: Text, yours: Text, theirs: Text): MergeChange[] {
+  return combine([lineChanges(base, yours), lineChanges(base, theirs)]).map((c) => ({
+    kind: !c.changed.theirs
+      ? 'yours'
+      : !c.changed.yours
+        ? 'theirs'
+        : linesText(yours, c.yours) === linesText(theirs, c.theirs)
+          ? 'both'
+          : 'conflict',
+    base: c.base,
+    yours: c.yours,
+    theirs: c.theirs,
+  }));
+}
+
+/** A text's words, runs of white space, and each other character, as IntelliJ's word diff splits it. */
+const WORDS = /[\p{L}\p{N}_]+|\s+|[^\p{L}\p{N}_\s]/gu;
+
+/**
+ * A conflict's lines resolved, as IntelliJ's Resolve Simple Conflicts (`MergeResolveUtil.tryResolve`,
+ * read from its source): compared word by word, each side's changes are taken where the other
+ * didn't change those words, or made the same change; undefined where both changed the same words
+ * differently, or inserted different words in the same place, whose order can't be known.
+ */
+export function resolveConflict(base: string, yours: string, theirs: string): string | undefined {
+  const words = (text: string): string[] => text.match(WORDS) ?? [];
+  const [b, y, t] = [words(base), words(yours), words(theirs)];
+  const piece = (words: readonly string[], lines: Lines) =>
+    words.slice(lines.from, lines.to).join('');
+  let resolved = '';
+  let done = 0;
+  for (const c of combine([changesOf(b, y), changesOf(b, t)])) {
+    const [mine, others] = [piece(y, c.yours), piece(t, c.theirs)];
+    if (c.changed.yours && c.changed.theirs && mine !== others) return undefined;
+    resolved += piece(b, { from: done, to: c.base.from }) + (c.changed.yours ? mine : others);
+    done = c.base.to;
+  }
+  return resolved + piece(b, { from: done, to: b.length });
 }

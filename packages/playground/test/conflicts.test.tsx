@@ -287,16 +287,47 @@ describe('the Conflicts dialog', () => {
     await pressIn(question, 'Continue Merge');
     // Both taken, it's all processed, and Apply applies.
     const all = [...window.querySelectorAll<HTMLElement>('.playground-merge__toolbar button')];
-    expect(all.map((b) => b.textContent)).toEqual(['Left', 'All', 'Right']);
+    expect(all.map((b) => b.textContent)).toEqual([
+      'Left',
+      'All',
+      'Right',
+      'Resolve Simple Conflicts',
+    ]);
+    expect((all[3] as HTMLButtonElement).disabled).toBe(false);
     await userEvent.click(all[1] as HTMLElement);
+    expect(window.querySelector('.playground-merge__left')?.textContent).toBe(
+      'All changes have been processed',
+    );
+    // Nothing left for it.
+    expect((all[3] as HTMLButtonElement).disabled).toBe(true);
+    await pressIn(window, 'Apply');
+    await expect
+      .poll(() => host.params('git.resolve'))
+      .toEqual([{ path: '/r', file: 'a.ts', text: 'A\nb\nC\n' }]);
+    await expect.poll(rows).toHaveLength(2);
+  });
+
+  it('resolves the simple conflicts with Resolve Simple Conflicts, as IntelliJ’s', async () => {
+    state.revisions = {
+      binary: false,
+      base: 'a b\nc\nd\n',
+      yours: 'x b\nc\nd\n',
+      theirs: 'a y\nc\nD\n',
+    };
+    void resolveConflicts('/r');
+    await userEvent.dblClick(await row('a.ts'));
+    const window = await mergeWindow();
+    await expect
+      .poll(() => window.querySelector('.playground-merge__left')?.textContent)
+      .toBe('1 change, 1 conflict');
+    await userEvent.click(window.querySelector('.playground-merge__resolve') as HTMLElement);
     expect(window.querySelector('.playground-merge__left')?.textContent).toBe(
       'All changes have been processed',
     );
     await pressIn(window, 'Apply');
     await expect
       .poll(() => host.params('git.resolve'))
-      .toEqual([{ path: '/r', file: 'a.ts', text: 'A\nb\nC\n' }]);
-    await expect.poll(rows).toHaveLength(2);
+      .toEqual([{ path: '/r', file: 'a.ts', text: 'x y\nc\nD\n' }]);
   });
 
   it('closes the merge window with Escape, from its editors too, as a dialog', async () => {

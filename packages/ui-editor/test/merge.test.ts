@@ -1,6 +1,6 @@
 import { Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { linesText, mergeChanges } from '../src/merge.js';
+import { linesText, mergeChanges, resolveConflict } from '../src/merge.js';
 
 const doc = (...lines: string[]) => Text.of([...lines, '']);
 const changes = (base: Text, yours: Text, theirs: Text) =>
@@ -71,5 +71,33 @@ describe('three-way merge', () => {
     expect(linesText(text, { from: 0, to: 2 })).toBe('one\ntwo\n');
     expect(linesText(text, { from: 2, to: 3 })).toBe('three');
     expect(linesText(text, { from: 1, to: 1 })).toBe('');
+  });
+});
+
+describe('a conflict resolved word by word, as IntelliJ’s Resolve Simple Conflicts', () => {
+  it('takes each side’s words where the other didn’t change them', () => {
+    expect(resolveConflict('let a = 1;\n', 'const a = 1;\n', 'let a = 2;\n')).toBe(
+      'const a = 2;\n',
+    );
+    // Words joined by other characters are words of their own.
+    expect(resolveConflict('foo.bar()\n', 'foo.baz()\n', 'qux.bar()\n')).toBe('qux.baz()\n');
+    // A deletion on one side, an insertion elsewhere on the other.
+    expect(resolveConflict('a b c\n', 'a c\n', 'a b c d\n')).toBe('a c d\n');
+  });
+
+  it('takes the same change once', () => {
+    expect(resolveConflict('a b c\n', 'x b z\n', 'x b c\n')).toBe('x b z\n');
+  });
+
+  it('can’t where both changed the same words differently, or inserted in one place', () => {
+    expect(resolveConflict('a = 1\n', 'a = 2\n', 'a = 3\n')).toBeUndefined();
+    expect(resolveConflict('f()\n', 'f(x)\n', 'f(y)\n')).toBeUndefined();
+    // Changes that touch are one: which word goes first isn't known.
+    expect(resolveConflict('ab.cd\n', 'xy.cd\n', 'ab,cd\n')).toBeUndefined();
+  });
+
+  it('keeps what neither changed, before and after', () => {
+    expect(resolveConflict('', '', '')).toBe('');
+    expect(resolveConflict('same\n', 'same\n', 'same\n')).toBe('same\n');
   });
 });

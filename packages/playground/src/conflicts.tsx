@@ -175,6 +175,16 @@ async function mergeFile(
               {{ yours: 'Left', all: 'All', theirs: 'Right' }[side]}
             </button>
           ))}
+          {/* After them, as IntelliJ's toolbar (`MagicResolvedConflictsAction`, its words). */}
+          <button
+            class="playground-link playground-merge__resolve"
+            disabled={() => !(control.get()?.canResolveSimple() ?? false)}
+            on:click={() => {
+              control.peek()?.resolveSimple();
+            }}
+          >
+            Resolve Simple Conflicts
+          </button>
           <span class="playground-merge__left">
             {() => {
               const left = control.get()?.left() ?? { changes: 0, conflicts: 0 };

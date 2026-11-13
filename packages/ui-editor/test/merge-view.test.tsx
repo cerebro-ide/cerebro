@@ -2,13 +2,14 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { MergeEditor, type MergeControl, type MergeEditorProps } from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
 
 afterEach(() => {
+  vi.restoreAllMocks();
   cleanup?.();
   cleanup = undefined;
 });
@@ -268,6 +269,105 @@ describe('the merge editor', () => {
     expect(marked(result, 'modified')).toEqual(['e']);
     control.applyNonConflicting('all');
     expect(control.text()).toBe('typed a\nb\nc\nd\nE\n');
+  });
+
+  it('resolves a conflict word by word with its Resolve button, as IntelliJ’s', async () => {
+    const { root, result, control } = mount({
+      path: 'a.ts',
+      base: 'a\nlet x = 1;\nc\n',
+      yours: 'a\nconst x = 1;\nc\n',
+      theirs: 'a\nlet x = 2;\nc\n',
+    });
+    await frame();
+    const resolve = () => root.querySelector<HTMLElement>('.cm-merge3-resolve');
+    // In the result's gutter, at the conflict's line.
+    expect(resolve()?.title).toBe('Resolve');
+    expect(resolve()?.closest('.cm-gutterElement')?.getBoundingClientRect().top).toBe(
+      result.querySelectorAll('.cm-line')[1]?.getBoundingClientRect().top,
+    );
+    expect(control.canResolveSimple()).toBe(true);
+    await userEvent.click(resolve() as HTMLElement);
+    expect(control.text()).toBe('a\nconst x = 2;\nc\n');
+    expect(control.left()).toEqual({ changes: 0, conflicts: 0 });
+    await frame();
+    expect(resolve()).toBeNull();
+    expect(control.canResolveSimple()).toBe(false);
+  });
+
+  it('keeps the Resolve buttons in place as a resolved conflict shortens the text', async () => {
+    const crashed = vi.spyOn(console, 'error');
+    const { root, control } = mount({
+      path: 'a.txt',
+      base: 'a b long long line\nkeep\nx y\n',
+      yours: 'A b long long line\nkeep\nX y\n',
+      theirs: 'a b\nkeep\nx Y\n',
+    });
+    await frame();
+    const resolve = () => [...root.querySelectorAll<HTMLElement>('.cm-merge3-resolve')];
+    expect(resolve()).toHaveLength(2);
+    await userEvent.click(resolve()[0] as HTMLElement);
+    await frame();
+    expect(control.text()).toBe('A b\nkeep\nx y\n');
+    expect(crashed).not.toHaveBeenCalled();
+    expect(resolve()).toHaveLength(1);
+    await userEvent.click(resolve()[0] as HTMLElement);
+    expect(control.text()).toBe('A b\nkeep\nX Y\n');
+  });
+
+  it('offers no Resolve where it can’t: words changed on both sides, a side empty, a side done, or edited', async () => {
+    const unresolvable = mount({
+      path: 'a.txt',
+      base: 'a = 1\nb\n',
+      yours: 'a = 2\nb\n',
+      theirs: 'a = 3\nb\n',
+    });
+    await frame();
+    expect(unresolvable.root.querySelector('.cm-merge3-resolve')).toBeNull();
+    expect(unresolvable.control.canResolveSimple()).toBe(false);
+    cleanup?.();
+    // A side that deleted the lines.
+    const deleted = mount({ path: 'a.txt', base: 'a b\nc\n', yours: 'c\n', theirs: 'a x\nc\n' });
+    await frame();
+    expect(deleted.root.querySelector('.cm-merge3-resolve')).toBeNull();
+    cleanup?.();
+    const props = {
+      path: 'a.txt',
+      base: 'a b\nc\n',
+      yours: 'x b\nc\n',
+      theirs: 'a y\nc\n',
+    };
+    // A side taken.
+    const taken = mount(props);
+    await frame();
+    const accept = [...taken.root.querySelectorAll<HTMLElement>('.cm-merge3-control')].find(
+      (b) => b.title === 'Accept',
+    );
+    await userEvent.click(accept as HTMLElement);
+    await frame();
+    expect(taken.root.querySelector('.cm-merge3-resolve')).toBeNull();
+    cleanup?.();
+    // Typed into.
+    const { root, result, control } = mount(props);
+    await userEvent.click(result.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{End}!');
+    await frame();
+    await frame();
+    expect(root.querySelector('.cm-merge3-resolve')).toBeNull();
+    expect(control.canResolveSimple()).toBe(false);
+  });
+
+  it('resolves the simple conflicts and takes the changes not in conflict, leaving the rest', () => {
+    const { control } = mount({
+      path: 'a.txt',
+      base: 'a b\nkeep\nx = 1\nkeep\nend\n',
+      yours: 'A b\nkeep\nx = 2\nkeep\nend\n',
+      theirs: 'a B\nkeep\nx = 3\nkeep\nEND\n',
+    });
+    expect(control.left()).toEqual({ changes: 1, conflicts: 2 });
+    control.resolveSimple();
+    expect(control.text()).toBe('A B\nkeep\nx = 1\nkeep\nEND\n');
+    expect(control.left()).toEqual({ changes: 0, conflicts: 1 });
+    expect(control.canResolveSimple()).toBe(false);
   });
 
   it('follows the font size and the tab size', async () => {
