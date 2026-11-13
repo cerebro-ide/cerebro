@@ -50,6 +50,27 @@
   border-bottom: none;
 }
 
+/* A search field's history button, at its start: IntelliJ's magnifier with an arrow. */
+.cerebro-popup__history {
+  display: flex;
+  flex: none;
+  align-items: center;
+  margin-left: 6px;
+  padding: 2px;
+  border: none;
+  border-radius: 4px;
+  background: none;
+  color: var(--cerebro-text-muted);
+}
+
+.cerebro-popup__history:hover {
+  background: var(--cerebro-hover);
+}
+
+.cerebro-popup__history + .cerebro-popup__search {
+  padding-left: 4px;
+}
+
 .cerebro-popup__options {
   display: flex;
   flex: none;

@@ -99,7 +99,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Islands Dark and Islands Light (2026-10-27)](#islands-dark-and-islands-light-2026-10-27): the light theme measured; chosen in Settings, or synced with the OS
 - [Ready-made keymaps (2026-10-27)](#ready-made-keymaps-2026-10-27): IntelliJ's and VS Code's, for Windows and Linux and for macOS, chosen in Settings; IntelliJ's others (Eclipse, Emacs, NetBeans, Sublime Text, Visual Studio…) from its files
 - [Search Everywhere (2026-10-27)](#search-everywhere-2026-10-27): double Shift; tabs for All, Classes, Files, Symbols, Actions and Text, as IntelliJ's
-- [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's
+- [Search (2026-10-26)](#search-2026-10-26): Find in Files over ripgrep; Find and Replace in a file, as IntelliJ's; the search and replace history (changed 2026-11-13)
 - [Editing and saving (2026-10-26)](#editing-and-saving-2026-10-26): documents that outlive tabs, keeping their place; saving on its own, as IntelliJ; conflicts with the disk asked about; deleted files' tabs closed; the Edit menu, Undo named
 - [Opening a project (2026-10-26)](#opening-a-project-2026-10-26): projects as tabs in a window, a host per project; the Welcome window
 - [A basic IDE before git and agent management (2026-10-26)](#a-basic-ide-before-git-and-agent-management-2026-10-26): open, edit, search, navigate, language servers first
@@ -1863,8 +1863,9 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     with Enter (IntelliJ's text filter doesn't apply as one types:
     `vcs.log.filter.text.on.the.fly`, false). Alt+Up puts the history's texts in the field in
     turn, from the last. Leaving the field applies its text without remembering it, as IntelliJ's.
-    **Claims:** the popup has a search field, where IntelliJ's list has none; the magnifier is
-    the plain one, where IntelliJ's has an arrow (search with history).
+    **Claims:** the popup has a search field, where IntelliJ's list has none. The magnifier has
+    the arrow, as IntelliJ's (changed 2026-11-13: it was the plain one), and the list is Find in
+    Files' (decision "Search").
 - **The User and Date filters** (changed 2026-11-07), after Branch, as IntelliJ's
   (UserFilterPopupComponent, DateFilterPopupComponent, MultipleValueFilterPopupComponent,
   VcsLogUserResolverBase, VcsUserUtil, UserNameRegex, FilterComponent):
@@ -4132,8 +4133,25 @@ after IntelliJ, open to change.
     the letters it handles with Alt (`data-alt-keys`: the editor's bar and Find in Files' popup), and
     the menu bar leaves those to it, as Swing gives the focused component its keys before the menu
     bar's mnemonics.
+- **The search and replace history** (added 2026-11-13; Ido: "in intellij the search input in
+  the modal has a search icon with a cheveron that when clicked shows the search history - I want
+  that too"), as IntelliJ's Find in Files (`SearchTextArea`'s ShowHistoryAction,
+  `FindInProjectSettingsBase`, `FindPopupPanel`, `FindUIHelper`, read from their source):
+  - The search field and the Replace field each have the magnifier with an arrow at their start
+    (IntelliJ's SearchWithHistory icon; ours is drawn after it, a claim). A press on it, or
+    Alt+Down in the field (ShowSearchHistory), lists "Search History" or "Replace History" below
+    the field, the latest first; the text chosen goes in the field and is searched, as if typed.
+  - What's kept, as IntelliJ's: what was searched for, and replaced with, as the popup closes
+    (its `saveSettings`) and at Replace (`updateFindSettings`); 300 of each, the same text moved
+    first, texts as they were typed; one for every repository, in the browser's storage.
+  - The Log's text filter shows its history through the same list, and its magnifier now has
+    the arrow too (decision "The Log", its history).
+  - **Claude's, open to change:** a blank text isn't kept; nothing opens with no history yet
+    (IntelliJ's shows an empty list); the list has a search field and is at least 360 pixels
+    wide (IntelliJ's is a plain list, as wide as its texts up to the field's width and 200 more).
 - **Not yet:** the Find window's tabs (a search each), its preview, and IntelliJ's Group By
-  options; Replace All undone as one step across files.
+  options; Replace All undone as one step across files; the field filled with the last search as
+  the popup opens, as IntelliJ's (`getMostRecentFindString`).
 
 ## Editing and saving (2026-10-26)
 

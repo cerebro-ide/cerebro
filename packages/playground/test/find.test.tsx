@@ -10,7 +10,9 @@ import {
   folderOf,
   masksOf,
   placeOf,
+  replaceHistory,
   replaceLines,
+  searchHistory,
   SEARCH_DELAY,
   WHOLE_LIMIT,
   type TextMatch,
@@ -404,6 +406,70 @@ describe('Find in Files', () => {
     await userEvent.keyboard('{Control>}{Enter}{/Control}');
     expect(await dialogText()).toBe('rg: broke');
     expect(shown).toEqual([]);
+  });
+});
+
+describe('the search history', () => {
+  const historyButton = (label: string) => q(`.cerebro-popup__history[aria-label="${label}"]`);
+  const historyItems = () =>
+    [...document.querySelectorAll('.cerebro-popup')]
+      .at(-1)
+      ?.querySelectorAll('.cerebro-popup-item__label');
+
+  it('keeps what was searched for as the popup closes, and offers it, as IntelliJ’s Find in Files', async () => {
+    localStorage.clear();
+    let { done } = await find('beta');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    ({ done } = await find('alpha'));
+    await userEvent.keyboard('{Escape}');
+    await done;
+    expect(searchHistory.texts()).toEqual(['alpha', 'beta']);
+    // Nothing typed: nothing kept.
+    ({ done } = await find(''));
+    await userEvent.click(historyButton('Search History'));
+    expect([...(historyItems() ?? [])].map((l) => l.textContent)).toEqual(['alpha', 'beta']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(search().value).toBe('beta');
+    await expect.poll(() => searches().at(-1)?.query).toBe('beta');
+    // Alt+Down in the field, too.
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    expect(historyItems()).toHaveLength(2);
+    await userEvent.keyboard('{Escape}{Escape}');
+    await done;
+    expect(searchHistory.texts()).toEqual(['beta', 'alpha']);
+  });
+
+  it('keeps what was replaced with, with its own history at the Replace field', async () => {
+    localStorage.clear();
+    disk.set('/r/r7/x.ts', 'omega\n');
+    let { done } = await find('omega', { replacing: true, file: '/r/r7/x.ts' });
+    await userEvent.type(input('.playground-find__replace'), 'psi');
+    await expect.poll(labels).toEqual(['omega']);
+    await userEvent.click(button('Replace'));
+    await expect.poll(() => disk.get('/r/r7/x.ts')).toBe('psi\n');
+    // Kept at Replace, the popup still open.
+    expect(replaceHistory.texts()).toEqual(['psi']);
+    expect(searchHistory.texts()).toEqual(['omega']);
+    await userEvent.clear(input('.playground-find__replace'));
+    await userEvent.type(input('.playground-find__replace'), 'chi');
+    await userEvent.keyboard('{Escape}');
+    await done;
+    expect(replaceHistory.texts()).toEqual(['chi', 'psi']);
+    ({ done } = await find('psi', { replacing: true, file: '/r/r7/x.ts' }));
+    await userEvent.click(historyButton('Replace History'));
+    expect([...(historyItems() ?? [])].map((l) => l.textContent)).toEqual(['chi', 'psi']);
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(input('.playground-find__replace').value).toBe('psi');
+    await expect.poll(() => searches().at(-1)?.replace).toBe('psi');
+    expect(document.activeElement).toBe(input('.playground-find__replace'));
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    expect(historyItems()).toHaveLength(2);
+    await userEvent.keyboard('{Escape}');
+    // The field's own keys still: Escape closes. The replacement is kept: none for the next test.
+    await userEvent.clear(input('.playground-find__replace'));
+    await userEvent.keyboard('{Escape}');
+    await done;
   });
 });
 

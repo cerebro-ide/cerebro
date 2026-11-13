@@ -20,7 +20,7 @@ import { computed, effect, signal, untracked, type Disposable } from '@cerebro-i
 import type { Tab } from '@cerebro-ide/layout';
 import { Splitter } from '@cerebro-ide/ui-layout';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import { fuzzyFilter, showSearchHistory, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton, ToolbarDropdown, ToolbarRow } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
@@ -57,6 +57,7 @@ import { pathsText, pathsTooltip, pickPaths, shortenText } from './log-paths.js'
 import type { FileNode } from './project.js';
 import { resolveUsers, type Author } from './log-users.js';
 import { GraphLayout, type Edge, type GraphRow } from './log-graph.js';
+import { SearchHistory } from './search-history.js';
 
 /** A commit, as the host's `git.log` gives it. */
 export interface LogCommit {
@@ -1188,37 +1189,14 @@ function showBranches(show: boolean): void {
   }
 }
 
-/** Where the text filter's history is kept: one for every repository, as IntelliJ's. */
-const TEXT_HISTORY = 'cerebro.log.textHistory';
-
-/** The text filter's history, the latest first. */
-export function textHistory(): string[] {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(TEXT_HISTORY) ?? '[]');
-    return Array.isArray(stored) ? stored.filter((text) => typeof text === 'string') : [];
-  } catch {
-    return [];
-  }
-}
-
 /**
- * Adds text to the history, as IntelliJ's SearchTextField: trimmed, none if blank, the same in
- * another case moved first (left as it was if first already), five at most.
+ * The text filter's history, as IntelliJ's SearchTextField keeps it: five, trimmed, the same text
+ * in another case moved first.
  */
-export function rememberText(text: string): void {
-  const item = text.trim();
-  const history = textHistory();
-  const same = (other: string) => other.toLowerCase() === item.toLowerCase();
-  if (item === '' || (history[0] !== undefined && same(history[0]))) return;
-  try {
-    localStorage.setItem(
-      TEXT_HISTORY,
-      JSON.stringify([item, ...history.filter((other) => !same(other))].slice(0, 5)),
-    );
-  } catch {
-    // Not remembered: the history stays as it was.
-  }
-}
+export const logTextHistory = new SearchHistory('cerebro.log.textHistory', {
+  limit: 5,
+  loose: true,
+});
 
 /**
  * The text filter, as IntelliJ's: the text typed applies on Enter, or as the field loses the focus
@@ -1244,32 +1222,22 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
     typed.set(text);
   };
   const showHistory = () => {
-    rememberText(typed.peek());
-    const history = textHistory();
-    if (history.length === 0) return;
-    const below = search as HTMLElement;
-    const handle = openPicker({
+    logTextHistory.remember(typed.peek());
+    void showSearchHistory({
       label: 'Search History',
-      placeholder: 'Search',
-      position: { below },
-      owner: below,
-      items: (query) =>
-        fuzzyFilter(
-          history.map((label) => ({ label })),
-          query,
-        ),
-    });
-    void handle.result.then((choice) => {
-      if (!choice) return;
-      put(choice.label);
-      rememberText(choice.label);
+      texts: logTextHistory.texts(),
+      below: search as HTMLElement,
+    }).then((text) => {
+      if (text === undefined) return;
+      put(text);
+      logTextHistory.remember(text);
     });
   };
   // Where Alt+Up is in the history, as IntelliJ's myCurrentHistoryIndex.
   let at = 0;
   const previous = () => {
-    if (!textHistory().includes(typed.peek())) rememberText(typed.peek());
-    const history = textHistory();
+    if (!logTextHistory.texts().includes(typed.peek())) logTextHistory.remember(typed.peek());
+    const history = logTextHistory.texts();
     if (history.length < 2) return;
     at = (at - 1 + history.length) % history.length;
     put(history[at] as string);
@@ -1310,10 +1278,10 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
           // The field keeps the focus, as IntelliJ's, until the popup takes it.
           event.preventDefault();
           // Only once there's a history, as IntelliJ's.
-          if (textHistory().length > 0) showHistory();
+          if (logTextHistory.texts().length > 0) showHistory();
         }}
       >
-        {icon('search')}
+        {icon('searchHistory')}
       </span>
       <input
         class="playground-log__search-field"
@@ -1334,7 +1302,7 @@ function TextFilterField(props: { services: MenuServices; log: Log; name: string
         }}
         on:keydown={(event) => {
           if (event.key === 'Enter') {
-            rememberText(typed.peek());
+            logTextHistory.remember(typed.peek());
             apply();
           } else if (event.altKey && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
             event.preventDefault();

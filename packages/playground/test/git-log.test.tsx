@@ -17,11 +17,10 @@ import {
   rangeOf,
   readBranchesShown,
   refsOf,
-  rememberText,
   setupLog,
   showHistory,
   showInLog,
-  textHistory,
+  logTextHistory,
   viewCommits,
   type LogCommit,
   type LogCommitContext,
@@ -1868,31 +1867,31 @@ describe('the text filter’s history', () => {
   });
 
   it('keeps five, the latest first, trimmed, the same in another case moved first', () => {
-    expect(textHistory()).toEqual([]);
-    rememberText('  ');
-    expect(textHistory()).toEqual([]);
-    for (const text of ['a', ' b ', 'c', 'd', 'e', 'f']) rememberText(text);
-    expect(textHistory()).toEqual(['f', 'e', 'd', 'c', 'b']);
-    rememberText('C');
-    expect(textHistory()).toEqual(['C', 'f', 'e', 'd', 'b']);
+    expect(logTextHistory.texts()).toEqual([]);
+    logTextHistory.remember('  ');
+    expect(logTextHistory.texts()).toEqual([]);
+    for (const text of ['a', ' b ', 'c', 'd', 'e', 'f']) logTextHistory.remember(text);
+    expect(logTextHistory.texts()).toEqual(['f', 'e', 'd', 'c', 'b']);
+    logTextHistory.remember('C');
+    expect(logTextHistory.texts()).toEqual(['C', 'f', 'e', 'd', 'b']);
     // First already, in any case: left as it was.
-    rememberText('c');
-    expect(textHistory()).toEqual(['C', 'f', 'e', 'd', 'b']);
+    logTextHistory.remember('c');
+    expect(logTextHistory.texts()).toEqual(['C', 'f', 'e', 'd', 'b']);
   });
 
   it('reads none from what isn’t a list of texts, and goes on when it can’t be kept', () => {
     localStorage.setItem('cerebro.log.textHistory', 'not JSON');
-    expect(textHistory()).toEqual([]);
+    expect(logTextHistory.texts()).toEqual([]);
     localStorage.setItem('cerebro.log.textHistory', '{"a":1}');
-    expect(textHistory()).toEqual([]);
+    expect(logTextHistory.texts()).toEqual([]);
     localStorage.setItem('cerebro.log.textHistory', '["a",1]');
-    expect(textHistory()).toEqual(['a']);
+    expect(logTextHistory.texts()).toEqual(['a']);
     const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('full');
     });
-    rememberText('b');
+    logTextHistory.remember('b');
     setItem.mockRestore();
-    expect(textHistory()).toEqual(['a']);
+    expect(logTextHistory.texts()).toEqual(['a']);
   });
 });
 
@@ -1989,7 +1988,7 @@ describe('the text filter', () => {
     await userEvent.clear(field());
     await userEvent.keyboard('other');
     await userEvent.click(rows()[0] as HTMLElement);
-    expect(textHistory()).toEqual(['docs', 'fix']);
+    expect(logTextHistory.texts()).toEqual(['docs', 'fix']);
     await userEvent.click(field());
     await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
     expect(popup()?.querySelector('[role="listbox"]')).not.toBeNull();
@@ -2001,7 +2000,7 @@ describe('the text filter', () => {
     // Put in the field, to apply with Enter.
     expect(field().value).toBe('fix');
     expect(rows()[0]?.getAttribute('data-key')).not.toBe('f0');
-    expect(textHistory()).toEqual(['fix', 'other', 'docs']);
+    expect(logTextHistory.texts()).toEqual(['fix', 'other', 'docs']);
     await userEvent.click(magnifier);
     expect(items()).toEqual(['fix', 'other', 'docs']);
     await userEvent.keyboard('{Escape}');
@@ -2014,7 +2013,7 @@ describe('the text filter', () => {
     // Text not in it is added first.
     await userEvent.clear(field());
     await userEvent.keyboard('new{Alt>}{ArrowUp}{/Alt}');
-    expect(textHistory()).toEqual(['new', 'fix', 'other', 'docs']);
+    expect(logTextHistory.texts()).toEqual(['new', 'fix', 'other', 'docs']);
     expect(field().value).toBe('fix');
   });
 

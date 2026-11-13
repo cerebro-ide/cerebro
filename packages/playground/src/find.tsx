@@ -11,11 +11,19 @@
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import { applyCase, CodeEditor, preserveCaseIcon } from '@cerebro-ide/ui-editor';
-import { openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import {
+  openPicker,
+  SearchHistoryButton,
+  showSearchHistory,
+  showsHistory,
+  type PickerItem,
+} from '@cerebro-ide/ui-popup';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { documentFor, saveFiles } from './documents.js';
 import type { Occurrences } from './find-window.js';
 import { active, hostFor } from './environments.js';
+import { icon } from './icons.js';
+import { SearchHistory } from './search-history.js';
 
 /** A line found, as the host gives it. */
 export interface TextMatch {
@@ -30,6 +38,25 @@ export interface TextMatch {
 type Found = { matches: TextMatch[]; limited: boolean } | { error: string };
 
 type Choice = PickerItem & { match: TextMatch };
+
+/**
+ * What Find and Replace in Files searched for, and replaced with, as IntelliJ's
+ * FindInProjectSettings keeps them: 300 each, the same text moved first.
+ */
+export const searchHistory = new SearchHistory('cerebro.find.searchHistory', {
+  limit: 300,
+  loose: false,
+});
+export const replaceHistory = new SearchHistory('cerebro.find.replaceHistory', {
+  limit: 300,
+  loose: false,
+});
+
+/** Remembers what was searched for, and replaced with: IntelliJ's updateFindSettings. */
+function remember(query: string, replacement: string | undefined): void {
+  searchHistory.remember(query);
+  if (replacement !== undefined) replaceHistory.remember(replacement);
+}
 
 /** How long typing pauses before the search runs. */
 export const SEARCH_DELAY = 150;
@@ -354,6 +381,7 @@ export async function findInFiles(options: FindOptions): Promise<void> {
   /** The highlighted line's matches, replaced; the list is searched again. */
   const replaceOne = async () => {
     await settled();
+    remember(query.peek(), replacement.peek());
     const item = picker.highlighted();
     if (!item) return;
     const { skipped } = await replaceLines([item.match], preserveCase.peek());
@@ -444,7 +472,29 @@ export async function findInFiles(options: FindOptions): Promise<void> {
     if (event.key === 'Enter') search();
     if (event.key === 'Escape') close();
   };
+  let replaceRow: HTMLElement | undefined;
+  let replaceField: HTMLInputElement | undefined;
+  /** The Replace field's history, below it; the text chosen put in it. */
+  const showReplaceHistory = () => {
+    void showSearchHistory({
+      label: 'Replace History',
+      texts: replaceHistory.texts(),
+      below: replaceRow as HTMLElement,
+    }).then((text) => {
+      if (text === undefined) return;
+      const field = replaceField as HTMLInputElement;
+      field.value = text;
+      field.focus();
+      replacement.set(text);
+      search();
+    });
+  };
   const picker = openPicker<Choice>({
+    history: {
+      label: 'Search History',
+      icon: icon('searchHistory'),
+      texts: () => searchHistory.texts(),
+    },
     altKeys: Object.keys(keys)
       .map((code) => code.slice('Key'.length))
       .join(''),
@@ -497,19 +547,42 @@ export async function findInFiles(options: FindOptions): Promise<void> {
       <div class="playground-find__toolbar">
         {replacing ? (
           <div class="playground-find__row">
-            <input
-              class="playground-find__field playground-find__replace"
-              type="text"
-              spellcheck={false}
-              aria-label="Replace with"
-              placeholder="Replace with"
-              value={replacement.peek()}
-              on:input={(event) => {
-                replacement.set((event.currentTarget as HTMLInputElement).value);
-                search();
+            <div
+              class="playground-find__history-field"
+              ref={(element: HTMLElement) => {
+                replaceRow = element;
               }}
-              on:keydown={fieldKeys}
-            />
+            >
+              <SearchHistoryButton
+                label="Replace History"
+                icon={icon('searchHistory')}
+                show={showReplaceHistory}
+              />
+              <input
+                class="playground-find__field playground-find__replace"
+                type="text"
+                spellcheck={false}
+                aria-label="Replace with"
+                placeholder="Replace with"
+                value={replacement.peek()}
+                ref={(input: HTMLInputElement) => {
+                  replaceField = input;
+                }}
+                on:input={(event) => {
+                  replacement.set((event.currentTarget as HTMLInputElement).value);
+                  search();
+                }}
+                on:keydown={(event) => {
+                  if (showsHistory(event)) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    showReplaceHistory();
+                    return;
+                  }
+                  fieldKeys(event);
+                }}
+              />
+            </div>
             <Toggle
               label="Preserve case (Alt+E)"
               text={preserveCaseIcon()}
@@ -571,6 +644,8 @@ export async function findInFiles(options: FindOptions): Promise<void> {
   });
   const chosen = await picker.result;
   clearTimeout(timer);
+  // As IntelliJ's popup saves its settings as it closes.
+  remember(query.peek(), replacing ? replacement.peek() : undefined);
   if (chosen) {
     const { match } = chosen;
     open({ path: match.path, line: match.line, column: match.ranges[0]?.[0] ?? 0 });
