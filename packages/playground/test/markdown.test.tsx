@@ -251,6 +251,6 @@ describe('a Markdown file’s links', () => {
     const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
       .shadowRoot as ShadowRoot;
     for (const link of root.querySelectorAll<HTMLElement>('.cerebro-doc__link')) link.click();
-    expect(open.mock.calls).toEqual([['/r/b.md']]);
+    expect(open.mock.calls).toEqual([[{ id: '/r/b.md', title: 'b.md' }]]);
   });
 });
