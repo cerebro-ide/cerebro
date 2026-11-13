@@ -17,6 +17,7 @@ import {
   rangeOf,
   readBranchesShown,
   refsOf,
+  columnWidth,
   fittingLabels,
   labelsRoom,
   markKinds,
@@ -312,7 +313,49 @@ describe('a commit’s date', () => {
   });
 });
 
+describe('the author’s and date’s columns', () => {
+  it('are as wide as the widest of the first 1000 rows, with a * after it, to 300 pixels', () => {
+    const measure = (text: string) => text.length * 10;
+    expect(columnWidth(['Ada', 'Grace'], measure)).toBe(60);
+    expect(columnWidth([], measure)).toBe(0);
+    expect(columnWidth(['a'.repeat(40)], measure)).toBe(300);
+    expect(columnWidth([...Array<string>(1000).fill('a'), 'longer'], measure)).toBe(20);
+    expect(columnWidth(['a'], () => 10.2)).toBe(11);
+  });
+});
+
 describe('the Log', () => {
+  it('sizes its author and date as what they show; the subject has what they leave', async () => {
+    git.log = history(3).map((commit, i) =>
+      i === 1 ? { ...commit, author: 'Ada Lovelace' } : commit,
+    );
+    mount();
+    await expect.poll(subjects).toEqual(['Change 0', 'Change 1', 'Change 2']);
+    const list = document.querySelector('.playground-log__commits') as HTMLElement;
+    const width = (row: HTMLElement, part: string) =>
+      (row.querySelector(`.playground-log__${part}`) as HTMLElement).getBoundingClientRect().width;
+    const first = () => rows()[0] as HTMLElement;
+    const second = rows()[1] as HTMLElement;
+    // Each row's author as wide as the widest, "Ada Lovelace", whole.
+    const author = width(first(), 'author');
+    expect(author).toBe(width(second, 'author'));
+    const name = second.querySelector('.playground-log__author') as HTMLElement;
+    expect(name.scrollWidth).toBeLessThanOrEqual(name.clientWidth);
+    expect(author).toBeLessThan(140);
+    // Narrow, the subject has what they leave (before, the author took 140 pixels and the date 130
+    // whatever they showed: at 225, the subject had none and the row overflowed, measured).
+    list.style.flex = 'none';
+    list.style.width = '340px';
+    await expect.poll(() => width(first(), 'subject')).toBeGreaterThan(40);
+    // Narrower still, the subject has none and the author and the date give way, in proportion, as
+    // IntelliJ's columns (Swing's JTable.doLayout): the row stays inside the list.
+    list.style.width = '120px';
+    await expect.poll(() => width(first(), 'author')).toBeLessThan(author);
+    expect(first().getBoundingClientRect().right).toBeLessThanOrEqual(
+      list.getBoundingClientRect().right,
+    );
+  });
+
   it('says why it shows nothing: no environment, a browser, or no git', () => {
     workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
     mount();
@@ -333,38 +376,39 @@ describe('the Log', () => {
     ]);
     const box = mount();
     await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
-    const first = rows()[0] as HTMLElement;
-    const subject = first.querySelector('.playground-log__subject') as HTMLElement;
-    const rest = first.querySelector('.playground-log__rest') as HTMLElement;
+    // Looked up each time: the tree draws its rows again as it's resized.
+    const first = () => rows()[0] as HTMLElement;
+    const subject = () => first().querySelector('.playground-log__subject') as HTMLElement;
+    const rest = () => first().querySelector('.playground-log__rest') as HTMLElement;
     /** Whether the mark, whole, ends inside the subject. */
     const inside = () => {
-      const marks = [...rest.querySelectorAll('.playground-log__mark')];
+      const marks = [...rest().querySelectorAll('.playground-log__mark')];
       const end = Math.max(
-        rest.getBoundingClientRect().right,
+        rest().getBoundingClientRect().right,
         ...marks.map((mark) => mark.getBoundingClientRect().right),
       );
-      return end <= subject.getBoundingClientRect().right + 0.5;
+      return end <= subject().getBoundingClientRect().right + 0.5;
     };
     const shown = () =>
-      [...first.querySelectorAll<HTMLElement>('.playground-log__ref')]
+      [...first().querySelectorAll<HTMLElement>('.playground-log__ref')]
         .filter((label) => !label.hidden)
         .map((label) => label.textContent);
     // Wide: all of them, no mark.
     await expect.poll(shown).toHaveLength(5);
-    expect(rest.hidden).toBe(true);
+    expect(rest().hidden).toBe(true);
     // Narrow: those that fit, inside the subject, then one mark for the rest, named on the pointer.
-    box.style.width = '1200px';
-    await expect.poll(() => rest.hidden).toBe(false);
+    box.style.width = '1090px';
+    await expect.poll(() => rest().hidden).toBe(false);
     expect(shown()).toEqual(['main', 'feat/login']);
-    expect(rest.title).toBe('feat/search, release/1.0, origin/main');
+    expect(rest().title).toBe('feat/search, release/1.0, origin/main');
     expect(inside()).toBe(true);
-    expect(rest.querySelector('.playground-log__rest-name')).toBeNull();
+    expect(rest().querySelector('.playground-log__rest-name')).toBeNull();
     // None fits: the mark of all of them, with the first's name.
-    box.style.width = '1000px';
+    box.style.width = '890px';
     await expect.poll(shown).toEqual([]);
-    expect(rest.querySelector('.playground-log__rest-name')?.textContent).toBe('main');
+    expect(rest().querySelector('.playground-log__rest-name')?.textContent).toBe('main');
     expect(
-      [...rest.querySelectorAll('.playground-log__mark')].map((mark) => mark.className),
+      [...rest().querySelectorAll('.playground-log__mark')].map((mark) => mark.className),
     ).toEqual([
       'playground-log__mark playground-log__mark--head',
       'playground-log__mark playground-log__mark--local',
@@ -375,7 +419,7 @@ describe('the Log', () => {
     // Wide again: all of them.
     box.style.width = '1400px';
     await expect.poll(shown).toHaveLength(5);
-    expect(rest.hidden).toBe(true);
+    expect(rest().hidden).toBe(true);
   });
 
   it('lists the commits, each with its graph, subject, refs, author and date', async () => {

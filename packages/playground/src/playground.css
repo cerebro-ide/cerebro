@@ -1402,9 +1402,14 @@ body,
   fill: currentcolor;
 }
 
+/*
+ * The rest of the row, as IntelliJ's Commit column, none of it when the others are too wide; cut
+ * at its edge, as a cell is, so refs not yet fitted to it don't widen the tree.
+ */
 .playground-log__subject {
   display: flex;
-  flex: auto;
+  overflow: hidden;
+  flex: 1 1 0;
   align-items: center;
   gap: 8px;
   min-width: 0;
@@ -1495,20 +1500,24 @@ body,
   text-overflow: ellipsis;
 }
 
+/*
+ * As wide as what they show (git-log.tsx); narrower in proportion when the row is too narrow for
+ * them, as Swing's JTable shares out a width (its doLayout).
+ */
 .playground-log__author,
 .playground-log__date {
   overflow: hidden;
-  flex: none;
   color: var(--cerebro-text-muted);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .playground-log__author {
-  width: 140px;
+  flex: 0 1 var(--playground-log-author);
 }
 
 .playground-log__date {
-  width: 130px;
+  flex: 0 1 var(--playground-log-date);
 }
 
 /* A branch's colour, by its number. */

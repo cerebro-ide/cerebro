@@ -1036,6 +1036,9 @@ describe('Delete', () => {
     await expect
       .poll(() => [...box.querySelectorAll('.playground-log__subject')].map((s) => s.textContent))
       .toEqual(['Second', 'First']);
+    // Its author's and date's columns as wide as what they show, as the Log's.
+    const columns = box.querySelector('.playground-unmerged__commits') as HTMLElement;
+    expect(columns.style.getPropertyValue('--playground-log-author')).toMatch(/^\d+px$/);
     // The first one's files, beside it.
     await expect
       .poll(() => host.params('git.changes').at(-1))

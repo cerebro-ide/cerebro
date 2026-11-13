@@ -1829,8 +1829,18 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   0.65), its first eight, the same in both themes; the refs' from VcsLogStandardColors (the branch
   checked out yellow, local green, remote purple, tags grey). Computed from IntelliJ's source, not
   measured on screen. **Claims:** the lane's width (14px), the dot's size, the refs' marks (a
-  square before the name), the author's and date's column widths, and dates as "Today 10:15",
-  "Yesterday 10:15" or the system's short date and time.
+  square before the name), and dates as "Today 10:15", "Yesterday 10:15" or the system's short date
+  and time.
+- **The author's and date's columns are as wide as what they show** (changed 2026-11-13; they
+  were 140 and 130 pixels whatever they showed, so a narrow Log, as each half of a comparison,
+  showed no subject: at 225 pixels the subject had none and the row overflowed, measured). As
+  IntelliJ's, read from its source: the widest of the first 1000 rows' texts with a `*` after it,
+  at most 300 pixels (VcsLogGraphTable, VcsLogStringCellRenderer). The subject has the rest, none
+  when they leave none; then they give way in proportion, as Swing's JTable shares out a width
+  (doLayout, from OpenJDK's source). The subject is cut at its edge, as a cell. The unmerged
+  commits' dialog sizes its columns the same way. **Not as IntelliJ's:** a column gives way in
+  proportion to its width, not to what it has over its minimum (15 pixels in Swing), and no column
+  keeps such a minimum (Claude's choice, open to change: CSS's flex shares it out that way).
 - **Refs that don't fit** (added 2026-11-13; they were drawn past the subject, over the author and
   date, measured in the built app): as IntelliJ's, read from its source. The labels have the room
   the message leaves, and at least half the subject or all of it but 80 pixels
