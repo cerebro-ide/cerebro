@@ -44,6 +44,7 @@ export const EDITOR_ACTIONS = {
   moveLineDown: 'editor.moveLineDown',
   deleteLine: 'editor.deleteLine',
   startNewLine: 'editor.startNewLine',
+  joinLines: 'editor.joinLines',
   matchBrace: 'editor.matchBrace',
   extendSelection: 'editor.extendSelection',
   shrinkSelection: 'editor.shrinkSelection',
@@ -155,6 +156,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+M'],
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+W'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+W'],
+    [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
   },
 };
 
@@ -255,6 +257,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+M'],
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Down'],
+    [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
   },
 };
 
@@ -608,6 +611,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     [EDITOR_ACTIONS.complete]: ['Ctrl+Space'],
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+J'],
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?', 'Meta+Shift+?'],
+    [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
   },
 };
 
@@ -722,6 +726,7 @@ export const SUBLIME: KeymapPreset = {
       'Ctrl+Shift+M',
     ],
     [EDITOR_ACTIONS.shrinkSelection]: [],
+    [EDITOR_ACTIONS.joinLines]: ['Ctrl+J'],
   },
 };
 
@@ -767,6 +772,7 @@ export const SUBLIME_MAC: KeymapPreset = {
       'Ctrl+Shift+M',
     ],
     [EDITOR_ACTIONS.shrinkSelection]: [],
+    [EDITOR_ACTIONS.joinLines]: ['Meta+J'],
   },
 };
 

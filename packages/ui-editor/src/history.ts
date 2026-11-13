@@ -26,6 +26,7 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['move.line.up', 'Move Line Up'],
   ['move.line.down', 'Move Line Down'],
   ['input.startNewLine', 'Start New Line'],
+  ['input.joinLines', 'Join Lines'],
   ['delete.cut', 'Cut'],
   ['delete.backward', 'Backspace'],
   ['delete.forward', 'Delete'],
