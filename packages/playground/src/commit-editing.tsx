@@ -7,8 +7,8 @@
 // message changed" after. Or Drop Commit (`GitDropLogAction`): asked first, unless told not to ask
 // again; "Dropping commit…" while the host drops it (`git.drop`), "Dropped 1 commit" after.
 // Either notification's Undo (`GitCommitEditingNotifications`) puts HEAD back (`git.undoEdit`)
-// unless it has moved since, and the notification goes. IntelliJ's Edit Again for HEAD's commit:
-// not yet.
+// unless it has moved since, and the notification goes; HEAD's commit reworded, Edit again
+// rewords HEAD's commit as it is then (`GitRewordService.launchRewordForHeads`).
 
 import { signal } from '@cerebro-ide/reactive';
 import type { Notification } from '@cerebro-ide/ui-notifications';
@@ -16,7 +16,7 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { saveBeforeGit } from './documents.js';
 import { currentBranch } from './git-fields.js';
-import type { LogCommitContext } from './git-log.js';
+import type { LogCommit, LogCommitContext } from './git-log.js';
 import { shortenText } from './log-paths.js';
 import { notifications } from './notifications.js';
 import { PROTECTED } from './push.js';
@@ -43,7 +43,8 @@ const UNDO: Record<Editing, { progress: string; impossible: string; failed: stri
 
 /**
  * Says an edit was done, as IntelliJ's `notifySuccess`, with Undo: HEAD back from `after` to
- * `before`. Done, or found impossible, the notification goes; failed, it stays.
+ * `before`. Done, or found impossible, the notification goes; failed, it stays. With `again`, Edit
+ * again, which the notification goes with.
  */
 function notifyEdited(
   at: LogCommitContext,
@@ -51,6 +52,7 @@ function notifyEdited(
   said: { title: string; content?: string },
   before: string,
   after: string,
+  again?: () => void,
 ): void {
   const { host, worktree } = at;
   const words = UNDO[editing];
@@ -94,8 +96,34 @@ function notifyEdited(
           void undo();
         },
       },
+      ...(again === undefined
+        ? []
+        : [
+            {
+              label: 'Edit again',
+              run: () => {
+                notifications.expire(notification);
+                again();
+              },
+            },
+          ]),
     ],
   });
+}
+
+/** IntelliJ's Edit again: HEAD's commit as it is now, reworded. */
+async function editAgain(at: LogCommitContext): Promise<void> {
+  try {
+    const [commit] = (await at.host.request('git.log', {
+      worktree: at.worktree,
+      skip: 0,
+      max: 1,
+      branches: ['HEAD'],
+    })) as LogCommit[];
+    if (commit !== undefined) await rewordCommit({ ...at, commit, head: commit.hash });
+  } catch (error) {
+    console.error('Reading HEAD’s commit for Edit again', error);
+  }
 }
 
 /** IntelliJ's warning before the first commit is edited; whether to go on. */
@@ -192,7 +220,14 @@ async function rewordCommit(at: LogCommitContext): Promise<void> {
       head,
     })) as { commit: string; head: string };
     reworded = made.commit;
-    notifyEdited(at, 'reword', { title: 'Commit message changed' }, head, made.head);
+    // HEAD's commit: Edit again.
+    const again =
+      commit.hash === head
+        ? () => {
+            void editAgain(at);
+          }
+        : undefined;
+    notifyEdited(at, 'reword', { title: 'Commit message changed' }, head, made.head, again);
   } catch (error) {
     // IntelliJ's in-memory reword's title, its words under it.
     notifications.notify({
