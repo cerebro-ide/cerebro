@@ -266,7 +266,20 @@ describe('with real git', () => {
     write('ours.txt', 'main\n');
     const main = commitAll('main');
     // The conflict in both.txt resolved as neither had it.
-    run(merging, 'merge', '-q', side, '-m', 'merge', '-X', 'ours');
+    run(
+      merging,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'merge',
+      '-q',
+      side,
+      '-m',
+      'merge',
+      '-X',
+      'ours',
+    );
     write('both.txt', 'resolved\n');
     run(merging, 'add', 'both.txt');
     run(
