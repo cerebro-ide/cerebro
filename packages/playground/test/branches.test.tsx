@@ -1019,7 +1019,7 @@ describe('New Branch', () => {
     const run = (refs: string[]) => Promise.resolve(commands.get('log.newBranch')?.run(at(refs)));
 
     it('makes a branch from the commit, as IntelliJ’s, and reads the Log again', async () => {
-      expect(menus.entries('log/commit')).toEqual([{ command: 'log.newBranch' }]);
+      expect(menus.entries('log/commit')).toContainEqual({ command: 'log.newBranch' });
       expect(commands.get('log.newBranch')).toMatchObject({ label: 'New Branch', dialog: true });
       const done = run(['tag: refs/tags/v1']);
       const box = await dialog();

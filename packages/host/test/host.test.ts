@@ -1171,6 +1171,15 @@ describe('ignored files and rolling back', () => {
       null,
     );
     expect(readFileSync(join(dir, 'a.ts'), 'utf8')).toBe('then');
+    // From where the commit has it.
+    await ui.request('git.getVersion', {
+      path: dir,
+      hash: 'abc1234',
+      file: 'b.ts',
+      source: 'a.ts',
+    });
+    expect(git).toHaveBeenCalledWith(dir, ['ls-tree', '--name-only', 'abc1234', '--', 'a.ts']);
+    expect(readFileSync(join(dir, 'b.ts'), 'utf8')).toBe('then');
     await expect(
       ui.request('git.getVersion', { path: dir, hash: '--all', file: 'a.ts' }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });

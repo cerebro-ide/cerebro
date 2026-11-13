@@ -257,6 +257,9 @@ describe('cherry-pick and revert, with real git', () => {
     write(repo, { 'new.txt': 'new\n' });
     await getVersion(repo, then, 'new.txt', git, gitBytes);
     expect(existsSync(join(repo, 'new.txt'))).toBe(false);
+    // Renamed since: the commit's file, from where it was.
+    await getVersion(repo, then, 'moved.txt', git, gitBytes, 'src/c.txt');
+    expect(readFileSync(join(repo, 'moved.txt'), 'utf8')).toBe('then\n');
     // A commit git can't read: it fails, and the file stays.
     write(repo, { 'a.txt': 'kept\n' });
     await expect(getVersion(repo, 'deadbeef', 'a.txt', git, gitBytes)).rejects.toThrow();

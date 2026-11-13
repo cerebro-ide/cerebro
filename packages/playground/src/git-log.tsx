@@ -742,6 +742,34 @@ const FILES_MENU = 'log/files';
 /** The files' Group By menu, from the button over them. */
 const FILES_GROUP_BY = 'log/files/groupBy';
 
+/**
+ * Makes the file at `path` as commit `hash` has it at `source` (where it was, if renamed since),
+ * or deletes it where the commit hasn't it, as IntelliJ's Get (`GetVersionAction`): unsaved edits
+ * saved, and asked first where the file has a change here, untracked too; then read again.
+ */
+export async function getRevision(
+  host: Host,
+  worktree: string,
+  hash: string,
+  path: string,
+  source = path,
+): Promise<void> {
+  await saveBeforeGit();
+  if (!(await replacing(host, worktree, path, 'Get Revision'))) return;
+  try {
+    await host.request('git.getVersion', {
+      path: worktree,
+      hash,
+      file: path,
+      ...(source === path ? {} : { source }),
+    });
+  } catch (error) {
+    // IntelliJ's words.
+    showError('Get Revision Content', `Cannot load revision: ${(error as Error).message}`);
+  }
+  await refreshAll(worktree);
+}
+
 /** A commit's files' list, as its commands act on it. */
 interface FilesTarget {
   /** The file selected, if any and it can be opened. */
@@ -877,21 +905,7 @@ export function CommitFiles(props: {
       }
       await refreshAll(props.worktree);
     },
-    get: async (change) => {
-      await saveBeforeGit();
-      // Changed here, untracked too: asked first, as IntelliJ's.
-      if (!(await replacing(props.host, props.worktree, change.path, 'Get Revision'))) return;
-      try {
-        await props.host.request('git.getVersion', {
-          path: props.worktree,
-          hash: range.to,
-          file: change.path,
-        });
-      } catch (error) {
-        showError('Get Revision Content', `Cannot load revision: ${(error as Error).message}`);
-      }
-      await refreshAll(props.worktree);
-    },
+    get: (change) => getRevision(props.host, props.worktree, range.to as string, change.path),
     tree: files,
     affected,
   };
