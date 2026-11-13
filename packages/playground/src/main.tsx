@@ -68,6 +68,7 @@ import { CompareBranches, compareRefs, setupCompare } from './compare-branches.j
 import { DiffWithWorkingTree, setupDiffWithWorkingTree } from './diff-with-working-tree.js';
 import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
+import { setupReword } from './reword.js';
 import { setupApplyChanges } from './apply-changes.js';
 import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
@@ -370,6 +371,7 @@ setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);
 setupReset(services);
+setupReword(services);
 setupApplyChanges(services);
 setupRemotes(services);
 watchState();
