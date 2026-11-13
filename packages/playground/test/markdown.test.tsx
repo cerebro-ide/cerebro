@@ -10,6 +10,7 @@ import {
   isMarkdown,
   isMarkdownTab,
   layoutOf,
+  localPath,
   MarkdownEditor,
   markdownActions,
   readKept,
@@ -113,7 +114,13 @@ describe('the layouts', () => {
     const container = mount(() => (
       <>
         <div class="test-actions">{markdownActions(commands, { group: 'g', tab: '/r/d.md' })}</div>
-        <MarkdownEditor path="/r/d.md" editor={editor} text={() => '# Hi'} line={() => 0} />
+        <MarkdownEditor
+          path="/r/d.md"
+          editor={editor}
+          text={() => '# Hi'}
+          line={() => 0}
+          open={() => undefined}
+        />
       </>
     ));
     container.style.cssText = 'position: fixed; inset: 0; width: 800px; height: 400px;';
@@ -197,12 +204,14 @@ describe('a Markdown file’s images', () => {
           editor={document.createElement('div')}
           text={() => '![dot](dot.png)'}
           line={() => 0}
+          open={() => undefined}
         />
         <MarkdownEditor
           path="/s/e.md"
           editor={document.createElement('div')}
           text={() => '![dot](dot.png)'}
           line={() => 0}
+          open={() => undefined}
         />
       </>
     ));
@@ -215,5 +224,33 @@ describe('a Markdown file’s images', () => {
       .toBe(`data:image/png;base64,${btoa('/r/dot.png')}`);
     expect(elsewhere?.querySelector('img')).toBeNull();
     expect(elsewhere?.textContent).toBe('dot');
+  });
+});
+
+describe('a Markdown file’s links', () => {
+  it('name files beside it by a relative path; not on the web, from the root, or its own anchors', () => {
+    expect(localPath('/r/docs/a.md', 'b.md#part')).toBe('/r/docs/b.md');
+    expect(localPath('/r/docs/a.md', '../src/my%20main.ts?x')).toBe('/r/src/my main.ts');
+    expect(localPath('/r/docs/a.md', 'mailto:a@b.c')).toBeUndefined();
+    expect(localPath('/r/docs/a.md', '/b.md')).toBeUndefined();
+    expect(localPath('/r/docs/a.md', '#part')).toBeUndefined();
+  });
+
+  it('open the file a link names when it’s pressed in the preview; not one on the web', () => {
+    chooseLayout('/r/docs/f.md', 'preview');
+    const open = vi.fn();
+    const container = mount(() => (
+      <MarkdownEditor
+        path="/r/docs/f.md"
+        editor={document.createElement('div')}
+        text={() => '[b](../b.md#top) [web](https://x.y)'}
+        line={() => 0}
+        open={open}
+      />
+    ));
+    const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    for (const link of root.querySelectorAll<HTMLElement>('.cerebro-doc__link')) link.click();
+    expect(open.mock.calls).toEqual([[{ id: '/r/b.md', title: 'b.md' }]]);
   });
 });

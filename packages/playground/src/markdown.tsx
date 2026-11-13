@@ -103,20 +103,25 @@ function imageMedia(path: string): string | undefined {
 }
 
 /**
- * The file an image's address names, beside the Markdown file: a relative path, `..` and `.`
- * resolved. None for an address on the web or from the root (`/a.png`), or one that isn't an image.
+ * The file a link's or an image's address names, beside the Markdown file: a relative path, `..`
+ * and `.` resolved, without its query or anchor. None for an address on the web or from the root
+ * (`/a.png`), or the page's own anchor (`#part`).
  */
-export function imagePath(file: string, address: string): string | undefined {
+export function localPath(file: string, address: string): string | undefined {
   const path = decodeURI(address.replace(/[?#].*$/, ''));
-  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('/') || !imageMedia(path)) {
-    return undefined;
-  }
+  if (/^[a-z][a-z0-9+.-]*:/i.test(path) || path.startsWith('/') || path === '') return undefined;
   const parts = file.split('/').slice(0, -1);
   for (const part of path.split('/')) {
     if (part === '..') parts.pop();
     else if (part !== '.' && part !== '') parts.push(part);
   }
   return parts.join('/');
+}
+
+/** The image an image's address names, beside the Markdown file: none for one that isn't one. */
+export function imagePath(file: string, address: string): string | undefined {
+  const path = localPath(file, address);
+  return path !== undefined && imageMedia(path) ? path : undefined;
 }
 
 /**
@@ -164,8 +169,15 @@ export function MarkdownEditor(props: {
   text: () => string;
   /** The editor's top line, which the preview follows. Read reactively. */
   line: () => number;
+  /** Opens a file a link names, in a tab. */
+  open: (tab: { id: string; title: string }) => void;
 }): Node {
   const image = imageLoader(props.path, readBytes);
+  // A link to a file beside it opens it; one to the web can't yet, with no way to a browser.
+  const link = (address: string) => {
+    const path = localPath(props.path, address);
+    if (path !== undefined) props.open({ id: path, title: path.split('/').at(-1) as string });
+  };
   const layout = () => layoutOf(props.path);
   const text = (
     <div class="playground-markdown__text" hidden={() => layout() === 'preview'}>
@@ -210,7 +222,7 @@ export function MarkdownEditor(props: {
       }
       {() =>
         layout() === 'editor' ? null : (
-          <MarkdownPreview text={props.text} line={props.line} image={image} />
+          <MarkdownPreview text={props.text} line={props.line} image={image} link={link} />
         )
       }
     </div>

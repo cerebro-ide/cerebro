@@ -5,7 +5,7 @@ import { tagHighlighter, tags } from '@lezer/highlight';
 import { afterEach, describe, expect, it } from 'vitest';
 import { drawMarkdown, gfmParser, type MarkdownStyle } from '../src/markdown.js';
 import { MarkdownPreview } from '../src/index.js';
-import { scrollFor } from '../src/markdown-preview.js';
+import { scrollFor, slug } from '../src/markdown-preview.js';
 
 const style: MarkdownStyle = {
   highlighter: tagHighlighter([{ tag: tags.keyword, class: 'kw' }]),
@@ -58,6 +58,24 @@ describe('Markdown drawn as a page', () => {
 
   it('draws nothing for a link’s definition, as GitHub’s page', () => {
     expect(page('[x]: https://x.y "Title"\n\nText').innerHTML).toBe('<p>Text</p>');
+  });
+
+  it('opens a link’s address when it’s pressed, if it’s told how; not one without an address', () => {
+    const opened: string[] = [];
+    const body = page('[a](a.md) https://c.d [ref][x]', {
+      ...style,
+      link: (to) => opened.push(to),
+    });
+    const links = [...body.querySelectorAll('.cerebro-doc__link')] as HTMLElement[];
+    for (const link of links) link.click();
+    expect(opened).toEqual(['a.md', 'https://c.d']);
+    expect(links.map((link) => link.classList.contains('cerebro-doc__link--opens'))).toEqual([
+      true,
+      true,
+      false,
+    ]);
+    const plain = page('[a](a.md)').querySelector('.cerebro-doc__link') as HTMLElement;
+    expect(plain.classList.contains('cerebro-doc__link--opens')).toBe(false);
   });
 
   it('shows an image once its source comes, its words until then or without one', async () => {
@@ -130,6 +148,56 @@ describe('a Markdown preview', () => {
     const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
       .shadowRoot as ShadowRoot;
     await expect.poll(() => root.querySelector('img')?.alt).toBe('dot');
+  });
+});
+
+describe('a link in the preview', () => {
+  it('names a heading by GitHub’s anchor', () => {
+    expect(slug(' Hello, World! ')).toBe('hello-world');
+    expect(slug('A tool’s window (2026-11-12)')).toBe('a-tools-window-2026-11-12');
+    expect(slug('snake_case Über')).toBe('snake_case-über');
+  });
+
+  it('goes to a heading of the page; else it’s opened as the page is told', () => {
+    const opened: string[] = [];
+    const parts = Array.from({ length: 30 }, (_, i) => `## Part ${String(i)}\n\nText.\n`);
+    const text = `[part](#Part-20) [gone](#nowhere) [other](b.md#part-1)\n\n${parts.join('\n')}`;
+    const container = document.body.appendChild(document.createElement('div'));
+    const handle = render(
+      () => <MarkdownPreview text={() => text} link={(to) => opened.push(to)} />,
+      container,
+    );
+    const preview = container.querySelector('.cerebro-markdown-preview') as HTMLElement;
+    preview.style.height = '300px';
+    const root = preview.shadowRoot as ShadowRoot;
+    const links = [...root.querySelectorAll('.cerebro-doc__link')] as HTMLElement[];
+    (links[1] as HTMLElement).click();
+    expect(preview.scrollTop).toBe(0);
+    (links[0] as HTMLElement).click();
+    const heading = [...root.querySelectorAll('h2')][20] as HTMLElement;
+    expect(heading.getBoundingClientRect().top - preview.getBoundingClientRect().top).toBeCloseTo(
+      0,
+      0,
+    );
+    (links[2] as HTMLElement).click();
+    expect(opened).toEqual(['b.md#part-1']);
+    handle.dispose();
+    container.remove();
+  });
+
+  it('goes to its headings without being told how to open other links', () => {
+    const errors: unknown[] = [];
+    const onError = (event: ErrorEvent) => errors.push(event.error);
+    window.addEventListener('error', onError);
+    const container = document.body.appendChild(document.createElement('div'));
+    const handle = render(() => <MarkdownPreview text={() => '[b](b.md)'} />, container);
+    const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    (root.querySelector('.cerebro-doc__link') as HTMLElement).click();
+    window.removeEventListener('error', onError);
+    expect(errors).toEqual([]);
+    handle.dispose();
+    container.remove();
   });
 });
 

@@ -15,6 +15,11 @@ export interface MarkdownStyle {
   /** Headings as h1–h6, as a page's (the preview's); else as a paragraph set apart (a tooltip's). */
   headings: boolean;
   /**
+   * Opens a link's address, as a press on it asks: links show their address on the pointer
+   * without it.
+   */
+  link?: (address: string) => void;
+  /**
    * An image's source (a `data:` URL: the page's policy allows no other) for its address; without
    * one, or until it comes, its words show.
    */
@@ -99,11 +104,18 @@ function code(text: string, name: string, highlighter: Highlighter): HTMLElement
   return pre;
 }
 
-/** A link's text, in the link colour, its address on the pointer: opening it is to come. */
-function link(address: string | undefined): HTMLElement {
+/** A link's text, in the link colour, its address on the pointer; opened by a press, if it can be. */
+function link(address: string | undefined, open: MarkdownStyle['link']): HTMLElement {
   const element = document.createElement('span');
   element.className = 'cerebro-doc__link';
-  if (address !== undefined) element.title = address;
+  if (address === undefined) return element;
+  element.title = address;
+  if (open) {
+    element.classList.add('cerebro-doc__link--opens');
+    element.addEventListener('click', () => {
+      open(address);
+    });
+  }
   return element;
 }
 
@@ -143,7 +155,7 @@ function elementFor(
   if (name === 'InlineCode') return document.createElement('code');
   if (name === 'Link') {
     const url = node.getChild('URL');
-    return link(url ? source.slice(url.from, url.to) : undefined);
+    return link(url ? source.slice(url.from, url.to) : undefined, style.link);
   }
   if (name === 'TableCell') {
     return document.createElement(node.parent?.name === 'TableHeader' ? 'th' : 'td');
@@ -173,7 +185,7 @@ export function drawMarkdown(
     const inside = node.parent?.name === 'Link' || node.parent?.name === 'Image';
     if (!inside) {
       const address = source.slice(node.from, node.to);
-      const element = link(address);
+      const element = link(address, style.link);
       element.textContent = address;
       parent.appendChild(element);
     }

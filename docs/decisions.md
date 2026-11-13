@@ -2528,7 +2528,13 @@ choose between the "code" the "view" or a side by side display of both". From In
   image can't run scripts from; a `data:` image as it is. Until an image comes, and where it can't
   be read, its words show. **Not yet:** images on the web (the page's policy allows none), and
   paths from the repository's root (`/logo.png`).
-- **Not yet:** IntelliJ's setting to turn the auto-scroll off; links opened; HTML drawn;
+- **Links** (added 2026-11-13): a press on one opens the file it names, by a path relative to the
+  Markdown file (its anchor dropped), in a tab; `#heading` goes to that heading of the page, by
+  GitHub's anchor (lower case, punctuation dropped, spaces as hyphens). Claude's choice, open to
+  change: every link shows the pointer, web ones too, which do nothing yet. A link's definition
+  (`[x]: https://x.y`) draws nothing, as on GitHub. **Not yet:** web links (the app has no way to
+  a browser), another file's anchor, and paths from the repository's root.
+- **Not yet:** IntelliJ's setting to turn the auto-scroll off; HTML drawn;
   IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
 
 ## A tool window's shortcut activates it (2026-11-12)
