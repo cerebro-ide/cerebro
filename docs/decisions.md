@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2879,6 +2879,15 @@ saving").
   sheets.
 - **Claims and differences:** a fold's lines aren't moved as one, where IntelliJ's moves over a
   folded region whole (not checked against its source).
+- **Delete Line** (added 2026-11-13), IntelliJ's `EditorDeleteLine` (`DeleteLineAction`, read
+  from its source), which CodeMirror had done on Ctrl+Shift+K: CodeMirror's `deleteLine`, which
+  does as IntelliJ's: the caret's line, or the lines a selection touches (not one it ends at the
+  start of), gone with a line break, the caret at its column on the line that takes their place.
+  Undo says "Undo Delete Line". Its keys, from IntelliJ's keymap files: Ctrl+Y (`$default`),
+  Cmd+Backspace on macOS; Eclipse's Ctrl+D (Cmd+D), NetBeans' Ctrl+E, Sublime Text's Ctrl+Shift+K,
+  Visual Studio's Ctrl+L and Ctrl+Shift+L (Cmd+Shift+L on macOS); none in Emacs's. VS Code's
+  Ctrl+Shift+K (Cmd+Shift+K), from its shortcut sheets. Each keymap whose Redo is Ctrl+Y gives it
+  another key.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.

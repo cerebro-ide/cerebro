@@ -8,6 +8,7 @@
 // custom properties are inherited into shadow roots.
 
 import {
+  deleteLine,
   historyField,
   indentWithTab,
   isolateHistory,
@@ -222,6 +223,8 @@ export interface EditorKeys {
   /** Move Line Up and Down: the caret's line, or the selection's, swapped with the next one. */
   moveLineUp?: readonly string[];
   moveLineDown?: readonly string[];
+  /** Delete Line: the caret's line, or the selection's, gone; the caret at its column below. */
+  deleteLine?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -250,6 +253,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   blockComment: ['Mod-Shift-/'],
   moveLineUp: ['Alt-Shift-ArrowUp'],
   moveLineDown: ['Alt-Shift-ArrowDown'],
+  deleteLine: ['Mod-y'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -839,6 +843,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
               ...keys.blockComment.map((key) => ({ key, run: commentByBlock })),
               ...keys.moveLineUp.map((key) => ({ key, run: moveLinesUp })),
               ...keys.moveLineDown.map((key) => ({ key, run: moveLinesDown })),
+              // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
+              ...keys.deleteLine.map((key) => ({ key, run: deleteLine })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]

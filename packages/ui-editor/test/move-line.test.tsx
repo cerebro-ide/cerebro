@@ -67,3 +67,26 @@ describe('Move Line’s keys in an editor', () => {
     expect(view.state.doc.toString()).toBe('a\nb');
   });
 });
+
+describe('Delete Line’s key in an editor', () => {
+  it('is Ctrl+Y, as IntelliJ’s, the caret at its column below, and Undo names it', async () => {
+    const container = document.createElement('div');
+    document.body.append(container);
+    const handle = render(
+      () => <CodeEditor path="a.txt" document={new EditorDocument('ab\ncd\nef')} />,
+      container,
+    );
+    const root = (container.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    const content = root.querySelector('.cm-content') as HTMLElement;
+    const view = EditorView.findFromDOM(content) as EditorView;
+    view.focus();
+    view.dispatch({ selection: { anchor: 4 } });
+    await userEvent.keyboard('{Control>}y{/Control}');
+    expect(view.state.doc.toString()).toBe('ab\nef');
+    expect(view.state.selection.main.head).toBe(4);
+    expect(historyNamesIn(content)?.undo).toBe('Delete Line');
+    handle.dispose();
+    container.remove();
+  });
+});

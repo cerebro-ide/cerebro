@@ -104,6 +104,7 @@ describe('the editor’s keys', () => {
       blockComment: ['Ctrl-Shift-/'],
       moveLineUp: ['Alt-Shift-ArrowUp'],
       moveLineDown: ['Alt-Shift-ArrowDown'],
+      deleteLine: ['Ctrl-y'],
       undo: [],
       redo: [],
     });
@@ -126,6 +127,7 @@ describe('the editor’s keys', () => {
       'blockComment',
       'moveLineUp',
       'moveLineDown',
+      'deleteLine',
       'find',
       'replace',
     ]);
