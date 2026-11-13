@@ -271,20 +271,31 @@ export class TreeModel<T> {
   }
 }
 
-/** Whether two lists hold the same nodes: each with the same fields, holding the same values. */
+/**
+ * Whether two lists hold the same nodes: each with the same fields, holding the same values, a
+ * group's children too, as plain data (arrays and plain objects) all the way down.
+ */
 function sameNodes<T>(a: readonly T[], b: readonly T[]): boolean {
-  return (
-    a.length === b.length &&
-    a.every((node, i) => {
-      const other = b[i] as T;
-      if (node === other) return true;
-      const keys = Object.keys(node as object);
-      return (
-        keys.length === Object.keys(other as object).length &&
-        keys.every(
-          (k) => (node as Record<string, unknown>)[k] === (other as Record<string, unknown>)[k],
-        )
-      );
-    })
-  );
+  return same(a, b, new Set());
 }
+
+/** Whether two values are the same data; `path` holds the objects compared above, against cycles. */
+function same(a: unknown, b: unknown, path: Set<object>): boolean {
+  if (a === b) return true;
+  if (!plain(a) || !plain(b) || Array.isArray(a) !== Array.isArray(b) || path.has(a)) return false;
+  const keys = Object.keys(a);
+  if (keys.length !== Object.keys(b).length) return false;
+  path.add(a);
+  const all = keys.every((k) =>
+    same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k], path),
+  );
+  path.delete(a);
+  return all;
+}
+
+/** An array, or an object made as a literal: data, compared by what it holds. */
+const plain = (value: unknown): value is object =>
+  Array.isArray(value) ||
+  (typeof value === 'object' &&
+    value !== null &&
+    Object.getPrototypeOf(value) === Object.prototype);

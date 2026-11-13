@@ -62,13 +62,6 @@ diff's model for one link (CLAUDE.md).
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
   forgets taps. The test now prints its taps' times and the window's focus if the popup doesn't
   open.
-- **A click into the Log as its window gets the focus may be lost** (found 2026-11-13, fixing
-  git-log.test's "show in a pane…", which failed when run alone): the Log reads its branches and
-  commits again when the window gets the focus (IntelliJ's refresh on activation), and the branches
-  pane draws all its rows again, the same ones too. In the test, whose page started without the
-  focus, the first click's press gave it, the fake host answered at once, and the row pressed was
-  gone before the click (measured). In the app, that a click is lost when the host answers within
-  a press is a claim, not measured. The test now gives its page the focus before it starts.
 - **Editing:** see "Not yet" in the decision "Editing and saving".
 - **Errors and warnings:** see "Not yet" in the decisions "Errors and warnings in the editor" (the
   Problems window's Project Errors tab and Group by Inspection, shell scripts) and "Quick fixes:

@@ -335,6 +335,47 @@ describe('TreeModel, all at once', () => {
     const same = loadedRoots();
     await model.refresh();
     expect(loadedRoots()).toBe(same);
+    // A folder's children read anew, the same all the way down: kept; one changed below, not.
+    roots = [{ path: 'd', children: [{ path: 'd/e' }] }];
+    await model.refresh();
+    const nested = loadedRoots();
+    roots = [{ path: 'd', children: [{ path: 'd/e' }] }];
+    await model.refresh();
+    expect(loadedRoots()).toBe(nested);
+    roots = [{ path: 'd', children: [{ path: 'd/f' }] }];
+    await model.refresh();
+    expect(loadedRoots()).not.toBe(nested);
+    // An object not made as data (a class's) is the same only as itself, and an array isn't an
+    // object with the same fields.
+    class Made {
+      path = 'm';
+    }
+    for (const [one, other] of [
+      [new Made(), new Made()],
+      [
+        { path: 'n', children: [] },
+        { path: 'n', children: {} },
+      ],
+    ] as unknown as [Item, Item][]) {
+      roots = [one];
+      await model.refresh();
+      const before = loadedRoots();
+      roots = [other];
+      await model.refresh();
+      expect(loadedRoots()).not.toBe(before);
+    }
+    // Nodes that hold themselves are compared without going round for ever.
+    const looped = (): Item => {
+      const node = { path: 'o', children: [] as Item[] };
+      node.children.push(node);
+      return node;
+    };
+    roots = [looped()];
+    await model.refresh();
+    const loops = loadedRoots();
+    roots = [looped()];
+    await model.refresh();
+    expect(loadedRoots()).not.toBe(loops);
   });
 
   it('loads, on a refresh, folders marked expanded before they showed', async () => {

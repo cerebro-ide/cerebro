@@ -1428,6 +1428,25 @@ describe('the branches', () => {
   const popupItems = () =>
     [...document.querySelectorAll('.cerebro-popup-item__label')].map((label) => label.textContent);
 
+  it('keep their rows as they were when read again the same, so a press on one isn’t lost', async () => {
+    git.log = history(1);
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/feat/x')];
+    mount();
+    await expect.poll(branchNames).toEqual(['HEAD (Current Branch)', 'Local', 'main', 'feat']);
+    const before = branchRows();
+    commands.execute('log.refresh', { source: 'log' });
+    await expect.poll(() => host.params('git.branches').length).toBe(2);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(branchRows().every((row, i) => row === before[i])).toBe(true);
+    // Changed, the rows follow.
+    git.branches = [branch('refs/heads/main', true), branch('refs/heads/feat/y')];
+    await userEvent.click(branchRows()[3] as HTMLElement);
+    await userEvent.keyboard('{ArrowRight}');
+    await expect.poll(branchNames).toContain('x');
+    commands.execute('log.refresh', { source: 'log' });
+    await expect.poll(branchNames).toContain('y');
+  });
+
   it('show in a pane, and filter the Log by the one double-clicked, or chosen in the toolbar', async () => {
     git.log = history(3);
     git.byBranch['refs/heads/feat/x'] = history(2, [], 'f');
