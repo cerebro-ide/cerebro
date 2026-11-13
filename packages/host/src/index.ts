@@ -249,9 +249,9 @@ export {
   type RemoteTagDeletion,
 } from './tags.js';
 export {
+  applyChanges,
   applyCommit,
   continueApplying,
-  revertChanges,
   type Applied,
   type Applying,
 } from './apply-changes.js';

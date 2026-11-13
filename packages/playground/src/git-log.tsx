@@ -724,8 +724,8 @@ interface FilesTarget {
   worktree: string;
   /** Opens a tab: a file, or a diff. */
   open: (tab: Tab) => void;
-  /** Undoes in the files what the commit changed in one. */
-  revert: (change: Change) => Promise<void>;
+  /** Applies to the files what the commit changed in one, or undoes it (`reverse`). */
+  apply: (change: Change, reverse: boolean) => Promise<void>;
   /** Its rows, which Expand and Collapse All open and close. */
   tree: TreeModel<ChangeNode>;
 }
@@ -811,20 +811,22 @@ export function CommitFiles(props: {
     range,
     worktree: props.worktree,
     open: (tab) => open?.(tab),
-    revert: async (change) => {
+    apply: async (change, reverse) => {
       // As IntelliJ's, which saves all documents first.
       await saveBeforeGit();
       try {
-        await props.host.request('git.revertChanges', {
+        await props.host.request('git.applyChanges', {
           path: props.worktree,
           from: range.from,
           to: range.to,
-          // A rename's both, undone as one.
+          // A rename's both, applied as one.
           files: change.from === undefined ? [change.path] : [change.from, change.path],
+          reverse,
         });
       } catch (error) {
-        // IntelliJ's words (VcsBundle).
-        showError('Revert Changes', `Failed to revert changes: ${(error as Error).message}`);
+        // IntelliJ's words (VcsBundle's, `choice` for each).
+        const [title, verb] = reverse ? ['Revert', 'revert'] : ['Apply', 'apply'];
+        showError(`${title} Changes`, `Failed to ${verb} changes: ${(error as Error).message}`);
       }
       await refreshAll(props.worktree);
     },
@@ -1376,6 +1378,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.files.compareBeforeWithLocal', 'b'],
     ['log.files.editSource', 'b'],
     ['log.files.revert', 'c'],
+    ['log.files.cherryPick', 'c'],
     ['log.files.showHistory', 'c'],
   ] as const) {
     menus.contribute({ menu: FILES_MENU, item: { command }, group });
@@ -1383,16 +1386,22 @@ export function setupLog(services: MenuServices, show: () => void): void {
   // Next in IntelliJ's (Vcs.RepositoryChangesBrowserToolbar's Vcs.RevertSelectedChanges): what the
   // commit changed in the file undone in it, uncommitted. Cerebro has no changelists, so there's no
   // Select Target Changelist dialog, as IntelliJ's without them.
-  commands.register({
-    id: 'log.files.revert',
-    label: 'Revert Selected Changes',
-    icon: 'rollback',
-    enabled: atCommit,
-    run: (context) => {
-      const files = filesOf(context) as FilesTarget;
-      return files.revert(files.selected() as Change);
-    },
-  });
+  // Its menu's Cherry-Pick Selected Changes (Vcs.ApplySelectedChanges) is the same, not reversed.
+  for (const [id, label, reverse] of [
+    ['log.files.revert', 'Revert Selected Changes', true],
+    ['log.files.cherryPick', 'Cherry-Pick Selected Changes', false],
+  ] as const) {
+    commands.register({
+      id,
+      label,
+      ...(reverse ? { icon: 'rollback' } : {}),
+      enabled: atCommit,
+      run: (context) => {
+        const files = filesOf(context) as FilesTarget;
+        return files.apply(files.selected() as Change, reverse);
+      },
+    });
+  }
   // Then (Vcs.ShowHistoryForRevision): the
   // file's commits up to this one, in the Log as Git → Current File → Show History shows them.
   commands.register({

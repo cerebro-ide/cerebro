@@ -718,7 +718,7 @@ describe('a commit’s pane', () => {
       { path: 'src/a.ts', status: 'modified' },
       { path: 'b.ts', status: 'renamed', from: 'old.ts' },
     ];
-    host.answers['git.revertChanges'] = () => null;
+    host.answers['git.applyChanges'] = () => null;
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     await userEvent.click(rows()[0] as HTMLElement);
@@ -734,15 +734,16 @@ describe('a commit’s pane', () => {
     await userEvent.click(fileRows()[1] as HTMLElement);
     await expect.poll(() => button.disabled).toBe(false);
     await userEvent.click(button);
-    await expect.poll(() => host.params('git.revertChanges')).toHaveLength(1);
-    expect(host.params('git.revertChanges')[0]).toEqual({
+    await expect.poll(() => host.params('git.applyChanges')).toHaveLength(1);
+    expect(host.params('git.applyChanges')[0]).toEqual({
       path: '/r',
       from: EMPTY_TREE,
       to: hash,
       files: ['src/a.ts'],
+      reverse: true,
     });
     await userEvent.click(fileRows()[2] as HTMLElement);
-    host.answers['git.revertChanges'] = () => {
+    host.answers['git.applyChanges'] = () => {
       throw new Error('error: patch failed: b.ts:1');
     };
     await userEvent.click(button);
@@ -751,8 +752,8 @@ describe('a commit’s pane', () => {
     expect(shown.querySelector('p')?.textContent).toBe(
       'Failed to revert changes: error: patch failed: b.ts:1',
     );
-    expect(host.params('git.revertChanges')[1]).toMatchObject({ files: ['old.ts', 'b.ts'] });
-    delete host.answers['git.revertChanges'];
+    expect(host.params('git.applyChanges')[1]).toMatchObject({ files: ['old.ts', 'b.ts'] });
+    delete host.answers['git.applyChanges'];
   });
 
   it('shows a file’s history up to the commit, in the Log, as IntelliJ’s', async () => {
@@ -821,6 +822,7 @@ describe('a commit’s pane', () => {
       'Compare Before with Local',
       'Edit Source',
       'Revert Selected Changes',
+      'Cherry-Pick Selected Changes',
       'History Up to Here',
     ]);
     expect(document.querySelectorAll('.cerebro-menu-separator')).toHaveLength(2);
@@ -835,7 +837,27 @@ describe('a commit’s pane', () => {
       [...document.querySelectorAll('.cerebro-menu-item[aria-disabled="true"]')].map(
         (item) => item.querySelector('.cerebro-menu-item__label')?.textContent,
       );
+    // The commit's change to the file applied to it, or why it couldn't be, in IntelliJ's words.
+    host.answers['git.applyChanges'] = () => {
+      throw new Error('error: patch failed: a.ts:1');
+    };
+    await menuOn('a.ts');
+    await userEvent.click(menuItem('Cherry-Pick Selected Changes'));
+    const shown = await dialog();
+    expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Apply Changes');
+    expect(shown.querySelector('p')?.textContent).toBe(
+      'Failed to apply changes: error: patch failed: a.ts:1',
+    );
+    expect(host.params('git.applyChanges').at(-1)).toEqual({
+      path: '/r',
+      from: EMPTY_TREE,
+      to: 'c0',
+      files: ['a.ts'],
+      reverse: false,
+    });
+    delete host.answers['git.applyChanges'];
     await menuOn('new.ts');
+
     expect(off()).toEqual(['Compare Before with Local']);
     await menuOn('gone.ts');
     expect(off()).toEqual(['Compare with Local', 'Edit Source']);

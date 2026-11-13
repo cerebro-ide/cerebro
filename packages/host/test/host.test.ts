@@ -1144,17 +1144,18 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('reverts a commit’s files named, as a patch reversed, and not with none named', async () => {
+  it('applies or reverts a commit’s files named, as a patch or reversed, and not with none named', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'diff' ? 'the patch' : ''),
     );
     const { ui } = connect(git);
     expect(
-      await ui.request('git.revertChanges', {
+      await ui.request('git.applyChanges', {
         path: '/w',
         from: 'abc1234',
         to: 'def5678',
         files: ['a.ts'],
+        reverse: true,
       }),
     ).toBe(null);
     expect(git).toHaveBeenCalledWith('/w', [
@@ -1167,15 +1168,24 @@ describe('ignored files and rolling back', () => {
       'a.ts',
     ]);
     expect(git).toHaveBeenCalledWith('/w', ['apply', '-R', '-C1', '-'], undefined, 'the patch');
+    await ui.request('git.applyChanges', {
+      path: '/w',
+      from: 'abc1234',
+      to: 'def5678',
+      files: ['a.ts'],
+      reverse: false,
+    });
+    expect(git).toHaveBeenCalledWith('/w', ['apply', '-C1', '-'], undefined, 'the patch');
     for (const params of [
-      { from: '-p', to: 'def5678', files: ['a.ts'] },
-      { from: 'abc1234', to: '--all', files: ['a.ts'] },
-      { from: 'abc1234', to: 'def5678', files: [] },
+      { from: '-p', to: 'def5678', files: ['a.ts'], reverse: true },
+      { from: 'abc1234', to: '--all', files: ['a.ts'], reverse: true },
+      { from: 'abc1234', to: 'def5678', files: [], reverse: true },
       { from: 'abc1234', to: 'def5678', files: 'a.ts' },
+      { from: 'abc1234', to: 'def5678', files: ['a.ts'], reverse: 'yes' },
     ]) {
-      await expect(
-        ui.request('git.revertChanges', { path: '/w', ...params }),
-      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+      await expect(ui.request('git.applyChanges', { path: '/w', ...params })).rejects.toMatchObject(
+        { code: ErrorCodes.InvalidParams },
+      );
     }
   });
 

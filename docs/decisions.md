@@ -1992,7 +1992,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
   branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's Show Only Affected Changes; their menu's other items
-  (Show Diff in a New Tab or Window, Open Repository Version, Cherry-Pick Selected Changes, Create
+  (Show Diff in a New Tab or Window, Open Repository Version, Create
   Patch…, Get, Show Changes from Parents) and Compare Before with Local for a rename; Ctrl+P there; a commit's right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
@@ -2041,6 +2041,12 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   now. Edit Source is a command now, on F4 (and Cmd+Down on macOS) as the Commit window's Jump to
   Source, where F4 was a key the list caught itself. Wherever a commit's files show and can open
   something; not in the Push dialog, whose items would all be off.
+- **Cherry-Pick Selected Changes in that menu** (added 2026-11-13), after Revert Selected Changes,
+  as IntelliJ's (`Vcs.ApplySelectedChanges`, the same action not reversed, read from its source):
+  what the commit changed in the file applied to it as it is, uncommitted, the patch with one line
+  around a hunk as Revert's (measured the same, git 2.43). Recorded in Local History as "Apply
+  patch"; if it doesn't apply, "Apply Changes" and "Failed to apply changes: " with git's words
+  (`VcsBundle`). Off where Revert Selected Changes is.
 - **A commit's right-click menu** (added 2026-11-11), IntelliJ's Vcs.Log.ContextMenu in its order,
   with what Cerebro has of it: Copy Revision Number (the full hash, as IntelliJ's), Cherry-Pick
   (decision "Cherry-Pick"), then Reset Current Branch to Here… (decision "Git → Reset HEAD…"),

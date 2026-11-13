@@ -80,17 +80,19 @@ export async function continueApplying(
 }
 
 /**
- * Undoes what `from..to` changed in `paths`, in the files as they are, uncommitted: IntelliJ's
- * Revert Selected Changes (`RevertCommittedStuffAbstractAction`, read from its source), which applies
- * the changes' patch reversed. A rename needs both its paths, to be undone as one. With one line
+ * Applies what `from..to` changed in `paths` to the files as they are, uncommitted, or undoes it
+ * (`reverse`): IntelliJ's Cherry-Pick Selected Changes and Revert Selected Changes
+ * (`RevertCommittedStuffAbstractAction`, read from its source), which apply the changes' patch, or
+ * the patch reversed. A rename needs both its paths, to be applied as one. With one line
  * around a hunk if all of them don't match, so it applies where its lines moved to: a hunk at line 1
  * with two lines before its change stays anchored to the file's start with `-C2` (measured, git
  * 2.43), and applies with `-C1`. If it doesn't apply, nothing is changed.
  */
-export async function revertChanges(
+export async function applyChanges(
   worktree: string,
   range: { from: string; to: string },
   paths: readonly string[],
+  reverse: boolean,
   run: Git,
 ): Promise<void> {
   const patch = await run(worktree, [
@@ -102,5 +104,6 @@ export async function revertChanges(
     '--',
     ...paths,
   ]);
-  if (patch !== '') await run(worktree, ['apply', '-R', '-C1', '-'], undefined, patch);
+  if (patch === '') return;
+  await run(worktree, ['apply', ...(reverse ? ['-R'] : []), '-C1', '-'], undefined, patch);
 }

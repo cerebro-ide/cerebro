@@ -95,7 +95,7 @@ import {
   validRevision,
   type NewTag,
 } from './tags.js';
-import { applyCommit, continueApplying, revertChanges } from './apply-changes.js';
+import { applyChanges, applyCommit, continueApplying } from './apply-changes.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import {
@@ -1252,8 +1252,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await recording(worktree, 'Unshelve', git, () => unshelve(worktree, id, git));
     return null;
   });
-  // A commit's files' Revert Selected Changes, recorded as IntelliJ's activity is named.
-  connection.onRequest('git.revertChanges', async (params) => {
+  // A commit's files' Cherry-Pick or Revert Selected Changes, recorded as IntelliJ's activities are
+  // named.
+  connection.onRequest('git.applyChanges', async (params) => {
     const worktree = text(params, 'path');
     const from = hashOf(params, 'from');
     const to = hashOf(params, 'to');
@@ -1262,8 +1263,12 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     if (paths.length === 0) {
       throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
     }
-    await recording(worktree, 'Rollback', git, () =>
-      revertChanges(worktree, { from, to }, paths, git),
+    const { reverse } = params as { reverse?: unknown };
+    if (typeof reverse !== 'boolean') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'reverse must be true or false');
+    }
+    await recording(worktree, reverse ? 'Rollback' : 'Apply patch', git, () =>
+      applyChanges(worktree, { from, to }, paths, reverse, git),
     );
     return null;
   });
