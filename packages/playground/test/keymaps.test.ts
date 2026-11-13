@@ -107,6 +107,8 @@ describe('the editor’s keys', () => {
       deleteLine: ['Ctrl-y'],
       startNewLine: ['Shift-Enter'],
       matchBrace: ['Ctrl-Shift-m'],
+      extendSelection: ['Ctrl-w'],
+      shrinkSelection: ['Ctrl-Shift-w'],
       undo: [],
       redo: [],
     });
@@ -132,6 +134,8 @@ describe('the editor’s keys', () => {
       'deleteLine',
       'startNewLine',
       'matchBrace',
+      'extendSelection',
+      'shrinkSelection',
       'find',
       'replace',
     ]);
