@@ -96,6 +96,7 @@ import {
   type NewTag,
 } from './tags.js';
 import { applyChanges, applyCommit, continueApplying, getVersion } from './apply-changes.js';
+import { createPatch, writePatch } from './patch.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import { drop, editCheck, reword } from './commit-editing.js';
@@ -1336,6 +1337,34 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     await recording(worktree, reverse ? 'Rollback' : 'Apply patch', git, () =>
       applyChanges(worktree, { from, to }, paths, reverse, git),
     );
+    return null;
+  });
+  // Create Patch…: what a commit changed in `files` (all, if none), written to `file`, or answered
+  // for the clipboard.
+  connection.onRequest('git.createPatch', async (params) => {
+    const worktree = text(params, 'path');
+    const range = { from: hashOf(params, 'from'), to: hashOf(params, 'to') };
+    const p = params as { files?: unknown; reverse?: unknown; message?: unknown; file?: unknown };
+    const paths = p.files === undefined ? [] : [...files(params)];
+    if (typeof p.reverse !== 'boolean') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'reverse must be true or false');
+    }
+    if (p.message !== undefined && typeof p.message !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'message must be a string');
+    }
+    const patch = await createPatch(
+      worktree,
+      range,
+      paths,
+      {
+        base: text(params, 'base'),
+        reverse: p.reverse,
+        ...(p.message === undefined ? {} : { message: p.message }),
+      },
+      git,
+    );
+    if (p.file === undefined) return { text: patch };
+    await writePatch(text(params, 'file'), patch);
     return null;
   });
   // Get from Revision: the file as the commit has it, in the Local History as IntelliJ's activity.
