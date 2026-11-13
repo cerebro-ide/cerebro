@@ -1991,7 +1991,7 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   dialog, where IntelliJ's is a popup; the filters cleared at once, where IntelliJ's asks ("View
   and reset filters").
 - **Not yet:** the toolbar's other actions (Graph Options); the
-  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Revert Selected Changes, Show History for Revision, Show Only Affected Changes) and Ctrl+P there; the right-click menu's other
+  branches pane's toolbar's other actions (below) and its own search; tags in the pane; the files' toolbar's other actions (Revert Selected Changes, Show History for Revision, Expand and Collapse All, Show Only Affected Changes) and Ctrl+P there; the right-click menu's other
   items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
