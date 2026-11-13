@@ -3875,9 +3875,11 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
     comparison (`ByWordRt`) isn't reproduced. "Edited" is the result's lines differing from the
     base's, where IntelliJ keeps a flag that edits there set. The Resolve button is a star (✦),
     where IntelliJ's is a magic wand; the toolbar's a link, as Left, All and Right are.
-  - **Not yet:** IntelliJ's second try ignoring white space (`ComparisonPolicy.IGNORE_WHITESPACES`),
-    which resolves a conflict whose sides differ only in white space where they touch; scrolling to
-    the first conflict left, as IntelliJ does after.
+  - **Ignoring white space** (added 2026-11-13): where that fails, IntelliJ's second try
+    (`ComparisonPolicy.IGNORE_WHITESPACES`): the words compared without the white space between
+    them, which goes with the text neither changed; there, a side's changed white space is taken,
+    yours if both changed it (`appendBase`), and where both changed words alike, yours.
+  - **Not yet:** scrolling to the first conflict left, as IntelliJ does after.
 - **Group by directory** (added 2026-11-13), the Conflicts dialog's checkbox under its list, as
   IntelliJ's (`OneShotMergeFlowDelegate`, `MultipleFileMergeDialog`, VcsBundle's words, read from
   its source): off to start with, and kept (IntelliJ's `GROUP_MULTIFILE_MERGE_BY_DIRECTORY`, a

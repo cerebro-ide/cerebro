@@ -96,6 +96,21 @@ describe('a conflict resolved word by word, as IntelliJ’s Resolve Simple Confl
     expect(resolveConflict('ab.cd\n', 'xy.cd\n', 'ab,cd\n')).toBeUndefined();
   });
 
+  it('tries again ignoring white space, as IntelliJ’s, the side that changed it taken', () => {
+    // Word by word, yours' wider space and theirs' removed one are the same words changed.
+    expect(resolveConflict('if (x) {\n', 'if (x)  {\n', 'if (y){\n')).toBe('if (y)  {\n');
+    // Both changed it, differently: yours.
+    expect(resolveConflict('a b c\n', 'a  b c\n', 'a\tb C\n')).toBe('a  b C\n');
+    // White space beside a word the other side changed stays out of its change.
+    expect(resolveConflict('f(a, b)\n', 'f(a,b)\n', 'f(a, c)\n')).toBe('f(a,c)\n');
+    // Theirs alone changed it.
+    expect(resolveConflict('f(a, b)\n', 'f(a, c)\n', 'f(a,b)\n')).toBe('f(a,c)\n');
+    // Inserted in one place, it can't be, nor with nothing first.
+    expect(resolveConflict('', 'a', 'b')).toBeUndefined();
+    // The same words changed both ways still can't be.
+    expect(resolveConflict('a = 1\n', 'a  = 2\n', 'a = 3\n')).toBeUndefined();
+  });
+
   it('keeps what neither changed, before and after', () => {
     expect(resolveConflict('', '', '')).toBe('');
     expect(resolveConflict('same\n', 'same\n', 'same\n')).toBe('same\n');
