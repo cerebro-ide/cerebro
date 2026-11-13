@@ -89,6 +89,8 @@ export const INTELLIJ: KeymapPreset = {
     'view.tool.terminal': ['Alt+F12'],
     'changes.showDiff': ['Ctrl+D'],
     'log.files.showDiff': ['Ctrl+D'],
+    // Show Diff's, which IntelliJ's Compare with Current takes in the Log's branches.
+    'log.branches.compare': ['Ctrl+D'],
     'git.file.showDiff': ['Ctrl+D'],
     // SafeDelete's, which IntelliJ's Delete Branch takes in the Log's branches.
     'log.branches.delete': ['Alt+Delete'],
@@ -183,6 +185,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'view.tool.terminal': ['Alt+F12'],
     'changes.showDiff': ['Meta+D'],
     'log.files.showDiff': ['Meta+D'],
+    // Show Diff's, which IntelliJ's Compare with Current takes in the Log's branches.
+    'log.branches.compare': ['Meta+D'],
     'git.file.showDiff': ['Meta+D'],
     'log.branches.delete': ['Meta+Delete'],
     'changes.jumpToSource': ['Meta+Down', 'F4'],

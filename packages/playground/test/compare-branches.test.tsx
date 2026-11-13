@@ -211,4 +211,13 @@ describe('Compare with Current', () => {
     );
     expect(opened).toEqual([compareTab('main', 'origin/main'), compareTab('HEAD', 'x')]);
   });
+
+  it('takes Show Diff’s keys, as IntelliJ’s: Ctrl+D, Cmd+D on macOS', () => {
+    expect(services.keymap?.shortcutsFor('log.branches.compare')).toEqual(['Ctrl+D']);
+    const keymap = new Keymap('mac');
+    setupCompare({ commands: new CommandRegistry(), menus: new MenuRegistry(), keymap }, (tab) =>
+      opened.push(tab),
+    );
+    expect(keymap.shortcutsFor('log.branches.compare')).toEqual(['Meta+D']);
+  });
 });
