@@ -3164,8 +3164,14 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   - **Signed** (added 2026-11-13): where `commit.gpgSign` is set, the commits made again are
     signed (`commit-tree --gpg-sign`), as IntelliJ's `GitObjectRepository.commitTree`, since
     `commit-tree` doesn't read the setting (measured, git 2.43). Drop Commit's are too.
-  - **Not yet:** IntelliJ's notes copied
-    and `post-rewrite` hook run for the commits made again; the old message replaced by the new one in IntelliJ's last commit message,
+  - **After it** (added 2026-11-13), as IntelliJ's in-memory operations (`copyNotesForRewrite`,
+    `runPostRewriteHook`): the notes copied to the commits made again (`git notes copy
+    --for-rewrite=rebase`, which git does only where `notes.rewriteRef` is set), and the
+    `post-rewrite` hook run with "rebase", each commit made again from which on its input (`git hook
+    run --to-stdin`; none there is fine). Drop Commit's too, a later commit left with no changes
+    told as the one before it, as IntelliJ's rebase does. A failure of either is logged, the edit
+    done, as IntelliJ's.
+  - **Not yet:** the old message replaced by the new one in IntelliJ's last commit message,
     its Commit Message History and its change lists' comments (`VcsConfiguration.replaceMessage`,
     `GitRewordService`, read from its source), which Cerebro keeps none of yet. (Corrected
     2026-11-13: this said the Commit window's message; the source replaces these three.)

@@ -1,8 +1,16 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { drop, editCheck, git, reword, undoEdit, type Git } from '../src/index.js';
 
 describe('Edit Commit Message and Drop Commit, with real git', () => {
@@ -155,6 +163,76 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
       run('config', '--unset', 'commit.gpgSign');
       run('config', '--unset', 'gpg.program');
     }
+  });
+
+  describe('after, as IntelliJ’s: notes copied, and the post-rewrite hook run', () => {
+    const told = join(repo, '.git', 'told.txt');
+    beforeEach(() => {
+      // A hook that writes down what it's told.
+      const hook = join(repo, '.git', 'hooks', 'post-rewrite');
+      writeFileSync(hook, `#!/bin/sh\necho "$*" > '${told}'\ncat >> '${told}'\n`);
+      chmodSync(hook, 0o755);
+      // Notes follow a rewrite only where it's set (git's).
+      run('config', 'notes.rewriteRef', 'refs/notes/commits');
+      return () => {
+        rmSync(hook);
+        rmSync(told, { force: true });
+        run('update-ref', '-d', 'refs/notes/commits');
+        run('config', '--unset', 'notes.rewriteRef');
+      };
+    });
+
+    it('tells which commits a reword made again from which', async () => {
+      run('notes', 'add', '-m', 'a note', second);
+      const { commit, head } = await reword(repo, second, 'two, better', third, git);
+      expect(run('notes', 'show', commit)).toBe('a note');
+      expect(readFileSync(told, 'utf8')).toBe(`rebase\n${second} ${commit}\n${third} ${head}\n`);
+    });
+
+    it('tells which a drop made again, one left empty become the one before it', async () => {
+      // A commit that only undoes the one dropped.
+      run('rm', '-q', 'three.txt');
+      run('commit', '-qm', 'undo three');
+      const undo = run('rev-parse', 'HEAD');
+      expect(await drop(repo, third, undo, git)).toBe(second);
+      expect(readFileSync(told, 'utf8')).toBe(`rebase\n${undo} ${second}\n`);
+      // HEAD's dropped: nothing made again, nothing told.
+      rmSync(told);
+      await drop(repo, second, second, git);
+      expect(() => readFileSync(told)).toThrow();
+      // The first dropped, the next only undoing it: nothing before it to become.
+      run('checkout', '-q', '--orphan', 'alone');
+      run('rm', '-rq', '--cached', '.');
+      writeFileSync(join(repo, 'alone.txt'), 'alone\n');
+      run('add', 'alone.txt');
+      run('commit', '-qm', 'alone');
+      const alone = run('rev-parse', 'HEAD');
+      run('rm', '-q', 'alone.txt');
+      run('commit', '-qm', 'undo alone');
+      await drop(repo, alone, run('rev-parse', 'HEAD'), git);
+      expect(run('log', '--format=%T %P|%B', 'alone')).toBe(
+        '4b825dc642cb6eb9a060e54bf8d69288fbee4904 |',
+      );
+      expect(() => readFileSync(told)).toThrow();
+      run('checkout', '-q', '-f', 'main');
+      run('branch', '-q', '-D', 'alone');
+      run('clean', '-qfd');
+    });
+
+    it('logs their failures, the edit done', async () => {
+      const failed = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const failing: Git = async (cwd, args, env, input) => {
+        if (args[0] === 'notes' || args[0] === 'hook') throw new Error('failed');
+        return git(cwd, args, env, input);
+      };
+      const { head } = await reword(repo, second, 'two, better', third, failing);
+      expect(run('rev-parse', 'HEAD')).toBe(head);
+      expect(failed.mock.calls.map((call) => String(call[0]))).toEqual([
+        'Copying the notes after a commit edit failed',
+        'The post-rewrite hook after a commit edit failed',
+      ]);
+      failed.mockRestore();
+    });
   });
 
   describe('its checks, in IntelliJ’s words', () => {

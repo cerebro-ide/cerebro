@@ -5,8 +5,12 @@
 // in-memory way, which it tries first: the commits made again (`commit-tree`, each one's author
 // kept) from the one edited to HEAD, and the branch moved to the last. IntelliJ falls back on an
 // interactive rebase where that fails (a merge between the commit and HEAD, a conflict); Cerebro
-// says why instead.
+// says why instead. After, as IntelliJ's, notes are copied to the commits made again and the
+// `post-rewrite` hook is run.
 
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { operation } from './conflicts.js';
 import type { Git, GitError } from './git.js';
 import { protectedBranchHolding } from './protected-branches.js';
@@ -135,6 +139,46 @@ async function cleanUp(worktree: string, message: string, run: Git): Promise<str
   );
 }
 
+/**
+ * Told which commits were made again from which (old, then new), as a rebase tells, as IntelliJ's
+ * in-memory operations after one (`copyNotesForRewrite`, `runPostRewriteHook`): their notes copied
+ * (`notes copy --for-rewrite=rebase`, which git does only where `notes.rewriteRef` is set), and the
+ * `post-rewrite` hook run with "rebase" (`hook run`, the pairs given as its input through a file, as
+ * `--to-stdin` takes them; none is fine). The edit is done by then: a failure is logged, as
+ * IntelliJ's.
+ */
+async function rewritten(
+  worktree: string,
+  pairs: readonly (readonly [string, string])[],
+  run: Git,
+): Promise<void> {
+  if (pairs.length === 0) return;
+  const lines = pairs.map(([before, after]) => `${before} ${after}\n`).join('');
+  await run(worktree, ['notes', 'copy', '--for-rewrite=rebase'], {}, lines).catch(
+    (error: unknown) => {
+      console.error('Copying the notes after a commit edit failed', error);
+    },
+  );
+  const folder = await mkdtemp(join(tmpdir(), 'cerebro-rewrite-'));
+  try {
+    const input = join(folder, 'rewritten');
+    await writeFile(input, lines);
+    await run(worktree, [
+      'hook',
+      'run',
+      '--ignore-missing',
+      `--to-stdin=${input}`,
+      'post-rewrite',
+      '--',
+      'rebase',
+    ]);
+  } catch (error) {
+    console.error('The post-rewrite hook after a commit edit failed', error);
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+}
+
 /** HEAD's commit as it was checked, or IntelliJ's words when it has moved since. */
 async function stillAt(worktree: string, head: string, run: Git): Promise<void> {
   if ((await run(worktree, ['rev-parse', 'HEAD'])).trim() !== head) throw moved();
@@ -193,10 +237,12 @@ export async function reword(
   const original = await read(worktree, target, run);
   const remake = await remaking(worktree, run);
   const reworded = await remake(original, original.parents, await cleanUp(worktree, message, run));
+  const pairs: [string, string][] = [[target, reworded]];
   let made = reworded;
   for (const hash of later) {
     const commit = await read(worktree, hash, run);
     made = await remake(commit, [made], commit.message);
+    pairs.push([hash, made]);
   }
   // Moved only from where it was checked: `update-ref` refuses if HEAD has moved meanwhile.
   try {
@@ -204,6 +250,7 @@ export async function reword(
   } catch {
     throw moved();
   }
+  await rewritten(worktree, pairs, run);
   return { commit: reworded, head: made };
 }
 
@@ -231,6 +278,7 @@ export async function drop(
   let base = (await read(worktree, target, run)).parents[0];
   let tree = base === undefined ? EMPTY_TREE : (await read(worktree, base, run)).tree;
   const remake = await remaking(worktree, run);
+  const pairs: [string, string][] = [];
   for (const hash of later) {
     const commit = await read(worktree, hash, run);
     // `merge-tree` takes commits: the empty tree's, for nothing before.
@@ -247,9 +295,12 @@ export async function drop(
       throw new Error(output.slice(output.indexOf('\n\n') + 2).trim());
     });
     const made = merged.trim();
-    if (made === tree) continue;
-    tree = made;
-    base = await remake({ ...commit, tree }, base === undefined ? [] : [base], commit.message);
+    if (made !== tree) {
+      tree = made;
+      base = await remake({ ...commit, tree }, base === undefined ? [] : [base], commit.message);
+    }
+    // Left with no changes, it's become the commit before it, as in IntelliJ's rebase.
+    if (base !== undefined) pairs.push([hash, base]);
   }
   // As IntelliJ's in-memory rebase, an empty commit where none's left.
   base ??= await remake({ tree: EMPTY_TREE, author: {} }, [], '');
@@ -257,6 +308,7 @@ export async function drop(
   await run(worktree, ['reset', '--keep', base], {
     GIT_REFLOG_ACTION: `drop ${target} by Cerebro`,
   });
+  await rewritten(worktree, pairs, run);
   return base;
 }
 
