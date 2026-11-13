@@ -59,6 +59,7 @@ import { startingNewLine } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
 import { scrollingBy } from './scroll.js';
+import { expandingWord, expandingWordBackward, expansion } from './expand-word.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
 import { gutterMarkers, type AskMarks, type Mark } from './markers.js';
@@ -237,6 +238,9 @@ export interface EditorKeys {
   joinLines?: readonly string[];
   /** Toggle Case: the selection, or the word at the caret, in lower case or upper. */
   toggleCase?: readonly string[];
+  /** Cyclic Expand Word: the word before the caret completed from the text's, back or on. */
+  expandWord?: readonly string[];
+  expandWordBackward?: readonly string[];
   /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
   matchBrace?: readonly string[];
   /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
@@ -277,6 +281,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   startNewLine: ['Shift-Enter'],
   joinLines: ['Ctrl-Shift-j'],
   toggleCase: ['Mod-Shift-u'],
+  expandWord: ['Alt-/'],
+  expandWordBackward: ['Alt-Shift-/'],
   matchBrace: ['Mod-Shift-m'],
   extendSelection: ['Mod-w'],
   shrinkSelection: ['Mod-Shift-w'],
@@ -882,6 +888,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
               ...keys.startNewLine.map((key) => ({ key, run: startingNewLine })),
               ...keys.joinLines.map((key) => ({ key, run: joiningLines })),
               ...keys.toggleCase.map((key) => ({ key, run: togglingCase })),
+              ...keys.expandWord.map((key) => ({ key, run: expandingWord })),
+              ...keys.expandWordBackward.map((key) => ({ key, run: expandingWordBackward })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]
@@ -963,6 +971,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         })
       : [],
     selectionSteps,
+    expansion,
     keyed.of(actions()),
     keymap.of([
       // CodeMirror's basic editing (the caret's moves, Enter, Backspace, Select All), and Escape
