@@ -6,6 +6,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { userEvent } from 'vitest/browser';
 import { REFRESH_MS, setupChanges, type Change } from '../src/changes.js';
 import { useProjects, workspace } from '../src/environments.js';
+import { notifications } from '../src/notifications.js';
 import {
   CommitTabs,
   CommitWindow,
@@ -71,6 +72,10 @@ const host = new FakeHost({
   'git.unstash': done('git.unstash'),
   'git.dropStash': done('git.dropStash'),
   'git.clearStashes': done('git.clearStashes'),
+  // No patch file there yet.
+  'fs.exists': ({ path }: { path: string }) => !path.endsWith('.patch'),
+  'git.createPatch': ({ file }: { file?: string }) =>
+    file === undefined ? { text: 'the patch' } : null,
 });
 
 const SHELF: Shelf = { id: 's1', commit: 'c1', base: 'b1', message: 'Half done', time: 0 };
@@ -351,7 +356,13 @@ describe('the Shelf tab', () => {
   it('unshelves a list, or a file’s, once agreed, then reads it all again', async () => {
     await showTab('Shelf');
     await userEvent.click(row('shelf:s1'), { button: 'right' });
-    expect(await menuItems()).toEqual(['Unshelve…', 'Show Diff', 'Delete']);
+    expect(await menuItems()).toEqual([
+      'Unshelve…',
+      'Show Diff',
+      'Create Patch…',
+      'Copy as Patch to Clipboard',
+      'Delete',
+    ]);
     await closeAll();
     // From a file, its list.
     await userEvent.dblClick(row('shelf:s1'));
@@ -374,6 +385,48 @@ describe('the Shelf tab', () => {
     expect(await dialogText()).toBe('git.unshelve failed');
     expect((await dialog()).textContent).toContain('Couldn’t Unshelve');
     await expect.poll(() => reads('git.shelves')).toBe(read + 2);
+  });
+
+  it('makes a patch of a list, or of a file in it, under the list’s message, as IntelliJ’s', async () => {
+    await showTab('Shelf');
+    await userEvent.click(row('shelf:s1'));
+    commands.execute('shelf.createPatch', FROM_SHELF);
+    // The base path checked against all the list's files.
+    await expect.poll(async () => (await dialog()).textContent).toContain('Patch File Settings');
+    await press('OK');
+    await expect.poll(dialogText).toContain(`Successfully created patch ${wt}/Half_done.patch`);
+    await press('Close');
+    expect(host.params('git.changes')).toContainEqual({ path: wt, from: 'b1', to: 'c1' });
+    expect(host.params('git.createPatch')).toEqual([
+      {
+        path: wt,
+        from: 'b1',
+        to: 'c1',
+        base: wt,
+        reverse: false,
+        message: 'Half done',
+        file: `${wt}/Half_done.patch`,
+      },
+    ]);
+    // A file's, to the clipboard.
+    const copied = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    await userEvent.dblClick(row('shelf:s1'));
+    await expect.poll(() => row('shelf:s1:src/a.ts')).not.toBeNull();
+    await userEvent.click(row('shelf:s1:src/a.ts'));
+    commands.execute('shelf.copyPatch', FROM_SHELF);
+    await expect.poll(() => copied.mock.calls).toEqual([['the patch']]);
+    expect(host.params('git.createPatch')[1]).toEqual({
+      path: wt,
+      from: 'b1',
+      to: 'c1',
+      files: ['src/a.ts'],
+      base: wt,
+      reverse: false,
+      message: 'Half done',
+    });
+    expect(notifications.all.get(0)?.title).toBe('Patch copied to clipboard');
+    // Not a stash's.
+    expect(commands.isEnabled('shelf.createPatch', FROM_STASH)).toBe(false);
   });
 
   it('deletes a list, once agreed', async () => {

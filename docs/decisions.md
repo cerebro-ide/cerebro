@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -86,7 +86,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Rename (2026-11-04)](#rename-2026-11-04): in place on Shift+F6, as IntelliJ's; the servers' edits in every file, saved; Next and Previous Highlighted Error in the keymaps
 - [Local History (2026-11-03)](#local-history-2026-11-03): IntelliJ's Show History, Revert and Put Label; records kept as a chain of worktree snapshots
 - [Saving: one save at a time (2026-11-03)](#saving-one-save-at-a-time-2026-11-03): saves run one after another; a file's read while it's saved isn't a change on disk; on Windows, a save waits for git to let go of the file
-- [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu
+- [The shelf and the stash (2026-11-03)](#the-shelf-and-the-stash-2026-11-03): IntelliJ's Shelve and Unshelve, git's stash; Shelf and Stash tabs in the Commit window; the Git menu; Create Patch from the shelf (2026-11-13)
 - [Committing from the Commit tool window (2026-11-02)](#committing-from-the-commit-tool-window-2026-11-02): checkboxes, Amend, the message, `git commit --only`; a file edited listed at once, saved as it's committed (changed 2026-11-11)
 - [Phase 1 is WebStorm's functionality (2026-11-03)](#phase-1-is-webstorms-functionality-2026-11-03): phase 1 clones IntelliJ's important parts, phase 2 adds AI features, phase 3 reworks the UI/UX from use; change inspection as IntelliJ's, uncommitted only
 - [Copy Path/Reference on a tab (2026-11-03)](#copy-pathreference-on-a-tab-2026-11-03): absolute path, file name, path from the content root, as IntelliJ's submenu
@@ -1394,7 +1394,8 @@ aside, and back.
   something in them, as IntelliJ's. Each lists its lists or stashes, the latest first, with when
   they were made; each expands to its files, which open their diff (double click, Enter,
   Ctrl/Cmd+D). A stash's context menu has Pop, Apply, Drop and Clear; the last two ask first
-  (IntelliJ's do too: a claim).
+  (IntelliJ's do too: a claim). A shelved list's has Unshelve…, Show Diff, Create Patch…, Copy as
+  Patch to Clipboard (added 2026-11-13, see The Git Log's Create Patch…) and Delete.
 - **A Git menu** in the main menu, after View, with Commit… and Uncommitted Changes (Shelve
   Changes…, Show Shelf, Stash Changes…, Unstash Changes…), as IntelliJ's.
 - **Git's optional locks are off** for every git command the host runs (`GIT_OPTIONAL_LOCKS=0`, as
@@ -2072,8 +2073,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   - **Claude's, open to change:** IntelliJ's Create Patch from the Commit window first shows a
     commit-like dialog of the changes to choose from; here it takes the selection as it is, as
     Shelve Changes does, and goes straight to Patch File Settings.
-  - **Not yet:** the fields' browse buttons (a save dialog the app hasn't); Encoding (UTF-8 here);
-    Create Patch in the Shelf.
+  - **In the Shelf** (added 2026-11-13), as IntelliJ's (`ShelvedChangesPopupMenu`, after Show
+    Diff): both, for the selected file's changes, or all its shelved list's; under the list's
+    message, as IntelliJ's (`extractCommitMessage`, the shelved list's description).
+  - **Not yet:** the fields' browse buttons (a save dialog the app hasn't); Encoding (UTF-8 here).
 - **A commit's files are grouped by directory** (added 2026-11-13), as IntelliJ's changes trees
   are to start with (ChangesTree's DEFAULT_GROUPING_KEYS, read from its source): folders first,
   open, a folder holding only one folder as one row, as the Commit window's (the same code,

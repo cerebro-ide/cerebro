@@ -8,6 +8,7 @@
 
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
+import type { Change } from './changes.js';
 import type { Host } from './environments.js';
 import { notifications } from './notifications.js';
 import { fileManagerLabel } from './select-in.js';
@@ -301,6 +302,10 @@ async function created(file: string): Promise<void> {
   if (again.peek()) keep(REVEAL, String(answer !== undefined));
   answer?.();
 }
+
+/** A change's paths, as a patch is asked for them: a rename's both, as one. */
+export const patchPaths = (change: Change): string[] =>
+  change.from === undefined ? [change.path] : [change.from, change.path];
 
 /** What `git.createPatch` is asked for, from a request: which changes. */
 function patchParams(request: PatchRequest) {
