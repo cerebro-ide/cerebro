@@ -18,6 +18,8 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['input.paste', 'Paste'],
   ['input.replace', 'Replace'],
   ['input.indent', 'Indent Selection'],
+  // Before Duplicate Line or Selection's, whose event it starts with.
+  ['input.duplicate.lines', 'Duplicate Entire Lines'],
   ['input.duplicate', 'Duplicate Line or Selection'],
   ['delete.cut', 'Cut'],
   ['delete.backward', 'Backspace'],

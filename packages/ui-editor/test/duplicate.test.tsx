@@ -6,6 +6,7 @@ import {
   editorDuplicate,
   EditorDocument,
   historyNamesIn,
+  duplicateLines,
   inChangeableEditor,
 } from '../src/index.js';
 
@@ -74,5 +75,48 @@ describe('Duplicate Line or Selection', () => {
     expect(editorDuplicate(content)).toBe(false);
     expect(view.state.doc.toString()).toBe('a');
     expect(editorDuplicate(document.body)).toBe(false);
+  });
+});
+
+describe('Duplicate Entire Lines', () => {
+  it('puts the lines a selection touches again below them, the copy selected', () => {
+    const { content, view } = mount('one\ntwo\nthree');
+    view.dispatch({ selection: { anchor: 1, head: 5 } });
+    expect(editorDuplicate(content, true)).toBe(true);
+    expect(state(view)).toEqual({ text: 'one\ntwo\none\ntwo\nthree', ranges: [[8, 16]] });
+    expect(historyNamesIn(content)?.undo).toBe('Duplicate Entire Lines');
+  });
+
+  it('keeps the caret at the selection’s start where it was', () => {
+    const { content, view } = mount('one\ntwo\nthree');
+    view.dispatch({ selection: { anchor: 5, head: 1 } });
+    editorDuplicate(content, true);
+    expect(state(view).ranges).toEqual([[16, 8]]);
+  });
+
+  it('leaves out the line a selection ends at the start of', () => {
+    const { content, view } = mount('one\ntwo\nthree');
+    view.dispatch({ selection: { anchor: 0, head: 8 } });
+    editorDuplicate(content, true);
+    expect(state(view)).toEqual({ text: 'one\ntwo\none\ntwo\nthree', ranges: [[8, 16]] });
+  });
+
+  it('selects the copy of the last line without a line break after it', () => {
+    const { content, view } = mount('one\ntwo');
+    view.dispatch({ selection: { anchor: 5, head: 6 } });
+    editorDuplicate(content, true);
+    expect(state(view)).toEqual({ text: 'one\ntwo\ntwo', ranges: [[8, 11]] });
+  });
+
+  it('puts the caret’s line again below it, as Duplicate Line or Selection', () => {
+    const { content, view } = mount('one\ntwo');
+    view.dispatch({ selection: { anchor: 1 } });
+    editorDuplicate(content, true);
+    expect(state(view)).toEqual({ text: 'one\none\ntwo', ranges: [[5, 5]] });
+  });
+
+  it('is a change of the editor’s state alone', () => {
+    const { view } = mount('a');
+    expect(view.state.update(duplicateLines(view.state)).state.doc.toString()).toBe('a\na');
   });
 });
