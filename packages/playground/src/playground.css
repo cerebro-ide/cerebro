@@ -1911,9 +1911,18 @@ body,
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  /* A row's depth in the tree, grouped by directory, as a tree's indent. */
+  padding-left: calc(var(--depth, 0) * 16px);
 }
 
-.playground-conflicts__row[aria-selected='true'],
+/* Under the list, as IntelliJ's checkbox. */
+.playground-conflicts__group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
 /*
  * As IntelliJ's table (`updateTableWidth`): Name as wide as its names, URL the rest, a long one cut
  * with an ellipsis (IntelliJ widens the dialog to the URLs first; Cerebro's keeps its width).
@@ -1925,6 +1934,7 @@ body,
   text-overflow: ellipsis;
 }
 
+.playground-conflicts__row[aria-selected='true'],
 .playground-remotes__row[aria-selected='true'] {
   background: var(--cerebro-selected);
 }

@@ -59,7 +59,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Notifications (2026-11-08)](#notifications-2026-11-08): IntelliJ's balloons and the Notifications tool window's timeline, from its source and theme; a commit says how it went in one
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
-- [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project; Resolve Simple Conflicts (2026-11-13)
+- [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project; Resolve Simple Conflicts and Group by directory (2026-11-13)
 - [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D
@@ -3878,8 +3878,19 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
   - **Not yet:** IntelliJ's second try ignoring white space (`ComparisonPolicy.IGNORE_WHITESPACES`),
     which resolves a conflict whose sides differ only in white space where they touch; scrolling to
     the first conflict left, as IntelliJ does after.
+- **Group by directory** (added 2026-11-13), the Conflicts dialog's checkbox under its list, as
+  IntelliJ's (`OneShotMergeFlowDelegate`, `MultipleFileMergeDialog`, VcsBundle's words, read from
+  its source): off to start with, and kept (IntelliJ's `GROUP_MULTIFILE_MERGE_BY_DIRECTORY`, a
+  project's setting; here the app's, in the browser's storage). Grouped, the files are a tree as
+  the Commit window's (the same `directoryTree`): folders first, every one open, a file's name
+  alone under its folder; a folder selected is its files, as IntelliJ's selection
+  (`VcsTreeModelData.selected`) takes them, and its double click merges nothing. Turned on or off,
+  the files selected stay so.
+  - **Not yet:** a folder collapsed (IntelliJ's tree can).
+  - **Fixed with it:** a selected file's row had lost its colour while the list hadn't the
+    keyboard (a comment had split the rule's selectors, measured in a test).
 - **Not yet:** undo in the merge window; merging a
-  binary file (it says to accept a side); Group by directory.
+  binary file (it says to accept a side).
   (changed 2026-11-09: the Git menu's Continue Rebase, Abort Rebase and Abort Merge, Resolve
   Conflicts… shown only with conflicts, and committing a merge from the Commit window are done,
   see "Committing a merge, and the Git menu's merge and rebase actions".)

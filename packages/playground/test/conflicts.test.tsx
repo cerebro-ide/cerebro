@@ -128,16 +128,20 @@ beforeAll(() => {
   setupConflicts(services);
 });
 
+/** The files in conflict, to start with. */
+const files: Conflicts['files'] = [
+  { path: 'a.ts', yours: 'modified', theirs: 'modified' },
+  { path: 'src/b.ts', yours: 'deleted', theirs: 'modified' },
+  { path: 'src/c.ts', yours: 'modified', theirs: 'deleted' },
+];
+
 beforeEach(() => {
   workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
-  state.files = [
-    { path: 'a.ts', yours: 'modified', theirs: 'modified' },
-    { path: 'src/b.ts', yours: 'deleted', theirs: 'modified' },
-    { path: 'src/c.ts', yours: 'modified', theirs: 'deleted' },
-  ];
+  state.files = [...files];
   // Changes a line apart: two, neither in conflict.
   state.revisions = { binary: false, base: 'a\nb\nc\n', yours: 'A\nb\nc\n', theirs: 'a\nb\nC\n' };
   state.fail = undefined;
+  localStorage.removeItem('cerebro.conflicts.groupByDirectory');
 });
 
 afterEach(async () => {
@@ -250,6 +254,86 @@ describe('the Conflicts dialog', () => {
     expect(button('Merge…').disabled).toBe(true);
     await userEvent.keyboard('{ArrowDown}');
     expect(selectedRows()).toEqual(['a.ts']);
+  });
+
+  it('groups the files by directory once told to, as IntelliJ’s, the choice kept', async () => {
+    let done = resolveConflicts('/r');
+    const group = async () =>
+      (await dialog()).querySelector('.playground-conflicts__group input') as HTMLInputElement;
+    expect((await group()).checked).toBe(false);
+    expect((await group()).parentElement?.textContent).toBe('Group by directory');
+    await userEvent.click(await group());
+    // Folders first, every one open; a file's name alone under its folder, indented.
+    expect(await rows()).toEqual([
+      ['src2 files', '', ''],
+      ['b.ts', 'Deleted', 'Modified'],
+      ['c.ts', 'Modified', 'Deleted'],
+      ['a.ts', 'Modified', 'Modified'],
+    ]);
+    const name = async (text: string) =>
+      (await row(text)).querySelector('.playground-conflicts__name') as HTMLElement;
+    expect((await name('b.ts')).style.getPropertyValue('--depth')).toBe('1');
+    const start = async (text: string) =>
+      ((await name(text)).firstElementChild as Element).getBoundingClientRect().left;
+    expect(await start('b.ts')).toBe((await start('src')) + 16);
+    // The file selected before stays so.
+    expect(selectedRows()).toEqual(['a.ts']);
+    // A folder selected is its files; its double click merges nothing.
+    await userEvent.dblClick(await row('src'));
+    expect(document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
+    expect(selectedRows()).toEqual(['src2 files']);
+    await userEvent.keyboard('{ArrowDown}{ArrowUp}');
+    expect(selectedRows()).toEqual(['src2 files']);
+    await userEvent.click(button('Accept Yours'));
+    await expect
+      .poll(() => host.params('git.acceptSide'))
+      .toEqual([{ path: '/r', files: ['src/b.ts', 'src/c.ts'], side: 'yours' }]);
+    await press('Close');
+    await done;
+    // Kept: grouped when it shows again, until told otherwise; the files selected stay so.
+    state.files = [...files];
+    done = resolveConflicts('/r');
+    expect((await group()).checked).toBe(true);
+    await userEvent.click(await row('c.ts'));
+    await userEvent.click(await group());
+    expect(await rows()).toEqual([
+      ['a.ts', 'Modified', 'Modified'],
+      ['b.tssrc', 'Deleted', 'Modified'],
+      ['c.tssrc', 'Modified', 'Deleted'],
+    ]);
+    expect(selectedRows()).toEqual(['c.tssrc']);
+    await press('Close');
+    await done;
+    expect(localStorage.getItem('cerebro.conflicts.groupByDirectory')).toBe('false');
+  });
+
+  it('lists the files where nothing can be kept, as they come', async () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    void resolveConflicts('/r');
+    const group = (await dialog()).querySelector(
+      '.playground-conflicts__group input',
+    ) as HTMLInputElement;
+    expect(group.checked).toBe(false);
+    await userEvent.click(group);
+    expect((await rows())[0]).toEqual(['src2 files', '', '']);
+  });
+
+  it('shows the selection without the keyboard too, in the selected colour', async () => {
+    void resolveConflicts('/r');
+    const probe = document.createElement('div');
+    probe.style.background = 'var(--cerebro-selected)';
+    document.body.append(probe);
+    const selected = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const first = await row('a.ts');
+    // The keyboard elsewhere in the dialog.
+    button('Accept Yours').focus();
+    expect(getComputedStyle(first).backgroundColor).toBe(selected);
   });
 
   it('says why a side couldn’t be accepted', async () => {
