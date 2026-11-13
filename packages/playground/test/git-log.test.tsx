@@ -717,11 +717,7 @@ describe('a commit’s pane', () => {
       { path: 'src/a.ts', status: 'modified' },
       { path: 'b.ts', status: 'renamed', from: 'old.ts' },
     ];
-    let failing: string | undefined;
-    host.answers['git.revertChanges'] = () => {
-      if (failing !== undefined) throw new Error(failing);
-      return null;
-    };
+    host.answers['git.revertChanges'] = () => null;
     mount();
     await expect.poll(subjects).toEqual(['Change 0']);
     await userEvent.click(rows()[0] as HTMLElement);
@@ -745,7 +741,9 @@ describe('a commit’s pane', () => {
       files: ['src/a.ts'],
     });
     await userEvent.click(fileRows()[2] as HTMLElement);
-    failing = 'error: patch failed: b.ts:1';
+    host.answers['git.revertChanges'] = () => {
+      throw new Error('error: patch failed: b.ts:1');
+    };
     await userEvent.click(button);
     const shown = await dialog();
     expect(shown.querySelector('.cerebro-dialog__title')?.textContent).toBe('Revert Changes');
