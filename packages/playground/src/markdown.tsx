@@ -172,9 +172,9 @@ export function setupMarkdown(commands: CommandRegistry, active: () => string | 
         const path = pathOf(context);
         return path !== undefined && layoutOf(path) === layout;
       },
+      // Enabled only for a Markdown tab.
       run: (context) => {
-        const path = pathOf(context);
-        if (path !== undefined) chooseLayout(path, layout);
+        chooseLayout(pathOf(context) as string, layout);
       },
     });
   }
