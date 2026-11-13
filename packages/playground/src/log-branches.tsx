@@ -417,8 +417,11 @@ function marked(name: string, full: string, query: string): Node | string {
   return text;
 }
 
-/** A row: a directory or a branch, the one checked out marked as IntelliJ's. */
-function row(node: BranchNode, query: string) {
+/**
+ * A row: a directory or a branch, the one checked out marked as IntelliJ's; what the search
+ * matched marked as `query` changes, as the same rows read again aren't drawn again.
+ */
+function row(node: BranchNode, query: () => string) {
   if (node.kind === 'head') {
     return [icon('git'), <span class="playground-branches__name">HEAD (Current Branch)</span>];
   }
@@ -435,7 +438,7 @@ function row(node: BranchNode, query: string) {
           : 'playground-branches__name'
       }
     >
-      {marked(node.name, branchName(node.ref), query)}
+      {() => marked(node.name, branchName(node.ref), query())}
     </span>,
   ];
 }
@@ -533,7 +536,7 @@ export function BranchesPane(props: {
           <TreeView
             model={branches.model}
             label="Branches"
-            row={(node) => row(node, branches.query.peek())}
+            row={(node) => row(node, () => branches.query.get())}
             onOpen={(node) => {
               props.filter(node.kind === 'branch' ? node.ref : 'HEAD');
             }}
