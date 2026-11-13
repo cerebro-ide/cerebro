@@ -820,6 +820,31 @@ export async function listBranches(worktree: string, run: Git = git): Promise<Br
     }));
 }
 
+/** How many of the reflog's checkouts are read for them (IntelliJ's registry default). */
+const RECENT_CHECKOUTS = 50;
+
+/**
+ * What was checked out last, the latest first, each once, as IntelliJ's Recent branches
+ * (GitRecentCheckoutBranches): what each of the reflog's last 50 checkouts moved to. That's a
+ * branch's name, or `HEAD` or a commit's hash for a detached HEAD: the caller keeps its branches.
+ */
+export async function recentCheckouts(worktree: string, run: Git = git): Promise<string[]> {
+  const output = await run(worktree, [
+    'reflog',
+    '--max-count',
+    String(RECENT_CHECKOUTS),
+    '--grep-reflog',
+    'checkout:',
+    '--format=%gs',
+  ]);
+  const names = output.split('\n').flatMap((line) => {
+    // `checkout: moving from main to feature`, as `git checkout` and `git switch` write it.
+    const to = line.lastIndexOf(' to ');
+    return to > 0 ? [line.slice(to + ' to '.length)] : [];
+  });
+  return [...new Set(names)];
+}
+
 /** The checked-out branch, the remotes, and the branch's upstream: where a pull comes from. */
 export interface Tracking {
   /** Undefined when HEAD is detached. */

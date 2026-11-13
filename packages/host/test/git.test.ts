@@ -25,6 +25,7 @@ import {
   listWorktrees,
   lastMessage,
   listBranches,
+  recentCheckouts,
   hashesIn,
   exclusiveAuthors,
   listAuthors,
@@ -291,6 +292,35 @@ describe('with real git', () => {
       { ref: 'refs/heads/side', hash: hash('side'), current: false },
       { ref: 'refs/remotes/origin/main', hash: hash('main'), current: false },
     ]);
+  });
+
+  it('lists what was checked out last, the latest first, each once, as IntelliJ’s Recent', async () => {
+    const recent = join(root, 'recent');
+    execFileSync('git', ['init', '-q', '-b', 'main', recent]);
+    // None before the first commit: git has no HEAD to read the reflog of (measured, git 2.43).
+    await expect(recentCheckouts(recent)).rejects.toThrow();
+    run(
+      recent,
+      '-c',
+      'user.name=t',
+      '-c',
+      'user.email=t@t',
+      'commit',
+      '-q',
+      '--allow-empty',
+      '-m',
+      'One',
+    );
+    expect(await recentCheckouts(recent)).toEqual([]);
+    run(recent, 'checkout', '-q', '-b', 'feat/a');
+    run(recent, 'checkout', '-q', 'main');
+    run(recent, 'checkout', '-q', '--detach', 'HEAD');
+    run(recent, 'checkout', '-q', 'feat/a');
+    run(recent, 'switch', '-q', 'main');
+    // A detached HEAD's, too: the caller keeps the branches.
+    expect(await recentCheckouts(recent)).toEqual(['main', 'feat/a', 'HEAD']);
+    // A line that isn't a move is passed over, as IntelliJ's.
+    expect(await recentCheckouts('/w', () => Promise.resolve('checkout: elsewhere\n'))).toEqual([]);
   });
 
   it('filters the log by text, as IntelliJ’s, its graph joined across what it hides', async () => {

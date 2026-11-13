@@ -121,6 +121,7 @@ import {
   listIgnored,
   lastMessage,
   listBranches,
+  recentCheckouts,
   addRemote,
   changeRemote,
   checkRemote,
@@ -557,6 +558,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   // The Log's branches pane: the local and remote branches.
   connection.onRequest('git.branches', (params) => listBranches(text(params, 'worktree'), git));
+  connection.onRequest('git.recentCheckouts', (params) =>
+    recentCheckouts(text(params, 'path'), git),
+  );
   /** Where a request's push goes, if it says: a remote and a branch there. */
   const destination = (params: unknown) => {
     const p = params as { remote?: unknown; target?: unknown };

@@ -47,6 +47,8 @@ const git = {
   conflicted: [] as string[],
   /** The tags, or why they can't be read. */
   tags: ['v1', 'v2'] as string[] | Error,
+  /** What the reflog says was checked out last, or why it can't be read. */
+  checkouts: [] as string[] | Error,
   /** Whether the repository has remotes, as its state says. */
   remotes: true,
   /** Its remotes' names, or why they can't be read. */
@@ -97,6 +99,10 @@ const host = new FakeHost({
   },
   'git.checkout': (p: Checkout) => checkingOut(p),
   'git.checkoutRevision': (p: Checkout) => checkingOut(p),
+  'git.recentCheckouts': () => {
+    if (git.checkouts instanceof Error) throw git.checkouts;
+    return git.checkouts;
+  },
   'git.tags': () => {
     if (git.tags instanceof Error) throw git.tags;
     return git.tags;
@@ -207,6 +213,7 @@ beforeEach(() => {
   git.result = 'done';
   git.conflicted = [];
   git.tags = ['v1', 'v2'];
+  git.checkouts = [];
   git.upstreams = {};
   git.tracked = undefined;
   git.remoteFailing = undefined;
@@ -291,6 +298,42 @@ describe('the branches popup', () => {
     // Searched.
     await userEvent.keyboard('orig');
     expect(await popupItems()).toEqual(['origin/main', 'origin/side']);
+  });
+
+  it('lists the branches checked out last first, as IntelliJ’s Recent; Local without them', async () => {
+    // The latest first; a detached HEAD's and a deleted branch's passed over.
+    git.checkouts = ['main', 'HEAD', 'side', 'gone'];
+    await popup();
+    await expect
+      .poll(popupItems)
+      .toEqual([
+        'New Branch…',
+        'Checkout Tag or Revision…',
+        'main',
+        'side',
+        'feature',
+        'origin/main',
+        'origin/side',
+        'v1',
+        'v2',
+      ]);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent),
+    ).toEqual(['Recent', 'Local', 'Remote', 'Tags']);
+    // The one checked out keeps its check there.
+    expect(row('main').querySelector('.cerebro-popup-item__icon svg')).not.toBeNull();
+    await closeAll();
+    // Where they can't be read (no commit yet), none is recent.
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    git.checkouts = new Error('fatal: your current branch does not have any commits yet');
+    await popup();
+    await expect
+      .poll(() => logged.mock.calls[0]?.[0] as unknown)
+      .toBe('Reading the recent branches failed');
+    await expect
+      .poll(() => [...document.querySelectorAll('.cerebro-popup__group')].map((g) => g.textContent))
+      .toEqual(['Local', 'Remote', 'Tags']);
+    logged.mockRestore();
   });
 
   it('keeps a branch’s actions off without a branch, so Find Action, which lists those on, doesn’t', async () => {

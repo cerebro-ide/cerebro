@@ -78,7 +78,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
 - [Git → Merge… (2026-11-10)](#git--merge-2026-11-10): IntelliJ's Merge dialog: `git merge` and the branch (local, then remote), one merged already said so; Modify options (with -m, the commit's message); then on as Pull goes
 - [Fetch and Pull (2026-11-10)](#fetch-and-pull-2026-11-10): Git → Fetch, every remote with --prune; Git → Pull…, IntelliJ's dialog (the remote, its branch, Modify options), merged, or rebased as Update Project with --rebase; at conflicts, the Conflicts dialog, then the merge committed; Git → Branches… and New Branch…
-- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); Checkout Tag or Revision…; the tags, with Checkout, Merge and Delete; from Git → Branches… too (changed 2026-11-12)
+- [Branches (2026-11-10)](#branches-2026-11-10): IntelliJ's branches popup from the toolbar's branch selector: New Branch…, the local and remote branches, each with its menu: Checkout (Open Worktree for one checked out in another), New Branch from it, Rebase onto it, Merge it, Rename, Delete (with Restore and Delete Tracked Branch; a remote branch's too); Checkout Tag or Revision…; the tags, with Checkout, Merge and Delete; Recent first; from Git → Branches… too (changed 2026-11-13)
 - [Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)](#committing-a-merge-and-the-git-menus-merge-and-rebase-actions-2026-11-09): the Commit window commits a merge as IntelliJ's, with git's message; Git → Commit Merge, Abort Merge, and the Rebase menu (Abort, Continue, Skip Commit), shown while under way
 - [Annotate with Git Blame (2026-11-09)](#annotate-with-git-blame-2026-11-09): who last changed each line and when, in a column of the gutter before the line numbers, as IntelliJ's; from the gutter's menu and Git → Current File; its menu's Close Annotations, Show Diff, View (columns, Colors, Names), Copy Revision Number and Options; a click shows the commit in the Log
 - [Reformat Code (2026-11-04)](#reformat-code-2026-11-04): the file, or the selection, formatted by its language server on Ctrl+Alt+L, undone as one, with IntelliJ's hint of the lines changed; JSON, CSS and HTML by Cerebro's server; each keymap's keys
@@ -3439,7 +3439,16 @@ the `Git.Branch` actions, `GitNewBranchDialog`, `GitBrancher`'s operations and t
   (`GitBranchesPopupStepBase.isAutoSelectionEnabled()` is false there, so its hover timer opens
   nothing; read from its source). It was listed below as not yet done until then (changed
   2026-11-12).
-- **Not yet:** favourites and Recent.
+- **Recent** (added 2026-11-13), a group before Local, as IntelliJ's (GitBranchesTreeModel,
+  GitRecentCheckoutBranches, read from their source; "Recent", its word): the local branches the
+  reflog's last 50 checkouts moved to (`git reflog --grep-reflog checkout:`), the latest first, in
+  that order rather than sorted; Local lists the others. `git switch` writes the same entries, and
+  a detached checkout's "to" is `HEAD` or a hash, so only names that are branches are kept
+  (measured, git 2.43). Before a first commit there's no reflog to read (git fails), so there's no
+  Recent. Favourites were done on 2026-11-12, in the Log's branches pane's entry.
+- **Not yet:** IntelliJ's Show Recent Branches setting (Recent is always shown, its default); the
+  branch IntelliJ remembers as recent for a clone's first branch, which the reflog has no checkout
+  for.
 
 ## Annotate with Git Blame (2026-11-09)
 
