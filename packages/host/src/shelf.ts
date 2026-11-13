@@ -134,10 +134,12 @@ async function shelfOf(worktree: string, id: string, run: Git): Promise<Shelf> {
 export async function unshelve(worktree: string, id: string, run: Git): Promise<void> {
   const shelf = await shelfOf(worktree, id, run);
   const patch = await run(worktree, ['diff', '--binary', '-M', shelf.base, shelf.commit]);
-  // With fewer lines around a hunk if all of them don't match, so it applies where its lines
-  // moved to: git anchors a hunk at line 1 to the file's start until it drops some (measured,
-  // git 2.43), as IntelliJ's applier finds them elsewhere.
-  if (patch !== '') await run(worktree, ['apply', '-C2', '-'], undefined, patch);
+  // With one line around a hunk if all of them don't match, so it applies where its lines moved
+  // to: git anchors a hunk at line 1 to the file's start until it drops some, as IntelliJ's
+  // applier finds them elsewhere. A five-line file's hunk, two lines before its change and two
+  // after, failed with `-C2` once a line was added above it, and applies with `-C1` (measured, git
+  // 2.43), as the Log's Revert Selected Changes.
+  if (patch !== '') await run(worktree, ['apply', '-C1', '-'], undefined, patch);
   await deleteShelf(worktree, id, run);
 }
 

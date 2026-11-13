@@ -1374,10 +1374,13 @@ aside, and back.
   garbage collection, other worktrees don't see it, and renames and binary files come back
   whole (`git diff --binary -M`, then `git apply`; renames measured, binary files a claim). If it doesn't apply (a file changed since in the
   same place), nothing changes and the list stays shelved (measured, in the host's tests).
-  `git apply -C2` (changed 2026-11-13): a hunk applies where its lines moved to, with two lines
-  around it rather than three if it must; without it, git anchored a hunk at line 1 to the file's
-  start, so a line added above it failed the unshelve (measured, git 2.43; IntelliJ's own applier
-  finds the lines elsewhere, a claim on how far). Claude's choice of two, open to change.
+  `git apply -C1` (changed 2026-11-13, from `-C2` the same day): a hunk applies where its lines
+  moved to, with one line around it rather than three if it must; without it, git anchored a hunk
+  at line 1 to the file's start, so a line added above it failed the unshelve (measured, git 2.43;
+  IntelliJ's own applier finds the lines elsewhere, a claim on how far). `-C2` still failed a
+  five-line file's hunk, two lines before its change and two after (measured on the unshelve,
+  in its test), and `-C1` applies it, as the Log's Revert Selected Changes uses. Fewer lines make a
+  hunk easier to place in the wrong spot (a claim); Claude's choice, open to change.
   IntelliJ keeps patches in the project's `.idea/shelf` (a claim, not checked: its
   shelf's location is a setting); rejected: they'd need a patch format of our own to apply.
 - **The stash is git's,** as IntelliJ's Stash Changes… and Unstash Changes… run it: the Stash

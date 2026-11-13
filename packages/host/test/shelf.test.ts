@@ -146,6 +146,20 @@ describe('the shelf', () => {
     expect(await listShelves(repo, git)).toEqual([]);
   });
 
+  it('unshelves a change two lines from a file’s start after lines are added above it', async () => {
+    const repo = repository('moved-two');
+    run(repo, 'config', 'core.autocrlf', 'false');
+    writeFileSync(join(repo, 'b.txt'), 'one\ntwo\nthree\nfour\nfive\n');
+    run(repo, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'lines');
+    // Its hunk is the whole file: from line 1, two lines before the change and two after.
+    writeFileSync(join(repo, 'b.txt'), 'one\ntwo\nTHREE\nfour\nfive\n');
+    const id = await shelve(repo, await listChanges(repo), 'Aside', git);
+    writeFileSync(join(repo, 'b.txt'), 'zero\none\ntwo\nthree\nfour\nfive\n');
+    await unshelve(repo, id, git);
+    expect(read(repo, 'b.txt')).toBe('zero\none\ntwo\nTHREE\nfour\nfive\n');
+    expect(await listShelves(repo, git)).toEqual([]);
+  });
+
   it('shelves before the first commit, against the empty tree', async () => {
     const repo = repository('no-commits', true);
     writeFileSync(join(repo, 'a.txt'), 'a');
