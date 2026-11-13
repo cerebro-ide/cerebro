@@ -567,6 +567,30 @@ export function MergeEditor(props: MergeEditorProps): Node {
     }
   }
 
+  /**
+   * The first change left, shown: each pane's caret at its first line there, and the panes scrolled
+   * to it, as IntelliJ does after Apply non-conflicting changes and Resolve Simple Conflicts
+   * (`doScrollToChange`).
+   */
+  const showFirstLeft = () => {
+    const t = tracked.find((change) => !resolved(change));
+    if (!t) return;
+    const lines = {
+      yours: t.change.yours.from,
+      result: resultLines(t).from,
+      theirs: t.change.theirs.from,
+    };
+    for (const side of ['yours', 'theirs', 'result'] as const) {
+      const view = views[side];
+      const head = at(view.state.doc, lines[side]);
+      // The result scrolled, the others follow it.
+      view.dispatch({
+        selection: { anchor: head },
+        effects: side === 'result' ? EditorView.scrollIntoView(head, { y: 'center' }) : [],
+      });
+    }
+  };
+
   refresh();
   const watch = effect(() => {
     const configured = configure();
@@ -591,6 +615,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
           )
           .map(takingChange),
       );
+      showFirstLeft();
     },
     canResolveSimple: () => simple.get(),
     resolveSimple() {
@@ -603,6 +628,7 @@ export function MergeEditor(props: MergeEditorProps): Node {
               : [],
         ),
       );
+      showFirstLeft();
     },
   });
   onCleanup(() => {
