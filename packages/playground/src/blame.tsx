@@ -498,17 +498,23 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
       else annotated.set(file, fileIn(file) as Annotated);
     },
   });
-  commands.register<AnnotationContext>({
+  // The annotation's commands are only on an annotation: Find Action, asking with none, doesn't
+  // list them.
+  const onAnnotation = (c: AnnotationContext | undefined) => c !== undefined;
+  commands.register<AnnotationContext | undefined>({
     id: 'annotate.close',
     label: 'Close Annotations',
-    run: (c) => annotated.delete(c.file),
+    enabled: onAnnotation,
+    run: (c) => annotated.delete((c as AnnotationContext).file),
   });
   // The commit's changes to the file: from the commit before that changed it, as IntelliJ's.
-  commands.register<AnnotationContext>({
+  commands.register<AnnotationContext | undefined>({
     id: 'annotate.showDiff',
     label: 'Show Diff',
+    enabled: onAnnotation,
     run: (c) => {
-      setup.open(diffTab(c.path, { from: c.commit.previous?.hash ?? EMPTY_TREE, to: c.hash }));
+      const { path, commit, hash } = c as AnnotationContext;
+      setup.open(diffTab(path, { from: commit.previous?.hash ?? EMPTY_TREE, to: hash }));
     },
   });
   for (const option of OPTIONS) {
@@ -540,11 +546,10 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     }
     setup.open(tab, line);
   };
-  // Only on an annotation: Find Action, asking with none, doesn't list them.
   commands.register<AnnotationContext | undefined>({
     id: 'annotate.revision',
     label: 'Annotate Revision',
-    enabled: (c) => c !== undefined,
+    enabled: onAnnotation,
     run: (c) => {
       const { hash, path } = c as AnnotationContext;
       return annotateAt(c as AnnotationContext, { hash, path });
@@ -559,10 +564,11 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
       return annotateAt(context, context.commit.previous as { hash: string; path: string });
     },
   });
-  commands.register<AnnotationContext>({
+  commands.register<AnnotationContext | undefined>({
     id: 'annotate.copyRevision',
     label: 'Copy Revision Number',
-    run: (c) => navigator.clipboard.writeText(c.hash),
+    enabled: onAnnotation,
+    run: (c) => navigator.clipboard.writeText((c as AnnotationContext).hash),
   });
   for (const [id, label] of ASPECTS) {
     commands.register({
