@@ -18,6 +18,8 @@ export interface MarkdownPreviewProps {
    * drawn from at its top, as IntelliJ's auto-scroll (MarkdownEditorWithPreview).
    */
   line?: () => number;
+  /** Opens a link to somewhere else than the page itself (`#heading`, which it goes to). */
+  link?: (address: string) => void;
   /** An image's source for its address, as `MarkdownStyle`'s. */
   image?: MarkdownStyle['image'];
 }
@@ -39,6 +41,15 @@ export function scrollFor(
   // Blocks start on lines of their own: the next starts after this one.
   const share = Math.min(1, (line - block.line) / (next.line - block.line));
   return block.top + share * (next.top - block.top);
+}
+
+/** A heading's anchor, as GitHub makes it: lower case, its spaces hyphens, its punctuation gone. */
+export function slug(heading: string): string {
+  return heading
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s_-]/gu, '')
+    .replace(/\s/g, '-');
 }
 
 /** The page's look, from the theme's variables. A claim: not measured from IntelliJ's. */
@@ -93,6 +104,7 @@ const STYLES = `
 .cerebro-markdown hr { height: 1px; margin: 24px 0; border: 0; background: var(--cerebro-border); }
 .cerebro-markdown img { max-width: 100%; }
 .cerebro-doc__link { color: var(--cerebro-link); }
+.cerebro-doc__link--opens { cursor: pointer; }
 `;
 
 /** The editor's highlight style, as classes of the preview's and the rules that colour them. */
@@ -122,9 +134,23 @@ export function MarkdownPreview(props: MarkdownPreviewProps): Node {
   const colours = codeColours();
   sheet.replaceSync(`${STYLES}\n${colours.rules}`);
   shadow.adoptedStyleSheets = [sheet];
+  /** Goes to a heading of the page by its anchor, as GitHub's page does. */
+  const goTo = (anchor: string) => {
+    const heading = [...body.querySelectorAll('h1, h2, h3, h4, h5, h6')].find(
+      (element) => slug(element.textContent) === anchor,
+    );
+    if (heading) {
+      container.scrollTop +=
+        heading.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    }
+  };
   const style: MarkdownStyle = {
     highlighter: colours.highlighter,
     headings: true,
+    link: (address) => {
+      if (address.startsWith('#')) goTo(decodeURIComponent(address.slice(1)).toLowerCase());
+      else props.link?.(address);
+    },
     ...(props.image ? { image: props.image } : {}),
   };
   /** Each top-level block's first line, by its element. */
