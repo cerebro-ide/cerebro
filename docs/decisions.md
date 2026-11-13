@@ -3057,7 +3057,8 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   commit). The first commit is asked about ("Editing Initial Commit", Continue). The dialog, "Edit
   Commit Message": "Edit message for commit {short hash} by {author}", the message to edit, the
   caret at its start, OK off while it's blank. "Rewording…" on the status bar while it runs, then
-  "Commit message changed", or "Failed to reword" with why.
+  "Commit message changed" and the commit made with the message selected in the Log (IntelliJ's
+  `commitToFocus`), or "Failed to reword" with why.
   - **Made as IntelliJ's in-memory reword,** which it tries first: the commit made again with the
     message (`git commit-tree`, its tree, parents and author kept, the committer now), each later
     commit made again on it as it was, then HEAD moved to the last (`git update-ref`, given the

@@ -79,13 +79,14 @@ async function rewordCommit(at: LogCommitContext): Promise<void> {
   const message = await messageDialog(at);
   if (message === undefined) return;
   resetting.set('Rewording…');
+  let reworded: string | undefined;
   try {
-    await host.request('git.reword', {
+    reworded = (await host.request('git.reword', {
       path: worktree,
       hash: commit.hash,
       message,
       head: check.head,
-    });
+    })) as string;
     notifications.notify({ title: 'Commit message changed' });
   } catch (error) {
     // IntelliJ's in-memory reword's title, its words under it.
@@ -98,9 +99,13 @@ async function rewordCommit(at: LogCommitContext): Promise<void> {
   } finally {
     resetting.set(undefined);
   }
-  await Promise.all([at.refresh(), refreshAll(worktree)]).catch((error: unknown) => {
+  try {
+    await Promise.all([at.refresh(), refreshAll(worktree)]);
+    // The commit made with the message, as IntelliJ focuses it.
+    if (reworded !== undefined) await at.select(reworded);
+  } catch (error) {
     console.error('Reading again after Edit Commit Message', error);
-  });
+  }
 }
 
 export function setupReword(services: MenuServices): void {

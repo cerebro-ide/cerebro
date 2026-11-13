@@ -56,7 +56,7 @@ describe('Edit Commit Message, with real git', () => {
     writeFileSync(join(repo, 'staged.txt'), 'staged\n');
     run('add', 'staged.txt');
     writeFileSync(join(repo, 'one.txt'), 'changed\n');
-    await reword(repo, third, 'three, better', third, git);
+    expect(await reword(repo, third, 'three, better', third, git)).toBe(run('rev-parse', 'HEAD'));
     expect(show('%B')).toBe('three, better');
     expect(show('%T %P %an <%ae> %ad', 'HEAD')).toBe(
       `${show('%T', third)} ${second} Ann Other <ann@x> ${show('%ad', third)}`,
@@ -68,7 +68,8 @@ describe('Edit Commit Message, with real git', () => {
   });
 
   it('gives an older commit the message, each later one made again on it as it was', async () => {
-    await reword(repo, second, 'two, better\n\nnew body', third, git);
+    const made = await reword(repo, second, 'two, better\n\nnew body', third, git);
+    expect(made).toBe(run('rev-parse', 'HEAD~1'));
     expect(run('log', '--format=%s', 'main')).toBe('three\ntwo, better\none');
     expect(show('%B', 'HEAD~1')).toBe('two, better\n\nnew body');
     expect(show('%T', 'HEAD')).toBe(show('%T', third));

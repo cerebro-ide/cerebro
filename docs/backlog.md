@@ -55,6 +55,11 @@ diff's model for one link (CLAUDE.md).
   gets the file: an edit not yet saved isn't in the status, so it's saved and overwritten unasked.
   The Log's Get from Revision saves first, then asks. Whether IntelliJ counts an unsaved edit as a
   local change there is a claim, not read.
+- **The Log's details keep showing a commit that's gone** (seen 2026-11-13 in the built app, QA of
+  Edit Commit Message…, before it selected the reworded commit): after an action replaces the
+  selected commit (a reword; Undo Commit and Reset likely the same, not seen), the Log is read
+  again with no row selected, yet the details pane still shows the old commit's message and files.
+  IntelliJ's Log, whose selection goes when its commit does, would show none (a claim, not seen).
 - **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
   #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
   earlier press could still be answered; one press opened a chooser of walk's definitions, another's

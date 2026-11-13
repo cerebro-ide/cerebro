@@ -118,8 +118,8 @@ async function cleanUp(worktree: string, message: string, run: Git): Promise<str
  * Gives `hash` `message`, as IntelliJ's `GitInMemoryRewordOperation`; `head` is HEAD's commit when
  * it was checked (`rewordCheck`), and nothing's done if HEAD has moved since. Each commit from
  * `hash` to HEAD is made again, the branch (or a detached HEAD) moved to the last; the working tree
- * and the index stay as they are. Throws, nothing changed, if a merge or the first commit is
- * between them, in IntelliJ's words.
+ * and the index stay as they are. Gives the commit's new hash. Throws, nothing changed, if a merge
+ * or the first commit is between them, in IntelliJ's words.
  */
 export async function reword(
   worktree: string,
@@ -127,7 +127,7 @@ export async function reword(
   message: string,
   head: string,
   run: Git,
-): Promise<void> {
+): Promise<string> {
   const moved = () => new Error('HEAD moved during the commit editing operation');
   if ((await run(worktree, ['rev-parse', 'HEAD'])).trim() !== head) throw moved();
   const target = (await run(worktree, ['rev-parse', hash])).trim();
@@ -151,13 +151,14 @@ export async function reword(
     at = parents[0] as string;
   }
   const original = await read(worktree, target, run);
-  let made = await remake(
+  const reworded = await remake(
     worktree,
     original,
     original.parents,
     await cleanUp(worktree, message, run),
     run,
   );
+  let made = reworded;
   for (const hash of later) {
     const commit = await read(worktree, hash, run);
     made = await remake(worktree, commit, [made], commit.message, run);
@@ -168,4 +169,5 @@ export async function reword(
   } catch {
     throw moved();
   }
+  return reworded;
 }

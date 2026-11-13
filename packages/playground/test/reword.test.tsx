@@ -19,7 +19,7 @@ const host = new FakeHost({
   'git.reword': async () => {
     await git.done;
     if (git.failure) throw git.failure;
-    return null;
+    return 'fedcba9876';
   },
   'git.status': () => ({ files: [] }),
   'git.shelves': () => [],
@@ -42,12 +42,14 @@ const commit = {
   refs: [],
 };
 const read = vi.fn(() => Promise.resolve());
+const select = vi.fn(() => Promise.resolve(true));
 const context = (changed: Partial<typeof commit> = {}, head: string | null = commit.hash) => ({
   commit: { ...commit, ...changed },
   worktree: '/r',
   host,
   ...(head === null ? {} : { head }),
   refresh: read,
+  select,
 });
 const reword = (changed: Partial<typeof commit> = {}) =>
   Promise.resolve(commands.get('log.reword')?.run(context(changed)));
@@ -69,6 +71,7 @@ beforeEach(() => {
   git.done = Promise.resolve();
   git.failure = undefined;
   read.mockClear();
+  select.mockClear();
 });
 
 afterEach(async () => {
@@ -136,6 +139,7 @@ describe('the Log’s Edit Commit Message…', () => {
     ]);
     expect(last()?.title).toBe('Commit message changed');
     expect(read).toHaveBeenCalled();
+    expect(select).toHaveBeenCalledWith('fedcba9876');
   });
 
   it('says why it can’t first, in an error dialog, doing nothing', async () => {
@@ -179,8 +183,6 @@ describe('the Log’s Edit Commit Message…', () => {
 
   it('says why it failed, and logs what fails reading again after', async () => {
     git.failure = new Error('HEAD moved during the commit editing operation');
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-    read.mockRejectedValueOnce(new Error('gone'));
     const done = reword();
     await dialog();
     await press('OK');
@@ -190,6 +192,15 @@ describe('the Log’s Edit Commit Message…', () => {
       content: 'HEAD moved during the commit editing operation',
       type: 'error',
     });
+    // Read again, nothing to select.
+    expect(read).toHaveBeenCalled();
+    expect(select).not.toHaveBeenCalled();
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    read.mockRejectedValueOnce(new Error('gone'));
+    const again = reword();
+    await dialog();
+    await press('OK');
+    await again;
     expect(logged).toHaveBeenCalledWith(
       'Reading again after Edit Commit Message',
       new Error('gone'),

@@ -2223,7 +2223,7 @@ describe('a commit’s menu', () => {
     expect(write).toHaveBeenCalledWith('c1');
   });
 
-  it('gives its commands the commit, its worktree and host, HEAD’s, and a way to read the Log again', async () => {
+  it('gives its commands the commit, its worktree and host, HEAD’s, and ways to read the Log again and select a commit', async () => {
     git.log = history(2, ['HEAD -> refs/heads/main']);
     mount();
     await expect.poll(subjects).toEqual(['Change 0', 'Change 1']);
@@ -2246,6 +2246,8 @@ describe('a commit’s menu', () => {
     expect(given).toMatchObject({ commit: { hash: 'c1' }, worktree: '/r', host, head: 'c0' });
     await given?.refresh();
     expect(host.params('git.log')).toHaveLength(2);
+    expect(await given?.select('c0')).toBe(true);
+    expect(await given?.select('gone')).toBe(false);
   });
 });
 
