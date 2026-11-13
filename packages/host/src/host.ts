@@ -99,7 +99,7 @@ import { applyChanges, applyCommit, continueApplying, getVersion } from './apply
 import { createPatch, writePatch } from './patch.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
-import { drop, editCheck, reword } from './commit-editing.js';
+import { drop, editCheck, reword, undoEdit } from './commit-editing.js';
 import {
   abortOperation,
   acceptSide,
@@ -888,6 +888,17 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     const hash = hashOf(params);
     const head = hashOf(params, 'head');
     return recording(worktree, 'Drop Commit', git, () => drop(worktree, hash, head, git));
+  });
+  // Their notification's Undo: HEAD back where it was before, unless it has moved since.
+  connection.onRequest('git.undoEdit', (params) => {
+    const worktree = text(params, 'path');
+    return undoEdit(
+      worktree,
+      hashOf(params, 'before'),
+      hashOf(params, 'after'),
+      protectedOf(params),
+      git,
+    );
   });
   // The Log's Cherry-Pick: `protected` names the branches on a remote that make a commit
   // published, its message then saying where it's from.

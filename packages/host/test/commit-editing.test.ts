@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { drop, editCheck, git, reword, type Git } from '../src/index.js';
+import { drop, editCheck, git, reword, undoEdit, type Git } from '../src/index.js';
 
 describe('Edit Commit Message and Drop Commit, with real git', () => {
   const repo = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-reword-')));
@@ -56,7 +56,10 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
     writeFileSync(join(repo, 'staged.txt'), 'staged\n');
     run('add', 'staged.txt');
     writeFileSync(join(repo, 'one.txt'), 'changed\n');
-    expect(await reword(repo, third, 'three, better', third, git)).toBe(run('rev-parse', 'HEAD'));
+    const head = run('rev-parse', 'HEAD');
+    const made = await reword(repo, third, 'three, better', third, git);
+    expect(made).toEqual({ commit: run('rev-parse', 'HEAD'), head: run('rev-parse', 'HEAD') });
+    expect(made.head).not.toBe(head);
     expect(show('%B')).toBe('three, better');
     expect(show('%T %P %an <%ae> %ad', 'HEAD')).toBe(
       `${show('%T', third)} ${second} Ann Other <ann@x> ${show('%ad', third)}`,
@@ -69,7 +72,7 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
 
   it('gives an older commit the message, each later one made again on it as it was', async () => {
     const made = await reword(repo, second, 'two, better\n\nnew body', third, git);
-    expect(made).toBe(run('rev-parse', 'HEAD~1'));
+    expect(made).toEqual({ commit: run('rev-parse', 'HEAD~1'), head: run('rev-parse', 'HEAD') });
     expect(run('log', '--format=%s', 'main')).toBe('three\ntwo, better\none');
     expect(show('%B', 'HEAD~1')).toBe('two, better\n\nnew body');
     expect(show('%T', 'HEAD')).toBe(show('%T', third));
@@ -181,10 +184,47 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
     });
   });
 
+  describe('Undo, from the notification', () => {
+    it('puts HEAD back where it was, local changes kept', async () => {
+      const { head } = await reword(repo, second, 'two, better', third, git);
+      writeFileSync(join(repo, 'one.txt'), 'local\n');
+      expect(await undoEdit(repo, third, head, nobody, git)).toBeNull();
+      expect(run('rev-parse', 'main')).toBe(third);
+      expect(run('status', '--porcelain')).toBe('M one.txt');
+      run('checkout', '--', 'one.txt');
+      // A drop of HEAD's commit made none: undone as well.
+      const dropped = await drop(repo, third, third, git);
+      expect(await undoEdit(repo, third, dropped, nobody, git)).toBeNull();
+      expect(run('log', '--format=%s', 'main')).toBe('three\ntwo\none');
+    });
+
+    it('refuses in IntelliJ’s words once HEAD has moved, or what it made is protected', async () => {
+      const { head } = await reword(repo, second, 'two, better', third, git);
+      expect(await undoEdit(repo, third, second, nobody, git)).toEqual({
+        refused: 'Repository has already been changed',
+      });
+      run('update-ref', 'refs/remotes/origin/main', head);
+      const named = (name: string) => name === 'main';
+      expect(await undoEdit(repo, third, head, named, git)).toEqual({
+        refused:
+          'Commits from current branch have already been pushed to protected branch origin/main',
+      });
+      expect(run('rev-parse', 'main')).toBe(head);
+    });
+
+    it('fails in git’s words where local changes would be lost', async () => {
+      const dropped = await drop(repo, second, third, git);
+      writeFileSync(join(repo, 'two.txt'), 'local\n');
+      await expect(undoEdit(repo, third, dropped, nobody, git)).rejects.toThrow(/two\.txt/);
+      expect(run('rev-parse', 'HEAD')).toBe(dropped);
+      rmSync(join(repo, 'two.txt'));
+    });
+  });
+
   describe('Drop Commit', () => {
     it('drops a commit, each later one’s changes applied on what’s before it, local changes kept', async () => {
       writeFileSync(join(repo, 'one.txt'), 'local\n');
-      await drop(repo, second, third, git);
+      expect(await drop(repo, second, third, git)).toBe(run('rev-parse', 'HEAD'));
       expect(run('log', '--format=%s', 'main')).toBe('three\none');
       expect(run('ls-tree', '--name-only', 'HEAD')).toBe('one.txt\nthree.txt');
       expect(show('%an %ad', 'HEAD')).toBe(show('%an %ad', third));

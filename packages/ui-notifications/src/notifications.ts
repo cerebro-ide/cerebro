@@ -3,7 +3,7 @@
 // the window was open, and shows as a balloon as it comes, unless it says not to. A balloon fades
 // after 10 seconds, a sticky one after 5 minutes, as IntelliJ's (NotificationDisplayType), or when
 // closed; a notification of a group closes the last one's balloon, as IntelliJ's
-// expirePreviousAndNotify.
+// expirePreviousAndNotify. One that no longer applies is expired: gone, balloon and all.
 
 import {
   computed,
@@ -85,6 +85,16 @@ export class Notifications {
     }
     this.all.unshift(notification);
     return notification;
+  }
+
+  /**
+   * It no longer applies, as IntelliJ's `Notification.expire`: its balloon closes, and it leaves
+   * the timeline (`ApplicationNotificationsModel.remove`), its links with it.
+   */
+  expire(notification: Notification): void {
+    notification.balloon.set(false);
+    const index = this.all.toArray().indexOf(notification);
+    if (index >= 0) this.all.splice(index, 1);
   }
 
   /** Everything was seen: as IntelliJ's tool window when it's hidden. */
