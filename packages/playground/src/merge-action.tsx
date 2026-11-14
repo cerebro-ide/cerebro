@@ -7,6 +7,7 @@ import { saveBeforeGit } from './documents.js';
 import type { Host } from './environments.js';
 import { viewCommits, type HashRange } from './git-log.js';
 import { notifications } from './notifications.js';
+import { readState } from './repository-state.js';
 import { refreshAll } from './shelf.js';
 
 /** The host's `git.pull` and `git.merge`. */
@@ -16,8 +17,19 @@ type Merged =
 
 const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? '' : 's'}`;
 
-/** Says how it went, as IntelliJ's `GitMergeAction` does. */
-function reportMerged(merged: { files: number; commits: number; range?: HashRange }): void {
+/**
+ * Says how it went, as IntelliJ's `GitMergeAction` does, once the repository's state is read again:
+ * one read while git merged would still say a merge is under way (measured in the e2e run of #324
+ * on macOS: Merge… straight after Pull found only Abort Merge and Commit Merge).
+ */
+async function reportMerged(
+  worktree: string,
+  merged: { files: number; commits: number; range?: HashRange },
+): Promise<void> {
+  // The merge is done all the same: a failed read is logged, not said as the merge's.
+  await readState(worktree).catch((error: unknown) => {
+    console.error('Reading the repository’s state failed', error);
+  });
   const { range } = merged;
   notifications.notify({
     title:
@@ -76,7 +88,7 @@ export async function mergeAction(
   try {
     const merged = (await run()) as Merged;
     if (merged.kind === 'merged') {
-      reportMerged(merged);
+      await reportMerged(worktree, merged);
       return;
     }
     if (!(await resolveConflicts(worktree))) {
@@ -97,7 +109,8 @@ export async function mergeAction(
       return;
     }
     if (!commit) return;
-    reportMerged(
+    await reportMerged(
+      worktree,
       (await host.request('git.continueUpdate', { path: worktree, resume: merged.resume })) as {
         files: number;
         commits: number;

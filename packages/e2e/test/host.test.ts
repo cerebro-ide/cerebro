@@ -236,7 +236,24 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
   // Alt+F7 on the class's name: every place the name appears.
   await page.keyboard.press('Alt+F7');
-  await page.locator('.cerebro-popup-item').first().waitFor();
+  try {
+    await page.locator('.cerebro-popup-item').first().waitFor();
+  } catch (error) {
+    // None in 5 s once, on macOS in CI (#326, 2026-11-14): where the page was.
+    console.log(
+      'Alt+F7 showed no usages:',
+      await page.evaluate(() => ({
+        focused: document.activeElement?.className,
+        hasFocus: document.hasFocus(),
+        line: document
+          .querySelector('.cerebro-editor-code')
+          ?.shadowRoot?.querySelector('.cm-activeLine')?.textContent,
+        popups: [...document.querySelectorAll('.cerebro-popup')].map((p) => p.textContent),
+        balloons: [...document.querySelectorAll('.cerebro-balloon')].map((b) => b.textContent),
+      })),
+    );
+    throw error;
+  }
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
   expect(await page.locator('.cerebro-popup-item__detail').allTextContents()).toEqual([
     'src/shape.ts:2',
