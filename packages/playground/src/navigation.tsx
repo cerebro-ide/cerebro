@@ -4,6 +4,7 @@
 // IntelliJ's Go to Declaration or Usages. Go to Symbol is Search Everywhere's.
 
 import {
+  ChangePlaces,
   NavigationHistory,
   RecentTabs,
   type EditorArea,
@@ -133,6 +134,8 @@ function saved(key: string): unknown {
 const histories = new WeakMap<Environment, NavigationHistory>();
 /** Each environment's Recent Files, likewise. */
 const recents = new WeakMap<Environment, RecentTabs>();
+/** Each environment's places of changes: Last and Next Edit Location. */
+const changes = new WeakMap<Environment, ChangePlaces>();
 effect(() => {
   for (const env of workspace.open) {
     if (histories.has(env)) continue;
@@ -155,6 +158,16 @@ effect(() => {
       });
     }
     recents.set(env, recent);
+    changes.set(
+      env,
+      new ChangePlaces((place) => {
+        // A jump within the file is a place left, as Back's.
+        if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
+        env.editor.open(place.tab);
+        if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
+        focusing.set(place.tab.id, {});
+      }),
+    );
     histories.set(
       env,
       new NavigationHistory(
@@ -174,8 +187,20 @@ effect(() => {
 onEdited((path) => {
   const env = workspace.open.find((e) => path.startsWith(`${e.id}/`)) ?? active();
   const recent = env && recents.get(env);
-  recent?.edit({ id: path, title: path.slice(path.lastIndexOf('/') + 1) });
+  const tab = { id: path, title: path.slice(path.lastIndexOf('/') + 1) };
+  recent?.edit(tab);
+  // Where the caret is once the editor has said, after the change.
+  const places = env && changes.get(env);
+  queueMicrotask(() => {
+    places?.changed({ tab, at: carets.get(path), top: tops.get(path) });
+  });
 });
+
+/** The active environment's places of changes. */
+export function changePlaces(): ChangePlaces | undefined {
+  const env = active();
+  return env && changes.get(env);
+}
 
 /** The active environment's Recent Files. */
 export function recentTabs(): RecentTabs | undefined {

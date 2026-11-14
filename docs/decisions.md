@@ -1251,6 +1251,19 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   window, as Select Opened File) and, in the app, the system's file manager, named as IntelliJ's
   `RevealFileAction` names it ("Reveal in Finder", "Show in Explorer", "Show in File Manager"),
   through Electron's `shell.showItemInFolder`. Claude's choice of targets, open to change.
+- **Last Edit Location and Next Edit Location** (added 2026-11-14), as IntelliJ's Navigate menu's
+  (`JumpToLastChange`, `JumpToNextChange`; `IdeDocumentHistoryImpl`, read from its source): each
+  edit leaves its place, where the caret is once the editor has it, replacing the last place when
+  it's in the same file within 4 lines (`TextEditorState.MIN_CHANGE_DISTANCE`); 150 kept
+  (`editor.navigation.history.stack.size`), per environment (`ChangePlaces` in `layout`). Last
+  goes back through them from the last one gone to, past any where the caret is; Next goes on
+  again; an edit starts again from the latest. The file's editor takes the focus, and a jump
+  within the file is a place left, for Back. In the Navigate menu after Back and Forward, as
+  IntelliJ's. Keys, from IntelliJ's keymap files: Last on Ctrl+Shift+Backspace (Cmd+Shift+Backspace
+  on macOS, its macOS keymap taking `$default`'s with Cmd), Eclipse's Ctrl+Q, none in Sublime
+  Text's on Windows and Linux; Next has none. A file edited back to as it was saved leaves no
+  place (the edits followed are those that leave it unsaved, as Recently Changed Files' are).
+  Claude's choice where IntelliJ's isn't read: the place isn't kept between runs.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
@@ -3030,8 +3043,8 @@ choices, open to change.
   no Type Declaration (none of either on macOS); none for Implementation in Emacs's; none for Type
   Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
   macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
-- **Not yet:** in a menu (no Navigate menu yet, as the editor's other actions); Ctrl+click on a
-  symbol for Implementation (IntelliJ's Ctrl+Alt+click); IntelliJ's list shows each
+- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands, so in no menu);
+  Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's; IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
 
 ## Go to Super Method (2026-11-14)

@@ -30,5 +30,12 @@ export {
   type EnvironmentSpec,
   type EnvironmentsState,
 } from './environments.js';
-export { MAX_PLACES, NavigationHistory, type Place, type Position } from './history.js';
+export {
+  ChangePlaces,
+  MAX_CHANGE_PLACES,
+  MAX_PLACES,
+  NavigationHistory,
+  type Place,
+  type Position,
+} from './history.js';
 export { MAX_RECENT, RecentTabs } from './recent.js';

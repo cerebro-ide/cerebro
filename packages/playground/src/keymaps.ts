@@ -190,6 +190,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+B'],
     'code.optimizeImports': ['Ctrl+Alt+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+U'],
+    'navigate.lastEdit': ['Ctrl+Shift+Backspace'],
+    'navigate.nextEdit': [],
   },
 };
 
@@ -309,6 +311,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Meta+Shift+B', 'Ctrl+Shift+B'],
     'code.optimizeImports': ['Ctrl+Alt+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Meta+U'],
+    'navigate.lastEdit': ['Meta+Shift+Backspace'],
+    'navigate.nextEdit': [],
   },
 };
 
@@ -559,6 +563,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'code.optimizeImports': ['Ctrl+Alt+O', 'Ctrl+Shift+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: [],
+    'navigate.lastEdit': ['Ctrl+Q'],
   },
 };
 
@@ -624,6 +629,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'code.optimizeImports': ['Meta+Shift+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: [],
+    'navigate.lastEdit': ['Ctrl+Q'],
   },
 };
 
@@ -837,6 +843,7 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.pageTop]: [],
     [EDITOR_ACTIONS.pageBottom]: [],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
+    'navigate.lastEdit': [],
   },
 };
 

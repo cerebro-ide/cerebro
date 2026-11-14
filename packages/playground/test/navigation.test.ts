@@ -8,6 +8,7 @@ import { documentFor } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import {
   carets,
+  changePlaces,
   focusing,
   history,
   recentTabs,
@@ -107,6 +108,45 @@ describe('each environment’s Recent Files', () => {
     workspace.activate('/s');
     expect(recentTabs()?.edited).toEqual([]);
     workspace.close('/s');
+  });
+});
+
+describe('Last and Next Edit Location', () => {
+  it('go back to where the changes were, and on again, from where the caret is', async () => {
+    const edit = async (path: string, line: number) => {
+      const doc = (await documentFor(path, () => 'sample')) as EditorDocument;
+      carets.set(path, { line, column: 1 });
+      doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+      // The place is read once the editor has said where its caret is.
+      await Promise.resolve();
+    };
+    await edit('/r/e1.ts', 3);
+    await edit('/r/e2.ts', 7);
+    const places = changePlaces();
+    expect(places?.places.slice(-2).map((p) => [p.tab.id, p.at?.line])).toEqual([
+      ['/r/e1.ts', 3],
+      ['/r/e2.ts', 7],
+    ]);
+    nav.open({ id: '/r/e2.ts', title: 'e2.ts' });
+    // At the last change: the one before it, its editor focused.
+    places?.goBack(history()?.current());
+    expect(editor().activeGroup.active).toBe('/r/e1.ts');
+    expect(reveals.get('/r/e1.ts')).toMatchObject({ line: 3, column: 1 });
+    expect(focusing.has('/r/e1.ts')).toBe(true);
+    // Moved on in the file: back to the change is a jump within it, a place left.
+    carets.set('/r/e1.ts', { line: 20, column: 0 });
+    places?.goForward(history()?.current());
+    expect(history()?.back.at(-1)).toMatchObject({ tab: { id: '/r/e1.ts' }, at: { line: 20 } });
+    expect(places?.canGoForward).toBe(true);
+    // A tab with no caret to show: it's opened only.
+    places?.changed({ tab: { id: '/r/e3.ts', title: 'e3.ts' } });
+    places?.goBack(history()?.current());
+    expect(editor().activeGroup.active).toBe('/r/e3.ts');
+  });
+
+  it('are none without an environment', () => {
+    vi.spyOn(workspace, 'active', 'get').mockReturnValue(undefined);
+    expect(changePlaces()).toBeUndefined();
   });
 });
 

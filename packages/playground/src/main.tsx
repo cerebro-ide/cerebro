@@ -5,7 +5,14 @@ import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
 import { target } from './edit.js';
 import { PluginView } from './plugin-view.js';
-import { Layout, type Tab, type ToolWindow, type ToolWindowSpec } from '@cerebro-ide/layout';
+import {
+  type ChangePlaces,
+  Layout,
+  type NavigationHistory,
+  type Tab,
+  type ToolWindow,
+  type ToolWindowSpec,
+} from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -95,6 +102,7 @@ import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
   carets,
   focusing,
+  changePlaces,
   history,
   recentTabs,
   reveals,
@@ -581,6 +589,25 @@ services.commands.register({
   enabled: () => history()?.canGoForward ?? false,
   run: () => history()?.goForward(),
 });
+// Last and Next Edit Location, as IntelliJ's: back through the places of the latest changes, from
+// where the caret is, and on again.
+services.commands.register({
+  id: 'navigate.lastEdit',
+  label: 'Last Edit L&ocation',
+  enabled: () => changePlaces()?.canGoBack ?? false,
+  // Run only while enabled: there's an environment.
+  run: () => {
+    (changePlaces() as ChangePlaces).goBack((history() as NavigationHistory).current());
+  },
+});
+services.commands.register({
+  id: 'navigate.nextEdit',
+  label: 'Next Edit Location',
+  enabled: () => changePlaces()?.canGoForward ?? false,
+  run: () => {
+    (changePlaces() as ChangePlaces).goForward((history() as NavigationHistory).current());
+  },
+});
 const mac = services.keymap.platform === 'mac';
 services.keymap.bindDefault(mac ? 'Mod+[' : 'Ctrl+Alt+Left', 'navigate.back');
 services.keymap.bindDefault(mac ? 'Mod+]' : 'Ctrl+Alt+Right', 'navigate.forward');
@@ -599,6 +626,9 @@ services.menus.contribute({
   item: { command: 'navigate.forward' },
   group: 'a',
 });
+for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
+  services.menus.contribute({ menu: 'main/navigate', item: { command }, group: 'a' });
+}
 // Recent Files, as IntelliJ's: the files shown, the latest first, the one before the current
 // highlighted, so Enter goes back to it. "Show edited only" lists the files edited instead; Recent
 // Files' own key flips it while the popup is open, and Recently Changed Files opens with it on.
