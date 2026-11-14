@@ -260,7 +260,11 @@ describe('CodeEditor', () => {
     expect(onCaret).toHaveBeenLastCalledWith({ line: 0, column: 5 }, undefined);
     await userEvent.keyboard('!');
     expect(root.querySelector('.cm-line')?.textContent).toBe('so ch!anged');
-    await userEvent.keyboard('{Backspace}');
+    // One undo at a time: two edits close together are one (CodeMirror's 500 ms `newGroupDelay`),
+    // and a loaded run once took longer between keys (measured: 600 ms apart, "!" and Backspace
+    // were two, and undo left "so ch!anged").
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('so changed');
     await userEvent.keyboard('{Control>}z{/Control}');
     expect(root.querySelector('.cm-line')?.textContent).toBe('so changed');
   });
