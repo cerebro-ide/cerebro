@@ -3273,8 +3273,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   a folder's is the host's to refuse (a claim for IntelliJ). A move is Rename's (`moveEntry`, one
   function for both): what's unsaved is saved, what refers to a file changes with it, the host
   moves it (`fs.rename`), and its tabs follow it. What's cut is pasted once. Measured in the app:
-  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. Not yet:
-  cut files shown greyed in the view, as IntelliJ's; several files at once; the directory field's
+  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. What's
+  cut shows greyed in the view until it's pasted (added 2026-11-14), in IntelliJ's
+  `CopyPasteManager.CUT_COLOR` (Gray._160, both themes: `--cerebro-cut`), and Escape in the view,
+  without modifiers, lets it go, nothing else done with the key (PsiCopyPasteManager's
+  EscapeHandler). Not yet: several files at once; the directory field's
   history, completion and folder chooser; the paths shortened as IntelliJ's (`shortenPath`); and
   the Move dialog's Preview. IntelliJ's menu's other groups (Find Usages, Compare With) aren't in
   it yet.

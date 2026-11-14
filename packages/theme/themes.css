@@ -152,6 +152,8 @@
   --cerebro-vcs-deleted: #8c8f94;
   --cerebro-vcs-untracked: #d7745e;
   --cerebro-vcs-ignored: #a8a35a;
+  /* What's cut in the Project view: IntelliJ's CopyPasteManager.CUT_COLOR, Gray._160 in both. */
+  --cerebro-cut: #a0a0a0;
   /*
    * The Git Log's graph, a branch's colour by its number, the same in both themes: IntelliJ's
    * DefaultColorGenerator's first eight (saturation 0.4, brightness 0.65). Its refs' labels:
@@ -364,6 +366,7 @@
   --cerebro-vcs-deleted: #80838a;
   --cerebro-vcs-untracked: #b34a2c;
   --cerebro-vcs-ignored: #7d7a2a;
+  --cerebro-cut: #a0a0a0;
   /* The Git Log's refs, where IntelliJ's light colours differ (VcsLogStandardColors). */
   --cerebro-log-ref-head: #ffd100;
   --cerebro-log-ref-tag: #7a7a7a;

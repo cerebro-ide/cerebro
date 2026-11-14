@@ -18,7 +18,7 @@ import { tabFile } from './commands.js';
 import { provideClipboard } from './edit.js';
 import { active, hostFor, type Host } from './environments.js';
 import { notifications } from './notifications.js';
-import { projectNode, selectNew, type FileNode } from './project.js';
+import { kept, projectNode, selectNew, type FileNode } from './project.js';
 import { moveEntry } from './rename-file.js';
 
 export interface FileClipboardSetup {
@@ -27,9 +27,6 @@ export interface FileClipboardSetup {
   /** The editor area whose tabs follow what's moved. */
   editor: () => EditorArea | undefined;
 }
-
-/** What Cut or Copy kept: a file or folder, in its worktree. */
-let kept: { node: FileNode; worktree: string; cut: boolean } | undefined;
 
 /** What the Copy dialog gives: where to, and whether to open the copy. */
 export interface CopyAnswer {
@@ -264,14 +261,14 @@ export function setupFileClipboard(services: MenuServices, setup: FileClipboardS
     });
     if (!moved) return;
     // Pasted once, as IntelliJ's cut.
-    kept = undefined;
+    kept.set(undefined);
     if (answer.open && source.kind === 'file') opened(to);
   };
   // Run only while enabled: what's kept is of this worktree, and something's selected.
   const paste = () => {
     const { worktree, host: request } = host() as { worktree: string; host: Host };
     const node = projectNode() as FileNode;
-    const { node: source, cut } = kept as { node: FileNode; cut: boolean };
+    const { node: source, cut } = kept.get() as { node: FileNode; cut: boolean };
     const folder = node.kind === 'directory' ? node.path : parent(node.path);
     return cut ? move(worktree, request, source, folder) : copy(worktree, request, source, folder);
   };
@@ -281,7 +278,7 @@ export function setupFileClipboard(services: MenuServices, setup: FileClipboardS
       const env = host();
       const node = projectNode();
       if (!env || node == null) return false;
-      if (action === 'paste') return kept?.worktree === env.worktree;
+      if (action === 'paste') return kept.get()?.worktree === env.worktree;
       return node.path !== env.worktree;
     },
     run: (action) => {
@@ -290,7 +287,7 @@ export function setupFileClipboard(services: MenuServices, setup: FileClipboardS
         return;
       }
       const { worktree } = host() as { worktree: string };
-      kept = { node: projectNode() as FileNode, worktree, cut: action === 'cut' };
+      kept.set({ node: projectNode() as FileNode, worktree, cut: action === 'cut' });
     },
   });
   // Around Copy Path, as IntelliJ's CutCopyPasteGroup: Cut and Copy before it, Paste after.
