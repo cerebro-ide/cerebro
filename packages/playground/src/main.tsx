@@ -751,9 +751,10 @@ services.menus.contribute({
 /** The active file at its caret (its start before it's moved), as it's asked about; none unread. */
 async function atCaret(): Promise<Asked | undefined> {
   const file = activeFile() as Tab;
+  // Where it is when asked: a file just opened says where its caret is while it's read.
+  const caret = carets.get(file.id) ?? { line: 0, column: 0 };
   const doc = await documentFor(file.id);
   if ('error' in doc) return undefined;
-  const caret = carets.get(file.id) ?? { line: 0, column: 0 };
   return { path: file.id, text: doc.text.peek().toString(), ...caret };
 }
 services.commands.register({
