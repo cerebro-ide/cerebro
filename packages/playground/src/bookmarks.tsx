@@ -172,6 +172,7 @@ function Tree(
       row={(node) => {
         if (node.kind === 'list') {
           return [
+            // IntelliJ's is its bookmark group icon (a claim: the bookmark's drawn in its place).
             icon('bookmark'),
             <b class="playground-occurrences__name">{node.name}</b>,
             <span class="playground-occurrences__count">Default</span>,
@@ -188,9 +189,11 @@ function Tree(
             ),
           ];
         }
-        return (
-          <span class="playground-occurrences__count">{`${String(node.bookmark.line + 1)}:`}</span>
-        );
+        // With the bookmark's icon, as IntelliJ's line nodes (`wrapIcon(null)`: its type's).
+        return [
+          icon('bookmark'),
+          <span class="playground-occurrences__count">{`${String(node.bookmark.line + 1)}:`}</span>,
+        ];
       }}
       onOpen={(node) => {
         if (node.kind === 'file') {
