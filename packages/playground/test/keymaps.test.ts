@@ -10,6 +10,7 @@ import {
   MACOS_SYSTEM,
   PRESETS,
   VSCODE_LINUX,
+  VSCODE_MAC,
   vscode,
 } from '../src/keymaps.js';
 
@@ -66,6 +67,15 @@ describe('the ready-made keymaps', () => {
 });
 
 describe('the editor’s keys', () => {
+  it('give VS Code on macOS its sheet’s Scroll Line Up and Down', () => {
+    const keymap = new Keymap('mac');
+    keymap.setPreset(VSCODE_MAC);
+    expect(editorKeys(keymap)).toMatchObject({
+      scrollUp: ['Ctrl-PageUp'],
+      scrollDown: ['Ctrl-PageDown'],
+    });
+  });
+
   it('are written as CodeMirror writes them', () => {
     expect(codeMirrorKey('Ctrl+B')).toBe('Ctrl-b');
     expect(codeMirrorKey('Ctrl+K Ctrl+T')).toBe('Ctrl-k Ctrl-t');

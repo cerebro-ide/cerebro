@@ -450,6 +450,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
     // Its Insert Line Below (Start New Line) is Cmd+Enter.
     [EDITOR_ACTIONS.splitLine]: [],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
   },
 };
 
