@@ -1,16 +1,17 @@
 // Rename in the Project view's menu, and its key while the view has the focus, as IntelliJ's
 // RenameElement there: a file's or folder's new name, asked for in IntelliJ's words
 // (RefactoringBundle's `rename.0.to`). Saves under way, and unsaved edits, are saved first; then
-// the host renames it, never over another; the tabs of what moved follow it, and it's selected
-// again in the view. It's the editor's Rename command, whose keys each keymap gives: the editor
-// runs its own (a symbol's, through its language server), and the Project view's selection takes
-// this one.
+// a file's language server changes what refers to it (TypeScript's, its imports: IntelliJ's
+// "Search for references", on by default); the host renames it, never over another; the tabs of
+// what moved follow it, and it's selected again in the view. It's the editor's Rename command,
+// whose keys each keymap gives: the editor runs its own (a symbol's, through its language
+// server), and the Project view's selection takes this one.
 
 import type { EditorArea } from '@cerebro-ide/layout';
 import { prompt } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { TabContext } from './commands.js';
-import { saveAll } from './documents.js';
+import { editFiles, saveAll, type FileEdits } from './documents.js';
 import { active, hostFor } from './environments.js';
 import { EDITOR_ACTIONS } from './keymaps.js';
 import { notifications } from './notifications.js';
@@ -68,6 +69,21 @@ export function setupRenameFile(services: MenuServices, setup: RenameFileSetup):
       const to = `${folder}/${name}`;
       try {
         await saveAll();
+        if (node.kind === 'file') {
+          const edits = (await host.request('lsp.willRename', {
+            worktree,
+            path: node.path,
+            to,
+          })) as FileEdits[] | null;
+          const failed = edits ? await editFiles(edits, 'Rename') : [];
+          if (failed.length > 0) {
+            notifications.notify({
+              title: 'Rename',
+              content: `Not changed: ${failed.map((f) => `${f.path}: ${f.error}`).join(', ')}`,
+              type: 'warning',
+            });
+          }
+        }
         await host.request('fs.rename', { path: node.path, to });
       } catch (error) {
         notifications.notify({

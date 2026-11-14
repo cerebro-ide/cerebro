@@ -1642,6 +1642,38 @@ describe('the Project view’s menu', () => {
       .poll(() => document.querySelector('.playground-project [aria-selected="true"]')?.textContent)
       .toBe('post');
     env().editor.close(env().editor.activeGroupId, '/r/post/in.ts');
+    // A file: what refers to it changed first, as its server says, and saved; one that can't be
+    // read, said so. Each file's text is `// <path>` then `const a = 1;`.
+    const at = (line: number, column: number) => ({ line, column });
+    const edit = { from: at(1, 6), to: at(1, 7), text: 'b' };
+    answers.set('lsp.willRename', [
+      { path: '/r/src/user.ts', edits: [edit] },
+      { path: '/r/src/lost.ts', edits: [edit] },
+    ]);
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path === '/r/src/lost.ts') throw new Error('No such file');
+      return { text: `// ${path}\nconst a = 1;\n` };
+    });
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.clear(field());
+    await userEvent.keyboard('uno.ts{Enter}');
+    await expect.poll(renamed).toContainEqual({ path: '/r/one.ts', to: '/r/uno.ts' });
+    expect(host('/r').params('lsp.willRename')).toEqual([
+      { worktree: '/r', path: '/r/one.ts', to: '/r/uno.ts' },
+    ]);
+    expect(host('/r').params('fs.write')).toContainEqual(
+      expect.objectContaining({
+        path: '/r/src/user.ts',
+        text: '// /r/src/user.ts\nconst b = 1;\n',
+      }),
+    );
+    expect(notifications.all.get(0)).toMatchObject({
+      title: 'Rename',
+      content: 'Not changed: /r/src/lost.ts: No such file',
+    });
+    for (const method of ['lsp.willRename', 'fs.read']) answers.delete(method);
     // One the host won't rename: said so.
     answers.set('fs.rename', new Error('EACCES: permission denied'));
     await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
