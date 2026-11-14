@@ -22,6 +22,9 @@ export interface Located {
   path: string;
   line: number;
   column: number;
+  /** The symbol declared there, when it's asked: its name and LSP kind, by name. */
+  name?: string;
+  kind?: (typeof SYMBOL_KINDS)[number];
 }
 
 /** Where a symbol is defined, and the lines of its declaration, zero-based: Quick Definition's. */
@@ -580,6 +583,16 @@ export function structureOf(symbols: readonly DocumentSymbol[]): FileSymbol[] {
   });
 }
 
+/** The symbol, among a file's and theirs, whose name starts at a place. */
+function declaredAt(symbols: readonly FileSymbol[], place: Located): FileSymbol | undefined {
+  for (const symbol of symbols) {
+    if (symbol.at.line === place.line && symbol.at.column === place.column) return symbol;
+    const inner = declaredAt(symbol.children, place);
+    if (inner) return inner;
+  }
+  return undefined;
+}
+
 /** A function or method in a call hierarchy (LSP's `CallHierarchyItem`), and where it calls. */
 export interface Call {
   name: string;
@@ -758,8 +771,10 @@ export class LanguageServer {
   /** The files it wants to be told of before they're renamed, to change what refers to them. */
   #renames: readonly FileFilter[] = [];
   #exited = false;
+  readonly #spec: ServerSpec;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
+    this.#spec = spec;
     const { command, args, env } = spec.command();
     this.#process = run(command, args, root, env);
     const stdin = this.#process.stdin;
@@ -922,7 +937,29 @@ export class LanguageServer {
 
   /** Where the symbol at a place in a file is defined. */
   async definitions(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
-    return located(await this.#ask('textDocument/definition', file, languageId, at));
+    const found = located(await this.#ask('textDocument/definition', file, languageId, at));
+    return found.length > 1 ? this.#named(found, languageId) : found;
+  }
+
+  /**
+   * Places with the symbol declared at each, from its file's symbols, so a list of them tells them
+   * apart: a class's and its constructor's, which TypeScript's server gives for `new A()`
+   * (measured, 7.0.2). One whose file can't be read is left as it is.
+   */
+  async #named(places: readonly Located[], languageId: string): Promise<Located[]> {
+    const symbols = new Map<string, FileSymbol[]>();
+    for (const path of new Set(places.map((place) => place.path))) {
+      const text = this.opened(path)?.text ?? (await readFile(path, 'utf8').catch(() => undefined));
+      if (text === undefined) continue;
+      const language = this.#spec.languageOf(path) ?? languageId;
+      symbols.set(path, structureOf(await this.symbols({ path, text }, language)));
+    }
+    return places.map((place) => {
+      const symbol = declaredAt(symbols.get(place.path) ?? [], place);
+      return symbol
+        ? { ...place, name: symbol.name, ...(symbol.kind ? { kind: symbol.kind } : {}) }
+        : place;
+    });
   }
 
   /** Where the symbol at a place in a file is defined, with its declarations' lines. */

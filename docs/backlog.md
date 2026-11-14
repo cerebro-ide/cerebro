@@ -22,13 +22,6 @@ to source and usages, so that's a given". IntelliJ's Structure tool window (Alt+
 symbols as a tree, following the caret. File Structure (Ctrl+F12) as a popup is there already,
 from the same language-server symbols.
 
-### Go to Declaration: a class and its constructor told apart
-
-From Ido (2026-11-14): "when jumping to a class source there are two options, one for the class
-definition and another for the constructor, but there's no distinction between them - unlike
-intellij". IntelliJ's chooser shows each with its own icon and text (the class, and the
-constructor with its parameters).
-
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's

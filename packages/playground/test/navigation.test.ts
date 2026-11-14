@@ -478,15 +478,30 @@ describe('Go to Definition', () => {
     answers = { 'lsp.definitions': [at('/r/def.ts', 1)] };
     await nav.goToDefinition('a', asked);
     expect(editor().activeGroup.active).toBe('/r/def.ts');
-    answers = { 'lsp.definitions': [at('/r/d1.ts', 1), at('/r/d2.ts', 2, { kind: 'function' })] };
+    // Each named by what's declared there, when the server says: a class and its constructor.
+    answers = {
+      'lsp.definitions': [
+        at('/r/d1.ts', 1),
+        at('/r/d2.ts', 2, { name: 'A', kind: 'class' }),
+        at('/r/d2.ts', 3, { name: 'constructor', kind: 'constructor' }),
+      ],
+    };
     const done = nav.goToDefinition('a', asked);
     expect(await labels()).toEqual({
-      items: ['a', 'a'],
+      items: ['a', 'A', 'constructor'],
       groups: [],
-      details: ['d1.ts:2', 'd2.ts:3'],
+      details: ['d1.ts:2', 'd2.ts:3', 'd2.ts:4'],
     });
     expect(title()).toBe('Definitions of a');
-    expect(document.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('');
+    const items = [...document.querySelectorAll('.cerebro-popup-item')];
+    expect(
+      items.map((item) => item.querySelector('.cerebro-popup-item__shortcut')?.textContent ?? ''),
+    ).toEqual(['', 'class', 'constructor']);
+    expect(items.map((item) => item.querySelector('svg text')?.textContent ?? 'file')).toEqual([
+      'file',
+      'C',
+      'm',
+    ]);
     await userEvent.keyboard('{Escape}');
     await done;
     expect(editor().activeGroup.active).toBe('/r/def.ts');

@@ -3,7 +3,9 @@
 // "links" answers definitions with location links; "fails" answers them with an error; "loads"
 // logs other lines, then "Loaded", after it's initialized; "symbols" answers a.fake's and b.fake's
 // symbols (class A extends B, each with a method run), and goes from a.fake's B to b.fake's and to a
-// file that isn't there. The others answer no symbols, "fails" an error and "silent" nothing.
+// file that isn't there. "declares" answers the same symbols, its methods of no kind LSP names,
+// and goes from anywhere to a.fake's A, its run, a line with no symbol, and a file that isn't
+// there. The others answer no symbols, "fails" an error and "silent" nothing.
 // "pulls" answers a file's problems when asked (one error, its text in the message); "pushes"
 // sends them as the file changes, for its version; for text "late", the version before's, then
 // its own with no version; the others send none. Each answers code actions with one per diagnostic
@@ -106,13 +108,14 @@ const handle = (message) => {
   } else if (method === 'textDocument/documentSymbol') {
     if (mode === 'silent') return;
     if (mode === 'fails') send({ id, error: { code: -32603, message: 'no' } });
-    if (mode !== 'symbols') {
+    if (mode !== 'symbols' && mode !== 'declares') {
       send({ id, result: null });
       return;
     }
     const at = (line, character) => ({ start: { line, character }, end: { line, character } });
     const name = message.params.textDocument.uri.endsWith('a.fake') ? 'A' : 'B';
-    const run = { name: 'run', kind: 6, range: at(1, 2), selectionRange: at(1, 2) };
+    const kind = mode === 'declares' ? 99 : 6;
+    const run = { name: 'run', kind, range: at(1, 2), selectionRange: at(1, 2) };
     const type = { name, kind: 5, range: at(0, 0), selectionRange: at(0, 6), children: [run] };
     send({ id, result: [type] });
   } else if (method === 'textDocument/prepareRename' || method === 'textDocument/rename') {
@@ -140,6 +143,20 @@ const handle = (message) => {
         result: [
           { uri: `${folder}b.fake`, range },
           { uri: `${folder}gone.other`, range },
+        ],
+      });
+      return;
+    }
+    if (mode === 'declares') {
+      const folder = message.params.textDocument.uri.replace(/[^/]*$/, '');
+      const at = (line, character) => ({ start: { line, character }, end: { line, character } });
+      send({
+        id,
+        result: [
+          { uri: `${folder}a.fake`, range: at(0, 6) },
+          { uri: `${folder}a.fake`, range: at(1, 2) },
+          { uri: `${folder}a.fake`, range: at(2, 0) },
+          { uri: `${folder}gone.other`, range: at(0, 0) },
         ],
       });
       return;
