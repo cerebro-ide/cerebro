@@ -450,6 +450,10 @@ describe('Go to Implementation and Go to Type Declaration', () => {
     const before = editor().activeGroup.active;
     await nav.goToTypeDeclaration('a', asked);
     expect(editor().activeGroup.active).toBe(before);
+    // No server: nothing either.
+    answers = { 'lsp.typeDefinitions': null };
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe(before);
     expect(document.querySelector('.cerebro-popup')).toBeNull();
   });
 });
