@@ -6,6 +6,33 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
+### The project's files under a virtual root, with scratch and external files
+
+From Ido (2026-11-14): "the project files in intellij are under a product virtual "directory" -
+that opens the door to a few things, like something to select for search within all the project
+files, and having files which aren't part of the project like scratch files and external files -
+that's missing and should be implemented as well". IntelliJ's Project view lists the project's
+content under its own node, beside Scratches and Consoles and External Libraries; Find in Files
+can then be scoped to the whole project from it. Cerebro's view shows the worktree's folder alone.
+
+### Commit window: checkboxes show the text cursor
+
+From Ido (2026-11-14): "commit checkboxes seem to have the wrong cursor (text) - fix it".
+
+### The Structure tool window
+
+From Ido (2026-11-14): "structure panel isn't implemented though we already implemented the jump
+to source and usages, so that's a given". IntelliJ's Structure tool window (Alt+7): the file's
+symbols as a tree, following the caret. File Structure (Ctrl+F12) as a popup is there already,
+from the same language-server symbols.
+
+### Go to Declaration: a class and its constructor told apart
+
+From Ido (2026-11-14): "when jumping to a class source there are two options, one for the class
+definition and another for the constructor, but there's no distinction between them - unlike
+intellij". IntelliJ's chooser shows each with its own icon and text (the class, and the
+constructor with its parameters).
+
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
@@ -65,6 +92,11 @@ doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
   Recent Files), as IntelliJ's. From Ido (2026-10-27), with a screenshot of the tree: "missing
   icons per file type - but don't work on the icons now just add it to the list of things to
   polish".
+
+- **In-editor hints, as IntelliJ's inlays** (last in the list): from Ido (2026-11-14), "intellij
+  on editor indications, such as usages, type hint, and who authored each definitions are missing
+  too - though that should be at the bottom of the backlog". IntelliJ's code vision (usages count,
+  the author of each definition, from git) and its inlay type hints.
 
 ## Known gaps
 
