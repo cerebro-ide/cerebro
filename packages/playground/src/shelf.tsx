@@ -571,11 +571,7 @@ async function shelve(offered: { files: Change[]; chosen: Change[] }): Promise<v
           <input
             type="text"
             class="playground-shelf__message-field"
-            ref={(field) => {
-              requestAnimationFrame(() => {
-                field.focus();
-              });
-            }}
+            autofocus
             on:input={(event) => {
               message.set((event.currentTarget as HTMLInputElement).value);
             }}
@@ -619,11 +615,7 @@ async function stash(): Promise<void> {
           <input
             type="text"
             class="playground-shelf__message-field"
-            ref={(field) => {
-              requestAnimationFrame(() => {
-                field.focus();
-              });
-            }}
+            autofocus
             on:input={(event) => {
               message.set((event.currentTarget as HTMLInputElement).value);
             }}
