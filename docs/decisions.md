@@ -3176,9 +3176,31 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   bookmarks alone, from its caret, with no going round; the caret is moved there, not gone to
   through the navigation history (IntelliJ moves the editor's caret). In no menu and with no keys
   in any keymap, as IntelliJ's (its `Bookmarks` action group only): Find Action lists them.
+- **In the Project view's menu (added 2026-11-14):** the same Bookmarks submenu, for the file or
+  folder it's opened on (IntelliJ adds it to `ProjectViewPopupMenu` after its Refactoring group).
+  The menu is new with it: a right click selects its row, which keeps the focus, so the commands
+  take it as they take the view's selection. Copy Path/Reference… is in it too (added
+  2026-11-14), before Bookmarks, as IntelliJ's `CutCopyPasteGroup`: its copies, and their key,
+  take the view's selection while it has the focus, a folder's too, as IntelliJ's actions take the
+  focused view's; a tab's menu still copies its tab's. So is Local History (added 2026-11-14),
+  first of its version control's, as IntelliJ's `VersionControlsGroup`: Show History, from it or
+  the File menu while the view has the focus, shows the selected file's; a folder's isn't shown
+  yet (IntelliJ shows a folder's changes). So is Open In (added 2026-11-14), after Bookmarks, as
+  IntelliJ's `RevealGroup`, in the desktop app only: its one item shows the file or folder in the
+  system's file manager, named as IntelliJ's short names are (Finder, Explorer, File Manager; the
+  name on Linux is a claim, from IntelliJ's source, not seen). IntelliJ's other items in it
+  (Terminal, a browser) aren't yet. So are Find in Files and Replace in Files (added 2026-11-14),
+  after Copy Path, as IntelliJ's `FindInPath` and `ReplaceInPath`: from it, or their keys while
+  the view has the focus, they search the folder selected, or the file's, its scope Directory, as
+  IntelliJ's `FindInProjectUtil.setDirectoryName` does with no editor in the context. So is the
+  editor's Git submenu (added 2026-11-14), after Local History, as IntelliJ's `VersionControlsGroup`
+  has it: Git → Current File's commands already took the view's selected file; Annotate with Git
+  Blame now does too, opening the file's editor to show it in, as IntelliJ's
+  `AnnotateLocalFileAction` does (none for a folder, as IntelliJ's). IntelliJ's menu's other groups
+  (New, Cut, Copy, Paste, Find Usages, Rename, Delete, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
-  it in the window (IntelliJ's `FolderNode` lists them), the Bookmarks submenu in the Project
-  view's menu, which Cerebro hasn't yet, dragging the gutter's icon, and the window's toolbar.
+  it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
+  window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 

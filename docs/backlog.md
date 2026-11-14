@@ -68,6 +68,14 @@ doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 
 ## Known gaps
 
+- **Two fields still take the focus a frame after their dialog opens**: `branchField` (Merge,
+  Rebase, Pull) and the Log's values field (`log-filters.tsx`). Keys typed before that frame go to
+  the dialog's first control. Measured in the Shelve dialog, whose field did the same (#353's macOS
+  e2e, run 43579834672, 2026-11-14: "Aside" was lost and Shelve Changes stayed disabled). The dialogs
+  now focus a control marked `autofocus` as they open, and the Shelve, stash and Put Label dialogs
+  use it. These two also select their text, which `autofocus` doesn't do, and a dialog's field may
+  not be first; left for now.
+
 - **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
   #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
   earlier press could still be answered; one press opened a chooser of walk's definitions, another's

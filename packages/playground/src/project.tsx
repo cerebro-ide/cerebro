@@ -96,6 +96,15 @@ export function projectFile(): string | null | undefined {
 }
 
 /**
+ * The Project view's selection, for a command that acts on it while the view has the focus, as
+ * IntelliJ's actions take the focused view's: none (undefined) when its context is a tab's menu,
+ * whose tab it acts on; else as `projectNode`.
+ */
+export function projectTarget(context?: { tabMenu?: true }): FileNode | null | undefined {
+  return context?.tabMenu ? undefined : projectNode();
+}
+
+/**
  * What's selected in the Project tool window, a file or a folder, while it has the focus: null when
  * nothing is; undefined when it hasn't the focus.
  */
@@ -110,6 +119,8 @@ export function ProjectTree(props: {
   samples: readonly string[];
   /** Opens a file in the active environment's editor. */
   open: (tab: Tab) => void;
+  /** Opens the view's menu on the row it's asked on, selected (`projectNode`). */
+  menu: (event: MouseEvent) => void;
 }): Node {
   return (
     <div class="playground-project">
@@ -150,6 +161,9 @@ export function ProjectTree(props: {
             ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });
+            }}
+            onContextMenu={(event) => {
+              props.menu(event);
             }}
           />
         );

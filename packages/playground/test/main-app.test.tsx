@@ -1313,12 +1313,175 @@ describe('file and folder bookmarks', () => {
     q('.playground-project .cerebro-tree').focus();
     await userEvent.keyboard('{F11}');
     expect(bookmarksOf('/r')).toHaveLength(before.length + 2);
+    // The view's menu, on a row: its Bookmarks, for it.
+    await userEvent.click(row('/r/e.ts'), { button: 'right' });
+    await userEvent.hover(menuItem('Bookmarks'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('Toggle Bookmark'));
+    expect(bookmarkAt('/r', { path: '/r/e.ts' })).toEqual({ path: '/r/e.ts' });
+    toggleBookmark('/r', { path: '/r/e.ts' });
     toggleBookmark('/r', { path: '/r/d.ts' });
     toggleBookmark('/r', { path: '/r/lib', folder: true });
     expect(bookmarksOf('/r')).toEqual(before);
     if (!shown) await userEvent.click(stripe('project'));
     answers.delete('fs.list');
     localStorage.removeItem('cerebro.bookmarks.rewrite');
+  });
+});
+
+describe('the Project view’s menu', () => {
+  it('copies the path of the row it’s opened on; so does the key while the view has the focus', async () => {
+    const copied: string[] = [];
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation((text) => {
+      copied.push(text);
+      return Promise.resolve();
+    });
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const copy = async (key: string, item: string) => {
+      await userEvent.click(row(key), { button: 'right' });
+      await userEvent.hover(menuItem('Copy Path/Reference…'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+      await userEvent.click(menuItem(item));
+    };
+    await vi.waitUntil(() => row('/r/lib'));
+    await copy('/r/lib', 'Absolute Path');
+    await copy('/r/d.ts', 'Path from Content Root');
+    // The key, with d.ts selected there: its, not the active tab's.
+    await userEvent.keyboard('{Control>}{Shift>}C{/Shift}{/Control}');
+    // A tab's menu: the tab's, the view's focus notwithstanding.
+    await userEvent.click(q('[data-tab="/r/src/a.ts"]'), { button: 'right' });
+    await userEvent.hover(menuItem('Copy Path/Reference…'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('File Name'));
+    await expect.poll(() => copied).toEqual(['/r/lib', 'd.ts', '/r/d.ts', 'a.ts']);
+    // Nothing selected there: nothing to copy, not the active tab's.
+    answers.set('fs.list', [{ path: '/r/e.ts', name: 'e.ts', kind: 'file' }]);
+    window.dispatchEvent(new Event('focus'));
+    await vi.waitUntil(() => row('/r/e.ts'));
+    q('.playground-project .cerebro-tree').focus();
+    await userEvent.keyboard('{Control>}{Shift>}C{/Shift}{/Control}');
+    expect(copied).toHaveLength(4);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
+  it('finds in the folder it’s opened on, or the file’s', async () => {
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const directory = () =>
+      (document.querySelector('.playground-find__directory') as HTMLInputElement).value;
+    await userEvent.click(await vi.waitUntil(() => row('/r/lib')), { button: 'right' });
+    await userEvent.click(menuItem('Find in Files…'));
+    await expect.poll(directory).toBe('lib');
+    await closeAll();
+    await userEvent.click(await vi.waitUntil(() => row('/r/d.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Replace in Files…'));
+    await expect.poll(directory).toBe('');
+    await userEvent.click(
+      [...document.querySelectorAll('.cerebro-popup button')].find(
+        (b) => b.textContent === 'In Project',
+      ) as HTMLElement,
+    );
+    await closeAll();
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
+  it('annotates the file it’s opened on from its Git submenu, in the file’s editor', async () => {
+    const hash = 'b'.repeat(40);
+    const commit = { hash, author: 'Grace Hopper', email: 'g@x.org', time: 0, message: 'Second' };
+    answers.set('git.blame', { lines: [hash, hash], commits: [commit] });
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/e.ts', name: 'e.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const git = async (key: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('Git'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    };
+    // A folder's: none to annotate.
+    await git('/r/lib');
+    expect(document.querySelectorAll('.cerebro-menu')[1]?.textContent).not.toContain('Annotate');
+    await closeAll();
+    await git('/r/e.ts');
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/e.ts');
+    await expect
+      .poll(() =>
+        [...(editorRoot()?.querySelectorAll('.cerebro-annotation') ?? [])]
+          .map((a) => a.textContent)
+          .join(),
+      )
+      .toContain('Hopper');
+    expect(host('/r').params('git.blame').at(-1)).toMatchObject({ file: 'e.ts' });
+    // Again: closed.
+    await git('/r/e.ts');
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    await expect.poll(() => editorRoot()?.querySelector('.cerebro-annotation')).toBeNull();
+    env().editor.close(env().editor.activeGroupId, '/r/e.ts');
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+    answers.delete('git.blame');
+  });
+
+  it('opens the file or folder it’s opened on in the file manager', async () => {
+    answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/lib')), { button: 'right' });
+    await userEvent.hover(menuItem('Open In'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('File Manager'));
+    expect(calls.at(-1)).toEqual(['reveal', '/r/lib']);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
+  it('shows the Local History of the file it’s opened on; not yet a folder’s', async () => {
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const history = async (key: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('Local History'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    };
+    await history('/r/lib');
+    expect(menuItem('Show History').getAttribute('aria-disabled')).toBe('true');
+    await closeAll();
+    await history('/r/d.ts');
+    const asked: unknown[] = [];
+    answers.set('history.file', (params: unknown) => {
+      asked.push(params);
+      return [];
+    });
+    await userEvent.click(menuItem('Show History'));
+    await expect.poll(() => asked).toEqual([{ path: '/r', file: 'd.ts' }]);
+    answers.delete('history.file');
+    await closeAll();
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
   });
 });
 

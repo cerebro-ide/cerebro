@@ -259,18 +259,27 @@ export interface FindOptions {
   showOccurrences: (occurrences: Occurrences) => void;
   /** The active file: Directory starts at its folder. */
   file?: string | undefined;
+  /**
+   * A folder to search, from the Project view: the scope starts as Directory, it, as IntelliJ's
+   * (FindInProjectUtil.setDirectoryName, with no editor in the context).
+   */
+  folder?: string | undefined;
   /** Replace in Files, not Find. */
   replacing?: boolean;
 }
 
 /** Opens Find in Files over the active worktree, or Replace in Files. */
 export async function findInFiles(options: FindOptions): Promise<void> {
-  const { open, file, replacing = false } = options;
+  const { open, file, folder, replacing = false } = options;
   const worktree = active()?.id;
   const host = worktree === undefined ? undefined : hostFor(worktree);
   if (!host || worktree === undefined) return;
-  const within = file?.startsWith(`${worktree}/`) ? file.slice(worktree.length + 1) : '';
-  const directory = signal(within.split('/').slice(0, -1).join('/'));
+  const inside = (path: string | undefined) =>
+    path?.startsWith(`${worktree}/`) ? path.slice(worktree.length + 1) : '';
+  const directory = signal(
+    folder === undefined ? inside(file).split('/').slice(0, -1).join('/') : inside(folder),
+  );
+  if (folder !== undefined) scope.set('directory');
   // The editor's selection, or its find bar's text; else the last search, and the last
   // replacement, as IntelliJ's popup opens with (initStringToFindFromDataContext, then
   // getMostRecentFindString).

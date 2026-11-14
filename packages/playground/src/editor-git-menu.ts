@@ -1,7 +1,8 @@
 // The editor's context menu's Git submenu, as IntelliJ's `Git.ContextMenu` (git4idea's plugin.xml,
 // read from its source): the file's actions (`Git.FileActions`), Resolve Conflicts, then the
 // repository's (`GitRepositoryActions`), each group as IntelliJ's, of the commands Cerebro has.
-// They act on the active editor's file, as from Git → Current File. Only while the active worktree
+// They act on the active editor's file, or the Project view's selected one while it has the focus,
+// as from Git → Current File. Only while the active worktree
 // is a git repository, as IntelliJ's `GitMenu` shows only for files under Git.
 
 import type { MenuRegistry } from '@cerebro-ide/commands';
@@ -31,18 +32,23 @@ const GROUPS: readonly (readonly (string | { submenu: string; label: string })[]
   ['vcs.abortRevert', 'vcs.abortCherryPick', 'vcs.continueCherryPick'],
 ];
 
-/** The Git submenu, after Local History in the editor's context menu, while `inGit` (reactive). */
+/**
+ * The Git submenu, after Local History in the editor's context menu and the Project view's (there
+ * for the view's selected file, as IntelliJ's `VersionControlsGroup`), while `inGit` (reactive).
+ */
 export function setupEditorGitMenu(menus: MenuRegistry, inGit: () => boolean): void {
   effect(() => {
     if (!inGit()) return undefined;
-    const shown = menus.contribute({
-      menu: 'editor/content',
-      item: { submenu: 'editor/git', label: 'Git' },
-      group: 'h-history',
-      order: 1,
-    });
+    const shown = (
+      [
+        ['editor/content', 'h-history'],
+        ['project/node', 'f-vcs'],
+      ] as const
+    ).map(([menu, group]) =>
+      menus.contribute({ menu, item: { submenu: 'editor/git', label: 'Git' }, group, order: 1 }),
+    );
     return () => {
-      shown.dispose();
+      for (const item of shown) item.dispose();
     };
   });
   GROUPS.forEach((items, group) => {
