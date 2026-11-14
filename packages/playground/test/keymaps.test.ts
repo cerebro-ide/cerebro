@@ -127,6 +127,11 @@ describe('the editor’s keys', () => {
       shrinkSelection: ['Ctrl-Shift-w'],
       scrollUp: ['Ctrl-ArrowUp'],
       scrollDown: ['Ctrl-ArrowDown'],
+      scrollToCenter: ['Ctrl-m'],
+      pageTop: ['Ctrl-PageUp'],
+      pageBottom: ['Ctrl-PageDown'],
+      pageTopWithSelection: ['Ctrl-Shift-PageUp'],
+      pageBottomWithSelection: ['Ctrl-Shift-PageDown'],
       undo: [],
       redo: [],
     });
@@ -162,6 +167,11 @@ describe('the editor’s keys', () => {
       'shrinkSelection',
       'scrollUp',
       'scrollDown',
+      'scrollToCenter',
+      'pageTop',
+      'pageBottom',
+      'pageTopWithSelection',
+      'pageBottomWithSelection',
       'find',
       'replace',
     ]);
