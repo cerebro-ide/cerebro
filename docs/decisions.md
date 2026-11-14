@@ -3161,7 +3161,9 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   muted, the folder in brackets. Going to one opens the file, or shows the Project tool window
   with the folder selected (IntelliJ's `FileNavigatorImpl` navigates to a directory in the project
   view). Show Bookmarks previews a file from its start (open to change: Claude's choice) and a
-  folder not at all.
+  folder not at all. A popup's row with a mnemonic and a file's icon widens its icon column to fit
+  both, as a list row's icon takes its own width in IntelliJ (a claim), so its label sits further
+  right than the other rows'.
 - **Not yet:** more lists (and Add Bookmark to Another List),
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), a folder bookmark's contents under it in the window (IntelliJ's
