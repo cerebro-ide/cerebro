@@ -761,6 +761,7 @@ export class LanguageServer {
             // Where a rename would go, asked before it's typed.
             rename: { prepareSupport: true },
             implementation: { linkSupport: true },
+            typeDefinition: { linkSupport: true },
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
             // Actions as edits, not commands: without it, a server may give only commands (LSP).
             codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: KINDS } } },
@@ -953,6 +954,11 @@ export class LanguageServer {
   /** What a symbol at a place in a file is implemented or overridden by. */
   async implementations(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
     return located(await this.#ask('textDocument/implementation', file, languageId, at));
+  }
+
+  /** Where the type of the symbol at a place in a file is defined. */
+  async typeDefinitions(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
+    return located(await this.#ask('textDocument/typeDefinition', file, languageId, at));
   }
 
   /** A file's symbols, nested: its types, and their members in them. */
@@ -1168,6 +1174,20 @@ export class LanguageServers {
   definitions(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.definitions(file, languageId, at),
+    );
+  }
+
+  /** What the symbol at a place is implemented by; null when no server answers in time. */
+  implementations(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.implementations(file, languageId, at),
+    );
+  }
+
+  /** Where the type of the symbol at a place is defined; null when no server answers in time. */
+  typeDefinitions(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.typeDefinitions(file, languageId, at),
     );
   }
 

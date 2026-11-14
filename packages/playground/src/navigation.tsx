@@ -524,6 +524,43 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       }
     },
 
+    /**
+     * Go to Implementation(s), as IntelliJ's `GotoImplementation`: the language server's one
+     * implementation, or a list of several; with none, IntelliJ's words.
+     */
+    async goToImplementation(name: string, asked: Asked) {
+      const found = (await ask('lsp.implementations', asked)) ?? [];
+      if (found.length === 1) {
+        openAt(found[0] as Located);
+        return;
+      }
+      // IntelliJ's words (CodeInsightBundle's goto.implementation).
+      await choose(
+        `Choose Implementation of ${name} (${String(found.length)} found)`,
+        'No implementations found',
+        found.map((i) => choice(i, relative(i.path).split('/').at(-1) as string, null)),
+      );
+    },
+
+    /**
+     * Go to Type Declaration, as IntelliJ's `GotoTypeDeclaration`: where the type of the symbol is
+     * declared, from its language server, or a list of several; nothing with none, as IntelliJ's.
+     */
+    async goToTypeDeclaration(name: string, asked: Asked) {
+      const found = (await ask('lsp.typeDefinitions', asked)) ?? [];
+      if (found.length === 0) return;
+      if (found.length === 1) {
+        openAt(found[0] as Located);
+        return;
+      }
+      // IntelliJ's title (CodeInsightBundle's choose.type.popup.title).
+      await choose(
+        'Choose Type',
+        '',
+        found.map((t) => choice(t, relative(t.path).split('/').at(-1) as string, null)),
+      );
+    },
+
     findUsages,
   };
 }

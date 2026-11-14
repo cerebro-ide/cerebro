@@ -631,6 +631,28 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
   });
 
+  it('goes to implementations with Mod+Alt+B, and to the type’s declaration with Mod+Shift+B', async () => {
+    const onGoToImplementation = vi.fn();
+    const onGoToTypeDeclaration = vi.fn();
+    const root = mount({
+      path: 'a.ts',
+      text: 'const answer = compute(1);',
+      onGoToImplementation,
+      onGoToTypeDeclaration,
+    });
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
+    expect(onGoToImplementation).toHaveBeenCalledWith(
+      'answer',
+      expect.objectContaining({ line: 0 }),
+    );
+    await userEvent.keyboard('{Control>}{Shift>}B{/Shift}{/Control}');
+    expect(onGoToTypeDeclaration).toHaveBeenCalledWith(
+      'answer',
+      expect.objectContaining({ line: 0 }),
+    );
+  });
+
   it('asks what can be done at the caret with Alt+Enter, saying where the caret is on screen', async () => {
     const onContextActions = vi.fn();
     const lines = Array.from({ length: 200 }, (_, n) => `line ${String(n)}`).join('\n');
