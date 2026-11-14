@@ -235,11 +235,11 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.keyboard.up('Control');
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
   // Alt+F7 on the class's name: every place the name appears.
+  const pressed = performance.now();
   await page.keyboard.press('Alt+F7');
   try {
     await page.locator('.cerebro-popup-item').first().waitFor();
   } catch (error) {
-    // None in 5 s once, on macOS in CI (#326, 2026-11-14): where the page was.
     console.log(
       'Alt+F7 showed no usages:',
       await page.evaluate(() => ({
@@ -252,6 +252,14 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
         balloons: [...document.querySelectorAll('.cerebro-balloon')].map((b) => b.textContent),
       })),
     );
+    // Late or never: which, and how late (none in 5 s twice on macOS in CI, #326 and #361).
+    const shown = await page
+      .locator('.cerebro-popup-item')
+      .first()
+      .waitFor({ timeout: 25_000 })
+      .then(() => `after ${String(Math.round(performance.now() - pressed))} ms`)
+      .catch(() => 'not in 30 s');
+    console.log('Alt+F7 usages shown:', shown);
     throw error;
   }
   expect(await page.locator('.cerebro-popup__group').textContent()).toBe('Name matches');
