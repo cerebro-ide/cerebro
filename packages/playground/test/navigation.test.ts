@@ -379,14 +379,17 @@ describe('Next Method and Previous Method', () => {
   });
 
   it('go to the nearest symbol’s name on a line after the caret’s, or before it', async () => {
-    // A class on line 2, its methods on 4 and 8, and a function on 12.
-    answers = { 'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9)] };
+    // A class on line 2, its methods on 4 and 8, and two functions on 12.
+    answers = {
+      'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9), symbol(12, 2)],
+    };
     await nav.goToMethod({ ...asked, line: 4, column: 0 }, true);
     await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 8, column: 2 });
     await nav.goToMethod({ ...asked, line: 4, column: 9 }, false);
     await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 2, column: 6 });
+    // The first on its line.
     await nav.goToMethod({ ...asked, line: 9, column: 0 }, true);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 9 });
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 2 });
   });
 
   it('go nowhere past the first or the last, or with no server', async () => {
