@@ -2956,7 +2956,8 @@ saving").
   read from its source), which CodeMirror hasn't: the text scrolled one line's height, the caret
   left where it is, even off screen; in a read-only editor too. Their keys, from IntelliJ's keymap
   files: Ctrl+Up and Ctrl+Down (`$default`; Cmd in IntelliJ's classic macOS keymap, none in its
-  macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS. **Difference:**
+  macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS; VS Code's Scroll Line
+  Up and Down, Ctrl+Up and Down (Ctrl+PageUp and PageDown on macOS), from its sheets. **Difference:**
   IntelliJ's scroll is animated (its smooth scrolling); this one jumps.
 - **Scroll to Center, and Move Caret to Page Top and Bottom** (added 2026-11-14), IntelliJ's
   `EditorScrollToCenter` (`ScrollToCenterAction`) and `EditorMoveToPageTop`, `EditorMoveToPageBottom`
@@ -3662,6 +3663,11 @@ parts it shares. From IntelliJ's source (`GitMerge`, `GitMergeDialog`, `GitMerge
   words with Merge's name ("Git Merge Failed", "Your local changes will be overwritten by merge.",
   "Untracked Files Prevent Merge", "Git Merge failed"); at conflicts, the Conflicts dialog, then the
   merge committed, unless --no-commit. Recorded in Local History as "Merge x".
+- **How it went is said once the repository's state is read again** (added 2026-11-13, for Pull
+  and Merge): a read made while git merged (the state is read every 2 seconds) still said a merge
+  was under way when the notification showed. Measured in the e2e run of #324 on macOS: Merge…
+  chosen straight after Pull's "1 file updated in 1 commit" found only Abort Merge and Commit Merge
+  in Find Action. A failed read is logged, and the merge is still said to have worked.
 - **Shared with Pull** (`git-options.tsx`, `merge-action.tsx`): the branch field and its
   suggestions, the options' popup, chips and keeping, and what comes after git. The popup's width is
   each dialog's, to fit its longest row (Cerebro's: IntelliJ's popup sizes to its content).
