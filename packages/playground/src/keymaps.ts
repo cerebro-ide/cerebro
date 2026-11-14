@@ -200,6 +200,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: ['Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Ctrl+Shift+I'],
     'bookmarks.toggle': ['F11'],
+    'bookmarks.next': [],
+    'bookmarks.previous': [],
   },
 };
 
@@ -326,6 +328,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space', 'Meta+Y'],
     'bookmarks.toggle': ['F3'],
+    'bookmarks.next': [],
+    'bookmarks.previous': [],
   },
 };
 
@@ -829,6 +833,8 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: [],
     'bookmarks.toggle': [],
+    'bookmarks.next': ['Ctrl+Shift+.'],
+    'bookmarks.previous': ['Ctrl+Shift+,'],
   },
 };
 
@@ -887,6 +893,8 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'navigate.lastEdit': [],
     'bookmarks.toggle': ['Ctrl+F2'],
+    'bookmarks.next': ['F2'],
+    'bookmarks.previous': ['Shift+F2'],
   },
 };
 
@@ -944,6 +952,8 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: [],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space'],
     'bookmarks.toggle': ['Meta+F2', 'Ctrl+Shift+R'],
+    'bookmarks.next': ['F2', 'Ctrl+R'],
+    'bookmarks.previous': ['Shift+F2'],
   },
 };
 
@@ -1016,6 +1026,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.goToSuperMethod]: ['Alt+Home'],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
     'bookmarks.toggle': ['Ctrl+K K', 'Ctrl+K Ctrl+K'],
+    'bookmarks.next': ['Ctrl+K N', 'Ctrl+K Ctrl+N'],
+    'bookmarks.previous': ['Ctrl+K P', 'Ctrl+K Ctrl+P'],
   },
 };
 
@@ -1087,6 +1099,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     // Its file names Toggle Bookmark twice, Cmd+F2 and then these: the later taken, as IntelliJ's
     // reading keeps the last (a claim).
     'bookmarks.toggle': ['Meta+K K', 'Meta+K Meta+K'],
+    'bookmarks.next': ['Meta+K N', 'Meta+K Meta+N'],
+    'bookmarks.previous': ['Meta+K P', 'Meta+K Meta+P'],
   },
 };
 

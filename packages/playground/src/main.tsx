@@ -159,7 +159,14 @@ import {
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
-import { bookmarkedLines, BookmarksView, moveBookmarks, toggleBookmark } from './bookmarks.js';
+import {
+  bookmarkedLines,
+  BookmarksView,
+  moveBookmarks,
+  nextBookmark,
+  toggleBookmark,
+  type LineBookmark,
+} from './bookmarks.js';
 import { HierarchyView, showHierarchy } from './call-hierarchy.js';
 import {
   closeProject,
@@ -749,11 +756,13 @@ services.menus.contribute({
 });
 // File Structure, as IntelliJ's Navigate → File Structure: the active file's symbols, from its
 // language server.
-/** The active file at its caret (its start before it's moved), as it's asked about; none unread. */
+/** Where a file's caret is: at its start until its editor says (a file just opened). */
+const caretOf = (path: string) => carets.get(path) ?? { line: 0, column: 0 };
+/** The active file at its caret, as it's asked about; none unread. */
 async function atCaret(): Promise<Asked | undefined> {
   const file = activeFile() as Tab;
   // Where it is when asked: a file just opened says where its caret is while it's read.
-  const caret = carets.get(file.id) ?? { line: 0, column: 0 };
+  const caret = caretOf(file.id);
   const doc = await documentFor(file.id);
   if ('error' in doc) return undefined;
   return { path: file.id, text: doc.text.peek().toString(), ...caret };
@@ -809,18 +818,45 @@ services.commands.register({
   enabled: () => active() !== undefined && activeFile() !== undefined,
   run: () => {
     const file = activeFile() as Tab;
-    const caret = carets.get(file.id) ?? { line: 0, column: 0 };
-    toggleBookmark(active()?.id as string, file.id, caret.line);
+    toggleBookmark(active()?.id as string, file.id, caretOf(file.id).line);
   },
 });
 services.keymap.bindDefault('F11', 'bookmarks.toggle');
-// In IntelliJ's Edit menu, after Find (a claim: where in it).
+// In IntelliJ's Edit menu, after Macros (`EditBookmarksGroup`), which Cerebro hasn't: after Find.
 services.menus.contribute({
   menu: 'main/edit',
   item: { submenu: 'main/edit/bookmarks', label: 'Book&marks' },
   group: 'g',
 });
-services.menus.contribute({ menu: 'main/edit/bookmarks', item: { command: 'bookmarks.toggle' } });
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.toggle' },
+  group: 'a',
+});
+// Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
+// IntelliJ's own keymap gives them no keys.
+for (const forward of [false, true]) {
+  const next = () => {
+    const env = active();
+    const file = activeFile();
+    return (
+      env && nextBookmark(env.id, file && { path: file.id, line: caretOf(file.id).line }, forward)
+    );
+  };
+  services.commands.register({
+    id: forward ? 'bookmarks.next' : 'bookmarks.previous',
+    label: forward ? 'Next Line Bookmark' : 'Previous Line Bookmark',
+    enabled: () => next() !== undefined,
+    run: () => {
+      navigation.openAt({ ...(next() as LineBookmark), column: 0 });
+    },
+  });
+  services.menus.contribute({
+    menu: 'main/edit/bookmarks',
+    item: { command: forward ? 'bookmarks.next' : 'bookmarks.previous' },
+    group: 'b',
+  });
+}
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
 services.commands.register({
   id: 'project.selectOpenedFile',

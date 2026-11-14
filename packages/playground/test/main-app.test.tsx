@@ -1015,6 +1015,45 @@ describe('bookmarks', () => {
     await userEvent.click(stripe('bookmarks'));
     toggleBookmark('/r', '/r/src/marked.ts', 0);
   });
+
+  it('are gone through from the caret’s line by Next and Previous Line Bookmark', async () => {
+    /** Find Action's commands named so, of those on. */
+    const listed = async (name: string) => {
+      await userEvent.click(q('.cerebro-statusbar'));
+      await userEvent.keyboard('{Control>}{Shift>}a{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard(name);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return [...document.querySelectorAll('.cerebro-popup-item__label')]
+        .map((label) => label.textContent)
+        .filter((label) => label === name);
+    };
+    const run = async (name: string) => {
+      expect(await listed(name)).toEqual([name]);
+      await userEvent.keyboard('{Enter}');
+    };
+    // None: nothing to go to.
+    expect(await listed('Next Line Bookmark')).toEqual([]);
+    await userEvent.keyboard('{Escape}');
+    toggleBookmark('/r', '/r/src/b.ts', 1);
+    toggleBookmark('/r', '/r/src/c.ts', 0);
+    // From no file: the first.
+    for (const group of env().editor.groups) {
+      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+    }
+    await run('Next Line Bookmark');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
+    await expect.poll(() => reveals.get('/r/src/b.ts')).toEqual({ line: 1, column: 0 });
+    // From the caret's line: the one before it.
+    env().editor.open({ id: '/r/src/d.ts', title: 'd.ts' });
+    await run('Previous Line Bookmark');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => carets.get('/r/src/c.ts')?.line).toBe(0);
+    expect(await listed('Next Line Bookmark')).toEqual([]);
+    await userEvent.keyboard('{Escape}');
+    toggleBookmark('/r', '/r/src/b.ts', 1);
+    toggleBookmark('/r', '/r/src/c.ts', 0);
+  });
 });
 
 describe('errors and warnings', () => {

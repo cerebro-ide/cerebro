@@ -4,7 +4,7 @@
 // the project, or takes it away. The editor shows them in its gutter and moves them with their
 // lines. The Bookmarks tool window lists them by file, in the order added, each line by its number
 // (IntelliJ's "Group line bookmarks", on by default); a double click or Enter opens a file, or a
-// line. They're kept between runs, per worktree.
+// line. Next and Previous Line Bookmark go through them. They're kept between runs, per worktree.
 
 import { ObservableMap } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
@@ -79,6 +79,28 @@ export function moveBookmarks(worktree: string, path: string, lines: readonly nu
       return line === undefined ? [] : [{ path, line }];
     }),
   );
+}
+
+/** Bookmarks in IntelliJ's order for going through them: by path, then line. */
+const byPlace = (a: LineBookmark, b: LineBookmark) =>
+  a.path === b.path ? a.line - b.line : a.path < b.path ? -1 : 1;
+
+/**
+ * The bookmark after a place, or before it, among all the worktree's, as IntelliJ's Next and
+ * Previous Line Bookmark (`NextBookmarkService`): by path, then line, with no going round (its
+ * registry's `ide.bookmark.occurrence.cyclic.iteration.allowed`, off by default). From nowhere, the
+ * first, or the last.
+ */
+export function nextBookmark(
+  worktree: string,
+  from: LineBookmark | undefined,
+  forward: boolean,
+): LineBookmark | undefined {
+  const sorted = [...bookmarksOf(worktree)].sort(byPlace);
+  if (!from) return forward ? sorted[0] : sorted.at(-1);
+  return forward
+    ? sorted.find((bookmark) => byPlace(bookmark, from) > 0)
+    : sorted.findLast((bookmark) => byPlace(bookmark, from) < 0);
 }
 
 type Node =

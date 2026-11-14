@@ -6,6 +6,7 @@ import {
   bookmarksOf,
   BookmarksView,
   moveBookmarks,
+  nextBookmark,
   toggleBookmark,
 } from '../src/bookmarks.js';
 import { workspace } from '../src/environments.js';
@@ -80,6 +81,25 @@ describe('bookmarks', () => {
       { path: '/moved/b', line: 1 },
       { path: '/moved/a', line: 4 },
     ]);
+  });
+
+  it('are gone through by path, then line, with no going round', () => {
+    toggleBookmark('/next', '/next/b', 3);
+    toggleBookmark('/next', '/next/a', 9);
+    toggleBookmark('/next', '/next/b', 1);
+    const next = (path: string, line: number, forward: boolean) =>
+      nextBookmark('/next', { path, line }, forward);
+    expect(next('/next/a', 0, true)).toEqual({ path: '/next/a', line: 9 });
+    expect(next('/next/a', 9, true)).toEqual({ path: '/next/b', line: 1 });
+    expect(next('/next/b', 2, true)).toEqual({ path: '/next/b', line: 3 });
+    expect(next('/next/b', 3, true)).toBeUndefined();
+    expect(next('/next/b', 1, false)).toEqual({ path: '/next/a', line: 9 });
+    expect(next('/next/c', 0, false)).toEqual({ path: '/next/b', line: 3 });
+    expect(next('/next/a', 9, false)).toBeUndefined();
+    // From no file: the first, or the last.
+    expect(nextBookmark('/next', undefined, true)).toEqual({ path: '/next/a', line: 9 });
+    expect(nextBookmark('/next', undefined, false)).toEqual({ path: '/next/b', line: 3 });
+    expect(nextBookmark('/none', undefined, true)).toBeUndefined();
   });
 
   it('aren’t kept when storage is full, but stay for the run', () => {
