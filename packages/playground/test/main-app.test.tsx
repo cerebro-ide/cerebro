@@ -1372,6 +1372,20 @@ describe('the Project view’s menu', () => {
     answers.delete('fs.list');
   });
 
+  it('opens the file or folder it’s opened on in the file manager', async () => {
+    answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/lib')), { button: 'right' });
+    await userEvent.hover(menuItem('Open In'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('File Manager'));
+    expect(calls.at(-1)).toEqual(['reveal', '/r/lib']);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
   it('shows the Local History of the file it’s opened on; not yet a folder’s', async () => {
     answers.set('fs.list', [
       { path: '/r/lib', name: 'lib', kind: 'directory' },

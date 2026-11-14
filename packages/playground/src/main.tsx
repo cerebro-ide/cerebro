@@ -60,9 +60,9 @@ import {
   type Mark,
   type Place,
 } from '@cerebro-ide/ui-editor';
-import { projectNode, ProjectTree, selectInTree } from './project.js';
+import { projectNode, ProjectTree, selectInTree, type FileNode } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
-import { fileManagerLabel, setupSelectIn } from './select-in.js';
+import { fileManagerLabel, fileManagerName, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
@@ -972,6 +972,29 @@ services.menus.contribute({
   item: { submenu: 'bookmarks/expandable', label: 'Bookmarks' },
   group: 'g-bookmarks',
 });
+// Open In, as IntelliJ's in the Project view's menu (`RevealGroup`, after Bookmarks): the system's
+// file manager, by its short name there (`RevealFileAction` in its `REVEAL_IN_POPUP` place:
+// IdeBundle's Finder, Explorer, or File Manager, where IntelliJ may name the one it finds, a
+// claim), showing the file or folder selected. In the desktop app only, as Select In's.
+if (window.cerebro) {
+  services.commands.register({
+    id: 'project.openIn.fileManager',
+    label: fileManagerName(window.cerebro.platform),
+    enabled: () => (projectNode() ?? undefined) !== undefined,
+    run: () => {
+      window.cerebro?.shell.reveal((projectNode() as FileNode).path);
+    },
+  });
+  services.menus.contribute({
+    menu: 'project/node',
+    item: { submenu: 'project/node/openIn', label: 'Open In' },
+    group: 'e-open',
+  });
+  services.menus.contribute({
+    menu: 'project/node/openIn',
+    item: { command: 'project.openIn.fileManager' },
+  });
+}
 // And in the Project view's menu (`ProjectViewPopupMenu`, after its Refactoring group), for the
 // file or folder it's opened on: the row's selected, so the commands take it there.
 services.menus.contribute({

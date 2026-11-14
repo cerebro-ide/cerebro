@@ -30,6 +30,12 @@ export function fileManagerLabel(platform: string): string {
   return platform === 'win32' ? 'Show in Explorer' : 'Show in File Manager';
 }
 
+/** The file manager's short name, as IntelliJ's Open In lists it (IdeBundle's), on this platform. */
+export function fileManagerName(platform: string): string {
+  if (platform === 'darwin') return 'Finder';
+  return platform === 'win32' ? 'Explorer' : 'File Manager';
+}
+
 /** IntelliJ's numbering: 1 to 9, then 0, then letters; the `&` marks it the mnemonic. */
 export function numbered(index: number, label: string): string {
   const key = index < 9 ? String(index + 1) : index === 9 ? '0' : String.fromCharCode(55 + index);

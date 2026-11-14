@@ -1,7 +1,7 @@
 import { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { fileManagerLabel, numbered, setupSelectIn } from '../src/select-in.js';
+import { fileManagerLabel, fileManagerName, numbered, setupSelectIn } from '../src/select-in.js';
 import { closeAll } from './fakes.js';
 
 afterEach(closeAll);
@@ -16,6 +16,9 @@ describe('Select In', () => {
   it('names the file manager as IntelliJ does on each system', () => {
     expect(fileManagerLabel('darwin')).toBe('Reveal in Finder');
     expect(fileManagerLabel('win32')).toBe('Show in Explorer');
+    expect(fileManagerName('darwin')).toBe('Finder');
+    expect(fileManagerName('win32')).toBe('Explorer');
+    expect(fileManagerName('linux')).toBe('File Manager');
     expect(fileManagerLabel('linux')).toBe('Show in File Manager');
   });
 

@@ -3185,8 +3185,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   focused view's; a tab's menu still copies its tab's. So is Local History (added 2026-11-14),
   first of its version control's, as IntelliJ's `VersionControlsGroup`: Show History, from it or
   the File menu while the view has the focus, shows the selected file's; a folder's isn't shown
-  yet (IntelliJ shows a folder's changes). IntelliJ's menu's other groups (New, Cut, Copy, Paste,
-  Find in Files, Rename, Delete, Open In, Git, Compare With) aren't in it yet.
+  yet (IntelliJ shows a folder's changes). So is Open In (added 2026-11-14), after Bookmarks, as
+  IntelliJ's `RevealGroup`, in the desktop app only: its one item shows the file or folder in the
+  system's file manager, named as IntelliJ's short names are (Finder, Explorer, File Manager; the
+  name on Linux is a claim, from IntelliJ's source, not seen). IntelliJ's other items in it
+  (Terminal, a browser) aren't yet. IntelliJ's menu's other groups (New, Cut, Copy, Paste, Find in
+  Files, Rename, Delete, Git, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
