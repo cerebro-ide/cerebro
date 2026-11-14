@@ -2,7 +2,7 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
-import { bookmarkMarks, toggleBookmark } from '../src/bookmarks.js';
+import { bookmarkMarks, bookmarksOf, toggleBookmark } from '../src/bookmarks.js';
 import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
@@ -24,7 +24,16 @@ import {
   tabbed,
   askedDocument,
 } from './app-bridge.js';
-import { closeAll, dialog, dialogText, menuItem, menuItems, popupItems, press } from './fakes.js';
+import {
+  answer,
+  closeAll,
+  dialog,
+  dialogText,
+  menuItem,
+  menuItems,
+  popupItems,
+  press,
+} from './fakes.js';
 
 // The page, as the desktop app shows it: a window with a project, its host answering through the
 // app's bridge. It's made once, as it's imported: each test goes on from where the last left it.
@@ -1008,7 +1017,8 @@ describe('bookmarks', () => {
           (r) => r.textContent,
         ),
       )
-      .toEqual(['rDefault', 'marked.tssrc', '2:']);
+      // Its line's text, its description.
+      .toEqual(['rDefault', 'marked.tssrc', '2:// /r/src/marked.ts']);
     await userEvent.dblClick(row('/r/src/marked.ts:1'));
     await expect.poll(() => reveals.get('/r/src/marked.ts')).toEqual({ line: 1, column: 0 });
     // Opened, it's read again: the host's file is as it was, without the line added above, and
@@ -1055,7 +1065,8 @@ describe('bookmarks', () => {
     await userEvent.keyboard('{Escape}');
     // Show Bookmarks, on Shift+F11: the popup, in the order added.
     await userEvent.keyboard('{Shift>}{F11}{/Shift}');
-    expect(await popupItems()).toEqual(['b.ts :2', 'c.ts :1']);
+    // Each by its description, its line's text, once its file's read.
+    await expect.poll(popupItems).toEqual(['const a = 1;', '// /r/src/c.ts']);
     await userEvent.keyboard('{Enter}');
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
     toggleBookmark('/r', '/r/src/b.ts', 1);
@@ -1110,9 +1121,16 @@ describe('mnemonic bookmarks', () => {
     for (const group of env().editor.groups) {
       for (const tab of group.tabs) env().editor.close(group.id, tab.id);
     }
-    expect((await bookmarksMenu())[1]).toBe('Toggle Bookmark Mnemonic…');
+    expect(await bookmarksMenu()).toEqual([
+      'Toggle Bookmark',
+      'Toggle Bookmark Mnemonic…',
+      'Previous Line Bookmark',
+      'Next Line Bookmark',
+      'Show Bookmarks…',
+      'Go to Mnemonic…',
+    ]);
     env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
-    expect((await bookmarksMenu())[1]).toBe('Add Mnemonic Bookmark…');
+    expect(await bookmarksMenu()).toContain('Add Mnemonic Bookmark…');
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
     await userEvent.keyboard('{Control>}{F11}{/Control}');
@@ -1121,15 +1139,42 @@ describe('mnemonic bookmarks', () => {
     await expect
       .poll(() => bookmarkMarks('/r', '/r/src/c.ts'))
       .toEqual([{ line: 1, mnemonic: 'M' }]);
-    expect((await bookmarksMenu())[1]).toBe('Change Mnemonic…');
+    // With Rename Bookmark and Remove Mnemonic, around Toggle Bookmark, as IntelliJ's.
+    expect((await bookmarksMenu()).slice(0, 4)).toEqual([
+      'Rename Bookmark…',
+      'Toggle Bookmark',
+      'Remove Mnemonic',
+      'Change Mnemonic…',
+    ]);
     // Gone to from another file.
     env().editor.open({ id: '/r/src/b.ts', title: 'b.ts' });
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}{Shift>}{F11}{/Shift}{/Control}');
-    expect(await popupItems()).toEqual(['c.ts :2']);
+    await expect.poll(popupItems).toEqual(['const a = 1;']);
     await userEvent.keyboard('m');
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
     await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 1, column: 0 });
+    // Renamed, then its mnemonic removed, from Find Action.
+    const run = async (name: string) => {
+      await userEvent.click(q('.cerebro-statusbar'));
+      await userEvent.keyboard('{Control>}{Shift>}a{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard(name);
+      await expect
+        .poll(() => document.querySelector('.cerebro-popup-item--highlighted')?.textContent)
+        .toContain(name);
+      await userEvent.keyboard('{Enter}');
+    };
+    await run('Rename Bookmark');
+    await answer('the area');
+    await press('OK');
+    expect(bookmarksOf('/r')).toEqual([
+      { path: '/r/src/c.ts', line: 1, mnemonic: 'M', description: 'the area' },
+    ]);
+    await run('Remove Mnemonic');
+    await expect
+      .poll(() => bookmarksOf('/r'))
+      .toEqual([{ path: '/r/src/c.ts', line: 1, description: 'the area' }]);
     toggleBookmark('/r', '/r/src/c.ts', 1);
   });
 });

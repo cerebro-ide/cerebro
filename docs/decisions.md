@@ -3048,13 +3048,26 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   status bar showed the line it had left: seen in the app).
 - **The Bookmarks tool window** (already on the left's second slot) lists them under one list
   named after the worktree, as IntelliJ's default list is named after the project, marked
-  "Default"; then by file, with its folder, in the order added, each line by its number
-  (IntelliJ's "Group line bookmarks", on by default), each line with the bookmark's icon, as
-  IntelliJ's line nodes (the list's is IntelliJ's bookmark group icon, drawn as the bookmark's
+  "Default"; then by file, with its folder, in the order added, each line by its number and its
+  description (IntelliJ's "Group line bookmarks", on by default), each line with the bookmark's
+  icon, as IntelliJ's line nodes (the list's is IntelliJ's bookmark group icon, drawn as the bookmark's
   here: a claim). A double click or Enter opens a file, or a
   line; the list itself opens nothing. With none: IntelliJ's "No bookmarks added." and "Add
   Bookmark (F11) to code lines." The icon is drawn after IntelliJ's (a claim: not its drawing),
   in the muted text colour (a claim: not measured).
+- **Descriptions,** as IntelliJ's (`BookmarksManagerImpl`'s `createDescription`, `BookmarkNode`'s
+  `addTextTo`, read from its source): a bookmark's is the one it was given, else its line's text,
+  trimmed, once its file's read. IntelliJ reads the line's text once and keeps it until the
+  bookmark changes; here it follows the line as it's edited (open to change). A blank one shows
+  nothing. The popups list a bookmark with one by it, then its file's name, line and folder in
+  brackets, muted; typing finds either. Rename Bookmark… (`EditBookmarkAction`, "Bookmark
+  Description" and "Enter a short bookmark description", BookmarkBundle's words) asks for one, the
+  description to start with; it takes no blank text, where IntelliJ's does (Cerebro's prompt
+  doesn't; open to change). The mnemonic chooser has IntelliJ's "Description (Optional)" field,
+  the bookmark's description to start with, and gives the bookmark what's in it when it isn't
+  empty, as IntelliJ's, so a line's text kept there becomes its own. Remove Mnemonic
+  (`DeleteBookmarkTypeAction`) takes the line's bookmark's mnemonic away. A mnemonic's change keeps
+  a bookmark's description.
 - **Kept per worktree, between runs,** in the page's local storage (`cerebro.bookmarks:<path>`),
   as other per-view state is; none when what's kept can't be read.
 - **Next and Previous Line Bookmark,** as IntelliJ's `GotoNextBookmark` and `GotoPreviousBookmark`
@@ -3100,7 +3113,8 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   here it's the picker, at the top, and a key no bookmark has goes to its search field (open to
   change: the popup shell proposed in the backlog would allow IntelliJ's).
 - **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
-  there, which Cerebro hasn't, so after Find. Toggle Bookmark and Toggle Bookmark Mnemonic…, then
+  there, which Cerebro hasn't, so after Find. Rename Bookmark… (for a line with a bookmark), Toggle
+  Bookmark, Remove Mnemonic (for one with a mnemonic) and Toggle Bookmark Mnemonic…, then
   Previous and Next Line Bookmark, apart, then Show Bookmarks… and Go to Mnemonic… (ActionsBundle's
   names).
 - **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
@@ -3118,9 +3132,9 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   none on NetBeans, and Eclipse leaves out Ctrl+1, Emacs Ctrl+Shift+2. The letters' have none.
   Toggle Bookmark Mnemonic: Ctrl+F11; macOS Alt+F3; Eclipse Ctrl+Alt+Shift+F11; macOS System
   Shortcuts Ctrl+Alt+Shift+K and Cmd+F11. Go to Mnemonic: Ctrl+Shift+F11; macOS Cmd+Alt+F3; none
-  on Eclipse, NetBeans, Sublime Text or Visual Studio.
-- **Not yet:** descriptions (and the
-  chooser's field for one, with its second hint), more lists,
+  on Eclipse, NetBeans, Sublime Text or Visual Studio. Rename Bookmark and Remove Mnemonic have
+  none in any.
+- **Not yet:** more lists (and Add Bookmark to Another List),
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in
   the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.

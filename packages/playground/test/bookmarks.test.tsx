@@ -4,21 +4,27 @@ import { userEvent } from 'vitest/browser';
 import {
   bookmarkMarks,
   bookmarkWith,
+  bookmarkAt,
   bookmarksOf,
   BookmarksView,
   chooseMnemonic,
+  describe as describeBookmark,
+  descriptionOf,
   goToMnemonic,
   mnemonicChoice,
   moveBookmarks,
   nextBookmark,
+  removeMnemonic,
+  renameBookmark,
   rewriteAsked,
   showBookmarks,
   toggleBookmark,
   toggleMnemonic,
   type LineBookmark,
 } from '../src/bookmarks.js';
+import { documentFor } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { closeAll, dialog, dialogText, popupItems, press } from './fakes.js';
+import { answer, closeAll, dialog, dialogText, popupItems, press } from './fakes.js';
 
 const opened: unknown[] = [];
 let dispose: (() => void) | undefined;
@@ -325,7 +331,7 @@ describe('the mnemonic chooser', () => {
     expect(marked('current')).toEqual(['7']);
     expect(marked('used')).toEqual(['K']);
     expect(shown.querySelector('.playground-mnemonics__comment')?.textContent).toBe(
-      'Quickly set: type or double-click mnemonic',
+      'Quickly set: type or double-click mnemonicProvide note: select mnemonic, add description, and press Enter',
     );
     expect(shown.querySelector('.playground-mnemonics__legend')?.textContent).toBe(
       'Already usedCurrent',
@@ -378,6 +384,11 @@ describe('the mnemonic chooser', () => {
       await userEvent.keyboard(key);
       expect(focused()).toBe(then);
     }
+    // Tab goes on from it to the description, not to the next button; Shift+Tab back to it.
+    await userEvent.keyboard('{Tab}');
+    expect(document.activeElement?.className).toContain('playground-mnemonics__description');
+    await userEvent.keyboard('{Shift>}{Tab}{/Shift}');
+    expect(focused()).toBe('G');
     // Enter chooses the one with the focus.
     await userEvent.keyboard('{Enter}');
     await chosen;
@@ -422,6 +433,104 @@ describe('the mnemonic chooser', () => {
     expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
     toggleBookmark('/c', at.path, at.line);
     await closed();
+  });
+});
+
+describe('descriptions', () => {
+  const yes = () => Promise.resolve(true);
+  const at = { path: '/d/src/a.ts', line: 1 };
+
+  it('are the line’s text, trimmed, once its file’s read, until one’s given', async () => {
+    toggleBookmark('/d', at.path, at.line);
+    const bookmark = bookmarkAt('/d', at) as LineBookmark;
+    // Its file not read yet.
+    const read = documentFor(at.path, () => 'first\n  second line  \n');
+    expect(descriptionOf(bookmark)).toBe('');
+    await read;
+    expect(descriptionOf(bookmark)).toBe('second line');
+    // Past the text's end: none.
+    expect(descriptionOf({ ...bookmark, line: 9 })).toBe('');
+    describeBookmark('/d', at, 'mine');
+    expect(descriptionOf(bookmarkAt('/d', at) as LineBookmark)).toBe('mine');
+    // Kept as its mnemonic changes, and when it's removed.
+    await toggleMnemonic('/d', at, '4', yes);
+    expect(bookmarkAt('/d', at)).toEqual({ ...at, mnemonic: '4', description: 'mine' });
+    removeMnemonic('/d', at);
+    expect(bookmarkAt('/d', at)).toEqual({ ...at, description: 'mine' });
+    // None there: nothing given or removed.
+    describeBookmark('/d', { path: at.path, line: 7 }, 'x');
+    removeMnemonic('/d', { path: at.path, line: 7 });
+    expect(bookmarksOf('/d')).toHaveLength(1);
+    toggleBookmark('/d', at.path, at.line);
+  });
+
+  it('show in the popups, first, with the place muted after them', async () => {
+    toggleBookmark('/d', at.path, at.line);
+    describeBookmark('/d', at, 'the area');
+    toggleBookmark('/d', '/d/top.ts', 0);
+    describeBookmark('/d', { path: '/d/top.ts', line: 0 }, 'top');
+    const shown = showBookmarks({ id: '/d', name: 'd' }, () => undefined);
+    expect(await popupItems()).toEqual(['the area', 'top']);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup-item__detail')].map((d) => d.textContent),
+    ).toEqual(['a.ts :2  (src)', 'top.ts :1']);
+    // Found by the place too.
+    await userEvent.keyboard('top.ts');
+    await expect.poll(popupItems).toEqual(['top']);
+    await closeAll();
+    await shown;
+    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', '/d/top.ts', 0);
+  });
+
+  it('are given by Rename Bookmark, the description to start with', async () => {
+    await renameBookmark('/d', at);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    toggleBookmark('/d', at.path, at.line);
+    let renamed = renameBookmark('/d', at);
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Bookmark Description',
+    );
+    expect(await dialogText()).toBe('Enter a short bookmark description');
+    expect((await answer('')).value).toBe('');
+    await answer('renamed');
+    await press('OK');
+    await renamed;
+    expect(bookmarkAt('/d', at)?.description).toBe('renamed');
+    renamed = renameBookmark('/d', at);
+    expect(((await dialog()).querySelector('input') as HTMLInputElement).value).toBe('renamed');
+    await press('Cancel');
+    await renamed;
+    expect(bookmarkAt('/d', at)?.description).toBe('renamed');
+    toggleBookmark('/d', at.path, at.line);
+  });
+
+  it('are given in the mnemonic chooser, its own to start with, none for a new one', async () => {
+    let chosen = chooseMnemonic('/d', at, yes);
+    const field = async () =>
+      (await dialog()).querySelector<HTMLInputElement>(
+        '.playground-mnemonics__description',
+      ) as HTMLInputElement;
+    expect((await field()).value).toBe('');
+    expect((await field()).placeholder).toBe('Description (Optional)');
+    // None given: none kept.
+    await userEvent.keyboard('e');
+    await chosen;
+    expect(bookmarkAt('/d', at)).toEqual({ ...at, mnemonic: 'E' });
+    describeBookmark('/d', at, 'old');
+    chosen = chooseMnemonic('/d', at, yes);
+    expect((await field()).value).toBe('old');
+    // A mnemonic selected, a description typed, and Enter.
+    await userEvent.click(
+      [...document.querySelectorAll('.playground-mnemonic')].find(
+        (b) => b.textContent === 'F',
+      ) as HTMLElement,
+    );
+    await userEvent.clear(await field());
+    await userEvent.type(await field(), 'new{Enter}');
+    await chosen;
+    expect(bookmarkAt('/d', at)).toEqual({ ...at, mnemonic: 'F', description: 'new' });
+    toggleBookmark('/d', at.path, at.line);
   });
 });
 

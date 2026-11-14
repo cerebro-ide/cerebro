@@ -160,6 +160,7 @@ import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
+  bookmarkAt,
   bookmarkMarks,
   bookmarksOf,
   BookmarksView,
@@ -170,6 +171,8 @@ import {
   MNEMONICS,
   moveBookmarks,
   nextBookmark,
+  removeMnemonic,
+  renameBookmark,
   rewriteAsked,
   showBookmarks,
   toggleBookmark,
@@ -864,6 +867,41 @@ services.menus.contribute({
   menu: 'main/edit/bookmarks',
   item: { command: 'bookmarks.toggleMnemonic' },
   group: 'a',
+  order: 2,
+});
+// Rename Bookmark and Remove Mnemonic, as IntelliJ's (`EditBookmarkAction`,
+// `DeleteBookmarkTypeAction`): shown for the caret line's bookmark, the second when it has a
+// mnemonic, around Toggle Bookmark (`popup@BookmarkContextMenu`'s order). No keys in IntelliJ's.
+const caretBookmark = () =>
+  active() && activeFile() ? bookmarkAt((active() as { id: string }).id, caretLine()) : undefined;
+services.commands.register({
+  id: 'bookmarks.rename',
+  label: 'Rename Bookmark',
+  dialog: true,
+  visible: () => caretBookmark() !== undefined,
+  enabled: () => caretBookmark() !== undefined,
+  run: () => renameBookmark(active()?.id as string, caretLine()),
+});
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.rename' },
+  group: 'a',
+  order: -1,
+});
+services.commands.register({
+  id: 'bookmarks.removeMnemonic',
+  label: 'Remove Mnemonic',
+  visible: () => caretBookmark()?.mnemonic !== undefined,
+  enabled: () => caretBookmark()?.mnemonic !== undefined,
+  run: () => {
+    removeMnemonic(active()?.id as string, caretLine());
+  },
+});
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.removeMnemonic' },
+  group: 'a',
+  order: 1,
 });
 // Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
 // IntelliJ's own keymap gives them no keys.
