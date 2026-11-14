@@ -148,6 +148,11 @@ export interface CodeEditorProps {
   /** Where the bookmarks are once an edit has moved them, as IntelliJ's follow their lines. */
   onBookmarksMoved?: (lines: number[]) => void;
   /**
+   * The line, zero-based, a context menu is opened on in the gutter, told before the menu's opened
+   * (IntelliJ's `LOGICAL_LINE_AT_CURSOR`: its gutter's menu acts on that line, not the caret's).
+   */
+  onGutterMenu?: (line: number) => void;
+  /**
    * Where the symbol at the caret is in the file, highlighted as IntelliJ's: asked once the caret
    * stays. None: no highlights.
    */
@@ -1174,6 +1179,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     ...(doc?.scroll === undefined ? {} : { scrollTo: doc.scroll }),
   });
   caret(view.state);
+  view.dom.addEventListener('contextmenu', (event) => {
+    if (!props.onGutterMenu || !(event.target as Element).closest('.cm-gutters')) return;
+    const block = view.lineBlockAtHeight(event.clientY - view.documentTop);
+    props.onGutterMenu(view.state.doc.lineAt(block.from).number - 1);
+  });
   // The document's text changed elsewhere: an edit (Replace in Files) as one, undoable on its own,
   // not joined with typing next to it; read again from disk, shown, not undoable.
   const following = effect(() => {

@@ -1074,6 +1074,34 @@ describe('bookmarks', () => {
   });
 });
 
+describe('the gutter’s menu', () => {
+  it('has the bookmarks’ commands, for the line it’s opened on', async () => {
+    env().editor.open({ id: '/r/src/g.ts', title: 'g.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    const root = () =>
+      document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')
+        ?.shadowRoot as ShadowRoot;
+    const number = (text: string) =>
+      [...root().querySelectorAll<HTMLElement>('.cm-lineNumbers .cm-gutterElement')].find(
+        (element) => element.textContent === text,
+      ) as HTMLElement;
+    await userEvent.click(number('2'), { button: 'right' });
+    const items = await menuItems();
+    expect(items).toContain('Toggle Bookmark');
+    expect(items).toContain('Add Mnemonic Bookmark…');
+    expect(items).not.toContain('Rename Bookmark…');
+    // On that line, not the caret's.
+    await userEvent.click(menuItem('Toggle Bookmark'));
+    expect(bookmarkMarks('/r', '/r/src/g.ts')).toEqual([{ line: 1, mnemonic: undefined }]);
+    await userEvent.click(number('2'), { button: 'right' });
+    expect(await menuItems()).toContain('Rename Bookmark…');
+    expect(await menuItems()).toContain('Assign Mnemonic…');
+    await closeAll();
+    toggleBookmark('/r', '/r/src/g.ts', 1);
+  });
+});
+
 describe('mnemonic bookmarks', () => {
   it('are toggled on Ctrl+Shift and a digit, shown with it, and gone to on Ctrl and it', async () => {
     localStorage.setItem('cerebro.bookmarks.rewrite', 'false');
@@ -1499,7 +1527,12 @@ describe('Annotate with Git Blame', () => {
       '.cm-lineNumbers .cm-gutterElement:not([style*="hidden"])',
     );
     await userEvent.click(number as HTMLElement, { button: 'right' });
-    expect(await menuItems()).toEqual(['Annotate with Git Blame']);
+    // Annotate first, then the bookmarks', as IntelliJ's.
+    expect(await menuItems()).toEqual([
+      'Annotate with Git Blame',
+      'Toggle Bookmark',
+      'Add Mnemonic Bookmark…',
+    ]);
     await userEvent.click(menuItem('Annotate with Git Blame'));
     const annotation = () =>
       [...(editorRoot()?.querySelectorAll<HTMLElement>('.cerebro-annotation') ?? [])].find(

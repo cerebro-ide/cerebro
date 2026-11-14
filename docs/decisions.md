@@ -3117,6 +3117,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   Bookmark, Remove Mnemonic (for one with a mnemonic) and Toggle Bookmark Mnemonic…, then
   Previous and Next Line Bookmark, apart, then Show Bookmarks… and Go to Mnemonic… (ActionsBundle's
   names).
+- **In the gutter's menu,** as IntelliJ's (`popup@BookmarkContextMenu` in `EditorGutterPopupMenu`,
+  after the version control's): Rename Bookmark…, Toggle Bookmark, Remove Mnemonic and Toggle
+  Bookmark Mnemonic… (by what it does), for the line the menu's opened on, not the caret's
+  (IntelliJ's `LOGICAL_LINE_AT_CURSOR`). Not in a repository version's gutter, which has no
+  bookmarks. With them, a code editor's gutter always has a menu, as IntelliJ's; before, one with
+  nothing in it opened none.
 - **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
   Eclipse for macOS or NetBeans; Sublime Text Ctrl+F2, on macOS Cmd+F2 and Ctrl+Shift+R; Visual
   Studio Ctrl+K K and Ctrl+K Ctrl+K; macOS System Shortcuts Ctrl+Shift+K and F3. Visual Studio
@@ -3137,7 +3143,7 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
 - **Not yet:** more lists (and Add Bookmark to Another List),
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in
-  the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
+  the Project tool window, dragging the gutter's icon, and the window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 
