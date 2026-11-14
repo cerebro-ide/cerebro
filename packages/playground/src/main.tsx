@@ -86,6 +86,7 @@ import { setupEditorGitMenu } from './editor-git-menu.js';
 import { setupNewFile } from './new-file.js';
 import { setupDelete } from './delete-file.js';
 import { setupRenameFile } from './rename-file.js';
+import { setupCopyFile } from './copy-file.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -448,6 +449,11 @@ watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
 setupDelete(services, { reload: reloadAll });
 setupRenameFile(services, { editor });
+setupCopyFile(services, {
+  open: (tab) => {
+    navigation.open(tab);
+  },
+});
 setupNewFile(services, {
   activeTab: () => editor()?.activeGroup.active,
   open: (tab) => {

@@ -101,6 +101,24 @@ function history(action: 'undo' | 'redo'): { name: string | undefined } | undefi
   return names && { name: names[action] };
 }
 
+/**
+ * Cut, Copy and Paste of what isn't text, where it has the focus, as IntelliJ's CutProvider,
+ * CopyProvider and PasteProvider: the Project view's files.
+ */
+export interface ClipboardProvider {
+  /** Whether it has the focus (or had it before a menu took it), and so takes them. */
+  focused: () => boolean;
+  enabled: (action: 'cut' | 'copy' | 'paste') => boolean;
+  run: (action: 'cut' | 'copy' | 'paste') => void;
+}
+
+let provider: ClipboardProvider | undefined;
+
+/** Has Cut, Copy and Paste act through `given` while it has the focus. */
+export function provideClipboard(given: ClipboardProvider): void {
+  provider = given;
+}
+
 /** Runs an edit action on what last had the focus. */
 function run(action: EditAction): void {
   const focused = target();
@@ -117,7 +135,7 @@ export function setupEdit(commands: CommandRegistry): void {
   for (const type of ['focusin', 'keydown', 'pointerdown']) {
     window.addEventListener(type, follow, true);
   }
-  const entries: [EditAction, string, () => boolean][] = [
+  const entries: ['cut' | 'copy' | 'paste', string, () => boolean][] = [
     ['cut', 'Cu&t', () => changeable(last())],
     ['copy', '&Copy', copyable],
     ['paste', '&Paste', () => editable(last())],
@@ -126,9 +144,10 @@ export function setupEdit(commands: CommandRegistry): void {
     commands.register({
       id: `edit.${action}`,
       label,
-      enabled,
+      enabled: () => (provider?.focused() ? provider.enabled(action) : enabled()),
       run: () => {
-        run(action);
+        if (provider?.focused()) provider.run(action);
+        else run(action);
       },
     });
   }

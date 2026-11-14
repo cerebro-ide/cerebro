@@ -1686,6 +1686,109 @@ describe('the Project view’s menu', () => {
     if (!shown) await userEvent.click(stripe('project'));
   });
 
+  it('copies the file or folder selected, and pastes it where asked, once asked', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/into', name: 'into', kind: 'directory' },
+        { path: '/r/cp.ts', name: 'cp.ts', kind: 'file' },
+      ],
+      '/r/into': [],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const taken = new Set<string>();
+    answers.set('fs.exists', ({ path }: { path: string }) => taken.has(path));
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const copies = () => host('/r').params('fs.copy');
+    const dialog = () => document.querySelector('.cerebro-dialog');
+    const fields = () => [...document.querySelectorAll<HTMLInputElement>('.cerebro-dialog input')];
+    const answer = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__button')].find(
+        (button) => button.textContent === label,
+      ) as HTMLElement;
+    // A file, with the keys, pasted into a folder: asked where, its name without its extension
+    // selected; copied, selected and opened.
+    await userEvent.click(await vi.waitUntil(() => row('/r/cp.ts')));
+    await userEvent.keyboard('{Control>}c{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Copy file /r/cp.ts');
+    const [name, directory, open] = fields() as [
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    expect([name.value, directory.value, open.checked]).toEqual(['cp.ts', '/r/into', true]);
+    await expect.poll(() => [name.selectionStart, name.selectionEnd]).toEqual([0, 2]);
+    expect(document.activeElement).toBe(name);
+    folders['/r/into'] = [{ path: '/r/into/cp.ts', name: 'cp.ts', kind: 'file' }];
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(copies).toEqual([{ path: '/r/cp.ts', to: '/r/into/cp.ts', over: false }]);
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .toContain('/r/into/cp.ts');
+    env().editor.close(env().editor.activeGroupId, '/r/into/cp.ts');
+    // There already: asked, and skipped; then gone over.
+    taken.add('/r/into/cp.ts');
+    const paste = async () => {
+      await userEvent.click(await vi.waitUntil(() => row('/r/into/cp.ts')), { button: 'right' });
+      await userEvent.click(menuItem('Paste'));
+      await vi.waitUntil(dialog);
+      await userEvent.click(fields()[2] as HTMLInputElement);
+      await userEvent.keyboard('{Enter}');
+      await vi.waitUntil(() =>
+        document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+      );
+    };
+    await paste();
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe(
+      "File 'cp.ts' already exists in directory '/r/into'",
+    );
+    await userEvent.click(answer('Skip'));
+    await paste();
+    await userEvent.click(answer('Overwrite'));
+    await expect.poll(() => copies().length).toBe(2);
+    expect(copies()[1]).toEqual({ path: '/r/cp.ts', to: '/r/into/cp.ts', over: true });
+    expect(env().editor.activeGroup.tabs.map((t) => t.id)).not.toContain('/r/into/cp.ts');
+    // A folder, from the menu, into the worktree under another name: no Open in editor.
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')), { button: 'right' });
+    await userEvent.click(menuItem('Copy'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/cp.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Paste'));
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Copy directory /r/into');
+    expect(fields().map((field) => field.value)).toEqual(['into', '/r']);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('onto{Enter}');
+    await expect.poll(() => copies().length).toBe(3);
+    expect(copies()[2]).toEqual({ path: '/r/into', to: '/r/onto', over: false });
+    // Onto itself: nothing; one the host won't copy: said so.
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[1] as HTMLInputElement);
+    await userEvent.keyboard('/r{Enter}');
+    await expect.poll(dialog).toBeNull();
+    // Out of the worktree: copied, not looked for in the view.
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[1] as HTMLInputElement);
+    await userEvent.keyboard('/elsewhere/{Enter}');
+    await expect.poll(() => copies().length).toBe(4);
+    expect(copies()[3]).toEqual({ path: '/r/into', to: '/elsewhere/into', over: false });
+    answers.set('fs.copy', new Error('EACCES: permission denied'));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Copy');
+    expect(copies()).toHaveLength(5);
+    for (const method of ['fs.copy', 'fs.list', 'fs.exists']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
