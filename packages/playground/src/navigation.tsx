@@ -33,6 +33,7 @@ import type {
   Usage,
 } from '@cerebro-ide/ui-editor';
 import { documentFor, onEdited, reloadOpen, saveAll, saveFiles } from './documents.js';
+import type { Call, Hierarchy } from './call-hierarchy.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 import { openStructure, type FileSymbol } from './structure.js';
@@ -396,6 +397,21 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
      * File Structure (structure.tsx) for a file as the editor has it, from its language server,
      * the symbol at the caret highlighted; goes to the one chosen.
      */
+    /**
+     * Call Hierarchy: the function or method at a place, from its file's language server, and how
+     * to ask what calls it; none without a server, or with nothing there.
+     */
+    async callHierarchy(asked: Asked): Promise<Hierarchy | null> {
+      const env = active();
+      const [root] = (await ask<Call[]>('lsp.prepareCalls', asked)) ?? [];
+      if (!env || !root) return null;
+      return {
+        worktree: env.id,
+        root,
+        callers: (call) => ask<Call[]>('lsp.incomingCalls', { path: call.path, item: call.item }),
+      };
+    },
+
     async fileStructure(path: string, text: string, caret: Position): Promise<void> {
       const symbols = await ask<FileSymbol[]>('lsp.structure', { path, text });
       const chosen = await openStructure(path.split('/').at(-1) as string, symbols, caret);

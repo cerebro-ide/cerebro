@@ -14,6 +14,7 @@ import {
   completionsOf,
   hoverOf,
   highlighted,
+  callsOf,
   defined,
   located,
   pathOf,
@@ -89,6 +90,29 @@ describe('paths and locations', () => {
         'linux',
       ),
     ).toEqual([{ path: '/b.ts', line: 1, column: 2 }]);
+  });
+
+  it('reads call hierarchy items, and incoming calls with where they call, or none', () => {
+    const range = { start: { line: 3, character: 9 }, end: { line: 3, character: 10 } };
+    const item = { name: 'f', kind: 12, uri: 'file:///a.ts', selectionRange: range };
+    expect(callsOf(null)).toEqual([]);
+    expect(callsOf([item], 'linux')).toEqual([
+      { name: 'f', kind: 'function', path: '/a.ts', at: { line: 3, column: 9 }, calls: [], item },
+    ]);
+    const from = { ...item, detail: 'b.ts', kind: 99 };
+    expect(callsOf([{ from, fromRanges: [range, range] }], 'linux')).toEqual([
+      {
+        name: 'f',
+        detail: 'b.ts',
+        path: '/a.ts',
+        at: { line: 3, column: 9 },
+        calls: [
+          { line: 3, column: 9 },
+          { line: 3, column: 9 },
+        ],
+        item: from,
+      },
+    ]);
   });
 
   it('reads definitions with their declarations’ lines: a link’s target, a location’s range', () => {
@@ -659,6 +683,40 @@ describe('TypeScript 7’s server', () => {
     writeFileSync(c.path, c.text);
     expect(await servers.definitionSpans(project, c, at(3, 0))).toEqual([
       { path: c.path, line: 0, column: 9, first: 0, last: 2 },
+    ]);
+  }, 60_000);
+
+  it('finds a function’s callers, and theirs, with where they call it', async () => {
+    const project = `${root}/ts-calls`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const a = {
+      path: `${project}/a.ts`,
+      text:
+        'export function area() { return 1; }\n' +
+        'function twice() { return area() + area(); }\n' +
+        'export function top() { return twice(); }\n',
+    };
+    writeFileSync(a.path, a.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const [root_] = (await servers.prepareCalls(project, a, at(0, 17))) ?? [];
+    expect(root_).toMatchObject({ name: 'area', path: a.path, at: { line: 0, column: 16 } });
+    const callers = (await servers.incomingCalls(project, a.path, root_?.item)) ?? [];
+    expect(callers).toMatchObject([
+      {
+        name: 'twice',
+        path: a.path,
+        at: { line: 1, column: 9 },
+        calls: [
+          { line: 1, column: 26 },
+          { line: 1, column: 35 },
+        ],
+      },
+    ]);
+    expect(await servers.incomingCalls(project, a.path, callers[0]?.item)).toMatchObject([
+      { name: 'top', at: { line: 2, column: 16 }, calls: [{ line: 2, column: 31 }] },
     ]);
   }, 60_000);
 

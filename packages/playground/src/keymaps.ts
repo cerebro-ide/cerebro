@@ -92,6 +92,7 @@ export const INTELLIJ: KeymapPreset = {
     'navigate.forward': ['Ctrl+Alt+Right'],
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Ctrl+F12'],
+    'navigate.callHierarchy': ['Ctrl+Alt+H'],
     'view.recentFiles': ['Ctrl+E'],
     'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.new': ['Ctrl+Alt+Shift+Insert'],
@@ -222,6 +223,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'navigate.forward': ['Meta+]', 'Meta+Alt+Right'],
     'navigate.goToLine': ['Meta+L'],
     'navigate.fileStructure': ['Meta+F12'],
+    'navigate.callHierarchy': ['Ctrl+Alt+H'],
     'view.recentFiles': ['Meta+E'],
     'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.new': ['Meta+Shift+N'],
@@ -734,6 +736,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+B'],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Up'],
+    'navigate.callHierarchy': ['Ctrl+Alt+H'],
   },
 };
 
@@ -758,6 +761,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.nextProblem]: ['Ctrl+,', 'F2'],
     [EDITOR_ACTIONS.previousProblem]: ['Ctrl+Shift+<', 'Shift+F2'],
     'navigate.fileStructure': ['Meta+Shift+7', 'Meta+F12'],
+    'navigate.callHierarchy': ['Ctrl+Shift+H'],
     [EDITOR_ACTIONS.foldAll]: ['Alt+Shift+_'],
     [EDITOR_ACTIONS.unfoldAll]: ['Alt+Shift++'],
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+O', 'Ctrl+Enter'],

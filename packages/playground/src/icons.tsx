@@ -15,6 +15,8 @@ const PATHS: Record<string, string> = {
   fetch: 'M8 2.5V10M4.5 6.5L8 10l3.5-3.5M3 13.5h10',
   structure: 'M3 3h4v3H3zM9 10h4v3H9zM5 6v5.5h4M9 4.5h4',
   bookmark: 'M4.5 2.5h7v11L8 10.5l-3.5 3z',
+  // A box with two under it: the Hierarchy tool window (a claim: not IntelliJ's drawing).
+  hierarchy: 'M2.5 2.5h5v3h-5zM8.5 7h5v3h-5zM8.5 11h5v3h-5zM5 5.5v7h3.5M5 8.5h3.5',
   note: 'M3.5 2.5h9v11h-9zM5.5 5.5h5M5.5 8h5M5.5 10.5h3',
   terminal: 'M2.5 3.5h11v9h-11zM5 6.5l2 1.5-2 1.5M8.5 10h2.5',
   problems: 'M8 2.5l6 10.5H2zM8 6.5v3M8 11.2v.3',

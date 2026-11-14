@@ -109,6 +109,7 @@ import {
   selections,
   setupNavigation,
   tops,
+  type Asked,
 } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
@@ -158,6 +159,7 @@ import {
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
+import { HierarchyView, showHierarchy } from './call-hierarchy.js';
 import {
   closeProject,
   openProject,
@@ -746,23 +748,56 @@ services.menus.contribute({
 });
 // File Structure, as IntelliJ's Navigate → File Structure: the active file's symbols, from its
 // language server.
+/** The active file at its caret (its start before it's moved), as it's asked about; none unread. */
+async function atCaret(): Promise<Asked | undefined> {
+  const file = activeFile() as Tab;
+  const doc = await documentFor(file.id);
+  if ('error' in doc) return undefined;
+  const caret = carets.get(file.id) ?? { line: 0, column: 0 };
+  return { path: file.id, text: doc.text.peek().toString(), ...caret };
+}
 services.commands.register({
   id: 'navigate.fileStructure',
   label: 'File &Structure',
   dialog: true,
   enabled: () => navigation.available() && activeFile() !== undefined,
   run: async () => {
-    const file = activeFile() as Tab;
-    const caret = carets.get(file.id) ?? { line: 0, column: 0 };
-    const doc = await documentFor(file.id);
-    if ('error' in doc) return;
-    await navigation.fileStructure(file.id, doc.text.peek().toString(), caret);
+    const asked = await atCaret();
+    if (asked) await navigation.fileStructure(asked.path, asked.text, asked);
   },
 });
 services.keymap.bindDefault('Mod+F12', 'navigate.fileStructure');
 services.menus.contribute({
   menu: 'main/navigate',
   item: { command: 'navigate.fileStructure' },
+  group: 'b',
+});
+// Call Hierarchy, as IntelliJ's: the Hierarchy tool window, which appears the first time, on the
+// right (a claim: where IntelliJ's opens), shows what calls the function or method at the caret.
+services.commands.register({
+  id: 'navigate.callHierarchy',
+  label: 'Call Hierarch&y',
+  enabled: () => navigation.available() && activeFile() !== undefined,
+  run: async () => {
+    const asked = await atCaret();
+    const hierarchy = asked && (await navigation.callHierarchy(asked));
+    if (!hierarchy) return;
+    if (!layout.toolWindows.windows.has('hierarchy')) {
+      layout.toolWindows.register({
+        id: 'hierarchy',
+        title: 'Hierarchy',
+        anchor: 'right',
+        icon: 'hierarchy',
+      });
+    }
+    showHierarchy(hierarchy);
+    layout.toolWindows.show('hierarchy');
+  },
+});
+services.keymap.bindDefault('Ctrl+Alt+H', 'navigate.callHierarchy');
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.callHierarchy' },
   group: 'b',
 });
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
@@ -1593,6 +1628,7 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
+  if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
   if (props.id === 'vcsChanges') return <DiffWithWorkingTree services={services} open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;

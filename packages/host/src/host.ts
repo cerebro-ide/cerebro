@@ -384,6 +384,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
   // The item as the server gave it, kept by the UI: only the server reads it.
+  connection.onRequest('lsp.prepareCalls', (params) =>
+    servers.prepareCalls(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.incomingCalls', (params) =>
+    servers.incomingCalls(
+      text(params, 'worktree'),
+      text(params, 'path'),
+      (params as { item?: unknown }).item,
+    ),
+  );
   connection.onRequest('lsp.completionEdits', (params) =>
     servers.completionEdits(
       text(params, 'worktree'),

@@ -66,6 +66,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
@@ -3025,6 +3026,33 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+
+## Call Hierarchy (2026-11-14)
+
+IntelliJ's Navigate → Call Hierarchy, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** `CallHierarchy` (`CallHierarchyBrowserBase`, `HierarchyBrowserBase` and Java's
+  `CallHierarchyNodeDescriptor`, read from its source): the Hierarchy tool window, registered the
+  first time it's used and on the right (a claim: where IntelliJ's opens, not read), shows "Callers of {name}" (IdeBundle's
+  `title.hierarchy.callers.of`): the function or method at the caret, open, what calls it under
+  it, and what calls those as each is expanded. A caller that calls more than once says how many
+  times, " (2 usages)" (`node.call.hierarchy.N.usages`), then what the server adds to its name
+  (TypeScript's: its file or class), dimmed. A double click or Enter opens a caller where it first
+  makes the call, the one asked about at its name, and never expands a node, as IntelliJ's
+  hierarchy trees (no toggle click; Edit Source on double click and Enter): the tree view takes
+  `openParents` for it. Each worktree shows its last one; a new one replaces it.
+- **From the file's language server:** LSP's call hierarchy (`prepareCallHierarchy`, then
+  `incomingCalls` per node, its item given back). Measured with TypeScript's: `twice`, which calls
+  `area` twice on its line, is `area`'s caller with both places, and `top` is `twice`'s. Nothing
+  happens without a server or with no function at the caret.
+- **In the Navigate menu,** after File Structure, as "Call Hierarch&y" (ActionsBundle). It asks
+  about the active file at its caret, as File Structure does (one function for both now).
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+H, on macOS too; macOS System Shortcuts'
+  Ctrl+Shift+H. VS Code's sheets don't list it, so its keymaps keep IntelliJ's.
+- **Not yet:** Callees (IntelliJ's other view), sorting alphabetically, the scope (all, project,
+  tests), the window's toolbar (refresh, expand and collapse all, pin, previous and next), its
+  tabs, one per hierarchy; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
+  (IntelliJ's), and the call sites highlighted in the editor once opened.
 
 ## Quick Definition (2026-11-14)
 

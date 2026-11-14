@@ -933,6 +933,38 @@ describe('navigation in the editor', () => {
     await onA();
     await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
     await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 2, column: 1 });
+    // Call Hierarchy: the Hierarchy tool window, with what calls the function at the caret.
+    await closeAll();
+    answers.set('lsp.prepareCalls', [
+      { name: 'a', kind: 'function', path: '/r/src/c.ts', at: { line: 1, column: 0 }, calls: [] },
+    ]);
+    answers.set('lsp.incomingCalls', [
+      { name: 'z', path: '/r/src/b.ts', at: { line: 0, column: 0 }, calls: [], item: 1 },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await expect
+      .poll(() => document.querySelector('.playground-occurrences__title')?.textContent)
+      .toBe('Callers of a()');
+    await expect
+      .poll(() => document.querySelectorAll('.cerebro-tree-row').length)
+      .toBeGreaterThan(1);
+    // Again, in the window there: nothing for no function at the caret.
+    answers.set('lsp.prepareCalls', [
+      { name: 'b', kind: 'function', path: '/r/src/c.ts', at: { line: 1, column: 0 }, calls: [] },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await expect
+      .poll(() => document.querySelector('.playground-occurrences__title')?.textContent)
+      .toBe('Callers of b()');
+    answers.set('lsp.prepareCalls', []);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.querySelector('.playground-occurrences__title')?.textContent).toBe(
+      'Callers of b()',
+    );
     // Quick Definition: the declaration's lines in a popup; Edit Source opens it.
     await closeAll();
     answers.set('lsp.definitionSpans', [{ ...b, first: 0, last: 0 }]);
@@ -1128,6 +1160,10 @@ describe('File Structure', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(document.querySelector('.cerebro-popup')).toBeNull();
     expect(host('/r').params('lsp.structure')).toHaveLength(asked);
+    // Nor is Call Hierarchy asked about it.
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(host('/r').params('lsp.prepareCalls')).toEqual([]);
   });
 });
 

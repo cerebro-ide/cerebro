@@ -579,6 +579,47 @@ export function structureOf(symbols: readonly DocumentSymbol[]): FileSymbol[] {
   });
 }
 
+/** A function or method in a call hierarchy (LSP's `CallHierarchyItem`), and where it calls. */
+export interface Call {
+  name: string;
+  /** What the server adds to the name: TypeScript's, the file or class it's in. */
+  detail?: string;
+  kind?: (typeof SYMBOL_KINDS)[number];
+  path: string;
+  /** Where its name starts. */
+  at: { line: number; column: number };
+  /** Where, in its own file, it calls the one it's a caller of; none for the one asked about. */
+  calls: { line: number; column: number }[];
+  /** The server's item, given back to ask for its callers. */
+  item: unknown;
+}
+
+interface CallItem {
+  name: string;
+  detail?: string;
+  kind: number;
+  uri: string;
+  selectionRange: Range;
+}
+
+/** LSP's call hierarchy items as calls; `ranges`, where each calls (incoming calls'). */
+export function callsOf(result: unknown, platform: NodeJS.Platform = process.platform): Call[] {
+  if (!Array.isArray(result)) return [];
+  return (result as (CallItem | { from: CallItem; fromRanges: Range[] })[]).map((entry) => {
+    const [item, ranges] = 'from' in entry ? [entry.from, entry.fromRanges] : [entry, []];
+    const kind = SYMBOL_KINDS[item.kind - 1];
+    return {
+      name: item.name,
+      ...(item.detail ? { detail: item.detail } : {}),
+      ...(kind === undefined ? {} : { kind }),
+      path: pathOf(item.uri, platform),
+      at: { line: item.selectionRange.start.line, column: item.selectionRange.start.character },
+      calls: ranges.map((r) => ({ line: r.start.line, column: r.start.character })),
+      item,
+    };
+  });
+}
+
 /**
  * A server's edits to files, as a map of files to edits or as edits per version of a file
  * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
@@ -784,6 +825,7 @@ export class LanguageServer {
             rename: { prepareSupport: true },
             implementation: { linkSupport: true },
             typeDefinition: { linkSupport: true },
+            callHierarchy: {},
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
             // Actions as edits, not commands: without it, a server may give only commands (LSP).
             codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: KINDS } } },
@@ -1006,6 +1048,17 @@ export class LanguageServer {
       }),
       this.#resolves,
     );
+  }
+
+  /** What's at a place, as a call hierarchy's root: the function or method there. */
+  async prepareCalls(file: OpenFile, languageId: string, at: Located): Promise<Call[]> {
+    return callsOf(await this.#ask('textDocument/prepareCallHierarchy', file, languageId, at));
+  }
+
+  /** What calls an item of a call hierarchy, and where. */
+  async incomingCalls(item: unknown): Promise<Call[]> {
+    await this.ready;
+    return callsOf(await this.#connection.request('callHierarchy/incomingCalls', { item }));
   }
 
   /** A completion's other edits (an import), as it gives them when asked about the item. */
@@ -1334,6 +1387,18 @@ export class LanguageServers {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.completions(file, languageId, at),
     );
+  }
+
+  /** The function or method at a place, for Call Hierarchy; null when no server answers in time. */
+  prepareCalls(worktree: string, file: OpenFile, at: Located): Promise<Call[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.prepareCalls(file, languageId, at),
+    );
+  }
+
+  /** What calls an item of a call hierarchy in `path`, from its server; none in time: null. */
+  incomingCalls(worktree: string, path: string, item: unknown): Promise<Call[] | null> {
+    return this.#ask(worktree, path, (server) => server.incomingCalls(item));
   }
 
   /** A completion's other edits, from the server of the file it was offered in; none in time: null. */

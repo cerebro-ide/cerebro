@@ -116,6 +116,8 @@ describe('language servers', () => {
       definitions: vi.fn(() => Promise.resolve([{ path: '/w/a.ts', line: 1, column: 2 }])),
       usages: vi.fn(() => Promise.resolve(null)),
       definitionSpans: vi.fn(() => Promise.resolve(null)),
+      prepareCalls: vi.fn(() => Promise.resolve(null)),
+      incomingCalls: vi.fn(() => Promise.resolve([])),
       implementations: vi.fn(() => Promise.resolve([])),
       typeDefinitions: vi.fn(() => Promise.resolve(null)),
       organizeImports: vi.fn(() => Promise.resolve([])),
@@ -159,6 +161,16 @@ describe('language servers', () => {
       { path: '/w/b.ts', text: 'x' },
       { path: '', line: 2, column: 1 },
     );
+    expect(await ui.request('lsp.prepareCalls', { ...file, line: 2, column: 3 })).toBeNull();
+    expect(servers.prepareCalls).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 2, column: 3 },
+    );
+    expect(
+      await ui.request('lsp.incomingCalls', { worktree: '/w', path: '/w/a.ts', item: { n: 1 } }),
+    ).toEqual([]);
+    expect(servers.incomingCalls).toHaveBeenCalledWith('/w', '/w/a.ts', { n: 1 });
     expect(await ui.request('lsp.typeDefinitions', { ...file, line: 1, column: 6 })).toBeNull();
     expect(servers.typeDefinitions).toHaveBeenCalledWith(
       '/w',
