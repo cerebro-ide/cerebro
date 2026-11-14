@@ -33,12 +33,12 @@ export interface StructureViewProps {
   show: (at: Place, focus: boolean) => void;
 }
 
-interface Node {
+interface SymbolNode {
   key: string;
   symbol: FileSymbol;
 }
 
-const nodes = (symbols: readonly FileSymbol[], parent: string): Node[] =>
+const nodes = (symbols: readonly FileSymbol[], parent: string): SymbolNode[] =>
   symbols.map((symbol, index) => ({ key: `${parent}/${String(index)}`, symbol }));
 
 /** The window's content: the active file's structure, or why there's none. */
@@ -112,13 +112,13 @@ function FileStructure(props: StructureViewProps & { path: string }) {
 
 /** The symbols' tree, every symbol with members expanded; selecting one shows it. */
 function Tree(props: StructureViewProps & { path: string; found: readonly FileSymbol[] }) {
-  const model = new TreeModel<Node>({
+  const model = new TreeModel<SymbolNode>({
     children: (node) =>
       Promise.resolve(node ? nodes(node.symbol.children, node.key) : nodes(props.found, '')),
     key: (node) => node.key,
     isLeaf: (node) => node.symbol.children.length === 0,
   });
-  const expand = (list: readonly Node[]) => {
+  const expand = (list: readonly SymbolNode[]) => {
     for (const node of list) {
       if (node.symbol.children.length === 0) continue;
       model.expand(node);
@@ -126,7 +126,7 @@ function Tree(props: StructureViewProps & { path: string; found: readonly FileSy
     }
   };
   expand(nodes(props.found, ''));
-  const go = (node: Node, focus: boolean) => {
+  const go = (node: SymbolNode, focus: boolean) => {
     props.show({ path: props.path, ...node.symbol.at }, focus);
   };
   // Autoscroll to Source: the selected symbol shown, the focus left in the tree.
@@ -136,7 +136,7 @@ function Tree(props: StructureViewProps & { path: string; found: readonly FileSy
     if (key === undefined || key === shown) return undefined;
     shown = key;
     // The selection is always a row's: collapsing a symbol selects it, if a member was.
-    const row = untracked(() => model.rows.find((r) => r.key === key)) as TreeRow<Node>;
+    const row = untracked(() => model.rows.find((r) => r.key === key)) as TreeRow<SymbolNode>;
     go(row.node, false);
     return undefined;
   });

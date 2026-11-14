@@ -87,7 +87,9 @@ describe('the Structure tool window', () => {
       show,
     });
     await expect.poll(() => rows(container)).toEqual(['A', 'a']);
-    const a = container.querySelectorAll<HTMLElement>('.playground-occurrences__name')[1];
+    const a = container.querySelectorAll<HTMLElement>(
+      '.playground-occurrences__name',
+    )[1] as HTMLElement;
     await userEvent.click(a);
     await expect
       .poll(() => show.mock.calls)
@@ -125,8 +127,8 @@ describe('the Structure tool window', () => {
     await expect.poll(() => answers.length).toBe(1);
     doc.edit([{ from: 0, to: 3, insert: 'two' }]);
     await expect.poll(() => answers.length, { timeout: UPDATE_DELAY + 1000 }).toBe(2);
-    answers[1]([symbol('two', 'function', 0)]);
-    answers[0]([symbol('one', 'function', 0)]);
+    answers[1]?.([symbol('two', 'function', 0)]);
+    answers[0]?.([symbol('one', 'function', 0)]);
     await expect.poll(() => rows(container)).toEqual(['two']);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(rows(container)).toEqual(['two']);
