@@ -615,6 +615,29 @@ describe('TypeScript 7’s server', () => {
     expect(servers.size).toBe(1);
   }, 60_000);
 
+  it('goes to what implements a symbol, and to the type of one', async () => {
+    const project = `${root}/ts-types`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const a = {
+      path: `${project}/a.ts`,
+      text:
+        'interface Shape { area(): number }\n' +
+        'class Square implements Shape { area() { return 1; } }\n' +
+        'const shape: Shape = new Square();\n',
+    };
+    writeFileSync(a.path, a.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.implementations(project, a, at(0, 11))).toEqual([
+      { path: a.path, line: 1, column: 6 },
+    ]);
+    expect(await servers.typeDefinitions(project, a, at(2, 7))).toEqual([
+      { path: a.path, line: 0, column: 10 },
+    ]);
+  }, 60_000);
+
   it('finds a file’s problems, in unsaved text too', async () => {
     const project = `${root}/ts`;
     const bad = { path: `${project}/bad.ts`, text: 'const n: number = "x";\nexport {};\n' };

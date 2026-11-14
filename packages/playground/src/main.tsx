@@ -1652,6 +1652,10 @@ function Code(props: { path: string; env: string }) {
               ? {
                   onGoToDefinition: (name: string, at: { line: number; column: number }) =>
                     void navigation.goToDefinition(name, asked(state, at)),
+                  onGoToImplementation: (name: string, at: { line: number; column: number }) =>
+                    void navigation.goToImplementation(name, asked(state, at)),
+                  onGoToTypeDeclaration: (name: string, at: { line: number; column: number }) =>
+                    void navigation.goToTypeDeclaration(name, asked(state, at)),
                   onFindUsages: (name: string, at: { line: number; column: number }) =>
                     void navigation.findUsages(name, asked(state, at)),
                   onContextActions: (

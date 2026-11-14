@@ -109,6 +109,16 @@ export interface CodeEditorProps {
    * IntelliJ) or Mod+click.
    */
   onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to what implements the word at the cursor, given where it is: its keys (Ctrl+Alt+B in
+   * IntelliJ, its Go to Implementation(s)).
+   */
+  onGoToImplementation?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to where the type of the word at the cursor is declared, given where it is: its keys
+   * (Ctrl+Shift+B in IntelliJ, its Go to Type Declaration).
+   */
+  onGoToTypeDeclaration?: (word: string, at: { line: number; column: number }) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /**
@@ -200,6 +210,9 @@ export interface CodeEditorProps {
  */
 export interface EditorKeys {
   goToDefinition?: readonly string[];
+  /** Go to Implementation(s) and Go to Type Declaration, of the symbol at the caret. */
+  goToImplementation?: readonly string[];
+  goToTypeDeclaration?: readonly string[];
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
@@ -268,6 +281,8 @@ export interface EditorKeys {
 /** IntelliJ's keys. */
 export const DEFAULT_KEYS: Required<EditorKeys> = {
   goToDefinition: ['Mod-b'],
+  goToImplementation: ['Mod-Alt-b'],
+  goToTypeDeclaration: ['Mod-Shift-b'],
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
@@ -866,6 +881,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.goToDefinition.map((key) => ({
           key,
           run: atCursor(() => props.onGoToDefinition),
+        })),
+        ...keys.goToImplementation.map((key) => ({
+          key,
+          run: atCursor(() => props.onGoToImplementation),
+        })),
+        ...keys.goToTypeDeclaration.map((key) => ({
+          key,
+          run: atCursor(() => props.onGoToTypeDeclaration),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
         // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.

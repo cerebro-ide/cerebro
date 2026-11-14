@@ -406,6 +406,58 @@ describe('Go to Definition', () => {
   });
 });
 
+describe('Go to Implementation and Go to Type Declaration', () => {
+  it('go to the language server’s one place', async () => {
+    answers = { 'lsp.implementations': [at('/r/impl.ts', 1)] };
+    await nav.goToImplementation('a', asked);
+    expect(editor().activeGroup.active).toBe('/r/impl.ts');
+    expect(host.params('lsp.implementations')).toEqual([{ worktree: '/r', ...asked }]);
+    answers = { 'lsp.typeDefinitions': [at('/r/type.ts', 1)] };
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe('/r/type.ts');
+  });
+
+  it('offer several, as IntelliJ’s lists', async () => {
+    answers = { 'lsp.implementations': [at('/r/i1.ts', 1), at('/r/i2.ts', 2)] };
+    let done = nav.goToImplementation('a', asked);
+    expect(await labels()).toEqual({
+      items: ['i1.ts', 'i2.ts'],
+      groups: [],
+      details: ['i1.ts:2', 'i2.ts:3'],
+    });
+    expect(title()).toBe('Choose Implementation of a (2 found)');
+    await userEvent.keyboard('{Enter}');
+    await done;
+    expect(editor().activeGroup.active).toBe('/r/i1.ts');
+    answers = { 'lsp.typeDefinitions': [at('/r/t1.ts', 1), at('/r/t2.ts', 2)] };
+    done = nav.goToTypeDeclaration('a', asked);
+    expect((await labels()).items).toEqual(['t1.ts', 't2.ts']);
+    expect(title()).toBe('Choose Type');
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
+  it('say there are no implementations, as IntelliJ, and go nowhere with no type', async () => {
+    answers = { 'lsp.implementations': null };
+    const done = nav.goToImplementation('a', asked);
+    await popupItems();
+    expect(document.querySelector('.cerebro-popup__empty')?.textContent).toBe(
+      'No implementations found',
+    );
+    await userEvent.keyboard('{Escape}');
+    await done;
+    answers = { 'lsp.typeDefinitions': [] };
+    const before = editor().activeGroup.active;
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe(before);
+    // No server: nothing either.
+    answers = { 'lsp.typeDefinitions': null };
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe(before);
+    expect(document.querySelector('.cerebro-popup')).toBeNull();
+  });
+});
+
 describe('context actions', () => {
   const caret = () => {
     const place = document.createElement('div');
