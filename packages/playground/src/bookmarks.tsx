@@ -440,15 +440,20 @@ const byPlace = (a: LineBookmark, b: LineBookmark) =>
  * The bookmark after a place, or before it, among all the worktree's, as IntelliJ's Next and
  * Previous Line Bookmark (`NextBookmarkService`): by path, then line, with no going round (its
  * registry's `ide.bookmark.occurrence.cyclic.iteration.allowed`, off by default). From nowhere, the
- * first, or the last.
+ * first, or the last. With `inFile`, among that file's alone, as its Next and Previous Line
+ * Bookmark in Editor (`NextBookmarkInEditor`).
  */
 export function nextBookmark(
   worktree: string,
   from: LineBookmark | undefined,
   forward: boolean,
+  inFile?: string,
 ): LineBookmark | undefined {
   // Line bookmarks', as IntelliJ's (its `LineBookmark`s alone).
-  const sorted = bookmarksOf(worktree).filter(onLine).sort(byPlace);
+  const sorted = bookmarksOf(worktree)
+    .filter(onLine)
+    .filter((bookmark) => inFile === undefined || bookmark.path === inFile)
+    .sort(byPlace);
   if (!from) return forward ? sorted[0] : sorted.at(-1);
   return forward
     ? sorted.find((bookmark) => byPlace(bookmark, from) > 0)

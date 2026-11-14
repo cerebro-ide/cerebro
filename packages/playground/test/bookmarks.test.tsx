@@ -113,6 +113,12 @@ describe('bookmarks', () => {
     expect(nextBookmark('/next', undefined, true)).toEqual({ path: '/next/a', line: 9 });
     expect(nextBookmark('/next', undefined, false)).toEqual({ path: '/next/b', line: 3 });
     expect(nextBookmark('/none', undefined, true)).toBeUndefined();
+    // In a file: its own alone.
+    expect(nextBookmark('/next', { path: '/next/a', line: 9 }, true, '/next/a')).toBeUndefined();
+    expect(nextBookmark('/next', { path: '/next/b', line: 3 }, false, '/next/b')).toEqual({
+      path: '/next/b',
+      line: 1,
+    });
   });
 
   it('take a mnemonic, theirs alone, as IntelliJ’s toggle with a type', async () => {
