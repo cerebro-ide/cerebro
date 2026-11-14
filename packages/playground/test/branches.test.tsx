@@ -1018,6 +1018,29 @@ describe('New Branch', () => {
     });
     const run = (refs: string[]) => Promise.resolve(commands.get('log.newBranch')?.run(at(refs)));
 
+    it('checks the commit out, as IntelliJ’s Checkout Revision, before the comparisons', async () => {
+      const checkout = commands.get('log.checkoutRevision');
+      expect(menus.entries('log/commit')).toContainEqual({ command: 'log.checkoutRevision' });
+      expect(checkout?.text?.(at([]))).toBe("Checkout Revision 'abc12345'");
+      expect(commands.isEnabled('log.checkoutRevision', at([]))).toBe(true);
+      expect(commands.isEnabled('log.checkoutRevision')).toBe(false);
+      await unsavedEdit(host, '/r/a.ts');
+      await checkout?.run(at([]));
+      expect(host.params('git.checkoutRevision')).toEqual([
+        { path: '/r', reference: 'abc1234567890def' },
+      ]);
+      expect(savedBefore(host, '/r/a.ts', 'git.checkoutRevision')).toBe(true);
+      expect(last()?.content).toBe('Checked out abc1234567890def');
+      expect(refresh).toHaveBeenCalled();
+      // Refused: said why.
+      git.result = new Error('fatal: reference is not a tree');
+      await checkout?.run(at([]));
+      expect(last()).toMatchObject({
+        title: 'Could not checkout abc1234567890def',
+        content: 'fatal: reference is not a tree',
+      });
+    });
+
     it('makes a branch from the commit, as IntelliJ’s, and reads the Log again', async () => {
       expect(menus.entries('log/commit')).toContainEqual({ command: 'log.newBranch' });
       expect(commands.get('log.newBranch')).toMatchObject({ label: 'New Branch', dialog: true });

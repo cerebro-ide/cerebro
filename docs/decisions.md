@@ -2058,8 +2058,15 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   (Collapse and Expand Linear Branches, Long Edges).
 - **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
   (Show Diff in a New Tab or Window); a commit's right-click menu's other
-  items (Checkout, with the commit's branches and Checkout Revision, and the rest of IntelliJ's);
+  items (the Checkout submenu with the commit's branches, and the rest of IntelliJ's);
   IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **Checkout Revision** (added 2026-11-14), in a commit's menu before Compare with Local, as
+  IntelliJ's (`GitCheckoutActionGroup`, `Git.Log.ContextMenu.CheckoutBrowse`, GitBundle's
+  "Checkout Revision '…'" with the short hash, read from its source): the commit checked out,
+  detached, as Checkout Tag or Revision does with what's typed, the files saved first, then the Log
+  read again. IntelliJ makes it a Checkout submenu, the commit's local branches first, when it has
+  some besides the one checked out; Cerebro's menus can't make items from the commit yet (backlog,
+  "The Log's Checkout submenu"), so it's this item alone (open to change).
 - **Create Patch…** (added 2026-11-13), as IntelliJ's (`CreatePatchFromChangesAction`,
   `CreatePatchCommitExecutor`, `CreatePatchConfigurationPanel`, `PatchWriter`, their words in
   `VcsBundle` and `IdeBundle`, read from its source): in a commit's menu after Copy Revision

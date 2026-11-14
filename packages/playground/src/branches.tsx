@@ -636,6 +636,27 @@ export function setupBranches(
       await at.refresh();
     },
   });
+  // The Log's commit menu's Checkout Revision, as IntelliJ's (`GitCheckoutActionGroup`,
+  // `GitCheckoutRevisionAction`, GitBundle's words): the commit checked out, detached. IntelliJ's is
+  // a Checkout submenu with the commit's local branches first, when it has some besides the one
+  // checked out; Cerebro's menus can't make items from the commit yet (backlog), so it's this item
+  // alone.
+  commands.register<LogCommitContext>({
+    id: 'log.checkoutRevision',
+    label: 'Checkout Revision',
+    text: (at) => `Checkout Revision '${at.commit.hash.slice(0, 8)}'`,
+    enabled: (at?: LogCommitContext) => at !== undefined,
+    run: async (at) => {
+      const reference = at.commit.hash;
+      await operate(`Could not checkout ${reference}`, async (host, worktree) => {
+        await saveBeforeGit();
+        if (await checkoutSmartly(host, 'git.checkoutRevision', { path: worktree, reference })) {
+          notifications.notify({ content: `Checked out ${reference}` });
+        }
+      });
+      await at.refresh();
+    },
+  });
   commands.register<BranchRef>({
     id: 'git.branch.openWorktree',
     label: 'Open Worktree',
@@ -1412,6 +1433,13 @@ export function setupBranches(
   // IntelliJ's Git menu, its third group: Branches…, New Branch….
   menus.contribute({ menu: 'main/git', item: { command: 'git.branches' }, group: 'an', order: 1 });
   menus.contribute({ menu: 'main/git', item: { command: 'git.newBranch' }, group: 'an', order: 2 });
+  // Before the comparisons, as IntelliJ's (`Git.Log.ContextMenu.CheckoutBrowse`).
+  menus.contribute({
+    menu: 'log/commit',
+    item: { command: 'log.checkoutRevision' },
+    group: 'b',
+    order: -1,
+  });
   // Before New Tag…, as IntelliJ's (Git.Log.ContextMenu).
   menus.contribute({
     menu: 'log/commit',
