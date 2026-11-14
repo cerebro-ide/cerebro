@@ -21,7 +21,7 @@ import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
 import { isTextField, setupEdit, target } from './edit.js';
-import { projectNode } from './project.js';
+import { projectTarget } from './project.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
 import { pluginsPage } from './plugins-page.js';
@@ -254,8 +254,7 @@ export function setupCommands(
   // folder selected there, as IntelliJ's actions take the focused view's (its menu's included);
   // else of the tab a key's for.
   const copied = (c?: TabContext): TabFile | undefined => {
-    if (c?.tabMenu) return tabFile(c.tab);
-    const node = projectNode();
+    const node = projectTarget(c);
     if (node !== undefined) return node === null ? undefined : tabFile(node.path);
     return c && tabFile(c.tab);
   };
