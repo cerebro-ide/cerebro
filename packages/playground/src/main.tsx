@@ -1664,6 +1664,8 @@ function Code(props: { path: string; env: string }) {
                     void navigation.goToImplementation(name, asked(state, at)),
                   onGoToTypeDeclaration: (name: string, at: { line: number; column: number }) =>
                     void navigation.goToTypeDeclaration(name, asked(state, at)),
+                  onGoToSuperMethod: (at: { line: number; column: number }) =>
+                    void navigation.goToSuperMethod(asked(state, at)),
                   onFindUsages: (name: string, at: { line: number; column: number }) =>
                     void navigation.findUsages(name, asked(state, at)),
                   onContextActions: (

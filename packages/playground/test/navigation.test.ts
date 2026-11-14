@@ -277,6 +277,58 @@ describe('a gutter marker', () => {
   });
 });
 
+describe('Go to Super Method', () => {
+  // A class on lines 0 to 4 with a method on lines 1 to 3, and another class after.
+  const place = (line: number, column: number) => ({ line, column });
+  const symbol = (name: string, from: number, to: number, children: object[] = []) => ({
+    name,
+    from: place(from, 0),
+    to: place(to, 1),
+    at: place(from, 2),
+    children,
+  });
+  const structure = [symbol('Square', 0, 4, [symbol('area', 1, 3)]), symbol('Other', 6, 7)];
+  const up = (line: number, kind: string, path: string) => ({
+    line,
+    kind,
+    name: 'n',
+    targets: [at(path, 1)],
+  });
+  const inFile = (line: number, column: number): Asked => ({ ...asked, line, column });
+
+  it('goes where the up marker of the innermost member or type around the caret goes', async () => {
+    answers = {
+      'lsp.structure': structure,
+      'lsp.markers': [up(0, 'implements', '/r/shape.ts'), up(1, 'overrides', '/r/base.ts')],
+    };
+    await nav.goToSuperMethod(inFile(2, 4));
+    expect(editor().activeGroup.active).toBe('/r/base.ts');
+    expect(host.params('lsp.structure')).toEqual([
+      { worktree: '/r', path: '/r/a.ts', text: asked.text },
+    ]);
+    // In the class, not its method: the class's.
+    await nav.goToSuperMethod(inFile(4, 0));
+    expect(editor().activeGroup.active).toBe('/r/shape.ts');
+  });
+
+  it('goes to the type’s where its member has none, and nowhere without one', async () => {
+    answers = {
+      'lsp.structure': structure,
+      // A down marker isn't one to go up by.
+      'lsp.markers': [up(0, 'implements', '/r/shape.ts'), up(1, 'implemented', '/r/sub.ts')],
+    };
+    await nav.goToSuperMethod(inFile(2, 0));
+    expect(editor().activeGroup.active).toBe('/r/shape.ts');
+    editor().open({ id: '/r/a.ts', title: 'a.ts' });
+    // In the other class, or outside any, or with no server: nowhere.
+    await nav.goToSuperMethod(inFile(6, 3));
+    await nav.goToSuperMethod(inFile(5, 0));
+    answers = {};
+    await nav.goToSuperMethod(inFile(2, 0));
+    expect(editor().activeGroup.active).toBe('/r/a.ts');
+  });
+});
+
 describe('Go to Definition', () => {
   it('is there where the language server, or else the index, has a definition', async () => {
     answers = { 'lsp.definitions': [at('/r/a.ts', 1)] };

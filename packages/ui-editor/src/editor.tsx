@@ -119,6 +119,11 @@ export interface CodeEditorProps {
    * (Ctrl+Shift+B in IntelliJ, its Go to Type Declaration).
    */
   onGoToTypeDeclaration?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to what the member or type at the caret implements or overrides, given where the caret is:
+   * its keys (Ctrl+U in IntelliJ, its Go to Super Method).
+   */
+  onGoToSuperMethod?: (at: { line: number; column: number }) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /**
@@ -213,6 +218,8 @@ export interface EditorKeys {
   /** Go to Implementation(s) and Go to Type Declaration, of the symbol at the caret. */
   goToImplementation?: readonly string[];
   goToTypeDeclaration?: readonly string[];
+  /** Go to Super Method: what the member or type at the caret implements or overrides. */
+  goToSuperMethod?: readonly string[];
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
@@ -283,6 +290,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   goToDefinition: ['Mod-b'],
   goToImplementation: ['Mod-Alt-b'],
   goToTypeDeclaration: ['Mod-Shift-b'],
+  goToSuperMethod: ['Mod-u'],
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
@@ -902,6 +910,15 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.pageBottom.map((key) => ({ key, run: movingToPage(false, false) })),
         ...keys.pageTopWithSelection.map((key) => ({ key, run: movingToPage(true, true) })),
         ...keys.pageBottomWithSelection.map((key) => ({ key, run: movingToPage(false, true) })),
+        ...keys.goToSuperMethod.map((key) => ({
+          key,
+          run: (v: EditorView) => {
+            const go = props.onGoToSuperMethod;
+            if (!go) return false;
+            go(placeOf(v.state, v.state.selection.main.head));
+            return true;
+          },
+        })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,

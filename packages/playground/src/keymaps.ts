@@ -27,6 +27,7 @@ export const EDITOR_ACTIONS = {
   goToDefinition: 'editor.goToDefinition',
   goToImplementation: 'editor.goToImplementation',
   goToTypeDeclaration: 'editor.goToTypeDeclaration',
+  goToSuperMethod: 'editor.goToSuperMethod',
   findUsages: 'editor.findUsages',
   complete: 'editor.codeCompletion',
   quickDocumentation: 'editor.quickDocumentation',
@@ -188,6 +189,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: ['Ctrl+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+B'],
     'code.optimizeImports': ['Ctrl+Alt+O'],
+    [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+U'],
   },
 };
 
@@ -306,6 +308,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: ['Meta+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Meta+Shift+B', 'Ctrl+Shift+B'],
     'code.optimizeImports': ['Ctrl+Alt+O'],
+    [EDITOR_ACTIONS.goToSuperMethod]: ['Meta+U'],
   },
 };
 
@@ -555,6 +558,7 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: ['Ctrl+T', 'Ctrl+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'code.optimizeImports': ['Ctrl+Alt+O', 'Ctrl+Shift+O'],
+    [EDITOR_ACTIONS.goToSuperMethod]: [],
   },
 };
 
@@ -619,6 +623,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: [],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'code.optimizeImports': ['Meta+Shift+O'],
+    [EDITOR_ACTIONS.goToSuperMethod]: [],
   },
 };
 
@@ -775,6 +780,7 @@ export const NETBEANS: KeymapPreset = {
     'editor.increaseFontSize': [],
     'editor.decreaseFontSize': [],
     'code.optimizeImports': ['Ctrl+Shift+I'],
+    [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Shift+P'],
   },
 };
 
@@ -953,6 +959,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: ['Alt+End'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+F11'],
     'code.optimizeImports': ['Ctrl+R G', 'Ctrl+R Ctrl+G', 'Ctrl+Alt+O'],
+    [EDITOR_ACTIONS.goToSuperMethod]: ['Alt+Home'],
   },
 };
 
@@ -1018,6 +1025,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottomWithSelection]: ['Meta+Shift+Down'],
     [EDITOR_ACTIONS.goToImplementation]: ['Alt+End'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Meta+Shift+F11'],
+    [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Alt+Left', 'Alt+Home'],
   },
 };
 

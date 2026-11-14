@@ -496,6 +496,40 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       );
     },
 
+    /**
+     * Go to Super Method, as IntelliJ's `GotoSuperMethod`: where the gutter's up marker of the
+     * innermost member or type around the caret goes (what it implements or overrides); nothing
+     * where none has one.
+     */
+    async goToSuperMethod(asked: Asked) {
+      const { path, text, line, column } = asked;
+      const [symbols, marks] = await Promise.all([
+        ask<FileSymbol[]>('lsp.structure', { path, text }),
+        this.markers(path, text),
+      ]);
+      const before = (a: Position, b: Position) =>
+        a.line < b.line || (a.line === b.line && a.column <= b.column);
+      const caret = { line, column };
+      // The symbols around the caret, the outermost first.
+      const around: FileSymbol[] = [];
+      let level = symbols ?? [];
+      for (;;) {
+        const inside = level.find((s) => before(s.from, caret) && before(caret, s.to));
+        if (!inside) break;
+        around.push(inside);
+        level = inside.children;
+      }
+      const up = (s: FileSymbol) =>
+        marks?.find(
+          (m) => m.line === s.at.line && (m.kind === 'implements' || m.kind === 'overrides'),
+        );
+      const mark = around
+        .reverse()
+        .map(up)
+        .find((m) => m !== undefined);
+      if (mark) await this.goToMarked(mark);
+    },
+
     /** Whether the word at a place has a definition to go to: its server's, or a name's match. */
     async hasDefinition(name: string, asked: Asked): Promise<boolean> {
       const precise = await ask('lsp.definitions', asked);

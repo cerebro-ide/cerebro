@@ -631,6 +631,19 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
   });
 
+  it('goes to the super method with Mod+U, from wherever the caret is', async () => {
+    const onGoToSuperMethod = vi.fn();
+    const root = mount({ path: 'a.ts', text: 'class A {\n  run() {}\n}', onGoToSuperMethod });
+    await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
+    await userEvent.keyboard('{Home}{Control>}u{/Control}');
+    expect(onGoToSuperMethod).toHaveBeenCalledWith({ line: 1, column: 2 });
+    // Without a handler, the key's left alone.
+    cleanup?.();
+    const without = mount({ path: 'a.ts', text: 'x' });
+    await userEvent.click(without.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Control>}u{/Control}');
+  });
+
   it('goes to implementations with Mod+Alt+B, and to the type’s declaration with Mod+Shift+B', async () => {
     const onGoToImplementation = vi.fn();
     const onGoToTypeDeclaration = vi.fn();

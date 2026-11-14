@@ -904,6 +904,21 @@ describe('navigation in the editor', () => {
     );
     await userEvent.click(mark);
     await expect.poll(active).toBe('/r/src/b.ts');
+    // Go to Super Method: where the up marker of the symbol around the caret goes.
+    await closeAll();
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        from: { line: 0, column: 0 },
+        to: { line: 3, column: 0 },
+        at: { line: 1, column: 0 },
+        children: [],
+      },
+    ]);
+    answers.set('lsp.markers', [{ line: 1, kind: 'overrides', name: 'a', targets: [b] }]);
+    await onA();
+    await userEvent.keyboard('{Control>}u{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
   });
 });
 

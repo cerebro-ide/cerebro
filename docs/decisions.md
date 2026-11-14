@@ -67,6 +67,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
+- [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
@@ -3032,6 +3033,24 @@ choices, open to change.
 - **Not yet:** in a menu (no Navigate menu yet, as the editor's other actions); Ctrl+click on a
   symbol for Implementation (IntelliJ's Ctrl+Alt+click); IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
+
+## Go to Super Method (2026-11-14)
+
+IntelliJ's Navigate → Super Method, which WebStorm has, after Go to Implementation. Claude's
+choices, open to change.
+
+- **As IntelliJ's** `GotoSuperMethod`: from the member or type the caret is in, to what it
+  implements or overrides. Worked out as the gutter's up markers are (decision "Gutter markers:
+  what a member implements or overrides": no server offers the type hierarchy), so it goes where the marker would: the
+  innermost symbol around the caret with an up marker (the File Structure's symbols), its one
+  place, or a list of several, as the marker's. Nothing where none has one.
+- **Difference (a claim, not read in its source):** IntelliJ goes from the innermost method or
+  class only, and nowhere from a method that overrides nothing; this goes on out to the type
+  around it, as the symbols around the caret may be a function's locals, which have no markers.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+U (`$default`), Cmd+U on macOS (its macOS
+  keymaps take `$default`'s with Cmd); none in Eclipse's; NetBeans' Ctrl+Shift+P; Visual
+  Studio's Alt+Home, and on macOS Ctrl+Alt+Left and Alt+Home. VS Code's shortcut sheets don't list
+  it, so its keymaps keep IntelliJ's.
 
 ## Optimize Imports (2026-11-14)
 
