@@ -117,6 +117,7 @@ describe('language servers', () => {
       usages: vi.fn(() => Promise.resolve(null)),
       implementations: vi.fn(() => Promise.resolve([])),
       typeDefinitions: vi.fn(() => Promise.resolve(null)),
+      organizeImports: vi.fn(() => Promise.resolve([])),
       highlights: vi.fn(() => Promise.resolve([])),
       markers: vi.fn(() => Promise.resolve([])),
       structure: vi.fn(() => Promise.resolve(null)),
@@ -165,6 +166,8 @@ describe('language servers', () => {
     );
     expect(await ui.request('lsp.markers', file)).toEqual([]);
     expect(await ui.request('lsp.structure', file)).toBeNull();
+    expect(await ui.request('lsp.organizeImports', file)).toEqual([]);
+    expect(servers.organizeImports).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(servers.structure).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.folds', file)).toBeNull();
     expect(servers.folds).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });

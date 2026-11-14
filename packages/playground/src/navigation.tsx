@@ -375,6 +375,15 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       return answer ?? { refused: 'No language server answered.' };
     },
 
+    /** The edits that organize a file's imports, from its language server; why not, if none. */
+    async organizeImports(file: {
+      path: string;
+      text: string;
+    }): Promise<FormatEdit[] | { refused: string }> {
+      const answer = await ask<FormatEdit[]>('lsp.organizeImports', file);
+      return answer ?? { refused: 'No language server answered.' };
+    },
+
     /** What can go at a place, from its file's language server; none without one. */
     completions(asked: Asked): Promise<CompletionList | null> {
       return ask<CompletionList>('lsp.completions', asked);

@@ -187,6 +187,7 @@ export const INTELLIJ: KeymapPreset = {
     'editor.decreaseFontSize': ['Alt+Shift+<'],
     [EDITOR_ACTIONS.goToImplementation]: ['Ctrl+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+B'],
+    'code.optimizeImports': ['Ctrl+Alt+O'],
   },
 };
 
@@ -304,6 +305,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'editor.decreaseFontSize': ['Ctrl+Shift+<'],
     [EDITOR_ACTIONS.goToImplementation]: ['Meta+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Meta+Shift+B', 'Ctrl+Shift+B'],
+    'code.optimizeImports': ['Ctrl+Alt+O'],
   },
 };
 
@@ -552,6 +554,7 @@ export const ECLIPSE: KeymapPreset = {
     'editor.decreaseFontSize': ['Ctrl+-'],
     [EDITOR_ACTIONS.goToImplementation]: ['Ctrl+T', 'Ctrl+Alt+B'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
+    'code.optimizeImports': ['Ctrl+Alt+O', 'Ctrl+Shift+O'],
   },
 };
 
@@ -615,6 +618,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     'editor.decreaseFontSize': ['Meta+-'],
     [EDITOR_ACTIONS.goToImplementation]: [],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
+    'code.optimizeImports': ['Meta+Shift+O'],
   },
 };
 
@@ -770,6 +774,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: ['Alt+Shift+End'],
     'editor.increaseFontSize': [],
     'editor.decreaseFontSize': [],
+    'code.optimizeImports': ['Ctrl+Shift+I'],
   },
 };
 
@@ -947,6 +952,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     'editor.decreaseFontSize': [],
     [EDITOR_ACTIONS.goToImplementation]: ['Alt+End'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+F11'],
+    'code.optimizeImports': ['Ctrl+R G', 'Ctrl+R Ctrl+G', 'Ctrl+Alt+O'],
   },
 };
 

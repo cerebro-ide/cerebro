@@ -1014,6 +1014,25 @@ export class LanguageServer {
   }
 
   /**
+   * The edits that organize a file's imports, as IntelliJ's Optimize Imports: the server's
+   * `source.organizeImports` action for the whole file; none where it offers none.
+   */
+  async organizeImports(file: OpenFile, languageId: string): Promise<TextEdit[]> {
+    await this.ready;
+    this.sync(file, languageId);
+    const lines = file.text.split('\n');
+    const answer = await this.#connection.request('textDocument/codeAction', {
+      textDocument: { uri: uriOf(file.path) },
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: lines.length - 1, character: (lines.at(-1) as string).length },
+      },
+      context: { diagnostics: [], only: ['source.organizeImports'], triggerKind: 1 },
+    });
+    return actionsOf(file.path, answer)[0]?.edits ?? [];
+  }
+
+  /**
    * A file's diagnostics, as it is now and as the server gave them: asked for, of a server that
    * answers (TypeScript's), or as the server sends them for this version of it (basedpyright's,
    * bash-language-server's).
@@ -1292,6 +1311,13 @@ export class LanguageServers {
   contextActions(worktree: string, file: OpenFile, at: Located): Promise<ContextAction[] | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.contextActions(file, languageId, at),
+    );
+  }
+
+  /** The edits that organize a file's imports; null when no server answers in time. */
+  organizeImports(worktree: string, file: OpenFile): Promise<TextEdit[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.organizeImports(file, languageId),
     );
   }
 
