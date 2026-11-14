@@ -2155,6 +2155,34 @@ describe('File Structure', () => {
   });
 });
 
+describe('the Structure tool window', () => {
+  it('shows the active file’s symbols; selecting one shows it, Enter goes to it', async () => {
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        kind: 'constant',
+        from: { line: 1, column: 0 },
+        to: { line: 1, column: 12 },
+        at: { line: 1, column: 6 },
+        children: [],
+      },
+    ]);
+    env().editor.open({ id: '/r/src/tree.ts', title: 'tree.ts' });
+    await userEvent.click(stripe('structure'));
+    const window = q('.cerebro-tool-window[data-id="structure"]');
+    await expect
+      .poll(() => window.querySelector('.playground-occurrences__name')?.textContent)
+      .toBe('a');
+    await userEvent.click(window.querySelector('.playground-occurrences__name') as HTMLElement);
+    await expect.poll(() => carets.get('/r/src/tree.ts')).toEqual({ line: 1, column: 6 });
+    // The focus stays in the tree, until Enter.
+    expect(document.activeElement?.closest('.cerebro-tool-window')).toBe(window);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    await userEvent.click(stripe('structure'));
+  });
+});
+
 describe('folding', () => {
   it('folds where the language server says, all on the keymap’s Ctrl+Shift+-, and back on Ctrl+Shift+=', async () => {
     // Each file's text is `// <path>` then `const a = 1;`.
