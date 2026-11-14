@@ -55,6 +55,11 @@ export const EDITOR_ACTIONS = {
   shrinkSelection: 'editor.shrinkSelection',
   scrollUp: 'editor.scrollUp',
   scrollDown: 'editor.scrollDown',
+  scrollToCenter: 'editor.scrollToCenter',
+  pageTop: 'editor.moveToPageTop',
+  pageBottom: 'editor.moveToPageBottom',
+  pageTopWithSelection: 'editor.moveToPageTopWithSelection',
+  pageBottomWithSelection: 'editor.moveToPageBottomWithSelection',
   find: 'editor.find',
   replace: 'editor.replace',
 } as const;
@@ -171,6 +176,11 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Alt+Enter'],
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+Enter'],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+M'],
+    [EDITOR_ACTIONS.pageTop]: ['Ctrl+PageUp'],
+    [EDITOR_ACTIONS.pageBottom]: ['Ctrl+PageDown'],
+    [EDITOR_ACTIONS.pageTopWithSelection]: ['Ctrl+Shift+PageUp'],
+    [EDITOR_ACTIONS.pageBottomWithSelection]: ['Ctrl+Shift+PageDown'],
   },
 };
 
@@ -279,6 +289,11 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Alt+Enter'],
     [EDITOR_ACTIONS.splitLine]: ['Meta+Enter'],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+L'],
+    [EDITOR_ACTIONS.pageTop]: ['Meta+PageUp'],
+    [EDITOR_ACTIONS.pageBottom]: ['Meta+PageDown'],
+    [EDITOR_ACTIONS.pageTopWithSelection]: ['Meta+Shift+PageUp'],
+    [EDITOR_ACTIONS.pageBottomWithSelection]: ['Meta+Shift+PageDown'],
   },
 };
 
@@ -519,6 +534,8 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+Down'],
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U', 'Ctrl+Shift+X', 'Ctrl+Shift+Y'],
+    [EDITOR_ACTIONS.pageTop]: [],
+    [EDITOR_ACTIONS.pageBottom]: [],
   },
 };
 
@@ -576,6 +593,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+X', 'Meta+Shift+Y'],
     [EDITOR_ACTIONS.expandWord]: ['Ctrl+.'],
     [EDITOR_ACTIONS.expandWordBackward]: [],
+    [EDITOR_ACTIONS.pageTop]: [],
+    [EDITOR_ACTIONS.pageBottom]: [],
   },
 };
 
@@ -616,6 +635,7 @@ export const EMACS: KeymapPreset = {
     // Its own Alt+/ is Code Completion's.
     [EDITOR_ACTIONS.expandWord]: [],
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+O'],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+L'],
   },
 };
 
@@ -648,6 +668,7 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     [EDITOR_ACTIONS.quickDocumentation]: ['Ctrl+J'],
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?', 'Meta+Shift+?'],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
+    [EDITOR_ACTIONS.scrollToCenter]: [],
   },
 };
 
@@ -718,6 +739,9 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+U S'],
     [EDITOR_ACTIONS.expandWord]: ['Ctrl+Shift+K'],
     [EDITOR_ACTIONS.expandWordBackward]: ['Ctrl+K'],
+    [EDITOR_ACTIONS.scrollToCenter]: [],
+    [EDITOR_ACTIONS.pageTop]: ['Alt+Shift+Home'],
+    [EDITOR_ACTIONS.pageBottom]: ['Alt+Shift+End'],
   },
 };
 
@@ -770,6 +794,9 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+K Ctrl+U', 'Ctrl+K Ctrl+L'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
     [EDITOR_ACTIONS.splitLine]: ['Shift+Enter'],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+K Ctrl+C'],
+    [EDITOR_ACTIONS.pageTop]: [],
+    [EDITOR_ACTIONS.pageBottom]: [],
   },
 };
 
@@ -821,6 +848,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
     [EDITOR_ACTIONS.splitLine]: ['Shift+Enter'],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+L', 'Meta+K Meta+C'],
   },
 };
 
@@ -884,6 +912,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.expandWordBackward]: [],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Enter'],
     [EDITOR_ACTIONS.splitLine]: [],
+    [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+M C', 'Ctrl+M Ctrl+C'],
   },
 };
 
@@ -945,6 +974,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: ['Meta+Alt+Left'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Enter'],
     [EDITOR_ACTIONS.splitLine]: [],
+    [EDITOR_ACTIONS.pageTopWithSelection]: ['Meta+Shift+Up'],
+    [EDITOR_ACTIONS.pageBottomWithSelection]: ['Meta+Shift+Down'],
   },
 };
 

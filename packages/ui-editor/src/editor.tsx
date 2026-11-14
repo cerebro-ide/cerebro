@@ -58,7 +58,7 @@ import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { splittingLine, startingNewLine, startingNewLineBefore } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
-import { scrollingBy } from './scroll.js';
+import { movingToPage, scrollingBy, scrollingToCenter } from './scroll.js';
 import { expandingWord, expandingWordBackward, expansion } from './expand-word.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
 import { textAnnotations, type AskAnnotation } from './annotations.js';
@@ -253,6 +253,13 @@ export interface EditorKeys {
   /** Scroll Up and Scroll Down: the text a line, the caret staying. */
   scrollUp?: readonly string[];
   scrollDown?: readonly string[];
+  /** Scroll to Center: the caret's line to the middle. */
+  scrollToCenter?: readonly string[];
+  /** Move Caret to Page Top and Bottom: to the first or last line in view; or selecting to it. */
+  pageTop?: readonly string[];
+  pageBottom?: readonly string[];
+  pageTopWithSelection?: readonly string[];
+  pageBottomWithSelection?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -294,6 +301,11 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   shrinkSelection: ['Mod-Shift-w'],
   scrollUp: ['Ctrl-ArrowUp'],
   scrollDown: ['Ctrl-ArrowDown'],
+  scrollToCenter: ['Ctrl-m'],
+  pageTop: ['Mod-PageUp'],
+  pageBottom: ['Mod-PageDown'],
+  pageTopWithSelection: ['Mod-Shift-PageUp'],
+  pageBottomWithSelection: ['Mod-Shift-PageDown'],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -862,6 +874,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.shrinkSelection.map((key) => ({ key, run: shrinkingSelection })),
         ...keys.scrollUp.map((key) => ({ key, run: scrollingBy(-1) })),
         ...keys.scrollDown.map((key) => ({ key, run: scrollingBy(1) })),
+        ...keys.scrollToCenter.map((key) => ({ key, run: scrollingToCenter })),
+        ...keys.pageTop.map((key) => ({ key, run: movingToPage(true, false) })),
+        ...keys.pageBottom.map((key) => ({ key, run: movingToPage(false, false) })),
+        ...keys.pageTopWithSelection.map((key) => ({ key, run: movingToPage(true, true) })),
+        ...keys.pageBottomWithSelection.map((key) => ({ key, run: movingToPage(false, true) })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,
