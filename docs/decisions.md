@@ -3451,9 +3451,9 @@ to change.
 ## Scratch files (2026-11-14)
 
 From Ido (2026-11-14): "having files which aren't part of the project like scratch files and
-external files - that's missing and should be implemented as well". As IntelliJ's (ScratchFileActions,
-ScratchFileCreator, ScratchTreeStructureProvider, read from its source). Claude's choices, open to
-change.
+external files - that's missing and should be implemented as well". As IntelliJ's
+(ScratchFileActions, ScratchFileCreator, ScratchTreeStructureProvider, read from its source).
+Claude's choices, open to change.
 
 - **New Scratch File** (`file.newScratch`, in the File menu after New File): a popup titled New
   Scratch File lists the languages the editor knows, Plain Text among them, narrowed as one types.
@@ -3475,7 +3475,8 @@ change.
 - **Keys:** IntelliJ's NewScratchFile, from its keymap files: Ctrl+Alt+Shift+Insert (`$default`),
   Cmd+Shift+N (macOS), Ctrl+Shift+N (IntelliJ IDEA Classic and macOS System Shortcuts). The others
   name none and take their parent's. New File (an untitled file, which IntelliJ hasn't) had these
-  keys until now (decision "Ready-made keymaps"); it keeps VS Code's Ctrl+N and Cmd+N, and none in IntelliJ's.
+  keys until now (decision "Ready-made keymaps"); it keeps VS Code's Ctrl+N and Cmd+N, and has none
+  in IntelliJ's.
 - **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
   New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
   types; a scratch file's language changed without renaming it.
