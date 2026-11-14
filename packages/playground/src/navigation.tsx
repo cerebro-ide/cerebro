@@ -42,7 +42,7 @@ import {
 } from './documents.js';
 import type { Call, Hierarchy } from './call-hierarchy.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
-import { icon } from './icons.js';
+import { icon, symbolIcon } from './icons.js';
 import { openStructure, type FileSymbol } from './structure.js';
 
 interface Located {
@@ -248,7 +248,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     detail: `${relative(at.path)}:${String(at.line + 1)}`,
     ...(at.kind === undefined ? {} : { shortcut: at.kind }),
     ...(group === null ? {} : { group }),
-    icon: () => icon(at.kind === undefined ? 'file' : 'structure'),
+    icon: () => (at.kind === undefined ? icon('file') : symbolIcon(at.kind)),
     at,
   });
   const request = async (method: string, params: Record<string, string>) => {
@@ -616,7 +616,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
           await choose(
             `Definitions of ${name}`,
             `Cannot find declaration to go to`,
-            precise.map((d) => choice(d, name, null)),
+            // Each named by what's declared there: a class and its constructor told apart.
+            precise.map((d) => choice(d, d.name ?? name, null)),
           );
         }
         return;

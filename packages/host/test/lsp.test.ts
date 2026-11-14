@@ -872,6 +872,30 @@ describe('TypeScript 7’s server', () => {
     ]);
   }, 60_000);
 
+  it('tells a class from its constructor where `new` goes to both', async () => {
+    const project = `${root}/ts`;
+    writeFileSync(
+      `${project}/figure.ts`,
+      'export class Figure {\n  constructor(public x: number) {}\n}\n',
+    );
+    const user = {
+      path: `${project}/draw.ts`,
+      text: "import { Figure } from './figure';\nnew Figure(1);\n",
+    };
+    writeFileSync(user.path, user.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.definitions(project, user, at(1, 6))).toEqual([
+      { path: `${project}/figure.ts`, line: 0, column: 13, name: 'Figure', kind: 'class' },
+      {
+        path: `${project}/figure.ts`,
+        line: 1,
+        column: 2,
+        name: 'constructor',
+        kind: 'constructor',
+      },
+    ]);
+  }, 60_000);
+
   it('renames a function everywhere from where it’s used, not with an alias in the import', async () => {
     const project = `${root}/ts`;
     writeFileSync(`${project}/tally.ts`, 'export function tally(n: number) {\n  return n;\n}\n');
@@ -1731,6 +1755,24 @@ describe('LanguageServers', () => {
     expect(await servers.markers(root, { path: `${root}/a.txt`, text: '' })).toBeNull();
     expect(await pool([fake('fails')]).markers(root, a)).toBeNull();
     expect(await pool([fake('silent')], { markersPatience: 50 }).markers(root, a)).toBeNull();
+  });
+
+  it('names the symbol declared at each of several definitions, from its file’s symbols', async () => {
+    writeFileSync(`${root}/a.fake`, 'class A {\n  run() {}\n}\n');
+    const found = await pool([fake('declares')]).definitions(root, file, at(0, 0));
+    expect(found).toEqual([
+      { path: `${root}/a.fake`, line: 0, column: 6, name: 'A', kind: 'class' },
+      // A kind LSP doesn't name: the name alone.
+      { path: `${root}/a.fake`, line: 1, column: 2, name: 'run' },
+      // No symbol there, or a file that can't be read: as it is.
+      { path: `${root}/a.fake`, line: 2, column: 0 },
+      { path: `${root}/gone.other`, line: 0, column: 0 },
+    ]);
+    // A file of a language the server's spec doesn't name, read: asked as the one asked about's.
+    writeFileSync(`${root}/gone.other`, 'other\n');
+    await pool([fake('declares')]).definitions(root, file, at(0, 0));
+    expect(readFileSync(log, 'utf8')).toContain('"languageId":"fake","version":1,"text":"other\\n"');
+    rmSync(`${root}/gone.other`);
   });
 
   it('gives up on an answer that doesn’t come in time, or an error', async () => {
