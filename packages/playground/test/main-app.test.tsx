@@ -8,7 +8,7 @@ import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets, reveals } from '../src/navigation.js';
+import { carets, history, reveals } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -1071,6 +1071,41 @@ describe('bookmarks', () => {
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
     toggleBookmark('/r', { path: '/r/src/b.ts', line: 1 });
     toggleBookmark('/r', { path: '/r/src/c.ts', line: 0 });
+  });
+
+  it('are gone through in the focused editor’s file alone by Next and Previous Line Bookmark in Editor', async () => {
+    /**
+     * Runs a command through Find Action, from the focused editor; whether it was listed, on. With
+     * Shift, the key is "A", as a keyboard's: an "a" is the editor's Select All (measured: the caret
+     * went to the text's end).
+     */
+    const run = async (name: string) => {
+      await userEvent.keyboard('{Control>}{Shift>}A{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard(name);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      const listed = [...document.querySelectorAll('.cerebro-popup-item__label')].some(
+        (label) => label.textContent === name,
+      );
+      await userEvent.keyboard(listed ? '{Enter}' : '{Escape}');
+      return listed;
+    };
+    toggleBookmark('/r', { path: '/r/src/a.ts', line: 1 });
+    toggleBookmark('/r', { path: '/r/src/b.ts', line: 0 });
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    // On the first line.
+    await userEvent.click(await vi.waitUntil(() => code()?.querySelector<HTMLElement>('.cm-line')));
+    await expect.poll(() => carets.get('/r/src/a.ts')?.line).toBe(0);
+    const recorded = history()?.back.length;
+    expect(await run('Next Line Bookmark in Editor')).toBe(true);
+    await expect.poll(() => carets.get('/r/src/a.ts')?.line).toBe(1);
+    // Not gone to through the history; and no further in this file, b.ts's not its.
+    expect(history()?.back.length).toBe(recorded);
+    expect(await run('Next Line Bookmark in Editor')).toBe(false);
+    expect(env().editor.activeGroup.active).toBe('/r/src/a.ts');
+    expect(await run('Previous Line Bookmark in Editor')).toBe(false);
+    toggleBookmark('/r', { path: '/r/src/a.ts', line: 1 });
+    toggleBookmark('/r', { path: '/r/src/b.ts', line: 0 });
   });
 });
 

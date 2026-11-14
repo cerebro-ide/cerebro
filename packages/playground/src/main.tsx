@@ -999,6 +999,27 @@ for (const forward of [false, true]) {
     group: 'b',
   });
 }
+// Next and Previous Line Bookmark in Editor, as IntelliJ's (`NextBookmarkInEditor`): through the
+// focused editor's file's alone, from its caret, which is moved there, not gone to through the
+// history. In no menu and with no keys, as IntelliJ's: Find Action lists them.
+for (const forward of [false, true]) {
+  const next = () => {
+    const env = active();
+    const file = focusedFile();
+    return (
+      env && file && nextBookmark(env.id, { path: file, line: caretOf(file).line }, forward, file)
+    );
+  };
+  services.commands.register({
+    id: forward ? 'bookmarks.nextInEditor' : 'bookmarks.previousInEditor',
+    label: forward ? 'Next Line Bookmark in Editor' : 'Previous Line Bookmark in Editor',
+    enabled: () => next() !== undefined,
+    run: () => {
+      const bookmark = next() as LineBookmark;
+      reveals.set(bookmark.path, { line: bookmark.line, column: 0 });
+    },
+  });
+}
 // Show Bookmarks, as IntelliJ's: a popup of the worktree's bookmarks.
 services.commands.register({
   id: 'bookmarks.show',

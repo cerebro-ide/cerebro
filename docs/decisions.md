@@ -3171,11 +3171,14 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   its `EDITOR_TAB_POPUP` place), not shown for a tab of no file of its own (a diff's). The menu's
   context says it's the tab's menu, as IntelliJ's place does: a key's context is the active tab
   too, and there the commands act on the caret's line.
-- **Not yet:** more lists (and Add Bookmark to Another List),
-  Next and Previous in the editor only (IntelliJ's `…InEditor`
-  actions, with no keys), a folder bookmark's contents under it in the window (IntelliJ's
-  `FolderNode` lists them), the Bookmarks submenu in the Project view's menu, which Cerebro hasn't
-  yet, dragging the gutter's icon, and the window's toolbar.
+- **Next and Previous Line Bookmark in Editor (added 2026-11-14),** as IntelliJ's
+  (`NextBookmarkInEditor`, ActionsBundle's names): through the focused editor's file's line
+  bookmarks alone, from its caret, with no going round; the caret is moved there, not gone to
+  through the navigation history (IntelliJ moves the editor's caret). In no menu and with no keys
+  in any keymap, as IntelliJ's (its `Bookmarks` action group only): Find Action lists them.
+- **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
+  it in the window (IntelliJ's `FolderNode` lists them), the Bookmarks submenu in the Project
+  view's menu, which Cerebro hasn't yet, dragging the gutter's icon, and the window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 
