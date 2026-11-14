@@ -829,14 +829,19 @@ services.menus.contribute({
   item: { command: 'navigate.callHierarchy' },
   group: 'b',
 });
-// What the bookmarks' commands act on: the gutter's line, from its menu (IntelliJ's
-// `LOGICAL_LINE_AT_CURSOR`), none in an editor that doesn't say (a repository version's); the file
-// or folder selected in the Project tool window while it has the focus, as IntelliJ's (its
-// `ProjectFileNode`'s bookmark); else the caret's line, in the active file. None with no file.
+// What the bookmarks' commands act on, as IntelliJ's `contextBookmark`: the gutter's line, from its
+// menu (`LOGICAL_LINE_AT_CURSOR`), none in an editor that doesn't say (a repository version's); a
+// tab's file, from its menu, none for a tab of no file of its own (a diff's); the file or folder
+// selected in the Project tool window while it has the focus; else the caret's line, in the active
+// file. None with no file.
 const bookmarkTarget = (context?: unknown): BookmarkPlace | undefined => {
-  const gutter = context as { file?: string; line?: number } | undefined;
-  if (gutter?.file !== undefined) {
-    return gutter.line === undefined ? undefined : { path: gutter.file, line: gutter.line };
+  const menu = context as ({ file?: string; line?: number } & Partial<TabContext>) | undefined;
+  if (menu?.file !== undefined) {
+    return menu.line === undefined ? undefined : { path: menu.file, line: menu.line };
+  }
+  if (menu?.tabMenu) {
+    const tab = menu.tab as string;
+    return tabPath(tab) === tab ? { path: tab } : undefined;
   }
   const node = projectNode();
   if (node !== undefined) {
@@ -853,10 +858,14 @@ const bookmarkPlace = (context?: unknown) => {
   const at = bookmarkTarget(context);
   return env && at && { worktree: env.id, at };
 };
-/** Left out of the gutter's menu where there's no line; disabled elsewhere, as the Edit menu's. */
-const inGutterMenu = (context?: unknown) =>
-  (context as { file?: string } | undefined)?.file === undefined ||
-  bookmarkPlace(context) !== undefined;
+/**
+ * Left out of a menu opened on something (the gutter, a tab) where there's nothing to bookmark, as
+ * IntelliJ's; disabled elsewhere, as the Edit menu's.
+ */
+const shownFor = (context?: unknown) => {
+  const menu = context as { file?: string; tabMenu?: true } | undefined;
+  return (menu?.file === undefined && !menu?.tabMenu) || bookmarkPlace(context) !== undefined;
+};
 /** The bookmark on that line, if there's one. */
 const lineBookmark = (context?: unknown) => {
   const place = bookmarkPlace(context);
@@ -885,7 +894,7 @@ function goToBookmark(bookmark: Bookmark): void {
 services.commands.register({
   id: 'bookmarks.toggle',
   label: 'Toggle &Bookmark',
-  visible: inGutterMenu,
+  visible: shownFor,
   enabled: (context) => bookmarkPlace(context) !== undefined,
   run: (context) => {
     const { worktree, at } = bookmarkPlace(context) as Bookmarking;
@@ -909,7 +918,7 @@ services.commands.register({
     return place ? mnemonicChoice(place.worktree, place.at) : 'Toggle Bookmark &Mnemonic';
   },
   dialog: true,
-  visible: inGutterMenu,
+  visible: shownFor,
   enabled: (context) => bookmarkPlace(context) !== undefined,
   run: (context) => {
     const { worktree, at } = bookmarkPlace(context) as Bookmarking;
@@ -955,6 +964,16 @@ for (const [menu, group] of [
   ] as const) {
     services.menus.contribute({ menu, item: { command }, group, order });
   }
+}
+// IntelliJ's `popup@ExpandableBookmarkContextMenu`, Bookmarks in an editor tab's menu, after its
+// Reopen Closed Tab (which Cerebro hasn't), for the tab's file: Rename Bookmark… and Toggle Bookmark.
+services.menus.contribute({
+  menu: 'editor/tab',
+  item: { submenu: 'editor/tab/bookmarks', label: 'Bookmarks' },
+  group: 'g-bookmarks',
+});
+for (const command of ['bookmarks.rename', 'bookmarks.toggle']) {
+  services.menus.contribute({ menu: 'editor/tab/bookmarks', item: { command }, group: 'a' });
 }
 // Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
 // IntelliJ's own keymap gives them no keys.
@@ -2203,7 +2222,11 @@ render(
               }
               empty={() => <Empty />}
               onTabContextMenu={(event, group, tab) =>
-                openContextMenu(services, 'editor/tab', event, { group: group.id, tab: tab.id })
+                openContextMenu(services, 'editor/tab', event, {
+                  group: group.id,
+                  tab: tab.id,
+                  tabMenu: true,
+                })
               }
             />
           )}

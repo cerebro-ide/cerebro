@@ -3164,12 +3164,18 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   folder not at all. A popup's row with a mnemonic and a file's icon widens its icon column to fit
   both, as a list row's icon takes its own width in IntelliJ (a claim), so its label sits further
   right than the other rows'.
+- **In an editor tab's menu (added 2026-11-14),** as IntelliJ's (`popup@ExpandableBookmarkContextMenu`
+  in `EditorTabPopupMenu`, after Reopen Closed Tab, which Cerebro hasn't; its Add Bookmark to
+  Another List waits for more lists): a Bookmarks submenu with Rename Bookmark… and Toggle
+  Bookmark, for the tab's file as a file bookmark (IntelliJ's `contextBookmark` makes a file's for
+  its `EDITOR_TAB_POPUP` place), not shown for a tab of no file of its own (a diff's). The menu's
+  context says it's the tab's menu, as IntelliJ's place does: a key's context is the active tab
+  too, and there the commands act on the caret's line.
 - **Not yet:** more lists (and Add Bookmark to Another List),
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), a folder bookmark's contents under it in the window (IntelliJ's
-  `FolderNode` lists them), the Bookmarks submenu (Rename Bookmark and Toggle Bookmark) in the
-  Project view's menu, which Cerebro hasn't yet, and in an editor tab's (IntelliJ's
-  `popup@ExpandableBookmarkContextMenu`), dragging the gutter's icon, and the window's toolbar.
+  `FolderNode` lists them), the Bookmarks submenu in the Project view's menu, which Cerebro hasn't
+  yet, dragging the gutter's icon, and the window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 
