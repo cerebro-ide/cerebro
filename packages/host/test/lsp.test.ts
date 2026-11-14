@@ -239,6 +239,8 @@ describe('context actions', () => {
       { title: 'pulled', edits: [expect.objectContaining({ text: 'pulled' })] },
     ]);
     expect(await pulls.contextActions(root, file, at(0, 2))).toEqual([]);
+    // A server offering no organizing of imports: no edits.
+    expect(await pulls.organizeImports(root, file)).toEqual([]);
     const pushes = pool([fake('pushes')]);
     expect((await pushes.contextActions(root, file, at(0, 0)))?.map((a) => a.title)).toEqual(['x']);
     expect(await pushes.contextActions(root, file, at(1, 0))).toEqual([]);
@@ -635,6 +637,39 @@ describe('TypeScript 7’s server', () => {
     ]);
     expect(await servers.typeDefinitions(project, a, at(2, 7))).toEqual([
       { path: a.path, line: 0, column: 10 },
+    ]);
+  }, 60_000);
+
+  it('organizes a file’s imports: the unused gone, the rest in order', async () => {
+    const project = `${root}/ts-imports`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    writeFileSync(join(project, 'a.ts'), 'export const a = 1;\nexport const z = 2;\n');
+    const b = {
+      path: `${project}/b.ts`,
+      text: "import { z, a } from './a';\nimport { readFileSync } from 'node:fs';\nconsole.log(a, z);\n",
+    };
+    writeFileSync(b.path, b.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const edits = (await servers.organizeImports(project, b)) ?? [];
+    expect(edits).toEqual([
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 1, column: 0 },
+        text: "import { a, z } from './a';\n",
+      },
+      { from: { line: 1, column: 0 }, to: { line: 2, column: 0 }, text: '' },
+    ]);
+    // Organized already: the same text again (measured), which the editor takes as no change.
+    const done = { ...b, text: "import { a, z } from './a';\nconsole.log(a, z);\n" };
+    expect(await servers.organizeImports(project, done)).toEqual([
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 1, column: 0 },
+        text: "import { a, z } from './a';\n",
+      },
     ]);
   }, 60_000);
 

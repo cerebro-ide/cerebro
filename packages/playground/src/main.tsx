@@ -61,6 +61,7 @@ import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
 import { fetching, pullingFrom, setupFetchPull } from './fetch-pull.js';
 import { setupFontSize } from './font-size.js';
+import { setupOptimizeImports } from './optimize-imports.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
@@ -389,6 +390,13 @@ setupPush(services);
 setupUpdate(services);
 setupFetchPull(services);
 setupFontSize(services.commands);
+setupOptimizeImports(services.commands, async (path) =>
+  navigation.organizeImports({
+    path,
+    // Shown in the editor, so read.
+    text: ((await documentFor(path)) as EditorDocument).text.peek().toString(),
+  }),
+);
 setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);
