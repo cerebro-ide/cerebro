@@ -140,6 +140,15 @@ describe('renameEntry', () => {
     await renameEntry(join(root, 'lib'), join(root, 'src'));
     expect(statSync(join(root, 'src')).isDirectory()).toBe(true);
   });
+
+  it('moves one into a folder, making it, and over a file only when asked', async () => {
+    writeFileSync(join(root, 'm.ts'), 'm');
+    await renameEntry(join(root, 'm.ts'), join(root, 'to/deep/m.ts'));
+    expect(readFileSync(join(root, 'to/deep/m.ts'), 'utf8')).toBe('m');
+    writeFileSync(join(root, 'n.ts'), 'n');
+    await renameEntry(join(root, 'n.ts'), join(root, 'to/deep/m.ts'), true);
+    expect(readFileSync(join(root, 'to/deep/m.ts'), 'utf8')).toBe('n');
+  });
 });
 
 describe('copyEntry', () => {

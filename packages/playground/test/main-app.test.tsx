@@ -1789,6 +1789,135 @@ describe('the Project view’s menu', () => {
     if (!shown) await userEvent.click(stripe('project'));
   });
 
+  it('cuts the file or folder selected, and moves it where asked on Paste, once asked', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/away', name: 'away', kind: 'directory' },
+        { path: '/r/mv.ts', name: 'mv.ts', kind: 'file' },
+      ],
+      '/r/away': [],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const taken = new Set<string>();
+    answers.set('fs.exists', ({ path }: { path: string }) => taken.has(path));
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    // The renames of the tests before left out.
+    const before = host('/r').params('fs.rename').length;
+    const moves = () => host('/r').params('fs.rename').slice(before);
+    const asked = host('/r').params('lsp.willRename').length;
+    const referred = () => host('/r').params('lsp.willRename').slice(asked);
+    const dialog = () => document.querySelector('.cerebro-dialog');
+    const fields = () => [...document.querySelectorAll<HTMLInputElement>('.cerebro-dialog input')];
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    const answer = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__button')].find(
+        (button) => button.textContent === label,
+      ) as HTMLElement;
+    const tabs = () => env().editor.activeGroup.tabs.map((t) => t.id);
+    // A file open in the editor, with the keys, into a folder: asked where, the folder's name
+    // selected; what refers to it changed, moved, its tab following it, opened.
+    env().editor.open({ id: '/r/mv.ts', title: 'mv.ts' });
+    answers.set('lsp.willRename', []);
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe('Move');
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Move file /r/mv.ts');
+    const [directory, references, open] = fields() as [
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    expect([directory.value, references.checked, open.checked]).toEqual(['/r/away', true, true]);
+    await expect.poll(() => [directory.selectionStart, directory.selectionEnd]).toEqual([3, 7]);
+    folders['/r'] = [{ path: '/r/away', name: 'away', kind: 'directory' }];
+    folders['/r/away'] = [{ path: '/r/away/mv.ts', name: 'mv.ts', kind: 'file' }];
+    await userEvent.click(answer('Refactor'));
+    await expect.poll(moves).toEqual([{ path: '/r/mv.ts', to: '/r/away/mv.ts' }]);
+    expect(referred()).toEqual([{ worktree: '/r', path: '/r/mv.ts', to: '/r/away/mv.ts' }]);
+    await expect.poll(tabs).toContain('/r/away/mv.ts');
+    expect(tabs()).not.toContain('/r/mv.ts');
+    // Pasted once: no more.
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    expect(dialog()).toBeNull();
+    // Where it is already: said so, and kept open.
+    await userEvent.click(await vi.waitUntil(() => row('/r/away/mv.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Cut'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')), { button: 'right' });
+    await userEvent.click(menuItem('Paste'));
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(error).toBe('Already in this directory. Choose another one.');
+    expect(dialog()).not.toBeNull();
+    // Over a file of its name, without its references: asked, and gone over.
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    expect(error()).toBe('');
+    await userEvent.keyboard('/r');
+    await userEvent.click(fields()[1] as HTMLInputElement);
+    await userEvent.click(fields()[2] as HTMLInputElement);
+    taken.add('/r/mv.ts');
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() =>
+      document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+    );
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe('Move');
+    await userEvent.click(answer('Overwrite'));
+    await expect.poll(() => moves().length).toBe(2);
+    expect(moves()[1]).toEqual({ path: '/r/away/mv.ts', to: '/r/mv.ts', over: true });
+    expect(referred()).toHaveLength(1);
+    env().editor.close(env().editor.activeGroupId, '/r/mv.ts');
+    // Skipped: not moved. A folder: not asked about; one the host won't move: said so.
+    folders['/r'] = [
+      { path: '/r/away', name: 'away', kind: 'directory' },
+      { path: '/r/mv.ts', name: 'mv.ts', kind: 'file' },
+    ];
+    folders['/r/away'] = [];
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    taken.add('/r/away/mv.ts');
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() =>
+      document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+    );
+    await userEvent.click(answer('Skip'));
+    expect(moves()).toHaveLength(2);
+    // Cancelled: kept to paste again; out of the worktree: moved, not looked for in the view.
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(dialog).toBeNull();
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('/elsewhere{Enter}');
+    await expect.poll(() => moves().length).toBe(3);
+    expect(moves()[2]).toEqual({ path: '/r/mv.ts', to: '/elsewhere/mv.ts' });
+    answers.set('fs.rename', new Error('EEXIST: already exists'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('/r/other{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Move');
+    expect(moves()[3]).toEqual({ path: '/r/away', to: '/r/other/away' });
+    for (const method of ['fs.rename', 'fs.list', 'fs.exists', 'lsp.willRename']) {
+      answers.delete(method);
+    }
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;

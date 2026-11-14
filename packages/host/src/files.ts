@@ -129,11 +129,13 @@ export async function createEntry(path: string, kind: 'file' | 'directory'): Pro
 }
 
 /**
- * Renames a file or folder, as IntelliJ's Rename in the Project view: an error (EEXIST) when the
- * new name is there already, never over it (a rename on Linux and macOS would replace a file).
+ * Renames or moves a file or folder, as IntelliJ's Rename and Move in the Project view: an error
+ * (EEXIST) when `to` is there already, unless asked to go `over` a file there (a rename on Linux
+ * and macOS would replace one unasked).
  */
-export async function renameEntry(path: string, to: string): Promise<void> {
-  await notThere(to);
+export async function renameEntry(path: string, to: string, over = false): Promise<void> {
+  if (!over) await notThere(to);
+  await mkdir(dirname(to), { recursive: true });
   await rename(path, to);
 }
 

@@ -12,7 +12,7 @@ import { prompt } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import type { TabContext } from './commands.js';
 import { editFiles, saveAll, type FileEdits } from './documents.js';
-import { active, hostFor } from './environments.js';
+import { active, hostFor, type Host } from './environments.js';
 import { EDITOR_ACTIONS } from './keymaps.js';
 import { notifications } from './notifications.js';
 import { projectTarget, selectNew, type FileNode } from './project.js';
@@ -37,6 +37,69 @@ export function renameError(name: string, entries: readonly FileNode[]): string 
 export function movedPath(path: string, from: string, to: string): string | undefined {
   if (path === from) return to;
   return path.startsWith(`${from}/`) ? to + path.slice(from.length) : undefined;
+}
+
+/** A file or folder moved, by Rename or by a Paste after Cut. */
+export interface Moving {
+  worktree: string;
+  host: Host;
+  node: FileNode;
+  to: string;
+  /** The editor area whose tabs follow it. */
+  editor: EditorArea;
+  /** What's done, as IntelliJ names it: in the Local History's label and a failure's title. */
+  title: 'Rename' | 'Move';
+  /** Whether what refers to a file changes with it: IntelliJ's "Search for references". */
+  references: boolean;
+  /** Whether it goes over a file there. */
+  over?: boolean;
+}
+
+/**
+ * Moves a file or folder: saves what's unsaved, changes what refers to a file as its language
+ * server says, has the host move it, and has its tabs follow it and the view select it. Whether it
+ * moved; why not is said.
+ */
+export async function moveEntry(moving: Moving): Promise<boolean> {
+  const { worktree, host, node, to, editor, title } = moving;
+  try {
+    await saveAll();
+    if (node.kind === 'file' && moving.references) {
+      const edits = (await host.request('lsp.willRename', {
+        worktree,
+        path: node.path,
+        to,
+      })) as FileEdits[] | null;
+      const failed = edits ? await editFiles(edits, title) : [];
+      if (failed.length > 0) {
+        notifications.notify({
+          title,
+          content: `Not changed: ${failed.map((f) => `${f.path}: ${f.error}`).join(', ')}`,
+          type: 'warning',
+        });
+      }
+    }
+    await host.request('fs.rename', {
+      path: node.path,
+      to,
+      ...(moving.over ? { over: true } : {}),
+    });
+  } catch (error) {
+    notifications.notify({
+      title: `Cannot ${title}`,
+      content: (error as Error).message,
+      type: 'error',
+    });
+    return false;
+  }
+  for (const tab of editor.groups.flatMap((group) => group.tabs)) {
+    const moved = movedPath(tab.id, node.path, to);
+    if (moved !== undefined) {
+      editor.replaceTab(tab.id, { id: moved, title: moved.slice(moved.lastIndexOf('/') + 1) });
+    }
+  }
+  if (to.startsWith(`${worktree}/`)) await selectNew(worktree, to);
+  return true;
 }
 
 /** Rename for the Project view's selection: not the worktree itself. */
@@ -66,41 +129,15 @@ export function setupRenameFile(services: MenuServices, setup: RenameFileSetup):
         valid: (typed) => typed !== node.name,
       });
       if (name === undefined) return;
-      const to = `${folder}/${name}`;
-      try {
-        await saveAll();
-        if (node.kind === 'file') {
-          const edits = (await host.request('lsp.willRename', {
-            worktree,
-            path: node.path,
-            to,
-          })) as FileEdits[] | null;
-          const failed = edits ? await editFiles(edits, 'Rename') : [];
-          if (failed.length > 0) {
-            notifications.notify({
-              title: 'Rename',
-              content: `Not changed: ${failed.map((f) => `${f.path}: ${f.error}`).join(', ')}`,
-              type: 'warning',
-            });
-          }
-        }
-        await host.request('fs.rename', { path: node.path, to });
-      } catch (error) {
-        notifications.notify({
-          title: 'Cannot Rename',
-          content: (error as Error).message,
-          type: 'error',
-        });
-        return;
-      }
-      const area = setup.editor() as EditorArea;
-      for (const tab of area.groups.flatMap((group) => group.tabs)) {
-        const moved = movedPath(tab.id, node.path, to);
-        if (moved !== undefined) {
-          area.replaceTab(tab.id, { id: moved, title: moved.slice(moved.lastIndexOf('/') + 1) });
-        }
-      }
-      await selectNew(worktree, to);
+      await moveEntry({
+        worktree,
+        host,
+        node,
+        to: `${folder}/${name}`,
+        editor: setup.editor() as EditorArea,
+        title: 'Rename',
+        references: true,
+      });
     },
   });
   // Before Bookmarks, as IntelliJ's RenameElement before its Refactoring group.

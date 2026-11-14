@@ -458,9 +458,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   }));
   // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
   connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
-  // Rename in the Project view: a file or folder, never over another.
+  // Rename and Move in the Project view: a file or folder, over a file only when asked.
   connection.onRequest('fs.rename', (params) =>
-    renameEntry(text(params, 'path'), text(params, 'to')),
+    renameEntry(
+      text(params, 'path'),
+      text(params, 'to'),
+      (params as { over?: unknown }).over === true,
+    ),
   );
   // Copy and Paste: over what's there only when asked (`over: true`).
   connection.onRequest('fs.copy', (params) =>

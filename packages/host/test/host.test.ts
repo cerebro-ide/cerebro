@@ -1960,6 +1960,14 @@ describe('files', () => {
     await ui.request('fs.create', { path: join(dir, 'folder'), directory: true });
     await ui.request('fs.rename', { path: join(dir, 'folder'), to: join(dir, 'renamed') });
     await ui.request('fs.rename', { path: join(dir, 'renamed'), to: join(dir, 'folder') });
+    await ui.request('fs.create', { path: join(dir, 'over.ts') });
+    await ui.request('fs.create', { path: join(dir, 'under.ts') });
+    await ui.request('fs.rename', {
+      path: join(dir, 'over.ts'),
+      to: join(dir, 'under.ts'),
+      over: true,
+    });
+    expect(await ui.request('fs.exists', { path: join(dir, 'over.ts') })).toBe(false);
     await ui.request('fs.copy', { path: join(dir, 'new', 'n.ts'), to: join(dir, 'copied.ts') });
     await ui.request('fs.copy', {
       path: join(dir, 'new', 'n.ts'),
