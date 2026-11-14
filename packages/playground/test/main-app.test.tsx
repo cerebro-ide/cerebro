@@ -1399,6 +1399,47 @@ describe('the Project view’s menu', () => {
     answers.delete('fs.list');
   });
 
+  it('annotates the file it’s opened on from its Git submenu, in the file’s editor', async () => {
+    const hash = 'b'.repeat(40);
+    const commit = { hash, author: 'Grace Hopper', email: 'g@x.org', time: 0, message: 'Second' };
+    answers.set('git.blame', { lines: [hash, hash], commits: [commit] });
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/e.ts', name: 'e.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const git = async (key: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('Git'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    };
+    // A folder's: none to annotate.
+    await git('/r/lib');
+    expect(document.querySelectorAll('.cerebro-menu')[1]?.textContent).not.toContain('Annotate');
+    await closeAll();
+    await git('/r/e.ts');
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/e.ts');
+    await expect
+      .poll(() =>
+        [...(editorRoot()?.querySelectorAll('.cerebro-annotation') ?? [])]
+          .map((a) => a.textContent)
+          .join(),
+      )
+      .toContain('Hopper');
+    expect(host('/r').params('git.blame').at(-1)).toMatchObject({ file: 'e.ts' });
+    // Again: closed.
+    await git('/r/e.ts');
+    await userEvent.click(menuItem('Annotate with Git Blame'));
+    await expect.poll(() => editorRoot()?.querySelector('.cerebro-annotation')).toBeNull();
+    env().editor.close(env().editor.activeGroupId, '/r/e.ts');
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+    answers.delete('git.blame');
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;

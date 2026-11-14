@@ -19,10 +19,12 @@ import {
 } from '@cerebro-ide/ui-editor';
 import type { Tab } from '@cerebro-ide/layout';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
+import type { TabContext } from './commands.js';
 import { diffTab, notCommitted, revisionOf, revisionTab } from './changes.js';
 import { active, gitRepository, hostFor } from './environments.js';
 import { EMPTY_TREE } from './git-log.js';
 import { notifications } from './notifications.js';
+import { projectTarget } from './project.js';
 import { stateOf } from './repository-state.js';
 
 /** The host's `git.blame`. */
@@ -479,8 +481,18 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     return undefined;
   });
   const { commands, menus } = services;
-  /** The file a command is for: the gutter's, or the active editor's. */
-  const target = (c: unknown) => (c as { file?: string } | undefined)?.file ?? setup.activeTab();
+  /** The file the Project view's menu is for, while it has the focus: null for a folder. */
+  const inProject = (c: unknown) => {
+    const node = projectTarget(c as TabContext | undefined);
+    return node === undefined ? undefined : node?.kind === 'file' ? node.path : null;
+  };
+  /** The file a command is for: the gutter's, the Project view's, or the active editor's. */
+  const target = (c: unknown) => {
+    const gutter = (c as { file?: string } | undefined)?.file;
+    if (gutter !== undefined) return gutter;
+    const node = inProject(c);
+    return node === undefined ? setup.activeTab() : (node ?? undefined);
+  };
   commands.register({
     id: 'vcs.annotate',
     label: 'A&nnotate with Git Blame',
@@ -494,8 +506,14 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     checked: (c) => annotated.has(target(c) as string),
     run: (c) => {
       const file = target(c) as string;
-      if (annotated.has(file)) annotated.delete(file);
-      else annotated.set(file, fileIn(file) as Annotated);
+      if (annotated.has(file)) {
+        annotated.delete(file);
+        return;
+      }
+      annotated.set(file, fileIn(file) as Annotated);
+      // From the Project view, in the file's editor, opened for it as IntelliJ's
+      // AnnotateLocalFileAction opens one.
+      if (inProject(c)) setup.open({ id: file, title: file.slice(file.lastIndexOf('/') + 1) });
     },
   });
   // The annotation's commands are only on an annotation: Find Action, asking with none, doesn't

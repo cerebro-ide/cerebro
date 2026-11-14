@@ -3192,9 +3192,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   (Terminal, a browser) aren't yet. So are Find in Files and Replace in Files (added 2026-11-14),
   after Copy Path, as IntelliJ's `FindInPath` and `ReplaceInPath`: from it, or their keys while
   the view has the focus, they search the folder selected, or the file's, its scope Directory, as
-  IntelliJ's `FindInProjectUtil.setDirectoryName` does with no editor in the context. IntelliJ's
-  menu's other groups (New, Cut, Copy, Paste, Find Usages, Rename, Delete, Git, Compare With)
-  aren't in it yet.
+  IntelliJ's `FindInProjectUtil.setDirectoryName` does with no editor in the context. So is the
+  editor's Git submenu (added 2026-11-14), after Local History, as IntelliJ's `VersionControlsGroup`
+  has it: Git → Current File's commands already took the view's selected file; Annotate with Git
+  Blame now does too, opening the file's editor to show it in, as IntelliJ's
+  `AnnotateLocalFileAction` does (none for a folder, as IntelliJ's). IntelliJ's menu's other groups
+  (New, Cut, Copy, Paste, Find Usages, Rename, Delete, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
