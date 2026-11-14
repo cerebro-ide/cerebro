@@ -875,6 +875,17 @@ describe('navigation in the editor', () => {
     await onA();
     await userEvent.keyboard('{Control>}b{/Control}');
     await expect.poll(active).toBe('/r/src/b.ts');
+    await closeAll();
+    // Go to Implementation and Go to Type Declaration, from the language server.
+    answers.set('lsp.implementations', [b]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+    await closeAll();
+    answers.set('lsp.typeDefinitions', [b]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Shift>}B{/Shift}{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
     await onA();
     await userEvent.keyboard('{Alt>}{F7}{/Alt}');
     await expect
