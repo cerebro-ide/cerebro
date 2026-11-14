@@ -7,8 +7,10 @@
 // line. Next and Previous Line Bookmark go through them, and Show Bookmarks lists them in a popup.
 // A bookmark can have a mnemonic, a digit or a letter, that's its alone (IntelliJ's `BookmarkType`):
 // Toggle Bookmark 0 to 9 (Ctrl+Shift+digit) adds or takes one away, Go to Bookmark 0 to 9
-// (Ctrl+digit) goes to it. Each reads as its description: its line's text, or one given it. They're
-// kept between runs, per worktree.
+// (Ctrl+digit) goes to it. Each reads as its description: its line's text, or one given it. In the
+// Project tool window, the same commands bookmark the selected file or folder (IntelliJ's file
+// bookmarks): going to one opens the file, or selects the folder there. They're kept between runs,
+// per worktree.
 
 import { signal, ObservableMap } from '@cerebro-ide/reactive';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
@@ -26,38 +28,55 @@ import { Preview } from './find.js';
 import { icon } from './icons.js';
 
 /**
- * A bookmark on a file's line, zero-based; its mnemonic, if it has one; and its description, if
- * it's been given one (IntelliJ's custom description).
+ * A bookmark's place: a file's line, zero-based; or, with no line, the file itself, or a folder, as
+ * IntelliJ's file bookmarks (`FileBookmarkImpl`), added in the Project tool window.
  */
-export interface LineBookmark {
+export interface BookmarkPlace {
   path: string;
-  line: number;
+  line?: number | undefined;
+  folder?: true | undefined;
+}
+
+/**
+ * A bookmark at its place; its mnemonic, if it has one; and its description, if it's been given
+ * one (IntelliJ's custom description).
+ */
+export interface Bookmark extends BookmarkPlace {
   mnemonic?: string;
   description?: string;
 }
+
+/** A bookmark on a line. */
+export type LineBookmark = Bookmark & { line: number };
+
+const onLine = (bookmark: Bookmark): bookmark is LineBookmark => bookmark.line !== undefined;
+
+/** Whether a bookmark is at a place. */
+const isAt = (bookmark: Bookmark, at: BookmarkPlace) =>
+  bookmark.path === at.path && bookmark.line === at.line;
 
 /** The mnemonics a bookmark can have, in IntelliJ's order (`BookmarkType`'s): 1 to 9, 0, A to Z. */
 export const MNEMONICS: readonly string[] = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /** Each worktree's bookmarks, in the order added, by its path, once changed in this run. */
-const lists = new ObservableMap<string, readonly LineBookmark[]>();
+const lists = new ObservableMap<string, readonly Bookmark[]>();
 
 /**
  * Each worktree's bookmarks as an earlier run kept them, once read: not observable, as they're read
  * where nothing may be written (a popup's list).
  */
-const stored = new Map<string, readonly LineBookmark[]>();
+const stored = new Map<string, readonly Bookmark[]>();
 
 const key = (worktree: string) => `cerebro.bookmarks:${worktree}`;
 
 /** A worktree's bookmarks: as kept by an earlier run, the first time; none when unreadable. */
-export function bookmarksOf(worktree: string): readonly LineBookmark[] {
+export function bookmarksOf(worktree: string): readonly Bookmark[] {
   const known = lists.get(worktree) ?? stored.get(worktree);
   if (known) return known;
-  let kept: readonly LineBookmark[] = [];
+  let kept: readonly Bookmark[] = [];
   try {
     const read = JSON.parse(localStorage.getItem(key(worktree)) ?? '[]') as unknown;
-    if (Array.isArray(read)) kept = read as LineBookmark[];
+    if (Array.isArray(read)) kept = read as Bookmark[];
   } catch {
     // Unreadable: none.
   }
@@ -65,7 +84,7 @@ export function bookmarksOf(worktree: string): readonly LineBookmark[] {
   return kept;
 }
 
-function keep(worktree: string, list: readonly LineBookmark[]): void {
+function keep(worktree: string, list: readonly Bookmark[]): void {
   lists.set(worktree, list);
   try {
     localStorage.setItem(key(worktree), JSON.stringify(list));
@@ -77,27 +96,27 @@ function keep(worktree: string, list: readonly LineBookmark[]): void {
 /** A file's bookmarks, as its editor shows them: their lines, zero-based, and mnemonics. */
 export function bookmarkMarks(worktree: string, path: string): BookmarkMark[] {
   return bookmarksOf(worktree)
-    .filter((bookmark) => bookmark.path === path)
+    .filter((bookmark): bookmark is LineBookmark => bookmark.path === path && onLine(bookmark))
     .map(({ line, mnemonic }) => ({ line, mnemonic }));
 }
 
 /** The bookmark with a mnemonic, if one has it. */
-export function bookmarkWith(worktree: string, mnemonic: string): LineBookmark | undefined {
+export function bookmarkWith(worktree: string, mnemonic: string): Bookmark | undefined {
   return bookmarksOf(worktree).find((bookmark) => bookmark.mnemonic === mnemonic);
 }
 
 /**
- * A bookmark with a mnemonic on a file's line, as IntelliJ's `toggle(bookmark, type)`: one with it
- * there already is taken away; one without it there, or none, gets it. Another bookmark with it is
+ * A bookmark with a mnemonic at a place, as IntelliJ's `toggle(bookmark, type)`: one with it there
+ * already is taken away; one without it there, or none, gets it. Another bookmark with it is
  * taken away, once `rewrite` says so (IntelliJ's question).
  */
 export async function toggleMnemonic(
   worktree: string,
-  at: { path: string; line: number },
+  at: BookmarkPlace,
   mnemonic: string,
-  rewrite: (taken: LineBookmark) => Promise<boolean>,
+  rewrite: (taken: Bookmark) => Promise<boolean>,
 ): Promise<void> {
-  const here = (bookmark: LineBookmark) => bookmark.path === at.path && bookmark.line === at.line;
+  const here = (bookmark: Bookmark) => isAt(bookmark, at);
   const found = bookmarksOf(worktree).find(here);
   if (found?.mnemonic === mnemonic) {
     keep(
@@ -113,26 +132,28 @@ export async function toggleMnemonic(
   keep(
     worktree,
     index < 0
-      ? [...list, { path: at.path, line: at.line, mnemonic }]
-      : list.with(index, { ...(list[index] as LineBookmark), mnemonic }),
+      ? [...list, { ...placeOf(at), mnemonic }]
+      : list.with(index, { ...(list[index] as Bookmark), mnemonic }),
   );
 }
 
-/** The bookmark on a file's line, if there's one. */
-export function bookmarkAt(
-  worktree: string,
-  at: { path: string; line: number },
-): LineBookmark | undefined {
-  return bookmarksOf(worktree).find(
-    (bookmark) => bookmark.path === at.path && bookmark.line === at.line,
-  );
+/** A place as it's kept: with no fields that aren't there. */
+const placeOf = (at: BookmarkPlace): BookmarkPlace => ({
+  path: at.path,
+  ...(at.line === undefined ? {} : { line: at.line }),
+  ...(at.folder ? { folder: true } : {}),
+});
+
+/** The bookmark at a place, if there's one. */
+export function bookmarkAt(worktree: string, at: BookmarkPlace): Bookmark | undefined {
+  return bookmarksOf(worktree).find((bookmark) => isAt(bookmark, at));
 }
 
-/** Gives the bookmark on a file's line `change`d fields, if there's one there. */
+/** Gives the bookmark at a place `change`d fields, if there's one there. */
 function change(
   worktree: string,
-  at: { path: string; line: number },
-  changed: (bookmark: LineBookmark) => LineBookmark,
+  at: BookmarkPlace,
+  changed: (bookmark: Bookmark) => Bookmark,
 ): void {
   const found = bookmarkAt(worktree, at);
   if (!found) return;
@@ -143,7 +164,7 @@ function change(
 }
 
 /** Remove Mnemonic, as IntelliJ's (`DeleteBookmarkTypeAction`): the line's bookmark, without it. */
-export function removeMnemonic(worktree: string, at: { path: string; line: number }): void {
+export function removeMnemonic(worktree: string, at: BookmarkPlace): void {
   change(worktree, at, (bookmark) => {
     const rest = { ...bookmark };
     delete rest.mnemonic;
@@ -153,10 +174,12 @@ export function removeMnemonic(worktree: string, at: { path: string; line: numbe
 
 /**
  * A bookmark's description, as IntelliJ's: the one it was given; else its line's text, trimmed
- * (`createDescription`), once its file's read (asked for here). Read reactively.
+ * (`createDescription`), once its file's read (asked for here); none for a file's or a folder's.
+ * Read reactively.
  */
-export function descriptionOf(bookmark: LineBookmark): string {
+export function descriptionOf(bookmark: Bookmark): string {
   if (bookmark.description !== undefined) return bookmark.description;
+  if (!onLine(bookmark)) return '';
   const doc = documentRead(bookmark.path);
   if (!doc) {
     void documentFor(bookmark.path);
@@ -167,11 +190,7 @@ export function descriptionOf(bookmark: LineBookmark): string {
 }
 
 /** Gives the line's bookmark a description, if there's one there. */
-export function describe(
-  worktree: string,
-  at: { path: string; line: number },
-  description: string,
-): void {
+export function describe(worktree: string, at: BookmarkPlace, description: string): void {
   change(worktree, at, (bookmark) => ({ ...bookmark, description }));
 }
 
@@ -179,10 +198,7 @@ export function describe(
  * Rename Bookmark, as IntelliJ's (`EditBookmarkAction`): asks for the line's bookmark's description,
  * its own to start with (BookmarkBundle's words).
  */
-export async function renameBookmark(
-  worktree: string,
-  at: { path: string; line: number },
-): Promise<void> {
+export async function renameBookmark(worktree: string, at: BookmarkPlace): Promise<void> {
   const found = bookmarkAt(worktree, at);
   if (!found) return;
   const description = await prompt({
@@ -201,20 +217,23 @@ const REWRITE_ASKS = 'cerebro.bookmarks.rewrite';
  * Mnemonic", BookmarkBundle's words), unless told not to ask again; whether to go on. "Don't ask
  * again" is kept only on OK, as IntelliJ's (`DoNotAskOption`, `shouldSaveOptionsOnCancel`).
  */
-export async function rewriteAsked(taken: LineBookmark): Promise<boolean> {
+export async function rewriteAsked(taken: Bookmark): Promise<boolean> {
   try {
     if (localStorage.getItem(REWRITE_ASKS) === 'false') return true;
   } catch {
     // Not read: asked.
   }
   const again = signal(false);
-  const name = taken.path.slice(taken.path.lastIndexOf('/') + 1);
+  // A file's or a folder's by its name, a line's with its line (BookmarkBundle's two questions).
+  const name =
+    taken.path.slice(taken.path.lastIndexOf('/') + 1) +
+    (onLine(taken) ? `:${String(taken.line + 1)}` : '');
   const answer = await openDialog<true>({
     title: 'Rewrite Mnemonic',
     ok: { label: 'OK', accept: () => true },
     content: () => (
       <div class="playground-question">
-        <p>{`‘${taken.mnemonic as string}’ mnemonic is already taken by ‘${name}:${String(taken.line + 1)}’. Do you want to rewrite it?`}</p>
+        <p>{`‘${taken.mnemonic as string}’ mnemonic is already taken by ‘${name}’. Do you want to rewrite it?`}</p>
         <label class="playground-checkbox">
           <input
             type="checkbox"
@@ -243,10 +262,8 @@ export async function rewriteAsked(taken: LineBookmark): Promise<boolean> {
  * What IntelliJ's Toggle Bookmark Mnemonic does on a line (`ChooseBookmarkTypeAction`): adds a
  * bookmark with one where there's none, assigns one to a bookmark without, changes a bookmark's.
  */
-export function mnemonicChoice(worktree: string, at: { path: string; line: number }): string {
-  const found = bookmarksOf(worktree).find(
-    (bookmark) => bookmark.path === at.path && bookmark.line === at.line,
-  );
+export function mnemonicChoice(worktree: string, at: BookmarkPlace): string {
+  const found = bookmarkAt(worktree, at);
   if (!found) return 'Add Mnemonic Bookmark';
   return found.mnemonic === undefined ? 'Assign Mnemonic' : 'Change Mnemonic';
 }
@@ -284,8 +301,8 @@ const ARROWS: Record<string, [number, number]> = {
  */
 export async function chooseMnemonic(
   worktree: string,
-  at: { path: string; line: number },
-  rewrite: (taken: LineBookmark) => Promise<boolean>,
+  at: BookmarkPlace,
+  rewrite: (taken: Bookmark) => Promise<boolean>,
 ): Promise<void> {
   const title = mnemonicChoice(worktree, at);
   const list = bookmarksOf(worktree);
@@ -386,11 +403,11 @@ export async function chooseMnemonic(
   if (chosen.description !== '') describe(worktree, at, chosen.description);
 }
 
-/** A bookmark on a file's line, added last; or, there already, taken away. */
-export function toggleBookmark(worktree: string, path: string, line: number): void {
+/** A bookmark at a place, added last; or, there already, taken away. */
+export function toggleBookmark(worktree: string, at: BookmarkPlace): void {
   const list = bookmarksOf(worktree);
-  const others = list.filter((b) => b.path !== path || b.line !== line);
-  keep(worktree, others.length < list.length ? others : [...list, { path, line }]);
+  const others = list.filter((bookmark) => !isAt(bookmark, at));
+  keep(worktree, others.length < list.length ? others : [...list, placeOf(at)]);
 }
 
 /**
@@ -400,8 +417,9 @@ export function toggleBookmark(worktree: string, path: string, line: number): vo
 export function moveBookmarks(worktree: string, path: string, lines: readonly number[]): void {
   const list = bookmarksOf(worktree);
   const order = list
-    .map((bookmark, index) => ({ bookmark, index }))
-    .filter(({ bookmark }) => bookmark.path === path)
+    .flatMap((bookmark, index) =>
+      bookmark.path === path && onLine(bookmark) ? [{ bookmark, index }] : [],
+    )
     .sort((a, b) => a.bookmark.line - b.bookmark.line);
   const moved = new Map(order.map(({ index }, i) => [index, lines[i]]));
   keep(
@@ -429,22 +447,27 @@ export function nextBookmark(
   from: LineBookmark | undefined,
   forward: boolean,
 ): LineBookmark | undefined {
-  const sorted = [...bookmarksOf(worktree)].sort(byPlace);
+  // Line bookmarks', as IntelliJ's (its `LineBookmark`s alone).
+  const sorted = bookmarksOf(worktree).filter(onLine).sort(byPlace);
   if (!from) return forward ? sorted[0] : sorted.at(-1);
   return forward
     ? sorted.find((bookmark) => byPlace(bookmark, from) > 0)
     : sorted.findLast((bookmark) => byPlace(bookmark, from) < 0);
 }
 
+/** Goes to a bookmark: its line, its file, or, for a folder, the folder in the Project tool window. */
+export type GoTo = (bookmark: Bookmark) => void;
+
 /**
  * Show Bookmarks, as IntelliJ's (`ShowLineBookmarksAction`, Shift+F11): a popup titled
  * "Bookmarks" with the worktree's list, its lines not grouped by file (as IntelliJ's popup, where
  * "Group line bookmarks" is off), in the order added, each as its file's name, ":" and its line,
- * then its folder; the first highlighted, its place previewed. Choosing one opens it.
+ * then its folder; the first highlighted, its place previewed (a file's from its start). Choosing
+ * one goes to it.
  */
 export async function showBookmarks(
   worktree: { id: string; name: string },
-  openAt: Opening['openAt'],
+  go: GoTo,
 ): Promise<void> {
   // Read as the list's drawn: descriptions come as their files are read.
   const items = () =>
@@ -452,29 +475,32 @@ export async function showBookmarks(
       ...choiceOf(worktree.id, bookmark),
       group: worktree.name,
     }));
-  await pickBookmark(worktree.id, openAt, {
+  await pickBookmark(worktree.id, go, {
     label: 'Bookmarks',
     position: 'top',
     header: () => <span class="playground-popup__title">Bookmarks</span>,
     empty: 'No bookmarks added.',
     items: (query) => fuzzyFilter(items(), query),
-    preview: (item) => (item ? <Preview at={{ ...item.bookmark, column: 0 }} /> : null),
+    preview: (item) =>
+      item && !item.bookmark.folder ? (
+        <Preview at={{ path: item.bookmark.path, line: item.bookmark.line ?? 0, column: 0 }} />
+      ) : null,
   });
 }
 
-type BookmarkChoice = PickerItem & { bookmark: LineBookmark };
+type BookmarkChoice = PickerItem & { bookmark: Bookmark };
 
 /**
- * A popup of bookmarks, as IntelliJ's: the one chosen is opened, or the one whose mnemonic is typed
+ * A popup of bookmarks, as IntelliJ's: the one chosen is gone to, or the one whose mnemonic is typed
  * while nothing's been searched for yet, as its Go to Bookmark actions in these popups
  * (`GotoBookmarkTypeAction`'s `checkSpeedSearch`).
  */
 async function pickBookmark(
   worktree: string,
-  openAt: Opening['openAt'],
+  go: GoTo,
   options: PickerOptions<BookmarkChoice>,
 ): Promise<void> {
-  let typed: LineBookmark | undefined;
+  let typed: Bookmark | undefined;
   const picker = openPicker({
     ...options,
     onKey: (event) => {
@@ -488,22 +514,29 @@ async function pickBookmark(
   // Read once it's closed: a mnemonic typed closes it with nothing chosen.
   const result = await picker.result;
   const chosen = typed ?? result?.bookmark;
-  if (chosen) openAt({ ...chosen, column: 0 });
+  if (chosen) go(chosen);
+}
+
+/** A bookmark's file's or folder's name, and the folder it's in, if not the worktree's own. */
+function nameOf(worktree: string, bookmark: Bookmark) {
+  const relative = bookmark.path.slice(worktree.length + 1);
+  const slash = relative.lastIndexOf('/');
+  return {
+    name: relative.slice(slash + 1),
+    folder: slash < 0 ? undefined : relative.slice(0, slash),
+  };
 }
 
 /**
- * A bookmark as IntelliJ's popups list it, as a line node not under its file (`addTextTo`): its
- * file's name, " :" and its line, then its folder; with a description, it first, then the rest
- * muted, the folder in brackets. With its icon.
+ * A bookmark as IntelliJ's popups list it, not under its file (`addTextTo`): its file's or folder's
+ * name, a line's with " :" and its line, then its folder; with a description, it first, then the
+ * rest muted, the folder in brackets. With its icon.
  */
-function choiceOf(worktree: string, bookmark: LineBookmark): BookmarkChoice {
-  const name = bookmark.path.slice(worktree.length + 1);
-  const slash = name.lastIndexOf('/');
-  const place = `${name.slice(slash + 1)} :${String(bookmark.line + 1)}`;
-  const folder = slash < 0 ? undefined : name.slice(0, slash);
+function choiceOf(worktree: string, bookmark: Bookmark): BookmarkChoice {
+  const { name, folder } = nameOf(worktree, bookmark);
+  const place = onLine(bookmark) ? `${name} :${String(bookmark.line + 1)}` : name;
   const description = descriptionOf(bookmark);
   return {
-    // Its description first, its place after it, muted; the folder in brackets, as IntelliJ's.
     ...(description === ''
       ? { label: place, ...(folder === undefined ? {} : { detail: folder }) }
       : { label: description, detail: folder === undefined ? place : `${place}  (${folder})` }),
@@ -519,14 +552,14 @@ function choiceOf(worktree: string, bookmark: LineBookmark): BookmarkChoice {
  */
 export async function goToMnemonic(
   worktree: { id: string; name: string },
-  openAt: Opening['openAt'],
+  go: GoTo,
 ): Promise<void> {
   const items = () =>
     MNEMONICS.flatMap((mnemonic) => {
       const bookmark = bookmarkWith(worktree.id, mnemonic);
       return bookmark ? [choiceOf(worktree.id, bookmark)] : [];
     });
-  await pickBookmark(worktree.id, openAt, {
+  await pickBookmark(worktree.id, go, {
     label: 'Go to Mnemonic',
     position: 'top',
     header: () => <span class="playground-popup__title">Go to Mnemonic</span>,
@@ -534,29 +567,33 @@ export async function goToMnemonic(
   });
 }
 
-/** A bookmark's icon, as IntelliJ's type's: its mnemonic, if it has one, on a square. */
-function bookmarkIcon(bookmark: LineBookmark) {
-  if (bookmark.mnemonic === undefined) return icon('bookmark');
-  return (
+/**
+ * A bookmark's icon, as IntelliJ's (`wrapIcon`): a line's is its type's, the bookmark or its
+ * mnemonic on a square; a file's or a folder's is its own, after its mnemonic if it has one.
+ */
+function bookmarkIcon(bookmark: Bookmark) {
+  const own = onLine(bookmark) ? null : icon(bookmark.folder ? 'folder' : 'file');
+  if (bookmark.mnemonic === undefined) return own ?? icon('bookmark');
+  const mnemonic = (
     <span class="playground-bookmark-mnemonic" aria-label={`Bookmark ${bookmark.mnemonic}`}>
       {bookmark.mnemonic}
     </span>
   );
+  return own ? [mnemonic, own] : mnemonic;
 }
 
+/**
+ * The window's nodes: the list; a file, bookmarked or holding its lines' bookmarks (IntelliJ's
+ * `FileNode`, made for the lines when the file has none of its own); a folder; a line.
+ */
 type Node =
   | { kind: 'list'; key: string; name: string }
-  | { kind: 'file'; key: string; path: string }
+  | { kind: 'file'; key: string; path: string; bookmark: Bookmark | undefined }
+  | { kind: 'folder'; key: string; bookmark: Bookmark }
   | { kind: 'line'; key: string; bookmark: LineBookmark };
 
-/** How the tree opens a file, and a place in one. */
-interface Opening {
-  open: (tab: { id: string; title: string }) => void;
-  openAt: (at: { path: string; line: number; column: number }) => void;
-}
-
 /** The active worktree's bookmarks, as a tree. */
-export function BookmarksView(props: Opening) {
+export function BookmarksView(props: { go: GoTo }) {
   return (
     <div class="playground-occurrences">
       {() => {
@@ -572,39 +609,46 @@ export function BookmarksView(props: Opening) {
             </div>
           );
         }
-        return <Tree env={env} list={list} open={props.open} openAt={props.openAt} />;
+        return <Tree env={env} list={list} go={props.go} />;
       }}
     </div>
   );
 }
 
-function Tree(
-  props: Opening & { env: { id: string; name: string }; list: readonly LineBookmark[] },
-) {
+function Tree(props: { env: { id: string; name: string }; list: readonly Bookmark[]; go: GoTo }) {
   const { env, list } = props;
-  const files = [...new Set(list.map((b) => b.path))];
+  // Each file's and folder's node in the order of its first bookmark, as IntelliJ's grouping
+  // (`prepareGroup`): a file's lines under it.
+  const tops = new Map<string, Node>();
+  for (const bookmark of list) {
+    const key = bookmark.path;
+    if (bookmark.folder) tops.set(key, { kind: 'folder', key, bookmark });
+    else if (!onLine(bookmark)) tops.set(key, { kind: 'file', key, path: key, bookmark });
+    else if (!tops.has(key)) tops.set(key, { kind: 'file', key, path: key, bookmark: undefined });
+  }
+  const linesOf = (path: string) =>
+    list.filter((bookmark): bookmark is LineBookmark => bookmark.path === path && onLine(bookmark));
   const top: Node = { kind: 'list', key: 'list', name: env.name };
   const model = new TreeModel<Node>({
     children: (node) => {
       if (node === undefined) return [top];
-      if (node.kind === 'list') {
-        return files.map((path) => ({ kind: 'file' as const, key: path, path }));
-      }
-      return list
-        .filter((b) => node.kind === 'file' && b.path === node.path)
-        .map((bookmark) => ({
-          kind: 'line' as const,
-          key: `${bookmark.path}:${String(bookmark.line)}`,
-          bookmark,
-        }));
+      if (node.kind === 'list') return [...tops.values()];
+      return linesOf(node.key).map((bookmark) => ({
+        kind: 'line' as const,
+        key: `${bookmark.path}:${String(bookmark.line)}`,
+        bookmark,
+      }));
     },
     key: (node) => node.key,
-    isLeaf: (node) => node.kind === 'line',
+    // A folder's contents aren't listed yet (IntelliJ's `FolderNode` lists them).
+    isLeaf: (node) =>
+      node.kind === 'line' ||
+      node.kind === 'folder' ||
+      (node.kind === 'file' && linesOf(node.key).length === 0),
   });
   // Open, as IntelliJ's.
   model.expand(top);
-  for (const path of files) model.expand({ kind: 'file', key: path, path });
-  const relative = (path: string) => path.slice(env.id.length + 1);
+  for (const node of tops.values()) model.expand(node);
   return (
     <TreeView
       model={model}
@@ -619,29 +663,39 @@ function Tree(
             <span class="playground-occurrences__count">Default</span>,
           ];
         }
-        if (node.kind === 'file') {
-          const name = relative(node.path);
-          const slash = name.lastIndexOf('/');
+        if (node.kind === 'line') {
+          // With the bookmark's icon, as IntelliJ's line nodes (`wrapIcon(null)`: its type's).
           return [
-            icon('file'),
-            <span class="playground-occurrences__name">{name.slice(slash + 1)}</span>,
-            slash < 0 ? null : (
-              <span class="playground-occurrences__count">{name.slice(0, slash)}</span>
-            ),
+            bookmarkIcon(node.bookmark),
+            <span class="playground-occurrences__count">{`${String(node.bookmark.line + 1)}:`}</span>,
+            <span class="playground-occurrences__text">{() => descriptionOf(node.bookmark)}</span>,
           ];
         }
-        // With the bookmark's icon, as IntelliJ's line nodes (`wrapIcon(null)`: its type's).
+        // As IntelliJ's `addTextTo`: the name, then the folder; with a description, it first, then
+        // the rest muted, the folder in brackets.
+        const bookmark = node.bookmark;
+        const { name, folder } = nameOf(env.id, bookmark ?? { path: node.key });
+        const description = bookmark?.description ?? '';
         return [
-          bookmarkIcon(node.bookmark),
-          <span class="playground-occurrences__count">{`${String(node.bookmark.line + 1)}:`}</span>,
-          <span class="playground-occurrences__text">{() => descriptionOf(node.bookmark)}</span>,
+          bookmark ? bookmarkIcon(bookmark) : icon('file'),
+          description === '' ? (
+            <span class="playground-occurrences__name">{name}</span>
+          ) : (
+            [
+              <span class="playground-occurrences__name">{description}</span>,
+              <span class="playground-occurrences__count">{name}</span>,
+            ]
+          ),
+          folder === undefined ? null : (
+            <span class="playground-occurrences__count">
+              {description === '' ? folder : `(${folder})`}
+            </span>
+          ),
         ];
       }}
       onOpen={(node) => {
-        if (node.kind === 'file') {
-          props.open({ id: node.path, title: node.path.slice(node.path.lastIndexOf('/') + 1) });
-        }
-        if (node.kind === 'line') props.openAt({ ...node.bookmark, column: 0 });
+        // A file without a bookmark of its own: opened, as a file bookmark is.
+        if (node.kind !== 'list') props.go(node.bookmark ?? { path: node.key });
       }}
     />
   );

@@ -60,7 +60,7 @@ import {
   type Mark,
   type Place,
 } from '@cerebro-ide/ui-editor';
-import { ProjectTree, selectInTree } from './project.js';
+import { projectNode, ProjectTree, selectInTree } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
 import { fileManagerLabel, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
@@ -177,6 +177,8 @@ import {
   showBookmarks,
   toggleBookmark,
   toggleMnemonic,
+  type Bookmark,
+  type BookmarkPlace,
   type LineBookmark,
 } from './bookmarks.js';
 import { HierarchyView, showHierarchy } from './call-hierarchy.js';
@@ -827,21 +829,28 @@ services.menus.contribute({
   item: { command: 'navigate.callHierarchy' },
   group: 'b',
 });
-// The line the bookmarks' commands act on: the gutter's, from its menu (IntelliJ's
-// `LOGICAL_LINE_AT_CURSOR`), none in an editor that doesn't say (a repository version's); else the
-// caret's, in the active file. None with no file.
-const bookmarkLine = (context?: unknown) => {
+// What the bookmarks' commands act on: the gutter's line, from its menu (IntelliJ's
+// `LOGICAL_LINE_AT_CURSOR`), none in an editor that doesn't say (a repository version's); the file
+// or folder selected in the Project tool window while it has the focus, as IntelliJ's (its
+// `ProjectFileNode`'s bookmark); else the caret's line, in the active file. None with no file.
+const bookmarkTarget = (context?: unknown): BookmarkPlace | undefined => {
   const gutter = context as { file?: string; line?: number } | undefined;
   if (gutter?.file !== undefined) {
     return gutter.line === undefined ? undefined : { path: gutter.file, line: gutter.line };
   }
+  const node = projectNode();
+  if (node !== undefined) {
+    return node === null
+      ? undefined
+      : { path: node.path, ...(node.kind === 'directory' ? { folder: true } : {}) };
+  }
   const file = activeFile();
   return file && { path: file.id, line: caretOf(file.id).line };
 };
-/** The worktree's id and the line, when there are both. */
+/** The worktree's id and the place, when there are both. */
 const bookmarkPlace = (context?: unknown) => {
   const env = active();
-  const at = bookmarkLine(context);
+  const at = bookmarkTarget(context);
   return env && at && { worktree: env.id, at };
 };
 /** Left out of the gutter's menu where there's no line; disabled elsewhere, as the Edit menu's. */
@@ -853,16 +862,34 @@ const lineBookmark = (context?: unknown) => {
   const place = bookmarkPlace(context);
   return place && bookmarkAt(place.worktree, place.at);
 };
-type BookmarkPlace = { worktree: string; at: { path: string; line: number } };
-// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the line, or none there.
+type Bookmarking = { worktree: string; at: BookmarkPlace };
+/**
+ * Goes to a bookmark, as IntelliJ's navigator (`FileNavigatorImpl`): its line; its file, opened; a
+ * folder, selected in the Project tool window.
+ */
+function goToBookmark(bookmark: Bookmark): void {
+  if (bookmark.line !== undefined) {
+    navigation.openAt({ path: bookmark.path, line: bookmark.line, column: 0 });
+  } else if (bookmark.folder) {
+    layout.toolWindows.show('project');
+    void selectInTree(bookmark.path, FILES);
+  } else {
+    navigation.open({
+      id: bookmark.path,
+      title: bookmark.path.slice(bookmark.path.lastIndexOf('/') + 1),
+    });
+  }
+}
+// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the line, or none there; or on the file or
+// folder selected in the Project tool window.
 services.commands.register({
   id: 'bookmarks.toggle',
   label: 'Toggle &Bookmark',
   visible: inGutterMenu,
   enabled: (context) => bookmarkPlace(context) !== undefined,
   run: (context) => {
-    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
-    toggleBookmark(worktree, at.path, at.line);
+    const { worktree, at } = bookmarkPlace(context) as Bookmarking;
+    toggleBookmark(worktree, at);
   },
 });
 services.keymap.bindDefault('F11', 'bookmarks.toggle');
@@ -885,7 +912,7 @@ services.commands.register({
   visible: inGutterMenu,
   enabled: (context) => bookmarkPlace(context) !== undefined,
   run: (context) => {
-    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    const { worktree, at } = bookmarkPlace(context) as Bookmarking;
     return chooseMnemonic(worktree, at, rewriteAsked);
   },
 });
@@ -900,7 +927,7 @@ services.commands.register({
   visible: (context) => lineBookmark(context) !== undefined,
   enabled: (context) => lineBookmark(context) !== undefined,
   run: (context) => {
-    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    const { worktree, at } = bookmarkPlace(context) as Bookmarking;
     return renameBookmark(worktree, at);
   },
 });
@@ -910,7 +937,7 @@ services.commands.register({
   visible: (context) => lineBookmark(context)?.mnemonic !== undefined,
   enabled: (context) => lineBookmark(context)?.mnemonic !== undefined,
   run: (context) => {
-    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    const { worktree, at } = bookmarkPlace(context) as Bookmarking;
     removeMnemonic(worktree, at);
   },
 });
@@ -959,7 +986,7 @@ services.commands.register({
   label: 'Show Bookmarks',
   dialog: true,
   enabled: () => active() !== undefined,
-  run: () => showBookmarks(active() as { id: string; name: string }, navigation.openAt),
+  run: () => showBookmarks(active() as { id: string; name: string }, goToBookmark),
 });
 services.keymap.bindDefault('Shift+F11', 'bookmarks.show');
 services.menus.contribute({
@@ -976,7 +1003,7 @@ services.commands.register({
     const env = active();
     return env !== undefined && bookmarksOf(env.id).some((b) => b.mnemonic !== undefined);
   },
-  run: () => goToMnemonic(active() as { id: string; name: string }, navigation.openAt),
+  run: () => goToMnemonic(active() as { id: string; name: string }, goToBookmark),
 });
 services.keymap.bindDefault('Ctrl+Shift+F11', 'bookmarks.goToMnemonic');
 services.menus.contribute({
@@ -990,11 +1017,10 @@ for (const mnemonic of MNEMONICS) {
   services.commands.register({
     id: `bookmarks.toggle.${mnemonic}`,
     label: `Toggle Bookmark ${mnemonic}`,
-    enabled: () => active() !== undefined && activeFile() !== undefined,
+    enabled: () => bookmarkPlace() !== undefined,
     run: () => {
-      const file = activeFile() as Tab;
-      const at = { path: file.id, line: caretOf(file.id).line };
-      return toggleMnemonic(active()?.id as string, at, mnemonic, rewriteAsked);
+      const { worktree, at } = bookmarkPlace() as Bookmarking;
+      return toggleMnemonic(worktree, at, mnemonic, rewriteAsked);
     },
   });
   services.commands.register({
@@ -1005,8 +1031,7 @@ for (const mnemonic of MNEMONICS) {
       return env !== undefined && bookmarkWith(env.id, mnemonic) !== undefined;
     },
     run: () => {
-      const bookmark = bookmarkWith(active()?.id as string, mnemonic) as LineBookmark;
-      navigation.openAt({ ...bookmark, column: 0 });
+      goToBookmark(bookmarkWith(active()?.id as string, mnemonic) as Bookmark);
     },
   });
   if (mnemonic <= '9') {
@@ -1844,7 +1869,7 @@ function Content(props: { id: string }) {
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
   if (props.id === 'bookmarks') {
-    return <BookmarksView open={navigation.open} openAt={navigation.openAt} />;
+    return <BookmarksView go={goToBookmark} />;
   }
   if (props.id === 'vcsChanges') return <DiffWithWorkingTree services={services} open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
