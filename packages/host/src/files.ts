@@ -2,7 +2,16 @@
 // file for the editor.
 
 import { dirname } from 'node:path';
-import { mkdir, open, readdir, rename, stat, writeFile, type FileHandle } from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  open,
+  readdir,
+  rename,
+  stat,
+  writeFile,
+  type FileHandle,
+} from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface Entry {
@@ -126,6 +135,24 @@ export async function createEntry(path: string, kind: 'file' | 'directory'): Pro
 export async function renameEntry(path: string, to: string): Promise<void> {
   await notThere(to);
   await rename(path, to);
+}
+
+/**
+ * Copies a file or folder to `to`, making the folders on its way, as IntelliJ's Copy in the Project
+ * view: an error (EEXIST) when `to` is there already, unless asked to go `over` it (a folder's
+ * files then join it, those of the same name replaced). Never into itself, in IntelliJ's words.
+ */
+export async function copyEntry(path: string, to: string, over = false): Promise<void> {
+  if (to.startsWith(`${path}/`)) {
+    throw new Error(
+      dirname(to) === path
+        ? 'Cannot place directory into itself.'
+        : 'Cannot place directory into its subdirectory.',
+    );
+  }
+  if (!over) await notThere(to);
+  await mkdir(dirname(to), { recursive: true });
+  await cp(path, to, { recursive: true, force: over, errorOnExist: !over });
 }
 
 /** Saves a text file as UTF-8, over what's there; the file must exist, so a typo makes none. */

@@ -41,6 +41,7 @@ import {
   isBinary,
   decodeText,
   readTextFile,
+  copyEntry,
   renameEntry,
   UnreadableFile,
   writeTextFile,
@@ -460,6 +461,14 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   // Rename in the Project view: a file or folder, never over another.
   connection.onRequest('fs.rename', (params) =>
     renameEntry(text(params, 'path'), text(params, 'to')),
+  );
+  // Copy and Paste: over what's there only when asked (`over: true`).
+  connection.onRequest('fs.copy', (params) =>
+    copyEntry(
+      text(params, 'path'),
+      text(params, 'to'),
+      (params as { over?: unknown }).over === true,
+    ),
   );
   // New File and New Directory: an empty file, or a folder (`directory: true`).
   connection.onRequest('fs.create', (params) =>

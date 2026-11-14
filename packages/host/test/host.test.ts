@@ -1960,10 +1960,20 @@ describe('files', () => {
     await ui.request('fs.create', { path: join(dir, 'folder'), directory: true });
     await ui.request('fs.rename', { path: join(dir, 'folder'), to: join(dir, 'renamed') });
     await ui.request('fs.rename', { path: join(dir, 'renamed'), to: join(dir, 'folder') });
+    await ui.request('fs.copy', { path: join(dir, 'new', 'n.ts'), to: join(dir, 'copied.ts') });
+    await ui.request('fs.copy', {
+      path: join(dir, 'new', 'n.ts'),
+      to: join(dir, 'copied.ts'),
+      over: true,
+    });
+    await expect(
+      ui.request('fs.copy', { path: join(dir, 'new', 'n.ts'), to: join(dir, 'copied.ts') }),
+    ).rejects.toThrow('EEXIST');
     expect(await ui.request('fs.list', { path: dir })).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'folder', kind: 'directory' }),
         expect.objectContaining({ name: 'new', kind: 'directory' }),
+        expect.objectContaining({ name: 'copied.ts', kind: 'file' }),
       ]),
     );
     expect(await ui.request('fs.read', { path: join(dir, 'new', 'n.ts') })).toMatchObject({

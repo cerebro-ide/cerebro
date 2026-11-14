@@ -12,6 +12,7 @@ import {
   readFileBytes,
   readTextFile,
   renameEntry,
+  copyEntry,
   toSlashes,
 } from '../src/index.js';
 
@@ -138,6 +139,50 @@ describe('renameEntry', () => {
     mkdirSync(join(root, 'lib'));
     await renameEntry(join(root, 'lib'), join(root, 'src'));
     expect(statSync(join(root, 'src')).isDirectory()).toBe(true);
+  });
+});
+
+describe('copyEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-copy-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('copies a file, making the folders on its way, never over one unless asked', async () => {
+    writeFileSync(join(root, 'a.ts'), 'a');
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await copyEntry(join(root, 'a.ts'), join(root, 'new/deep/b.ts'));
+    expect(readFileSync(join(root, 'new/deep/b.ts'), 'utf8')).toBe('a');
+    expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('a');
+    await expect(copyEntry(join(root, 'a.ts'), join(root, 'kept.ts'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    await copyEntry(join(root, 'a.ts'), join(root, 'kept.ts'), true);
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('a');
+  });
+
+  it('copies a folder with what’s in it; over one, its files joining it; never into itself', async () => {
+    mkdirSync(join(root, 'lib/x'), { recursive: true });
+    writeFileSync(join(root, 'lib/x/c.ts'), 'c');
+    await copyEntry(join(root, 'lib'), join(root, 'src'));
+    expect(readFileSync(join(root, 'src/x/c.ts'), 'utf8')).toBe('c');
+    writeFileSync(join(root, 'src/x/c.ts'), 'changed');
+    writeFileSync(join(root, 'src/own.ts'), 'own');
+    await expect(copyEntry(join(root, 'lib'), join(root, 'src'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    await copyEntry(join(root, 'lib'), join(root, 'src'), true);
+    expect(readFileSync(join(root, 'src/x/c.ts'), 'utf8')).toBe('c');
+    expect(readFileSync(join(root, 'src/own.ts'), 'utf8')).toBe('own');
+    // As the page names them: with `/`.
+    const lib = `${toSlashes(root)}/lib`;
+    await expect(copyEntry(lib, `${lib}/lib`)).rejects.toThrow(
+      'Cannot place directory into itself.',
+    );
+    await expect(copyEntry(lib, `${lib}/x/lib`)).rejects.toThrow(
+      'Cannot place directory into its subdirectory.',
+    );
   });
 });
 

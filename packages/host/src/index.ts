@@ -97,6 +97,7 @@ export {
   MAX_FILE_SIZE,
   readFileBytes,
   readTextFile,
+  copyEntry,
   renameEntry,
   isBinary,
   decodeText,
