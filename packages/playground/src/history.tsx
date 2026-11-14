@@ -14,6 +14,7 @@ import { DiffViewer } from './diff-viewer.js';
 import type { TabContext } from './commands.js';
 import { reloadAll } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
+import { projectTarget } from './project.js';
 import { settingsFor } from './settings.js';
 
 /** A file's version, as the host gives it. */
@@ -66,7 +67,14 @@ export interface HistorySetup {
 /** Local History's commands and menus, and recording changes made outside Cerebro. */
 export function setupHistory(services: MenuServices, setup: HistorySetup): void {
   const { commands, menus } = services;
-  const target = (c: unknown) => fileOf((c as TabContext | undefined)?.tab ?? setup.activeTab());
+  // The Project view's file while it has the focus (none for a folder: its history isn't shown
+  // yet); else the tab's.
+  const target = (c: unknown) => {
+    const tab = c as TabContext | undefined;
+    const node = projectTarget(tab);
+    if (node !== undefined) return node?.kind === 'file' ? fileOf(node.path) : undefined;
+    return fileOf(tab?.tab ?? setup.activeTab());
+  };
 
   commands.register({
     id: 'history.show',
@@ -90,6 +98,8 @@ export function setupHistory(services: MenuServices, setup: HistorySetup): void 
     ['main/file', 'b'],
     ['editor/content', 'h-history'],
     ['editor/tab', 'h-history'],
+    // The Project view's, first of its version control's (IntelliJ's `VersionControlsGroup`).
+    ['project/node', 'f-vcs'],
   ] as const) {
     menus.contribute({ menu, item: { submenu: 'localHistory', label: 'Local &History' }, group });
   }

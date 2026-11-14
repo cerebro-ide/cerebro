@@ -1371,6 +1371,36 @@ describe('the Project view’s menu', () => {
     if (!shown) await userEvent.click(stripe('project'));
     answers.delete('fs.list');
   });
+
+  it('shows the Local History of the file it’s opened on; not yet a folder’s', async () => {
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const history = async (key: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('Local History'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    };
+    await history('/r/lib');
+    expect(menuItem('Show History').getAttribute('aria-disabled')).toBe('true');
+    await closeAll();
+    await history('/r/d.ts');
+    const asked: unknown[] = [];
+    answers.set('history.file', (params: unknown) => {
+      asked.push(params);
+      return [];
+    });
+    await userEvent.click(menuItem('Show History'));
+    await expect.poll(() => asked).toEqual([{ path: '/r', file: 'd.ts' }]);
+    answers.delete('history.file');
+    await closeAll();
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
 });
 
 describe('errors and warnings', () => {

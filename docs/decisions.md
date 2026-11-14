@@ -3182,9 +3182,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   take it as they take the view's selection. Copy Path/Reference… is in it too (added
   2026-11-14), before Bookmarks, as IntelliJ's `CutCopyPasteGroup`: its copies, and their key,
   take the view's selection while it has the focus, a folder's too, as IntelliJ's actions take the
-  focused view's; a tab's menu still copies its tab's. IntelliJ's menu's other groups (New, Cut,
-  Copy, Paste, Find in Files, Rename, Delete, Open In, Git, Local History, Compare With) aren't in
-  it yet.
+  focused view's; a tab's menu still copies its tab's. So is Local History (added 2026-11-14),
+  first of its version control's, as IntelliJ's `VersionControlsGroup`: Show History, from it or
+  the File menu while the view has the focus, shows the selected file's; a folder's isn't shown
+  yet (IntelliJ shows a folder's changes). IntelliJ's menu's other groups (New, Cut, Copy, Paste,
+  Find in Files, Rename, Delete, Open In, Git, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
