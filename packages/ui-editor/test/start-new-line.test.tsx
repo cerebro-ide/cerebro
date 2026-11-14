@@ -9,6 +9,7 @@ import {
   historyNamesIn,
   languageFor,
   startNewLine,
+  startNewLineBefore,
 } from '../src/index.js';
 
 describe('Start New Line', () => {
@@ -57,7 +58,47 @@ function mount(text: string, editable: boolean) {
   };
 }
 
+/** The text after Start New Line Before Current at `caret` in a file at `path`, the caret as `|`. */
+function before(doc: string, caret: number, path = 'a.ts') {
+  const state = EditorState.create({
+    doc,
+    selection: EditorSelection.cursor(caret),
+    extensions: [languageFor(path) ?? []],
+  });
+  const next = state.update(startNewLineBefore(state) ?? {}).state;
+  const { head } = next.selection.main;
+  return `${next.doc.toString().slice(0, head)}|${next.doc.toString().slice(head)}`;
+}
+
+describe('Start New Line Before Current', () => {
+  it('puts a line before the caret’s, the caret at the indent the language gives it', () => {
+    expect(before('if (a) {\n  b();\n}', 13)).toBe('if (a) {\n  |\n  b();\n}');
+    // Before a block's closing brace: inside the block.
+    expect(before('if (a) {\n  b();\n}', 17)).toBe('if (a) {\n  b();\n  |\n}');
+    expect(before('a;\nb;', 0)).toBe('|\na;\nb;');
+  });
+
+  it('takes the caret line’s indent where the language gives none', () => {
+    expect(before('a\n\t  b', 6, 'a.txt')).toBe('a\n\t  |\n\t  b');
+  });
+
+  it('does nothing in a read-only editor', () => {
+    const state = EditorState.create({ doc: 'a', extensions: EditorState.readOnly.of(true) });
+    expect(startNewLineBefore(state)).toBeUndefined();
+  });
+});
+
 describe('the keys in an editor', () => {
+  it('Ctrl+Alt+Enter starts a new line before the caret’s, as IntelliJ’s, and Undo names it', async () => {
+    const { view, content, close } = mount('ab\ncd', true);
+    view.dispatch({ selection: { anchor: 4 } });
+    await userEvent.keyboard('{Control>}{Alt>}{Enter}{/Alt}{/Control}');
+    expect(view.state.doc.toString()).toBe('ab\n\ncd');
+    expect(view.state.selection.main.head).toBe(3);
+    expect(historyNamesIn(content)?.undo).toBe('Start New Line Before Current');
+    close();
+  });
+
   it('Shift+Enter starts a new line, as IntelliJ’s, and Undo names it', async () => {
     const { view, content, close } = mount('ab\ncd', true);
     view.dispatch({ selection: { anchor: 1 } });
