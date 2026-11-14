@@ -110,6 +110,8 @@ export function ProjectTree(props: {
   samples: readonly string[];
   /** Opens a file in the active environment's editor. */
   open: (tab: Tab) => void;
+  /** Opens the view's menu on the row it's asked on, selected (`projectNode`). */
+  menu: (event: MouseEvent) => void;
 }): Node {
   return (
     <div class="playground-project">
@@ -150,6 +152,9 @@ export function ProjectTree(props: {
             ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });
+            }}
+            onContextMenu={(event) => {
+              props.menu(event);
             }}
           />
         );
