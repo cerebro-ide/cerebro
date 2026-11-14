@@ -23,6 +23,8 @@ const repo = join(root, 'project');
 
 /** A path as git and Cerebro write it: with forward slashes, on every OS. */
 const gitPath = (...parts: string[]) => join(...parts).replaceAll('\\', '/');
+/** The Project tree's top row: the worktree's folder, its name then its path. */
+const top = `project${gitPath(repo)}`;
 
 beforeAll(async () => {
   const git = (cwd: string, ...args: string[]) => execFileSync('git', args, { cwd, stdio: 'pipe' });
@@ -81,13 +83,21 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   const page = running.page;
   const names = () => page.locator('.cerebro-tree-row').allTextContents();
   await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
-  // Folders first; git's own folder isn't shown.
-  expect(await names()).toEqual(['src', 'README.md']);
+  // Under the worktree's folder, its name then its path; folders first; git's own isn't shown.
+  expect(await names()).toEqual([top, 'src', 'README.md']);
   await page
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click();
   await page.locator('.cerebro-tree-row', { hasText: 'app.ts' }).waitFor();
-  expect(await names()).toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+  expect(await names()).toEqual([
+    top,
+    'src',
+    'app.ts',
+    'shape.ts',
+    'tool.py',
+    'use.ts',
+    'README.md',
+  ]);
   await page.evaluate(() => {
     const seen: string[] = [];
     (window as { violations?: string[] }).violations = seen;
@@ -118,13 +128,13 @@ it('shows files added on disk and drops those removed, the folders open as they 
     // Read again while the window has the focus, every 2 seconds.
     await expect
       .poll(names, { timeout: 15_000 })
-      .toEqual(['src', 'added.ts', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+      .toEqual([top, 'src', 'added.ts', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
   } finally {
     rmSync(added);
   }
   await expect
     .poll(names, { timeout: 15_000 })
-    .toEqual(['src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+    .toEqual([top, 'src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
 });
 
 it('keeps the file open after a reload, read again from disk', async () => {

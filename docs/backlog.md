@@ -13,7 +13,8 @@ that opens the door to a few things, like something to select for search within 
 files, and having files which aren't part of the project like scratch files and external files -
 that's missing and should be implemented as well". IntelliJ's Project view lists the project's
 content under its own node, beside Scratches and Consoles and External Libraries; Find in Files
-can then be scoped to the whole project from it. Cerebro's view shows the worktree's folder alone.
+can then be scoped to the whole project from it. Done: the worktree's folder at the tree's top
+(decision "The project tree"). Left: Scratches and Consoles, and files from outside the project.
 
 ### Commit window: checkboxes show the text cursor
 

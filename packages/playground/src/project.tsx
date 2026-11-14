@@ -1,4 +1,5 @@
-// The Project tool window: the active environment's files as a tree. In the desktop app they come
+// The Project tool window: the active environment's files as a tree, under its worktree's folder,
+// its name in bold and its path after, as IntelliJ's content root. In the desktop app they come
 // from the host, folder by folder as they're opened, those git ignores in the ignored colour, as
 // IntelliJ shows them; in a browser, from the sample paths. Each
 // environment keeps its own tree, so switching back finds its folders as they were. While it shows,
@@ -23,11 +24,15 @@ export interface FileNode {
   ignored?: boolean;
 }
 
-/** The sample paths as a tree: `src/main.ts` gives the folder `src` with the file in it. */
-function sampleSource(paths: readonly string[]): TreeSource<FileNode> {
+/**
+ * The sample paths as a tree, under the environment's folder: `src/main.ts` gives the folder `src`
+ * with the file in it.
+ */
+function sampleSource(root: FileNode, paths: readonly string[]): TreeSource<FileNode> {
   return {
     children: (node) => {
-      const prefix = node ? `${node.path}/` : '';
+      if (!node) return [root];
+      const prefix = node === root ? '' : `${node.path}/`;
       const seen = new Map<string, FileNode>();
       for (const path of paths) {
         if (!path.startsWith(prefix)) continue;
@@ -51,21 +56,29 @@ function sampleSource(paths: readonly string[]): TreeSource<FileNode> {
 
 const models = new Map<string, TreeModel<FileNode>>();
 
-/** An environment's tree: its worktree's files through the host, else the samples. */
-function modelFor(envId: string, samples: readonly string[]): TreeModel<FileNode> {
-  let model = models.get(envId);
+/**
+ * An environment's tree: its worktree's folder, as IntelliJ's Project view shows a project's content
+ * root, opened; its files through the host, else the samples.
+ */
+function modelFor(
+  env: { id: string; name: string },
+  samples: readonly string[],
+): TreeModel<FileNode> {
+  let model = models.get(env.id);
   if (!model) {
-    const host = hostFor(envId);
+    const host = hostFor(env.id);
+    const root: FileNode = { path: env.id, name: env.name, kind: 'directory' };
     const source: TreeSource<FileNode> = host
       ? {
           children: async (node) =>
-            (await host.request('fs.list', { path: node ? node.path : envId })) as FileNode[],
+            node ? ((await host.request('fs.list', { path: node.path })) as FileNode[]) : [root],
           key: (node) => node.path,
           isLeaf: (node) => node.kind === 'file',
         }
-      : sampleSource(samples);
+      : sampleSource(root, samples);
     model = new TreeModel(source);
-    models.set(envId, model);
+    model.expand(root);
+    models.set(env.id, model);
   }
   return model;
 }
@@ -82,7 +95,7 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
   if (!path.startsWith(root)) return Promise.resolve(false);
   const parts = path.slice(root.length).split('/');
   const keys = parts.map((_, i) => root + parts.slice(0, i + 1).join('/'));
-  return modelFor(env.id, samples).reveal(keys);
+  return modelFor(env, samples).reveal([env.id, ...keys]);
 }
 
 /** Reads a worktree's tree again, as after a file's made or deleted in it. */
@@ -138,7 +151,7 @@ export function ProjectTree(props: {
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
-        const model = modelFor(env.id, props.samples);
+        const model = modelFor(env, props.samples);
         // A folder that can't be read shows why in the tree.
         const refresh = () => void model.refresh();
         const timer = setInterval(() => {
@@ -158,6 +171,7 @@ export function ProjectTree(props: {
               <span
                 class={() =>
                   [
+                    node.path === env.id && 'playground-project__root',
                     node.ignored && 'playground-change--ignored',
                     (node.kind === 'directory'
                       ? hasErrorsBeneath(node.path)
@@ -169,6 +183,10 @@ export function ProjectTree(props: {
               >
                 {node.name}
               </span>,
+              // The worktree's folder: its name in bold, then where it is, as IntelliJ's.
+              node.path === env.id && hostFor(env.id) && (
+                <span class="playground-project__location">{node.path}</span>
+              ),
             ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });
