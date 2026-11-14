@@ -227,7 +227,8 @@ doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
   "goes to a definition with Ctrl+click, and finds usages with Alt+F7" reached `export class Shape`
   in shape.ts, then Alt+F7 showed no popup in 5 s. The cause isn't known (the run printed nothing
   more); the test now prints the focus, the caret's line, the popups and the balloons when it
-  happens again.
+  happens again. #361's run showed the same (focus in the editor on that line, no popup or
+  balloon); the test now also waits 25 s more and prints whether, and when, the list showed.
 - **The e2e completion test once showed no list on Windows** (CI on #121, 2026-11-04): after
   `shape.wi` was typed, with the editor focused and no popup open, the list never showed. The cause
   isn't found. The test's output asked the server again with the file as on disk, not as typed, so
