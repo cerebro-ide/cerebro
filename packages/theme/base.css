@@ -9,7 +9,22 @@ html {
   user-select: none;
 }
 
-input,
+/*
+ * Text inputs only: a checkbox, a radio button or a button keeps the arrow. In :where(), as weak as
+ * `input` alone, so a component's own cursor still wins.
+ */
+input:where(
+  :not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='range'],
+    [type='color'],
+    [type='file']
+  )
+),
 textarea,
 [contenteditable='true'],
 .cerebro-selectable {
