@@ -1771,7 +1771,9 @@ describe('LanguageServers', () => {
     // A file of a language the server's spec doesn't name, read: asked as the one asked about's.
     writeFileSync(`${root}/gone.other`, 'other\n');
     await pool([fake('declares')]).definitions(root, file, at(0, 0));
-    expect(readFileSync(log, 'utf8')).toContain('"languageId":"fake","version":1,"text":"other\\n"');
+    expect(readFileSync(log, 'utf8')).toContain(
+      '"languageId":"fake","version":1,"text":"other\\n"',
+    );
     rmSync(`${root}/gone.other`);
   });
 
