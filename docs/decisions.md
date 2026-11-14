@@ -3241,10 +3241,21 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   (`fs.copy`), and the copy is selected and a file opened, as IntelliJ's. Claude's choices (open to
   change): the copy is kept inside Cerebro, not on the system's clipboard; Paste needs a selection;
   pasting onto itself does nothing; a failure's title is "Cannot Copy" (a claim). Measured in the
-  app: the dialog, the copy on disk, the question for a taken name, and the menu. Not yet: Cut and
-  a move's Paste, several files at once, the directory field's history and its folder chooser, and
-  the copies' paths shortened as IntelliJ's (`shortenPath`). IntelliJ's menu's other groups (Find
-  Usages, Compare With) aren't in it yet.
+  app: the dialog, the copy on disk, the question for a taken name, and the menu. So is Cut (added
+  2026-11-14), before Copy: Paste after it moves, asking in IntelliJ's Move dialog
+  (MoveFilesOrDirectoriesDialog): `Move file /path/a.ts`, To directory (its last name selected,
+  made if it isn't there), Search for references and Open in editor, both checked as IntelliJ's
+  defaults (RefactoringSettings' `MOVE_SEARCH_FOR_REFERENCES_FOR_FILE`, RefactoringDialog's),
+  and its button, Refactor. Where it is already, it says IntelliJ's "Already in this directory.
+  Choose another one." and stays open. A file's name taken there is asked about, Overwrite or Skip;
+  a folder's is the host's to refuse (a claim for IntelliJ). A move is Rename's (`moveEntry`, one
+  function for both): what's unsaved is saved, what refers to a file changes with it, the host
+  moves it (`fs.rename`), and its tabs follow it. What's cut is pasted once. Measured in the app:
+  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. Not yet:
+  cut files shown greyed in the view, as IntelliJ's; several files at once; the directory field's
+  history, completion and folder chooser; the paths shortened as IntelliJ's (`shortenPath`); and
+  the Move dialog's Preview. IntelliJ's menu's other groups (Find Usages, Compare With) aren't in
+  it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
