@@ -91,11 +91,19 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
  * what's selected there isn't a file; undefined when the view hasn't the focus.
  */
 export function projectFile(): string | null | undefined {
+  const node = projectNode();
+  return node === undefined ? undefined : node?.kind === 'file' ? node.path : null;
+}
+
+/**
+ * What's selected in the Project tool window, a file or a folder, while it has the focus: null when
+ * nothing is; undefined when it hasn't the focus.
+ */
+export function projectNode(): FileNode | null | undefined {
   const env = active();
   if (!env || !target()?.closest('.playground-project')) return undefined;
   const model = models.get(env.id) as TreeModel<FileNode>;
-  const node = model.rows.find((row) => row.key === model.selected)?.node;
-  return node?.kind === 'file' ? node.path : null;
+  return model.rows.find((row) => row.key === model.selected)?.node ?? null;
 }
 
 export function ProjectTree(props: {

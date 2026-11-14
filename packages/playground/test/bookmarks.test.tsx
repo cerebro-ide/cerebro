@@ -20,7 +20,7 @@ import {
   showBookmarks,
   toggleBookmark,
   toggleMnemonic,
-  type LineBookmark,
+  type Bookmark,
 } from '../src/bookmarks.js';
 import { documentFor } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
@@ -41,9 +41,7 @@ afterEach(() => {
 
 function mount(): void {
   const handle = render(
-    () => (
-      <BookmarksView open={(tab) => void opened.push(tab)} openAt={(at) => void opened.push(at)} />
-    ),
+    () => <BookmarksView go={(bookmark) => void opened.push(bookmark)} />,
     document.body,
   );
   dispose = () => {
@@ -59,8 +57,8 @@ describe('bookmarks', () => {
   it('are toggled on a line, kept in the order added, per worktree, between runs', () => {
     localStorage.setItem('cerebro.bookmarks:/kept', JSON.stringify([{ path: '/kept/a', line: 2 }]));
     expect(bookmarksOf('/kept')).toEqual([{ path: '/kept/a', line: 2 }]);
-    toggleBookmark('/kept', '/kept/b', 0);
-    toggleBookmark('/kept', '/kept/a', 5);
+    toggleBookmark('/kept', { path: '/kept/b', line: 0 });
+    toggleBookmark('/kept', { path: '/kept/a', line: 5 });
     expect(bookmarkMarks('/kept', '/kept/a').map((mark) => mark.line)).toEqual([2, 5]);
     expect(JSON.parse(localStorage.getItem('cerebro.bookmarks:/kept') as string)).toEqual([
       { path: '/kept/a', line: 2 },
@@ -68,7 +66,7 @@ describe('bookmarks', () => {
       { path: '/kept/a', line: 5 },
     ]);
     // Toggled again: taken away.
-    toggleBookmark('/kept', '/kept/a', 2);
+    toggleBookmark('/kept', { path: '/kept/a', line: 2 });
     expect(bookmarksOf('/kept')).toEqual([
       { path: '/kept/b', line: 0 },
       { path: '/kept/a', line: 5 },
@@ -82,9 +80,9 @@ describe('bookmarks', () => {
   });
 
   it('move where an edit takes them, in their order; those it joins go', () => {
-    toggleBookmark('/moved', '/moved/a', 7);
-    toggleBookmark('/moved', '/moved/b', 1);
-    toggleBookmark('/moved', '/moved/a', 3);
+    toggleBookmark('/moved', { path: '/moved/a', line: 7 });
+    toggleBookmark('/moved', { path: '/moved/b', line: 1 });
+    toggleBookmark('/moved', { path: '/moved/a', line: 3 });
     moveBookmarks('/moved', '/moved/a', [4, 8]);
     expect(bookmarksOf('/moved')).toEqual([
       { path: '/moved/a', line: 8 },
@@ -99,9 +97,9 @@ describe('bookmarks', () => {
   });
 
   it('are gone through by path, then line, with no going round', () => {
-    toggleBookmark('/next', '/next/b', 3);
-    toggleBookmark('/next', '/next/a', 9);
-    toggleBookmark('/next', '/next/b', 1);
+    toggleBookmark('/next', { path: '/next/b', line: 3 });
+    toggleBookmark('/next', { path: '/next/a', line: 9 });
+    toggleBookmark('/next', { path: '/next/b', line: 1 });
     const next = (path: string, line: number, forward: boolean) =>
       nextBookmark('/next', { path, line }, forward);
     expect(next('/next/a', 0, true)).toEqual({ path: '/next/a', line: 9 });
@@ -118,15 +116,15 @@ describe('bookmarks', () => {
   });
 
   it('take a mnemonic, theirs alone, as IntelliJ’s toggle with a type', async () => {
-    const asked: LineBookmark[] = [];
+    const asked: Bookmark[] = [];
     let rewrite = false;
     const toggle = (path: string, line: number, mnemonic: string) =>
       toggleMnemonic('/m', { path, line }, mnemonic, (taken) => {
         asked.push(taken);
         return Promise.resolve(rewrite);
       });
-    toggleBookmark('/m', '/m/a', 0);
-    toggleBookmark('/m', '/m/a', 3);
+    toggleBookmark('/m', { path: '/m/a', line: 0 });
+    toggleBookmark('/m', { path: '/m/a', line: 3 });
     // On a bookmark: it gets it, in its place; on a line with none, one's added with it.
     await toggle('/m/a', 0, '1');
     await toggle('/m/b', 2, 'K');
@@ -218,12 +216,125 @@ describe('bookmarks', () => {
       throw new Error('QuotaExceededError');
     };
     try {
-      toggleBookmark('/full', '/full/a', 0);
+      toggleBookmark('/full', { path: '/full/a', line: 0 });
     } finally {
       localStorage.setItem = setItem;
     }
     expect(bookmarksOf('/full')).toEqual([{ path: '/full/a', line: 0 }]);
     expect(localStorage.getItem('cerebro.bookmarks:/full')).toBeNull();
+  });
+});
+
+describe('file and folder bookmarks', () => {
+  const yes = () => Promise.resolve(true);
+
+  it('are kept with lines’ but apart from them: not in the gutter, not gone through, not moved', async () => {
+    toggleBookmark('/ff', { path: '/ff/a.ts', line: 1 });
+    toggleBookmark('/ff', { path: '/ff/a.ts' });
+    toggleBookmark('/ff', { path: '/ff/src', folder: true });
+    // Kept with no fields that aren't theirs.
+    expect(JSON.parse(localStorage.getItem('cerebro.bookmarks:/ff') as string)).toStrictEqual([
+      { path: '/ff/a.ts', line: 1 },
+      { path: '/ff/a.ts' },
+      { path: '/ff/src', folder: true },
+    ]);
+    expect(bookmarkAt('/ff', { path: '/ff/a.ts' })).toEqual({ path: '/ff/a.ts' });
+    expect(bookmarkMarks('/ff', '/ff/a.ts')).toEqual([{ line: 1, mnemonic: undefined }]);
+    expect(nextBookmark('/ff', undefined, true)).toEqual({ path: '/ff/a.ts', line: 1 });
+    expect(nextBookmark('/ff', { path: '/ff/a.ts', line: 1 }, true)).toBeUndefined();
+    moveBookmarks('/ff', '/ff/a.ts', [3]);
+    expect(bookmarksOf('/ff')).toEqual([
+      { path: '/ff/a.ts', line: 3 },
+      { path: '/ff/a.ts' },
+      { path: '/ff/src', folder: true },
+    ]);
+    // No description of their own, as IntelliJ's.
+    expect(descriptionOf({ path: '/ff/a.ts' })).toBe('');
+    // A mnemonic: its own, the line's left.
+    await toggleMnemonic('/ff', { path: '/ff/src', folder: true }, 'F', yes);
+    expect(bookmarkWith('/ff', 'F')).toEqual({ path: '/ff/src', folder: true, mnemonic: 'F' });
+    expect(mnemonicChoice('/ff', { path: '/ff/a.ts' })).toBe('Assign Mnemonic');
+    await toggleMnemonic('/ff', { path: '/ff/b.ts' }, 'B', yes);
+    expect(bookmarkAt('/ff', { path: '/ff/b.ts' })).toEqual({ path: '/ff/b.ts', mnemonic: 'B' });
+    // Taken away, the line's left.
+    toggleBookmark('/ff', { path: '/ff/a.ts' });
+    expect(bookmarkAt('/ff', { path: '/ff/a.ts', line: 3 })).toBeDefined();
+    expect(bookmarkAt('/ff', { path: '/ff/a.ts' })).toBeUndefined();
+  });
+
+  it('are named by their file’s or folder’s name when a mnemonic’s taken from them', async () => {
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
+    const asked = rewriteAsked({ path: '/q/src', folder: true, mnemonic: '4' });
+    expect(await dialogText()).toBe(
+      '‘4’ mnemonic is already taken by ‘src’. Do you want to rewrite it?Don’t ask again',
+    );
+    await press('Cancel');
+    expect(await asked).toBe(false);
+  });
+
+  it('show in the window as their files and folders, with their lines under them', async () => {
+    workspace.openOrActivate({ id: '/fw', name: 'fw', branch: 'main' });
+    mount();
+    toggleBookmark('/fw', { path: '/fw/src/a.ts', line: 0 });
+    toggleBookmark('/fw', { path: '/fw/src/a.ts' });
+    toggleBookmark('/fw', { path: '/fw/lib', folder: true });
+    toggleBookmark('/fw', { path: '/fw/b.ts' });
+    // Each in the place of its first bookmark: a file's lines under it.
+    await expect.poll(rows).toEqual(['fwDefault', 'a.tssrc', '1:', 'lib', 'b.ts']);
+    // Only a file with lines opens.
+    expect(row('/fw/src/a.ts').getAttribute('aria-expanded')).toBe('true');
+    expect(row('/fw/lib').hasAttribute('aria-expanded')).toBe(false);
+    expect(row('/fw/b.ts').hasAttribute('aria-expanded')).toBe(false);
+    // With a mnemonic: it, then the file's own icon; with a description: it first, the folder in
+    // brackets.
+    await toggleMnemonic('/fw', { path: '/fw/src/a.ts' }, 'A', yes);
+    describeBookmark('/fw', { path: '/fw/src/a.ts' }, 'main');
+    await expect.poll(rows).toEqual(['fwDefault', 'Amaina.ts(src)', '1:', 'lib', 'b.ts']);
+    const mark = row('/fw/src/a.ts').querySelector('.playground-bookmark-mnemonic');
+    expect(mark?.nextElementSibling?.tagName).toBe('svg');
+    describeBookmark('/fw', { path: '/fw/b.ts' }, 'top');
+    await expect.poll(rows).toEqual(['fwDefault', 'Amaina.ts(src)', '1:', 'lib', 'topb.ts']);
+    // Gone to as they are.
+    await userEvent.dblClick(row('/fw/lib'));
+    await userEvent.dblClick(row('/fw/src/a.ts'));
+    expect(opened).toEqual([
+      { path: '/fw/lib', folder: true },
+      { path: '/fw/src/a.ts', mnemonic: 'A', description: 'main' },
+    ]);
+    workspace.close('/fw');
+  });
+
+  it('are listed in the popups by their names, previewed from a file’s start, and gone to', async () => {
+    const worktree = { id: '/fp', name: 'fp' };
+    await toggleMnemonic('/fp', { path: '/fp/src/a.ts' }, 'P', yes);
+    toggleBookmark('/fp', { path: '/fp/lib', folder: true });
+    describeBookmark('/fp', { path: '/fp/lib', folder: true }, 'libs');
+    const shown = showBookmarks(worktree, (bookmark) => void opened.push(bookmark));
+    expect(await popupItems()).toEqual(['a.ts', 'libs']);
+    // Its mnemonic and the file's icon side by side, as IntelliJ's row icon.
+    const [mnemonic, file] = [
+      ...document.querySelectorAll(
+        '.cerebro-popup-item__icon .playground-bookmark-mnemonic, .cerebro-popup-item__icon svg',
+      ),
+    ].map((element) => element.getBoundingClientRect());
+    expect(file?.left).toBeGreaterThanOrEqual(mnemonic?.right as number);
+    expect(file?.top).toBeLessThan(mnemonic?.bottom as number);
+    // Before the label, not under it.
+    const label = document.querySelector('.cerebro-popup-item__label')?.getBoundingClientRect();
+    expect(label?.left).toBeGreaterThanOrEqual(file?.right as number);
+    expect(
+      [...document.querySelectorAll('.cerebro-popup-item')].map(
+        (item) => item.querySelector('.cerebro-popup-item__detail')?.textContent,
+      ),
+    ).toEqual(['src', 'lib']);
+    const preview = () =>
+      document.querySelector('.cerebro-popup__preview .playground-find__preview');
+    expect(preview()).not.toBeNull();
+    await userEvent.keyboard('{ArrowDown}');
+    await expect.poll(preview).toBeNull();
+    await userEvent.keyboard('{Enter}');
+    await shown;
+    expect(opened).toEqual([{ path: '/fp/lib', folder: true, description: 'libs' }]);
   });
 });
 
@@ -234,8 +345,8 @@ describe('Show Bookmarks', () => {
       ?.textContent;
 
   it('lists the worktree’s bookmarks in the order added, under its list, and opens the one chosen', async () => {
-    toggleBookmark('/shown', '/shown/src/a.ts', 4);
-    toggleBookmark('/shown', '/shown/top.ts', 0);
+    toggleBookmark('/shown', { path: '/shown/src/a.ts', line: 4 });
+    toggleBookmark('/shown', { path: '/shown/top.ts', line: 0 });
     const shown = showBookmarks(worktree, (at) => void opened.push(at));
     expect(await popupItems()).toEqual(['a.ts :5', 'top.ts :1']);
     expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Bookmarks');
@@ -255,7 +366,7 @@ describe('Show Bookmarks', () => {
     await expect.poll(highlighted).toBe('top.ts :1');
     await userEvent.keyboard('{Enter}');
     await shown;
-    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, column: 0 }]);
+    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0 }]);
   });
 
   it('goes to one whose mnemonic is typed before anything’s searched for, as IntelliJ’s', async () => {
@@ -266,7 +377,7 @@ describe('Show Bookmarks', () => {
     await popupItems();
     await userEvent.keyboard('t');
     await shown;
-    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, mnemonic: 'T', column: 0 }]);
+    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, mnemonic: 'T' }]);
     // Once searching: searched for.
     shown = showBookmarks(worktree, (at) => void opened.push(at));
     await popupItems();
@@ -275,7 +386,7 @@ describe('Show Bookmarks', () => {
     await expect.poll(popupItems).toEqual(['a.ts :5']);
     await userEvent.keyboard('{Enter}');
     await shown;
-    expect(opened.at(-1)).toEqual({ path: '/shown/src/a.ts', line: 4, mnemonic: 'S', column: 0 });
+    expect(opened.at(-1)).toEqual({ path: '/shown/src/a.ts', line: 4, mnemonic: 'S' });
   });
 
   it('says there are none, and opens nothing when closed', async () => {
@@ -307,11 +418,11 @@ describe('the mnemonic chooser', () => {
 
   it('is titled for what it does on the line, as IntelliJ’s', async () => {
     expect(mnemonicChoice('/c', at)).toBe('Add Mnemonic Bookmark');
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
     expect(mnemonicChoice('/c', at)).toBe('Assign Mnemonic');
     await toggleMnemonic('/c', at, 'B', never);
     expect(mnemonicChoice('/c', at)).toBe('Change Mnemonic');
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
   });
 
   it('shows the mnemonics in two grids, those used and the line’s coloured', async () => {
@@ -345,8 +456,8 @@ describe('the mnemonic chooser', () => {
     await chosen;
     expect(bookmarkWith('/c', '3')).toEqual({ ...at, mnemonic: '3' });
     expect(bookmarkWith('/c', '7')).toBeUndefined();
-    toggleBookmark('/c', at.path, at.line);
-    toggleBookmark('/c', '/c/b.ts', 0);
+    toggleBookmark('/c', { path: at.path, line: at.line });
+    toggleBookmark('/c', { path: '/c/b.ts', line: 0 });
   });
 
   it('chooses one typed, adding a bookmark with it', async () => {
@@ -359,7 +470,7 @@ describe('the mnemonic chooser', () => {
     await userEvent.keyboard('q');
     await chosen;
     expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'Q' }]);
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
   });
 
   it('moves between its buttons with the arrows, round the grids and past their gaps', async () => {
@@ -393,11 +504,11 @@ describe('the mnemonic chooser', () => {
     await userEvent.keyboard('{Enter}');
     await chosen;
     expect(bookmarkWith('/c', 'G')).toEqual({ ...at, mnemonic: 'G' });
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
   });
 
   it('chooses the one selected on OK, leaves the line’s own, and asks before taking another’s', async () => {
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
     let chosen = chooseMnemonic('/c', at, never);
     await dialog();
     expect(title()).toBe('Assign Mnemonic');
@@ -421,7 +532,7 @@ describe('the mnemonic chooser', () => {
     expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
     // Another's: asked, and left when told no.
     const other = { path: '/c/b.ts', line: 1 };
-    const asked: LineBookmark[] = [];
+    const asked: Bookmark[] = [];
     chosen = chooseMnemonic('/c', other, (taken) => {
       asked.push(taken);
       return Promise.resolve(false);
@@ -431,7 +542,7 @@ describe('the mnemonic chooser', () => {
     await chosen;
     expect(asked).toEqual([{ ...at, mnemonic: 'C' }]);
     expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
-    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', { path: at.path, line: at.line });
     await closed();
   });
 });
@@ -441,8 +552,8 @@ describe('descriptions', () => {
   const at = { path: '/d/src/a.ts', line: 1 };
 
   it('are the line’s text, trimmed, once its file’s read, until one’s given', async () => {
-    toggleBookmark('/d', at.path, at.line);
-    const bookmark = bookmarkAt('/d', at) as LineBookmark;
+    toggleBookmark('/d', { path: at.path, line: at.line });
+    const bookmark = bookmarkAt('/d', at) as Bookmark;
     // Its file not read yet.
     const read = documentFor(at.path, () => 'first\n  second line  \n');
     expect(descriptionOf(bookmark)).toBe('');
@@ -451,7 +562,7 @@ describe('descriptions', () => {
     // Past the text's end: none.
     expect(descriptionOf({ ...bookmark, line: 9 })).toBe('');
     describeBookmark('/d', at, 'mine');
-    expect(descriptionOf(bookmarkAt('/d', at) as LineBookmark)).toBe('mine');
+    expect(descriptionOf(bookmarkAt('/d', at) as Bookmark)).toBe('mine');
     // Kept as its mnemonic changes, and when it's removed.
     await toggleMnemonic('/d', at, '4', yes);
     expect(bookmarkAt('/d', at)).toEqual({ ...at, mnemonic: '4', description: 'mine' });
@@ -461,13 +572,13 @@ describe('descriptions', () => {
     describeBookmark('/d', { path: at.path, line: 7 }, 'x');
     removeMnemonic('/d', { path: at.path, line: 7 });
     expect(bookmarksOf('/d')).toHaveLength(1);
-    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', { path: at.path, line: at.line });
   });
 
   it('show in the popups, first, with the place muted after them', async () => {
-    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', { path: at.path, line: at.line });
     describeBookmark('/d', at, 'the area');
-    toggleBookmark('/d', '/d/top.ts', 0);
+    toggleBookmark('/d', { path: '/d/top.ts', line: 0 });
     describeBookmark('/d', { path: '/d/top.ts', line: 0 }, 'top');
     const shown = showBookmarks({ id: '/d', name: 'd' }, () => undefined);
     expect(await popupItems()).toEqual(['the area', 'top']);
@@ -479,14 +590,14 @@ describe('descriptions', () => {
     await expect.poll(popupItems).toEqual(['top']);
     await closeAll();
     await shown;
-    toggleBookmark('/d', at.path, at.line);
-    toggleBookmark('/d', '/d/top.ts', 0);
+    toggleBookmark('/d', { path: at.path, line: at.line });
+    toggleBookmark('/d', { path: '/d/top.ts', line: 0 });
   });
 
   it('are given by Rename Bookmark, the description to start with', async () => {
     await renameBookmark('/d', at);
     expect(document.querySelector('.cerebro-dialog')).toBeNull();
-    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', { path: at.path, line: at.line });
     let renamed = renameBookmark('/d', at);
     expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe(
       'Bookmark Description',
@@ -502,7 +613,7 @@ describe('descriptions', () => {
     await press('Cancel');
     await renamed;
     expect(bookmarkAt('/d', at)?.description).toBe('renamed');
-    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', { path: at.path, line: at.line });
   });
 
   it('are given in the mnemonic chooser, its own to start with, none for a new one', async () => {
@@ -530,7 +641,7 @@ describe('descriptions', () => {
     await userEvent.type(await field(), 'new{Enter}');
     await chosen;
     expect(bookmarkAt('/d', at)).toEqual({ ...at, mnemonic: 'F', description: 'new' });
-    toggleBookmark('/d', at.path, at.line);
+    toggleBookmark('/d', { path: at.path, line: at.line });
   });
 });
 
@@ -540,7 +651,7 @@ describe('Go to Mnemonic', () => {
 
   it('lists the bookmarks with mnemonics in their order, and goes to one typed', async () => {
     await toggleMnemonic('/go', { path: '/go/b.ts', line: 3 }, 'K', yes);
-    toggleBookmark('/go', '/go/plain.ts', 0);
+    toggleBookmark('/go', { path: '/go/plain.ts', line: 0 });
     await toggleMnemonic('/go', { path: '/go/src/a.ts', line: 1 }, '2', yes);
     const gone = goToMnemonic(worktree, (at) => void opened.push(at));
     expect(await popupItems()).toEqual(['a.ts :2', 'b.ts :4']);
@@ -555,7 +666,7 @@ describe('Go to Mnemonic', () => {
     await expect.poll(popupItems).toEqual(['b.ts :4']);
     await userEvent.keyboard('{Backspace}k');
     await gone;
-    expect(opened).toEqual([{ path: '/go/b.ts', line: 3, mnemonic: 'K', column: 0 }]);
+    expect(opened).toEqual([{ path: '/go/b.ts', line: 3, mnemonic: 'K' }]);
   });
 
   it('goes to the one chosen, and nowhere when closed', async () => {
@@ -563,7 +674,7 @@ describe('Go to Mnemonic', () => {
     await popupItems();
     await userEvent.keyboard('{Enter}');
     await gone;
-    expect(opened).toEqual([{ path: '/go/src/a.ts', line: 1, mnemonic: '2', column: 0 }]);
+    expect(opened).toEqual([{ path: '/go/src/a.ts', line: 1, mnemonic: '2' }]);
     gone = goToMnemonic(worktree, (at) => void opened.push(at));
     await popupItems();
     await closeAll();
@@ -582,9 +693,9 @@ describe('the Bookmarks tool window', () => {
 
   it('lists them by file, under the worktree’s list, and opens a file or a line', async () => {
     mount();
-    toggleBookmark('/r', '/r/src/a.ts', 4);
-    toggleBookmark('/r', '/r/top.ts', 0);
-    toggleBookmark('/r', '/r/src/a.ts', 1);
+    toggleBookmark('/r', { path: '/r/src/a.ts', line: 4 });
+    toggleBookmark('/r', { path: '/r/top.ts', line: 0 });
+    toggleBookmark('/r', { path: '/r/src/a.ts', line: 1 });
     // In the order added; each with its icon: the list's and its lines' a bookmark's, the files' a
     // file's.
     await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:', 'top.ts', '1:']);
@@ -595,10 +706,10 @@ describe('the Bookmarks tool window', () => {
     expect(icons).toEqual([bookmark, file, bookmark, bookmark, file, bookmark]);
     expect(bookmark).not.toBe(file);
     await userEvent.dblClick(row('/r/src/a.ts'));
-    expect(opened).toEqual([{ id: '/r/src/a.ts', title: 'a.ts' }]);
+    expect(opened).toEqual([{ path: '/r/src/a.ts' }]);
     await userEvent.click(row('/r/src/a.ts:1'));
     await userEvent.keyboard('{Enter}');
-    expect(opened.at(-1)).toEqual({ path: '/r/src/a.ts', line: 1, column: 0 });
+    expect(opened.at(-1)).toEqual({ path: '/r/src/a.ts', line: 1 });
     // The list itself opens nothing.
     await userEvent.dblClick(row('list'));
     expect(opened).toHaveLength(2);
@@ -609,7 +720,7 @@ describe('the Bookmarks tool window', () => {
       document.querySelector('.playground-bookmark-mnemonic')?.getAttribute('aria-label'),
     ).toBe('Bookmark 7');
     // Taken away, gone from the list.
-    toggleBookmark('/r', '/r/top.ts', 0);
+    toggleBookmark('/r', { path: '/r/top.ts', line: 0 });
     await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:']);
   });
 

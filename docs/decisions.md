@@ -3147,10 +3147,29 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   Shortcuts Ctrl+Alt+Shift+K and Cmd+F11. Go to Mnemonic: Ctrl+Shift+F11; macOS Cmd+Alt+F3; none
   on Eclipse, NetBeans, Sublime Text or Visual Studio. Rename Bookmark and Remove Mnemonic have
   none in any.
+- **Files and folders (added 2026-11-14),** as IntelliJ's file bookmarks (`FileBookmarkImpl`, read
+  from its source): while the Project tool window has the focus, Toggle Bookmark, Toggle Bookmark
+  Mnemonic, the mnemonics' toggles, Rename Bookmark and Remove Mnemonic act on the file or folder
+  selected there (IntelliJ makes its bookmark from the view's `ProjectFileNode`), and on nothing
+  when nothing is. They have no description until one's given, show in no gutter, aren't gone
+  through by Next and Previous Line Bookmark (IntelliJ's `NextBookmarkService` takes its
+  `LineBookmark`s alone), and are named by their name when their mnemonic's asked for
+  (BookmarkBundle's `bookmark.type.confirmation.file.bookmark`). In the window, a bookmarked file is
+  its own node, its lines under it (IntelliJ's `prepareGroup`), in the place of its first bookmark
+  in the list; its icon is the file's, after its mnemonic when it has one (`wrapIcon`'s row icon);
+  its text as a popup's (`addTextTo`): the name, then the folder; a description first, the rest
+  muted, the folder in brackets. Going to one opens the file, or shows the Project tool window
+  with the folder selected (IntelliJ's `FileNavigatorImpl` navigates to a directory in the project
+  view). Show Bookmarks previews a file from its start (open to change: Claude's choice) and a
+  folder not at all. A popup's row with a mnemonic and a file's icon widens its icon column to fit
+  both, as a list row's icon takes its own width in IntelliJ (a claim), so its label sits further
+  right than the other rows'.
 - **Not yet:** more lists (and Add Bookmark to Another List),
   Next and Previous in the editor only (IntelliJ's `…InEditor`
-  actions, with no keys), bookmarks on files and folders in
-  the Project tool window, dragging the gutter's icon, and the window's toolbar.
+  actions, with no keys), a folder bookmark's contents under it in the window (IntelliJ's
+  `FolderNode` lists them), the Bookmarks submenu (Rename Bookmark and Toggle Bookmark) in the
+  Project view's menu, which Cerebro hasn't yet, and in an editor tab's (IntelliJ's
+  `popup@ExpandableBookmarkContextMenu`), dragging the gutter's icon, and the window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 

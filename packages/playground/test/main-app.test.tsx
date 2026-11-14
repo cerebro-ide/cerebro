@@ -2,7 +2,7 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
-import { bookmarkMarks, bookmarksOf, toggleBookmark } from '../src/bookmarks.js';
+import { bookmarkAt, bookmarkMarks, bookmarksOf, toggleBookmark } from '../src/bookmarks.js';
 import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
@@ -1025,7 +1025,7 @@ describe('bookmarks', () => {
     // the bookmark goes up with its line.
     await expect.poll(() => linesOf('/r', '/r/src/marked.ts')).toEqual([0]);
     await userEvent.click(stripe('bookmarks'));
-    toggleBookmark('/r', '/r/src/marked.ts', 0);
+    toggleBookmark('/r', { path: '/r/src/marked.ts', line: 0 });
   });
 
   it('are gone through from the caret’s line by Next and Previous Line Bookmark', async () => {
@@ -1047,8 +1047,8 @@ describe('bookmarks', () => {
     // None: nothing to go to.
     expect(await listed('Next Line Bookmark')).toEqual([]);
     await userEvent.keyboard('{Escape}');
-    toggleBookmark('/r', '/r/src/b.ts', 1);
-    toggleBookmark('/r', '/r/src/c.ts', 0);
+    toggleBookmark('/r', { path: '/r/src/b.ts', line: 1 });
+    toggleBookmark('/r', { path: '/r/src/c.ts', line: 0 });
     // From no file: the first.
     for (const group of env().editor.groups) {
       for (const tab of group.tabs) env().editor.close(group.id, tab.id);
@@ -1069,8 +1069,8 @@ describe('bookmarks', () => {
     await expect.poll(popupItems).toEqual(['const a = 1;', '// /r/src/c.ts']);
     await userEvent.keyboard('{Enter}');
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
-    toggleBookmark('/r', '/r/src/b.ts', 1);
-    toggleBookmark('/r', '/r/src/c.ts', 0);
+    toggleBookmark('/r', { path: '/r/src/b.ts', line: 1 });
+    toggleBookmark('/r', { path: '/r/src/c.ts', line: 0 });
   });
 });
 
@@ -1098,7 +1098,7 @@ describe('the gutter’s menu', () => {
     expect(await menuItems()).toContain('Rename Bookmark…');
     expect(await menuItems()).toContain('Assign Mnemonic…');
     await closeAll();
-    toggleBookmark('/r', '/r/src/g.ts', 1);
+    toggleBookmark('/r', { path: '/r/src/g.ts', line: 1 });
   });
 });
 
@@ -1203,7 +1203,56 @@ describe('mnemonic bookmarks', () => {
     await expect
       .poll(() => bookmarksOf('/r'))
       .toEqual([{ path: '/r/src/c.ts', line: 1, description: 'the area' }]);
-    toggleBookmark('/r', '/r/src/c.ts', 1);
+    toggleBookmark('/r', { path: '/r/src/c.ts', line: 1 });
+  });
+});
+
+describe('file and folder bookmarks', () => {
+  it('are toggled on the Project view’s selection, and gone to: a file opened, a folder selected', async () => {
+    localStorage.setItem('cerebro.bookmarks.rewrite', 'false');
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    const before = bookmarksOf('/r');
+    // Left as it's found.
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/d.ts')));
+    await userEvent.keyboard('{F11}');
+    expect(bookmarkAt('/r', { path: '/r/d.ts' })).toEqual({ path: '/r/d.ts' });
+    await userEvent.keyboard('{Control>}{Shift>}6{/Shift}{/Control}');
+    expect(bookmarkAt('/r', { path: '/r/d.ts' })).toEqual({ path: '/r/d.ts', mnemonic: '6' });
+    await userEvent.click(row('/r/lib'));
+    await userEvent.keyboard('{Control>}{Shift>}5{/Shift}{/Control}');
+    expect(bookmarkAt('/r', { path: '/r/lib' })).toEqual({
+      path: '/r/lib',
+      folder: true,
+      mnemonic: '5',
+    });
+    // From the editor: the file opened; the folder selected in the Project view.
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}6{/Control}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/d.ts');
+    await userEvent.click(stripe('project'));
+    expect(document.querySelector('.cerebro-tool-window[data-id="project"]')).toBeNull();
+    await userEvent.keyboard('{Control>}5{/Control}');
+    await expect.poll(() => row('/r/lib').getAttribute('aria-selected')).toBe('true');
+    // Nothing selected there: nothing to bookmark, not the editor's line.
+    answers.set('fs.list', [{ path: '/r/e.ts', name: 'e.ts', kind: 'file' }]);
+    window.dispatchEvent(new Event('focus'));
+    await vi.waitUntil(() => row('/r/e.ts'));
+    q('.playground-project .cerebro-tree').focus();
+    await userEvent.keyboard('{F11}');
+    expect(bookmarksOf('/r')).toHaveLength(before.length + 2);
+    toggleBookmark('/r', { path: '/r/d.ts' });
+    toggleBookmark('/r', { path: '/r/lib', folder: true });
+    expect(bookmarksOf('/r')).toEqual(before);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
   });
 });
 
@@ -1803,6 +1852,13 @@ describe('the editor’s file', () => {
     expect(writes()).toBe(before);
     await userEvent.click(q('.cerebro-statusbar'));
     await expect.poll(writes).toBe(before + 1);
+    // Left as found: the host's file doesn't keep what's written, so reading it again (every two
+    // seconds) would take the text back under a later test's click, which finds its element by
+    // its text (measured: the saving test's click waited for "…const a = 1;y" until it timed out).
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}z{/Control}');
+    await userEvent.click(q('.cerebro-statusbar'));
+    expect(code()?.textContent).toBe('// /r/src/a.tsconst a = 1;');
     globalSettings.layers.global.reset('system.saveWhenIdle');
   });
 });
