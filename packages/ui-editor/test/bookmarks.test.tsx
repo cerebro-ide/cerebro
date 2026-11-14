@@ -80,7 +80,10 @@ describe('bookmarks', () => {
     expect(moved).toHaveBeenLastCalledWith([2]);
     await userEvent.keyboard('{ArrowDown}{Home}{Enter}');
     expect(moved).toHaveBeenLastCalledWith([3]);
-    await expect.poll(() => marked(root)).toEqual(['4']);
+    // A line joined to the one above: on it.
+    await userEvent.keyboard('{Backspace}');
+    expect(moved).toHaveBeenLastCalledWith([2]);
+    await expect.poll(() => marked(root)).toEqual(['3']);
     // Two bookmarked lines joined: one.
     cleanup?.();
     const twice = vi.fn();
@@ -91,6 +94,16 @@ describe('bookmarks', () => {
     });
     await userEvent.keyboard('{End}{Delete}');
     expect(twice).toHaveBeenLastCalledWith([0]);
+  });
+
+  it('stay on their lines when the text is read again from disk', async () => {
+    const moved = vi.fn();
+    const doc = new EditorDocument('a\nb\nc\n');
+    const root = mount({ document: doc, bookmarks: () => [1, 2], onBookmarksMoved: moved });
+    await expect.poll(() => marked(root)).toEqual(['2', '3']);
+    // A line above them gone: up with their lines.
+    expect(doc.changedOnDisk('b\nc\n')).toBe(true);
+    expect(moved).toHaveBeenLastCalledWith([0, 1]);
   });
 
   it('have no gutter when the editor shows none', () => {

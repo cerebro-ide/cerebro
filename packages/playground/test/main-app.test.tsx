@@ -1009,8 +1009,11 @@ describe('bookmarks', () => {
       .toEqual(['rDefault', 'marked.tssrc', '2:']);
     await userEvent.dblClick(row('/r/src/marked.ts:1'));
     await expect.poll(() => reveals.get('/r/src/marked.ts')).toEqual({ line: 1, column: 0 });
+    // Opened, it's read again: the host's file is as it was, without the line added above, and
+    // the bookmark goes up with its line.
+    await expect.poll(() => bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0]);
     await userEvent.click(stripe('bookmarks'));
-    toggleBookmark('/r', '/r/src/marked.ts', 1);
+    toggleBookmark('/r', '/r/src/marked.ts', 0);
   });
 });
 

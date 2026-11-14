@@ -252,8 +252,14 @@ describe('CodeEditor', () => {
     expect(doc.changedOnDisk('changed')).toBe(true);
     expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
     (root.querySelector('.cm-content') as HTMLElement).focus();
+    // Only what differs is replaced: the caret, after it, stays where it was in the text.
+    await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
+    expect(doc.changedOnDisk('so changed')).toBe(true);
+    await userEvent.keyboard('!');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('so ch!anged');
+    await userEvent.keyboard('{Backspace}');
     await userEvent.keyboard('{Control>}z{/Control}');
-    expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('so changed');
   });
 
   it('keeps an edit made elsewhere apart from typing right after it, for undo', async () => {

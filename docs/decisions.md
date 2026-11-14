@@ -3039,8 +3039,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   window's nodes, read from its source): Toggle Bookmark adds a bookmark on the caret's line, or
   takes the one there away. The editor shows each in a gutter of its own, before the line numbers,
   and moves it with its line's text as it's edited (IntelliJ keeps one on a range marker); an
-  Enter at the line's start takes it down with the text. Two bookmarked lines joined keep one:
-  CodeMirror drops a gutter marker once the line break before it goes (measured).
+  Enter at the line's start takes it down with the text; a line joined to the one above takes it
+  up (CodeMirror's gutter markers are dropped then, measured, so a bookmark's maps as a plain
+  point), and two bookmarked lines joined keep one. A file read again from disk keeps them on
+  their lines: the editor replaces only what differs, as it does for an edit made elsewhere
+  (before, it replaced the whole text, which dropped every bookmark and put the caret at the
+  start: measured).
 - **The Bookmarks tool window** (already on the left's second slot) lists them under one list
   named after the worktree, as IntelliJ's default list is named after the project, marked
   "Default"; then by file, with its folder, in the order added, each line by its number

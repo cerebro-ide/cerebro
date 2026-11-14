@@ -3,6 +3,7 @@
 // line bookmark on a range marker), and say where they've moved to, so whoever keeps them can.
 
 import {
+  MapMode,
   RangeSet,
   StateEffect,
   StateField,
@@ -20,6 +21,9 @@ class Bookmark extends GutterMarker {
   override startSide = 1;
   // As its start: a point mapped with its start after its end is dropped.
   override endSide = 1;
+  // Kept when the line break before it goes, on the line its own joins (a gutter marker's own,
+  // `TrackBefore`, drops it then: measured).
+  override mapMode = MapMode.Simple;
 
   override toDOM(): Node {
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -56,18 +60,15 @@ function setOf(state: EditorState, lines: readonly number[]): RangeSet<GutterMar
   );
 }
 
-/**
- * The bookmarked lines, zero-based, in order. Two lines joined keep one: CodeMirror drops a gutter
- * marker once the line break before it is deleted (its `TrackBefore` mapping, measured).
- */
+/** The bookmarked lines, zero-based, in order: two lines joined keep one. */
 export function bookmarkedLines(state: EditorState): number[] {
-  const lines: number[] = [];
+  const lines = new Set<number>();
   const at = state.field(bookmarked).iter();
   while (at.value) {
-    lines.push(state.doc.lineAt(at.from).number - 1);
+    lines.add(state.doc.lineAt(at.from).number - 1);
     at.next();
   }
-  return lines;
+  return [...lines];
 }
 
 /** Shows the bookmarks on `lines` in `view`, in place of those it shows. */

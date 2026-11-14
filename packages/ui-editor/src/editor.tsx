@@ -40,7 +40,7 @@ import {
   type AskCompletions,
   type ResolveCompletion,
 } from './completions.js';
-import { EditorDocument, KEPT } from './document.js';
+import { changesTo, EditorDocument, KEPT } from './document.js';
 import { detectIndent, indentUnitOf, type Indent } from './indent.js';
 import type { Selected } from './line.js';
 
@@ -1179,8 +1179,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       });
       return undefined;
     }
+    // Only the parts that differ, so what's kept on a place outside them (the caret, a bookmark)
+    // stays where it was.
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
+      changes: changesTo(view.state.doc, text.toString()),
       annotations: Transaction.addToHistory.of(false),
     });
     return undefined;
