@@ -29,6 +29,7 @@ const NAMES: readonly (readonly [event: string, name: string])[] = [
   ['input.startNewLineBefore', 'Start New Line Before Current'],
   ['input.startNewLine', 'Start New Line'],
   ['input.joinLines', 'Join Lines'],
+  ['input.splitLine', 'Split Line'],
   ['input.toggleCase', 'Toggle Case'],
   ['input.expandWord', 'Cyclic Expand Word'],
   ['delete.cut', 'Cut'],

@@ -45,6 +45,7 @@ export const EDITOR_ACTIONS = {
   deleteLine: 'editor.deleteLine',
   startNewLine: 'editor.startNewLine',
   startNewLineBefore: 'editor.startNewLineBefore',
+  splitLine: 'editor.splitLine',
   joinLines: 'editor.joinLines',
   toggleCase: 'editor.toggleCase',
   expandWord: 'editor.cyclicExpandWord',
@@ -169,6 +170,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Alt+Enter'],
+    [EDITOR_ACTIONS.splitLine]: ['Ctrl+Enter'],
   },
 };
 
@@ -276,6 +278,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
     [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Alt+Enter'],
+    [EDITOR_ACTIONS.splitLine]: ['Meta+Enter'],
   },
 };
 
@@ -373,6 +376,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Shift+Alt+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Shift+Alt+Left'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
+    // Its Insert Line Below (Start New Line) is Ctrl+Enter.
+    [EDITOR_ACTIONS.splitLine]: [],
   },
 };
 
@@ -443,6 +448,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Meta+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Meta+Left'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
+    // Its Insert Line Below (Start New Line) is Cmd+Enter.
+    [EDITOR_ACTIONS.splitLine]: [],
     [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
   },
@@ -610,6 +617,7 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.scrollDown]: [],
     // Its own Alt+/ is Code Completion's.
     [EDITOR_ACTIONS.expandWord]: [],
+    [EDITOR_ACTIONS.splitLine]: ['Ctrl+O'],
   },
 };
 
@@ -668,6 +676,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     'navigate.fileStructure': ['Meta+Shift+7', 'Meta+F12'],
     [EDITOR_ACTIONS.foldAll]: ['Alt+Shift+_'],
     [EDITOR_ACTIONS.unfoldAll]: ['Alt+Shift++'],
+    [EDITOR_ACTIONS.splitLine]: ['Ctrl+O', 'Ctrl+Enter'],
   },
 };
 
@@ -762,6 +771,7 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+J'],
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+K Ctrl+U', 'Ctrl+K Ctrl+L'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
+    [EDITOR_ACTIONS.splitLine]: ['Shift+Enter'],
   },
 };
 
@@ -812,6 +822,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.scrollUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
+    [EDITOR_ACTIONS.splitLine]: ['Shift+Enter'],
   },
 };
 
@@ -874,6 +885,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+_', 'Ctrl+Alt+Left', 'Ctrl+Shift+W'],
     [EDITOR_ACTIONS.expandWordBackward]: [],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Enter'],
+    [EDITOR_ACTIONS.splitLine]: [],
   },
 };
 
@@ -934,6 +946,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Meta+Alt+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Meta+Alt+Left'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Enter'],
+    [EDITOR_ACTIONS.splitLine]: [],
   },
 };
 
