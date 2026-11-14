@@ -15,10 +15,6 @@ that's missing and should be implemented as well". IntelliJ's Project view lists
 content under its own node, beside Scratches and Consoles and External Libraries; Find in Files
 can then be scoped to the whole project from it. Cerebro's view shows the worktree's folder alone.
 
-### Commit window: checkboxes show the text cursor
-
-From Ido (2026-11-14): "commit checkboxes seem to have the wrong cursor (text) - fix it".
-
 ### The Structure tool window
 
 From Ido (2026-11-14): "structure panel isn't implemented though we already implemented the jump
