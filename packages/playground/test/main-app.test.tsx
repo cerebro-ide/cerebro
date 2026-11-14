@@ -1329,6 +1329,50 @@ describe('file and folder bookmarks', () => {
   });
 });
 
+describe('the Project view’s menu', () => {
+  it('copies the path of the row it’s opened on; so does the key while the view has the focus', async () => {
+    const copied: string[] = [];
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation((text) => {
+      copied.push(text);
+      return Promise.resolve();
+    });
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const copy = async (key: string, item: string) => {
+      await userEvent.click(row(key), { button: 'right' });
+      await userEvent.hover(menuItem('Copy Path/Reference…'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+      await userEvent.click(menuItem(item));
+    };
+    await vi.waitUntil(() => row('/r/lib'));
+    await copy('/r/lib', 'Absolute Path');
+    await copy('/r/d.ts', 'Path from Content Root');
+    // The key, with d.ts selected there: its, not the active tab's.
+    await userEvent.keyboard('{Control>}{Shift>}C{/Shift}{/Control}');
+    // A tab's menu: the tab's, the view's focus notwithstanding.
+    await userEvent.click(q('[data-tab="/r/src/a.ts"]'), { button: 'right' });
+    await userEvent.hover(menuItem('Copy Path/Reference…'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('File Name'));
+    await expect.poll(() => copied).toEqual(['/r/lib', 'd.ts', '/r/d.ts', 'a.ts']);
+    // Nothing selected there: nothing to copy, not the active tab's.
+    answers.set('fs.list', [{ path: '/r/e.ts', name: 'e.ts', kind: 'file' }]);
+    window.dispatchEvent(new Event('focus'));
+    await vi.waitUntil(() => row('/r/e.ts'));
+    q('.playground-project .cerebro-tree').focus();
+    await userEvent.keyboard('{Control>}{Shift>}C{/Shift}{/Control}');
+    expect(copied).toHaveLength(4);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+});
+
 describe('errors and warnings', () => {
   it('mark the file’s tab, and show in the Problems tool window from the editor’s counts', async () => {
     answers.set('lsp.problems', [

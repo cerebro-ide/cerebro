@@ -3179,9 +3179,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
 - **In the Project view's menu (added 2026-11-14):** the same Bookmarks submenu, for the file or
   folder it's opened on (IntelliJ adds it to `ProjectViewPopupMenu` after its Refactoring group).
   The menu is new with it: a right click selects its row, which keeps the focus, so the commands
-  take it as they take the view's selection. IntelliJ's menu's other groups (New, Cut, Copy,
-  Paste, Copy Path/Reference, Find in Files, Rename, Delete, Open In, Git, Local History, Compare
-  With) aren't in it yet.
+  take it as they take the view's selection. Copy Path/Reference… is in it too (added
+  2026-11-14), before Bookmarks, as IntelliJ's `CutCopyPasteGroup`: its copies, and their key,
+  take the view's selection while it has the focus, a folder's too, as IntelliJ's actions take the
+  focused view's; a tab's menu still copies its tab's. IntelliJ's menu's other groups (New, Cut,
+  Copy, Paste, Find in Files, Rename, Delete, Open In, Git, Local History, Compare With) aren't in
+  it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
