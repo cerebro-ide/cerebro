@@ -67,6 +67,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
+- [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -1595,7 +1596,7 @@ Problems tool window, then Alt+Enter).
     they take it from their parents.
 - **Not yet:** IntelliJ's bulb beside the line; its own intentions, which the servers don't give
   (Adjust code style settings); actions that are commands, and edits to other files; source
-  actions (Organize Imports, Fix All); a fix's submenu (IntelliJ's arrow, to suppress an
+  actions (Fix All; Organize Imports is Optimize Imports, see its entry); a fix's submenu (IntelliJ's arrow, to suppress an
   inspection).
 
 ## Code completion (2026-11-03)
@@ -3031,6 +3032,30 @@ choices, open to change.
 - **Not yet:** in a menu (no Navigate menu yet, as the editor's other actions); Ctrl+click on a
   symbol for Implementation (IntelliJ's Ctrl+Alt+click); IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
+
+## Optimize Imports (2026-11-14)
+
+IntelliJ's Code → Optimize Imports, which WebStorm has, from Context Actions' Not yet (source
+actions). Claude's choices, open to change.
+
+- **As IntelliJ's** `OptimizeImports`: the imports of the file in the focused editor organized, as
+  its language server does it (LSP's `source.organizeImports` code action, for the whole file):
+  measured with TypeScript 7's server (host test), the unused import gone and the names sorted.
+  One change, which undo takes back as "Undo Optimize Imports". It needs an editor that can be
+  edited, with the focus.
+- **Through Reformat Code's `formatIn`**, which a plugin's formatter uses too: the edits made only
+  if the text hasn't changed since it asked, and a hint at the caret in IntelliJ's words
+  (CodeInsightBundle, read from its source): "Imports optimized", or "No unused imports found"
+  when nothing changes (TypeScript's server answers an organized file with its imports as they
+  are, measured, which counts as no change). With no server, "No language server answered.", as
+  Reformat Code says.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+O (`$default`, and on macOS; Cmd+Alt+O in
+  its classic macOS keymap, which takes `$default`'s with Cmd); Eclipse's Ctrl+Alt+O and
+  Ctrl+Shift+O, and Cmd+Shift+O on macOS; NetBeans' Ctrl+Shift+I; Visual Studio's Ctrl+R G,
+  Ctrl+R Ctrl+G and Ctrl+Alt+O. VS Code's shortcut sheets don't list it, so its keymaps keep
+  IntelliJ's.
+- **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
+  (IntelliJ's dialog); Optimize Imports on save or before a commit.
 
 ## Git → Current File → Show History (2026-11-12)
 

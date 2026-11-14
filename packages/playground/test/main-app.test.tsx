@@ -1151,6 +1151,30 @@ describe('Reformat Code', () => {
   });
 });
 
+describe('Optimize Imports', () => {
+  it('organizes the file’s imports on Ctrl+Alt+O by its language server’s edits, or says why not', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('lsp.organizeImports', [
+      { from: { line: 1, column: 0 }, to: { line: 2, column: 0 }, text: '' },
+    ]);
+    env().editor.open({ id: '/r/src/imports.ts', title: 'imports.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/imports.ts');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}{Alt>}o{/Alt}{/Control}');
+    await expect.poll(() => code()?.textContent).not.toContain('const a');
+    expect(host('/r').params('lsp.organizeImports')).toContainEqual({
+      worktree: '/r',
+      path: '/r/src/imports.ts',
+      text: '// /r/src/imports.ts\nconst a = 1;\n',
+    });
+    const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
+    await expect.poll(hint).toBe('Imports optimized');
+    answers.set('lsp.organizeImports', null);
+    await userEvent.keyboard('{Control>}{Alt>}o{/Alt}{/Control}');
+    await expect.poll(hint).toBe('No language server answered.');
+  });
+});
+
 describe('Reformat Code’s indent', () => {
   it('is the settings’ for the whole file, the file’s own for a part, as IntelliJ’s', async () => {
     // Other files as they are, or they'd have changed on disk.
