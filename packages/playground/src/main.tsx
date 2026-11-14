@@ -60,6 +60,7 @@ import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js'
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
 import { fetching, pullingFrom, setupFetchPull } from './fetch-pull.js';
+import { setupFontSize } from './font-size.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
@@ -387,6 +388,7 @@ setupShelf(services, {
 setupPush(services);
 setupUpdate(services);
 setupFetchPull(services);
+setupFontSize(services.commands);
 setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);

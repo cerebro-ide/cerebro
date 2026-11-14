@@ -181,6 +181,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: ['Ctrl+PageDown'],
     [EDITOR_ACTIONS.pageTopWithSelection]: ['Ctrl+Shift+PageUp'],
     [EDITOR_ACTIONS.pageBottomWithSelection]: ['Ctrl+Shift+PageDown'],
+    'editor.increaseFontSize': ['Alt+Shift+>'],
+    'editor.decreaseFontSize': ['Alt+Shift+<'],
   },
 };
 
@@ -294,6 +296,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: ['Meta+PageDown'],
     [EDITOR_ACTIONS.pageTopWithSelection]: ['Meta+Shift+PageUp'],
     [EDITOR_ACTIONS.pageBottomWithSelection]: ['Meta+Shift+PageDown'],
+    'editor.increaseFontSize': ['Ctrl+Shift+>'],
+    'editor.decreaseFontSize': ['Ctrl+Shift+<'],
   },
 };
 
@@ -538,6 +542,8 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U', 'Ctrl+Shift+X', 'Ctrl+Shift+Y'],
     [EDITOR_ACTIONS.pageTop]: [],
     [EDITOR_ACTIONS.pageBottom]: [],
+    'editor.increaseFontSize': ['Ctrl+='],
+    'editor.decreaseFontSize': ['Ctrl+-'],
   },
 };
 
@@ -597,6 +603,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.expandWordBackward]: [],
     [EDITOR_ACTIONS.pageTop]: [],
     [EDITOR_ACTIONS.pageBottom]: [],
+    'editor.increaseFontSize': ['Meta+='],
+    'editor.decreaseFontSize': ['Meta+-'],
   },
 };
 
@@ -638,6 +646,8 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.expandWord]: [],
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+O'],
     [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+L'],
+    'editor.increaseFontSize': [],
+    'editor.decreaseFontSize': [],
   },
 };
 
@@ -698,6 +708,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.foldAll]: ['Alt+Shift+_'],
     [EDITOR_ACTIONS.unfoldAll]: ['Alt+Shift++'],
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+O', 'Ctrl+Enter'],
+    'editor.increaseFontSize': ['Meta+Shift++'],
+    'editor.decreaseFontSize': ['Meta+Shift+_'],
   },
 };
 
@@ -744,6 +756,8 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.scrollToCenter]: [],
     [EDITOR_ACTIONS.pageTop]: ['Alt+Shift+Home'],
     [EDITOR_ACTIONS.pageBottom]: ['Alt+Shift+End'],
+    'editor.increaseFontSize': [],
+    'editor.decreaseFontSize': [],
   },
 };
 
@@ -915,6 +929,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Enter'],
     [EDITOR_ACTIONS.splitLine]: [],
     [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+M C', 'Ctrl+M Ctrl+C'],
+    'editor.increaseFontSize': [],
+    'editor.decreaseFontSize': [],
   },
 };
 
