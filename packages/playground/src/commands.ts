@@ -21,6 +21,7 @@ import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
 import { isTextField, setupEdit, target } from './edit.js';
+import { projectNode } from './project.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
 import { pluginsPage } from './plugins-page.js';
@@ -249,12 +250,24 @@ export function setupCommands(
     ['editor.copyFileName', '&File Name', (file: TabFile) => file.name],
     ['editor.copyContentRootPath', 'Path from &Content Root', (file: TabFile) => file.relative],
   ] as const;
+  // Of the tab its menu's opened on; else, while the Project view has the focus, of the file or
+  // folder selected there, as IntelliJ's actions take the focused view's (its menu's included);
+  // else of the tab a key's for.
+  const copied = (c?: TabContext): TabFile | undefined => {
+    if (c?.tabMenu) return tabFile(c.tab);
+    const node = projectNode();
+    if (node !== undefined) return node === null ? undefined : tabFile(node.path);
+    return c && tabFile(c.tab);
+  };
   for (const [id, label, text] of copies) {
-    commands.register<TabContext>({
+    commands.register<TabContext | undefined>({
       id,
       label,
-      enabled: (c?: TabContext) => c !== undefined && text(tabFile(c.tab)) !== undefined,
-      run: (c) => navigator.clipboard.writeText(text(tabFile(c.tab)) as string),
+      enabled: (c?: TabContext) => {
+        const file = copied(c);
+        return file !== undefined && text(file) !== undefined;
+      },
+      run: (c) => navigator.clipboard.writeText(text(copied(c) as TabFile) as string),
     });
   }
   commands.register({
@@ -483,6 +496,13 @@ export function setupCommands(
     menu: 'editor/tab',
     item: { submenu: 'editor/tab/copyPath', label: 'Copy Path/Reference…' },
     group: 'c-path',
+  });
+  // And in the Project view's, after where its Cut, Copy and Paste go (IntelliJ's
+  // `CutCopyPasteGroup`).
+  menus.contribute({
+    menu: 'project/node',
+    item: { submenu: 'editor/tab/copyPath', label: 'Copy Path/Reference…' },
+    group: 'b-copy',
   });
   menus.contribute({
     menu: 'editor/tab/copyPath',
