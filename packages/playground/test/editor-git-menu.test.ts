@@ -10,9 +10,13 @@ describe('the editor’s Git submenu', () => {
     setupEditorGitMenu(menus, () => git.get());
     expect(menus.entries('editor/content')).toEqual([{ submenu: 'editor/git', label: 'Git' }]);
     expect(menus.contributions.toArray()[0]).toMatchObject({ group: 'h-history', order: 1 });
+    // The Project view's too, after its Local History.
+    expect(menus.entries('project/node')).toEqual([{ submenu: 'editor/git', label: 'Git' }]);
+    expect(menus.contributions.toArray()[1]).toMatchObject({ group: 'f-vcs', order: 1 });
     // Not in a git repository: none.
     git.set(false);
     expect(menus.entries('editor/content')).toEqual([]);
+    expect(menus.entries('project/node')).toEqual([]);
     git.set(true);
     expect(menus.entries('editor/content')).toHaveLength(1);
     const names = menus
