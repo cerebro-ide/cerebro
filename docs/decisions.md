@@ -3219,9 +3219,16 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   in the app: Shift+F6 in the editor still renames the symbol). It asks in IntelliJ's words (`Rename
   file 'a.ts' to:`, RefactoringBundle's `rename.0.to`; `File {0} already exists`), saves what's
   unsaved, and the host renames it (`fs.rename`), never over another. The tabs of what moved follow
-  it, in their places (EditorArea's `replaceTab`), and it's selected again. Not yet: IntelliJ's
-  "Search for references", which would update imports (LSP's `workspace/willRenameFiles`), its
-  selection of a file's name without its extension, and moving the file's bookmarks with it.
+  it, in their places (EditorArea's `replaceTab`), and it's selected again. Before a file is
+  renamed, what refers to it changes as its language server says (LSP's
+  `workspace/willRenameFiles`, for the files the server names), as IntelliJ's "Search for
+  references", on by default: TypeScript's server changes the imports (measured in the app, with
+  the importing file open and with none). TypeScript 7's server names only files
+  (`**/*.{ts,tsx,js,jsx,cts,cjs,mts,mjs,json}`, measured), so a folder's rename changes no imports
+  yet. The edits are made and saved as the editor's Rename makes them; a file that can't be read is
+  said so. Not yet: a folder's references, IntelliJ's preview and its "Search in comments and
+  strings" and "Rename tests" options, its selection of a file's name without its extension, and
+  moving the file's bookmarks with it.
   IntelliJ's menu's other groups (Cut, Copy, Paste, Find Usages, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
