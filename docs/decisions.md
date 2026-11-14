@@ -3049,7 +3049,9 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
 - **The Bookmarks tool window** (already on the left's second slot) lists them under one list
   named after the worktree, as IntelliJ's default list is named after the project, marked
   "Default"; then by file, with its folder, in the order added, each line by its number
-  (IntelliJ's "Group line bookmarks", on by default). A double click or Enter opens a file, or a
+  (IntelliJ's "Group line bookmarks", on by default), each line with the bookmark's icon, as
+  IntelliJ's line nodes (the list's is IntelliJ's bookmark group icon, drawn as the bookmark's
+  here: a claim). A double click or Enter opens a file, or a
   line; the list itself opens nothing. With none: IntelliJ's "No bookmarks added." and "Add
   Bookmark (F11) to code lines." The icon is drawn after IntelliJ's (a claim: not its drawing),
   in the muted text colour (a claim: not measured).
