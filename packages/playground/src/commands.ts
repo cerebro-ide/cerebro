@@ -461,6 +461,7 @@ export function setupCommands(
   const add = (menu: string, command: string, group: string) =>
     menus.contribute({ menu, item: { command }, group });
   add('main/file', 'file.new', 'a');
+  add('main/file', 'file.newScratch', 'a');
   add('main/file', 'file.open', 'a');
   menus.contribute({
     menu: 'main/file',

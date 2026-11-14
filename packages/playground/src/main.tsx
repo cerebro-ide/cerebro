@@ -84,6 +84,7 @@ import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { setupEditorGitMenu } from './editor-git-menu.js';
 import { setupNewFile } from './new-file.js';
+import { setupScratches } from './scratches.js';
 import { setupDelete } from './delete-file.js';
 import { setupRenameFile } from './rename-file.js';
 import { setupFileClipboard } from './file-clipboard.js';
@@ -462,6 +463,7 @@ setupNewFile(services, {
     navigation.open(tab);
   },
 });
+setupScratches(services, { open: navigation.open });
 setupEditorGitMenu(services.menus, () => {
   const env = active();
   return env !== undefined && hostFor(env.id) !== undefined && gitRepository.get();

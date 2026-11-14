@@ -53,6 +53,20 @@ export function languageName(path: string): string {
   return languageOf(path)?.name ?? 'Plain Text';
 }
 
+/**
+ * Each language once, by its name, with its first extension, Plain Text's `txt` among them, by
+ * name: what a new scratch file can be.
+ */
+export function languages(): { name: string; extension: string }[] {
+  const named = new Map([['Plain Text', 'txt']]);
+  for (const [extension, { name }] of Object.entries(LANGUAGES)) {
+    if (!named.has(name)) named.set(name, extension);
+  }
+  return [...named]
+    .map(([name, extension]) => ({ name, extension }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Code blocks' names for the languages that aren't their extensions (Markdown's fences). */
 const FENCES: Readonly<Record<string, string>> = {
   typescript: 'ts',

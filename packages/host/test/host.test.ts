@@ -2181,6 +2181,43 @@ describe('files', () => {
   });
 });
 
+describe('scratch files', () => {
+  const serving = (scratches?: string) => {
+    // eslint-disable-next-line prefer-const -- the two refer to each other
+    let host: Connection;
+    const ui = new Connection((line) => {
+      host.receive(line);
+    });
+    host = new Connection((line) => {
+      ui.receive(line);
+    });
+    serveOn(host, { repo: '/r', ...(scratches === undefined ? {} : { scratches }) });
+    return ui;
+  };
+
+  it('keeps them in the app’s folder, made when asked for, each new one named as IntelliJ’s', async () => {
+    const folder = join(mkdtempSync(join(tmpdir(), 'cerebro-scratches-')), 'scratches');
+    const ui = serving(folder);
+    expect(await ui.request('scratches.folder')).toBe(folder);
+    expect(statSync(folder).isDirectory()).toBe(true);
+    expect(await ui.request('scratches.create', { extension: 'ts' })).toBe(`${folder}/scratch.ts`);
+    expect(await ui.request('scratches.create', { extension: 'md' })).toBe(
+      `${folder}/scratch_1.md`,
+    );
+    await expect(ui.request('scratches.create', {})).rejects.toMatchObject({
+      code: ErrorCodes.InvalidParams,
+    });
+  });
+
+  it('has none without a folder for them', async () => {
+    const ui = serving();
+    expect(await ui.request('scratches.folder')).toBeNull();
+    await expect(ui.request('scratches.create', { extension: 'ts' })).rejects.toMatchObject({
+      message: 'No folder for scratch files',
+    });
+  });
+});
+
 describe('serve', () => {
   it('speaks one message per line over streams, and closes when the input ends', async () => {
     const input = new PassThrough();

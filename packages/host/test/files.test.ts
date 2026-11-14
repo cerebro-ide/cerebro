@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
   createEntry,
+  createScratch,
   empty,
   exists,
   listFolder,
@@ -118,6 +119,27 @@ describe('createEntry', () => {
     });
     expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
     await expect(createEntry(join(root, 'c'), 'directory')).rejects.toThrow(/EEXIST/);
+  });
+});
+
+describe('createScratch', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-scratch-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('makes scratch, then scratch_ and the lowest number free, whatever the extension, as IntelliJ', async () => {
+    const folder = join(root, 'scratches');
+    expect(await createScratch(folder, 'ts')).toBe(`${folder}/scratch.ts`);
+    expect(readFileSync(join(folder, 'scratch.ts'), 'utf8')).toBe('');
+    expect(await createScratch(folder, 'py')).toBe(`${folder}/scratch_1.py`);
+    // A gap is filled; a folder, or a name that isn't one of its, doesn't count.
+    writeFileSync(join(folder, 'Scratch_3.md'), '');
+    writeFileSync(join(folder, 'scratch_x.md'), '');
+    writeFileSync(join(folder, 'scratch_4'), '');
+    mkdirSync(join(folder, 'scratch_2'));
+    expect(await createScratch(folder, 'txt')).toBe(`${folder}/scratch_2.txt`);
+    expect(await createScratch(folder, 'txt')).toBe(`${folder}/scratch_5.txt`);
   });
 });
 

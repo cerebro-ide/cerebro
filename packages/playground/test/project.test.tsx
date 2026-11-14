@@ -24,7 +24,10 @@ const folders: Record<string, FileNode[]> = {
   ],
   '/r/src': [{ path: '/r/src/main.ts', name: 'main.ts', kind: 'file' }],
 };
-const host = new FakeHost({ 'fs.list': ({ path }: { path: string }) => folders[path] ?? [] });
+const host = new FakeHost({
+  'fs.list': ({ path }: { path: string }) => folders[path] ?? [],
+  'scratches.folder': () => '/data/scratches',
+});
 const SAMPLES = ['src/main.ts', 'README.md', 'src/lib/x.ts', 'docs/', 'src/a.ts'];
 
 const opened: Tab[] = [];
@@ -78,14 +81,16 @@ describe('the Project tool window', () => {
     workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
     mount();
     // The worktree's folder at the top, opened: its name in bold, then its path.
-    await expect.poll(rows).toEqual(['r/r', 'src', 'dist', 'README.md']);
+    await expect.poll(rows).toEqual(['r/r', 'src', 'dist', 'README.md', 'Scratches and Consoles']);
     expect(host.params('fs.list')).toEqual([{ path: '/r' }]);
     const root = row('/r').querySelector('.playground-project__root') as Element;
     expect([root.textContent, getComputedStyle(root).fontWeight]).toEqual(['r', '600']);
     expect(row('/r').querySelector('.playground-project__location')?.textContent).toBe('/r');
     expect(row('/r/dist').querySelector('.playground-change--ignored')?.textContent).toBe('dist');
     await userEvent.dblClick(row('/r/src'));
-    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
+    await expect
+      .poll(rows)
+      .toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md', 'Scratches and Consoles']);
     await userEvent.dblClick(row('/r/src/main.ts'));
     expect(opened).toEqual([{ id: '/r/src/main.ts', title: 'main.ts' }]);
   });
@@ -121,7 +126,9 @@ describe('the Project tool window', () => {
     workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
     mount();
     // As the test before left it: src open.
-    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
+    await expect
+      .poll(rows)
+      .toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md', 'Scratches and Consoles']);
     const marked = () =>
       [...document.querySelectorAll('.playground-problem-file')].map((m) => m.textContent);
     expect(marked()).toEqual([]);
@@ -173,13 +180,47 @@ describe('the Project tool window', () => {
     await expect.poll(rows).toEqual(['s', 'docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
     // Its folders as they were left, src open.
     workspace.activate('/r');
-    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
+    await expect
+      .poll(rows)
+      .toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md', 'Scratches and Consoles']);
     workspace.activate('/s');
     await expect.poll(rows).toEqual(['s', 'docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
     // Closed, it hides them all.
     await userEvent.dblClick(row('/s'));
     await expect.poll(rows).toEqual(['s']);
     await userEvent.dblClick(row('/s'));
+  });
+});
+
+describe('Scratches and Consoles', () => {
+  it('lists the scratch files, under Scratches once there’s one, as IntelliJ’s', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).toContain('Scratches and Consoles');
+    // Asked for only once it's opened; with no scratch file, nothing under it.
+    expect(host.params('scratches.folder')).toEqual([]);
+    await userEvent.dblClick(row('scratches-and-consoles'));
+    await expect.poll(() => host.params('scratches.folder')).toHaveLength(1);
+    expect(rows().at(-1)).toBe('Scratches and Consoles');
+    // A group is nothing for the actions to act on.
+    expect(projectNode()).toBeNull();
+    folders['/data/scratches'] = [
+      { path: '/data/scratches/scratch.ts', name: 'scratch.ts', kind: 'file' },
+    ];
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(() => rows().slice(-2)).toEqual(['Scratches and Consoles', 'Scratches']);
+    await userEvent.dblClick(row('/data/scratches'));
+    await expect.poll(() => rows().at(-1)).toBe('scratch.ts');
+    await userEvent.dblClick(row('/data/scratches/scratch.ts'));
+    expect(opened).toEqual([{ id: '/data/scratches/scratch.ts', title: 'scratch.ts' }]);
+    await userEvent.click(row('/data/scratches/scratch.ts'));
+    expect(projectFile()).toBe('/data/scratches/scratch.ts');
+    // Without a folder for them, none.
+    host.answers['scratches.folder'] = () => null;
+    window.dispatchEvent(new Event('focus'));
+    await expect.poll(() => rows().at(-1)).toBe('Scratches and Consoles');
+    await userEvent.dblClick(row('scratches-and-consoles'));
+    host.answers['scratches.folder'] = () => '/data/scratches';
   });
 });
 

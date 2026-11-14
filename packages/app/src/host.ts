@@ -40,6 +40,8 @@ export function startHost(
       CEREBRO_REPO: repo,
       // The index, kept between runs in the app's data folder.
       CEREBRO_INDEX_CACHE: join(app.getPath('userData'), 'index'),
+      // The scratch files, the app's own, as IntelliJ keeps them in its configuration's folder.
+      CEREBRO_SCRATCHES: join(app.getPath('userData'), 'scratches'),
     },
     stdio: ['pipe', 'pipe', 'inherit'],
   });

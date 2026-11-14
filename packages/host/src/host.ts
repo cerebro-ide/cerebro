@@ -2,7 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { chmodSync, rmSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { dirname, join, relative, sep } from 'node:path';
 import { Connection, ErrorCodes, LineReader, ResponseError } from '@cerebro-ide/protocol';
@@ -35,6 +35,7 @@ import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
 import {
   createEntry,
+  createScratch,
   exists,
   listFolder,
   readFileBytes,
@@ -172,6 +173,8 @@ export interface HostOptions {
   rg?: string;
   /** A folder to keep the index in between runs, a file per repository; without it, none is kept. */
   indexCache?: string;
+  /** The folder of the scratch files, the app's rather than a repository's, as IntelliJ's. */
+  scratches?: string;
 }
 
 /** Whether a request's `filter` is a log filter: its text, authors and dates, as given. */
@@ -475,6 +478,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     ),
   );
   // New File and New Directory: an empty file, or a folder (`directory: true`).
+  // Scratch files: their folder, made if it isn't there (null without one), and a new one in it.
+  connection.onRequest('scratches.folder', async () => {
+    if (options.scratches === undefined) return null;
+    await mkdir(options.scratches, { recursive: true });
+    return options.scratches;
+  });
+  connection.onRequest('scratches.create', (params) => {
+    if (options.scratches === undefined) throw new Error('No folder for scratch files');
+    return createScratch(options.scratches, text(params, 'extension'));
+  });
   connection.onRequest('fs.create', (params) =>
     createEntry(
       text(params, 'path'),

@@ -129,6 +129,28 @@ export async function createEntry(path: string, kind: 'file' | 'directory'): Pro
 }
 
 /**
+ * Makes a new, empty scratch file in `folder` (made if it isn't there), its name as IntelliJ's
+ * (ScratchFileCreator, read from its source): `scratch`, or `scratch_` and the lowest number no
+ * file there has, whatever its extension, then the language's extension. Its path.
+ */
+export async function createScratch(folder: string, extension: string): Promise<string> {
+  await mkdir(folder, { recursive: true });
+  const taken = new Set<number>();
+  for (const entry of await readdir(folder, { withFileTypes: true })) {
+    if (!entry.isFile()) continue;
+    const dot = entry.name.lastIndexOf('.');
+    const name = (dot > 0 ? entry.name.slice(0, dot) : entry.name).toLowerCase();
+    if (name === 'scratch') taken.add(0);
+    else if (/^scratch_\d+$/.test(name)) taken.add(Number(name.slice('scratch_'.length)));
+  }
+  let number = 0;
+  while (taken.has(number)) number++;
+  const path = `${folder}/scratch${number === 0 ? '' : `_${String(number)}`}.${extension}`;
+  await writeFile(path, '', { flag: 'wx' });
+  return path;
+}
+
+/**
  * Renames or moves a file or folder, as IntelliJ's Rename and Move in the Project view: an error
  * (EEXIST) when `to` is there already, unless asked to go `over` a file there (a rename on Linux
  * and macOS would replace one unasked).
