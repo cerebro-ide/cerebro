@@ -51,7 +51,7 @@ export function StructureView(props: StructureViewProps): Node {
         return untracked(() => <FileStructure path={path} {...props} />);
       }}
     </div>
-  ) as Node;
+  );
 }
 
 function FileStructure(props: StructureViewProps & { path: string }) {
