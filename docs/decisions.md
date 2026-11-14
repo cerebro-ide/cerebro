@@ -66,6 +66,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3002,6 +3003,33 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+
+## Go to Implementation and Go to Type Declaration (2026-11-14)
+
+Two of IntelliJ's Navigate actions that WebStorm has, next after the editor's own actions. Claude's
+choices, open to change.
+
+- **Go to Implementation(s),** as IntelliJ's `GotoImplementation`: what implements or overrides
+  the symbol at the caret, from its language server (`textDocument/implementation`, asked already
+  for the gutter's markers). One goes there; several are listed, titled with IntelliJ's words
+  ("Choose Implementation of name (2 found)", `goto.implementation.chooserTitle`, without its
+  bold); none, or no server, says IntelliJ's "No implementations found"
+  (`goto.implementation.notFound`, CodeInsightBundle, read from its source).
+- **Go to Type Declaration,** as IntelliJ's `GotoTypeDeclaration`: where the type of the symbol
+  at the caret is declared, from its language server (`textDocument/typeDefinition`). One goes
+  there; several are listed as "Choose Type" (`choose.type.popup.title`); none does nothing, as
+  `GotoTypeDeclarationHandler2` returns with no result (read from its source).
+- **Measured** with TypeScript 7's server (host test): an interface's implementing class, and a
+  variable's declared type.
+- **Their keys,** from IntelliJ's keymap files: Ctrl+Alt+B and Ctrl+Shift+B (`$default`); on
+  macOS Cmd+Alt+B (IntelliJ's macOS keymap takes `$default`'s with Cmd for Ctrl) and Cmd+Shift+B
+  and Ctrl+Shift+B; its classic macOS keymap's Ctrl+Shift+B; Eclipse's Ctrl+T and Ctrl+Alt+B, and
+  no Type Declaration (none of either on macOS); none for Implementation in Emacs's; none for Type
+  Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
+  macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
+- **Not yet:** in a menu (no Navigate menu yet, as the editor's other actions); Ctrl+click on a
+  symbol for Implementation (IntelliJ's Ctrl+Alt+click); IntelliJ's list shows each
+  implementation's class and its file, where this shows the file and line.
 
 ## Git → Current File → Show History (2026-11-12)
 
