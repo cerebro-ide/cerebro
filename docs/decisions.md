@@ -1178,6 +1178,16 @@ change.
   declaration is told by its definitions all starting at the word under the caret, the server's
   or else the index's. Measured in the built app with TypeScript's server: Ctrl+B on
   `export function run() {}` listed its two calls, and on a call went to it.
+- **Several definitions are told apart** (added 2026-11-14; Ido: "when jumping to a class source
+  there are two options, one for the class definition and another for the constructor, but
+  there's no distinction between them - unlike intellij"). TypeScript's server answers `new A()`
+  with both the class's name and its constructor (measured, 7.0.2), as bare places. When there's
+  more than one, the host names each by the symbol declared there, from that file's symbols (LSP's
+  `documentSymbol`, whose names start exactly where the places do, measured), and the list shows
+  its name, its kind and the kind's icon, as File Structure's: `Shape` (class) and `constructor`
+  (constructor). Measured in the built app. A place with no symbol there keeps the name asked
+  about. That IntelliJ's chooser looks just so (its icons, its words) is a claim; its title,
+  "Choose Declaration", isn't taken yet.
 - **Not yet:**
   - **HTML, CSS, JSON and Markdown:** (changed 2026-11-04: JSON, CSS and HTML have a server of
     Cerebro's own; see "JSON, CSS and HTML: a language server of Cerebro's own".) They gain little for navigation. With diagnostics,
