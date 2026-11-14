@@ -52,9 +52,10 @@ are already read from IntelliJ's keymap files and VS Code's sheets (Ctrl+D, Ctrl
 ### A popup that holds controls (proposed: a reshaping, for Ido's word)
 
 IntelliJ shows some choosers as popups with controls of their own, at the caret: Toggle Bookmark
-Mnemonic's grid and description field (`BookmarkTypeChooser`), say. Cerebro's popups are lists
-(the picker, the Switcher), each drawing its own frame, so the mnemonic chooser is a dialog with OK
-and Cancel for now (decision "Bookmarks"). A popup shell they'd share, with a title, a place and
+Mnemonic's grid and description field (`BookmarkTypeChooser`), say, and Go to Mnemonic's tree,
+centred, with no search field. Cerebro's popups are lists (the picker, the Switcher), each drawing
+its own frame, so the mnemonic chooser is a dialog with OK and Cancel for now, and Go to Mnemonic
+the picker at the top (decision "Bookmarks"). A popup shell they'd share, with a title, a place and
 the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
 doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 

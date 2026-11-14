@@ -3095,8 +3095,9 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
 - **Go to Mnemonic** (Ctrl+Shift+F11), as IntelliJ's `ShowTypeBookmarksAction`: a popup of the
   bookmarks with mnemonics, in the mnemonics' order, each as Show Bookmarks lists it; typing a
   mnemonic goes to its bookmark, Enter or a click to the one highlighted; off when none has one.
-  A key no bookmark has filters the list instead (a claim: IntelliJ's handling of other keys
-  wasn't checked).
+  IntelliJ's is a plain tree in a popup centred in the window, with no search field (its source);
+  here it's the picker, at the top, and a key no bookmark has goes to its search field (open to
+  change: the popup shell proposed in the backlog would allow IntelliJ's).
 - **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
   there, which Cerebro hasn't, so after Find. Toggle Bookmark and Toggle Bookmark Mnemonic…, then
   Previous and Next Line Bookmark, apart, then Show Bookmarks… and Go to Mnemonic… (ActionsBundle's
