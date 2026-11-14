@@ -1,7 +1,8 @@
 // The file system, next to the repos: listing a folder for the project tree, reading and writing a
 // file for the editor.
 
-import { open, readdir, stat, type FileHandle } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { mkdir, open, readdir, stat, writeFile, type FileHandle } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface Entry {
@@ -99,6 +100,18 @@ export async function exists(path: string): Promise<boolean> {
     if (code === 'ENOENT' || code === 'ENOTDIR') return false;
     throw error;
   }
+}
+
+/**
+ * Makes an empty file, or a folder, and the folders on its path, as IntelliJ's New File and New
+ * Directory do with a name like `a/b.ts`: an error (EEXIST) when it's there already, never over it.
+ */
+export async function createEntry(path: string, kind: 'file' | 'directory'): Promise<void> {
+  if (await exists(path)) {
+    throw Object.assign(new Error(`EEXIST: already exists, '${path}'`), { code: 'EEXIST' });
+  }
+  await mkdir(kind === 'directory' ? path : dirname(path), { recursive: true });
+  if (kind === 'file') await writeFile(path, '', { flag: 'wx' });
 }
 
 /** Saves a text file as UTF-8, over what's there; the file must exist, so a typo makes none. */

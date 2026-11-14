@@ -34,6 +34,7 @@ import {
 import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
 import {
+  createEntry,
   exists,
   listFolder,
   readFileBytes,
@@ -452,6 +453,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   }));
   // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
   connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
+  // New File and New Directory: an empty file, or a folder (`directory: true`).
+  connection.onRequest('fs.create', (params) =>
+    createEntry(
+      text(params, 'path'),
+      (params as { directory?: unknown }).directory === true ? 'directory' : 'file',
+    ),
+  );
   // Only the latest search's answer is used (the page searches as the user types): a new one stops
   // the one still running.
   let searching: AbortController | undefined;

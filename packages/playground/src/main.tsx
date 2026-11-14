@@ -83,6 +83,7 @@ import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { setupEditorGitMenu } from './editor-git-menu.js';
+import { setupNewFile } from './new-file.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -442,6 +443,12 @@ setupApplyChanges(services);
 setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
+setupNewFile(services, {
+  activeTab: () => editor()?.activeGroup.active,
+  open: (tab) => {
+    navigation.open(tab);
+  },
+});
 setupEditorGitMenu(services.menus, () => {
   const env = active();
   return env !== undefined && hostFor(env.id) !== undefined && gitRepository.get();

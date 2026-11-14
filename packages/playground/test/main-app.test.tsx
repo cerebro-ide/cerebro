@@ -9,6 +9,7 @@ import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets, history, reveals } from '../src/navigation.js';
+import { notifications } from '../src/notifications.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -1438,6 +1439,96 @@ describe('the Project view’s menu', () => {
     if (!shown) await userEvent.click(stripe('project'));
     answers.delete('fs.list');
     answers.delete('git.blame');
+  });
+
+  it('makes a new file or folder where it’s opened, selected, the file opened', async () => {
+    // Each folder's, as made below. Not lib, which the tests after list as holding itself: loaded
+    // here, the tree's refresh would go down it forever.
+    const folders: Record<string, readonly { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/made', name: 'made', kind: 'directory' },
+        { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+      ],
+      '/r/made': [
+        { path: '/r/made/d.ts', name: 'd.ts', kind: 'file' },
+        { path: '/r/made/x', name: 'x', kind: 'directory' },
+      ],
+      '/r/made/x': [{ path: '/r/made/x/n.ts', name: 'n.ts', kind: 'file' }],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const ask = async (key: string, item: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('New'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+      await userEvent.click(menuItem(item));
+      return vi.waitUntil(() => document.querySelector<HTMLElement>('.cerebro-dialog'));
+    };
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    // In the folder: a name that's there is taken; one with folders on its way, made.
+    const box = await ask('/r/made', 'File…');
+    expect(box.textContent).toContain('New File');
+    await userEvent.keyboard('d.ts');
+    expect(error()).toBe("A file with the name 'd.ts' already exists");
+    await userEvent.clear(document.activeElement as HTMLInputElement);
+    await userEvent.keyboard('x/n.ts{Enter}');
+    await expect.poll(() => host('/r').params('fs.create')).toEqual([{ path: '/r/made/x/n.ts' }]);
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/made/x/n.ts');
+    expect(document.querySelector('.playground-project [aria-selected="true"]')?.textContent).toBe(
+      'n.ts',
+    );
+    env().editor.close(env().editor.activeGroupId, '/r/made/x/n.ts');
+    // Beside the file; one that can't be made, said so.
+    answers.set('fs.create', new Error('EACCES: permission denied'));
+    await ask('/r/d.ts', 'Directory…');
+    expect(document.querySelector('.cerebro-dialog')?.textContent).toContain('New Directory');
+    await userEvent.keyboard('pkg{Enter}');
+    await expect
+      .poll(() => host('/r').params('fs.create').at(-1))
+      .toEqual({ path: '/r/pkg', directory: true });
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create Directory');
+    expect(notifications.all.get(0)?.content).toContain('EACCES');
+    await ask('/r/d.ts', 'File…');
+    await userEvent.keyboard('e.ts{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create File');
+    answers.delete('fs.create');
+    // Cancelled: nothing made.
+    const made = host('/r').params('fs.create').length;
+    await ask('/r/d.ts', 'File…');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(host('/r').params('fs.create')).toHaveLength(made);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
+  it('makes it beside the editor’s file from elsewhere, else in the worktree', async () => {
+    const directory = async () => {
+      await userEvent.keyboard('{Control>}{Shift>}A{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard('Directory');
+      await userEvent.click(
+        await vi.waitUntil(() =>
+          [...document.querySelectorAll<HTMLElement>('.cerebro-popup-item')].find(
+            (item) =>
+              item.querySelector('.cerebro-popup-item__label')?.textContent === 'Directory…',
+          ),
+        ),
+      );
+      await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+      await userEvent.keyboard('gen{Enter}');
+      await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+      return host('/r').params('fs.create').at(-1);
+    };
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    expect(await directory()).toEqual({ path: '/r/src/gen', directory: true });
+    // A tab that isn't a file in the worktree: in the worktree.
+    env().editor.open({ id: 'untitled-9', title: 'untitled-9' });
+    expect(await directory()).toEqual({ path: '/r/gen', directory: true });
+    env().editor.close(env().editor.activeGroupId, 'untitled-9');
   });
 
   it('opens the file or folder it’s opened on in the file manager', async () => {

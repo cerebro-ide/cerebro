@@ -85,6 +85,12 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
   return modelFor(env.id, samples).reveal(keys);
 }
 
+/** Selects what was just made in a worktree, its tree read again first to have it. */
+export async function selectNew(worktree: string, path: string): Promise<boolean> {
+  await models.get(worktree)?.refresh();
+  return selectInTree(path, []);
+}
+
 /**
  * The Project view's selected file, its full path, while the view has the focus (or had it before
  * a menu took it), as IntelliJ's actions take the files of the view with the focus: null when

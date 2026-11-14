@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
+  createEntry,
   empty,
   exists,
   listFolder,
@@ -92,6 +93,29 @@ describe('listFolder', () => {
 
   it('fails for a folder that isn’t there', async () => {
     await expect(listFolder(join(root, 'missing'))).rejects.toThrow(/ENOENT/);
+  });
+});
+
+describe('createEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-create-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('makes an empty file, or a folder, with the folders on its path', async () => {
+    await createEntry(join(root, 'a', 'b.ts'), 'file');
+    expect(readFileSync(join(root, 'a', 'b.ts'), 'utf8')).toBe('');
+    await createEntry(join(root, 'c', 'd'), 'directory');
+    expect(statSync(join(root, 'c', 'd')).isDirectory()).toBe(true);
+  });
+
+  it('fails for a file or folder that’s there, leaving it as it is', async () => {
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await expect(createEntry(join(root, 'kept.ts'), 'file')).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    await expect(createEntry(join(root, 'c'), 'directory')).rejects.toThrow(/EEXIST/);
   });
 });
 

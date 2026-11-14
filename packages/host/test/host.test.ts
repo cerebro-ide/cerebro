@@ -1951,6 +1951,17 @@ describe('files', () => {
     });
     expect(await ui.request('fs.exists', { path: join(dir, 'b.bin') })).toBe(true);
     expect(await ui.request('fs.exists', { path: join(dir, 'none') })).toBe(false);
+    await ui.request('fs.create', { path: join(dir, 'new', 'n.ts') });
+    await ui.request('fs.create', { path: join(dir, 'folder'), directory: true });
+    expect(await ui.request('fs.list', { path: dir })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'folder', kind: 'directory' }),
+        expect.objectContaining({ name: 'new', kind: 'directory' }),
+      ]),
+    );
+    expect(await ui.request('fs.read', { path: join(dir, 'new', 'n.ts') })).toMatchObject({
+      text: '',
+    });
     rmSync(dir, { recursive: true });
   });
 

@@ -92,6 +92,7 @@ export {
   empty,
   exists,
   listFolder,
+  createEntry,
   MAPPED_WAIT,
   MAX_FILE_SIZE,
   readFileBytes,
