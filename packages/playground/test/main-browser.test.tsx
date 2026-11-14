@@ -455,7 +455,8 @@ describe('the tool windows', () => {
     await shows('commit', 'Commit');
     await shows('agentChanges', 'Agent Changes');
     await shows('notes', 'Notes');
-    await shows('structure', 'cerebro-status-bar · Structure item 1');
+    await shows('structure', 'The structure shows in the desktop app.');
+    await shows('services', 'cerebro-status-bar · Services item 1');
     // Commit's and Agent Changes' took the Project window's place.
     await userEvent.click(stripe('project'));
   });
@@ -659,7 +660,12 @@ describe('the page with nothing open', () => {
     await userEvent.click(stripe('structure'));
     await expect
       .poll(() => document.querySelector('.cerebro-tool-window[data-id="structure"]')?.textContent)
-      .toContain('none · Structure item 1');
+      .toBe('StructureNo structure');
+    await userEvent.click(stripe('services'));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tool-window[data-id="services"]')?.textContent)
+      .toContain('none · Services item 1');
+    await userEvent.click(stripe('services'));
     // Nothing to go back or forward to, nor recent files.
     window.dispatchEvent(new MouseEvent('mouseup', { button: 3 }));
     window.dispatchEvent(new MouseEvent('mouseup', { button: 4 }));

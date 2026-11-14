@@ -97,7 +97,14 @@ export interface CodeEditorProps {
    * is revealed once, as `focus`: a later editor of the file given it again keeps its own place.
    */
   reveal?: () =>
-    | { line: number; column: number; end?: number | undefined; top?: number | undefined }
+    | {
+        line: number;
+        column: number;
+        end?: number | undefined;
+        top?: number | undefined;
+        /** False to leave the focus where it is, this once: a tree showing what's selected. */
+        focus?: boolean | undefined;
+      }
     | undefined;
   /** Whether revealing a position also focuses the editor, as after navigating. Default: true. */
   revealFocus?: boolean;
@@ -1246,7 +1253,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
             ? EditorView.scrollIntoView(pos, { y: 'center' })
             : EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 }),
       });
-      if (props.revealFocus !== false) view.focus();
+      if (props.revealFocus !== false && at.focus !== false) view.focus();
     });
     return undefined;
   });

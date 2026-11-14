@@ -73,6 +73,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
 - [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
+- [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3414,6 +3415,28 @@ actions). Claude's choices, open to change.
 - **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
   (IntelliJ's dialog); Optimize Imports on save or before a commit.
 
+## The Structure tool window (2026-11-14)
+
+From Ido (2026-11-14): "structure panel isn't implemented though we already implemented the jump
+to source and usages, so that's a given". As IntelliJ's (StructureViewWrapperImpl,
+StructureViewComponent and StructureViewFactoryImpl, read from its source). Claude's choices, open
+to change.
+
+- **The active editor's file's symbols, as a tree:** File Structure's (`lsp.structure`), every
+  symbol with members expanded, each with its kind's icon. Asked again as the file is edited, once
+  typing pauses (300 ms, a claim), only the latest answer kept.
+- **IntelliJ's defaults:** Autoscroll to Source is on: selecting a symbol shows it in the editor,
+  the focus left in the tree. Double click or Enter goes to it, the editor focused. Autoscroll from
+  Source is off: it doesn't follow the caret.
+  - A position revealed in an editor can now say to leave the focus where it is (`focus: false`),
+    and `openAt` takes that: until now every reveal focused the editor, or none of an editor's did
+    (`revealFocus`, Find's preview).
+- **Its empty texts are IntelliJ's** (LangBundle): "No structure" with no file or no language
+  server, "Structure is empty" for a file with no symbols. In the browser, "The structure shows in
+  the desktop app.", as the Log's.
+- **Not yet:** its toolbar (sorting, Autoscroll toggles, Show Fields and Inherited, Expand and
+  Collapse All), and following the caret when Autoscroll from Source is turned on.
+
 ## Git → Current File → Show History (2026-11-12)
 
 The Current File submenu's item after Compare with Branch or Tag, toward IntelliJ's
@@ -4739,7 +4762,6 @@ After Rename, IntelliJ's File Structure (Ido: "do them all"). Claude's choices, 
 - **Not yet:**
   - IntelliJ's options (inherited members, fields shown or not) and its sorting by name.
   - A big file's symbols past the popup's 200 rows are counted, not listed.
-  - The Structure tool window (Alt+7) doesn't list them yet.
 
 ## Rename (2026-11-04)
 

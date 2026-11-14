@@ -105,7 +105,7 @@ export interface Asked {
 /** Positions to reveal in open files, by path: the editor follows them. */
 export const reveals = new ObservableMap<
   string,
-  { line: number; column: number; top?: number | undefined }
+  { line: number; column: number; top?: number | undefined; focus?: false }
 >();
 
 /** Open files whose editor is to take the focus, by path: the editor takes each request once. */
@@ -218,14 +218,14 @@ export function history(): NavigationHistory | undefined {
 }
 
 export function setupNavigation(editor: () => EditorArea | undefined) {
-  /** Opens a file at a position. */
-  const openAt = (at: Located) => {
+  /** Opens a file at a position; `focus` false leaves the focus where it is. */
+  const openAt = (at: Located, focus = true) => {
     // A jump within the file is a place left too; to another file, the history sees the tab change.
     if (editor()?.activeGroup.active === at.path) history()?.record();
     editor()?.open({ id: at.path, title: at.path.split('/').at(-1) as string });
     // A new object each time, so revealing the same place again works.
     const reveal = () => {
-      reveals.set(at.path, { line: at.line, column: at.column });
+      reveals.set(at.path, { line: at.line, column: at.column, ...(focus ? {} : { focus }) });
     };
     // Open, it's read again first: the place may be in what's changed on disk since (measured: F4
     // from a diff put the caret in the editor's old text, read again a second later).
@@ -398,6 +398,11 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         root,
         callers: (call) => ask<Call[]>('lsp.incomingCalls', { path: call.path, item: call.item }),
       };
+    },
+
+    /** A file's symbols, as its editor has it, from its language server; null without one. */
+    structure(path: string, text: string): Promise<FileSymbol[] | null> {
+      return ask<FileSymbol[]>('lsp.structure', { path, text });
     },
 
     async fileStructure(path: string, text: string, caret: Position): Promise<void> {
