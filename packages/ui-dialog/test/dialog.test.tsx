@@ -254,6 +254,13 @@ describe('openDialog', () => {
     expect(await handle.result).toBe('done');
   });
 
+  it('focuses the control marked autofocus as it opens, not the first', () => {
+    dialog({
+      content: () => [<input type="checkbox" class="box" />, <input class="field" autofocus />],
+    });
+    expect(document.activeElement).toBe(element().querySelector('.field'));
+  });
+
   it('accepts on Enter, unless on a button, in a multi-line field, or while disabled', async () => {
     const allowed = signal(false);
     const handle = dialog({

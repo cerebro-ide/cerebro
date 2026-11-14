@@ -520,8 +520,19 @@ describe('the Git menu’s Uncommitted Changes', () => {
     ];
     mount();
     await expect.poll(() => commands.isEnabled('vcs.shelve')).toBe(true);
+    // The Comment field has the focus as the dialog opens, before its files' boxes: keys typed at
+    // once go in it (measured: they went to a box when it took the focus a frame later, in #353's
+    // CI on macOS).
+    let focusedAtOpen: string | undefined;
+    const opening = new MutationObserver(() => {
+      if (!document.querySelector('.cerebro-dialog')) return;
+      focusedAtOpen = document.activeElement?.className;
+      opening.disconnect();
+    });
+    opening.observe(document.body, { childList: true, subtree: true });
     commands.execute('vcs.shelve');
     const box = await dialog();
+    expect(focusedAtOpen).toBe('playground-shelf__message-field');
     const checks = [...box.querySelectorAll<HTMLInputElement>('input[type="checkbox"]')];
     // What goes in starts checked: the tracked files.
     expect(checks.map((c) => c.checked)).toEqual([true, false]);

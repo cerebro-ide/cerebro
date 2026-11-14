@@ -245,11 +245,7 @@ async function putLabel(env: Environment): Promise<void> {
         <input
           type="text"
           class="playground-shelf__message-field"
-          ref={(field) => {
-            requestAnimationFrame(() => {
-              field.focus();
-            });
-          }}
+          autofocus
           on:input={(event) => {
             label.set((event.currentTarget as HTMLInputElement).value);
           }}

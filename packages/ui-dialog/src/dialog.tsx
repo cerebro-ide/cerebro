@@ -220,10 +220,15 @@ class Dialog<T> implements DialogHandle<T> {
     );
   }
 
-  /** The content's first control, else OK, else the dialog itself. */
+  /**
+   * The content's control marked `autofocus`, else its first, else OK, else the dialog itself: as
+   * it opens, so keys typed at once reach it (IntelliJ's `getPreferredFocusedComponent`).
+   */
   private focusFirst(): void {
+    const content = '.cerebro-dialog__content';
     const first =
-      this.element.querySelector<HTMLElement>(`.cerebro-dialog__content :is(${FOCUSABLE})`) ??
+      this.element.querySelector<HTMLElement>(`${content} [autofocus]`) ??
+      this.element.querySelector<HTMLElement>(`${content} :is(${FOCUSABLE})`) ??
       this.element.querySelector<HTMLElement>('.cerebro-dialog__button--primary:not([disabled])') ??
       this.element;
     first.focus();
