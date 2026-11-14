@@ -23,6 +23,7 @@ import {
   signaturesOf,
   renamingOf,
   fileEditsOf,
+  filtered,
   foldsOf,
   structureOf,
   symbolsOf,
@@ -464,6 +465,32 @@ describe('rename', () => {
     expect(fileEditsOf(null)).toBeNull();
   });
 
+  it('tells a server of the files it names before they’re renamed: by glob, kind and scheme', () => {
+    // TypeScript's server's (measured, 7.0.2).
+    const ts = [{ scheme: 'file', pattern: { glob: '**/*.{ts,tsx,js,jsx,cts,cjs,mts,mjs,json}' } }];
+    expect(filtered(ts, '/r/src/a.ts', false)).toBe(true);
+    expect(filtered(ts, 'C:\\r\\a.tsx', false)).toBe(true);
+    expect(filtered(ts, '/r/a.css', false)).toBe(false);
+    expect(filtered(ts, '/r/A.TS', false)).toBe(false);
+    expect(
+      filtered([{ pattern: { glob: '**/*.ts', options: { ignoreCase: true } } }], '/r/A.TS', false),
+    ).toBe(true);
+    // Only files, or only folders; another scheme's, none.
+    const files = [{ pattern: { glob: '**/src', matches: 'file' as const } }];
+    expect(filtered(files, '/r/src', true)).toBe(false);
+    expect(filtered(files, '/r/src', false)).toBe(true);
+    const folders = [{ pattern: { glob: '**/src', matches: 'folder' as const } }];
+    expect(filtered(folders, '/r/src', false)).toBe(false);
+    expect(filtered(folders, '/r/src', true)).toBe(true);
+    expect(filtered([{ scheme: 'untitled', pattern: { glob: '**' } }], '/r/a.ts', false)).toBe(
+      false,
+    );
+  });
+
+  it('asks a server nothing before a file’s renamed when it names no files', async () => {
+    expect(await pool([fake('links')]).willRename(root, file.path, `${root}/b.fake`)).toBeNull();
+  });
+
   it('says why a server won’t rename, and nothing when it’s gone', async () => {
     const fails = pool([fake('fails')]);
     expect(await fails.renaming(root, file, at(0, 0))).toEqual({ refused: 'Not here.' });
@@ -826,6 +853,23 @@ describe('TypeScript 7’s server', () => {
     });
     // Nothing there: none.
     expect(await servers.hover(project, main, at(2, 0))).toBeNull();
+  }, 60_000);
+
+  it('changes the imports of a file renamed, before it’s renamed', async () => {
+    const project = `${root}/ts`;
+    writeFileSync(`${project}/sums.ts`, 'export const sum = 1;\n');
+    const user = { path: `${project}/totals.ts`, text: "import { sum } from './sums';\nsum;\n" };
+    writeFileSync(user.path, user.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    // Open, so the server has the project loaded, as the editor has it.
+    servers.open(project, user);
+    const edits = await servers.willRename(project, `${project}/sums.ts`, `${project}/adds.ts`);
+    expect(edits).toEqual([
+      {
+        path: user.path,
+        edits: [{ from: { line: 0, column: 21 }, to: { line: 0, column: 27 }, text: './adds' }],
+      },
+    ]);
   }, 60_000);
 
   it('renames a function everywhere from where it’s used, not with an alias in the import', async () => {

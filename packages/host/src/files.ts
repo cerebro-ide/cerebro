@@ -1,7 +1,17 @@
 // The file system, next to the repos: listing a folder for the project tree, reading and writing a
 // file for the editor.
 
-import { open, readdir, stat, type FileHandle } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import {
+  cp,
+  mkdir,
+  open,
+  readdir,
+  rename,
+  stat,
+  writeFile,
+  type FileHandle,
+} from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface Entry {
@@ -99,6 +109,52 @@ export async function exists(path: string): Promise<boolean> {
     if (code === 'ENOENT' || code === 'ENOTDIR') return false;
     throw error;
   }
+}
+
+/** Fails (EEXIST) when a file or folder is at `path`. */
+async function notThere(path: string): Promise<void> {
+  if (await exists(path)) {
+    throw Object.assign(new Error(`EEXIST: already exists, '${path}'`), { code: 'EEXIST' });
+  }
+}
+
+/**
+ * Makes an empty file, or a folder, and the folders on its path, as IntelliJ's New File and New
+ * Directory do with a name like `a/b.ts`: an error (EEXIST) when it's there already, never over it.
+ */
+export async function createEntry(path: string, kind: 'file' | 'directory'): Promise<void> {
+  await notThere(path);
+  await mkdir(kind === 'directory' ? path : dirname(path), { recursive: true });
+  if (kind === 'file') await writeFile(path, '', { flag: 'wx' });
+}
+
+/**
+ * Renames or moves a file or folder, as IntelliJ's Rename and Move in the Project view: an error
+ * (EEXIST) when `to` is there already, unless asked to go `over` a file there (a rename on Linux
+ * and macOS would replace one unasked).
+ */
+export async function renameEntry(path: string, to: string, over = false): Promise<void> {
+  if (!over) await notThere(to);
+  await mkdir(dirname(to), { recursive: true });
+  await rename(path, to);
+}
+
+/**
+ * Copies a file or folder to `to`, making the folders on its way, as IntelliJ's Copy in the Project
+ * view: an error (EEXIST) when `to` is there already, unless asked to go `over` it (a folder's
+ * files then join it, those of the same name replaced). Never into itself, in IntelliJ's words.
+ */
+export async function copyEntry(path: string, to: string, over = false): Promise<void> {
+  if (to.startsWith(`${path}/`)) {
+    throw new Error(
+      dirname(to) === path
+        ? 'Cannot place directory into itself.'
+        : 'Cannot place directory into its subdirectory.',
+    );
+  }
+  if (!over) await notThere(to);
+  await mkdir(dirname(to), { recursive: true });
+  await cp(path, to, { recursive: true, force: over, errorOnExist: !over });
 }
 
 /** Saves a text file as UTF-8, over what's there; the file must exist, so a typo makes none. */

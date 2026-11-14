@@ -9,6 +9,7 @@ import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets, history, reveals } from '../src/navigation.js';
+import { notifications } from '../src/notifications.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -1440,6 +1441,483 @@ describe('the Project view’s menu', () => {
     answers.delete('git.blame');
   });
 
+  it('makes a new file or folder where it’s opened, selected, the file opened', async () => {
+    // Each folder's, as made below. Not lib, which the tests after list as holding itself: loaded
+    // here, the tree's refresh would go down it forever.
+    const folders: Record<string, readonly { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/made', name: 'made', kind: 'directory' },
+        { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+      ],
+      '/r/made': [
+        { path: '/r/made/d.ts', name: 'd.ts', kind: 'file' },
+        { path: '/r/made/x', name: 'x', kind: 'directory' },
+      ],
+      '/r/made/x': [{ path: '/r/made/x/n.ts', name: 'n.ts', kind: 'file' }],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const ask = async (key: string, item: string) => {
+      await userEvent.click(await vi.waitUntil(() => row(key)), { button: 'right' });
+      await userEvent.hover(menuItem('New'));
+      await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+      await userEvent.click(menuItem(item));
+      return vi.waitUntil(() => document.querySelector<HTMLElement>('.cerebro-dialog'));
+    };
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    // In the folder: a name that's there is taken; one with folders on its way, made.
+    const box = await ask('/r/made', 'File…');
+    expect(box.textContent).toContain('New File');
+    await userEvent.keyboard('d.ts');
+    expect(error()).toBe("A file with the name 'd.ts' already exists");
+    await userEvent.clear(document.activeElement as HTMLInputElement);
+    await userEvent.keyboard('x/n.ts{Enter}');
+    await expect.poll(() => host('/r').params('fs.create')).toEqual([{ path: '/r/made/x/n.ts' }]);
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/made/x/n.ts');
+    expect(document.querySelector('.playground-project [aria-selected="true"]')?.textContent).toBe(
+      'n.ts',
+    );
+    env().editor.close(env().editor.activeGroupId, '/r/made/x/n.ts');
+    // Beside the file; one that can't be made, said so.
+    answers.set('fs.create', new Error('EACCES: permission denied'));
+    await ask('/r/d.ts', 'Directory…');
+    expect(document.querySelector('.cerebro-dialog')?.textContent).toContain('New Directory');
+    await userEvent.keyboard('pkg{Enter}');
+    await expect
+      .poll(() => host('/r').params('fs.create').at(-1))
+      .toEqual({ path: '/r/pkg', directory: true });
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create Directory');
+    expect(notifications.all.get(0)?.content).toContain('EACCES');
+    await ask('/r/d.ts', 'File…');
+    await userEvent.keyboard('e.ts{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create File');
+    answers.delete('fs.create');
+    // Cancelled: nothing made.
+    const made = host('/r').params('fs.create').length;
+    await ask('/r/d.ts', 'File…');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(host('/r').params('fs.create')).toHaveLength(made);
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
+  it('makes it beside the editor’s file from elsewhere, else in the worktree', async () => {
+    const directory = async () => {
+      await userEvent.keyboard('{Control>}{Shift>}A{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard('Directory');
+      await userEvent.click(
+        await vi.waitUntil(() =>
+          [...document.querySelectorAll<HTMLElement>('.cerebro-popup-item')].find(
+            (item) =>
+              item.querySelector('.cerebro-popup-item__label')?.textContent === 'Directory…',
+          ),
+        ),
+      );
+      await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+      await userEvent.keyboard('gen{Enter}');
+      await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+      return host('/r').params('fs.create').at(-1);
+    };
+    env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    expect(await directory()).toEqual({ path: '/r/src/gen', directory: true });
+    // A tab that isn't a file in the worktree: in the worktree.
+    env().editor.open({ id: 'untitled-9', title: 'untitled-9' });
+    expect(await directory()).toEqual({ path: '/r/gen', directory: true });
+    env().editor.close(env().editor.activeGroupId, 'untitled-9');
+  });
+
+  it('deletes the file or folder it’s opened on to the trash, once asked', async () => {
+    // A folder of its own, as the test before: lib, listed as holding itself later, isn't loaded.
+    const folders: Record<string, readonly { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/old', name: 'old', kind: 'directory' },
+        { path: '/r/gone.ts', name: 'gone.ts', kind: 'file' },
+      ],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const trashed = () => calls.filter((call) => call[0] === 'trash');
+    // A folder, from the menu: what goes with it said; cancelled, nothing goes.
+    await userEvent.click(await vi.waitUntil(() => row('/r/old')), { button: 'right' });
+    await userEvent.click(menuItem('Delete…'));
+    const box = await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect([...box.querySelectorAll('p')].map((p) => p.textContent)).toEqual([
+      'Delete directory "old"?',
+      'All files and subdirectories in "old" will be deleted.',
+      'You might not be able to fully undo this operation!',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(trashed()).toEqual([]);
+    // A file open in the editor, with the key: gone from the tree, its tab closed.
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path === '/r/gone.ts' && trashed().length > 0) throw new Error('ENOENT');
+      return { text: `// ${path}\nconst a = 1;\n` };
+    });
+    answers.set('fs.exists', ({ path }: { path: string }) => path !== '/r/gone.ts');
+    env().editor.open({ id: '/r/gone.ts', title: 'gone.ts' });
+    await userEvent.click(await vi.waitUntil(() => row('/r/gone.ts')));
+    await userEvent.keyboard('{Delete}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Delete file "gone.ts"?');
+    folders['/r'] = [{ path: '/r/old', name: 'old', kind: 'directory' }];
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(trashed).toEqual([['trash', '/r/gone.ts']]);
+    await expect.poll(() => row('/r/gone.ts')).toBeUndefined();
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .not.toContain('/r/gone.ts');
+    // One the trash won't take: said so.
+    answers.set('shell.trash', new Error('Permission denied'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/old')), { button: 'right' });
+    await userEvent.click(menuItem('Delete…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Delete');
+    expect(notifications.all.get(0)?.content).toBe('Permission denied');
+    for (const method of ['shell.trash', 'fs.read', 'fs.exists', 'fs.list']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
+  it('renames the file or folder it’s opened on, its tabs following it', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/pre', name: 'pre', kind: 'directory' },
+        { path: '/r/one.ts', name: 'one.ts', kind: 'file' },
+      ],
+      '/r/pre': [{ path: '/r/pre/in.ts', name: 'in.ts', kind: 'file' }],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const renamed = () => host('/r').params('fs.rename');
+    const field = () => document.querySelector('.cerebro-dialog input') as HTMLInputElement;
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    // A file, from the menu: its name to start with; a sibling's is taken, a path invalid.
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog-field__label')?.textContent).toBe(
+      "Rename file 'one.ts' to:",
+    );
+    expect(field().value).toBe('one.ts');
+    await userEvent.clear(field());
+    await userEvent.keyboard('pre');
+    expect(error()).toBe('File pre already exists');
+    await userEvent.clear(field());
+    await userEvent.keyboard('a/b.ts');
+    expect(error()).toBe("'a/b.ts' is an invalid file name");
+    await userEvent.keyboard('{Escape}');
+    expect(renamed()).toEqual([]);
+    // A folder with a file open, with the key: the file's tab follows it.
+    env().editor.open({ id: '/r/pre/in.ts', title: 'in.ts' });
+    await userEvent.click(await vi.waitUntil(() => row('/r/pre')));
+    await userEvent.keyboard('{Shift>}{F6}{/Shift}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog-field__label')?.textContent).toBe(
+      "Rename directory 'pre' to:",
+    );
+    folders['/r'] = [
+      { path: '/r/post', name: 'post', kind: 'directory' },
+      { path: '/r/one.ts', name: 'one.ts', kind: 'file' },
+    ];
+    folders['/r/post'] = [{ path: '/r/post/in.ts', name: 'in.ts', kind: 'file' }];
+    await userEvent.clear(field());
+    await userEvent.keyboard('post{Enter}');
+    await expect.poll(renamed).toEqual([{ path: '/r/pre', to: '/r/post' }]);
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .toContain('/r/post/in.ts');
+    expect(env().editor.activeGroup.tabs.map((t) => t.id)).not.toContain('/r/pre/in.ts');
+    await expect
+      .poll(() => document.querySelector('.playground-project [aria-selected="true"]')?.textContent)
+      .toBe('post');
+    env().editor.close(env().editor.activeGroupId, '/r/post/in.ts');
+    // A file: what refers to it changed first, as its server says, and saved; one that can't be
+    // read, said so. Each file's text is `// <path>` then `const a = 1;`.
+    const at = (line: number, column: number) => ({ line, column });
+    const edit = { from: at(1, 6), to: at(1, 7), text: 'b' };
+    answers.set('lsp.willRename', [
+      { path: '/r/src/user.ts', edits: [edit] },
+      { path: '/r/src/lost.ts', edits: [edit] },
+    ]);
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path === '/r/src/lost.ts') throw new Error('No such file');
+      return { text: `// ${path}\nconst a = 1;\n` };
+    });
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.clear(field());
+    await userEvent.keyboard('uno.ts{Enter}');
+    await expect.poll(renamed).toContainEqual({ path: '/r/one.ts', to: '/r/uno.ts' });
+    expect(host('/r').params('lsp.willRename')).toEqual([
+      { worktree: '/r', path: '/r/one.ts', to: '/r/uno.ts' },
+    ]);
+    expect(host('/r').params('fs.write')).toContainEqual(
+      expect.objectContaining({
+        path: '/r/src/user.ts',
+        text: '// /r/src/user.ts\nconst b = 1;\n',
+      }),
+    );
+    expect(notifications.all.get(0)).toMatchObject({
+      title: 'Rename',
+      content: 'Not changed: /r/src/lost.ts: No such file',
+    });
+    for (const method of ['lsp.willRename', 'fs.read']) answers.delete(method);
+    // One the host won't rename: said so.
+    answers.set('fs.rename', new Error('EACCES: permission denied'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.clear(field());
+    await userEvent.keyboard('two.ts{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Rename');
+    for (const method of ['fs.rename', 'fs.list']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
+  it('copies the file or folder selected, and pastes it where asked, once asked', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/into', name: 'into', kind: 'directory' },
+        { path: '/r/cp.ts', name: 'cp.ts', kind: 'file' },
+      ],
+      '/r/into': [],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const taken = new Set<string>();
+    answers.set('fs.exists', ({ path }: { path: string }) => taken.has(path));
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const copies = () => host('/r').params('fs.copy');
+    const dialog = () => document.querySelector('.cerebro-dialog');
+    const fields = () => [...document.querySelectorAll<HTMLInputElement>('.cerebro-dialog input')];
+    const answer = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__button')].find(
+        (button) => button.textContent === label,
+      ) as HTMLElement;
+    // A file, with the keys, pasted into a folder: asked where, its name without its extension
+    // selected; copied, selected and opened.
+    await userEvent.click(await vi.waitUntil(() => row('/r/cp.ts')));
+    await userEvent.keyboard('{Control>}c{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Copy file /r/cp.ts');
+    const [name, directory, open] = fields() as [
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    expect([name.value, directory.value, open.checked]).toEqual(['cp.ts', '/r/into', true]);
+    await expect.poll(() => [name.selectionStart, name.selectionEnd]).toEqual([0, 2]);
+    expect(document.activeElement).toBe(name);
+    folders['/r/into'] = [{ path: '/r/into/cp.ts', name: 'cp.ts', kind: 'file' }];
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(copies).toEqual([{ path: '/r/cp.ts', to: '/r/into/cp.ts', over: false }]);
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .toContain('/r/into/cp.ts');
+    env().editor.close(env().editor.activeGroupId, '/r/into/cp.ts');
+    // There already: asked, and skipped; then gone over.
+    taken.add('/r/into/cp.ts');
+    const paste = async () => {
+      await userEvent.click(await vi.waitUntil(() => row('/r/into/cp.ts')), { button: 'right' });
+      await userEvent.click(menuItem('Paste'));
+      await vi.waitUntil(dialog);
+      await userEvent.click(fields()[2] as HTMLInputElement);
+      await userEvent.keyboard('{Enter}');
+      await vi.waitUntil(() =>
+        document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+      );
+    };
+    await paste();
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe(
+      "File 'cp.ts' already exists in directory '/r/into'",
+    );
+    await userEvent.click(answer('Skip'));
+    await paste();
+    await userEvent.click(answer('Overwrite'));
+    await expect.poll(() => copies().length).toBe(2);
+    expect(copies()[1]).toEqual({ path: '/r/cp.ts', to: '/r/into/cp.ts', over: true });
+    expect(env().editor.activeGroup.tabs.map((t) => t.id)).not.toContain('/r/into/cp.ts');
+    // A folder, from the menu, into the worktree under another name: no Open in editor.
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')), { button: 'right' });
+    await userEvent.click(menuItem('Copy'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/cp.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Paste'));
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Copy directory /r/into');
+    expect(fields().map((field) => field.value)).toEqual(['into', '/r']);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('onto{Enter}');
+    await expect.poll(() => copies().length).toBe(3);
+    expect(copies()[2]).toEqual({ path: '/r/into', to: '/r/onto', over: false });
+    // Onto itself: nothing; one the host won't copy: said so.
+    await userEvent.click(await vi.waitUntil(() => row('/r/into')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[1] as HTMLInputElement);
+    await userEvent.keyboard('/r{Enter}');
+    await expect.poll(dialog).toBeNull();
+    // Out of the worktree: copied, not looked for in the view.
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[1] as HTMLInputElement);
+    await userEvent.keyboard('/elsewhere/{Enter}');
+    await expect.poll(() => copies().length).toBe(4);
+    expect(copies()[3]).toEqual({ path: '/r/into', to: '/elsewhere/into', over: false });
+    answers.set('fs.copy', new Error('EACCES: permission denied'));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Copy');
+    expect(copies()).toHaveLength(5);
+    for (const method of ['fs.copy', 'fs.list', 'fs.exists']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
+  it('cuts the file or folder selected, and moves it where asked on Paste, once asked', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/away', name: 'away', kind: 'directory' },
+        { path: '/r/mv.ts', name: 'mv.ts', kind: 'file' },
+      ],
+      '/r/away': [],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const taken = new Set<string>();
+    answers.set('fs.exists', ({ path }: { path: string }) => taken.has(path));
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    // The renames of the tests before left out.
+    const before = host('/r').params('fs.rename').length;
+    const moves = () => host('/r').params('fs.rename').slice(before);
+    const asked = host('/r').params('lsp.willRename').length;
+    const referred = () => host('/r').params('lsp.willRename').slice(asked);
+    const dialog = () => document.querySelector('.cerebro-dialog');
+    const fields = () => [...document.querySelectorAll<HTMLInputElement>('.cerebro-dialog input')];
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    const answer = (label: string) =>
+      [...document.querySelectorAll<HTMLElement>('.cerebro-dialog__button')].find(
+        (button) => button.textContent === label,
+      ) as HTMLElement;
+    const tabs = () => env().editor.activeGroup.tabs.map((t) => t.id);
+    // A file open in the editor, with the keys, into a folder: asked where, the folder's name
+    // selected; what refers to it changed, moved, its tab following it, opened.
+    env().editor.open({ id: '/r/mv.ts', title: 'mv.ts' });
+    answers.set('lsp.willRename', []);
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe('Move');
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Move file /r/mv.ts');
+    const [directory, references, open] = fields() as [
+      HTMLInputElement,
+      HTMLInputElement,
+      HTMLInputElement,
+    ];
+    expect([directory.value, references.checked, open.checked]).toEqual(['/r/away', true, true]);
+    await expect.poll(() => [directory.selectionStart, directory.selectionEnd]).toEqual([3, 7]);
+    folders['/r'] = [{ path: '/r/away', name: 'away', kind: 'directory' }];
+    folders['/r/away'] = [{ path: '/r/away/mv.ts', name: 'mv.ts', kind: 'file' }];
+    await userEvent.click(answer('Refactor'));
+    await expect.poll(moves).toEqual([{ path: '/r/mv.ts', to: '/r/away/mv.ts' }]);
+    expect(referred()).toEqual([{ worktree: '/r', path: '/r/mv.ts', to: '/r/away/mv.ts' }]);
+    await expect.poll(tabs).toContain('/r/away/mv.ts');
+    expect(tabs()).not.toContain('/r/mv.ts');
+    // Pasted once: no more.
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    expect(dialog()).toBeNull();
+    // Where it is already: said so, and kept open.
+    await userEvent.click(await vi.waitUntil(() => row('/r/away/mv.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Cut'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')), { button: 'right' });
+    await userEvent.click(menuItem('Paste'));
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(error).toBe('Already in this directory. Choose another one.');
+    expect(dialog()).not.toBeNull();
+    // Over a file of its name, without its references: asked, and gone over.
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    expect(error()).toBe('');
+    await userEvent.keyboard('/r');
+    await userEvent.click(fields()[1] as HTMLInputElement);
+    await userEvent.click(fields()[2] as HTMLInputElement);
+    taken.add('/r/mv.ts');
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() =>
+      document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+    );
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe('Move');
+    await userEvent.click(answer('Overwrite'));
+    await expect.poll(() => moves().length).toBe(2);
+    expect(moves()[1]).toEqual({ path: '/r/away/mv.ts', to: '/r/mv.ts', over: true });
+    expect(referred()).toHaveLength(1);
+    env().editor.close(env().editor.activeGroupId, '/r/mv.ts');
+    // Skipped: not moved. A folder: not asked about; one the host won't move: said so.
+    folders['/r'] = [
+      { path: '/r/away', name: 'away', kind: 'directory' },
+      { path: '/r/mv.ts', name: 'mv.ts', kind: 'file' },
+    ];
+    folders['/r/away'] = [];
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    taken.add('/r/away/mv.ts');
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Enter}');
+    await vi.waitUntil(() =>
+      document.querySelector('.cerebro-dialog p')?.textContent.startsWith('File'),
+    );
+    await userEvent.click(answer('Skip'));
+    expect(moves()).toHaveLength(2);
+    // Cancelled: kept to paste again; out of the worktree: moved, not looked for in the view.
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(dialog).toBeNull();
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('/elsewhere{Enter}');
+    await expect.poll(() => moves().length).toBe(3);
+    expect(moves()[2]).toEqual({ path: '/r/mv.ts', to: '/elsewhere/mv.ts' });
+    answers.set('fs.rename', new Error('EEXIST: already exists'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/away')));
+    await userEvent.keyboard('{Control>}x{/Control}');
+    await userEvent.click(await vi.waitUntil(() => row('/r/mv.ts')));
+    await userEvent.keyboard('{Control>}v{/Control}');
+    await vi.waitUntil(dialog);
+    await userEvent.clear(fields()[0] as HTMLInputElement);
+    await userEvent.keyboard('/r/other{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Move');
+    expect(moves()[3]).toEqual({ path: '/r/away', to: '/r/other/away' });
+    for (const method of ['fs.rename', 'fs.list', 'fs.exists', 'lsp.willRename']) {
+      answers.delete(method);
+    }
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
@@ -2072,6 +2550,17 @@ describe('the editor’s file', () => {
 
   it('is saved as the focus leaves the editor, not as it moves inside it', async () => {
     globalSettings.layers.global.set('system.saveWhenIdle', false);
+    // A disk that keeps what's written: the open files are read again every two seconds, and one
+    // that took the saved text back would change it under the clicks below, which find the editor
+    // by its text (measured: the click waited for "…const a = 1;y" until it timed out, as a test
+    // before it made the reading fall between the save and the click).
+    const disk = new Map<string, string>();
+    answers.set('fs.write', ({ path, text }: { path: string; text: string }) => {
+      disk.set(path, text);
+    });
+    answers.set('fs.read', ({ path }: { path: string }) => ({
+      text: disk.get(path) ?? `// ${path}\nconst a = 1;\n`,
+    }));
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('y');
     const before = writes();
@@ -2081,13 +2570,14 @@ describe('the editor’s file', () => {
     expect(writes()).toBe(before);
     await userEvent.click(q('.cerebro-statusbar'));
     await expect.poll(writes).toBe(before + 1);
-    // Left as found: the host's file doesn't keep what's written, so reading it again (every two
-    // seconds) would take the text back under a later test's click, which finds its element by
-    // its text (measured: the saving test's click waited for "…const a = 1;y" until it timed out).
+    // Left as found, saved as it was: the host's own file doesn't keep what's written.
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}z{/Control}');
     await userEvent.click(q('.cerebro-statusbar'));
     expect(code()?.textContent).toBe('// /r/src/a.tsconst a = 1;');
+    await expect.poll(() => disk.get('/r/src/a.ts')).toBe('// /r/src/a.ts\nconst a = 1;\n');
+    answers.delete('fs.write');
+    answers.delete('fs.read');
     globalSettings.layers.global.reset('system.saveWhenIdle');
   });
 });

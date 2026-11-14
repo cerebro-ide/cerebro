@@ -32,7 +32,14 @@ import type {
   Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
-import { documentFor, onEdited, reloadOpen, saveAll, saveFiles } from './documents.js';
+import {
+  documentFor,
+  editFiles,
+  onEdited,
+  reloadOpen,
+  saveAll,
+  type FileEdits,
+} from './documents.js';
 import type { Call, Hierarchy } from './call-hierarchy.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
@@ -93,12 +100,6 @@ export interface Asked {
   text: string;
   line: number;
   column: number;
-}
-
-/** A file's edits, of a rename's. */
-interface FileEdits {
-  path: string;
-  edits: { from: Position; to: Position; text: string }[];
 }
 
 /** Positions to reveal in open files, by path: the editor follows them. */
@@ -374,23 +375,10 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       });
       if (!answer) return 'No language server answered the rename.';
       if ('refused' in answer) return answer.refused;
-      const changed: string[] = [];
-      const failed: string[] = [];
-      for (const file of answer) {
-        const doc = await documentFor(file.path);
-        if ('error' in doc) {
-          failed.push(`${relative(file.path)}: ${doc.error}`);
-          continue;
-        }
-        const text = doc.text.peek();
-        const offset = (place: Position) => text.line(place.line + 1).from + place.column;
-        doc.edit(
-          file.edits.map((e) => ({ from: offset(e.from), to: offset(e.to), insert: e.text })),
-        );
-        changed.push(file.path);
-      }
-      await saveFiles(changed, 'Rename');
-      return failed.length > 0 ? `Not renamed in ${failed.join(', ')}` : undefined;
+      const failed = await editFiles(answer, 'Rename');
+      return failed.length > 0
+        ? `Not renamed in ${failed.map((f) => `${relative(f.path)}: ${f.error}`).join(', ')}`
+        : undefined;
     },
 
     /**

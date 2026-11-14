@@ -10,6 +10,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection, ErrorCodes, ResponseError } from '@cerebro-ide/protocol';
 import { frame, FrameReader } from './framing.js';
@@ -620,6 +621,24 @@ export function callsOf(result: unknown, platform: NodeJS.Platform = process.pla
   });
 }
 
+/** Which files a server wants to be told of before they're renamed (LSP's file operation filters). */
+export interface FileFilter {
+  scheme?: string;
+  pattern: { glob: string; matches?: 'file' | 'folder'; options?: { ignoreCase?: boolean } };
+}
+
+/** Whether a file or folder at `path` is one `filters` name. */
+export function filtered(filters: readonly FileFilter[], path: string, folder: boolean): boolean {
+  const slashed = path.replaceAll('\\', '/');
+  return filters.some(({ scheme, pattern }) => {
+    if (scheme !== undefined && scheme !== 'file') return false;
+    if (pattern.matches === (folder ? 'file' : 'folder')) return false;
+    return pattern.options?.ignoreCase
+      ? posix.matchesGlob(slashed.toLowerCase(), pattern.glob.toLowerCase())
+      : posix.matchesGlob(slashed, pattern.glob);
+  });
+}
+
 /**
  * A server's edits to files, as a map of files to edits or as edits per version of a file
  * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
@@ -736,6 +755,8 @@ export class LanguageServer {
   #formatsRanges = false;
   /** Whether it says where a file folds. */
   #folds = false;
+  /** The files it wants to be told of before they're renamed, to change what refers to them. */
+  #renames: readonly FileFilter[] = [];
   #exited = false;
 
   constructor(spec: ServerSpec, root: string, onExit: () => void, run: Run = runProcess) {
@@ -839,6 +860,7 @@ export class LanguageServer {
             configuration: true,
             workspaceFolders: true,
             workspaceEdit: { documentChanges: true },
+            fileOperations: { willRename: true },
           },
         },
       })
@@ -851,6 +873,7 @@ export class LanguageServer {
               documentFormattingProvider?: unknown;
               documentRangeFormattingProvider?: unknown;
               foldingRangeProvider?: unknown;
+              workspace?: { fileOperations?: { willRename?: { filters: FileFilter[] } } };
             };
           } | null
         )?.capabilities;
@@ -860,6 +883,7 @@ export class LanguageServer {
         this.#formats = Boolean(capabilities?.documentFormattingProvider);
         this.#formatsRanges = Boolean(capabilities?.documentRangeFormattingProvider);
         this.#folds = Boolean(capabilities?.foldingRangeProvider);
+        this.#renames = capabilities?.workspace?.fileOperations?.willRename?.filters ?? [];
         this.#connection.notify('initialized', {});
         return loaded;
       });
@@ -974,6 +998,20 @@ export class LanguageServer {
     } catch (error) {
       return refusal(error);
     }
+  }
+
+  /**
+   * The edits that change what refers to a file as it's renamed from `from` to `to` (its imports,
+   * from TypeScript's server); none from a server not told of such a file.
+   */
+  async willRename(from: string, to: string): Promise<FileEdits[] | null> {
+    await this.ready;
+    if (!filtered(this.#renames, from, false)) return null;
+    return fileEditsOf(
+      await this.#connection.request('workspace/willRenameFiles', {
+        files: [{ oldUri: uriOf(from), newUri: uriOf(to) }],
+      }),
+    );
   }
 
   /**
@@ -1356,6 +1394,11 @@ export class LanguageServers {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.rename(file, languageId, at, name),
     );
+  }
+
+  /** The edits that change what refers to a file as it's renamed; null without an answer. */
+  willRename(worktree: string, from: string, to: string): Promise<FileEdits[] | null> {
+    return this.#ask(worktree, from, (server) => server.willRename(from, to));
   }
 
   /** A file's symbols, for File Structure; null when no server answers in time. */

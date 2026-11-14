@@ -34,12 +34,15 @@ import {
 import { IndexService } from './index-service.js';
 import { filesByRipgrep, folderFiles } from './folder-files.js';
 import {
+  createEntry,
   exists,
   listFolder,
   readFileBytes,
   isBinary,
   decodeText,
   readTextFile,
+  copyEntry,
+  renameEntry,
   UnreadableFile,
   writeTextFile,
 } from './files.js';
@@ -376,6 +379,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.rename', (params) =>
     servers.rename(text(params, 'worktree'), fileOf(params), placeOf(params), text(params, 'name')),
   );
+  connection.onRequest('lsp.willRename', (params) =>
+    servers.willRename(text(params, 'worktree'), text(params, 'path'), text(params, 'to')),
+  );
   connection.onRequest('lsp.format', (params) => {
     const { options, range } = formatOf(params);
     return servers.format(text(params, 'worktree'), fileOf(params), options, range);
@@ -452,6 +458,29 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   }));
   // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
   connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
+  // Rename and Move in the Project view: a file or folder, over a file only when asked.
+  connection.onRequest('fs.rename', (params) =>
+    renameEntry(
+      text(params, 'path'),
+      text(params, 'to'),
+      (params as { over?: unknown }).over === true,
+    ),
+  );
+  // Copy and Paste: over what's there only when asked (`over: true`).
+  connection.onRequest('fs.copy', (params) =>
+    copyEntry(
+      text(params, 'path'),
+      text(params, 'to'),
+      (params as { over?: unknown }).over === true,
+    ),
+  );
+  // New File and New Directory: an empty file, or a folder (`directory: true`).
+  connection.onRequest('fs.create', (params) =>
+    createEntry(
+      text(params, 'path'),
+      (params as { directory?: unknown }).directory === true ? 'directory' : 'file',
+    ),
+  );
   // Only the latest search's answer is used (the page searches as the user types): a new one stops
   // the one still running.
   let searching: AbortController | undefined;

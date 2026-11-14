@@ -83,6 +83,10 @@ import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
 import { setupEditorGitMenu } from './editor-git-menu.js';
+import { setupNewFile } from './new-file.js';
+import { setupDelete } from './delete-file.js';
+import { setupRenameFile } from './rename-file.js';
+import { setupFileClipboard } from './file-clipboard.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -152,6 +156,7 @@ import {
   documentFor,
   documentRead,
   onBeforeSave,
+  reloadAll,
   saveAll,
   saveFiles,
   setupSaving,
@@ -442,6 +447,20 @@ setupApplyChanges(services);
 setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
+setupDelete(services, { reload: reloadAll });
+setupRenameFile(services, { editor });
+setupFileClipboard(services, {
+  open: (tab) => {
+    navigation.open(tab);
+  },
+  editor,
+});
+setupNewFile(services, {
+  activeTab: () => editor()?.activeGroup.active,
+  open: (tab) => {
+    navigation.open(tab);
+  },
+});
 setupEditorGitMenu(services.menus, () => {
   const env = active();
   return env !== undefined && hostFor(env.id) !== undefined && gitRepository.get();

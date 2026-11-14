@@ -3179,25 +3179,83 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
 - **In the Project view's menu (added 2026-11-14):** the same Bookmarks submenu, for the file or
   folder it's opened on (IntelliJ adds it to `ProjectViewPopupMenu` after its Refactoring group).
   The menu is new with it: a right click selects its row, which keeps the focus, so the commands
-  take it as they take the view's selection. Copy Path/Reference… is in it too (added
-  2026-11-14), before Bookmarks, as IntelliJ's `CutCopyPasteGroup`: its copies, and their key,
-  take the view's selection while it has the focus, a folder's too, as IntelliJ's actions take the
-  focused view's; a tab's menu still copies its tab's. So is Local History (added 2026-11-14),
-  first of its version control's, as IntelliJ's `VersionControlsGroup`: Show History, from it or
-  the File menu while the view has the focus, shows the selected file's; a folder's isn't shown
-  yet (IntelliJ shows a folder's changes). So is Open In (added 2026-11-14), after Bookmarks, as
-  IntelliJ's `RevealGroup`, in the desktop app only: its one item shows the file or folder in the
-  system's file manager, named as IntelliJ's short names are (Finder, Explorer, File Manager; the
-  name on Linux is a claim, from IntelliJ's source, not seen). IntelliJ's other items in it
-  (Terminal, a browser) aren't yet. So are Find in Files and Replace in Files (added 2026-11-14),
-  after Copy Path, as IntelliJ's `FindInPath` and `ReplaceInPath`: from it, or their keys while
-  the view has the focus, they search the folder selected, or the file's, its scope Directory, as
-  IntelliJ's `FindInProjectUtil.setDirectoryName` does with no editor in the context. So is the
-  editor's Git submenu (added 2026-11-14), after Local History, as IntelliJ's `VersionControlsGroup`
-  has it: Git → Current File's commands already took the view's selected file; Annotate with Git
-  Blame now does too, opening the file's editor to show it in, as IntelliJ's
-  `AnnotateLocalFileAction` does (none for a folder, as IntelliJ's). IntelliJ's menu's other groups
-  (New, Cut, Copy, Paste, Find Usages, Rename, Delete, Compare With) aren't in it yet.
+  take it as they take the view's selection. Copy Path/Reference… is in it too (added 2026-11-14),
+  before Bookmarks, as IntelliJ's `CutCopyPasteGroup`: its copies, and their key, take the view's
+  selection while it has the focus, a folder's too, as IntelliJ's actions take the focused view's; a
+  tab's menu still copies its tab's. So is Local History (added 2026-11-14), first of its version
+  control's, as IntelliJ's `VersionControlsGroup`: Show History, from it or the File menu while the
+  view has the focus, shows the selected file's; a folder's isn't shown yet (IntelliJ shows a
+  folder's changes). So is Open In (added 2026-11-14), after Bookmarks, as IntelliJ's `RevealGroup`,
+  in the desktop app only: its one item shows the file or folder in the system's file manager, named
+  as IntelliJ's short names are (Finder, Explorer, File Manager; the name on Linux is a claim, from
+  IntelliJ's source, not seen). IntelliJ's other items in it (Terminal, a browser) aren't yet. So
+  are Find in Files and Replace in Files (added 2026-11-14), after Copy Path, as IntelliJ's
+  `FindInPath` and `ReplaceInPath`: from it, or their keys while the view has the focus, they search
+  the folder selected, or the file's, its scope Directory, as IntelliJ's
+  `FindInProjectUtil.setDirectoryName` does with no editor in the context. So is the editor's Git
+  submenu (added 2026-11-14), after Local History, as IntelliJ's `VersionControlsGroup` has it: Git
+  → Current File's commands already took the view's selected file; Annotate with Git Blame now does
+  too, opening the file's editor to show it in, as IntelliJ's `AnnotateLocalFileAction` does (none
+  for a folder, as IntelliJ's). So is New (added 2026-11-14), first, as IntelliJ's
+  `WeighingNewGroup`, with File and Directory (WebStorm's names; IntelliJ's NewFile and NewDir).
+  They ask for a name, and `a/b.ts` makes the folders on its way. What's made goes in the folder
+  selected, or beside the file; from elsewhere, or with nothing selected, beside the editor's file,
+  else in the worktree. It's then selected in the view, and a file opens in the editor, as
+  IntelliJ's `IdeView.selectElement`. The host makes it (`fs.create`), never over what's there. The
+  titles, prompts and errors are IntelliJ's (IdeBundle), except "Cannot Create Directory", not found
+  there (a claim). Asking in a dialog rather than IntelliJ's small popup is Claude's choice (open to
+  change), and so is "nothing selected" going beside the editor's file. Not yet: IntelliJ's file
+  templates (TypeScript File, package.json…), and a record in the Local History. So is Delete (added
+  2026-11-14), after Bookmarks, as IntelliJ's `$Delete`, and on the Delete key while the view has
+  the focus. It asks first in IntelliJ's words (DeleteUtil's: `Delete file "a.ts"?`, and for a
+  folder that all in it goes, which may not fully be undone), then moves what's chosen to the
+  system's trash, as IntelliJ does by default (GeneralSettings' `deleteToBin`, true). The view is
+  read again, and the tabs of what's gone close as files deleted outside Cerebro do. It's the
+  desktop app's (Electron's `shell.trashItem`): a remote host's files can't go to this machine's
+  trash, which is for remote mode to settle. Not yet: IntelliJ's Safe Delete for code files (its
+  usage search), several rows at once, and the worktree itself. So is Rename (added 2026-11-14),
+  before Bookmarks, as IntelliJ's `RenameElement`, and on Rename's key while the view has the focus:
+  it's the editor's Rename command, so each keymap's keys and a change to them serve both (measured
+  in the app: Shift+F6 in the editor still renames the symbol). It asks in IntelliJ's words (`Rename
+  file 'a.ts' to:`, RefactoringBundle's `rename.0.to`; `File {0} already exists`), saves what's
+  unsaved, and the host renames it (`fs.rename`), never over another. The tabs of what moved follow
+  it, in their places (EditorArea's `replaceTab`), and it's selected again. Before a file is
+  renamed, what refers to it changes as its language server says (LSP's
+  `workspace/willRenameFiles`, for the files the server names), as IntelliJ's "Search for
+  references", on by default: TypeScript's server changes the imports (measured in the app, with
+  the importing file open and with none). TypeScript 7's server names only files
+  (`**/*.{ts,tsx,js,jsx,cts,cjs,mts,mjs,json}`, measured), so a folder's rename changes no imports
+  yet. The edits are made and saved as the editor's Rename makes them; a file that can't be read is
+  said so. Not yet: a folder's references, IntelliJ's preview and its "Search in comments and
+  strings" and "Rename tests" options, its selection of a file's name without its extension, and
+  moving the file's bookmarks with it.
+  So are Copy and Paste (added 2026-11-14), around Copy Path as in IntelliJ's CutCopyPasteGroup,
+  and on their keys while the view has the focus: they're the Edit commands, which act on the
+  view's files then (edit.ts's `provideClipboard`, as IntelliJ's CopyProvider and PasteProvider).
+  Copy keeps the file or folder; Paste, on a folder or a file in one, asks in IntelliJ's Copy dialog
+  (CopyFilesOrDirectoriesDialog, RefactoringBundle's words): `Copy file /path/a.ts`, New name (a
+  file's selected without its extension), To directory (made if it isn't there), and Open in editor
+  for a file, checked. A name taken there is asked about, Overwrite or Skip (SkipOverwriteChoice's
+  `File 'a.ts' already exists in directory '…'`); a folder pasted over one has its files join it,
+  those of the same name replaced (a claim for IntelliJ, which asks per file). The host copies it
+  (`fs.copy`), and the copy is selected and a file opened, as IntelliJ's. Claude's choices (open to
+  change): the copy is kept inside Cerebro, not on the system's clipboard; Paste needs a selection;
+  pasting onto itself does nothing; a failure's title is "Cannot Copy" (a claim). Measured in the
+  app: the dialog, the copy on disk, the question for a taken name, and the menu. So is Cut (added
+  2026-11-14), before Copy: Paste after it moves, asking in IntelliJ's Move dialog
+  (MoveFilesOrDirectoriesDialog): `Move file /path/a.ts`, To directory (its last name selected,
+  made if it isn't there), Search for references and Open in editor, both checked as IntelliJ's
+  defaults (RefactoringSettings' `MOVE_SEARCH_FOR_REFERENCES_FOR_FILE`, RefactoringDialog's),
+  and its button, Refactor. Where it is already, it says IntelliJ's "Already in this directory.
+  Choose another one." and stays open. A file's name taken there is asked about, Overwrite or Skip;
+  a folder's is the host's to refuse (a claim for IntelliJ). A move is Rename's (`moveEntry`, one
+  function for both): what's unsaved is saved, what refers to a file changes with it, the host
+  moves it (`fs.rename`), and its tabs follow it. What's cut is pasted once. Measured in the app:
+  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. Not yet:
+  cut files shown greyed in the view, as IntelliJ's; several files at once; the directory field's
+  history, completion and folder chooser; the paths shortened as IntelliJ's (`shortenPath`); and
+  the Move dialog's Preview. IntelliJ's menu's other groups (Find Usages, Compare With) aren't in
+  it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.

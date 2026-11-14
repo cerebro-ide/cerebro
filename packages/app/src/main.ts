@@ -25,7 +25,7 @@ import { handle } from './ipc.js';
 import { allowCallStacks, logPage, PAGE_LOG, writeLog } from './log.js';
 import { installMenu } from './menu.js';
 import { installPasswords, PasswordStore } from './passwords.js';
-import { installReveal } from './reveal.js';
+import { installShell } from './shell.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
 import { sizeFrom, WELCOME_SIZE, windowOptions } from './window.js';
 
@@ -282,7 +282,7 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   forcedScale = installDisplayScale();
   installMenu();
   installWindowColours();
-  installReveal();
+  installShell();
   installFullScreen();
   // Its main process held up is reported, as the host's is: a stall's cause (the backlog). And a
   // page that stops answering, with what it was running: Electron collects it with this feature on

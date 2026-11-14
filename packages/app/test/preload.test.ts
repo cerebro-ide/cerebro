@@ -28,7 +28,7 @@ import {
 import { EDIT, MENU_COMMAND, SET_MENU } from '../src/menu.js';
 import { PROJECT_ADDED, PROJECT_SHOW } from '../src/projects.js';
 import { PASSWORD_GET, PASSWORD_SET } from '../src/passwords.js';
-import { REVEAL } from '../src/reveal.js';
+import { REVEAL, TRASH } from '../src/shell.js';
 
 // The preload, which a sandboxed window runs as CommonJS, can't import the modules whose channels
 // it uses: what it sends and listens on is checked against theirs here.
@@ -86,6 +86,7 @@ describe('the preload', () => {
   it('sends on the channels the main process listens on', () => {
     expect(call('display', 'setScale', '1.5')).toEqual(['send', SET_SCALE, '1.5']);
     expect(call('shell', 'reveal', '/r/a')).toEqual(['send', REVEAL, '/r/a']);
+    expect(call('shell', 'trash', '/r/a')).toEqual(['invoke', TRASH, '/r/a']);
     expect(call('window', 'setColours', 'f', 't', 'b')).toEqual([
       'send',
       SET_COLOURS,

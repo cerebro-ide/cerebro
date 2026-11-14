@@ -10,6 +10,7 @@
 // save), on every save: Save All's and the ones made on their own.
 
 import { effect, ObservableMap, untracked } from '@cerebro-ide/reactive';
+import type { Position } from '@cerebro-ide/layout';
 import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor, type Host } from './environments.js';
 
@@ -218,6 +219,37 @@ export function saveFiles(paths?: readonly string[], label?: string): Promise<vo
   // A save that fails doesn't stop the next.
   saved = next.catch(() => undefined);
   return next;
+}
+
+/** A file's edits, of a language server's: a rename's. */
+export interface FileEdits {
+  path: string;
+  edits: { from: Position; to: Position; text: string }[];
+}
+
+/**
+ * Makes a language server's edits in the files' documents, and saves those it made in, `label` in
+ * the Local History; the files it couldn't read, and why.
+ */
+export async function editFiles(
+  files: readonly FileEdits[],
+  label: string,
+): Promise<{ path: string; error: string }[]> {
+  const changed: string[] = [];
+  const failed: { path: string; error: string }[] = [];
+  for (const file of files) {
+    const doc = await documentFor(file.path);
+    if ('error' in doc) {
+      failed.push({ path: file.path, error: doc.error });
+      continue;
+    }
+    const text = doc.text.peek();
+    const offset = (place: Position) => text.line(place.line + 1).from + place.column;
+    doc.edit(file.edits.map((e) => ({ from: offset(e.from), to: offset(e.to), insert: e.text })));
+    changed.push(file.path);
+  }
+  await saveFiles(changed, label);
+  return failed;
 }
 
 /**

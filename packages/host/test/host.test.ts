@@ -133,6 +133,7 @@ describe('language servers', () => {
       signatures: vi.fn(() => Promise.resolve(null)),
       renaming: vi.fn(() => Promise.resolve(null)),
       rename: vi.fn(() => Promise.resolve(null)),
+      willRename: vi.fn(() => Promise.resolve(null)),
       completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
@@ -235,6 +236,10 @@ describe('language servers', () => {
       { path: '', line: 0, column: 3 },
       'y',
     );
+    expect(
+      await ui.request('lsp.willRename', { worktree: '/w', path: '/w/a.ts', to: '/w/b.ts' }),
+    ).toBeNull();
+    expect(servers.willRename).toHaveBeenCalledWith('/w', '/w/a.ts', '/w/b.ts');
     expect(servers.signatures).toHaveBeenCalledWith(
       '/w',
       { path: '/w/b.ts', text: 'x' },
@@ -1951,6 +1956,37 @@ describe('files', () => {
     });
     expect(await ui.request('fs.exists', { path: join(dir, 'b.bin') })).toBe(true);
     expect(await ui.request('fs.exists', { path: join(dir, 'none') })).toBe(false);
+    await ui.request('fs.create', { path: join(dir, 'new', 'n.ts') });
+    await ui.request('fs.create', { path: join(dir, 'folder'), directory: true });
+    await ui.request('fs.rename', { path: join(dir, 'folder'), to: join(dir, 'renamed') });
+    await ui.request('fs.rename', { path: join(dir, 'renamed'), to: join(dir, 'folder') });
+    await ui.request('fs.create', { path: join(dir, 'over.ts') });
+    await ui.request('fs.create', { path: join(dir, 'under.ts') });
+    await ui.request('fs.rename', {
+      path: join(dir, 'over.ts'),
+      to: join(dir, 'under.ts'),
+      over: true,
+    });
+    expect(await ui.request('fs.exists', { path: join(dir, 'over.ts') })).toBe(false);
+    await ui.request('fs.copy', { path: join(dir, 'new', 'n.ts'), to: join(dir, 'copied.ts') });
+    await ui.request('fs.copy', {
+      path: join(dir, 'new', 'n.ts'),
+      to: join(dir, 'copied.ts'),
+      over: true,
+    });
+    await expect(
+      ui.request('fs.copy', { path: join(dir, 'new', 'n.ts'), to: join(dir, 'copied.ts') }),
+    ).rejects.toThrow('EEXIST');
+    expect(await ui.request('fs.list', { path: dir })).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: 'folder', kind: 'directory' }),
+        expect.objectContaining({ name: 'new', kind: 'directory' }),
+        expect.objectContaining({ name: 'copied.ts', kind: 'file' }),
+      ]),
+    );
+    expect(await ui.request('fs.read', { path: join(dir, 'new', 'n.ts') })).toMatchObject({
+      text: '',
+    });
     rmSync(dir, { recursive: true });
   });
 

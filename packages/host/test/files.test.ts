@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
+  createEntry,
   empty,
   exists,
   listFolder,
@@ -10,6 +11,8 @@ import {
   MAX_FILE_SIZE,
   readFileBytes,
   readTextFile,
+  renameEntry,
+  copyEntry,
   toSlashes,
 } from '../src/index.js';
 
@@ -92,6 +95,103 @@ describe('listFolder', () => {
 
   it('fails for a folder that isn’t there', async () => {
     await expect(listFolder(join(root, 'missing'))).rejects.toThrow(/ENOENT/);
+  });
+});
+
+describe('createEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-create-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('makes an empty file, or a folder, with the folders on its path', async () => {
+    await createEntry(join(root, 'a', 'b.ts'), 'file');
+    expect(readFileSync(join(root, 'a', 'b.ts'), 'utf8')).toBe('');
+    await createEntry(join(root, 'c', 'd'), 'directory');
+    expect(statSync(join(root, 'c', 'd')).isDirectory()).toBe(true);
+  });
+
+  it('fails for a file or folder that’s there, leaving it as it is', async () => {
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await expect(createEntry(join(root, 'kept.ts'), 'file')).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    await expect(createEntry(join(root, 'c'), 'directory')).rejects.toThrow(/EEXIST/);
+  });
+});
+
+describe('renameEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-rename-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('renames a file or folder, never over one that’s there', async () => {
+    writeFileSync(join(root, 'a.ts'), 'a');
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await renameEntry(join(root, 'a.ts'), join(root, 'b.ts'));
+    expect(readFileSync(join(root, 'b.ts'), 'utf8')).toBe('a');
+    await expect(renameEntry(join(root, 'b.ts'), join(root, 'kept.ts'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    mkdirSync(join(root, 'lib'));
+    await renameEntry(join(root, 'lib'), join(root, 'src'));
+    expect(statSync(join(root, 'src')).isDirectory()).toBe(true);
+  });
+
+  it('moves one into a folder, making it, and over a file only when asked', async () => {
+    writeFileSync(join(root, 'm.ts'), 'm');
+    await renameEntry(join(root, 'm.ts'), join(root, 'to/deep/m.ts'));
+    expect(readFileSync(join(root, 'to/deep/m.ts'), 'utf8')).toBe('m');
+    writeFileSync(join(root, 'n.ts'), 'n');
+    await renameEntry(join(root, 'n.ts'), join(root, 'to/deep/m.ts'), true);
+    expect(readFileSync(join(root, 'to/deep/m.ts'), 'utf8')).toBe('n');
+  });
+});
+
+describe('copyEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-copy-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('copies a file, making the folders on its way, never over one unless asked', async () => {
+    writeFileSync(join(root, 'a.ts'), 'a');
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await copyEntry(join(root, 'a.ts'), join(root, 'new/deep/b.ts'));
+    expect(readFileSync(join(root, 'new/deep/b.ts'), 'utf8')).toBe('a');
+    expect(readFileSync(join(root, 'a.ts'), 'utf8')).toBe('a');
+    await expect(copyEntry(join(root, 'a.ts'), join(root, 'kept.ts'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    await copyEntry(join(root, 'a.ts'), join(root, 'kept.ts'), true);
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('a');
+  });
+
+  it('copies a folder with what’s in it; over one, its files joining it; never into itself', async () => {
+    mkdirSync(join(root, 'lib/x'), { recursive: true });
+    writeFileSync(join(root, 'lib/x/c.ts'), 'c');
+    await copyEntry(join(root, 'lib'), join(root, 'src'));
+    expect(readFileSync(join(root, 'src/x/c.ts'), 'utf8')).toBe('c');
+    writeFileSync(join(root, 'src/x/c.ts'), 'changed');
+    writeFileSync(join(root, 'src/own.ts'), 'own');
+    await expect(copyEntry(join(root, 'lib'), join(root, 'src'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    await copyEntry(join(root, 'lib'), join(root, 'src'), true);
+    expect(readFileSync(join(root, 'src/x/c.ts'), 'utf8')).toBe('c');
+    expect(readFileSync(join(root, 'src/own.ts'), 'utf8')).toBe('own');
+    // As the page names them: with `/`.
+    const lib = `${toSlashes(root)}/lib`;
+    await expect(copyEntry(lib, `${lib}/lib`)).rejects.toThrow(
+      'Cannot place directory into itself.',
+    );
+    await expect(copyEntry(lib, `${lib}/x/lib`)).rejects.toThrow(
+      'Cannot place directory into its subdirectory.',
+    );
   });
 });
 

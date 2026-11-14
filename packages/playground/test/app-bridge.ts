@@ -115,7 +115,15 @@ export function installBridge(platform: string, menu: unknown = {}): void {
     app: true,
     platform,
     display: { setScale: (scale: string) => void calls.push(['scale', scale]) },
-    shell: { reveal: (path: string) => void calls.push(['reveal', path]) },
+    shell: {
+      reveal: (path: string) => void calls.push(['reveal', path]),
+      // As `answers` says for 'shell.trash': an Error fails it.
+      trash: (path: string) => {
+        calls.push(['trash', path]);
+        const answer = answers.get('shell.trash');
+        return answer instanceof Error ? Promise.reject(answer) : Promise.resolve();
+      },
+    },
     window: { setColours: () => undefined },
     menu,
     project: {

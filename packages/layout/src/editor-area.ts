@@ -120,6 +120,18 @@ export class EditorArea {
     if (tabs.length === 0) this.removeGroup(group);
   }
 
+  /**
+   * Puts `tab` in the place of the tab `id` in every group with it, active where it was: a file
+   * renamed, its tabs following it.
+   */
+  replaceTab(id: string, tab: Tab): void {
+    for (const group of this.groups) {
+      if (!group.tabs.some((t) => t.id === id)) continue;
+      group.tabs = group.tabs.map((t) => (t.id === id ? tab : t));
+      if (group.active === id) group.active = tab.id;
+    }
+  }
+
   /** Adds a group beside `groupId`, optionally with a copy of one of its tabs, and activates it. */
   split(groupId: string, direction: Direction, tabId?: string): EditorGroup {
     const group = this.group(groupId);
