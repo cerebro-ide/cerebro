@@ -95,9 +95,15 @@ describe('the editor’s keys', () => {
     keymap.setPreset(INTELLIJ);
     expect(editorKeys(keymap)).toEqual({
       goToDefinition: ['Ctrl-b'],
+      goToImplementation: ['Ctrl-Alt-b'],
+      goToTypeDeclaration: ['Ctrl-Shift-b'],
+      goToSuperMethod: ['Ctrl-u'],
+      methodDown: ['Alt-ArrowDown'],
+      methodUp: ['Alt-ArrowUp'],
       findUsages: ['Alt-F7'],
       complete: ['Ctrl-Space'],
       quickDocumentation: ['Ctrl-q'],
+      quickDefinition: ['Ctrl-Shift-i'],
       parameterInfo: ['Ctrl-p'],
       rename: ['Shift-F6'],
       format: ['Ctrl-Alt-l'],
@@ -137,9 +143,15 @@ describe('the editor’s keys', () => {
     });
     expect(Object.keys(EDITOR_ACTIONS)).toEqual([
       'goToDefinition',
+      'goToImplementation',
+      'goToTypeDeclaration',
+      'goToSuperMethod',
+      'methodDown',
+      'methodUp',
       'findUsages',
       'complete',
       'quickDocumentation',
+      'quickDefinition',
       'parameterInfo',
       'rename',
       'format',

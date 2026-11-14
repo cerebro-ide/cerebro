@@ -939,6 +939,23 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* A bookmark's mnemonic, as IntelliJ's icon: the character on a square (a claim: drawn after it),
+   in the editor's font. */
+.playground-bookmark-mnemonic {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--cerebro-text-muted);
+  border-radius: 2px;
+  font-family: var(--cerebro-font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
 .playground-occurrences__name,
 .playground-occurrences__number {
   margin-right: 8px;
@@ -2154,4 +2171,77 @@ body,
   padding-left: 22px;
   color: var(--cerebro-text-muted);
   font-size: 12px;
+}
+
+/* Toggle Bookmark Mnemonic's chooser, as IntelliJ's: two grids of four rows, cells 30 by 34, 2 apart,
+   14 between the grids (`BookmarkTypeChooser`'s new UI sizes). */
+.playground-mnemonics__comment {
+  margin: 0 0 16px;
+  color: var(--cerebro-text-muted);
+}
+
+.playground-mnemonics__grid {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.playground-mnemonics__digits,
+.playground-mnemonics__letters {
+  display: grid;
+  grid-template-rows: repeat(4, 34px);
+  grid-auto-columns: 30px;
+  gap: 2px;
+}
+
+.playground-mnemonics__digits {
+  grid-template-columns: repeat(3, 30px);
+}
+
+.playground-mnemonics__letters {
+  grid-template-columns: repeat(7, 30px);
+}
+
+.playground-mnemonic {
+  border: 1px solid var(--cerebro-mnemonic-border);
+  border-radius: 4px;
+  background: var(--cerebro-dialog);
+  color: var(--cerebro-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.playground-mnemonic--used {
+  border-color: var(--cerebro-mnemonic-used);
+  background: var(--cerebro-mnemonic-used);
+  color: var(--cerebro-mnemonic-text);
+}
+
+.playground-mnemonic--current {
+  border-color: var(--cerebro-mnemonic-current);
+  background: var(--cerebro-mnemonic-current);
+  color: var(--cerebro-mnemonic-text);
+}
+
+.playground-mnemonics__legend {
+  display: flex;
+  gap: 16px;
+}
+
+.playground-mnemonics__key::before {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+  content: '';
+}
+
+.playground-mnemonics__key--used::before {
+  background: var(--cerebro-mnemonic-used);
+}
+
+.playground-mnemonics__key--current::before {
+  background: var(--cerebro-mnemonic-current);
 }

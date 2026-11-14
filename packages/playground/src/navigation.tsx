@@ -4,6 +4,7 @@
 // IntelliJ's Go to Declaration or Usages. Go to Symbol is Search Everywhere's.
 
 import {
+  ChangePlaces,
   NavigationHistory,
   RecentTabs,
   type EditorArea,
@@ -25,12 +26,14 @@ import type {
   Mark,
   MarkerKind,
   Problem,
+  QuickDefinition,
   Renaming,
   Signatures,
   Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
 import { documentFor, onEdited, reloadOpen, saveAll, saveFiles } from './documents.js';
+import type { Call, Hierarchy } from './call-hierarchy.js';
 import { active, currentHost, hostFor, workspace } from './environments.js';
 import { icon } from './icons.js';
 import { openStructure, type FileSymbol } from './structure.js';
@@ -133,6 +136,8 @@ function saved(key: string): unknown {
 const histories = new WeakMap<Environment, NavigationHistory>();
 /** Each environment's Recent Files, likewise. */
 const recents = new WeakMap<Environment, RecentTabs>();
+/** Each environment's places of changes: Last and Next Edit Location. */
+const changes = new WeakMap<Environment, ChangePlaces>();
 effect(() => {
   for (const env of workspace.open) {
     if (histories.has(env)) continue;
@@ -155,6 +160,16 @@ effect(() => {
       });
     }
     recents.set(env, recent);
+    changes.set(
+      env,
+      new ChangePlaces((place) => {
+        // A jump within the file is a place left, as Back's.
+        if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
+        env.editor.open(place.tab);
+        if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
+        focusing.set(place.tab.id, {});
+      }),
+    );
     histories.set(
       env,
       new NavigationHistory(
@@ -174,8 +189,20 @@ effect(() => {
 onEdited((path) => {
   const env = workspace.open.find((e) => path.startsWith(`${e.id}/`)) ?? active();
   const recent = env && recents.get(env);
-  recent?.edit({ id: path, title: path.slice(path.lastIndexOf('/') + 1) });
+  const tab = { id: path, title: path.slice(path.lastIndexOf('/') + 1) };
+  recent?.edit(tab);
+  // Where the caret is once the editor has said, after the change.
+  const places = env && changes.get(env);
+  queueMicrotask(() => {
+    places?.changed({ tab, at: carets.get(path), top: tops.get(path) });
+  });
 });
+
+/** The active environment's places of changes. */
+export function changePlaces(): ChangePlaces | undefined {
+  const env = active();
+  return env && changes.get(env);
+}
 
 /** The active environment's Recent Files. */
 export function recentTabs(): RecentTabs | undefined {
@@ -297,6 +324,27 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       return ask<Documentation>('lsp.hover', asked);
     },
 
+    /**
+     * Quick Definition: where the symbol at a place is defined, from its file's language server,
+     * its declaration's lines as its document has them (unsaved too); the first of several.
+     */
+    async quickDefinition(asked: Asked): Promise<QuickDefinition | null> {
+      const [first] =
+        (await ask<(Located & { first: number; last: number })[]>('lsp.definitionSpans', asked)) ??
+        [];
+      if (!first) return null;
+      const doc = await documentFor(first.path);
+      if ('error' in doc) return null;
+      const text = doc.text.peek();
+      return {
+        path: first.path,
+        text: text.sliceString(text.line(first.first + 1).from, text.line(first.last + 1).to),
+        open: () => {
+          openAt(first);
+        },
+      };
+    },
+
     /** What's called at a place, from its file's language server: Parameter Info; none without. */
     signatures(asked: Asked): Promise<Signatures | null> {
       return ask<Signatures>('lsp.signatures', asked);
@@ -349,6 +397,21 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
      * File Structure (structure.tsx) for a file as the editor has it, from its language server,
      * the symbol at the caret highlighted; goes to the one chosen.
      */
+    /**
+     * Call Hierarchy: the function or method at a place, from its file's language server, and how
+     * to ask what calls it; none without a server, or with nothing there.
+     */
+    async callHierarchy(asked: Asked): Promise<Hierarchy | null> {
+      const env = active();
+      const [root] = (await ask<Call[]>('lsp.prepareCalls', asked)) ?? [];
+      if (!env || !root) return null;
+      return {
+        worktree: env.id,
+        root,
+        callers: (call) => ask<Call[]>('lsp.incomingCalls', { path: call.path, item: call.item }),
+      };
+    },
+
     async fileStructure(path: string, text: string, caret: Position): Promise<void> {
       const symbols = await ask<FileSymbol[]>('lsp.structure', { path, text });
       const chosen = await openStructure(path.split('/').at(-1) as string, symbols, caret);
@@ -372,6 +435,15 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         insertSpaces: !indent.tabs,
         ...range,
       });
+      return answer ?? { refused: 'No language server answered.' };
+    },
+
+    /** The edits that organize a file's imports, from its language server; why not, if none. */
+    async organizeImports(file: {
+      path: string;
+      text: string;
+    }): Promise<FormatEdit[] | { refused: string }> {
+      const answer = await ask<FormatEdit[]>('lsp.organizeImports', file);
       return answer ?? { refused: 'No language server answered.' };
     },
 
@@ -487,6 +559,55 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       );
     },
 
+    /**
+     * Go to Super Method, as IntelliJ's `GotoSuperMethod`: where the gutter's up marker of the
+     * innermost member or type around the caret goes (what it implements or overrides); nothing
+     * where none has one.
+     */
+    async goToSuperMethod(asked: Asked) {
+      const { path, text, line, column } = asked;
+      const [symbols, marks] = await Promise.all([
+        ask<FileSymbol[]>('lsp.structure', { path, text }),
+        this.markers(path, text),
+      ]);
+      const before = (a: Position, b: Position) =>
+        a.line < b.line || (a.line === b.line && a.column <= b.column);
+      const caret = { line, column };
+      // The symbols around the caret, the outermost first.
+      const around: FileSymbol[] = [];
+      let level = symbols ?? [];
+      for (;;) {
+        const inside = level.find((s) => before(s.from, caret) && before(caret, s.to));
+        if (!inside) break;
+        around.push(inside);
+        level = inside.children;
+      }
+      const up = (s: FileSymbol) =>
+        marks?.find(
+          (m) => m.line === s.at.line && (m.kind === 'implements' || m.kind === 'overrides'),
+        );
+      const mark = around
+        .reverse()
+        .map(up)
+        .find((m) => m !== undefined);
+      if (mark) await this.goToMarked(mark);
+    },
+
+    /**
+     * Next Method (`down`) and Previous Method, as IntelliJ's `MethodDown` and `MethodUp`
+     * (`MethodUpDownUtil`, read from its source): the caret to the name of the nearest symbol of
+     * the file's structure, any of them, on a line after the caret's (or before it); none without.
+     */
+    async goToMethod(asked: Asked, down: boolean) {
+      const { path, text, line } = asked;
+      const symbols = (await ask<FileSymbol[]>('lsp.structure', { path, text })) ?? [];
+      const all = (list: FileSymbol[]): Position[] =>
+        list.flatMap((symbol) => [symbol.at, ...all(symbol.children)]);
+      const places = all(symbols).sort((a, b) => a.line - b.line || a.column - b.column);
+      const to = down ? places.find((p) => p.line > line) : places.findLast((p) => p.line < line);
+      if (to) openAt({ path, ...to });
+    },
+
     /** Whether the word at a place has a definition to go to: its server's, or a name's match. */
     async hasDefinition(name: string, asked: Asked): Promise<boolean> {
       const precise = await ask('lsp.definitions', asked);
@@ -522,6 +643,43 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
           found.map((d) => choice(d, d.name ?? name)),
         );
       }
+    },
+
+    /**
+     * Go to Implementation(s), as IntelliJ's `GotoImplementation`: the language server's one
+     * implementation, or a list of several; with none, IntelliJ's words.
+     */
+    async goToImplementation(name: string, asked: Asked) {
+      const found = (await ask('lsp.implementations', asked)) ?? [];
+      if (found.length === 1) {
+        openAt(found[0] as Located);
+        return;
+      }
+      // IntelliJ's words (CodeInsightBundle's goto.implementation).
+      await choose(
+        `Choose Implementation of ${name} (${String(found.length)} found)`,
+        'No implementations found',
+        found.map((i) => choice(i, relative(i.path).split('/').at(-1) as string, null)),
+      );
+    },
+
+    /**
+     * Go to Type Declaration, as IntelliJ's `GotoTypeDeclaration`: where the type of the symbol is
+     * declared, from its language server, or a list of several; nothing with none, as IntelliJ's.
+     */
+    async goToTypeDeclaration(name: string, asked: Asked) {
+      const found = (await ask('lsp.typeDefinitions', asked)) ?? [];
+      if (found.length === 0) return;
+      if (found.length === 1) {
+        openAt(found[0] as Located);
+        return;
+      }
+      // IntelliJ's title (CodeInsightBundle's choose.type.popup.title).
+      await choose(
+        'Choose Type',
+        '',
+        found.map((t) => choice(t, relative(t.path).split('/').at(-1) as string, null)),
+      );
     },
 
     findUsages,

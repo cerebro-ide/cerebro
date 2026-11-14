@@ -56,6 +56,7 @@ async function mount(
     slow?: boolean;
     empty?: boolean;
     menu?: (event: MouseEvent, node: Item) => void;
+    openParents?: boolean;
   } = {},
 ) {
   const model = new TreeModel(source(count, options));
@@ -72,6 +73,7 @@ async function mount(
         onOpen={opened}
         rowClass={(node) => (node.folder ? 'test-folder' : undefined)}
         {...(options.menu ? { onContextMenu: options.menu } : {})}
+        {...(options.openParents ? { openParents: true } : {})}
       />
     ),
     container,
@@ -371,5 +373,14 @@ describe('TreeView', () => {
     expect(opened).toHaveBeenCalledWith({ path: 'big/file-00001.ts', folder: false });
     await userEvent.dblClick(row('top.md'));
     expect(opened).toHaveBeenLastCalledWith({ path: 'top.md', folder: false });
+  });
+
+  it('opens a parent too, never expanding it, when it opens parents', async () => {
+    const { model, opened, row } = await mount(3, { openParents: true });
+    await userEvent.dblClick(row('big'));
+    expect(opened).toHaveBeenLastCalledWith({ path: 'big', folder: true });
+    await userEvent.keyboard('{Enter}');
+    expect(opened).toHaveBeenCalledTimes(2);
+    expect(model.expanded.has('big')).toBe(false);
   });
 });

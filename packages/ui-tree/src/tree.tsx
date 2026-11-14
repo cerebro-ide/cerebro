@@ -19,6 +19,11 @@ export interface TreeViewProps<T> {
   row: (node: T) => Child;
   /** A file opened: double click or Enter on a leaf. */
   onOpen?: (node: T) => void;
+  /**
+   * Whether double click and Enter open any node, never expanding it, as IntelliJ's hierarchy
+   * trees (`HierarchyBrowserBase`: no toggle click, Edit Source on double click and Enter).
+   */
+  openParents?: boolean;
   /** A class for a node's row, to style kinds of rows: groups, say. */
   rowClass?: (node: T) => string | undefined;
   /** A context menu asked for on a row, which is selected first. */
@@ -67,7 +72,7 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
   };
 
   const open = (row: TreeRow<T>) => {
-    if (row.leaf) props.onOpen?.(row.node);
+    if (row.leaf || props.openParents) props.onOpen?.(row.node);
     else model.toggle(row.node);
   };
 

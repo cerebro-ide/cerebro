@@ -2,12 +2,13 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
+import { bookmarkMarks, toggleBookmark } from '../src/bookmarks.js';
 import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets } from '../src/navigation.js';
+import { carets, reveals } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -875,6 +876,17 @@ describe('navigation in the editor', () => {
     await onA();
     await userEvent.keyboard('{Control>}b{/Control}');
     await expect.poll(active).toBe('/r/src/b.ts');
+    await closeAll();
+    // Go to Implementation and Go to Type Declaration, from the language server.
+    answers.set('lsp.implementations', [b]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+    await closeAll();
+    answers.set('lsp.typeDefinitions', [b]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Shift>}B{/Shift}{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
     await onA();
     await userEvent.keyboard('{Alt>}{F7}{/Alt}');
     await expect
@@ -893,6 +905,232 @@ describe('navigation in the editor', () => {
     );
     await userEvent.click(mark);
     await expect.poll(active).toBe('/r/src/b.ts');
+    // Go to Super Method: where the up marker of the symbol around the caret goes.
+    await closeAll();
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        from: { line: 0, column: 0 },
+        to: { line: 3, column: 0 },
+        at: { line: 1, column: 0 },
+        children: [],
+      },
+    ]);
+    answers.set('lsp.markers', [{ line: 1, kind: 'overrides', name: 'a', targets: [b] }]);
+    await onA();
+    await userEvent.keyboard('{Control>}u{/Control}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+    // Next Method: the structure's next symbol after the caret's line.
+    await closeAll();
+    answers.set('lsp.structure', [
+      {
+        name: 'z',
+        from: { line: 2, column: 0 },
+        to: { line: 2, column: 5 },
+        at: { line: 2, column: 1 },
+        children: [],
+      },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 2, column: 1 });
+    // Call Hierarchy: the Hierarchy tool window, with what calls the function at the caret.
+    await closeAll();
+    answers.set('lsp.prepareCalls', [
+      { name: 'a', kind: 'function', path: '/r/src/c.ts', at: { line: 1, column: 0 }, calls: [] },
+    ]);
+    answers.set('lsp.incomingCalls', [
+      { name: 'z', path: '/r/src/b.ts', at: { line: 0, column: 0 }, calls: [], item: 1 },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await expect
+      .poll(() => document.querySelector('.playground-occurrences__title')?.textContent)
+      .toBe('Callers of a()');
+    await expect
+      .poll(() => document.querySelectorAll('.cerebro-tree-row').length)
+      .toBeGreaterThan(1);
+    // Again, in the window there: nothing for no function at the caret.
+    answers.set('lsp.prepareCalls', [
+      { name: 'b', kind: 'function', path: '/r/src/c.ts', at: { line: 1, column: 0 }, calls: [] },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await expect
+      .poll(() => document.querySelector('.playground-occurrences__title')?.textContent)
+      .toBe('Callers of b()');
+    answers.set('lsp.prepareCalls', []);
+    await onA();
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(document.querySelector('.playground-occurrences__title')?.textContent).toBe(
+      'Callers of b()',
+    );
+    // Quick Definition: the declaration's lines in a popup; Edit Source opens it.
+    await closeAll();
+    answers.set('lsp.definitionSpans', [{ ...b, first: 0, last: 0 }]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Shift>}I{/Shift}{/Control}');
+    await vi.waitUntil(() => editorRoot()?.querySelector('.cerebro-quickDef'));
+    await userEvent.keyboard('{F4}');
+    await expect.poll(active).toBe('/r/src/b.ts');
+  });
+});
+
+describe('bookmarks', () => {
+  const linesOf = (worktree: string, path: string) =>
+    bookmarkMarks(worktree, path).map((mark) => mark.line);
+  const marked = () =>
+    [...(editorRoot()?.querySelectorAll('.cerebro-bookmarks .cm-gutterElement') ?? [])].flatMap(
+      (element, index) => (element.querySelector('.cerebro-bookmark') ? [index] : []),
+    );
+
+  it('are toggled on the caret’s line on F11, shown in the gutter, and listed in their window', async () => {
+    // On a file just opened, before its editor has said where its caret is: its first line.
+    env().editor.open({ id: '/r/src/marked.ts', title: 'marked.ts' });
+    expect(carets.get('/r/src/marked.ts')).toBeUndefined();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F11', code: 'F11' }));
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([0]);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{F11}');
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([0, 1]);
+    await expect.poll(marked).toEqual([0, 1]);
+    // Taken away on F11 again.
+    await userEvent.keyboard('{F11}');
+    await expect.poll(marked).toEqual([0]);
+    // Moved with its line, and kept where it went.
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Enter}');
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([1]);
+    await userEvent.click(stripe('bookmarks'));
+    await expect
+      .poll(() =>
+        [...document.querySelectorAll('[aria-label="Bookmarks"] .cerebro-tree-row')].map(
+          (r) => r.textContent,
+        ),
+      )
+      .toEqual(['rDefault', 'marked.tssrc', '2:']);
+    await userEvent.dblClick(row('/r/src/marked.ts:1'));
+    await expect.poll(() => reveals.get('/r/src/marked.ts')).toEqual({ line: 1, column: 0 });
+    // Opened, it's read again: the host's file is as it was, without the line added above, and
+    // the bookmark goes up with its line.
+    await expect.poll(() => linesOf('/r', '/r/src/marked.ts')).toEqual([0]);
+    await userEvent.click(stripe('bookmarks'));
+    toggleBookmark('/r', '/r/src/marked.ts', 0);
+  });
+
+  it('are gone through from the caret’s line by Next and Previous Line Bookmark', async () => {
+    /** Find Action's commands named so, of those on. */
+    const listed = async (name: string) => {
+      await userEvent.click(q('.cerebro-statusbar'));
+      await userEvent.keyboard('{Control>}{Shift>}a{/Shift}{/Control}');
+      await popupItems();
+      await userEvent.keyboard(name);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      return [...document.querySelectorAll('.cerebro-popup-item__label')]
+        .map((label) => label.textContent)
+        .filter((label) => label === name);
+    };
+    const run = async (name: string) => {
+      expect(await listed(name)).toEqual([name]);
+      await userEvent.keyboard('{Enter}');
+    };
+    // None: nothing to go to.
+    expect(await listed('Next Line Bookmark')).toEqual([]);
+    await userEvent.keyboard('{Escape}');
+    toggleBookmark('/r', '/r/src/b.ts', 1);
+    toggleBookmark('/r', '/r/src/c.ts', 0);
+    // From no file: the first.
+    for (const group of env().editor.groups) {
+      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+    }
+    await run('Next Line Bookmark');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
+    await expect.poll(() => reveals.get('/r/src/b.ts')).toEqual({ line: 1, column: 0 });
+    // From the caret's line: the one before it.
+    env().editor.open({ id: '/r/src/d.ts', title: 'd.ts' });
+    await run('Previous Line Bookmark');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => carets.get('/r/src/c.ts')?.line).toBe(0);
+    expect(await listed('Next Line Bookmark')).toEqual([]);
+    await userEvent.keyboard('{Escape}');
+    // Show Bookmarks, on Shift+F11: the popup, in the order added.
+    await userEvent.keyboard('{Shift>}{F11}{/Shift}');
+    expect(await popupItems()).toEqual(['b.ts :2', 'c.ts :1']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
+    toggleBookmark('/r', '/r/src/b.ts', 1);
+    toggleBookmark('/r', '/r/src/c.ts', 0);
+  });
+});
+
+describe('mnemonic bookmarks', () => {
+  it('are toggled on Ctrl+Shift and a digit, shown with it, and gone to on Ctrl and it', async () => {
+    localStorage.setItem('cerebro.bookmarks.rewrite', 'false');
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
+    await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect
+      .poll(() => editorRoot()?.querySelector('.cerebro-bookmark--mnemonic')?.textContent)
+      .toBe('3');
+    // From another file.
+    env().editor.open({ id: '/r/src/b.ts', title: 'b.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}3{/Control}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 1, column: 0 });
+    // Taken for another line, without asking (as told): the first's gone.
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect
+      .poll(() => bookmarkMarks('/r', '/r/src/c.ts'))
+      .toEqual([{ line: 0, mnemonic: '3' }]);
+    await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect.poll(() => bookmarkMarks('/r', '/r/src/c.ts')).toEqual([]);
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
+  });
+
+  it('are chosen for the caret’s line on Ctrl+F11, said so in the menu, and gone to on Ctrl+Shift+F11', async () => {
+    /** Edit → Bookmarks's items. */
+    const bookmarksMenu = async () => {
+      await userEvent.click(q('.cerebro-menubar__button'));
+      // File's menu, then Edit's.
+      await menuItems();
+      await userEvent.keyboard('{ArrowRight}');
+      await expect.poll(menuItems).toContain('Undo');
+      await userEvent.hover(menuItem('Bookmarks'));
+      const menus = () => document.querySelectorAll('.cerebro-menu');
+      await expect.poll(() => menus().length).toBe(2);
+      const items = [...(menus()[1] as HTMLElement).querySelectorAll('.cerebro-menu-item__label')];
+      const labels = items.map((label) => label.textContent);
+      await closeAll();
+      return labels;
+    };
+    // No file: what IntelliJ's keymap calls it; Go to Mnemonic off, none having one.
+    for (const group of env().editor.groups) {
+      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+    }
+    expect((await bookmarksMenu())[1]).toBe('Toggle Bookmark Mnemonic…');
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    expect((await bookmarksMenu())[1]).toBe('Add Mnemonic Bookmark…');
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
+    await userEvent.keyboard('{Control>}{F11}{/Control}');
+    expect(await dialogText()).toContain('Quickly set');
+    await userEvent.keyboard('m');
+    await expect
+      .poll(() => bookmarkMarks('/r', '/r/src/c.ts'))
+      .toEqual([{ line: 1, mnemonic: 'M' }]);
+    expect((await bookmarksMenu())[1]).toBe('Change Mnemonic…');
+    // Gone to from another file.
+    env().editor.open({ id: '/r/src/b.ts', title: 'b.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Shift>}{F11}{/Shift}{/Control}');
+    expect(await popupItems()).toEqual(['c.ts :2']);
+    await userEvent.keyboard('m');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 1, column: 0 });
+    toggleBookmark('/r', '/r/src/c.ts', 1);
   });
 });
 
@@ -1080,6 +1318,11 @@ describe('File Structure', () => {
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(document.querySelector('.cerebro-popup')).toBeNull();
     expect(host('/r').params('lsp.structure')).toHaveLength(asked);
+    // Nor is Call Hierarchy asked about it.
+    const calls = host('/r').params('lsp.prepareCalls').length;
+    await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(host('/r').params('lsp.prepareCalls')).toHaveLength(calls);
   });
 });
 
@@ -1137,6 +1380,30 @@ describe('Reformat Code', () => {
       from: { line: 0, column: 0 },
       to: { line: 2, column: 0 },
     });
+  });
+});
+
+describe('Optimize Imports', () => {
+  it('organizes the file’s imports on Ctrl+Alt+O by its language server’s edits, or says why not', async () => {
+    // Each file's text is `// <path>` then `const a = 1;`.
+    answers.set('lsp.organizeImports', [
+      { from: { line: 1, column: 0 }, to: { line: 2, column: 0 }, text: '' },
+    ]);
+    env().editor.open({ id: '/r/src/imports.ts', title: 'imports.ts' });
+    await expect.poll(() => code()?.textContent).toContain('// /r/src/imports.ts');
+    await userEvent.click(code() as HTMLElement);
+    await userEvent.keyboard('{Control>}{Alt>}o{/Alt}{/Control}');
+    await expect.poll(() => code()?.textContent).not.toContain('const a');
+    expect(host('/r').params('lsp.organizeImports')).toContainEqual({
+      worktree: '/r',
+      path: '/r/src/imports.ts',
+      text: '// /r/src/imports.ts\nconst a = 1;\n',
+    });
+    const hint = () => editorRoot()?.querySelector('.cerebro-hint')?.textContent;
+    await expect.poll(hint).toBe('Imports optimized');
+    answers.set('lsp.organizeImports', null);
+    await userEvent.keyboard('{Control>}{Alt>}o{/Alt}{/Control}');
+    await expect.poll(hint).toBe('No language server answered.');
   });
 });
 
@@ -1502,6 +1769,8 @@ describe('the Switcher', () => {
       // Find in Files' window, there since it ran.
       '|Find||F',
       '|Git||9',
+      // Call Hierarchy's window, there since it ran.
+      '|Hierarchy||H',
       // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
       '|Notes||N',
       '|Notifications||4',

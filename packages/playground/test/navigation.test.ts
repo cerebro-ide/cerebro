@@ -8,6 +8,7 @@ import { documentFor } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import {
   carets,
+  changePlaces,
   focusing,
   history,
   recentTabs,
@@ -107,6 +108,45 @@ describe('each environment’s Recent Files', () => {
     workspace.activate('/s');
     expect(recentTabs()?.edited).toEqual([]);
     workspace.close('/s');
+  });
+});
+
+describe('Last and Next Edit Location', () => {
+  it('go back to where the changes were, and on again, from where the caret is', async () => {
+    const edit = async (path: string, line: number) => {
+      const doc = (await documentFor(path, () => 'sample')) as EditorDocument;
+      carets.set(path, { line, column: 1 });
+      doc.edit([{ from: 0, to: 0, insert: 'x' }]);
+      // The place is read once the editor has said where its caret is.
+      await Promise.resolve();
+    };
+    await edit('/r/e1.ts', 3);
+    await edit('/r/e2.ts', 7);
+    const places = changePlaces();
+    expect(places?.places.slice(-2).map((p) => [p.tab.id, p.at?.line])).toEqual([
+      ['/r/e1.ts', 3],
+      ['/r/e2.ts', 7],
+    ]);
+    nav.open({ id: '/r/e2.ts', title: 'e2.ts' });
+    // At the last change: the one before it, its editor focused.
+    places?.goBack(history()?.current());
+    expect(editor().activeGroup.active).toBe('/r/e1.ts');
+    expect(reveals.get('/r/e1.ts')).toMatchObject({ line: 3, column: 1 });
+    expect(focusing.has('/r/e1.ts')).toBe(true);
+    // Moved on in the file: back to the change is a jump within it, a place left.
+    carets.set('/r/e1.ts', { line: 20, column: 0 });
+    places?.goForward(history()?.current());
+    expect(history()?.back.at(-1)).toMatchObject({ tab: { id: '/r/e1.ts' }, at: { line: 20 } });
+    expect(places?.canGoForward).toBe(true);
+    // A tab with no caret to show: it's opened only.
+    places?.changed({ tab: { id: '/r/e3.ts', title: 'e3.ts' } });
+    places?.goBack(history()?.current());
+    expect(editor().activeGroup.active).toBe('/r/e3.ts');
+  });
+
+  it('are none without an environment', () => {
+    vi.spyOn(workspace, 'active', 'get').mockReturnValue(undefined);
+    expect(changePlaces()).toBeUndefined();
   });
 });
 
@@ -277,6 +317,150 @@ describe('a gutter marker', () => {
   });
 });
 
+describe('Go to Super Method', () => {
+  // A class on lines 0 to 4 with a method on lines 1 to 3, and another class after.
+  const place = (line: number, column: number) => ({ line, column });
+  const symbol = (name: string, from: number, to: number, children: object[] = []) => ({
+    name,
+    from: place(from, 0),
+    to: place(to, 1),
+    at: place(from, 2),
+    children,
+  });
+  const structure = [symbol('Square', 0, 4, [symbol('area', 1, 3)]), symbol('Other', 6, 7)];
+  const up = (line: number, kind: string, path: string) => ({
+    line,
+    kind,
+    name: 'n',
+    targets: [at(path, 1)],
+  });
+  const inFile = (line: number, column: number): Asked => ({ ...asked, line, column });
+
+  it('goes where the up marker of the innermost member or type around the caret goes', async () => {
+    answers = {
+      'lsp.structure': structure,
+      'lsp.markers': [up(0, 'implements', '/r/shape.ts'), up(1, 'overrides', '/r/base.ts')],
+    };
+    await nav.goToSuperMethod(inFile(2, 4));
+    expect(editor().activeGroup.active).toBe('/r/base.ts');
+    expect(host.params('lsp.structure')).toEqual([
+      { worktree: '/r', path: '/r/a.ts', text: asked.text },
+    ]);
+    // In the class, not its method: the class's.
+    await nav.goToSuperMethod(inFile(4, 0));
+    expect(editor().activeGroup.active).toBe('/r/shape.ts');
+  });
+
+  it('goes to the type’s where its member has none, and nowhere without one', async () => {
+    answers = {
+      'lsp.structure': structure,
+      // A down marker isn't one to go up by.
+      'lsp.markers': [up(0, 'implements', '/r/shape.ts'), up(1, 'implemented', '/r/sub.ts')],
+    };
+    await nav.goToSuperMethod(inFile(2, 0));
+    expect(editor().activeGroup.active).toBe('/r/shape.ts');
+    editor().open({ id: '/r/a.ts', title: 'a.ts' });
+    // In the other class, or outside any, or with no server: nowhere.
+    await nav.goToSuperMethod(inFile(6, 3));
+    await nav.goToSuperMethod(inFile(5, 0));
+    answers = {};
+    await nav.goToSuperMethod(inFile(2, 0));
+    expect(editor().activeGroup.active).toBe('/r/a.ts');
+  });
+});
+
+describe('Call Hierarchy', () => {
+  const area = {
+    name: 'area',
+    path: '/r/a.ts',
+    at: { line: 0, column: 9 },
+    calls: [],
+    item: { n: 1 },
+  };
+
+  it('is of the function at a place, and asks its file’s server what calls each', async () => {
+    answers = { 'lsp.prepareCalls': [area], 'lsp.incomingCalls': [] };
+    const hierarchy = await nav.callHierarchy(asked);
+    expect(hierarchy).toMatchObject({ worktree: '/r', root: area });
+    expect(host.params('lsp.prepareCalls')).toEqual([{ worktree: '/r', ...asked }]);
+    expect(await hierarchy?.callers(area)).toEqual([]);
+    expect(host.params('lsp.incomingCalls')).toEqual([
+      { worktree: '/r', path: '/r/a.ts', item: { n: 1 } },
+    ]);
+  });
+
+  it('is none with nothing there, or no server', async () => {
+    answers = { 'lsp.prepareCalls': [] };
+    expect(await nav.callHierarchy(asked)).toBeNull();
+    answers = { 'lsp.prepareCalls': null };
+    expect(await nav.callHierarchy(asked)).toBeNull();
+  });
+});
+
+describe('Quick Definition', () => {
+  it('shows the first definition’s declaration, its lines as its document has them', async () => {
+    answers = {
+      'lsp.definitionSpans': [
+        { path: '/r/quick.ts', line: 1, column: 9, first: 1, last: 2 },
+        { path: '/r/other.ts', line: 0, column: 0, first: 0, last: 0 },
+      ],
+      'fs.read': { text: 'a\nfunction f() {\n}\nb\n' },
+    };
+    const found = await nav.quickDefinition(asked);
+    expect(found).toMatchObject({ path: '/r/quick.ts', text: 'function f() {\n}' });
+    expect(host.params('lsp.definitionSpans')).toEqual([{ worktree: '/r', ...asked }]);
+    found?.open();
+    await expect.poll(() => reveals.get('/r/quick.ts')).toEqual({ line: 1, column: 9 });
+  });
+
+  it('shows none with no definition, no server, or a file it can’t read', async () => {
+    answers = { 'lsp.definitionSpans': [] };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+    answers = { 'lsp.definitionSpans': null };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+    answers = {
+      'lsp.definitionSpans': [{ path: '/r/unreadable.ts', line: 0, column: 0, first: 0, last: 0 }],
+      'fs.read': new Error('gone'),
+    };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+  });
+});
+
+describe('Next Method and Previous Method', () => {
+  const symbol = (line: number, column: number, children: object[] = []) => ({
+    name: 's',
+    from: { line, column: 0 },
+    to: { line: line + 1, column: 0 },
+    at: { line, column },
+    children,
+  });
+
+  it('go to the nearest symbol’s name on a line after the caret’s, or before it', async () => {
+    // A class on line 2, its methods on 4 and 8, and two functions on 12.
+    answers = {
+      'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9), symbol(12, 2)],
+    };
+    await nav.goToMethod({ ...asked, line: 4, column: 0 }, true);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 8, column: 2 });
+    await nav.goToMethod({ ...asked, line: 4, column: 9 }, false);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 2, column: 6 });
+    // The first on its line.
+    await nav.goToMethod({ ...asked, line: 9, column: 0 }, true);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 2 });
+  });
+
+  it('go nowhere past the first or the last, or with no server', async () => {
+    answers = { 'lsp.structure': [symbol(2, 6)] };
+    reveals.delete('/r/a.ts');
+    await nav.goToMethod({ ...asked, line: 2, column: 0 }, true);
+    await nav.goToMethod({ ...asked, line: 2, column: 9 }, false);
+    answers = { 'lsp.structure': null };
+    await nav.goToMethod({ ...asked, line: 0, column: 0 }, true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reveals.has('/r/a.ts')).toBe(false);
+  });
+});
+
 describe('Go to Definition', () => {
   it('is there where the language server, or else the index, has a definition', async () => {
     answers = { 'lsp.definitions': [at('/r/a.ts', 1)] };
@@ -403,6 +587,58 @@ describe('Go to Definition', () => {
     } finally {
       workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
     }
+  });
+});
+
+describe('Go to Implementation and Go to Type Declaration', () => {
+  it('go to the language server’s one place', async () => {
+    answers = { 'lsp.implementations': [at('/r/impl.ts', 1)] };
+    await nav.goToImplementation('a', asked);
+    expect(editor().activeGroup.active).toBe('/r/impl.ts');
+    expect(host.params('lsp.implementations')).toEqual([{ worktree: '/r', ...asked }]);
+    answers = { 'lsp.typeDefinitions': [at('/r/type.ts', 1)] };
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe('/r/type.ts');
+  });
+
+  it('offer several, as IntelliJ’s lists', async () => {
+    answers = { 'lsp.implementations': [at('/r/i1.ts', 1), at('/r/i2.ts', 2)] };
+    let done = nav.goToImplementation('a', asked);
+    expect(await labels()).toEqual({
+      items: ['i1.ts', 'i2.ts'],
+      groups: [],
+      details: ['i1.ts:2', 'i2.ts:3'],
+    });
+    expect(title()).toBe('Choose Implementation of a (2 found)');
+    await userEvent.keyboard('{Enter}');
+    await done;
+    expect(editor().activeGroup.active).toBe('/r/i1.ts');
+    answers = { 'lsp.typeDefinitions': [at('/r/t1.ts', 1), at('/r/t2.ts', 2)] };
+    done = nav.goToTypeDeclaration('a', asked);
+    expect((await labels()).items).toEqual(['t1.ts', 't2.ts']);
+    expect(title()).toBe('Choose Type');
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
+  it('say there are no implementations, as IntelliJ, and go nowhere with no type', async () => {
+    answers = { 'lsp.implementations': null };
+    const done = nav.goToImplementation('a', asked);
+    await popupItems();
+    expect(document.querySelector('.cerebro-popup__empty')?.textContent).toBe(
+      'No implementations found',
+    );
+    await userEvent.keyboard('{Escape}');
+    await done;
+    answers = { 'lsp.typeDefinitions': [] };
+    const before = editor().activeGroup.active;
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe(before);
+    // No server: nothing either.
+    answers = { 'lsp.typeDefinitions': null };
+    await nav.goToTypeDeclaration('a', asked);
+    expect(editor().activeGroup.active).toBe(before);
+    expect(document.querySelector('.cerebro-popup')).toBeNull();
   });
 });
 

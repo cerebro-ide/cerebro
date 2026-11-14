@@ -65,7 +65,14 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
+- [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
+- [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
+- [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
+- [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
+- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
+- [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -1248,6 +1255,23 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   window, as Select Opened File) and, in the app, the system's file manager, named as IntelliJ's
   `RevealFileAction` names it ("Reveal in Finder", "Show in Explorer", "Show in File Manager"),
   through Electron's `shell.showItemInFolder`. Claude's choice of targets, open to change.
+- **Last Edit Location and Next Edit Location** (added 2026-11-14), as IntelliJ's Navigate menu's
+  (`JumpToLastChange`, `JumpToNextChange`; `IdeDocumentHistoryImpl`, read from its source): each
+  edit leaves its place, where the caret is once the editor has it, replacing the last place when
+  it's in the same file within 4 lines (`TextEditorState.MIN_CHANGE_DISTANCE`); 150 kept
+  (`editor.navigation.history.stack.size`), per environment (`ChangePlaces` in `layout`). Last
+  goes back through them from the last one gone to, past any where the caret is; Next goes on
+  again; an edit starts again from the latest. The file's editor takes the focus, and a jump
+  within the file is a place left, for Back. In the Navigate menu after Back and Forward, as
+  IntelliJ's. Keys, from IntelliJ's keymap files: Last on Ctrl+Shift+Backspace (Cmd+Shift+Backspace
+  on macOS, its macOS keymap taking `$default`'s with Cmd), Eclipse's Ctrl+Q, none in Sublime
+  Text's on Windows and Linux; Next has none. A file edited back to as it was saved leaves no
+  place (the edits followed are those that leave it unsaved, as Recently Changed Files' are).
+  Claude's choice where IntelliJ's isn't read: the place isn't kept between runs.
+  Found in the app with it: where there was nowhere to go, Ctrl+Shift+Backspace deleted to the
+  line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
+  end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
+  the app's keymap. A cause outside this item, there before it.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
@@ -1594,7 +1618,7 @@ Problems tool window, then Alt+Enter).
     they take it from their parents.
 - **Not yet:** IntelliJ's bulb beside the line; its own intentions, which the servers don't give
   (Adjust code style settings); actions that are commands, and edits to other files; source
-  actions (Organize Imports, Fix All); a fix's submenu (IntelliJ's arrow, to suppress an
+  actions (Fix All; Organize Imports is Optimize Imports, see its entry); a fix's submenu (IntelliJ's arrow, to suppress an
   inspection).
 
 ## Code completion (2026-11-03)
@@ -2066,7 +2090,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     `ChangesView.CreatePatch` and `ChangesView.CreatePatchToClipboard`): Create Patch… and Copy as
     Patch to Clipboard, before Shelve Changes, for the selection's changes, else those going into
     the commit, untracked files as new ones (`git add -N` in a copy of the index, so the
-    repository's own isn't touched, measured with git 2.43); the documents saved first. Their
+    repository's own isn't touched, measured with git 2.43; the copy keeps the index's times, fixed
+    2026-11-14: one made a second later hid a same-size change written in the checkout's second,
+    as git trusts an entry's size and time unless the index is no older than the file, measured);
+    the documents saved first. Their
     message, the file's name and the patch's header, is the commit message being written, as
     IntelliJ's takes the change list's comment (`extractCommitMessage`). Copy as Patch to
     Clipboard asks nothing: paths from the repository's top (IntelliJ's
@@ -2959,6 +2986,16 @@ saving").
   macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS; VS Code's Scroll Line
   Up and Down, Ctrl+Up and Down (Ctrl+PageUp and PageDown on macOS), from its sheets. **Difference:**
   IntelliJ's scroll is animated (its smooth scrolling); this one jumps.
+- **Increase and Decrease Font Size in All Editors** (added 2026-11-14), IntelliJ's
+  `EditorIncreaseFontSizeGlobal` and `EditorDecreaseFontSizeGlobal` (`ChangeEditorFontSizeAction`,
+  read from its source): the editors' font size (the `editor.fontSize` setting) a point larger or
+  smaller, from 8 to 72 as IntelliJ's, saved as the global setting. Each needs an editor with the
+  focus, a read-only one too. Their keys, from IntelliJ's keymap files: Alt+Shift+. and Alt+Shift+,
+  (`$default`); Ctrl+Shift+. and Ctrl+Shift+, on macOS; Eclipse's Ctrl+= and Ctrl+- (Cmd on macOS),
+  where the editor's fold and unfold take them first, as they share them in IntelliJ's Eclipse
+  keymap; macOS System Shortcuts' Cmd+Shift+= and Cmd+Shift+-; none in Emacs's, NetBeans' or Visual
+  Studio's. Sublime Text's keymap gives its keys to the actions for one editor, which Cerebro hasn't
+  yet, so it inherits IntelliJ's.
 - **Scroll to Center, and Move Caret to Page Top and Bottom** (added 2026-11-14), IntelliJ's
   `EditorScrollToCenter` (`ScrollToCenterAction`) and `EditorMoveToPageTop`, `EditorMoveToPageBottom`
   and their `WithSelection` forms (`EditorActionUtil.moveCaretPageTop` and `moveCaretPageBottom`),
@@ -2993,6 +3030,243 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+
+## Bookmarks (2026-11-14)
+
+IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** (`ToggleBookmarkAction`, `BookmarksManagerImpl` and the Bookmarks tool
+  window's nodes, read from its source): Toggle Bookmark adds a bookmark on the caret's line, or
+  takes the one there away. The editor shows each in a gutter of its own, before the line numbers,
+  and moves it with its line's text as it's edited (IntelliJ keeps one on a range marker); an
+  Enter at the line's start takes it down with the text; a line joined to the one above takes it
+  up (CodeMirror's gutter markers are dropped then, measured, so a bookmark's maps as a plain
+  point), and two bookmarked lines joined keep one. A file read again from disk keeps them on
+  their lines: the editor replaces only what differs, as it does for an edit made elsewhere
+  (before, it replaced the whole text, which dropped every bookmark and put the caret at the
+  start: measured). The editor now also says where its caret is when such a change moves it (the
+  status bar showed the line it had left: seen in the app).
+- **The Bookmarks tool window** (already on the left's second slot) lists them under one list
+  named after the worktree, as IntelliJ's default list is named after the project, marked
+  "Default"; then by file, with its folder, in the order added, each line by its number
+  (IntelliJ's "Group line bookmarks", on by default), each line with the bookmark's icon, as
+  IntelliJ's line nodes (the list's is IntelliJ's bookmark group icon, drawn as the bookmark's
+  here: a claim). A double click or Enter opens a file, or a
+  line; the list itself opens nothing. With none: IntelliJ's "No bookmarks added." and "Add
+  Bookmark (F11) to code lines." The icon is drawn after IntelliJ's (a claim: not its drawing),
+  in the muted text colour (a claim: not measured).
+- **Kept per worktree, between runs,** in the page's local storage (`cerebro.bookmarks:<path>`),
+  as other per-view state is; none when what's kept can't be read.
+- **Next and Previous Line Bookmark,** as IntelliJ's `GotoNextBookmark` and `GotoPreviousBookmark`
+  (`NextBookmarkService`, read from its source): through all the worktree's bookmarks, ordered by
+  path, then line, from the active file's caret line; from no file, the first or the last. They
+  don't go round, as IntelliJ's don't unless its registry says so
+  (`ide.bookmark.occurrence.cyclic.iteration.allowed`, off), and are off with nothing to go to.
+- **Show Bookmarks** (Shift+F11), as IntelliJ's `ShowLineBookmarksAction`: a popup titled
+  "Bookmarks" with the worktree's list, its lines not grouped by file, as IntelliJ's popup (its
+  "Group line bookmarks" is off there), in the order added. Each reads as IntelliJ's ungrouped line
+  node: the file's name, " :" and the line, then its folder, with the bookmark's icon. The first is
+  highlighted, its place previewed; typing filters them (IntelliJ's tree has speed search); Enter
+  or a click opens one. It's the picker Find in Files uses, so the preview is under the list, not
+  beside it as IntelliJ's, and the popup isn't moved or resized (open to change).
+- **Mnemonics,** as IntelliJ's bookmark types (`BookmarkType`, `ToggleBookmarkTypeAction`,
+  `GotoBookmarkTypeAction` and `BookmarksManagerImpl`, read from its source): a bookmark can have a
+  digit or a letter, one bookmark each. Toggle Bookmark 0 to 9 and A to Z gives the caret's line's
+  bookmark the mnemonic, or adds one with it, or takes the bookmark away if it has it already. One
+  another bookmark has is taken from it with the bookmark, once "Rewrite Mnemonic" is answered OK
+  (BookmarkBundle's words, with "Don't ask again", kept only on OK as IntelliJ's `DoNotAskOption`).
+  Go to Bookmark 0 to 9 and A to Z opens its place, and is off when none has it. The editor's gutter
+  and the lists show the mnemonic on a square in place of the bookmark's icon (IntelliJ's draws it
+  at three quarters of the icon's height in the editor's font; the square's a claim). The toggles
+  are listed in Find Action, where IntelliJ hides them (open to change). They're in IntelliJ's
+  order, 1 to 9, 0, then A to Z.
+- **Toggle Bookmark Mnemonic** (Ctrl+F11), as IntelliJ's `ChooseBookmarkTypeAction` and
+  `BookmarkTypeChooser`: the mnemonics in two grids of four rows, the digits in three columns and
+  the letters in seven, those other bookmarks have in IntelliJ's "Already used" colour and the
+  selected one in its "Current" colour, as its legend says (the Islands themes' `Bookmark.Mnemonic*`
+  colours). Typing a mnemonic chooses it; a click selects one, and a click on the selected one (so
+  a double click), Enter on one, or OK chooses it; the arrows move between them, past the grids'
+  gaps and round, as IntelliJ's. Its title, and the menu's name for it, say what it does on the
+  caret's line: "Add Mnemonic Bookmark", "Assign Mnemonic", "Change Mnemonic" (BookmarkBundle's
+  words). The line's bookmark gets the one chosen, as IntelliJ's `setType` (its own chosen leaves
+  it), asking first when another has it; with none, one is added with it. IntelliJ's is a popup
+  with no buttons; here it's a dialog, with OK and Cancel, as Cerebro has no popup that holds other
+  controls (open to change; a shared popup shell is proposed in the backlog).
+- **Go to Mnemonic** (Ctrl+Shift+F11), as IntelliJ's `ShowTypeBookmarksAction`: a popup of the
+  bookmarks with mnemonics, in the mnemonics' order, each as Show Bookmarks lists it; typing a
+  mnemonic goes to its bookmark, Enter or a click to the one highlighted; off when none has one.
+  IntelliJ's is a plain tree in a popup centred in the window, with no search field (its source);
+  here it's the picker, at the top, and a key no bookmark has goes to its search field (open to
+  change: the popup shell proposed in the backlog would allow IntelliJ's).
+- **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
+  there, which Cerebro hasn't, so after Find. Toggle Bookmark and Toggle Bookmark Mnemonic…, then
+  Previous and Next Line Bookmark, apart, then Show Bookmarks… and Go to Mnemonic… (ActionsBundle's
+  names).
+- **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
+  Eclipse for macOS or NetBeans; Sublime Text Ctrl+F2, on macOS Cmd+F2 and Ctrl+Shift+R; Visual
+  Studio Ctrl+K K and Ctrl+K Ctrl+K; macOS System Shortcuts Ctrl+Shift+K and F3. Visual Studio
+  for Mac's file names the action twice (Cmd+F2, then Cmd+K K and Cmd+K Cmd+K): the later is
+  taken, as IntelliJ's reading keeps the last (a claim). VS Code has no bookmarks of its own, so
+  its keymaps keep IntelliJ's. Next and Previous Line Bookmark have none in IntelliJ's own keymap
+  and macOS's; NetBeans Ctrl+Shift+. and Ctrl+Shift+,; Visual Studio Ctrl+K N and Ctrl+K P (each
+  also with Ctrl on the second key), Cmd on macOS; Sublime Text F2 and Shift+F2, on macOS also
+  Ctrl+R for Next. Show Bookmarks: Shift+F11; macOS Cmd+F3; NetBeans Ctrl+Shift+M; Visual Studio
+  Ctrl+\`, Ctrl+K W and Ctrl+K Ctrl+W (Cmd for Ctrl on the K on macOS); macOS System Shortcuts
+  Ctrl+Cmd+K and Cmd+F3; none on Sublime Text. The digits' toggles are Ctrl+Shift and the digit,
+  their Go to Ctrl and it, on macOS too (and in the classic macOS keymap, whose file keeps Ctrl);
+  none on NetBeans, and Eclipse leaves out Ctrl+1, Emacs Ctrl+Shift+2. The letters' have none.
+  Toggle Bookmark Mnemonic: Ctrl+F11; macOS Alt+F3; Eclipse Ctrl+Alt+Shift+F11; macOS System
+  Shortcuts Ctrl+Alt+Shift+K and Cmd+F11. Go to Mnemonic: Ctrl+Shift+F11; macOS Cmd+Alt+F3; none
+  on Eclipse, NetBeans, Sublime Text or Visual Studio.
+- **Not yet:** a mnemonic typed in Show Bookmarks going to its bookmark, descriptions (and the
+  chooser's field for one, with its second hint), more lists,
+  Next and Previous in the editor only (IntelliJ's `…InEditor`
+  actions, with no keys), bookmarks on files and folders in
+  the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
+
+## Call Hierarchy (2026-11-14)
+
+IntelliJ's Navigate → Call Hierarchy, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** `CallHierarchy` (`CallHierarchyBrowserBase`, `HierarchyBrowserBase` and Java's
+  `CallHierarchyNodeDescriptor`, read from its source): the Hierarchy tool window, registered the
+  first time it's used and on the right (a claim: where IntelliJ's opens, not read), shows "Callers of {name}" (IdeBundle's
+  `title.hierarchy.callers.of`): the function or method at the caret, open, what calls it under
+  it, and what calls those as each is expanded. A caller that calls more than once says how many
+  times, " (2 usages)" (`node.call.hierarchy.N.usages`), then what the server adds to its name
+  (TypeScript's: its file or class), dimmed. A double click or Enter opens a caller where it first
+  makes the call, the one asked about at its name, and never expands a node, as IntelliJ's
+  hierarchy trees (no toggle click; Edit Source on double click and Enter): the tree view takes
+  `openParents` for it. Each worktree shows its last one; a new one replaces it.
+- **From the file's language server:** LSP's call hierarchy (`prepareCallHierarchy`, then
+  `incomingCalls` per node, its item given back). Measured with TypeScript's: `twice`, which calls
+  `area` twice on its line, is `area`'s caller with both places, and `top` is `twice`'s. Nothing
+  happens without a server or with no function at the caret.
+- **In the Navigate menu,** after File Structure, as "Call Hierarch&y" (ActionsBundle). It asks
+  about the active file at its caret, as File Structure does (one function for both now).
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+H, on macOS too; macOS System Shortcuts'
+  Ctrl+Shift+H. VS Code's sheets don't list it, so its keymaps keep IntelliJ's.
+- **Not yet:** Callees (IntelliJ's other view), sorting alphabetically, the scope (all, project,
+  tests), the window's toolbar (refresh, expand and collapse all, pin, previous and next), its
+  tabs, one per hierarchy; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
+  (IntelliJ's), and the call sites highlighted in the editor once opened.
+
+## Quick Definition (2026-11-14)
+
+IntelliJ's View → Quick Definition, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** `QuickImplementations` (`ShowImplementationsAction` and
+  `ImplementationViewComponent`, read from its source): a popup at the caret's symbol, titled
+  "Definition of {name}" (CodeInsightBundle's `implementation.view.title`), the symbol's name
+  and its file's name under it, then the declaration's whole lines, highlighted as its file's
+  language, in a read-only editor, 600 by 400 at most (IntelliJ's preferred size). Edit Source
+  (IntelliJ's F4, and Enter) opens the definition; Escape, or a change of the text or the caret,
+  closes it.
+- **Its lines are the language server's,** the target of the definition's location link (LSP's
+  `targetRange`; measured with TypeScript's: the whole function, lines 0 to 2 of `function f()
+  {…}`), or a plain location's own range. They're read from the file's document, unsaved changes
+  too, as IntelliJ reads its document.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Shift+I (`$default`); on macOS Alt+Space and
+  Cmd+Y; macOS System Shortcuts' Cmd+Y; Sublime Text's on macOS Alt+Space; Visual Studio's
+  Alt+F12; none in NetBeans'. Visual Studio's on macOS takes its parent's Alt+Space but not Cmd+Y,
+  its Redo there (Claude's choice). VS Code's is its Peek Definition, from its sheets: Alt+F12,
+  Ctrl+Shift+F10 on Linux; on macOS Alt+F12, a claim: the macOS sheet's modifier keys are glyphs
+  that don't come out as text.
+- **Not yet:** several definitions (IntelliJ's switcher, "1 of 2", and its list of files; the
+  first is shown); the popup's toolbar (Back and Forward, Edit Source's button, Show in Find
+  Window, pinning it as a tab); a definition the index finds when no server answers (Go to
+  Definition's fallback); a binary file's view; the declaration's documentation comment, which
+  IntelliJ's selectioner may take in (a claim, not read).
+
+## Go to Implementation and Go to Type Declaration (2026-11-14)
+
+Two of IntelliJ's Navigate actions that WebStorm has, next after the editor's own actions. Claude's
+choices, open to change.
+
+- **Go to Implementation(s),** as IntelliJ's `GotoImplementation`: what implements or overrides
+  the symbol at the caret, from its language server (`textDocument/implementation`, asked already
+  for the gutter's markers). One goes there; several are listed, titled with IntelliJ's words
+  ("Choose Implementation of name (2 found)", `goto.implementation.chooserTitle`, without its
+  bold); none, or no server, says IntelliJ's "No implementations found"
+  (`goto.implementation.notFound`, CodeInsightBundle, read from its source).
+- **Go to Type Declaration,** as IntelliJ's `GotoTypeDeclaration`: where the type of the symbol
+  at the caret is declared, from its language server (`textDocument/typeDefinition`). One goes
+  there; several are listed as "Choose Type" (`choose.type.popup.title`); none does nothing, as
+  `GotoTypeDeclarationHandler2` returns with no result (read from its source).
+- **Measured** with TypeScript 7's server (host test): an interface's implementing class, and a
+  variable's declared type.
+- **Their keys,** from IntelliJ's keymap files: Ctrl+Alt+B and Ctrl+Shift+B (`$default`); on
+  macOS Cmd+Alt+B (IntelliJ's macOS keymap takes `$default`'s with Cmd for Ctrl) and Cmd+Shift+B
+  and Ctrl+Shift+B; its classic macOS keymap's Ctrl+Shift+B; Eclipse's Ctrl+T and Ctrl+Alt+B, and
+  no Type Declaration (none of either on macOS); none for Implementation in Emacs's; none for Type
+  Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
+  macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
+- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands, so in no menu);
+  Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's; IntelliJ's list shows each
+  implementation's class and its file, where this shows the file and line.
+
+## Go to Super Method (2026-11-14)
+
+IntelliJ's Navigate → Super Method, which WebStorm has, after Go to Implementation. Claude's
+choices, open to change.
+
+- **As IntelliJ's** `GotoSuperMethod`: from the member or type the caret is in, to what it
+  implements or overrides. Worked out as the gutter's up markers are (decision "Gutter markers:
+  what a member implements or overrides": no server offers the type hierarchy), so it goes where the marker would: the
+  innermost symbol around the caret with an up marker (the File Structure's symbols), its one
+  place, or a list of several, as the marker's. Nothing where none has one.
+- **Difference (a claim, not read in its source):** IntelliJ goes from the innermost method or
+  class only, and nowhere from a method that overrides nothing; this goes on out to the type
+  around it, as the symbols around the caret may be a function's locals, which have no markers.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+U (`$default`), Cmd+U on macOS (its macOS
+  keymaps take `$default`'s with Cmd); none in Eclipse's; NetBeans' Ctrl+Shift+P; Visual
+  Studio's Alt+Home, and on macOS Ctrl+Alt+Left and Alt+Home. VS Code's shortcut sheets don't list
+  it, so its keymaps keep IntelliJ's.
+
+## Next Method and Previous Method (2026-11-14)
+
+IntelliJ's Navigate → Next Method and Previous Method, which WebStorm has. Claude's choices, open to
+change.
+
+- **As IntelliJ's** `MethodDown` and `MethodUp` (`MethodUpDownUtil`, `MethodDownHandler`, read
+  from its source): the caret to the name of the nearest element of the file's structure view on a
+  line after the caret's (or before it). Here, every symbol of the File Structure, from the file's
+  language server, nested ones too, as IntelliJ takes every element of the structure view. A place
+  left, for Back, as IntelliJ counts it a navigation. Nothing past the first or last, or with no
+  server.
+- **Its keys,** from IntelliJ's keymap files: Alt+Down and Alt+Up (`$default`); on macOS
+  Ctrl+Shift+Down and Up, and Ctrl+Down and Up in its classic macOS keymap; Eclipse's
+  Ctrl+Shift+Down and Up (Ctrl+Alt on macOS); Emacs's Alt+Down and Up, and Ctrl+Alt+E and A;
+  NetBeans' and macOS System Shortcuts' Ctrl+Alt+Down and Up; none in Sublime Text's on macOS. VS
+  Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
+  keymaps have none (Claude's choice).
+- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands); IntelliJ
+  scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
+  it as Go to Definition does.
+
+## Optimize Imports (2026-11-14)
+
+IntelliJ's Code → Optimize Imports, which WebStorm has, from Context Actions' Not yet (source
+actions). Claude's choices, open to change.
+
+- **As IntelliJ's** `OptimizeImports`: the imports of the file in the focused editor organized, as
+  its language server does it (LSP's `source.organizeImports` code action, for the whole file):
+  measured with TypeScript 7's server (host test), the unused import gone and the names sorted.
+  One change, which undo takes back as "Undo Optimize Imports". It needs an editor that can be
+  edited, with the focus.
+- **Through Reformat Code's `formatIn`**, which a plugin's formatter uses too: the edits made only
+  if the text hasn't changed since it asked, and a hint at the caret in IntelliJ's words
+  (CodeInsightBundle, read from its source): "Imports optimized", or "No unused imports found"
+  when nothing changes (TypeScript's server answers an organized file with its imports as they
+  are, measured, which counts as no change). With no server, "No language server answered.", as
+  Reformat Code says.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+O (`$default`, and on macOS; Cmd+Alt+O in
+  its classic macOS keymap, which takes `$default`'s with Cmd); Eclipse's Ctrl+Alt+O and
+  Ctrl+Shift+O, and Cmd+Shift+O on macOS; NetBeans' Ctrl+Shift+I; Visual Studio's Ctrl+R G,
+  Ctrl+R Ctrl+G and Ctrl+Alt+O. VS Code's shortcut sheets don't list it, so its keymaps keep
+  IntelliJ's.
+- **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
+  (IntelliJ's dialog); Optimize Imports on save or before a commit.
 
 ## Git → Current File → Show History (2026-11-12)
 

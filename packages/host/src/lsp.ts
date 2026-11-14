@@ -23,6 +23,12 @@ export interface Located {
   column: number;
 }
 
+/** Where a symbol is defined, and the lines of its declaration, zero-based: Quick Definition's. */
+export interface Defined extends Located {
+  first: number;
+  last: number;
+}
+
 /** A stretch of a file's text, zero-based, the end after its last character. */
 export interface Span {
   from: { line: number; column: number };
@@ -215,7 +221,9 @@ interface Range {
   end: { line: number; character: number };
   start: { line: number; character: number };
 }
-type Location = { uri: string; range: Range } | { targetUri: string; targetSelectionRange: Range };
+type Location =
+  | { uri: string; range: Range }
+  | { targetUri: string; targetRange: Range; targetSelectionRange: Range };
 
 /** LSP's locations (or location links) as places. */
 export function located(result: unknown, platform: NodeJS.Platform = process.platform): Located[] {
@@ -227,6 +235,20 @@ export function located(result: unknown, platform: NodeJS.Platform = process.pla
         ? [location.targetUri, location.targetSelectionRange]
         : [location.uri, location.range];
     return { path: pathOf(uri, platform), line: range.start.line, column: range.start.character };
+  });
+}
+
+/**
+ * LSP's locations (or location links) as places, with their declarations' lines: a link's whole
+ * target, a location's own range.
+ */
+export function defined(result: unknown, platform: NodeJS.Platform = process.platform): Defined[] {
+  if (result === null || result === undefined) return [];
+  const all = (Array.isArray(result) ? result : [result]) as Location[];
+  return all.map((location) => {
+    const range = 'targetUri' in location ? location.targetRange : location.range;
+    const [place] = located(location, platform) as [Located];
+    return { ...place, first: range.start.line, last: range.end.line };
   });
 }
 
@@ -557,6 +579,47 @@ export function structureOf(symbols: readonly DocumentSymbol[]): FileSymbol[] {
   });
 }
 
+/** A function or method in a call hierarchy (LSP's `CallHierarchyItem`), and where it calls. */
+export interface Call {
+  name: string;
+  /** What the server adds to the name: TypeScript's, the file or class it's in. */
+  detail?: string;
+  kind?: (typeof SYMBOL_KINDS)[number];
+  path: string;
+  /** Where its name starts. */
+  at: { line: number; column: number };
+  /** Where, in its own file, it calls the one it's a caller of; none for the one asked about. */
+  calls: { line: number; column: number }[];
+  /** The server's item, given back to ask for its callers. */
+  item: unknown;
+}
+
+interface CallItem {
+  name: string;
+  detail?: string;
+  kind: number;
+  uri: string;
+  selectionRange: Range;
+}
+
+/** LSP's call hierarchy items as calls; `ranges`, where each calls (incoming calls'). */
+export function callsOf(result: unknown, platform: NodeJS.Platform = process.platform): Call[] {
+  if (!Array.isArray(result)) return [];
+  return (result as (CallItem | { from: CallItem; fromRanges: Range[] })[]).map((entry) => {
+    const [item, ranges] = 'from' in entry ? [entry.from, entry.fromRanges] : [entry, []];
+    const kind = SYMBOL_KINDS[item.kind - 1];
+    return {
+      name: item.name,
+      ...(item.detail ? { detail: item.detail } : {}),
+      ...(kind === undefined ? {} : { kind }),
+      path: pathOf(item.uri, platform),
+      at: { line: item.selectionRange.start.line, column: item.selectionRange.start.character },
+      calls: ranges.map((r) => ({ line: r.start.line, column: r.start.character })),
+      item,
+    };
+  });
+}
+
 /**
  * A server's edits to files, as a map of files to edits or as edits per version of a file
  * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
@@ -761,6 +824,8 @@ export class LanguageServer {
             // Where a rename would go, asked before it's typed.
             rename: { prepareSupport: true },
             implementation: { linkSupport: true },
+            typeDefinition: { linkSupport: true },
+            callHierarchy: {},
             publishDiagnostics: { versionSupport: true, tagSupport: { valueSet: [1, 2] } },
             // Actions as edits, not commands: without it, a server may give only commands (LSP).
             codeAction: { codeActionLiteralSupport: { codeActionKind: { valueSet: KINDS } } },
@@ -834,6 +899,11 @@ export class LanguageServer {
   /** Where the symbol at a place in a file is defined. */
   async definitions(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
     return located(await this.#ask('textDocument/definition', file, languageId, at));
+  }
+
+  /** Where the symbol at a place in a file is defined, with its declarations' lines. */
+  async definitionSpans(file: OpenFile, languageId: string, at: Located): Promise<Defined[]> {
+    return defined(await this.#ask('textDocument/definition', file, languageId, at));
   }
 
   /** Where the symbol at a place in a file is used, its declaration left out, as IntelliJ's. */
@@ -955,6 +1025,11 @@ export class LanguageServer {
     return located(await this.#ask('textDocument/implementation', file, languageId, at));
   }
 
+  /** Where the type of the symbol at a place in a file is defined. */
+  async typeDefinitions(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
+    return located(await this.#ask('textDocument/typeDefinition', file, languageId, at));
+  }
+
   /** A file's symbols, nested: its types, and their members in them. */
   async symbols(file: OpenFile, languageId: string): Promise<DocumentSymbol[]> {
     await this.ready;
@@ -973,6 +1048,17 @@ export class LanguageServer {
       }),
       this.#resolves,
     );
+  }
+
+  /** What's at a place, as a call hierarchy's root: the function or method there. */
+  async prepareCalls(file: OpenFile, languageId: string, at: Located): Promise<Call[]> {
+    return callsOf(await this.#ask('textDocument/prepareCallHierarchy', file, languageId, at));
+  }
+
+  /** What calls an item of a call hierarchy, and where. */
+  async incomingCalls(item: unknown): Promise<Call[]> {
+    await this.ready;
+    return callsOf(await this.#connection.request('callHierarchy/incomingCalls', { item }));
   }
 
   /** A completion's other edits (an import), as it gives them when asked about the item. */
@@ -1005,6 +1091,25 @@ export class LanguageServer {
       context: { diagnostics: there, triggerKind: 1 },
     });
     return actionsOf(file.path, answer);
+  }
+
+  /**
+   * The edits that organize a file's imports, as IntelliJ's Optimize Imports: the server's
+   * `source.organizeImports` action for the whole file; none where it offers none.
+   */
+  async organizeImports(file: OpenFile, languageId: string): Promise<TextEdit[]> {
+    await this.ready;
+    this.sync(file, languageId);
+    const lines = file.text.split('\n');
+    const answer = await this.#connection.request('textDocument/codeAction', {
+      textDocument: { uri: uriOf(file.path) },
+      range: {
+        start: { line: 0, character: 0 },
+        end: { line: lines.length - 1, character: (lines.at(-1) as string).length },
+      },
+      context: { diagnostics: [], only: ['source.organizeImports'], triggerKind: 1 },
+    });
+    return actionsOf(file.path, answer)[0]?.edits ?? [];
   }
 
   /**
@@ -1171,6 +1276,27 @@ export class LanguageServers {
     );
   }
 
+  /** Where the symbol at a place is defined, with its lines; null when no server answers in time. */
+  definitionSpans(worktree: string, file: OpenFile, at: Located): Promise<Defined[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.definitionSpans(file, languageId, at),
+    );
+  }
+
+  /** What the symbol at a place is implemented by; null when no server answers in time. */
+  implementations(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.implementations(file, languageId, at),
+    );
+  }
+
+  /** Where the type of the symbol at a place is defined; null when no server answers in time. */
+  typeDefinitions(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.typeDefinitions(file, languageId, at),
+    );
+  }
+
   /** Where the symbol at a place is used; null when no server answers in time. */
   usages(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
@@ -1263,6 +1389,18 @@ export class LanguageServers {
     );
   }
 
+  /** The function or method at a place, for Call Hierarchy; null when no server answers in time. */
+  prepareCalls(worktree: string, file: OpenFile, at: Located): Promise<Call[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.prepareCalls(file, languageId, at),
+    );
+  }
+
+  /** What calls an item of a call hierarchy in `path`, from its server; none in time: null. */
+  incomingCalls(worktree: string, path: string, item: unknown): Promise<Call[] | null> {
+    return this.#ask(worktree, path, (server) => server.incomingCalls(item));
+  }
+
   /** A completion's other edits, from the server of the file it was offered in; none in time: null. */
   completionEdits(worktree: string, path: string, item: unknown): Promise<TextEdit[] | null> {
     return this.#ask(worktree, path, (server) => server.completionEdits(item));
@@ -1272,6 +1410,13 @@ export class LanguageServers {
   contextActions(worktree: string, file: OpenFile, at: Located): Promise<ContextAction[] | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.contextActions(file, languageId, at),
+    );
+  }
+
+  /** The edits that organize a file's imports; null when no server answers in time. */
+  organizeImports(worktree: string, file: OpenFile): Promise<TextEdit[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.organizeImports(file, languageId),
     );
   }
 

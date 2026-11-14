@@ -5,7 +5,7 @@
 // git's), with the message first as IntelliJ writes it.
 
 import { existsSync } from 'node:fs';
-import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { Git } from './git.js';
@@ -90,9 +90,15 @@ export async function createPatch(
   try {
     const env = { GIT_INDEX_FILE: join(temporary, 'index') };
     const index = (await run(worktree, ['rev-parse', '--git-path', 'index'])).trim();
-    // A repository with nothing added yet has no index (measured): the copy starts empty.
-    if (existsSync(resolve(worktree, index))) {
-      await copyFile(resolve(worktree, index), env.GIT_INDEX_FILE);
+    // A repository with nothing added yet has no index (measured): the copy starts empty. The
+    // copy keeps the index's times: git takes a file whose size and time in seconds match its
+    // entry as unchanged unless the index is no older than it ("racy git"), so a copy made later
+    // hid a change to the same size in the second of the checkout (measured, git 2.43).
+    const original = resolve(worktree, index);
+    if (existsSync(original)) {
+      await copyFile(original, env.GIT_INDEX_FILE);
+      const { atime, mtime } = await stat(original);
+      await utimes(env.GIT_INDEX_FILE, atime, mtime);
     }
     await run(worktree, ['add', '-N', '--', ...untracked], env);
     return messageHeader(options.message) + (await run(worktree, args, env));

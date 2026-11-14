@@ -5,7 +5,14 @@ import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
 import { target } from './edit.js';
 import { PluginView } from './plugin-view.js';
-import { Layout, type Tab, type ToolWindow, type ToolWindowSpec } from '@cerebro-ide/layout';
+import {
+  type ChangePlaces,
+  Layout,
+  type NavigationHistory,
+  type Tab,
+  type ToolWindow,
+  type ToolWindowSpec,
+} from '@cerebro-ide/layout';
 import '@cerebro-ide/theme/fonts.css';
 import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
@@ -60,6 +67,8 @@ import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js'
 import { fetchingRemote, pushing, setupPush } from './push.js';
 import { setupUpdate, updating } from './update.js';
 import { fetching, pullingFrom, setupFetchPull } from './fetch-pull.js';
+import { setupFontSize } from './font-size.js';
+import { setupOptimizeImports } from './optimize-imports.js';
 import { annotationFor, setupBlame } from './blame.js';
 import { setupConflicts } from './conflicts.js';
 import { setupMergeRebase } from './merge-rebase.js';
@@ -93,12 +102,14 @@ import { AgentBadge, agentText, setupAgents } from './agents.js';
 import {
   carets,
   focusing,
+  changePlaces,
   history,
   recentTabs,
   reveals,
   selections,
   setupNavigation,
   tops,
+  type Asked,
 } from './navigation.js';
 import { progress, setupIndexing } from './indexing.js';
 import { MainToolbar, ToolbarButton, ToolbarDropdown } from '@cerebro-ide/ui-toolbar';
@@ -148,6 +159,24 @@ import {
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
+import {
+  bookmarkMarks,
+  bookmarksOf,
+  BookmarksView,
+  bookmarkWith,
+  chooseMnemonic,
+  goToMnemonic,
+  mnemonicChoice,
+  MNEMONICS,
+  moveBookmarks,
+  nextBookmark,
+  rewriteAsked,
+  showBookmarks,
+  toggleBookmark,
+  toggleMnemonic,
+  type LineBookmark,
+} from './bookmarks.js';
+import { HierarchyView, showHierarchy } from './call-hierarchy.js';
 import {
   closeProject,
   openProject,
@@ -387,6 +416,14 @@ setupShelf(services, {
 setupPush(services);
 setupUpdate(services);
 setupFetchPull(services);
+setupFontSize(services.commands);
+setupOptimizeImports(services.commands, async (path) =>
+  navigation.organizeImports({
+    path,
+    // Shown in the editor, so read.
+    text: ((await documentFor(path)) as EditorDocument).text.peek().toString(),
+  }),
+);
 setupConflicts(services);
 setupMergeRebase(services);
 setupTag(services);
@@ -571,6 +608,25 @@ services.commands.register({
   enabled: () => history()?.canGoForward ?? false,
   run: () => history()?.goForward(),
 });
+// Last and Next Edit Location, as IntelliJ's: back through the places of the latest changes, from
+// where the caret is, and on again.
+services.commands.register({
+  id: 'navigate.lastEdit',
+  label: 'Last Edit L&ocation',
+  enabled: () => changePlaces()?.canGoBack ?? false,
+  // Run only while enabled: there's an environment.
+  run: () => {
+    (changePlaces() as ChangePlaces).goBack((history() as NavigationHistory).current());
+  },
+});
+services.commands.register({
+  id: 'navigate.nextEdit',
+  label: 'Next Edit Location',
+  enabled: () => changePlaces()?.canGoForward ?? false,
+  run: () => {
+    (changePlaces() as ChangePlaces).goForward((history() as NavigationHistory).current());
+  },
+});
 const mac = services.keymap.platform === 'mac';
 services.keymap.bindDefault(mac ? 'Mod+[' : 'Ctrl+Alt+Left', 'navigate.back');
 services.keymap.bindDefault(mac ? 'Mod+]' : 'Ctrl+Alt+Right', 'navigate.forward');
@@ -589,6 +645,9 @@ services.menus.contribute({
   item: { command: 'navigate.forward' },
   group: 'a',
 });
+for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
+  services.menus.contribute({ menu: 'main/navigate', item: { command }, group: 'a' });
+}
 // Recent Files, as IntelliJ's: the files shown, the latest first, the one before the current
 // highlighted, so Enter goes back to it. "Show edited only" lists the files edited instead; Recent
 // Files' own key flips it while the popup is open, and Recently Changed Files opens with it on.
@@ -706,17 +765,25 @@ services.menus.contribute({
 });
 // File Structure, as IntelliJ's Navigate → File Structure: the active file's symbols, from its
 // language server.
+/** Where a file's caret is: at its start until its editor says (a file just opened). */
+const caretOf = (path: string) => carets.get(path) ?? { line: 0, column: 0 };
+/** The active file at its caret, as it's asked about; none unread. */
+async function atCaret(): Promise<Asked | undefined> {
+  const file = activeFile() as Tab;
+  // Where it is when asked: a file just opened says where its caret is while it's read.
+  const caret = caretOf(file.id);
+  const doc = await documentFor(file.id);
+  if ('error' in doc) return undefined;
+  return { path: file.id, text: doc.text.peek().toString(), ...caret };
+}
 services.commands.register({
   id: 'navigate.fileStructure',
   label: 'File &Structure',
   dialog: true,
   enabled: () => navigation.available() && activeFile() !== undefined,
   run: async () => {
-    const file = activeFile() as Tab;
-    const caret = carets.get(file.id) ?? { line: 0, column: 0 };
-    const doc = await documentFor(file.id);
-    if ('error' in doc) return;
-    await navigation.fileStructure(file.id, doc.text.peek().toString(), caret);
+    const asked = await atCaret();
+    if (asked) await navigation.fileStructure(asked.path, asked.text, asked);
   },
 });
 services.keymap.bindDefault('Mod+F12', 'navigate.fileStructure');
@@ -725,6 +792,164 @@ services.menus.contribute({
   item: { command: 'navigate.fileStructure' },
   group: 'b',
 });
+// Call Hierarchy, as IntelliJ's: the Hierarchy tool window, which appears the first time, on the
+// right (a claim: where IntelliJ's opens), shows what calls the function or method at the caret.
+services.commands.register({
+  id: 'navigate.callHierarchy',
+  label: 'Call Hierarch&y',
+  enabled: () => navigation.available() && activeFile() !== undefined,
+  run: async () => {
+    const asked = await atCaret();
+    const hierarchy = asked && (await navigation.callHierarchy(asked));
+    if (!hierarchy) return;
+    if (!layout.toolWindows.windows.has('hierarchy')) {
+      layout.toolWindows.register({
+        id: 'hierarchy',
+        title: 'Hierarchy',
+        anchor: 'right',
+        icon: 'hierarchy',
+      });
+    }
+    showHierarchy(hierarchy);
+    layout.toolWindows.show('hierarchy');
+  },
+});
+services.keymap.bindDefault('Ctrl+Alt+H', 'navigate.callHierarchy');
+services.menus.contribute({
+  menu: 'main/navigate',
+  item: { command: 'navigate.callHierarchy' },
+  group: 'b',
+});
+// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the caret's line, or none there.
+services.commands.register({
+  id: 'bookmarks.toggle',
+  label: 'Toggle &Bookmark',
+  enabled: () => active() !== undefined && activeFile() !== undefined,
+  run: () => {
+    const file = activeFile() as Tab;
+    toggleBookmark(active()?.id as string, file.id, caretOf(file.id).line);
+  },
+});
+services.keymap.bindDefault('F11', 'bookmarks.toggle');
+// In IntelliJ's Edit menu, after Macros (`EditBookmarksGroup`), which Cerebro hasn't: after Find.
+services.menus.contribute({
+  menu: 'main/edit',
+  item: { submenu: 'main/edit/bookmarks', label: 'Book&marks' },
+  group: 'g',
+});
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.toggle' },
+  group: 'a',
+});
+// Toggle Bookmark Mnemonic, as IntelliJ's (Ctrl+F11): its chooser, for the caret's line; menus say
+// what it does there.
+const caretLine = () => {
+  const file = activeFile() as Tab;
+  return { path: file.id, line: caretOf(file.id).line };
+};
+services.commands.register({
+  id: 'bookmarks.toggleMnemonic',
+  label: 'Toggle Bookmark &Mnemonic',
+  text: () =>
+    active() && activeFile()
+      ? mnemonicChoice((active() as { id: string }).id, caretLine())
+      : 'Toggle Bookmark &Mnemonic',
+  dialog: true,
+  enabled: () => active() !== undefined && activeFile() !== undefined,
+  run: () => chooseMnemonic(active()?.id as string, caretLine(), rewriteAsked),
+});
+services.keymap.bindDefault('Ctrl+F11', 'bookmarks.toggleMnemonic');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.toggleMnemonic' },
+  group: 'a',
+});
+// Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
+// IntelliJ's own keymap gives them no keys.
+for (const forward of [false, true]) {
+  const next = () => {
+    const env = active();
+    const file = activeFile();
+    return (
+      env && nextBookmark(env.id, file && { path: file.id, line: caretOf(file.id).line }, forward)
+    );
+  };
+  services.commands.register({
+    id: forward ? 'bookmarks.next' : 'bookmarks.previous',
+    label: forward ? 'Next Line Bookmark' : 'Previous Line Bookmark',
+    enabled: () => next() !== undefined,
+    run: () => {
+      navigation.openAt({ ...(next() as LineBookmark), column: 0 });
+    },
+  });
+  services.menus.contribute({
+    menu: 'main/edit/bookmarks',
+    item: { command: forward ? 'bookmarks.next' : 'bookmarks.previous' },
+    group: 'b',
+  });
+}
+// Show Bookmarks, as IntelliJ's: a popup of the worktree's bookmarks.
+services.commands.register({
+  id: 'bookmarks.show',
+  label: 'Show Bookmarks',
+  dialog: true,
+  enabled: () => active() !== undefined,
+  run: () => showBookmarks(active() as { id: string; name: string }, navigation.openAt),
+});
+services.keymap.bindDefault('Shift+F11', 'bookmarks.show');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.show' },
+  group: 'c',
+});
+// Go to Mnemonic, as IntelliJ's (Ctrl+Shift+F11): a popup of the bookmarks with mnemonics.
+services.commands.register({
+  id: 'bookmarks.goToMnemonic',
+  label: 'Go to Mnemonic',
+  dialog: true,
+  enabled: () => {
+    const env = active();
+    return env !== undefined && bookmarksOf(env.id).some((b) => b.mnemonic !== undefined);
+  },
+  run: () => goToMnemonic(active() as { id: string; name: string }, navigation.openAt),
+});
+services.keymap.bindDefault('Ctrl+Shift+F11', 'bookmarks.goToMnemonic');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.goToMnemonic' },
+  group: 'c',
+});
+// Mnemonic bookmarks, as IntelliJ's Toggle Bookmark and Go to Bookmark 0 to 9 and A to Z: the
+// digits' on Ctrl+Shift and Ctrl, the letters' with no keys.
+for (const mnemonic of MNEMONICS) {
+  services.commands.register({
+    id: `bookmarks.toggle.${mnemonic}`,
+    label: `Toggle Bookmark ${mnemonic}`,
+    enabled: () => active() !== undefined && activeFile() !== undefined,
+    run: () => {
+      const file = activeFile() as Tab;
+      const at = { path: file.id, line: caretOf(file.id).line };
+      return toggleMnemonic(active()?.id as string, at, mnemonic, rewriteAsked);
+    },
+  });
+  services.commands.register({
+    id: `bookmarks.goTo.${mnemonic}`,
+    label: `Go to Bookmark ${mnemonic}`,
+    enabled: () => {
+      const env = active();
+      return env !== undefined && bookmarkWith(env.id, mnemonic) !== undefined;
+    },
+    run: () => {
+      const bookmark = bookmarkWith(active()?.id as string, mnemonic) as LineBookmark;
+      navigation.openAt({ ...bookmark, column: 0 });
+    },
+  });
+  if (mnemonic <= '9') {
+    services.keymap.bindDefault(`Ctrl+Shift+${mnemonic}`, `bookmarks.toggle.${mnemonic}`);
+    services.keymap.bindDefault(`Ctrl+${mnemonic}`, `bookmarks.goTo.${mnemonic}`);
+  }
+}
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
 services.commands.register({
   id: 'project.selectOpenedFile',
@@ -1553,6 +1778,10 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
+  if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
+  if (props.id === 'bookmarks') {
+    return <BookmarksView open={navigation.open} openAt={navigation.openAt} />;
+  }
   if (props.id === 'vcsChanges') return <DiffWithWorkingTree services={services} open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
@@ -1646,10 +1875,22 @@ function Code(props: { path: string; env: string }) {
               topLine.set(top);
             }}
             annotate={() => annotationFor(props.path)}
+            bookmarks={() => bookmarkMarks(props.env, props.path)}
+            onBookmarksMoved={(lines) => {
+              moveBookmarks(props.env, props.path, lines);
+            }}
             {...(navigation.available()
               ? {
                   onGoToDefinition: (name: string, at: { line: number; column: number }) =>
                     void navigation.goToDefinition(name, asked(state, at)),
+                  onGoToImplementation: (name: string, at: { line: number; column: number }) =>
+                    void navigation.goToImplementation(name, asked(state, at)),
+                  onGoToTypeDeclaration: (name: string, at: { line: number; column: number }) =>
+                    void navigation.goToTypeDeclaration(name, asked(state, at)),
+                  onGoToSuperMethod: (at: { line: number; column: number }) =>
+                    void navigation.goToSuperMethod(asked(state, at)),
+                  onMethod: (at: { line: number; column: number }, down: boolean) =>
+                    void navigation.goToMethod(asked(state, at), down),
                   onFindUsages: (name: string, at: { line: number; column: number }) =>
                     void navigation.findUsages(name, asked(state, at)),
                   onContextActions: (
@@ -1660,6 +1901,8 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
+                  quickDefinition: (at: { line: number; column: number }) =>
+                    navigation.quickDefinition(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>
                     navigation.signatures(asked(state, at)),
                   renaming: (at: { line: number; column: number }) =>

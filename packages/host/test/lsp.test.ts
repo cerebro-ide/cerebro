@@ -14,6 +14,8 @@ import {
   completionsOf,
   hoverOf,
   highlighted,
+  callsOf,
+  defined,
   located,
   pathOf,
   problemsOf,
@@ -88,6 +90,44 @@ describe('paths and locations', () => {
         'linux',
       ),
     ).toEqual([{ path: '/b.ts', line: 1, column: 2 }]);
+  });
+
+  it('reads call hierarchy items, and incoming calls with where they call, or none', () => {
+    const range = { start: { line: 3, character: 9 }, end: { line: 3, character: 10 } };
+    const item = { name: 'f', kind: 12, uri: 'file:///a.ts', selectionRange: range };
+    expect(callsOf(null)).toEqual([]);
+    expect(callsOf([item], 'linux')).toEqual([
+      { name: 'f', kind: 'function', path: '/a.ts', at: { line: 3, column: 9 }, calls: [], item },
+    ]);
+    const from = { ...item, detail: 'b.ts', kind: 99 };
+    expect(callsOf([{ from, fromRanges: [range, range] }], 'linux')).toEqual([
+      {
+        name: 'f',
+        detail: 'b.ts',
+        path: '/a.ts',
+        at: { line: 3, column: 9 },
+        calls: [
+          { line: 3, column: 9 },
+          { line: 3, column: 9 },
+        ],
+        item: from,
+      },
+    ]);
+  });
+
+  it('reads definitions with their declarations’ lines: a link’s target, a location’s range', () => {
+    const name = { start: { line: 2, character: 6 }, end: { line: 2, character: 9 } };
+    const whole = { start: { line: 1, character: 0 }, end: { line: 4, character: 1 } };
+    expect(defined(null)).toEqual([]);
+    expect(defined({ uri: 'file:///a.ts', range: name }, 'linux')).toEqual([
+      { path: '/a.ts', line: 2, column: 6, first: 2, last: 2 },
+    ]);
+    expect(
+      defined(
+        [{ targetUri: 'file:///b.ts', targetRange: whole, targetSelectionRange: name }],
+        'linux',
+      ),
+    ).toEqual([{ path: '/b.ts', line: 2, column: 6, first: 1, last: 4 }]);
   });
 
   it('reads references in one file as highlights, or none', () => {
@@ -239,6 +279,8 @@ describe('context actions', () => {
       { title: 'pulled', edits: [expect.objectContaining({ text: 'pulled' })] },
     ]);
     expect(await pulls.contextActions(root, file, at(0, 2))).toEqual([]);
+    // A server offering no organizing of imports: no edits.
+    expect(await pulls.organizeImports(root, file)).toEqual([]);
     const pushes = pool([fake('pushes')]);
     expect((await pushes.contextActions(root, file, at(0, 0)))?.map((a) => a.title)).toEqual(['x']);
     expect(await pushes.contextActions(root, file, at(1, 0))).toEqual([]);
@@ -613,6 +655,102 @@ describe('TypeScript 7’s server', () => {
     expect(usages).not.toContainEqual({ path: `${project}/a.ts`, line: 1, column: 16 });
     // One server for the worktree, whatever the file.
     expect(servers.size).toBe(1);
+  }, 60_000);
+
+  it('goes to what implements a symbol, and to the type of one', async () => {
+    const project = `${root}/ts-types`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const a = {
+      path: `${project}/a.ts`,
+      text:
+        'interface Shape { area(): number }\n' +
+        'class Square implements Shape { area() { return 1; } }\n' +
+        'const shape: Shape = new Square();\n',
+    };
+    writeFileSync(a.path, a.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    expect(await servers.implementations(project, a, at(0, 11))).toEqual([
+      { path: a.path, line: 1, column: 6 },
+    ]);
+    expect(await servers.typeDefinitions(project, a, at(2, 7))).toEqual([
+      { path: a.path, line: 0, column: 10 },
+    ]);
+    // The declaration's lines, Quick Definition's: the whole function.
+    const c = { path: `${project}/c.ts`, text: 'function f() {\n  return 1;\n}\nf();\n' };
+    writeFileSync(c.path, c.text);
+    expect(await servers.definitionSpans(project, c, at(3, 0))).toEqual([
+      { path: c.path, line: 0, column: 9, first: 0, last: 2 },
+    ]);
+  }, 60_000);
+
+  it('finds a function’s callers, and theirs, with where they call it', async () => {
+    const project = `${root}/ts-calls`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    const a = {
+      path: `${project}/a.ts`,
+      text:
+        'export function area() { return 1; }\n' +
+        'function twice() { return area() + area(); }\n' +
+        'export function top() { return twice(); }\n',
+    };
+    writeFileSync(a.path, a.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const [root_] = (await servers.prepareCalls(project, a, at(0, 17))) ?? [];
+    expect(root_).toMatchObject({ name: 'area', path: a.path, at: { line: 0, column: 16 } });
+    const callers = (await servers.incomingCalls(project, a.path, root_?.item)) ?? [];
+    expect(callers).toMatchObject([
+      {
+        name: 'twice',
+        path: a.path,
+        at: { line: 1, column: 9 },
+        calls: [
+          { line: 1, column: 26 },
+          { line: 1, column: 35 },
+        ],
+      },
+    ]);
+    expect(await servers.incomingCalls(project, a.path, callers[0]?.item)).toMatchObject([
+      { name: 'top', at: { line: 2, column: 16 }, calls: [{ line: 2, column: 31 }] },
+    ]);
+  }, 60_000);
+
+  it('organizes a file’s imports: the unused gone, the rest in order', async () => {
+    const project = `${root}/ts-imports`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(join(project, 'tsconfig.json'), '{ "compilerOptions": { "strict": true } }');
+    writeFileSync(join(project, 'a.ts'), 'export const a = 1;\nexport const z = 2;\n');
+    const b = {
+      path: `${project}/b.ts`,
+      text: "import { z, a } from './a';\nimport { readFileSync } from 'node:fs';\nconsole.log(a, z);\n",
+    };
+    writeFileSync(b.path, b.text);
+    const servers = pool(undefined, { patience: 60_000 });
+    const edits = (await servers.organizeImports(project, b)) ?? [];
+    expect(edits).toEqual([
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 1, column: 0 },
+        text: "import { a, z } from './a';\n",
+      },
+      { from: { line: 1, column: 0 }, to: { line: 2, column: 0 }, text: '' },
+    ]);
+    // Organized already: the same text again (measured), which the editor takes as no change.
+    const done = { ...b, text: "import { a, z } from './a';\nconsole.log(a, z);\n" };
+    expect(await servers.organizeImports(project, done)).toEqual([
+      {
+        from: { line: 0, column: 0 },
+        to: { line: 1, column: 0 },
+        text: "import { a, z } from './a';\n",
+      },
+    ]);
   }, 60_000);
 
   it('finds a file’s problems, in unsaved text too', async () => {

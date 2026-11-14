@@ -40,13 +40,15 @@ import {
   type AskCompletions,
   type ResolveCompletion,
 } from './completions.js';
-import { EditorDocument, KEPT } from './document.js';
+import { changesTo, EditorDocument, KEPT } from './document.js';
 import { detectIndent, indentUnitOf, type Indent } from './indent.js';
 import type { Selected } from './line.js';
 
 /** IntelliJ's: 4 spaces. */
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
+import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
+import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { foldKeys, folding, type AskFolds } from './folding.js';
@@ -109,6 +111,26 @@ export interface CodeEditorProps {
    * IntelliJ) or Mod+click.
    */
   onGoToDefinition?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to what implements the word at the cursor, given where it is: its keys (Ctrl+Alt+B in
+   * IntelliJ, its Go to Implementation(s)).
+   */
+  onGoToImplementation?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to where the type of the word at the cursor is declared, given where it is: its keys
+   * (Ctrl+Shift+B in IntelliJ, its Go to Type Declaration).
+   */
+  onGoToTypeDeclaration?: (word: string, at: { line: number; column: number }) => void;
+  /**
+   * Go to what the member or type at the caret implements or overrides, given where the caret is:
+   * its keys (Ctrl+U in IntelliJ, its Go to Super Method).
+   */
+  onGoToSuperMethod?: (at: { line: number; column: number }) => void;
+  /**
+   * Go to the next method (`down`) or the previous one, given where the caret is: its keys
+   * (Alt+Down and Alt+Up in IntelliJ, its Next Method and Previous Method).
+   */
+  onMethod?: (at: { line: number; column: number }, down: boolean) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /**
@@ -121,6 +143,10 @@ export interface CodeEditorProps {
   ) => void;
   /** The line at the top of the editor, zero-based: each time it scrolls. */
   onScroll?: (top: number) => void;
+  /** The bookmarks, on their lines (zero-based), shown in a gutter before the line numbers. */
+  bookmarks?: () => readonly BookmarkMark[];
+  /** Where the bookmarks are once an edit has moved them, as IntelliJ's follow their lines. */
+  onBookmarksMoved?: (lines: number[]) => void;
   /**
    * Where the symbol at the caret is in the file, highlighted as IntelliJ's: asked once the caret
    * stays. None: no highlights.
@@ -153,6 +179,11 @@ export interface CodeEditorProps {
    * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
    */
   documentation?: AskDocumentation;
+  /**
+   * The definition of the symbol at a place, shown in a popup on its keys (Ctrl+Shift+I), as
+   * IntelliJ's Quick Definition. None: no Quick Definition.
+   */
+  quickDefinition?: AskQuickDefinition;
   /**
    * What's called at a place: its signatures and the parameter the place is at, shown above the
    * caret on its keys (Ctrl+P) and as a call's arguments are typed, as IntelliJ's Parameter Info.
@@ -200,6 +231,14 @@ export interface CodeEditorProps {
  */
 export interface EditorKeys {
   goToDefinition?: readonly string[];
+  /** Go to Implementation(s) and Go to Type Declaration, of the symbol at the caret. */
+  goToImplementation?: readonly string[];
+  goToTypeDeclaration?: readonly string[];
+  /** Go to Super Method: what the member or type at the caret implements or overrides. */
+  goToSuperMethod?: readonly string[];
+  /** Next Method and Previous Method: the caret to the next or previous member or type. */
+  methodDown?: readonly string[];
+  methodUp?: readonly string[];
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
@@ -207,6 +246,8 @@ export interface EditorKeys {
   complete?: readonly string[];
   /** Quick Documentation: what the symbol at the caret is. */
   quickDocumentation?: readonly string[];
+  /** Quick Definition: where the symbol at the caret is defined, in a popup. */
+  quickDefinition?: readonly string[];
   /** Parameter Info: what's called at the caret. */
   parameterInfo?: readonly string[];
   /** Rename: the name at the caret, everywhere it's used. */
@@ -268,11 +309,17 @@ export interface EditorKeys {
 /** IntelliJ's keys. */
 export const DEFAULT_KEYS: Required<EditorKeys> = {
   goToDefinition: ['Mod-b'],
+  goToImplementation: ['Mod-Alt-b'],
+  goToTypeDeclaration: ['Mod-Shift-b'],
+  goToSuperMethod: ['Mod-u'],
+  methodDown: ['Alt-ArrowDown'],
+  methodUp: ['Alt-ArrowUp'],
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
   complete: ['Ctrl-Space'],
   quickDocumentation: ['Ctrl-q'],
+  quickDefinition: ['Ctrl-Shift-i'],
   parameterInfo: ['Ctrl-p'],
   rename: ['Shift-F6'],
   format: ['Mod-Alt-l'],
@@ -417,6 +464,28 @@ export const theme = EditorView.theme({
     margin: '0 1px',
     cursor: 'pointer',
   },
+  // A bookmark's icon, as IntelliJ's (its colour a claim, not measured).
+  '.cerebro-bookmarks .cm-gutterElement': { display: 'flex', alignItems: 'center' },
+  '.cerebro-bookmark': {
+    width: '12px',
+    height: '12px',
+    fill: 'none',
+    stroke: variable('text-muted'),
+    strokeWidth: '1',
+    strokeLinejoin: 'round',
+  },
+  // IntelliJ's draws the character at three quarters of the icon's height, in the editor's font.
+  '.cerebro-bookmark--mnemonic': {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    border: `1px solid ${variable('text-muted')}`,
+    borderRadius: '2px',
+    color: variable('text'),
+    fontSize: '9px',
+    lineHeight: '1',
+  },
   '.cerebro-markers .cm-gutterElement': {
     width: '36px',
     display: 'flex',
@@ -538,7 +607,7 @@ export const theme = EditorView.theme({
   '.cerebro-problemMark--weak': { backgroundColor: variable('editor-weak-stripe') },
   // A problem's message under the pointer: as the app's tooltips (`@cerebro-ide/ui-tooltip`). The
   // Quick Documentation, Parameter Info and hints at the caret look the same.
-  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc, .cm-tooltip.cerebro-parameterInfo, .cm-tooltip.cerebro-hint':
+  '.cm-tooltip.cm-tooltip-hover, .cm-tooltip.cerebro-quickDoc, .cm-tooltip.cerebro-quickDef, .cm-tooltip.cerebro-parameterInfo, .cm-tooltip.cerebro-hint':
     {
       backgroundColor: variable('tooltip'),
       color: variable('text'),
@@ -625,6 +694,27 @@ export const theme = EditorView.theme({
   // The name being renamed, boxed (a claim: IntelliJ's box, in the accent colour, not measured).
   '.cerebro-rename': { outline: `1px solid ${variable('accent')}`, borderRadius: '2px' },
   '.cerebro-rename--empty': { display: 'inline-block', width: '2px', height: '1em' },
+  // Quick Definition's popup: its title, the symbol and its file, then the lines (IntelliJ's is
+  // 600 by 400 at most).
+  '.cerebro-quickDef': {
+    display: 'flex',
+    flexDirection: 'column',
+    width: '600px',
+    maxHeight: '400px',
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+  },
+  '.cerebro-quickDef__title': { padding: '6px 10px', fontWeight: '600' },
+  '.cerebro-quickDef__header': {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: '16px',
+    padding: '4px 10px',
+    borderTop: `1px solid ${variable('tooltip-border')}`,
+    borderBottom: `1px solid ${variable('tooltip-border')}`,
+  },
+  '.cerebro-quickDef__file': { color: variable('text-muted') },
+  '.cerebro-quickDef__code': { minHeight: '0', overflow: 'auto', padding: '4px 0' },
   // A hint at the caret: why there's nothing to rename, the lines Reformat Code changed.
   '.cerebro-hint': {
     padding: '6px 10px',
@@ -858,6 +948,12 @@ export function CodeEditor(props: CodeEditorProps): Node {
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
       props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
+      props.quickDefinition
+        ? quickDefinitionKeys(props.quickDefinition, keys.quickDefinition, [
+            theme,
+            syntaxHighlighting(highlight),
+          ])
+        : [],
       props.parameterInfo ? parameterKeys(keys.parameterInfo) : [],
       doc && props.renaming && props.onRename ? renameKeys(keys.rename) : [],
       doc && props.format ? formatting(keys.format, props.format) : [],
@@ -866,6 +962,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.goToDefinition.map((key) => ({
           key,
           run: atCursor(() => props.onGoToDefinition),
+        })),
+        ...keys.goToImplementation.map((key) => ({
+          key,
+          run: atCursor(() => props.onGoToImplementation),
+        })),
+        ...keys.goToTypeDeclaration.map((key) => ({
+          key,
+          run: atCursor(() => props.onGoToTypeDeclaration),
         })),
         ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
         // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
@@ -879,6 +983,31 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.pageBottom.map((key) => ({ key, run: movingToPage(false, false) })),
         ...keys.pageTopWithSelection.map((key) => ({ key, run: movingToPage(true, true) })),
         ...keys.pageBottomWithSelection.map((key) => ({ key, run: movingToPage(false, true) })),
+        ...(
+          [
+            [keys.methodDown, true],
+            [keys.methodUp, false],
+          ] as const
+        ).flatMap(([list, down]) =>
+          list.map((key) => ({
+            key,
+            run: (v: EditorView) => {
+              const go = props.onMethod;
+              if (!go) return false;
+              go(placeOf(v.state, v.state.selection.main.head), down);
+              return true;
+            },
+          })),
+        ),
+        ...keys.goToSuperMethod.map((key) => ({
+          key,
+          run: (v: EditorView) => {
+            const go = props.onGoToSuperMethod;
+            if (!go) return false;
+            go(placeOf(v.state, v.state.selection.main.head));
+            return true;
+          },
+        })),
         ...(onContextActions
           ? keys.contextActions.map((key) => ({
               key,
@@ -958,6 +1087,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const extensions: Extension[] = [
     // Before the line numbers, as IntelliJ's new UI.
     annotating.of([]),
+    props.bookmarks ? bookmarks((lines) => props.onBookmarksMoved?.(lines)) : [],
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
@@ -992,7 +1122,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
       : [],
     props.onCaret
       ? EditorView.updateListener.of((update) => {
-          if (update.selectionSet) caret(update.state);
+          // An edit made elsewhere, or read from disk, moves it without setting it.
+          if (update.selectionSet || update.docChanged) caret(update.state);
         })
       : [],
     selectionSteps,
@@ -1004,6 +1135,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
       // IntelliJ's for other actions, and went to the editor first (measured in the app: Ctrl+Shift+K,
       // Push, also deleted the line; Alt+Shift+Down copied it, where IntelliJ moves it).
       { key: 'Escape', run: simplifySelection },
+      // Chromium's own Ctrl+Shift+Backspace and Ctrl+Shift+Delete delete to the line's start and
+      // end (measured in the editor); IntelliJ's editor has neither, and gives the keys to Last
+      // Edit Location and Unwrap/Remove. Kept from the text, and left to the app's keymap.
+      ...['Ctrl-Shift-Backspace', 'Ctrl-Shift-Delete'].map((key) => ({
+        key,
+        run: () => false,
+        preventDefault: true,
+      })),
       ...standardKeymap,
     ]),
     EditorView.domEventHandlers({
@@ -1053,8 +1192,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       });
       return undefined;
     }
+    // Only the parts that differ, so what's kept on a place outside them (the caret, a bookmark)
+    // stays where it was.
     view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: text },
+      changes: changesTo(view.state.doc, text.toString()),
       annotations: Transaction.addToHistory.of(false),
     });
     return undefined;
@@ -1099,6 +1240,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
     return undefined;
   });
+  const bookmarking = effect(() => {
+    const marks = props.bookmarks?.();
+    if (marks) showBookmarks(view, marks);
+    return undefined;
+  });
   const focusing = effect(() => {
     const request = props.focus?.();
     if (request === undefined) return undefined;
@@ -1140,6 +1286,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     annotations.dispose();
     revealing.dispose();
     focusing.dispose();
+    bookmarking.dispose();
     following.dispose();
     view.destroy();
   });

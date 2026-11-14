@@ -582,6 +582,27 @@ describe('Back and Forward', () => {
     button(4);
     await expect.poll(line).toBe(29);
   });
+
+  it('Last Edit Location goes back to where the text was changed, and Next on again', async () => {
+    const path = env().editor.activeGroup.active as string;
+    const line = () => carets.get(path)?.line;
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}g{/Control}');
+    await userEvent.keyboard('{Control>}a{/Control}20{Enter}');
+    await expect.poll(line).toBe(19);
+    await userEvent.keyboard('x{Backspace}');
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    await expect.poll(line).toBe(0);
+    await userEvent.keyboard('{Control>}{Shift>}{Backspace}{/Shift}{/Control}');
+    await expect.poll(line).toBe(19);
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    // Next, from Find Action: it has no key.
+    await userEvent.keyboard('{Control>}{Shift>}a{/Shift}{/Control}');
+    await userEvent.keyboard('Next Edit Location');
+    await expect.poll(popupItems).toContain('Next Edit Location');
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(line).toBe(19);
+  });
 });
 
 describe('saving', () => {

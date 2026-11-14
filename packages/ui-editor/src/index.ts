@@ -13,6 +13,7 @@ export {
   type ResolveCompletion,
 } from './completions.js';
 export { type AskDocumentation, type Documentation } from './documentation.js';
+export { type AskQuickDefinition, type QuickDefinition } from './quick-definition.js';
 export {
   PARAMETERS_AFTER,
   type AskSignatures,
@@ -93,3 +94,4 @@ export {
 export { applyCase } from './preserve-case.js';
 export { findTextIn, preserveCaseIcon, SELECTION_LIMIT } from './find.js';
 export { MarkdownPreview, type MarkdownPreviewProps } from './markdown-preview.js';
+export type { BookmarkMark } from './bookmarks.js';

@@ -248,12 +248,21 @@ describe('CodeEditor', () => {
 
   it('shows a document’s text read again from disk, which undo doesn’t take back', async () => {
     const doc = new EditorDocument('one');
-    const root = mount({ path: 'a.txt', document: doc });
+    const onCaret = vi.fn();
+    const root = mount({ path: 'a.txt', document: doc, onCaret });
     expect(doc.changedOnDisk('changed')).toBe(true);
     expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
     (root.querySelector('.cm-content') as HTMLElement).focus();
+    // Only what differs is replaced: the caret, after it, stays where it was in the text.
+    await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
+    expect(doc.changedOnDisk('so changed')).toBe(true);
+    // And says where it's gone.
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 0, column: 5 }, undefined);
+    await userEvent.keyboard('!');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('so ch!anged');
+    await userEvent.keyboard('{Backspace}');
     await userEvent.keyboard('{Control>}z{/Control}');
-    expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
+    expect(root.querySelector('.cm-line')?.textContent).toBe('so changed');
   });
 
   it('keeps an edit made elsewhere apart from typing right after it, for undo', async () => {
@@ -629,6 +638,74 @@ describe('CodeEditor', () => {
     expect(onFindUsages).toHaveBeenLastCalledWith('answer', within(6, 12));
     await clickWord(root, 'compute', ['Control']);
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
+  });
+
+  it('leaves the text as it is on Ctrl+Shift+Backspace and Delete, as IntelliJ’s, the keys going on', async () => {
+    const doc = new EditorDocument('hello world\nnext');
+    const root = mount({ path: 'a.txt', document: doc });
+    const view = EditorView.findFromDOM(
+      root.querySelector('.cm-content') as HTMLElement,
+    ) as EditorView;
+    view.focus();
+    view.dispatch({ selection: { anchor: 5 } });
+    const seen: string[] = [];
+    const listener = (event: KeyboardEvent) => seen.push(event.key);
+    window.addEventListener('keydown', listener);
+    await userEvent.keyboard('{Control>}{Shift>}{Backspace}{Delete}{/Shift}{/Control}');
+    window.removeEventListener('keydown', listener);
+    expect(doc.content()).toBe('hello world\nnext');
+    expect(seen).toEqual(expect.arrayContaining(['Backspace', 'Delete']));
+  });
+
+  it('goes to the next and previous method with Alt+Down and Alt+Up', async () => {
+    const onMethod = vi.fn();
+    const root = mount({ path: 'a.ts', text: 'a\nbc', onMethod });
+    await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
+    await userEvent.keyboard('{End}{Alt>}{ArrowDown}{ArrowUp}{/Alt}');
+    expect(onMethod.mock.calls).toEqual([
+      [{ line: 1, column: 2 }, true],
+      [{ line: 1, column: 2 }, false],
+    ]);
+    // Without a handler, the keys are left alone.
+    cleanup?.();
+    const without = mount({ path: 'a.ts', text: 'x' });
+    await userEvent.click(without.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+  });
+
+  it('goes to the super method with Mod+U, from wherever the caret is', async () => {
+    const onGoToSuperMethod = vi.fn();
+    const root = mount({ path: 'a.ts', text: 'class A {\n  run() {}\n}', onGoToSuperMethod });
+    await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
+    await userEvent.keyboard('{Home}{Control>}u{/Control}');
+    expect(onGoToSuperMethod).toHaveBeenCalledWith({ line: 1, column: 2 });
+    // Without a handler, the key's left alone.
+    cleanup?.();
+    const without = mount({ path: 'a.ts', text: 'x' });
+    await userEvent.click(without.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Control>}u{/Control}');
+  });
+
+  it('goes to implementations with Mod+Alt+B, and to the type’s declaration with Mod+Shift+B', async () => {
+    const onGoToImplementation = vi.fn();
+    const onGoToTypeDeclaration = vi.fn();
+    const root = mount({
+      path: 'a.ts',
+      text: 'const answer = compute(1);',
+      onGoToImplementation,
+      onGoToTypeDeclaration,
+    });
+    await clickWord(root, 'answer');
+    await userEvent.keyboard('{Control>}{Alt>}b{/Alt}{/Control}');
+    expect(onGoToImplementation).toHaveBeenCalledWith(
+      'answer',
+      expect.objectContaining({ line: 0 }),
+    );
+    await userEvent.keyboard('{Control>}{Shift>}B{/Shift}{/Control}');
+    expect(onGoToTypeDeclaration).toHaveBeenCalledWith(
+      'answer',
+      expect.objectContaining({ line: 0 }),
+    );
   });
 
   it('asks what can be done at the caret with Alt+Enter, saying where the caret is on screen', async () => {

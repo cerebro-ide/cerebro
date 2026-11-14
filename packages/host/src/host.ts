@@ -346,6 +346,15 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.definitions', (params) =>
     servers.definitions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
+  connection.onRequest('lsp.definitionSpans', (params) =>
+    servers.definitionSpans(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.implementations', (params) =>
+    servers.implementations(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.typeDefinitions', (params) =>
+    servers.typeDefinitions(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
   connection.onRequest('lsp.usages', (params) =>
     servers.usages(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
@@ -375,6 +384,16 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     servers.completions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
   // The item as the server gave it, kept by the UI: only the server reads it.
+  connection.onRequest('lsp.prepareCalls', (params) =>
+    servers.prepareCalls(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.incomingCalls', (params) =>
+    servers.incomingCalls(
+      text(params, 'worktree'),
+      text(params, 'path'),
+      (params as { item?: unknown }).item,
+    ),
+  );
   connection.onRequest('lsp.completionEdits', (params) =>
     servers.completionEdits(
       text(params, 'worktree'),
@@ -384,6 +403,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   );
   connection.onRequest('lsp.contextActions', (params) =>
     servers.contextActions(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
+  connection.onRequest('lsp.organizeImports', (params) =>
+    servers.organizeImports(text(params, 'worktree'), fileOf(params)),
   );
   connection.onRequest('lsp.structure', (params) =>
     servers.structure(text(params, 'worktree'), fileOf(params)),

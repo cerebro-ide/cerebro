@@ -115,6 +115,12 @@ describe('language servers', () => {
       open: vi.fn(),
       definitions: vi.fn(() => Promise.resolve([{ path: '/w/a.ts', line: 1, column: 2 }])),
       usages: vi.fn(() => Promise.resolve(null)),
+      definitionSpans: vi.fn(() => Promise.resolve(null)),
+      prepareCalls: vi.fn(() => Promise.resolve(null)),
+      incomingCalls: vi.fn(() => Promise.resolve([])),
+      implementations: vi.fn(() => Promise.resolve([])),
+      typeDefinitions: vi.fn(() => Promise.resolve(null)),
+      organizeImports: vi.fn(() => Promise.resolve([])),
       highlights: vi.fn(() => Promise.resolve([])),
       markers: vi.fn(() => Promise.resolve([])),
       structure: vi.fn(() => Promise.resolve(null)),
@@ -143,6 +149,34 @@ describe('language servers', () => {
       { path: '', line: 3, column: 4 },
     );
     expect(await ui.request('lsp.usages', { ...file, line: 0, column: 0 })).toBeNull();
+    expect(await ui.request('lsp.implementations', { ...file, line: 1, column: 5 })).toEqual([]);
+    expect(servers.implementations).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 1, column: 5 },
+    );
+    expect(await ui.request('lsp.definitionSpans', { ...file, line: 2, column: 1 })).toBeNull();
+    expect(servers.definitionSpans).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 2, column: 1 },
+    );
+    expect(await ui.request('lsp.prepareCalls', { ...file, line: 2, column: 3 })).toBeNull();
+    expect(servers.prepareCalls).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 2, column: 3 },
+    );
+    expect(
+      await ui.request('lsp.incomingCalls', { worktree: '/w', path: '/w/a.ts', item: { n: 1 } }),
+    ).toEqual([]);
+    expect(servers.incomingCalls).toHaveBeenCalledWith('/w', '/w/a.ts', { n: 1 });
+    expect(await ui.request('lsp.typeDefinitions', { ...file, line: 1, column: 6 })).toBeNull();
+    expect(servers.typeDefinitions).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 1, column: 6 },
+    );
     expect(await ui.request('lsp.highlights', { ...file, line: 2, column: 1 })).toEqual([]);
     expect(servers.highlights).toHaveBeenCalledWith(
       '/w',
@@ -151,6 +185,8 @@ describe('language servers', () => {
     );
     expect(await ui.request('lsp.markers', file)).toEqual([]);
     expect(await ui.request('lsp.structure', file)).toBeNull();
+    expect(await ui.request('lsp.organizeImports', file)).toEqual([]);
+    expect(servers.organizeImports).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(servers.structure).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });
     expect(await ui.request('lsp.folds', file)).toBeNull();
     expect(servers.folds).toHaveBeenCalledWith('/w', { path: '/w/b.ts', text: 'x' });

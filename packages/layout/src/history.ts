@@ -132,3 +132,72 @@ export class NavigationHistory {
     this.#reveal(place);
   }
 }
+
+/** How many places of changes are kept, as IntelliJ's (`editor.navigation.history.stack.size`). */
+export const MAX_CHANGE_PLACES = 150;
+
+/**
+ * Within this many lines, a change's place is the one before it again, as IntelliJ's
+ * (`TextEditorState.MIN_CHANGE_DISTANCE`).
+ */
+const NEAR = 4;
+
+const same = (a: Place, b: Place) =>
+  a.tab.id === b.tab.id && Math.abs((a.at?.line ?? 0) - (b.at?.line ?? 0)) < NEAR;
+
+/**
+ * Last Edit Location and Next Edit Location, as IntelliJ's Navigate menu
+ * (`IdeDocumentHistoryImpl`, read from its source): the places of the latest changes, gone back
+ * through and on again from where the last went.
+ */
+export class ChangePlaces {
+  /** The places of changes, the latest last. */
+  places: readonly Place[] = [];
+  /** Where going back starts: after the last one gone to (the end, after a change). */
+  index = 0;
+  readonly #go: (place: Place) => void;
+
+  /** `go` takes the caret to a place. */
+  constructor(go: (place: Place) => void) {
+    this.#go = go;
+    makeObservable(this);
+  }
+
+  /** A change made at `place`: it replaces the last one, if that's near it. */
+  changed(place: Place): void {
+    const last = this.places.at(-1);
+    const kept = last && same(last, place) ? this.places.slice(0, -1) : this.places;
+    this.places = [...kept, place].slice(-MAX_CHANGE_PLACES);
+    this.index = this.places.length;
+  }
+
+  get canGoBack(): boolean {
+    return this.index > 0;
+  }
+
+  get canGoForward(): boolean {
+    return this.index < this.places.length;
+  }
+
+  /** To the latest change before the last one gone to that isn't where the caret is (`here`). */
+  goBack(here: Place | undefined): void {
+    for (let i = this.index - 1; i >= 0; i--) {
+      const place = this.places[i] as Place;
+      if (here && same(here, place)) continue;
+      this.index = i;
+      this.#go(place);
+      return;
+    }
+  }
+
+  /** To the next change after the last one gone to that isn't where the caret is (`here`). */
+  goForward(here: Place | undefined): void {
+    for (let i = this.index; i < this.places.length; i++) {
+      const place = this.places[i] as Place;
+      if (here && same(here, place)) continue;
+      this.index = i + 1;
+      this.#go(place);
+      return;
+    }
+  }
+}
