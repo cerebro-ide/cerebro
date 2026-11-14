@@ -2089,7 +2089,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
     `ChangesView.CreatePatch` and `ChangesView.CreatePatchToClipboard`): Create Patch… and Copy as
     Patch to Clipboard, before Shelve Changes, for the selection's changes, else those going into
     the commit, untracked files as new ones (`git add -N` in a copy of the index, so the
-    repository's own isn't touched, measured with git 2.43); the documents saved first. Their
+    repository's own isn't touched, measured with git 2.43; the copy keeps the index's times, fixed
+    2026-11-14: one made a second later hid a same-size change written in the checkout's second,
+    as git trusts an entry's size and time unless the index is no older than the file, measured);
+    the documents saved first. Their
     message, the file's name and the patch's header, is the commit message being written, as
     IntelliJ's takes the change list's comment (`extractCommitMessage`). Copy as Patch to
     Clipboard asks nothing: paths from the repository's top (IntelliJ's
