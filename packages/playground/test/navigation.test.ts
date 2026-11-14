@@ -369,6 +369,35 @@ describe('Go to Super Method', () => {
   });
 });
 
+describe('Quick Definition', () => {
+  it('shows the first definition’s declaration, its lines as its document has them', async () => {
+    answers = {
+      'lsp.definitionSpans': [
+        { path: '/r/quick.ts', line: 1, column: 9, first: 1, last: 2 },
+        { path: '/r/other.ts', line: 0, column: 0, first: 0, last: 0 },
+      ],
+      'fs.read': { text: 'a\nfunction f() {\n}\nb\n' },
+    };
+    const found = await nav.quickDefinition(asked);
+    expect(found).toMatchObject({ path: '/r/quick.ts', text: 'function f() {\n}' });
+    expect(host.params('lsp.definitionSpans')).toEqual([{ worktree: '/r', ...asked }]);
+    found?.open();
+    await expect.poll(() => reveals.get('/r/quick.ts')).toEqual({ line: 1, column: 9 });
+  });
+
+  it('shows none with no definition, no server, or a file it can’t read', async () => {
+    answers = { 'lsp.definitionSpans': [] };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+    answers = { 'lsp.definitionSpans': null };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+    answers = {
+      'lsp.definitionSpans': [{ path: '/r/unreadable.ts', line: 0, column: 0, first: 0, last: 0 }],
+      'fs.read': new Error('gone'),
+    };
+    expect(await nav.quickDefinition(asked)).toBeNull();
+  });
+});
+
 describe('Next Method and Previous Method', () => {
   const symbol = (line: number, column: number, children: object[] = []) => ({
     name: 's',

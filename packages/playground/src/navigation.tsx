@@ -26,6 +26,7 @@ import type {
   Mark,
   MarkerKind,
   Problem,
+  QuickDefinition,
   Renaming,
   Signatures,
   Selected,
@@ -320,6 +321,27 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** What the symbol at a place is, from its file's language server: its hover; none without. */
     documentation(asked: Asked): Promise<Documentation | null> {
       return ask<Documentation>('lsp.hover', asked);
+    },
+
+    /**
+     * Quick Definition: where the symbol at a place is defined, from its file's language server,
+     * its declaration's lines as its document has them (unsaved too); the first of several.
+     */
+    async quickDefinition(asked: Asked): Promise<QuickDefinition | null> {
+      const [first] =
+        (await ask<(Located & { first: number; last: number })[]>('lsp.definitionSpans', asked)) ??
+        [];
+      if (!first) return null;
+      const doc = await documentFor(first.path);
+      if ('error' in doc) return null;
+      const text = doc.text.peek();
+      return {
+        path: first.path,
+        text: text.sliceString(text.line(first.first + 1).from, text.line(first.last + 1).to),
+        open: () => {
+          openAt(first);
+        },
+      };
     },
 
     /** What's called at a place, from its file's language server: Parameter Info; none without. */

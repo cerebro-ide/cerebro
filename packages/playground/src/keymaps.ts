@@ -33,6 +33,7 @@ export const EDITOR_ACTIONS = {
   findUsages: 'editor.findUsages',
   complete: 'editor.codeCompletion',
   quickDocumentation: 'editor.quickDocumentation',
+  quickDefinition: 'editor.quickDefinition',
   parameterInfo: 'editor.parameterInfo',
   rename: 'editor.rename',
   format: 'editor.reformatCode',
@@ -196,6 +197,7 @@ export const INTELLIJ: KeymapPreset = {
     'navigate.nextEdit': [],
     [EDITOR_ACTIONS.methodDown]: ['Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Alt+Up'],
+    [EDITOR_ACTIONS.quickDefinition]: ['Ctrl+Shift+I'],
   },
 };
 
@@ -319,6 +321,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'navigate.nextEdit': [],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space', 'Meta+Y'],
   },
 };
 
@@ -332,6 +335,8 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   'file.saveAll': ['Ctrl+S'],
   // Format Document; Format Selection is Ctrl+K Ctrl+F, as on Windows.
   [EDITOR_ACTIONS.format]: ['Ctrl+Shift+I', 'Ctrl+K Ctrl+F'],
+  // Peek Definition, its nearest.
+  [EDITOR_ACTIONS.quickDefinition]: ['Ctrl+Shift+F10'],
 };
 
 /** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
@@ -421,6 +426,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
     // Alt+Up and Alt+Down are its Move Line's; its sheets list no Next Method.
     [EDITOR_ACTIONS.methodDown]: [],
     [EDITOR_ACTIONS.methodUp]: [],
+    // Peek Definition, its nearest.
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
   },
 };
 
@@ -495,6 +502,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.splitLine]: [],
     [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
+    // Peek Definition, its nearest.
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
   },
 };
 
@@ -756,6 +765,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     'editor.decreaseFontSize': ['Meta+Shift+_'],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.quickDefinition]: ['Meta+Y'],
   },
 };
 
@@ -808,6 +818,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Shift+P'],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.quickDefinition]: [],
   },
 };
 
@@ -920,6 +931,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     [EDITOR_ACTIONS.methodDown]: [],
     [EDITOR_ACTIONS.methodUp]: [],
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space'],
   },
 };
 
@@ -990,6 +1002,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+F11'],
     'code.optimizeImports': ['Ctrl+R G', 'Ctrl+R Ctrl+G', 'Ctrl+Alt+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Alt+Home'],
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
   },
 };
 
@@ -1056,6 +1069,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToImplementation]: ['Alt+End'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Meta+Shift+F11'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Alt+Left', 'Alt+Home'],
+    // Not its parent's Cmd+Y, its Redo here.
+    [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space'],
   },
 };
 

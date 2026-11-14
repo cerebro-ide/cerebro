@@ -933,6 +933,14 @@ describe('navigation in the editor', () => {
     await onA();
     await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
     await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 2, column: 1 });
+    // Quick Definition: the declaration's lines in a popup; Edit Source opens it.
+    await closeAll();
+    answers.set('lsp.definitionSpans', [{ ...b, first: 0, last: 0 }]);
+    await onA();
+    await userEvent.keyboard('{Control>}{Shift>}I{/Shift}{/Control}');
+    await vi.waitUntil(() => editorRoot()?.querySelector('.cerebro-quickDef'));
+    await userEvent.keyboard('{F4}');
+    await expect.poll(active).toBe('/r/src/b.ts');
   });
 });
 

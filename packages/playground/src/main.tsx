@@ -1708,6 +1708,8 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
+                  quickDefinition: (at: { line: number; column: number }) =>
+                    navigation.quickDefinition(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>
                     navigation.signatures(asked(state, at)),
                   renaming: (at: { line: number; column: number }) =>

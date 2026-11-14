@@ -346,6 +346,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.definitions', (params) =>
     servers.definitions(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );
+  connection.onRequest('lsp.definitionSpans', (params) =>
+    servers.definitionSpans(text(params, 'worktree'), fileOf(params), placeOf(params)),
+  );
   connection.onRequest('lsp.implementations', (params) =>
     servers.implementations(text(params, 'worktree'), fileOf(params), placeOf(params)),
   );

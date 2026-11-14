@@ -40,6 +40,15 @@ needs the range, the tab id's encoding, the Diff view's sides (titles, the edita
 diff window's parameters to carry which side is which. Proposed before doing it, as it reshapes the
 diff's model for one link (CLAUDE.md).
 
+### Multiple carets (proposed: a reshaping, for Ido's word)
+
+IntelliJ's Add Selection for Next Occurrence (Alt+J), Unselect Occurrence (Alt+Shift+J) and Select
+All Occurrences (Ctrl+Alt+Shift+J), which WebStorm has, add carets (`SelectOccurrencesActionHandler`,
+read from its source). Cerebro's editor has one caret: each of its commands acts at the main
+selection (decision "Duplicate Line or Selection", say). Turning on CodeMirror's several selections
+changes how every editor command behaves, so it's proposed before it's done (CLAUDE.md). Their keys
+are already read from IntelliJ's keymap files and VS Code's sheets (Ctrl+D, Ctrl+Shift+L).
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

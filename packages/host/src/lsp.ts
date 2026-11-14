@@ -23,6 +23,12 @@ export interface Located {
   column: number;
 }
 
+/** Where a symbol is defined, and the lines of its declaration, zero-based: Quick Definition's. */
+export interface Defined extends Located {
+  first: number;
+  last: number;
+}
+
 /** A stretch of a file's text, zero-based, the end after its last character. */
 export interface Span {
   from: { line: number; column: number };
@@ -215,7 +221,9 @@ interface Range {
   end: { line: number; character: number };
   start: { line: number; character: number };
 }
-type Location = { uri: string; range: Range } | { targetUri: string; targetSelectionRange: Range };
+type Location =
+  | { uri: string; range: Range }
+  | { targetUri: string; targetRange: Range; targetSelectionRange: Range };
 
 /** LSP's locations (or location links) as places. */
 export function located(result: unknown, platform: NodeJS.Platform = process.platform): Located[] {
@@ -227,6 +235,20 @@ export function located(result: unknown, platform: NodeJS.Platform = process.pla
         ? [location.targetUri, location.targetSelectionRange]
         : [location.uri, location.range];
     return { path: pathOf(uri, platform), line: range.start.line, column: range.start.character };
+  });
+}
+
+/**
+ * LSP's locations (or location links) as places, with their declarations' lines: a link's whole
+ * target, a location's own range.
+ */
+export function defined(result: unknown, platform: NodeJS.Platform = process.platform): Defined[] {
+  if (result === null || result === undefined) return [];
+  const all = (Array.isArray(result) ? result : [result]) as Location[];
+  return all.map((location) => {
+    const range = 'targetUri' in location ? location.targetRange : location.range;
+    const [place] = located(location, platform) as [Located];
+    return { ...place, first: range.start.line, last: range.end.line };
   });
 }
 
@@ -837,6 +859,11 @@ export class LanguageServer {
     return located(await this.#ask('textDocument/definition', file, languageId, at));
   }
 
+  /** Where the symbol at a place in a file is defined, with its declarations' lines. */
+  async definitionSpans(file: OpenFile, languageId: string, at: Located): Promise<Defined[]> {
+    return defined(await this.#ask('textDocument/definition', file, languageId, at));
+  }
+
   /** Where the symbol at a place in a file is used, its declaration left out, as IntelliJ's. */
   async usages(file: OpenFile, languageId: string, at: Located): Promise<Located[]> {
     return located(
@@ -1193,6 +1220,13 @@ export class LanguageServers {
   definitions(worktree: string, file: OpenFile, at: Located): Promise<Located[] | null> {
     return this.#ask(worktree, file.path, (server, languageId) =>
       server.definitions(file, languageId, at),
+    );
+  }
+
+  /** Where the symbol at a place is defined, with its lines; null when no server answers in time. */
+  definitionSpans(worktree: string, file: OpenFile, at: Located): Promise<Defined[] | null> {
+    return this.#ask(worktree, file.path, (server, languageId) =>
+      server.definitionSpans(file, languageId, at),
     );
   }
 

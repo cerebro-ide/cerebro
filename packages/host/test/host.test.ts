@@ -115,6 +115,7 @@ describe('language servers', () => {
       open: vi.fn(),
       definitions: vi.fn(() => Promise.resolve([{ path: '/w/a.ts', line: 1, column: 2 }])),
       usages: vi.fn(() => Promise.resolve(null)),
+      definitionSpans: vi.fn(() => Promise.resolve(null)),
       implementations: vi.fn(() => Promise.resolve([])),
       typeDefinitions: vi.fn(() => Promise.resolve(null)),
       organizeImports: vi.fn(() => Promise.resolve([])),
@@ -151,6 +152,12 @@ describe('language servers', () => {
       '/w',
       { path: '/w/b.ts', text: 'x' },
       { path: '', line: 1, column: 5 },
+    );
+    expect(await ui.request('lsp.definitionSpans', { ...file, line: 2, column: 1 })).toBeNull();
+    expect(servers.definitionSpans).toHaveBeenCalledWith(
+      '/w',
+      { path: '/w/b.ts', text: 'x' },
+      { path: '', line: 2, column: 1 },
     );
     expect(await ui.request('lsp.typeDefinitions', { ...file, line: 1, column: 6 })).toBeNull();
     expect(servers.typeDefinitions).toHaveBeenCalledWith(

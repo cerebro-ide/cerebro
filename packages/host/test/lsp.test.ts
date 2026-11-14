@@ -14,6 +14,7 @@ import {
   completionsOf,
   hoverOf,
   highlighted,
+  defined,
   located,
   pathOf,
   problemsOf,
@@ -88,6 +89,21 @@ describe('paths and locations', () => {
         'linux',
       ),
     ).toEqual([{ path: '/b.ts', line: 1, column: 2 }]);
+  });
+
+  it('reads definitions with their declarations’ lines: a link’s target, a location’s range', () => {
+    const name = { start: { line: 2, character: 6 }, end: { line: 2, character: 9 } };
+    const whole = { start: { line: 1, character: 0 }, end: { line: 4, character: 1 } };
+    expect(defined(null)).toEqual([]);
+    expect(defined({ uri: 'file:///a.ts', range: name }, 'linux')).toEqual([
+      { path: '/a.ts', line: 2, column: 6, first: 2, last: 2 },
+    ]);
+    expect(
+      defined(
+        [{ targetUri: 'file:///b.ts', targetRange: whole, targetSelectionRange: name }],
+        'linux',
+      ),
+    ).toEqual([{ path: '/b.ts', line: 2, column: 6, first: 1, last: 4 }]);
   });
 
   it('reads references in one file as highlights, or none', () => {
@@ -637,6 +653,12 @@ describe('TypeScript 7’s server', () => {
     ]);
     expect(await servers.typeDefinitions(project, a, at(2, 7))).toEqual([
       { path: a.path, line: 0, column: 10 },
+    ]);
+    // The declaration's lines, Quick Definition's: the whole function.
+    const c = { path: `${project}/c.ts`, text: 'function f() {\n  return 1;\n}\nf();\n' };
+    writeFileSync(c.path, c.text);
+    expect(await servers.definitionSpans(project, c, at(3, 0))).toEqual([
+      { path: c.path, line: 0, column: 9, first: 0, last: 2 },
     ]);
   }, 60_000);
 

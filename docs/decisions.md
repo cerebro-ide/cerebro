@@ -66,6 +66,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
 - [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
@@ -3024,6 +3025,33 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+
+## Quick Definition (2026-11-14)
+
+IntelliJ's View → Quick Definition, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** `QuickImplementations` (`ShowImplementationsAction` and
+  `ImplementationViewComponent`, read from its source): a popup at the caret's symbol, titled
+  "Definition of {name}" (CodeInsightBundle's `implementation.view.title`), the symbol's name
+  and its file's name under it, then the declaration's whole lines, highlighted as its file's
+  language, in a read-only editor, 600 by 400 at most (IntelliJ's preferred size). Edit Source
+  (IntelliJ's F4, and Enter) opens the definition; Escape, or a change of the text or the caret,
+  closes it.
+- **Its lines are the language server's,** the target of the definition's location link (LSP's
+  `targetRange`; measured with TypeScript's: the whole function, lines 0 to 2 of `function f()
+  {…}`), or a plain location's own range. They're read from the file's document, unsaved changes
+  too, as IntelliJ reads its document.
+- **Its keys,** from IntelliJ's keymap files: Ctrl+Shift+I (`$default`); on macOS Alt+Space and
+  Cmd+Y; macOS System Shortcuts' Cmd+Y; Sublime Text's on macOS Alt+Space; Visual Studio's
+  Alt+F12; none in NetBeans'. Visual Studio's on macOS takes its parent's Alt+Space but not Cmd+Y,
+  its Redo there (Claude's choice). VS Code's is its Peek Definition, from its sheets: Alt+F12,
+  Ctrl+Shift+F10 on Linux; on macOS Alt+F12, a claim: the macOS sheet's modifier keys are glyphs
+  that don't come out as text.
+- **Not yet:** several definitions (IntelliJ's switcher, "1 of 2", and its list of files; the
+  first is shown); the popup's toolbar (Back and Forward, Edit Source's button, Show in Find
+  Window, pinning it as a tab); a definition the index finds when no server answers (Go to
+  Definition's fallback); a binary file's view; the declaration's documentation comment, which
+  IntelliJ's selectioner may take in (a claim, not read).
 
 ## Go to Implementation and Go to Type Declaration (2026-11-14)
 
