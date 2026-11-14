@@ -443,6 +443,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Meta+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Meta+Left'],
     [EDITOR_ACTIONS.startNewLineBefore]: ['Meta+Shift+Enter'],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
   },
 };
 
