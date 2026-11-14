@@ -178,8 +178,15 @@ describe('the Bookmarks tool window', () => {
     toggleBookmark('/r', '/r/src/a.ts', 4);
     toggleBookmark('/r', '/r/top.ts', 0);
     toggleBookmark('/r', '/r/src/a.ts', 1);
-    // Each with its icon, a letter-less svg; in the order added.
+    // In the order added; each with its icon: the list's and its lines' a bookmark's, the files' a
+    // file's.
     await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:', 'top.ts', '1:']);
+    const icons = [
+      ...document.querySelectorAll('.cerebro-tree-row svg[viewBox="1.5 1.5 13 13"] path'),
+    ].map((path) => path.getAttribute('d'));
+    const [bookmark, file] = icons;
+    expect(icons).toEqual([bookmark, file, bookmark, bookmark, file, bookmark]);
+    expect(bookmark).not.toBe(file);
     await userEvent.dblClick(row('/r/src/a.ts'));
     expect(opened).toEqual([{ id: '/r/src/a.ts', title: 'a.ts' }]);
     await userEvent.click(row('/r/src/a.ts:1'));

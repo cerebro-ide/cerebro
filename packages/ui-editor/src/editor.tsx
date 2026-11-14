@@ -1110,7 +1110,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
       : [],
     props.onCaret
       ? EditorView.updateListener.of((update) => {
-          if (update.selectionSet) caret(update.state);
+          // An edit made elsewhere, or read from disk, moves it without setting it.
+          if (update.selectionSet || update.docChanged) caret(update.state);
         })
       : [],
     selectionSteps,
