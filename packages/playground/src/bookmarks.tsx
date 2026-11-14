@@ -5,20 +5,28 @@
 // lines. The Bookmarks tool window lists them by file, in the order added, each line by its number
 // (IntelliJ's "Group line bookmarks", on by default); a double click or Enter opens a file, or a
 // line. Next and Previous Line Bookmark go through them, and Show Bookmarks lists them in a popup.
-// They're kept between runs, per worktree.
+// A bookmark can have a mnemonic, a digit or a letter, that's its alone (IntelliJ's `BookmarkType`):
+// Toggle Bookmark 0 to 9 (Ctrl+Shift+digit) adds or takes one away, Go to Bookmark 0 to 9
+// (Ctrl+digit) goes to it. They're kept between runs, per worktree.
 
-import { ObservableMap } from '@cerebro-ide/reactive';
+import { signal, ObservableMap } from '@cerebro-ide/reactive';
+import { openDialog } from '@cerebro-ide/ui-dialog';
+import type { BookmarkMark } from '@cerebro-ide/ui-editor';
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active } from './environments.js';
 import { Preview } from './find.js';
 import { icon } from './icons.js';
 
-/** A bookmark on a file's line, zero-based. */
+/** A bookmark on a file's line, zero-based, and its mnemonic, if it has one. */
 export interface LineBookmark {
   path: string;
   line: number;
+  mnemonic?: string;
 }
+
+/** The mnemonics a bookmark can have, as IntelliJ's: the digits, then the letters. */
+export const MNEMONICS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
 /** Each worktree's bookmarks, in the order added, by its path. */
 const lists = new ObservableMap<string, readonly LineBookmark[]>();
@@ -49,11 +57,90 @@ function keep(worktree: string, list: readonly LineBookmark[]): void {
   }
 }
 
-/** The bookmarked lines of a file, zero-based. */
-export function bookmarkedLines(worktree: string, path: string): number[] {
+/** A file's bookmarks, as its editor shows them: their lines, zero-based, and mnemonics. */
+export function bookmarkMarks(worktree: string, path: string): BookmarkMark[] {
   return bookmarksOf(worktree)
     .filter((bookmark) => bookmark.path === path)
-    .map((bookmark) => bookmark.line);
+    .map(({ line, mnemonic }) => ({ line, mnemonic }));
+}
+
+/** The bookmark with a mnemonic, if one has it. */
+export function bookmarkWith(worktree: string, mnemonic: string): LineBookmark | undefined {
+  return bookmarksOf(worktree).find((bookmark) => bookmark.mnemonic === mnemonic);
+}
+
+/**
+ * A bookmark with a mnemonic on a file's line, as IntelliJ's `toggle(bookmark, type)`: one with it
+ * there already is taken away; one without it there, or none, gets it. Another bookmark with it is
+ * taken away, once `rewrite` says so (IntelliJ's question).
+ */
+export async function toggleMnemonic(
+  worktree: string,
+  at: { path: string; line: number },
+  mnemonic: string,
+  rewrite: (taken: LineBookmark) => Promise<boolean>,
+): Promise<void> {
+  const here = (bookmark: LineBookmark) => bookmark.path === at.path && bookmark.line === at.line;
+  const found = bookmarksOf(worktree).find(here);
+  if (found?.mnemonic === mnemonic) {
+    keep(
+      worktree,
+      bookmarksOf(worktree).filter((bookmark) => bookmark !== found),
+    );
+    return;
+  }
+  const taken = bookmarkWith(worktree, mnemonic);
+  if (taken && !(await rewrite(taken))) return;
+  const list = bookmarksOf(worktree).filter((bookmark) => bookmark.mnemonic !== mnemonic);
+  const index = list.findIndex(here);
+  const marked = { path: at.path, line: at.line, mnemonic };
+  keep(worktree, index < 0 ? [...list, marked] : list.with(index, marked));
+}
+
+/** Where "Don't ask again" before a mnemonic's rewritten is kept (IntelliJ's `rewriteBookmarkType`). */
+const REWRITE_ASKS = 'cerebro.bookmarks.rewrite';
+
+/**
+ * IntelliJ's question before a mnemonic another bookmark has is given to this one ("Rewrite
+ * Mnemonic", BookmarkBundle's words), unless told not to ask again; whether to go on. "Don't ask
+ * again" is kept only on OK, as IntelliJ's (`DoNotAskOption`, `shouldSaveOptionsOnCancel`).
+ */
+export async function rewriteAsked(taken: LineBookmark): Promise<boolean> {
+  try {
+    if (localStorage.getItem(REWRITE_ASKS) === 'false') return true;
+  } catch {
+    // Not read: asked.
+  }
+  const again = signal(false);
+  const name = taken.path.slice(taken.path.lastIndexOf('/') + 1);
+  const answer = await openDialog<true>({
+    title: 'Rewrite Mnemonic',
+    ok: { label: 'OK', accept: () => true },
+    content: () => (
+      <div class="playground-question">
+        <p>{`‘${taken.mnemonic as string}’ mnemonic is already taken by ‘${name}:${String(taken.line + 1)}’. Do you want to rewrite it?`}</p>
+        <label class="playground-checkbox">
+          <input
+            type="checkbox"
+            checked={() => again.get()}
+            on:change={(event) => {
+              again.set((event.currentTarget as HTMLInputElement).checked);
+            }}
+          />
+          Don’t ask again
+        </label>
+      </div>
+    ),
+  }).result;
+  if (answer !== true) return false;
+  if (again.peek()) {
+    try {
+      localStorage.setItem(REWRITE_ASKS, 'false');
+    } catch {
+      // Not kept: asked next time.
+    }
+  }
+  return true;
 }
 
 /** A bookmark on a file's line, added last; or, there already, taken away. */
@@ -79,7 +166,7 @@ export function moveBookmarks(worktree: string, path: string, lines: readonly nu
     list.flatMap((bookmark, index) => {
       if (!moved.has(index)) return [bookmark];
       const line = moved.get(index);
-      return line === undefined ? [] : [{ path, line }];
+      return line === undefined ? [] : [{ ...bookmark, line }];
     }),
   );
 }
@@ -124,7 +211,7 @@ export async function showBookmarks(
         label: `${name.slice(slash + 1)} :${String(bookmark.line + 1)}`,
         ...(slash < 0 ? {} : { detail: name.slice(0, slash) }),
         group: worktree.name,
-        icon: () => icon('bookmark'),
+        icon: () => bookmarkIcon(bookmark),
         bookmark,
       };
     },
@@ -138,6 +225,16 @@ export async function showBookmarks(
     preview: (item) => (item ? <Preview at={{ ...item.bookmark, column: 0 }} /> : null),
   }).result;
   if (chosen) openAt({ ...chosen.bookmark, column: 0 });
+}
+
+/** A bookmark's icon, as IntelliJ's type's: its mnemonic, if it has one, on a square. */
+function bookmarkIcon(bookmark: LineBookmark) {
+  if (bookmark.mnemonic === undefined) return icon('bookmark');
+  return (
+    <span class="playground-bookmark-mnemonic" aria-label={`Bookmark ${bookmark.mnemonic}`}>
+      {bookmark.mnemonic}
+    </span>
+  );
 }
 
 type Node =
@@ -228,7 +325,7 @@ function Tree(
         }
         // With the bookmark's icon, as IntelliJ's line nodes (`wrapIcon(null)`: its type's).
         return [
-          icon('bookmark'),
+          bookmarkIcon(node.bookmark),
           <span class="playground-occurrences__count">{`${String(node.bookmark.line + 1)}:`}</span>,
         ];
       }}

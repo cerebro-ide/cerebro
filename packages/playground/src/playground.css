@@ -939,6 +939,23 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* A bookmark's mnemonic, as IntelliJ's icon: the character on a square (a claim: drawn after it),
+   in the editor's font. */
+.playground-bookmark-mnemonic {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--cerebro-text-muted);
+  border-radius: 2px;
+  font-family: var(--cerebro-font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
 .playground-occurrences__name,
 .playground-occurrences__number {
   margin-right: 8px;

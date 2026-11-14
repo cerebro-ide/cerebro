@@ -1,5 +1,5 @@
 // Bookmarks on lines, as IntelliJ's line bookmarks: an icon in a gutter of their own, before the
-// line numbers, on each bookmarked line. They move with the text as it's edited (IntelliJ keeps a
+// line numbers, on each bookmarked line; a bookmark with a mnemonic shows it instead. They move with the text as it's edited (IntelliJ keeps a
 // line bookmark on a range marker), and say where they've moved to, so whoever keeps them can.
 
 import {
@@ -15,6 +15,12 @@ import { EditorView, gutter, GutterMarker } from '@codemirror/view';
 /** IntelliJ's bookmark icon's shape (a claim: drawn after it, not its own drawing). */
 const SHAPE = 'M4.5 2.5h7v11L8 10.5l-3.5 3z';
 
+/** A bookmarked line, zero-based, and its mnemonic (a digit or a letter), if it has one. */
+export interface BookmarkMark {
+  line: number;
+  mnemonic?: string | undefined;
+}
+
 class Bookmark extends GutterMarker {
   // After what's inserted at its line's start: an Enter there takes the bookmark down with the
   // line's text.
@@ -25,7 +31,23 @@ class Bookmark extends GutterMarker {
   // `TrackBefore`, drops it then: measured).
   override mapMode = MapMode.Simple;
 
+  constructor(readonly mnemonic?: string) {
+    super();
+  }
+
+  override eq(other: GutterMarker): boolean {
+    return other instanceof Bookmark && other.mnemonic === this.mnemonic;
+  }
+
   override toDOM(): Node {
+    if (this.mnemonic !== undefined) {
+      // IntelliJ's mnemonic icon: the character on a square (a claim: drawn after it).
+      const box = document.createElement('span');
+      box.className = 'cerebro-bookmark cerebro-bookmark--mnemonic';
+      box.setAttribute('aria-label', `Bookmark ${this.mnemonic}`);
+      box.textContent = this.mnemonic;
+      return box;
+    }
     const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     svg.setAttribute('viewBox', '1.5 1.5 13 13');
     svg.setAttribute('class', 'cerebro-bookmark');
@@ -39,7 +61,7 @@ class Bookmark extends GutterMarker {
 
 const BOOKMARK = new Bookmark();
 
-const setLines = StateEffect.define<readonly number[]>();
+const setLines = StateEffect.define<readonly BookmarkMark[]>();
 
 /** Where the bookmarks are: one at each bookmarked line's start, moved as the text is. */
 const bookmarked = StateField.define<RangeSet<GutterMarker>>({
@@ -52,11 +74,20 @@ const bookmarked = StateField.define<RangeSet<GutterMarker>>({
   },
 });
 
-/** The bookmarks on `lines` (zero-based), those past the text's end left out. */
-function setOf(state: EditorState, lines: readonly number[]): RangeSet<GutterMarker> {
-  const inside = [...new Set(lines)].filter((line) => line < state.doc.lines);
+/** The bookmarks on their lines, those past the text's end left out; the first on a line kept. */
+function setOf(state: EditorState, marks: readonly BookmarkMark[]): RangeSet<GutterMarker> {
+  const byLine = new Map<number, BookmarkMark>();
+  for (const mark of marks) {
+    if (mark.line < state.doc.lines && !byLine.has(mark.line)) byLine.set(mark.line, mark);
+  }
   return RangeSet.of(
-    inside.sort((a, b) => a - b).map((line) => BOOKMARK.range(state.doc.line(line + 1).from)),
+    [...byLine.values()]
+      .sort((a, b) => a.line - b.line)
+      .map((mark) =>
+        (mark.mnemonic === undefined ? BOOKMARK : new Bookmark(mark.mnemonic)).range(
+          state.doc.line(mark.line + 1).from,
+        ),
+      ),
   );
 }
 
@@ -71,9 +102,9 @@ export function bookmarkedLines(state: EditorState): number[] {
   return [...lines];
 }
 
-/** Shows the bookmarks on `lines` in `view`, in place of those it shows. */
-export function showBookmarks(view: EditorView, lines: readonly number[]): void {
-  view.dispatch({ effects: setLines.of(lines) });
+/** Shows `marks` in `view`, in place of the bookmarks it shows. */
+export function showBookmarks(view: EditorView, marks: readonly BookmarkMark[]): void {
+  view.dispatch({ effects: setLines.of(marks) });
 }
 
 /** The bookmarks' gutter; `moved` is told where they are once an edit has moved them. */

@@ -160,12 +160,16 @@ import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
-  bookmarkedLines,
+  bookmarkMarks,
   BookmarksView,
+  bookmarkWith,
+  MNEMONICS,
   moveBookmarks,
   nextBookmark,
+  rewriteAsked,
   showBookmarks,
   toggleBookmark,
+  toggleMnemonic,
   type LineBookmark,
 } from './bookmarks.js';
 import { HierarchyView, showHierarchy } from './call-hierarchy.js';
@@ -872,6 +876,36 @@ services.menus.contribute({
   item: { command: 'bookmarks.show' },
   group: 'c',
 });
+// Mnemonic bookmarks, as IntelliJ's Toggle Bookmark and Go to Bookmark 0 to 9 and A to Z: the
+// digits' on Ctrl+Shift and Ctrl, the letters' with no keys.
+for (const mnemonic of MNEMONICS) {
+  services.commands.register({
+    id: `bookmarks.toggle.${mnemonic}`,
+    label: `Toggle Bookmark ${mnemonic}`,
+    enabled: () => active() !== undefined && activeFile() !== undefined,
+    run: () => {
+      const file = activeFile() as Tab;
+      const at = { path: file.id, line: caretOf(file.id).line };
+      return toggleMnemonic(active()?.id as string, at, mnemonic, rewriteAsked);
+    },
+  });
+  services.commands.register({
+    id: `bookmarks.goTo.${mnemonic}`,
+    label: `Go to Bookmark ${mnemonic}`,
+    enabled: () => {
+      const env = active();
+      return env !== undefined && bookmarkWith(env.id, mnemonic) !== undefined;
+    },
+    run: () => {
+      const bookmark = bookmarkWith(active()?.id as string, mnemonic) as LineBookmark;
+      navigation.openAt({ ...bookmark, column: 0 });
+    },
+  });
+  if (mnemonic <= '9') {
+    services.keymap.bindDefault(`Ctrl+Shift+${mnemonic}`, `bookmarks.toggle.${mnemonic}`);
+    services.keymap.bindDefault(`Ctrl+${mnemonic}`, `bookmarks.goTo.${mnemonic}`);
+  }
+}
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
 services.commands.register({
   id: 'project.selectOpenedFile',
@@ -1797,7 +1831,7 @@ function Code(props: { path: string; env: string }) {
               topLine.set(top);
             }}
             annotate={() => annotationFor(props.path)}
-            bookmarks={() => bookmarkedLines(props.env, props.path)}
+            bookmarks={() => bookmarkMarks(props.env, props.path)}
             onBookmarksMoved={(lines) => {
               moveBookmarks(props.env, props.path, lines);
             }}

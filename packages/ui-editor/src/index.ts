@@ -94,3 +94,4 @@ export {
 export { applyCase } from './preserve-case.js';
 export { findTextIn, preserveCaseIcon, SELECTION_LIMIT } from './find.js';
 export { MarkdownPreview, type MarkdownPreviewProps } from './markdown-preview.js';
+export type { BookmarkMark } from './bookmarks.js';

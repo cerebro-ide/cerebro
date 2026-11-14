@@ -4,7 +4,12 @@ import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { CodeEditor, EditorDocument, type CodeEditorProps } from '../src/index.js';
+import {
+  CodeEditor,
+  EditorDocument,
+  type BookmarkMark,
+  type CodeEditorProps,
+} from '../src/index.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -29,6 +34,9 @@ function mount(props: Omit<CodeEditorProps, 'path'>) {
   return root;
 }
 
+/** Bookmarks without mnemonics on lines. */
+const at = (...lines: number[]) => lines.map((line) => ({ line }));
+
 /** The lines with a bookmark's icon, one-based as the line numbers show them. */
 const marked = (root: ShadowRoot) => {
   const gutter = root.querySelector('.cerebro-bookmarks') as HTMLElement;
@@ -48,7 +56,7 @@ describe('bookmarks', () => {
     const lines = signal<readonly number[]>([1, 3, 9]);
     const root = mount({
       document: new EditorDocument('a\nb\nc\nd\n'),
-      bookmarks: () => lines.get(),
+      bookmarks: () => at(...lines.get()),
     });
     // The line past the text's end left out.
     await expect.poll(() => marked(root)).toEqual(['2', '4']);
@@ -68,7 +76,7 @@ describe('bookmarks', () => {
     const moved = vi.fn();
     const root = mount({
       document: new EditorDocument('a\nb\nc\n'),
-      bookmarks: () => [1],
+      bookmarks: () => at(1),
       onBookmarksMoved: moved,
     });
     await expect.poll(() => marked(root)).toEqual(['2']);
@@ -89,7 +97,7 @@ describe('bookmarks', () => {
     const twice = vi.fn();
     mount({
       document: new EditorDocument('a\nb\n'),
-      bookmarks: () => [0, 1],
+      bookmarks: () => at(0, 1),
       onBookmarksMoved: twice,
     });
     await userEvent.keyboard('{End}{Delete}');
@@ -99,11 +107,31 @@ describe('bookmarks', () => {
   it('stay on their lines when the text is read again from disk', async () => {
     const moved = vi.fn();
     const doc = new EditorDocument('a\nb\nc\n');
-    const root = mount({ document: doc, bookmarks: () => [1, 2], onBookmarksMoved: moved });
+    const root = mount({ document: doc, bookmarks: () => at(1, 2), onBookmarksMoved: moved });
     await expect.poll(() => marked(root)).toEqual(['2', '3']);
     // A line above them gone: up with their lines.
     expect(doc.changedOnDisk('b\nc\n')).toBe(true);
     expect(moved).toHaveBeenLastCalledWith([0, 1]);
+  });
+
+  it('show their mnemonics, the first of two on a line', async () => {
+    const marks = signal<readonly BookmarkMark[]>([
+      { line: 1, mnemonic: '7' },
+      { line: 0 },
+      { line: 1, mnemonic: 'K' },
+    ]);
+    const root = mount({ document: new EditorDocument('a\nb\n'), bookmarks: () => marks.get() });
+    await expect.poll(() => marked(root)).toEqual(['1', '2']);
+    const mnemonic = () => root.querySelector('.cerebro-bookmark--mnemonic') as HTMLElement;
+    expect(mnemonic().textContent).toBe('7');
+    expect(mnemonic().getAttribute('aria-label')).toBe('Bookmark 7');
+    // Another on its line: shown in its place; the same again, left as it is.
+    marks.set([{ line: 0 }, { line: 1, mnemonic: 'K' }]);
+    await expect.poll(() => mnemonic().textContent).toBe('K');
+    const shown = mnemonic();
+    marks.set([{ line: 0 }, { line: 1, mnemonic: 'K' }]);
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(mnemonic()).toBe(shown);
   });
 
   it('have no gutter when the editor shows none', () => {

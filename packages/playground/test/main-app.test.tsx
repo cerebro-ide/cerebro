@@ -2,7 +2,7 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
-import { bookmarkedLines, toggleBookmark } from '../src/bookmarks.js';
+import { bookmarkMarks, toggleBookmark } from '../src/bookmarks.js';
 import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
@@ -978,6 +978,8 @@ describe('navigation in the editor', () => {
 });
 
 describe('bookmarks', () => {
+  const linesOf = (worktree: string, path: string) =>
+    bookmarkMarks(worktree, path).map((mark) => mark.line);
   const marked = () =>
     [...(editorRoot()?.querySelectorAll('.cerebro-bookmarks .cm-gutterElement') ?? [])].flatMap(
       (element, index) => (element.querySelector('.cerebro-bookmark') ? [index] : []),
@@ -988,17 +990,17 @@ describe('bookmarks', () => {
     env().editor.open({ id: '/r/src/marked.ts', title: 'marked.ts' });
     expect(carets.get('/r/src/marked.ts')).toBeUndefined();
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F11', code: 'F11' }));
-    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0]);
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([0]);
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{F11}');
-    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0, 1]);
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([0, 1]);
     await expect.poll(marked).toEqual([0, 1]);
     // Taken away on F11 again.
     await userEvent.keyboard('{F11}');
     await expect.poll(marked).toEqual([0]);
     // Moved with its line, and kept where it went.
     await userEvent.keyboard('{Control>}{Home}{/Control}{Enter}');
-    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([1]);
+    expect(linesOf('/r', '/r/src/marked.ts')).toEqual([1]);
     await userEvent.click(stripe('bookmarks'));
     await expect
       .poll(() =>
@@ -1011,7 +1013,7 @@ describe('bookmarks', () => {
     await expect.poll(() => reveals.get('/r/src/marked.ts')).toEqual({ line: 1, column: 0 });
     // Opened, it's read again: the host's file is as it was, without the line added above, and
     // the bookmark goes up with its line.
-    await expect.poll(() => bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0]);
+    await expect.poll(() => linesOf('/r', '/r/src/marked.ts')).toEqual([0]);
     await userEvent.click(stripe('bookmarks'));
     toggleBookmark('/r', '/r/src/marked.ts', 0);
   });
@@ -1058,6 +1060,34 @@ describe('bookmarks', () => {
     await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
     toggleBookmark('/r', '/r/src/b.ts', 1);
     toggleBookmark('/r', '/r/src/c.ts', 0);
+  });
+});
+
+describe('mnemonic bookmarks', () => {
+  it('are toggled on Ctrl+Shift and a digit, shown with it, and gone to on Ctrl and it', async () => {
+    localStorage.setItem('cerebro.bookmarks.rewrite', 'false');
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
+    await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect
+      .poll(() => editorRoot()?.querySelector('.cerebro-bookmark--mnemonic')?.textContent)
+      .toBe('3');
+    // From another file.
+    env().editor.open({ id: '/r/src/b.ts', title: 'b.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}3{/Control}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 1, column: 0 });
+    // Taken for another line, without asking (as told): the first's gone.
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect
+      .poll(() => bookmarkMarks('/r', '/r/src/c.ts'))
+      .toEqual([{ line: 0, mnemonic: '3' }]);
+    await userEvent.keyboard('{Control>}{Shift>}3{/Shift}{/Control}');
+    await expect.poll(() => bookmarkMarks('/r', '/r/src/c.ts')).toEqual([]);
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
   });
 });
 

@@ -48,7 +48,7 @@ import type { Selected } from './line.js';
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
-import { bookmarks, showBookmarks } from './bookmarks.js';
+import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { foldKeys, folding, type AskFolds } from './folding.js';
@@ -143,8 +143,8 @@ export interface CodeEditorProps {
   ) => void;
   /** The line at the top of the editor, zero-based: each time it scrolls. */
   onScroll?: (top: number) => void;
-  /** The bookmarked lines, zero-based, shown in a gutter before the line numbers. */
-  bookmarks?: () => readonly number[];
+  /** The bookmarks, on their lines (zero-based), shown in a gutter before the line numbers. */
+  bookmarks?: () => readonly BookmarkMark[];
   /** Where the bookmarks are once an edit has moved them, as IntelliJ's follow their lines. */
   onBookmarksMoved?: (lines: number[]) => void;
   /**
@@ -473,6 +473,18 @@ export const theme = EditorView.theme({
     stroke: variable('text-muted'),
     strokeWidth: '1',
     strokeLinejoin: 'round',
+  },
+  // IntelliJ's draws the character at three quarters of the icon's height, in the editor's font.
+  '.cerebro-bookmark--mnemonic': {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    border: `1px solid ${variable('text-muted')}`,
+    borderRadius: '2px',
+    color: variable('text'),
+    fontSize: '9px',
+    lineHeight: '1',
   },
   '.cerebro-markers .cm-gutterElement': {
     width: '36px',
@@ -1229,8 +1241,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return undefined;
   });
   const bookmarking = effect(() => {
-    const lines = props.bookmarks?.();
-    if (lines) showBookmarks(view, lines);
+    const marks = props.bookmarks?.();
+    if (marks) showBookmarks(view, marks);
     return undefined;
   });
   const focusing = effect(() => {

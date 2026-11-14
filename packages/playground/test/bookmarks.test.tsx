@@ -2,16 +2,20 @@ import { render } from '@cerebro-ide/jsx';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
-  bookmarkedLines,
+  bookmarkMarks,
+  bookmarkWith,
   bookmarksOf,
   BookmarksView,
   moveBookmarks,
   nextBookmark,
+  rewriteAsked,
   showBookmarks,
   toggleBookmark,
+  toggleMnemonic,
+  type LineBookmark,
 } from '../src/bookmarks.js';
 import { workspace } from '../src/environments.js';
-import { closeAll, popupItems } from './fakes.js';
+import { closeAll, dialog, dialogText, popupItems, press } from './fakes.js';
 
 const opened: unknown[] = [];
 let dispose: (() => void) | undefined;
@@ -48,7 +52,7 @@ describe('bookmarks', () => {
     expect(bookmarksOf('/kept')).toEqual([{ path: '/kept/a', line: 2 }]);
     toggleBookmark('/kept', '/kept/b', 0);
     toggleBookmark('/kept', '/kept/a', 5);
-    expect(bookmarkedLines('/kept', '/kept/a')).toEqual([2, 5]);
+    expect(bookmarkMarks('/kept', '/kept/a').map((mark) => mark.line)).toEqual([2, 5]);
     expect(JSON.parse(localStorage.getItem('cerebro.bookmarks:/kept') as string)).toEqual([
       { path: '/kept/a', line: 2 },
       { path: '/kept/b', line: 0 },
@@ -102,6 +106,101 @@ describe('bookmarks', () => {
     expect(nextBookmark('/next', undefined, true)).toEqual({ path: '/next/a', line: 9 });
     expect(nextBookmark('/next', undefined, false)).toEqual({ path: '/next/b', line: 3 });
     expect(nextBookmark('/none', undefined, true)).toBeUndefined();
+  });
+
+  it('take a mnemonic, theirs alone, as IntelliJ’s toggle with a type', async () => {
+    const asked: LineBookmark[] = [];
+    let rewrite = false;
+    const toggle = (path: string, line: number, mnemonic: string) =>
+      toggleMnemonic('/m', { path, line }, mnemonic, (taken) => {
+        asked.push(taken);
+        return Promise.resolve(rewrite);
+      });
+    toggleBookmark('/m', '/m/a', 0);
+    toggleBookmark('/m', '/m/a', 3);
+    // On a bookmark: it gets it, in its place; on a line with none, one's added with it.
+    await toggle('/m/a', 0, '1');
+    await toggle('/m/b', 2, 'K');
+    expect(bookmarksOf('/m')).toEqual([
+      { path: '/m/a', line: 0, mnemonic: '1' },
+      { path: '/m/a', line: 3 },
+      { path: '/m/b', line: 2, mnemonic: 'K' },
+    ]);
+    expect(bookmarkWith('/m', 'K')).toEqual({ path: '/m/b', line: 2, mnemonic: 'K' });
+    expect(bookmarkMarks('/m', '/m/a')).toEqual([{ line: 0, mnemonic: '1' }, { line: 3 }]);
+    // Another's: asked first; not rewritten, nothing changes.
+    await toggle('/m/a', 3, '1');
+    expect(asked).toEqual([{ path: '/m/a', line: 0, mnemonic: '1' }]);
+    expect(bookmarksOf('/m')).toHaveLength(3);
+    // Rewritten: the other bookmark's gone.
+    rewrite = true;
+    await toggle('/m/a', 3, '1');
+    expect(bookmarksOf('/m')).toEqual([
+      { path: '/m/a', line: 3, mnemonic: '1' },
+      { path: '/m/b', line: 2, mnemonic: 'K' },
+    ]);
+    // Another on its line: in place of its own; its own again: it's taken away.
+    await toggle('/m/b', 2, 'Z');
+    expect(bookmarkWith('/m', 'K')).toBeUndefined();
+    await toggle('/m/b', 2, 'Z');
+    expect(bookmarksOf('/m')).toEqual([{ path: '/m/a', line: 3, mnemonic: '1' }]);
+    expect(asked).toHaveLength(2);
+    // Kept as they move.
+    moveBookmarks('/m', '/m/a', [5]);
+    expect(bookmarksOf('/m')).toEqual([{ path: '/m/a', line: 5, mnemonic: '1' }]);
+  });
+
+  it('ask before a mnemonic’s taken from another, unless told not to again', async () => {
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
+    const taken = { path: '/q/src/a.ts', line: 4, mnemonic: '3' };
+    const checkbox = async () =>
+      userEvent.click((await dialog()).querySelector('input[type="checkbox"]') as HTMLElement);
+    // Cancelled: not rewritten, and "Don't ask again" isn't kept.
+    let asked = rewriteAsked(taken);
+    expect(await dialogText()).toBe(
+      '‘3’ mnemonic is already taken by ‘a.ts:5’. Do you want to rewrite it?Don’t ask again',
+    );
+    expect(document.querySelector('.cerebro-dialog__title')?.textContent).toBe('Rewrite Mnemonic');
+    await checkbox();
+    await press('Cancel');
+    expect(await asked).toBe(false);
+    // OK: rewritten; and with it ticked, not asked again.
+    asked = rewriteAsked(taken);
+    await checkbox();
+    await press('OK');
+    expect(await asked).toBe(true);
+    expect(await rewriteAsked(taken)).toBe(true);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    localStorage.removeItem('cerebro.bookmarks.rewrite');
+    // OK without it: asked the next time.
+    asked = rewriteAsked(taken);
+    await press('OK');
+    expect(await asked).toBe(true);
+    asked = rewriteAsked(taken);
+    await press('Cancel');
+    expect(await asked).toBe(false);
+  });
+
+  it('are asked about each time when storage can’t be read or kept', async () => {
+    const getItem = Storage.prototype.getItem.bind(localStorage);
+    const setItem = Storage.prototype.setItem.bind(localStorage);
+    localStorage.getItem = () => {
+      throw new Error('SecurityError');
+    };
+    localStorage.setItem = () => {
+      throw new Error('QuotaExceededError');
+    };
+    try {
+      const asked = rewriteAsked({ path: '/q/a', line: 0, mnemonic: 'A' });
+      await userEvent.click(
+        (await dialog()).querySelector('input[type="checkbox"]') as HTMLElement,
+      );
+      await press('OK');
+      expect(await asked).toBe(true);
+    } finally {
+      localStorage.getItem = getItem;
+      localStorage.setItem = setItem;
+    }
   });
 
   it('aren’t kept when storage is full, but stay for the run', () => {
@@ -195,6 +294,12 @@ describe('the Bookmarks tool window', () => {
     // The list itself opens nothing.
     await userEvent.dblClick(row('list'));
     expect(opened).toHaveLength(2);
+    // One with a mnemonic: it in place of the icon.
+    await toggleMnemonic('/r', { path: '/r/top.ts', line: 0 }, '7', () => Promise.resolve(true));
+    await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:', 'top.ts', '71:']);
+    expect(
+      document.querySelector('.playground-bookmark-mnemonic')?.getAttribute('aria-label'),
+    ).toBe('Bookmark 7');
     // Taken away, gone from the list.
     toggleBookmark('/r', '/r/top.ts', 0);
     await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:']);

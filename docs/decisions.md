@@ -3069,6 +3069,16 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   highlighted, its place previewed; typing filters them (IntelliJ's tree has speed search); Enter
   or a click opens one. It's the picker Find in Files uses, so the preview is under the list, not
   beside it as IntelliJ's, and the popup isn't moved or resized (open to change).
+- **Mnemonics,** as IntelliJ's bookmark types (`BookmarkType`, `ToggleBookmarkTypeAction`,
+  `GotoBookmarkTypeAction` and `BookmarksManagerImpl`, read from its source): a bookmark can have a
+  digit or a letter, one bookmark each. Toggle Bookmark 0 to 9 and A to Z gives the caret's line's
+  bookmark the mnemonic, or adds one with it, or takes the bookmark away if it has it already. One
+  another bookmark has is taken from it with the bookmark, once "Rewrite Mnemonic" is answered OK
+  (BookmarkBundle's words, with "Don't ask again", kept only on OK as IntelliJ's `DoNotAskOption`).
+  Go to Bookmark 0 to 9 and A to Z opens its place, and is off when none has it. The editor's gutter
+  and the lists show the mnemonic on a square in place of the bookmark's icon (IntelliJ's draws it
+  at three quarters of the icon's height in the editor's font; the square's a claim). The toggles
+  are listed in Find Action, where IntelliJ hides them (open to change).
 - **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
   there, which Cerebro hasn't, so after Find. Toggle Bookmark, then Previous and Next Line
   Bookmark, apart, then Show Bookmarks… (ActionsBundle's names).
@@ -3082,8 +3092,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   also with Ctrl on the second key), Cmd on macOS; Sublime Text F2 and Shift+F2, on macOS also
   Ctrl+R for Next. Show Bookmarks: Shift+F11; macOS Cmd+F3; NetBeans Ctrl+Shift+M; Visual Studio
   Ctrl+\`, Ctrl+K W and Ctrl+K Ctrl+W (Cmd for Ctrl on the K on macOS); macOS System Shortcuts
-  Ctrl+Cmd+K and Cmd+F3; none on Sublime Text.
-- **Not yet:** mnemonic bookmarks (Ctrl+F11, the digits and letters), descriptions, more lists,
+  Ctrl+Cmd+K and Cmd+F3; none on Sublime Text. The digits' toggles are Ctrl+Shift and the digit,
+  their Go to Ctrl and it, on macOS too (and in the classic macOS keymap, whose file keeps Ctrl);
+  none on NetBeans, and Eclipse leaves out Ctrl+1, Emacs Ctrl+Shift+2. The letters' have none.
+- **Not yet:** Toggle Bookmark with Mnemonic's chooser (Ctrl+F11), Go to Mnemonic's popup
+  (Ctrl+Shift+F11), a mnemonic typed in Show Bookmarks going to its bookmark, descriptions, more lists,
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in
   the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
