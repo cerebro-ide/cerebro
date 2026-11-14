@@ -1102,6 +1102,37 @@ describe('the gutter’s menu', () => {
   });
 });
 
+describe('an editor tab’s menu', () => {
+  it('has Bookmarks, for the tab’s file, as IntelliJ’s; none for a tab of no file of its own', async () => {
+    const tabMenu = async (id: string) => {
+      await userEvent.click(q(`[data-tab="${id}"]`), { button: 'right' });
+      if (!(await menuItems()).includes('Bookmarks')) {
+        await closeAll();
+        return null;
+      }
+      await userEvent.hover(menuItem('Bookmarks'));
+      const menus = () => document.querySelectorAll('.cerebro-menu');
+      await expect.poll(() => menus().length).toBe(2);
+      return [...(menus()[1] as HTMLElement).querySelectorAll('.cerebro-menu-item__label')].map(
+        (label) => label.textContent,
+      );
+    };
+    env().editor.open({ id: '/r/src/h.ts', title: 'h.ts' });
+    expect(await tabMenu('/r/src/h.ts')).toEqual(['Toggle Bookmark']);
+    await userEvent.click(menuItem('Toggle Bookmark'));
+    // The file's, not a line's.
+    expect(bookmarkAt('/r', { path: '/r/src/h.ts' })).toEqual({ path: '/r/src/h.ts' });
+    expect(await tabMenu('/r/src/h.ts')).toEqual(['Rename Bookmark…', 'Toggle Bookmark']);
+    await userEvent.click(menuItem('Toggle Bookmark'));
+    expect(bookmarkAt('/r', { path: '/r/src/h.ts' })).toBeUndefined();
+    env().editor.close(env().editor.activeGroup.id, '/r/src/h.ts');
+    const diff = diffTab('src/h.ts');
+    env().editor.open(diff);
+    expect(await tabMenu(diff.id)).toBeNull();
+    env().editor.close(env().editor.activeGroup.id, diff.id);
+  });
+});
+
 describe('mnemonic bookmarks', () => {
   it('are toggled on Ctrl+Shift and a digit, shown with it, and gone to on Ctrl and it', async () => {
     localStorage.setItem('cerebro.bookmarks.rewrite', 'false');

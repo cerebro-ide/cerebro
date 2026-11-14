@@ -32,6 +32,8 @@ import { themeIsDark } from './theme.js';
 export interface TabContext {
   group: string;
   tab: string;
+  /** Opened from the tab's own menu (IntelliJ's `EDITOR_TAB_POPUP` place), not by a key. */
+  tabMenu?: true;
 }
 
 /** A tab's file, its paths as Copy Path/Reference copies them; none for a tab of no file. */
