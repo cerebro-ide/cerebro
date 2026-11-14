@@ -139,12 +139,17 @@ const searches = () => host.params('search.text') as Search[];
 /** Opens Find in Files, or Replace, from the active file, and types `query`. */
 async function find(
   query: string,
-  { replacing = false, file = '/r/src/a.ts' } = {},
+  {
+    replacing = false,
+    file = '/r/src/a.ts',
+    folder,
+  }: { replacing?: boolean; file?: string; folder?: string } = {},
 ): Promise<{ done: Promise<void> }> {
   const done = findInFiles({
     open: (at) => void opened.push(at),
     showOccurrences: (o) => void shown.push(o),
     file,
+    folder,
     replacing,
   });
   await expect.poll(() => document.querySelector('.cerebro-popup')).not.toBeNull();
@@ -348,6 +353,19 @@ describe('Find in Files', () => {
     await expect.poll(count).toBe('5 matches in 3 files');
     await userEvent.click(button('In Project'));
     expect(document.querySelector('.playground-find__directory')).toBeNull();
+  });
+
+  it('searches the folder it’s given, from the Project view, as the Directory', async () => {
+    await find('alpha', { folder: '/r/docs' });
+    expect(input('.playground-find__directory').value).toBe('docs');
+    await expect.poll(count).toBe('1 match in 1 file');
+    expect(searches().at(-1)?.path).toBe('/r/docs');
+    // The worktree's own folder: all of it.
+    await closeAll();
+    await find('alpha', { folder: '/r' });
+    expect(input('.playground-find__directory').value).toBe('');
+    await expect.poll(count).toBe('5 matches in 3 files');
+    await userEvent.click(button('In Project'));
   });
 
   it('searches only files the File mask takes, when it’s on', async () => {

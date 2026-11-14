@@ -60,7 +60,7 @@ import {
   type Mark,
   type Place,
 } from '@cerebro-ide/ui-editor';
-import { projectNode, ProjectTree, selectInTree, type FileNode } from './project.js';
+import { projectNode, projectTarget, ProjectTree, selectInTree, type FileNode } from './project.js';
 import { askProblems, hasErrors, ProblemsView, setupProblems } from './problems.js';
 import { fileManagerLabel, fileManagerName, setupSelectIn } from './select-in.js';
 import { CommitTabs, CommitWindow, setupShelf, showCommitTab } from './shelf.js';
@@ -569,16 +569,23 @@ const inFindWindow = (occurrences: Occurrences) => {
   showOccurrences(occurrences);
   layout.toolWindows.show('find');
 };
+// From the Project view while it has the focus, they search the folder selected, or the file's.
+const findFolder = (context: unknown) => {
+  const node = projectTarget(context as TabContext | undefined);
+  if (!node) return undefined;
+  return node.kind === 'directory' ? node.path : node.path.slice(0, node.path.lastIndexOf('/'));
+};
 services.commands.register({
   id: 'find.inFiles',
   label: 'Find in &Files',
   dialog: true,
   enabled: navigation.available,
-  run: () =>
+  run: (context) =>
     findInFiles({
       open: navigation.openAt,
       showOccurrences: inFindWindow,
       file: editor()?.activeGroup.active,
+      folder: findFolder(context),
     }),
 });
 services.keymap.bindDefault('Mod+Shift+F', 'find.inFiles');
@@ -593,16 +600,21 @@ services.commands.register({
   label: '&Replace in Files',
   dialog: true,
   enabled: navigation.available,
-  run: () =>
+  run: (context) =>
     findInFiles({
       open: navigation.openAt,
       showOccurrences: inFindWindow,
       file: editor()?.activeGroup.active,
+      folder: findFolder(context),
       replacing: true,
     }),
 });
 services.keymap.bindDefault('Mod+Shift+R', 'replace.inFiles');
 services.menus.contribute({ menu: 'main/edit/find', item: { command: 'replace.inFiles' } });
+// In the Project view's menu after Copy Path, as IntelliJ's ProjectViewPopupMenu.
+for (const command of ['find.inFiles', 'replace.inFiles']) {
+  services.menus.contribute({ menu: 'project/node', item: { command }, group: 'c-find' });
+}
 // Back and Forward through the places the caret was, as IntelliJ's Navigate menu, its shortcuts,
 // and the mouse's own back and forward buttons.
 services.commands.register({

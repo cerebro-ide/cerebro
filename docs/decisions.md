@@ -3189,8 +3189,12 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   IntelliJ's `RevealGroup`, in the desktop app only: its one item shows the file or folder in the
   system's file manager, named as IntelliJ's short names are (Finder, Explorer, File Manager; the
   name on Linux is a claim, from IntelliJ's source, not seen). IntelliJ's other items in it
-  (Terminal, a browser) aren't yet. IntelliJ's menu's other groups (New, Cut, Copy, Paste, Find in
-  Files, Rename, Delete, Git, Compare With) aren't in it yet.
+  (Terminal, a browser) aren't yet. So are Find in Files and Replace in Files (added 2026-11-14),
+  after Copy Path, as IntelliJ's `FindInPath` and `ReplaceInPath`: from it, or their keys while
+  the view has the focus, they search the folder selected, or the file's, its scope Directory, as
+  IntelliJ's `FindInProjectUtil.setDirectoryName` does with no editor in the context. IntelliJ's
+  menu's other groups (New, Cut, Copy, Paste, Find Usages, Rename, Delete, Git, Compare With)
+  aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.

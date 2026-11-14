@@ -1372,6 +1372,33 @@ describe('the Project view’s menu', () => {
     answers.delete('fs.list');
   });
 
+  it('finds in the folder it’s opened on, or the file’s', async () => {
+    answers.set('fs.list', [
+      { path: '/r/lib', name: 'lib', kind: 'directory' },
+      { path: '/r/d.ts', name: 'd.ts', kind: 'file' },
+    ]);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const directory = () =>
+      (document.querySelector('.playground-find__directory') as HTMLInputElement).value;
+    await userEvent.click(await vi.waitUntil(() => row('/r/lib')), { button: 'right' });
+    await userEvent.click(menuItem('Find in Files…'));
+    await expect.poll(directory).toBe('lib');
+    await closeAll();
+    await userEvent.click(await vi.waitUntil(() => row('/r/d.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Replace in Files…'));
+    await expect.poll(directory).toBe('');
+    await userEvent.click(
+      [...document.querySelectorAll('.cerebro-popup button')].find(
+        (b) => b.textContent === 'In Project',
+      ) as HTMLElement,
+    );
+    await closeAll();
+    if (!shown) await userEvent.click(stripe('project'));
+    answers.delete('fs.list');
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
