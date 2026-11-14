@@ -196,6 +196,11 @@ diff's model for one link (CLAUDE.md).
   #115's run failed one step later: Ctrl+B reached lib.py, then Alt+F7 there never showed "Usages
   of walk" in 30 s (not reproduced in 3 runs on a local Windows machine). That step now prints
   the page and the host's answer too (2026-11-03).
+- **Find Usages showed no name matches once on macOS in CI** (#326's run, 2026-11-14): host.test's
+  "goes to a definition with Ctrl+click, and finds usages with Alt+F7" reached `export class Shape`
+  in shape.ts, then Alt+F7 showed no popup in 5 s. The cause isn't known (the run printed nothing
+  more); the test now prints the focus, the caret's line, the popups and the balloons when it
+  happens again.
 - **The e2e completion test once showed no list on Windows** (CI on #121, 2026-11-04): after
   `shape.wi` was typed, with the editor focused and no popup open, the list never showed. The cause
   isn't found. The test's output asked the server again with the file as on disk, not as typed, so

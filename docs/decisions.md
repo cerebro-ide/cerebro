@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2942,6 +2942,23 @@ saving").
   macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS; VS Code's Scroll Line
   Up and Down, Ctrl+Up and Down (Ctrl+PageUp and PageDown on macOS), from its sheets. **Difference:**
   IntelliJ's scroll is animated (its smooth scrolling); this one jumps.
+- **Cyclic Expand Word** (added 2026-11-13), IntelliJ's `HippieCompletion` and
+  `HippieBackwardCompletion` (`HippieWordCompletionHandler`, read from its source), which
+  CodeMirror hasn't: the word before the caret completed with another of the text's that starts
+  with it and is longer, the part before the caret replaced. Forward (Alt+/) offers the nearest
+  word before the caret first, then further back; backward (Alt+Shift+/) the nearest after it, then
+  further on; each a side once, its occurrence nearest the caret, and never the word at the caret.
+  Past the last, the word as it was typed, and the next press starts over. Any other change of the
+  text or the caret ends it. It takes the key even with nothing to offer, as IntelliJ's, so a key
+  it shares with a command elsewhere (NetBeans' Ctrl+K, Commit's) doesn't go on to that. Undo says
+  "Undo Cyclic Expand Word". Its keys, from IntelliJ's keymap files: Alt+/ and Alt+Shift+/
+  (`$default`, and on macOS); Eclipse's Ctrl+. on macOS, no backward; NetBeans' Ctrl+Shift+K and
+  Ctrl+K; Visual Studio's no backward. Emacs has none: its own Alt+/ is Code Completion, which the
+  key inherited from `$default` would take (Claude's choice, open to change).
+  - **Differences:** IntelliJ's matches by camel humps (`gE` for `getElement`), takes `-` and `*`
+    inside a token as a word's (`font-size` in CSS), looks in the other open editors once this one
+    has no more words, and highlights the word it took; here a word starts with what was typed,
+    is made of letters, digits, `_` and `$`, and comes from this editor only.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.

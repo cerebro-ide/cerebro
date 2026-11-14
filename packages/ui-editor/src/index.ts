@@ -36,6 +36,7 @@ export { moveLine } from './move-line.js';
 export { startNewLine } from './start-new-line.js';
 export { joinLines } from './join-lines.js';
 export { toggleCase } from './toggle-case.js';
+export { expandWord } from './expand-word.js';
 export { extendSelection, selectionSteps, shrinkSelection } from './extend-selection.js';
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';

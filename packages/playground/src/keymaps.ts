@@ -46,6 +46,8 @@ export const EDITOR_ACTIONS = {
   startNewLine: 'editor.startNewLine',
   joinLines: 'editor.joinLines',
   toggleCase: 'editor.toggleCase',
+  expandWord: 'editor.cyclicExpandWord',
+  expandWordBackward: 'editor.cyclicExpandWordBackward',
   matchBrace: 'editor.matchBrace',
   extendSelection: 'editor.extendSelection',
   shrinkSelection: 'editor.shrinkSelection',
@@ -163,6 +165,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U'],
     [EDITOR_ACTIONS.scrollUp]: ['Ctrl+Up'],
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Down'],
+    [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
+    [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
   },
 };
 
@@ -267,6 +271,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+U'],
     [EDITOR_ACTIONS.scrollUp]: [],
     [EDITOR_ACTIONS.scrollDown]: [],
+    [EDITOR_ACTIONS.expandWord]: ['Alt+/'],
+    [EDITOR_ACTIONS.expandWordBackward]: ['Alt+Shift+?'],
   },
 };
 
@@ -558,6 +564,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+X', 'Meta+Shift+Y'],
+    [EDITOR_ACTIONS.expandWord]: ['Ctrl+.'],
+    [EDITOR_ACTIONS.expandWordBackward]: [],
   },
 };
 
@@ -595,6 +603,8 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Alt+W'],
     [EDITOR_ACTIONS.scrollUp]: [],
     [EDITOR_ACTIONS.scrollDown]: [],
+    // Its own Alt+/ is Code Completion's.
+    [EDITOR_ACTIONS.expandWord]: [],
   },
 };
 
@@ -694,6 +704,8 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift+>'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+<'],
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+U S'],
+    [EDITOR_ACTIONS.expandWord]: ['Ctrl+Shift+K'],
+    [EDITOR_ACTIONS.expandWordBackward]: ['Ctrl+K'],
   },
 };
 
@@ -853,6 +865,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+]'],
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift++', 'Ctrl+Alt+Right', 'Ctrl+W'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Shift+_', 'Ctrl+Alt+Left', 'Ctrl+Shift+W'],
+    [EDITOR_ACTIONS.expandWordBackward]: [],
   },
 };
 
