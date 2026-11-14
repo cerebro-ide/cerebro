@@ -248,13 +248,16 @@ describe('CodeEditor', () => {
 
   it('shows a document’s text read again from disk, which undo doesn’t take back', async () => {
     const doc = new EditorDocument('one');
-    const root = mount({ path: 'a.txt', document: doc });
+    const onCaret = vi.fn();
+    const root = mount({ path: 'a.txt', document: doc, onCaret });
     expect(doc.changedOnDisk('changed')).toBe(true);
     expect(root.querySelector('.cm-line')?.textContent).toBe('changed');
     (root.querySelector('.cm-content') as HTMLElement).focus();
     // Only what differs is replaced: the caret, after it, stays where it was in the text.
     await userEvent.keyboard('{Home}{ArrowRight}{ArrowRight}');
     expect(doc.changedOnDisk('so changed')).toBe(true);
+    // And says where it's gone.
+    expect(onCaret).toHaveBeenLastCalledWith({ line: 0, column: 5 }, undefined);
     await userEvent.keyboard('!');
     expect(root.querySelector('.cm-line')?.textContent).toBe('so ch!anged');
     await userEvent.keyboard('{Backspace}');
