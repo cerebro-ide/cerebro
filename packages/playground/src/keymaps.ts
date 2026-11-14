@@ -49,6 +49,8 @@ export const EDITOR_ACTIONS = {
   matchBrace: 'editor.matchBrace',
   extendSelection: 'editor.extendSelection',
   shrinkSelection: 'editor.shrinkSelection',
+  scrollUp: 'editor.scrollUp',
+  scrollDown: 'editor.scrollDown',
   find: 'editor.find',
   replace: 'editor.replace',
 } as const;
@@ -159,6 +161,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+W'],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
     [EDITOR_ACTIONS.toggleCase]: ['Ctrl+Shift+U'],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+Up'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Down'],
   },
 };
 
@@ -261,6 +265,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: ['Alt+Down'],
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
     [EDITOR_ACTIONS.toggleCase]: ['Meta+Shift+U'],
+    [EDITOR_ACTIONS.scrollUp]: [],
+    [EDITOR_ACTIONS.scrollDown]: [],
   },
 };
 
@@ -426,6 +432,8 @@ export const VSCODE_MAC: KeymapPreset = {
     // Expand and Shrink Selection, its sheets'.
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Meta+Right'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Meta+Left'],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+PageUp'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
   },
 };
 
@@ -585,6 +593,8 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.lineComment]: ['Alt+;'],
     [EDITOR_ACTIONS.deleteLine]: [],
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Alt+W'],
+    [EDITOR_ACTIONS.scrollUp]: [],
+    [EDITOR_ACTIONS.scrollDown]: [],
   },
 };
 
@@ -781,6 +791,8 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.shrinkSelection]: [],
     [EDITOR_ACTIONS.joinLines]: ['Meta+J'],
     [EDITOR_ACTIONS.toggleCase]: ['Meta+K Meta+U', 'Meta+K Meta+L'],
+    [EDITOR_ACTIONS.scrollUp]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.scrollDown]: ['Ctrl+Alt+Down'],
   },
 };
 

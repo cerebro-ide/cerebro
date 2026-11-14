@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2934,6 +2934,14 @@ saving").
   Sublime Text's Ctrl+K Ctrl+U and Ctrl+K Ctrl+L (Cmd on macOS).
   - **Claim:** on Linux, an input method (IBus) can take Ctrl+Shift+U for typing a Unicode
     character before the app sees it; not measured (the QA ran under xvfb, with none).
+- **Scroll Up and Scroll Down** (added 2026-11-13), IntelliJ's `EditorScrollUp` and
+  `EditorScrollDown` (`ScrollUpAction`, `EditorActionUtil.scrollRelatively` with `moveCaret` off,
+  read from its source), which CodeMirror hasn't: the text scrolled one line's height, the caret
+  left where it is, even off screen; in a read-only editor too. Their keys, from IntelliJ's keymap
+  files: Ctrl+Up and Ctrl+Down (`$default`; Cmd in IntelliJ's classic macOS keymap, none in its
+  macOS one); none in Emacs; Sublime Text's Ctrl+Alt+Up and Down on macOS; VS Code's Scroll Line
+  Up and Down, Ctrl+Up and Down (Ctrl+PageUp and PageDown on macOS), from its sheets. **Difference:**
+  IntelliJ's scroll is animated (its smooth scrolling); this one jumps.
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
