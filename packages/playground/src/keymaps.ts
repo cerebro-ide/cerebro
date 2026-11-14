@@ -199,6 +199,7 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: ['Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Ctrl+Shift+I'],
+    'bookmarks.toggle': ['F11'],
   },
 };
 
@@ -324,6 +325,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space', 'Meta+Y'],
+    'bookmarks.toggle': ['F3'],
   },
 };
 
@@ -586,6 +588,7 @@ export const ECLIPSE: KeymapPreset = {
     'navigate.lastEdit': ['Ctrl+Q'],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
+    'bookmarks.toggle': ['Ctrl+Shift+F11'],
   },
 };
 
@@ -654,6 +657,7 @@ export const ECLIPSE_MAC: KeymapPreset = {
     'navigate.lastEdit': ['Ctrl+Q'],
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
+    'bookmarks.toggle': [],
   },
 };
 
@@ -770,6 +774,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Meta+Y'],
+    'bookmarks.toggle': ['Ctrl+Shift+K', 'F3'],
   },
 };
 
@@ -823,6 +828,7 @@ export const NETBEANS: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: [],
+    'bookmarks.toggle': [],
   },
 };
 
@@ -880,6 +886,7 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: [],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
     'navigate.lastEdit': [],
+    'bookmarks.toggle': ['Ctrl+F2'],
   },
 };
 
@@ -936,6 +943,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: [],
     [EDITOR_ACTIONS.methodUp]: [],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space'],
+    'bookmarks.toggle': ['Meta+F2', 'Ctrl+Shift+R'],
   },
 };
 
@@ -1007,6 +1015,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     'code.optimizeImports': ['Ctrl+R G', 'Ctrl+R Ctrl+G', 'Ctrl+Alt+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Alt+Home'],
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
+    'bookmarks.toggle': ['Ctrl+K K', 'Ctrl+K Ctrl+K'],
   },
 };
 
@@ -1075,6 +1084,9 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Alt+Left', 'Alt+Home'],
     // Not its parent's Cmd+Y, its Redo here.
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+Space'],
+    // Its file names Toggle Bookmark twice, Cmd+F2 and then these: the later taken, as IntelliJ's
+    // reading keeps the last (a claim).
+    'bookmarks.toggle': ['Meta+K K', 'Meta+K Meta+K'],
   },
 };
 

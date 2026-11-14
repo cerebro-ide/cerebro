@@ -2,6 +2,7 @@ import { Environments } from '@cerebro-ide/layout';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { diffSource, type EditorDocument } from '@cerebro-ide/ui-editor';
+import { bookmarkedLines, toggleBookmark } from '../src/bookmarks.js';
 import { diffTab, revisionTab } from '../src/changes.js';
 import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
@@ -973,6 +974,43 @@ describe('navigation in the editor', () => {
     await vi.waitUntil(() => editorRoot()?.querySelector('.cerebro-quickDef'));
     await userEvent.keyboard('{F4}');
     await expect.poll(active).toBe('/r/src/b.ts');
+  });
+});
+
+describe('bookmarks', () => {
+  const marked = () =>
+    [...(editorRoot()?.querySelectorAll('.cerebro-bookmarks .cm-gutterElement') ?? [])].flatMap(
+      (element, index) => (element.querySelector('.cerebro-bookmark') ? [index] : []),
+    );
+
+  it('are toggled on the caret’s line on F11, shown in the gutter, and listed in their window', async () => {
+    // On a file just opened, before its editor has said where its caret is: its first line.
+    env().editor.open({ id: '/r/src/marked.ts', title: 'marked.ts' });
+    expect(carets.get('/r/src/marked.ts')).toBeUndefined();
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'F11', code: 'F11' }));
+    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0]);
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}{F11}');
+    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([0, 1]);
+    await expect.poll(marked).toEqual([0, 1]);
+    // Taken away on F11 again.
+    await userEvent.keyboard('{F11}');
+    await expect.poll(marked).toEqual([0]);
+    // Moved with its line, and kept where it went.
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Enter}');
+    expect(bookmarkedLines('/r', '/r/src/marked.ts')).toEqual([1]);
+    await userEvent.click(stripe('bookmarks'));
+    await expect
+      .poll(() =>
+        [...document.querySelectorAll('[aria-label="Bookmarks"] .cerebro-tree-row')].map(
+          (r) => r.textContent,
+        ),
+      )
+      .toEqual(['rDefault', 'marked.tssrc', '2:']);
+    await userEvent.dblClick(row('/r/src/marked.ts:1'));
+    await expect.poll(() => reveals.get('/r/src/marked.ts')).toEqual({ line: 1, column: 0 });
+    await userEvent.click(stripe('bookmarks'));
+    toggleBookmark('/r', '/r/src/marked.ts', 1);
   });
 });
 

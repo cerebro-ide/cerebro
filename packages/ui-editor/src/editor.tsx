@@ -48,6 +48,7 @@ import type { Selected } from './line.js';
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
+import { bookmarks, showBookmarks } from './bookmarks.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { foldKeys, folding, type AskFolds } from './folding.js';
@@ -142,6 +143,10 @@ export interface CodeEditorProps {
   ) => void;
   /** The line at the top of the editor, zero-based: each time it scrolls. */
   onScroll?: (top: number) => void;
+  /** The bookmarked lines, zero-based, shown in a gutter before the line numbers. */
+  bookmarks?: () => readonly number[];
+  /** Where the bookmarks are once an edit has moved them, as IntelliJ's follow their lines. */
+  onBookmarksMoved?: (lines: number[]) => void;
   /**
    * Where the symbol at the caret is in the file, highlighted as IntelliJ's: asked once the caret
    * stays. None: no highlights.
@@ -458,6 +463,16 @@ export const theme = EditorView.theme({
     borderRadius: '3px',
     margin: '0 1px',
     cursor: 'pointer',
+  },
+  // A bookmark's icon, as IntelliJ's (its colour a claim, not measured).
+  '.cerebro-bookmarks .cm-gutterElement': { display: 'flex', alignItems: 'center' },
+  '.cerebro-bookmark': {
+    width: '12px',
+    height: '12px',
+    fill: 'none',
+    stroke: variable('text-muted'),
+    strokeWidth: '1',
+    strokeLinejoin: 'round',
   },
   '.cerebro-markers .cm-gutterElement': {
     width: '36px',
@@ -1060,6 +1075,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
   const extensions: Extension[] = [
     // Before the line numbers, as IntelliJ's new UI.
     annotating.of([]),
+    props.bookmarks ? bookmarks((lines) => props.onBookmarksMoved?.(lines)) : [],
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
@@ -1209,6 +1225,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
     });
     return undefined;
   });
+  const bookmarking = effect(() => {
+    const lines = props.bookmarks?.();
+    if (lines) showBookmarks(view, lines);
+    return undefined;
+  });
   const focusing = effect(() => {
     const request = props.focus?.();
     if (request === undefined) return undefined;
@@ -1250,6 +1271,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     annotations.dispose();
     revealing.dispose();
     focusing.dispose();
+    bookmarking.dispose();
     following.dispose();
     view.destroy();
   });

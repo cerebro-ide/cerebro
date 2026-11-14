@@ -66,6 +66,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
@@ -3029,6 +3030,37 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+
+## Bookmarks (2026-11-14)
+
+IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
+
+- **As IntelliJ's** (`ToggleBookmarkAction`, `BookmarksManagerImpl` and the Bookmarks tool
+  window's nodes, read from its source): Toggle Bookmark adds a bookmark on the caret's line, or
+  takes the one there away. The editor shows each in a gutter of its own, before the line numbers,
+  and moves it with its line's text as it's edited (IntelliJ keeps one on a range marker); an
+  Enter at the line's start takes it down with the text. Two bookmarked lines joined keep one:
+  CodeMirror drops a gutter marker once the line break before it goes (measured).
+- **The Bookmarks tool window** (already on the left's second slot) lists them under one list
+  named after the worktree, as IntelliJ's default list is named after the project, marked
+  "Default"; then by file, with its folder, in the order added, each line by its number
+  (IntelliJ's "Group line bookmarks", on by default). A double click or Enter opens a file, or a
+  line; the list itself opens nothing. With none: IntelliJ's "No bookmarks added." and "Add
+  Bookmark (F11) to code lines." The icon is drawn after IntelliJ's (a claim: not its drawing),
+  in the muted text colour (a claim: not measured).
+- **Kept per worktree, between runs,** in the page's local storage (`cerebro.bookmarks:<path>`),
+  as other per-view state is; none when what's kept can't be read.
+- **In the Edit menu,** in a Bookmarks submenu after Find (a claim: where in it), as "Toggle
+  &Bookmark".
+- **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
+  Eclipse for macOS or NetBeans; Sublime Text Ctrl+F2, on macOS Cmd+F2 and Ctrl+Shift+R; Visual
+  Studio Ctrl+K K and Ctrl+K Ctrl+K; macOS System Shortcuts Ctrl+Shift+K and F3. Visual Studio
+  for Mac's file names the action twice (Cmd+F2, then Cmd+K K and Cmd+K Cmd+K): the later is
+  taken, as IntelliJ's reading keeps the last (a claim). VS Code has no bookmarks of its own, so
+  its keymaps keep IntelliJ's.
+- **Not yet:** mnemonic bookmarks (Ctrl+F11, the digits and letters), descriptions, more lists,
+  Show Bookmarks' popup (Shift+F11), Next and Previous Bookmark, bookmarks on files and folders in
+  the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
 
 ## Call Hierarchy (2026-11-14)
 

@@ -159,6 +159,7 @@ import {
 import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
+import { bookmarkedLines, BookmarksView, moveBookmarks, toggleBookmark } from './bookmarks.js';
 import { HierarchyView, showHierarchy } from './call-hierarchy.js';
 import {
   closeProject,
@@ -801,6 +802,25 @@ services.menus.contribute({
   item: { command: 'navigate.callHierarchy' },
   group: 'b',
 });
+// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the caret's line, or none there.
+services.commands.register({
+  id: 'bookmarks.toggle',
+  label: 'Toggle &Bookmark',
+  enabled: () => active() !== undefined && activeFile() !== undefined,
+  run: () => {
+    const file = activeFile() as Tab;
+    const caret = carets.get(file.id) ?? { line: 0, column: 0 };
+    toggleBookmark(active()?.id as string, file.id, caret.line);
+  },
+});
+services.keymap.bindDefault('F11', 'bookmarks.toggle');
+// In IntelliJ's Edit menu, after Find (a claim: where in it).
+services.menus.contribute({
+  menu: 'main/edit',
+  item: { submenu: 'main/edit/bookmarks', label: 'Book&marks' },
+  group: 'g',
+});
+services.menus.contribute({ menu: 'main/edit/bookmarks', item: { command: 'bookmarks.toggle' } });
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
 services.commands.register({
   id: 'project.selectOpenedFile',
@@ -1630,6 +1650,9 @@ function Content(props: { id: string }) {
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
+  if (props.id === 'bookmarks') {
+    return <BookmarksView open={navigation.open} openAt={navigation.openAt} />;
+  }
   if (props.id === 'vcsChanges') return <DiffWithWorkingTree services={services} open={openTab} />;
   if (props.id === 'claude') return <TerminalPane kind="claude" />;
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
@@ -1723,6 +1746,10 @@ function Code(props: { path: string; env: string }) {
               topLine.set(top);
             }}
             annotate={() => annotationFor(props.path)}
+            bookmarks={() => bookmarkedLines(props.env, props.path)}
+            onBookmarksMoved={(lines) => {
+              moveBookmarks(props.env, props.path, lines);
+            }}
             {...(navigation.available()
               ? {
                   onGoToDefinition: (name: string, at: { line: number; column: number }) =>
