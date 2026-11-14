@@ -49,6 +49,15 @@ selection (decision "Duplicate Line or Selection", say). Turning on CodeMirror's
 changes how every editor command behaves, so it's proposed before it's done (CLAUDE.md). Their keys
 are already read from IntelliJ's keymap files and VS Code's sheets (Ctrl+D, Ctrl+Shift+L).
 
+### A popup that holds controls (proposed: a reshaping, for Ido's word)
+
+IntelliJ shows some choosers as popups with controls of their own, at the caret: Toggle Bookmark
+Mnemonic's grid and description field (`BookmarkTypeChooser`), say. Cerebro's popups are lists
+(the picker, the Switcher), each drawing its own frame, so the mnemonic chooser is a dialog with OK
+and Cancel for now (decision "Bookmarks"). A popup shell they'd share, with a title, a place and
+the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
+doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

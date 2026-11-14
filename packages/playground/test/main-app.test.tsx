@@ -1089,6 +1089,49 @@ describe('mnemonic bookmarks', () => {
     await expect.poll(() => bookmarkMarks('/r', '/r/src/c.ts')).toEqual([]);
     localStorage.removeItem('cerebro.bookmarks.rewrite');
   });
+
+  it('are chosen for the caret’s line on Ctrl+F11, said so in the menu, and gone to on Ctrl+Shift+F11', async () => {
+    /** Edit → Bookmarks's items. */
+    const bookmarksMenu = async () => {
+      await userEvent.click(q('.cerebro-menubar__button'));
+      // File's menu, then Edit's.
+      await menuItems();
+      await userEvent.keyboard('{ArrowRight}');
+      await expect.poll(menuItems).toContain('Undo');
+      await userEvent.hover(menuItem('Bookmarks'));
+      const menus = () => document.querySelectorAll('.cerebro-menu');
+      await expect.poll(() => menus().length).toBe(2);
+      const items = [...(menus()[1] as HTMLElement).querySelectorAll('.cerebro-menu-item__label')];
+      const labels = items.map((label) => label.textContent);
+      await closeAll();
+      return labels;
+    };
+    // No file: what IntelliJ's keymap calls it; Go to Mnemonic off, none having one.
+    for (const group of env().editor.groups) {
+      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+    }
+    expect((await bookmarksMenu())[1]).toBe('Toggle Bookmark Mnemonic…');
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    expect((await bookmarksMenu())[1]).toBe('Add Mnemonic Bookmark…');
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
+    await userEvent.keyboard('{Control>}{F11}{/Control}');
+    expect(await dialogText()).toContain('Quickly set');
+    await userEvent.keyboard('m');
+    await expect
+      .poll(() => bookmarkMarks('/r', '/r/src/c.ts'))
+      .toEqual([{ line: 1, mnemonic: 'M' }]);
+    expect((await bookmarksMenu())[1]).toBe('Change Mnemonic…');
+    // Gone to from another file.
+    env().editor.open({ id: '/r/src/b.ts', title: 'b.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Shift>}{F11}{/Shift}{/Control}');
+    expect(await popupItems()).toEqual(['c.ts :2']);
+    await userEvent.keyboard('m');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/c.ts');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 1, column: 0 });
+    toggleBookmark('/r', '/r/src/c.ts', 1);
+  });
 });
 
 describe('errors and warnings', () => {

@@ -223,6 +223,8 @@ export const INTELLIJ: KeymapPreset = {
     'bookmarks.goTo.7': ['Ctrl+7'],
     'bookmarks.goTo.8': ['Ctrl+8'],
     'bookmarks.goTo.9': ['Ctrl+9'],
+    'bookmarks.toggleMnemonic': ['Ctrl+F11'],
+    'bookmarks.goToMnemonic': ['Ctrl+Shift+F11'],
   },
 };
 
@@ -372,6 +374,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'bookmarks.goTo.7': ['Ctrl+7'],
     'bookmarks.goTo.8': ['Ctrl+8'],
     'bookmarks.goTo.9': ['Ctrl+9'],
+    'bookmarks.toggleMnemonic': ['Alt+F3'],
+    'bookmarks.goToMnemonic': ['Meta+Alt+F3'],
   },
 };
 
@@ -636,6 +640,8 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
     'bookmarks.toggle': ['Ctrl+Shift+F11'],
     'bookmarks.goTo.1': [],
+    'bookmarks.toggleMnemonic': ['Ctrl+Alt+Shift+F11'],
+    'bookmarks.goToMnemonic': [],
   },
 };
 
@@ -845,6 +851,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.quickDefinition]: ['Meta+Y'],
     'bookmarks.toggle': ['Ctrl+Shift+K', 'F3'],
     'bookmarks.show': ['Ctrl+Meta+K', 'Meta+F3'],
+    'bookmarks.toggleMnemonic': ['Ctrl+Alt+Shift+K', 'Meta+F11'],
+    'bookmarks.goToMnemonic': ['Meta+Alt+F3'],
   },
 };
 
@@ -922,6 +930,7 @@ export const NETBEANS: KeymapPreset = {
     'bookmarks.goTo.7': [],
     'bookmarks.goTo.8': [],
     'bookmarks.goTo.9': [],
+    'bookmarks.goToMnemonic': [],
   },
 };
 
@@ -983,6 +992,7 @@ export const SUBLIME: KeymapPreset = {
     'bookmarks.next': ['F2'],
     'bookmarks.previous': ['Shift+F2'],
     'bookmarks.show': [],
+    'bookmarks.goToMnemonic': [],
   },
 };
 
@@ -1043,6 +1053,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     'bookmarks.next': ['F2', 'Ctrl+R'],
     'bookmarks.previous': ['Shift+F2'],
     'bookmarks.show': [],
+    'bookmarks.goToMnemonic': [],
   },
 };
 
@@ -1118,6 +1129,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     'bookmarks.next': ['Ctrl+K N', 'Ctrl+K Ctrl+N'],
     'bookmarks.previous': ['Ctrl+K P', 'Ctrl+K Ctrl+P'],
     'bookmarks.show': ['Ctrl+`', 'Ctrl+K W', 'Ctrl+K Ctrl+W'],
+    'bookmarks.goToMnemonic': [],
   },
 };
 
@@ -1192,6 +1204,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     'bookmarks.next': ['Meta+K N', 'Meta+K Meta+N'],
     'bookmarks.previous': ['Meta+K P', 'Meta+K Meta+P'],
     'bookmarks.show': ['Ctrl+`', 'Meta+K W', 'Meta+K Meta+W'],
+    'bookmarks.goToMnemonic': [],
   },
 };
 

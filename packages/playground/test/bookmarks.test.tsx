@@ -6,6 +6,9 @@ import {
   bookmarkWith,
   bookmarksOf,
   BookmarksView,
+  chooseMnemonic,
+  goToMnemonic,
+  mnemonicChoice,
   moveBookmarks,
   nextBookmark,
   rewriteAsked,
@@ -261,6 +264,182 @@ describe('Show Bookmarks', () => {
     await closeAll();
     await shown;
     expect(opened).toEqual([]);
+  });
+});
+
+describe('the mnemonic chooser', () => {
+  const at = { path: '/c/a.ts', line: 2 };
+  const never = () => Promise.resolve(false);
+  const button = (mnemonic: string) =>
+    [...document.querySelectorAll<HTMLElement>('.playground-mnemonic')].find(
+      (element) => element.textContent === mnemonic,
+    ) as HTMLElement;
+  const marked = (kind: string) =>
+    [...document.querySelectorAll(`.playground-mnemonic--${kind}`)].map((b) => b.textContent);
+  const title = () => document.querySelector('.cerebro-dialog__title span')?.textContent;
+  const closed = () => expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+
+  it('is titled for what it does on the line, as IntelliJ’s', async () => {
+    expect(mnemonicChoice('/c', at)).toBe('Add Mnemonic Bookmark');
+    toggleBookmark('/c', at.path, at.line);
+    expect(mnemonicChoice('/c', at)).toBe('Assign Mnemonic');
+    await toggleMnemonic('/c', at, 'B', never);
+    expect(mnemonicChoice('/c', at)).toBe('Change Mnemonic');
+    toggleBookmark('/c', at.path, at.line);
+  });
+
+  it('shows the mnemonics in two grids, those used and the line’s coloured', async () => {
+    await toggleMnemonic('/c', at, '7', never);
+    await toggleMnemonic('/c', { path: '/c/b.ts', line: 0 }, 'K', never);
+    const chosen = chooseMnemonic('/c', at, never);
+    const shown = await dialog();
+    expect(title()).toBe('Change Mnemonic');
+    expect(
+      [...shown.querySelectorAll('.playground-mnemonics__digits button')].map((b) => b.textContent),
+    ).toEqual('1234567890'.split(''));
+    expect(
+      [...shown.querySelectorAll('.playground-mnemonics__letters button')]
+        .map((b) => b.textContent)
+        .join(''),
+    ).toBe('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+    expect(marked('current')).toEqual(['7']);
+    expect(marked('used')).toEqual(['K']);
+    expect(shown.querySelector('.playground-mnemonics__comment')?.textContent).toBe(
+      'Quickly set: type or double-click mnemonic',
+    );
+    expect(shown.querySelector('.playground-mnemonics__legend')?.textContent).toBe(
+      'Already usedCurrent',
+    );
+    // A click selects; the line's own is then one used.
+    await userEvent.click(button('3'));
+    expect(marked('current')).toEqual(['3']);
+    expect(marked('used')).toEqual(['7', 'K']);
+    // Clicked again: chosen.
+    await userEvent.click(button('3'));
+    await chosen;
+    expect(bookmarkWith('/c', '3')).toEqual({ ...at, mnemonic: '3' });
+    expect(bookmarkWith('/c', '7')).toBeUndefined();
+    toggleBookmark('/c', at.path, at.line);
+    toggleBookmark('/c', '/c/b.ts', 0);
+  });
+
+  it('chooses one typed, adding a bookmark with it', async () => {
+    const chosen = chooseMnemonic('/c', at, never);
+    await dialog();
+    expect(title()).toBe('Add Mnemonic Bookmark');
+    // Not with a modifier, nor a key that's no mnemonic.
+    await userEvent.keyboard('{Shift>}q{/Shift}-');
+    expect(document.querySelector('.cerebro-dialog')).not.toBeNull();
+    await userEvent.keyboard('q');
+    await chosen;
+    expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'Q' }]);
+    toggleBookmark('/c', at.path, at.line);
+  });
+
+  it('moves between its buttons with the arrows, round the grids and past their gaps', async () => {
+    const chosen = chooseMnemonic('/c', at, never);
+    await dialog();
+    const focused = () => document.activeElement?.textContent;
+    expect(focused()).toBe('1');
+    const moves: [string, string][] = [
+      ['{ArrowUp}', '0'],
+      ['{ArrowLeft}', 'Z'],
+      ['{ArrowRight}', '0'],
+      ['{ArrowRight}', 'V'],
+      ['{ArrowDown}', 'A'],
+      ['{ArrowLeft}', '3'],
+      ['{ArrowLeft}', '2'],
+      ['{ArrowUp}', '8'],
+      ['{ArrowDown}', '2'],
+      ['{ArrowLeft}', '1'],
+      ['{ArrowLeft}', 'G'],
+    ];
+    for (const [key, then] of moves) {
+      await userEvent.keyboard(key);
+      expect(focused()).toBe(then);
+    }
+    // Enter chooses the one with the focus.
+    await userEvent.keyboard('{Enter}');
+    await chosen;
+    expect(bookmarkWith('/c', 'G')).toEqual({ ...at, mnemonic: 'G' });
+    toggleBookmark('/c', at.path, at.line);
+  });
+
+  it('chooses the one selected on OK, leaves the line’s own, and asks before taking another’s', async () => {
+    toggleBookmark('/c', at.path, at.line);
+    let chosen = chooseMnemonic('/c', at, never);
+    await dialog();
+    expect(title()).toBe('Assign Mnemonic');
+    const ok = () =>
+      document.querySelector('.cerebro-dialog__button--primary') as HTMLButtonElement;
+    // None selected: no OK.
+    expect(ok().disabled).toBe(true);
+    await userEvent.click(button('C'));
+    await press('OK');
+    await chosen;
+    expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
+    // Its own chosen: kept, not taken away as a toggle would.
+    chosen = chooseMnemonic('/c', at, never);
+    await press('OK');
+    await chosen;
+    expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
+    // Cancelled: nothing.
+    chosen = chooseMnemonic('/c', at, never);
+    await press('Cancel');
+    await chosen;
+    expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
+    // Another's: asked, and left when told no.
+    const other = { path: '/c/b.ts', line: 1 };
+    const asked: LineBookmark[] = [];
+    chosen = chooseMnemonic('/c', other, (taken) => {
+      asked.push(taken);
+      return Promise.resolve(false);
+    });
+    await dialog();
+    await userEvent.keyboard('c');
+    await chosen;
+    expect(asked).toEqual([{ ...at, mnemonic: 'C' }]);
+    expect(bookmarksOf('/c')).toEqual([{ ...at, mnemonic: 'C' }]);
+    toggleBookmark('/c', at.path, at.line);
+    await closed();
+  });
+});
+
+describe('Go to Mnemonic', () => {
+  const worktree = { id: '/go', name: 'go' };
+  const yes = () => Promise.resolve(true);
+
+  it('lists the bookmarks with mnemonics in their order, and goes to one typed', async () => {
+    await toggleMnemonic('/go', { path: '/go/b.ts', line: 3 }, 'K', yes);
+    toggleBookmark('/go', '/go/plain.ts', 0);
+    await toggleMnemonic('/go', { path: '/go/src/a.ts', line: 1 }, '2', yes);
+    const gone = goToMnemonic(worktree, (at) => void opened.push(at));
+    expect(await popupItems()).toEqual(['a.ts :2', 'b.ts :4']);
+    expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Go to Mnemonic');
+    expect(
+      [...document.querySelectorAll('.cerebro-popup-item .playground-bookmark-mnemonic')].map(
+        (icon) => icon.textContent,
+      ),
+    ).toEqual(['2', 'K']);
+    // With a modifier, or one no bookmark has: searched for, as in any list.
+    await userEvent.keyboard('{Control>}k{/Control}b');
+    await expect.poll(popupItems).toEqual(['b.ts :4']);
+    await userEvent.keyboard('{Backspace}k');
+    await gone;
+    expect(opened).toEqual([{ path: '/go/b.ts', line: 3, mnemonic: 'K', column: 0 }]);
+  });
+
+  it('goes to the one chosen, and nowhere when closed', async () => {
+    let gone = goToMnemonic(worktree, (at) => void opened.push(at));
+    await popupItems();
+    await userEvent.keyboard('{Enter}');
+    await gone;
+    expect(opened).toEqual([{ path: '/go/src/a.ts', line: 1, mnemonic: '2', column: 0 }]);
+    gone = goToMnemonic(worktree, (at) => void opened.push(at));
+    await popupItems();
+    await closeAll();
+    await gone;
+    expect(opened).toHaveLength(1);
   });
 });
 

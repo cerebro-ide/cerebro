@@ -25,8 +25,8 @@ export interface LineBookmark {
   mnemonic?: string;
 }
 
-/** The mnemonics a bookmark can have, as IntelliJ's: the digits, then the letters. */
-export const MNEMONICS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+/** The mnemonics a bookmark can have, in IntelliJ's order (`BookmarkType`'s): 1 to 9, 0, A to Z. */
+export const MNEMONICS: readonly string[] = '1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
 
 /** Each worktree's bookmarks, in the order added, by its path. */
 const lists = new ObservableMap<string, readonly LineBookmark[]>();
@@ -143,6 +143,123 @@ export async function rewriteAsked(taken: LineBookmark): Promise<boolean> {
   return true;
 }
 
+/**
+ * What IntelliJ's Toggle Bookmark Mnemonic does on a line (`ChooseBookmarkTypeAction`): adds a
+ * bookmark with one where there's none, assigns one to a bookmark without, changes a bookmark's.
+ */
+export function mnemonicChoice(worktree: string, at: { path: string; line: number }): string {
+  const found = bookmarksOf(worktree).find(
+    (bookmark) => bookmark.path === at.path && bookmark.line === at.line,
+  );
+  if (!found) return 'Add Mnemonic Bookmark';
+  return found.mnemonic === undefined ? 'Assign Mnemonic' : 'Change Mnemonic';
+}
+
+/** The chooser's buttons by row, as IntelliJ's two grids of four rows: the digits, then the letters. */
+const GRID = [0, 1, 2, 3].map((row) => [
+  ...[0, 1, 2].map((column) => MNEMONICS.slice(0, 10)[row * 3 + column]),
+  ...[0, 1, 2, 3, 4, 5, 6].map((column) => MNEMONICS.slice(10)[row * 7 + column]),
+]);
+
+/** The button after `from` in a direction, past the grid's gaps, round to the other side. */
+function nextInGrid(from: string, dx: number, dy: number): string {
+  const row = GRID.findIndex((cells) => cells.includes(from));
+  let [x, y] = [GRID[row]?.indexOf(from) as number, row];
+  for (;;) {
+    x = (x + dx + 10) % 10;
+    y = (y + dy + 4) % 4;
+    const cell = GRID[y]?.[x];
+    if (cell !== undefined) return cell;
+  }
+}
+
+const ARROWS: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
+};
+
+/**
+ * Toggle Bookmark Mnemonic, as IntelliJ's chooser (`BookmarkTypeChooser`, Ctrl+F11): the mnemonics
+ * in a grid, those in use and the line's own coloured, as its legend says. Typing one chooses it;
+ * a click selects one, and a click on the selected one, Enter or OK chooses it. The line's bookmark
+ * then gets it, as IntelliJ's `setType` (choosing its own leaves it), or a bookmark with it is added.
+ */
+export async function chooseMnemonic(
+  worktree: string,
+  at: { path: string; line: number },
+  rewrite: (taken: LineBookmark) => Promise<boolean>,
+): Promise<void> {
+  const title = mnemonicChoice(worktree, at);
+  const list = bookmarksOf(worktree);
+  const current = list.find((b) => b.path === at.path && b.line === at.line)?.mnemonic;
+  const used = new Set(list.map((bookmark) => bookmark.mnemonic));
+  const selected = signal(current);
+  const chosen = await openDialog<string>({
+    title,
+    ok: { enabled: () => selected.get() !== undefined, accept: () => selected.peek() as string },
+    content: (dialog) => {
+      const buttons = new Map<string, HTMLButtonElement>();
+      const button = (mnemonic: string) => {
+        const element = (
+          <button
+            type="button"
+            class={() =>
+              `playground-mnemonic${selected.get() === mnemonic ? ' playground-mnemonic--current' : used.has(mnemonic) ? ' playground-mnemonic--used' : ''}`
+            }
+            on:click={() => {
+              if (selected.peek() === mnemonic) dialog.close(mnemonic);
+              else selected.set(mnemonic);
+            }}
+          >
+            {mnemonic}
+          </button>
+        ) as HTMLButtonElement;
+        buttons.set(mnemonic, element);
+        return element;
+      };
+      return (
+        <div class="playground-mnemonics">
+          <p class="playground-mnemonics__comment">Quickly set: type or double-click mnemonic</p>
+          <div
+            class="playground-mnemonics__grid"
+            on:keydown={(event) => {
+              const focused = (event.target as HTMLElement).textContent;
+              if (event.ctrlKey || event.altKey || event.metaKey || event.shiftKey) return;
+              const arrow = ARROWS[event.key];
+              const typed = event.key.toUpperCase();
+              if (arrow) {
+                buttons.get(nextInGrid(focused, ...arrow))?.focus();
+              } else if (event.key === 'Enter') {
+                dialog.close(focused);
+              } else if (typed.length === 1 && MNEMONICS.includes(typed)) {
+                dialog.close(typed);
+              } else {
+                return;
+              }
+              event.preventDefault();
+            }}
+          >
+            <div class="playground-mnemonics__digits">{MNEMONICS.slice(0, 10).map(button)}</div>
+            <div class="playground-mnemonics__letters">{MNEMONICS.slice(10).map(button)}</div>
+          </div>
+          <div class="playground-mnemonics__legend">
+            <span class="playground-mnemonics__key playground-mnemonics__key--used">
+              Already used
+            </span>
+            <span class="playground-mnemonics__key playground-mnemonics__key--current">
+              Current
+            </span>
+          </div>
+        </div>
+      );
+    },
+  }).result;
+  if (chosen !== undefined && chosen !== current)
+    await toggleMnemonic(worktree, at, chosen, rewrite);
+}
+
 /** A bookmark on a file's line, added last; or, there already, taken away. */
 export function toggleBookmark(worktree: string, path: string, line: number): void {
   const list = bookmarksOf(worktree);
@@ -203,19 +320,10 @@ export async function showBookmarks(
   worktree: { id: string; name: string },
   openAt: Opening['openAt'],
 ): Promise<void> {
-  const items = bookmarksOf(worktree.id).map(
-    (bookmark): PickerItem & { bookmark: LineBookmark } => {
-      const name = bookmark.path.slice(worktree.id.length + 1);
-      const slash = name.lastIndexOf('/');
-      return {
-        label: `${name.slice(slash + 1)} :${String(bookmark.line + 1)}`,
-        ...(slash < 0 ? {} : { detail: name.slice(0, slash) }),
-        group: worktree.name,
-        icon: () => bookmarkIcon(bookmark),
-        bookmark,
-      };
-    },
-  );
+  const items = bookmarksOf(worktree.id).map((bookmark) => ({
+    ...choiceOf(worktree.id, bookmark),
+    group: worktree.name,
+  }));
   const chosen = await openPicker({
     label: 'Bookmarks',
     position: 'top',
@@ -225,6 +333,56 @@ export async function showBookmarks(
     preview: (item) => (item ? <Preview at={{ ...item.bookmark, column: 0 }} /> : null),
   }).result;
   if (chosen) openAt({ ...chosen.bookmark, column: 0 });
+}
+
+/**
+ * A bookmark as IntelliJ's popups list it, as a line node not under its file: its file's name, " :"
+ * and its line, then its folder, with its icon.
+ */
+function choiceOf(
+  worktree: string,
+  bookmark: LineBookmark,
+): PickerItem & { bookmark: LineBookmark } {
+  const name = bookmark.path.slice(worktree.length + 1);
+  const slash = name.lastIndexOf('/');
+  return {
+    label: `${name.slice(slash + 1)} :${String(bookmark.line + 1)}`,
+    ...(slash < 0 ? {} : { detail: name.slice(0, slash) }),
+    icon: () => bookmarkIcon(bookmark),
+    bookmark,
+  };
+}
+
+/**
+ * Go to Mnemonic, as IntelliJ's (`ShowTypeBookmarksAction`, Ctrl+Shift+F11): a popup of the
+ * bookmarks with mnemonics, in their mnemonics' order, the first highlighted. Typing one's mnemonic
+ * goes to it, as Enter or a click on one does.
+ */
+export async function goToMnemonic(
+  worktree: { id: string; name: string },
+  openAt: Opening['openAt'],
+): Promise<void> {
+  const items = MNEMONICS.flatMap((mnemonic) => {
+    const bookmark = bookmarkWith(worktree.id, mnemonic);
+    return bookmark ? [choiceOf(worktree.id, bookmark)] : [];
+  });
+  let typed: LineBookmark | undefined;
+  const picker = openPicker({
+    label: 'Go to Mnemonic',
+    position: 'top',
+    header: () => <span class="playground-popup__title">Go to Mnemonic</span>,
+    items: (query) => fuzzyFilter(items, query),
+    onKey: (event) => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return false;
+      typed = bookmarkWith(worktree.id, event.key.toUpperCase());
+      if (typed) picker.close();
+      return typed !== undefined;
+    },
+  });
+  // Read once it's closed: a mnemonic typed closes it with nothing chosen.
+  const result = await picker.result;
+  const chosen = typed ?? result?.bookmark;
+  if (chosen) openAt({ ...chosen, column: 0 });
 }
 
 /** A bookmark's icon, as IntelliJ's type's: its mnemonic, if it has one, on a square. */

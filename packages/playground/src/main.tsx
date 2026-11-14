@@ -161,8 +161,12 @@ import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
   bookmarkMarks,
+  bookmarksOf,
   BookmarksView,
   bookmarkWith,
+  chooseMnemonic,
+  goToMnemonic,
+  mnemonicChoice,
   MNEMONICS,
   moveBookmarks,
   nextBookmark,
@@ -838,6 +842,29 @@ services.menus.contribute({
   item: { command: 'bookmarks.toggle' },
   group: 'a',
 });
+// Toggle Bookmark Mnemonic, as IntelliJ's (Ctrl+F11): its chooser, for the caret's line; menus say
+// what it does there.
+const caretLine = () => {
+  const file = activeFile() as Tab;
+  return { path: file.id, line: caretOf(file.id).line };
+};
+services.commands.register({
+  id: 'bookmarks.toggleMnemonic',
+  label: 'Toggle Bookmark &Mnemonic',
+  text: () =>
+    active() && activeFile()
+      ? mnemonicChoice((active() as { id: string }).id, caretLine())
+      : 'Toggle Bookmark &Mnemonic',
+  dialog: true,
+  enabled: () => active() !== undefined && activeFile() !== undefined,
+  run: () => chooseMnemonic(active()?.id as string, caretLine(), rewriteAsked),
+});
+services.keymap.bindDefault('Ctrl+F11', 'bookmarks.toggleMnemonic');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.toggleMnemonic' },
+  group: 'a',
+});
 // Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
 // IntelliJ's own keymap gives them no keys.
 for (const forward of [false, true]) {
@@ -874,6 +901,23 @@ services.keymap.bindDefault('Shift+F11', 'bookmarks.show');
 services.menus.contribute({
   menu: 'main/edit/bookmarks',
   item: { command: 'bookmarks.show' },
+  group: 'c',
+});
+// Go to Mnemonic, as IntelliJ's (Ctrl+Shift+F11): a popup of the bookmarks with mnemonics.
+services.commands.register({
+  id: 'bookmarks.goToMnemonic',
+  label: 'Go to Mnemonic',
+  dialog: true,
+  enabled: () => {
+    const env = active();
+    return env !== undefined && bookmarksOf(env.id).some((b) => b.mnemonic !== undefined);
+  },
+  run: () => goToMnemonic(active() as { id: string; name: string }, navigation.openAt),
+});
+services.keymap.bindDefault('Ctrl+Shift+F11', 'bookmarks.goToMnemonic');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.goToMnemonic' },
   group: 'c',
 });
 // Mnemonic bookmarks, as IntelliJ's Toggle Bookmark and Go to Bookmark 0 to 9 and A to Z: the

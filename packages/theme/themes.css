@@ -81,6 +81,13 @@
      warningBorderColor). */
   --cerebro-banner-warning: #44321d;
   --cerebro-banner-warning-border: #694820;
+
+  /* Mnemonic bookmarks' chooser (ManyIslandsDark.theme.json's Bookmark.MnemonicCurrent, Assigned and
+     Available colours, resolved through its named colours). */
+  --cerebro-mnemonic-current: #3871e1;
+  --cerebro-mnemonic-used: #a56906;
+  --cerebro-mnemonic-text: #ffffff;
+  --cerebro-mnemonic-border: #40434a;
   /* Notifications: balloons, links in them, and the timeline's unread ones (ManyIslandsDark.theme.json's
      Notification and NotificationsToolwindow colours). */
   --cerebro-notification: #33353b;
@@ -290,6 +297,12 @@
   /* ManyIslandsLight.theme.json's Banner.warningBackground and warningBorderColor. */
   --cerebro-banner-warning: #fff6e9;
   --cerebro-banner-warning-border: #f4cd9a;
+
+  /* ManyIslandsLight.theme.json's, as the dark theme's. */
+  --cerebro-mnemonic-current: #3871e1;
+  --cerebro-mnemonic-used: #c28013;
+  --cerebro-mnemonic-text: #ffffff;
+  --cerebro-mnemonic-border: #d1d3d9;
   /* Notifications: balloons, links in them, and the timeline's unread ones (ManyIslandsLight.theme.json's
      Notification and NotificationsToolwindow colours). */
   --cerebro-notification: #ffffff;

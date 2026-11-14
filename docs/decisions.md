@@ -3078,10 +3078,29 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   Go to Bookmark 0 to 9 and A to Z opens its place, and is off when none has it. The editor's gutter
   and the lists show the mnemonic on a square in place of the bookmark's icon (IntelliJ's draws it
   at three quarters of the icon's height in the editor's font; the square's a claim). The toggles
-  are listed in Find Action, where IntelliJ hides them (open to change).
+  are listed in Find Action, where IntelliJ hides them (open to change). They're in IntelliJ's
+  order, 1 to 9, 0, then A to Z.
+- **Toggle Bookmark Mnemonic** (Ctrl+F11), as IntelliJ's `ChooseBookmarkTypeAction` and
+  `BookmarkTypeChooser`: the mnemonics in two grids of four rows, the digits in three columns and
+  the letters in seven, those other bookmarks have in IntelliJ's "Already used" colour and the
+  selected one in its "Current" colour, as its legend says (the Islands themes' `Bookmark.Mnemonic*`
+  colours). Typing a mnemonic chooses it; a click selects one, and a click on the selected one (so
+  a double click), Enter on one, or OK chooses it; the arrows move between them, past the grids'
+  gaps and round, as IntelliJ's. Its title, and the menu's name for it, say what it does on the
+  caret's line: "Add Mnemonic Bookmark", "Assign Mnemonic", "Change Mnemonic" (BookmarkBundle's
+  words). The line's bookmark gets the one chosen, as IntelliJ's `setType` (its own chosen leaves
+  it), asking first when another has it; with none, one is added with it. IntelliJ's is a popup
+  with no buttons; here it's a dialog, with OK and Cancel, as Cerebro has no popup that holds other
+  controls (open to change; a shared popup shell is proposed in the backlog).
+- **Go to Mnemonic** (Ctrl+Shift+F11), as IntelliJ's `ShowTypeBookmarksAction`: a popup of the
+  bookmarks with mnemonics, in the mnemonics' order, each as Show Bookmarks lists it; typing a
+  mnemonic goes to its bookmark, Enter or a click to the one highlighted; off when none has one.
+  A key no bookmark has filters the list instead (a claim: IntelliJ's handling of other keys
+  wasn't checked).
 - **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
-  there, which Cerebro hasn't, so after Find. Toggle Bookmark, then Previous and Next Line
-  Bookmark, apart, then Show Bookmarks… (ActionsBundle's names).
+  there, which Cerebro hasn't, so after Find. Toggle Bookmark and Toggle Bookmark Mnemonic…, then
+  Previous and Next Line Bookmark, apart, then Show Bookmarks… and Go to Mnemonic… (ActionsBundle's
+  names).
 - **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
   Eclipse for macOS or NetBeans; Sublime Text Ctrl+F2, on macOS Cmd+F2 and Ctrl+Shift+R; Visual
   Studio Ctrl+K K and Ctrl+K Ctrl+K; macOS System Shortcuts Ctrl+Shift+K and F3. Visual Studio
@@ -3095,8 +3114,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   Ctrl+Cmd+K and Cmd+F3; none on Sublime Text. The digits' toggles are Ctrl+Shift and the digit,
   their Go to Ctrl and it, on macOS too (and in the classic macOS keymap, whose file keeps Ctrl);
   none on NetBeans, and Eclipse leaves out Ctrl+1, Emacs Ctrl+Shift+2. The letters' have none.
-- **Not yet:** Toggle Bookmark with Mnemonic's chooser (Ctrl+F11), Go to Mnemonic's popup
-  (Ctrl+Shift+F11), a mnemonic typed in Show Bookmarks going to its bookmark, descriptions, more lists,
+  Toggle Bookmark Mnemonic: Ctrl+F11; macOS Alt+F3; Eclipse Ctrl+Alt+Shift+F11; macOS System
+  Shortcuts Ctrl+Alt+Shift+K and Cmd+F11. Go to Mnemonic: Ctrl+Shift+F11; macOS Cmd+Alt+F3; none
+  on Eclipse, NetBeans, Sublime Text or Visual Studio.
+- **Not yet:** a mnemonic typed in Show Bookmarks going to its bookmark, descriptions (and the
+  chooser's field for one, with its second hint), more lists,
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in
   the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
