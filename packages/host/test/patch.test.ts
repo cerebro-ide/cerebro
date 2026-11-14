@@ -1,5 +1,13 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -136,6 +144,37 @@ describe('Create Patch, with real git', () => {
     );
     expect(patch).toContain('diff --git a/f.txt b/f.txt\nnew file mode 100644\n');
     expect(run(fresh, 'status', '--porcelain')).toBe('?? f.txt');
+  });
+
+  it('sees a change only the index’s time tells of, with untracked files', async () => {
+    // A file changed to the same size in the second its index entry was written, as a quick edit
+    // after a checkout: git tells it from unchanged only as the index is no older than the file
+    // ("racy git"). The copy of the index that untracked files take keeps its time (measured: a
+    // copy made now hid the change, as in a full run under load).
+    const racy = join(root, 'racy');
+    mkdirSync(racy);
+    run(racy, 'init', '-q', '-b', 'main');
+    // Only the size and the time in seconds, as git compares by default.
+    run(racy, 'config', 'core.checkStat', 'minimal');
+    run(racy, 'config', 'user.name', 'me');
+    run(racy, 'config', 'user.email', 'me@t');
+    // A minute ago, so the copy made now is later.
+    const mtime = new Date(Math.floor(Date.now() / 1000 - 60) * 1000);
+    write(racy, { 'a.txt': 'x1\n' });
+    utimesSync(join(racy, 'a.txt'), mtime, mtime);
+    run(racy, 'add', 'a.txt');
+    run(racy, 'commit', '-qm', 'x1');
+    write(racy, { 'a.txt': 'x2\n', 'new.txt': 'new\n' });
+    utimesSync(join(racy, 'a.txt'), mtime, mtime);
+    utimesSync(join(racy, '.git', 'index'), mtime, mtime);
+    const patch = await createPatch(
+      racy,
+      { from: 'HEAD' },
+      ['a.txt', 'new.txt'],
+      { base: racy, reverse: false, untracked: ['new.txt'] },
+      git,
+    );
+    expect(patch).toContain('-x1\n+x2\n');
   });
 
   it('is written to its file, its folders made', async () => {

@@ -1161,9 +1161,10 @@ describe('File Structure', () => {
     expect(document.querySelector('.cerebro-popup')).toBeNull();
     expect(host('/r').params('lsp.structure')).toHaveLength(asked);
     // Nor is Call Hierarchy asked about it.
+    const calls = host('/r').params('lsp.prepareCalls').length;
     await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
     await new Promise((resolve) => setTimeout(resolve, 100));
-    expect(host('/r').params('lsp.prepareCalls')).toEqual([]);
+    expect(host('/r').params('lsp.prepareCalls')).toHaveLength(calls);
   });
 });
 
@@ -1610,6 +1611,8 @@ describe('the Switcher', () => {
       // Find in Files' window, there since it ran.
       '|Find||F',
       '|Git||9',
+      // Call Hierarchy's window, there since it ran.
+      '|Hierarchy||H',
       // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
       '|Notes||N',
       '|Notifications||4',
