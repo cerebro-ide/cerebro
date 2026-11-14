@@ -1264,6 +1264,10 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   Text's on Windows and Linux; Next has none. A file edited back to as it was saved leaves no
   place (the edits followed are those that leave it unsaved, as Recently Changed Files' are).
   Claude's choice where IntelliJ's isn't read: the place isn't kept between runs.
+  Found in the app with it: where there was nowhere to go, Ctrl+Shift+Backspace deleted to the
+  line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
+  end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
+  the app's keymap. A cause outside this item, there before it.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
   Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's

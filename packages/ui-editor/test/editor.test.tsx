@@ -631,6 +631,23 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
   });
 
+  it('leaves the text as it is on Ctrl+Shift+Backspace and Delete, as IntelliJ’s, the keys going on', async () => {
+    const doc = new EditorDocument('hello world\nnext');
+    const root = mount({ path: 'a.txt', document: doc });
+    const view = EditorView.findFromDOM(
+      root.querySelector('.cm-content') as HTMLElement,
+    ) as EditorView;
+    view.focus();
+    view.dispatch({ selection: { anchor: 5 } });
+    const seen: string[] = [];
+    const listener = (event: KeyboardEvent) => seen.push(event.key);
+    window.addEventListener('keydown', listener);
+    await userEvent.keyboard('{Control>}{Shift>}{Backspace}{Delete}{/Shift}{/Control}');
+    window.removeEventListener('keydown', listener);
+    expect(doc.content()).toBe('hello world\nnext');
+    expect(seen).toEqual(expect.arrayContaining(['Backspace', 'Delete']));
+  });
+
   it('goes to the super method with Mod+U, from wherever the caret is', async () => {
     const onGoToSuperMethod = vi.fn();
     const root = mount({ path: 'a.ts', text: 'class A {\n  run() {}\n}', onGoToSuperMethod });

@@ -1044,6 +1044,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
       // IntelliJ's for other actions, and went to the editor first (measured in the app: Ctrl+Shift+K,
       // Push, also deleted the line; Alt+Shift+Down copied it, where IntelliJ moves it).
       { key: 'Escape', run: simplifySelection },
+      // Chromium's own Ctrl+Shift+Backspace and Ctrl+Shift+Delete delete to the line's start and
+      // end (measured in the editor); IntelliJ's editor has neither, and gives the keys to Last
+      // Edit Location and Unwrap/Remove. Kept from the text, and left to the app's keymap.
+      ...['Ctrl-Shift-Backspace', 'Ctrl-Shift-Delete'].map((key) => ({
+        key,
+        run: () => false,
+        preventDefault: true,
+      })),
       ...standardKeymap,
     ]),
     EditorView.domEventHandlers({
