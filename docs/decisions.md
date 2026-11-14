@@ -3059,9 +3059,16 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   path, then line, from the active file's caret line; from no file, the first or the last. They
   don't go round, as IntelliJ's don't unless its registry says so
   (`ide.bookmark.occurrence.cyclic.iteration.allowed`, off), and are off with nothing to go to.
+- **Show Bookmarks** (Shift+F11), as IntelliJ's `ShowLineBookmarksAction`: a popup titled
+  "Bookmarks" with the worktree's list, its lines not grouped by file, as IntelliJ's popup (its
+  "Group line bookmarks" is off there), in the order added. Each reads as IntelliJ's ungrouped line
+  node: the file's name, " :" and the line, then its folder, with the bookmark's icon. The first is
+  highlighted, its place previewed; typing filters them (IntelliJ's tree has speed search); Enter
+  or a click opens one. It's the picker Find in Files uses, so the preview is under the list, not
+  beside it as IntelliJ's, and the popup isn't moved or resized (open to change).
 - **In the Edit menu,** in a Bookmarks submenu, as IntelliJ's `EditBookmarksGroup`: after Macros
   there, which Cerebro hasn't, so after Find. Toggle Bookmark, then Previous and Next Line
-  Bookmark, apart (ActionsBundle's names).
+  Bookmark, apart, then Show Bookmarks… (ActionsBundle's names).
 - **Its keys,** from IntelliJ's keymap files: F11; macOS F3; Eclipse Ctrl+Shift+F11, and none on
   Eclipse for macOS or NetBeans; Sublime Text Ctrl+F2, on macOS Cmd+F2 and Ctrl+Shift+R; Visual
   Studio Ctrl+K K and Ctrl+K Ctrl+K; macOS System Shortcuts Ctrl+Shift+K and F3. Visual Studio
@@ -3070,9 +3077,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   its keymaps keep IntelliJ's. Next and Previous Line Bookmark have none in IntelliJ's own keymap
   and macOS's; NetBeans Ctrl+Shift+. and Ctrl+Shift+,; Visual Studio Ctrl+K N and Ctrl+K P (each
   also with Ctrl on the second key), Cmd on macOS; Sublime Text F2 and Shift+F2, on macOS also
-  Ctrl+R for Next.
+  Ctrl+R for Next. Show Bookmarks: Shift+F11; macOS Cmd+F3; NetBeans Ctrl+Shift+M; Visual Studio
+  Ctrl+\`, Ctrl+K W and Ctrl+K Ctrl+W (Cmd for Ctrl on the K on macOS); macOS System Shortcuts
+  Ctrl+Cmd+K and Cmd+F3; none on Sublime Text.
 - **Not yet:** mnemonic bookmarks (Ctrl+F11, the digits and letters), descriptions, more lists,
-  Show Bookmarks' popup (Shift+F11), Next and Previous in the editor only (IntelliJ's `…InEditor`
+  Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in
   the Project tool window, the gutter icon's menu and dragging it, and the window's toolbar.
 

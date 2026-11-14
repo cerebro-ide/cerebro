@@ -4,11 +4,14 @@
 // the project, or takes it away. The editor shows them in its gutter and moves them with their
 // lines. The Bookmarks tool window lists them by file, in the order added, each line by its number
 // (IntelliJ's "Group line bookmarks", on by default); a double click or Enter opens a file, or a
-// line. Next and Previous Line Bookmark go through them. They're kept between runs, per worktree.
+// line. Next and Previous Line Bookmark go through them, and Show Bookmarks lists them in a popup.
+// They're kept between runs, per worktree.
 
 import { ObservableMap } from '@cerebro-ide/reactive';
+import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active } from './environments.js';
+import { Preview } from './find.js';
 import { icon } from './icons.js';
 
 /** A bookmark on a file's line, zero-based. */
@@ -101,6 +104,40 @@ export function nextBookmark(
   return forward
     ? sorted.find((bookmark) => byPlace(bookmark, from) > 0)
     : sorted.findLast((bookmark) => byPlace(bookmark, from) < 0);
+}
+
+/**
+ * Show Bookmarks, as IntelliJ's (`ShowLineBookmarksAction`, Shift+F11): a popup titled
+ * "Bookmarks" with the worktree's list, its lines not grouped by file (as IntelliJ's popup, where
+ * "Group line bookmarks" is off), in the order added, each as its file's name, ":" and its line,
+ * then its folder; the first highlighted, its place previewed. Choosing one opens it.
+ */
+export async function showBookmarks(
+  worktree: { id: string; name: string },
+  openAt: Opening['openAt'],
+): Promise<void> {
+  const items = bookmarksOf(worktree.id).map(
+    (bookmark): PickerItem & { bookmark: LineBookmark } => {
+      const name = bookmark.path.slice(worktree.id.length + 1);
+      const slash = name.lastIndexOf('/');
+      return {
+        label: `${name.slice(slash + 1)} :${String(bookmark.line + 1)}`,
+        ...(slash < 0 ? {} : { detail: name.slice(0, slash) }),
+        group: worktree.name,
+        icon: () => icon('bookmark'),
+        bookmark,
+      };
+    },
+  );
+  const chosen = await openPicker({
+    label: 'Bookmarks',
+    position: 'top',
+    header: () => <span class="playground-popup__title">Bookmarks</span>,
+    empty: 'No bookmarks added.',
+    items: (query) => fuzzyFilter(items, query),
+    preview: (item) => (item ? <Preview at={{ ...item.bookmark, column: 0 }} /> : null),
+  }).result;
+  if (chosen) openAt({ ...chosen.bookmark, column: 0 });
 }
 
 type Node =

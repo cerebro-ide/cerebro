@@ -164,6 +164,7 @@ import {
   BookmarksView,
   moveBookmarks,
   nextBookmark,
+  showBookmarks,
   toggleBookmark,
   type LineBookmark,
 } from './bookmarks.js';
@@ -857,6 +858,20 @@ for (const forward of [false, true]) {
     group: 'b',
   });
 }
+// Show Bookmarks, as IntelliJ's: a popup of the worktree's bookmarks.
+services.commands.register({
+  id: 'bookmarks.show',
+  label: 'Show Bookmarks',
+  dialog: true,
+  enabled: () => active() !== undefined,
+  run: () => showBookmarks(active() as { id: string; name: string }, navigation.openAt),
+});
+services.keymap.bindDefault('Shift+F11', 'bookmarks.show');
+services.menus.contribute({
+  menu: 'main/edit/bookmarks',
+  item: { command: 'bookmarks.show' },
+  group: 'c',
+});
 // Select Opened File, as IntelliJ's button in the Project tool window's header.
 services.commands.register({
   id: 'project.selectOpenedFile',

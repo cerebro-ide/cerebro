@@ -202,6 +202,7 @@ export const INTELLIJ: KeymapPreset = {
     'bookmarks.toggle': ['F11'],
     'bookmarks.next': [],
     'bookmarks.previous': [],
+    'bookmarks.show': ['Shift+F11'],
   },
 };
 
@@ -330,6 +331,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'bookmarks.toggle': ['F3'],
     'bookmarks.next': [],
     'bookmarks.previous': [],
+    'bookmarks.show': ['Meta+F3'],
   },
 };
 
@@ -779,6 +781,7 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
     [EDITOR_ACTIONS.quickDefinition]: ['Meta+Y'],
     'bookmarks.toggle': ['Ctrl+Shift+K', 'F3'],
+    'bookmarks.show': ['Ctrl+Meta+K', 'Meta+F3'],
   },
 };
 
@@ -835,6 +838,7 @@ export const NETBEANS: KeymapPreset = {
     'bookmarks.toggle': [],
     'bookmarks.next': ['Ctrl+Shift+.'],
     'bookmarks.previous': ['Ctrl+Shift+,'],
+    'bookmarks.show': ['Ctrl+Shift+M'],
   },
 };
 
@@ -895,6 +899,7 @@ export const SUBLIME: KeymapPreset = {
     'bookmarks.toggle': ['Ctrl+F2'],
     'bookmarks.next': ['F2'],
     'bookmarks.previous': ['Shift+F2'],
+    'bookmarks.show': [],
   },
 };
 
@@ -954,6 +959,7 @@ export const SUBLIME_MAC: KeymapPreset = {
     'bookmarks.toggle': ['Meta+F2', 'Ctrl+Shift+R'],
     'bookmarks.next': ['F2', 'Ctrl+R'],
     'bookmarks.previous': ['Shift+F2'],
+    'bookmarks.show': [],
   },
 };
 
@@ -1028,6 +1034,7 @@ export const VISUAL_STUDIO: KeymapPreset = {
     'bookmarks.toggle': ['Ctrl+K K', 'Ctrl+K Ctrl+K'],
     'bookmarks.next': ['Ctrl+K N', 'Ctrl+K Ctrl+N'],
     'bookmarks.previous': ['Ctrl+K P', 'Ctrl+K Ctrl+P'],
+    'bookmarks.show': ['Ctrl+`', 'Ctrl+K W', 'Ctrl+K Ctrl+W'],
   },
 };
 
@@ -1101,6 +1108,7 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     'bookmarks.toggle': ['Meta+K K', 'Meta+K Meta+K'],
     'bookmarks.next': ['Meta+K N', 'Meta+K Meta+N'],
     'bookmarks.previous': ['Meta+K P', 'Meta+K Meta+P'],
+    'bookmarks.show': ['Ctrl+`', 'Meta+K W', 'Meta+K Meta+W'],
   },
 };
 

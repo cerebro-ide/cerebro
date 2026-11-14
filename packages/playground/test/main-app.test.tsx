@@ -1051,6 +1051,11 @@ describe('bookmarks', () => {
     await expect.poll(() => carets.get('/r/src/c.ts')?.line).toBe(0);
     expect(await listed('Next Line Bookmark')).toEqual([]);
     await userEvent.keyboard('{Escape}');
+    // Show Bookmarks, on Shift+F11: the popup, in the order added.
+    await userEvent.keyboard('{Shift>}{F11}{/Shift}');
+    expect(await popupItems()).toEqual(['b.ts :2', 'c.ts :1']);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/b.ts');
     toggleBookmark('/r', '/r/src/b.ts', 1);
     toggleBookmark('/r', '/r/src/c.ts', 0);
   });

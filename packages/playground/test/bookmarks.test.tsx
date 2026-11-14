@@ -7,9 +7,11 @@ import {
   BookmarksView,
   moveBookmarks,
   nextBookmark,
+  showBookmarks,
   toggleBookmark,
 } from '../src/bookmarks.js';
 import { workspace } from '../src/environments.js';
+import { closeAll, popupItems } from './fakes.js';
 
 const opened: unknown[] = [];
 let dispose: (() => void) | undefined;
@@ -114,6 +116,52 @@ describe('bookmarks', () => {
     }
     expect(bookmarksOf('/full')).toEqual([{ path: '/full/a', line: 0 }]);
     expect(localStorage.getItem('cerebro.bookmarks:/full')).toBeNull();
+  });
+});
+
+describe('Show Bookmarks', () => {
+  const worktree = { id: '/shown', name: 'shown' };
+  const highlighted = () =>
+    document.querySelector('.cerebro-popup-item--highlighted .cerebro-popup-item__label')
+      ?.textContent;
+
+  it('lists the worktree’s bookmarks in the order added, under its list, and opens the one chosen', async () => {
+    toggleBookmark('/shown', '/shown/src/a.ts', 4);
+    toggleBookmark('/shown', '/shown/top.ts', 0);
+    const shown = showBookmarks(worktree, (at) => void opened.push(at));
+    expect(await popupItems()).toEqual(['a.ts :5', 'top.ts :1']);
+    expect(document.querySelector('.cerebro-popup__header')?.textContent).toBe('Bookmarks');
+    expect(document.querySelector('.cerebro-popup__group')?.textContent).toBe('shown');
+    expect(
+      [...document.querySelectorAll('.cerebro-popup-item')].map(
+        (item) => item.querySelector('.cerebro-popup-item__detail')?.textContent,
+      ),
+    ).toEqual(['src', '']);
+    // The first highlighted, its place previewed.
+    expect(highlighted()).toBe('a.ts :5');
+    expect(
+      document.querySelector('.cerebro-popup__preview .playground-find__preview'),
+    ).not.toBeNull();
+    // Typed, as IntelliJ's speed search.
+    await userEvent.keyboard('top');
+    await expect.poll(highlighted).toBe('top.ts :1');
+    await userEvent.keyboard('{Enter}');
+    await shown;
+    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, column: 0 }]);
+  });
+
+  it('says there are none, and opens nothing when closed', async () => {
+    const shown = showBookmarks(
+      { id: '/unmarked', name: 'unmarked' },
+      (at) => void opened.push(at),
+    );
+    await popupItems();
+    expect(document.querySelector('.cerebro-popup__empty')?.textContent).toBe(
+      'No bookmarks added.',
+    );
+    await closeAll();
+    await shown;
+    expect(opened).toEqual([]);
   });
 });
 
