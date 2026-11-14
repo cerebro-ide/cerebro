@@ -252,6 +252,26 @@ describe('Show Bookmarks', () => {
     expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, column: 0 }]);
   });
 
+  it('goes to one whose mnemonic is typed before anything’s searched for, as IntelliJ’s', async () => {
+    const yes = () => Promise.resolve(true);
+    await toggleMnemonic('/shown', { path: '/shown/top.ts', line: 0 }, 'T', yes);
+    await toggleMnemonic('/shown', { path: '/shown/src/a.ts', line: 4 }, 'S', yes);
+    let shown = showBookmarks(worktree, (at) => void opened.push(at));
+    await popupItems();
+    await userEvent.keyboard('t');
+    await shown;
+    expect(opened).toEqual([{ path: '/shown/top.ts', line: 0, mnemonic: 'T', column: 0 }]);
+    // Once searching: searched for.
+    shown = showBookmarks(worktree, (at) => void opened.push(at));
+    await popupItems();
+    await userEvent.keyboard('a.');
+    await userEvent.keyboard('t');
+    await expect.poll(popupItems).toEqual(['a.ts :5']);
+    await userEvent.keyboard('{Enter}');
+    await shown;
+    expect(opened.at(-1)).toEqual({ path: '/shown/src/a.ts', line: 4, mnemonic: 'S', column: 0 });
+  });
+
   it('says there are none, and opens nothing when closed', async () => {
     const shown = showBookmarks(
       { id: '/unmarked', name: 'unmarked' },

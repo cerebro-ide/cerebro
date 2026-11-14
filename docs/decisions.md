@@ -3067,7 +3067,8 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   "Group line bookmarks" is off there), in the order added. Each reads as IntelliJ's ungrouped line
   node: the file's name, " :" and the line, then its folder, with the bookmark's icon. The first is
   highlighted, its place previewed; typing filters them (IntelliJ's tree has speed search); Enter
-  or a click opens one. It's the picker Find in Files uses, so the preview is under the list, not
+  or a click opens one. A bookmark's mnemonic typed before anything's searched for goes to it, as
+  IntelliJ's Go to Bookmark actions in the popup (`GotoBookmarkTypeAction`'s `checkSpeedSearch`). It's the picker Find in Files uses, so the preview is under the list, not
   beside it as IntelliJ's, and the popup isn't moved or resized (open to change).
 - **Mnemonics,** as IntelliJ's bookmark types (`BookmarkType`, `ToggleBookmarkTypeAction`,
   `GotoBookmarkTypeAction` and `BookmarksManagerImpl`, read from its source): a bookmark can have a
@@ -3094,7 +3095,7 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   controls (open to change; a shared popup shell is proposed in the backlog).
 - **Go to Mnemonic** (Ctrl+Shift+F11), as IntelliJ's `ShowTypeBookmarksAction`: a popup of the
   bookmarks with mnemonics, in the mnemonics' order, each as Show Bookmarks lists it; typing a
-  mnemonic goes to its bookmark, Enter or a click to the one highlighted; off when none has one.
+  mnemonic goes to its bookmark, as there, Enter or a click to the one highlighted; off when none has one.
   IntelliJ's is a plain tree in a popup centred in the window, with no search field (its source);
   here it's the picker, at the top, and a key no bookmark has goes to its search field (open to
   change: the popup shell proposed in the backlog would allow IntelliJ's).
@@ -3118,7 +3119,7 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   Toggle Bookmark Mnemonic: Ctrl+F11; macOS Alt+F3; Eclipse Ctrl+Alt+Shift+F11; macOS System
   Shortcuts Ctrl+Alt+Shift+K and Cmd+F11. Go to Mnemonic: Ctrl+Shift+F11; macOS Cmd+Alt+F3; none
   on Eclipse, NetBeans, Sublime Text or Visual Studio.
-- **Not yet:** a mnemonic typed in Show Bookmarks going to its bookmark, descriptions (and the
+- **Not yet:** descriptions (and the
   chooser's field for one, with its second hint), more lists,
   Next and Previous in the editor only (IntelliJ's `…InEditor`
   actions, with no keys), bookmarks on files and folders in

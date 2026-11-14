@@ -12,7 +12,12 @@
 import { signal, ObservableMap } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { BookmarkMark } from '@cerebro-ide/ui-editor';
-import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
+import {
+  fuzzyFilter,
+  openPicker,
+  type PickerItem,
+  type PickerOptions,
+} from '@cerebro-ide/ui-popup';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active } from './environments.js';
 import { Preview } from './find.js';
@@ -324,25 +329,50 @@ export async function showBookmarks(
     ...choiceOf(worktree.id, bookmark),
     group: worktree.name,
   }));
-  const chosen = await openPicker({
+  await pickBookmark(worktree.id, openAt, {
     label: 'Bookmarks',
     position: 'top',
     header: () => <span class="playground-popup__title">Bookmarks</span>,
     empty: 'No bookmarks added.',
     items: (query) => fuzzyFilter(items, query),
     preview: (item) => (item ? <Preview at={{ ...item.bookmark, column: 0 }} /> : null),
-  }).result;
-  if (chosen) openAt({ ...chosen.bookmark, column: 0 });
+  });
+}
+
+type BookmarkChoice = PickerItem & { bookmark: LineBookmark };
+
+/**
+ * A popup of bookmarks, as IntelliJ's: the one chosen is opened, or the one whose mnemonic is typed
+ * while nothing's been searched for yet, as its Go to Bookmark actions in these popups
+ * (`GotoBookmarkTypeAction`'s `checkSpeedSearch`).
+ */
+async function pickBookmark(
+  worktree: string,
+  openAt: Opening['openAt'],
+  options: PickerOptions<BookmarkChoice>,
+): Promise<void> {
+  let typed: LineBookmark | undefined;
+  const picker = openPicker({
+    ...options,
+    onKey: (event) => {
+      if (event.ctrlKey || event.altKey || event.metaKey) return false;
+      if ((event.target as HTMLInputElement).value !== '') return false;
+      typed = bookmarkWith(worktree, event.key.toUpperCase());
+      if (typed) picker.close();
+      return typed !== undefined;
+    },
+  });
+  // Read once it's closed: a mnemonic typed closes it with nothing chosen.
+  const result = await picker.result;
+  const chosen = typed ?? result?.bookmark;
+  if (chosen) openAt({ ...chosen, column: 0 });
 }
 
 /**
  * A bookmark as IntelliJ's popups list it, as a line node not under its file: its file's name, " :"
  * and its line, then its folder, with its icon.
  */
-function choiceOf(
-  worktree: string,
-  bookmark: LineBookmark,
-): PickerItem & { bookmark: LineBookmark } {
+function choiceOf(worktree: string, bookmark: LineBookmark): BookmarkChoice {
   const name = bookmark.path.slice(worktree.length + 1);
   const slash = name.lastIndexOf('/');
   return {
@@ -366,23 +396,12 @@ export async function goToMnemonic(
     const bookmark = bookmarkWith(worktree.id, mnemonic);
     return bookmark ? [choiceOf(worktree.id, bookmark)] : [];
   });
-  let typed: LineBookmark | undefined;
-  const picker = openPicker({
+  await pickBookmark(worktree.id, openAt, {
     label: 'Go to Mnemonic',
     position: 'top',
     header: () => <span class="playground-popup__title">Go to Mnemonic</span>,
     items: (query) => fuzzyFilter(items, query),
-    onKey: (event) => {
-      if (event.ctrlKey || event.altKey || event.metaKey) return false;
-      typed = bookmarkWith(worktree.id, event.key.toUpperCase());
-      if (typed) picker.close();
-      return typed !== undefined;
-    },
   });
-  // Read once it's closed: a mnemonic typed closes it with nothing chosen.
-  const result = await picker.result;
-  const chosen = typed ?? result?.bookmark;
-  if (chosen) openAt({ ...chosen, column: 0 });
 }
 
 /** A bookmark's icon, as IntelliJ's type's: its mnemonic, if it has one, on a square. */
