@@ -6,7 +6,7 @@ import { useProjects, workspace } from '../src/environments.js';
 import { fetching, pullingFrom, setupFetchPull } from '../src/fetch-pull.js';
 import { notifications } from '../src/notifications.js';
 import { setupLog } from '../src/git-log.js';
-import { readState } from '../src/repository-state.js';
+import { readState, stateOf } from '../src/repository-state.js';
 import { setupUpdate } from '../src/update.js';
 import {
   closeAll,
@@ -33,10 +33,13 @@ const git = {
   hold: undefined as Promise<void> | undefined,
   conflicted: [] as string[],
   /** What the repository's state says besides. */
-  state: {} as { remotes?: boolean },
+  state: {} as { remotes?: boolean; operation?: string } | Error,
 };
 const answers = {
-  'git.state': () => ({ conflicts: false, ...git.state }),
+  'git.state': () => {
+    if (git.state instanceof Error) throw git.state;
+    return { conflicts: false, ...git.state };
+  },
   'git.fetch': async () => {
     await git.hold;
     if (git.fetched instanceof Error) throw git.fetched;
@@ -89,6 +92,7 @@ beforeEach(() => {
   git.pulled = { kind: 'merged', files: 2, commits: 1 };
   git.hold = undefined;
   git.conflicted = [];
+  git.state = {};
   localStorage.clear();
 });
 
@@ -547,6 +551,34 @@ describe('Pull', () => {
     commands.execute('vcs.pull');
     await press('Pull');
     await expect.poll(() => last()?.title).toBe('All files are up to date');
+  });
+
+  it('says how it went once it has read the repository’s state again', async () => {
+    // Read while git merged (each read every few seconds): no merge is left once it's said, so a
+    // command used straight after sees none (Merge… after Pull, in the e2e run of #324 on macOS).
+    git.state = { operation: 'merge' };
+    await readState('/r');
+    expect(stateOf('/r').operation).toBe('merge');
+    git.state = {};
+    const notify = notifications.notify.bind(notifications);
+    const seen: unknown[] = [];
+    vi.spyOn(notifications, 'notify').mockImplementation((spec) => {
+      seen.push(stateOf('/r').operation);
+      return notify(spec);
+    });
+    commands.execute('vcs.pull');
+    await press('Pull');
+    await expect.poll(() => last()?.title).toBe('2 files updated in 1 commit');
+    expect(seen).toEqual([undefined]);
+  });
+
+  it('says how it went when the state can’t be read, and logs why', async () => {
+    git.state = new Error('no state');
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    commands.execute('vcs.pull');
+    await press('Pull');
+    await expect.poll(() => last()?.title).toBe('2 files updated in 1 commit');
+    expect(logged).toHaveBeenCalledWith('Reading the repository’s state failed', expect.any(Error));
   });
 
   it('says why it failed, in IntelliJ’s words where it has its own', async () => {
