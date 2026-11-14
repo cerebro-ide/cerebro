@@ -133,6 +133,7 @@ describe('language servers', () => {
       signatures: vi.fn(() => Promise.resolve(null)),
       renaming: vi.fn(() => Promise.resolve(null)),
       rename: vi.fn(() => Promise.resolve(null)),
+      willRename: vi.fn(() => Promise.resolve(null)),
       completionEdits: vi.fn(() => Promise.resolve([])),
       dispose: vi.fn(() => Promise.resolve()),
     };
@@ -235,6 +236,10 @@ describe('language servers', () => {
       { path: '', line: 0, column: 3 },
       'y',
     );
+    expect(
+      await ui.request('lsp.willRename', { worktree: '/w', path: '/w/a.ts', to: '/w/b.ts' }),
+    ).toBeNull();
+    expect(servers.willRename).toHaveBeenCalledWith('/w', '/w/a.ts', '/w/b.ts');
     expect(servers.signatures).toHaveBeenCalledWith(
       '/w',
       { path: '/w/b.ts', text: 'x' },

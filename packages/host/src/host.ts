@@ -378,6 +378,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   connection.onRequest('lsp.rename', (params) =>
     servers.rename(text(params, 'worktree'), fileOf(params), placeOf(params), text(params, 'name')),
   );
+  connection.onRequest('lsp.willRename', (params) =>
+    servers.willRename(text(params, 'worktree'), text(params, 'path'), text(params, 'to')),
+  );
   connection.onRequest('lsp.format', (params) => {
     const { options, range } = formatOf(params);
     return servers.format(text(params, 'worktree'), fileOf(params), options, range);
