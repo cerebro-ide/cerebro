@@ -661,6 +661,11 @@ describe('the page with nothing open', () => {
     await expect
       .poll(() => document.querySelector('.cerebro-tool-window[data-id="structure"]')?.textContent)
       .toBe('StructureNo structure');
+    await userEvent.click(stripe('services'));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tool-window[data-id="services"]')?.textContent)
+      .toContain('none · Services item 1');
+    await userEvent.click(stripe('services'));
     // Nothing to go back or forward to, nor recent files.
     window.dispatchEvent(new MouseEvent('mouseup', { button: 3 }));
     window.dispatchEvent(new MouseEvent('mouseup', { button: 4 }));
