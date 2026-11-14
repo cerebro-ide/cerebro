@@ -3229,7 +3229,22 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   said so. Not yet: a folder's references, IntelliJ's preview and its "Search in comments and
   strings" and "Rename tests" options, its selection of a file's name without its extension, and
   moving the file's bookmarks with it.
-  IntelliJ's menu's other groups (Cut, Copy, Paste, Find Usages, Compare With) aren't in it yet.
+  So are Copy and Paste (added 2026-11-14), around Copy Path as in IntelliJ's CutCopyPasteGroup,
+  and on their keys while the view has the focus: they're the Edit commands, which act on the
+  view's files then (edit.ts's `provideClipboard`, as IntelliJ's CopyProvider and PasteProvider).
+  Copy keeps the file or folder; Paste, on a folder or a file in one, asks in IntelliJ's Copy dialog
+  (CopyFilesOrDirectoriesDialog, RefactoringBundle's words): `Copy file /path/a.ts`, New name (a
+  file's selected without its extension), To directory (made if it isn't there), and Open in editor
+  for a file, checked. A name taken there is asked about, Overwrite or Skip (SkipOverwriteChoice's
+  `File 'a.ts' already exists in directory '…'`); a folder pasted over one has its files join it,
+  those of the same name replaced (a claim for IntelliJ, which asks per file). The host copies it
+  (`fs.copy`), and the copy is selected and a file opened, as IntelliJ's. Claude's choices (open to
+  change): the copy is kept inside Cerebro, not on the system's clipboard; Paste needs a selection;
+  pasting onto itself does nothing; a failure's title is "Cannot Copy" (a claim). Measured in the
+  app: the dialog, the copy on disk, the question for a taken name, and the menu. Not yet: Cut and
+  a move's Paste, several files at once, the directory field's history and its folder chooser, and
+  the copies' paths shortened as IntelliJ's (`shortenPath`). IntelliJ's menu's other groups (Find
+  Usages, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.
