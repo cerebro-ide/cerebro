@@ -41,7 +41,7 @@ export { expandWord } from './expand-word.js';
 export { extendSelection, selectionSteps, shrinkSelection } from './extend-selection.js';
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';
-export { languageFor, languageName } from './languages.js';
+export { languageFor, languageName, languages } from './languages.js';
 export {
   DiffEditor,
   diffSource,

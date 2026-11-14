@@ -10,6 +10,7 @@ import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets, history, reveals } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
+import { RECENT_LANGUAGES } from '../src/scratches.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -2083,6 +2084,54 @@ describe('parameter info', () => {
     expect(host('/r').params('lsp.signatures')).toContainEqual(
       expect.objectContaining({ worktree: '/r', path: '/r/src/p.ts' }),
     );
+  });
+});
+
+describe('New Scratch File', () => {
+  const create = async (typed: string) => {
+    await userEvent.keyboard('{Control>}{Alt>}{Shift>}{Insert}{/Shift}{/Alt}{/Control}');
+    const items = await popupItems();
+    expect(document.querySelector('.cerebro-popup .playground-popup__title')?.textContent).toBe(
+      'New Scratch File',
+    );
+    await userEvent.keyboard(`${typed}{Enter}`);
+    return items;
+  };
+
+  it('asks for a language, the last chosen first, and opens a new scratch file of it', async () => {
+    localStorage.removeItem(RECENT_LANGUAGES);
+    let made = 0;
+    answers.set('scratches.create', ({ extension }: { extension: string }) => {
+      made++;
+      return `/data/scratches/scratch_${String(made)}.${extension}`;
+    });
+    // By name, the first time.
+    expect((await create('python')).slice(0, 3)).toEqual(['CSS', 'HTML', 'JavaScript']);
+    expect(host('/r').params('scratches.create')).toEqual([{ extension: 'py' }]);
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/data/scratches/scratch_1.py');
+    // Then the last ones chosen, the latest first.
+    expect((await create('yaml')).slice(0, 3)).toEqual(['Python', 'CSS', 'HTML']);
+    expect((await create('{Escape}')).slice(0, 3)).toEqual(['YAML', 'Python', 'CSS']);
+    expect(host('/r').params('scratches.create')).toHaveLength(2);
+    // Storage that can't be written: made all the same, and listed by name next time.
+    const blocked = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    await create('markdown');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/data/scratches/scratch_3.md');
+    expect(blocked).toHaveBeenCalled();
+    expect((await create('{Escape}')).slice(0, 1)).toEqual(['CSS']);
+    vi.restoreAllMocks();
+    // One that can't be made, said so.
+    answers.set('scratches.create', new Error('EACCES: permission denied'));
+    await create('json');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create Scratch File');
+    expect(notifications.all.get(0)?.content).toContain('EACCES');
+    answers.delete('scratches.create');
+    await closeAll();
   });
 });
 

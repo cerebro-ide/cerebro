@@ -14,7 +14,10 @@ files, and having files which aren't part of the project like scratch files and 
 that's missing and should be implemented as well". IntelliJ's Project view lists the project's
 content under its own node, beside Scratches and Consoles and External Libraries; Find in Files
 can then be scoped to the whole project from it. Done: the worktree's folder at the tree's top
-(decision "The project tree"). Left: Scratches and Consoles, and files from outside the project.
+(decision "The project tree"), and Scratches and Consoles with New Scratch File (decision
+"Scratch files"). Left: "external files", which needs Ido's word on what it means here: IntelliJ's
+External Libraries (for WebStorm, Node's own declarations and a project's `@types`), or files
+opened from outside the project.
 
 ### Commit window: checkboxes show the text cursor
 

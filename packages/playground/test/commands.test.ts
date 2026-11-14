@@ -185,6 +185,7 @@ describe('the main menu', () => {
     expect(entries('main')).toEqual(['main/file', 'main/edit', 'main/view', 'main/help']);
     expect(entries('main/file')).toEqual([
       'file.new',
+      'file.newScratch',
       'file.open',
       'main/file/recent',
       'symbol.goTo',
@@ -379,9 +380,16 @@ describe('Search Everywhere', () => {
   it('lists the actions that can run, with their keys, but its own', async () => {
     commands().execute('action.find');
     await popupItems();
+    await userEvent.keyboard('settings');
+    await expect.poll(popupItems).toEqual(['Settings…']);
+    expect(document.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('Ctrl+Alt+S');
+    await userEvent.keyboard('{Escape}');
+    commands().execute('action.find');
+    await popupItems();
+    // IntelliJ's keymap gives an untitled file no key; New Scratch File needs the app's host.
     await userEvent.keyboard('new file');
     await expect.poll(popupItems).toEqual(['New File']);
-    expect(document.querySelector('.cerebro-popup-item__shortcut')?.textContent).not.toBe('');
+    expect(document.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('');
     await userEvent.keyboard('{Enter}');
     expect(tabs()).toContain('untitled-4');
     commands().execute('action.find');
