@@ -1586,6 +1586,74 @@ describe('the Project view’s menu', () => {
     if (!shown) await userEvent.click(stripe('project'));
   });
 
+  it('renames the file or folder it’s opened on, its tabs following it', async () => {
+    // Folders of its own, as the tests before.
+    const folders: Record<string, { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/pre', name: 'pre', kind: 'directory' },
+        { path: '/r/one.ts', name: 'one.ts', kind: 'file' },
+      ],
+      '/r/pre': [{ path: '/r/pre/in.ts', name: 'in.ts', kind: 'file' }],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const renamed = () => host('/r').params('fs.rename');
+    const field = () => document.querySelector('.cerebro-dialog input') as HTMLInputElement;
+    const error = () => document.querySelector('.cerebro-dialog-field__error')?.textContent;
+    // A file, from the menu: its name to start with; a sibling's is taken, a path invalid.
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog-field__label')?.textContent).toBe(
+      "Rename file 'one.ts' to:",
+    );
+    expect(field().value).toBe('one.ts');
+    await userEvent.clear(field());
+    await userEvent.keyboard('pre');
+    expect(error()).toBe('File pre already exists');
+    await userEvent.clear(field());
+    await userEvent.keyboard('a/b.ts');
+    expect(error()).toBe("'a/b.ts' is an invalid file name");
+    await userEvent.keyboard('{Escape}');
+    expect(renamed()).toEqual([]);
+    // A folder with a file open, with the key: the file's tab follows it.
+    env().editor.open({ id: '/r/pre/in.ts', title: 'in.ts' });
+    await userEvent.click(await vi.waitUntil(() => row('/r/pre')));
+    await userEvent.keyboard('{Shift>}{F6}{/Shift}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog-field__label')?.textContent).toBe(
+      "Rename directory 'pre' to:",
+    );
+    folders['/r'] = [
+      { path: '/r/post', name: 'post', kind: 'directory' },
+      { path: '/r/one.ts', name: 'one.ts', kind: 'file' },
+    ];
+    folders['/r/post'] = [{ path: '/r/post/in.ts', name: 'in.ts', kind: 'file' }];
+    await userEvent.clear(field());
+    await userEvent.keyboard('post{Enter}');
+    await expect.poll(renamed).toEqual([{ path: '/r/pre', to: '/r/post' }]);
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .toContain('/r/post/in.ts');
+    expect(env().editor.activeGroup.tabs.map((t) => t.id)).not.toContain('/r/pre/in.ts');
+    await expect
+      .poll(() => document.querySelector('.playground-project [aria-selected="true"]')?.textContent)
+      .toBe('post');
+    env().editor.close(env().editor.activeGroupId, '/r/post/in.ts');
+    // One the host won't rename: said so.
+    answers.set('fs.rename', new Error('EACCES: permission denied'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
+    await userEvent.click(menuItem('Rename…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.clear(field());
+    await userEvent.keyboard('two.ts{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Rename');
+    for (const method of ['fs.rename', 'fs.list']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
@@ -2218,6 +2286,17 @@ describe('the editor’s file', () => {
 
   it('is saved as the focus leaves the editor, not as it moves inside it', async () => {
     globalSettings.layers.global.set('system.saveWhenIdle', false);
+    // A disk that keeps what's written: the open files are read again every two seconds, and one
+    // that took the saved text back would change it under the clicks below, which find the editor
+    // by its text (measured: the click waited for "…const a = 1;y" until it timed out, as a test
+    // before it made the reading fall between the save and the click).
+    const disk = new Map<string, string>();
+    answers.set('fs.write', ({ path, text }: { path: string; text: string }) => {
+      disk.set(path, text);
+    });
+    answers.set('fs.read', ({ path }: { path: string }) => ({
+      text: disk.get(path) ?? `// ${path}\nconst a = 1;\n`,
+    }));
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('y');
     const before = writes();
@@ -2227,13 +2306,14 @@ describe('the editor’s file', () => {
     expect(writes()).toBe(before);
     await userEvent.click(q('.cerebro-statusbar'));
     await expect.poll(writes).toBe(before + 1);
-    // Left as found: the host's file doesn't keep what's written, so reading it again (every two
-    // seconds) would take the text back under a later test's click, which finds its element by
-    // its text (measured: the saving test's click waited for "…const a = 1;y" until it timed out).
+    // Left as found, saved as it was: the host's own file doesn't keep what's written.
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}z{/Control}');
     await userEvent.click(q('.cerebro-statusbar'));
     expect(code()?.textContent).toBe('// /r/src/a.tsconst a = 1;');
+    await expect.poll(() => disk.get('/r/src/a.ts')).toBe('// /r/src/a.ts\nconst a = 1;\n');
+    answers.delete('fs.write');
+    answers.delete('fs.read');
     globalSettings.layers.global.reset('system.saveWhenIdle');
   });
 });

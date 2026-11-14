@@ -41,6 +41,7 @@ import {
   isBinary,
   decodeText,
   readTextFile,
+  renameEntry,
   UnreadableFile,
   writeTextFile,
 } from './files.js';
@@ -453,6 +454,10 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
   }));
   // Whether a file that couldn't be read was deleted: the page closes its tabs, as IntelliJ.
   connection.onRequest('fs.exists', (params) => exists(text(params, 'path')));
+  // Rename in the Project view: a file or folder, never over another.
+  connection.onRequest('fs.rename', (params) =>
+    renameEntry(text(params, 'path'), text(params, 'to')),
+  );
   // New File and New Directory: an empty file, or a folder (`directory: true`).
   connection.onRequest('fs.create', (params) =>
     createEntry(

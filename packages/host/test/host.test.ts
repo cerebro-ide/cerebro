@@ -1953,6 +1953,8 @@ describe('files', () => {
     expect(await ui.request('fs.exists', { path: join(dir, 'none') })).toBe(false);
     await ui.request('fs.create', { path: join(dir, 'new', 'n.ts') });
     await ui.request('fs.create', { path: join(dir, 'folder'), directory: true });
+    await ui.request('fs.rename', { path: join(dir, 'folder'), to: join(dir, 'renamed') });
+    await ui.request('fs.rename', { path: join(dir, 'renamed'), to: join(dir, 'folder') });
     expect(await ui.request('fs.list', { path: dir })).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ name: 'folder', kind: 'directory' }),

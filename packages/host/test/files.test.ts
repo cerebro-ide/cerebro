@@ -11,6 +11,7 @@ import {
   MAX_FILE_SIZE,
   readFileBytes,
   readTextFile,
+  renameEntry,
   toSlashes,
 } from '../src/index.js';
 
@@ -116,6 +117,27 @@ describe('createEntry', () => {
     });
     expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
     await expect(createEntry(join(root, 'c'), 'directory')).rejects.toThrow(/EEXIST/);
+  });
+});
+
+describe('renameEntry', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-rename-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('renames a file or folder, never over one that’s there', async () => {
+    writeFileSync(join(root, 'a.ts'), 'a');
+    writeFileSync(join(root, 'kept.ts'), 'kept');
+    await renameEntry(join(root, 'a.ts'), join(root, 'b.ts'));
+    expect(readFileSync(join(root, 'b.ts'), 'utf8')).toBe('a');
+    await expect(renameEntry(join(root, 'b.ts'), join(root, 'kept.ts'))).rejects.toMatchObject({
+      code: 'EEXIST',
+    });
+    expect(readFileSync(join(root, 'kept.ts'), 'utf8')).toBe('kept');
+    mkdirSync(join(root, 'lib'));
+    await renameEntry(join(root, 'lib'), join(root, 'src'));
+    expect(statSync(join(root, 'src')).isDirectory()).toBe(true);
   });
 });
 

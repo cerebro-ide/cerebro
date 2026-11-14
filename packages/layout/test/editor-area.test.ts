@@ -72,6 +72,23 @@ describe('EditorArea: tabs', () => {
     expect(group.active).toBe('a');
   });
 
+  it('replaces a tab in its place in every group with it, active where it was', () => {
+    const area = new EditorArea();
+    for (const id of ['a', 'b', 'c']) area.open(tab(id));
+    const first = area.activeGroup;
+    const second = area.split(first.id, 'right', 'b');
+    area.activate(first.id, 'c');
+    area.replaceTab('b', { id: 'n', title: 'n.ts' });
+    expect(ids(first)).toEqual(['a', 'n', 'c']);
+    expect(first.active).toBe('c');
+    expect(ids(second)).toEqual(['n']);
+    expect(second.active).toBe('n');
+    expect(second.activeTab?.title).toBe('n.ts');
+    // One open nowhere: nothing.
+    area.replaceTab('nope', tab('x'));
+    expect(ids(first)).toEqual(['a', 'n', 'c']);
+  });
+
   it('keeps the last group when its last tab closes', () => {
     const area = new EditorArea();
     area.open(tab('a'));

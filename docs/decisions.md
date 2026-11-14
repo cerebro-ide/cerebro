@@ -3213,8 +3213,16 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   read again, and the tabs of what's gone close as files deleted outside Cerebro do. It's the
   desktop app's (Electron's `shell.trashItem`): a remote host's files can't go to this machine's
   trash, which is for remote mode to settle. Not yet: IntelliJ's Safe Delete for code files (its
-  usage search), several rows at once, and the worktree itself. IntelliJ's menu's other groups (Cut,
-  Copy, Paste, Find Usages, Rename, Compare With) aren't in it yet.
+  usage search), several rows at once, and the worktree itself. So is Rename (added 2026-11-14),
+  before Bookmarks, as IntelliJ's `RenameElement`, and on Rename's key while the view has the focus:
+  it's the editor's Rename command, so each keymap's keys and a change to them serve both (measured
+  in the app: Shift+F6 in the editor still renames the symbol). It asks in IntelliJ's words (`Rename
+  file 'a.ts' to:`, RefactoringBundle's `rename.0.to`; `File {0} already exists`), saves what's
+  unsaved, and the host renames it (`fs.rename`), never over another. The tabs of what moved follow
+  it, in their places (EditorArea's `replaceTab`), and it's selected again. Not yet: IntelliJ's
+  "Search for references", which would update imports (LSP's `workspace/willRenameFiles`), its
+  selection of a file's name without its extension, and moving the file's bookmarks with it.
+  IntelliJ's menu's other groups (Cut, Copy, Paste, Find Usages, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.

@@ -2,7 +2,7 @@
 // file for the editor.
 
 import { dirname } from 'node:path';
-import { mkdir, open, readdir, stat, writeFile, type FileHandle } from 'node:fs/promises';
+import { mkdir, open, readdir, rename, stat, writeFile, type FileHandle } from 'node:fs/promises';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 export interface Entry {
@@ -102,16 +102,30 @@ export async function exists(path: string): Promise<boolean> {
   }
 }
 
+/** Fails (EEXIST) when a file or folder is at `path`. */
+async function notThere(path: string): Promise<void> {
+  if (await exists(path)) {
+    throw Object.assign(new Error(`EEXIST: already exists, '${path}'`), { code: 'EEXIST' });
+  }
+}
+
 /**
  * Makes an empty file, or a folder, and the folders on its path, as IntelliJ's New File and New
  * Directory do with a name like `a/b.ts`: an error (EEXIST) when it's there already, never over it.
  */
 export async function createEntry(path: string, kind: 'file' | 'directory'): Promise<void> {
-  if (await exists(path)) {
-    throw Object.assign(new Error(`EEXIST: already exists, '${path}'`), { code: 'EEXIST' });
-  }
+  await notThere(path);
   await mkdir(kind === 'directory' ? path : dirname(path), { recursive: true });
   if (kind === 'file') await writeFile(path, '', { flag: 'wx' });
+}
+
+/**
+ * Renames a file or folder, as IntelliJ's Rename in the Project view: an error (EEXIST) when the
+ * new name is there already, never over it (a rename on Linux and macOS would replace a file).
+ */
+export async function renameEntry(path: string, to: string): Promise<void> {
+  await notThere(to);
+  await rename(path, to);
 }
 
 /** Saves a text file as UTF-8, over what's there; the file must exist, so a typo makes none. */
