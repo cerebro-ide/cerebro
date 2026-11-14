@@ -7,7 +7,7 @@ import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets } from '../src/navigation.js';
+import { carets, reveals } from '../src/navigation.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -919,6 +919,20 @@ describe('navigation in the editor', () => {
     await onA();
     await userEvent.keyboard('{Control>}u{/Control}');
     await expect.poll(active).toBe('/r/src/b.ts');
+    // Next Method: the structure's next symbol after the caret's line.
+    await closeAll();
+    answers.set('lsp.structure', [
+      {
+        name: 'z',
+        from: { line: 2, column: 0 },
+        to: { line: 2, column: 5 },
+        at: { line: 2, column: 1 },
+        children: [],
+      },
+    ]);
+    await onA();
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 2, column: 1 });
   });
 });
 

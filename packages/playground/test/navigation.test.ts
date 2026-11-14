@@ -369,6 +369,38 @@ describe('Go to Super Method', () => {
   });
 });
 
+describe('Next Method and Previous Method', () => {
+  const symbol = (line: number, column: number, children: object[] = []) => ({
+    name: 's',
+    from: { line, column: 0 },
+    to: { line: line + 1, column: 0 },
+    at: { line, column },
+    children,
+  });
+
+  it('go to the nearest symbol’s name on a line after the caret’s, or before it', async () => {
+    // A class on line 2, its methods on 4 and 8, and a function on 12.
+    answers = { 'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9)] };
+    await nav.goToMethod({ ...asked, line: 4, column: 0 }, true);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 8, column: 2 });
+    await nav.goToMethod({ ...asked, line: 4, column: 9 }, false);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 2, column: 6 });
+    await nav.goToMethod({ ...asked, line: 9, column: 0 }, true);
+    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 9 });
+  });
+
+  it('go nowhere past the first or the last, or with no server', async () => {
+    answers = { 'lsp.structure': [symbol(2, 6)] };
+    reveals.delete('/r/a.ts');
+    await nav.goToMethod({ ...asked, line: 2, column: 0 }, true);
+    await nav.goToMethod({ ...asked, line: 2, column: 9 }, false);
+    answers = { 'lsp.structure': null };
+    await nav.goToMethod({ ...asked, line: 0, column: 0 }, true);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reveals.has('/r/a.ts')).toBe(false);
+  });
+});
+
 describe('Go to Definition', () => {
   it('is there where the language server, or else the index, has a definition', async () => {
     answers = { 'lsp.definitions': [at('/r/a.ts', 1)] };

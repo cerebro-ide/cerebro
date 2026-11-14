@@ -124,6 +124,11 @@ export interface CodeEditorProps {
    * its keys (Ctrl+U in IntelliJ, its Go to Super Method).
    */
   onGoToSuperMethod?: (at: { line: number; column: number }) => void;
+  /**
+   * Go to the next method (`down`) or the previous one, given where the caret is: its keys
+   * (Alt+Down and Alt+Up in IntelliJ, its Next Method and Previous Method).
+   */
+  onMethod?: (at: { line: number; column: number }, down: boolean) => void;
   /** Find usages of the word at the cursor, given where it is: its keys (Alt+F7 in IntelliJ). */
   onFindUsages?: (word: string, at: { line: number; column: number }) => void;
   /**
@@ -220,6 +225,9 @@ export interface EditorKeys {
   goToTypeDeclaration?: readonly string[];
   /** Go to Super Method: what the member or type at the caret implements or overrides. */
   goToSuperMethod?: readonly string[];
+  /** Next Method and Previous Method: the caret to the next or previous member or type. */
+  methodDown?: readonly string[];
+  methodUp?: readonly string[];
   findUsages?: readonly string[];
   find?: readonly string[];
   replace?: readonly string[];
@@ -291,6 +299,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   goToImplementation: ['Mod-Alt-b'],
   goToTypeDeclaration: ['Mod-Shift-b'],
   goToSuperMethod: ['Mod-u'],
+  methodDown: ['Alt-ArrowDown'],
+  methodUp: ['Alt-ArrowUp'],
   findUsages: ['Alt-F7'],
   find: ['Mod-f'],
   replace: ['Mod-r'],
@@ -910,6 +920,22 @@ export function CodeEditor(props: CodeEditorProps): Node {
         ...keys.pageBottom.map((key) => ({ key, run: movingToPage(false, false) })),
         ...keys.pageTopWithSelection.map((key) => ({ key, run: movingToPage(true, true) })),
         ...keys.pageBottomWithSelection.map((key) => ({ key, run: movingToPage(false, true) })),
+        ...(
+          [
+            [keys.methodDown, true],
+            [keys.methodUp, false],
+          ] as const
+        ).flatMap(([list, down]) =>
+          list.map((key) => ({
+            key,
+            run: (v: EditorView) => {
+              const go = props.onMethod;
+              if (!go) return false;
+              go(placeOf(v.state, v.state.selection.main.head), down);
+              return true;
+            },
+          })),
+        ),
         ...keys.goToSuperMethod.map((key) => ({
           key,
           run: (v: EditorView) => {

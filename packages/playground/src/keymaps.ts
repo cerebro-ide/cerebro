@@ -28,6 +28,8 @@ export const EDITOR_ACTIONS = {
   goToImplementation: 'editor.goToImplementation',
   goToTypeDeclaration: 'editor.goToTypeDeclaration',
   goToSuperMethod: 'editor.goToSuperMethod',
+  methodDown: 'editor.methodDown',
+  methodUp: 'editor.methodUp',
   findUsages: 'editor.findUsages',
   complete: 'editor.codeCompletion',
   quickDocumentation: 'editor.quickDocumentation',
@@ -192,6 +194,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+U'],
     'navigate.lastEdit': ['Ctrl+Shift+Backspace'],
     'navigate.nextEdit': [],
+    [EDITOR_ACTIONS.methodDown]: ['Alt+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Alt+Up'],
   },
 };
 
@@ -313,6 +317,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.goToSuperMethod]: ['Meta+U'],
     'navigate.lastEdit': ['Meta+Shift+Backspace'],
     'navigate.nextEdit': [],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Shift+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
   },
 };
 
@@ -412,6 +418,9 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.startNewLineBefore]: ['Ctrl+Shift+Enter'],
     // Its Insert Line Below (Start New Line) is Ctrl+Enter.
     [EDITOR_ACTIONS.splitLine]: [],
+    // Alt+Up and Alt+Down are its Move Line's; its sheets list no Next Method.
+    [EDITOR_ACTIONS.methodDown]: [],
+    [EDITOR_ACTIONS.methodUp]: [],
   },
 };
 
@@ -564,6 +573,8 @@ export const ECLIPSE: KeymapPreset = {
     'code.optimizeImports': ['Ctrl+Alt+O', 'Ctrl+Shift+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: [],
     'navigate.lastEdit': ['Ctrl+Q'],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Shift+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Shift+Up'],
   },
 };
 
@@ -630,6 +641,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     'code.optimizeImports': ['Meta+Shift+O'],
     [EDITOR_ACTIONS.goToSuperMethod]: [],
     'navigate.lastEdit': ['Ctrl+Q'],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
   },
 };
 
@@ -674,6 +687,8 @@ export const EMACS: KeymapPreset = {
     'editor.increaseFontSize': [],
     'editor.decreaseFontSize': [],
     [EDITOR_ACTIONS.goToImplementation]: [],
+    [EDITOR_ACTIONS.methodDown]: ['Alt+Down', 'Ctrl+Alt+E'],
+    [EDITOR_ACTIONS.methodUp]: ['Alt+Up', 'Ctrl+Alt+A'],
   },
 };
 
@@ -708,6 +723,8 @@ export const INTELLIJ_CLASSIC: KeymapPreset = {
     [EDITOR_ACTIONS.joinLines]: ['Ctrl+Shift+J'],
     [EDITOR_ACTIONS.scrollToCenter]: [],
     [EDITOR_ACTIONS.goToTypeDeclaration]: ['Ctrl+Shift+B'],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Up'],
   },
 };
 
@@ -737,6 +754,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
     [EDITOR_ACTIONS.splitLine]: ['Ctrl+O', 'Ctrl+Enter'],
     'editor.increaseFontSize': ['Meta+Shift++'],
     'editor.decreaseFontSize': ['Meta+Shift+_'],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
   },
 };
 
@@ -787,6 +806,8 @@ export const NETBEANS: KeymapPreset = {
     'editor.decreaseFontSize': [],
     'code.optimizeImports': ['Ctrl+Shift+I'],
     [EDITOR_ACTIONS.goToSuperMethod]: ['Ctrl+Shift+P'],
+    [EDITOR_ACTIONS.methodDown]: ['Ctrl+Alt+Down'],
+    [EDITOR_ACTIONS.methodUp]: ['Ctrl+Alt+Up'],
   },
 };
 
@@ -897,6 +918,8 @@ export const SUBLIME_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.splitLine]: ['Shift+Enter'],
     [EDITOR_ACTIONS.scrollToCenter]: ['Ctrl+L', 'Meta+K Meta+C'],
     [EDITOR_ACTIONS.goToTypeDeclaration]: [],
+    [EDITOR_ACTIONS.methodDown]: [],
+    [EDITOR_ACTIONS.methodUp]: [],
   },
 };
 

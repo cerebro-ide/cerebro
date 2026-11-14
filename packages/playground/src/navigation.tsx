@@ -555,6 +555,21 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
       if (mark) await this.goToMarked(mark);
     },
 
+    /**
+     * Next Method (`down`) and Previous Method, as IntelliJ's `MethodDown` and `MethodUp`
+     * (`MethodUpDownUtil`, read from its source): the caret to the name of the nearest symbol of
+     * the file's structure, any of them, on a line after the caret's (or before it); none without.
+     */
+    async goToMethod(asked: Asked, down: boolean) {
+      const { path, text, line } = asked;
+      const symbols = (await ask<FileSymbol[]>('lsp.structure', { path, text })) ?? [];
+      const all = (list: FileSymbol[]): Position[] =>
+        list.flatMap((symbol) => [symbol.at, ...all(symbol.children)]);
+      const places = all(symbols).sort((a, b) => a.line - b.line || a.column - b.column);
+      const to = down ? places.find((p) => p.line > line) : places.findLast((p) => p.line < line);
+      if (to) openAt({ path, ...to });
+    },
+
     /** Whether the word at a place has a definition to go to: its server's, or a name's match. */
     async hasDefinition(name: string, asked: Asked): Promise<boolean> {
       const precise = await ask('lsp.definitions', asked);

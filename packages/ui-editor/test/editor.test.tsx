@@ -648,6 +648,22 @@ describe('CodeEditor', () => {
     expect(seen).toEqual(expect.arrayContaining(['Backspace', 'Delete']));
   });
 
+  it('goes to the next and previous method with Alt+Down and Alt+Up', async () => {
+    const onMethod = vi.fn();
+    const root = mount({ path: 'a.ts', text: 'a\nbc', onMethod });
+    await userEvent.click(root.querySelectorAll('.cm-line')[1] as HTMLElement);
+    await userEvent.keyboard('{End}{Alt>}{ArrowDown}{ArrowUp}{/Alt}');
+    expect(onMethod.mock.calls).toEqual([
+      [{ line: 1, column: 2 }, true],
+      [{ line: 1, column: 2 }, false],
+    ]);
+    // Without a handler, the keys are left alone.
+    cleanup?.();
+    const without = mount({ path: 'a.ts', text: 'x' });
+    await userEvent.click(without.querySelector('.cm-line') as HTMLElement);
+    await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
+  });
+
   it('goes to the super method with Mod+U, from wherever the caret is', async () => {
     const onGoToSuperMethod = vi.fn();
     const root = mount({ path: 'a.ts', text: 'class A {\n  run() {}\n}', onGoToSuperMethod });

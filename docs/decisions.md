@@ -68,6 +68,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
+- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
@@ -3068,6 +3069,27 @@ choices, open to change.
   keymaps take `$default`'s with Cmd); none in Eclipse's; NetBeans' Ctrl+Shift+P; Visual
   Studio's Alt+Home, and on macOS Ctrl+Alt+Left and Alt+Home. VS Code's shortcut sheets don't list
   it, so its keymaps keep IntelliJ's.
+
+## Next Method and Previous Method (2026-11-14)
+
+IntelliJ's Navigate → Next Method and Previous Method, which WebStorm has. Claude's choices, open to
+change.
+
+- **As IntelliJ's** `MethodDown` and `MethodUp` (`MethodUpDownUtil`, `MethodDownHandler`, read
+  from its source): the caret to the name of the nearest element of the file's structure view on a
+  line after the caret's (or before it). Here, every symbol of the File Structure, from the file's
+  language server, nested ones too, as IntelliJ takes every element of the structure view. A place
+  left, for Back, as IntelliJ counts it a navigation. Nothing past the first or last, or with no
+  server.
+- **Its keys,** from IntelliJ's keymap files: Alt+Down and Alt+Up (`$default`); on macOS
+  Ctrl+Shift+Down and Up, and Ctrl+Down and Up in its classic macOS keymap; Eclipse's
+  Ctrl+Shift+Down and Up (Ctrl+Alt on macOS); Emacs's Alt+Down and Up, and Ctrl+Alt+E and A;
+  NetBeans' and macOS System Shortcuts' Ctrl+Alt+Down and Up; none in Sublime Text's on macOS. VS
+  Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
+  keymaps have none (Claude's choice).
+- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands); IntelliJ
+  scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
+  it as Go to Definition does.
 
 ## Optimize Imports (2026-11-14)
 
