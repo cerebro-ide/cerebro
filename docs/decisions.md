@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -2901,6 +2901,15 @@ saving").
   keys, from IntelliJ's keymap files: Ctrl+Alt+Enter (`$default`; Cmd+Alt+Enter on macOS); Sublime
   Text's Ctrl+Shift+Enter (Cmd+Shift+Enter); Visual Studio's Ctrl+Enter (Cmd+Enter); VS Code's
   Insert Line Above, Ctrl+Shift+Enter (Cmd+Shift+Enter), from its sheets.
+- **Split Line** (added 2026-11-14), IntelliJ's `EditorSplitLine` (`SplitLineAction`, read from
+  its source), which CodeMirror hasn't: Enter with the caret left where it was. The text after the
+  caret, without its leading white space, goes to a new line at the indent the language gives it
+  (else the caret's line's own). With only white space before the caret, that white space goes on
+  a line of its own above instead, the caret at its end, as IntelliJ's. Undo says "Undo Split
+  Line". Its keys, from IntelliJ's keymap files: Ctrl+Enter (`$default`; Cmd+Enter on macOS);
+  Emacs's Ctrl+O; macOS System Shortcuts' Ctrl+O and Ctrl+Enter; Sublime Text's Shift+Enter; none
+  in Visual Studio's. VS Code has none: its sheets give Ctrl+Enter (Cmd+Enter) to Insert Line Below,
+  which the key inherited from `$default` would take (Claude's choice, open to change).
 - **Move Caret to Matching Brace** (added 2026-11-13), IntelliJ's `EditorMatchBrace`, which
   CodeMirror had done on Ctrl+Shift+\\: from a bracket at the caret to the one it pairs with
   (CodeMirror's `cursorMatchingBracket`), in a read-only editor too. Its keys: Ctrl+Shift+M

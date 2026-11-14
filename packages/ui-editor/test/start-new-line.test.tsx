@@ -8,6 +8,7 @@ import {
   EditorDocument,
   historyNamesIn,
   languageFor,
+  splitLine,
   startNewLine,
   startNewLineBefore,
 } from '../src/index.js';
@@ -88,7 +89,45 @@ describe('Start New Line Before Current', () => {
   });
 });
 
+/** The text after Split Line at `caret` in a file at `path`, the caret as `|`. */
+function split(doc: string, caret: number, path = 'a.ts') {
+  const state = EditorState.create({
+    doc,
+    selection: EditorSelection.cursor(caret),
+    extensions: [languageFor(path) ?? []],
+  });
+  const next = state.update(splitLine(state) ?? {}).state;
+  const { head } = next.selection.main;
+  return `${next.doc.toString().slice(0, head)}|${next.doc.toString().slice(head)}`;
+}
+
+describe('Split Line', () => {
+  it('moves what’s after the caret to a new line, at the language’s indent, the caret staying', () => {
+    expect(split('if (a) {\n  b(c,   d);\n}', 15)).toBe('if (a) {\n  b(c,|\n    d);\n}');
+    expect(split('ab', 1, 'a.txt')).toBe('a|\nb');
+  });
+
+  it('puts the white space before the caret on a line above where there’s only that', () => {
+    expect(split('a\n  bc', 4, 'a.txt')).toBe('a\n  |\n  bc');
+  });
+
+  it('does nothing in a read-only editor', () => {
+    const state = EditorState.create({ doc: 'a', extensions: EditorState.readOnly.of(true) });
+    expect(splitLine(state)).toBeUndefined();
+  });
+});
+
 describe('the keys in an editor', () => {
+  it('Ctrl+Enter splits the line, as IntelliJ’s, and Undo names it', async () => {
+    const { view, content, close } = mount('ab', true);
+    view.dispatch({ selection: { anchor: 1 } });
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    expect(view.state.doc.toString()).toBe('a\nb');
+    expect(view.state.selection.main.head).toBe(1);
+    expect(historyNamesIn(content)?.undo).toBe('Split Line');
+    close();
+  });
+
   it('Ctrl+Alt+Enter starts a new line before the caret’s, as IntelliJ’s, and Undo names it', async () => {
     const { view, content, close } = mount('ab\ncd', true);
     view.dispatch({ selection: { anchor: 4 } });

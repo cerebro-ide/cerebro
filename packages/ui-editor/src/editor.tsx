@@ -55,7 +55,7 @@ import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
-import { startingNewLine, startingNewLineBefore } from './start-new-line.js';
+import { splittingLine, startingNewLine, startingNewLineBefore } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
 import { scrollingBy } from './scroll.js';
@@ -236,6 +236,8 @@ export interface EditorKeys {
   startNewLine?: readonly string[];
   /** Start New Line Before Current: an indented line before the caret's, the caret on it. */
   startNewLineBefore?: readonly string[];
+  /** Split Line: Enter, the caret staying where it was. */
+  splitLine?: readonly string[];
   /** Join Lines: the caret's line and the next, or the selection's lines, made one. */
   joinLines?: readonly string[];
   /** Toggle Case: the selection, or the word at the caret, in lower case or upper. */
@@ -282,6 +284,7 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   deleteLine: ['Mod-y'],
   startNewLine: ['Shift-Enter'],
   startNewLineBefore: ['Mod-Alt-Enter'],
+  splitLine: ['Mod-Enter'],
   joinLines: ['Ctrl-Shift-j'],
   toggleCase: ['Mod-Shift-u'],
   expandWord: ['Alt-/'],
@@ -890,6 +893,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
               ...keys.deleteLine.map((key) => ({ key, run: deleteLine })),
               ...keys.startNewLine.map((key) => ({ key, run: startingNewLine })),
               ...keys.startNewLineBefore.map((key) => ({ key, run: startingNewLineBefore })),
+              ...keys.splitLine.map((key) => ({ key, run: splittingLine })),
               ...keys.joinLines.map((key) => ({ key, run: joiningLines })),
               ...keys.toggleCase.map((key) => ({ key, run: togglingCase })),
               ...keys.expandWord.map((key) => ({ key, run: expandingWord })),
