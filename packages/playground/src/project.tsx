@@ -85,9 +85,14 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
   return modelFor(env.id, samples).reveal(keys);
 }
 
+/** Reads a worktree's tree again, as after a file's made or deleted in it. */
+export async function refreshTree(worktree: string): Promise<void> {
+  await models.get(worktree)?.refresh();
+}
+
 /** Selects what was just made in a worktree, its tree read again first to have it. */
 export async function selectNew(worktree: string, path: string): Promise<boolean> {
-  await models.get(worktree)?.refresh();
+  await refreshTree(worktree);
   return selectInTree(path, []);
 }
 

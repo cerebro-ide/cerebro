@@ -127,7 +127,7 @@ vi.mock('../src/host.js', () => host);
 const menu = vi.hoisted(() => ({ installMenu: vi.fn() }));
 vi.mock('../src/menu.js', () => menu);
 vi.mock('../src/colours.js', () => ({ installWindowColours: vi.fn() }));
-vi.mock('../src/reveal.js', () => ({ installReveal: vi.fn() }));
+vi.mock('../src/shell.js', () => ({ installShell: vi.fn() }));
 const passwords = vi.hoisted(() => ({
   installPasswords: vi.fn(),
   PasswordStore: vi.fn(function (this: { file: string }, file: string) {

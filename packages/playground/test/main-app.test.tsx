@@ -1531,6 +1531,61 @@ describe('the Project view’s menu', () => {
     env().editor.close(env().editor.activeGroupId, 'untitled-9');
   });
 
+  it('deletes the file or folder it’s opened on to the trash, once asked', async () => {
+    // A folder of its own, as the test before: lib, listed as holding itself later, isn't loaded.
+    const folders: Record<string, readonly { path: string; name: string; kind: string }[]> = {
+      '/r': [
+        { path: '/r/old', name: 'old', kind: 'directory' },
+        { path: '/r/gone.ts', name: 'gone.ts', kind: 'file' },
+      ],
+    };
+    answers.set('fs.list', ({ path }: { path: string }) => folders[path] ?? []);
+    const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;
+    if (!shown) await userEvent.click(stripe('project'));
+    window.dispatchEvent(new Event('focus'));
+    const trashed = () => calls.filter((call) => call[0] === 'trash');
+    // A folder, from the menu: what goes with it said; cancelled, nothing goes.
+    await userEvent.click(await vi.waitUntil(() => row('/r/old')), { button: 'right' });
+    await userEvent.click(menuItem('Delete…'));
+    const box = await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect([...box.querySelectorAll('p')].map((p) => p.textContent)).toEqual([
+      'Delete directory "old"?',
+      'All files and subdirectories in "old" will be deleted.',
+      'You might not be able to fully undo this operation!',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(trashed()).toEqual([]);
+    // A file open in the editor, with the key: gone from the tree, its tab closed.
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path === '/r/gone.ts' && trashed().length > 0) throw new Error('ENOENT');
+      return { text: `// ${path}\nconst a = 1;\n` };
+    });
+    answers.set('fs.exists', ({ path }: { path: string }) => path !== '/r/gone.ts');
+    env().editor.open({ id: '/r/gone.ts', title: 'gone.ts' });
+    await userEvent.click(await vi.waitUntil(() => row('/r/gone.ts')));
+    await userEvent.keyboard('{Delete}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Delete file "gone.ts"?');
+    folders['/r'] = [{ path: '/r/old', name: 'old', kind: 'directory' }];
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(trashed).toEqual([['trash', '/r/gone.ts']]);
+    await expect.poll(() => row('/r/gone.ts')).toBeUndefined();
+    await expect
+      .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
+      .not.toContain('/r/gone.ts');
+    // One the trash won't take: said so.
+    answers.set('shell.trash', new Error('Permission denied'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/old')), { button: 'right' });
+    await userEvent.click(menuItem('Delete…'));
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Delete');
+    expect(notifications.all.get(0)?.content).toBe('Permission denied');
+    for (const method of ['shell.trash', 'fs.read', 'fs.exists', 'fs.list']) answers.delete(method);
+    if (!shown) await userEvent.click(stripe('project'));
+  });
+
   it('opens the file or folder it’s opened on in the file manager', async () => {
     answers.set('fs.list', [{ path: '/r/lib', name: 'lib', kind: 'directory' }]);
     const shown = document.querySelector('.cerebro-tool-window[data-id="project"]') !== null;

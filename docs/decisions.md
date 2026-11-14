@@ -3205,8 +3205,16 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   titles, prompts and errors are IntelliJ's (IdeBundle), except "Cannot Create Directory", not found
   there (a claim). Asking in a dialog rather than IntelliJ's small popup is Claude's choice (open to
   change), and so is "nothing selected" going beside the editor's file. Not yet: IntelliJ's file
-  templates (TypeScript File, package.json…), and a record in the Local History. IntelliJ's menu's
-  other groups (Cut, Copy, Paste, Find Usages, Rename, Delete, Compare With) aren't in it yet.
+  templates (TypeScript File, package.json…), and a record in the Local History. So is Delete (added
+  2026-11-14), after Bookmarks, as IntelliJ's `$Delete`, and on the Delete key while the view has
+  the focus. It asks first in IntelliJ's words (DeleteUtil's: `Delete file "a.ts"?`, and for a
+  folder that all in it goes, which may not fully be undone), then moves what's chosen to the
+  system's trash, as IntelliJ does by default (GeneralSettings' `deleteToBin`, true). The view is
+  read again, and the tabs of what's gone close as files deleted outside Cerebro do. It's the
+  desktop app's (Electron's `shell.trashItem`): a remote host's files can't go to this machine's
+  trash, which is for remote mode to settle. Not yet: IntelliJ's Safe Delete for code files (its
+  usage search), several rows at once, and the worktree itself. IntelliJ's menu's other groups (Cut,
+  Copy, Paste, Find Usages, Rename, Compare With) aren't in it yet.
 - **Not yet:** more lists (and Add Bookmark to Another List), a folder bookmark's contents under
   it in the window (IntelliJ's `FolderNode` lists them), dragging the gutter's icon, and the
   window's toolbar.

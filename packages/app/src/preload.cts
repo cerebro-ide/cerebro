@@ -22,8 +22,9 @@ const SET_COLOURS = 'cerebro:window:colours';
 // Kept in step with passwords.ts.
 const PASSWORD_GET = 'cerebro:passwords:get';
 const PASSWORD_SET = 'cerebro:passwords:set';
-// Kept in step with reveal.ts.
+// Kept in step with shell.ts.
 const REVEAL = 'cerebro:shell:reveal';
+const TRASH = 'cerebro:shell:trash';
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -82,6 +83,8 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     reveal: (path: string) => {
       electron.ipcRenderer.send(REVEAL, path);
     },
+    /** Moves a file or folder to the system's trash. */
+    trash: (path: string): Promise<unknown> => invoke(TRASH, path),
   },
   window: {
     /**
