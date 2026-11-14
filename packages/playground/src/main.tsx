@@ -969,11 +969,18 @@ for (const [menu, group] of [
 // Reopen Closed Tab (which Cerebro hasn't), for the tab's file: Rename Bookmark… and Toggle Bookmark.
 services.menus.contribute({
   menu: 'editor/tab',
-  item: { submenu: 'editor/tab/bookmarks', label: 'Bookmarks' },
+  item: { submenu: 'bookmarks/expandable', label: 'Bookmarks' },
   group: 'g-bookmarks',
 });
+// And in the Project view's menu (`ProjectViewPopupMenu`, after its Refactoring group), for the
+// file or folder it's opened on: the row's selected, so the commands take it there.
+services.menus.contribute({
+  menu: 'project/node',
+  item: { submenu: 'bookmarks/expandable', label: 'Bookmarks' },
+  group: 'd-bookmarks',
+});
 for (const command of ['bookmarks.rename', 'bookmarks.toggle']) {
-  services.menus.contribute({ menu: 'editor/tab/bookmarks', item: { command }, group: 'a' });
+  services.menus.contribute({ menu: 'bookmarks/expandable', item: { command }, group: 'a' });
 }
 // Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
 // IntelliJ's own keymap gives them no keys.
@@ -1802,7 +1809,13 @@ function Header() {
 function Files() {
   return (
     <div class="playground-files">
-      <ProjectTree samples={FILES} open={navigation.open} />
+      <ProjectTree
+        samples={FILES}
+        open={navigation.open}
+        menu={(event) => {
+          openContextMenu(services, 'project/node', event);
+        }}
+      />
     </div>
   );
 }

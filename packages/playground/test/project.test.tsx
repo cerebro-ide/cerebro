@@ -6,7 +6,13 @@ import { userEvent } from 'vitest/browser';
 import { RELOAD_EVERY } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { fileProblems } from '../src/problems.js';
-import { ProjectTree, projectFile, selectInTree, type FileNode } from '../src/project.js';
+import {
+  ProjectTree,
+  projectFile,
+  projectNode,
+  selectInTree,
+  type FileNode,
+} from '../src/project.js';
 import { FakeHost, project } from './fakes.js';
 
 /** The host's folders, as it lists them. */
@@ -22,6 +28,7 @@ const host = new FakeHost({ 'fs.list': ({ path }: { path: string }) => folders[p
 const SAMPLES = ['src/main.ts', 'README.md', 'src/lib/x.ts', 'docs/', 'src/a.ts'];
 
 const opened: Tab[] = [];
+const menus: MouseEvent[] = [];
 let dispose: (() => void) | undefined;
 
 beforeAll(() => {
@@ -33,13 +40,20 @@ afterEach(() => {
   dispose?.();
   document.body.replaceChildren();
   opened.length = 0;
+  menus.length = 0;
   host.asked.length = 0;
   vi.restoreAllMocks();
 });
 
 function mount(): void {
   const handle = render(
-    () => <ProjectTree samples={SAMPLES} open={(tab) => void opened.push(tab)} />,
+    () => (
+      <ProjectTree
+        samples={SAMPLES}
+        open={(tab) => void opened.push(tab)}
+        menu={(event) => void menus.push(event)}
+      />
+    ),
     document.body,
   );
   dispose = () => {
@@ -87,6 +101,16 @@ describe('the Project tool window', () => {
     document.body.append(field);
     field.focus();
     expect(projectFile()).toBeUndefined();
+  });
+
+  it('opens its menu on a row, selected, the focus left with it', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).toContain('README.md');
+    await userEvent.click(row('/r/src'), { button: 'right' });
+    expect(menus).toHaveLength(1);
+    expect(selected('/r/src')).toBe('true');
+    expect(projectNode()?.path).toBe('/r/src');
   });
 
   it('marks a file with errors, and the folders it’s in, with the error’s wave', async () => {

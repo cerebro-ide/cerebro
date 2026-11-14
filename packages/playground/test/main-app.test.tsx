@@ -1313,6 +1313,13 @@ describe('file and folder bookmarks', () => {
     q('.playground-project .cerebro-tree').focus();
     await userEvent.keyboard('{F11}');
     expect(bookmarksOf('/r')).toHaveLength(before.length + 2);
+    // The view's menu, on a row: its Bookmarks, for it.
+    await userEvent.click(row('/r/e.ts'), { button: 'right' });
+    await userEvent.hover(menuItem('Bookmarks'));
+    await expect.poll(() => document.querySelectorAll('.cerebro-menu').length).toBe(2);
+    await userEvent.click(menuItem('Toggle Bookmark'));
+    expect(bookmarkAt('/r', { path: '/r/e.ts' })).toEqual({ path: '/r/e.ts' });
+    toggleBookmark('/r', { path: '/r/e.ts' });
     toggleBookmark('/r', { path: '/r/d.ts' });
     toggleBookmark('/r', { path: '/r/lib', folder: true });
     expect(bookmarksOf('/r')).toEqual(before);
