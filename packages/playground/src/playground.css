@@ -941,6 +941,19 @@ body,
 
 /* A bookmark's mnemonic, as IntelliJ's icon: the character on a square (a claim: drawn after it),
    in the editor's font. */
+/* A file's or a folder's bookmark's mnemonic and its own icon, side by side (IntelliJ's row icon). */
+.playground-bookmark-icons {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+}
+
+/* A popup's row with them: its icon column as wide as they are (a list's row icon takes its width). */
+.cerebro-popup-item:has(.playground-bookmark-icons) {
+  grid-template-columns: minmax(18px, auto) auto minmax(0, 1fr) auto;
+}
+
 .playground-bookmark-mnemonic {
   display: inline-flex;
   flex: none;

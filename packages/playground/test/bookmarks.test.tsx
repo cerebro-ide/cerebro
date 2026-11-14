@@ -306,11 +306,22 @@ describe('file and folder bookmarks', () => {
 
   it('are listed in the popups by their names, previewed from a file’s start, and gone to', async () => {
     const worktree = { id: '/fp', name: 'fp' };
-    toggleBookmark('/fp', { path: '/fp/src/a.ts' });
+    await toggleMnemonic('/fp', { path: '/fp/src/a.ts' }, 'P', yes);
     toggleBookmark('/fp', { path: '/fp/lib', folder: true });
     describeBookmark('/fp', { path: '/fp/lib', folder: true }, 'libs');
     const shown = showBookmarks(worktree, (bookmark) => void opened.push(bookmark));
     expect(await popupItems()).toEqual(['a.ts', 'libs']);
+    // Its mnemonic and the file's icon side by side, as IntelliJ's row icon.
+    const [mnemonic, file] = [
+      ...document.querySelectorAll(
+        '.cerebro-popup-item__icon .playground-bookmark-mnemonic, .cerebro-popup-item__icon svg',
+      ),
+    ].map((element) => element.getBoundingClientRect());
+    expect(file?.left).toBeGreaterThanOrEqual(mnemonic?.right as number);
+    expect(file?.top).toBeLessThan(mnemonic?.bottom as number);
+    // Before the label, not under it.
+    const label = document.querySelector('.cerebro-popup-item__label')?.getBoundingClientRect();
+    expect(label?.left).toBeGreaterThanOrEqual(file?.right as number);
     expect(
       [...document.querySelectorAll('.cerebro-popup-item')].map(
         (item) => item.querySelector('.cerebro-popup-item__detail')?.textContent,

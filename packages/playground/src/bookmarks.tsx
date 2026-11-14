@@ -579,7 +579,8 @@ function bookmarkIcon(bookmark: Bookmark) {
       {bookmark.mnemonic}
     </span>
   );
-  return own ? [mnemonic, own] : mnemonic;
+  // One element, so a popup's icon cell lays them out in a row too.
+  return own ? <span class="playground-bookmark-icons">{[mnemonic, own]}</span> : mnemonic;
 }
 
 /**
