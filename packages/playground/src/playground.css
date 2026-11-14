@@ -2177,7 +2177,14 @@ body,
    14 between the grids (`BookmarkTypeChooser`'s new UI sizes). */
 .playground-mnemonics__comment {
   margin: 0 0 16px;
+  padding-left: 16px;
   color: var(--cerebro-text-muted);
+}
+
+.playground-mnemonics__description {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 8px;
 }
 
 .playground-mnemonics__grid {

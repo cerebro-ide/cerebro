@@ -24,7 +24,7 @@ import {
   ToolTabs,
 } from '@cerebro-ide/ui-layout';
 import './bridge.js';
-import { MenuBar, openContextMenu, syncNativeMenu, visibleEntries } from '@cerebro-ide/ui-menu';
+import { MenuBar, openContextMenu, syncNativeMenu } from '@cerebro-ide/ui-menu';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-popup/styles.css';
@@ -160,6 +160,7 @@ import { resolveConflict } from './conflict.js';
 import { findInFiles } from './find.js';
 import { FindView, showOccurrences, type Occurrences } from './find-window.js';
 import {
+  bookmarkAt,
   bookmarkMarks,
   bookmarksOf,
   BookmarksView,
@@ -170,6 +171,8 @@ import {
   MNEMONICS,
   moveBookmarks,
   nextBookmark,
+  removeMnemonic,
+  renameBookmark,
   rewriteAsked,
   showBookmarks,
   toggleBookmark,
@@ -319,20 +322,24 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
   });
 }
 
+/** The line the gutter's menu was last opened on, as its editor said, until the menu's opened. */
+let gutterLine: number | undefined;
+
 /**
- * An editor's context menu: the gutter's, for its tab's file, where that has items; else the text's,
- * where the editor has one.
+ * An editor's context menu: the gutter's, for its tab's file and the line it's opened on (never
+ * empty: Annotate, or the bookmarks'); else the text's, where the editor has one.
  */
 function editorMenu(event: MouseEvent, file: string, content: string | undefined): void {
+  const line = gutterLine;
+  gutterLine = undefined;
   // An annotation's own menu opened.
   if (event.defaultPrevented) return;
   const inGutter = event
     .composedPath()
     .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
   if (!inGutter && content !== undefined) openContextMenu(services, content, event);
-  else if (inGutter && visibleEntries(services, 'editor/gutter', { file }).length > 0) {
-    openContextMenu(services, 'editor/gutter', event, { file });
-  } else event.preventDefault();
+  else if (inGutter) openContextMenu(services, 'editor/gutter', event, { file, line });
+  else event.preventDefault();
 }
 
 /**
@@ -820,14 +827,42 @@ services.menus.contribute({
   item: { command: 'navigate.callHierarchy' },
   group: 'b',
 });
-// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the caret's line, or none there.
+// The line the bookmarks' commands act on: the gutter's, from its menu (IntelliJ's
+// `LOGICAL_LINE_AT_CURSOR`), none in an editor that doesn't say (a repository version's); else the
+// caret's, in the active file. None with no file.
+const bookmarkLine = (context?: unknown) => {
+  const gutter = context as { file?: string; line?: number } | undefined;
+  if (gutter?.file !== undefined) {
+    return gutter.line === undefined ? undefined : { path: gutter.file, line: gutter.line };
+  }
+  const file = activeFile();
+  return file && { path: file.id, line: caretOf(file.id).line };
+};
+/** The worktree's id and the line, when there are both. */
+const bookmarkPlace = (context?: unknown) => {
+  const env = active();
+  const at = bookmarkLine(context);
+  return env && at && { worktree: env.id, at };
+};
+/** Left out of the gutter's menu where there's no line; disabled elsewhere, as the Edit menu's. */
+const inGutterMenu = (context?: unknown) =>
+  (context as { file?: string } | undefined)?.file === undefined ||
+  bookmarkPlace(context) !== undefined;
+/** The bookmark on that line, if there's one. */
+const lineBookmark = (context?: unknown) => {
+  const place = bookmarkPlace(context);
+  return place && bookmarkAt(place.worktree, place.at);
+};
+type BookmarkPlace = { worktree: string; at: { path: string; line: number } };
+// Toggle Bookmark, as IntelliJ's (F11): a bookmark on the line, or none there.
 services.commands.register({
   id: 'bookmarks.toggle',
   label: 'Toggle &Bookmark',
-  enabled: () => active() !== undefined && activeFile() !== undefined,
-  run: () => {
-    const file = activeFile() as Tab;
-    toggleBookmark(active()?.id as string, file.id, caretOf(file.id).line);
+  visible: inGutterMenu,
+  enabled: (context) => bookmarkPlace(context) !== undefined,
+  run: (context) => {
+    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    toggleBookmark(worktree, at.path, at.line);
   },
 });
 services.keymap.bindDefault('F11', 'bookmarks.toggle');
@@ -837,34 +872,63 @@ services.menus.contribute({
   item: { submenu: 'main/edit/bookmarks', label: 'Book&marks' },
   group: 'g',
 });
-services.menus.contribute({
-  menu: 'main/edit/bookmarks',
-  item: { command: 'bookmarks.toggle' },
-  group: 'a',
-});
-// Toggle Bookmark Mnemonic, as IntelliJ's (Ctrl+F11): its chooser, for the caret's line; menus say
-// what it does there.
-const caretLine = () => {
-  const file = activeFile() as Tab;
-  return { path: file.id, line: caretOf(file.id).line };
-};
+// Toggle Bookmark Mnemonic, as IntelliJ's (Ctrl+F11): its chooser, for the line; menus say what it
+// does there.
 services.commands.register({
   id: 'bookmarks.toggleMnemonic',
   label: 'Toggle Bookmark &Mnemonic',
-  text: () =>
-    active() && activeFile()
-      ? mnemonicChoice((active() as { id: string }).id, caretLine())
-      : 'Toggle Bookmark &Mnemonic',
+  text: (context) => {
+    const place = bookmarkPlace(context);
+    return place ? mnemonicChoice(place.worktree, place.at) : 'Toggle Bookmark &Mnemonic';
+  },
   dialog: true,
-  enabled: () => active() !== undefined && activeFile() !== undefined,
-  run: () => chooseMnemonic(active()?.id as string, caretLine(), rewriteAsked),
+  visible: inGutterMenu,
+  enabled: (context) => bookmarkPlace(context) !== undefined,
+  run: (context) => {
+    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    return chooseMnemonic(worktree, at, rewriteAsked);
+  },
 });
 services.keymap.bindDefault('Ctrl+F11', 'bookmarks.toggleMnemonic');
-services.menus.contribute({
-  menu: 'main/edit/bookmarks',
-  item: { command: 'bookmarks.toggleMnemonic' },
-  group: 'a',
+// Rename Bookmark and Remove Mnemonic, as IntelliJ's (`EditBookmarkAction`,
+// `DeleteBookmarkTypeAction`): shown for the line's bookmark, the second when it has a mnemonic.
+// No keys in IntelliJ's.
+services.commands.register({
+  id: 'bookmarks.rename',
+  label: 'Rename Bookmark',
+  dialog: true,
+  visible: (context) => lineBookmark(context) !== undefined,
+  enabled: (context) => lineBookmark(context) !== undefined,
+  run: (context) => {
+    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    return renameBookmark(worktree, at);
+  },
 });
+services.commands.register({
+  id: 'bookmarks.removeMnemonic',
+  label: 'Remove Mnemonic',
+  visible: (context) => lineBookmark(context)?.mnemonic !== undefined,
+  enabled: (context) => lineBookmark(context)?.mnemonic !== undefined,
+  run: (context) => {
+    const { worktree, at } = bookmarkPlace(context) as BookmarkPlace;
+    removeMnemonic(worktree, at);
+  },
+});
+// IntelliJ's `popup@BookmarkContextMenu`, in its Edit menu's Bookmarks and in the gutter's menu,
+// after the version control's (Annotate).
+for (const [menu, group] of [
+  ['main/edit/bookmarks', 'a'],
+  ['editor/gutter', 'b'],
+] as const) {
+  for (const [command, order] of [
+    ['bookmarks.rename', -1],
+    ['bookmarks.toggle', 0],
+    ['bookmarks.removeMnemonic', 1],
+    ['bookmarks.toggleMnemonic', 2],
+  ] as const) {
+    services.menus.contribute({ menu, item: { command }, group, order });
+  }
+}
 // Next and Previous Line Bookmark, as IntelliJ's: through all the worktree's, from the caret's line.
 // IntelliJ's own keymap gives them no keys.
 for (const forward of [false, true]) {
@@ -1876,6 +1940,9 @@ function Code(props: { path: string; env: string }) {
             }}
             annotate={() => annotationFor(props.path)}
             bookmarks={() => bookmarkMarks(props.env, props.path)}
+            onGutterMenu={(line) => {
+              gutterLine = line;
+            }}
             onBookmarksMoved={(lines) => {
               moveBookmarks(props.env, props.path, lines);
             }}

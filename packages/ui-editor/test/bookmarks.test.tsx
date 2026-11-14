@@ -134,6 +134,26 @@ describe('bookmarks', () => {
     expect(mnemonic()).toBe(shown);
   });
 
+  it('are told the line a menu is opened on in the gutter, not in the text', async () => {
+    const lines: number[] = [];
+    const root = mount({
+      document: new EditorDocument('a\nb\nc\n'),
+      onGutterMenu: (line) => void lines.push(line),
+    });
+    const number = (text: string) =>
+      [...root.querySelectorAll<HTMLElement>('.cm-lineNumbers .cm-gutterElement')].find(
+        (element) => element.textContent === text,
+      ) as HTMLElement;
+    await userEvent.click(number('3'), { button: 'right' });
+    await userEvent.click(number('1'), { button: 'right' });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement, { button: 'right' });
+    expect(lines).toEqual([2, 0]);
+    // Nobody to tell: nothing.
+    cleanup?.();
+    const quiet = mount({ document: new EditorDocument('a\n') });
+    await userEvent.click(quiet.querySelector('.cm-gutters') as HTMLElement, { button: 'right' });
+  });
+
   it('have no gutter when the editor shows none', () => {
     const root = mount({ document: new EditorDocument('a\n') });
     expect(root.querySelector('.cerebro-bookmarks')).toBeNull();
