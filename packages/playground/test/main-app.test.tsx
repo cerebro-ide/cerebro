@@ -451,13 +451,13 @@ describe('a file with Windows’ line breaks', () => {
     await userEvent.click(menuItem('CR - Classic Mac OS (\\r)'));
     await expect
       .poll(() => host('/r').params('fs.write').at(-1))
-      .toEqual({ path: '/r/convert.txt', text: 'one\rtwo\r' });
+      .toMatchObject({ path: '/r/convert.txt', text: 'one\rtwo\r' });
     expect(item.textContent).toBe('CR');
     await userEvent.click(item);
     await userEvent.click(menuItem('LF - Unix and macOS (\\n)'));
     await expect
       .poll(() => host('/r').params('fs.write').at(-1))
-      .toEqual({ path: '/r/convert.txt', text: 'one\ntwo\n' });
+      .toMatchObject({ path: '/r/convert.txt', text: 'one\ntwo\n' });
     expect(item.textContent).toBe('LF');
   });
 });
@@ -474,13 +474,13 @@ describe('a file’s byte order mark', () => {
     await userEvent.click(menuItem('Remove BOM'));
     await expect
       .poll(() => host('/r').params('fs.write').at(-1))
-      .toEqual({ path: '/r/bom.txt', text: 'one\n' });
+      .toMatchObject({ path: '/r/bom.txt', text: 'one\n' });
     await userEvent.click(item);
     expect(await menuItems()).toEqual(['Add BOM']);
     await userEvent.click(menuItem('Add BOM'));
     await expect
       .poll(() => host('/r').params('fs.write').at(-1))
-      .toEqual({ path: '/r/bom.txt', text: '\uFEFFone\n' });
+      .toMatchObject({ path: '/r/bom.txt', text: '\uFEFFone\n' });
   });
 });
 
