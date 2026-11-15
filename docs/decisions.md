@@ -4169,8 +4169,8 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     its first change (Claude's choice, open to change: keeping it is a refinement).
   - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
     commits.
-- **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's options, and whether
-  diffs go in the navigation history);
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (whether diffs go in the navigation
+  history; the merge's import statements and gutter markers: decision "Merge conflicts");
   several files
   selected as the list; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and
@@ -4707,6 +4707,14 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
   with each change come back together, as IntelliJ's `UndoableAction` restores its changes' states
   (`storeChangeState`); redone, the same. The keys are IntelliJ's (Ctrl+Z, Ctrl+Shift+Z; ⌘ on a
   Mac), the editor's own; in the app, one press undoes once (measured in the built app).
+- **Automatically apply non-conflicting changes** (added 2026-11-15), IntelliJ's setting under
+  Settings → Tools → Diff & Merge, its words (`DiffBundle`), off by default as IntelliJ's
+  (`TextDiffSettingsHolder`'s MERGE_AUTO_APPLY_NON_CONFLICTED_CHANGES). On, the merge window takes
+  the changes that aren't in conflict, from both sides, as it opens, as IntelliJ's does after its
+  first rediff (`MergeThreesideViewer`: `applyNonConflictedChanges(ThreeSide.BASE)`); undone as
+  any change taken. The page's two other merge options wait: resolving conflicts in import
+  statements needs the language's parser, and the gutter's markers of modified lines need the
+  result to show its changes since it opened.
 - **Not yet:** merging a binary file (it says to accept a side).
   (changed 2026-11-09: the Git menu's Continue Rebase, Abort Rebase and Abort Merge, Resolve
   Conflicts… shown only with conflicts, and committing a merge from the Commit window are done,
