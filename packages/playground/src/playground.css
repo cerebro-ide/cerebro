@@ -60,6 +60,10 @@ body,
   font-weight: 600;
 }
 
+.playground-project--cut {
+  color: var(--cerebro-cut);
+}
+
 .playground-project__location {
   margin-left: 6px;
   overflow: hidden;

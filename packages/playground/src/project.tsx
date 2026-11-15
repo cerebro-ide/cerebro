@@ -9,6 +9,7 @@
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
+import { signal } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { RELOAD_EVERY } from './documents.js';
 import { target } from './edit.js';
@@ -57,6 +58,14 @@ function sampleSource(root: FileNode, paths: readonly string[]): TreeSource<File
     isLeaf: (node) => node.kind === 'file',
   };
 }
+
+/**
+ * What Cut or Copy kept from the view, in its worktree, for Paste (file-clipboard.tsx). What's cut
+ * shows greyed until it's pasted, or Escape in the view lets it go, as IntelliJ's.
+ */
+export const kept = signal<{ node: FileNode; worktree: string; cut: boolean } | undefined>(
+  undefined,
+);
 
 const models = new Map<string, TreeModel<FileNode>>();
 
@@ -174,7 +183,18 @@ export function ProjectTree(props: {
   menu: (event: MouseEvent) => void;
 }): Node {
   return (
-    <div class="playground-project">
+    <div
+      class="playground-project"
+      on:keydown={(event) => {
+        // Escape lets go of what's cut, and does nothing else then (PsiCopyPasteManager's
+        // EscapeHandler).
+        const mods = event.ctrlKey || event.altKey || event.shiftKey || event.metaKey;
+        if (event.key !== 'Escape' || mods || kept.get()?.cut !== true) return;
+        kept.set(undefined);
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
@@ -199,6 +219,9 @@ export function ProjectTree(props: {
                 class={() =>
                   [
                     node.path === env.id && 'playground-project__root',
+                    kept.get()?.cut === true &&
+                      kept.get()?.node.path === node.path &&
+                      'playground-project--cut',
                     node.ignored && 'playground-change--ignored',
                     (node.kind === 'directory'
                       ? hasErrorsBeneath(node.path)

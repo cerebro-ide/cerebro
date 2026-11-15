@@ -7,6 +7,7 @@ import { RELOAD_EVERY } from '../src/documents.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { fileProblems } from '../src/problems.js';
 import {
+  kept,
   ProjectTree,
   projectFile,
   projectNode,
@@ -189,6 +190,36 @@ describe('the Project tool window', () => {
     await userEvent.dblClick(row('/s'));
     await expect.poll(rows).toEqual(['s']);
     await userEvent.dblClick(row('/s'));
+  });
+});
+
+describe('what’s cut', () => {
+  it('shows greyed until Escape in the view lets it go, as IntelliJ’s', async () => {
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    mount();
+    await expect.poll(rows).toContain('README.md');
+    const cut = () =>
+      [...document.querySelectorAll('.playground-project--cut')].map((name) => name.textContent);
+    const readme = folders['/r']?.[2] as FileNode;
+    kept.set({ node: readme, worktree: '/r', cut: true });
+    expect(cut()).toEqual(['README.md']);
+    const name = row('/r/README.md').querySelector('.playground-project--cut') as Element;
+    expect(getComputedStyle(name).color).toBe('rgb(160, 160, 160)');
+    await userEvent.click(row('/r/README.md'));
+    // Not with a modifier; then Escape alone, which goes no further.
+    await userEvent.keyboard('{Shift>}{Escape}{/Shift}');
+    expect(kept.get()).toBeDefined();
+    const after = vi.fn();
+    document.body.addEventListener('keydown', after);
+    await userEvent.keyboard('{Escape}');
+    expect([kept.get(), cut(), after.mock.calls.length]).toEqual([undefined, [], 0]);
+    // What's copied stays, and Escape is someone else's.
+    kept.set({ node: readme, worktree: '/r', cut: false });
+    expect(cut()).toEqual([]);
+    await userEvent.keyboard('{Escape}');
+    expect([kept.get()?.cut, after.mock.calls.length]).toEqual([false, 1]);
+    document.body.removeEventListener('keydown', after);
+    kept.set(undefined);
   });
 });
 
