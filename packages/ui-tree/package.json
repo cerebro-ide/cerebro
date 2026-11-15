@@ -23,5 +23,8 @@
   "dependencies": {
     "@cerebro-ide/jsx": "0.0.0",
     "@cerebro-ide/reactive": "0.0.0"
+  },
+  "devDependencies": {
+    "@cerebro-ide/theme": "0.0.0"
   }
 }
