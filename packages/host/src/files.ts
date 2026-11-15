@@ -71,8 +71,14 @@ export async function readFileBytes(path: string): Promise<Uint8Array> {
     const { size } = await file.stat();
     if (size > MAX_FILE_SIZE) throw new UnreadableFile('too large', path);
     const bytes = new Uint8Array(size);
-    await file.read(bytes, 0, size, 0);
-    return bytes;
+    // Until the end: a file that shrank since its size was read (an agent rewriting it) has fewer.
+    let length = 0;
+    while (length < size) {
+      const { bytesRead } = await file.read(bytes, length, size - length, length);
+      if (bytesRead === 0) break;
+      length += bytesRead;
+    }
+    return length === size ? bytes : bytes.subarray(0, length);
   } finally {
     await file.close();
   }

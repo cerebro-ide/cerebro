@@ -1,4 +1,13 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  truncateSync,
+  writeFileSync,
+} from 'node:fs';
+import { open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -83,6 +92,29 @@ describe('listFolder', () => {
     await expect(readFileBytes(join(root, 'huge.log'))).rejects.toMatchObject({
       reason: 'too large',
     });
+  });
+
+  it('reads as many bytes as there are, when the file shrinks as it’s read', async () => {
+    const path = join(root, 'shrinking.txt');
+    writeFileSync(path, 'a longer text');
+    const handle = await open(path);
+    const prototype = Object.getPrototypeOf(handle) as typeof handle;
+    await handle.close();
+    const stat = prototype.stat;
+    // Rewritten shorter between its size being read and its bytes (an agent writing it).
+    const spy = vi.spyOn(prototype, 'stat').mockImplementation(async function (
+      this: typeof handle,
+      ...args: Parameters<typeof stat>
+    ) {
+      const stats = await stat.apply(this, args);
+      truncateSync(path, 5);
+      return stats;
+    } as typeof stat);
+    try {
+      expect(new TextDecoder().decode(await readFileBytes(path))).toBe('a lon');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('tells whether a file is there, and fails when it can’t tell', async () => {
