@@ -14,6 +14,7 @@ import {
 } from '../src/conflicts.js';
 import { useProjects, workspace } from '../src/environments.js';
 import { readState } from '../src/repository-state.js';
+import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, dialogText, FakeHost, press, project } from './fakes.js';
 
 describe('the Conflicts dialog’s words', () => {
@@ -438,6 +439,34 @@ describe('the Conflicts dialog', () => {
       .poll(() => host.params('git.resolve'))
       .toEqual([{ path: '/r', file: 'a.ts', text: 'A\nb\nC\n' }]);
     await expect.poll(rows).toHaveLength(2);
+  });
+
+  it('takes the non-conflicting changes as it opens once told to, as IntelliJ’s', async () => {
+    globalSettings.layers.global.set('diff.merge.autoApplyNonConflicting', true);
+    try {
+      void resolveConflicts('/r');
+      await userEvent.dblClick(await row('a.ts'));
+      const window = await mergeWindow();
+      expect(window.querySelector('.playground-merge__left')?.textContent).toBe(
+        'All changes have been processed',
+      );
+      // Undone as any change taken.
+      const [, result] = [...window.querySelectorAll('*')].flatMap((e) =>
+        e.shadowRoot ? [...e.shadowRoot.querySelectorAll<HTMLElement>('.cm-content')] : [],
+      );
+      await userEvent.click(result as HTMLElement);
+      await userEvent.keyboard('{Control>}z{/Control}');
+      expect(window.querySelector('.playground-merge__left')?.textContent).toBe(
+        '2 changes, No conflicts',
+      );
+      await userEvent.keyboard('{Control>}{Shift>}z{/Shift}{/Control}');
+      await pressIn(window, 'Apply');
+      await expect
+        .poll(() => host.params('git.resolve'))
+        .toEqual([{ path: '/r', file: 'a.ts', text: 'A\nb\nC\n' }]);
+    } finally {
+      globalSettings.layers.global.reset('diff.merge.autoApplyNonConflicting');
+    }
   });
 
   it('resolves the simple conflicts with Resolve Simple Conflicts, as IntelliJ’s', async () => {

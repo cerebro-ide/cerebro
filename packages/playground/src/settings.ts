@@ -330,6 +330,19 @@ registry.register({
   ],
   scopes: ['global'],
 });
+// Off by default, as IntelliJ's (`TextDiffSettingsHolder`'s MERGE_AUTO_APPLY_NON_CONFLICTED_CHANGES);
+// its words, `DiffBundle`'s. On, the merge window takes them all as it opens, as IntelliJ's after its
+// first rediff (`MergeThreesideViewer`: `applyNonConflictedChanges(ThreeSide.BASE)`).
+registry.register({
+  id: 'diff.merge.autoApplyNonConflicting',
+  title: 'Automatically apply non-conflicting changes',
+  description:
+    "The merge window takes the changes that aren't in conflict, from both sides, as it opens.",
+  page: 'tools/diff',
+  type: 'boolean',
+  default: false,
+  scopes: ['global'],
+});
 // On by default, as IntelliJ's (`DiffSettingsHolder`'s GO_TO_NEXT_FILE_ON_NEXT_DIFFERENCE); its
 // words, `DiffBundle`'s.
 registry.register({

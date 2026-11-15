@@ -270,6 +270,9 @@ async function mergeFile(
             fontSize={() => settings.get('editor.fontSize') as number}
             tabSize={() => settings.get('editor.tabSize') as number}
             control={(given) => {
+              if (settings.get('diff.merge.autoApplyNonConflicting') === true) {
+                given.applyNonConflicting('all');
+              }
               control.set(given);
             }}
           />
