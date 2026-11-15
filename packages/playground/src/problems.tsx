@@ -281,23 +281,32 @@ export function ProblemsView(props: {
   /** Whether the window is on the left or right: the preview goes under the tree, as IntelliJ's. */
   vertical: () => boolean;
 }): Node {
+  // Down the window's left, or across its top when it's on the left or right, as IntelliJ's
+  // (`orientationChangedTo`): its tooltips and menu beside it, or under it.
+  const side = () => (props.vertical() ? 'below' : 'right');
   return (
-    <div class="playground-problems">
+    <div
+      class={() =>
+        props.vertical()
+          ? 'playground-problems playground-problems--vertical'
+          : 'playground-problems'
+      }
+    >
       <div
         class="playground-problems__toolbar"
         role="toolbar"
         aria-label="Problems"
-        aria-orientation="vertical"
+        aria-orientation={() => (props.vertical() ? 'horizontal' : 'vertical')}
       >
         <button
           type="button"
           class="cerebro-toolbar-button"
           aria-label="View Options"
           data-menu={VIEW_MENU}
-          ref={tooltip({ text: () => 'View Options', placement: 'right' })}
+          ref={tooltip({ text: () => 'View Options', placement: side })}
           on:click={(event) => {
             const anchor = event.currentTarget as HTMLElement;
-            openMenu(props.services, VIEW_MENU, { anchor, placement: 'right' }, { owner: anchor });
+            openMenu(props.services, VIEW_MENU, { anchor, placement: side() }, { owner: anchor });
           }}
         >
           {icon('eye')}
@@ -311,7 +320,7 @@ export function ProblemsView(props: {
           }
           aria-label="Open Editor Preview"
           aria-pressed={() => String(showPreview.get())}
-          ref={tooltip({ text: () => 'Open Editor Preview', placement: 'right' })}
+          ref={tooltip({ text: () => 'Open Editor Preview', placement: side })}
           on:click={() => {
             showPreview.set(!showPreview.peek());
             saveViewOptions();

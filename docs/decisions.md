@@ -1644,9 +1644,10 @@ them.
   half the room each to start with, the split kept (IntelliJ's `proportion`, 0.1 to 0.9). The
   editor edits the file, as IntelliJ's preview is made `editable`, and stays while the selection
   moves within the file. Measured in the app: a problem selected showed its line, current, beside
-  the tree. **Not yet:** the problems underlined in the preview (IntelliJ's shows its document's
-  highlighting: a claim); the toolbar across the window's top when it's on the left or right, as
-  IntelliJ's. **Claude's, open to change:** the icon's drawing.
+  the tree. With the window on the left or right, the toolbar goes across its top, as IntelliJ's
+  (`orientationChangedTo`), its tooltips and menu under it. **Not yet:** the problems underlined in
+  the preview (IntelliJ's shows its document's highlighting: a claim). **Claude's, open to
+  change:** the icon's drawing.
 - **Not yet:** the Problems window's Project Errors tab and its Group by Inspection; shell scripts' problems, which bash-language-server gets from
   `shellcheck`, not bundled (a claim, from its documentation). Quick fixes have their own entry
   ("Quick fixes: Alt+Enter").

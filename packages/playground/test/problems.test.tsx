@@ -235,6 +235,9 @@ describe('Open Editor Preview', () => {
     file.set('/r/a.ts');
     fileProblems.set('/r/a.ts', PROBLEMS);
     expect(button(box).ariaPressed).toBe('false');
+    expect(box.querySelector('[role="toolbar"]')?.getAttribute('aria-orientation')).toBe(
+      'vertical',
+    );
     // Off to start with: no room taken.
     expect(box.querySelector('.playground-problems__preview')).toBeNull();
     await userEvent.click(button(box));
@@ -261,6 +264,14 @@ describe('Open Editor Preview', () => {
     vertical.set(true);
     expect(split.classList.contains('playground-problems__split--vertical')).toBe(true);
     expect(box.querySelector('.cerebro-splitter--horizontal')).not.toBeNull();
+    // The toolbar goes across the window's top, as IntelliJ's.
+    const toolbar = box.querySelector('[role="toolbar"]') as HTMLElement;
+    expect(toolbar.getAttribute('aria-orientation')).toBe('horizontal');
+    const [eye, toggle] = [...toolbar.querySelectorAll('button')].map((b) =>
+      b.getBoundingClientRect(),
+    );
+    expect([toggle?.top, (toggle?.left ?? 0) >= (eye?.right ?? 0)]).toEqual([eye?.top, true]);
+    expect((eye?.bottom ?? 0) <= split.getBoundingClientRect().top).toBe(true);
     // It edits the file, as IntelliJ's.
     const doc = (await documentFor('/r/a.ts')) as EditorDocument;
     expect(doc.content()).toBe(TEXT);

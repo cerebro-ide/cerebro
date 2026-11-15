@@ -1127,6 +1127,15 @@ body,
   padding: 0 4px;
 }
 
+.playground-problems--vertical {
+  flex-direction: column;
+}
+
+.playground-problems--vertical > .playground-problems__toolbar {
+  flex-direction: row;
+  padding: 4px 4px 0;
+}
+
 .playground-problems__toolbar .cerebro-toolbar-button {
   width: 26px;
   height: 26px;
