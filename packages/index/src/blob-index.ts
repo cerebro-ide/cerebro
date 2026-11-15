@@ -82,6 +82,11 @@ export class BlobIndex {
   }
 
   /** Parses a blob unless it's indexed already; returns whether it was parsed. */
+  /** Whether a blob's content is parsed already. */
+  has(blob: string): boolean {
+    return this.blobs.has(blob);
+  }
+
   add(blob: string, source: () => string, language: LanguageId): boolean {
     if (this.blobs.has(blob)) return false;
     this.blobs.set(blob, this.parse(source(), language));

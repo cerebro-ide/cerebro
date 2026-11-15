@@ -191,6 +191,46 @@ describe('a worktree', () => {
     expect(definitions(index, after.files, 'fresh')[0]).toMatchObject({ path: 'src/new.ts' });
   });
 
+  it('stores a parse under its content’s hash alone, though a file changes as it’s indexed', async () => {
+    const at = join(root, 'race');
+    execFileSync('git', ['init', '-q', '-b', 'main', at]);
+    writeFileSync(join(at, 'a.ts'), 'export function committed() {}\n');
+    run(at, 'add', '.');
+    run(at, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'first');
+    run(at, 'worktree', 'add', '-q', '--detach', join(root, 'race-other'));
+    const shared = await BlobIndex.create();
+    // An agent rewrites a.ts after git has listed it, before it's read.
+    const racing: Git = async (cwd, args) => {
+      const output = await git(cwd, args);
+      if (args.includes('--others') && cwd === at) {
+        writeFileSync(join(at, 'a.ts'), '\n\n\n\nexport function agentsVersion() {}\n');
+      }
+      return output;
+    };
+    await indexWorktree(shared, at, racing);
+    const other = await indexWorktree(shared, join(root, 'race-other'), git);
+    expect(definitions(shared, other.files, 'committed')).toHaveLength(1);
+    expect(definitions(shared, other.files, 'agentsVersion')).toEqual([]);
+    // The next pass finds the new content.
+    const again = await indexWorktree(shared, at, git);
+    expect(definitions(shared, again.files, 'agentsVersion')).toHaveLength(1);
+  });
+
+  it('leaves out a file deleted as it’s indexed', async () => {
+    const at = join(root, 'deleting');
+    execFileSync('git', ['init', '-q', '-b', 'main', at]);
+    writeFileSync(join(at, 'kept.ts'), 'export const kept = 1;\n');
+    writeFileSync(join(at, 'gone.ts'), 'export const gone = 1;\n');
+    const deleting: Git = async (cwd, args) => {
+      const output = await git(cwd, args);
+      if (args[0] === 'hash-object') rmSync(join(at, 'gone.ts'), { force: true });
+      return output;
+    };
+    const { files } = await indexWorktree(index, at, deleting);
+    expect(definitions(index, files, 'kept')).toHaveLength(1);
+    expect(definitions(index, files, 'gone')).toEqual([]);
+  });
+
   it('answers symbols, definitions and usages by name', async () => {
     const { files } = await indexWorktree(index, join(root, 'other'), git);
     expect(symbols(index, files, 'ap').map((s) => s.name)).toEqual(['Shape']);
