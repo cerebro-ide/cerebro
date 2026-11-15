@@ -201,6 +201,35 @@ describe('PluginRegistry', () => {
     expect(commands.get('slow.go')).toBeDefined();
   });
 
+  it('undoes at once what a plugin removed while activating adds after, even when added again', async () => {
+    const { plugins, commands } = setup();
+    const finish: (() => void)[] = [];
+    const cleanup = vi.fn();
+    const slow = (command: string, fail = false): Plugin => ({
+      id: 'slow',
+      name: 'Slow',
+      activate: async (context) => {
+        await new Promise<void>((resolve) => finish.push(resolve));
+        context.registerCommand({ id: command, label: 'Go', run: () => undefined });
+        context.onDispose(cleanup);
+        if (fail) throw new Error('late');
+      },
+    });
+    const first = plugins.add(slow('slow.first', true));
+    plugins.remove('slow');
+    // Added again while the first activation still awaits.
+    const second = plugins.add(slow('slow.second'));
+    finish[0]?.();
+    await expect(first).rejects.toThrow('late');
+    expect(commands.get('slow.first')).toBeUndefined();
+    expect(cleanup).toHaveBeenCalledOnce();
+    finish[1]?.();
+    await second;
+    // The first's failure didn't undo the second.
+    expect(commands.get('slow.second')).toBeDefined();
+    expect(plugins.plugins.get('slow')?.state).toBe('active');
+  });
+
   it('undoes what a failing plugin added, and records why it failed', async () => {
     const { plugins, commands } = setup();
     await expect(

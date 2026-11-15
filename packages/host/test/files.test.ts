@@ -1,4 +1,14 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  truncateSync,
+  writeFileSync,
+} from 'node:fs';
+import { open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
@@ -39,6 +49,22 @@ describe('listFolder', () => {
       'README.md',
     ]);
     expect(entries[0]?.path).toBe(`${toSlashes(root)}/Docs`);
+  });
+
+  it('lists a link by what it links to: a folder’s as a folder, a broken one as a file', async () => {
+    const links = mkdtempSync(join(tmpdir(), 'cerebro-links-'));
+    try {
+      mkdirSync(join(links, 'real'));
+      symlinkSync(join(links, 'real'), join(links, 'folder-link'), 'dir');
+      symlinkSync(join(links, 'gone'), join(links, 'broken-link'));
+      expect((await listFolder(links)).map((e) => `${e.kind}:${e.name}`)).toEqual([
+        'directory:folder-link',
+        'directory:real',
+        'file:broken-link',
+      ]);
+    } finally {
+      rmSync(links, { recursive: true, force: true });
+    }
   });
 
   it('joins with a slash, even after a trailing one', async () => {
@@ -83,6 +109,25 @@ describe('listFolder', () => {
     await expect(readFileBytes(join(root, 'huge.log'))).rejects.toMatchObject({
       reason: 'too large',
     });
+  });
+
+  it('reads as many bytes as there are, when the file shrinks as it’s read', async () => {
+    const path = join(root, 'shrinking.txt');
+    writeFileSync(path, 'a longer text');
+    const handle = await open(path);
+    const prototype = Object.getPrototypeOf(handle) as typeof handle;
+    await handle.close();
+    // Rewritten shorter between its size being read and its bytes (an agent writing it).
+    const spy = vi.spyOn(prototype, 'stat').mockImplementation(() => {
+      const stats = statSync(path);
+      truncateSync(path, 5);
+      return Promise.resolve(stats);
+    });
+    try {
+      expect(new TextDecoder().decode(await readFileBytes(path))).toBe('a lon');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('tells whether a file is there, and fails when it can’t tell', async () => {

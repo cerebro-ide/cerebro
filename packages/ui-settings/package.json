@@ -25,5 +25,8 @@
     "@cerebro-ide/reactive": "0.0.0",
     "@cerebro-ide/settings": "0.0.0",
     "@cerebro-ide/ui-dialog": "0.0.0"
+  },
+  "devDependencies": {
+    "@cerebro-ide/theme": "0.0.0"
   }
 }

@@ -19,7 +19,9 @@
 - **Other agent CLIs**: which ones, and how much of hooks/resume/skills maps onto them.
 - **Undeclared dependencies**: npm workspaces hoist packages, so a package can import something it
   doesn't declare. That breaks "usable in isolation" silently. How to catch it: a lint rule, a
-  check script, or per-package test installs.
+  check script, or per-package test installs. Found by hand on 2026-11-15 (the review of that
+  day): fourteen `ui-*` packages' tests imported `@cerebro-ide/theme`, now declared as a dev
+  dependency; every `src` import was declared. Nothing catches the next one yet.
 - **TypeScript 7**: when to move Cerebro's own build to it (after typescript-eslint supports it).
   Separately, the language-server pool has to serve repos on TS 5–6 (tsserver) and on TS 7, which
   has its own LSP-based server.

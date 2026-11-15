@@ -320,7 +320,7 @@ class EffectNode extends Tracker implements Disposable {
 }
 
 /** Computed values derive; they must not write, not even from an untracked part or an action. */
-function assertNotComputing(): void {
+export function assertNotComputing(): void {
   if (computingDepth > 0) {
     throw new Error('A computed value must not write to observables');
   }

@@ -41,5 +41,8 @@
     "@lezer/common": "1.5.3",
     "@lezer/highlight": "1.2.5",
     "@lezer/markdown": "1.8.0"
+  },
+  "devDependencies": {
+    "@cerebro-ide/theme": "0.0.0"
   }
 }
