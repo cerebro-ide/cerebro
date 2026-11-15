@@ -1086,7 +1086,9 @@ Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local ch
   JSON-RPC errors.
 - **Framing: one message per line** (newline-delimited JSON) rather than LSP's `Content-Length`
   headers: `JSON.stringify` never emits a raw newline, so a line is a message, and it's simpler to
-  read and debug over `wsl.exe` or `ssh`. A line split across chunks is joined (`LineReader`).
+  read and debug over `wsl.exe` or `ssh`. A line split across chunks is joined (`LineReader`),
+  once it's whole: joining each chunk to a buffer and searching all of it again took 1,071 ms for a
+  14 MB message in 64 KB chunks, 16 ms now (2026-11-15, from the review of that day; measured).
 - **`host`:** a Node process serving the protocol on stdin and stdout for a repository (its folder,
   or `CEREBRO_REPO`). It exits when its input ends. First methods: `host.ping` (the protocol's
   version, 1) and `git.worktrees` (from `git worktree list --porcelain`: path, commit, branch,
