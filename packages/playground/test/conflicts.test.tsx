@@ -278,10 +278,11 @@ describe('the Conflicts dialog', () => {
     expect(await start('b.ts')).toBe((await start('src')) + 16);
     // The file selected before stays so.
     expect(selectedRows()).toEqual(['a.ts']);
-    // A folder selected is its files; its double click merges nothing.
+    // A folder selected is its files; its double click merges nothing, and collapses it.
     await userEvent.dblClick(await row('src'));
     expect(document.querySelectorAll('.cerebro-dialog')).toHaveLength(1);
     expect(selectedRows()).toEqual(['src2 files']);
+    expect((await rows()).map(([name]) => name)).toEqual(['src2 files', 'a.ts']);
     await userEvent.keyboard('{ArrowDown}{ArrowUp}');
     expect(selectedRows()).toEqual(['src2 files']);
     await userEvent.click(button('Accept Yours'));
@@ -305,6 +306,54 @@ describe('the Conflicts dialog', () => {
     await press('Close');
     await done;
     expect(localStorage.getItem('cerebro.conflicts.groupByDirectory')).toBe('false');
+  });
+
+  it('collapses a folder by its arrow, Left and Right, as a tree’s', async () => {
+    localStorage.setItem('cerebro.conflicts.groupByDirectory', 'true');
+    const done = resolveConflicts('/r');
+    const names = async () => (await rows()).map(([name]) => name);
+    const arrow = async (text: string) =>
+      (await row(text)).querySelector('.cerebro-tree-row__arrow') as HTMLElement;
+    expect(await names()).toEqual(['src2 files', 'b.ts', 'c.ts', 'a.ts']);
+    expect((await arrow('src')).classList.contains('cerebro-tree-row__arrow--open')).toBe(true);
+    // Its arrow selects it, as a tree's.
+    await userEvent.click(await row('c.ts'));
+    await userEvent.click(await arrow('src'));
+    expect(await names()).toEqual(['src2 files', 'a.ts']);
+    expect(selectedRows()).toEqual(['src2 files']);
+    expect((await arrow('src')).classList.contains('cerebro-tree-row__arrow--open')).toBe(false);
+    // Right expands it, then goes to its first row; Left goes to its folder, then collapses it.
+    await userEvent.keyboard('{ArrowRight}');
+    expect(await names()).toEqual(['src2 files', 'b.ts', 'c.ts', 'a.ts']);
+    expect(selectedRows()).toEqual(['src2 files']);
+    await userEvent.keyboard('{ArrowRight}');
+    expect(selectedRows()).toEqual(['b.ts']);
+    // A file has nothing to its right.
+    await userEvent.keyboard('{ArrowRight}');
+    expect(selectedRows()).toEqual(['b.ts']);
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(selectedRows()).toEqual(['src2 files']);
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(await names()).toEqual(['src2 files', 'a.ts']);
+    // At the top, Left has nowhere to go.
+    await userEvent.keyboard('{ArrowLeft}');
+    expect(selectedRows()).toEqual(['src2 files']);
+    // Nothing selected, Right and Left do nothing.
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(await row('src'));
+    await userEvent.keyboard('{/Control}');
+    await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
+    expect([selectedRows(), await names()]).toEqual([[], ['src2 files', 'a.ts']]);
+    await userEvent.click(await row('src'));
+    // Grouped again, every folder is open.
+    const group = (await dialog()).querySelector(
+      '.playground-conflicts__group input',
+    ) as HTMLInputElement;
+    await userEvent.click(group);
+    await userEvent.click(group);
+    expect(await names()).toEqual(['src2 files', 'b.ts', 'c.ts', 'a.ts']);
+    await press('Close');
+    await done;
   });
 
   it('lists the files where nothing can be kept, as they come', async () => {

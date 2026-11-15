@@ -4679,7 +4679,12 @@ Ido, 2026-11-09 ("Update first, conflicts next", then "next"): IntelliJ's Confli
   alone under its folder; a folder selected is its files, as IntelliJ's selection
   (`VcsTreeModelData.selected`) takes them, and its double click merges nothing. Turned on or off,
   the files selected stay so.
-  - **Not yet:** a folder collapsed (IntelliJ's tree can).
+  - **A folder collapses** (added 2026-11-15), as IntelliJ's tree's: by its arrow, its double
+    click, and Left and Right, which act as the trees' do (ui-tree's `left` and `right`: Right
+    expands a folder, then goes to its first row; Left collapses it, or goes to the folder a row is
+    in). Its arrow selects it, as ui-tree's does, so nothing selected is ever hidden. Every folder
+    is open again when the files are grouped again. The arrow is ui-tree's (its classes and
+    drawing).
   - **Fixed with it:** a selected file's row had lost its colour while the list hadn't the
     keyboard (a comment had split the rule's selectors, measured in a test).
 - **Undo in the merge window** (added 2026-11-13), as IntelliJ's (`MergeModelBase.kt`,
