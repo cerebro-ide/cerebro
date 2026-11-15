@@ -90,6 +90,39 @@ describe('IndexService', () => {
     expect(counted.mock.calls.length).toBeGreaterThan(calls);
   });
 
+  it('counts a pass’s freshness from its end, and starts no other while it runs', async () => {
+    // How many times one pass runs git.
+    const reference = vi.fn(git);
+    await new IndexService(reference).symbols(repo, 'x');
+    const onePass = reference.mock.calls.length;
+    let now = 0;
+    let release = (): void => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const counted = vi.fn(async (...args: Parameters<typeof git>) => {
+      await held;
+      return git(...args);
+    });
+    const service = new IndexService(counted, () => now);
+    const first = service.symbols(repo, 'x');
+    await vi.waitFor(() => {
+      expect(counted).toHaveBeenCalled();
+    });
+    // A pass longer than FRESH_FOR: a question meanwhile waits for it.
+    now = FRESH_FOR + 1;
+    const second = service.symbols(repo, 'y');
+    release();
+    await Promise.all([first, second]);
+    const afterPass = counted.mock.calls.length;
+    expect(afterPass).toBe(onePass);
+    // Fresh until FRESH_FOR after it ended.
+    now = 2 * FRESH_FOR + 1;
+    await service.symbols(repo, 'z');
+    expect(counted.mock.calls.length).toBe(afterPass);
+    now = 2 * FRESH_FOR + 2;
+    await service.symbols(repo, 'z');
+    expect(counted.mock.calls.length).toBeGreaterThan(afterPass);
+  });
+
   it('warms a worktree up front, telling how far it got', async () => {
     const reports: [string, number, number][] = [];
     const service = new IndexService(git, Date.now, (worktree, done, total) =>

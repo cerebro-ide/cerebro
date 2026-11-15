@@ -24,7 +24,14 @@ export const SAVE_AFTER = 1000;
 
 export class IndexService {
   private index: Promise<BlobIndex> | undefined;
-  private readonly worktrees = new Map<string, { at: number; indexed: Promise<IndexedWorktree> }>();
+  /**
+   * Each worktree's last pass, and when it ended: undefined while it runs, so a question meanwhile
+   * waits for it rather than starting another over the same index.
+   */
+  private readonly worktrees = new Map<
+    string,
+    { at: number | undefined; indexed: Promise<IndexedWorktree> }
+  >();
 
   constructor(
     private readonly git: Git,
@@ -67,7 +74,7 @@ export class IndexService {
     this.index ??= this.open();
     const index = await this.index;
     let entry = this.worktrees.get(worktree);
-    if (!entry || this.now() - entry.at > FRESH_FOR) {
+    if (!entry || (entry.at !== undefined && this.now() - entry.at > FRESH_FOR)) {
       const indexed = indexWorktree(
         index,
         worktree,
@@ -75,7 +82,15 @@ export class IndexService {
         (done, total) => this.progress?.(worktree, done, total),
         this.outside,
       );
-      entry = { at: this.now(), indexed };
+      const pass: { at: number | undefined; indexed: Promise<IndexedWorktree> } = {
+        at: undefined,
+        indexed,
+      };
+      const ended = (): void => {
+        pass.at = this.now();
+      };
+      indexed.then(ended, ended);
+      entry = pass;
       this.worktrees.set(worktree, entry);
       const { cache } = this;
       if (cache) {
