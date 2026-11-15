@@ -36,7 +36,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The shared index, first part (2026-10-26)](#the-shared-index-first-part-2026-10-26): one index for many worktrees, in the host
 - [Find file (2026-10-26)](#find-file-2026-10-26): go to a file by name
 - [The code editor (2026-10-26)](#the-code-editor-2026-10-26): CodeMirror, read-only, highlighted
-- [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files
+- [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files, under the worktree's folder (2026-11-14)
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
@@ -73,6 +73,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
 - [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
+- [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
+- [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -1007,6 +1009,16 @@ to change:
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
   text until the editor reads files.
+- **Under the worktree's folder** (changed 2026-11-14, from Ido: "the project files in intellij
+  are under a product virtual "directory" - that opens the door to a few things, like something to
+  select for search within all the project files"). IntelliJ's Project view lists, under a root it
+  hides (ProjectViewProjectNode, read from its source), each content root as a folder, its name in
+  bold and its path after it in grey (PsiDirectoryNode), then External Libraries and Scratches and
+  Consoles. Here the tree's top is the worktree's folder, opened, the same way; in a browser, the
+  environment's name alone. Find in Files on it searches the whole worktree, as IntelliJ's sets the
+  Directory scope to the folder chosen (FindInProjectUtil). Delete, Rename, Cut and Copy already
+  left the worktree itself out. Claude's choices, open to change: the path is shown in full
+  (IntelliJ's starts with `~` for the home folder, a claim); the weight is 600.
 - **Files added or removed on disk show** (added 2026-11-01; a gap seen in QA). While the tree is
   shown, its folders that were loaded are read again when the window gets the focus, and every 2 s
   while it has it, the same timing as open files. IntelliJ refreshes on the window's activation too,
@@ -3270,8 +3282,11 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   a folder's is the host's to refuse (a claim for IntelliJ). A move is Rename's (`moveEntry`, one
   function for both): what's unsaved is saved, what refers to a file changes with it, the host
   moves it (`fs.rename`), and its tabs follow it. What's cut is pasted once. Measured in the app:
-  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. Not yet:
-  cut files shown greyed in the view, as IntelliJ's; several files at once; the directory field's
+  `sums.ts` moved into `lib` changed `./sums` to `./lib/sums` in the file importing it. What's
+  cut shows greyed in the view until it's pasted (added 2026-11-14), in IntelliJ's
+  `CopyPasteManager.CUT_COLOR` (Gray._160, both themes: `--cerebro-cut`), and Escape in the view,
+  without modifiers, lets it go, nothing else done with the key (PsiCopyPasteManager's
+  EscapeHandler). Not yet: several files at once; the directory field's
   history, completion and folder chooser; the paths shortened as IntelliJ's (`shortenPath`); and
   the Move dialog's Preview. IntelliJ's menu's other groups (Find Usages, Compare With) aren't in
   it yet.
@@ -3422,6 +3437,61 @@ actions). Claude's choices, open to change.
   IntelliJ's.
 - **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
   (IntelliJ's dialog); Optimize Imports on save or before a commit.
+
+## The Structure tool window (2026-11-14)
+
+From Ido (2026-11-14): "structure panel isn't implemented though we already implemented the jump
+to source and usages, so that's a given". As IntelliJ's (StructureViewWrapperImpl,
+StructureViewComponent and StructureViewFactoryImpl, read from its source). Claude's choices, open
+to change.
+
+- **The active editor's file's symbols, as a tree:** File Structure's (`lsp.structure`), every
+  symbol with members expanded, each with its kind's icon. Asked again as the file is edited, once
+  typing pauses (300 ms, a claim), only the latest answer kept.
+- **IntelliJ's defaults:** Autoscroll to Source is on: selecting a symbol shows it in the editor,
+  the focus left in the tree. Double click or Enter goes to it, the editor focused. Autoscroll from
+  Source is off: it doesn't follow the caret.
+  - A position revealed in an editor can now say to leave the focus where it is (`focus: false`),
+    and `openAt` takes that: until now every reveal focused the editor, or none of an editor's did
+    (`revealFocus`, Find's preview).
+- **Its empty texts are IntelliJ's** (LangBundle): "No structure" with no file or no language
+  server, "Structure is empty" for a file with no symbols. In the browser, "The structure shows in
+  the desktop app.", as the Log's.
+- **Not yet:** its toolbar (sorting, Autoscroll toggles, Show Fields and Inherited, Expand and
+  Collapse All), and following the caret when Autoscroll from Source is turned on.
+
+## Scratch files (2026-11-14)
+
+From Ido (2026-11-14): "having files which aren't part of the project like scratch files and
+external files - that's missing and should be implemented as well". As IntelliJ's
+(ScratchFileActions, ScratchFileCreator, ScratchTreeStructureProvider, read from its source).
+Claude's choices, open to change.
+
+- **New Scratch File** (`file.newScratch`, in the File menu after New File): a popup titled New
+  Scratch File lists the languages the editor knows, Plain Text among them, narrowed as one types.
+  The ones last chosen come first, the latest first, then the rest by name (IntelliJ's
+  LRUPopupBuilder). They're kept in the browser's storage; without it, the list is by name.
+- **The file:** empty, named as IntelliJ names them: `scratch`, or `scratch_` and the lowest number
+  no file there has, whatever its extension, then the language's extension (`scratch.ts`,
+  `scratch_1.py`). It opens in the editor, focused. A failure is said in a notification, "Cannot
+  Create Scratch File" (a claim: IntelliJ's own wording wasn't found).
+- **In the app's folder** (`scratches` in its data folder), as IntelliJ keeps them in its
+  configuration's, for every project: the host is given it (`CEREBRO_SCRATCHES`) and answers
+  `scratches.folder` (made if it isn't there) and `scratches.create`. In a browser there are none:
+  the command is disabled.
+- **In the Project view,** after the worktree's folder: Scratches and Consoles, always, and in it
+  Scratches, the folder's files, once it has one (IntelliJ leaves an empty root type out). The two
+  are groups, not files or folders: the actions take nothing from them. A scratch file is a file
+  like the others there (open, rename, delete). Their icon is the note's: IntelliJ's is a scratch
+  pad, not drawn here yet.
+- **Keys:** IntelliJ's NewScratchFile, from its keymap files: Ctrl+Alt+Shift+Insert (`$default`),
+  Cmd+Shift+N (macOS), Ctrl+Shift+N (IntelliJ IDEA Classic and macOS System Shortcuts). The others
+  name none and take their parent's. New File (an untitled file, which IntelliJ hasn't) had these
+  keys until now (decision "Ready-made keymaps"); it keeps VS Code's Ctrl+N and Cmd+N, and has none
+  in IntelliJ's.
+- **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
+  New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
+  types; a scratch file's language changed without renaming it.
 
 ## Git → Current File → Show History (2026-11-12)
 
@@ -4748,7 +4818,6 @@ After Rename, IntelliJ's File Structure (Ido: "do them all"). Claude's choices, 
 - **Not yet:**
   - IntelliJ's options (inherited members, fields shown or not) and its sorting by name.
   - A big file's symbols past the popup's 200 rows are counted, not listed.
-  - The Structure tool window (Alt+7) doesn't list them yet.
 
 ## Rename (2026-11-04)
 
@@ -5091,7 +5160,8 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
   - VS Code: its keyboard shortcut sheets for Windows and macOS. A command they don't name keeps
     IntelliJ's keys for the same system (Claude's choice, open to change).
   - Three keys differ from the earlier defaults, as IntelliJ's file has them: Group by Directory is
-    Ctrl+Alt+P (not Ctrl+P), New File is New Scratch File's Ctrl+Alt+Shift+Insert, and Dark Theme
+    Ctrl+Alt+P (not Ctrl+P), New File is New Scratch File's Ctrl+Alt+Shift+Insert (changed
+    2026-11-14: they're New Scratch File's own now, decision "Scratch files"), and Dark Theme
     takes Quick Switch Scheme's Ctrl+`. The defaults stay, for commands no keymap names (a
     plugin's).
 - **In `@cerebro-ide/commands`,** a keymap is a `KeymapPreset`: the keys of the commands it names,

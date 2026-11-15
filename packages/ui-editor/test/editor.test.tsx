@@ -12,6 +12,7 @@ import {
   EditorDocument,
   languageFor,
   languageName,
+  languages,
   type CodeEditorProps,
   type EditorKeys,
 } from '../src/index.js';
@@ -112,6 +113,22 @@ describe('languageFor', () => {
       'Shell Script',
       'JSON',
       'Plain Text',
+    ]);
+  });
+
+  it('lists each language once, with its first extension, by name', () => {
+    expect(languages()).toEqual([
+      { name: 'CSS', extension: 'css' },
+      { name: 'HTML', extension: 'html' },
+      { name: 'JavaScript', extension: 'js' },
+      { name: 'JSON', extension: 'json' },
+      { name: 'Markdown', extension: 'md' },
+      { name: 'Plain Text', extension: 'txt' },
+      { name: 'Python', extension: 'py' },
+      { name: 'Shell Script', extension: 'sh' },
+      { name: 'TypeScript', extension: 'ts' },
+      { name: 'TypeScript JSX', extension: 'tsx' },
+      { name: 'YAML', extension: 'yaml' },
     ]);
   });
 });
@@ -527,6 +544,22 @@ describe('CodeEditor', () => {
       text,
       reveal: () => ({ line: 200, column: 0 }),
       revealFocus: false,
+    });
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 200');
+    expect(document.activeElement).toBe(field);
+    field.remove();
+  });
+
+  it('reveals a position without taking the focus, when the position says', async () => {
+    const field = document.createElement('input');
+    document.body.append(field);
+    field.focus();
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({
+      path: 'a.txt',
+      text,
+      reveal: () => ({ line: 200, column: 0, focus: false }),
     });
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(root.querySelector('.cm-activeLine')?.textContent).toBe('line 200');

@@ -10,6 +10,7 @@ import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
 import { carets, history, reveals } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
+import { RECENT_LANGUAGES } from '../src/scratches.js';
 import { loadProjects } from '../src/projects.js';
 import { globalSettings } from '../src/settings.js';
 import { EMPTY_TREE } from '../src/git-log.js';
@@ -1387,6 +1388,11 @@ describe('the Project view’s menu', () => {
     await userEvent.click(menuItem('Find in Files…'));
     await expect.poll(directory).toBe('lib');
     await closeAll();
+    // The worktree's folder: the whole of it, as IntelliJ's project folder.
+    await userEvent.click(await vi.waitUntil(() => row('/r')), { button: 'right' });
+    await userEvent.click(menuItem('Find in Files…'));
+    await expect.poll(directory).toBe('');
+    await closeAll();
     await userEvent.click(await vi.waitUntil(() => row('/r/d.ts')), { button: 'right' });
     await userEvent.click(menuItem('Replace in Files…'));
     await expect.poll(directory).toBe('');
@@ -2081,6 +2087,54 @@ describe('parameter info', () => {
   });
 });
 
+describe('New Scratch File', () => {
+  const create = async (typed: string) => {
+    await userEvent.keyboard('{Control>}{Alt>}{Shift>}{Insert}{/Shift}{/Alt}{/Control}');
+    const items = await popupItems();
+    expect(document.querySelector('.cerebro-popup .playground-popup__title')?.textContent).toBe(
+      'New Scratch File',
+    );
+    await userEvent.keyboard(`${typed}{Enter}`);
+    return items;
+  };
+
+  it('asks for a language, the last chosen first, and opens a new scratch file of it', async () => {
+    localStorage.removeItem(RECENT_LANGUAGES);
+    let made = 0;
+    answers.set('scratches.create', ({ extension }: { extension: string }) => {
+      made++;
+      return `/data/scratches/scratch_${String(made)}.${extension}`;
+    });
+    // By name, the first time.
+    expect((await create('python')).slice(0, 3)).toEqual(['CSS', 'HTML', 'JavaScript']);
+    expect(host('/r').params('scratches.create')).toEqual([{ extension: 'py' }]);
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/data/scratches/scratch_1.py');
+    // Then the last ones chosen, the latest first.
+    expect((await create('yaml')).slice(0, 3)).toEqual(['Python', 'CSS', 'HTML']);
+    expect((await create('{Escape}')).slice(0, 3)).toEqual(['YAML', 'Python', 'CSS']);
+    expect(host('/r').params('scratches.create')).toHaveLength(2);
+    // Storage that can't be written: made all the same, and listed by name next time.
+    const blocked = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    await create('markdown');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/data/scratches/scratch_3.md');
+    expect(blocked).toHaveBeenCalled();
+    expect((await create('{Escape}')).slice(0, 1)).toEqual(['CSS']);
+    vi.restoreAllMocks();
+    // One that can't be made, said so.
+    answers.set('scratches.create', new Error('EACCES: permission denied'));
+    await create('json');
+    await expect.poll(() => notifications.all.get(0)?.title).toBe('Cannot Create Scratch File');
+    expect(notifications.all.get(0)?.content).toContain('EACCES');
+    answers.delete('scratches.create');
+    await closeAll();
+  });
+});
+
 describe('File Structure', () => {
   const caret = () => carets.get('/r/src/s.ts');
 
@@ -2152,6 +2206,34 @@ describe('File Structure', () => {
     await userEvent.keyboard('{Control>}{Alt>}h{/Alt}{/Control}');
     await new Promise((resolve) => setTimeout(resolve, 100));
     expect(host('/r').params('lsp.prepareCalls')).toHaveLength(calls);
+  });
+});
+
+describe('the Structure tool window', () => {
+  it('shows the active file’s symbols; selecting one shows it, Enter goes to it', async () => {
+    answers.set('lsp.structure', [
+      {
+        name: 'a',
+        kind: 'constant',
+        from: { line: 1, column: 0 },
+        to: { line: 1, column: 12 },
+        at: { line: 1, column: 6 },
+        children: [],
+      },
+    ]);
+    env().editor.open({ id: '/r/src/tree.ts', title: 'tree.ts' });
+    await userEvent.click(stripe('structure'));
+    const window = q('.cerebro-tool-window[data-id="structure"]');
+    await expect
+      .poll(() => window.querySelector('.playground-occurrences__name')?.textContent)
+      .toBe('a');
+    await userEvent.click(window.querySelector('.playground-occurrences__name') as HTMLElement);
+    await expect.poll(() => carets.get('/r/src/tree.ts')).toEqual({ line: 1, column: 6 });
+    // The focus stays in the tree, until Enter.
+    expect(document.activeElement?.closest('.cerebro-tool-window')).toBe(window);
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    await userEvent.click(stripe('structure'));
   });
 });
 
