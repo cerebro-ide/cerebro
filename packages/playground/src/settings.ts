@@ -228,8 +228,6 @@ registry.register({
   scopes: ['global'],
 });
 
-const REPO = 'cerebro';
-
 function storageKey(scope: Scope, owner: string): string {
   return `cerebro.settings.${scope}.${owner}`;
 }
@@ -247,8 +245,28 @@ function layer(scope: Scope, owner: string): SettingsLayer {
 }
 
 const global = layer('global', 'user');
-const repo = layer('repo', REPO);
+/** Each repository's layer, shared by its worktrees, by the repository's path. */
+const repositories = new Map<string, SettingsLayer>();
 const worktrees = new Map<string, SettingsLayer>();
+
+// Set by the environments as they load, before any worktree's settings are read.
+let repositoryOf: (worktree: string) => string | undefined = () => undefined;
+
+/** How a worktree's repository is found: its project's path. */
+export function setSettingsRepository(resolve: (worktree: string) => string | undefined): void {
+  repositoryOf = resolve;
+}
+
+/** A repository's layer; a worktree in no project known is a repository of its own. */
+function repositoryLayer(worktree: string): SettingsLayer {
+  const repository = repositoryOf(worktree) ?? worktree;
+  let found = repositories.get(repository);
+  if (!found) {
+    found = layer('repo', repository);
+    repositories.set(repository, found);
+  }
+  return found;
+}
 
 /** The global settings alone, for global-only settings such as the theme. */
 export const globalSettings = new Settings(registry, {
@@ -259,14 +277,17 @@ export const globalSettings = new Settings(registry, {
 
 const byWorktree = new Map<string, Settings>();
 
-/** An environment's settings: its worktree's layer over the repo's over the global one. */
+/**
+ * An environment's settings: its worktree's layer over its repository's (shared by the repository's
+ * worktrees) over the global one.
+ */
 export function settingsFor(worktree: string | undefined): Settings {
   if (worktree === undefined) return globalSettings;
   let settings = byWorktree.get(worktree);
   if (!settings) {
     const own = layer('worktree', worktree);
     worktrees.set(worktree, own);
-    settings = new Settings(registry, { global, repo, worktree: own });
+    settings = new Settings(registry, { global, repo: repositoryLayer(worktree), worktree: own });
     byWorktree.set(worktree, settings);
   }
   return settings;
@@ -278,9 +299,9 @@ export function save(settings: Settings, scopes: readonly Scope[]): void {
     const owner =
       scope === 'global'
         ? 'user'
-        : scope === 'repo'
-          ? REPO
-          : [...worktrees].find(([, l]) => l === settings.layers.worktree)?.[0];
+        : [...(scope === 'repo' ? repositories : worktrees)].find(
+            ([, l]) => l === settings.layers[scope],
+          )?.[0];
     if (owner === undefined) continue;
     try {
       localStorage.setItem(storageKey(scope, owner), JSON.stringify(settings.layers[scope]));
