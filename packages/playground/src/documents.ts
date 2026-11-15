@@ -289,15 +289,17 @@ async function save(
           text: doc.content(),
           expected: await sha256(expected),
           ...(label === undefined ? {} : { label }),
-        })) as { changed: string } | null;
-        if (answer === null) {
+        })) as { changed?: unknown } | null;
+        // Refused only with what's there instead.
+        const changed = answer?.changed;
+        if (typeof changed !== 'string') {
           doc.saved(text, format);
           break;
         }
-        if (await conflicts(path, doc, answer.changed)) break;
+        if (await conflicts(path, doc, changed)) break;
         if (!doc.modified.peek()) break;
         // Resolved, or only how the file's written changed: written over what's there now.
-        expected = answer.changed;
+        expected = changed;
       }
       const written = performance.now();
       if (written - asked > SLOW_SAVE) {
