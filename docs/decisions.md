@@ -1635,7 +1635,20 @@ them.
   (`ProblemsViewNodeComparator`). With a severity hidden, an empty file says "Problems could be
   filtered out" under "No problems in a.ts", as IntelliJ's. They're kept in the page's storage, as
   the Commit window's are.
-- **Not yet:** the Problems window's Project Errors tab, its Group by Inspection, and its preview; shell scripts' problems, which bash-language-server gets from
+- **Open Editor Preview** (added 2026-11-15), as IntelliJ's (`ProblemsViewPanel`,
+  `DescriptorPreview`, `ProblemsViewState`, ActionsBundle's words, read from its source): a toggle
+  after View Options in the window's toolbar, off to start with and kept with them. On, the row
+  selected shows in an editor of its file beside the tree, a problem's place selected there and
+  the focus left in the tree; a file's row shows the file from its top; nothing selected, nothing
+  shows. Under the tree when the window is on the left or right (IntelliJ's vertical orientation),
+  half the room each to start with, the split kept (IntelliJ's `proportion`, 0.1 to 0.9). The
+  editor edits the file, as IntelliJ's preview is made `editable`, and stays while the selection
+  moves within the file. Measured in the app: a problem selected showed its line, current, beside
+  the tree. With the window on the left or right, the toolbar goes across its top, as IntelliJ's
+  (`orientationChangedTo`), its tooltips and menu under it. **Not yet:** the problems underlined in
+  the preview (IntelliJ's shows its document's highlighting: a claim). **Claude's, open to
+  change:** the icon's drawing.
+- **Not yet:** the Problems window's Project Errors tab and its Group by Inspection; shell scripts' problems, which bash-language-server gets from
   `shellcheck`, not bundled (a claim, from its documentation). Quick fixes have their own entry
   ("Quick fixes: Alt+Enter").
 

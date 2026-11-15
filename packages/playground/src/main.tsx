@@ -2011,7 +2011,15 @@ function Content(props: { id: string }) {
   if (props.id === 'notifications') return <NotificationsTimeline notifications={notifications} />;
   if (props.id === 'problems') {
     return (
-      <ProblemsView services={services} file={() => editor()?.activeGroup.active} openAt={jumpTo} />
+      <ProblemsView
+        services={services}
+        file={() => editor()?.activeGroup.active}
+        openAt={jumpTo}
+        vertical={() => {
+          const anchor = layout.toolWindows.windows.get('problems')?.anchor;
+          return anchor === 'left' || anchor === 'right';
+        }}
+      />
     );
   }
   const view = views.get(props.id);

@@ -1127,6 +1127,15 @@ body,
   padding: 0 4px;
 }
 
+.playground-problems--vertical {
+  flex-direction: column;
+}
+
+.playground-problems--vertical > .playground-problems__toolbar {
+  flex-direction: row;
+  padding: 4px 4px 0;
+}
+
 .playground-problems__toolbar .cerebro-toolbar-button {
   width: 26px;
   height: 26px;
@@ -1140,10 +1149,36 @@ body,
   min-height: 0;
 }
 
+/* The tree, and Open Editor Preview's editor beside it (under it, vertical), as IntelliJ's. */
+.playground-problems__split {
+  display: flex;
+  flex: auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.playground-problems__split--vertical {
+  flex-direction: column;
+}
+
 .playground-problems__tree {
   display: flex;
   flex: auto;
   flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.playground-problems__preview {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.playground-problems__preview .cerebro-editor-code {
+  flex: auto;
   min-height: 0;
 }
 

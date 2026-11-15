@@ -45,6 +45,9 @@ const PATHS: Record<string, string> = {
   layoutEditor: 'M2.5 3.5h11v9h-11zM5 6.5h6M5 9.5h4',
   layoutEditorPreview: 'M2.5 3.5h11v9h-11zM8 3.5v9M4 6.5h2.5M4 9.5h2',
   layoutEditorPreviewVertical: 'M2.5 3.5h11v9h-11zM2.5 8h11M5 5.75h6',
+  // A window with a pane on its right: IntelliJ's PreviewDetails, the Problems window's Open
+  // Editor Preview (a claim: not IntelliJ's drawing).
+  previewDetails: 'M2.5 3.5h11v9h-11zM9 3.5v9M10.5 6h1.5M10.5 8h1.5',
   layoutPreview: 'M2.5 3.5h11v9h-11zM4.5 10.5l2.5-3 2 2 1.5-1.5 1.5 2.5',
   // A search field's clear button.
   clear: 'M5 5l6 6M11 5l-6 6',
