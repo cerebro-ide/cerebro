@@ -3,7 +3,7 @@
 // reported to `observeChanges` listeners synchronously and in bulk (a splice of many items is one
 // change), then to effects when the outermost batch ends.
 
-import { Atom, batch, untracked, type Disposable } from './core.js';
+import { assertNotComputing, Atom, batch, untracked, type Disposable } from './core.js';
 
 export type ArrayChange<T> =
   | { type: 'splice'; index: number; removed: T[]; added: T[] }
@@ -22,6 +22,11 @@ class Changes<C> {
 
   observed(): void {
     this.atom.reportObserved();
+  }
+
+  /** Called before a write changes anything: a computed value's write is refused, as a signal's. */
+  writing(): void {
+    assertNotComputing();
   }
 
   emit(changes: C[]): void {
@@ -62,6 +67,7 @@ export class ObservableArray<T> implements Iterable<T> {
   }
 
   set(index: number, value: T): void {
+    this.changes.writing();
     if (!Number.isInteger(index) || index < 0 || index >= this.items.length) {
       throw new RangeError(`Index ${String(index)} is out of range`);
     }
@@ -120,6 +126,7 @@ export class ObservableArray<T> implements Iterable<T> {
 
   /** Splices without spreading `added` into arguments, so large arrays are safe. */
   private spliceArray(start: number, deleteCount: number | undefined, added: T[]): T[] {
+    this.changes.writing();
     const items = this.items;
     const length = items.length;
     const index = start < 0 ? Math.max(length + start, 0) : Math.min(start, length);
@@ -159,6 +166,7 @@ export class ObservableMap<K, V> implements Iterable<[K, V]> {
   }
 
   set(key: K, value: V): this {
+    this.changes.writing();
     if (this.map.has(key)) {
       const oldValue = this.map.get(key) as V;
       if (Object.is(oldValue, value)) return this;
@@ -172,6 +180,7 @@ export class ObservableMap<K, V> implements Iterable<[K, V]> {
   }
 
   delete(key: K): boolean {
+    this.changes.writing();
     if (!this.map.has(key)) return false;
     const oldValue = this.map.get(key) as V;
     this.map.delete(key);
@@ -181,6 +190,7 @@ export class ObservableMap<K, V> implements Iterable<[K, V]> {
 
   /** Deletes every entry; one batch, one delete change per entry. */
   clear(): void {
+    this.changes.writing();
     const removed = [...this.map].map(([key, oldValue]) => ({
       type: 'delete' as const,
       key,
@@ -233,6 +243,7 @@ export class ObservableSet<T> implements Iterable<T> {
   }
 
   add(value: T): this {
+    this.changes.writing();
     if (this.set.has(value)) return this;
     this.set.add(value);
     this.changes.emit([{ type: 'add', value }]);
@@ -240,6 +251,7 @@ export class ObservableSet<T> implements Iterable<T> {
   }
 
   delete(value: T): boolean {
+    this.changes.writing();
     if (!this.set.delete(value)) return false;
     this.changes.emit([{ type: 'delete', value }]);
     return true;
@@ -247,6 +259,7 @@ export class ObservableSet<T> implements Iterable<T> {
 
   /** Deletes every value; one batch, one delete change per value. */
   clear(): void {
+    this.changes.writing();
     const removed = [...this.set].map((value) => ({ type: 'delete' as const, value }));
     this.set.clear();
     this.changes.emit(removed);

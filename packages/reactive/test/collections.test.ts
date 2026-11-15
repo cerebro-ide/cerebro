@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  computed,
   effect,
   ObservableArray,
   ObservableMap,
@@ -277,5 +278,32 @@ describe('ObservableSet', () => {
     const counters = [() => set.size, () => set.has('z'), () => [...set]].map(runs);
     set.add('z');
     expect(counters.map((c) => c.count)).toEqual([2, 2, 2]);
+  });
+});
+
+describe('a write from a computed value', () => {
+  it('is refused before the collection changes', () => {
+    const array = new ObservableArray([1]);
+    const map = new ObservableMap([['a', 1]]);
+    const set = new ObservableSet([1]);
+    const writes = [
+      () => array.set(0, 2),
+      () => array.push(2),
+      () => array.splice(0, 1),
+      () => map.set('a', 2),
+      () => map.delete('a'),
+      () => {
+        map.clear();
+      },
+      () => set.add(2),
+      () => set.delete(1),
+      () => {
+        set.clear();
+      },
+    ];
+    for (const write of writes) {
+      expect(() => computed(write).get()).toThrow('must not write');
+    }
+    expect([array.toArray(), [...map], [...set]]).toEqual([[1], [['a', 1]], [1]]);
   });
 });
