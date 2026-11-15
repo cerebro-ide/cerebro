@@ -269,48 +269,60 @@ async function save(
   for (const [path, doc] of await opened()) {
     if (paths && !paths.includes(path)) continue;
     const host = hostFor(path);
-    if (!host || !doc.modified.peek()) continue;
+    // Not while its conflict with the disk is asked about: the answer decides what's saved.
+    if (!host || !doc.modified.peek() || resolving.has(path)) continue;
     saving.add(path);
     saves.set(path, (saves.get(path) ?? 0) + 1);
     try {
-      // Not over a change made on disk since it was read: that's a conflict.
-      const reading = performance.now();
-      const disk = await host.request('fs.read', { path }).then(
-        (result) => (result as { text: string }).text,
-        () => undefined,
-      );
-      const read = performance.now();
-      // Deleted: not made again. Unreadable: written over, which says why it fails.
-      if (disk === undefined && (await deleted(path))) continue;
-      if (disk !== undefined && (await conflicts(path, doc, disk))) continue;
-      if (!doc.modified.peek()) continue;
+      const hooking = performance.now();
       await changeBeforeSave(path, doc);
       const hooked = performance.now();
-      // What's written, which the editor may change while it's being written.
-      const text = doc.text.peek();
-      const format = doc.format.peek();
-      await host.request('fs.write', {
-        path,
-        text: doc.content(),
-        ...(label === undefined ? {} : { label }),
-      });
-      doc.saved(text, format);
+      // Not over a change made on disk since it was read: the host writes only over what the
+      // document last knew to be there, and answers with what's there instead, a conflict.
+      let expected = doc.diskContent();
+      for (;;) {
+        // What's written, which the editor may change while it's being written.
+        const text = doc.text.peek();
+        const format = doc.format.peek();
+        const answer = (await host.request('fs.write', {
+          path,
+          text: doc.content(),
+          expected: await sha256(expected),
+          ...(label === undefined ? {} : { label }),
+        })) as { changed: string } | null;
+        if (answer === null) {
+          doc.saved(text, format);
+          break;
+        }
+        if (await conflicts(path, doc, answer.changed)) break;
+        if (!doc.modified.peek()) break;
+        // Resolved, or only how the file's written changed: written over what's there now.
+        expected = answer.changed;
+      }
       const written = performance.now();
       if (written - asked > SLOW_SAVE) {
         const ms = (from: number, to: number) => `${String(Math.round(to - from))} ms`;
         console.warn(
           `Saving ${path} took ${ms(asked, written)}: ${ms(asked, started)} after the saves before, ` +
-            `${ms(started, reading)} to the file, ${ms(reading, read)} reading it, ` +
-            `${ms(read, hooked)} before saving, ${ms(hooked, written)} writing it`,
+            `${ms(started, hooking)} to the file, ${ms(hooking, hooked)} before saving, ` +
+            `${ms(hooked, written)} writing it`,
         );
       }
     } catch (error) {
+      // Deleted: not made again.
+      if (await deleted(path)) continue;
       failed.push(`${path}: ${(error as Error).message}`);
     } finally {
       saving.delete(path);
     }
   }
   if (failed.length > 0) throw new Error(`Couldn’t save ${failed.join('; ')}`);
+}
+
+/** A text's SHA-256, hex, of its UTF-8: what a save tells the host it expects on disk. */
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 /** Each file's read under way, and the one asked for while it runs. */

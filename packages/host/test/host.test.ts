@@ -705,6 +705,28 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('writes a file only over what the writer expects there, else says what’s there', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-expected-')));
+    const { ui } = connect();
+    const file = join(dir, 'a.txt');
+    writeFileSync(file, 'read');
+    const hash = (text: string) => createHash('sha256').update(text, 'utf8').digest('hex');
+    // An agent wrote it since it was read.
+    writeFileSync(file, 'the agent’s');
+    expect(
+      await ui.request('fs.write', { path: file, text: 'saved', expected: hash('read') }),
+    ).toEqual({ changed: 'the agent’s' });
+    expect(readFileSync(file, 'utf8')).toBe('the agent’s');
+    expect(
+      await ui.request('fs.write', { path: file, text: 'saved', expected: hash('the agent’s') }),
+    ).toBeNull();
+    expect(readFileSync(file, 'utf8')).toBe('saved');
+    await expect(
+      ui.request('fs.write', { path: file, text: 'saved', expected: 1 }),
+    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('records saves and replacing in the Local History, and lists, shows and reverts a file’s versions', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-history-')));
     execFileSync('git', ['init', '-q', '-b', 'main', dir]);

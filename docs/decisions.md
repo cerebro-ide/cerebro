@@ -5401,7 +5401,12 @@ choices below are Claude's, after IntelliJ, open to change.
   caret in its old text (measured). A jump to a file that isn't open goes at once.
 - **A file changed both in the editor and on disk is a conflict** (2026-10-27, Ido: "a popup should
   prompt the user to select between the two OR open a merge window"), found when it's read again or
-  before it's saved (saving reads the file first, and doesn't write over a change it didn't read).
+  as it's saved: the save tells the host what it expects on disk (the SHA-256 of the text last read
+  or saved, as the file holds it), and the host writes only over that, answering with what's there
+  instead (changed 2026-11-15, from the review of that day: a save read the file, ran its
+  before-save hooks, Prettier's among them, and then wrote, so what an agent wrote in between was
+  written over; the host checks just before it writes, and a save no longer reads the file first).
+  A save waits while the file's conflict is being asked about.
   It's asked about as IntelliJ's File Cache Conflict (`ConflictResolverDialog.java`, its words from
   `UIBundle.properties`): Load File System Changes, Keep Memory Changes (Escape too, IntelliJ's
   Cancel; saved over the disk's later), or Show Difference: the disk's text on the left and the

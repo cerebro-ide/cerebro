@@ -66,6 +66,12 @@ export class EditorDocument {
     return (bom ? BOM : '') + this.text.peek().sliceString(0, undefined, lineSeparator);
   }
 
+  /** The file's content on disk, as last read or saved: what a save expects to write over. */
+  diskContent(): string {
+    const { lineSeparator, bom } = this.diskFormat.peek();
+    return (bom ? BOM : '') + this.disk.peek().sliceString(0, undefined, lineSeparator);
+  }
+
   /** The text was saved, as `format` says: it's what's on disk now. */
   saved(text: Text = this.text.peek(), format: FileFormat = this.format.peek()): void {
     this.disk.set(text);
