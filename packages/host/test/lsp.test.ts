@@ -311,19 +311,30 @@ describe('files changed on disk', () => {
       id: 'fake-other',
       languageOf: (path) => (path.endsWith('.other') ? 'other' : undefined),
     };
-    // Idle: watched until the last of its servers stops, whatever another worktree's do.
-    const idle = pool([fake('pushes'), other], { watch, idleAfter: 100 });
-    await idle.problems(root, file);
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    await idle.problems(root, { path: `${root}/b.other`, text: 'x' });
-    await idle.problems(logs, { path: `${logs}/c.fake`, text: 'x' });
-    await expect.poll(() => idle.size).toBe(2);
+    // A server that exits: its worktree is watched while another of its servers runs.
+    const servers = pool([fake('dies'), other], {
+      watch,
+    });
+    servers.open(root, file);
+    servers.open(root, { path: `${root}/b.other`, text: 'x' });
+    servers.open(logs, { path: `${logs}/c.fake`, text: 'x' });
+    expect(servers.size).toBe(3);
+    await servers.rename(root, file, at(0, 0), 'y');
+    await expect.poll(() => servers.size).toBe(2);
     expect(made.map((m) => m.closed)).toEqual([false, false]);
-    await expect.poll(() => made.map((m) => m.closed)).toEqual([true, true]);
-    // Exited.
-    const dies = pool([fake('exit')], { watch, problemsPatience: 100 });
-    await dies.problems(root, file);
+    // Idle: no server left in the worktree, it's not watched; another worktree's still is.
+    const idle = pool([fake('pushes')], { watch, idleAfter: 0 });
+    idle.open(`${root}/sub`, file);
     await expect.poll(() => made[2]?.closed).toBe(true);
+    expect(made.map((m) => m.closed)).toEqual([false, false, true]);
+    // Exited, with another worktree's server running.
+    const dies = pool([fake('exit'), other], {
+      watch,
+    });
+    dies.open(logs, { path: `${logs}/c.other`, text: 'x' });
+    dies.open(root, file);
+    await expect.poll(() => made[4]?.closed).toBe(true);
+    expect(made[3]?.closed).toBe(false);
   });
 
   it('are watched past an error, which leaves servers as they were', () => {
