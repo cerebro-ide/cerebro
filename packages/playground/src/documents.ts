@@ -46,10 +46,11 @@ const saves = new Map<string, number>();
 
 /**
  * Whether the file changed on disk while it has edits, given what's on disk: if so, the conflict
- * is resolved first. Returns whether it's still unresolved, or being resolved.
+ * is resolved first. Returns whether it's still unresolved. Never asked while the file's conflict
+ * is: its saves and reads skip it while `resolving`, and a save and a read of it exclude each other
+ * (`saving`).
  */
 async function conflicts(path: string, doc: EditorDocument, disk: string): Promise<boolean> {
-  if (resolving.has(path)) return true;
   if (!doc.modified.peek() || !doc.changedFrom(disk)) return false;
   resolving.add(path);
   try {
