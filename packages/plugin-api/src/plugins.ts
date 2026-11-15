@@ -173,8 +173,15 @@ export class PluginRegistry {
     this.plugins.set(plugin.id, entry);
     const cleanups: (() => void)[] = [];
     this.added.set(plugin.id, cleanups);
+    // Removed while its activation awaits (and maybe added again): what it adds after is undone at
+    // once, and its failure doesn't undo the next one's.
+    const removed = () => this.added.get(plugin.id) !== cleanups;
+    const keep = (cleanup: () => void) => {
+      if (removed()) cleanup();
+      else cleanups.push(cleanup);
+    };
     const track = (disposable: Disposable) => {
-      cleanups.push(() => {
+      keep(() => {
         disposable.dispose();
       });
     };
@@ -210,15 +217,13 @@ export class PluginRegistry {
       beforeSave: (hook) => {
         track(editors.beforeSave(hook));
       },
-      onDispose: (cleanup) => {
-        cleanups.push(cleanup);
-      },
+      onDispose: keep,
     };
     try {
       await plugin.activate(context);
       entry.state = 'active';
     } catch (error) {
-      this.undo(plugin.id);
+      if (!removed()) this.undo(plugin.id);
       entry.state = 'failed';
       entry.error = error instanceof Error ? error.message : String(error);
       throw error;
