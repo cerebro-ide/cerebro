@@ -22,12 +22,16 @@ export interface TerminalBackend {
     agent?: boolean;
     cols: number;
     rows: number;
-  }): Promise<{ id: number; buffer: string; exitCode?: number }>;
+  }): Promise<{ id: number; buffer: string; end: number; exitCode?: number }>;
   write(id: number, data: string): void;
   resize(id: number, cols: number, rows: number): void;
   close(id: number): void;
-  /** Listens to every terminal's output; returns a function that stops listening. */
-  onData(listener: (id: number, data: string) => void): () => void;
+  /**
+   * Listens to every terminal's output; returns a function that stops listening. Output is
+   * numbered from the process's start: `at` is where `data` starts, and `open`'s `end` where its
+   * buffer ends, so what both have is shown once.
+   */
+  onData(listener: (id: number, data: string, at: number) => void): () => void;
   onExit(listener: (id: number, exitCode: number) => void): () => void;
 }
 
@@ -100,6 +104,14 @@ export class TerminalView {
   private exited = false;
   /** Keys typed before the process started. */
   private queued = '';
+  /** How far into the process's output the view has written. */
+  private written = 0;
+  /**
+   * What arrived while the process was being opened, kept until its id is known: an answer and a
+   * notification sent after it may arrive the other way round.
+   */
+  private held: ({ id: number; data: string; at: number } | { id: number; exitCode: number })[] =
+    [];
   private disposed = false;
 
   constructor(
@@ -157,11 +169,13 @@ export class TerminalView {
       this.send(data);
     });
     this.stops.push(
-      backend.onData((id, data) => {
-        if (id === this.id) this.terminal.write(data);
+      backend.onData((id, data, at) => {
+        if (this.starting) this.held.push({ id, data, at });
+        else if (id === this.id) this.output(data, at);
       }),
       backend.onExit((id, exitCode) => {
-        if (id === this.id) this.ended(exitCode);
+        if (this.starting) this.held.push({ id, exitCode });
+        else if (id === this.id) this.ended(exitCode);
       }),
     );
     this.listen();
@@ -322,6 +336,7 @@ export class TerminalView {
   private begin(): void {
     this.start().catch((error: unknown) => {
       this.starting = false;
+      this.held = [];
       this.exited = true;
       this.queued = '';
       const message = error instanceof Error ? error.message : String(error);
@@ -347,12 +362,28 @@ export class TerminalView {
     });
     this.id = opened.id;
     this.starting = false;
-    if (opened.buffer !== '') this.terminal.write(opened.buffer);
-    if (opened.exitCode !== undefined) this.ended(opened.exitCode);
+    this.written = opened.end - opened.buffer.length;
+    this.output(opened.buffer, this.written);
+    let { exitCode } = opened;
+    for (const held of this.held) {
+      if (held.id !== opened.id) continue;
+      if ('data' in held) this.output(held.data, held.at);
+      else exitCode = held.exitCode;
+    }
+    this.held = [];
+    if (exitCode !== undefined) this.ended(exitCode);
     else if (this.queued !== '') {
       this.backend.write(opened.id, this.queued);
       this.queued = '';
     }
+  }
+
+  /** Writes the part of the process's output, starting `at`, the view hasn't written yet. */
+  private output(data: string, at: number): void {
+    const fresh = data.slice(Math.max(0, this.written - at));
+    if (fresh === '') return;
+    this.terminal.write(fresh);
+    this.written = at + data.length;
   }
 
   /** Sends what's typed (or a report the terminal makes) to the process. */

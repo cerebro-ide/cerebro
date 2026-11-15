@@ -14,12 +14,12 @@ type Listener<T extends unknown[]> = (...args: T) => void;
  * numbered by each host: only the project's own notifications are its terminals'.
  */
 function backend(host: NonNullable<Window['cerebro']>['host'], project: string): TerminalBackend {
-  const data = new Set<Listener<[number, string]>>();
+  const data = new Set<Listener<[number, string, number]>>();
   const exits = new Set<Listener<[number, number]>>();
   host.onNotification((from, method, params) => {
     if (from !== project) return;
-    const p = params as { id: number; data: string; exitCode: number };
-    if (method === 'terminal.data') for (const listener of data) listener(p.id, p.data);
+    const p = params as { id: number; data: string; at: number; exitCode: number };
+    if (method === 'terminal.data') for (const listener of data) listener(p.id, p.data, p.at);
     if (method === 'terminal.exit') for (const listener of exits) listener(p.id, p.exitCode);
   });
   const send = (method: string, params: unknown) => {
@@ -32,6 +32,7 @@ function backend(host: NonNullable<Window['cerebro']>['host'], project: string):
       host.request(project, 'terminal.open', options) as Promise<{
         id: number;
         buffer: string;
+        end: number;
         exitCode?: number;
       }>,
     write: (id, text) => {
