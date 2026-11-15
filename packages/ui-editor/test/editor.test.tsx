@@ -12,6 +12,7 @@ import {
   EditorDocument,
   languageFor,
   languageName,
+  languages,
   type CodeEditorProps,
   type EditorKeys,
 } from '../src/index.js';
@@ -112,6 +113,22 @@ describe('languageFor', () => {
       'Shell Script',
       'JSON',
       'Plain Text',
+    ]);
+  });
+
+  it('lists each language once, with its first extension, by name', () => {
+    expect(languages()).toEqual([
+      { name: 'CSS', extension: 'css' },
+      { name: 'HTML', extension: 'html' },
+      { name: 'JavaScript', extension: 'js' },
+      { name: 'JSON', extension: 'json' },
+      { name: 'Markdown', extension: 'md' },
+      { name: 'Plain Text', extension: 'txt' },
+      { name: 'Python', extension: 'py' },
+      { name: 'Shell Script', extension: 'sh' },
+      { name: 'TypeScript', extension: 'ts' },
+      { name: 'TypeScript JSX', extension: 'tsx' },
+      { name: 'YAML', extension: 'yaml' },
     ]);
   });
 });

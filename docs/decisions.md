@@ -74,6 +74,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
+- [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3447,6 +3448,39 @@ to change.
 - **Not yet:** its toolbar (sorting, Autoscroll toggles, Show Fields and Inherited, Expand and
   Collapse All), and following the caret when Autoscroll from Source is turned on.
 
+## Scratch files (2026-11-14)
+
+From Ido (2026-11-14): "having files which aren't part of the project like scratch files and
+external files - that's missing and should be implemented as well". As IntelliJ's
+(ScratchFileActions, ScratchFileCreator, ScratchTreeStructureProvider, read from its source).
+Claude's choices, open to change.
+
+- **New Scratch File** (`file.newScratch`, in the File menu after New File): a popup titled New
+  Scratch File lists the languages the editor knows, Plain Text among them, narrowed as one types.
+  The ones last chosen come first, the latest first, then the rest by name (IntelliJ's
+  LRUPopupBuilder). They're kept in the browser's storage; without it, the list is by name.
+- **The file:** empty, named as IntelliJ names them: `scratch`, or `scratch_` and the lowest number
+  no file there has, whatever its extension, then the language's extension (`scratch.ts`,
+  `scratch_1.py`). It opens in the editor, focused. A failure is said in a notification, "Cannot
+  Create Scratch File" (a claim: IntelliJ's own wording wasn't found).
+- **In the app's folder** (`scratches` in its data folder), as IntelliJ keeps them in its
+  configuration's, for every project: the host is given it (`CEREBRO_SCRATCHES`) and answers
+  `scratches.folder` (made if it isn't there) and `scratches.create`. In a browser there are none:
+  the command is disabled.
+- **In the Project view,** after the worktree's folder: Scratches and Consoles, always, and in it
+  Scratches, the folder's files, once it has one (IntelliJ leaves an empty root type out). The two
+  are groups, not files or folders: the actions take nothing from them. A scratch file is a file
+  like the others there (open, rename, delete). Their icon is the note's: IntelliJ's is a scratch
+  pad, not drawn here yet.
+- **Keys:** IntelliJ's NewScratchFile, from its keymap files: Ctrl+Alt+Shift+Insert (`$default`),
+  Cmd+Shift+N (macOS), Ctrl+Shift+N (IntelliJ IDEA Classic and macOS System Shortcuts). The others
+  name none and take their parent's. New File (an untitled file, which IntelliJ hasn't) had these
+  keys until now (decision "Ready-made keymaps"); it keeps VS Code's Ctrl+N and Cmd+N, and has none
+  in IntelliJ's.
+- **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
+  New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
+  types; a scratch file's language changed without renaming it.
+
 ## Git → Current File → Show History (2026-11-12)
 
 The Current File submenu's item after Compare with Branch or Tag, toward IntelliJ's
@@ -5114,7 +5148,8 @@ Step 1 of the backlog's "Keymaps" (Ido: "Keymaps I want the most common in both 
   - VS Code: its keyboard shortcut sheets for Windows and macOS. A command they don't name keeps
     IntelliJ's keys for the same system (Claude's choice, open to change).
   - Three keys differ from the earlier defaults, as IntelliJ's file has them: Group by Directory is
-    Ctrl+Alt+P (not Ctrl+P), New File is New Scratch File's Ctrl+Alt+Shift+Insert, and Dark Theme
+    Ctrl+Alt+P (not Ctrl+P), New File is New Scratch File's Ctrl+Alt+Shift+Insert (changed
+    2026-11-14: they're New Scratch File's own now, decision "Scratch files"), and Dark Theme
     takes Quick Switch Scheme's Ctrl+`. The defaults stay, for commands no keymap names (a
     plugin's).
 - **In `@cerebro-ide/commands`,** a keymap is a `KeymapPreset`: the keys of the commands it names,

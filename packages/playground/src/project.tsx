@@ -12,14 +12,18 @@ import type { Tab } from '@cerebro-ide/layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { RELOAD_EVERY } from './documents.js';
 import { target } from './edit.js';
-import { active, currentHost, hostFor } from './environments.js';
+import { active, currentHost, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { hasErrors, hasErrorsBeneath } from './problems.js';
 
 export interface FileNode {
   path: string;
   name: string;
-  kind: 'file' | 'directory';
+  /**
+   * A group is the tree's, not a file or folder to act on: Scratches and Consoles, and Scratches in
+   * it, whose path is the scratch files' folder.
+   */
+  kind: 'file' | 'directory' | 'group';
   /** Git ignores it: its name shows in the ignored colour, as in the Commit tool window. */
   ignored?: boolean;
 }
@@ -56,6 +60,32 @@ function sampleSource(root: FileNode, paths: readonly string[]): TreeSource<File
 
 const models = new Map<string, TreeModel<FileNode>>();
 
+/** Scratches and Consoles, after the worktree's folder in the app, as IntelliJ's. */
+const SCRATCHES_AND_CONSOLES: FileNode = {
+  path: 'scratches-and-consoles',
+  name: 'Scratches and Consoles',
+  kind: 'group',
+};
+
+/**
+ * A worktree's tree through its host: its folder, then Scratches and Consoles, with Scratches in it
+ * once the app's folder of them has one, as IntelliJ shows it.
+ */
+function hostSource(host: Host, root: FileNode): TreeSource<FileNode> {
+  const list = async (path: string) => (await host.request('fs.list', { path })) as FileNode[];
+  return {
+    children: async (node) => {
+      if (!node) return [root, SCRATCHES_AND_CONSOLES];
+      if (node !== SCRATCHES_AND_CONSOLES) return list(node.path);
+      const folder = (await host.request('scratches.folder')) as string | null;
+      if (folder === null || (await list(folder)).length === 0) return [];
+      return [{ path: folder, name: 'Scratches', kind: 'group' }];
+    },
+    key: (node) => node.path,
+    isLeaf: (node) => node.kind === 'file',
+  };
+}
+
 /**
  * An environment's tree: its worktree's folder, as IntelliJ's Project view shows a project's content
  * root, opened; its files through the host, else the samples.
@@ -69,12 +99,7 @@ function modelFor(
     const host = hostFor(env.id);
     const root: FileNode = { path: env.id, name: env.name, kind: 'directory' };
     const source: TreeSource<FileNode> = host
-      ? {
-          children: async (node) =>
-            node ? ((await host.request('fs.list', { path: node.path })) as FileNode[]) : [root],
-          key: (node) => node.path,
-          isLeaf: (node) => node.kind === 'file',
-        }
+      ? hostSource(host, root)
       : sampleSource(root, samples);
     model = new TreeModel(source);
     model.expand(root);
@@ -136,7 +161,9 @@ export function projectNode(): FileNode | null | undefined {
   const env = active();
   if (!env || !target()?.closest('.playground-project')) return undefined;
   const model = models.get(env.id) as TreeModel<FileNode>;
-  return model.rows.find((row) => row.key === model.selected)?.node ?? null;
+  const node = model.rows.find((row) => row.key === model.selected)?.node;
+  // A group is nothing to act on.
+  return node === undefined || node.kind === 'group' ? null : node;
 }
 
 export function ProjectTree(props: {
@@ -167,7 +194,7 @@ export function ProjectTree(props: {
             model={model}
             label={`${env.name} files`}
             row={(node) => [
-              icon(node.kind === 'directory' ? 'folder' : 'file'),
+              icon(node.kind === 'directory' ? 'folder' : node.kind === 'group' ? 'note' : 'file'),
               <span
                 class={() =>
                   [

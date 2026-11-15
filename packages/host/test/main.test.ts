@@ -64,6 +64,18 @@ it('keeps the index in the folder CEREBRO_INDEX_CACHE names', async () => {
   );
 });
 
+it('keeps the scratch files in the folder CEREBRO_SCRATCHES names', async () => {
+  vi.resetModules();
+  vi.stubEnv('CEREBRO_SCRATCHES', '/scratches');
+  await import('../src/main.js');
+  vi.unstubAllEnvs();
+  expect(host.serve).toHaveBeenLastCalledWith(
+    process.stdin,
+    process.stdout,
+    expect.objectContaining({ scratches: '/scratches' }),
+  );
+});
+
 it('is an agent’s hook when asked: it tells the host what it read', async () => {
   vi.resetModules();
   host.serve.mockClear();

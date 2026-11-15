@@ -88,6 +88,7 @@ describe('startHost', () => {
     expect(options.env['CEREBRO_REPO']).toBe('/repo');
     // The index is kept in the app's data folder.
     expect(options.env['CEREBRO_INDEX_CACHE']).toBe(join('/data/userData', 'index'));
+    expect(options.env['CEREBRO_SCRATCHES']).toBe(join('/data/userData', 'scratches'));
     expect(options.stdio).toEqual(['pipe', 'pipe', 'inherit']);
   });
 

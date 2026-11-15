@@ -93,6 +93,7 @@ export {
   exists,
   listFolder,
   createEntry,
+  createScratch,
   MAPPED_WAIT,
   MAX_FILE_SIZE,
   readFileBytes,
