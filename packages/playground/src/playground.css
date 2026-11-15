@@ -55,6 +55,18 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* The worktree's folder at the tree's top: its name in bold, then its path, as IntelliJ's. */
+.playground-project__root {
+  font-weight: 600;
+}
+
+.playground-project__location {
+  margin-left: 6px;
+  overflow: hidden;
+  color: var(--cerebro-text-muted);
+  text-overflow: ellipsis;
+}
+
 /* The Commit tool window: its toolbar, then the tree. */
 .playground-changes {
   display: flex;

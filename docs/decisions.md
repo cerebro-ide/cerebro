@@ -36,7 +36,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The shared index, first part (2026-10-26)](#the-shared-index-first-part-2026-10-26): one index for many worktrees, in the host
 - [Find file (2026-10-26)](#find-file-2026-10-26): go to a file by name
 - [The code editor (2026-10-26)](#the-code-editor-2026-10-26): CodeMirror, read-only, highlighted
-- [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files
+- [The project tree (2026-10-26)](#the-project-tree-2026-10-26): a virtualised tree of the worktree's files, under the worktree's folder (2026-11-14)
 - [Creating and removing worktrees (2026-10-26)](#creating-and-removing-worktrees-2026-10-26): from git worktree list
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
@@ -1008,6 +1008,16 @@ to change:
   its open folders. Files come from the host in the app, and from the sample paths in a browser.
   Opening a file opens a tab named after it, known by its path; its contents are still the sample
   text until the editor reads files.
+- **Under the worktree's folder** (changed 2026-11-14, from Ido: "the project files in intellij
+  are under a product virtual "directory" - that opens the door to a few things, like something to
+  select for search within all the project files"). IntelliJ's Project view lists, under a root it
+  hides (ProjectViewProjectNode, read from its source), each content root as a folder, its name in
+  bold and its path after it in grey (PsiDirectoryNode), then External Libraries and Scratches and
+  Consoles. Here the tree's top is the worktree's folder, opened, the same way; in a browser, the
+  environment's name alone. Find in Files on it searches the whole worktree, as IntelliJ's sets the
+  Directory scope to the folder chosen (FindInProjectUtil). Delete, Rename, Cut and Copy already
+  left the worktree itself out. Claude's choices, open to change: the path is shown in full
+  (IntelliJ's starts with `~` for the home folder, a claim); the weight is 600.
 - **Files added or removed on disk show** (added 2026-11-01; a gap seen in QA). While the tree is
   shown, its folders that were loaded are read again when the window gets the focus, and every 2 s
   while it has it, the same timing as open files. IntelliJ refreshes on the window's activation too,

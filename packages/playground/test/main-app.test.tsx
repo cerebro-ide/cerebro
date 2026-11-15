@@ -1387,6 +1387,11 @@ describe('the Project view’s menu', () => {
     await userEvent.click(menuItem('Find in Files…'));
     await expect.poll(directory).toBe('lib');
     await closeAll();
+    // The worktree's folder: the whole of it, as IntelliJ's project folder.
+    await userEvent.click(await vi.waitUntil(() => row('/r')), { button: 'right' });
+    await userEvent.click(menuItem('Find in Files…'));
+    await expect.poll(directory).toBe('');
+    await closeAll();
     await userEvent.click(await vi.waitUntil(() => row('/r/d.ts')), { button: 'right' });
     await userEvent.click(menuItem('Replace in Files…'));
     await expect.poll(directory).toBe('');

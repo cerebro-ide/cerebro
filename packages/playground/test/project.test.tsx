@@ -74,14 +74,18 @@ describe('the Project tool window', () => {
     expect(document.querySelector('.playground-project')?.textContent).toBe('No environment open');
   });
 
-  it('shows the worktree’s files from the host, folders first, what git ignores dimmed', async () => {
+  it('shows the worktree’s files from the host, under its folder, folders first, what git ignores dimmed', async () => {
     workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
     mount();
-    await expect.poll(rows).toEqual(['src', 'dist', 'README.md']);
+    // The worktree's folder at the top, opened: its name in bold, then its path.
+    await expect.poll(rows).toEqual(['r/r', 'src', 'dist', 'README.md']);
     expect(host.params('fs.list')).toEqual([{ path: '/r' }]);
+    const root = row('/r').querySelector('.playground-project__root') as Element;
+    expect([root.textContent, getComputedStyle(root).fontWeight]).toEqual(['r', '600']);
+    expect(row('/r').querySelector('.playground-project__location')?.textContent).toBe('/r');
     expect(row('/r/dist').querySelector('.playground-change--ignored')?.textContent).toBe('dist');
     await userEvent.dblClick(row('/r/src'));
-    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
     await userEvent.dblClick(row('/r/src/main.ts'));
     expect(opened).toEqual([{ id: '/r/src/main.ts', title: 'main.ts' }]);
   });
@@ -117,7 +121,7 @@ describe('the Project tool window', () => {
     workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
     mount();
     // As the test before left it: src open.
-    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
     const marked = () =>
       [...document.querySelectorAll('.playground-problem-file')].map((m) => m.textContent);
     expect(marked()).toEqual([]);
@@ -125,7 +129,7 @@ describe('the Project tool window', () => {
     fileProblems.set('/r/src/main.ts', [{ ...error, severity: 'warning' }]);
     expect(marked()).toEqual([]);
     fileProblems.set('/r/src/main.ts', [{ ...error, severity: 'error' }]);
-    expect(marked()).toEqual(['src', 'main.ts']);
+    expect(marked()).toEqual(['r', 'src', 'main.ts']);
     const style = getComputedStyle(document.querySelector('.playground-problem-file') as Element);
     expect([style.textDecorationLine, style.textDecorationStyle]).toEqual(['underline', 'wavy']);
     fileProblems.clear();
@@ -161,16 +165,21 @@ describe('the Project tool window', () => {
   it('shows the samples as a tree in a browser, each environment’s its own', async () => {
     workspace.openOrActivate({ id: '/s', name: 's', branch: 'main' });
     mount();
-    await expect.poll(rows).toEqual(['docs', 'src', 'README.md']);
+    // Under the environment's folder, with no path to show.
+    await expect.poll(rows).toEqual(['s', 'docs', 'src', 'README.md']);
     await userEvent.dblClick(row('src'));
-    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    await expect.poll(rows).toEqual(['s', 'docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
     await userEvent.dblClick(row('docs'));
-    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    await expect.poll(rows).toEqual(['s', 'docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
     // Its folders as they were left, src open.
     workspace.activate('/r');
-    await expect.poll(rows).toEqual(['src', 'main.ts', 'dist', 'README.md']);
+    await expect.poll(rows).toEqual(['r/r', 'src', 'main.ts', 'dist', 'README.md']);
     workspace.activate('/s');
-    await expect.poll(rows).toEqual(['docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    await expect.poll(rows).toEqual(['s', 'docs', 'src', 'lib', 'a.ts', 'main.ts', 'README.md']);
+    // Closed, it hides them all.
+    await userEvent.dblClick(row('/s'));
+    await expect.poll(rows).toEqual(['s']);
+    await userEvent.dblClick(row('/s'));
   });
 });
 
