@@ -101,7 +101,8 @@ const writes = (path?: string) =>
   host
     .params('fs.write')
     .map((w) => {
-      const { expected: _, ...rest } = w as { path: string; text: string; expected?: string };
+      const rest = { ...(w as { path: string; text: string; expected?: string }) };
+      delete rest.expected;
       return rest;
     })
     .filter((w) => path === undefined || w.path === path);

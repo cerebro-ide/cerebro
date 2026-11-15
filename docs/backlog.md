@@ -228,7 +228,8 @@ doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
   known yet.
 - **The agent e2e test's turn sometimes didn't expand** (3 runs in 9 locally: its file row never
   showed; cause not found). The test double-clicks again until the turn shows expanded. If it's a
-  real bug, users could hit it too.
+  real bug, users could hit it too. Again on 2026-11-15 (once in four local runs, the turn shown,
+  its file row not after 5 s of double-clicks), so the retry doesn't hide it either.
 - **The Python e2e test's go to definition sometimes fails on Windows in CI** (#78 twice, #82 once):
   Ctrl+B never reaches lib.py in 30 s, while the host, asked directly then, answers the definition
   in 1 ms. The test now also prints where the page is (tab, line, focus, popup) when it fails.
