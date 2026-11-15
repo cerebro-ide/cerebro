@@ -371,8 +371,13 @@ export function computed<T>(fn: () => T, options?: Options<T>): Computed<T> {
  */
 export function effect(fn: EffectFn): Disposable {
   const node = new EffectNode(fn);
+  // In a batch, as every later run is: a write it makes to what it read runs it again once its
+  // sources are known. Outside one, the write flushed at once, while it had none yet, and it was
+  // left with the old value. A failure, its run's or the runs its writes cause, leaves no effect.
   try {
-    node.run();
+    batch(() => {
+      node.run();
+    });
   } catch (error) {
     node.dispose();
     throw error;

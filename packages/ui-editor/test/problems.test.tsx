@@ -280,11 +280,17 @@ describe('problems', () => {
 
   it('asks again once an edit has settled, keeping the marks in place meanwhile', async () => {
     const asked: string[] = [];
+    // The answers after the first are held until released: typing may take longer than
+    // PROBLEMS_AFTER, and the marks are checked before the answer for the edited text.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
     const root = mount({
       document: new EditorDocument(TEXT),
-      problems: (text) => {
+      problems: async (text) => {
         asked.push(text);
-        return Promise.resolve(asked.length === 1 ? PROBLEMS.slice(0, 1) : []);
+        if (asked.length === 1) return PROBLEMS.slice(0, 1);
+        await held;
+        return [];
       },
     });
     await expect.poll(() => marked(root)).toEqual([['n', 'cerebro-problem--error']]);
@@ -294,6 +300,8 @@ describe('problems', () => {
     expect(marked(root)).toEqual([['n', 'cerebro-problem--error']]);
     await expect.poll(() => asked.length, { timeout: PROBLEMS_AFTER * 5 }).toBe(2);
     expect(asked[1]?.startsWith('// const n')).toBe(true);
+    expect(marked(root)).toEqual([['n', 'cerebro-problem--error']]);
+    release();
     await expect.poll(() => marked(root)).toEqual([]);
   });
 
