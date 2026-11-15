@@ -350,18 +350,36 @@ describe('effect', () => {
     expect(s.get()).toBe(10);
   });
 
+  it('runs again when its first run writes what it read, as when created in a batch', () => {
+    for (const make of [(fn: () => void) => fn(), (fn: () => void) => batch(fn)]) {
+      const count = signal(0);
+      let runs = 0;
+      make(() => {
+        effect(() => {
+          runs++;
+          if (count.get() < 5) count.set(count.get() + 1);
+        });
+      });
+      expect([count.get(), runs]).toEqual([5, 6]);
+    }
+  });
+
   it('reports a cycle and recovers', () => {
     const s = signal(0);
-    const handle = effect(() => {
-      s.set(s.get() + 1);
-    });
-    expect(() => {
-      s.set(100);
-    }).toThrow('did not settle');
-    handle.dispose();
-    const { runs } = track(() => s.get());
+    // Found as it's made: its first run is batched, as the others are. It isn't left running.
+    let runs = 0;
+    expect(() =>
+      effect(() => {
+        runs++;
+        s.set(s.get() + 1);
+      }),
+    ).toThrow('did not settle');
+    const after = runs;
+    s.set(100);
+    expect(runs).toBe(after);
+    const { runs: tracked } = track(() => s.get());
     s.set(0);
-    expect(runs.count).toBe(2);
+    expect(tracked.count).toBe(2);
   });
 
   it('runs writes made by other effects in the same flush', () => {

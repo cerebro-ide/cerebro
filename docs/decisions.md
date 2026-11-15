@@ -302,6 +302,10 @@ React; he asked for Claude's opinion and agreed with it. Why:
 Shape of the reactive layer:
 
 - **Core:** signal, computed, effect and batch, with automatic dependency tracking.
+  - **An effect's first run is batched, as its later ones are** (fixed 2026-11-15, from the
+    review of that day): a write it made to what it read flushed at once, before it had any
+    sources, so it wasn't run again (measured: an effect counting a signal up to 5 left it at 1).
+    A failure as it's made, its run's or the runs its writes cause, leaves no effect.
 - **On top, a MobX-style layer:** observable model objects with computed values and actions.
   Its API is in the next entry; decorators were Claude's suggestion, not a decision.
 - **No implicit deep observability through proxies**, as in MobX. It's slow and surprising for
