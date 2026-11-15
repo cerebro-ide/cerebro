@@ -2428,6 +2428,52 @@ describe('terminals', () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
+  it('ends a turn on StopFailure (an API error) and SessionEnd, as on Stop', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-ends-')));
+    execFileSync('git', ['init', '-q', dir]);
+    writeFileSync(join(dir, 'a.txt'), 'before');
+    const spawn = vi.fn(() => fake().pty);
+    const { ui, stop } = (() => {
+      // eslint-disable-next-line prefer-const -- the two refer to each other
+      let host: Connection;
+      const page = new Connection((line) => {
+        host.receive(line);
+      });
+      host = new Connection((line) => {
+        page.receive(line);
+      });
+      return {
+        ui: page,
+        stop: serveOn(host, { repo: dir, git: runGit, pty: spawn, hookCommand: 'h' }),
+      };
+    })();
+    await ui.request('terminal.open', { key: 'claude:a', cwd: dir, agent: true });
+    const socket = (spawn.mock.calls[0] as unknown as [string, string[], { env: Env }])[2].env[
+      'CEREBRO_HOOK_SOCKET'
+    ] as string;
+    for (const [n, event] of [
+      [1, 'StopFailure'],
+      [2, 'SessionEnd'],
+    ] as const) {
+      await sendHook(socket, {
+        key: 'claude:a',
+        event: 'UserPromptSubmit',
+        input: { prompt: event },
+      });
+      writeFileSync(join(dir, 'a.txt'), event);
+      await sendHook(socket, { key: 'claude:a', event, input: {} });
+      await vi.waitFor(async () => {
+        expect(await listTurns(dir, runGit)).toHaveLength(n);
+      });
+    }
+    expect((await listTurns(dir, runGit)).map((turn) => turn.prompt).sort()).toEqual([
+      'SessionEnd',
+      'StopFailure',
+    ]);
+    await stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
   it('finishes a turn’s snapshot under way before it stops', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-stop-')));
     execFileSync('git', ['init', '-q', dir]);

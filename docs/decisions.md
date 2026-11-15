@@ -5594,6 +5594,15 @@ changed, in a tool window of its own (the Commit tool window's, until 2026-11-03
 - **A snapshot before and after each turn,** not only at its end as the plan said: the difference
   between the two is what the turn changed, even when the user (or another tool) changed files
   between turns. The host takes them on the `UserPromptSubmit` and `Stop` hooks.
+- **A turn ends with `Stop`, `StopFailure` or `SessionEnd`, or with the next prompt** (2026-11-15,
+  from the review of that day): Claude Code's hooks reference says Stop "does not run if the
+  stoppage occurred due to a user interrupt. API errors fire StopFailure instead", and lists no
+  hook for an interrupt, so a turn the user cut short was replaced by the next prompt's, its
+  changes in no turn (measured by the review). A prompt for an agent with a turn open now keeps
+  that turn first, under its own prompt, and the one snapshot is its end and the new turn's start.
+  `SessionEnd` isn't waited for: its hooks have 1.5 s between them (the reference). What the
+  agent's status shows after an interrupt (it stays "working" until another hook comes) isn't
+  measured with the real CLI yet.
 - **A snapshot is a commit** of every file git doesn't ignore, made through a copy of the
   worktree's index (`GIT_INDEX_FILE`), so what the user staged is untouched (measured), with
   Cerebro as its author, whoever the user is. Each turn's end is kept by a ref under
@@ -5626,7 +5635,8 @@ done, and its session resumes after the app restarts.
 - **From Claude Code's hooks,** given to `claude` with `--settings` when the host starts it as an
   agent, so the user's own settings are untouched. Measured with `claude` 2.1.310: hooks passed
   that way run, with the session's id in their input. `UserPromptSubmit` and `PostToolUse` mean
-  working, `Notification` waiting (a permission prompt, say), `Stop` done.
+  working, `Notification` waiting (a permission prompt, say), `Stop` done; `StopFailure` (an API
+  error) and `SessionEnd` done too (2026-11-15).
 - **A hook runs the host's own entry point** (`main.js hook <name>`, as Node in Electron), which
   sends the hook's input over a local socket (a named pipe on Windows) to the host that started the
   agent, with the agent's key from its environment. It never fails the agent: a host that's gone is

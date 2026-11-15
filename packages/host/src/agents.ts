@@ -10,12 +10,18 @@ import { join } from 'node:path';
 
 export type AgentState = 'working' | 'waiting' | 'done';
 
-/** The hooks Cerebro listens to, and the state each means. */
+/**
+ * The hooks Cerebro listens to, and the state each means. A turn ends with Stop, or with
+ * StopFailure when an API error ended it, or with SessionEnd; none runs after an interrupt
+ * (Claude Code's hooks reference, read 2026-11-15).
+ */
 export const HOOK_STATES: Readonly<Record<string, AgentState>> = {
   UserPromptSubmit: 'working',
   PostToolUse: 'working',
   Notification: 'waiting',
   Stop: 'done',
+  StopFailure: 'done',
+  SessionEnd: 'done',
 };
 
 /** What the hook client sends: the agent's terminal key, the hook, and Claude Code's input. */
