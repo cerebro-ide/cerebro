@@ -64,8 +64,15 @@ interface Node {
   children: Node[];
 }
 
-/** The list's rows: the files as the host lists them, or by directory, every folder open. */
-function rowsOf(files: readonly ConflictFile[], grouped: boolean): Row[] {
+/**
+ * The list's rows: the files as the host lists them, or by directory, the folders open but those
+ * collapsed (by key).
+ */
+function rowsOf(
+  files: readonly ConflictFile[],
+  grouped: boolean,
+  collapsed: ReadonlySet<string> = new Set(),
+): Row[] {
   if (!grouped) return files.map((file) => ({ key: file.path, depth: 0, file }));
   const nodes = directoryTree<ConflictFile, Node>(files, (file) => file.path, {
     file: (file) => ({ row: (depth) => ({ key: file.path, depth, file }), children: [] }),
@@ -75,7 +82,10 @@ function rowsOf(files: readonly ConflictFile[], grouped: boolean): Row[] {
     }),
   });
   const flat = (list: Node[], depth: number): Row[] =>
-    list.flatMap((node) => [node.row(depth), ...flat(node.children, depth + 1)]);
+    list.flatMap((node) => {
+      const row = node.row(depth);
+      return collapsed.has(row.key) ? [row] : [row, ...flat(node.children, depth + 1)];
+    });
   return flat(nodes, 0);
 }
 
@@ -326,7 +336,9 @@ export async function resolveConflicts(worktree: string, description?: string): 
   if (first.files.length === 0) return true;
   const conflicts = signal(first);
   const byDirectory = signal(grouped());
-  const rows = () => rowsOf(conflicts.get().files, byDirectory.get());
+  /** The folders collapsed, by key: none to start with, nor once grouped again, as IntelliJ's. */
+  const collapsed = signal<ReadonlySet<string>>(new Set());
+  const rows = () => rowsOf(conflicts.get().files, byDirectory.get(), collapsed.get());
   /** The rows selected, by key; the first file's to start with, as IntelliJ's. */
   const selected = signal<readonly string[]>([first.files[0]?.path as string]);
   const busy = signal(false);
@@ -334,7 +346,9 @@ export async function resolveConflicts(worktree: string, description?: string): 
   const reload = async () => {
     const now = await read();
     conflicts.set(now);
-    const there = new Set(rowsOf(now.files, byDirectory.peek()).map((row) => row.key));
+    const there = new Set(
+      rowsOf(now.files, byDirectory.peek(), collapsed.peek()).map((row) => row.key),
+    );
     const kept = selected.peek().filter((key) => there.has(key));
     selected.set(kept.length > 0 || !now.files[0] ? kept : [now.files[0].path]);
     return now;
@@ -384,6 +398,38 @@ export async function resolveConflicts(worktree: string, description?: string): 
           selected.set(all.slice(Math.min(from, to), Math.max(from, to) + 1));
         } else selected.set([key]);
       };
+      /**
+       * Collapses or expands a folder, as a tree's arrow does. It's what's selected then (its arrow
+       * and its double click select it, Left and Right act on it), so nothing selected is hidden.
+       */
+      const toggle = (key: string) => {
+        const now = new Set(collapsed.peek());
+        if (!now.delete(key)) now.add(key);
+        collapsed.set(now);
+      };
+      /**
+       * Right and Left, as a tree's (ui-tree's `right` and `left`): Right expands a folder, or goes
+       * to its first row; Left collapses it, or goes to the folder a row is in.
+       */
+      const sideways = (right: boolean) => {
+        const all = untracked(rows);
+        const at = all.findIndex((row) => row.key === selected.peek().at(-1));
+        const row = all[at];
+        if (!row) return;
+        const open = 'folder' in row && !collapsed.peek().has(row.key);
+        if (right) {
+          if (!('folder' in row)) return;
+          if (!open) toggle(row.key);
+          else selected.set([(all[at + 1] as Row).key]);
+          return;
+        }
+        if (open) {
+          toggle(row.key);
+          return;
+        }
+        const parent = all.slice(0, at).findLast((above) => above.depth < row.depth);
+        if (parent) selected.set([parent.key]);
+      };
       const moveBy = (step: number) => {
         const all = keys();
         const at = all.indexOf(selected.peek().at(-1) as string);
@@ -393,6 +439,7 @@ export async function resolveConflicts(worktree: string, description?: string): 
       /** Grouped or not, the same files stay selected, as IntelliJ's (`OnGroupingChangeTreeStateStrategy`). */
       const group = (grouped: boolean) => {
         const files = filesOf(selected.peek(), conflicts.peek().files);
+        collapsed.set(new Set());
         byDirectory.set(grouped);
         try {
           localStorage.setItem(GROUP_KEY, String(grouped));
@@ -419,6 +466,9 @@ export async function resolveConflicts(worktree: string, description?: string): 
                   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                     event.preventDefault();
                     moveBy(event.key === 'ArrowDown' ? 1 : -1);
+                  } else if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+                    event.preventDefault();
+                    sideways(event.key === 'ArrowRight');
                   }
                 }}
               >
@@ -439,8 +489,11 @@ export async function resolveConflicts(worktree: string, description?: string): 
                           select(row.key, event);
                         }}
                         on:dblclick={() => {
-                          // A folder's double click is its tree's, as IntelliJ's: no merge.
-                          if (!('file' in row)) return;
+                          // A folder's double click is its tree's, as IntelliJ's: it toggles.
+                          if (!('file' in row)) {
+                            toggle(row.key);
+                            return;
+                          }
                           selected.set([row.key]);
                           void merge();
                         }}
@@ -450,6 +503,36 @@ export async function resolveConflicts(worktree: string, description?: string): 
                             class="playground-conflicts__name"
                             style={{ '--depth': String(row.depth) }}
                           >
+                            {byDirectory.peek() ? (
+                              <span
+                                class={[
+                                  'cerebro-tree-row__arrow',
+                                  'folder' in row &&
+                                    !collapsed.peek().has(row.key) &&
+                                    'cerebro-tree-row__arrow--open',
+                                  'file' in row && 'cerebro-tree-row__arrow--none',
+                                ]
+                                  .filter(Boolean)
+                                  .join(' ')}
+                                on:mousedown={(event) => {
+                                  // The arrow toggles, and selects its folder, as ui-tree's.
+                                  event.stopPropagation();
+                                  selected.set([row.key]);
+                                  toggle(row.key);
+                                }}
+                              >
+                                <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                                  <path
+                                    d="M6 4l4 4-4 4"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                  />
+                                </svg>
+                              </span>
+                            ) : null}
                             {'file' in row
                               ? changeContent(
                                   { path: row.file.path, status: 'conflict' },
