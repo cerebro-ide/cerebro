@@ -825,8 +825,8 @@ global → repo → worktree".
   browser's storage held one, under `cerebro.settings.repo.cerebro`, which every worktree of every
   project used, so a tab size set at Repository scope in one project applied in all. Each
   repository's layer is now its own (`cerebro.settings.repo.<the project's path>`), shared by its
-  worktrees; a worktree in no project known is a repository of its own. What the old key holds is
-  no longer read, nor removed: whether it's dropped or given to one repository is Ido's to say.
+  worktrees; a worktree in no project known is a repository of its own. The old key is removed
+  as the app starts, what it held dropped (Ido, 2026-11-15).
 - **Where the files live** (Ido, 2026-10-25):
   - global: the user's config directory (`~/.config/Cerebro/settings.json` on Linux);
   - repo: **in the repo, committed** (like `.vscode/` or `.idea/`), so it can be shared and travels

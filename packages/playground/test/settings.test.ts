@@ -7,6 +7,8 @@ beforeAll(async () => {
   localStorage.setItem('cerebro.settings.global.user', JSON.stringify({ 'editor.tabSize': 4 }));
   localStorage.setItem('cerebro.settings.repo.wt', '{unreadable');
   localStorage.setItem('cerebro.settings.worktree.wt', JSON.stringify({ 'editor.softWrap': true }));
+  // The one Repository layer every project used before each had its own.
+  localStorage.setItem('cerebro.settings.repo.cerebro', JSON.stringify({ 'editor.tabSize': 8 }));
   settings = await import('../src/settings.js');
 });
 
@@ -15,6 +17,11 @@ afterEach(() => {
 });
 
 describe('settings', () => {
+  it('drop the Repository layer every project shared, as Ido chose', () => {
+    expect(localStorage.getItem('cerebro.settings.repo.cerebro')).toBeNull();
+    expect(settings.settingsFor('wt').get('editor.tabSize')).toBe(4);
+  });
+
   it('start from what was saved, or the defaults where it can’t be read', () => {
     const { globalSettings, settingsFor } = settings;
     expect(globalSettings.get('editor.tabSize')).toBe(4);
