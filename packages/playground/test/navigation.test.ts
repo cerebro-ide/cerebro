@@ -17,6 +17,7 @@ import {
   tops,
   type Asked,
 } from '../src/navigation.js';
+import { globalSettings } from '../src/settings.js';
 import { closeAll, FakeHost, popupItems, project } from './fakes.js';
 
 const at = (path: string, line: number, extra: object = {}) => ({
@@ -192,6 +193,35 @@ describe('Back and Forward', () => {
     history()?.goBack();
     expect(editor().activeGroup.active).toBe('diff:x');
     expect(reveals.has('diff:x')).toBe(false);
+  });
+
+  it('go back to a diff until its tab closes, or always or never, as the setting says', () => {
+    const visit = () => {
+      nav.open({ id: '/r/one.ts', title: 'one.ts' });
+      nav.open({ id: 'diff:x', title: 'x' });
+      nav.open({ id: '/r/two.ts', title: 'two.ts' });
+    };
+    const group = () => editor().activeGroup.id;
+    // Until the diff is closed, to start with, as IntelliJ's.
+    visit();
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('diff:x');
+    history()?.goForward();
+    editor().close(group(), 'diff:x');
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('/r/one.ts');
+    // Always: back to it, open again.
+    globalSettings.layers.global.set('diff.navigationHistory', 'always');
+    visit();
+    editor().close(group(), 'diff:x');
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('diff:x');
+    // Never: passed over though open.
+    globalSettings.layers.global.set('diff.navigationHistory', 'never');
+    visit();
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('/r/one.ts');
+    globalSettings.layers.global.reset('diff.navigationHistory');
   });
 
   it('are none without an environment', () => {

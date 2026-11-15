@@ -4185,8 +4185,15 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     its first change (Claude's choice, open to change: keeping it is a refinement).
   - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
     commits.
-- **Not yet:** the rest of Settings → Tools → Diff & Merge (whether diffs go in the navigation
-  history; the merge's import statements and gutter markers: decision "Merge conflicts");
+- **Include diffs in navigation history** (added 2026-11-15), IntelliJ's setting under Settings →
+  Tools → Diff & Merge, its words (`DiffBundle`): Always, Until the diff is closed (the default,
+  as IntelliJ's `IS_INCLUDED_IN_NAVIGATION_HISTORY`), Never. Back and Forward pass over a diff's
+  places the setting leaves out, as IntelliJ's history drops them before it goes back or forward
+  (`IdeDocumentHistoryImpl.removeInvalidFilesFrom`, asking `DiffVirtualFileBase`; read from its
+  source). **Not yet:** with Always, IntelliJ's Recent Files lists diffs too
+  (`isIncludedInEditorHistory`); Cerebro's lists files only.
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's import statements and
+  gutter markers: decision "Merge conflicts");
   several files
   selected as the list; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and

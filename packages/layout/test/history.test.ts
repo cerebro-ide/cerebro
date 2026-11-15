@@ -1,3 +1,4 @@
+import { ObservableSet } from '@cerebro-ide/reactive';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorArea, MAX_PLACES, NavigationHistory, type Position } from '../src/index.js';
 
@@ -114,6 +115,32 @@ describe('NavigationHistory', () => {
     history.dispose();
     area.open(tab('b'));
     expect(back()).toEqual([]);
+  });
+
+  it('passes over the places it’s told aren’t kept, back and forward, as IntelliJ’s diffs', () => {
+    const area = new EditorArea();
+    // Observable, as what the app's places depend on (a setting, the tabs open).
+    const gone = new ObservableSet<string>();
+    const history = new NavigationHistory(
+      area,
+      () => undefined,
+      () => undefined,
+      undefined,
+      (place) => !gone.has(place.tab.id),
+    );
+    for (const id of ['a', 'diff', 'b', 'c']) area.open(tab(id));
+    gone.add('diff');
+    history.goBack();
+    history.goBack();
+    // Over the diff, to a.
+    expect(area.activeGroup.active).toBe('a');
+    expect(history.canGoBack).toBe(false);
+    history.goForward();
+    expect(area.activeGroup.active).toBe('b');
+    gone.add('c');
+    expect(history.canGoForward).toBe(false);
+    gone.delete('c');
+    expect(history.canGoForward).toBe(true);
   });
 
   it('remembers a diff, which has no caret', () => {

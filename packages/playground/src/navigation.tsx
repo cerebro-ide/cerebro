@@ -32,6 +32,8 @@ import type {
   Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
+import { diffPath } from './changes.js';
+import { settingsFor } from './settings.js';
 import {
   documentFor,
   editFiles,
@@ -180,6 +182,15 @@ effect(() => {
           if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
         },
         (path) => tops.get(path),
+        // A diff's place, as IntelliJ's setting says (`DiffVirtualFileBase`): always, until its
+        // tab closes, or never.
+        (place) => {
+          if (diffPath(place.tab.id) === undefined) return true;
+          const how = settingsFor(env.id).get('diff.navigationHistory');
+          if (how === 'always') return true;
+          if (how === 'never') return false;
+          return env.editor.groups.some((group) => group.tabs.some((t) => t.id === place.tab.id));
+        },
       ),
     );
   }
