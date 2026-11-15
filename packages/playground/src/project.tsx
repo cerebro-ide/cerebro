@@ -1,4 +1,5 @@
-// The Project tool window: the active environment's files as a tree. In the desktop app they come
+// The Project tool window: the active environment's files as a tree, under its worktree's folder,
+// its name in bold and its path after, as IntelliJ's content root. In the desktop app they come
 // from the host, folder by folder as they're opened, those git ignores in the ignored colour, as
 // IntelliJ shows them; in a browser, from the sample paths. Each
 // environment keeps its own tree, so switching back finds its folders as they were. While it shows,
@@ -8,26 +9,35 @@
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
+import { signal } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { RELOAD_EVERY } from './documents.js';
 import { target } from './edit.js';
-import { active, currentHost, hostFor } from './environments.js';
+import { active, currentHost, hostFor, type Host } from './environments.js';
 import { icon } from './icons.js';
 import { hasErrors, hasErrorsBeneath } from './problems.js';
 
 export interface FileNode {
   path: string;
   name: string;
-  kind: 'file' | 'directory';
+  /**
+   * A group is the tree's, not a file or folder to act on: Scratches and Consoles, and Scratches in
+   * it, whose path is the scratch files' folder.
+   */
+  kind: 'file' | 'directory' | 'group';
   /** Git ignores it: its name shows in the ignored colour, as in the Commit tool window. */
   ignored?: boolean;
 }
 
-/** The sample paths as a tree: `src/main.ts` gives the folder `src` with the file in it. */
-function sampleSource(paths: readonly string[]): TreeSource<FileNode> {
+/**
+ * The sample paths as a tree, under the environment's folder: `src/main.ts` gives the folder `src`
+ * with the file in it.
+ */
+function sampleSource(root: FileNode, paths: readonly string[]): TreeSource<FileNode> {
   return {
     children: (node) => {
-      const prefix = node ? `${node.path}/` : '';
+      if (!node) return [root];
+      const prefix = node === root ? '' : `${node.path}/`;
       const seen = new Map<string, FileNode>();
       for (const path of paths) {
         if (!path.startsWith(prefix)) continue;
@@ -49,23 +59,60 @@ function sampleSource(paths: readonly string[]): TreeSource<FileNode> {
   };
 }
 
+/**
+ * What Cut or Copy kept from the view, in its worktree, for Paste (file-clipboard.tsx). What's cut
+ * shows greyed until it's pasted, or Escape in the view lets it go, as IntelliJ's.
+ */
+export const kept = signal<{ node: FileNode; worktree: string; cut: boolean } | undefined>(
+  undefined,
+);
+
 const models = new Map<string, TreeModel<FileNode>>();
 
-/** An environment's tree: its worktree's files through the host, else the samples. */
-function modelFor(envId: string, samples: readonly string[]): TreeModel<FileNode> {
-  let model = models.get(envId);
+/** Scratches and Consoles, after the worktree's folder in the app, as IntelliJ's. */
+const SCRATCHES_AND_CONSOLES: FileNode = {
+  path: 'scratches-and-consoles',
+  name: 'Scratches and Consoles',
+  kind: 'group',
+};
+
+/**
+ * A worktree's tree through its host: its folder, then Scratches and Consoles, with Scratches in it
+ * once the app's folder of them has one, as IntelliJ shows it.
+ */
+function hostSource(host: Host, root: FileNode): TreeSource<FileNode> {
+  const list = async (path: string) => (await host.request('fs.list', { path })) as FileNode[];
+  return {
+    children: async (node) => {
+      if (!node) return [root, SCRATCHES_AND_CONSOLES];
+      if (node !== SCRATCHES_AND_CONSOLES) return list(node.path);
+      const folder = (await host.request('scratches.folder')) as string | null;
+      if (folder === null || (await list(folder)).length === 0) return [];
+      return [{ path: folder, name: 'Scratches', kind: 'group' }];
+    },
+    key: (node) => node.path,
+    isLeaf: (node) => node.kind === 'file',
+  };
+}
+
+/**
+ * An environment's tree: its worktree's folder, as IntelliJ's Project view shows a project's content
+ * root, opened; its files through the host, else the samples.
+ */
+function modelFor(
+  env: { id: string; name: string },
+  samples: readonly string[],
+): TreeModel<FileNode> {
+  let model = models.get(env.id);
   if (!model) {
-    const host = hostFor(envId);
+    const host = hostFor(env.id);
+    const root: FileNode = { path: env.id, name: env.name, kind: 'directory' };
     const source: TreeSource<FileNode> = host
-      ? {
-          children: async (node) =>
-            (await host.request('fs.list', { path: node ? node.path : envId })) as FileNode[],
-          key: (node) => node.path,
-          isLeaf: (node) => node.kind === 'file',
-        }
-      : sampleSource(samples);
+      ? hostSource(host, root)
+      : sampleSource(root, samples);
     model = new TreeModel(source);
-    models.set(envId, model);
+    model.expand(root);
+    models.set(env.id, model);
   }
   return model;
 }
@@ -82,7 +129,7 @@ export function selectInTree(path: string, samples: readonly string[]): Promise<
   if (!path.startsWith(root)) return Promise.resolve(false);
   const parts = path.slice(root.length).split('/');
   const keys = parts.map((_, i) => root + parts.slice(0, i + 1).join('/'));
-  return modelFor(env.id, samples).reveal(keys);
+  return modelFor(env, samples).reveal([env.id, ...keys]);
 }
 
 /** Reads a worktree's tree again, as after a file's made or deleted in it. */
@@ -123,7 +170,9 @@ export function projectNode(): FileNode | null | undefined {
   const env = active();
   if (!env || !target()?.closest('.playground-project')) return undefined;
   const model = models.get(env.id) as TreeModel<FileNode>;
-  return model.rows.find((row) => row.key === model.selected)?.node ?? null;
+  const node = model.rows.find((row) => row.key === model.selected)?.node;
+  // A group is nothing to act on.
+  return node === undefined || node.kind === 'group' ? null : node;
 }
 
 export function ProjectTree(props: {
@@ -134,11 +183,22 @@ export function ProjectTree(props: {
   menu: (event: MouseEvent) => void;
 }): Node {
   return (
-    <div class="playground-project">
+    <div
+      class="playground-project"
+      on:keydown={(event) => {
+        // Escape lets go of what's cut, and does nothing else then (PsiCopyPasteManager's
+        // EscapeHandler).
+        const mods = event.ctrlKey || event.altKey || event.shiftKey || event.metaKey;
+        if (event.key !== 'Escape' || mods || kept.get()?.cut !== true) return;
+        kept.set(undefined);
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       {() => {
         const env = active();
         if (!env) return <p class="playground-project__empty">No environment open</p>;
-        const model = modelFor(env.id, props.samples);
+        const model = modelFor(env, props.samples);
         // A folder that can't be read shows why in the tree.
         const refresh = () => void model.refresh();
         const timer = setInterval(() => {
@@ -154,10 +214,14 @@ export function ProjectTree(props: {
             model={model}
             label={`${env.name} files`}
             row={(node) => [
-              icon(node.kind === 'directory' ? 'folder' : 'file'),
+              icon(node.kind === 'directory' ? 'folder' : node.kind === 'group' ? 'note' : 'file'),
               <span
                 class={() =>
                   [
+                    node.path === env.id && 'playground-project__root',
+                    kept.get()?.cut === true &&
+                      kept.get()?.node.path === node.path &&
+                      'playground-project--cut',
                     node.ignored && 'playground-change--ignored',
                     (node.kind === 'directory'
                       ? hasErrorsBeneath(node.path)
@@ -169,6 +233,10 @@ export function ProjectTree(props: {
               >
                 {node.name}
               </span>,
+              // The worktree's folder: its name in bold, then where it is, as IntelliJ's.
+              node.path === env.id && hostFor(env.id) && (
+                <span class="playground-project__location">{node.path}</span>
+              ),
             ]}
             onOpen={(node) => {
               props.open({ id: node.path, title: node.name });
