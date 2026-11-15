@@ -1,6 +1,9 @@
 import { expect, it, vi } from 'vitest';
 
-const host = vi.hoisted(() => ({ serve: vi.fn() }));
+// A host whose stop never ends, unless a test gives its own: SIGTERM reaches every import's.
+const host = vi.hoisted(() => ({
+  serve: vi.fn(() => ({ stop: () => new Promise<void>(() => undefined) })),
+}));
 vi.mock('../src/host.js', () => host);
 const agents = vi.hoisted(() => ({
   sendHook: vi.fn(() => Promise.resolve()),
@@ -38,6 +41,20 @@ it('serves over stdio, for CEREBRO_REPO or the folder it started in', async () =
     process.stdout,
     expect.objectContaining({ repo: process.cwd() }),
   );
+});
+
+it('stops on SIGTERM as when its input ends, then exits', async () => {
+  vi.resetModules();
+  const stop = vi.fn(() => Promise.resolve());
+  host.serve.mockReturnValueOnce({ stop });
+  const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+  await import('../src/main.js');
+  process.emit('SIGTERM');
+  expect(stop).toHaveBeenCalled();
+  await vi.waitFor(() => {
+    expect(exit).toHaveBeenCalled();
+  });
+  exit.mockRestore();
 });
 
 it('runs only the language servers CEREBRO_LANGUAGE_SERVERS names, when it’s set', async () => {

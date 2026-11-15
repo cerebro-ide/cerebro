@@ -27,6 +27,12 @@ export const FORWARDED = [
 /** The host's entry point, built beside this app. */
 const HOST = fileURLToPath(new URL('../../host/dist/main.js', import.meta.url));
 
+/**
+ * How long a host told to stop has to exit before it's killed, in ms: its own limit for what's
+ * under way (`STOP_WITHIN`, 10 s), and its shutdown. A claim.
+ */
+export const STOP_PATIENCE = 15_000;
+
 /** Starts the host for `repo`, returning the connection to it and a way to stop it. */
 export function startHost(
   repo: string,
@@ -59,14 +65,25 @@ export function startHost(
   stdout.on('data', (chunk: string) => {
     reader.push(chunk);
   });
+  let exited = false;
   child.on('exit', () => {
+    exited = true;
     connection.close();
   });
   return {
     connection,
+    // Its input ended, the host finishes what's under way and exits by itself; killed only if it
+    // hasn't in time. The timer doesn't keep the app running: a host whose app has quit sees its
+    // input end all the same. On Windows a kill ends it at once, so nothing softer comes first.
     stop: () => {
       connection.close();
-      child.kill();
+      stdin.end();
+      if (exited) return;
+      const kill = setTimeout(() => child.kill(), STOP_PATIENCE);
+      kill.unref();
+      child.once('exit', () => {
+        clearTimeout(kill);
+      });
     },
   };
 }

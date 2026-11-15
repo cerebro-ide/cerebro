@@ -155,6 +155,13 @@ import {
 /** The protocol's version: the UI checks it on connecting. */
 export const PROTOCOL_VERSION = 1;
 
+/**
+ * How long a host that's told to stop waits for what's under way (a turn's snapshot, a save's
+ * record) before it shuts down regardless, in ms. A claim: a snapshot is a dozen git processes,
+ * over a second on Windows; ten is room for a few, and stops a git that hangs keeping it running.
+ */
+export const STOP_WITHIN = 10_000;
+
 export interface HostOptions {
   /** The repository opened when a request names none. */
   repo: string;
@@ -242,7 +249,7 @@ export const nodePty: SpawnPty = (file, args, options) => {
 };
 
 /** Registers the host's methods on `connection`; the function returned ends what they started. */
-export function serveOn(connection: Connection, options: HostOptions): () => void {
+export function serveOn(connection: Connection, options: HostOptions): () => Promise<void> {
   const git = options.git ?? runGit;
   const gitBytes = options.gitBytes ?? runGitBytes;
   connection.onRequest('host.ping', () => ({ version: PROTOCOL_VERSION }));
@@ -1633,26 +1640,46 @@ export function serveOn(connection: Connection, options: HostOptions): () => voi
     terminals.close(id(params));
     return null;
   });
-  return () => {
+  return async () => {
+    // What's under way is finished first: the saves' records and the turns' snapshots, made after
+    // their answers. Within a limit, so a git that hangs doesn't keep the host running.
+    let late: ReturnType<typeof setTimeout> | undefined;
+    await Promise.race([
+      Promise.all([saves, turns.settled()]),
+      new Promise((resolve) => (late = setTimeout(resolve, STOP_WITHIN))),
+    ]);
+    clearTimeout(late);
     terminals.closeAll();
     hookServer.close();
     askServer.close();
     rmSync(scripts.folder, { recursive: true, force: true });
-    void servers.dispose();
+    await servers.dispose();
   };
 }
 
-/** Serves the host over a pair of streams, as the UI's child process does over stdio. */
+/**
+ * Serves the host over a pair of streams, as the UI's child process does over stdio. It stops when
+ * its input ends, or when `stop` is called: it says nothing more, finishes what's under way, and
+ * shuts down; `stop`'s promise is settled once it has.
+ */
 export function serve(
   input: NodeJS.ReadableStream,
   output: NodeJS.WritableStream,
   options: HostOptions,
-): Connection {
+): { connection: Connection; stop: () => Promise<void> } {
   // Each request that's slow reported (`slow.ts`).
   const connection = new TimedConnection((line) => {
     output.write(`${line}\n`);
   });
-  const stop = serveOn(connection, options);
+  const shutdown = serveOn(connection, options);
+  let stopping: Promise<void> | undefined;
+  const stop = () => {
+    if (!stopping) {
+      connection.close();
+      stopping = shutdown();
+    }
+    return stopping;
+  };
   const reader = new LineReader((line) => {
     connection.receive(line);
   });
@@ -1661,8 +1688,7 @@ export function serve(
     reader.push(chunk);
   });
   input.on('end', () => {
-    stop();
-    connection.close();
+    void stop();
   });
-  return connection;
+  return { connection, stop };
 }
