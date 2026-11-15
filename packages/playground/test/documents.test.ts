@@ -287,24 +287,18 @@ describe('saving', () => {
     expect(closed).toContain('/r/deleted.ts');
   });
 
-  it('writes over a file it can’t read, and that may not be gone', async () => {
-    const doc = await file('/r/locked.ts', 'a');
+  it('keeps a file it couldn’t save when it can’t tell whether the file is gone', async () => {
+    const doc = await file('/r/readonly-unknown.ts', 'a');
     edit(doc, '1');
-    unreadable.add('/r/locked.ts');
-    await saveAll();
-    expect(writes('/r/locked.ts')).toEqual([{ path: '/r/locked.ts', text: 'a1' }]);
-    unreadable.delete('/r/locked.ts');
-    // Can't even tell whether it's there: kept, and written over.
-    edit(doc, '2');
-    unreadable.add('/r/locked.ts');
     const exists = host.answers['fs.exists'];
     host.answers['fs.exists'] = () => {
       throw new Error('down');
     };
-    await saveAll();
-    expect(writes('/r/locked.ts').at(-1)).toEqual({ path: '/r/locked.ts', text: 'a12' });
+    await expect(saveAll()).rejects.toThrow('EACCES');
+    expect(doc.modified.peek()).toBe(true);
+    expect(closed).not.toContain('/r/readonly-unknown.ts');
     host.answers['fs.exists'] = exists as never;
-    unreadable.delete('/r/locked.ts');
+    disk.delete('/r/readonly-unknown.ts');
   });
 
   it('asks about a file changed on disk too, and writes what’s chosen', async () => {
