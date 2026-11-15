@@ -338,6 +338,13 @@ describe('the Conflicts dialog', () => {
     // At the top, Left has nowhere to go.
     await userEvent.keyboard('{ArrowLeft}');
     expect(selectedRows()).toEqual(['src2 files']);
+    // Nothing selected, Right and Left do nothing.
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(await row('src'));
+    await userEvent.keyboard('{/Control}');
+    await userEvent.keyboard('{ArrowRight}{ArrowLeft}');
+    expect([selectedRows(), await names()]).toEqual([[], ['src2 files', 'a.ts']]);
+    await userEvent.click(await row('src'));
     // Grouped again, every folder is open.
     const group = (await dialog()).querySelector(
       '.playground-conflicts__group input',
