@@ -4,6 +4,7 @@ import {
   readFileSync,
   rmSync,
   statSync,
+  symlinkSync,
   truncateSync,
   writeFileSync,
 } from 'node:fs';
@@ -48,6 +49,22 @@ describe('listFolder', () => {
       'README.md',
     ]);
     expect(entries[0]?.path).toBe(`${toSlashes(root)}/Docs`);
+  });
+
+  it('lists a link by what it links to: a folder’s as a folder, a broken one as a file', async () => {
+    const links = mkdtempSync(join(tmpdir(), 'cerebro-links-'));
+    try {
+      mkdirSync(join(links, 'real'));
+      symlinkSync(join(links, 'real'), join(links, 'folder-link'), 'dir');
+      symlinkSync(join(links, 'gone'), join(links, 'broken-link'));
+      expect((await listFolder(links)).map((e) => `${e.kind}:${e.name}`)).toEqual([
+        'directory:folder-link',
+        'directory:real',
+        'file:broken-link',
+      ]);
+    } finally {
+      rmSync(links, { recursive: true, force: true });
+    }
   });
 
   it('joins with a slash, even after a trailing one', async () => {
@@ -100,16 +117,12 @@ describe('listFolder', () => {
     const handle = await open(path);
     const prototype = Object.getPrototypeOf(handle) as typeof handle;
     await handle.close();
-    const stat = prototype.stat;
     // Rewritten shorter between its size being read and its bytes (an agent writing it).
-    const spy = vi.spyOn(prototype, 'stat').mockImplementation(async function (
-      this: typeof handle,
-      ...args: Parameters<typeof stat>
-    ) {
-      const stats = await stat.apply(this, args);
+    const spy = vi.spyOn(prototype, 'stat').mockImplementation(() => {
+      const stats = statSync(path);
       truncateSync(path, 5);
-      return stats;
-    } as typeof stat);
+      return Promise.resolve(stats);
+    });
     try {
       expect(new TextDecoder().decode(await readFileBytes(path))).toBe('a lon');
     } finally {

@@ -1,6 +1,7 @@
 // The file system, next to the repos: listing a folder for the project tree, reading and writing a
 // file for the editor.
 
+import type { Dirent } from 'node:fs';
 import { dirname } from 'node:path';
 import {
   cp,
@@ -36,18 +37,29 @@ export function toSlashes(path: string, platform: NodeJS.Platform = process.plat
 export async function listFolder(folder: string): Promise<Entry[]> {
   const entries = await readdir(folder, { withFileTypes: true });
   const base = toSlashes(folder).replace(/\/+$/, '');
-  return entries
-    .filter((e) => !HIDDEN.has(e.name))
-    .map((e): Entry => ({
-      name: e.name,
-      path: `${base}/${e.name}`,
-      kind: e.isDirectory() ? 'directory' : 'file',
-    }))
-    .sort(
-      (a, b) =>
-        Number(a.kind === 'file') - Number(b.kind === 'file') ||
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-    );
+  const listed = await Promise.all(
+    entries
+      .filter((e) => !HIDDEN.has(e.name))
+      .map(async (e): Promise<Entry> => ({
+        name: e.name,
+        path: `${base}/${e.name}`,
+        kind: (await isFolder(e, `${folder}/${e.name}`)) ? 'directory' : 'file',
+      })),
+  );
+  return listed.sort(
+    (a, b) =>
+      Number(a.kind === 'file') - Number(b.kind === 'file') ||
+      a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
+  );
+}
+
+/** Whether an entry is a folder, or a link to one; a broken link is a file. */
+async function isFolder(entry: Dirent, path: string): Promise<boolean> {
+  if (!entry.isSymbolicLink()) return entry.isDirectory();
+  return stat(path).then(
+    (target) => target.isDirectory(),
+    () => false,
+  );
 }
 
 /** The largest file the editor opens, in bytes. */
