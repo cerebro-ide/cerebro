@@ -72,6 +72,14 @@ the picker at the top (decision "Bookmarks"). A popup shell they'd share, with a
 the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
 doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 
+### Scripts changed on disk, for bash-language-server (proposed: a special case, for Ido's word)
+
+bash-language-server 5.8.1 doesn't take `workspace/didChangeWatchedFiles` (measured 2026-11-15;
+decision "Language servers, first part"): a script changed or made on disk after it starts isn't
+seen until it's restarted, so usages miss them. Opening each changed script in it and closing it
+again would give it the text (its `onDidClose` keeps what it analysed: read from its code, not
+measured). It's a special case for one server, so it's proposed before it's done.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,

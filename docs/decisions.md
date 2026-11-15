@@ -1210,6 +1210,21 @@ change.
   called the function. Such files get the name matches instead.
 - **The file as the editor has it:** each request sends the file's text, so unsaved edits are
   answered as they are (the server's copy follows them).
+- **Files changed on disk** (added 2026-11-15, from that day's review; Ido chose the watcher):
+  while a worktree has a server, the host watches its files (Node's recursive `fs.watch`, `.git`
+  left out) and tells each of its servers what was created, changed or deleted, gathered over 50 ms
+  (Claude's choice, open to change), as `workspace/didChangeWatchedFiles`. A file a server has open
+  is closed in it first (`didClose`), so it reads the disk; the next question about it sends the
+  editor's text again, unsaved edits and all. Measured with the review's steps: TypeScript 7 and
+  basedpyright 1.40.2 then answer with the new text (a signature changed in one file shows as an
+  error in another; usages found in a file changed and in one made), each without the capability
+  declared, and neither does without the watcher. bash-language-server 5.8.1 doesn't: it reads the
+  folder once as it starts, then only files sent to it (it has no handler for the notification,
+  read from its code). The watcher's cost, measured (Node 24, Linux): ready in 130 ms over 2,906
+  folders, 0.9 s and about 117 MB over 52,051; it watches ignored folders too, as Node's has no
+  option to skip them. **Rejected:** what Cerebro already knows (an agent's turn, its own saves),
+  which misses edits made elsewhere; the index's passes, which miss what the index doesn't read
+  (`tsconfig.json`, say) and cost git processes per question.
 - **Name matches when no server answers:** a language without a server, a server that fails, or
   one that doesn't answer within 3 seconds (a claim) falls back to the index's "Name matches". A
   server's answer shows without that heading. Find usages leaves the declaration out, as

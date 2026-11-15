@@ -33,13 +33,17 @@ import {
   type FileEdits,
   type FileSymbol,
   type Located,
+  watchTree,
+  type Watch,
 } from '../src/lsp.js';
 
 const FAKE = fileURLToPath(new URL('fixtures/fake-server.mjs', import.meta.url));
 // Paths as git writes them, with `/` on every OS.
 const slashes = (path: string) => path.replaceAll('\\', '/');
 const root = slashes(realpathSync.native(mkdtempSync(join(tmpdir(), 'cerebro-lsp-'))));
-const log = join(root, 'log.jsonl');
+// Outside the worktrees the servers watch: a change to it would be told to them, and logged.
+const logs = mkdtempSync(join(tmpdir(), 'cerebro-lsp-log-'));
+const log = join(logs, 'log.jsonl');
 
 /** A server spec for the fake server, misbehaving as `mode` says. */
 const fake = (mode: string): ServerSpec => ({
@@ -64,6 +68,7 @@ afterEach(async () => {
 
 afterAll(() => {
   rmSync(root, { recursive: true, force: true });
+  rmSync(logs, { recursive: true, force: true });
 });
 
 describe('paths and locations', () => {
@@ -224,6 +229,117 @@ describe('problems', () => {
     // A server that sends none: no answer in time.
     const silent = pool([fake('links')], { problemsPatience: 100 });
     expect(await silent.problems(root, file)).toBeNull();
+  });
+});
+
+describe('files changed on disk', () => {
+  /** The params of what the fake server was sent by `method`, in order. */
+  const sent = (method: string) =>
+    readFileSync(log, 'utf8')
+      .split('\n')
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { method?: string; params?: unknown })
+      .filter((message) => message.method === method)
+      .map((message) => message.params);
+  /** A watch faked: what it was told to watch, its listener, and whether it's closed. */
+  const watching = () => {
+    const made: { root: string; tell: Parameters<Watch>[1]; closed: boolean }[] = [];
+    const watch: Watch = (watched, tell) => {
+      const one = { root: watched, tell, closed: false };
+      made.push(one);
+      return {
+        close: () => {
+          one.closed = true;
+        },
+      };
+    };
+    return { made, watch };
+  };
+
+  it('are told to the worktree’s servers together, git’s own left out, an open one closed first', async () => {
+    rmSync(log, { force: true });
+    const { made, watch } = watching();
+    const other: ServerSpec = {
+      ...fake('pushes'),
+      id: 'fake-other',
+      languageOf: (path) => (path.endsWith('.other') ? 'other' : undefined),
+    };
+    const servers = pool([fake('pushes'), other], { watch, changesAfter: 20 });
+    await servers.problems(root, file);
+    // A second server in the worktree shares its watcher.
+    await servers.problems(root, { path: `${root}/b.other`, text: 'x' });
+    // Another worktree's server is told of its own worktree's changes only.
+    await servers.problems(logs, { path: `${logs}/c.fake`, text: 'x' });
+    expect(made.map((m) => m.root)).toEqual([root, logs]);
+    const tell = (made[0] as (typeof made)[0]).tell;
+    writeFileSync(`${root}/new.fake`, 'n');
+    writeFileSync(`${root}/a.fake`, 'changed');
+    tell('change', 'a.fake');
+    tell('rename', 'new.fake');
+    tell('change', 'new.fake');
+    tell('rename', 'gone.fake');
+    tell('change', '.git');
+    tell('change', '.git/index');
+    // Windows names it with backslashes; a change the OS doesn't name is passed over.
+    tell('change', 'sub\\c.fake');
+    tell('change', null);
+    const changes = [
+      { uri: uriOf(`${root}/a.fake`), type: 2 },
+      { uri: uriOf(`${root}/new.fake`), type: 1 },
+      { uri: uriOf(`${root}/gone.fake`), type: 3 },
+      { uri: uriOf(`${root}/sub/c.fake`), type: 3 },
+    ];
+    await expect
+      .poll(() => sent('workspace/didChangeWatchedFiles'))
+      .toEqual([{ changes }, { changes }]);
+    // Each open file closed in its server, so it reads the disk.
+    expect(sent('textDocument/didClose')).toEqual([{ textDocument: { uri: uriOf(file.path) } }]);
+    // Asked about again, it's opened with the text given.
+    await servers.problems(root, file);
+    expect(sent('textDocument/didOpen')).toHaveLength(4);
+    // Nothing since: nothing told.
+    tell('change', 'a.fake');
+    await expect.poll(() => sent('workspace/didChangeWatchedFiles')).toHaveLength(4);
+    await servers.dispose();
+    expect(made[0]?.closed).toBe(true);
+  });
+
+  it('stop being watched once the worktree has no server running', async () => {
+    const { made, watch } = watching();
+    const other: ServerSpec = {
+      ...fake('pushes'),
+      id: 'fake-other',
+      languageOf: (path) => (path.endsWith('.other') ? 'other' : undefined),
+    };
+    // Idle: watched until the last of its servers stops, whatever another worktree's do.
+    const idle = pool([fake('pushes'), other], { watch, idleAfter: 100 });
+    await idle.problems(root, file);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    await idle.problems(root, { path: `${root}/b.other`, text: 'x' });
+    await idle.problems(logs, { path: `${logs}/c.fake`, text: 'x' });
+    await expect.poll(() => idle.size).toBe(2);
+    expect(made.map((m) => m.closed)).toEqual([false, false]);
+    await expect.poll(() => made.map((m) => m.closed)).toEqual([true, true]);
+    // Exited.
+    const dies = pool([fake('exit')], { watch, problemsPatience: 100 });
+    await dies.problems(root, file);
+    await expect.poll(() => made[2]?.closed).toBe(true);
+  });
+
+  it('are watched past an error, which leaves servers as they were', () => {
+    const watcher = watchTree(logs, () => undefined) as unknown as EventEmitter & {
+      close(): void;
+    };
+    expect(() => watcher.emit('error', new Error('no more watches'))).not.toThrow();
+    watcher.close();
+  });
+
+  it('are told nothing by a server that fails to start', async () => {
+    let exited = false;
+    const server = new LanguageServer(fake('exit'), root, () => (exited = true));
+    server.changed([{ path: `${root}/a.fake`, type: 'changed' }]);
+    await expect(server.ready).rejects.toThrow();
+    expect(exited).toBe(true);
   });
 });
 
@@ -805,6 +921,66 @@ describe('TypeScript 7’s server', () => {
     expect(await servers.problems(project, { ...bad, text: 'export const n = 1;\n' })).toEqual([]);
   }, 60_000);
 
+  it('answers as files are after they change on disk, without being started again', async () => {
+    // The review of 2026-11-15, item 1's steps.
+    const project = `${root}/ts-disk`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    writeFileSync(
+      join(project, 'tsconfig.json'),
+      '{ "compilerOptions": { "strict": true }, "include": ["*.ts"] }',
+    );
+    const lib = `${project}/lib.ts`;
+    writeFileSync(
+      lib,
+      'export function area(width: number, height: number) {\n  return width * height;\n}\n',
+    );
+    const calls = "import { area } from './lib';\narea(2, 3);\n";
+    writeFileSync(`${project}/main.ts`, calls);
+    writeFileSync(`${project}/other.ts`, calls);
+    const main = { path: `${project}/main.ts`, text: calls };
+    const servers = pool(undefined, { patience: 60_000 });
+    const usagesOfArea = async () =>
+      (
+        (await servers.usages(
+          project,
+          { path: lib, text: readFileSync(lib, 'utf8') },
+          at(0, 17),
+        )) ?? []
+      )
+        .filter((place) => place.path !== lib)
+        .map((place) => `${place.path.slice(project.length + 1)}:${String(place.line)}`)
+        .sort();
+    // 1. No problems; area used in both. Asking sends lib.ts, open in the server from here.
+    expect(await servers.problems(project, main)).toEqual([]);
+    expect(await usagesOfArea()).toEqual(['main.ts:1', 'other.ts:1']);
+    // 2. lib.ts rewritten on disk: main.ts's call is wrong.
+    writeFileSync(
+      lib,
+      'export function area(size: { width: number; height: number }) {\n  return size.width * size.height;\n}\n',
+    );
+    await expect
+      .poll(async () => (await servers.problems(project, main))?.map((p) => p.message), {
+        timeout: 10_000,
+        interval: 200,
+      })
+      .toEqual(['Expected 1 arguments, but got 2.']);
+    // 3. A call added to other.ts, and added.ts made with one: all four.
+    writeFileSync(
+      `${project}/other.ts`,
+      "import { area } from './lib';\narea({ width: 2, height: 3 });\narea({ width: 1, height: 1 });\n",
+    );
+    writeFileSync(
+      `${project}/added.ts`,
+      "import { area } from './lib';\narea({ width: 4, height: 5 });\n",
+    );
+    await expect
+      .poll(usagesOfArea, { timeout: 10_000, interval: 200 })
+      .toEqual(['added.ts:1', 'main.ts:1', 'other.ts:1', 'other.ts:2']);
+    expect(servers.size).toBe(1);
+  }, 60_000);
+
   it('completes a member, and a function from another file with its import', async () => {
     const project = `${root}/ts`;
     writeFileSync(join(project, 'values.ts'), 'export const value = { alpha: 1, beta: "b" };\n');
@@ -1326,6 +1502,54 @@ describe('basedpyright, for Python', () => {
       ]),
     );
     expect(usages).not.toContainEqual({ path: `${project}/a.py`, line: 3, column: 4 });
+  }, 60_000);
+
+  it('answers as files are after they change on disk, without being started again', async () => {
+    // The review of 2026-11-15, item 1's steps, in Python.
+    const project = `${root}/py-disk`;
+    rmSync(project, { recursive: true, force: true });
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(project);
+    const lib = `${project}/lib.py`;
+    writeFileSync(lib, 'def area(width: int, height: int) -> int:\n    return width * height\n');
+    const calls = 'from lib import area\narea(2, 3)\n';
+    writeFileSync(`${project}/main.py`, calls);
+    writeFileSync(`${project}/other.py`, calls);
+    const main = { path: `${project}/main.py`, text: calls };
+    const servers = pool(undefined, { patience: 60_000 });
+    const usagesOfArea = async () =>
+      (
+        (await servers.usages(project, { path: lib, text: readFileSync(lib, 'utf8') }, at(0, 5))) ??
+        []
+      )
+        .filter((place) => place.path !== lib)
+        .map((place) => `${place.path.slice(project.length + 1)}:${String(place.line)}`)
+        .sort();
+    const errors = async () =>
+      ((await servers.problems(project, main)) ?? [])
+        .filter((p) => p.severity === 'error')
+        .map((p) => p.code);
+    // 1. No errors; area used in both. Asking sends lib.py, open in the server from here.
+    expect(await errors()).toEqual([]);
+    expect(await usagesOfArea()).toEqual(['main.py:0', 'main.py:1', 'other.py:0', 'other.py:1']);
+    // 2. lib.py rewritten on disk: main.py's call is wrong.
+    writeFileSync(lib, 'def area(size: tuple[int, int]) -> int:\n    return size[0] * size[1]\n');
+    await expect.poll(errors, { timeout: 10_000, interval: 200 }).toEqual(['reportCallIssue']);
+    // 3. A call added to other.py, and added.py made with one: all of them.
+    writeFileSync(`${project}/other.py`, `${calls}area((1, 1))\n`);
+    writeFileSync(`${project}/added.py`, 'from lib import area\narea((4, 5))\n');
+    await expect
+      .poll(usagesOfArea, { timeout: 10_000, interval: 200 })
+      .toEqual([
+        'added.py:0',
+        'added.py:1',
+        'main.py:0',
+        'main.py:1',
+        'other.py:0',
+        'other.py:1',
+        'other.py:2',
+      ]);
+    expect(servers.size).toBe(1);
   }, 60_000);
 
   it('finds a file’s problems, in unsaved text too', async () => {

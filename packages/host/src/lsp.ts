@@ -4,11 +4,12 @@
 // agents don't use them, so only worktrees the human looks at have one).
 //
 // The UI sends a file's text with each request, so a file with unsaved edits is answered as it
-// is. An answer that doesn't come in time (a server still loading its project) is given up on:
+// is. What changes on disk is watched while a worktree has a server, and each server told of it
+// (review 2026-11-15, item 1). An answer that doesn't come in time (a server still loading its project) is given up on:
 // the UI shows the index's name matches meanwhile.
 
 import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, watch, type FSWatcher } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -748,6 +749,40 @@ export const NO_RANGE_FORMATTING =
   'Its language server formats only whole files: select nothing to format all of it.';
 
 /** One server's process, for one worktree. */
+/** A file created, changed or deleted on disk. */
+export interface FileChange {
+  path: string;
+  type: 'created' | 'changed' | 'deleted';
+}
+
+/** LSP's `FileChangeType`. */
+const CHANGE_TYPES = { created: 1, changed: 2, deleted: 3 } as const;
+
+/** How long changes are gathered before servers are told: an agent's edits come in bursts. */
+export const CHANGES_AFTER = 50;
+
+/**
+ * Watches a worktree's files, `listener` given each path changed, relative, and how; a path may be
+ * missing where the OS doesn't say (Node's `watch`).
+ */
+export type Watch = (
+  root: string,
+  listener: (event: 'rename' | 'change', name: string | null) => void,
+) => Pick<FSWatcher, 'close'>;
+
+// Node's recursive watch: on Linux it walks the tree itself, ignored folders too (it has no
+// option to skip them). Measured 2026-11-15, Node 24: ready in 130 ms over 2,906 folders, 0.9 s and
+// about 117 MB over 52,051.
+export const watchTree: Watch = (root, listener) => {
+  const watcher = watch(root, { recursive: true }, listener);
+  // A folder that can't be watched further (gone, or out of watches) leaves servers as they were.
+  watcher.on('error', () => undefined);
+  return watcher;
+};
+
+/** Whether a changed path, relative to its worktree, is git's own. */
+const isGits = (name: string) => name === '.git' || name.startsWith('.git/');
+
 export class LanguageServer {
   /** Resolves once the server has answered `initialize`. */
   readonly ready: Promise<void>;
@@ -914,6 +949,33 @@ export class LanguageServer {
   opened(path: string): OpenFile | undefined {
     const open = this.#documents.get(uriOf(path));
     return open && { path, text: open.text };
+  }
+
+  /**
+   * Tells the server of files changed on disk (`workspace/didChangeWatchedFiles`, which TypeScript's
+   * takes undeclared: measured). One it has open is closed first (`didClose`), so it reads the
+   * disk: an open file's text is the client's to give, and the server stops reading it (LSP). A
+   * file with unsaved edits is sent again with the next question about it.
+   */
+  changed(changes: readonly FileChange[]): void {
+    void this.ready.then(
+      // A server gone meanwhile is told nothing: its connection is closed.
+      () => {
+        for (const { path } of changes) {
+          const uri = uriOf(path);
+          if (!this.#documents.delete(uri)) continue;
+          this.#pushed.delete(uri);
+          this.#connection.notify('textDocument/didClose', { textDocument: { uri } });
+        }
+        this.#connection.notify('workspace/didChangeWatchedFiles', {
+          changes: changes.map(({ path, type }) => ({
+            uri: uriOf(path),
+            type: CHANGE_TYPES[type],
+          })),
+        });
+      },
+      () => undefined,
+    );
   }
 
   /** Opens a file in the server, or gives it the file's text as it is now. */
@@ -1285,6 +1347,15 @@ export class LanguageServers {
     string,
     { server: LanguageServer; idle: ReturnType<typeof setTimeout> }
   >();
+  /** A watcher per worktree with a server, and the changes it has gathered, by path. */
+  readonly #watching = new Map<
+    string,
+    {
+      watcher: Pick<FSWatcher, 'close'>;
+      pending: Map<string, boolean>;
+      timer: ReturnType<typeof setTimeout> | undefined;
+    }
+  >();
 
   constructor(
     private readonly specs: readonly ServerSpec[] = servers(),
@@ -1294,6 +1365,8 @@ export class LanguageServers {
       patience?: number;
       markersPatience?: number;
       problemsPatience?: number;
+      watch?: Watch;
+      changesAfter?: number;
     } = {},
   ) {}
 
@@ -1325,6 +1398,7 @@ export class LanguageServers {
       );
       entry = { server, idle: this.#idle(key) };
       this.#running.set(key, entry);
+      this.#watch(worktree);
     } else {
       clearTimeout(entry.idle);
       entry.idle = this.#idle(key);
@@ -1550,6 +1624,7 @@ export class LanguageServers {
   async dispose(): Promise<void> {
     const running = [...this.#running.values()];
     this.#running.clear();
+    for (const worktree of [...this.#watching.keys()]) this.#unwatch(worktree);
     await Promise.all(
       running.map(({ server, idle }) => {
         clearTimeout(idle);
@@ -1580,6 +1655,7 @@ export class LanguageServers {
     const timer = setTimeout(() => {
       const entry = this.#running.get(key) as { server: LanguageServer };
       this.#running.delete(key);
+      this.#unwatchUnused(key);
       void entry.server.stop();
     }, this.options.idleAfter ?? IDLE_AFTER);
     timer.unref();
@@ -1591,5 +1667,67 @@ export class LanguageServers {
     if (entry?.server !== server) return;
     clearTimeout(entry.idle);
     this.#running.delete(key);
+    this.#unwatchUnused(key);
+  }
+
+  /** Watches a worktree's files while it has a server, gathering what changes. */
+  #watch(worktree: string): void {
+    if (this.#watching.has(worktree)) return;
+    const pending = new Map<string, boolean>();
+    const entry: {
+      watcher: Pick<FSWatcher, 'close'>;
+      pending: typeof pending;
+      timer: ReturnType<typeof setTimeout> | undefined;
+    } = {
+      pending,
+      timer: undefined,
+      watcher: (this.options.watch ?? watchTree)(worktree, (event, name) => {
+        if (name === null) return;
+        const relative = name.replaceAll('\\', '/');
+        if (isGits(relative)) return;
+        const path = `${worktree}/${relative}`;
+        // Renamed into or out of being: created or deleted, told apart by what's there.
+        pending.set(path, (pending.get(path) ?? false) || event === 'rename');
+        entry.timer ??= setTimeout(() => {
+          this.#tell(worktree);
+        }, this.options.changesAfter ?? CHANGES_AFTER);
+      }),
+    };
+    this.#watching.set(worktree, entry);
+  }
+
+  /** Tells a worktree's servers what's changed since they were last told. */
+  #tell(worktree: string): void {
+    // Its timer is cleared when it stops being watched, so it's still watched.
+    const entry = this.#watching.get(worktree) as { pending: Map<string, boolean>; timer: unknown };
+    entry.timer = undefined;
+    const changes = [...entry.pending].map(([path, renamed]): FileChange => ({
+      path,
+      type: !existsSync(path) ? 'deleted' : renamed ? 'created' : 'changed',
+    }));
+    entry.pending.clear();
+    for (const [key, { server }] of this.#running) {
+      if (key.startsWith(`${worktree}\u0000`)) server.changed(changes);
+    }
+  }
+
+  /** Stops watching a server's worktree once none of its servers runs. */
+  #unwatchUnused(key: string): void {
+    const worktree = key.slice(0, key.indexOf('\u0000'));
+    for (const running of this.#running.keys()) {
+      if (running.startsWith(`${worktree}\u0000`)) return;
+    }
+    this.#unwatch(worktree);
+  }
+
+  /** Stops watching a worktree; it's watched while any of its servers runs. */
+  #unwatch(worktree: string): void {
+    const entry = this.#watching.get(worktree) as {
+      watcher: Pick<FSWatcher, 'close'>;
+      timer: ReturnType<typeof setTimeout> | undefined;
+    };
+    clearTimeout(entry.timer);
+    entry.watcher.close();
+    this.#watching.delete(worktree);
   }
 }
