@@ -244,6 +244,14 @@ function layer(scope: Scope, owner: string): SettingsLayer {
   return result;
 }
 
+// The Repository layer every project used until each had its own (2026-11-15): dropped, Ido's
+// choice (decision "Settings").
+try {
+  localStorage.removeItem(storageKey('repo', 'cerebro'));
+} catch {
+  // Storage may be blocked; then nothing is read from it either.
+}
+
 const global = layer('global', 'user');
 /** Each repository's layer, shared by its worktrees, by the repository's path. */
 const repositories = new Map<string, SettingsLayer>();
