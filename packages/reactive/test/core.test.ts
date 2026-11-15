@@ -351,7 +351,14 @@ describe('effect', () => {
   });
 
   it('runs again when its first run writes what it read, as when created in a batch', () => {
-    for (const make of [(fn: () => void) => { fn(); }, (fn: () => void) => { batch(fn); }]) {
+    for (const make of [
+      (fn: () => void) => {
+        fn();
+      },
+      (fn: () => void) => {
+        batch(fn);
+      },
+    ]) {
       const count = signal(0);
       let runs = 0;
       make(() => {
