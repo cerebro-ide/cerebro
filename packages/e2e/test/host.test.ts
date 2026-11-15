@@ -84,7 +84,7 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
   const names = () => page.locator('.cerebro-tree-row').allTextContents();
   await page.locator('.cerebro-tree-row', { hasText: 'README.md' }).waitFor();
   // Under the worktree's folder, its name then its path; folders first; git's own isn't shown.
-  expect(await names()).toEqual([top, 'src', 'README.md']);
+  expect(await names()).toEqual([top, 'src', 'README.md', 'Scratches and Consoles']);
   await page
     .locator(`.cerebro-tree-row[data-key="${gitPath(repo, 'src')}"] .cerebro-tree-row__arrow`)
     .click();
@@ -97,6 +97,8 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     'tool.py',
     'use.ts',
     'README.md',
+    ,
+    'Scratches and Consoles',
   ]);
   await page.evaluate(() => {
     const seen: string[] = [];
@@ -128,13 +130,32 @@ it('shows files added on disk and drops those removed, the folders open as they 
     // Read again while the window has the focus, every 2 seconds.
     await expect
       .poll(names, { timeout: 15_000 })
-      .toEqual([top, 'src', 'added.ts', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+      .toEqual([
+        top,
+        'src',
+        'added.ts',
+        'app.ts',
+        'shape.ts',
+        'tool.py',
+        'use.ts',
+        'README.md',
+        'Scratches and Consoles',
+      ]);
   } finally {
     rmSync(added);
   }
   await expect
     .poll(names, { timeout: 15_000 })
-    .toEqual([top, 'src', 'app.ts', 'shape.ts', 'tool.py', 'use.ts', 'README.md']);
+    .toEqual([
+      top,
+      'src',
+      'app.ts',
+      'shape.ts',
+      'tool.py',
+      'use.ts',
+      'README.md',
+      'Scratches and Consoles',
+    ]);
 });
 
 it('keeps the file open after a reload, read again from disk', async () => {

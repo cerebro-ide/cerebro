@@ -19,10 +19,6 @@ can then be scoped to the whole project from it. Done: the worktree's folder at 
 External Libraries (for WebStorm, Node's own declarations and a project's `@types`), or files
 opened from outside the project.
 
-### Commit window: checkboxes show the text cursor
-
-From Ido (2026-11-14): "commit checkboxes seem to have the wrong cursor (text) - fix it".
-
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
