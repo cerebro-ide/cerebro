@@ -2019,6 +2019,7 @@ function Content(props: { id: string }) {
           const anchor = layout.toolWindows.windows.get('problems')?.anchor;
           return anchor === 'left' || anchor === 'right';
         }}
+        problems={(path, text) => askProblems(path, () => navigation.problems(path, text))}
       />
     );
   }
