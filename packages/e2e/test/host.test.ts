@@ -97,7 +97,6 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     'tool.py',
     'use.ts',
     'README.md',
-    ,
     'Scratches and Consoles',
   ]);
   await page.evaluate(() => {
