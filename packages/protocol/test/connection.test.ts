@@ -276,5 +276,9 @@ describe('LineReader', () => {
     expect(lines).toEqual(['{"a":1}', '{"b":2}', '']);
     reader.push(':3}\n');
     expect(lines.at(-1)).toBe('{"c":3}');
+    // A line in many chunks, its \r\n split between two.
+    for (const part of ['{"d"', ':', '4}\r']) reader.push(part);
+    reader.push('\n');
+    expect(lines.at(-1)).toBe('{"d":4}');
   });
 });
