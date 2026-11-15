@@ -63,7 +63,7 @@ export async function indexWorktree(
       throw error;
     }
     const paths = (await outside(worktree)).filter((path) => languageOf(path));
-    return parseFiles(index, worktree, await hashFiles(worktree, paths, git), progress);
+    return parseFiles(index, worktree, await hashFiles(worktree, paths, git), git, progress);
   }
   const files = new Map<string, string>();
   // `<mode> <blob> <stage>\t<path>`; symbolic links (120000) aren't files to parse.
@@ -80,26 +80,52 @@ export async function indexWorktree(
     ...entries(await git(worktree, ['ls-files', '--others', '--exclude-standard', '-z'])),
   ].filter((path) => languageOf(path) && !deleted.includes(path));
   for (const [path, hash] of await hashFiles(worktree, changed, git)) files.set(path, hash);
-  return parseFiles(index, worktree, files, progress);
+  return parseFiles(index, worktree, files, git, progress);
 }
 
-/** Parses the files whose contents the index doesn't have, reporting progress and yielding. */
+/** A file's text, or undefined when it's gone (deleted since it was listed). */
+function readSource(worktree: string, path: string): string | undefined {
+  try {
+    return readFileSync(join(worktree, path), 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Parses the files whose contents the index doesn't have, reporting progress and yielding. What's
+ * stored under a hash is always the parse of the content it names: a file is listed and hashed
+ * first and read later, and an agent may write it in between, so after a batch is read git hashes
+ * its files again, and a file whose hash has changed is left for the next pass. Git's hash is of
+ * the content as git stores it (line endings converted), so it's git that hashes, not the host.
+ */
 async function parseFiles(
   index: BlobIndex,
   worktree: string,
   files: Map<string, string>,
+  git: Git,
   progress?: Progress,
 ): Promise<IndexedWorktree> {
   let parsed = 0;
   let done = 0;
-  for (const [path, blob] of files) {
-    const added = index.add(
-      blob,
-      () => readFileSync(join(worktree, path), 'utf8'),
-      languageOf(path) as NonNullable<ReturnType<typeof languageOf>>,
-    );
-    if (added) parsed++;
-    if (++done % BATCH === 0) {
+  const entries = [...files];
+  for (let start = 0; start < entries.length; start += BATCH) {
+    const batch = entries.slice(start, start + BATCH);
+    const read = new Map<string, string>();
+    for (const [path, blob] of batch) {
+      if (index.has(blob)) continue;
+      const source = readSource(worktree, path);
+      if (source !== undefined) read.set(path, source);
+    }
+    const now = read.size > 0 ? await hashFiles(worktree, [...read.keys()], git) : new Map();
+    for (const [path, source] of read) {
+      const blob = files.get(path) as string;
+      if (now.get(path) !== blob) continue;
+      index.add(blob, () => source, languageOf(path) as NonNullable<ReturnType<typeof languageOf>>);
+      parsed++;
+    }
+    done += batch.length;
+    if (done < entries.length) {
       progress?.(done, files.size);
       await new Promise((resolve) => setImmediate(resolve));
     }

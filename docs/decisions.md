@@ -882,6 +882,17 @@ Claude's, open to change:
 - **The working tree counts:** tracked files take their blob hash from git's index (`git ls-files
   -s`); modified and untracked source files are hashed with `git hash-object` and parsed from disk;
   deleted ones drop out.
+- **What's stored under a hash is the parse of the content it names** (2026-11-15, from the review
+  of that day): a file is listed and hashed first and read later, and an agent writing it in
+  between had its new content parsed and kept, in the shared index and its cache, under the old
+  content's hash, for every worktree with that content (measured by the review). After a batch of
+  files to parse is read, git hashes them again, and a file whose hash has changed is left for the
+  next pass; one deleted meanwhile is left out, where it failed the whole pass. Git hashes, not the
+  host: its hash is of the content as git stores it, which a CRLF checkout's bytes don't hash to.
+  A file already parsed is still never read. Measured on this repository (558 files): a first pass
+  2.5 s before, 2.8 to 3.2 s after; a pass with nothing new, 31 to 46 ms both ways. Reading
+  tracked contents from git by hash (`git cat-file --batch`) was the alternative: one process,
+  but a second way for changed and untracked files.
 - **The host** keeps one index per repository and indexes a worktree on first use, then again
   (incrementally) once its last indexing is over 2 seconds old, so a search doesn't run git on every
   key. Methods: `index.symbols` (names containing the query; exact, then prefix, then shorter
