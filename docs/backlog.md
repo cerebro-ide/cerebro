@@ -72,6 +72,18 @@ the picker at the top (decision "Bookmarks"). A popup shell they'd share, with a
 the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
 doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 
+### Several rows selected in a tree (proposed: a reshaping, for Ido's word)
+
+IntelliJ's trees take several rows: Ctrl+click adds one, Shift+click and Shift+arrows a range.
+`ui-tree` selects one row (`TreeModel.selected`), so the Commit window, Agent Changes, the Project
+view and the others act on one row (or a folder's files) at a time. What waits on it, found
+2026-11-15: Show Diff with several files selected goes through those alone, as IntelliJ's
+(`ChangesListViewDiffableSelectionUtil`: the selected changes, then the selected unversioned
+files, from the first; read from its source), in the decision "The diff viewer, as IntelliJ's"'s
+"Not yet"; and Rollback, Shelve or Commit on several files picked one by one. It changes a shared
+package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
+dialog's list, a table of its own, already takes several.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
