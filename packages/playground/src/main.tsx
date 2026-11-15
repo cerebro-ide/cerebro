@@ -87,6 +87,7 @@ import { setupNewFile } from './new-file.js';
 import { setupDelete } from './delete-file.js';
 import { setupRenameFile } from './rename-file.js';
 import { setupFileClipboard } from './file-clipboard.js';
+import { StructureView } from './structure-view.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupSwitcher } from './switcher.js';
@@ -1975,6 +1976,31 @@ function Content(props: { id: string }) {
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
   if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
+  if (props.id === 'structure') {
+    const view = (
+      <StructureView
+        file={() => activeFile()?.id}
+        document={documentFor}
+        symbols={(path, text) => navigation.structure(path, text)}
+        show={(at, focus) => {
+          if (focus) jumpTo(at);
+          else navigation.openAt(at, false);
+        }}
+      />
+    );
+    return (
+      <div class="playground-occurrences">
+        {() => {
+          const env = active();
+          return env && !hostFor(env.id) ? (
+            <p class="playground-project__empty">The structure shows in the desktop app.</p>
+          ) : (
+            view
+          );
+        }}
+      </div>
+    );
+  }
   if (props.id === 'bookmarks') {
     return <BookmarksView go={goToBookmark} />;
   }

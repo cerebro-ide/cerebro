@@ -15,13 +15,6 @@ that's missing and should be implemented as well". IntelliJ's Project view lists
 content under its own node, beside Scratches and Consoles and External Libraries; Find in Files
 can then be scoped to the whole project from it. Cerebro's view shows the worktree's folder alone.
 
-### The Structure tool window
-
-From Ido (2026-11-14): "structure panel isn't implemented though we already implemented the jump
-to source and usages, so that's a given". IntelliJ's Structure tool window (Alt+7): the file's
-symbols as a tree, following the caret. File Structure (Ctrl+F12) as a popup is there already,
-from the same language-server symbols.
-
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
