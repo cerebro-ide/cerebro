@@ -287,7 +287,9 @@ describe('a write from a computed value', () => {
     const map = new ObservableMap([['a', 1]]);
     const set = new ObservableSet([1]);
     const writes = [
-      () => array.set(0, 2),
+      () => {
+        array.set(0, 2);
+      },
       () => array.push(2),
       () => array.splice(0, 1),
       () => map.set('a', 2),
@@ -302,7 +304,9 @@ describe('a write from a computed value', () => {
       },
     ];
     for (const write of writes) {
-      expect(() => computed(write).get()).toThrow('must not write');
+      expect(() => {
+        computed(write).get();
+      }).toThrow('must not write');
     }
     expect([array.toArray(), [...map], [...set]]).toEqual([[1], [['a', 1]], [1]]);
   });
