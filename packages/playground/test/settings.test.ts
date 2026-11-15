@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 let settings: typeof import('../src/settings.js');
 beforeAll(async () => {
   localStorage.setItem('cerebro.settings.global.user', JSON.stringify({ 'editor.tabSize': 4 }));
-  localStorage.setItem('cerebro.settings.repo.cerebro', '{unreadable');
+  localStorage.setItem('cerebro.settings.repo.wt', '{unreadable');
   localStorage.setItem('cerebro.settings.worktree.wt', JSON.stringify({ 'editor.softWrap': true }));
   settings = await import('../src/settings.js');
 });
@@ -37,12 +37,27 @@ describe('settings', () => {
       'editor.softWrap': true,
       'editor.fontSize': 20,
     });
-    expect(read('cerebro.settings.repo.cerebro')).toEqual({ 'editor.fontSize': 18 });
+    // A worktree in no project known is its repository.
+    expect(read('cerebro.settings.repo.wt')).toEqual({ 'editor.fontSize': 18 });
     expect(read('cerebro.settings.global.user')).toMatchObject({ 'editor.fontSize': 16 });
     // The global settings' own worktree layer is no worktree's: nothing to save it as.
     const set = vi.spyOn(Storage.prototype, 'setItem');
     save(globalSettings, ['worktree']);
     expect(set).not.toHaveBeenCalled();
+  });
+
+  it('share a repository’s layer between its worktrees, and no other repository’s', () => {
+    const { save, setSettingsRepository, settingsFor } = settings;
+    setSettingsRepository((worktree) => worktree.split('-')[0]);
+    const one = settingsFor('/a-one');
+    one.layers.repo.set('editor.tabSize', 3);
+    expect(settingsFor('/a-two').get('editor.tabSize')).toBe(3);
+    expect(settingsFor('/b-one').get('editor.tabSize')).toBe(4);
+    save(one, ['repo']);
+    expect(JSON.parse(localStorage.getItem('cerebro.settings.repo./a') as string)).toEqual({
+      'editor.tabSize': 3,
+    });
+    setSettingsRepository(() => undefined);
   });
 
   it('still apply when they can’t be saved', () => {

@@ -17,6 +17,7 @@ import { fuzzyFilter, openPicker, type PickerHandle, type PickerItem } from '@ce
 import type { Project } from './bridge.js';
 import { saveBeforeGit } from './documents.js';
 import { icon } from './icons.js';
+import { setSettingsRepository } from './settings.js';
 import { closeTerminals, setTerminalProject } from './terminals.js';
 
 /** A repository's worktree, as the host lists it. */
@@ -160,6 +161,7 @@ export function hostFor(path: string): Host | undefined {
 
 // A worktree's terminals run on its project's host.
 setTerminalProject((worktree) => projectOf(worktree)?.path);
+setSettingsRepository((worktree) => projectOf(worktree)?.path);
 
 /** A saved environment, if its worktree still exists. */
 export function existingWorktree(spec: EnvironmentSpec): EnvironmentSpec | undefined {

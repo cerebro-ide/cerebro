@@ -817,6 +817,12 @@ global → repo → worktree".
   global setting; each environment's sample code follows its font size, soft wrap and tab size.
   Measured in the app: font size 18 set at Worktree scope applied, was saved to that worktree's
   layer only, and survived a reload.
+- **A Repository layer per repository** (fixed 2026-11-15, from the review of that day): the
+  browser's storage held one, under `cerebro.settings.repo.cerebro`, which every worktree of every
+  project used, so a tab size set at Repository scope in one project applied in all. Each
+  repository's layer is now its own (`cerebro.settings.repo.<the project's path>`), shared by its
+  worktrees; a worktree in no project known is a repository of its own. What the old key holds is
+  no longer read, nor removed: whether it's dropped or given to one repository is Ido's to say.
 - **Where the files live** (Ido, 2026-10-25):
   - global: the user's config directory (`~/.config/Cerebro/settings.json` on Linux);
   - repo: **in the repo, committed** (like `.vscode/` or `.idea/`), so it can be shared and travels
