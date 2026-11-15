@@ -35,7 +35,7 @@ describe('agents’ hooks', () => {
       input: { session_id: 's1', prompt: 'Fix it' },
     });
     await sendHook(path, { key: 'claude:/w', event: 'Stop', input: {} });
-    await sendHook(path, { key: 'claude:/w', event: 'SessionEnd', input: {} });
+    await sendHook(path, { key: 'claude:/w', event: 'PreCompact', input: {} });
     await sendRaw(path, 'not json');
     await sendRaw(path, JSON.stringify({ key: 3, event: 'Stop', input: {} }));
     await vi.waitFor(() => {

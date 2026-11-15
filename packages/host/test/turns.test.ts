@@ -129,6 +129,30 @@ describe('turns', () => {
     expect(await listTurns(join(root, 'other'), git)).toEqual([]);
   });
 
+  it('keep a turn cut short (no Stop comes after an interrupt) when the next prompt is sent', async () => {
+    const repo = repository('interrupted');
+    let time = 1000;
+    const recorder = new TurnRecorder(git, () => time);
+    await recorder.started('claude', repo, 'first prompt');
+    writeFileSync(join(repo, 'interrupted.txt'), 'cut short');
+    time = 2000;
+    await recorder.started('claude', repo, 'second prompt');
+    writeFileSync(join(repo, 'second.txt'), 'done');
+    time = 3000;
+    await recorder.ended('claude');
+    const turns = await listTurns(repo, git);
+    const [second, first] = turns as [(typeof turns)[0], (typeof turns)[0]];
+    expect([first.prompt, second.prompt]).toEqual(['first prompt', 'second prompt']);
+    expect(await listChangesBetween(repo, first.start, first.end)).toEqual([
+      { path: 'interrupted.txt', status: 'added' },
+    ]);
+    expect(await listChangesBetween(repo, second.start, second.end)).toEqual([
+      { path: 'second.txt', status: 'added' },
+    ]);
+    // One snapshot is the first's end and the second's start.
+    expect(second.start).toBe(first.end);
+  });
+
   it('go on after a snapshot fails, and are kept however soon they end', async () => {
     const recorder = new TurnRecorder(git);
     const outside = join(root, 'not-a-repository');

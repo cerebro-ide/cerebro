@@ -116,27 +116,52 @@ export class TurnRecorder {
     private readonly now: () => number = Date.now,
   ) {}
 
-  /** The agent `key`, in `worktree`, was sent `prompt`. */
+  /**
+   * The agent `key`, in `worktree`, was sent `prompt`. A turn of its still open was cut short: no
+   * Stop comes after an interrupt (Claude Code's hooks reference), so it ends here, under its own
+   * prompt, and that snapshot is the new turn's start too. If it can't be ended (its own start
+   * failed), the new turn starts from a snapshot of its own.
+   */
   started(key: string, worktree: string, prompt: string): Promise<void> {
-    const commit = this.queue(worktree, async () =>
-      snapshot(worktree, await head(worktree, this.run), 'Cerebro: before a turn', this.run),
-    );
+    const open = this.starts.get(key);
+    // One task: a fallback queued once the end has failed would wait behind a turn ending after.
+    const commit = this.queue(worktree, async () => {
+      if (open) {
+        try {
+          return await this.keepNow(open);
+        } catch {
+          // Its start failed: this turn's own.
+        }
+      }
+      return snapshot(worktree, await head(worktree, this.run), 'Cerebro: before a turn', this.run);
+    });
     // Known at once, so a turn that ends before its snapshot is taken is still kept.
     this.starts.set(key, { worktree, commit, prompt: prompt.slice(0, PROMPT_LIMIT) });
     return commit.then(() => undefined);
   }
 
   /** The agent `key` is done with its turn: kept, if it was seen starting. */
-  ended(key: string): Promise<void> {
+  async ended(key: string): Promise<void> {
     const start = this.starts.get(key);
-    if (!start) return Promise.resolve();
+    if (!start) return;
     this.starts.delete(key);
-    return this.queue(start.worktree, async () => {
-      const message = JSON.stringify({ prompt: start.prompt });
-      const end = await snapshot(start.worktree, await start.commit, message, this.run);
-      const id = `${String(this.now())}-${String(++this.count)}`;
-      await this.run(start.worktree, ['update-ref', `${TURNS}${id}`, end]);
-    });
+    await this.queue(start.worktree, () => this.keepNow(start));
+  }
+
+  /**
+   * Keeps a turn: a snapshot after its start, under a ref of its own. Gives the snapshot. Run in
+   * its worktree's queue.
+   */
+  private async keepNow(start: {
+    worktree: string;
+    commit: Promise<string>;
+    prompt: string;
+  }): Promise<string> {
+    const message = JSON.stringify({ prompt: start.prompt });
+    const end = await snapshot(start.worktree, await start.commit, message, this.run);
+    const id = `${String(this.now())}-${String(++this.count)}`;
+    await this.run(start.worktree, ['update-ref', `${TURNS}${id}`, end]);
+    return end;
   }
 
   /** Once the snapshots under way, in every worktree, are taken (or have failed). */

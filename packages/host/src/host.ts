@@ -1612,7 +1612,8 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
     if (status.event === 'UserPromptSubmit' && worktree !== undefined) {
       return record(turns.started(status.key, worktree, status.prompt ?? ''));
     }
-    if (status.event === 'Stop') void record(turns.ended(status.key));
+    // Not waited for: SessionEnd's hooks have 1.5 s between them (Claude Code's hooks reference).
+    if (status.state === 'done') void record(turns.ended(status.key));
     return undefined;
   });
   const hookCommand = options.hookCommand ?? defaultHookCommand();
