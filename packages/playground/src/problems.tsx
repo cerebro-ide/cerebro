@@ -7,6 +7,12 @@
 // `FileNode.kt`): a problem's message and its line in grey (` :12`); the file's name, its folder
 // and "N problems" in grey; "No problems in a.ts", "Analyzing a.ts", "Open file in editor to see
 // problems". Sorted by severity, its default (`ProblemsViewState.sortBySeverity`).
+//
+// Open Editor Preview, as IntelliJ's (`ProblemsViewPanel`, `DescriptorPreview`, read from its
+// source): off to start with, and kept with the View Options; on, the row selected shows in an
+// editor of its file beside the tree (under it when the window is on the left or right), a problem
+// selected there, half the room each to start with, the split kept. The editor edits the file, as
+// IntelliJ's preview does.
 
 import { onCleanup } from '@cerebro-ide/jsx';
 import {
@@ -19,8 +25,10 @@ import {
 } from '@cerebro-ide/reactive';
 import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { problemIcon, type Problem } from '@cerebro-ide/ui-editor';
+import { CodeEditor, problemIcon, type EditorDocument, type Problem } from '@cerebro-ide/ui-editor';
+import { Splitter } from '@cerebro-ide/ui-layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
+import { documentFor } from './documents.js';
 import { icon } from './icons.js';
 
 /** Each file's errors and warnings, by path, as its language server last gave them. */
@@ -86,7 +94,14 @@ interface ViewOptions {
   hidden: ('warning' | 'weak')[];
   sortBySeverity: boolean;
   sortByName: boolean;
+  /** Open Editor Preview (`ProblemsViewState.showPreview`). */
+  showPreview: boolean;
+  /** The tree's share of the room, with the preview (`ProblemsViewState.proportion`). */
+  share: number;
 }
+
+/** A share of the room, kept from being all or none of it, as IntelliJ's splitter (0.1 to 0.9). */
+const clampShare = (value: number) => Math.min(0.9, Math.max(0.1, value));
 
 /** The View Options as kept, or IntelliJ's defaults: all shown, by severity, not by name. */
 export function readViewOptions(): ViewOptions {
@@ -96,6 +111,8 @@ export function readViewOptions(): ViewOptions {
       hidden?: unknown;
       sortBySeverity?: unknown;
       sortByName?: unknown;
+      showPreview?: unknown;
+      share?: unknown;
     };
     return {
       hidden: Array.isArray(stored.hidden)
@@ -103,9 +120,11 @@ export function readViewOptions(): ViewOptions {
         : [],
       sortBySeverity: stored.sortBySeverity !== false,
       sortByName: stored.sortByName === true,
+      showPreview: stored.showPreview === true,
+      share: typeof stored.share === 'number' ? clampShare(stored.share) : 0.5,
     };
   } catch {
-    return { hidden: [], sortBySeverity: true, sortByName: false };
+    return { hidden: [], sortBySeverity: true, sortByName: false, showPreview: false, share: 0.5 };
   }
 }
 
@@ -113,6 +132,8 @@ const viewOptions = readViewOptions();
 const hidden = new ObservableSet<'warning' | 'weak'>(viewOptions.hidden);
 const sortBySeverity = signal(viewOptions.sortBySeverity);
 const sortByName = signal(viewOptions.sortByName);
+const showPreview = signal(viewOptions.showPreview);
+const share = signal(viewOptions.share);
 
 function saveViewOptions(): void {
   try {
@@ -122,6 +143,8 @@ function saveViewOptions(): void {
         hidden: [...hidden],
         sortBySeverity: sortBySeverity.peek(),
         sortByName: sortByName.peek(),
+        showPreview: showPreview.peek(),
+        share: share.peek(),
       }),
     );
   } catch {
@@ -255,6 +278,8 @@ export function ProblemsView(props: {
   file: () => string | undefined;
   /** Opens a file at a line and column, zero-based, focusing the editor. */
   openAt: (at: { path: string; line: number; column: number }) => void;
+  /** Whether the window is on the left or right: the preview goes under the tree, as IntelliJ's. */
+  vertical: () => boolean;
 }): Node {
   return (
     <div class="playground-problems">
@@ -277,6 +302,23 @@ export function ProblemsView(props: {
         >
           {icon('eye')}
         </button>
+        <button
+          type="button"
+          class={() =>
+            showPreview.get()
+              ? 'cerebro-toolbar-button cerebro-toolbar-button--pressed'
+              : 'cerebro-toolbar-button'
+          }
+          aria-label="Open Editor Preview"
+          aria-pressed={() => String(showPreview.get())}
+          ref={tooltip({ text: () => 'Open Editor Preview', placement: 'right' })}
+          on:click={() => {
+            showPreview.set(!showPreview.peek());
+            saveViewOptions();
+          }}
+        >
+          {icon('previewDetails')}
+        </button>
       </div>
       <div class="playground-problems__file">
         {() => {
@@ -296,6 +338,7 @@ function FileView(props: {
   path: string;
   services: MenuServices;
   openAt: (at: { path: string; line: number; column: number }) => void;
+  vertical: () => boolean;
 }): Node {
   const { path } = props;
   const state = computed(() => {
@@ -334,6 +377,7 @@ function FileProblems(props: {
   path: string;
   services: MenuServices;
   openAt: (at: { path: string; line: number; column: number }) => void;
+  vertical: () => boolean;
 }): Node {
   const { path } = props;
   const source: TreeSource<Row> = {
@@ -366,7 +410,8 @@ function FileProblems(props: {
     const { line, column } = row as ProblemRow;
     props.openAt({ path, line, column });
   };
-  return (
+  const { vertical } = props;
+  const tree = (
     <div
       class="playground-problems__tree"
       on:focusin={() => {
@@ -411,5 +456,91 @@ function FileProblems(props: {
         }}
       />
     </div>
+  ) as HTMLElement;
+  // The tree's share, while the preview shows; all the room otherwise.
+  const sizing = effect(() => {
+    tree.style.flex = showPreview.get() ? `0 0 ${String(share.get() * 100)}%` : '';
+    return undefined;
+  });
+  onCleanup(() => {
+    sizing.dispose();
+  });
+  /** The row selected: what the preview shows. */
+  const chosen = computed(() => model.rows[model.selectedIndex]?.node);
+  // Nothing selected, nothing shown (IntelliJ's preview closes); else the same editor stays.
+  const any = computed(() => chosen.get() !== undefined);
+  return (
+    <div
+      class={() =>
+        vertical()
+          ? 'playground-problems__split playground-problems__split--vertical'
+          : 'playground-problems__split'
+      }
+    >
+      {tree}
+      {() =>
+        showPreview.get() ? (
+          <>
+            <Splitter
+              line={vertical() ? 'horizontal' : 'vertical'}
+              start={() => {
+                const whole = (tree.parentElement as HTMLElement).getBoundingClientRect();
+                const part = tree.getBoundingClientRect();
+                return vertical()
+                  ? { part: part.height, whole: whole.height }
+                  : { part: part.width, whole: whole.width };
+              }}
+              onDrag={(start, delta) => {
+                share.set(clampShare((start.part + delta) / start.whole));
+              }}
+              onResizing={(active) => {
+                if (!active) saveViewOptions();
+              }}
+            />
+            <div class="playground-problems__preview">
+              {() =>
+                any.get()
+                  ? untracked(() => <ProblemPreview path={path} row={() => chosen.get()} />)
+                  : null
+              }
+            </div>
+          </>
+        ) : null
+      }
+    </div>
+  );
+}
+
+/**
+ * The preview: the file in an editor, editing it, as IntelliJ's (`DescriptorPreview`, made
+ * `editable`); a problem selected shows it there, the focus left in the tree. The same editor
+ * stays while the selection moves within the file, as IntelliJ's reuses it.
+ */
+function ProblemPreview(props: { path: string; row: () => Row | undefined }): Node {
+  const doc = signal<EditorDocument | undefined>(undefined);
+  void documentFor(props.path).then((found) => {
+    if (!('error' in found)) doc.set(found);
+  });
+  // A new place for each problem chosen: the editor reveals each once.
+  const place = computed(() => {
+    const row = props.row();
+    return row?.kind === 'problem'
+      ? { line: row.line, column: row.column, focus: false }
+      : undefined;
+  });
+  return (
+    <>
+      {() => {
+        const document = doc.get();
+        return document ? (
+          <CodeEditor
+            path={props.path}
+            document={document}
+            reveal={() => place.get()}
+            revealFocus={false}
+          />
+        ) : null;
+      }}
+    </>
   );
 }

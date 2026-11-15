@@ -15,7 +15,10 @@ import {
   readViewOptions,
   setupProblems,
 } from '../src/problems.js';
-import { closeAll, menuItem, menuItems } from './fakes.js';
+import { documentFor } from '../src/documents.js';
+import { useProjects, workspace } from '../src/environments.js';
+import type { EditorDocument } from '@cerebro-ide/ui-editor';
+import { closeAll, FakeHost, menuItem, menuItems, project } from './fakes.js';
 
 const commands = new CommandRegistry();
 const menus = new MenuRegistry();
@@ -23,7 +26,13 @@ const keymap = new Keymap('other');
 const services: MenuServices = { commands, menus, keymap };
 const opened: { path: string; line: number; column: number }[] = [];
 const file = signal<string | undefined>(undefined);
+const vertical = signal(false);
 let dispose: (() => void) | undefined;
+/** The files the preview reads. */
+const TEXT = Array.from({ length: 12 }, (_, i) => `line ${String(i)}`).join('\n') + '\n';
+const host = new FakeHost({
+  'fs.read': () => ({ text: TEXT }),
+});
 
 beforeAll(() => {
   // The Commit window's Jump to Source has F4 too: the one enabled runs.
@@ -35,6 +44,8 @@ beforeAll(() => {
   });
   keymap.bindDefault('F4', 'changes.jumpToSource');
   setupProblems(services, { openAt: (at) => void opened.push(at) });
+  useProjects([project('/r', host)]);
+  workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
 });
 
 afterEach(async () => {
@@ -57,6 +68,7 @@ function mount() {
         services={services}
         file={() => file.get()}
         openAt={(at) => void opened.push(at)}
+        vertical={() => vertical.get()}
       />
     ),
     box,
@@ -202,6 +214,142 @@ describe('the Problems tool window', () => {
   });
 });
 
+describe('Open Editor Preview', () => {
+  const button = (box: HTMLElement) =>
+    box.querySelector('[aria-label="Open Editor Preview"]') as HTMLButtonElement;
+  const preview = (box: HTMLElement) =>
+    box.querySelector('.playground-problems__preview .cerebro-editor-code')?.shadowRoot;
+  const caretLine = (box: HTMLElement) =>
+    preview(box)?.querySelector('.cm-activeLine')?.textContent;
+
+  afterEach(() => {
+    // Off again, for the tests after; there's no button if a test failed before mounting.
+    const on = document.querySelector<HTMLButtonElement>('[aria-label="Open Editor Preview"]');
+    if (on?.ariaPressed === 'true') on.click();
+    vertical.set(false);
+    localStorage.clear();
+  });
+
+  it('shows the row selected in an editor of its file, at the problem, as IntelliJ’s', async () => {
+    const box = mount();
+    file.set('/r/a.ts');
+    fileProblems.set('/r/a.ts', PROBLEMS);
+    expect(button(box).ariaPressed).toBe('false');
+    // Off to start with: no room taken.
+    expect(box.querySelector('.playground-problems__preview')).toBeNull();
+    await userEvent.click(button(box));
+    expect(button(box).ariaPressed).toBe('true');
+    expect(button(box).classList.contains('cerebro-toolbar-button--pressed')).toBe(true);
+    // Nothing selected, nothing previewed.
+    expect(box.querySelector('.playground-problems__preview')?.childElementCount).toBe(0);
+    await userEvent.click(row(box, 'Cannot find name'));
+    await expect.poll(() => caretLine(box)).toBe('line 9');
+    // The focus stays in the tree, and the same editor shows the next problem chosen.
+    expect(document.activeElement?.closest('.cerebro-tree')).not.toBeNull();
+    const editor = box.querySelector('.playground-problems__preview .cerebro-editor-code');
+    await userEvent.keyboard('{ArrowUp}');
+    await expect.poll(() => caretLine(box)).toBe('line 0');
+    expect(box.querySelector('.playground-problems__preview .cerebro-editor-code')).toBe(editor);
+    // Beside the tree, half the room each.
+    const split = box.querySelector('.playground-problems__split') as HTMLElement;
+    const tree = box.querySelector('.playground-problems__tree') as HTMLElement;
+    expect(tree.style.flexBasis).toBe('50%');
+    const whole = split.getBoundingClientRect().width;
+    expect(tree.getBoundingClientRect().width / whole).toBeCloseTo(0.5, 1);
+    expect(split.classList.contains('playground-problems__split--vertical')).toBe(false);
+    // Under it, with the window on the left or right.
+    vertical.set(true);
+    expect(split.classList.contains('playground-problems__split--vertical')).toBe(true);
+    expect(box.querySelector('.cerebro-splitter--horizontal')).not.toBeNull();
+    // It edits the file, as IntelliJ's.
+    const doc = (await documentFor('/r/a.ts')) as EditorDocument;
+    expect(doc.content()).toBe(TEXT);
+    expect(JSON.parse(localStorage.getItem('cerebro.problems.view') as string)).toMatchObject({
+      showPreview: true,
+      share: 0.5,
+    });
+    // The file's row: the file, from its top, nothing selected in it.
+    await userEvent.click(row(box, '/r'));
+    await expect.poll(() => caretLine(box)).toBe('line 0');
+    // Named as it's pointed at.
+    await userEvent.hover(button(box));
+    await expect
+      .poll(() => document.querySelector('.cerebro-tooltip')?.textContent)
+      .toContain('Open Editor Preview');
+    // Off, it goes, and the tree has the room.
+    await userEvent.click(button(box));
+    expect(box.querySelector('.playground-problems__preview')).toBeNull();
+    expect(tree.style.flexBasis).toBe('');
+  });
+
+  it('shows nothing for a file it can’t read', async () => {
+    const box = mount();
+    file.set('/r/gone.ts');
+    fileProblems.set('/r/gone.ts', PROBLEMS);
+    const read = host.answers['fs.read'];
+    host.answers['fs.read'] = () => {
+      throw new Error('ENOENT');
+    };
+    try {
+      await userEvent.click(button(box));
+      await userEvent.click(row(box, 'Cannot find name'));
+      await documentFor('/r/gone.ts');
+      expect(preview(box)).toBeUndefined();
+    } finally {
+      host.answers['fs.read'] = read as never;
+    }
+  });
+
+  it('keeps the split where it’s dragged', async () => {
+    const box = mount();
+    file.set('/r/a.ts');
+    fileProblems.set('/r/a.ts', PROBLEMS);
+    await userEvent.click(button(box));
+    const width = (box.querySelector('.playground-problems__split') as HTMLElement).clientWidth;
+    /** Drags the splitter across by so much. */
+    const drag = (across: number) => {
+      const splitter = box.querySelector('.cerebro-splitter') as HTMLElement;
+      const at = splitter.getBoundingClientRect();
+      const from = { clientX: at.left, clientY: at.top, bubbles: true };
+      const to = { clientX: at.left + across, clientY: at.top, bubbles: true };
+      splitter.dispatchEvent(new PointerEvent('pointerdown', { ...from, button: 0 }));
+      window.dispatchEvent(new PointerEvent('pointermove', to));
+      window.dispatchEvent(new PointerEvent('pointerup', to));
+    };
+    drag(-width / 4);
+    expect(readViewOptions().share).toBeCloseTo(0.25, 1);
+    // Never all or none of the room.
+    drag(width);
+    expect(readViewOptions().share).toBe(0.9);
+    localStorage.setItem('cerebro.problems.view', '{"share":-3}');
+    expect(readViewOptions().share).toBe(0.1);
+    // Back to the middle, for the tests after.
+    drag(-width * 0.4);
+    expect(readViewOptions().share).toBeCloseTo(0.5, 1);
+    // Under the tree, it's dragged down and up.
+    vertical.set(true);
+    const height = (box.querySelector('.playground-problems__split') as HTMLElement).clientHeight;
+    const splitter = box.querySelector('.cerebro-splitter') as HTMLElement;
+    const at = splitter.getBoundingClientRect();
+    splitter.dispatchEvent(
+      new PointerEvent('pointerdown', {
+        clientX: at.left,
+        clientY: at.top,
+        button: 0,
+        bubbles: true,
+      }),
+    );
+    const to = { clientX: at.left, clientY: at.top + height / 4 };
+    window.dispatchEvent(new PointerEvent('pointermove', to));
+    window.dispatchEvent(new PointerEvent('pointerup', to));
+    expect(readViewOptions().share).toBeCloseTo(0.75, 1);
+    splitter.dispatchEvent(new PointerEvent('pointerdown', { ...to, button: 0, bubbles: true }));
+    window.dispatchEvent(new PointerEvent('pointermove', { clientX: at.left, clientY: at.top }));
+    window.dispatchEvent(new PointerEvent('pointerup', {}));
+    expect(readViewOptions().share).toBeCloseTo(0.5, 1);
+  });
+});
+
 describe('the View Options', () => {
   /** Whether each View Option is on, by its command. */
   const options = () =>
@@ -294,7 +442,7 @@ describe('the View Options', () => {
         "Type 'string' is not assignable.:1",
       ]);
     commands.execute('problems.show.weak');
-    expect(readViewOptions()).toEqual({
+    expect(readViewOptions()).toMatchObject({
       hidden: ['weak'],
       sortBySeverity: false,
       sortByName: true,
@@ -302,7 +450,13 @@ describe('the View Options', () => {
   });
 
   it('read as IntelliJ’s defaults when not kept, or unreadable', () => {
-    const defaults = { hidden: [], sortBySeverity: true, sortByName: false };
+    const defaults = {
+      hidden: [],
+      sortBySeverity: true,
+      sortByName: false,
+      showPreview: false,
+      share: 0.5,
+    };
     expect(readViewOptions()).toEqual(defaults);
     localStorage.setItem('cerebro.problems.view', '{"hidden":["error","weak"]}');
     expect(readViewOptions()).toEqual({ ...defaults, hidden: ['weak'] });
