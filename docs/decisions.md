@@ -1079,6 +1079,15 @@ Milestone 1's protocol: JSON-RPC over stdio, with the host started as a local ch
   no separate Node is needed. Electron's `utilityProcess` was the alternative, but its documented
   stdio options cover stdout and stderr, not stdin, and stdio is the transport WSL and ssh will
   use. The host stops when the app quits.
+- **The app stops a host by ending its input, not by killing it** (changed 2026-11-15, from the
+  review of that day): a killed host ended no terminals, stopped no servers, left its sockets and
+  askpass scripts in the temporary folder, and lost a turn's last snapshot or a save's record still
+  under way, both made after their answers (measured by the review). Told to stop (its input ends,
+  or SIGTERM), the host says nothing more, finishes the snapshots and records under way within
+  10 s (`STOP_WITHIN`), then shuts down; the app kills it only if it hasn't exited 15 s after
+  (`STOP_PATIENCE`), on a timer that doesn't keep the app running, since a host whose app has quit
+  sees its input end all the same. Both limits are Claude's claims, open to change. Measured on the
+  built host: both ways it exits with 0 in about 6 ms, its sockets gone.
 - **The page reaches the host through IPC:** the preload's `cerebro.host.request(method, params)`,
   forwarded by the main process. Errors cross as messages.
 - **The playground in the app** lists the repository's real worktrees (named after their folders,

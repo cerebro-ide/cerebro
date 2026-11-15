@@ -139,6 +139,11 @@ export class TurnRecorder {
     });
   }
 
+  /** Once the snapshots under way, in every worktree, are taken (or have failed). */
+  async settled(): Promise<void> {
+    await Promise.all(this.queues.values());
+  }
+
   private queue<T>(worktree: string, task: () => Promise<T>): Promise<T> {
     const next = (this.queues.get(worktree) ?? Promise.resolve()).then(task);
     // A failed snapshot doesn't stop the next.

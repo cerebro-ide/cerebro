@@ -163,7 +163,9 @@ doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
   ref, and the first test restarts the app as soon as "done" shows, which kills the host. Locally
   the ref was written by then in 4 runs of 4, but in one of them 6 ms before "done" was seen. The test now prints the turns' refs when the first
   run was done and when it fails (each id starts with the time it was kept), which tells which
-  turn is missing.
+  turn is missing. Since 2026-11-15 the app ends the host's input and the host finishes the
+  snapshots under way before it stops (decision "The protocol and the host"): if the candidate was
+  the cause, this doesn't happen again. That it was is still a claim.
 - **The CSP test's click on New Branch… found it "not visible" on macOS in CI** (#168, run
   42993777988, 2026-11-11): the trace's screencast shows the branches popup open with the item
   highlighted 10 ms before the click. The popup closes when the window loses the focus or is

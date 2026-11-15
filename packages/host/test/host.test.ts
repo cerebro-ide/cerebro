@@ -22,10 +22,12 @@ import {
   git as runGit,
   gitBytes as realBytes,
   GitError,
+  listTurns,
   hookSettings,
   makeSpawnHelperExecutable,
   nodePty,
   PROTOCOL_VERSION,
+  STOP_WITHIN,
   serve,
   sendHook,
   serveOn,
@@ -267,7 +269,7 @@ describe('language servers', () => {
     await expect(ui.request('lsp.open', { ...file, text: 3 })).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
-    stop();
+    await stop();
     expect(servers.dispose).toHaveBeenCalled();
   });
 });
@@ -300,7 +302,7 @@ describe('Prettier', () => {
         code: ErrorCodes.InvalidParams,
       });
     }
-    stop();
+    await stop();
     rmSync(folder, { recursive: true, force: true });
   });
 });
@@ -630,7 +632,7 @@ describe('changes', () => {
     await expect(sides('refs/tags/v1.0', 'untracked.ts')).rejects.toMatchObject({
       message: "File untracked.ts doesn't exist in tag 'v1.0'",
     });
-    stop();
+    await stop();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -748,7 +750,7 @@ describe('ignored files and rolling back', () => {
         code: ErrorCodes.InvalidParams,
       });
     }
-    stop();
+    await stop();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -777,7 +779,7 @@ describe('ignored files and rolling back', () => {
     expect(
       await ui.request('history.text', { path: dir, file: 'a.txt', commit: versions[1]?.commit }),
     ).toEqual({ text: 'first' });
-    stop();
+    await stop();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -840,7 +842,7 @@ describe('ignored files and rolling back', () => {
         code: ErrorCodes.InvalidParams,
       });
     }
-    stop();
+    await stop();
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -2223,7 +2225,7 @@ describe('serve', () => {
     const input = new PassThrough();
     const output = new PassThrough();
     output.setEncoding('utf8');
-    const connection = serve(input, output, { repo: '/r' });
+    const { connection, stop } = serve(input, output, { repo: '/r' });
     input.write('{"jsonrpc":"2.0","id":1,"me');
     input.write('thod":"host.ping"}\n');
     const line = await new Promise<string>((resolve) => output.once('data', resolve));
@@ -2238,6 +2240,27 @@ describe('serve', () => {
     await expect(connection.request('x')).rejects.toMatchObject({
       code: ErrorCodes.ConnectionClosed,
     });
+    // Stopped once, however often it's told.
+    expect(stop()).toBe(stop());
+    await stop();
+  });
+
+  it('stops regardless once what’s under way takes too long', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-stop-')));
+    // A git that hangs: the save's record never ends.
+    const git = vi.fn(() => new Promise<string>(() => undefined));
+    const { ui, stop } = connect(git);
+    writeFileSync(join(dir, 'a.txt'), 'before');
+    await ui.request('fs.write', { path: join(dir, 'a.txt'), text: 'saved' });
+    vi.useFakeTimers();
+    const stopped = vi.fn();
+    void stop().then(stopped);
+    await vi.advanceTimersByTimeAsync(STOP_WITHIN - 1);
+    expect(stopped).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(stopped).toHaveBeenCalled();
+    vi.useRealTimers();
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 
@@ -2298,7 +2321,7 @@ describe('terminals', () => {
       expect.objectContaining({ cols: 80, rows: 24 }),
     );
     // Ending the connection ends its terminals.
-    stop();
+    await stop();
     expect(pty.kill).toHaveBeenCalledTimes(2);
   });
 
@@ -2347,7 +2370,7 @@ describe('terminals', () => {
     // An agent without arguments of its own.
     await ui.request('terminal.open', { key: 'claude:/v', cwd: '/v', agent: true });
     expect((spawn.mock.calls[1] as unknown as [string, string[]])[1]).toHaveLength(2);
-    stop();
+    await stop();
   });
 
   it('keeps each agent turn’s snapshots, and lists the turns', async () => {
@@ -2401,7 +2424,38 @@ describe('terminals', () => {
       original: 'before',
       text: 'after',
     });
-    stop();
+    await stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('finishes a turn’s snapshot under way before it stops', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-stop-')));
+    execFileSync('git', ['init', '-q', dir]);
+    writeFileSync(join(dir, 'a.txt'), 'before');
+    // The turn's ref is written a moment after it's asked for.
+    const git: Git = async (cwd, args, ...rest) => {
+      if (args[0] === 'update-ref') await new Promise((resolve) => setTimeout(resolve, 200));
+      return runGit(cwd, args, ...rest);
+    };
+    const spawn = vi.fn(() => fake().pty);
+    const input = new PassThrough();
+    const output = new PassThrough();
+    output.setEncoding('utf8');
+    const { stop } = serve(input, output, { repo: dir, git, pty: spawn, hookCommand: 'h' });
+    const answered = new Promise((resolve) => output.once('data', resolve));
+    input.write(
+      `${JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'terminal.open', params: { key: 'claude:a', cwd: dir, agent: true } })}\n`,
+    );
+    await answered;
+    const socket = (spawn.mock.calls[0] as unknown as [string, string[], { env: Env }])[2].env[
+      'CEREBRO_HOOK_SOCKET'
+    ] as string;
+    await sendHook(socket, { key: 'claude:a', event: 'UserPromptSubmit', input: { prompt: 'p' } });
+    writeFileSync(join(dir, 'a.txt'), 'after');
+    await sendHook(socket, { key: 'claude:a', event: 'Stop', input: {} });
+    input.end();
+    await stop();
+    expect(await listTurns(dir, runGit)).toHaveLength(1);
     rmSync(dir, { recursive: true, force: true });
   });
 
@@ -2516,6 +2570,6 @@ describe('credentials', () => {
     await expect(ui.request('askpass.answer', { id: '1', answer: 1 })).rejects.toMatchObject({
       code: ErrorCodes.InvalidParams,
     });
-    stop();
+    await stop();
   });
 });

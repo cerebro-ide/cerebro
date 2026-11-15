@@ -45,7 +45,7 @@ vi.mock('electron', () => ({
   BrowserWindow: electron.BrowserWindow,
 }));
 
-const { HOST_NOTIFICATION, HOST_REQUEST, Hosts, installHosts, startHost } =
+const { HOST_NOTIFICATION, HOST_REQUEST, Hosts, installHosts, startHost, STOP_PATIENCE } =
   await import('../src/host.js');
 
 /** A child process whose stdin the test reads and whose stdout it writes. */
@@ -110,8 +110,30 @@ describe('startHost', () => {
     child.emit('exit', 1);
     await expect(waiting).rejects.toMatchObject({ code: ErrorCodes.ConnectionClosed });
     child.stdin.emit('error', new Error('EPIPE'));
+    // One that's gone isn't killed.
+    vi.useFakeTimers();
     host.stop();
-    expect(child.kill).toHaveBeenCalled();
+    vi.advanceTimersByTime(STOP_PATIENCE);
+    expect(child.kill).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('stops a host by ending its input, killing it only if it hasn’t exited in time', () => {
+    vi.useFakeTimers();
+    const prompt = fakeChild();
+    startHost('/repo', prompt.spawn as never).stop();
+    expect(prompt.child.stdin.writableEnded).toBe(true);
+    vi.advanceTimersByTime(STOP_PATIENCE - 1);
+    prompt.child.emit('exit', 0);
+    vi.advanceTimersByTime(1);
+    expect(prompt.child.kill).not.toHaveBeenCalled();
+    const stuck = fakeChild();
+    startHost('/repo', stuck.spawn as never).stop();
+    vi.advanceTimersByTime(STOP_PATIENCE - 1);
+    expect(stuck.child.kill).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(stuck.child.kill).toHaveBeenCalled();
+    vi.useRealTimers();
   });
 });
 
@@ -175,24 +197,24 @@ describe('Hosts', () => {
     const again = fakeChild();
     first.spawn.mockImplementation(() => again.child);
     hosts.attach(window, '/a');
-    expect(first.child.kill).toHaveBeenCalled();
+    expect(first.child.stdin.writableEnded).toBe(true);
     const second = fakeChild();
     first.spawn.mockImplementation(() => second.child);
     hosts.attach(window, '/b');
     // Closing one project stops its host alone.
     hosts.detach(window, '/b');
-    expect(second.child.kill).toHaveBeenCalled();
-    expect(again.child.kill).not.toHaveBeenCalled();
+    expect(second.child.stdin.writableEnded).toBe(true);
+    expect(again.child.stdin.writableEnded).toBe(false);
     hosts.detach(window, '/b');
     // The window closing stops the rest.
     hosts.detach(window);
-    expect(again.child.kill).toHaveBeenCalled();
+    expect(again.child.stdin.writableEnded).toBe(true);
     hosts.detach(window);
     const third = fakeChild();
     first.spawn.mockImplementation(() => third.child);
     hosts.attach(fakeWindow(2), '/c');
     hosts.stopAll();
-    expect(third.child.kill).toHaveBeenCalled();
+    expect(third.child.stdin.writableEnded).toBe(true);
   });
 });
 
@@ -214,6 +236,6 @@ describe('installHosts', () => {
       error: 'A host request needs a project',
     });
     (electron.appListeners.get('will-quit') as Listener)();
-    expect(child.kill).toHaveBeenCalled();
+    expect(child.stdin.writableEnded).toBe(true);
   });
 });

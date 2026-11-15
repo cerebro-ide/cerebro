@@ -75,6 +75,7 @@ export {
   PROTOCOL_VERSION,
   serve,
   serveOn,
+  STOP_WITHIN,
   shellWord,
   type HostOptions,
 } from './host.js';
