@@ -1,7 +1,8 @@
-# Architecture (draft)
+# Architecture
 
-This records the shape agreed so far and the reasoning behind it. The multi-worktree parts were
-measured in the spike (`spike-multi-worktree.md`); the rest is not built yet.
+The shape agreed, the reasoning behind it, and what's built (as of 2026-11-15). The multi-worktree
+parts were measured in the spike (`spike-multi-worktree.md`). Where what's built differs from the
+shape agreed, both are said; which is kept is Ido's to decide.
 
 ## Code principles
 
@@ -23,21 +24,36 @@ state.
 
 ## Packages
 
-One TypeScript monorepo. Each package is a library with its own tests:
+One TypeScript monorepo, `packages/*`. Each package is a library with its own tests:
 
 | package | what it is |
 |---|---|
 | `reactive` | signal, computed, effect, batch; a MobX-style layer; observable collections and nested objects |
 | `jsx` | the JSX runtime: builds DOM directly, binds reactive functions |
-| `ui-*` | components: docking, menus, tree, list, tabs, dialogs, diff and merge views, an image viewer |
-| `protocol` | message types and the JSON-RPC transport between UI and host |
-| `plugin-api` | contribution points: views, commands, menus, language support, agent CLIs, index backends |
-| `host` | the host process, assembled from host-side packages (git, files, index, LSP pool, terminals, sessions) |
-| `app` | the Electron shell, assembled from the UI packages |
-| `plugins/*` | features, built against `plugin-api` the same way a third party would |
+| `layout` | the layout model: tool windows in fixed areas, an editor area of tabbed splits |
+| `commands` | commands, menus and the keymap |
+| `settings` | settings registered with a type and default, set in layers (global, repository, worktree) |
+| `theme` | the theme's variables, base styles and bundled fonts |
+| `ui-*` | components: the layout view, editor, menus, popups, tree, dialogs, terminal, image viewer, settings and keymap pages, status bar, toolbar, notifications, tooltips, scrollbars |
+| `plugin-api` | plugins and their contribution points: views, commands, menus, shortcuts, settings, saving |
+| `protocol` | the JSON-RPC 2.0 transport between UI and host: requests, notifications, cancellation; not the messages' types |
+| `index` | the shared index: tree-sitter definitions and identifiers, keyed by blob hash |
+| `servers` | the language servers Cerebro runs, and how each is started |
+| `host` | the host process, one package: files, git, search, the index service, the language server pool, terminals, agents' turns |
+| `playground` | the app's page: it assembles the packages, and holds the features |
+| `app` | the Electron shell around the page, and the host it starts |
+| `e2e` | end-to-end tests: the built app, driven through Playwright |
 
-The exact split is settled as the code is written; the rule is that a package can be used without
-the rest.
+The rule is that a package can be used without the rest.
+
+**What's built differs from the shape agreed** in two places (open, proposal H of the review of
+2026-11-15):
+
+- **The features are in `playground/src`** (84 files, 28,879 lines), not in `plugins/*` built
+  against `plugin-api`. Two features are plugins, Notes and Prettier, and they too live in
+  `playground/src` (`notes-plugin.ts`, `prettier-plugin.ts`).
+- **The host is one package,** not one assembled from host-side packages; its parts are modules
+  of it (`packages/host/src`). The index and the language servers' list are packages of their own.
 
 ## Processes
 
@@ -46,15 +62,20 @@ Electron UI  ──(JSON-RPC over stdio: local child, wsl.exe, or ssh)──  Ho
                                                                        ├─ file system + git (git CLI)
                                                                        ├─ shared index (tree-sitter, keyed by blob hash)
                                                                        ├─ language server pool (per worktree, per language)
-                                                                       ├─ agent terminals (node-pty running `claude`, later other CLIs)
-                                                                       └─ session DB (worktree → session ID, state)
+                                                                       ├─ terminals (node-pty), the agent's among them (`claude`)
+                                                                       └─ agents' turns (snapshots kept by refs in the worktree's git)
 ```
 
 - The UI never touches the file system; everything goes through the host.
 - The host runs next to the repos (laptop, WSL or server), so the index and language servers stay
   local to the files, and only results cross the boundary.
+- **State kept in the page's storage, not the host's,** for now: settings (until the host saves
+  files: decision "Settings"), the layout, and each worktree's agent session id
+  (`playground/src/agents.tsx`). The aim was a session database in the host, beside a local
+  database for the worktree layer's settings; it isn't built.
 
-**Transport:** JSON-RPC 2.0 over the host's stdin and stdout, one message per line, in every mode (see `decisions.md`, "The protocol and the host"). Local mode is built.
+**Transport:** JSON-RPC 2.0 over the host's stdin and stdout, one message per line, in every mode
+(see `decisions.md`, "The protocol and the host"). Local mode is built; WSL and remote are not.
 
 | mode | how the app starts the host |
 |---|---|
@@ -68,8 +89,8 @@ There are no ports or tunnels to manage, and one transport covers all three mode
 
 - **No framework.** Plain TypeScript and DOM, with Cerebro's own reactive layer and JSX runtime
   (see `decisions.md`).
-- **State:** MobX-style model classes on signals, such as `Worktree`, `Session` and
-  `Diagnostics`, declared with `makeObservable(this)`. Views react to them. Nested data is
+- **State:** MobX-style model classes on signals, such as `Environments`, `Layout` and the Git
+  Log's `Log`, declared with `makeObservable(this)`. Views react to them. Nested data is
   observable only when wrapped explicitly (see `decisions.md`).
 - **Large data:** goes in observable collections that report changes in bulk, which virtualised
   trees and lists consume directly.
@@ -77,7 +98,7 @@ There are no ports or tunnels to manage, and one transport covers all three mode
   hover, completions, go to definition, find usages.
 - **Diffs and merges:** Cerebro's own views, using CodeMirror for the text.
 - **Plugins:** contribute DOM elements and commands through `plugin-api`, never framework
-  components.
+  components. The plugins built so far are Notes and Prettier; Settings has a Plugins page.
 
 ## Indexing across worktrees
 
@@ -113,8 +134,8 @@ There are no ports or tunnels to manage, and one transport covers all three mode
 
 ## Agent sessions
 
-- Each worktree is bound to a session. The host starts the agent CLI in a terminal, records its
-  session ID, and can restart it on a CLI update and resume (`claude --resume <id>`).
+- Each worktree is bound to a session. The agent CLI runs in a host terminal; the page keeps its
+  session ID and resumes it (`claude --resume <id>`).
   - Claim, to verify: `claude --session-id <uuid>` lets Cerebro choose the ID up front.
 - Structured events (what the agent changed, when a turn ends) come from the CLI's hooks.
 - IDE-wide skills and instructions are placed where the CLI loads them (for Claude Code: user-level
@@ -122,10 +143,11 @@ There are no ports or tunnels to manage, and one transport covers all three mode
 
 ## Change inspection
 
-- When a session starts, the host records the worktree's base commit.
-- On each turn end (from a hook), the host snapshots the working tree as a git tree object
-  (`git write-tree` with a temporary index). That makes no commits and changes nothing the agent
-  sees.
-- Views are built on these snapshots: per turn. (Since the session started and per commit were
-  dropped on 2026-11-03: decision "Phase 1 is WebStorm's functionality".) Each goes from the file
-  list to the diff, then to the code with full navigation.
+- As IntelliJ's, it follows what's uncommitted (decision "Phase 1 is WebStorm's functionality");
+  views since the session started and per commit were dropped on 2026-11-03.
+- **An agent's turns** (`host/src/turns.ts`): the host snapshots the worktree when a prompt is
+  sent and when the turn ends (from the CLI's hooks), so what the turn changed is the difference
+  between the two, whoever else touched the files. A snapshot is a commit of every file git
+  doesn't ignore, made through a copy of the worktree's index (what's staged is untouched), and
+  kept by a ref under `refs/worktree/`, so other worktrees don't see it. The Agent Changes window
+  lists a turn's files, and goes from a file to its diff, then to the code.

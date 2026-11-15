@@ -1,9 +1,18 @@
 # Cerebro
 
 An IDE that is not built around *writing* code but around **inspecting code and managing the
-work of AI agents**. Status: milestone 1 of the first version (`docs/plan-v1.md`) in progress; the
-reactive core, the JSX runtime, the layout model, and the layout view (tool windows and the editor
-area's tabs and splits) are done.
+work of AI agents**.
+
+**Status:** phase 1, a copy of WebStorm's functionality (decision "Phase 1 is WebStorm's
+functionality"). Built so far, in the desktop app:
+
+- IntelliJ's window: menus, tool windows, the editor area's tabs and splits, the status bar;
+- the editor, with language servers: completion, go to definition, find usages, rename;
+- search and navigation over an index shared by a repository's worktrees;
+- git as IntelliJ's: commit, log, branches, blame, conflicts, shelf, push and pull;
+- terminals, and an agent's session per worktree, with what each turn changed.
+
+`docs/decisions.md` records each part as it was built.
 
 Most coding is now done by agents. What the human still needs is fast access to both high-level
 and low-level inspection of that work: which agent is doing what in which worktree, what it
@@ -33,8 +42,8 @@ npm install
 npm run dev
 ```
 
-Then open the address it prints (`http://localhost:5173`) in a browser. The playground shows the
-window layout with sample tool windows, and an editor area with tabs and splits.
+Then open the address it prints (`http://localhost:5173`) in a browser. In a browser there's no
+host, so the page shows sample worktrees with sample files; the desktop app is the real thing.
 
 Or run the same page in the desktop app, reloading as the code changes:
 
