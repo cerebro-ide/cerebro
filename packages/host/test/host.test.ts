@@ -2297,7 +2297,7 @@ describe('terminals', () => {
         cols: 100.6,
         rows: 30,
       }),
-    ).toEqual({ id: 1, buffer: '' });
+    ).toEqual({ id: 1, buffer: '', end: 0 });
     expect(spawn).toHaveBeenCalledWith(
       'claude',
       ['--continue', '1'],
@@ -2305,7 +2305,7 @@ describe('terminals', () => {
     );
     output('hello');
     await vi.waitFor(() => {
-      expect(data).toHaveBeenCalledWith({ id: 1, data: 'hello' });
+      expect(data).toHaveBeenCalledWith({ id: 1, data: 'hello', at: 0 });
     });
     await ui.request('terminal.write', { id: 1, data: 'x' });
     expect(pty.write).toHaveBeenCalledWith('x');

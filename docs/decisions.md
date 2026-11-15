@@ -5688,6 +5688,16 @@ worktree, and a Claude tool window running `claude`.
   shows the same process with its last 256 KB of output. Output is batched every 4 ms. The shell
   is `$SHELL` (else `/bin/bash`), or `COMSPEC` on Windows. `TERM=xterm-256color`,
   `COLORTERM=truecolor`.
+- **Output is numbered from the process's start** (2026-11-15, from the review of that day):
+  `terminal.open` gives where its buffer ends (`end`), each `terminal.data` where its data starts
+  (`at`), and a view writes only what goes past what it has written. A view opening a running
+  terminal drew the output still being batched twice, once from the buffer and again as its
+  notification; and an answer and a notification sent after it can reach the page the other way
+  round (the main process forwards notifications as it reads them, answers through promises), so
+  a view keeps what arrives while it's opening and takes its own once it knows its id. Both
+  measured by the review. The buffer is kept as the chunks that came, joined and cut to 256 KB
+  only when it's asked for: 25,000 chunks of 4 KB took 3.4 s of the host's event loop joined on
+  every chunk, 1 ms kept (measured).
 - **node-pty's macOS helper is made executable by the host** before it spawns. node-pty 1.1.0
   publishes `prebuilds/darwin-*/spawn-helper` with mode 0644 (measured: `npm pack node-pty@1.1.0
   --dry-run --json`), and on macOS every spawn failed with "posix_spawnp failed" (measured: the

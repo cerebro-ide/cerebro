@@ -30,10 +30,17 @@ export interface OpenOptions {
   rows: number;
 }
 
+/**
+ * A terminal's output is numbered from its start, in characters: `terminal.data` says where its
+ * data starts (`at`), and `open` where the buffer it gives ends, so a view that opens a running
+ * terminal while output is on its way shows each part once, whichever arrives first.
+ */
 export interface Opened {
   id: number;
   /** The recent output, for a terminal that was already running; empty for a new one. */
   buffer: string;
+  /** How much it has output so far: where the buffer ends. */
+  end: number;
   /** Undefined while it runs. */
   exitCode: number | undefined;
 }
@@ -45,9 +52,19 @@ interface Terminal {
   id: number;
   key: string;
   pty: Pty;
-  buffer: string;
+  /**
+   * The recent output, as it came: joined and cut to BUFFER_LIMIT only when it's asked for, not on
+   * every chunk (a build's log is thousands of them). Whole chunks go once the rest is enough.
+   */
+  chunks: string[];
+  /** How many characters `chunks` holds. */
+  kept: number;
+  /** How many characters it has output. */
+  end: number;
   /** Output not yet sent: sent together, so a burst of small chunks makes few notifications. */
   pending: string;
+  /** Where the output not yet sent starts. */
+  pendingAt: number;
   exitCode: number | undefined;
 }
 
@@ -96,7 +113,10 @@ export class Terminals {
     const running = this.byKey.get(options.key);
     if (running) {
       running.pty.resize(options.cols, options.rows);
-      return { id: running.id, buffer: running.buffer, exitCode: running.exitCode };
+      const buffer = running.chunks.join('').slice(-BUFFER_LIMIT);
+      running.chunks = [buffer];
+      running.kept = buffer.length;
+      return { id: running.id, buffer, end: running.end, exitCode: running.exitCode };
     }
     const pty = this.spawn(options.command ?? this.shell(), options.args ?? [], {
       cwd: options.cwd,
@@ -114,27 +134,37 @@ export class Terminals {
       id: this.next++,
       key: options.key,
       pty,
-      buffer: '',
+      chunks: [],
+      kept: 0,
+      end: 0,
       pending: '',
+      pendingAt: 0,
       exitCode: undefined,
     };
     this.byId.set(terminal.id, terminal);
     this.byKey.set(terminal.key, terminal);
     pty.onData((data) => {
-      terminal.buffer = (terminal.buffer + data).slice(-BUFFER_LIMIT);
+      const { chunks } = terminal;
+      chunks.push(data);
+      terminal.kept += data.length;
+      while (terminal.kept - (chunks[0] as string).length >= BUFFER_LIMIT) {
+        terminal.kept -= (chunks.shift() as string).length;
+      }
       if (terminal.pending === '') {
+        terminal.pendingAt = terminal.end;
         setTimeout(() => {
           this.flush(terminal);
         }, 4);
       }
       terminal.pending += data;
+      terminal.end += data.length;
     });
     pty.onExit(({ exitCode }) => {
       this.flush(terminal);
       terminal.exitCode = exitCode;
       this.notify('terminal.exit', { id: terminal.id, exitCode });
     });
-    return { id: terminal.id, buffer: '', exitCode: undefined };
+    return { id: terminal.id, buffer: '', end: 0, exitCode: undefined };
   }
 
   write(id: number, data: string): void {
@@ -160,7 +190,11 @@ export class Terminals {
 
   private flush(terminal: Terminal): void {
     if (terminal.pending === '') return;
-    this.notify('terminal.data', { id: terminal.id, data: terminal.pending });
+    this.notify('terminal.data', {
+      id: terminal.id,
+      data: terminal.pending,
+      at: terminal.pendingAt,
+    });
     terminal.pending = '';
   }
 

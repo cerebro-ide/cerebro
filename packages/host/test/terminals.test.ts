@@ -44,7 +44,7 @@ afterEach(() => {
 describe('terminals', () => {
   it('runs the shell by default, else the command, in the folder and size asked for', () => {
     const { terminals, spawn } = setup();
-    expect(terminals.open(open)).toEqual({ id: 1, buffer: '', exitCode: undefined });
+    expect(terminals.open(open)).toEqual({ id: 1, buffer: '', end: 0, exitCode: undefined });
     expect(spawn).toHaveBeenLastCalledWith(
       '/bin/zsh',
       [],
@@ -79,14 +79,14 @@ describe('terminals', () => {
     ptys[0]?.output('b');
     expect(notify).not.toHaveBeenCalled();
     vi.advanceTimersByTime(4);
-    expect(notify).toHaveBeenCalledWith('terminal.data', { id: 1, data: 'ab' });
+    expect(notify).toHaveBeenCalledWith('terminal.data', { id: 1, data: 'ab', at: 0 });
     vi.advanceTimersByTime(4);
     expect(notify).toHaveBeenCalledTimes(1);
     ptys[0]?.output('c');
     ptys[0]?.exit(2);
     expect(notify.mock.calls).toEqual([
-      ['terminal.data', { id: 1, data: 'ab' }],
-      ['terminal.data', { id: 1, data: 'c' }],
+      ['terminal.data', { id: 1, data: 'ab', at: 0 }],
+      ['terminal.data', { id: 1, data: 'c', at: 2 }],
       ['terminal.exit', { id: 1, exitCode: 2 }],
     ]);
     // The batch's timer finds nothing left to send.
@@ -105,9 +105,36 @@ describe('terminals', () => {
     expect(again.id).toBe(1);
     expect(again.buffer).toHaveLength(BUFFER_LIMIT);
     expect(again.buffer.endsWith('tail')).toBe(true);
+    expect(again.end).toBe(BUFFER_LIMIT + 4);
+    // Asked again with nothing new, the same.
+    expect(terminals.open(open).buffer).toBe(again.buffer);
     expect(ptys[0]?.pty.resize).toHaveBeenCalledWith(120, 40);
     ptys[0]?.exit(0);
     expect(terminals.open(open).exitCode).toBe(0);
+  });
+
+  it('says where its buffer ends, and where output not yet sent starts, so a view shows each once', () => {
+    vi.useFakeTimers();
+    const { terminals, notify, ptys } = setup();
+    terminals.open(open);
+    ptys[0]?.output('AAAA');
+    vi.advanceTimersByTime(10);
+    ptys[0]?.output('BBBB');
+    // Opened again before BBBB is sent: the buffer has it, and so will the notification.
+    expect(terminals.open(open)).toMatchObject({ buffer: 'AAAABBBB', end: 8 });
+    vi.advanceTimersByTime(4);
+    expect(notify).toHaveBeenLastCalledWith('terminal.data', { id: 1, data: 'BBBB', at: 4 });
+  });
+
+  it('keeps only whole chunks it may need, however many arrive', () => {
+    const { terminals, ptys } = setup();
+    terminals.open(open);
+    const chunk = 'y'.repeat(1000);
+    for (let i = 0; i < 1000; i++) ptys[0]?.output(chunk);
+    ptys[0]?.output('end');
+    const { buffer, end } = terminals.open(open);
+    expect(buffer).toBe(`${'y'.repeat(BUFFER_LIMIT - 3)}end`);
+    expect(end).toBe(1_000_003);
   });
 
   it('writes, resizes while running, and closes', () => {

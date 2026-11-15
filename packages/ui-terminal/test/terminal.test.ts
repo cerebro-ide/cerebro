@@ -4,19 +4,26 @@ import { page, userEvent } from 'vitest/browser';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TerminalView, type TerminalBackend, type TerminalOptions } from '../src/index.js';
 
-/** A pretend host: records what the view asks, and sends output and exits when the test says. */
-function fakeBackend(opened: { buffer?: string; exitCode?: number } = {}) {
-  const data = new Set<(id: number, data: string) => void>();
+/**
+ * A pretend host: records what the view asks, and sends output and exits when the test says. Each
+ * terminal's output is numbered as the host numbers it, from where its buffer ends.
+ */
+function fakeBackend(opened: { buffer?: string; end?: number; exitCode?: number } = {}) {
+  const data = new Set<(id: number, data: string, at: number) => void>();
   const exits = new Set<(id: number, exitCode: number) => void>();
+  const ends = new Map<number, number>();
   let next = 1;
   const backend = {
-    open: vi.fn((): Promise<{ id: number; buffer: string; exitCode?: number }> =>
-      Promise.resolve({ id: next++, buffer: '', ...opened }),
-    ),
+    open: vi.fn((): Promise<{ id: number; buffer: string; end: number; exitCode?: number }> => {
+      const buffer = opened.buffer ?? '';
+      const end = opened.end ?? buffer.length;
+      ends.set(next, end);
+      return Promise.resolve({ id: next++, buffer, end, ...opened });
+    }),
     write: vi.fn(),
     resize: vi.fn(),
     close: vi.fn(),
-    onData: (listener: (id: number, data: string) => void) => {
+    onData: (listener: (id: number, data: string, at: number) => void) => {
       data.add(listener);
       return () => data.delete(listener);
     },
@@ -27,8 +34,10 @@ function fakeBackend(opened: { buffer?: string; exitCode?: number } = {}) {
   } satisfies TerminalBackend;
   return {
     backend,
-    output: (id: number, text: string) => {
-      for (const listener of data) listener(id, text);
+    /** Output from where the terminal's last ended, or `at`. */
+    output: (id: number, text: string, at = ends.get(id) ?? 0) => {
+      ends.set(id, at + text.length);
+      for (const listener of data) listener(id, text, at);
     },
     exit: (id: number, code: number) => {
       for (const listener of exits) listener(id, code);
@@ -176,6 +185,40 @@ describe('starting and drawing', () => {
     expect(host.backend.resize).toHaveBeenCalledTimes(2);
   });
 
+  it('shows once the output its buffer has, and the output sent after it', async () => {
+    // Opened while BBBB was on its way: the buffer has it, then the notification too.
+    const { host, view } = await started({}, { buffer: 'AAAABBBB' });
+    host.output(1, 'BBBB', 4);
+    host.output(1, 'CC');
+    await shows(view, 'AAAABBBBCC');
+    // Part of a notification the buffer has.
+    host.output(1, 'CCDD', 8);
+    await shows(view, 'AAAABBBBCCDD');
+  });
+
+  it('shows output sent before its opening is answered, once and in order', async () => {
+    const host = fakeBackend();
+    let resolve: (value: { id: number; buffer: string; end: number }) => void = () => undefined;
+    host.backend.open.mockImplementationOnce(
+      () =>
+        new Promise((r) => {
+          resolve = r;
+        }),
+    );
+    const view = mount(host.backend);
+    await vi.waitFor(() => {
+      expect(host.backend.open).toHaveBeenCalled();
+    });
+    // The answer's buffer ends at 4; what came after it arrives first, with another terminal's.
+    host.output(3, 'EFGH', 4);
+    host.output(9, 'other');
+    host.exit(3, 1);
+    resolve({ id: 3, buffer: 'ABCD', end: 4 });
+    await shows(view, 'ABCDEFGH');
+    expect(view.text()).toContain('Process ended with code 1');
+    expect(view.text()).not.toContain('other');
+  });
+
   it('keeps the newest output in view until scrolled up, drawing only the lines in view', async () => {
     const { host, view } = await started();
     host.output(1, Array.from({ length: 60 }, (_, i) => `line ${String(i)}`).join('\r\n'));
@@ -283,7 +326,7 @@ describe('starting and drawing', () => {
 describe('typing', () => {
   it('sends text and keys, including what was typed before the process started', async () => {
     const host = fakeBackend();
-    let resolve: (value: { id: number; buffer: string }) => void = () => undefined;
+    let resolve: (value: { id: number; buffer: string; end: number }) => void = () => undefined;
     host.backend.open.mockImplementationOnce(
       () =>
         new Promise((r) => {
@@ -297,7 +340,7 @@ describe('typing', () => {
     view.focus();
     await userEvent.keyboard('ls');
     expect(host.backend.write).not.toHaveBeenCalled();
-    resolve({ id: 7, buffer: '' });
+    resolve({ id: 7, buffer: '', end: 0 });
     await vi.waitFor(() => {
       expect(host.backend.write).toHaveBeenCalledWith(7, 'ls');
     });
