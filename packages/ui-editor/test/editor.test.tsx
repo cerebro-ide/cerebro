@@ -941,7 +941,10 @@ describe('EditorDocument', () => {
     doc.format.set({ lineSeparator: '\r\n', bom: true });
     expect(doc.modified.get()).toBe(true);
     expect(doc.content()).toBe('\uFEFFa\r\nb');
+    // What's on disk, as last read: until it's saved.
+    expect(doc.diskContent()).toBe('a\nb');
     doc.saved();
+    expect(doc.diskContent()).toBe('\uFEFFa\r\nb');
     expect(doc.modified.get()).toBe(false);
     // Changed back on disk: taken, the text as it was.
     const text = doc.text.get();

@@ -163,6 +163,11 @@ export const PROTOCOL_VERSION = 1;
  */
 export const STOP_WITHIN = 10_000;
 
+/** A text's SHA-256, hex, of its UTF-8: how a save names what it expects on disk. */
+function sha256(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex');
+}
+
 export interface HostOptions {
   /** The repository opened when a request names none. */
   repo: string;
@@ -574,22 +579,33 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
     if (label !== undefined && typeof label !== 'string') {
       throw new ResponseError(ErrorCodes.InvalidParams, 'label must be a string');
     }
+    // What the writer believes is on disk (its SHA-256, hex): a file that holds something else
+    // isn't written over, and the answer gives what it holds, for the writer to resolve. Checked
+    // here, just before the write, so nothing written between a check and the write is lost.
+    const expected = (params as { expected?: unknown }).expected;
+    if (expected !== undefined && typeof expected !== 'string') {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'expected must be a string');
+    }
     const write = (async () => {
       const before = await readFile(path, 'utf8');
+      if (expected !== undefined && sha256(before) !== expected) return { changed: before };
       await writeTextFile(path, content);
-      return before;
+      return { before };
     })();
     // Recorded after the answer: a record of the whole worktree takes a dozen git processes, over
     // a second for a save on Windows (CI). Records wait for the write too: git reading a file as
     // it's written over fails ("mmap failed", measured on Windows).
     saves = saves.then(() =>
       write.then(
-        (before) => recordSaved(path, { before, after: content }, label ?? ''),
+        (done) =>
+          'before' in done
+            ? recordSaved(path, { before: done.before, after: content }, label ?? '')
+            : undefined,
         () => undefined,
       ),
     );
-    await write;
-    return null;
+    const done = await write;
+    return 'changed' in done ? { changed: done.changed } : null;
   });
   /**
    * A request's commits to compare (a turn's snapshots), if it names them; or a commit, a branch

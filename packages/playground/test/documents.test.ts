@@ -17,6 +17,14 @@ import {
 import { projects, useProjects } from '../src/environments.js';
 import { FakeHost, project } from './fakes.js';
 
+/** A text's SHA-256, hex, as the host hashes what's on disk. */
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+/** The writes the host made, in order: those it refused aren't. */
+const written: { path: string; text: string; label?: string }[] = [];
 /** The files on the host's disk; a read or write of one not there fails, as the host's does. */
 const disk = new Map<string, string>();
 /** Files the host can't read, though they're there. */
@@ -30,9 +38,26 @@ const host = new FakeHost({
     if (text === undefined || unreadable.has(path)) throw new Error(`ENOENT: ${path}`);
     return { text };
   },
-  'fs.write': ({ path, text }: { path: string; text: string }) => {
+  // Written only over what the writer expects there, as the host's: else what's there instead.
+  'fs.write': async ({
+    path,
+    text,
+    expected,
+    label,
+  }: {
+    path: string;
+    text: string;
+    expected?: string;
+    label?: string;
+  }) => {
     if (path.includes('readonly')) throw new Error('EACCES');
+    const there = disk.get(path);
+    if (there === undefined && expected !== undefined) throw new Error(`ENOENT: ${path}`);
+    if (there !== undefined && expected !== undefined && !unreadable.has(path)) {
+      if ((await sha256(there)) !== expected) return { changed: there };
+    }
     disk.set(path, text);
+    written.push({ path, text, ...(label === undefined ? {} : { label }) });
     return null;
   },
   'fs.exists': ({ path }: { path: string }) => disk.has(path),
@@ -71,11 +96,19 @@ function edit(doc: EditorDocument, insert: string): void {
   doc.edit([{ from: doc.text.peek().length, to: doc.text.peek().length, insert }]);
 }
 
-/** What was written, to `path` or to any file. */
+/** What was asked to be written, to `path` or to any file, without what it expected there. */
 const writes = (path?: string) =>
   host
     .params('fs.write')
-    .filter((w) => path === undefined || (w as { path: string }).path === path);
+    .map((w) => {
+      const rest = { ...(w as { path: string; text: string; expected?: string }) };
+      delete rest.expected;
+      return rest;
+    })
+    .filter((w) => path === undefined || w.path === path);
+
+/** What the host wrote, to `path`: a write it refused isn't. */
+const made = (path: string) => written.filter((w) => w.path === path);
 
 describe('a file’s document', () => {
   it('is read through the host, once, and outlives its tabs', async () => {
@@ -166,10 +199,20 @@ describe('saving', () => {
   it('keeps an edit made while the file was written, unsaved', async () => {
     const doc = await file('/r/typing.ts', 'a');
     edit(doc, '1');
-    const writing = saveAll();
-    // The write is asked for after the read that checks the disk: an edit then is after it.
-    await expect.poll(() => host.params('fs.read').length).toBeGreaterThan(1);
+    // An edit while the write is under way is after what's written.
+    let write: () => void = () => undefined;
+    const answer = host.answers['fs.write'] as (p: never) => unknown;
+    host.answers['fs.write'] = (params: never) =>
+      new Promise((resolve) => {
+        write = () => {
+          resolve(answer(params));
+        };
+      });
+    const writing = saveFiles(['/r/typing.ts']);
+    await expect.poll(() => writes('/r/typing.ts').length).toBe(1);
+    host.answers['fs.write'] = answer;
     edit(doc, '2');
+    write();
     await writing;
     expect(disk.get('/r/typing.ts')).toBe('a1');
     expect(doc.modified.peek()).toBe(true);
@@ -215,7 +258,7 @@ describe('saving', () => {
     await saveFiles(['/r/slow.ts']);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(warn.mock.calls[0]?.[0]).toMatch(
-      /^Saving \/r\/slow\.ts took \d+ ms: \d+ ms after the saves before, \d+ ms to the file, \d+ ms reading it, \d+ ms before saving, \d+ ms writing it$/,
+      /^Saving \/r\/slow\.ts took \d+ ms: \d+ ms after the saves before, \d+ ms to the file, \d+ ms before saving, \d+ ms writing it$/,
     );
     // Quick: nothing said.
     host.answers['fs.write'] = answer;
@@ -240,28 +283,22 @@ describe('saving', () => {
     edit(doc, '1');
     disk.delete('/r/deleted.ts');
     await saveAll();
-    expect(writes('/r/deleted.ts')).toEqual([]);
+    expect(made('/r/deleted.ts')).toEqual([]);
     expect(closed).toContain('/r/deleted.ts');
   });
 
-  it('writes over a file it can’t read, and that may not be gone', async () => {
-    const doc = await file('/r/locked.ts', 'a');
+  it('keeps a file it couldn’t save when it can’t tell whether the file is gone', async () => {
+    const doc = await file('/r/readonly-unknown.ts', 'a');
     edit(doc, '1');
-    unreadable.add('/r/locked.ts');
-    await saveAll();
-    expect(writes('/r/locked.ts')).toEqual([{ path: '/r/locked.ts', text: 'a1' }]);
-    unreadable.delete('/r/locked.ts');
-    // Can't even tell whether it's there: kept, and written over.
-    edit(doc, '2');
-    unreadable.add('/r/locked.ts');
     const exists = host.answers['fs.exists'];
     host.answers['fs.exists'] = () => {
       throw new Error('down');
     };
-    await saveAll();
-    expect(writes('/r/locked.ts').at(-1)).toEqual({ path: '/r/locked.ts', text: 'a12' });
+    await expect(saveAll()).rejects.toThrow('EACCES');
+    expect(doc.modified.peek()).toBe(true);
+    expect(closed).not.toContain('/r/readonly-unknown.ts');
     host.answers['fs.exists'] = exists as never;
-    unreadable.delete('/r/locked.ts');
+    disk.delete('/r/readonly-unknown.ts');
   });
 
   it('asks about a file changed on disk too, and writes what’s chosen', async () => {
@@ -271,7 +308,7 @@ describe('saving', () => {
     // Kept as it is: still in conflict, not written.
     resolver = () => Promise.resolve();
     await saveAll();
-    expect(writes('/r/both.ts')).toEqual([]);
+    expect(made('/r/both.ts')).toEqual([]);
     // The edits kept over the disk's.
     resolver = (_path, d, text) => {
       d.resolve(d.content(), text);
@@ -287,11 +324,32 @@ describe('saving', () => {
       return Promise.resolve();
     };
     await saveAll();
-    expect([doc.content(), doc.modified.peek(), writes('/r/both.ts')]).toEqual([
+    expect([doc.content(), doc.modified.peek(), made('/r/both.ts')]).toEqual([
       'c',
       false,
       [{ path: '/r/both.ts', text: 'a1' }],
     ]);
+  });
+
+  it('asks about a file an agent writes while it’s being saved, and doesn’t write over it', async () => {
+    const doc = await file('/r/agent.ts', 'a');
+    edit(doc, '1');
+    // The agent writes it as a before-save hook (Prettier, say) runs.
+    const stop = onBeforeSave(() => {
+      disk.set('/r/agent.ts', 'the agent’s');
+      return Promise.resolve(undefined);
+    });
+    const asked: string[] = [];
+    resolver = (path, _doc, text) => {
+      asked.push(`${path}: ${text}`);
+      return Promise.resolve();
+    };
+    await saveFiles(['/r/agent.ts']);
+    stop();
+    expect(asked).toEqual(['/r/agent.ts: the agent’s']);
+    expect(made('/r/agent.ts')).toEqual([]);
+    expect(disk.get('/r/agent.ts')).toBe('the agent’s');
+    doc.resolve('a', 'a');
   });
 
   it('doesn’t ask twice about one file, nor save it, while it’s asked about', async () => {
@@ -312,12 +370,10 @@ describe('saving', () => {
     const first = reloadAll();
     await expect.poll(() => asked).toBe(1);
     await reloadAll();
-    const reads = host.params('fs.read').length;
-    const saving = saveFiles(['/r/asking.ts']);
-    await expect.poll(() => host.params('fs.read').length).toBe(reads + 1);
+    // Not saved while it's asked about.
+    await saveFiles(['/r/asking.ts']);
     answer();
     await first;
-    await saving;
     expect(asked).toBe(1);
     expect(writes('/r/asking.ts')).toEqual([]);
   });
@@ -434,8 +490,8 @@ describe('reading again', () => {
     const saving = saveFiles(['/r/saved-meanwhile.ts']);
     release();
     await Promise.all([first, queued, saving]);
-    // The first read, and the save's own: none after it.
-    expect(readsOf('/r/saved-meanwhile.ts')).toHaveLength(2);
+    // The first read alone: a save doesn't read, and none comes after it.
+    expect(readsOf('/r/saved-meanwhile.ts')).toHaveLength(1);
   });
 
   it('reads a file once more after a read that failed', async () => {
@@ -515,12 +571,14 @@ describe('reading again', () => {
         },
       };
     };
-    // A read while the save writes, finding half of it.
-    const write = hold('fs.write');
+    // A read while the save writes, finding half of it: the host has checked the disk, and is
+    // writing.
+    const write = hold('fs.write', true);
     const saving = saveFiles([path]);
-    await expect.poll(() => writes(path).length).toBe(1);
+    await expect.poll(() => disk.get(path)).toBe('a1');
     disk.set(path, 'a1 half');
     await reloadAll();
+    disk.set(path, 'a1');
     write.release();
     await saving;
     // A read that starts before a save and ends after it, with the text from before.
@@ -531,7 +589,7 @@ describe('reading again', () => {
       .poll(
         () => host.params('fs.read').filter((r) => (r as { path: string }).path === path).length,
       )
-      .toBe(3);
+      .toBe(2);
     await saveFiles([path]);
     read.release();
     await reloading;
