@@ -184,7 +184,7 @@ export function MarkdownEditor(props: {
   open: (tab: { id: string; title: string }) => void;
 }): Node {
   const image = imageLoader(props.path, readBytes);
-  // A link to a file beside it opens it; one to the web can't yet, with no way to a browser.
+  // A web link's page opens in the browser, a file beside it in a tab; any other link, nothing.
   const link = (address: string) => {
     if (browse(address)) return;
     const path = localPath(props.path, address);

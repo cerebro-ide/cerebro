@@ -244,7 +244,7 @@ describe('a Markdown file’s links', () => {
       <MarkdownEditor
         path="/r/docs/f.md"
         editor={document.createElement('div')}
-        text={() => '[b](../b.md#top) [web](https://x.y)'}
+        text={() => '[b](../b.md#top) [web](https://x.y) [mail](mailto:a@b.c)'}
         line={() => 0}
         open={open}
       />
