@@ -22,6 +22,7 @@ import type { Place } from './find.js';
 import { openFolder } from './projects.js';
 import { searchEverywhere, type Result, type SearchTab } from './search-everywhere.js';
 import { isTextField, setupEdit, target } from './edit.js';
+import { setupEditorActions } from './editor-actions.js';
 import { projectTarget } from './project.js';
 import { icon } from './icons.js';
 import { keymapPage, userKeymaps } from './keymap-page.js';
@@ -364,6 +365,7 @@ export function setupCommands(
     run: () => undefined,
   });
   setupEdit(commands);
+  setupEditorActions(commands);
   for (const id of ['undo', 'redo', 'cut', 'copy', 'paste']) {
     menus.contribute({
       menu: 'main/edit',

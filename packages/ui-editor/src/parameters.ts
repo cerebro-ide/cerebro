@@ -14,6 +14,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import { placeAt, type Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** One way to call what's called: its text, and where each parameter is in it. */
 export interface Signature {
@@ -149,21 +150,22 @@ export function parameterInfo(ask: AskSignatures, delay = PARAMETERS_AFTER): Ext
 
 /** The keys that show what's called at the caret; Escape hides it. */
 export function parameterKeys(keys: readonly string[]): Extension {
-  return keymap.of([
-    ...keys.map((key) => ({
-      key,
-      run: (view: EditorView) => {
-        view.dispatch({ effects: request.of(null) });
-        return true;
+  const info = actionKeys('parameterInfo', keys, (view) => {
+    view.dispatch({ effects: request.of(null) });
+    return true;
+  });
+  return [
+    info.action,
+    keymap.of([
+      ...info.bindings,
+      {
+        key: 'Escape',
+        run: (view: EditorView) => {
+          if (!view.state.field(shown, false)) return false;
+          view.dispatch({ effects: show.of(null) });
+          return true;
+        },
       },
-    })),
-    {
-      key: 'Escape',
-      run: (view: EditorView) => {
-        if (!view.state.field(shown, false)) return false;
-        view.dispatch({ effects: show.of(null) });
-        return true;
-      },
-    },
-  ]);
+    ]),
+  ];
 }

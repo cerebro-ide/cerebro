@@ -19,6 +19,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { parser } from '@lezer/markdown';
 import { drawMarkdown, type MarkdownStyle } from './markdown.js';
 import type { Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** What a symbol is and what its comments say, as Markdown. */
 export interface Documentation {
@@ -131,15 +132,19 @@ export function documentation(ask: AskDocumentation): Extension {
 
 /** The keys that show the caret's symbol's documentation; Escape hides it. */
 export function documentationKeys(ask: AskDocumentation, keys: readonly string[]): Extension {
-  return keymap.of([
-    ...keys.map((key) => ({ key, run: quickDocumentation(ask) })),
-    {
-      key: 'Escape',
-      run: (view: EditorView) => {
-        if (!view.state.field(shown)) return false;
-        view.dispatch({ effects: show.of(null) });
-        return true;
+  const quick = actionKeys('quickDocumentation', keys, quickDocumentation(ask));
+  return [
+    quick.action,
+    keymap.of([
+      ...quick.bindings,
+      {
+        key: 'Escape',
+        run: (view: EditorView) => {
+          if (!view.state.field(shown)) return false;
+          view.dispatch({ effects: show.of(null) });
+          return true;
+        },
       },
-    },
-  ]);
+    ]),
+  ];
 }

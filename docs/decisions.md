@@ -75,6 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
+- [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action and the Keymap page; its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3714,6 +3715,36 @@ Claude's choices, open to change.
 - **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
   New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
   types; a scratch file's language changed without renaming it.
+
+## The editor's actions as commands (2026-11-16)
+
+Ido, on making mouse shortcuts the keymaps' as IntelliJ's: "Yes, commands first" (2026-11-16),
+from the backlog's proposal. IntelliJ's editor actions are actions like any other; here they were
+keys the keymap handed to CodeMirror, so no menu held them, Find Action didn't find them, and the
+Keymap page didn't list them.
+
+- **Each is a command** (`editor-actions.ts`), named as IntelliJ's (ActionsBundle's
+  `action.{id}.text`, read from its source: "Go to Declaration or Usages", "Go to
+  I_mplementation(s)", "Comment with _Line Comment", Code Completion's "_Basic" and the rest),
+  Find and Replace with an ellipsis. It runs on the editor that has the keyboard, or had it before
+  a menu took it, as Duplicate Line does, and is on only where that editor has it: Go to
+  Declaration where the editor can go, an edit in an editable one, Next Highlighted Error where
+  problems are shown (`hasEditorAction` in `ui-editor`).
+- **Rename is one command,** as IntelliJ's RenameElement: the editor's at its caret when an editor
+  has the keyboard, else the Project view's file, as before.
+- **Their keys stay the editor's,** in CodeMirror, at each one's place among its keys, and stop
+  there once run (`stopPropagation`), so the command bound to the same keys doesn't run it again;
+  where the editor doesn't run it, the key goes on to the app's keymap as any other. So a key the
+  editor runs no longer runs another command bound to it too, which it did (as the editor's
+  actions come first in IntelliJ's, a claim): NetBeans' Ctrl+Shift+K (Push and Cyclic Expand Word)
+  and Ctrl+Alt+Down and Up (Next Occurrence and Next Method), VS Code's Ctrl+Shift+K (Push and
+  Delete Line) and, in a diff, Alt+Shift+Right and Left (Next File and Extend Selection), Emacs's
+  Ctrl+Alt+S (Settings and Find). Found by listing each keymap's keys bound to both.
+- **Rejected:** taking their keys from CodeMirror and letting the app's keymap run them: the window
+  hears a key after the editor's own keymaps (its popups', its find bar's), so the order they're
+  tried in would change.
+- **Not yet:** the menus that hold them, IntelliJ's Code menu among them (next). A diff window
+  has few commands of its own (Jump to Source), so not these; its editors' keys work as before.
 
 ## Git → Current File → Show History (2026-11-12)
 

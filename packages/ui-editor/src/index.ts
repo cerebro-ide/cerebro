@@ -1,3 +1,4 @@
+export { hasEditorAction, runEditorAction, type EditorAction } from './actions.js';
 export {
   CodeEditor,
   DEFAULT_KEYS,

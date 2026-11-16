@@ -10,6 +10,7 @@ import { EditorState, StateEffect, StateField, type Extension } from '@codemirro
 import { EditorView, keymap, showTooltip, type Command, type Tooltip } from '@codemirror/view';
 import { languageFor } from './languages.js';
 import type { Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** A definition as Quick Definition shows it. */
 export interface QuickDefinition {
@@ -242,10 +243,12 @@ export function quickDefinitionKeys(
   const edit = closing((definition) => {
     definition.open();
   });
+  const quick = actionKeys('quickDefinition', keys, quickDefinition(ask, look));
   return [
     shown,
+    quick.action,
     keymap.of([
-      ...keys.map((key) => ({ key, run: quickDefinition(ask, look) })),
+      ...quick.bindings,
       { key: 'F4', run: edit },
       { key: 'Enter', run: edit },
       { key: 'ArrowLeft', run: stepping(-1) },

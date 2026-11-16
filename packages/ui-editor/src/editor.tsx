@@ -54,6 +54,7 @@ import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
 import { foldKeys, folding, type AskFolds } from './folding.js';
+import { actionKeys, type EditorAction } from './actions.js';
 import { formattable, formatting, type AskFormat } from './format.js';
 import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
@@ -1000,9 +1001,105 @@ export function CodeEditor(props: CodeEditorProps): Node {
     };
     show(placeOf(v.state, head), caret);
   };
+  /** The editor's own actions, each on its keys: those it can run here. */
+  const own = (keys: Required<EditorKeys>) => {
+    const { onContextActions } = props;
+    /** A go-to action, at the caret's word, when there's somewhere to go. */
+    const going = (action: EditorAction, go: CodeEditorProps['onFindUsages']) =>
+      go
+        ? [
+            actionKeys(
+              action,
+              keys[action],
+              atCursor(() => go),
+            ),
+          ]
+        : [];
+    /** An action at the caret's place, when it's given. */
+    const at = (
+      action: EditorAction,
+      go: ((place: { line: number; column: number }) => void) | undefined,
+    ) =>
+      go
+        ? [
+            actionKeys(action, keys[action], (v: EditorView) => {
+              go(placeOf(v.state, v.state.selection.main.head));
+              return true;
+            }),
+          ]
+        : [];
+    const { onMethod } = props;
+    const given = [
+      ...going('goToDefinition', props.onGoToDefinition),
+      ...going('goToImplementation', props.onGoToImplementation),
+      ...going('goToTypeDeclaration', props.onGoToTypeDeclaration),
+      ...going('findUsages', props.onFindUsages),
+      // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
+      actionKeys('matchBrace', keys.matchBrace, cursorMatchingBracket),
+      actionKeys('extendSelection', keys.extendSelection, extendingSelection),
+      actionKeys('shrinkSelection', keys.shrinkSelection, shrinkingSelection),
+      actionKeys('scrollUp', keys.scrollUp, scrollingBy(-1)),
+      actionKeys('scrollDown', keys.scrollDown, scrollingBy(1)),
+      actionKeys('scrollToCenter', keys.scrollToCenter, scrollingToCenter),
+      actionKeys('pageTop', keys.pageTop, movingToPage(true, false)),
+      actionKeys('pageBottom', keys.pageBottom, movingToPage(false, false)),
+      actionKeys('pageTopWithSelection', keys.pageTopWithSelection, movingToPage(true, true)),
+      actionKeys(
+        'pageBottomWithSelection',
+        keys.pageBottomWithSelection,
+        movingToPage(false, true),
+      ),
+      ...at(
+        'methodDown',
+        onMethod &&
+          ((place) => {
+            onMethod(place, true);
+          }),
+      ),
+      ...at(
+        'methodUp',
+        onMethod &&
+          ((place) => {
+            onMethod(place, false);
+          }),
+      ),
+      ...at('goToSuperMethod', props.onGoToSuperMethod),
+      ...(onContextActions
+        ? [
+            actionKeys('contextActions', keys.contextActions, (v) => {
+              contextActions(v, onContextActions);
+              return true;
+            }),
+          ]
+        : []),
+      ...(props.problems
+        ? [
+            actionKeys('nextProblem', keys.nextProblem, (v) => goToProblem(v, true)),
+            actionKeys('previousProblem', keys.previousProblem, (v) => goToProblem(v, false)),
+          ]
+        : []),
+      ...(doc
+        ? [
+            actionKeys('lineComment', keys.lineComment, commentByLine),
+            actionKeys('blockComment', keys.blockComment, commentByBlock),
+            actionKeys('moveLineUp', keys.moveLineUp, moveLinesUp),
+            actionKeys('moveLineDown', keys.moveLineDown, moveLinesDown),
+            // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
+            actionKeys('deleteLine', keys.deleteLine, deleteLine),
+            actionKeys('startNewLine', keys.startNewLine, startingNewLine),
+            actionKeys('startNewLineBefore', keys.startNewLineBefore, startingNewLineBefore),
+            actionKeys('splitLine', keys.splitLine, splittingLine),
+            actionKeys('joinLines', keys.joinLines, joiningLines),
+            actionKeys('toggleCase', keys.toggleCase, togglingCase),
+            actionKeys('expandWord', keys.expandWord, expandingWord),
+            actionKeys('expandWordBackward', keys.expandWordBackward, expandingWordBackward),
+          ]
+        : []),
+    ];
+    return [given.map((each) => each.action), keymap.of(given.flatMap((each) => each.bindings))];
+  };
   const actions = () => {
     const keys = { ...DEFAULT_KEYS, ...props.keys?.() };
-    const { onContextActions } = props;
     return [
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
@@ -1017,92 +1114,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       doc && props.renaming && props.onRename ? renameKeys(keys.rename) : [],
       doc && props.format ? formatting(keys.format, props.format) : [],
       foldKeys(keys),
+      own(keys),
       keymap.of([
-        ...keys.goToDefinition.map((key) => ({
-          key,
-          run: atCursor(() => props.onGoToDefinition),
-        })),
-        ...keys.goToImplementation.map((key) => ({
-          key,
-          run: atCursor(() => props.onGoToImplementation),
-        })),
-        ...keys.goToTypeDeclaration.map((key) => ({
-          key,
-          run: atCursor(() => props.onGoToTypeDeclaration),
-        })),
-        ...keys.findUsages.map((key) => ({ key, run: atCursor(() => props.onFindUsages) })),
-        // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
-        ...keys.matchBrace.map((key) => ({ key, run: cursorMatchingBracket })),
-        ...keys.extendSelection.map((key) => ({ key, run: extendingSelection })),
-        ...keys.shrinkSelection.map((key) => ({ key, run: shrinkingSelection })),
-        ...keys.scrollUp.map((key) => ({ key, run: scrollingBy(-1) })),
-        ...keys.scrollDown.map((key) => ({ key, run: scrollingBy(1) })),
-        ...keys.scrollToCenter.map((key) => ({ key, run: scrollingToCenter })),
-        ...keys.pageTop.map((key) => ({ key, run: movingToPage(true, false) })),
-        ...keys.pageBottom.map((key) => ({ key, run: movingToPage(false, false) })),
-        ...keys.pageTopWithSelection.map((key) => ({ key, run: movingToPage(true, true) })),
-        ...keys.pageBottomWithSelection.map((key) => ({ key, run: movingToPage(false, true) })),
-        ...(
-          [
-            [keys.methodDown, true],
-            [keys.methodUp, false],
-          ] as const
-        ).flatMap(([list, down]) =>
-          list.map((key) => ({
-            key,
-            run: (v: EditorView) => {
-              const go = props.onMethod;
-              if (!go) return false;
-              go(placeOf(v.state, v.state.selection.main.head), down);
-              return true;
-            },
-          })),
-        ),
-        ...keys.goToSuperMethod.map((key) => ({
-          key,
-          run: (v: EditorView) => {
-            const go = props.onGoToSuperMethod;
-            if (!go) return false;
-            go(placeOf(v.state, v.state.selection.main.head));
-            return true;
-          },
-        })),
-        ...(onContextActions
-          ? keys.contextActions.map((key) => ({
-              key,
-              run: (v: EditorView) => {
-                contextActions(v, onContextActions);
-                return true;
-              },
-            }))
-          : []),
-        ...(props.problems
-          ? [
-              ...keys.nextProblem.map((key) => ({
-                key,
-                run: (v: EditorView) => goToProblem(v, true),
-              })),
-              ...keys.previousProblem.map((key) => ({
-                key,
-                run: (v: EditorView) => goToProblem(v, false),
-              })),
-            ]
-          : []),
         ...(doc
           ? [
-              ...keys.lineComment.map((key) => ({ key, run: commentByLine })),
-              ...keys.blockComment.map((key) => ({ key, run: commentByBlock })),
-              ...keys.moveLineUp.map((key) => ({ key, run: moveLinesUp })),
-              ...keys.moveLineDown.map((key) => ({ key, run: moveLinesDown })),
-              // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
-              ...keys.deleteLine.map((key) => ({ key, run: deleteLine })),
-              ...keys.startNewLine.map((key) => ({ key, run: startingNewLine })),
-              ...keys.startNewLineBefore.map((key) => ({ key, run: startingNewLineBefore })),
-              ...keys.splitLine.map((key) => ({ key, run: splittingLine })),
-              ...keys.joinLines.map((key) => ({ key, run: joiningLines })),
-              ...keys.toggleCase.map((key) => ({ key, run: togglingCase })),
-              ...keys.expandWord.map((key) => ({ key, run: expandingWord })),
-              ...keys.expandWordBackward.map((key) => ({ key, run: expandingWordBackward })),
               ...keys.undo.map((key) => ({ key, run: undo, preventDefault: true })),
               ...keys.redo.map((key) => ({ key, run: redo, preventDefault: true })),
             ]

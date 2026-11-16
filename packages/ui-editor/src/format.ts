@@ -12,6 +12,7 @@ import { changesTo } from './document.js';
 import { hinted, showHint } from './hint.js';
 import { historyName } from './history.js';
 import { placeAt, type Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** An edit that formats: the text from `from` to `to` replaced by `text`. */
 export interface FormatEdit {
@@ -147,17 +148,14 @@ export function reindentIn(element: Element, name: string): boolean {
 
 /** Reformat Code on `keys`, through `ask`. */
 export function formatting(keys: readonly string[], ask: AskFormat): Extension {
-  return [
-    hinted,
-    keymap.of(
-      keys.map((key) => ({
-        key,
-        run: (view: EditorView) => {
-          format(view, ask);
-          return true;
-        },
-        preventDefault: true,
-      })),
-    ),
-  ];
+  const reformat = actionKeys(
+    'format',
+    keys,
+    (view) => {
+      format(view, ask);
+      return true;
+    },
+    { preventDefault: true },
+  );
+  return [hinted, reformat.action, keymap.of(reformat.bindings)];
 }

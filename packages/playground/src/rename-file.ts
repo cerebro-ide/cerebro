@@ -15,6 +15,7 @@ import { editFiles, saveAll, type FileEdits } from './documents.js';
 import { active, hostFor, type Host } from './environments.js';
 import { EDITOR_ACTIONS } from './keymaps.js';
 import { notifications } from './notifications.js';
+import { editorHas, runInEditor } from './editor-actions.js';
 import { projectTarget, selectNew, type FileNode } from './project.js';
 
 export interface RenameFileSetup {
@@ -102,7 +103,10 @@ export async function moveEntry(moving: Moving): Promise<boolean> {
   return true;
 }
 
-/** Rename for the Project view's selection: not the worktree itself. */
+/**
+ * Rename, as IntelliJ's RenameElement: the editor's, at its caret, when an editor has the keyboard
+ * (or had it before a menu); else the Project view's selection, not the worktree itself.
+ */
 export function setupRenameFile(services: MenuServices, setup: RenameFileSetup): void {
   const { commands, menus } = services;
   const target = (context: unknown) => {
@@ -114,8 +118,9 @@ export function setupRenameFile(services: MenuServices, setup: RenameFileSetup):
     id: EDITOR_ACTIONS.rename,
     label: '&Rename',
     dialog: true,
-    enabled: (context) => target(context) !== undefined,
+    enabled: (context) => editorHas('rename') || target(context) !== undefined,
     run: async (context) => {
+      if (runInEditor('rename')) return;
       const node = target(context) as FileNode;
       const worktree = (active() as { id: string }).id;
       const host = hostFor(worktree) as NonNullable<ReturnType<typeof hostFor>>;
