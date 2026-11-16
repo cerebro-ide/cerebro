@@ -2212,10 +2212,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   (`IconBadge.successBackground`, no theme overriding it), not measured. **Not yet:** Linearize
   Merges (off in IntelliJ unless its registry turns it on), and the branch actions after Options
   (Collapse and Expand Linear Branches, Long Edges).
-- **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
-  (Show Diff in a New Tab or Window); a commit's right-click menu's other
-  items (the Checkout submenu with the commit's branches, and the rest of IntelliJ's);
-  IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **Not yet:** a commit's files' menu's other items (Show Diff in a New Tab or Window); a commit's
+  right-click menu's other items (the Checkout submenu with the commit's branches, and the rest of
+  IntelliJ's); IntelliJ's Log is a tab beside Console in the Git window, here it's all the window
+  holds. (Corrected 2026-11-16: the branches pane's toolbar has all of IntelliJ's actions, its
+  `Git.Log.Branches.Toolbar.Actions` being an empty group for plugins, and its search.)
 - **Checkout Revision** (added 2026-11-14), in a commit's menu before Compare with Local, as
   IntelliJ's (`GitCheckoutActionGroup`, `Git.Log.ContextMenu.CheckoutBrowse`, GitBundle's
   "Checkout Revision '…'" with the short hash, read from its source): the commit checked out,
