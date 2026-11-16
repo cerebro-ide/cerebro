@@ -51,6 +51,21 @@ export function selectionIn(element: Element): boolean {
 }
 
 /**
+ * The lines the main selection is on, zero-based, in the editor `element` is in, as IntelliJ's
+ * `HostedGitRepositoryReferenceUtil` takes them: a selection ending at a line's start leaves that
+ * line out. The caret's line where nothing's selected.
+ */
+export function selectedLines(element: Element): { first: number; last: number } | undefined {
+  const view = viewOf(element);
+  if (!view) return undefined;
+  const { doc, selection } = view.state;
+  const { from, to } = selection.main;
+  const first = doc.lineAt(from).number - 1;
+  const end = doc.lineAt(to);
+  return { first, last: end.number - 1 - (to > from && end.from === to ? 1 : 0) };
+}
+
+/**
  * Runs an action on the editor `element` is in, the keyboard back in it first, as a key would run
  * it there; returns whether it ran.
  */

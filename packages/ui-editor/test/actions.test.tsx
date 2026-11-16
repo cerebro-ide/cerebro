@@ -8,6 +8,7 @@ import {
   EditorDocument,
   hasEditorAction,
   runEditorAction,
+  selectedLines,
   selectionIn,
   type CodeEditorProps,
 } from '../src/index.js';
@@ -57,6 +58,19 @@ describe('the editor’s actions', () => {
     await userEvent.keyboard('{Home}{Shift>}{ArrowRight}{/Shift}');
     expect(selectionIn(content)).toBe(true);
     expect(selectionIn(outside)).toBe(false);
+  });
+
+  it('tell the lines selected, as IntelliJ’s GitHub links take them; none outside one', async () => {
+    const { content, outside } = mount({ path: 'a.ts', text: 'a\nb\nc\n' });
+    expect(selectedLines(outside)).toBeUndefined();
+    await userEvent.click(content);
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowDown}');
+    expect(selectedLines(content)).toEqual({ first: 1, last: 1 });
+    // A selection ending at a line's start leaves that line out; one ending in it, not.
+    await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    expect(selectedLines(content)).toEqual({ first: 1, last: 1 });
+    await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
+    expect(selectedLines(content)).toEqual({ first: 1, last: 2 });
   });
 
   it('run from outside on the editor, the keyboard back in it', async () => {

@@ -475,7 +475,7 @@ setupTag(services);
 setupReset(services);
 setupCommitEditing(services);
 setupApplyChanges(services);
-setupOpenOnGitHub(services);
+setupOpenOnGitHub(services, { activeTab: () => editor()?.activeGroup.active });
 setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
