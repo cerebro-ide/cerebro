@@ -36,10 +36,11 @@ import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { diffSource } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
+import { showFolderDiffWithRef } from './diff-with-working-tree.js';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
-import { projectFile } from './project.js';
+import { projectFile, projectNode } from './project.js';
 import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
 import { compareRefs } from './compare-branches.js';
@@ -1032,19 +1033,43 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
+  /**
+   * The folder selected in the Project view, its path in the worktree ('' for the worktree's own),
+   * as IntelliJ's Compare with Branch or Tag takes one (`DvcsCompareWithAction`).
+   */
+  const currentFolder = () => {
+    const env = active();
+    const node = projectNode();
+    if (!env || node?.kind !== 'directory' || !currentHost() || !gitRepository.get()) {
+      return undefined;
+    }
+    const path = node.path === env.id ? '' : node.path.slice(env.id.length + 1);
+    return { worktree: env.id, path, name: node.name };
+  };
   // Git → Current File's Compare with Branch or Tag…: IntelliJ's `GitCompareWithRefAction`. The
-  // file as it is against a branch or a tag, chosen in a popup of them. On for any file, as
-  // IntelliJ's: for one that isn't in the branch, the diff says so.
+  // file as it is against a branch or a tag, chosen in a popup of them; a folder's files that
+  // differ, in the Changes tool window. On for any file, as IntelliJ's: for one that isn't in the
+  // branch, the diff says so.
   commands.register({
     id: 'git.file.compareWithBranch',
     label: 'Compare with Branch or Tag',
     dialog: true,
-    visible: () => currentFile() !== undefined,
+    visible: () => currentFile() !== undefined || currentFolder() !== undefined,
     run: () => {
-      const file = currentFile() as { worktree: string; path: string };
-      pickRef(hostFor(file.worktree) as Host, file.worktree).then(
-        (ref) => {
-          if (ref !== undefined) setup.open(diffTab(file.path, { from: ref }));
+      const folder = currentFolder();
+      const file = folder ?? (currentFile() as { worktree: string; path: string });
+      const host = hostFor(file.worktree) as Host;
+      pickRef(host, file.worktree).then(
+        async (ref) => {
+          if (ref === undefined) return;
+          if (!folder) {
+            setup.open(diffTab(file.path, { from: ref }));
+            return;
+          }
+          // Documents saved first, as for Show Diff with Working Tree, so git sees the edits
+          // (Claude's choice: not found in IntelliJ's `DvcsCompareWithAction`).
+          await saveBeforeGit();
+          showFolderDiffWithRef(host, folder.worktree, ref, folder);
         },
         (error: unknown) => {
           console.error('Reading the branches failed', error);

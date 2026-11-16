@@ -22,9 +22,11 @@ import {
   toShelve,
   type Turn,
 } from '../src/changes.js';
+import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
 import { documentFor, unsavedFiles } from '../src/documents.js';
-import { useProjects, workspace } from '../src/environments.js';
+import { projectOf, useProjects, workspace, type ProjectState } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
+import { projectFile, projectNode } from '../src/project.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
 import {
@@ -42,6 +44,10 @@ import {
 import { repositoryOf, setFavorite } from '../src/branch-favorites.js';
 
 /** The worktree as git sees it, and what the host was asked to do to it. */
+
+// The Project view's selection, for a folder's Compare with Branch or Tag.
+vi.mock('../src/project.js', { spy: true });
+
 const git = {
   changes: [] as Change[],
   turns: [] as Turn[],
@@ -170,6 +176,8 @@ const histories: string[] = [];
 /** The line each diff opened starts at, if one. */
 const lines: (number | undefined)[] = [];
 let shown = 0;
+/** How often the Changes tool window was shown. */
+let revealed = 0;
 let activeTab: string | undefined;
 let dispose: (() => void) | undefined;
 
@@ -192,6 +200,9 @@ beforeAll(() => {
     },
     openAt: (at) => void placed.push(at),
     showHistory: (path) => void histories.push(path),
+  });
+  setupDiffWithWorkingTree(services, () => {
+    revealed++;
   });
 });
 
@@ -742,6 +753,72 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
     commands.execute('git.file.compareWithBranch');
     expect(await popupItems()).toEqual(['feature-9', 'feature-10', 'origin/main', 'v1.0']);
     expect(logged.mock.calls[0]?.[0]).toBe('Reading the recent branches failed');
+  });
+
+  it('compares a folder of the Project view, or the worktree’s own, in the Changes tool window', async () => {
+    const visible = () => commands.get('git.file.compareWithBranch')?.visible?.(undefined);
+    // This test's worktree, on main: the current branch the title names.
+    const worktrees = (projectOf('/r') as ProjectState).worktrees;
+    worktrees.set([...worktrees.peek(), { id: wt, name: 't', branch: 'main' }]);
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(
+      () => <DiffWithWorkingTree services={services} open={(tab) => opened.push(tab)} />,
+      box,
+    );
+    dispose = () => {
+      handle.dispose();
+    };
+    const differing: Change[] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'modified' },
+    ];
+    git.turnFiles['refs/heads/feature-9..undefined'] = differing;
+    git.turnFiles['refs/tags/v1.0..undefined'] = differing;
+    const explanation = () =>
+      document.querySelector('.playground-compare__explanation')?.textContent;
+    const shownRows = () =>
+      [...box.querySelectorAll('.cerebro-tree-row')].map((r) => r.getAttribute('data-key'));
+    vi.mocked(projectNode).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(visible()).toBe(true);
+    // Not Show Diff's, which IntelliJ's has for a file alone.
+    expect(commands.get('git.file.showDiff')?.visible?.(undefined)).toBe(false);
+    await unsavedEdit(host, `${wt}/src/main/app.ts`);
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('feature-9{Enter}');
+    await expect
+      .poll(explanation)
+      .toBe('Difference Between feature-9 and main (Local) Versions in src');
+    // The folder's files alone; what git compares saved first.
+    await expect.poll(shownRows).toContain('src/a.ts');
+    expect(shownRows()).not.toContain('b.ts');
+    expect(unsavedFiles()).toEqual([]);
+    expect(revealed).toBeGreaterThan(0);
+    expect(opened).toEqual([]);
+    // The worktree's own: all of them.
+    vi.mocked(projectNode).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('v1{Enter}');
+    await expect.poll(explanation).toBe('Difference Between v1.0 and main (Local) Versions in r');
+    await expect.poll(shownRows).toContain('b.ts');
+    // Escape: nothing shown.
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(explanation()).toBe('Difference Between v1.0 and main (Local) Versions in r');
+    // A file selected there is a file's, a group nothing.
+    vi.mocked(projectNode).mockReturnValue({ path: `${wt}/a.ts`, name: 'a.ts', kind: 'file' });
+    vi.mocked(projectFile).mockReturnValue(`${wt}/a.ts`);
+    expect(visible()).toBe(true);
+    vi.mocked(projectNode).mockReturnValue(null);
+    vi.mocked(projectFile).mockReturnValue(null);
+    expect(visible()).toBe(false);
+    vi.mocked(projectNode).mockReset();
+    vi.mocked(projectFile).mockReset();
+    worktrees.set(worktrees.peek().filter((w) => w.id !== wt));
   });
 
   it('says on the console when the branches can’t be read', async () => {

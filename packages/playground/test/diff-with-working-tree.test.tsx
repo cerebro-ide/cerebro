@@ -10,6 +10,7 @@ import {
   setupDiffWithWorkingTree,
   shortened,
   showDiffWithWorkingTree,
+  showFolderDiffWithRef,
 } from '../src/diff-with-working-tree.js';
 import { setupLog } from '../src/git-log.js';
 import { documentFor } from '../src/documents.js';
@@ -322,6 +323,49 @@ describe('a commit’s Compare with Local', () => {
     await row('lib/c.ts');
     expect(document.querySelector('.cerebro-tree-row[data-key="src/b.ts"]')).toBeNull();
     expect(document.querySelector('.cerebro-tree-row[data-key="docs/d.md"]')).toBeNull();
+  });
+});
+
+describe('a folder’s Compare with Branch or Tag', () => {
+  const ref = 'refs/heads/feature';
+  beforeAll(() => {
+    useProjects([project('/r', host)]);
+    host.answers['git.shelves'] = () => [];
+    host.answers['git.stashes'] = () => [];
+    host.answers['git.state'] = () => ({ conflicts: false });
+  });
+
+  it('shows the folder’s files that differ, in IntelliJ’s words, and gets one as the branch has it', async () => {
+    host.answers['git.getVersion'] = () => null;
+    differing[ref] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'src/b.ts', status: 'renamed', from: 'old/b.ts' },
+      { path: 'lib/c.ts', status: 'modified' },
+    ];
+    mount();
+    showFolderDiffWithRef(host, '/r', ref, { path: 'src', name: 'src' });
+    await expect
+      .poll(() => text('.playground-compare__explanation'))
+      .toBe('Difference Between feature and main (Local) Versions in src');
+    expect(reveal).toHaveBeenCalled();
+    const row = (path: string) =>
+      document.querySelector<HTMLElement>(`.cerebro-tree-row[data-key="${path}"]`);
+    await expect.poll(() => row('src/b.ts')).not.toBeNull();
+    expect(row('lib/c.ts')).toBeNull();
+    // Refresh, as a commit's: IntelliJ's same dialog.
+    expect(document.querySelector('[aria-label="Refresh"]')).not.toBeNull();
+    await userEvent.click(row('src/b.ts') as HTMLElement);
+    await userEvent.click(document.querySelector('[aria-label="Get"]') as HTMLElement);
+    await expect
+      .poll(() => host.params('git.getVersion'))
+      .toEqual([{ path: '/r', ref, file: 'src/b.ts', source: 'old/b.ts' }]);
+    delete host.answers['git.getVersion'];
+    // The worktree's own: all its files.
+    showFolderDiffWithRef(host, '/r', ref, { path: '', name: 'r' });
+    await expect
+      .poll(() => text('.playground-compare__explanation'))
+      .toBe('Difference Between feature and main (Local) Versions in r');
+    await expect.poll(() => row('lib/c.ts')).not.toBeNull();
   });
 });
 

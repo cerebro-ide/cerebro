@@ -79,7 +79,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
-- [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
+- [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words; a Project view folder's files that differ, in the Changes tool window
 - [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git); Ctrl+D from the Project view
 - [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
@@ -4075,7 +4075,22 @@ items of the submenu").
   branch, before Local, which lists the others; in each group favorites first, then by name, a
   favorite with its star, which can't be clicked here (IntelliJ's `favoriteToggleOnClickSupported`
   is false for this popup).
-- **Not yet:** the popup's settings; comparing a folder.
+- **A folder** (added 2026-11-16), selected in the Project view, as IntelliJ's (`DvcsCompareWithAction`,
+  `GitCompareWithRefAction.getDiffChanges`, read from their source): after the same popup, its
+  files that differ from the branch or tag, in the Changes tool window that a commit's Compare with
+  Local shows in (IntelliJ's `CompareWithLocalDialog`, with its Refresh and Get). Its title is
+  IntelliJ's ("Difference Between feature and main (Local) Versions in src", `VcsBundle`'s
+  `history.dialog.title.difference.between.versions.in`); the worktree's own folder compares all
+  its files. Get makes a file as the branch has it, after IntelliJ's "Get Revision" question
+  (`GetVersionAction`): the host's `git.getVersion` takes a branch or a tag in full now, as well as
+  a commit's hash. Claude's choices, open to change:
+  - The documents are saved first, so git sees the edits, as for Show Diff with Working Tree. Not
+    found in IntelliJ's code for this action.
+  - A folder that isn't in the branch, and has no differences, shows "No differences"; IntelliJ's
+    says "Directory src doesn't exist in branch 'feature'".
+  - Only from the main menu's Git → Current File while the Project view has the keyboard: the
+    Project view has no Git submenu yet.
+- **Not yet:** the popup's settings; the Project view's Git submenu.
 
 ## Git → Current File → Show Diff (2026-11-12)
 

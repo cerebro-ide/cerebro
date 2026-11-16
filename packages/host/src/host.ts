@@ -1506,7 +1506,9 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
   // Get from Revision: the file as the commit has it, in the Local History as IntelliJ's activity.
   connection.onRequest('git.getVersion', async (params) => {
     const worktree = text(params, 'path');
-    const hash = hashOf(params);
+    // A commit's hash, or a branch or tag in full (`refs/heads/main`), which is never an option.
+    const ref = (params as { ref?: unknown }).ref;
+    const hash = typeof ref === 'string' && /^refs\/[^\s:]+$/.test(ref) ? ref : hashOf(params);
     const file = text(params, 'file');
     // Where the commit has it, if not there (renamed since).
     const source =

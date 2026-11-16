@@ -1296,7 +1296,7 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('gets a file as a commit has it, and not from what isn’t a commit hash', async () => {
+  it('gets a file as a commit, a branch or a tag has it, and not from what isn’t one', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cerebro-get-'));
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'ls-tree' ? 'a.ts\n' : 'then'),
@@ -1315,9 +1315,20 @@ describe('ignored files and rolling back', () => {
     });
     expect(git).toHaveBeenCalledWith(dir, ['ls-tree', '--name-only', 'abc1234', '--', 'a.ts']);
     expect(readFileSync(join(dir, 'b.ts'), 'utf8')).toBe('then');
-    await expect(
-      ui.request('git.getVersion', { path: dir, hash: '--all', file: 'a.ts' }),
-    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Or a branch's or a tag's, named in full.
+    await ui.request('git.getVersion', { path: dir, ref: 'refs/heads/side', file: 'c.ts' });
+    expect(git).toHaveBeenCalledWith(dir, [
+      'ls-tree',
+      '--name-only',
+      'refs/heads/side',
+      '--',
+      'c.ts',
+    ]);
+    for (const params of [{ hash: '--all' }, { ref: '--all' }, { ref: 'side' }]) {
+      await expect(
+        ui.request('git.getVersion', { path: dir, file: 'a.ts', ...params }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
     rmSync(dir, { recursive: true });
   });
 
