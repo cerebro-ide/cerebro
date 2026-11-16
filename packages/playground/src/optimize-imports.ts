@@ -19,7 +19,7 @@ export type AskOrganize = (path: string) => Promise<readonly FormatEdit[] | { re
 export function setupOptimizeImports(commands: CommandRegistry, organize: AskOrganize): void {
   commands.register({
     id: 'code.optimizeImports',
-    label: 'Optimize Imports',
+    label: 'Optimi&ze Imports',
     // An editor that can be edited has the focus (or had it before a menu took it).
     enabled: () => {
       const at = target();

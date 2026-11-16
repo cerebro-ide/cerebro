@@ -75,7 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
-- [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action and the Keymap page; its keys still the editor's, stopping there once run
+- [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3108,8 +3108,7 @@ the ones the file's language gives CodeMirror (`commentTokens`): none in JSON, s
 - **Measured in the app:** Playwright's `Control+Shift+/` sends `/` with Shift held, which
   CodeMirror reads as Ctrl+/ (a character key's Shift is in the character); a US keyboard's `?`
   is Ctrl+Shift+/. **Claim:** that Chrome sends `?` from a real keyboard (not measured here).
-- **Not yet:** a Code menu (IntelliJ's has them, as Reformat Code and the editor's other actions;
-  they're keys only here, not commands, so not in Find Action either).
+- **In the Code menu** and Find Action since "The editor's actions as commands" (2026-11-16).
 
 ## Move Line Up and Down (2026-11-13)
 
@@ -3581,8 +3580,9 @@ choices, open to change.
   no Type Declaration (none of either on macOS); none for Implementation in Emacs's; none for Type
   Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
   macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
-- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands, so in no menu);
-  Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's; IntelliJ's list shows each
+- **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's (with the keymaps'
+  mouse shortcuts, Ido: "All, as IntelliJ's", 2026-11-16); IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
 
 ## Go to Super Method (2026-11-14)
@@ -3620,8 +3620,8 @@ change.
   NetBeans' and macOS System Shortcuts' Ctrl+Alt+Down and Up; none in Sublime Text's on macOS. VS
   Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
   keymaps have none (Claude's choice).
-- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands); IntelliJ
-  scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
+- **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** IntelliJ scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
   it as Go to Definition does.
 
 ## Optimize Imports (2026-11-14)
@@ -3645,8 +3645,9 @@ actions). Claude's choices, open to change.
   Ctrl+Shift+O, and Cmd+Shift+O on macOS; NetBeans' Ctrl+Shift+I; Visual Studio's Ctrl+R G,
   Ctrl+R Ctrl+G and Ctrl+Alt+O. VS Code's shortcut sheets don't list it, so its keymaps keep
   IntelliJ's.
-- **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
-  (IntelliJ's dialog); Optimize Imports on save or before a commit.
+- **In the Code menu** after Reformat Code since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** a folder or several files at once (IntelliJ's dialog); Optimize Imports on save or
+  before a commit.
 
 ## The Structure tool window (2026-11-14)
 
@@ -3744,8 +3745,25 @@ Keymap page didn't list them.
 - **Rejected:** taking their keys from CodeMirror and letting the app's keymap run them: the window
   hears a key after the editor's own keymaps (its popups', its find bar's), so the order they're
   tried in would change.
-- **Not yet:** the menus that hold them, IntelliJ's Code menu among them (next). A diff window
-  has few commands of its own (Jump to Source), so not these; its editors' keys work as before.
+- **In the menus where IntelliJ's are** (its LangActions.xml and PlatformActions.xml), with only
+  what Cerebro has of each group, among Cerebro's own items:
+  - **Code** (after Navigate): Code Completion → Basic; Folding → Expand, Expand All, Collapse,
+    Collapse All; Comment with Line and Block Comment, Reformat Code, Optimize Imports; Move Line
+    Down and Up.
+  - **Refactor** (after Code): Rename.
+  - **Navigate:** Next and Previous Highlighted Error; Next and Previous Method; after Select In,
+    Declaration or Usages, Implementation(s), Type Declaration and Super Method, IntelliJ's texts
+    for that menu (`action.{id}.MainMenu.text`), which a menu item can now give
+    (`MenuItemSpec`'s `label`).
+  - **Edit:** Find and Replace first in Find, Find in Files after a separator; Extend and Shrink
+    Selection; Toggle Case and Join Lines before Duplicate Line or Selection.
+  - **View:** Quick Definition and Quick Documentation, after Tool Windows.
+  - Each group is its own, between separators, where Cerebro's Navigate menu already parts from
+    IntelliJ's order (Claude's, open to change): IntelliJ has Next Highlighted Error with Last Edit
+    Location, and Line/Column before it.
+- **Not yet:** the editor's context menu's own (IntelliJ's `EditorPopupMenu`: Show Context
+  Actions, Go To, Folding). A diff window has few commands of its own (Jump to Source), so not
+  these; its editors' keys work as before.
 
 ## Git → Current File → Show History (2026-11-12)
 
@@ -5069,7 +5087,6 @@ change.
     "Binaries with the installer").
   - Formatting on save, IntelliJ's Reformat File dialog (optimize imports, rearrange), and
     formatting as one types.
-  - Reformat Code in a menu: no editor action is in one yet.
   - Prettier: a plugin, later (backlog).
 
 ## File Structure (2026-11-04)

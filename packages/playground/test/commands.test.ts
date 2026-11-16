@@ -198,8 +198,15 @@ describe('the tab commands', () => {
 });
 
 describe('the main menu', () => {
-  it('has File, Edit, View and Help', () => {
-    expect(entries('main')).toEqual(['main/file', 'main/edit', 'main/view', 'main/help']);
+  it('has File, Edit, View, Code, Refactor and Help', () => {
+    expect(entries('main')).toEqual([
+      'main/file',
+      'main/edit',
+      'main/view',
+      'main/code',
+      'main/refactor',
+      'main/help',
+    ]);
     expect(entries('main/file')).toEqual([
       'file.new',
       'file.newScratch',
@@ -221,6 +228,11 @@ describe('the main menu', () => {
       'edit.copy',
       'edit.paste',
       '—',
+      'editor.extendSelection',
+      'editor.shrinkSelection',
+      '—',
+      'editor.toggleCase',
+      'editor.joinLines',
       'edit.duplicate',
     ]);
     expect(entries('main/view/tools')).toEqual(['view.tool.project', 'view.tool.notes']);

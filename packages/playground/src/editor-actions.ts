@@ -3,9 +3,10 @@
 // the Keymap page changes their keys. Each runs on the editor that has the keyboard, or had it
 // before a menu took it, and is on where that editor has it (`hasEditorAction`). Their keys are the
 // editor's own (`editorKeys`), which stop there once run; the commands take them where no editor
-// ran them. Rename is the Project view's too (`rename-file.ts`).
+// ran them. Rename is the Project view's too (`rename-file.ts`). They're in the menus where
+// IntelliJ's are (its LangActions.xml and PlatformActions.xml), among Cerebro's own items.
 
-import type { CommandRegistry } from '@cerebro-ide/commands';
+import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { hasEditorAction, runEditorAction, type EditorAction } from '@cerebro-ide/ui-editor';
 import { target } from './edit.js';
 import { EDITOR_ACTIONS } from './keymaps.js';
@@ -72,8 +73,8 @@ export function runInEditor(action: EditorAction): boolean {
   return element !== undefined && runEditorAction(element, action);
 }
 
-/** Registers the editor's actions as commands. */
-export function setupEditorActions(commands: CommandRegistry): void {
+/** Registers the editor's actions as commands, in the menus. */
+export function setupEditorActions(commands: CommandRegistry, menus: MenuRegistry): void {
   for (const [action, label] of Object.entries(LABELS) as [EditorAction, string][]) {
     commands.register({
       id: EDITOR_ACTIONS[action],
@@ -85,4 +86,70 @@ export function setupEditorActions(commands: CommandRegistry): void {
       },
     });
   }
+  contributeMenus(menus);
+}
+
+/**
+ * Their places in the menus, as IntelliJ's: its groups' order, a separator between them, and its
+ * texts for the Navigate menu (`action.{id}.MainMenu.text`).
+ */
+function contributeMenus(menus: MenuRegistry): void {
+  const add = (menu: string, action: EditorAction, group: string, label?: string) =>
+    menus.contribute({
+      menu,
+      item: { command: EDITOR_ACTIONS[action], ...(label === undefined ? {} : { label }) },
+      group,
+    });
+  const submenu = (menu: string, submenu: string, label: string, group: string) =>
+    menus.contribute({ menu, item: { submenu, label }, group });
+  // Code, after Navigate, and Refactor after it, as IntelliJ's `CodeMenu` and `RefactoringMenu`.
+  menus.contribute({ menu: 'main', item: { submenu: 'main/code', label: '&Code' }, order: 5 });
+  menus.contribute({
+    menu: 'main',
+    item: { submenu: 'main/refactor', label: '&Refactor' },
+    order: 6,
+  });
+  submenu('main/code', 'main/code/completion', 'Code &Completion', 'a');
+  add('main/code/completion', 'complete', 'a');
+  submenu('main/code', 'main/code/folding', 'Folding', 'b');
+  add('main/code/folding', 'unfold', 'a');
+  add('main/code/folding', 'unfoldAll', 'a');
+  add('main/code/folding', 'fold', 'b');
+  add('main/code/folding', 'foldAll', 'b');
+  // `CommentGroup` and `CodeFormatGroup`: Optimize Imports after Reformat Code (main.tsx).
+  add('main/code', 'lineComment', 'c');
+  add('main/code', 'blockComment', 'c');
+  add('main/code', 'format', 'c');
+  add('main/code', 'moveLineDown', 'd');
+  add('main/code', 'moveLineUp', 'd');
+  add('main/refactor', 'rename', 'a');
+  // Navigate: `GoToErrorGroup`, `NavigateInFileGroup`, then `GoToCodeGroup` after Select In.
+  add('main/navigate', 'nextProblem', 'a2');
+  add('main/navigate', 'previousProblem', 'a2');
+  add('main/navigate', 'methodDown', 'a3');
+  add('main/navigate', 'methodUp', 'a3');
+  add('main/navigate', 'goToDefinition', 'b2', '&Declaration or Usages');
+  add('main/navigate', 'goToImplementation', 'b2', 'I&mplementation(s)');
+  add('main/navigate', 'goToTypeDeclaration', 'b2', '&Type Declaration');
+  add('main/navigate', 'goToSuperMethod', 'b2', 'S&uper Method');
+  // Edit: `FindMenuGroup`'s first (Find in Files after them, main.tsx); `EditSelectWordGroup`, at
+  // `EditSelectGroup`'s end; `EditSmartGroup`'s first, before Duplicate Line or Selection.
+  add('main/edit/find', 'find', 'a');
+  add('main/edit/find', 'replace', 'a');
+  add('main/edit', 'extendSelection', 'r');
+  add('main/edit', 'shrinkSelection', 'r');
+  for (const [order, action] of [
+    [-2, 'toggleCase'],
+    [-1, 'joinLines'],
+  ] as const) {
+    menus.contribute({
+      menu: 'main/edit',
+      item: { command: EDITOR_ACTIONS[action] },
+      group: 's',
+      order,
+    });
+  }
+  // View: `QuickActions`, after the window's look (Tool Windows here, before Recent Files).
+  add('main/view', 'quickDefinition', 'b2');
+  add('main/view', 'quickDocumentation', 'b2');
 }
