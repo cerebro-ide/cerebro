@@ -8,9 +8,43 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { python } from '@codemirror/lang-python';
 import { yaml } from '@codemirror/lang-yaml';
-import { Language, LanguageSupport, StreamLanguage } from '@codemirror/language';
+import {
+  indentNodeProp,
+  Language,
+  LanguageSupport,
+  LRLanguage,
+  StreamLanguage,
+  type TreeIndentContext,
+} from '@codemirror/language';
 import { shell } from '@codemirror/legacy-modes/mode/shell';
 import type { Extension } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
+
+/**
+ * The tags whose children aren't indented, as IntelliJ's HTML code style has them by default
+ * (`HtmlCodeStyleSettings.HTML_DO_NOT_INDENT_CHILDREN_OF`, read from its source).
+ */
+const NOT_INDENTED = new Set(['html', 'body', 'thead', 'tbody', 'tfoot']);
+
+/** A tag's indent for what it holds: CodeMirror's, none for `NOT_INDENTED`'s. */
+function elementIndent(context: TreeIndentContext): number | null {
+  const after = (/^(\s*)(<\/)?/.exec(context.textAfter) as RegExpExecArray)[0];
+  if (context.node.to <= context.pos + after.length) return context.continue();
+  // Lezer's element starts with its start tag, which has its name (`<` alone is no element).
+  const name = (context.node.firstChild as SyntaxNode).getChild('TagName') as SyntaxNode;
+  const tag = context.state.sliceDoc(name.from, name.to).toLowerCase();
+  const inner = after.includes('</') || NOT_INDENTED.has(tag) ? 0 : context.unit;
+  return context.lineIndent(context.node.from) + inner;
+}
+
+/** CodeMirror's HTML, its tags' children indented as IntelliJ's. */
+function htmlSupport(): LanguageSupport {
+  const support = html();
+  const language = (support.language as LRLanguage).configure({
+    props: [indentNodeProp.add({ Element: elementIndent })],
+  });
+  return new LanguageSupport(language, support.support);
+}
 
 /** Each extension's language: its name, as IntelliJ's file types (a claim: not all measured), and its support. */
 const LANGUAGES: Readonly<Record<string, { name: string; support: () => Extension }>> = {
@@ -24,8 +58,8 @@ const LANGUAGES: Readonly<Record<string, { name: string; support: () => Extensio
   jsx: { name: 'JavaScript', support: () => javascript({ jsx: true }) },
   json: { name: 'JSON', support: () => json() },
   css: { name: 'CSS', support: () => css() },
-  html: { name: 'HTML', support: () => html() },
-  htm: { name: 'HTML', support: () => html() },
+  html: { name: 'HTML', support: htmlSupport },
+  htm: { name: 'HTML', support: htmlSupport },
   md: { name: 'Markdown', support: () => markdown() },
   py: { name: 'Python', support: () => python() },
   yaml: { name: 'YAML', support: () => yaml() },

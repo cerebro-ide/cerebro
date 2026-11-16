@@ -2,7 +2,8 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { Text } from '@codemirror/state';
+import { getIndentation, indentUnit } from '@codemirror/language';
+import { EditorState, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
@@ -120,6 +121,20 @@ describe('languageFor', () => {
       'JSON',
       'Plain Text',
     ]);
+  });
+
+  it('indents HTML as IntelliJ: not the children of html, body, thead, tbody and tfoot', () => {
+    const doc =
+      '<html>\n<body>\n<div>\n<p>a</p>\n</div>\n<table><tbody>\n<tr></tr>\n</tbody></table>\n</body>\n</html>';
+    const state = EditorState.create({
+      doc,
+      extensions: [languageFor('a.html') ?? [], indentUnit.of('    ')],
+    });
+    const indents = Array.from({ length: state.doc.lines }, (_, i) =>
+      getIndentation(state, state.doc.line(i + 1).from),
+    );
+    // A closing tag at its tag's indent; a div's children in by a unit.
+    expect(indents).toEqual([0, 0, 0, 4, 0, 0, 0, 0, 0, 0]);
   });
 
   it('lists each language once, with its first extension, by name', () => {
