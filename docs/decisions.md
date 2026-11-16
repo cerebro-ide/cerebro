@@ -3097,9 +3097,11 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   - Where there's no .gitignore, the item is still named ".gitignore", not "Add to .gitignore" as
     IntelliJ's create action is.
   - A failure says so in a dialog ("Couldn’t Add to .gitignore"); IntelliJ shows none.
-- **Not yet,** as Cerebro doesn't have them: Commit File…, Show History
-  for Selection, Revert Selected Changes for the file, Revert Resolved, the staging area's,
-  Clone….
+- **Not here, as in IntelliJ:** its Rollback File… (`ChangesView.RevertFiles`,
+  `RollbackFilesAction`, read from its source) is in `Git.ContextMenu`, but it shows only in the
+  Commit window's tree (`ChangesListView.DATA_KEY`), never in this submenu.
+- **Not yet,** as Cerebro doesn't have them: Commit File…, Show History for Selection, Revert
+  Resolved, the staging area's, Clone….
 
 ## A Markdown file's preview (2026-11-13)
 
