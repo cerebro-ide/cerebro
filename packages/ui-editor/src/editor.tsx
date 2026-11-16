@@ -725,13 +725,35 @@ export const theme = EditorView.theme({
   '.cerebro-quickDef__title': { padding: '6px 10px', fontWeight: '600' },
   '.cerebro-quickDef__header': {
     display: 'flex',
-    justifyContent: 'space-between',
-    gap: '16px',
+    alignItems: 'center',
+    gap: '4px',
     padding: '4px 10px',
     borderTop: `1px solid ${variable('tooltip-border')}`,
     borderBottom: `1px solid ${variable('tooltip-border')}`,
   },
-  '.cerebro-quickDef__file': { color: variable('text-muted') },
+  '.cerebro-quickDef__entry': { display: 'flex', flex: '1', gap: '16px' },
+  '.cerebro-quickDef__file': { color: variable('text-muted'), marginLeft: 'auto' },
+  // Several definitions: the list to choose from, then Back, "1/2" and Forward, as IntelliJ's.
+  '.cerebro-quickDef__chooser': {
+    flex: '1',
+    height: '24px',
+    padding: '0 4px',
+    border: `1px solid ${variable('input-border')}`,
+    borderRadius: '4px',
+    background: variable('input'),
+    color: variable('text'),
+    font: 'inherit',
+  },
+  '.cerebro-quickDef__step': {
+    display: 'flex',
+    padding: '2px',
+    border: 'none',
+    borderRadius: '4px',
+    background: 'none',
+    color: variable('text-muted'),
+  },
+  '.cerebro-quickDef__step:hover': { background: variable('hover') },
+  '.cerebro-quickDef__count': { color: variable('text-muted'), fontVariantNumeric: 'tabular-nums' },
   '.cerebro-quickDef__code': { minHeight: '0', overflow: 'auto', padding: '4px 0' },
   // A hint at the caret: why there's nothing to rename, the lines Reformat Code changed.
   '.cerebro-hint': {

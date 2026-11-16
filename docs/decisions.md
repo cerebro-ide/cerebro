@@ -3506,9 +3506,21 @@ IntelliJ's View → Quick Definition, which WebStorm has. Claude's choices, open
   its Redo there (Claude's choice). VS Code's is its Peek Definition, from its sheets: Alt+F12,
   Ctrl+Shift+F10 on Linux; on macOS Alt+F12, a claim: the macOS sheet's modifier keys are glyphs
   that don't come out as text.
-- **Not yet:** several definitions (IntelliJ's switcher, "1 of 2", and its list of files; the
-  first is shown); the popup's toolbar (Back and Forward, Edit Source's button, Show in Find
-  Window, pinning it as a tab); a definition the index finds when no server answers (Go to
+- **Several definitions** (added 2026-11-16), as IntelliJ's `DefinitionSwitcher` and
+  `ImplementationViewComponent` (read from its source): every one the server gives, in its order,
+  the first shown. A list of them takes the place of the name and the file, each its name (the
+  word at its place in its file) and its file's name; then Back, "1/3" and Forward
+  (CodeInsightBundle's words), shown for one too, as IntelliJ's. Back and Forward, and Left and
+  Right, go through them, round from either end; Edit Source opens the one shown. A file that
+  can't be read leaves its definition out.
+  - **Claude's, open to change:** the list is the page's own drop-down, its rows the name and the
+    file with two spaces between (IntelliJ's combo box puts the file at the right, and with one
+    name for all, the member each is in, which the server doesn't give); the arrows are drawn
+    here (IntelliJ's `Play_back` and `Play_forward`, a claim); the keyboard stays in the editor,
+    so Left and Right go through them while the popup shows, as in IntelliJ's popup, which takes
+    the keyboard.
+- **Not yet:** the toolbar's More menu (Edit Source's item, Show in Find Window), pinning it as
+  a tab; a definition the index finds when no server answers (Go to
   Definition's fallback); a binary file's view; the declaration's documentation comment, which
   IntelliJ's selectioner may take in (a claim, not read).
 

@@ -446,18 +446,21 @@ describe('Call Hierarchy', () => {
 });
 
 describe('Quick Definition', () => {
-  it('shows the first definition’s declaration, its lines as its document has them', async () => {
+  it('shows each definition’s declaration, named, its lines as its document has them', async () => {
     answers = {
       'lsp.definitionSpans': [
         { path: '/r/quick.ts', line: 1, column: 9, first: 1, last: 2 },
-        { path: '/r/other.ts', line: 0, column: 0, first: 0, last: 0 },
+        { path: '/r/quick.ts', line: 3, column: 0, first: 3, last: 3 },
       ],
-      'fs.read': { text: 'a\nfunction f() {\n}\nb\n' },
+      'fs.read': { text: 'a\nfunction fé1() {\n}\nb\n' },
     };
     const found = await nav.quickDefinition(asked);
-    expect(found).toMatchObject({ path: '/r/quick.ts', text: 'function f() {\n}' });
+    expect(found).toMatchObject([
+      { name: 'fé1', path: '/r/quick.ts', text: 'function fé1() {\n}' },
+      { name: 'b', text: 'b' },
+    ]);
     expect(host.params('lsp.definitionSpans')).toEqual([{ worktree: '/r', ...asked }]);
-    found?.open();
+    found?.[0]?.open();
     await expect.poll(() => reveals.get('/r/quick.ts')).toEqual({ line: 1, column: 9 });
   });
 
