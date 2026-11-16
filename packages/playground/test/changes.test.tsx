@@ -716,6 +716,64 @@ describe('Git → Current File from a tab’s menu', () => {
   });
 });
 
+describe('the Git submenu’s Commit File…', () => {
+  const id = 'git.file.commit';
+  const ticked = () =>
+    CHANGES.filter((c) => c.status !== 'untracked')
+      .map((c) => c.path)
+      .filter((path) => include(`${GROUP}:${path}`).checked);
+
+  it('puts the editor’s file alone into the commit, and shows the Commit window', async () => {
+    await changesView();
+    activeTab = `${wt}/src/main/app.ts`;
+    // An untracked file was put in: taken out.
+    await userEvent.click(include(`${UNVERSIONED}:notes.txt`));
+    const before = shown;
+    expect(commands.isEnabled(id)).toBe(true);
+    expect(commands.get(id)?.text?.(undefined)).toBe('Comm&it File');
+    await commands.get(id)?.run(undefined);
+    await expect.poll(ticked).toEqual(['src/main/app.ts']);
+    expect(include(`${UNVERSIONED}:notes.txt`).checked).toBe(false);
+    expect(shown).toBe(before + 1);
+  });
+
+  it('puts a Project view folder’s changes in, or all of them for the root', async () => {
+    await changesView();
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get(id)?.text?.(undefined)).toBe('Comm&it Directory');
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    await expect.poll(ticked).toEqual(['src/main/app.ts', 'src/main/new.ts']);
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    await commands.get(id)?.run(undefined);
+    await expect
+      .poll(ticked)
+      .toEqual(['src/main/app.ts', 'src/main/new.ts', 'README.md', 'docs/guide.md']);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('is off for an unchanged file, on for an untracked one, as IntelliJ’s', async () => {
+    await changesView();
+    activeTab = `${wt}/unchanged.ts`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.isEnabled(id)).toBe(true);
+    // In the Git submenu.
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    activeTab = undefined;
+    expect(commands.isEnabled(id)).toBe(false);
+  });
+
+  it('says why when the changes can’t be read', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    // The Commit window hasn't read the changes: on.
+    expect(commands.isEnabled(id)).toBe(true);
+    git.failing = 'git.changes';
+    void commands.get(id)?.run(undefined);
+    expect(await dialogText()).toContain('git.changes failed');
+  });
+});
+
 describe('the Git submenu’s Add', () => {
   const id = 'git.file.add';
   const added = () => host.params('git.add');

@@ -1153,6 +1153,51 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
+  // The Git submenu's Commit File…: IntelliJ's `CheckinFiles` (`CommonCheckinFilesAction`, read
+  // from its source), in its non-modal commit, its default. The documents saved, the Commit window
+  // shows with the tracked changes of the file, or under the folder, going into the commit, and no
+  // other (`getIncludedChanges`, `setCommitState` with `force`); named for a folder as IntelliJ's
+  // (`action.name.checkin.directory`). On for a folder, or a file that isn't unchanged or ignored
+  // (`isActionEnabled`): an untracked one too, though it puts nothing in, as IntelliJ's.
+  commands.register({
+    id: 'git.file.commit',
+    label: 'Comm&it File',
+    text: (c) => (currentFolder(c) ? 'Comm&it Directory' : 'Comm&it File'),
+    icon: 'commit',
+    dialog: true,
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => {
+      if (currentFolder(c)) return true;
+      const file = currentFile(c);
+      const known = file && lists.get(file.worktree);
+      if (!file || !known) return file !== undefined;
+      return [...known.tracked(), ...known.unversioned()].some((c) => c.path === file.path);
+    },
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      await saveBeforeGit();
+      const changes = changesOf(at.worktree);
+      try {
+        await changes.refresh();
+      } catch (error) {
+        fail('Couldn’t Read the Changes')(error);
+        return;
+      }
+      const under = (path: string) =>
+        at.path === '' || path === at.path || path.startsWith(`${at.path}/`);
+      batch(() => {
+        changes.included.clear();
+        changes.excluded.clear();
+        for (const change of changes.tracked()) {
+          if (!under(change.path)) changes.excluded.add(change.path);
+        }
+      });
+      setup.show();
+      requestAnimationFrame(() => {
+        messageField()?.focus();
+      });
+    },
+  });
   // Whether what the Git submenu acts on has untracked files (IntelliJ's `getUnversionedFiles`): a
   // folder always, as git's folders aren't versioned (`isFileUnversioned`), a file once the Commit
   // window has it as untracked, or hasn't read the changes.

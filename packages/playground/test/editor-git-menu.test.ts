@@ -30,6 +30,7 @@ describe('the editor’s Git submenu', () => {
       { command: 'git.file.exclude' },
     ]);
     expect(names).toEqual([
+      'git.file.commit',
       'git.file.add',
       'editor/git/ignore',
       '-',

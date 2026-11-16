@@ -3069,7 +3069,15 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
     (`IssueLinkHtmlRenderer`), which Cerebro has no setting for.
   - The centred one's text can be selected and copied (the hint's, as the editor's other hints,
     can't). IntelliJ's is an editor pane, so it can be too (a claim: not tried).
-- **Add** (added 2026-11-16), first in the submenu, as IntelliJ's `Git.Add`
+- **Commit File…** (added 2026-11-16), first in the submenu, as IntelliJ's `CheckinFiles`
+  (`CommonCheckinFilesAction`, read from its source), in its non-modal commit (its default): the
+  documents saved, the Commit window shows with only the tracked changes of the file, or under the
+  folder, going into the commit (`getIncludedChanges`, `setCommitState` with `force`), the message
+  field taking the keyboard as Commit's does. For a folder it's "Commit Directory…"
+  (`action.name.checkin.directory`). It's on for a folder, and for a file that isn't unchanged or
+  ignored (`isActionEnabled`). That includes an untracked file, which it puts nothing in for, as
+  IntelliJ's (only the Commit window's own selection gives it untracked files).
+- **Add** (added 2026-11-16), after Commit File…, as IntelliJ's `Git.Add`
   (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`, read from its source): the file, or the
   untracked files under the Project view's folder (`getUnversionedDescendantsRecursively`), added
   to git; what's tracked isn't staged. On for an untracked file and for any folder, as git's
@@ -3104,8 +3112,8 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   - Revert Resolved (`Git.RevertResolved`) shows for files whose conflicts were resolved, which
     IntelliJ tracks only with its non-modal merge on (`GitResolvedMergeConflictsFilesHolder`). That's
     off by default: `vcs.non.modal.merge.enabled=false` in `registry.properties`.
-- **Not yet,** as Cerebro doesn't have them: Commit File…, Show History for Selection, the staging
-  area's, Clone….
+- **Not yet,** as Cerebro doesn't have them: Show History for Selection, the staging area's,
+  Clone….
 
 ## A Markdown file's preview (2026-11-13)
 
