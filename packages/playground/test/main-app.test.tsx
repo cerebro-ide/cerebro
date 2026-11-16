@@ -2663,9 +2663,7 @@ describe('the editor’s file', () => {
     );
     await userEvent.keyboard('{Enter}');
     await expect
-      .poll(
-        () => (document.querySelector('.cerebro-popup__search') as HTMLInputElement | null)?.value,
-      )
+      .poll(() => document.querySelector<HTMLInputElement>('.cerebro-popup__search')?.value)
       .toBe('zzqq');
     expect(
       document.querySelector('.playground-find__scope[aria-selected="true"]')?.textContent,
