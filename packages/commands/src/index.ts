@@ -7,6 +7,7 @@ export {
   formatChord,
   ModifierTaps,
   formatSequence,
+  isMouseChord,
   normalizeChord,
   normalizeSequence,
   type KeyEventLike,
@@ -21,3 +22,4 @@ export {
   type KeymapPreset,
   type UserBinding,
 } from './keymap.js';
+export { chordFromMouse, DRAG_DISTANCE, MouseDispatcher, type MouseEventLike } from './mouse.js';

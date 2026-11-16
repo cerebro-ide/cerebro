@@ -61,6 +61,14 @@ describe('the Keymap page', () => {
     expect(document.body.textContent).toContain('Close Tab');
   });
 
+  it('lists a mouse shortcut with the keys, as IntelliJ shows it, and removes it as a key', async () => {
+    userKeymaps.set({ intellij: [{ key: 'Ctrl+Click', command: 'editor.close' }] });
+    page(() => 'intellij');
+    expect(keys()).toBe('Ctrl+Click, Ctrl+F4');
+    await remove('Ctrl+Click');
+    expect(keys()).toBe('Ctrl+F4');
+  });
+
   it('keeps each keymap’s changes on its own, and saves them all on Apply', async () => {
     const chosen = signal('intellij');
     const custom = page(() => chosen.get());

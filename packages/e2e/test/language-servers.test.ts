@@ -491,7 +491,7 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
   }
 }, 60_000);
 
-it('shows a word with a definition as a link under the pointer with Ctrl held', async () => {
+it('shows a word with a definition as a link under the pointer with Ctrl held (Cmd on macOS)', async () => {
   await openAt('main.ts', 'run();');
   const box = (await page().locator('.cm-line', { hasText: 'run();' }).boundingBox()) as {
     x: number;
@@ -500,20 +500,25 @@ it('shows a word with a definition as a link under the pointer with Ctrl held', 
   };
   // Over "run", its first letters.
   await page().mouse.move(box.x + 8, box.y + box.height / 2);
-  await page().keyboard.down('Control');
-  await expect
-    .poll(
-      () =>
-        page()
-          .locator('.cerebro-link')
-          .textContent({ timeout: 1_000 })
-          .catch(() => null),
-      {
-        timeout: 15_000,
-      },
-    )
-    .toBe('run');
-  await page().keyboard.up('Control');
+  // Go to Declaration's mouse shortcut, the keymap's: Cmd+Click on macOS. Let go of even when
+  // the link doesn't show, or every later test would type with it held.
+  await page().keyboard.down('ControlOrMeta');
+  try {
+    await expect
+      .poll(
+        () =>
+          page()
+            .locator('.cerebro-link')
+            .textContent({ timeout: 1_000 })
+            .catch(() => null),
+        {
+          timeout: 15_000,
+        },
+      )
+      .toBe('run');
+  } finally {
+    await page().keyboard.up('ControlOrMeta');
+  }
   await page().locator('.cerebro-link').waitFor({ state: 'detached' });
 });
 

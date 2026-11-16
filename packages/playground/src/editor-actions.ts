@@ -61,15 +61,35 @@ const LABELS: Readonly<Record<Exclude<EditorAction, 'rename'>, string>> = {
   replace: '&Replace',
 };
 
-/** Whether the editor with the keyboard, or that had it before a menu, has the action. */
-export function editorHas(action: EditorAction): boolean {
-  const element = target();
+/**
+ * What a mouse shortcut was pressed on, as the command it runs is given it. Its editor actions act
+ * on the editor there, or on none: as IntelliJ's mouse shortcuts take their data context from the
+ * component under the pointer (IdeMouseEventDispatcher), not from the one with the keyboard. A
+ * middle click on a tab, which closes it, doesn't go to the declaration at an editor's caret.
+ */
+export interface Pointed {
+  readonly pointed: Element;
+}
+
+/** The editor an action acts on: the one pointed at, or the one with the keyboard. */
+function editorFor(context: unknown): Element | undefined {
+  return typeof context === 'object' && context !== null && 'pointed' in context
+    ? (context as Pointed).pointed
+    : target();
+}
+
+/**
+ * Whether the editor with the keyboard, or that had it before a menu, has the action; or the one
+ * a mouse shortcut was pressed on (`Pointed`).
+ */
+export function editorHas(action: EditorAction, context?: unknown): boolean {
+  const element = editorFor(context);
   return element !== undefined && hasEditorAction(element, action);
 }
 
 /** Runs the action on that editor; returns whether it ran. */
-export function runInEditor(action: EditorAction): boolean {
-  const element = target();
+export function runInEditor(action: EditorAction, context?: unknown): boolean {
+  const element = editorFor(context);
   return element !== undefined && runEditorAction(element, action);
 }
 
@@ -80,9 +100,9 @@ export function setupEditorActions(commands: CommandRegistry, menus: MenuRegistr
       id: EDITOR_ACTIONS[action],
       label,
       dialog: action === 'find' || action === 'replace',
-      enabled: () => editorHas(action),
-      run: () => {
-        runInEditor(action);
+      enabled: (context) => editorHas(action, context),
+      run: (context) => {
+        runInEditor(action, context);
       },
     });
   }

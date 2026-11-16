@@ -9,6 +9,7 @@ import {
   EditorDocument,
   USAGES_AFTER,
   type CodeEditorProps,
+  type EditorMouse,
   type Place,
   type Usage,
 } from '../src/index.js';
@@ -22,12 +23,22 @@ afterEach(async () => {
   await userEvent.cleanup();
 });
 
-function mount(props: Omit<CodeEditorProps, 'path'>) {
+/** IntelliJ's default: Go to Declaration on Ctrl+click, its link with Ctrl alone held. */
+const CTRL_CLICK: EditorMouse = {
+  isShortcut: (event: MouseEvent) => event.ctrlKey,
+  isLink: (event: MouseEvent | KeyboardEvent) =>
+    event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey,
+};
+
+function mount(props: Omit<CodeEditorProps, 'path'>, mouse: EditorMouse | null = CTRL_CLICK) {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 600px; height: 400px;';
   document.documentElement.dataset['cerebroTheme'] = 'dark';
   document.body.append(container);
-  const handle = render(() => <CodeEditor path="a.ts" {...props} />, container);
+  const handle = render(
+    () => <CodeEditor path="a.ts" {...(mouse ? { mouse: () => mouse } : {})} {...props} />,
+    container,
+  );
   cleanup = () => {
     handle.dispose();
     container.remove();
@@ -336,5 +347,33 @@ describe('links with Ctrl held', () => {
     // Changed elsewhere (read again from disk).
     doc.text.set(Text.of(`// ${TEXT}`.split('\n')));
     expect(link(root)).toBeNull();
+  });
+
+  it('shows it with the modifiers the keymap’s Go to Declaration clicks with, and none without a keymap’s', async () => {
+    const isLink = (event: MouseEvent | KeyboardEvent) => event.altKey && event.shiftKey;
+    const root = mount(
+      { text: TEXT, canGoToDefinition: () => Promise.resolve(true) },
+      { ...CTRL_CLICK, isLink },
+    );
+    await pointAt(root, 'extra', 1);
+    await userEvent.keyboard('{Control>}');
+    await wait(20);
+    expect(link(root)).toBeNull();
+    await userEvent.keyboard('{/Control}{Alt>}');
+    await wait(20);
+    expect(link(root)).toBeNull();
+    await userEvent.keyboard('{Shift>}');
+    await expect.poll(() => link(root)?.textContent).toBe('extra');
+    // One of them let go.
+    await userEvent.keyboard('{/Alt}');
+    expect(link(root)).toBeNull();
+    await userEvent.keyboard('{/Shift}');
+    cleanup?.();
+    const plain = mount({ text: TEXT, canGoToDefinition: () => Promise.resolve(true) }, null);
+    await pointAt(plain, 'extra', 1);
+    await userEvent.keyboard('{Control>}');
+    await wait(20);
+    expect(link(plain)).toBeNull();
+    await userEvent.keyboard('{/Control}');
   });
 });

@@ -3,6 +3,7 @@ import {
   chordFromEvent,
   formatChord,
   formatSequence,
+  isMouseChord,
   ModifierTaps,
   normalizeChord,
   normalizeSequence,
@@ -117,6 +118,18 @@ describe('formatting', () => {
   it('separates the chords of a sequence with commas', () => {
     expect(formatSequence('Ctrl+K Ctrl+S', 'other')).toBe('Ctrl+K, Ctrl+S');
     expect(formatSequence('Meta+K Meta+S', 'mac')).toBe('⌘K, ⌘S');
+  });
+
+  it('shows a mouse shortcut as IntelliJ does, its modifiers as a key’s', () => {
+    expect(formatChord(normalizeChord('ctrl+click', 'other'), 'other')).toBe('Ctrl+Click');
+    expect(formatChord(normalizeChord('mod+click', 'mac'), 'mac')).toBe('⌘Click');
+    expect(formatChord('Alt+MiddleClick', 'other')).toBe('Alt+Middle-Click');
+    expect(formatChord('Button4Click', 'other')).toBe('Button 4 Click');
+    expect(formatChord('Shift+DoubleRightClick', 'mac')).toBe('⇧Double Right-Click');
+    expect(isMouseChord('Ctrl+Click')).toBe(true);
+    expect(isMouseChord('Ctrl+C')).toBe(false);
+    // Not a key named as an object's own property.
+    expect(isMouseChord('constructor')).toBe(false);
   });
 
   it('names a modifier tapped twice as IntelliJ does', () => {

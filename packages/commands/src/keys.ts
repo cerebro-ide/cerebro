@@ -1,7 +1,9 @@
 // Key chords and sequences. A chord is modifiers plus one key in a fixed order (`Ctrl+Alt+Shift+Meta+K`);
 // a sequence is chords separated by spaces (`Ctrl+K Ctrl+S`). Letters and digits come from the
 // physical key, so shortcuts work on any keyboard layout. `Mod` is Meta on macOS, Ctrl elsewhere.
-// A modifier on its own is a chord too, tapped: `Shift Shift` is IntelliJ's double Shift.
+// A modifier on its own is a chord too, tapped: `Shift Shift` is IntelliJ's double Shift. A mouse
+// shortcut is a chord of one: modifiers and a click (`Ctrl+Click`, `Button4Click`), as IntelliJ's
+// keymaps give actions mouse shortcuts as well as keys.
 
 export type Platform = 'mac' | 'other';
 
@@ -56,9 +58,34 @@ const KEY_NAMES: Readonly<Record<string, string>> = {
   arrowright: 'ArrowRight',
 };
 
+/**
+ * The mouse's keys, each with IntelliJ's text for it (KeyMapBundle's `mouse.click.shortcut.text`
+ * and `mouse.double.click.shortcut.text`): a button clicked once or twice. A button past the third
+ * has no double click, as IntelliJ's (`patchClickCount`).
+ */
+const MOUSE_KEYS: Readonly<Record<string, string>> = {
+  Click: 'Click',
+  MiddleClick: 'Middle-Click',
+  RightClick: 'Right-Click',
+  Button4Click: 'Button 4 Click',
+  Button5Click: 'Button 5 Click',
+  DoubleClick: 'Double Click',
+  DoubleMiddleClick: 'Double Middle-Click',
+  DoubleRightClick: 'Double Right-Click',
+};
+
+const MOUSE_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.keys(MOUSE_KEYS).map((key) => [key.toLowerCase(), key]),
+);
+
+/** Whether a normalized chord is a mouse shortcut's. */
+export function isMouseChord(chord: string): boolean {
+  return Object.hasOwn(MOUSE_KEYS, chord.split('+').at(-1) as string);
+}
+
 function keyName(key: string): string {
   if (key.length === 1) return key === ' ' ? 'Space' : key.toUpperCase();
-  const known = KEY_NAMES[key.toLowerCase()];
+  const known = KEY_NAMES[key.toLowerCase()] ?? MOUSE_NAMES[key.toLowerCase()];
   if (known) return known;
   if (/^f\d{1,2}$/i.test(key)) return key.toUpperCase();
   return key;
@@ -134,7 +161,10 @@ const OTHER_KEYS: Readonly<Record<string, string>> = {
   ArrowRight: 'Right',
 };
 
-/** A normalized chord for display: `⇧⌘O` on macOS, `Ctrl+Shift+O` elsewhere. */
+/**
+ * A normalized chord for display: `⇧⌘O` on macOS, `Ctrl+Shift+O` elsewhere; a mouse shortcut as
+ * IntelliJ's (`⌘Click`, `Ctrl+Middle-Click`).
+ */
 export function formatChord(chord: string, platform: Platform): string {
   const parts =
     chord === '+' || chord.endsWith('++')
@@ -144,9 +174,11 @@ export function formatChord(chord: string, platform: Platform): string {
   const modifiers = parts.filter(Boolean) as Modifier[];
   if (platform === 'mac') {
     // macOS orders modifier glyphs ⌃⌥⇧⌘.
-    return modifiers.map((m) => MAC_MODIFIERS[m]).join('') + (MAC_KEYS[key] ?? key);
+    return (
+      modifiers.map((m) => MAC_MODIFIERS[m]).join('') + (MOUSE_KEYS[key] ?? MAC_KEYS[key] ?? key)
+    );
   }
-  return [...modifiers, OTHER_KEYS[key] ?? key].join('+');
+  return [...modifiers, MOUSE_KEYS[key] ?? OTHER_KEYS[key] ?? key].join('+');
 }
 
 /** A normalized sequence for display, chords separated by commas, as IntelliJ shows them. */

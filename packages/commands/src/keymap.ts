@@ -5,7 +5,7 @@
 
 import { makeObservable, ObservableArray, type Disposable } from '@cerebro-ide/reactive';
 import type { CommandRegistry } from './commands.js';
-import { normalizeSequence, type Platform } from './keys.js';
+import { isMouseChord, normalizeSequence, type Platform } from './keys.js';
 
 export interface Binding {
   /** A key sequence; normalized when stored. */
@@ -105,9 +105,18 @@ export class Keymap {
     return this.bindings.some((b) => b.key.startsWith(`${sequence} `));
   }
 
-  /** The sequences that run a command, the first being the one menus show. */
+  /** The key sequences that run a command, the first being the one menus show. */
   shortcutsFor(command: string): string[] {
-    return this.bindings.filter((b) => b.command === command).map((b) => b.key);
+    return this.bindings
+      .filter((b) => b.command === command && !isMouseChord(b.key))
+      .map((b) => b.key);
+  }
+
+  /** The mouse shortcuts that run a command (`Ctrl+Click`). */
+  mouseShortcutsFor(command: string): string[] {
+    return this.bindings
+      .filter((b) => b.command === command && isMouseChord(b.key))
+      .map((b) => b.key);
   }
 }
 

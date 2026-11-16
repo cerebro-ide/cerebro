@@ -178,3 +178,14 @@ describe('KeyDispatcher', () => {
     expect(run).toHaveBeenCalledWith('ctx');
   });
 });
+
+describe('mouse shortcuts', () => {
+  it('are a command’s apart from its keys, which menus show', () => {
+    const keymap = new Keymap('mac');
+    keymap.bindDefault('Mod+B', 'goTo');
+    keymap.bindDefault('Mod+Click', 'goTo');
+    expect(keymap.shortcutsFor('goTo')).toEqual(['Meta+B']);
+    expect(keymap.mouseShortcutsFor('goTo')).toEqual(['Meta+Click']);
+    expect(keymap.commandsFor('Meta+Click')).toEqual(['goTo']);
+  });
+});

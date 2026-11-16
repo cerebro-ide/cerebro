@@ -75,6 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
+- [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them, the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
@@ -1689,7 +1690,8 @@ below, other than following IntelliJ, are Claude's and open to change.
   settings are (`cerebro.keymap.user`).
 - **In packages:** `@cerebro-ide/ui-keymap` has the editor, its draft (`KeymapDraft`) and the
   dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
-- **Not yet:** mouse shortcuts and abbreviations; folding the list's groups; IntelliJ's Find Actions by
+- **Mouse shortcuts** are listed with the keys since "Mouse shortcuts in the keymaps" (2026-11-16).
+- **Not yet:** adding a mouse shortcut, and abbreviations; folding the list's groups; IntelliJ's Find Actions by
   Shortcut (the search field matches shortcuts as text).
 
 ## Errors and warnings in the editor (2026-11-03)
@@ -3587,8 +3589,9 @@ choices, open to change.
   Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
   macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
 - **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
-- **Not yet:** Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's (with the keymaps'
-  mouse shortcuts, Ido: "All, as IntelliJ's", 2026-11-16); IntelliJ's list shows each
+- **Ctrl+Alt+click** goes to Implementation and Ctrl+Shift+click to Type Declaration, as IntelliJ's,
+  since "Mouse shortcuts in the keymaps" (2026-11-16).
+- **Not yet:** IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
 
 ## Go to Super Method (2026-11-14)
@@ -3723,6 +3726,50 @@ Claude's choices, open to change.
 - **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
   New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
   types; a scratch file's language changed without renaming it.
+
+## Mouse shortcuts in the keymaps (2026-11-16)
+
+Ido, on Ctrl+click hard-coded in the editor: "shouldn't be hardcoded in the editor - is it
+hardcoded in intellij?" It isn't: IntelliJ's keymaps give actions mouse shortcuts as well as keys.
+Asked how far to go: "All, as IntelliJ's" (2026-11-16). This is the second of three PRs: the
+keymaps' mouse shortcuts, run as IntelliJ's; Add Mouse Shortcut on the Keymap page is the third.
+
+- **A mouse shortcut is a chord** (`commands`' `keys.ts`): modifiers and a click, `Ctrl+Click`,
+  `Alt+MiddleClick`, `Button4Click`, `DoubleClick`; in a keymap's bindings beside the keys, a
+  command's `mouseShortcutsFor` apart from its `shortcutsFor`, which menus and the editor's keys
+  read. Shown as IntelliJ's (KeyMapBundle's `mouse.click.shortcut.text`, read from its source):
+  "Ctrl+Click", "Alt+Middle-Click", "Button 4 Click", "⌘Click" on macOS.
+- **Each ready-made keymap has IntelliJ's** for the actions Cerebro has (Go to Declaration,
+  Implementation and Type Declaration, Quick Documentation, Back, Forward), read from its keymaps'
+  files, their parents' where they name none, Ctrl and Meta swapped where macOS's take `$default`'s
+  (`MacOSDefaultKeymap`). IntelliJ's: Go to Declaration on Ctrl+click (Cmd+click and Middle-click
+  on macOS), Implementation on Ctrl+Alt+click, Type Declaration on Ctrl+Shift+click, Quick
+  Documentation on Alt+Middle-click (Ctrl+Middle-click on macOS), Back and Forward on the mouse's
+  own buttons; Sublime Text's Go to Declaration on Middle-click and Ctrl+Shift+click, and the
+  rest as each has them. Force touch is left out: no web event.
+- **Run as IntelliJ's IdeMouseEventDispatcher** (read from its source; `MouseDispatcher`): the
+  first three buttons' as they're let go, with the modifiers held as they were pressed; the back
+  and forward buttons' as they're pressed, their release taken too (Chromium goes back on it);
+  the first enabled command bound, as keys'. A release that ends a drag runs none (AWT gives it
+  no click); a drag is a move of more than 4 pixels (Claude's, open to change: AWT's distance
+  wasn't read).
+- **On what's under the pointer** (added 2026-11-16), as IntelliJ takes the shortcut's data context
+  from the component there: an editor action acts on the editor pointed at, or none, not the one
+  with the keyboard. Before, a middle click on a tab, which closes it, also ran macOS's
+  Middle-click Go to Declaration at the focused editor's caret (seen in CI's macOS e2e).
+- **In the editor,** as IntelliJ's EditorImpl: a press that's a mouse shortcut's puts the caret
+  there, a selection let go, and the shortcut runs at it: Go to Declaration, Implementation and
+  the rest as their commands (decision "The editor's actions as commands"). Ctrl+click is no
+  longer the editor's own. The link shows with the modifiers of one of Go to Declaration's mouse
+  shortcuts held (IntelliJ's `matchActionMouseShortcutsModifiers`), not with none held: Sublime
+  Text's plain Middle-click would show one wherever the pointer went (Claude's, open to change).
+- **Keys put right on the way:** VS Code's Go to Implementation on Ctrl+F12 (Cmd+F12 on macOS) and
+  Sublime Text's on Cmd+Alt+B on macOS, as IntelliJ's keymaps have them; they took IntelliJ's
+  Ctrl+Alt+B, and its Ctrl+Alt+click, unnamed.
+- **The Keymap page lists them** with each action's keys, and removes one as it does a key.
+- **Not yet:** Add Mouse Shortcut on the Keymap page, the wheel's shortcuts with it (none is bound
+  in a ready-made keymap); a diff window's mouse shortcuts (its own window); a Right-click
+  shortcut against a context menu (IntelliJ ignores a popup trigger; none is bound).
 
 ## The editor's actions as commands (2026-11-16)
 
@@ -5237,7 +5284,8 @@ colour and underlined.
   `#402f33`; Light (`expUI_lightScheme.xml`, the Islands Light editor scheme) `#edebfc` and
   `#fce8f4`.
 - **The link:** with Ctrl or Cmd held (either, as Ctrl+click and Cmd+click already go to a
-  definition), the word under the pointer, when it has a definition: the language server's, or a
+  definition; since 2026-11-16, Go to Declaration's mouse shortcut's modifiers, decision "Mouse
+  shortcuts in the keymaps"), the word under the pointer, when it has a definition: the language server's, or a
   name match in the index when no server answers. In `CTRL_CLICKABLE`'s colour, underlined:
   `#548af7` dark, `#006dcc` light. Only while the pointer is over the word, not beside it at its
   line's end. Pressing Ctrl with the pointer still shows it too.

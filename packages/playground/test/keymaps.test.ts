@@ -4,6 +4,7 @@ import {
   codeMirrorKey,
   EDITOR_ACTIONS,
   editorKeys,
+  editorMouse,
   forMac,
   INTELLIJ,
   INTELLIJ_MAC,
@@ -11,6 +12,7 @@ import {
   MACOS_SYSTEM,
   NETBEANS,
   PRESETS,
+  SUBLIME_MAC,
   VISUAL_STUDIO,
   VSCODE_LINUX,
   VSCODE_MAC,
@@ -44,7 +46,7 @@ describe('the ready-made keymaps', () => {
     const linux = vscode('Linux x86_64');
     const windows = vscode('Win32');
     expect(linux.bindings['navigate.back']).toEqual(VSCODE_LINUX['navigate.back']);
-    expect(windows.bindings['navigate.back']).toEqual(['Alt+Left']);
+    expect(windows.bindings['navigate.back']).toEqual(['Alt+Left', 'Button4Click']);
     expect(windows.bindings['editor.close']).toEqual(['Ctrl+F4', 'Ctrl+W']);
     expect(linux.bindings[EDITOR_ACTIONS.format]).toEqual(['Ctrl+Shift+I', 'Ctrl+K Ctrl+F']);
     expect(windows.bindings[EDITOR_ACTIONS.format]).toEqual(['Shift+Alt+F', 'Ctrl+K Ctrl+F']);
@@ -226,5 +228,105 @@ describe('the editor’s keys', () => {
       'find',
       'replace',
     ]);
+  });
+});
+
+describe('the ready-made keymaps’ mouse shortcuts', () => {
+  // IntelliJ's for each, read from its keymaps' files (their parents' where they name none, Ctrl
+  // and Meta swapped where macOS's take `$default`'s); Force touch left out, having no web event.
+  const B = 'Button4Click';
+  const F = 'Button5Click';
+  const intellij = {
+    def: ['Ctrl+Click'],
+    impl: ['Ctrl+Alt+Click'],
+    type: ['Ctrl+Shift+Click'],
+    doc: ['Alt+MiddleClick'],
+  };
+  const mac = {
+    def: ['Meta+Click', 'MiddleClick'],
+    impl: ['Alt+Meta+Click'],
+    type: ['Shift+Meta+Click'],
+    doc: ['Ctrl+MiddleClick'],
+  };
+  const none = { def: [], impl: [], type: [], doc: [] };
+  const EXPECTED: Record<string, { def: string[]; impl: string[]; type: string[]; doc: string[] }> =
+    {
+      intellij,
+      'intellij-mac': mac,
+      'intellij-classic': mac,
+      netbeans: intellij,
+      vscode: { ...none, def: ['Ctrl+Click'], type: ['Ctrl+Shift+Click'] },
+      'vscode-mac': { ...mac, impl: [] },
+      eclipse: { ...none, def: ['Ctrl+Click'], doc: ['Alt+MiddleClick'] },
+      'eclipse-mac': { ...none, def: ['Ctrl+Click'], doc: ['Alt+MiddleClick'] },
+      emacs: { ...intellij, impl: [] },
+      'macos-system': { ...mac, doc: [] },
+      sublime: { ...none, def: ['MiddleClick', 'Ctrl+Shift+Click'], impl: ['Ctrl+Alt+Click'] },
+      'sublime-mac': { ...none, def: ['MiddleClick', 'Shift+Meta+Click'] },
+      'visual-studio': { ...none, def: ['Ctrl+Click', 'MiddleClick'], type: ['Ctrl+Shift+Click'] },
+      'visual-studio-mac': {
+        ...none,
+        def: ['Meta+Click'],
+        impl: ['Alt+Meta+Click'],
+        type: ['Shift+Meta+Click', 'Shift+MiddleClick'],
+      },
+    };
+
+  it('are IntelliJ’s, Back and Forward on the mouse’s own buttons in each', () => {
+    const shown: Record<string, unknown> = {};
+    const expected: Record<string, unknown> = {};
+    for (const preset of PRESETS) {
+      const keymap = new Keymap(
+        preset.id.includes('mac') || preset.id.includes('classic') ? 'mac' : 'other',
+      );
+      keymap.setPreset(preset);
+      const of = (command: string) => keymap.mouseShortcutsFor(command).sort();
+      shown[preset.id] = {
+        def: of(EDITOR_ACTIONS.goToDefinition),
+        impl: of(EDITOR_ACTIONS.goToImplementation),
+        type: of(EDITOR_ACTIONS.goToTypeDeclaration),
+        doc: of(EDITOR_ACTIONS.quickDocumentation),
+        back: of('navigate.back'),
+        forward: of('navigate.forward'),
+      };
+      const want = EXPECTED[preset.id] as (typeof EXPECTED)[string];
+      expected[preset.id] = {
+        def: [...want.def].sort(),
+        impl: [...want.impl].sort(),
+        type: [...want.type].sort(),
+        doc: [...want.doc].sort(),
+        back: [B],
+        forward: [F],
+      };
+    }
+    expect(shown).toEqual(expected);
+  });
+});
+
+describe('the editor’s mouse shortcuts', () => {
+  const press = (init: MouseEventInit) => new MouseEvent('mousedown', { detail: 1, ...init });
+
+  it('are the keymap’s presses, Go to Declaration’s modifiers its link’s', () => {
+    const keymap = new Keymap('other');
+    keymap.setPreset(INTELLIJ);
+    const mouse = editorMouse(keymap);
+    expect(mouse.isShortcut(press({ ctrlKey: true }))).toBe(true);
+    expect(mouse.isShortcut(press({ ctrlKey: true, altKey: true }))).toBe(true);
+    expect(mouse.isShortcut(press({}))).toBe(false);
+    expect(mouse.isShortcut(press({ button: 7 }))).toBe(false);
+    expect(mouse.isLink(new KeyboardEvent('keydown', { key: 'Control', ctrlKey: true }))).toBe(
+      true,
+    );
+    // Go to Implementation's: no link.
+    expect(mouse.isLink(press({ ctrlKey: true, altKey: true }))).toBe(false);
+  });
+
+  it('show no link with nothing held, for a Middle-Click', () => {
+    const keymap = new Keymap('mac');
+    keymap.setPreset(SUBLIME_MAC);
+    const mouse = editorMouse(keymap);
+    expect(mouse.isShortcut(press({ button: 1 }))).toBe(true);
+    expect(mouse.isLink(press({}))).toBe(false);
+    expect(mouse.isLink(press({ shiftKey: true, metaKey: true }))).toBe(true);
   });
 });
