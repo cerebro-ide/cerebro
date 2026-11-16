@@ -190,7 +190,25 @@ describe('the editor', () => {
     await expect.poll(() => code()?.textContent).toContain('// src/styles.css');
     const editor = q('.cerebro-editor-group--active .playground-code');
     await userEvent.click(editor, { button: 'right' });
-    expect(await menuItems()).toEqual(['Go to File…', 'Local History', 'Reformat with Prettier']);
+    // IntelliJ's `EditorPopupMenu`, of what Cerebro has: no Cut or Copy outside a selection.
+    const popup = [
+      'Show Context Actions',
+      'Paste',
+      'Find Usages',
+      'Go To',
+      'Folding',
+      'Rename…',
+      'Refactor',
+      'Local History',
+      'Reformat with Prettier',
+    ];
+    expect(await menuItems()).toEqual(popup);
+    await closeAll();
+    // Opened in the selection, the whole text's: Cut and Copy too, the selection kept.
+    await userEvent.keyboard('{Control>}a{/Control}');
+    await userEvent.click(editor, { button: 'right' });
+    expect(await menuItems()).toEqual(['Show Context Actions', 'Cut', 'Copy', ...popup.slice(1)]);
+    expect(document.getSelection()?.toString()).toContain('// src/styles.css');
     await closeAll();
     // The gutter's menu: the bookmarks', without git's Annotate.
     const gutter = document

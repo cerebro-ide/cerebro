@@ -45,6 +45,11 @@ export function hasEditorAction(element: Element, action: EditorAction): boolean
   return view !== undefined && commandOf(view, action) !== undefined;
 }
 
+/** Whether the editor `element` is in has text selected. */
+export function selectionIn(element: Element): boolean {
+  return viewOf(element)?.state.selection.ranges.some((range) => !range.empty) ?? false;
+}
+
 /**
  * Runs an action on the editor `element` is in, the keyboard back in it first, as a key would run
  * it there; returns whether it ran.

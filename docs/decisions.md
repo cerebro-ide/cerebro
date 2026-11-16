@@ -3907,9 +3907,25 @@ Keymap page didn't list them.
   - Each group is its own, between separators, where Cerebro's Navigate menu already parts from
     IntelliJ's order (Claude's, open to change): IntelliJ has Next Highlighted Error with Last Edit
     Location, and Line/Column before it.
-- **Not yet:** the editor's context menu's own (IntelliJ's `EditorPopupMenu`: Show Context
-  Actions, Go To, Folding). A diff window has few commands of its own (Jump to Source), so not
-  these; its editors' keys work as before.
+- **The editor's context menu** (added 2026-11-16) is IntelliJ's `EditorPopupMenu`
+  (PlatformActions.xml, LangActions.xml), with only the items Cerebro has, in IntelliJ's order:
+  - Show Context Actions; then Cut, Copy and Paste.
+  - Find Usages, a Go To submenu (Declaration or Usages, Implementation(s), Type Declaration,
+    Super Method, named as in the main menu, as IntelliJ's `override-text place="EditorPopup"`),
+    and Folding.
+  - Rename and the Refactor submenu; then Local History, Git and Reformat with Prettier, as
+    before.
+  - Cut and Copy show only when the menu is opened inside the selection, and Cut and Paste not in a
+    read-only editor, as IntelliJ's `EditorCopyPastProvider` (read from its source).
+  - Go to File, which had been in this menu since the playground's first menus, isn't in
+    IntelliJ's, so it's out (Claude's choice, open to change).
+  - **A right press in the text puts the caret there,** unless it's inside the selection, which
+    stays, as IntelliJ's EditorImpl (`myKeepSelectionOnMousePress`). So the menu acts on the word
+    clicked. The editor takes the press: Chromium's own let go of a selection pressed in
+    (measured).
+- **Not yet:** the editor's context menu's items Cerebro lacks (Copy/Paste Special, Column
+  Selection Mode, Generate, Run, Search the Web, Compare with Clipboard). A diff window has few
+  commands of its own (Jump to Source), so not these; its editors' keys work as before.
 
 ## Git → Current File → Show History (2026-11-12)
 

@@ -133,9 +133,21 @@ describe('Edit → Cut, Copy and Paste', () => {
       .shadowRoot as ShadowRoot;
     await userEvent.click(shadow.querySelector('.cm-content') as HTMLElement);
     expect([enabled('cut'), enabled('paste'), enabled('copy')]).toEqual([false, false, true]);
-    // One that can be changed: both.
+    // Its context menu, IntelliJ's: Copy only, and only opened in a selection.
+    const shown = (inSelection: boolean) =>
+      (['cut', 'copy', 'paste'] as const).filter(
+        (action) =>
+          commands.get(`edit.${action}`)?.visible?.({ editorPopup: true, inSelection }) !== false,
+      );
+    expect(shown(true)).toEqual(['copy']);
+    expect(shown(false)).toEqual([]);
+    // One that can be changed: both; in its menu, Paste anywhere, Cut and Copy in a selection.
     await userEvent.click(editor('a'));
     expect([enabled('cut'), enabled('paste')]).toEqual([true, true]);
+    expect(shown(true)).toEqual(['cut', 'copy', 'paste']);
+    expect(shown(false)).toEqual(['paste']);
+    // Other menus show them all.
+    expect(commands.get('edit.cut')?.visible?.(undefined)).toBe(true);
   });
 
   it('copy a selection anywhere, but don’t cut from a terminal', async () => {

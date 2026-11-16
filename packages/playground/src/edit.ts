@@ -114,6 +114,15 @@ export interface ClipboardProvider {
 
 let provider: ClipboardProvider | undefined;
 
+/** The editor's context menu's context (IntelliJ's `EditorPopupMenu`): opened in a selection? */
+export interface EditorPopup {
+  readonly editorPopup: true;
+  readonly inSelection: boolean;
+}
+
+const isEditorPopup = (context: unknown): context is EditorPopup =>
+  typeof context === 'object' && context !== null && 'editorPopup' in context;
+
 /** Has Cut, Copy and Paste act through `given` while it has the focus. */
 export function provideClipboard(given: ClipboardProvider): void {
   provider = given;
@@ -145,6 +154,12 @@ export function setupEdit(commands: CommandRegistry): void {
       id: `edit.${action}`,
       label,
       enabled: () => (provider?.focused() ? provider.enabled(action) : enabled()),
+      // In the editor's context menu, as IntelliJ's `EditorCopyPastProvider` (read from its
+      // source): Cut and Copy only when it's opened in the selection, Cut and Paste not in a
+      // read-only editor.
+      visible: (context) =>
+        !isEditorPopup(context) ||
+        ((action === 'copy' || enabled()) && (action === 'paste' || context.inSelection)),
       run: () => {
         if (provider?.focused()) provider.run(action);
         else run(action);

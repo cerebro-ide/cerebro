@@ -181,4 +181,22 @@ function contributeMenus(menus: MenuRegistry): void {
   // View: `QuickActions`, after the window's look (Tool Windows here, before Recent Files).
   add('main/view', 'quickDefinition', 'b2');
   add('main/view', 'quickDocumentation', 'b2');
+  // The editor's context menu, as IntelliJ's `EditorPopupMenu` (PlatformActions.xml and
+  // LangActions.xml): `ShowIntentionsGroup` first; Cut, Copy and Paste (edit.ts says when);
+  // `EditorPopupMenu1.FindRefactor`: Find Usages, Go To (its items named as in the main menu, as
+  // IntelliJ's `override-text place="EditorPopup"`), then Folding; `EditorLangPopupMenu`'s Rename
+  // and Refactor. Local History and Git come after (`VersionControlsGroup`, history.tsx).
+  add('editor/content', 'contextActions', 'a0');
+  for (const action of ['cut', 'copy', 'paste']) {
+    menus.contribute({ menu: 'editor/content', item: { command: `edit.${action}` }, group: 'a1' });
+  }
+  add('editor/content', 'findUsages', 'b0');
+  submenu('editor/content', 'editor/content/goTo', 'Go To', 'b0');
+  add('editor/content/goTo', 'goToDefinition', 'a', '&Declaration or Usages');
+  add('editor/content/goTo', 'goToImplementation', 'a', 'I&mplementation(s)');
+  add('editor/content/goTo', 'goToTypeDeclaration', 'a', '&Type Declaration');
+  add('editor/content/goTo', 'goToSuperMethod', 'a', 'S&uper Method');
+  submenu('editor/content', 'main/code/folding', 'Folding', 'b1');
+  add('editor/content', 'rename', 'c');
+  submenu('editor/content', 'main/refactor', '&Refactor', 'c');
 }

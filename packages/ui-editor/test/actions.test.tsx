@@ -8,6 +8,7 @@ import {
   EditorDocument,
   hasEditorAction,
   runEditorAction,
+  selectionIn,
   type CodeEditorProps,
 } from '../src/index.js';
 
@@ -47,6 +48,15 @@ describe('the editor’s actions', () => {
     expect(hasEditorAction(outside, 'scrollUp')).toBe(false);
     expect(runEditorAction(outside, 'scrollUp')).toBe(false);
     expect(runEditorAction(content, 'toggleCase')).toBe(false);
+  });
+
+  it('tell whether the editor has text selected; nothing outside one', async () => {
+    const { content, outside } = mount({ path: 'a.ts', text: 'const answer = 1;' });
+    expect(selectionIn(content)).toBe(false);
+    await userEvent.click(content);
+    await userEvent.keyboard('{Home}{Shift>}{ArrowRight}{/Shift}');
+    expect(selectionIn(content)).toBe(true);
+    expect(selectionIn(outside)).toBe(false);
   });
 
   it('run from outside on the editor, the keyboard back in it', async () => {

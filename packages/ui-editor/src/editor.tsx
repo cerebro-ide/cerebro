@@ -444,6 +444,23 @@ function selectedIn(state: EditorState): Selected | undefined {
   };
 }
 
+/**
+ * A right press in the text puts the caret there, unless it's in the selection, which stays: as
+ * IntelliJ's EditorImpl (`myKeepSelectionOnMousePress`, read from its source), for the context
+ * menu to act there. The press is taken: Chromium's own would move the selection too (measured:
+ * one in a selection let it go). The gutter's presses don't come here; its menu is its line's.
+ */
+function rightPress(event: MouseEvent, view: EditorView): void {
+  event.preventDefault();
+  // Not precise: the nearest position, never none.
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+  view.focus();
+  const inside = view.state.selection.ranges.some(
+    (range) => !range.empty && range.from <= pos && pos <= range.to,
+  );
+  if (!inside) view.dispatch({ selection: { anchor: pos }, userEvent: 'select.pointer' });
+}
+
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
   const line = state.doc.lineAt(pos);
   return { line: line.number - 1, column: pos - line.from };
@@ -1316,6 +1333,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       // another caret), for the shortcut to run at it as the button's let go. Back's and Forward's
       // buttons move none.
       mousedown: (event, v) => {
+        if (event.button === 2 && props.mouse?.().isShortcut(event) !== true) {
+          rightPress(event, v);
+          return true;
+        }
         if (event.button > 2 || props.mouse?.().isShortcut(event) !== true) return false;
         event.preventDefault();
         v.focus();
