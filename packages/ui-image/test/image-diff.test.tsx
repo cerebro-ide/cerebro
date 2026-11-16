@@ -124,12 +124,15 @@ describe('the image diff', () => {
   });
 
   it('swipes between them: the earlier left of the line, the later right of it', async () => {
+    const chosen: string[] = [];
     show({
       before: { bytes: await png(2, 2), title: 'a' },
       after: { bytes: await png(2, 2, [[1, 1]]), title: 'b' },
+      onMode: (m) => chosen.push(m),
     });
     await userEvent.click(mode('Swipe'));
     expect(mode('Swipe').getAttribute('aria-checked')).toBe('true');
+    expect(chosen).toEqual(['swipe']);
     await expect.poll(() => all('.cerebro-image-diff__layer')).toHaveLength(2);
     const [, top] = all('.cerebro-image-diff__layer') as HTMLElement[];
     const line = q('.cerebro-image-diff__swipe-line') as HTMLElement;

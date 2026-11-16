@@ -3715,7 +3715,10 @@ side, swipe, onion, and even a pixel diff mode which shows which pixels have cha
   Claude's choices, open to change: the modes as buttons above the image, the Difference
   colours (not measured from anything: IntelliJ has no such mode), and the "Compare by" name.
 - **Another binary file** shows IntelliJ's status line alone, without its contents.
-- **Not yet:** zooming the stacked modes by hand, and keeping the mode chosen between diffs.
+- **The mode chosen is the next image diff's** (added 2026-11-16), while the app runs; not saved.
+  An image added or deleted still shows side by side, and leaves the mode chosen as it was.
+  Claude's choice, open to change: kept for the session rather than as a setting.
+- **Not yet:** zooming the stacked modes by hand.
 
 ## Cherry-Pick (2026-11-11)
 

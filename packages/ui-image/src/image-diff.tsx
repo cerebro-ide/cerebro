@@ -36,6 +36,8 @@ export interface ImageDiffProps {
   label: string;
   /** How it's shown at first. */
   mode?: ImageDiffMode;
+  /** Told of each mode chosen above it. */
+  onMode?: (mode: ImageDiffMode) => void;
 }
 
 /** A side's `data:` URL. */
@@ -82,6 +84,7 @@ export function ImageDiff(props: ImageDiffProps): Child {
             disabled={!both && each !== 'sideBySide'}
             on:click={() => {
               mode.set(each);
+              props.onMode?.(each);
             }}
           >
             {label}

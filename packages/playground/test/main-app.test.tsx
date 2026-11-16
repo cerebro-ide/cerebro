@@ -313,6 +313,22 @@ describe('a diff tab', () => {
     env().editor.open(diffTab('art/new.png'));
     await expect.poll(() => active('.cerebro-image-diff__title')).toEqual(['Your version']);
     env().editor.close(env().editor.activeGroup.id, diffTab('art/new.png').id);
+    // The mode chosen in one is the next one's.
+    const mode = (label: string) =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.cerebro-editor-group--active .cerebro-image-diff__mode',
+        ),
+      ].find((b) => b.textContent === label);
+    answers.set('git.diff', { binary: true, original: png, text: png });
+    env().editor.open(diffTab('art/a.png'));
+    await expect.poll(() => mode('Onion Skin')).toBeDefined();
+    mode('Onion Skin')?.click();
+    env().editor.close(env().editor.activeGroup.id, diffTab('art/a.png').id);
+    env().editor.open(diffTab('art/b.png'));
+    await expect.poll(() => mode('Onion Skin')?.getAttribute('aria-checked')).toBe('true');
+    mode('Side by Side')?.click();
+    env().editor.close(env().editor.activeGroup.id, diffTab('art/b.png').id);
     // Not an image: whether it differs, as IntelliJ's.
     answers.set('git.diff', { binary: true, original: png, text: png });
     env().editor.open(diffTab('lib/a.bin'));

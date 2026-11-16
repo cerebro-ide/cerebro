@@ -21,7 +21,7 @@ import {
 import { openMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { ImageDiff } from '@cerebro-ide/ui-image';
+import { ImageDiff, type ImageDiffMode } from '@cerebro-ide/ui-image';
 import { icon } from './icons.js';
 import { imageType } from './images.js';
 import { globalSettings } from './settings.js';
@@ -658,6 +658,12 @@ export const revisionName = (revision: string): string => {
   return ref ? (ref[1] as string) : revision.slice(0, 8);
 };
 
+/**
+ * The image diff's mode last chosen, each image diff opened in it: kept while the app runs, not
+ * saved (Claude's choice, open to change).
+ */
+let imageMode: ImageDiffMode = 'sideBySide';
+
 /** A side's bytes, from base64. */
 const bytesOf = (base64: string) => Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
 
@@ -680,6 +686,10 @@ function BinaryDiff(props: {
         after={text === null ? undefined : { bytes: bytesOf(text), title: right }}
         type={type}
         label={props.path}
+        mode={imageMode}
+        onMode={(mode) => {
+          imageMode = mode;
+        }}
       />
     );
   }
