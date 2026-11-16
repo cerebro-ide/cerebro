@@ -39,6 +39,8 @@ const LABELS: Readonly<Record<Exclude<EditorAction, 'rename'>, string>> = {
   blockComment: 'Comment with &Block Comment',
   moveLineUp: 'Move Line &Up',
   moveLineDown: 'Move Line Do&wn',
+  moveStatementUp: 'Move Statement &Up',
+  moveStatementDown: 'Move Statement Do&wn',
   deleteLine: 'Delete Line',
   startNewLine: 'Start New Line',
   startNewLineBefore: 'Start New Line Before Current',
@@ -124,6 +126,9 @@ function contributeMenus(menus: MenuRegistry): void {
   add('main/code', 'lineComment', 'c');
   add('main/code', 'blockComment', 'c');
   add('main/code', 'format', 'c');
+  // `CodeMenu`'s move group: the statement's, then the line's.
+  add('main/code', 'moveStatementDown', 'd');
+  add('main/code', 'moveStatementUp', 'd');
   add('main/code', 'moveLineDown', 'd');
   add('main/code', 'moveLineUp', 'd');
   add('main/refactor', 'rename', 'a');
