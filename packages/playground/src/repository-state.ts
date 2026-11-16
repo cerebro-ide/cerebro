@@ -16,6 +16,8 @@ export interface RepositoryState {
   message?: string;
   /** Whether it has any remote: unknown (undefined) until read. */
   remotes?: boolean;
+  /** The remotes' URLs, each once: unknown (undefined) until read. */
+  remoteUrls?: string[];
   /** A fingerprint of the refs the Log shows, which reads itself again when it changes. */
   refs?: string;
 }

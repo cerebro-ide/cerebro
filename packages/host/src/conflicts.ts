@@ -219,6 +219,12 @@ export interface RepositoryState {
   /** Whether the repository has any remote: IntelliJ's Fetch is disabled without. */
   remotes: boolean;
   /**
+   * The remotes' URLs, each once, as `git remote -v` gives them (`insteadOf` applied): each one's
+   * first fetch URL and its push URLs. IntelliJ's `collectRemotes` takes all fetch URLs too; a
+   * remote's second is rare.
+   */
+  remoteUrls: string[];
+  /**
    * What the Log shows of the refs, as a fingerprint: the branches', remote branches' and tags'
    * commits, and HEAD's, with the branch it's on. The Log reads itself again when it changes.
    */
@@ -247,10 +253,17 @@ async function refsPrint(worktree: string, run: Git): Promise<string> {
  */
 export async function repositoryState(worktree: string, run: Git): Promise<RepositoryState> {
   const op = await operation(worktree, run);
+  // A remote without a URL is listed too, by its name alone.
+  const remotes = await run(worktree, ['remote', '-v']);
   const state: RepositoryState = {
     operation: op,
     conflicts: (await run(worktree, ['ls-files', '-u'])) !== '',
-    remotes: (await run(worktree, ['remote'])) !== '',
+    remotes: remotes !== '',
+    remoteUrls: [
+      ...new Set(
+        remotes.split('\n').flatMap((line) => /\t(.+) \((?:fetch|push)\)$/.exec(line)?.[1] ?? []),
+      ),
+    ],
     refs: await refsPrint(worktree, run),
   };
   // As IntelliJ's `GitMergeCommitMessageReader`, as git wrote it, its comments kept.
