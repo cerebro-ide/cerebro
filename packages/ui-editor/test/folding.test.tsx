@@ -147,6 +147,61 @@ describe('folding', () => {
     await expect.poll(() => chevrons(root).filter(Boolean).length).toBe(2);
   });
 
+  it('folds the imports as it opens, as IntelliJ’s, but where the caret is; not those added later', async () => {
+    const text = ["import { a } from './a';", "import { b } from './b';", 'a(b);', ''].join('\n');
+    const imports: Fold = { from: at(0, 0), to: at(1, 24), kind: 'imports' };
+    // One past the text too, and one of a line that would hide nothing, left out; and a call's
+    // parentheses, not imports, left open.
+    let answer: readonly Fold[] | null = [
+      imports,
+      { ...imports, from: at(40, 0), to: at(41, 0) },
+      { ...imports, from: at(2, 0), to: at(2, 5) },
+      { from: at(2, 1), to: at(2, 4) },
+    ];
+    const folds = vi.fn<AskFolds>(() => Promise.resolve(answer));
+    /** Opened at a line, answered once the caret's there, as a server answers after. */
+    const openedAt = async (line: number) => {
+      let answering: (() => void) | undefined;
+      const root = mount({
+        document: new EditorDocument(text),
+        folds: () =>
+          new Promise((resolve) => {
+            answering = () => {
+              resolve(answer);
+            };
+          }),
+        reveal: () => ({ line, column: 3 }),
+      });
+      await expect
+        .poll(() => root.querySelector('.cm-activeLine')?.textContent)
+        .toBe(text.split('\n')[line]);
+      answering?.();
+      await expect.poll(() => chevrons(root)[0]).not.toBe('');
+      return root;
+    };
+    // Opened at the top, or below them: folded.
+    let root = mount({ document: new EditorDocument(text), folds });
+    await expect.poll(() => lines(root)[0]).toBe("import { a } from './a';...");
+    expect(lines(root)[1]).toBe('a(b);');
+    cleanup?.();
+    root = await openedAt(2);
+    expect(lines(root)[0]).toBe("import { a } from './a';...");
+    cleanup?.();
+    // In them: open.
+    root = await openedAt(1);
+    expect(lines(root)).toEqual(text.split('\n'));
+    cleanup?.();
+    // No answer at first, then some: they stay open.
+    answer = null;
+    const doc = new EditorDocument(`\n${text}`);
+    root = mount({ document: doc, folds });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    answer = [{ ...imports, from: at(1, 0), to: at(2, 24) }];
+    await userEvent.keyboard('x');
+    await expect.poll(() => chevrons(root)[1], { timeout: FOLDS_AFTER * 4 }).toBe('open');
+    expect(root.querySelector('.cerebro-folded')).toBeNull();
+  });
+
   it('drops an answer to a text since edited, and folds left where its text is gone', async () => {
     const answers: ((folds: readonly Fold[]) => void)[] = [];
     const folds = vi.fn<AskFolds>(

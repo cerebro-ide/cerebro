@@ -1,7 +1,11 @@
 // Code folding, as IntelliJ's: a chevron in the gutter by each part that folds, and its keys
 // (Collapse, Expand, Collapse All, Expand All). A folded part shows as a box, `{...}` for a block;
 // a click on it unfolds it. Where it folds is what's given says (the file's language server, in the
-// app), and the language's grammar says where that has nothing on a line.
+// app), and the language's grammar says where that has nothing on a line. The imports fold as the
+// editor opens, as IntelliJ's (`COLLAPSE_IMPORTS`, on by default; `LspFoldingBuilder` takes a
+// server's `imports` folds for them), but where the caret is: the first answer's only
+// (`UpdateFoldRegionsOperation`'s default state, "only on initial fold regions construction on
+// editor opening"), so imports that appear later stay open.
 //
 // The chevrons are IntelliJ's own (`platform/icons/src/expui/gutter`, Apache 2.0, © JetBrains s.r.o.
 // and contributors): their shapes, in its colours through the theme's tokens.
@@ -169,12 +173,26 @@ export function folding(ask?: AskFolds, after = FOLDS_AFTER): Extension {
   const asker = ask
     ? ViewPlugin.define((view) => {
         let timer: ReturnType<typeof setTimeout> | undefined;
+        let first = true;
         const request = () => {
           const { doc } = view.state;
           void ask(doc.toString()).then((found) => {
             // Edited since: a later question answers.
             if (view.state.doc !== doc) return;
-            view.dispatch({ effects: setFolds.of(found ?? null) });
+            const head = view.state.selection.main.head;
+            const imports = first
+              ? (found ?? []).flatMap((f) => {
+                  const folded = f.kind === 'imports' ? foldedOf(view.state, f) : null;
+                  // Not one that would hide nothing (a fold within a line), nor where the caret is.
+                  return folded &&
+                    folded.from < folded.to &&
+                    !(folded.from < head && head < folded.to)
+                    ? [foldEffect.of({ from: folded.from, to: folded.to })]
+                    : [];
+                })
+              : [];
+            first = false;
+            view.dispatch({ effects: [setFolds.of(found ?? null), ...imports] });
           });
         };
         request();

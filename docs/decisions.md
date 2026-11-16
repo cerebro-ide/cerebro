@@ -2650,13 +2650,21 @@ change.
   System Shortcuts' `Ctrl+Shift+<`, which never fired before.
 - **The gutter markers' column keeps its width** with no marker in view (the caret's line folded
   or scrolled away): it had dropped to nothing and moved the text (measured: 0px, now 36px).
+- **The imports folded as a file opens** (added 2026-11-16), as IntelliJ's, read from its source:
+  Settings' Fold by default → Imports is on (`CodeFoldingSettings.COLLAPSE_IMPORTS`), and for a
+  language server its `imports` folds are what folds (`LspFoldingBuilder`; TypeScript's server
+  marks them, measured). Only as the editor opens (`UpdateFoldRegionsOperation`: "only on initial
+  fold regions construction on editor opening"): here, the server's first answer for the editor, so
+  imports added later stay open; and not where the caret is, an editor opened at a line in them
+  (its `EXCEPT_CARET_REGION`). Folded, they show as other folds do, the first line then `...`.
 - **Not yet:**
   - IntelliJ's numpad + and -: CodeMirror can't tell the numpad's + from Ctrl+Shift+=, and Shift
     with a numpad key doesn't reach the editor's actions.
   - macOS System Shortcuts' Alt+Shift keys for all: CodeMirror's base fallback is skipped on macOS
     with Alt, so they can't match.
-  - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
-    the folded text on hover, folds kept across reopening a file, and a menu for the actions.
+  - Settings' Fold by default page (Imports alone is on there), end-of-fold markers in the gutter,
+    the folded text on hover, folds kept across reopening a file (IntelliJ folds the imports the
+    first time only), and a menu for the actions.
 
 ## Logging in to remotes (2026-11-08)
 
