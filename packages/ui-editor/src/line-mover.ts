@@ -1,7 +1,7 @@
 // What Move Statement's movers share, as IntelliJ's movers share `LineMover` and `MoverWrapper`
 // (read from its source): the lines to move, the two runs of lines swapped, a mover's own changes
-// after that (`afterMove`), then the moved lines indented again where they land
-// (`MoveInfo.indentTarget`).
+// after that (`afterMove`), then the moved lines indented again where they land, unless the mover
+// says not to (`MoveInfo.indentTarget`).
 
 import { ensureSyntaxTree, indentRange, syntaxTree } from '@codemirror/language';
 import {
@@ -28,6 +28,8 @@ export type AfterMove = (placed: EditorState) => ChangeSet;
 export class LineMover {
   protected readonly doc: Text;
   protected readonly tree: Tree;
+  /** Whether the moved lines are indented again where they land (`MoveInfo.indentTarget`). */
+  protected readonly indentTarget: boolean = true;
 
   constructor(protected readonly state: EditorState) {
     this.doc = state.doc;
@@ -97,7 +99,9 @@ export class LineMover {
     const from = own.mapPos(movedFrom, -1);
     const to = own.mapPos(movedFrom + text.length - 1, 1);
     ensureSyntaxTree(fixed, to, 200);
-    const indented = indentRange(fixed, from, to);
+    const indented = this.indentTarget
+      ? indentRange(fixed, from, to)
+      : ChangeSet.empty(fixed.doc.length);
     const { anchor, head } = state.selection.main;
     const map = (pos: number) => indented.mapPos(own.mapPos(pos + shift, 1), 1);
     return {
@@ -106,6 +110,16 @@ export class LineMover {
       selection: EditorSelection.range(map(anchor), map(head)),
       scrollIntoView: true,
     };
+  }
+
+  /**
+   * IntelliJ's `LineMover` as Move Statement's last mover: the selected lines past the next, none
+   * past the first or the last (a last line left empty by a line break isn't one).
+   */
+  selectedLines(up: boolean): TransactionSpec | undefined {
+    const lines = this.selected();
+    if (up ? lines.start === 0 : lines.end >= this.lineCount) return undefined;
+    return this.lines(lines, up);
   }
 
   /** The lines swapped with the line beyond them, as IntelliJ's `LineMover`; there's one. */
