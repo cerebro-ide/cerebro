@@ -126,6 +126,8 @@ describe('formatting', () => {
     expect(formatChord('Alt+MiddleClick', 'other')).toBe('Alt+Middle-Click');
     expect(formatChord('Button4Click', 'other')).toBe('Button 4 Click');
     expect(formatChord('Shift+DoubleRightClick', 'mac')).toBe('⇧Double Right-Click');
+    expect(formatChord(normalizeChord('ctrl+wheelup', 'other'), 'other')).toBe('Ctrl+Wheel up');
+    expect(formatChord('Alt+WheelDown', 'mac')).toBe('⌥Wheel down');
     expect(isMouseChord('Ctrl+Click')).toBe(true);
     expect(isMouseChord('Ctrl+C')).toBe(false);
     // Not a key named as an object's own property.

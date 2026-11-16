@@ -2,7 +2,8 @@
 // first three buttons' as they're let go, with the modifiers held as they were pressed; the
 // buttons past them (back and forward) as they're pressed. A release that ends a drag runs none:
 // AWT gives it no click (`clickCount < 1`, which IntelliJ ignores). Commands run as keys' do: the
-// first enabled one bound to the chord.
+// first enabled one bound to the chord. The wheel's run as it turns, only with a modifier held:
+// without one, it scrolls.
 
 import type { CommandRegistry } from './commands.js';
 import type { Keymap } from './keymap.js';
@@ -39,13 +40,27 @@ export function chordFromMouse(event: MouseEventLike): string | undefined {
   if (button === undefined) return undefined;
   const count = event.button > 2 ? 1 : Math.max(event.detail, 1);
   if (count > 2) return undefined;
-  const modifiers = [
+  return [...modifierNames(event), count === 2 ? `Double${button}` : button].join('+');
+}
+
+export type WheelEventLike = Modifiers & {
+  /** How far it turned, up below zero, as the DOM's `deltaY`. */
+  deltaY: number;
+};
+
+/** The chord a turn of the wheel makes, as IntelliJ's (`Ctrl+WheelUp`), or none for no turn. */
+export function chordFromWheel(event: WheelEventLike): string | undefined {
+  if (event.deltaY === 0) return undefined;
+  return [...modifierNames(event), event.deltaY < 0 ? 'WheelUp' : 'WheelDown'].join('+');
+}
+
+function modifierNames(event: Modifiers): string[] {
+  return [
     event.ctrlKey && 'Ctrl',
     event.altKey && 'Alt',
     event.shiftKey && 'Shift',
     event.metaKey && 'Meta',
-  ].filter(Boolean);
-  return [...modifiers, count === 2 ? `Double${button}` : button].join('+');
+  ].filter((name) => name !== false);
 }
 
 /** Runs the keymap's mouse shortcuts, fed the window's presses and releases. */
@@ -95,6 +110,12 @@ export class MouseDispatcher {
     // Read field by field: a DOM event's are its prototype's getters, which a spread doesn't copy.
     const { button, detail, clientX, clientY } = event;
     return this.run(chordFromMouse({ button, detail, clientX, clientY, ...pressed }), context);
+  }
+
+  /** The wheel turned: with a modifier held, its shortcut runs. Returns whether a command ran. */
+  wheel(event: WheelEventLike, context?: unknown): boolean {
+    if (modifierNames(event).length === 0) return false;
+    return this.run(chordFromWheel(event), context);
   }
 
   private run(chord: string | undefined, context: unknown): boolean {

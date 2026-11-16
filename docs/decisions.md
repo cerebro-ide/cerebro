@@ -75,7 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
-- [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them, the editor's caret put where they're pressed
+- [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
@@ -1684,8 +1684,9 @@ below, other than following IntelliJ, are Claude's and open to change.
   settings are (`cerebro.keymap.user`).
 - **In packages:** `@cerebro-ide/ui-keymap` has the editor, its draft (`KeymapDraft`) and the
   dialogs; `Keymap.bindingsWith` gives the bindings other user bindings and keymap would.
-- **Mouse shortcuts** are listed with the keys since "Mouse shortcuts in the keymaps" (2026-11-16).
-- **Not yet:** adding a mouse shortcut, and abbreviations; folding the list's groups; IntelliJ's Find Actions by
+- **Mouse shortcuts** are listed with the keys, and Add Mouse Shortcut adds one, since "Mouse
+  shortcuts in the keymaps" (2026-11-16).
+- **Not yet:** abbreviations; folding the list's groups; IntelliJ's Find Actions by
   Shortcut (the search field matches shortcuts as text).
 
 ## Errors and warnings in the editor (2026-11-03)
@@ -3726,7 +3727,8 @@ Claude's choices, open to change.
 Ido, on Ctrl+click hard-coded in the editor: "shouldn't be hardcoded in the editor - is it
 hardcoded in intellij?" It isn't: IntelliJ's keymaps give actions mouse shortcuts as well as keys.
 Asked how far to go: "All, as IntelliJ's" (2026-11-16). This is the second of three PRs: the
-keymaps' mouse shortcuts, run as IntelliJ's; Add Mouse Shortcut on the Keymap page is the third.
+keymaps' mouse shortcuts, run as IntelliJ's; Add Mouse Shortcut on the Keymap page is the third
+(below).
 
 - **A mouse shortcut is a chord** (`commands`' `keys.ts`): modifiers and a click, `Ctrl+Click`,
   `Alt+MiddleClick`, `Button4Click`, `DoubleClick`; in a keymap's bindings beside the keys, a
@@ -3757,9 +3759,26 @@ keymaps' mouse shortcuts, run as IntelliJ's; Add Mouse Shortcut on the Keymap pa
   Sublime Text's on Cmd+Alt+B on macOS, as IntelliJ's keymaps have them; they took IntelliJ's
   Ctrl+Alt+B, and its Ctrl+Alt+click, unnamed.
 - **The Keymap page lists them** with each action's keys, and removes one as it does a key.
-- **Not yet:** Add Mouse Shortcut on the Keymap page, the wheel's shortcuts with it (none is bound
-  in a ready-made keymap); a diff window's mouse shortcuts (its own window); a Right-click
-  shortcut against a context menu (IntelliJ ignores a popup trigger; none is bound).
+- **Add Mouse Shortcut on the Keymap page** (the third PR), after Add Keyboard Shortcut, as
+  IntelliJ's: its Mouse Shortcut dialog (MouseShortcutDialog and MouseShortcutPanel, read from its
+  source), a pad with its mouse icon and text ("Enter a shortcut here: single or double-click,
+  scroll the wheel, modify with Ctrl, Alt and Shift"). A click counts as it's let go, with the
+  modifiers it was pressed with; a double click; a turn of the wheel, up or down; a third click
+  keeps what the pad had. The pad's buttons and wheel do nothing else (no Back, menu or scroll).
+  The shortcut's conflicts listed, and Remove, Keep or Cancel asked, as a key's. Every command
+  takes double clicks: IntelliJ allows only single ones for its caret and rectangular-selection
+  actions (`ActionShortcutRestrictionsImpl`), which Cerebro hasn't. The pad's colour is
+  IntelliJ's `Panel.mouseShortcutBackground`: `#f5f5f5` light (its IntelliJ theme's, which Islands
+  Light inherits), `#4b4f52` dark (MouseShortcutPanel's default, which Darcula and Islands Dark
+  keep); the icon in the theme's icon colour.
+- **The wheel's shortcuts** (`Ctrl+WheelUp`, shown "Ctrl+Wheel up") run as the wheel turns, only
+  with a modifier held, as IntelliJ's dispatcher (`MOUSE_WHEEL && 0 < getModifiersEx()`): without
+  one it scrolls. A turn a shortcut takes doesn't scroll or zoom. The pad takes a bare turn, as
+  IntelliJ's does, though it never runs. None is bound in a ready-made keymap. Up is a negative
+  `deltaY`; Shift with the wheel on macOS, which the system may turn sideways, is untested (a
+  claim).
+- **Not yet:** a diff window's mouse shortcuts (its own window); a Right-click shortcut against a
+  context menu (IntelliJ ignores a popup trigger; none is bound).
 
 ## The editor's actions as commands (2026-11-16)
 

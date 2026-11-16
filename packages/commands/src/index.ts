@@ -22,4 +22,11 @@ export {
   type KeymapPreset,
   type UserBinding,
 } from './keymap.js';
-export { chordFromMouse, DRAG_DISTANCE, MouseDispatcher, type MouseEventLike } from './mouse.js';
+export {
+  chordFromMouse,
+  chordFromWheel,
+  DRAG_DISTANCE,
+  MouseDispatcher,
+  type MouseEventLike,
+  type WheelEventLike,
+} from './mouse.js';

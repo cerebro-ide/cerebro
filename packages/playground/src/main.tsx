@@ -1207,6 +1207,14 @@ window.addEventListener('mousedown', (event) => {
 window.addEventListener('mouseup', (event) => {
   if (mouseShortcuts.release(event)) event.preventDefault();
 });
+// Not passive: a turn a shortcut takes doesn't scroll, or zoom.
+window.addEventListener(
+  'wheel',
+  (event) => {
+    if (mouseShortcuts.wheel(event)) event.preventDefault();
+  },
+  { passive: false },
+);
 // Saving, on its own as IntelliJ's (documents.ts), and when the window closes (the app asks,
 // through cerebroSaveAll, before it closes or reloads the window); Save All saves at once.
 const reportSaving = (error: unknown) => {

@@ -117,7 +117,12 @@ describe('KeymapEditor', () => {
     const { draft } = mount();
     await userEvent.click(row('file.save'));
     expect(row('file.save').getAttribute('aria-selected')).toBe('true');
-    expect(actions()).toEqual(['Add Keyboard Shortcut…', 'Remove Ctrl+S', 'Reset Shortcuts']);
+    expect(actions()).toEqual([
+      'Add Keyboard Shortcut…',
+      'Add Mouse Shortcut…',
+      'Remove Ctrl+S',
+      'Reset Shortcuts',
+    ]);
     expect(button('Reset Shortcuts').disabled).toBe(true);
     await userEvent.click(button('Remove Ctrl+S'));
     expect(keys('file.save')).toBe('');
@@ -194,6 +199,64 @@ describe('KeymapEditor', () => {
     await userEvent.click(button('Remove'));
     expect(keys('file.recent')).toBe('Ctrl+S');
     expect(keys('file.save')).toBe('');
+  });
+
+  it('adds a mouse shortcut: a click as it’s let go, a double click, the wheel', async () => {
+    mount();
+    const outside = { pressed: 0 };
+    const count = () => outside.pressed++;
+    await userEvent.click(row('file.save'));
+    await userEvent.click(button('Add Mouse Shortcut…'));
+    expect(dialogTitle()).toEqual(['Mouse Shortcut']);
+    window.addEventListener('mousedown', count);
+    const pad = q('.cerebro-mouse-pad');
+    expect(pad.textContent).toBe(
+      'Enter a shortcut here:single or double-click, scroll the wheel,modify with Ctrl, Alt and Shift',
+    );
+    expect(button('OK').disabled).toBe(true);
+    // Pressed, not yet let go: nothing.
+    pad.dispatchEvent(new MouseEvent('mousedown', { button: 1, bubbles: true, cancelable: true }));
+    expect(q('.cerebro-mouse-pad__chord')).toBeNull();
+    pad.dispatchEvent(new MouseEvent('mouseup', { button: 1, bubbles: true, cancelable: true }));
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Middle-Click');
+    await userEvent.dblClick(pad);
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Double Click');
+    // A third click keeps it.
+    await userEvent.tripleClick(pad);
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Double Click');
+    // No menu.
+    const right = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    pad.dispatchEvent(right);
+    expect(right.defaultPrevented).toBe(true);
+    const wheel = new WheelEvent('wheel', { deltaY: -3, altKey: true, cancelable: true });
+    pad.dispatchEvent(wheel);
+    expect(wheel.defaultPrevented).toBe(true);
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Alt+Wheel up');
+    pad.dispatchEvent(new WheelEvent('wheel', { deltaX: 5 }));
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Alt+Wheel up');
+    await userEvent.click(pad, { modifiers: ['Control'] });
+    expect(q('.cerebro-mouse-pad__chord').textContent).toBe('Ctrl+Click');
+    // The window's mouse shortcuts saw none of it.
+    expect(outside.pressed).toBe(0);
+    window.removeEventListener('mousedown', count);
+    await userEvent.click(button('OK'));
+    expect(keys('file.save')).toBe('Ctrl+Click, Ctrl+S');
+  });
+
+  it('lists a mouse shortcut’s conflicts, and asks whether to remove them', async () => {
+    mount();
+    for (const id of ['file.save', 'file.open']) {
+      await userEvent.click(row(id));
+      await userEvent.click(button('Add Mouse Shortcut…'));
+      await userEvent.click(q('.cerebro-mouse-pad'), { modifiers: ['Shift'] });
+      if (id === 'file.open') {
+        expect(q('.cerebro-shortcut__conflicts').textContent).toBe('Already assigned to:Save All');
+      }
+      await userEvent.click(button('OK'));
+    }
+    await userEvent.click(button('Remove'));
+    expect(keys('file.open')).toBe('Shift+Click, Ctrl+O');
+    expect(keys('file.save')).toBe('Ctrl+S');
   });
 
   it('cancels the dialog with Escape, which a stroke with modifiers records', async () => {

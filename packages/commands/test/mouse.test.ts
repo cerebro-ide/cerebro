@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chordFromMouse,
+  chordFromWheel,
   CommandRegistry,
   DRAG_DISTANCE,
   Keymap,
@@ -37,6 +38,12 @@ describe('a mouse chord', () => {
     expect(chordFromMouse(mouse({ detail: 3 }))).toBeUndefined();
     expect(chordFromMouse(mouse({ button: 5 }))).toBeUndefined();
   });
+
+  it('is the wheel’s turn up or down, none for no turn', () => {
+    expect(chordFromWheel({ ...mouse({ ctrlKey: true }), deltaY: -100 })).toBe('Ctrl+WheelUp');
+    expect(chordFromWheel({ ...mouse(), deltaY: 3 })).toBe('WheelDown');
+    expect(chordFromWheel({ ...mouse(), deltaY: 0 })).toBeUndefined();
+  });
 });
 
 describe('the mouse dispatcher', () => {
@@ -56,6 +63,8 @@ describe('the mouse dispatcher', () => {
     keymap.bindDefault('Ctrl+Click', 'off');
     keymap.bindDefault('Ctrl+Click', 'goTo');
     keymap.bindDefault('Alt+MiddleClick', 'doc');
+    keymap.bindDefault('Alt+WheelUp', 'doc');
+    keymap.bindDefault('WheelDown', 'doc');
     return { dispatcher: new MouseDispatcher(keymap, commands), ran };
   }
 
@@ -118,6 +127,13 @@ describe('the mouse dispatcher', () => {
     dispatcher.press(new Pressed(mouse({ ctrlKey: true })));
     expect(dispatcher.release(new Pressed(mouse({ ctrlKey: true })))).toBe(true);
     expect(ran).toEqual([['goTo', undefined]]);
+  });
+
+  it('runs the wheel’s with a modifier held, and none without: it scrolls', () => {
+    const { dispatcher, ran } = setup();
+    expect(dispatcher.wheel({ ...mouse(), deltaY: 5 })).toBe(false);
+    expect(dispatcher.wheel({ ...mouse({ altKey: true }), deltaY: -5 }, 'here')).toBe(true);
+    expect(ran).toEqual([['doc', 'here']]);
   });
 
   it('runs none for a drag, or a release whose press it didn’t see', () => {

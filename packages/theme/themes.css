@@ -38,6 +38,9 @@
   --cerebro-menu-highlight: #2e436e;
   --cerebro-tooltip: #393b40;
   --cerebro-tooltip-border: #4e5157;
+  /* The Mouse Shortcut dialog's pad: IntelliJ's Panel.mouseShortcutBackground default (its
+     MouseShortcutPanel source), which Darcula and Islands Dark keep. */
+  --cerebro-mouse-pad: #4b4f52;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
@@ -258,6 +261,8 @@
   --cerebro-menu-highlight: #d0e0fd;
   --cerebro-tooltip: #ffffff;
   --cerebro-tooltip-border: #dfe1e5;
+  /* IntelliJ's theme's (grey16), which Islands Light keeps (intellijlaf.theme.json). */
+  --cerebro-mouse-pad: #f5f5f5;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.15);

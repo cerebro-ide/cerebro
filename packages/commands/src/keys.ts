@@ -72,6 +72,8 @@ const MOUSE_KEYS: Readonly<Record<string, string>> = {
   DoubleClick: 'Double Click',
   DoubleMiddleClick: 'Double Middle-Click',
   DoubleRightClick: 'Double Right-Click',
+  WheelUp: 'Wheel up',
+  WheelDown: 'Wheel down',
 };
 
 const MOUSE_NAMES: Readonly<Record<string, string>> = Object.fromEntries(
