@@ -135,7 +135,13 @@ playground share the editor's actions, so it's proposed before it's done (CLAUDE
   Escape, sent to the body, didn't close it, so every later test failed behind it (as in #228's
   run). The test now waits for each press's answer, or the host's name matches, before pressing
   again. The app's side isn't decided: IntelliJ's choosers close on a click outside and when the
-  window is left, as ours; whether they close when the focus moves elsewhere isn't checked.
+  window is left, as ours. Read from IntelliJ's source (2026-11-16): they don't close when the
+  focus moves elsewhere (AbstractPopup's ChildFocusWatcher only marks the popup inactive), but
+  every key goes to the open popups first, the topmost first, wherever the focus is
+  (IdePopupManager's dispatch stack; a list popup's through PopupDispatcher), and Escape cancels
+  one (`AbstractPopup.dispatchKeyEvent`). Ours take keys only through their focused search field
+  (`ui-popup`'s `popup.tsx`), so Escape at the body leaves one open. Proposed, for Ido's word (a
+  reshaping of `ui-popup`'s keys): keys reach the open popup wherever the focus is, as IntelliJ's.
 - **Double Shift once didn't open Search Everywhere in main-app's Show History test** (CI, #221,
   2026-11-12; not reproduced in six local runs, three at once). Not measured why: double Shift
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus
