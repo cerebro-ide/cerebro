@@ -229,6 +229,7 @@ import {
   markdownActions,
   setupMarkdown,
 } from './markdown.js';
+import type { Pointed } from './editor-actions.js';
 import { editorKeys, editorMouse } from './keymaps.js';
 import { agentTerminal, setLastShellClosed, setTerminalKeys, shellsFor } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
@@ -1201,11 +1202,16 @@ effect(() => {
 const mouseShortcuts = new MouseDispatcher(services.keymap, services.commands);
 /** The keymap's mouse shortcuts for the editors, made again as the keymap changes. */
 const editorMouseNow = computed(() => editorMouse(services.keymap));
+/** What the pointer is on, inside an editor's shadow root too: the commands' context (`Pointed`). */
+const pointed = (event: MouseEvent): Pointed | undefined => {
+  const element = event.composedPath()[0];
+  return element instanceof Element ? { pointed: element } : undefined;
+};
 window.addEventListener('mousedown', (event) => {
-  if (mouseShortcuts.press(event)) event.preventDefault();
+  if (mouseShortcuts.press(event, pointed(event))) event.preventDefault();
 });
 window.addEventListener('mouseup', (event) => {
-  if (mouseShortcuts.release(event)) event.preventDefault();
+  if (mouseShortcuts.release(event, pointed(event))) event.preventDefault();
 });
 // Not passive: a turn a shortcut takes doesn't scroll, or zoom.
 window.addEventListener(
