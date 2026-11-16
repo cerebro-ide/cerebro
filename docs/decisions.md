@@ -1829,11 +1829,16 @@ Documentation").
   - The others' files don't name it: they take their parents'.
 - **The list's scrollbar** is thin, in the scrollbars' colour: the app's own don't reach the
   editor's shadow root (Claude's choice, open to change).
+- **Tab replaces the rest of the name** (added 2026-11-16), as IntelliJ's Replace
+  (`ChooseItemAction.Replacing` on Tab, read from its source): the one chosen goes in, and what's
+  after the caret up to the identifier's end (`calcDefaultIdentifierEnd`: letters, digits, `_` and
+  `$` here) is deleted first, for a server's item too (IntelliJ's LSP puts its insert range in after
+  that). Enter leaves it.
 - **Not yet:** IntelliJ's icons for each kind (CodeMirror's glyphs show, and none for some kinds,
   a field's); a completion's type and documentation beside the list, which TypeScript's server
-  gives only when asked; signature help; snippets and placeholders; Tab replacing the word after
-  the caret, as IntelliJ's; IntelliJ's ranking (CodeMirror's match score, then the server's order);
-  Smart Completion (Ctrl+Shift+Space); completion in Python's e2e test, which the host's test covers.
+  gives only when asked; signature help; snippets and placeholders; IntelliJ's ranking
+  (CodeMirror's match score, then the server's order); Smart Completion (Ctrl+Shift+Space);
+  completion in Python's e2e test, which the host's test covers.
 
 ## Quick Documentation (2026-11-03)
 
