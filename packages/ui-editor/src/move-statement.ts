@@ -27,6 +27,7 @@ import { dispatching } from './command-change.js';
 import { LineMover, type Lines } from './line-mover.js';
 import { moveLine } from './move-line.js';
 import { moveJsonStatement } from './move-statement-json.js';
+import { moveYamlStatement } from './move-statement-yaml.js';
 
 const SCRIPTS = new Set(['javascript', 'typescript', 'jsx', 'tsx']);
 /** What holds statements (or a class's members), each child but its braces one. */
@@ -253,9 +254,11 @@ export function moveStatement(state: EditorState, up: boolean): TransactionSpec 
   const made =
     name === 'json'
       ? moveJsonStatement(state, up)
-      : SCRIPTS.has(name)
-        ? new Mover(state).move(up)
-        : moveLine(state, up);
+      : name === 'yaml'
+        ? moveYamlStatement(state, up)
+        : SCRIPTS.has(name)
+          ? new Mover(state).move(up)
+          : moveLine(state, up);
   return made && { ...made, userEvent: up ? 'move.statement.up' : 'move.statement.down' };
 }
 
