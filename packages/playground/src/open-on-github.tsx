@@ -1,13 +1,20 @@
 // Open on GitHub, as IntelliJ's GitHub plugin (`GHOpenInBrowserActionGroup`,
-// `HostedGitRepositoryReferenceActionGroup`, `GitRemoteUrlUtil`, `GithubUrlUtil`, read from its
-// source), in a commit's menu in the Log, last (`Git.Hosting.Open.In.Browser.Group`): the commit's
-// page on GitHub, for each of the repository's remotes on github.com. Shown only with one; with
-// several, which one is asked.
+// `HostedGitRepositoryReferenceActionGroup`, `HostedGitRepositoryReferenceUtil`,
+// `GitRemoteUrlUtil`, `GithubUrlUtil`, read from its source), for each of the repository's remotes
+// on github.com: a commit's page, in its menu in the Log, last (`Git.Hosting.Open.In.Browser.Group`);
+// a file's, at its last commit and the lines selected, in the editor's and the Project view's Open
+// In (`RevealGroup`). Shown only with one; with several, which one is asked.
 
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { selectedLines } from '@cerebro-ide/ui-editor';
 import { openPicker } from '@cerebro-ide/ui-popup';
+import { notCommitted } from './changes.js';
+import { target } from './edit.js';
+import { active, hostFor } from './environments.js';
 import { commitAt } from './git-log.js';
 import { browse } from './markdown.js';
+import { notifications } from './notifications.js';
+import { projectTarget } from './project.js';
 import { stateOf } from './repository-state.js';
 
 /** IntelliJ's `removeProtocolPrefix`: what follows the user's `@`, else the scheme's `://`. */
@@ -66,45 +73,115 @@ export function gitHubRepositories(remoteUrls: readonly string[]): string[] {
   return [...new Set(pages)];
 }
 
-/** A commit's pages on GitHub (`GHPathUtil.getWebURI`), for the worktree's remotes. */
-function commitPages(worktree: string, hash: string): string[] {
-  return gitHubRepositories(stateOf(worktree).remoteUrls ?? []).map(
-    (repository) => `${repository}/commit/${hash}`,
-  );
+/** What a page is for: a commit, or a file (or folder) with the lines selected in its editor. */
+type Reference =
+  | { worktree: string; hash: string }
+  | { worktree: string; path: string; lines?: { first: number; last: number } };
+
+/** The file's page (`GHPathUtil.getWebURI`): each part of its path encoded, its lines from 1. */
+export function filePage(
+  repository: string,
+  hash: string,
+  path: string,
+  lines?: { first: number; last: number },
+): string {
+  const page = `${repository}/blob/${hash}/${path.split('/').map(encodeURIComponent).join('/')}`;
+  if (!lines) return page;
+  const { first, last } = lines;
+  return `${page}#L${String(first + 1)}${last === first ? '' : `-L${String(last + 1)}`}`;
 }
 
-export function setupOpenOnGitHub({ commands, menus }: MenuServices): void {
-  const pages = (context: unknown) => {
+export interface OpenOnGitHubSetup {
+  /** The active editor's tab: its file's path where it's one. */
+  activeTab: () => string | undefined;
+}
+
+export function setupOpenOnGitHub(
+  { commands, menus }: MenuServices,
+  setup: OpenOnGitHubSetup,
+): void {
+  /**
+   * What the command's for (`findReferences`): the Log's commit; else the Project view's selected
+   * file or folder; else the active editor's file, with the lines selected while it has the
+   * keyboard. None for what git hasn't committed, as IntelliJ's leaves out an added or unknown file.
+   */
+  const reference = (context: unknown): Reference | undefined => {
     const at = commitAt(context);
-    return at ? commitPages(at.worktree, at.commit.hash) : [];
+    if (at) return { worktree: at.worktree, hash: at.commit.hash };
+    const env = active();
+    if (!env) return undefined;
+    const node = projectTarget(context as { tabMenu?: true } | undefined);
+    const file = node === undefined ? setup.activeTab() : node?.path;
+    const prefix = `${env.id}/`;
+    if (!file?.startsWith(prefix)) return undefined;
+    const path = file.slice(prefix.length);
+    if (notCommitted(env.id, path)) return undefined;
+    const editor = node === undefined ? target() : undefined;
+    const lines = editor && selectedLines(editor);
+    return { worktree: env.id, path, ...(lines && { lines }) };
+  };
+  const repositories = (at: Reference | undefined) =>
+    at ? gitHubRepositories(stateOf(at.worktree).remoteUrls ?? []) : [];
+  /** Its page on `repository`: a file's at the last commit that changed it (`getCurrentRevision`). */
+  const page = async (at: Reference, repository: string) => {
+    if ('hash' in at) return `${repository}/commit/${at.hash}`;
+    const hash = await hostFor(at.worktree)
+      ?.request('git.lastCommit', { path: at.worktree, file: at.path })
+      .catch(() => null);
+    if (typeof hash === 'string') return filePage(repository, hash, at.path, at.lines);
+    // GitBundle's `open.in.browser.error` and `open.in.browser.getting.revision.error`.
+    notifications.notify({
+      title: 'Cannot open in browser',
+      content: 'Cannot retrieve latest revision for file',
+      type: 'error',
+    });
+    return undefined;
   };
   commands.register({
-    id: 'log.openOnGitHub',
+    id: 'github.openInBrowser',
     // Its text in Find Action (GithubBundle's `group.Github.Open.In.Browser.GoToAction.text`).
     label: 'Open on GitHub',
-    visible: (context) => pages(context).length > 0,
+    visible: (context) => repositories(reference(context)).length > 0,
     run: async (context) => {
-      const all = pages(context);
-      // IntelliJ's lists several in a submenu, each by its address (Claude's choice, open to
-      // change: a list to choose from, as Cerebro's menus have no items made as they open).
-      const page =
+      const at = reference(context) as Reference;
+      const all = repositories(at);
+      // Nothing to open (`actionPerformed` without a reference): none without what it's for.
+      if (all.length === 0) return;
+      // IntelliJ's lists several in a submenu, each by its name: a commit's page, or the repository
+      // for a file's (`HostedGitRepositoryReference.getName`). Claude's choice, open to change: a
+      // list to choose from, as Cerebro's menus have no items made as they open.
+      const name = (repository: string) =>
+        'hash' in at ? `${repository}/commit/${at.hash}` : repository;
+      const repository =
         all.length === 1
           ? all[0]
           : (
               await openPicker({
                 label: 'View in browser',
                 position: 'top',
-                items: () => all.map((label) => ({ label })),
+                items: () => all.map((repository) => ({ label: name(repository), repository })),
               }).result
-            )?.label;
-      if (page !== undefined) browse(page);
+            )?.repository;
+      const address = repository === undefined ? undefined : await page(at, repository);
+      if (address !== undefined) browse(address);
     },
   });
   // In a commit's menu, its text there (GithubBundle's `open.on.github.action`), in a group of its
   // own, last.
   menus.contribute({
     menu: 'log/commit',
-    item: { command: 'log.openOnGitHub', label: 'View in browser' },
+    item: { command: 'github.openInBrowser', label: 'View in browser' },
     group: 'zz-hosting',
   });
+  // Last in Open In (`RevealGroup`), its text there (`EditorTabPopup`'s, "View in Browser"). The
+  // editor's Open In comes before its Local History and Git (`SplitRevealGroup`, before
+  // `VersionControlsGroup`).
+  const item = { command: 'github.openInBrowser', label: 'View in Browser' };
+  menus.contribute({ menu: 'project/node/openIn', item, group: 'z-hosting' });
+  menus.contribute({
+    menu: 'editor/content',
+    item: { submenu: 'editor/content/openIn', label: 'Open In' },
+    group: 'g-reveal',
+  });
+  menus.contribute({ menu: 'editor/content/openIn', item, group: 'z-hosting' });
 }

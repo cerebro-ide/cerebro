@@ -1,4 +1,10 @@
-export { hasEditorAction, runEditorAction, selectionIn, type EditorAction } from './actions.js';
+export {
+  hasEditorAction,
+  runEditorAction,
+  selectedLines,
+  selectionIn,
+  type EditorAction,
+} from './actions.js';
 export {
   CodeEditor,
   DEFAULT_KEYS,

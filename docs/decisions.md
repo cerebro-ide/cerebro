@@ -49,7 +49,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys; a symbol's link shows its documentation in place (changed 2026-11-16)
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13); Open on GitHub in a commit's menu (2026-11-16)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13); Open on GitHub in a commit's menu (2026-11-16), and for a file (2026-11-16)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -2302,8 +2302,21 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   its name alone). It gives each remote's first fetch URL and its push URLs; IntelliJ's takes every
   fetch URL too, so a remote's second fetch URL is missed. **Not yet:** GitHub Enterprise and other
   servers, which IntelliJ adds from its GitHub accounts and by asking the server (Cerebro has no
-  GitHub accounts), and its `github.aliases` setting; the GitHub icon; Open on GitHub elsewhere (the
-  editor's, the Project view's and the file history's menus, a file's page at its lines).
+  GitHub accounts), and its `github.aliases` setting; the GitHub icon; Open on GitHub in the file
+  history's menus and for a repository version's tab, and in the editor tab's menu (Cerebro's has
+  no Open In); the editor's Open In's other items (IntelliJ's Reveal In, Open in Associated
+  Application).
+  - **A file's page** (added 2026-11-16), as IntelliJ's (`HostedGitRepositoryReferenceUtil`,
+    `GHPathUtil`, read from its source), last in Open In (`RevealGroup`), as "View in Browser": the
+    Project view's, and the editor's, a new submenu before its Local History and Git (IntelliJ's
+    `SplitRevealGroup`, before `VersionControlsGroup`). For the Project view's selected file or
+    folder, else the active editor's file: `…/blob/<hash>/<path>`, each part of the path encoded,
+    at the last commit that changed it (`git log -n1 HEAD -- <path>`, as IntelliJ's
+    `getCurrentRevision`). From the editor, with the keyboard in it, the lines selected follow
+    (`#L3`, or `#L2-L5`), a selection ending at a line's start leaving that line out. Not for a file
+    git hasn't committed (untracked or added, as IntelliJ leaves out an unknown or added one), nor
+    the worktree's root. Where the commit can't be read, IntelliJ's error says so ("Cannot open in
+    browser"). An ignored file isn't left out yet: the Commit window's lists don't know it.
 - **Create Patch…** (added 2026-11-13), as IntelliJ's (`CreatePatchFromChangesAction`,
   `CreatePatchCommitExecutor`, `CreatePatchConfigurationPanel`, `PatchWriter`, their words in
   `VcsBundle` and `IdeBundle`, read from its source): in a commit's menu after Copy Revision
