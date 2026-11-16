@@ -2046,7 +2046,7 @@ effect(() => {
   return undefined;
 });
 
-installScrollbars({ platform: mac ? 'mac' : 'other' });
+installScrollbars({ mac });
 
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {

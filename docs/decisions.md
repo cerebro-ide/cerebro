@@ -5392,7 +5392,7 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   `isAbsolutePositioning`, read from its source). On macOS IntelliJ does that for whichever press
   the system's "Jump to the spot that's clicked" setting says (`MacScrollBarUI`); the page can't
   read it, so there a middle press pages, as the main one. The right button does nothing on a bar,
-  as IntelliJ's. `installScrollbars` takes the platform for it.
+  as IntelliJ's. `installScrollbars` is told whether it's macOS (`mac`).
 - **Not yet:** the macOS widening; the macOS setting for where a press on a track goes.
 
 ## Window buttons in full screen on macOS (2026-10-27)

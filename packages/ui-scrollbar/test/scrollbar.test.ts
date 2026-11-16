@@ -35,8 +35,8 @@ function area(width: number, height: number, overflow = 'auto', parent: Node = d
   return scroller;
 }
 
-function install(platform: 'mac' | 'other' = 'other'): void {
-  cleanup.push(installScrollbars({ hideAfter: HIDE, platform }));
+function install(mac = false): void {
+  cleanup.push(installScrollbars({ hideAfter: HIDE, mac }));
 }
 
 const thumb = (axis: 'x' | 'y') =>
@@ -349,7 +349,7 @@ describe('installScrollbars', () => {
   });
 
   it('pages at a middle press on macOS, whose own setting IntelliJ follows there', async () => {
-    install('mac');
+    install(true);
     const scroller = area(100, 400);
     await userEvent.hover(scroller);
     (track('y') as HTMLElement).dispatchEvent(

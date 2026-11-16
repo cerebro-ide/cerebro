@@ -232,8 +232,8 @@ function passThrough(event: PointerEvent): boolean {
 export interface ScrollbarOptions {
   /** How long an area's thumbs stay after it scrolled, in ms. Default: `HIDE_AFTER`. */
   hideAfter?: number;
-  /** On macOS a middle press on a track pages, as the main one. Default: 'other'. */
-  platform?: 'mac' | 'other';
+  /** Whether it's macOS, where a middle press on a track pages, as the main one. Default: false. */
+  mac?: boolean;
 }
 
 /** The DOM's numbers for the middle and the right buttons. */
@@ -242,7 +242,7 @@ const RIGHT = 2;
 
 /** Shows Cerebro's scrollbars over the page, the browser's hidden; returns what removes them. */
 export function installScrollbars(options: ScrollbarOptions = {}): () => void {
-  const { hideAfter = HIDE_AFTER, platform = 'other' } = options;
+  const { hideAfter = HIDE_AFTER, mac = false } = options;
   const shown = new Map<HTMLElement, Bars>();
   /** Shadow roots listened to for scrolling, which doesn't leave them. */
   const roots = new Set<ShadowRoot>();
@@ -384,7 +384,7 @@ export function installScrollbars(options: ScrollbarOptions = {}): () => void {
     const bar = (axis: Axis) => ({
       rail: draw('cerebro-scrollbar-track', axis, (event) => {
         if (event.button === RIGHT || passThrough(event)) return;
-        if (event.button === MIDDLE && platform !== 'mac') jump(bars, axis, event);
+        if (event.button === MIDDLE && !mac) jump(bars, axis, event);
         else press(bars, axis, event);
       }),
       thumb: draw('cerebro-scrollbar', axis, (event) => {
