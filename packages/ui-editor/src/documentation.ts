@@ -29,8 +29,12 @@ export interface Documentation {
 /** Asks for the documentation of the symbol at a place; nothing for none. */
 export type AskDocumentation = (at: Place) => Promise<Documentation | null | undefined>;
 
-/** Opens a link's address, as a press on it asks; without it, links don't open. */
-export type OpenLink = (address: string) => void;
+/**
+ * Opens a link's address, as a press on it asks; without it, links don't open. A symbol's link
+ * (JSDoc's `{@link}`) can answer with that symbol's documentation instead, shown in its place, as
+ * IntelliJ's follows a link to an element (`DocumentationBrowser.handleLinkRequest`).
+ */
+export type OpenLink = (address: string) => Promise<Documentation | null | undefined> | undefined;
 
 /**
  * Documentation as IntelliJ shows it: a definition it starts with set apart above the rest, as
@@ -43,30 +47,40 @@ export function documentationView(
 ): HTMLElement {
   const dom = document.createElement('div');
   dom.className = 'cerebro-doc';
+  const draw = (text: string) => {
+    dom.replaceChildren();
+    const tree = parser.parse(text);
+    const blocks: SyntaxNode[] = [];
+    for (let child = tree.topNode.firstChild; child; child = child.nextSibling) blocks.push(child);
+    const first = blocks[0];
+    if (first?.name === 'FencedCode') {
+      const definition = document.createElement('div');
+      definition.className = 'cerebro-doc__definition';
+      drawMarkdown(first, text, definition, style);
+      dom.append(definition);
+      blocks.shift();
+      // A rule after it (basedpyright's) would set it apart twice.
+      if (blocks[0]?.name === 'HorizontalRule') blocks.shift();
+    }
+    if (blocks.length > 0) {
+      const content = document.createElement('div');
+      content.className = 'cerebro-doc__content';
+      for (const block of blocks) drawMarkdown(block, text, content, style);
+      dom.append(content);
+    }
+  };
+  // A symbol's documentation in place of this one, as IntelliJ's next page.
+  const follow = (open: OpenLink) => (address: string) => {
+    void open(address)?.then((found) => {
+      if (found) draw(found.text);
+    });
+  };
   const style: MarkdownStyle = {
     highlighter: { style: (tags) => highlightingFor(state, tags) },
     headings: false,
-    ...(link ? { link } : {}),
+    ...(link ? { link: follow(link) } : {}),
   };
-  const tree = parser.parse(markdown);
-  const blocks: SyntaxNode[] = [];
-  for (let child = tree.topNode.firstChild; child; child = child.nextSibling) blocks.push(child);
-  const first = blocks[0];
-  if (first?.name === 'FencedCode') {
-    const definition = document.createElement('div');
-    definition.className = 'cerebro-doc__definition';
-    drawMarkdown(first, markdown, definition, style);
-    dom.append(definition);
-    blocks.shift();
-    // A rule after it (basedpyright's) would set it apart twice.
-    if (blocks[0]?.name === 'HorizontalRule') blocks.shift();
-  }
-  if (blocks.length > 0) {
-    const content = document.createElement('div');
-    content.className = 'cerebro-doc__content';
-    for (const block of blocks) drawMarkdown(block, markdown, content, style);
-    dom.append(content);
-  }
+  draw(markdown);
   return dom;
 }
 

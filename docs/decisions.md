@@ -46,7 +46,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
 - [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
-- [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
+- [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys; a symbol's link shows its documentation in place (changed 2026-11-16)
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
 - [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13); Open on GitHub in a commit's menu (2026-11-16)
@@ -1907,7 +1907,14 @@ and Quick Documentation").
   - macOS System Shortcuts: Cmd+I and F1. Sublime Text, and Sublime Text (macOS): none (their files
     take it away).
   - Emacs and NetBeans: their files don't name it, so they keep IntelliJ IDEA's Ctrl+Q.
-- **Not yet:** going to a symbol's definition from its documentation (JSDoc's `{@link}`);
+- **A symbol's link shows its documentation in its place** (added 2026-11-16), as IntelliJ's
+  (`DocumentationBrowser.handleLinkRequest`, read from its source: a link to an element loads that
+  element's documentation as the popup's next page). Measured, TypeScript 7 writes JSDoc's
+  `{@link total}` (and `{@link total | text}`, `{@linkcode total}`) as a link to
+  `file:///…/a.ts#2,17-2,22`, the name's line and column from 1, and one it can't resolve as its
+  text alone. The documentation is that place's hover, from its file's document (unsaved changes
+  too) and server; nothing changes where there's none.
+- **Not yet:** going back to the documentation a link was pressed in (IntelliJ's popup history);
   IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
   documentation of the completion chosen in the completion list. (Signature help: see "Parameter
   Info".)

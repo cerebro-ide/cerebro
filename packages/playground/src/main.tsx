@@ -2161,8 +2161,10 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
-                  // A web link's page, in the browser; a symbol's (JSDoc's `{@link}`) not yet.
-                  onLink: browse,
+                  // A web link's page, in the browser; a symbol's (JSDoc's `{@link}`), its
+                  // documentation in place, as IntelliJ's.
+                  onLink: (address: string) =>
+                    browse(address) ? undefined : navigation.linkedDocumentation(address),
                   quickDefinition: (at: { line: number; column: number }) =>
                     navigation.quickDefinition(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>

@@ -14,7 +14,7 @@ export {
   type CompletionList,
   type ResolveCompletion,
 } from './completions.js';
-export { type AskDocumentation, type Documentation } from './documentation.js';
+export { type AskDocumentation, type Documentation, type OpenLink } from './documentation.js';
 export { type AskQuickDefinition, type QuickDefinition } from './quick-definition.js';
 export {
   PARAMETERS_AFTER,

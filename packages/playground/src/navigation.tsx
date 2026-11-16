@@ -105,6 +105,24 @@ export interface Asked {
   column: number;
 }
 
+/**
+ * The place a symbol's link in documentation names, zero-based: TypeScript's for JSDoc's `{@link}`
+ * (measured, TypeScript 7: `file:///…/a.ts#2,17-2,22`, its line and column from 1, then where the
+ * name ends). A Windows drive (`/c%3A/…`) in capitals, as git writes paths. None for another link.
+ */
+export function linkedPlace(address: string): Omit<Asked, 'text'> | undefined {
+  const found = /^file:\/\/(\/[^#]*)#(\d+),(\d+)/.exec(address);
+  if (!found) return undefined;
+  let path: string;
+  try {
+    path = decodeURIComponent(found[1] as string);
+  } catch {
+    return undefined;
+  }
+  if (/^\/[A-Za-z]:/.test(path)) path = `${(path[1] as string).toUpperCase()}${path.slice(2)}`;
+  return { path, line: Number(found[2]) - 1, column: Number(found[3]) - 1 };
+}
+
 /** Positions to reveal in open files, by path: the editor follows them. */
 export const reveals = new ObservableMap<
   string,
@@ -366,6 +384,18 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
     /** What the symbol at a place is, from its file's language server: its hover; none without. */
     documentation(asked: Asked): Promise<Documentation | null> {
       return ask<Documentation>('lsp.hover', asked);
+    },
+
+    /**
+     * The documentation of the symbol a link in documentation names (`linkedPlace`), from its
+     * file's document (unsaved changes too) and language server; none for another link.
+     */
+    async linkedDocumentation(address: string): Promise<Documentation | null> {
+      const place = linkedPlace(address);
+      if (!place) return null;
+      const doc = await documentFor(place.path);
+      if ('error' in doc) return null;
+      return ask<Documentation>('lsp.hover', { ...place, text: doc.text.peek().toString() });
     },
 
     /**

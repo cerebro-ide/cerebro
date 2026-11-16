@@ -53,7 +53,12 @@ import { leaves } from './leaves.js';
 
 /** IntelliJ's: 4 spaces. */
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
-import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
+import {
+  documentation,
+  documentationKeys,
+  type AskDocumentation,
+  type OpenLink,
+} from './documentation.js';
 import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
 import { scrollbarPreview } from './scrollbar-preview.js';
 import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
@@ -207,8 +212,11 @@ export interface CodeEditorProps {
    * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
    */
   documentation?: AskDocumentation;
-  /** Opens a link pressed in the documentation; without it, its links don't open. */
-  onLink?: (address: string) => void;
+  /**
+   * Opens a link pressed in the documentation; without it, its links don't open. A symbol's link
+   * can answer with that symbol's documentation, shown in its place.
+   */
+  onLink?: OpenLink;
   /**
    * The definition of the symbol at a place, shown in a popup on its keys (Ctrl+Shift+I), as
    * IntelliJ's Quick Definition. None: no Quick Definition.
