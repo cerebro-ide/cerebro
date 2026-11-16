@@ -2767,27 +2767,28 @@ describe('the Switcher', () => {
     expect(labels('right')).toEqual(['|c.ts||', '|b.ts||', '|a.ts||']);
     expect(selected()).toBe('b.ts');
     expect(q('.cerebro-switcher__status').textContent).toBe('/r/src');
-    // The tool windows by name, each with its number, or a capital of its name, or the next free.
+    // The tool windows, each with its number, or a capital of its name, or the next free; in
+    // IntelliJ's order, by them: digits first.
     expect(labels('left')).toEqual([
-      '|Agent Changes||A',
-      '|Bookmarks||2',
-      // Show Diff with Working Tree's window, there since it ran: by name, before Claude.
-      '|Changes||C',
-      '|Claude||3',
       '|Commit||0',
+      '|Project||1',
+      '|Bookmarks||2',
+      '|Claude||3',
+      // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
+      '|Notifications||4',
+      '|Problems||6',
+      '|Structure||7',
+      '|Services||8',
+      '|Git||9',
+      '|Agent Changes||A',
+      // Show Diff with Working Tree's window, there since it ran.
+      '|Changes||C',
       '|Database||D',
       // Find in Files' window, there since it ran.
       '|Find||F',
-      '|Git||9',
       // Call Hierarchy's window, there since it ran.
       '|Hierarchy||H',
-      // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
       '|Notes||N',
-      '|Notifications||4',
-      '|Problems||6',
-      '|Project||1',
-      '|Services||8',
-      '|Structure||7',
       '|Terminal||T',
     ]);
     await userEvent.keyboard('{/Control}');

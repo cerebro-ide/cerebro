@@ -36,14 +36,16 @@ describe('the Switcher’s command', () => {
   it('lists the tool windows alone with no environment, by their capitals or the next free key', () => {
     commands.execute('view.switcher');
     // No keymap: no numbers; "plain" has no capital.
-    expect(labels('left')).toEqual(['|More||M', '|plain||0']);
+    // By mnemonic, as IntelliJ's: digits first.
+    expect(labels('left')).toEqual(['|plain||0', '|More||M']);
     expect(labels('right')).toEqual([]);
-    expect(selected()).toBe('More');
+    expect(selected()).toBe('plain');
   });
 
   it('opens Recent Files with the tool windows, without their mnemonics, and no files with no environment', async () => {
     commands.execute('view.recentFiles');
-    expect(labels('left')).toEqual(['|More||', '|plain||']);
+    // In the Switcher's order, its mnemonics hidden.
+    expect(labels('left')).toEqual(['|plain||', '|More||']);
     expect(
       document.querySelector('[data-side="right"] .cerebro-switcher__empty')?.textContent,
     ).toBe('No recent files');
@@ -65,7 +67,7 @@ describe('the Switcher’s command', () => {
   it('shows a tool window chosen, its content focused', async () => {
     commands.execute('view.switcher');
     await userEvent.keyboard('{Enter}');
-    expect(tools.isVisible('more')).toBe(true);
+    expect(tools.isVisible('plain')).toBe(true);
   });
 
   it('closes on the release of any modifier it opened with', async () => {

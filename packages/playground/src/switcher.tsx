@@ -48,8 +48,12 @@ type Entry = SwitcherItem & ({ kind: 'tool'; id: string } | { kind: 'tab'; tab: 
 /** A tool window's number from the shortcut that opens it: Alt+1's 1. */
 const numberOf = (shortcut: string | undefined) => /^[A-Za-z]+\+(\d)$/.exec(shortcut ?? '')?.[1];
 
-/** The tool windows, by name, each with its mnemonic if they're shown (`showMnemonics`). */
-function toolEntries(services: MenuServices, tools: ToolWindows, mnemonic = true): Entry[] {
+/**
+ * The tool windows, each with its mnemonic if they're shown (`showMnemonics`), in IntelliJ's order
+ * (`mnemonicAndMainTextComparator`), shown or not: by mnemonic, digits before letters, those
+ * without last; then by name.
+ */
+function toolEntries(services: MenuServices, tools: ToolWindows, shown = true): Entry[] {
   const windows = [...tools.windows.values()].sort((a, b) => a.title.localeCompare(b.title));
   const taken = new Set<string>();
   const mnemonics = new Map<string, string>();
@@ -74,14 +78,17 @@ function toolEntries(services: MenuServices, tools: ToolWindows, mnemonic = true
     taken.add(mnemonic);
     mnemonics.set(window.id, mnemonic);
   }
+  const key = (id: string) => mnemonics.get(id) ?? '\uffff';
+  windows.sort((a, b) => {
+    const [x, y] = [key(a.id), key(b.id)];
+    return x === y ? a.title.localeCompare(b.title) : x < y ? -1 : 1;
+  });
   return windows.map((window) => ({
     kind: 'tool',
     id: window.id,
     label: window.title,
     ...(window.icon === undefined ? {} : { icon: () => icon(window.icon as string) }),
-    ...(mnemonic && mnemonics.has(window.id)
-      ? { mnemonic: mnemonics.get(window.id) as string }
-      : {}),
+    ...(shown && mnemonics.has(window.id) ? { mnemonic: mnemonics.get(window.id) as string } : {}),
   }));
 }
 

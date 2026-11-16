@@ -1935,7 +1935,9 @@ tabs". As IntelliJ's, from its source (`Switcher.kt`, `SwitcherActions.kt`,
 `SwitcherRendering.kt`).
 
 - **A popup in the window's centre** (`openSwitcher` in `ui-popup`), on Ctrl+Tab, Ctrl+Shift+Tab
-  starting from the end: the tool windows on the left, by name; the open tabs on the right, the
+  starting from the end: the tool windows on the left, by mnemonic (below), digits before letters,
+  then by name (changed 2026-11-16: by name alone before; IntelliJ's
+  `mnemonicAndMainTextComparator`, read from its source); the open tabs on the right, the
   latest shown first, up to 30; the selected file's folder below. With fewer than two tabs open,
   the recent files fill the list, as many as there are tool windows.
 - **Its keys are IntelliJ's:** opened with Ctrl held, letting Ctrl go opens what's selected, so a
