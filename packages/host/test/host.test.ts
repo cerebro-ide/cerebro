@@ -120,6 +120,7 @@ describe('language servers', () => {
       definitionSpans: vi.fn(() => Promise.resolve(null)),
       prepareCalls: vi.fn(() => Promise.resolve(null)),
       incomingCalls: vi.fn(() => Promise.resolve([])),
+      outgoingCalls: vi.fn(() => Promise.resolve([])),
       implementations: vi.fn(() => Promise.resolve([])),
       typeDefinitions: vi.fn(() => Promise.resolve(null)),
       organizeImports: vi.fn(() => Promise.resolve([])),
@@ -174,6 +175,10 @@ describe('language servers', () => {
       await ui.request('lsp.incomingCalls', { worktree: '/w', path: '/w/a.ts', item: { n: 1 } }),
     ).toEqual([]);
     expect(servers.incomingCalls).toHaveBeenCalledWith('/w', '/w/a.ts', { n: 1 });
+    expect(
+      await ui.request('lsp.outgoingCalls', { worktree: '/w', path: '/w/a.ts', item: { n: 2 } }),
+    ).toEqual([]);
+    expect(servers.outgoingCalls).toHaveBeenCalledWith('/w', '/w/a.ts', { n: 2 });
     expect(await ui.request('lsp.typeDefinitions', { ...file, line: 1, column: 6 })).toBeNull();
     expect(servers.typeDefinitions).toHaveBeenCalledWith(
       '/w',

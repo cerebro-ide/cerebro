@@ -603,9 +603,12 @@ export interface Call {
   path: string;
   /** Where its name starts. */
   at: { line: number; column: number };
-  /** Where, in its own file, it calls the one it's a caller of; none for the one asked about. */
+  /**
+   * Where it's called: a caller's, in its own file, where it calls the one it's under; a callee's,
+   * in the file of the one it's under, where that calls it. None for the one asked about.
+   */
   calls: { line: number; column: number }[];
-  /** The server's item, given back to ask for its callers. */
+  /** The server's item, given back to ask for its callers or callees. */
   item: unknown;
 }
 
@@ -617,11 +620,18 @@ interface CallItem {
   selectionRange: Range;
 }
 
-/** LSP's call hierarchy items as calls; `ranges`, where each calls (incoming calls'). */
+/** LSP's call hierarchy items as calls, with where each is called (incoming and outgoing calls'). */
 export function callsOf(result: unknown, platform: NodeJS.Platform = process.platform): Call[] {
   if (!Array.isArray(result)) return [];
-  return (result as (CallItem | { from: CallItem; fromRanges: Range[] })[]).map((entry) => {
-    const [item, ranges] = 'from' in entry ? [entry.from, entry.fromRanges] : [entry, []];
+  type Entry =
+    CallItem | { from: CallItem; fromRanges: Range[] } | { to: CallItem; fromRanges: Range[] };
+  return (result as Entry[]).map((entry) => {
+    const [item, ranges] =
+      'from' in entry
+        ? [entry.from, entry.fromRanges]
+        : 'to' in entry
+          ? [entry.to, entry.fromRanges]
+          : [entry, []];
     const kind = SYMBOL_KINDS[item.kind - 1];
     return {
       name: item.name,
@@ -1198,6 +1208,12 @@ export class LanguageServer {
     return callsOf(await this.#connection.request('callHierarchy/incomingCalls', { item }));
   }
 
+  /** What an item of a call hierarchy calls, and where it calls each. */
+  async outgoingCalls(item: unknown): Promise<Call[]> {
+    await this.ready;
+    return callsOf(await this.#connection.request('callHierarchy/outgoingCalls', { item }));
+  }
+
   /** A completion's other edits (an import), as it gives them when asked about the item. */
   async completionEdits(item: unknown): Promise<TextEdit[]> {
     await this.ready;
@@ -1553,6 +1569,11 @@ export class LanguageServers {
   /** What calls an item of a call hierarchy in `path`, from its server; none in time: null. */
   incomingCalls(worktree: string, path: string, item: unknown): Promise<Call[] | null> {
     return this.#ask(worktree, path, (server) => server.incomingCalls(item));
+  }
+
+  /** What an item of a call hierarchy in `path` calls, from its server; none in time: null. */
+  outgoingCalls(worktree: string, path: string, item: unknown): Promise<Call[] | null> {
+    return this.#ask(worktree, path, (server) => server.outgoingCalls(item));
   }
 
   /** A completion's other edits, from the server of the file it was offered in; none in time: null. */

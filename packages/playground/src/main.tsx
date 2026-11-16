@@ -194,7 +194,7 @@ import {
   type BookmarkPlace,
   type LineBookmark,
 } from './bookmarks.js';
-import { HierarchyView, showHierarchy } from './call-hierarchy.js';
+import { HierarchyView, setupCallHierarchy, showHierarchy } from './call-hierarchy.js';
 import {
   closeProject,
   openProject,
@@ -700,6 +700,7 @@ for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
 setupRecentLocations(services);
 setupStructureView(services);
+setupCallHierarchy(services);
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {
@@ -1930,7 +1931,9 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
-  if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
+  if (props.id === 'hierarchy') {
+    return <HierarchyView services={services} open={navigation.openAt} />;
+  }
   if (props.id === 'structure') {
     const view = (
       <StructureView

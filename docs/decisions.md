@@ -3448,9 +3448,24 @@ IntelliJ's Navigate → Call Hierarchy, which WebStorm has. Claude's choices, op
   about the active file at its caret, as File Structure does (one function for both now).
 - **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+H, on macOS too; macOS System Shortcuts'
   Ctrl+Shift+H. VS Code's sheets don't list it, so its keymaps keep IntelliJ's.
-- **Not yet:** Callees (IntelliJ's other view), sorting alphabetically, the scope (all, project,
-  tests), the window's toolbar (refresh, expand and collapse all, pin, previous and next), its
-  tabs, one per hierarchy; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
+- **Its toolbar** (added 2026-11-16), over the tree, IntelliJ's in its order
+  (`CallHierarchyBrowserBase.prependActions`, then `HierarchyBrowserBaseEx`'s and
+  `HierarchyBrowserBase`'s `appendActions`, words from its bundles), with what Cerebro has of it:
+  - Caller Methods Hierarchy and Callee Methods Hierarchy: a hierarchy starts with its callers;
+    "Callees of {name}" lists what it calls (LSP's `outgoingCalls`), each opening where the one
+    above calls it, in that one's file (measured with TypeScript 7's server: `outgoingCalls`'
+    places are in the caller's file). A node given no place opens at its name.
+  - Alphabetically: by name, numbers by their value (`AlphaComparator`'s `FileNameComparator`;
+    the locale's collation stands for IntelliJ's `naturalCompare`, a claim), read again with
+    what's expanded kept. Refresh asks the server again. Navigate with Single Click opens the node
+    selected, the focus left in the tree; turned on, it waits for the next selection
+    (`setAutoScrollMode` alone). Collapse All. Both toggles off to start with
+    (`HierarchyBrowserManager`'s state), kept in the browser's storage.
+  - Its icons are Claude's drawings (not IntelliJ's), open to change.
+- **Not yet:** the scope (all, project, tests); Expand All (a function that calls itself would
+  expand forever, and how IntelliJ stops at a recursive call for JavaScript isn't in its open
+  source); Pin, Export to Text File, Close, and its tabs, one per hierarchy; previous and next
+  occurrence; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
   (IntelliJ's), and the call sites highlighted in the editor once opened.
 
 ## Quick Definition (2026-11-14)

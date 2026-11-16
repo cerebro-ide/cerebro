@@ -418,7 +418,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
      */
     /**
      * Call Hierarchy: the function or method at a place, from its file's language server, and how
-     * to ask what calls it; none without a server, or with nothing there.
+     * to ask what calls it and what it calls; none without a server, or with nothing there.
      */
     async callHierarchy(asked: Asked): Promise<Hierarchy | null> {
       const env = active();
@@ -428,6 +428,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         worktree: env.id,
         root,
         callers: (call) => ask<Call[]>('lsp.incomingCalls', { path: call.path, item: call.item }),
+        callees: (call) => ask<Call[]>('lsp.outgoingCalls', { path: call.path, item: call.item }),
       };
     },
 

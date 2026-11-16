@@ -17,6 +17,16 @@ const PATHS: Record<string, string> = {
   bookmark: 'M4.5 2.5h7v11L8 10.5l-3.5 3z',
   // A box with two under it: the Hierarchy tool window (a claim: not IntelliJ's drawing).
   hierarchy: 'M2.5 2.5h5v3h-5zM8.5 7h5v3h-5zM8.5 11h5v3h-5zM5 5.5v7h3.5M5 8.5h3.5',
+  // An arrow up from a box, and down to one: IntelliJ's Hierarchy.Supertypes and Subtypes, Caller
+  // and Callee Methods Hierarchy's (a claim: not IntelliJ's drawing).
+  callers: 'M5.5 10h5v3.5h-5zM8 10V2.5M5.5 5L8 2.5 10.5 5',
+  callees: 'M5.5 2.5h5V6h-5zM8 6v7.5M5.5 11L8 13.5l2.5-2.5',
+  // Lines growing shorter beside an arrow down: IntelliJ's ObjectBrowser.Sorted, Sort
+  // Alphabetically's (a claim: not IntelliJ's drawing).
+  sorted: 'M2.5 4h6M2.5 8h4.5M2.5 12h3M12 3v10M9.5 10.5L12 13l2.5-2.5',
+  // An arrow into a page: IntelliJ's Autoscroll to Source, Navigate with Single Click's (a claim:
+  // not IntelliJ's drawing).
+  autoscroll: 'M1.5 8h7M6 5.5L8.5 8 6 10.5M10.5 2.5h3v11h-3',
   note: 'M3.5 2.5h9v11h-9zM5.5 5.5h5M5.5 8h5M5.5 10.5h3',
   terminal: 'M2.5 3.5h11v9h-11zM5 6.5l2 1.5-2 1.5M8.5 10h2.5',
   problems: 'M8 2.5l6 10.5H2zM8 6.5v3M8 11.2v.3',
