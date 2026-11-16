@@ -1304,9 +1304,11 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     (`ide.recent.files.tool.window.mnemonics` is off). The files on the right, as before, the first
     not shown now selected. It stays open until Enter or Escape, as when opened from a menu.
   - **Typing narrows both lists,** IntelliJ's speed search (`SwitcherSpeedSearch`): each item by
-    its name, or its name and folder, matched as the pickers match. The best match is selected, in
-    the list that has the selection first. What's typed shows above the lists. Backspace takes a
-    character back, and Escape forgets what's typed before it closes the popup.
+    its name, or its name and its folder from the project's, matched as the pickers match (seen in
+    the app: matching the absolute folder found every file for "pro", through `/tmp`). The best
+    match is selected, in the list that has the selection first. What's typed shows above the
+    lists, and the popup keeps its size, as IntelliJ's. Backspace takes a character back, and
+    Escape forgets what's typed before it closes the popup.
   - **With nothing matched,** the files' list says "Press 'Enter' to search in Project", and
     Enter opens Go to File with what was typed (`tryToOpenFileSearch`). The lists' other words are
     IntelliJ's too: "No recent files" and "No tool windows" (`IdeBundle`).

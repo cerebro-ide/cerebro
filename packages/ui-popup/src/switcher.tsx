@@ -8,9 +8,10 @@
 // the modifiers held, if any) chooses it.
 //
 // With `search` (Recent Files'), typing narrows both lists, as IntelliJ's speed search
-// (`SwitcherSpeedSearch`): each item by its name, or its name and folder; the best match is
-// selected, in the list that has the selection first. What's typed shows above the lists;
-// Backspace takes a character back, and Escape forgets it before it closes the popup.
+// (`SwitcherSpeedSearch`): each item by its name, or its name and the folder shown; the best
+// match is selected, in the list that has the selection first. What's typed shows above the
+// lists; Backspace takes a character back, and Escape forgets it before it closes the popup. The
+// popup keeps its size meanwhile.
 //
 // From IntelliJ's source (Switcher.kt, SwitcherActions.kt, SwitcherSpeedSearch.kt): all of the
 // above.
@@ -101,11 +102,11 @@ class SwitcherState<T> {
   }
 }
 
-/** How well an item matches what's typed: by its name, or its name and folder. */
+/** How well an item matches what's typed: by its name, or its name and the folder shown. */
 function score(item: SwitcherItem, query: string): number | undefined {
   return (
     match(query, item.label)?.score ??
-    (item.status === undefined ? undefined : match(query, `${item.label} ${item.status}`)?.score)
+    (item.detail === undefined ? undefined : match(query, `${item.label} ${item.detail}`)?.score)
   );
 }
 
@@ -177,9 +178,11 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     this.resolve(result);
   }
 
-  /** In the window's centre, as IntelliJ's. */
+  /** In the window's centre, as IntelliJ's; its size kept as speed search narrows the lists. */
   private place(): void {
     const { width, height } = this.element.getBoundingClientRect();
+    this.element.style.minWidth = `${String(width)}px`;
+    this.element.style.minHeight = `${String(height)}px`;
     this.element.style.left = `${String(Math.round(Math.max(0, (window.innerWidth - width) / 2)))}px`;
     this.element.style.top = `${String(Math.round(Math.max(0, (window.innerHeight - height) / 2)))}px`;
   }

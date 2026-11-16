@@ -266,8 +266,10 @@
   white-space: nowrap;
 }
 
+/* Filling the popup, whose size is kept as speed search narrows them. */
 .cerebro-switcher__lists {
   display: flex;
+  flex: auto;
   min-height: 0;
 }
 

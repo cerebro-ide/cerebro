@@ -234,21 +234,29 @@ describe('the Switcher', () => {
     const empty = (side: string) =>
       document.querySelector(`[data-side="${side}"] .cerebro-switcher__empty`)?.textContent;
     expect(typed()).toBeUndefined();
-    // By name: the files first, as they have the selection.
+    const size = () => {
+      const { width, height } = (
+        document.querySelector('.cerebro-switcher') as HTMLElement
+      ).getBoundingClientRect();
+      return { width, height };
+    };
+    const before = size();
+    // By name: the files first, as they have the selection; the popup keeps its size.
     await userEvent.keyboard('c');
     expect(typed()).toBe('c');
     await userEvent.keyboard('.');
     expect(labels('right')).toEqual(['c.ts']);
     expect(labels('left')).toEqual([]);
+    expect(size()).toEqual(before);
     expect(selected()).toBe('right:c.ts');
-    // Or by name and folder; a list with none says so.
-    await userEvent.keyboard('{Backspace}{Backspace}src');
-    expect(labels('right')).toEqual(['a.ts']);
+    // Or by name and the folder shown, not the status's; a list with none says so.
+    await userEvent.keyboard('{Backspace}{Backspace}lib');
+    expect(labels('right')).toEqual(['c.ts']);
     expect(empty('left')).toBe('No tool windows');
     // Into the other list when the selected one has none.
     await userEvent.keyboard('{Escape}');
     expect(typed()).toBeUndefined();
-    expect(selected()).toBe('right:a.ts');
+    expect(selected()).toBe('right:c.ts');
     expect(labels('right')).toEqual(['a.ts', 'b.ts', 'c.ts']);
     await userEvent.keyboard('proj');
     expect(selected()).toBe('left:Project');
