@@ -1,8 +1,11 @@
 // Code completion, as IntelliJ's: a list of what can go at the caret, from what's given (a
 // language server, in the app), shown as a name is typed or after a `.`, and on its keys
 // (Ctrl+Space, IntelliJ's Basic Completion). Enter or Tab puts the one chosen in, with the other
-// edits it needs (an import). A server that gives those only when asked (TypeScript's) is asked
-// once it's chosen; its edits join the completion's in the undo history, as one change.
+// edits it needs (an import); Tab in place of the rest of the name after the caret too, as
+// IntelliJ's Replace (`ChooseItemAction.Replacing`: what's after the caret, to the identifier's end,
+// deleted first, `calcDefaultIdentifierEnd`). A server that gives those only when asked
+// (TypeScript's) is asked once it's chosen; its edits join the completion's in the undo history, as
+// one change.
 
 import {
   acceptCompletion,
@@ -78,6 +81,21 @@ export type ResolveCompletion = (
 const WORD = /[\p{L}\p{N}_$]+/u;
 const STILL_WORD = /^[\p{L}\p{N}_$]*$/u;
 
+/** Where Tab's completion replaces to, while it's put in: the end of the name after the caret. */
+const replacing = new WeakMap<EditorView, number>();
+
+/** Tab: the one chosen in place of the name around the caret, the part after it too. */
+function acceptReplacing(view: EditorView): boolean {
+  const { head } = view.state.selection.main;
+  const after = view.state.sliceDoc(head, view.state.doc.lineAt(head).to);
+  replacing.set(view, head + (/^[\p{L}\p{N}_$]*/u.exec(after) as RegExpExecArray)[0].length);
+  try {
+    return acceptCompletion(view);
+  } finally {
+    replacing.delete(view);
+  }
+}
+
 /** A position in a text, from a place in it. */
 const offset = (text: Text, at: Place) => text.line(at.line + 1).from + at.column;
 
@@ -114,6 +132,8 @@ function apply(
   resolve: ResolveCompletion | undefined,
 ) {
   const before = view.state.doc;
+  // With Tab, the name after the caret too.
+  to = Math.max(to, replacing.get(view) ?? to);
   const edit = (e: CompletionEdit) => ({
     from: offset(before, e.from),
     to: offset(before, e.to),
@@ -215,7 +235,7 @@ export function completionKeys(keys: readonly string[]): Extension {
       { key: 'PageDown', run: moveCompletionSelection(true, 'page') },
       { key: 'PageUp', run: moveCompletionSelection(false, 'page') },
       { key: 'Enter', run: acceptCompletion },
-      { key: 'Tab', run: acceptCompletion },
+      { key: 'Tab', run: acceptReplacing },
     ]),
   );
 }

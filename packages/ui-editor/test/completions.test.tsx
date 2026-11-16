@@ -265,6 +265,38 @@ describe('completions', () => {
     expect(doc.text.peek().toString()).toBe('x;\ntab()');
   });
 
+  it('puts the one chosen in place of the name after the caret too with Tab, as IntelliJ’s Replace; Enter leaves it', async () => {
+    const ask = vi.fn(() =>
+      Promise.resolve(
+        list([
+          {
+            label: 'target',
+            edit: { from: { line: 0, column: 0 }, to: { line: 0, column: 2 }, text: 'target' },
+          },
+          { label: 'tax' },
+        ]),
+      ),
+    );
+    const { doc, root } = await editing('old_Name$1 + 2;', { completions: ask });
+    // Before the name's rest: `ta|old_Name$1`.
+    await userEvent.keyboard('{Home}ta');
+    await shown(root);
+    await userEvent.keyboard('{Tab}');
+    expect(doc.text.peek().toString()).toBe('target + 2;');
+    // The caret after it.
+    await userEvent.keyboard('!');
+    expect(doc.text.peek().toString()).toBe('target! + 2;');
+    // Enter leaves the rest; an insert of its own with Tab replaces it too.
+    await userEvent.keyboard('{Backspace}{Home}{Control>}{Delete}{/Control}ta');
+    await shown(root);
+    await userEvent.keyboard('{Enter}');
+    expect(doc.text.peek().toString()).toBe('target + 2;');
+    await userEvent.keyboard('{Home}tax');
+    await shown(root);
+    await userEvent.keyboard('{Tab}');
+    expect(doc.text.peek().toString()).toBe('tax + 2;');
+  });
+
   it('asks for a chosen one’s other edits when it has them only by asking, placed in the text as it is', async () => {
     let answer: (edits: CompletionEdit[]) => void = () => undefined;
     const item: CompletionItem = { label: 'target', resolve: { which: 'target' } };
