@@ -49,6 +49,7 @@ import { leaves } from './leaves.js';
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
 import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
 import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
+import { scrollbarPreview } from './scrollbar-preview.js';
 import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
 import { parameterInfo, parameterKeys, type AskSignatures } from './parameters.js';
 import { renameKeys, renaming, type AskRenaming, type Rename } from './rename.js';
@@ -481,6 +482,18 @@ export const theme = EditorView.theme({
     borderRadius: '3px',
     margin: '0 1px',
     cursor: 'pointer',
+  },
+  // The lines under the pointer on the scrollbar: the editor's own, left of the bar, framed (a
+  // claim: IntelliJ's `CODE_LENS_BORDER_COLOR` wasn't measured) and without a shadow, as IntelliJ's.
+  '.cerebro-scrollbarPreview': {
+    position: 'absolute',
+    left: '0',
+    zIndex: '200',
+    overflow: 'hidden',
+    border: `1px solid ${variable('tooltip-border')}`,
+    borderRadius: '2px',
+    backgroundColor: variable('background'),
+    pointerEvents: 'none',
   },
   // A folded part's lines under the pointer: the editor's own, framed as the tooltips are.
   '.cm-tooltip.cerebro-foldPeek': {
@@ -1138,6 +1151,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
     folding(props.folds, [theme, syntaxHighlighting(highlight)]),
+    scrollbarPreview([theme, syntaxHighlighting(highlight)]),
     gutterObstacle,
     fullWidth,
     selection,
