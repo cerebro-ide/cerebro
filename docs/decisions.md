@@ -3107,8 +3107,7 @@ the ones the file's language gives CodeMirror (`commentTokens`): none in JSON, s
 - **Measured in the app:** Playwright's `Control+Shift+/` sends `/` with Shift held, which
   CodeMirror reads as Ctrl+/ (a character key's Shift is in the character); a US keyboard's `?`
   is Ctrl+Shift+/. **Claim:** that Chrome sends `?` from a real keyboard (not measured here).
-- **Not yet:** a Code menu (IntelliJ's has them, as Reformat Code and the editor's other actions;
-  they're keys only here, not commands, so not in Find Action either).
+- **In the Code menu** and Find Action since "The editor's actions as commands" (2026-11-16).
 
 ## Move Line Up and Down (2026-11-13)
 
@@ -3580,8 +3579,9 @@ choices, open to change.
   no Type Declaration (none of either on macOS); none for Implementation in Emacs's; none for Type
   Declaration in Sublime Text's; Visual Studio's Alt+End and Ctrl+Shift+F11 (Cmd+Shift+F11 on
   macOS). VS Code's shortcut sheets list neither, so its keymaps keep IntelliJ's.
-- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands, so in no menu);
-  Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's; IntelliJ's list shows each
+- **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** Ctrl+Alt+click on a symbol for Implementation, as IntelliJ's (with the keymaps'
+  mouse shortcuts, Ido: "All, as IntelliJ's", 2026-11-16); IntelliJ's list shows each
   implementation's class and its file, where this shows the file and line.
 
 ## Go to Super Method (2026-11-14)
@@ -3619,8 +3619,8 @@ change.
   NetBeans' and macOS System Shortcuts' Ctrl+Alt+Down and Up; none in Sublime Text's on macOS. VS
   Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
   keymaps have none (Claude's choice).
-- **Not yet:** in the Navigate menu (the editor's actions are keys, not commands); IntelliJ
-  scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
+- **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** IntelliJ scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
   it as Go to Definition does.
 
 ## Optimize Imports (2026-11-14)
@@ -3644,8 +3644,9 @@ actions). Claude's choices, open to change.
   Ctrl+Shift+O, and Cmd+Shift+O on macOS; NetBeans' Ctrl+Shift+I; Visual Studio's Ctrl+R G,
   Ctrl+R Ctrl+G and Ctrl+Alt+O. VS Code's shortcut sheets don't list it, so its keymaps keep
   IntelliJ's.
-- **Not yet:** a Code menu to hold it (Find Action finds it); a folder or several files at once
-  (IntelliJ's dialog); Optimize Imports on save or before a commit.
+- **In the Code menu** after Reformat Code since "The editor's actions as commands" (2026-11-16).
+- **Not yet:** a folder or several files at once (IntelliJ's dialog); Optimize Imports on save or
+  before a commit.
 
 ## The Structure tool window (2026-11-14)
 
@@ -5085,7 +5086,6 @@ change.
     "Binaries with the installer").
   - Formatting on save, IntelliJ's Reformat File dialog (optimize imports, rearrange), and
     formatting as one types.
-  - Reformat Code in a menu: no editor action is in one yet.
   - Prettier: a plugin, later (backlog).
 
 ## File Structure (2026-11-04)
