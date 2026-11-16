@@ -1,7 +1,7 @@
 // Next and Previous Occurrence, as IntelliJ's (`NextOccurenceAction` and `PreviousOccurenceAction`,
 // through `OccurenceNavigatorActionBase` and `OccurenceNavigatorSupport`, read from its source):
 // Ctrl+Alt+Down and Up go to the next or previous result of a tool window that lists them (Find,
-// and Hierarchy), from wherever the keyboard is: the focused tool window's, else the one active
+// Hierarchy, and Bookmarks' line bookmarks), from wherever the keyboard is: the focused tool window's, else the one active
 // last that has them (`LAST_ACTIVE_TOOL_WINDOWS`), so a search's results can be stepped through
 // from the editor. The result is selected in its tree, under its parents expanded, and opened in
 // the editor, which takes the keyboard (`navigate(true)`). Its tree is walked as IntelliJ's: every

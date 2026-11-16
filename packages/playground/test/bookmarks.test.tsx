@@ -1,3 +1,4 @@
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -24,6 +25,7 @@ import {
 } from '../src/bookmarks.js';
 import { documentFor } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
+import { setupOccurrences } from '../src/occurrences.js';
 import { answer, closeAll, dialog, dialogText, popupItems, press } from './fakes.js';
 
 const opened: unknown[] = [];
@@ -728,6 +730,55 @@ describe('the Bookmarks tool window', () => {
     // Taken away, gone from the list.
     toggleBookmark('/r', { path: '/r/top.ts', line: 0 });
     await expect.poll(rows).toEqual(['rDefault', 'a.tssrc', '5:', '2:']);
+  });
+
+  it('goes through the line bookmarks with Next and Previous Occurrence, as IntelliJ’s', async () => {
+    const services = {
+      commands: new CommandRegistry(),
+      menus: new MenuRegistry(),
+      keymap: new Keymap('other'),
+    };
+    setupOccurrences(services);
+    const { commands } = services;
+    // In its tool window, as the app shows it.
+    const window = document.createElement('section');
+    window.className = 'cerebro-tool-window';
+    window.dataset.id = 'bookmarks';
+    document.body.append(window);
+    const handle = render(
+      () => <BookmarksView go={(bookmark) => void opened.push(bookmark)} />,
+      window,
+    );
+    dispose = () => {
+      handle.dispose();
+    };
+    // Those other tests left, gone.
+    for (const bookmark of bookmarksOf('/r')) toggleBookmark('/r', bookmark);
+    toggleBookmark('/r', { path: '/r/a.ts', line: 4 });
+    toggleBookmark('/r', { path: '/r/top.ts' });
+    toggleBookmark('/r', { path: '/r/a.ts', line: 1 });
+    toggleBookmark('/r', { path: '/r/b.ts', line: 2 });
+    await expect.poll(rows).toEqual(['rDefault', 'a.ts', '5:', '2:', 'top.ts', 'b.ts', '3:']);
+    // From a node with no bookmark: Previous, the last.
+    await userEvent.click(row('list'));
+    commands.execute('navigate.previousOccurrence');
+    expect(opened.at(-1)).toEqual({ path: '/r/b.ts', line: 2 });
+    expect(row('/r/b.ts:2').getAttribute('aria-selected')).toBe('true');
+    // None after the last.
+    expect(commands.isEnabled('navigate.nextOccurrence')).toBe(false);
+    // From a file's bookmark: the line bookmarks after it and before it, in the order added.
+    await userEvent.click(row('/r/top.ts'));
+    commands.execute('navigate.nextOccurrence');
+    expect(opened.at(-1)).toEqual({ path: '/r/a.ts', line: 1 });
+    commands.execute('navigate.previousOccurrence');
+    commands.execute('navigate.previousOccurrence');
+    expect(opened.at(-1)).toEqual({ path: '/r/a.ts', line: 4 });
+    expect(commands.isEnabled('navigate.previousOccurrence')).toBe(false);
+    // From nothing selected: the first.
+    await userEvent.click(row('list'));
+    commands.execute('navigate.nextOccurrence');
+    expect(opened.at(-1)).toEqual({ path: '/r/a.ts', line: 4 });
+    for (const bookmark of bookmarksOf('/r')) toggleBookmark('/r', bookmark);
   });
 
   it('shows nothing with no worktree open', () => {

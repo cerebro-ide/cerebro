@@ -1410,11 +1410,12 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
 - **Next and Previous Occurrence** (added 2026-11-16), as IntelliJ's (`NextOccurenceAction`,
   `OccurenceNavigatorActionBase`, `OccurenceNavigatorSupport`, read from its source): step through
   a tool window's results from wherever the keyboard is, the Find window's lines and every node of
-  the Hierarchy window (the windows Cerebro has that IntelliJ gives a navigator). Which window's:
-  the focused one's, else the one active last that has results (`LAST_ACTIVE_TOOL_WINDOWS`). The
-  result is selected, its parents expanded, and opened, the editor taking the keyboard. A tree is
-  walked as IntelliJ's `getNextNode`: every node loaded, collapsed or not, from the one selected,
-  or from the start; none before the start or after the end.
+  the Hierarchy window, and the Bookmarks window's line bookmarks (the windows Cerebro has that
+  IntelliJ gives a navigator). Which window's: the focused one's, else the one active last that
+  has results (`LAST_ACTIVE_TOOL_WINDOWS`). The result is selected, its parents expanded, and
+  opened, the editor taking the keyboard. A tree is walked as IntelliJ's `getNextNode`: every node
+  loaded, collapsed or not, from the one selected, or from the start; none before the start or
+  after the end.
   - Keys from IntelliJ's keymap files: Ctrl+Alt+Down and Up (Cmd+Alt on macOS, its keymap taking
     `$default`'s with Cmd); Visual Studio's add F8 and Shift+F8, after the diff's; none in
     Eclipse's and Sublime Text's. NetBeans names Method Down on Ctrl+Alt+Down too: Next Occurrence
@@ -1422,8 +1423,16 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     IntelliJ picks between them wasn't read, a claim).
   - In the Navigate menu after Next Edit Location, Previous then Next, as IntelliJ's `GoToMenu`
     orders them (it has a separator and Navigate in File between, which Cerebro hasn't).
-  - **Not yet:** the status bar's "Occurrence N of M" (`displayOccurrencesInfoInStatusBar`), and
-    the other windows IntelliJ gives one (Problems, Changes, the Log's).
+  - **The Bookmarks window** (added 2026-11-16), as IntelliJ's `BookmarksView` and
+    `BookmarkOccurrence`: its line bookmarks, in the list's order (IntelliJ's snapshot, its groups'
+    bookmarks as kept, not the tree's grouping by file), from the selected node's bookmark (a
+    file's too); from a node without one, the first or the last; no going round (its registry's
+    `ide.bookmark.occurrence.cyclic.iteration.allowed`, off). Each selected, then opened.
+  - Corrected 2026-11-16: the Not yet named Problems, Changes and the Log as windows IntelliJ gives
+    one. Read from its source, it doesn't: `ProblemsViewPanel` has no navigator, and none of
+    `OccurenceNavigator`'s implementations is the Changes or Log view's. Its others are the TODO,
+    Build, Run and Debug windows, the inspection results, and the console, which Cerebro hasn't.
+  - **Not yet:** the status bar's "Occurrence N of M" (`displayOccurrencesInfoInStatusBar`).
 - **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
   End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
