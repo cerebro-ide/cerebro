@@ -3931,8 +3931,9 @@ with Branch…, Show History, Show History for Selection).
   has it, so Ctrl+D in the Log doesn't show the editor's file; else the active editor's. IntelliJ
   takes the files of the view with the focus (`VcsContextUtil`, read in its source); **claim:** that
   a tool window without files gives none, from its data context, not measured.
-- **Not yet:** Show Diff for several files selected in the Project view, or a folder (IntelliJ
-  shows their changes).
+- **Not for a folder, nor several files,** as IntelliJ's (`AbstractShowDiffAction.isEnabled`, read
+  from its source: one file selected, not a directory). Corrected 2026-11-16: this said IntelliJ
+  showed their changes, which its source doesn't.
 
 ## Documents saved before git actions (2026-11-12)
 
