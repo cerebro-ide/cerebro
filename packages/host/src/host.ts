@@ -144,6 +144,7 @@ import {
   log,
   rollback,
   addFiles,
+  excludeFile,
   listWorktrees,
   removeWorktree,
   type Git,
@@ -1376,6 +1377,7 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
   // Rolls back the files named, as they're changed now; gives the changes left.
   // Of the files named, those git has as untracked: what's tracked isn't staged (IntelliJ's Add
   // takes a folder's unversioned files alone, `getUnversionedDescendantsRecursively`).
+  connection.onRequest('git.excludeFile', (params) => excludeFile(text(params, 'path'), git));
   connection.onRequest('git.add', async (params) => {
     const worktree = text(params, 'path');
     const p = params as { files?: unknown };

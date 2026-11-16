@@ -3079,7 +3079,25 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   `error.adding.files.title`. Claude's choice, open to change: an ignored file isn't offered, where
   IntelliJ asks whether to add it ("Add Ignored File"), as the Commit window doesn't list ignored
   files.
-- **Not yet,** as Cerebro doesn't have them: Commit File…, the ignore actions, Show History
+- **Add to .gitignore** (added 2026-11-16), after Add, as IntelliJ's `Git.Ignore.File`
+  (`GitIgnoreFileActionGroup`, read from its source): a submenu, there while Add would add
+  something, but not for the worktree's root folder (`getCommonIgnoreFileRoot`). It has two items:
+  - ".gitignore", the worktree's, created once asked if there's none ("Create .gitignore file in
+    …?", IntelliJ's `CreateNewIgnoreFileAction`);
+  - ".git/info/exclude", the repository's, which a linked worktree shares with its main one
+    (`AddToGitExcludeAction`).
+
+  Each adds the file's path from the worktree's root, with a leading `/` (a folder's ends in `/`:
+  `buildIgnoreEntryContent`, `ignoreUnderDirectory`), on a line of its own at the end, saves it,
+  and opens the ignore file, as IntelliJ's `writeIgnoreFileEntries`. Claude's choices, open to
+  change:
+  - Only the worktree's own .gitignore is offered. IntelliJ lists every .gitignore in the file's
+    folder or above it, each named by its path, which needs menu items made from the context
+    (docs/backlog.md, as the Log's Checkout submenu does).
+  - Where there's no .gitignore, the item is still named ".gitignore", not "Add to .gitignore" as
+    IntelliJ's create action is.
+  - A failure says so in a dialog ("Couldn’t Add to .gitignore"); IntelliJ shows none.
+- **Not yet,** as Cerebro doesn't have them: Commit File…, Show History
   for Selection, Revert Selected Changes for the file, Revert Resolved, the staging area's,
   Clone….
 

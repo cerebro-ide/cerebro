@@ -30,6 +30,7 @@ export {
   rewriteParents,
   rollback,
   addFiles,
+  excludeFile,
   addRemote,
   changeRemote,
   checkRemote,

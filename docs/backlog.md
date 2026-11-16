@@ -165,7 +165,8 @@ elements of each row) in place of the lanes: a rewrite of the graph, so it's pro
   a submenu only refers to another menu, so its items can't come from the commit right-clicked.
   It needs a contribution that makes its items from the context (as the Branches popup's lists
   are made today, outside the menus): a change to a shared package, to be proposed before it's
-  built.
+  built. The Git submenu's Add to .gitignore needs it too (2026-11-16): IntelliJ's lists each
+  .gitignore in the file's folder or above it.
 - **Two read marks for a variable read once** (measured 2026-11-11, #192's macOS e2e, run
   43111846003: "goes to a usage when its mark on the scrollbar is clicked" found two
   `.cerebro-usageMark` without `--write` in `long.ts`, whose `distant` is declared once and read

@@ -25,8 +25,13 @@ describe('the editor’s Git submenu', () => {
     const names = menus
       .entries('editor/git')
       .map((e) => ('command' in e ? e.command : 'submenu' in e ? e.submenu : '-'));
+    expect(menus.entries('editor/git/ignore')).toEqual([
+      { command: 'git.file.ignore' },
+      { command: 'git.file.exclude' },
+    ]);
     expect(names).toEqual([
       'git.file.add',
+      'editor/git/ignore',
       '-',
       'vcs.annotate',
       'git.file.showDiff',

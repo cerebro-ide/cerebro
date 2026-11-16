@@ -1,6 +1,7 @@
 // Git, through its command line: the host runs next to the repos, so git is local to them.
 
 import { execFile } from 'node:child_process';
+import { resolve } from 'node:path';
 import type { Writable } from 'node:stream';
 import { timed } from './slow.js';
 
@@ -296,6 +297,17 @@ export async function rollback(
     await run(worktree, ['restore', '--source=HEAD', '--staged', '--worktree', '--', ...restored]);
   }
   if (kept.length > 0) await run(worktree, ['restore', '--staged', '--', ...kept]);
+}
+
+/**
+ * The repository's own ignore file, which isn't committed (`.git/info/exclude`): a linked
+ * worktree's is its main repository's, which all its worktrees share.
+ */
+export async function excludeFile(worktree: string, run: Git = git): Promise<string> {
+  return resolve(
+    worktree,
+    (await run(worktree, ['rev-parse', '--git-path', 'info/exclude'])).trim(),
+  );
 }
 
 /**

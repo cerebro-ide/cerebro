@@ -37,7 +37,7 @@ import { diffSource, showHintIn } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
 import { showFolderDiffWithRef } from './diff-with-working-tree.js';
-import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
+import { documentFor, onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
 import type { TabContext } from './commands.js';
@@ -1153,6 +1153,16 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
+  // Whether what the Git submenu acts on has untracked files (IntelliJ's `getUnversionedFiles`): a
+  // folder always, as git's folders aren't versioned (`isFileUnversioned`), a file once the Commit
+  // window has it as untracked, or hasn't read the changes.
+  const untrackedHere = (c: unknown) => {
+    if (currentFolder(c)) return true;
+    const file = currentFile(c);
+    if (!file) return false;
+    const known = lists.get(file.worktree);
+    return known === undefined || known.unversioned().some((change) => change.path === file.path);
+  };
   // The Git submenu's Add: IntelliJ's `Git.Add` (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`,
   // read from its source): the untracked files of the editor's file, or under the Project view's
   // folder (`getUnversionedDescendantsRecursively`), added to git, the documents saved first. On
@@ -1163,15 +1173,7 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     label: 'Add',
     icon: 'add',
     visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
-    enabled: (c) => {
-      if (currentFolder(c)) return true;
-      const file = currentFile(c);
-      const known = file && lists.get(file.worktree);
-      return (
-        known === undefined ||
-        known.unversioned().some((change) => change.path === (file as { path: string }).path)
-      );
-    },
+    enabled: (c) => untrackedHere(c),
     run: async (c) => {
       const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
       const host = hostFor(at.worktree) as Host;
@@ -1188,6 +1190,75 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       } catch (error) {
         // IntelliJ's words (`error.adding.files.title`).
         fail('Failed to Add Files')(error);
+      }
+    },
+  });
+  // The Git submenu's Add to .gitignore: IntelliJ's `Git.Ignore.File` (`GitIgnoreFileActionGroup`,
+  // read from its source), there while Add would add something. Its items: the worktree's
+  // .gitignore (created, once asked, if there's none: `CreateNewIgnoreFileAction`) and the
+  // repository's .git/info/exclude (`AddToGitExcludeAction`). Each adds the file's path from the
+  // worktree's root, a folder's ending in `/` (`buildIgnoreEntryContent`, `ignoreUnderDirectory`),
+  // on a line of its own at the end, then opens the ignore file, as IntelliJ's
+  // `writeIgnoreFileEntries`. Not for the worktree's root, as IntelliJ's (`getCommonIgnoreFileRoot`).
+  const ignorable = (c: unknown) => {
+    const at = currentFolder(c) ?? currentFile(c);
+    if (!at || at.path === '' || !untrackedHere(c)) return undefined;
+    return { worktree: at.worktree, entry: `/${at.path}${currentFolder(c) ? '/' : ''}` };
+  };
+  const ignoreIn = async (file: string, entry: string, tab: Tab) => {
+    const doc = await documentFor(file);
+    if ('error' in doc) throw new Error(doc.error);
+    const text = doc.text.peek();
+    const end = text.length;
+    const apart = end > 0 && text.sliceString(end - 1) !== '\n' ? '\n' : '';
+    doc.edit([{ from: end, to: end, insert: `${apart}${entry}\n` }]);
+    await saveFiles([file], 'Add to .gitignore');
+    setup.open(tab);
+  };
+  commands.register({
+    id: 'git.file.ignore',
+    label: '.gitignore',
+    visible: (c) => ignorable(c) !== undefined,
+    run: async (c) => {
+      const { worktree, entry } = ignorable(c) as { worktree: string; entry: string };
+      const host = hostFor(worktree) as Host;
+      const file = `${worktree}/.gitignore`;
+      try {
+        if (!(await host.request('fs.exists', { path: file }))) {
+          // IntelliJ's question (`vcs.add.to.ignore.file.create.ignore.file.confirmation`).
+          const create = await openDialog<true>({
+            title: 'Create .gitignore',
+            ok: { label: 'Create', accept: () => true },
+            content: () => (
+              <div class="playground-question">
+                <p>{`Create .gitignore file in ${worktree}?`}</p>
+              </div>
+            ),
+          }).result;
+          if (!create) return;
+          await host.request('fs.create', { path: file });
+        }
+        await ignoreIn(file, entry, fileTab(worktree, '.gitignore'));
+        await lists.get(worktree)?.refresh(true);
+      } catch (error) {
+        fail('Couldn’t Add to .gitignore')(error);
+      }
+    },
+  });
+  commands.register({
+    id: 'git.file.exclude',
+    label: '.git/info/exclude',
+    visible: (c) => ignorable(c) !== undefined,
+    run: async (c) => {
+      const { worktree, entry } = ignorable(c) as { worktree: string; entry: string };
+      try {
+        const file = (await (hostFor(worktree) as Host).request('git.excludeFile', {
+          path: worktree,
+        })) as string;
+        await ignoreIn(file, entry, { id: file, title: 'exclude' });
+        await lists.get(worktree)?.refresh(true);
+      } catch (error) {
+        fail('Couldn’t Add to .git/info/exclude')(error);
       }
     },
   });

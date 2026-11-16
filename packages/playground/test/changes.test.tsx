@@ -133,7 +133,17 @@ const host = new FakeHost({
     return null;
   },
   // No patch file there yet.
-  'fs.exists': ({ path }: { path: string }) => !/(gone\.ts|\.patch)$/.test(path),
+  // A .gitignore is there once written.
+  'fs.exists': ({ path }: { path: string }) =>
+    !/(gone\.ts|\.patch)$/.test(path) && !(path.endsWith('.gitignore') && !(path in git.disk)),
+  'fs.create': ({ path }: { path: string }) => {
+    git.disk[path] = '';
+    return null;
+  },
+  'git.excludeFile': ({ path }: { path: string }) => {
+    fails('git.excludeFile');
+    return `${path}/.git/info/exclude`;
+  },
   'git.createPatch': ({ file }: { file?: string }) => {
     fails('git.createPatch');
     return file === undefined ? { text: 'the patch' } : null;
@@ -762,6 +772,75 @@ describe('the Git submenu’s Add', () => {
     expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
       'Failed to Add Files',
     );
+  });
+});
+
+describe('the Git submenu’s Add to .gitignore', () => {
+  const untracked: Change[] = [...CHANGES, { path: 'src/main/loose.ts', status: 'untracked' }];
+  const tabs = () => opened.map((tab) => tab.id);
+
+  it('adds the file to the worktree’s .gitignore, on a line of its own, and opens it', async () => {
+    await changesView(untracked);
+    const reads = host.params('git.changes').length;
+    git.disk[`${wt}/.gitignore`] = 'dist';
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(true);
+    await commands.get('git.file.ignore')?.run(undefined);
+    expect(git.disk[`${wt}/.gitignore`]).toBe('dist\n/notes.txt\n');
+    expect(tabs()).toContain(`${wt}/.gitignore`);
+    // Read again: the file is ignored now.
+    expect(host.params('git.changes').length).toBeGreaterThan(reads);
+  });
+
+  it('adds a Project view folder, with its slash, after asking to create the .gitignore', async () => {
+    git.changes = untracked;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    void commands.get('git.file.ignore')?.run(undefined);
+    expect(await dialogText()).toBe(`Create .gitignore file in ${wt}?`);
+    // Cancelled: nothing written.
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(git.disk[`${wt}/.gitignore`]).toBeUndefined();
+    void commands.get('git.file.ignore')?.run(undefined);
+    await dialogText();
+    await press('Create');
+    await expect.poll(() => git.disk[`${wt}/.gitignore`]).toBe('/src/\n');
+    // Not for the worktree itself.
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('adds it to the repository’s .git/info/exclude instead', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/src/main/loose.ts`;
+    await commands.get('git.file.exclude')?.run(undefined);
+    expect(git.disk[`${wt}/.git/info/exclude`]).toBe('/src/main/loose.ts\n');
+    expect(tabs()).toContain(`${wt}/.git/info/exclude`);
+  });
+
+  it('isn’t there for a file the Commit window has as tracked', async () => {
+    await changesView(untracked);
+    activeTab = `${wt}/src/main/app.ts`;
+    await expect.poll(() => commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+    expect(commands.get('git.file.exclude')?.visible?.(undefined)).toBe(false);
+    activeTab = undefined;
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+  });
+
+  it('says why when the ignore file can’t be found or read', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    git.failing = 'git.excludeFile';
+    void commands.get('git.file.exclude')?.run(undefined);
+    expect(await dialogText()).toContain('git.excludeFile failed');
+    await closeAll();
+    git.failing = undefined;
+    vi.spyOn(host, 'request').mockImplementation((method) =>
+      method === 'fs.read' ? Promise.reject(new Error('unreadable')) : Promise.resolve(true),
+    );
+    void commands.get('git.file.ignore')?.run(undefined);
+    expect(await dialogText()).toContain('unreadable');
   });
 });
 

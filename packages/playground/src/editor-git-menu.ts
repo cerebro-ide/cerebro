@@ -10,8 +10,8 @@ import { effect } from '@cerebro-ide/reactive';
 
 /** IntelliJ's groups, in its order: a command, or a submenu (the Rebase menu, as its own). */
 const GROUPS: readonly (readonly (string | { submenu: string; label: string })[])[] = [
-  // `Git.FileActions`' first: Commit File… (Cerebro hasn't it), Add.
-  ['git.file.add'],
+  // `Git.FileActions`' first: Commit File… (Cerebro hasn't it), Add, then Add to .gitignore.
+  ['git.file.add', { submenu: 'editor/git/ignore', label: 'Add to .gitignore' }],
   [
     'vcs.annotate',
     'git.file.showDiff',
@@ -58,6 +58,9 @@ export function setupEditorGitMenu(menus: MenuRegistry, inGit: () => boolean): v
       for (const item of shown) item.dispose();
     };
   });
+  for (const command of ['git.file.ignore', 'git.file.exclude']) {
+    menus.contribute({ menu: 'editor/git/ignore', item: { command } });
+  }
   GROUPS.forEach((items, group) => {
     for (const item of items) {
       menus.contribute({

@@ -710,6 +710,13 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('gives the repository’s exclude file, from git', async () => {
+    const git = vi.fn(() => Promise.resolve('.git/info/exclude\n'));
+    const { ui } = connect(git);
+    expect(await ui.request('git.excludeFile', { path: '/w' })).toBe('/w/.git/info/exclude');
+    expect(git).toHaveBeenCalledWith('/w', ['rev-parse', '--git-path', 'info/exclude']);
+  });
+
   it('adds the untracked files of those named, and nothing tracked', async () => {
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(args[0] === 'status' ? ' M a.ts\0?? u.ts\0?? v.ts\0' : ''),
