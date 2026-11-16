@@ -246,6 +246,12 @@ describe('the Switcher', () => {
     expect(typed()).toBe('c');
     await userEvent.keyboard('.');
     expect(labels('right')).toEqual(['c.ts']);
+    // What matched, in bold, as the pickers show it.
+    expect(
+      [...document.querySelectorAll('[data-side="right"] .cerebro-popup-item__match')].map(
+        (b) => b.textContent,
+      ),
+    ).toEqual(['c.']);
     expect(labels('left')).toEqual([]);
     expect(size()).toEqual(before);
     expect(selected()).toBe('right:c.ts');

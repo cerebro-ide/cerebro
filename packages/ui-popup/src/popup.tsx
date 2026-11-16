@@ -198,8 +198,8 @@ function cls(...names: (string | false | undefined)[]): string {
   return names.filter(Boolean).join(' ');
 }
 
-/** A label with its matched characters in bold. */
-function highlighted(label: string, highlight: readonly number[] | undefined): Child {
+/** A label with its matched characters in bold (the Switcher's speed search's too). */
+export function highlighted(label: string, highlight: readonly number[] | undefined): Child {
   if (!highlight?.length) return label;
   const marked = new Set(highlight);
   const parts: Child[] = [];

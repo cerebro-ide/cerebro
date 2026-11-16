@@ -9,9 +9,9 @@
 //
 // With `search` (Recent Files'), typing narrows both lists, as IntelliJ's speed search
 // (`SwitcherSpeedSearch`): each item by its name, or its name and the folder shown; the best
-// match is selected, in the list that has the selection first. What's typed shows above the
-// lists; Backspace takes a character back, and Escape forgets it before it closes the popup. The
-// popup keeps its size meanwhile.
+// match is selected, in the list that has the selection first; a name's matched characters are in
+// bold. What's typed shows above the lists; Backspace takes a character back, and Escape forgets
+// it before it closes the popup. The popup keeps its size meanwhile.
 //
 // From IntelliJ's source (Switcher.kt, SwitcherActions.kt, SwitcherSpeedSearch.kt): all of the
 // above.
@@ -19,6 +19,7 @@
 import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
 import { match } from './match.js';
+import { highlighted } from './popup.js';
 
 export interface SwitcherItem {
   label: string;
@@ -400,7 +401,12 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
         }}
       >
         <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
-        <span class="cerebro-popup-item__label">{item.label}</span>
+        <span class="cerebro-popup-item__label">
+          {highlighted(
+            item.label,
+            state.query === '' ? undefined : match(state.query, item.label)?.indices,
+          )}
+        </span>
         <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
         <span class="cerebro-popup-item__shortcut">{item.mnemonic ?? ''}</span>
       </div>

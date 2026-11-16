@@ -1306,15 +1306,16 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   - **Typing narrows both lists,** IntelliJ's speed search (`SwitcherSpeedSearch`): each item by
     its name, or its name and its folder from the project's, matched as the pickers match (seen in
     the app: matching the absolute folder found every file for "pro", through `/tmp`). The best
-    match is selected, in the list that has the selection first. What's typed shows above the
-    lists, and the popup keeps its size, as IntelliJ's. Backspace takes a character back, and
+    match is selected, in the list that has the selection first, and a name's matched characters
+    are in bold, as the pickers show them (added 2026-11-16). What's typed shows above the lists,
+    and the popup keeps its size, as IntelliJ's. Backspace takes a character back, and
     Escape forgets what's typed before it closes the popup.
   - **With nothing matched,** the files' list says "Press 'Enter' to search in Project", and
     Enter opens Go to File with what was typed (`tryToOpenFileSearch`). The lists' other words are
     IntelliJ's too: "No recent files" and "No tool windows" (`IdeBundle`).
   - **Show edited only** stays in the header, with Recent Files' key beside it, muted, as IntelliJ
     shows its toggle's key.
-  - **Not yet:** the matches highlighted; IntelliJ's Recent Locations item under the tool windows
+  - **Not yet:** IntelliJ's Recent Locations item under the tool windows
     (Cerebro has no Recent Locations); Delete taking a file from the list; selecting several.
   - Claude's choice, open to change: matching as the pickers match (the folder after the name),
     rather than IntelliJ's `SpeedSearchComparator`.
