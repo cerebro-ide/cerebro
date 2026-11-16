@@ -3747,6 +3747,10 @@ keymaps' mouse shortcuts, run as IntelliJ's; Add Mouse Shortcut on the Keymap pa
   the first enabled command bound, as keys'. A release that ends a drag runs none (AWT gives it
   no click); a drag is a move of more than 4 pixels (Claude's, open to change: AWT's distance
   wasn't read).
+- **On what's under the pointer** (added 2026-11-16), as IntelliJ takes the shortcut's data context
+  from the component there: an editor action acts on the editor pointed at, or none, not the one
+  with the keyboard. Before, a middle click on a tab, which closes it, also ran macOS's
+  Middle-click Go to Declaration at the focused editor's caret (seen in CI's macOS e2e).
 - **In the editor,** as IntelliJ's EditorImpl: a press that's a mouse shortcut's puts the caret
   there, a selection let go, and the shortcut runs at it: Go to Declaration, Implementation and
   the rest as their commands (decision "The editor's actions as commands"). Ctrl+click is no
