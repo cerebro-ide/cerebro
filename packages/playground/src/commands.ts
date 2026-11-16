@@ -16,6 +16,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import { openSettings } from '@cerebro-ide/ui-settings';
 import { tabPath } from './changes.js';
+import { carets } from './navigation.js';
 import { active, activeProject, currentHost, hostFor, type ProjectState } from './environments.js';
 import type { Place } from './find.js';
 import { openFolder } from './projects.js';
@@ -244,29 +245,41 @@ export function setupCommands(
   // Copy Path/Reference, as IntelliJ's (CopyReferencePopupGroup): the file's absolute path, as the
   // system writes it (`presentableUrl`), its name, or its path from the worktree's root, with `/`
   // (`VfsUtilCore.getRelativePath`). Absolute Path has the keys Copy Path had, as IntelliJ's takes
-  // CopyPaths' (`use-shortcut-of`).
+  // CopyPaths' (`use-shortcut-of`). Path with Line Number is that path and the caret's line,
+  // counted from 1 (`CopyFileWithLineNumberPathProvider`): a tab's alone, an editor's caret.
   const copies = [
     ['editor.copyPath', '&Absolute Path', (file: TabFile) => file.system],
     ['editor.copyFileName', '&File Name', (file: TabFile) => file.name],
+    [
+      'editor.copyPathWithLineNumber',
+      'Path with &Line Number',
+      (file: TabFile, tab?: string) => {
+        const caret = tab === undefined ? undefined : carets.get(tab);
+        return file.relative === undefined || caret === undefined
+          ? undefined
+          : `${file.relative}:${String(caret.line + 1)}`;
+      },
+    ],
     ['editor.copyContentRootPath', 'Path from &Content Root', (file: TabFile) => file.relative],
   ] as const;
   // Of the tab its menu's opened on; else, while the Project view has the focus, of the file or
   // folder selected there, as IntelliJ's actions take the focused view's (its menu's included);
   // else of the tab a key's for.
-  const copied = (c?: TabContext): TabFile | undefined => {
+  const copied = (c?: TabContext): { file: TabFile; tab?: string } | undefined => {
     const node = projectTarget(c);
-    if (node !== undefined) return node === null ? undefined : tabFile(node.path);
-    return c && tabFile(c.tab);
+    if (node !== undefined) return node === null ? undefined : { file: tabFile(node.path) };
+    return c && { file: tabFile(c.tab), tab: c.tab };
+  };
+  const copyOf = (text: (file: TabFile, tab?: string) => string | undefined, c?: TabContext) => {
+    const target = copied(c);
+    return target && text(target.file, target.tab);
   };
   for (const [id, label, text] of copies) {
     commands.register<TabContext | undefined>({
       id,
       label,
-      enabled: (c?: TabContext) => {
-        const file = copied(c);
-        return file !== undefined && text(file) !== undefined;
-      },
-      run: (c) => navigator.clipboard.writeText(text(copied(c) as TabFile) as string),
+      enabled: (c?: TabContext) => copyOf(text, c) !== undefined,
+      run: (c) => navigator.clipboard.writeText(copyOf(text, c) as string),
     });
   }
   commands.register({
@@ -513,6 +526,11 @@ export function setupCommands(
     menu: 'editor/tab/copyPath',
     item: { command: 'editor.copyFileName' },
     group: 'a',
+  });
+  menus.contribute({
+    menu: 'editor/tab/copyPath',
+    item: { command: 'editor.copyPathWithLineNumber' },
+    group: 'b',
   });
   menus.contribute({
     menu: 'editor/tab/copyPath',

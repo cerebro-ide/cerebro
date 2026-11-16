@@ -1361,8 +1361,13 @@ save the absolute, relative, or simply the name alone", as IntelliJ's.
   (`VfsUtilCore.getRelativePath`). A diff's tab copies its file's.
 - **Keys:** Absolute Path keeps Copy Path's (Ctrl/Cmd+Shift+C), as IntelliJ's takes CopyPaths'
   (`use-shortcut-of`); the other two have none in IntelliJ's keymaps.
-- **Not yet:** IntelliJ's other items (Path with Line Number, Source Root, Toolbox URL, references
-  to symbols), and the value shown beside each item.
+- **Path with Line Number** (added 2026-11-16), between File Name and Path from Content Root, as
+  IntelliJ's group (`CopyFileReference`): the path from the worktree's root, a colon, and the
+  caret's line counted from 1 (`CopyFileWithLineNumberPathProvider`, read from its source). It
+  needs an editor's caret: off for the Project view's files and a diff's tab (IntelliJ hides it
+  there).
+- **Not yet:** IntelliJ's other items (Source Root, Toolbox URL, references to symbols), and the
+  value shown beside each item (Cerebro's menu rows show a label and keys only).
 
 ## Phase 1 is WebStorm's functionality (2026-11-03)
 
