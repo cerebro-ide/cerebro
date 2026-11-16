@@ -182,5 +182,10 @@ describe('a block followed back to an earlier version, as IntelliJ’s Block', (
       start: 3,
       end: 3,
     });
+    // Within one: after what the change was.
+    expect(previousBlock('a\nX\nY\nd', 'a\nP\nd', { start: 2, end: 2 })).toEqual({
+      start: 2,
+      end: 2,
+    });
   });
 });
