@@ -6,16 +6,6 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
-### The Switcher's tool windows in IntelliJ's order
-
-Found 2026-11-16, reading IntelliJ's source for Recent Files: its Switcher sorts the tool windows
-by mnemonic, then by name (`mnemonicAndMainTextComparator` in `frontendSwitcherItemsCollector.kt`;
-the older `Switcher.kt` sorts likewise): those with a number first, in its order (Commit's 0,
-Project's 1, …), then those with a letter, by letter, then those with none, by name. Cerebro's
-sorts them by name alone, and the decision "The Switcher" says "by name". Recent
-Files sorts them the same way in IntelliJ, its mnemonics hidden
-(`ide.recent.files.tool.window.sort.by.mnemonics`).
-
 ### The project's files under a virtual root, with scratch and external files
 
 From Ido (2026-11-14): "the project files in intellij are under a product virtual "directory" -
@@ -102,19 +92,19 @@ files, from the first; read from its source), in the decision "The diff viewer, 
 package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
 dialog's list, a table of its own, already takes several.
 
-### The editor's actions as commands (Ido: "Yes, commands first", 2026-11-16; in #414 and #415)
+### The Log's graph laid out as IntelliJ's (proposed: a reshaping, for Ido's word)
 
-The editor's own actions (Reformat Code, Comment with Line Comment, Go to Implementation, Next
-Method, Move Line and the rest in `EDITOR_ACTIONS`) are keys the keymap hands to CodeMirror, not
-commands, so no menu can hold them and Find Action doesn't find them. IntelliJ's are actions like
-any other: its Code menu holds Reformat Code, Optimize Imports and the comment actions, and its
-Navigate menu Go to Implementation and Next Method. What waits on it, found 2026-11-16: the
-"Not yet" of the decisions "Comment with Line Comment and Block Comment" and "Optimize Imports"
-(a Code menu), and of "Go to Implementation and Go to Type Declaration" and "Next Method and
-Previous Method" (in the Navigate menu). The shape it would take: each editor action registered as
-a command that runs on the focused editor (or the last one focused, as IntelliJ's editor actions
-find their editor), its keys still given to CodeMirror. It changes how `ui-editor` and the
-playground share the editor's actions, so it's proposed before it's done (CLAUDE.md).
+Found 2026-11-16, for the Log decision's Not yet (Show Long Edges, Collapse and Expand Linear
+Branches). IntelliJ cuts an edge of 30 rows or more down to the row after its top and the row
+before its bottom, each ending in an arrow, unless Show Long Edges is on; then it's drawn whole,
+with arrows next to its ends, and only past 1000 rows is it cut, keeping 250 rows at each end
+(`PrintElementGeneratorImpl`: `LONG_EDGE_SIZE` 30, `LONG_EDGE_PART_SIZE` 1, `VERY_LONG_EDGE_SIZE`
+1000, `VERY_LONG_EDGE_PART_SIZE` 250, read from its source). A row's elements sit in their sorted
+order, so a cut edge frees its column and the lines beside it move in. Cerebro's graph gives each
+line a lane as a page of commits loads (`log-graph.ts`; the decision "The Git Log" marks it
+Claude's design, IntelliJ's layout not copied), and an edge's length is known only once its
+parent has loaded. Both actions need IntelliJ's layout (its `GraphLayoutBuilder` and the sorted
+elements of each row) in place of the lanes: a rewrite of the graph, so it's proposed first.
 
 ### Polish
 
@@ -145,7 +135,13 @@ playground share the editor's actions, so it's proposed before it's done (CLAUDE
   Escape, sent to the body, didn't close it, so every later test failed behind it (as in #228's
   run). The test now waits for each press's answer, or the host's name matches, before pressing
   again. The app's side isn't decided: IntelliJ's choosers close on a click outside and when the
-  window is left, as ours; whether they close when the focus moves elsewhere isn't checked.
+  window is left, as ours. Read from IntelliJ's source (2026-11-16): they don't close when the
+  focus moves elsewhere (AbstractPopup's ChildFocusWatcher only marks the popup inactive), but
+  every key goes to the open popups first, the topmost first, wherever the focus is
+  (IdePopupManager's dispatch stack; a list popup's through PopupDispatcher), and Escape cancels
+  one (`AbstractPopup.dispatchKeyEvent`). Ours take keys only through their focused search field
+  (`ui-popup`'s `popup.tsx`), so Escape at the body leaves one open. Proposed, for Ido's word (a
+  reshaping of `ui-popup`'s keys): keys reach the open popup wherever the focus is, as IntelliJ's.
 - **Double Shift once didn't open Search Everywhere in main-app's Show History test** (CI, #221,
   2026-11-12; not reproduced in six local runs, three at once). Not measured why: double Shift
   wants its second tap within 400 ms of the first (`ModifierTaps`), and the window losing the focus

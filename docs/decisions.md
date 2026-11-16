@@ -1434,7 +1434,13 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     one. Read from its source, it doesn't: `ProblemsViewPanel` has no navigator, and none of
     `OccurenceNavigator`'s implementations is the Changes or Log view's. Its others are the TODO,
     Build, Run and Debug windows, the inspection results, and the console, which Cerebro hasn't.
-  - **Not yet:** the status bar's "Occurrence N of M" (`displayOccurrencesInfoInStatusBar`).
+  - **No "Occurrence N of M" in the status bar** (corrected 2026-11-16 from a Not yet), as
+    IntelliJ's new UI by default: `displayOccurrencesInfoInStatusBar` sets the status bar's info
+    text, but `InfoAndProgressPanel` adds the panel that shows it only without the navigation bar
+    at the bottom, and that bar is on and at the bottom by default (`UISettingsState`'s
+    `showNavigationBar`, true, and `navigationBarLocation`, `BOTTOM`), all read from its source.
+    Cerebro's file path stands where that bar is. The Bookmarks window's gives no numbers anyway
+    (`BookmarksView.go` returns none).
 - **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
   End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
