@@ -3067,8 +3067,8 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
     background (`NOTIFICATION_BACKGROUND`), not measured.
   - The message keeps its lines. IntelliJ's formats it as HTML with links to issues
     (`IssueLinkHtmlRenderer`), which Cerebro has no setting for.
-  - Its text can be selected and copied. IntelliJ's is an editor pane, so it can be too (a claim:
-    not tried).
+  - The centred one's text can be selected and copied (the hint's, as the editor's other hints,
+    can't). IntelliJ's is an editor pane, so it can be too (a claim: not tried).
 - **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
   for Selection, Revert Selected Changes for the file, Revert Resolved, the staging area's,
   Clone….
