@@ -196,6 +196,41 @@ describe('usages at the caret', () => {
     expect(getComputedStyle(r as Element).backgroundColor).toBe('rgb(91, 120, 106)');
   });
 
+  it('says a mark’s line with the pointer near it on the bar, as IntelliJ’s', async () => {
+    const long = `log(extra, ${'x'.repeat(150)});`;
+    const root = mount({
+      document: new EditorDocument(`  const extra = 1;\n${long}\n`),
+      usages: () => Promise.resolve(EXTRA),
+    });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const hover = (clientY: number | null) =>
+      scroller.dispatchEvent(new CustomEvent('scrollbar-hover', { detail: clientY }));
+    const tip = () => root.querySelector<HTMLElement>('.cerebro-stripeTooltip');
+    await expect.poll(() => root.querySelectorAll('.cerebro-usageMark').length).toBe(2);
+    const [first, second] = [...root.querySelectorAll<HTMLElement>('.cerebro-usageMark')].map((m) =>
+      m.getBoundingClientRect(),
+    ) as [DOMRect, DOMRect];
+    // Within 4px of a mark: its line, trimmed.
+    hover(first.bottom + 4);
+    expect(tip()?.textContent).toBe('const extra = 1;');
+    expect(tip()?.getAttribute('role')).toBe('tooltip');
+    // Its first 140 characters, and "...".
+    hover(second.top);
+    expect(tip()?.textContent).toBe(`${long.slice(0, 140)}...`);
+    // Left of the bar, at the mark's middle.
+    const editor = (root.querySelector('.cm-editor') as HTMLElement).getBoundingClientRect();
+    const box = (tip() as HTMLElement).getBoundingClientRect();
+    expect(editor.right - box.right).toBe(14);
+    expect((box.top + box.bottom) / 2).toBeCloseTo((second.top + second.bottom) / 2, 0);
+    // Away from them, or off the bar: none.
+    hover(second.bottom + 20);
+    expect(tip()).toBeNull();
+    hover(first.top);
+    expect(tip()).not.toBeNull();
+    hover(null);
+    expect(tip()).toBeNull();
+  });
+
   it('scales the marks to the scroll area in a text taller than it, wherever it’s scrolled', async () => {
     const text = Array.from({ length: 400 }, (_, i) => `line${String(i)}`).join('\n');
     const at = (line: number): Usage => ({

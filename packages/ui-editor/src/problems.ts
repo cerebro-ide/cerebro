@@ -137,6 +137,7 @@ const stripe = stripeMarks.of((state) => {
         to: p.to,
         className: `cerebro-problemMark cerebro-problemMark--${p.severity}`,
         rank: RANK[p.severity],
+        tooltip: p.message,
       }));
     madeMarks.set(problems, marks);
   }

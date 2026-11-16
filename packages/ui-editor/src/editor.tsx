@@ -810,6 +810,29 @@ export const theme = EditorView.theme({
   // dimmed when the arguments rule them out).
   '.cerebro-parameterInfo:has(.cerebro-parameterInfo__signature--current) .cerebro-parameterInfo__signature:not(.cerebro-parameterInfo__signature--current)':
     { color: variable('text-muted') },
+  // The tooltips of the marks under the pointer on the scrollbar, left of it: as the app's.
+  '.cerebro-stripeTooltip': {
+    position: 'absolute',
+    zIndex: '200',
+    maxWidth: '600px',
+    padding: '4px 0',
+    backgroundColor: variable('tooltip'),
+    color: variable('text'),
+    border: `1px solid ${variable('tooltip-border')}`,
+    borderRadius: '4px',
+    boxShadow: variable('shadow'),
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+    pointerEvents: 'none',
+  },
+  // One a row, a line between them, as IntelliJ's composite tooltip.
+  '.cerebro-stripeTooltip__text': {
+    padding: '4px 12px',
+    whiteSpace: 'pre-wrap',
+  },
+  '.cerebro-stripeTooltip__text + .cerebro-stripeTooltip__text': {
+    borderTop: `1px solid ${variable('tooltip-border')}`,
+  },
   '.cerebro-problemTooltip': {
     padding: '8px 12px',
     maxWidth: '600px',

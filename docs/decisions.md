@@ -5322,8 +5322,16 @@ colour and underlined.
   pointer is on its vertical bar (a `scrollbar-hover` event), since its bar is drawn over the page.
   Its frame is the tooltips' border colour, not IntelliJ's `CODE_LENS_BORDER_COLOR` (a claim, not
   measured; open to change).
-- **Not yet:** the problems' messages at their lines' ends in that preview, as IntelliJ's; and over
-  a line that shows, the tooltip of the problem marks there.
+- **Over a line that shows, the marks' tooltips** (added 2026-11-16), as IntelliJ's (the same
+  `showToolTipByMouseMove`, read from its source): those of the marks within 4px of the pointer
+  (twice a mark's least height, `getNearestHighlighters`), each text once, the worst first, then by
+  text (`DaemonTooltipRendererProvider`), one a row with a line between, left of the bar at the
+  nearest mark's middle, at once. A usage's is its line, trimmed, its first 140 characters and
+  "..." when longer (`getLineTextErrorStripeTooltip`, which IntelliJ's identifier highlighting
+  gives each usage); a problem's, its message. Gone as the pointer leaves the marks or the bar, at
+  a key, an edit or a scroll. It looks as the app's tooltips; the shadow and padding are Claude's
+  (open to change).
+- **Not yet:** the problems' messages at their lines' ends in that preview, as IntelliJ's.
   (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)

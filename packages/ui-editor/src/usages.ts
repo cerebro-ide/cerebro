@@ -15,7 +15,7 @@ import {
   type EditorState,
   type Extension,
 } from '@codemirror/state';
-import { errorStripe, stripeMarks, type StripeMark } from './stripe.js';
+import { errorStripe, lineTooltip, stripeMarks, type StripeMark } from './stripe.js';
 import {
   Decoration,
   EditorView,
@@ -90,6 +90,7 @@ const stripe = stripeMarks.of((state) => {
       from: u.from,
       to: u.to,
       className: u.write ? 'cerebro-usageMark cerebro-usageMark--write' : 'cerebro-usageMark',
+      tooltip: lineTooltip(state, u.from),
     }));
     usageMarks.set(usages, marks);
   }
