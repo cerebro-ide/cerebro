@@ -118,7 +118,8 @@ function popup(
     chooser.ariaLabel = 'Definitions';
     chooser.append(
       ...found.map((each, index) => {
-        const option = element('option', '', `${each.name}  ${fileName(each.path)}`);
+        // Two spaces between, kept: an option's text collapses plain ones (seen in the app).
+        const option = element('option', '', `${each.name}\u00a0\u00a0${fileName(each.path)}`);
         (option as HTMLOptionElement).value = String(index);
         return option;
       }),
