@@ -11,6 +11,7 @@ import {
   type CodeEditorProps,
   type Fold,
 } from '../src/index.js';
+import { PEEK_AFTER } from '../src/folding.js';
 
 let cleanup: (() => void) | undefined;
 
@@ -20,12 +21,12 @@ afterEach(async () => {
   await userEvent.cleanup();
 });
 
-function mount(props: Omit<CodeEditorProps, 'path'>) {
+function mount(props: Omit<CodeEditorProps, 'path'>, path = 'a.ts') {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 800px; height: 500px;';
   document.documentElement.dataset['cerebroTheme'] = 'dark';
   document.body.append(container);
-  const handle = render(() => <CodeEditor path="a.ts" {...props} />, container);
+  const handle = render(() => <CodeEditor path={path} {...props} />, container);
   cleanup = () => {
     handle.dispose();
     container.remove();
@@ -227,5 +228,78 @@ describe('folding', () => {
     await userEvent.keyboard('{Home}{Shift>}{ArrowDown}{ArrowDown}{End}{/Shift}{Delete}');
     expect(lines(root)[6]).toBe('');
     expect(chevrons(root)[6]).toBe('');
+  });
+
+  it('shows a folded part’s lines as the pointer rests on it, as IntelliJ’s; gone as it leaves, at a key, a scroll or a click', async () => {
+    const root = mount({ document: new EditorDocument(TEXT), folds: () => Promise.resolve(FOLDS) });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await expect.poll(() => chevrons(root).filter(Boolean).length).toBe(4);
+    await userEvent.keyboard('{Control>}{Shift>}{Minus}{/Shift}{/Control}');
+    const peeked = () =>
+      [...root.querySelectorAll('.cerebro-foldPeek .cm-line')].map((line) => line.textContent);
+    const box = () => root.querySelectorAll<HTMLElement>('.cerebro-folded')[1] as HTMLElement;
+    const started = performance.now();
+    await userEvent.hover(box());
+    expect(peeked()).toEqual([]);
+    // The block's whole lines, highlighted, after a while.
+    await expect.poll(peeked).toEqual(['function f() {', '  return 1;', '}']);
+    expect(performance.now() - started).toBeGreaterThanOrEqual(PEEK_AFTER);
+    expect(
+      root.querySelector('.cerebro-foldPeek .tok-keyword, .cerebro-foldPeek span[class]'),
+    ).not.toBeNull();
+    // Under the fold's line.
+    const line = (root.querySelectorAll('.cm-line')[1] as HTMLElement).getBoundingClientRect();
+    const tip = () =>
+      (root.querySelector('.cerebro-foldPeek') as HTMLElement).getBoundingClientRect().top;
+    // Placed once CodeMirror has measured where.
+    await expect.poll(tip).toBeGreaterThan(line.top + line.height / 2);
+    expect(tip()).toBeLessThan(line.bottom + 4);
+    await userEvent.unhover(box());
+    expect(peeked()).toEqual([]);
+    await userEvent.hover(box());
+    await expect.poll(peeked).toHaveLength(3);
+    await userEvent.keyboard('{Shift}');
+    expect(peeked()).toEqual([]);
+    await userEvent.unhover(box());
+    await userEvent.hover(box());
+    await expect.poll(peeked).toHaveLength(3);
+    root.querySelector('.cm-scroller')?.dispatchEvent(new Event('scroll'));
+    await expect.poll(peeked).toEqual([]);
+    await userEvent.unhover(box());
+    await userEvent.hover(box());
+    await expect.poll(peeked).toHaveLength(3);
+    await userEvent.click(box());
+    expect(peeked()).toEqual([]);
+    expect(lines(root)[2]).toBe('  return 1;');
+    // Unfolded before it shows: nothing shows.
+    await userEvent.keyboard('{Control>}{Shift>}{Minus}{/Shift}{/Control}');
+    await userEvent.hover(box());
+    await userEvent.click(box());
+    await new Promise((resolve) => setTimeout(resolve, PEEK_AFTER * 2));
+    expect(peeked()).toEqual([]);
+  });
+
+  it('shows as many of its lines as fit below, in a file of no language too', async () => {
+    const text = Array.from({ length: 200 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount(
+      {
+        document: new EditorDocument(text),
+        folds: () => Promise.resolve([{ from: at(0, 0), to: at(199, 8) }]),
+      },
+      'a.txt',
+    );
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await expect.poll(() => chevrons(root)[0]).toBe('open');
+    await userEvent.keyboard('{Control>}{Shift>}{Minus}{/Shift}{/Control}');
+    // A scroll with nothing shown changes nothing.
+    root.querySelector('.cm-scroller')?.dispatchEvent(new Event('scroll'));
+    await userEvent.hover(root.querySelector('.cerebro-folded') as HTMLElement);
+    await expect
+      .poll(() => root.querySelector('.cerebro-foldPeek .cm-line')?.textContent)
+      .toBe('line 0');
+    const shown = root.querySelectorAll('.cerebro-foldPeek .cm-line');
+    expect(shown.length).toBeLessThan(200);
+    const last = (shown[shown.length - 1] as HTMLElement).getBoundingClientRect();
+    expect(last.bottom).toBeLessThanOrEqual(window.innerHeight + 2);
   });
 });

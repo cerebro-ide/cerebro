@@ -482,6 +482,12 @@ export const theme = EditorView.theme({
     margin: '0 1px',
     cursor: 'pointer',
   },
+  // A folded part's lines under the pointer: the editor's own, framed as the tooltips are.
+  '.cm-tooltip.cerebro-foldPeek': {
+    border: `1px solid ${variable('tooltip-border')}`,
+    boxShadow: variable('shadow'),
+    overflow: 'hidden',
+  },
   // A bookmark's icon, as IntelliJ's (its colour a claim, not measured).
   '.cerebro-bookmarks .cm-gutterElement': { display: 'flex', alignItems: 'center' },
   '.cerebro-bookmark': {
@@ -1131,7 +1137,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
-    folding(props.folds),
+    folding(props.folds, [theme, syntaxHighlighting(highlight)]),
     gutterObstacle,
     fullWidth,
     selection,

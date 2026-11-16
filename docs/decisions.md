@@ -2657,14 +2657,22 @@ change.
   fold regions construction on editor opening"): here, the server's first answer for the editor, so
   imports added later stay open; and not where the caret is, an editor opened at a line in them
   (its `EXCEPT_CARET_REGION`). Folded, they show as other folds do, the first line then `...`.
+- **A folded part's lines under the pointer** (added 2026-11-16), as IntelliJ's
+  (`FoldingPopupManager`, `DocumentFragmentTooltipRenderer`, read from its source): resting on a
+  fold's box for 300 ms (its `TOOLTIP_DELAY_MS`) shows the part's whole lines, from its first line
+  to its last, under its first line, as many as fit above the window's bottom (IntelliJ's, the
+  screen's). They're the editor's, highlighted; here a read-only editor in the editor's look and
+  language, as Quick Definition's, without a gutter (a claim), framed as the tooltips are. Gone as
+  the pointer leaves, at a key or a scroll (its `hideByAnyKey`, `hideByScrolling`), at an edit, or
+  as the part unfolds.
 - **Not yet:**
   - IntelliJ's numpad + and -: CodeMirror can't tell the numpad's + from Ctrl+Shift+=, and Shift
     with a numpad key doesn't reach the editor's actions.
   - macOS System Shortcuts' Alt+Shift keys for all: CodeMirror's base fallback is skipped on macOS
     with Alt, so they can't match.
   - Settings' Fold by default page (Imports alone is on there), end-of-fold markers in the gutter,
-    the folded text on hover, folds kept across reopening a file (IntelliJ folds the imports the
-    first time only), and a menu for the actions.
+    folds kept across reopening a file (IntelliJ folds the imports the first time only), and a
+    menu for the actions.
 
 ## Logging in to remotes (2026-11-08)
 

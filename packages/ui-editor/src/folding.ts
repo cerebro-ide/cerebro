@@ -7,6 +7,11 @@
 // (`UpdateFoldRegionsOperation`'s default state, "only on initial fold regions construction on
 // editor opening"), so imports that appear later stay open.
 //
+// A folded part's lines show while the pointer rests on its box, as IntelliJ's
+// (`FoldingPopupManager` and `DocumentFragmentTooltipRenderer`, read from its source): after 300
+// ms, its whole lines from the editor, highlighted, under its first line, as many as fit below;
+// gone as the pointer leaves, at a key, or as the editor scrolls. Without a gutter: a claim.
+//
 // The chevrons are IntelliJ's own (`platform/icons/src/expui/gutter`, Apache 2.0, © JetBrains s.r.o.
 // and contributors): their shapes, in its colours through the theme's tokens.
 
@@ -14,14 +19,25 @@ import {
   codeFolding,
   foldable,
   foldAll,
+  foldedRanges,
   foldEffect,
   foldGutter,
   foldService,
+  language,
   unfoldAll,
   unfoldCode,
+  unfoldEffect,
 } from '@codemirror/language';
-import { StateEffect, StateField, type EditorState, type Extension } from '@codemirror/state';
-import { keymap, ViewPlugin, type EditorView, type ViewUpdate } from '@codemirror/view';
+import { EditorState, StateEffect, StateField, type Extension } from '@codemirror/state';
+import {
+  EditorView,
+  keymap,
+  showTooltip,
+  ViewPlugin,
+  type Rect,
+  type Tooltip,
+  type ViewUpdate,
+} from '@codemirror/view';
 import type { Place } from './usages.js';
 
 /** A part of the text that folds; what it shows folded, if it says. */
@@ -38,6 +54,9 @@ export type AskFolds = (text: string) => Promise<readonly Fold[] | null | undefi
 
 /** How long after an edit the folds are asked for again, in ms (as the markers are). */
 export const FOLDS_AFTER = 500;
+
+/** How long the pointer rests on a folded part before its lines show, in ms (IntelliJ's). */
+export const PEEK_AFTER = 300;
 
 /** IntelliJ's text for what's folded. */
 const ELLIPSIS = '...';
@@ -167,9 +186,10 @@ function chevron(open: boolean): HTMLElement {
 
 /**
  * Folding, with its chevrons; where it folds asked of `ask`, if given, when the editor opens and
- * once an edit has settled.
+ * once an edit has settled. A folded part's lines, shown as the pointer rests on it, are drawn
+ * with `look` (the editor's theme and highlighting).
  */
-export function folding(ask?: AskFolds, after = FOLDS_AFTER): Extension {
+export function folding(ask?: AskFolds, look: Extension = [], after = FOLDS_AFTER): Extension {
   const asker = ask
     ? ViewPlugin.define((view) => {
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -212,17 +232,36 @@ export function folding(ask?: AskFolds, after = FOLDS_AFTER): Extension {
     foldsField,
     given,
     asker,
+    peeking,
+    peekClosing,
     codeFolding({
       // A given fold's own text (a region's name), or IntelliJ's dots.
       preparePlaceholder: (state, range) =>
         state.field(foldsField)?.find((f) => f.from === range.from && f.to === range.to)?.text ??
         ELLIPSIS,
-      placeholderDOM: (_view, onclick, prepared: string) => {
+      placeholderDOM: (view, onclick, prepared: string) => {
         const element = document.createElement('span');
         element.className = 'cerebro-folded';
         element.textContent = prepared;
         element.setAttribute('aria-label', 'Folded code');
         element.onclick = onclick;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        element.addEventListener('mouseenter', () => {
+          timer = setTimeout(() => {
+            // The fold it's the box of, if it's still folded (not unfolded meanwhile).
+            const at = view.posAtDOM(element);
+            const touching: { from: number; to: number }[] = [];
+            foldedRanges(view.state).between(at, at, (from, to) => {
+              touching.push({ from, to });
+            });
+            const fold = touching.find((range) => range.from === at);
+            if (fold) view.dispatch({ effects: peek.of(peekAt(view, fold.from, fold.to, look)) });
+          }, PEEK_AFTER);
+        });
+        element.addEventListener('mouseleave', () => {
+          clearTimeout(timer);
+          if (view.state.field(peeking)) view.dispatch({ effects: peek.of(null) });
+        });
         return element;
       },
     }),
@@ -234,6 +273,72 @@ export function folding(ask?: AskFolds, after = FOLDS_AFTER): Extension {
     }),
   ];
 }
+
+const peek = StateEffect.define<Tooltip | null>();
+
+/** The lines of the folded part the pointer rests on; gone with an edit, a move, or a fold. */
+const peeking = StateField.define<Tooltip | null>({
+  create: () => null,
+  update(value, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(peek)) return effect.value;
+      if (effect.is(foldEffect) || effect.is(unfoldEffect)) return null;
+    }
+    return tr.docChanged || tr.selection ? null : value;
+  },
+  provide: (field) => showTooltip.from(field),
+});
+
+/**
+ * The tooltip of a folded part's lines: from its first line's to its last's, in a read-only editor
+ * drawn with `look` and the editor's language, as many as fit between its first line and the
+ * window's bottom.
+ */
+function peekAt(view: EditorView, from: number, to: number, look: Extension): Tooltip {
+  const { doc } = view.state;
+  const first = doc.lineAt(from);
+  // Drawn: the pointer's on its box.
+  const below = (view.coordsAtPos(first.from) as Rect).bottom;
+  const fit = Math.max(1, Math.floor((window.innerHeight - below) / view.defaultLineHeight));
+  const last = doc.line(Math.min(doc.lineAt(to).number, first.number + fit - 1));
+  const lang = view.state.facet(language);
+  return {
+    pos: first.from,
+    create: () => {
+      const dom = document.createElement('div');
+      dom.className = 'cerebro-foldPeek';
+      const preview = new EditorView({
+        parent: dom,
+        root: view.root as ShadowRoot | Document,
+        state: EditorState.create({
+          doc: doc.sliceString(first.from, last.to),
+          extensions: [
+            look,
+            lang ? lang.extension : [],
+            EditorState.readOnly.of(true),
+            EditorView.editable.of(false),
+          ],
+        }),
+      });
+      return {
+        dom,
+        destroy: () => {
+          preview.destroy();
+        },
+      };
+    },
+  };
+}
+
+/** Hides the lines shown at a key, or as the editor scrolls. */
+const peekClosing = EditorView.domEventHandlers({
+  keydown: (_event, view) => {
+    if (view.state.field(peeking)) view.dispatch({ effects: peek.of(null) });
+  },
+  scroll: (_event, view) => {
+    if (view.state.field(peeking)) view.dispatch({ effects: peek.of(null) });
+  },
+});
 
 /** Folding's actions on `keys`. */
 export function foldKeys(keys: FoldKeys): Extension {
