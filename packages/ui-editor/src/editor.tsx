@@ -19,7 +19,13 @@ import {
   undo,
 } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
+import {
+  Compartment,
+  EditorState,
+  Transaction,
+  type Extension,
+  type StateEffect,
+} from '@codemirror/state';
 import {
   drawSelection,
   highlightActiveLine,
@@ -107,6 +113,11 @@ export interface CodeEditorProps {
         column: number;
         end?: number | undefined;
         top?: number | undefined;
+        /**
+         * IntelliJ's `CENTER_UP` or `CENTER_DOWN`, which Previous and Next Method scroll by: to a
+         * third of the way down only where the place is out of view, or above (below) that.
+         */
+        scroll?: 'centerUp' | 'centerDown' | undefined;
         /** False to leave the focus where it is, this once: a tree showing what's selected. */
         focus?: boolean | undefined;
       }
@@ -429,6 +440,38 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
 
 /** Focus requests already taken (`focus`): a later editor given one again leaves the focus. */
 const taken = new WeakSet<object>();
+/** IntelliJ's default vertical scroll offset, in lines: kept in view around the caret's. */
+const SCROLL_OFFSET = 1;
+
+/**
+ * IntelliJ's `CENTER_UP` and `CENTER_DOWN` (`ScrollPositionCalculatorImpl.getVerticalOffset`, read
+ * from its source): the place a third of the way down where it isn't in view with a line around
+ * it, or where it's above that (below, for down); else no scroll. Where a third would hide that
+ * line around it (an editor a few lines high), its middle.
+ */
+function centerScroll(view: EditorView, pos: number, down: boolean): StateEffect<unknown>[] {
+  const lineHeight = view.defaultLineHeight;
+  const height = view.scrollDOM.clientHeight;
+  const target = view.lineBlockAt(pos).top;
+  const viewTop = view.scrollDOM.getBoundingClientRect().top - view.documentTop;
+  const topBound = target - SCROLL_OFFSET * lineHeight;
+  const bottomBound = target + SCROLL_OFFSET * lineHeight + lineHeight;
+  const third = target - height / 3;
+  const center = third < topBound ? third : target - Math.max(0, height - lineHeight) / 2;
+  const scroll =
+    viewTop > topBound ||
+    viewTop + height < bottomBound ||
+    (down ? viewTop < center : viewTop > center);
+  if (!scroll) return [];
+  // CodeMirror places the caret's rectangle, which starts below its line's top where the line is
+  // taller than the text; IntelliJ, the line's top. The gap, as a line in view has it.
+  const shown = view.viewport.from;
+  // The viewport's start is always drawn: it has a place.
+  const caret = (view.coordsAtPos(shown, 1) as { top: number }).top;
+  const gap = caret - view.documentTop - view.lineBlockAt(shown).top;
+  return [EditorView.scrollIntoView(pos, { y: 'start', yMargin: target - center + gap })];
+}
+
 /** Positions already revealed (`reveal`), likewise: a later editor shows where the last was. */
 const revealed = new WeakSet<object>();
 
@@ -1431,9 +1474,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
         // To `end`, on the same line: a match, say.
         selection: { anchor: pos, head: Math.min(line.from + (at.end ?? at.column), line.to) },
         effects:
-          at.top === undefined
-            ? EditorView.scrollIntoView(pos, { y: 'center' })
-            : EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 }),
+          at.top !== undefined
+            ? EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 })
+            : at.scroll === undefined
+              ? EditorView.scrollIntoView(pos, { y: 'center' })
+              : centerScroll(view, pos, at.scroll === 'centerDown'),
       });
       if (props.revealFocus !== false && at.focus !== false) view.focus();
     });

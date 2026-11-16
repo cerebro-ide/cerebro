@@ -108,7 +108,13 @@ export interface Asked {
 /** Positions to reveal in open files, by path: the editor follows them. */
 export const reveals = new ObservableMap<
   string,
-  { line: number; column: number; top?: number | undefined; focus?: false }
+  {
+    line: number;
+    column: number;
+    top?: number | undefined;
+    scroll?: 'centerUp' | 'centerDown';
+    focus?: false;
+  }
 >();
 
 /** Open files whose editor is to take the focus, by path: the editor takes each request once. */
@@ -250,13 +256,19 @@ export function history(): NavigationHistory | undefined {
 
 export function setupNavigation(editor: () => EditorArea | undefined) {
   /** Opens a file at a position; `focus` false leaves the focus where it is. */
-  const openAt = (at: Located, focus = true) => {
+  /** `scroll` as IntelliJ's `CENTER_UP` or `CENTER_DOWN`; else its middle. */
+  const openAt = (at: Located, focus = true, scroll?: 'centerUp' | 'centerDown') => {
     // A jump within the file is a place left too; to another file, the history sees the tab change.
     if (editor()?.activeGroup.active === at.path) history()?.record();
     editor()?.open({ id: at.path, title: at.path.split('/').at(-1) as string });
     // A new object each time, so revealing the same place again works.
     const reveal = () => {
-      reveals.set(at.path, { line: at.line, column: at.column, ...(focus ? {} : { focus }) });
+      reveals.set(at.path, {
+        line: at.line,
+        column: at.column,
+        ...(focus ? {} : { focus }),
+        ...(scroll === undefined ? {} : { scroll }),
+      });
     };
     // Open, it's read again first: the place may be in what's changed on disk since (measured: F4
     // from a diff put the caret in the editor's old text, read again a second later).
@@ -639,7 +651,8 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         list.flatMap((symbol) => [symbol.at, ...all(symbol.children)]);
       const places = all(symbols).sort((a, b) => a.line - b.line || a.column - b.column);
       const to = down ? places.find((p) => p.line > line) : places.findLast((p) => p.line < line);
-      if (to) openAt({ path, ...to });
+      // Scrolled as IntelliJ's: `CENTER_DOWN` (`CENTER_UP` for Previous Method).
+      if (to) openAt({ path, ...to }, true, down ? 'centerDown' : 'centerUp');
     },
 
     /** Whether the word at a place has a definition to go to: its server's, or a name's match. */

@@ -491,13 +491,20 @@ describe('Next Method and Previous Method', () => {
     answers = {
       'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9), symbol(12, 2)],
     };
+    // Scrolled as IntelliJ's: CENTER_DOWN, and CENTER_UP for Previous Method.
     await nav.goToMethod({ ...asked, line: 4, column: 0 }, true);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 8, column: 2 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 8, column: 2, scroll: 'centerDown' });
     await nav.goToMethod({ ...asked, line: 4, column: 9 }, false);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 2, column: 6 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 2, column: 6, scroll: 'centerUp' });
     // The first on its line.
     await nav.goToMethod({ ...asked, line: 9, column: 0 }, true);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 2 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 12, column: 2, scroll: 'centerDown' });
   });
 
   it('go nowhere past the first or the last, or with no server', async () => {

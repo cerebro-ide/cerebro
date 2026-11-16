@@ -499,6 +499,58 @@ describe('CodeEditor', () => {
     expect(shown()).toBe(110);
   });
 
+  it('scrolls as IntelliJ’s CENTER_UP and CENTER_DOWN: a third of the way down, only past it', async () => {
+    type Scroll = 'centerUp' | 'centerDown';
+    const reveal = signal<{ line: number; column: number; scroll: Scroll } | undefined>(undefined);
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({ path: 'a.txt', text, reveal: () => reveal.get() });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const go = async (line: number, scroll: Scroll) => {
+      reveal.set({ line, column: 0, scroll });
+      await frame();
+      await frame();
+      expect(root.querySelector('.cm-activeLine')?.textContent).toBe(`line ${String(line)}`);
+    };
+    /** How far down the editor the caret's line is drawn, as a part of its height. */
+    const down = () => {
+      const line = root.querySelector('.cm-activeLine') as HTMLElement;
+      const box = scroller.getBoundingClientRect();
+      return (line.getBoundingClientRect().top - box.top) / scroller.clientHeight;
+    };
+    // Above a third of the way down, going down: not scrolled.
+    await go(3, 'centerDown');
+    expect(scroller.scrollTop).toBe(0);
+    // Past it: scrolled to it.
+    await go(15, 'centerDown');
+    expect(scroller.scrollTop).toBeGreaterThan(0);
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // Going up, below it: not scrolled; above it, scrolled to it.
+    const top = scroller.scrollTop;
+    await go(16, 'centerUp');
+    expect(scroller.scrollTop).toBe(top);
+    await go(12, 'centerUp');
+    expect(scroller.scrollTop).toBeLessThan(top);
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // Out of view, either way: a third of the way down.
+    await go(200, 'centerUp');
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    await go(100, 'centerDown');
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // An editor three lines high has no room for a line around it at a third: its middle.
+    let container = root.host as HTMLElement;
+    while (container.parentElement !== document.body)
+      container = container.parentElement as HTMLElement;
+    container.style.height = '50px';
+    await frame();
+    await go(150, 'centerDown');
+    const line = root.querySelector('.cm-activeLine') as HTMLElement;
+    const box = scroller.getBoundingClientRect();
+    const middle =
+      (line.getBoundingClientRect().top - box.top) / (scroller.clientHeight - line.offsetHeight);
+    expect(middle).toBeCloseTo(1 / 2, 1);
+  });
+
   it('leaves Mod+[ and Mod+] to the app: Back and Forward on macOS, not indenting', async () => {
     const document = new EditorDocument('    indented');
     const root = mount({ path: 'a.txt', document });
