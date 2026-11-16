@@ -328,7 +328,7 @@ describe('a commit’s Compare with Local', () => {
 describe('Refresh', () => {
   const hash = 'c0ffee0123456789';
   const refresh = () =>
-    document.querySelector('[data-command="vcsChanges.refresh"]') as HTMLButtonElement | null;
+    document.querySelector<HTMLButtonElement>('[data-command="vcsChanges.refresh"]');
   const reads = () =>
     host.params('git.changes').filter((p) => (p as { from?: string }).from === hash).length;
 
