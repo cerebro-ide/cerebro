@@ -32,8 +32,11 @@ let closeDeleted!: (path: string) => void;
 /** Says why saving failed. */
 let reportSaving!: (error: unknown) => void;
 
-/** The line separator for a file read without one: Settings' Line separator, read each time. */
-let separator!: (path: string) => LineSeparator;
+/**
+ * The line separator for a file read without one: Settings' Line separator, read each time; Unix's
+ * until `setupSaving` (a test reading files without saving them).
+ */
+let separator: (path: string) => LineSeparator = () => '\n';
 
 /** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
 const resolving = new Set<string>();
