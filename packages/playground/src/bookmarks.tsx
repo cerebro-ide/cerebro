@@ -12,6 +12,7 @@
 // bookmarks): going to one opens the file, or selects the folder there. They're kept between runs,
 // per worktree.
 
+import { onCleanup } from '@cerebro-ide/jsx';
 import { signal, ObservableMap } from '@cerebro-ide/reactive';
 import { openDialog, prompt } from '@cerebro-ide/ui-dialog';
 import type { BookmarkMark } from '@cerebro-ide/ui-editor';
@@ -26,6 +27,7 @@ import { documentFor, documentRead } from './documents.js';
 import { active } from './environments.js';
 import { Preview } from './find.js';
 import { icon } from './icons.js';
+import { provideOccurrences } from './occurrences.js';
 
 /**
  * A bookmark's place: a file's line, zero-based; or, with no line, the file itself, or a folder, as
@@ -655,6 +657,29 @@ function Tree(props: { env: { id: string; name: string }; list: readonly Bookmar
   // Open, as IntelliJ's.
   model.expand(top);
   for (const node of tops.values()) model.expand(node);
+  // Next and Previous Occurrence, as IntelliJ's (`BookmarksView`, `BookmarkOccurrence`): the line
+  // bookmarks, in the list's order (its snapshot's), from the selected node's bookmark; from a node
+  // without one, the first or the last; no going round. Each selected, then opened.
+  const lines = list.filter(onLine);
+  const step = (forward: boolean) => {
+    const node = model.rows.find((row) => row.key === model.selected)?.node;
+    const from = node && node.kind !== 'list' && node.bookmark ? list.indexOf(node.bookmark) : -1;
+    if (from < 0) return forward ? lines[0] : lines.at(-1);
+    const rest = forward ? list.slice(from + 1) : list.slice(0, from).reverse();
+    return rest.find(onLine);
+  };
+  onCleanup(
+    provideOccurrences('bookmarks', {
+      has: (forward) => step(forward) !== undefined,
+      go: (forward) => {
+        const bookmark = step(forward) as LineBookmark;
+        const key = `${bookmark.path}:${String(bookmark.line)}`;
+        model.select(key);
+        void model.reveal([top.key, bookmark.path, key]);
+        props.go(bookmark);
+      },
+    }),
+  );
   return (
     <TreeView
       model={model}
