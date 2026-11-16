@@ -6,6 +6,16 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
+### The Switcher's tool windows in IntelliJ's order
+
+Found 2026-11-16, reading IntelliJ's source for Recent Files: its Switcher sorts the tool windows
+by mnemonic, then by name (`mnemonicAndMainTextComparator` in `frontendSwitcherItemsCollector.kt`;
+the older `Switcher.kt` sorts likewise): those with a number first, in its order (Commit's 0,
+Project's 1, …), then those with a letter, by letter, then those with none, by name. Cerebro's
+sorts them by name alone, and the decision "The Switcher" says "by name". Recent
+Files sorts them the same way in IntelliJ, its mnemonics hidden
+(`ide.recent.files.tool.window.sort.by.mnemonics`).
+
 ### The project's files under a virtual root, with scratch and external files
 
 From Ido (2026-11-14): "the project files in intellij are under a product virtual "directory" -
@@ -91,6 +101,20 @@ files, from the first; read from its source), in the decision "The diff viewer, 
 "Not yet"; and Rollback, Shelve or Commit on several files picked one by one. It changes a shared
 package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
 dialog's list, a table of its own, already takes several.
+
+### The editor's actions as commands (Ido: "Yes, commands first", 2026-11-16; in #414 and #415)
+
+The editor's own actions (Reformat Code, Comment with Line Comment, Go to Implementation, Next
+Method, Move Line and the rest in `EDITOR_ACTIONS`) are keys the keymap hands to CodeMirror, not
+commands, so no menu can hold them and Find Action doesn't find them. IntelliJ's are actions like
+any other: its Code menu holds Reformat Code, Optimize Imports and the comment actions, and its
+Navigate menu Go to Implementation and Next Method. What waits on it, found 2026-11-16: the
+"Not yet" of the decisions "Comment with Line Comment and Block Comment" and "Optimize Imports"
+(a Code menu), and of "Go to Implementation and Go to Type Declaration" and "Next Method and
+Previous Method" (in the Navigate menu). The shape it would take: each editor action registered as
+a command that runs on the focused editor (or the last one focused, as IntelliJ's editor actions
+find their editor), its keys still given to CodeMirror. It changes how `ui-editor` and the
+playground share the editor's actions, so it's proposed before it's done (CLAUDE.md).
 
 ### Polish
 
