@@ -2029,7 +2029,9 @@ tabs". As IntelliJ's, from its source (`Switcher.kt`, `SwitcherActions.kt`,
 - **Claims:** a tab open in two groups is listed once, and Delete closes it in both; a file's
   folder shows after its name only when another listed file has its name, from the project's
   folder where IntelliJ shows it whole; a chosen tool window's content takes the focus.
-- **Not yet:** speed search, IntelliJ's narrowing of the lists as one types.
+- **No speed search,** as IntelliJ's (corrected 2026-11-16 from a Not yet): its Switcher makes
+  one only for Recent Files (`speedSearch = if (recent && …)` in `Switcher.kt`, read from its
+  source), which has it (decision "Navigation").
 
 ## The Git Log (2026-11-04)
 
