@@ -580,7 +580,9 @@ describe('Find in Files', () => {
     answers.set('search.text', found);
     env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
     await userEvent.click(await vi.waitUntil(code));
-    await userEvent.keyboard('{Control>}{Shift>}f{/Shift}{/Control}');
+    // F, as a keyboard sends it with Shift: an f with Shift is CodeMirror's Ctrl-f, the editor's
+    // Find, which keeps the key (measured).
+    await userEvent.keyboard('{Control>}{Shift>}F{/Shift}{/Control}');
     await popupItems().catch(() => undefined);
     await userEvent.keyboard('const');
     await expect.poll(() => button('Open in Find Window')).toBeDefined();
