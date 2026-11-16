@@ -1233,6 +1233,7 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.state', { path: '/w' })).toEqual({
       conflicts: false,
       remotes: false,
+      remoteUrls: [],
       // What git gave (no refs, and `rev-parse`'s answer), as a fingerprint.
       refs: createHash('sha1').update('\n/nowhere/state\n').digest('hex'),
     });

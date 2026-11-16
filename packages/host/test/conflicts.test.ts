@@ -245,6 +245,7 @@ describe('merge conflicts, with real git', () => {
       conflicts: true,
       message: "Merge branch 'feature'\n\n# Conflicts:\n#\tdel.txt\n#\tf.txt\n#\tg.txt\n",
       remotes: false,
+      remoteUrls: [],
     });
     await acceptSide(repo, ['f.txt', 'g.txt', 'del.txt'], 'yours', git);
     expect(await repositoryState(repo, git)).toMatchObject({
@@ -255,16 +256,33 @@ describe('merge conflicts, with real git', () => {
       operation: 'rebase',
       conflicts: true,
       remotes: false,
+      remoteUrls: [],
     });
     const quiet = diverged();
     expect(await stateOf(quiet)).toEqual({
       operation: undefined,
       conflicts: false,
       remotes: false,
+      remoteUrls: [],
     });
     // And whether it has a remote, as IntelliJ's Fetch asks.
     run(quiet, 'remote', 'add', 'origin', 'https://example.com/r.git');
     expect(await repositoryState(quiet, git)).toMatchObject({ remotes: true });
+  });
+
+  it('gives the remotes’ URLs, as git uses them, each once; a remote with none still counts', async () => {
+    const repo = diverged();
+    run(repo, 'config', 'remote.bare.fetch', '+refs/heads/*:refs/remotes/bare/*');
+    expect(await repositoryState(repo, git)).toMatchObject({ remotes: true, remoteUrls: [] });
+    run(repo, 'remote', 'add', 'origin', 'git@github.com:o/r.git');
+    run(repo, 'config', 'remote.origin.pushurl', 'https://github.com/p/q.git');
+    run(repo, 'config', 'url.https://example.com/.insteadOf', 'ex:');
+    run(repo, 'remote', 'add', 'x', 'ex:a/b');
+    expect((await repositoryState(repo, git)).remoteUrls).toEqual([
+      'git@github.com:o/r.git',
+      'https://github.com/p/q.git',
+      'https://example.com/a/b',
+    ]);
   });
 
   it('gives a fingerprint of the refs the Log shows, which changes as they do', async () => {
@@ -308,6 +326,7 @@ describe('merge conflicts, with real git', () => {
       operation: undefined,
       conflicts: false,
       remotes: false,
+      remoteUrls: [],
     });
     expect(read(repo, 'f.txt')).toBe('a\nB-main\nc\n');
     const rebased = rebasing();
