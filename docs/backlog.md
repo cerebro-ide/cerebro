@@ -145,7 +145,9 @@ dialog's list, a table of its own, already takes several.
   `.cerebro-usageMark` without `--write` in `long.ts`, whose `distant` is declared once and read
   once). Why isn't known: that TypeScript's highlights came back empty and the references
   fallback (`highlights` in `lsp.ts`) marked the declaration as read is a claim. The test now
-  prints each mark and each usage in the text when it fails.
+  prints each mark and each usage in the text when it fails. It came back on #403's macOS run
+  (2026-11-16, run 43817944365), whose output showed no marks and no editors: it queried the
+  document, and the marks are in the editors' shadow roots. It now looks in them too (#406).
 - **The e2e run's first app start can take over 5 s on macOS and Windows in CI** (measured
   2026-11-11, #179, run 43049756595: `app.test.ts`, the first file, timed out waiting 5 s for the
   window on both, its toolbar showing just then on macOS; the run's other starts took 0.2–0.9 s,
