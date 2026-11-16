@@ -3,9 +3,9 @@
 // back to it. Ctrl held, Tab moves on; letting Ctrl go opens what's selected.
 //
 // From IntelliJ's source (Switcher.kt, SwitcherRendering.kt):
-// - the tool windows: those on a stripe, by name, each with a mnemonic: its number, as Alt+1 opens
-//   the Project window, else the first capital in its name not taken, else the first of 0-9 and
-//   A-Z not taken;
+// - the tool windows: those on a stripe, each with a mnemonic: its number, as Alt+1 opens the
+//   Project window, else the first capital in its name not taken, else the first of 0-9 and A-Z
+//   not taken; by mnemonic, then by name (`toolEntries`);
 // - the files: the open tabs, the latest shown first; with fewer than two open, the recent files
 //   instead, as many as there are tool windows; up to 30;
 // - the first selected is the first that isn't the tab shown, or, going back, the last;

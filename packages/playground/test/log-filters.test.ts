@@ -1,10 +1,34 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { periodText, pickUser, recentChoices, rememberChoice } from '../src/log-filters.js';
+import {
+  periodText,
+  pickUser,
+  recentChoices,
+  rememberChoice,
+  selectValues,
+} from '../src/log-filters.js';
 
 afterEach(() => {
   localStorage.clear();
   vi.restoreAllMocks();
+});
+
+describe('a filter’s values field', () => {
+  it('has the focus as it opens, for keys typed at once', async () => {
+    const below = document.createElement('button');
+    document.body.append(below);
+    const values = selectValues({
+      below,
+      label: 'User',
+      value: 'me',
+      separators: ['|'],
+      platform: 'other',
+    });
+    expect(document.activeElement?.className).toBe('playground-values__field');
+    await userEvent.keyboard('{End}|ada{Control>}{Enter}{/Control}');
+    expect(await values).toEqual(['me', 'ada']);
+    below.remove();
+  });
 });
 
 describe('a filter’s recent choices', () => {
