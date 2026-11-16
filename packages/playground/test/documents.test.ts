@@ -1,4 +1,4 @@
-import { EditorDocument } from '@cerebro-ide/ui-editor';
+import { EditorDocument, type LineSeparator } from '@cerebro-ide/ui-editor';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   documentFor,
@@ -67,6 +67,7 @@ let resolver: ConflictResolver = () => Promise.resolve();
 const closed: string[] = [];
 const reported: unknown[] = [];
 let idle: number | undefined;
+let separator: LineSeparator = '\n';
 
 beforeAll(() => {
   setupSaving(
@@ -74,6 +75,7 @@ beforeAll(() => {
     (path, doc, text) => resolver(path, doc, text),
     (path) => closed.push(path),
     () => idle,
+    () => separator,
   );
 });
 
@@ -194,6 +196,21 @@ describe('saving', () => {
     expect(writes('/r/save-a.ts').at(-1)).toEqual({ path: '/r/save-a.ts', text: 'a1' });
     expect([a.modified.peek(), b.modified.peek()]).toEqual([false, false]);
     expect(disk.get('/r/save-a.ts')).toBe('a1');
+  });
+
+  it('joins the lines of a file read without a line break as Settings’ Line separator says', async () => {
+    separator = '\r\n';
+    try {
+      const fresh = await file('/r/fresh.ts', '');
+      const own = await file('/r/own.ts', 'a\nb');
+      for (const doc of [fresh, own]) doc.edit([{ from: 0, to: 0, insert: 'x\ny' }]);
+      await saveAll();
+      expect(disk.get('/r/fresh.ts')).toBe('x\r\ny');
+      // A file's own separator is its own.
+      expect(disk.get('/r/own.ts')).toBe('x\nya\nb');
+    } finally {
+      separator = '\n';
+    }
   });
 
   it('keeps an edit made while the file was written, unsaved', async () => {

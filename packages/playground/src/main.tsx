@@ -208,6 +208,7 @@ import {
 import type { DiffSpec, RecentProject } from './bridge.js';
 import {
   globalSettings,
+  lineSeparatorFor,
   registry as settingsRegistry,
   save as saveSettings,
   settingsFor,
@@ -1256,6 +1257,13 @@ setupSaving(
     globalSettings.get('system.saveWhenIdle') === true
       ? Number(globalSettings.get('system.idleSeconds')) * 1000
       : undefined,
+  // The file's worktree's, as Code Style's other settings (`fileSettings`, set up by the time a file
+  // is read); only the app reads files.
+  (path) =>
+    lineSeparatorFor(
+      fileSettings(path).get('editor.lineSeparator'),
+      (window.cerebro as NonNullable<Window['cerebro']>).platform,
+    ),
 );
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {

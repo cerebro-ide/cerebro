@@ -3,6 +3,7 @@
 // them to files.
 
 import { Settings, SettingsLayer, SettingsRegistry, type Scope } from '@cerebro-ide/settings';
+import type { LineSeparator } from '@cerebro-ide/ui-editor';
 import { PRESETS } from './keymaps.js';
 
 export const registry = new SettingsRegistry();
@@ -128,6 +129,22 @@ registry.register({
   default: false,
 });
 // IntelliJ's, with its defaults (CodeStyleDefaults, CodeStyleSettings).
+// Code Style → General's first, as IntelliJ's (`GeneralCodeStyleGeneralTab`, its words from
+// ApplicationBundle): for a file without a line break of its own (`lineSeparatorFor`).
+registry.register({
+  id: 'editor.lineSeparator',
+  title: 'Line separator',
+  description: 'Applied to new files',
+  page: 'editor/codeStyle',
+  type: 'enum',
+  default: 'system',
+  options: [
+    { value: 'system', label: 'System-Dependent' },
+    { value: 'lf', label: 'Unix and macOS (\\n)' },
+    { value: 'crlf', label: 'Windows (\\r\\n)' },
+    { value: 'cr', label: 'Classic Mac OS (\\r)' },
+  ],
+});
 registry.register({
   id: 'editor.useTabCharacter',
   title: 'Use tab character',
@@ -380,3 +397,15 @@ registry.register({
   default: true,
   scopes: ['global'],
 });
+
+/**
+ * The line separator Settings' Line separator gives a file without one, on `platform` (Node's
+ * `process.platform`, the app's): System-Dependent is Windows' on Windows, else Unix's, as
+ * IntelliJ's (`CodeStyleSettings.getLineSeparator`, the system's).
+ */
+export function lineSeparatorFor(value: unknown, platform: string): LineSeparator {
+  if (value === 'crlf') return '\r\n';
+  if (value === 'cr') return '\r';
+  if (value === 'system' && platform === 'win32') return '\r\n';
+  return '\n';
+}
