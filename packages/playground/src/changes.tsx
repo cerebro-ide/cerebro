@@ -919,7 +919,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     icon: 'rollback',
     dialog: true,
     enabled: (c) => here(c) && rollbackable(current()).length > 0,
-    run: () => rollback(current() as Changes),
+    run: () => {
+      const changes = current() as Changes;
+      return rollback(changes.path, rollbackable(changes));
+    },
   });
   // Create Patch… and Copy as Patch to Clipboard, as IntelliJ's (ChangesViewPopupMenu's
   // ChangesView.CreatePatch and ChangesView.CreatePatchToClipboard): the changes selected, else
@@ -1095,6 +1098,44 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
+  // The Git submenu's Rollback…: IntelliJ's `ChangesView.Revert` (`RollbackAction`, read from its
+  // source) for the editor's file or the Project view's selection: the changes under it, else (none
+  // there) all of them, in the Rollback Changes dialog. Off when the worktree has none, as IntelliJ's
+  // (`hasReversibleFiles`), where the Commit window has read them; they're read again as it runs.
+  commands.register({
+    id: 'git.file.rollback',
+    label: 'Roll&back',
+    icon: 'rollback',
+    dialog: true,
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => {
+      const at = currentFolder(c) ?? currentFile(c);
+      const known = at && lists.get(at.worktree);
+      return known === undefined || known.tracked().length > 0;
+    },
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      let all: Change[];
+      try {
+        all = (await (hostFor(at.worktree) as Host).request('git.changes', {
+          path: at.worktree,
+        })) as Change[];
+      } catch (error) {
+        fail('Couldn’t Read the Changes')(error);
+        return;
+      }
+      const tracked = all.filter(
+        (change) => change.status !== 'untracked' && change.status !== 'ignored',
+      );
+      // As IntelliJ's `filterChangesUnderFiles`: a change's path, or where it was renamed from.
+      const under = (path: string | undefined) =>
+        path !== undefined &&
+        (at.path === '' || path === at.path || path.startsWith(`${at.path}/`));
+      const chosen = tracked.filter((change) => under(change.path) || under(change.from));
+      const files = chosen.length > 0 ? chosen : tracked;
+      if (files.length > 0) await rollback(at.worktree, files);
+    },
+  });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
   const fromDiff = () => {
     const tab = setup.activeTab();
@@ -1239,9 +1280,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.refresh' }, group: 'b' });
 
-  /** Asks, as IntelliJ's Rollback Changes dialog, then rolls the selection's files back. */
-  async function rollback(changes: Changes): Promise<void> {
-    const files = rollbackable(changes);
+  /** Asks, as IntelliJ's Rollback Changes dialog, then rolls `files` of `worktree` back. */
+  async function rollback(worktree: string, files: readonly Change[]): Promise<void> {
     const added = files.some((change) => change.status === 'added');
     const deleteAdded = signal(false);
     const confirmed = await openDialog<true>({
@@ -1275,18 +1315,18 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
         </div>
       ),
     }).result;
-    if (!confirmed) return;
-    const env = active();
-    if (!env) return;
+    // Nor once its environment is closed, or another is active, meanwhile.
+    if (!confirmed || active()?.id !== worktree) return;
     try {
       // As IntelliJ's `RollbackDialogAction`: what's rolled back is what's on disk.
       await saveBeforeGit();
-      await hostFor(env.id)?.request('git.rollback', {
-        path: env.id,
+      await (hostFor(worktree) as Host).request('git.rollback', {
+        path: worktree,
         files: files.map((change) => change.path),
         deleteAdded: deleteAdded.peek(),
       });
-      await changes.refresh(true);
+      // The Commit window's lists, if it has read them.
+      await lists.get(worktree)?.refresh(true);
     } catch (error) {
       fail('Couldn’t Roll Back')(error);
     }

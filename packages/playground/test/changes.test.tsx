@@ -701,6 +701,86 @@ describe('Git → Current File from a tab’s menu', () => {
   });
 });
 
+describe('the Git submenu’s Rollback…', () => {
+  const rolledBack = () => host.params('git.rollback');
+  const confirm = async () => {
+    const text = await dialogText();
+    await press('Rollback');
+    await expect.poll(rolledBack).toHaveLength(1);
+    return text;
+  };
+
+  it('rolls back the editor’s file, after asking, as IntelliJ’s RollbackAction', async () => {
+    git.changes = CHANGES;
+    activeTab = `${wt}/src/main/app.ts`;
+    // The Commit window hasn't read the changes: on, and read as it runs.
+    expect(commands.isEnabled('git.file.rollback')).toBe(true);
+    commands.execute('git.file.rollback');
+    expect(await confirm()).toContain('This file will be rolled back:');
+    expect(rolledBack()).toEqual([{ path: wt, files: ['src/main/app.ts'], deleteAdded: false }]);
+  });
+
+  it('rolls back the changes under a Project view folder, from where it was renamed too', async () => {
+    git.changes = CHANGES;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get('git.file.rollback')?.visible?.(undefined)).toBe(true);
+    commands.execute('git.file.rollback');
+    expect(await confirm()).toContain('These 2 files will be rolled back:');
+    expect(rolledBack()).toEqual([
+      { path: wt, files: ['src/main/app.ts', 'src/main/new.ts'], deleteAdded: false },
+    ]);
+    host.asked.length = 0;
+    // A renamed file's old place: guide.md was moved to docs/.
+    vi.mocked(projectTarget).mockReturnValue({
+      path: `${wt}/guide.md`,
+      name: 'guide.md',
+      kind: 'file',
+    });
+    commands.execute('git.file.rollback');
+    await confirm();
+    expect(rolledBack()).toEqual([{ path: wt, files: ['docs/guide.md'], deleteAdded: false }]);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('rolls back all the changes where the file has none, as IntelliJ’s', async () => {
+    git.changes = CHANGES;
+    activeTab = `${wt}/unchanged.ts`;
+    commands.execute('git.file.rollback');
+    // Not the untracked one.
+    expect(await confirm()).toContain('These 4 files will be rolled back:');
+    expect(rolledBack()).toEqual([
+      {
+        path: wt,
+        files: ['src/main/app.ts', 'src/main/new.ts', 'README.md', 'docs/guide.md'],
+        deleteAdded: false,
+      },
+    ]);
+  });
+
+  it('is off once the Commit window knows of no change; with none read, does nothing', async () => {
+    await changesView([{ path: 'notes.txt', status: 'untracked' }]);
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled('git.file.rollback')).toBe(false);
+    // In the Git submenu, after Show History.
+    expect(commands.get('git.file.rollback')?.visible?.(undefined)).toBe(true);
+    // Not known yet (another worktree's), and none there.
+    workspace.openOrActivate({ id: `${wt}-other`, name: 'o', branch: 'main' });
+    activeTab = `${wt}-other/a.ts`;
+    git.changes = [];
+    await commands.get('git.file.rollback')?.run(undefined);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    workspace.close(`${wt}-other`);
+  });
+
+  it('says why when the changes can’t be read', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    git.failing = 'git.changes';
+    commands.execute('git.file.rollback');
+    expect(await dialogText()).toContain('git.changes failed');
+    expect(rolledBack()).toEqual([]);
+  });
+});
+
 describe('Git → Current File → Show History', () => {
   it('shows the file’s history in the Log; off when Show Diff is', async () => {
     const id = 'git.file.showHistory';

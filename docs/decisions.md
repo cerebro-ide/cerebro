@@ -3048,9 +3048,16 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   `EditorTabPopupMenuEx` has `VersionControlsGroup` (read from its source). From there, the file
   actions act on that tab's file, which needn't be the active one; by a key, on the active
   editor's, as before. Annotate does too.
+- **Rollback…** (added 2026-11-16), after Show History, as IntelliJ's `ChangesView.Revert`
+  (`RollbackAction`, read from its source): for the editor's file, a tab's, or the Project view's
+  file or folder, the changes under it (where a renamed file was, too), else, where it has none,
+  all the worktree's, in the Commit window's Rollback Changes dialog. It's off where the Commit
+  window knows of no change (IntelliJ's `hasReversibleFiles`); else it reads them as it runs. A
+  difference: IntelliJ's dialog has a checkbox for each file, so "all of them" can be cut down
+  there; Cerebro's lists them, and rolls them all back (as its Commit window's Rollback does).
 - **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
-  for Selection, Show Current Revision, Rollback… and Revert Selected Changes for the file, Revert
-  Resolved, the staging area's, Clone….
+  for Selection, Show Current Revision, Revert Selected Changes for the file, Revert Resolved, the
+  staging area's, Clone….
 
 ## A Markdown file's preview (2026-11-13)
 

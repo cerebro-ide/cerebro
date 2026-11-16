@@ -16,6 +16,8 @@ const GROUPS: readonly (readonly (string | { submenu: string; label: string })[]
     'git.file.compareWithRevision',
     'git.file.compareWithBranch',
     'git.file.showHistory',
+    // After Show Current Revision, which Cerebro hasn't.
+    'git.file.rollback',
   ],
   ['vcs.resolveConflicts'],
   ['vcs.push', 'vcs.pull', 'vcs.fetch'],
