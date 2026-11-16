@@ -2443,6 +2443,7 @@ describe('Annotate with Git Blame', () => {
       'Copy Revision Number',
       'Annotate Revision',
       'Annotate Previous Revision',
+      'Show in File History',
       'Options',
     ]);
     // Annotate Previous Revision: none, where the commit added the file.
