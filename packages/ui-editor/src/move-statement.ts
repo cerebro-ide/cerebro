@@ -17,25 +17,16 @@
 // - A `/** … */` comment just above a statement moves with it, as Java's doc comment is part of
 //   its member.
 // - Lines that aren't whole statements (an argument's in a call over several lines) move as lines.
-// Other languages' movers aren't ported: their lines move, as Move Line moves them.
+// JSON's is `JsonLineMover`'s port (`move-statement-json.ts`). Other languages' movers aren't
+// ported: their lines move, as Move Line moves them.
 
-import { ensureSyntaxTree, indentRange, language, syntaxTree } from '@codemirror/language';
-import {
-  ChangeSet,
-  EditorSelection,
-  type EditorState,
-  type Text,
-  type TransactionSpec,
-} from '@codemirror/state';
-import type { SyntaxNode, Tree } from '@lezer/common';
+import { language } from '@codemirror/language';
+import type { EditorState, TransactionSpec } from '@codemirror/state';
+import type { SyntaxNode } from '@lezer/common';
 import { dispatching } from './command-change.js';
+import { LineMover, type Lines } from './line-mover.js';
 import { moveLine } from './move-line.js';
-
-/** Lines, zero-based, `end` past them: IntelliJ's `LineRange`. */
-interface Lines {
-  start: number;
-  end: number;
-}
+import { moveJsonStatement } from './move-statement-json.js';
 
 const SCRIPTS = new Set(['javascript', 'typescript', 'jsx', 'tsx']);
 /** What holds statements (or a class's members), each child but its braces one. */
@@ -101,48 +92,11 @@ function docOf(state: EditorState, unit: SyntaxNode): SyntaxNode | undefined {
   return doc.lineAt(before.to).number + 1 === doc.lineAt(unit.from).number ? before : undefined;
 }
 
-class Mover {
-  private readonly doc: Text;
-  private readonly tree: Tree;
-
-  constructor(private readonly state: EditorState) {
-    this.doc = state.doc;
-    this.tree = syntaxTree(state);
-  }
-
-  lineOf(pos: number) {
-    return this.doc.lineAt(pos).number - 1;
-  }
-
-  lineStart(line: number) {
-    return line >= this.doc.lines ? this.doc.length : this.doc.line(line + 1).from;
-  }
-
+class Mover extends LineMover {
   /** The lines a statement takes, with its doc comment. */
   linesOf(unit: SyntaxNode): Lines {
     const from = docOf(this.state, unit)?.from ?? unit.from;
     return { start: this.lineOf(from), end: this.lineOf(unit.to) + 1 };
-  }
-
-  /** The lines there are to move past: a last line left empty by a line break isn't one. */
-  get lineCount() {
-    const { doc } = this;
-    return doc.line(doc.lines).length === 0 ? doc.lines - 1 : doc.lines;
-  }
-
-  /** The first non-space character at or after `pos`, across lines; undefined at the end. */
-  nonSpaceFrom(pos: number): number | undefined {
-    const found = /\S/.exec(this.doc.sliceString(pos));
-    return found ? pos + found.index : undefined;
-  }
-
-  /** IntelliJ's `getLineRangeFromSelection`: a line a selection ends at the start of is out. */
-  selected(): Lines {
-    const { from, to, empty } = this.state.selection.main;
-    const start = this.lineOf(from);
-    const last = this.lineOf(to);
-    const end = !empty && last > start && this.lineStart(last) === to ? last : last + 1;
-    return { start, end };
   }
 
   /**
@@ -274,53 +228,6 @@ class Mover {
     return undefined;
   }
 
-  /** The two runs of lines swapped, and the moved ones indented again where they land. */
-  swap(moved: Lines, other: Lines): TransactionSpec {
-    const { state } = this;
-    const chunk = (lines: Lines) => {
-      const text = this.doc.sliceString(this.lineStart(lines.start), this.lineStart(lines.end));
-      // One character, as the document counts any line break; written in its own as it's saved.
-      return text.endsWith('\n') ? text : `${text}\n`;
-    };
-    const [top, bottom] = moved.start < other.start ? [moved, other] : [other, moved];
-    const topFrom = this.lineStart(top.start);
-    const topTo = this.lineStart(top.end);
-    const bottomFrom = this.lineStart(bottom.start);
-    const bottomTo = this.lineStart(bottom.end);
-    const swapped = ChangeSet.of(
-      [
-        { from: topFrom, to: topTo, insert: chunk(bottom) },
-        { from: bottomFrom, to: bottomTo, insert: chunk(top) },
-      ],
-      this.doc.length,
-    );
-    const text = chunk(moved);
-    const movedFrom =
-      moved === top ? topFrom + chunk(bottom).length + (bottomFrom - topTo) : topFrom;
-    const shift = movedFrom - this.lineStart(moved.start);
-    const placed = state.update({ changes: swapped }).state;
-    ensureSyntaxTree(placed, movedFrom + text.length, 200);
-    const indented = indentRange(placed, movedFrom, movedFrom + text.length - 1);
-    const { anchor, head } = state.selection.main;
-    return {
-      changes: swapped.compose(indented),
-      // On the characters they were on, past an indent put before them.
-      selection: EditorSelection.range(
-        indented.mapPos(anchor + shift, 1),
-        indented.mapPos(head + shift, 1),
-      ),
-      scrollIntoView: true,
-    };
-  }
-
-  /** The lines swapped with the line beyond them, as IntelliJ's `LineMover`; there's one. */
-  lines(lines: Lines, up: boolean): TransactionSpec {
-    return this.swap(
-      lines,
-      up ? { start: lines.start - 1, end: lines.start } : { start: lines.end, end: lines.end + 1 },
-    );
-  }
-
   move(up: boolean): TransactionSpec | undefined {
     const chosen = this.selected();
     if (up ? chosen.start === 0 : chosen.end >= this.lineCount) return undefined;
@@ -342,11 +249,13 @@ class Mover {
 /** The change Move Statement Up (or Down) makes; undefined where nothing moves. */
 export function moveStatement(state: EditorState, up: boolean): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
-  if (!SCRIPTS.has(state.facet(language)?.name ?? '')) {
-    const made = moveLine(state, up);
-    return made && { ...made, userEvent: up ? 'move.statement.up' : 'move.statement.down' };
-  }
-  const made = new Mover(state).move(up);
+  const name = state.facet(language)?.name ?? '';
+  const made =
+    name === 'json'
+      ? moveJsonStatement(state, up)
+      : SCRIPTS.has(name)
+        ? new Mover(state).move(up)
+        : moveLine(state, up);
   return made && { ...made, userEvent: up ? 'move.statement.up' : 'move.statement.down' };
 }
 
