@@ -138,6 +138,26 @@ describe('the editor’s actions as commands', () => {
     expect(commands.execute('editor.toggleCase')).toBe(false);
   });
 
+  it('run from a mouse shortcut on the editor pointed at, or none, not the one with the keyboard', async () => {
+    const doc = new EditorDocument('const answer = 1;');
+    const onGoToDefinition = vi.fn();
+    const { content, outside } = mount(doc, onGoToDefinition);
+    await userEvent.click(content);
+    // On a word, which the declaration is asked of.
+    await userEvent.keyboard('{Home}');
+    // Pointed at a tab, say: no editor there, though one has the keyboard.
+    const tab = { pointed: outside };
+    expect(commands.isEnabled('editor.goToDefinition', tab)).toBe(false);
+    expect(commands.execute('editor.goToDefinition', tab)).toBe(false);
+    expect(onGoToDefinition).not.toHaveBeenCalled();
+    // Pointed at the editor's text: there, the keyboard back in it.
+    outside.focus();
+    const line = content.querySelector('.cm-line') as Element;
+    expect(commands.isEnabled('editor.goToDefinition', { pointed: line })).toBe(true);
+    expect(commands.execute('editor.goToDefinition', { pointed: line })).toBe(true);
+    expect(onGoToDefinition).toHaveBeenCalledTimes(1);
+  });
+
   it('rename in the editor with the keyboard, the Project view’s file elsewhere', async () => {
     const renaming = vi.fn(() => Promise.resolve(null));
     const { content, outside } = mount(
