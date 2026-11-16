@@ -72,15 +72,38 @@ describe('NavigationHistory', () => {
     expect(back()).toEqual(['a:3']);
   });
 
+  it('keeps a place within 4 lines of the last in its stead, as IntelliJ’s', () => {
+    const { area, history, at, back } = setup();
+    area.open(tab('a'));
+    at('a', 3);
+    history.record();
+    at('a', 6);
+    history.record();
+    expect(back()).toEqual(['a:6']);
+    at('a', 10);
+    history.record();
+    expect(back()).toEqual(['a:6', 'a:10']);
+  });
+
+  it('remembers where the caret was once it has moved (a click)', () => {
+    const { area, history, at, back } = setup();
+    area.open(tab('a'));
+    at('a', 30);
+    history.record({ line: 2, column: 4 });
+    expect(history.back.at(-1)?.at).toEqual({ line: 2, column: 4 });
+    expect(back()).toEqual(['a:2']);
+  });
+
   it('keeps the latest places only', () => {
     const { area, history, at } = setup();
     area.open(tab('a'));
-    for (let line = 0; line < MAX_PLACES + 5; line++) {
-      at('a', line);
+    // Far enough apart not to be one place.
+    for (let n = 0; n < MAX_PLACES + 5; n++) {
+      at('a', n * 10);
       history.record();
     }
     expect(history.back).toHaveLength(MAX_PLACES);
-    expect(history.back[0]?.at?.line).toBe(5);
+    expect(history.back[0]?.at?.line).toBe(50);
   });
 
   it('does nothing with nowhere to go, or nothing open', () => {

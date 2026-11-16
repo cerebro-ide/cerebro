@@ -2728,12 +2728,40 @@ describe('the editor’s file', () => {
     await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
   });
 
+  it('keeps a place left by a click on another line, or Ctrl+Home and Ctrl+End, for Back', async () => {
+    // The open files are read again every two seconds: the others as they were.
+    answers.set('fs.read', ({ path }: { path: string }) => ({
+      text: path.endsWith('clicked.ts')
+        ? Array.from({ length: 20 }, (_, i) => `line ${String(i)}`).join('\n')
+        : `// ${path}\nconst a = 1;\n`,
+    }));
+    const shown = env().editor.activeGroup.active as string;
+    env().editor.open({ id: '/r/src/clicked.ts', title: 'clicked.ts' });
+    const line = async (n: number) =>
+      vi.waitUntil(() => editorRoot()?.querySelectorAll<HTMLElement>('.cm-line')[n]);
+    const last = () => {
+      const place = history()?.back.at(-1);
+      return `${String(place?.tab.id)}:${String(place?.at?.line)}`;
+    };
+    await userEvent.click(await line(1));
+    await userEvent.click(await line(12));
+    expect(last()).toBe('/r/src/clicked.ts:1');
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    expect(last()).toBe('/r/src/clicked.ts:12');
+    // Back returns to it.
+    await userEvent.keyboard('{Control>}{Alt>}{ArrowLeft}{/Alt}{/Control}');
+    await expect.poll(() => carets.get('/r/src/clicked.ts')?.line).toBe(12);
+    env().editor.close(env().editor.activeGroup.id, '/r/src/clicked.ts');
+    env().editor.open({ id: shown, title: shown.slice(shown.lastIndexOf('/') + 1) });
+  });
+
   it('lists the places behind in Recent Locations, each with its lines, as IntelliJ’s', async () => {
     const text = Array.from({ length: 12 }, (_, i) => `const v${String(i)} = ${String(i)};`);
     answers.set('fs.read', ({ path }: { path: string }) => {
       if (path.endsWith('loc-gone.ts')) throw new Error('ENOENT');
       if (path.endsWith('loc-blank.ts')) return { text: 'a\n\n\n\n\n\n\n\nb' };
-      return { text: text.join('\n') };
+      // The open files are read again every two seconds: the others as they were.
+      return { text: path.includes('/loc-') ? text.join('\n') : `// ${path}\nconst a = 1;\n` };
     });
     const place = (name: string, line: number) => ({
       tab: { id: `/r/src/${name}`, title: name },

@@ -2031,6 +2031,11 @@ function Code(props: { path: string; env: string }) {
               if (selected) selections.set(props.path, selected);
               else selections.delete(props.path);
             }}
+            // A click or the text's start or end, as IntelliJ's: a place left, for Back. The
+            // editor's tab is the active one: a click focuses it first.
+            onLeave={(from) => {
+              history()?.record(from);
+            }}
             onScroll={(top) => {
               tops.set(props.path, top);
               topLine.set(top);

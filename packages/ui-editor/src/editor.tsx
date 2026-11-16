@@ -43,6 +43,7 @@ import {
 import { changesTo, EditorDocument, KEPT } from './document.js';
 import { detectIndent, indentUnitOf, type Indent } from './indent.js';
 import type { Selected } from './line.js';
+import { leaves } from './leaves.js';
 
 /** IntelliJ's: 4 spaces. */
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
@@ -233,6 +234,11 @@ export interface CodeEditorProps {
    * time either changes.
    */
   onCaret?: (at: { line: number; column: number }, selected: Selected | undefined) => void;
+  /**
+   * The caret left its line by a click, or by going to the text's start or end: where it was, a
+   * place for Back, as IntelliJ counts those moves (`leaves.ts`).
+   */
+  onLeave?: (from: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
   keys?: () => EditorKeys;
 }
@@ -1169,6 +1175,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         return true;
       },
     }),
+    props.onLeave ? leaves(props.onLeave) : [],
     props.canGoToDefinition ? definitionLinks(props.canGoToDefinition) : [],
     theme,
     syntaxHighlighting(highlight),

@@ -22,6 +22,16 @@ export interface Place {
   top?: number | undefined;
 }
 
+/**
+ * Within this many lines, a place is the one before it again (Back's and a change's), as IntelliJ's
+ * (`TextEditorState.MIN_CHANGE_DISTANCE`).
+ */
+const NEAR = 4;
+
+/** Whether two places are one: a tab's, within a few lines (IntelliJ's `isSame`). */
+export const samePlace = (a: Place, b: Place): boolean =>
+  a.tab.id === b.tab.id && Math.abs((a.at?.line ?? 0) - (b.at?.line ?? 0)) < NEAR;
+
 /** How many places are kept behind (a claim, not measured: IntelliJ keeps a few dozen). */
 export const MAX_PLACES = 50;
 
@@ -80,10 +90,13 @@ export class NavigationHistory {
     return tab && this.#placeOf(tab);
   }
 
-  /** Leaves the current place: before the caret jumps within its file. */
-  record(): void {
+  /**
+   * Leaves the current place: before the caret jumps within its file; or, once it has (a click),
+   * the place it was, `at`.
+   */
+  record(at?: Position): void {
     const place = this.current();
-    if (place) this.#push(place);
+    if (place) this.#push(at ? { ...place, at } : place);
   }
 
   get canGoBack(): boolean {
@@ -135,12 +148,15 @@ export class NavigationHistory {
     return { tab, at: this.#caret(tab.id), top: this.#top(tab.id) };
   }
 
-  /** Remembers a place left, unless it's where the last one was; what was ahead is forgotten. */
+  /**
+   * Remembers a place left, in the last one's stead if it's within a few lines of it, as IntelliJ's
+   * (`putLastOrMerge`); what was ahead is forgotten.
+   */
   #push(place: Place): void {
     const last = this.back.at(-1);
     this.forward = [];
-    if (last?.tab.id === place.tab.id && last.at?.line === place.at?.line) return;
-    this.back = [...this.back, place].slice(-MAX_PLACES);
+    const kept = last && samePlace(last, place) ? this.back.slice(0, -1) : this.back;
+    this.back = [...kept, place].slice(-MAX_PLACES);
   }
 
   #go(place: Place): void {
@@ -153,16 +169,6 @@ export class NavigationHistory {
 
 /** How many places of changes are kept, as IntelliJ's (`editor.navigation.history.stack.size`). */
 export const MAX_CHANGE_PLACES = 150;
-
-/**
- * Within this many lines, a change's place is the one before it again, as IntelliJ's
- * (`TextEditorState.MIN_CHANGE_DISTANCE`).
- */
-const NEAR = 4;
-
-/** Whether two places are one: a tab's, within a few lines (IntelliJ's `isSame`). */
-export const samePlace = (a: Place, b: Place): boolean =>
-  a.tab.id === b.tab.id && Math.abs((a.at?.line ?? 0) - (b.at?.line ?? 0)) < NEAR;
 
 /**
  * Last Edit Location and Next Edit Location, as IntelliJ's Navigate menu

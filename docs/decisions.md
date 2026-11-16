@@ -1265,9 +1265,18 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   `layout`), one history per environment. A place is a tab and its caret. A place is left when
   another tab becomes active (opened, chosen, or the one shown after a tab closes), and when a
   navigation jumps within a file (go to definition, a Find in Files result). Back returns to the
-  last place left; Forward undoes it; going somewhere new forgets the places ahead. A place once,
-  however often it's left from the same line. 50 places kept (a claim: IntelliJ keeps a few
-  dozen; not measured).
+  last place left; Forward undoes it; going somewhere new forgets the places ahead. 50 places kept
+  (a claim: IntelliJ keeps a few dozen; not measured).
+  - **Clicks and the text's start or end** (added 2026-11-16) are places left too, as IntelliJ's
+    (read from its source: `includeCurrentCommandAsNavigation`, from EditorImpl's mouse press and
+    `EditorActionUtil.moveCaretToTextStart`/`…TextEnd`): a click that takes the caret to another
+    line, and Ctrl+Home or Ctrl+End (Cmd+Up or Cmd+Down on macOS, CodeMirror's keys for them).
+    Typing, the arrows, a move within the line and a drag after the press aren't (IntelliJ's
+    `caretPositionChanged` ignores a move within the line). The editor says where the caret was
+    (`onLeave`, `leaves.ts` in `ui-editor`).
+  - **A place within 4 lines of the last one takes its place** (changed 2026-11-16), as IntelliJ's
+    `putLastOrMerge` (`isSame`: `TextEditorState.MIN_CHANGE_DISTANCE`). It was kept once for the
+    same line only; with clicks as places, every click near the last would have been another.
 - **Shortcuts as IntelliJ's default keymaps:** Ctrl+Alt+Left and Ctrl+Alt+Right on Windows and
   Linux, Cmd+[ and Cmd+] on macOS; and the mouse's back and forward buttons. A Navigate menu
   after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
@@ -1395,8 +1404,9 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
-- **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  The Options menu's other choices (Open Files
+- **Not yet:** IntelliJ's other navigation moves as places (Find's next occurrence, Next
+  Highlighted Error, Move Caret to Code Block Start, among `includeCurrentCommandAsNavigation`'s
+  callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
