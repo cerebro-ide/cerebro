@@ -393,6 +393,26 @@ describe('Merge…', () => {
     expect(last()?.title).toBe('2 files updated in 1 commit');
   });
 
+  it('has the branch focused and selected as the dialog shows, for keys typed at once', async () => {
+    /** What has the focus, and what of it is selected, as the dialog is first in the page. */
+    const asShown = new Promise<[Element | null, string]>((resolve) => {
+      const observer = new MutationObserver(() => {
+        if (!document.querySelector('.cerebro-dialog')) return;
+        observer.disconnect();
+        const field = document.activeElement as HTMLInputElement | null;
+        resolve([
+          field,
+          field?.value.slice(field.selectionStart ?? 0, field.selectionEnd ?? 0) ?? '',
+        ]);
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+    const { field, done } = await open();
+    expect(await asShown).toEqual([field, 'origin/main']);
+    await userEvent.keyboard('{Escape}');
+    await done;
+  });
+
   it('saves the documents first, as IntelliJ’s `GitMergeAction`', async () => {
     await unsavedEdit(host, '/r/feature/a.ts');
     const { done, type } = await open();
