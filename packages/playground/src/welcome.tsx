@@ -30,7 +30,7 @@ effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;
 });
-installScrollbars();
+installScrollbars({ mac: app.platform === 'darwin' });
 
 const recent = signal<RecentProject[]>(await bridge.recent());
 const query = signal('');

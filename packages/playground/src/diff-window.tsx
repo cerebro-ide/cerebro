@@ -85,7 +85,7 @@ effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;
 });
-installScrollbars();
+installScrollbars({ mac: app.platform === 'darwin' });
 
 // The keymap chosen in Settings → Keymap, with the user's changes, as the project's window has it.
 const keymap = new Keymap(keymapPlatform(navigator.platform));
