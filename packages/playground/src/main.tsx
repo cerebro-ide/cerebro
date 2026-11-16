@@ -91,6 +91,7 @@ import { setupFileClipboard } from './file-clipboard.js';
 import { StructureView } from './structure-view.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
+import { setupRecentLocations } from './recent-locations.js';
 import { setupSwitcher } from './switcher.js';
 import {
   AgentChangesView,
@@ -692,6 +693,7 @@ for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
   services.menus.contribute({ menu: 'main/navigate', item: { command }, group: 'a' });
 }
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
+setupRecentLocations(services);
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {

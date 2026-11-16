@@ -9,6 +9,7 @@ import {
   RecentTabs,
   type EditorArea,
   type Environment,
+  type Place,
   type Position,
   type Tab,
 } from '@cerebro-ide/layout';
@@ -176,11 +177,7 @@ effect(() => {
     changes.set(
       env,
       new ChangePlaces((place) => {
-        // A jump within the file is a place left, as Back's.
-        if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
-        env.editor.open(place.tab);
-        if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
-        focusing.set(place.tab.id, {});
+        goToPlace(place);
       }),
     );
     histories.set(
@@ -219,6 +216,19 @@ onEdited((path) => {
     places?.changed({ tab, at: carets.get(path), top: tops.get(path) });
   });
 });
+
+/**
+ * Takes the caret to a place in the active environment, its editor focused: Last Edit Location's,
+ * Recent Locations'.
+ */
+export function goToPlace(place: Place): void {
+  const env = active() as Environment;
+  // A jump within the file is a place left, as Back's.
+  if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
+  env.editor.open(place.tab);
+  if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
+  focusing.set(place.tab.id, {});
+}
 
 /** The active environment's places of changes. */
 export function changePlaces(): ChangePlaces | undefined {

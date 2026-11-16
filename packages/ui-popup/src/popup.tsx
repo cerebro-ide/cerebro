@@ -127,6 +127,8 @@ export interface PickerHandle<T> {
   close(): void;
   /** The item highlighted now: Replace in Files' Replace acts on it. */
   highlighted(): T | undefined;
+  /** Puts `text` in the search field, as if typed: Recent Locations clears it as its list flips. */
+  setQuery(text: string): void;
 }
 
 /** The most rows drawn by default: thousands of matches would be slow to draw, and of no use. */
@@ -236,6 +238,8 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
   private readonly restoreFocus: HTMLElement;
   private readonly dispose: () => void;
   private rows = new Map<string, Row<T>>();
+  // Set as the popup is drawn, in the constructor.
+  private field!: HTMLInputElement;
   /** A submenu open beside a row: presses outside are its to handle. */
   private submenuOpen = false;
 
@@ -285,6 +289,18 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
 
   highlighted(): T | undefined {
     return this.items.peek()[this.state.index];
+  }
+
+  setQuery(text: string): void {
+    this.field.value = text;
+    this.query(text);
+  }
+
+  /** The query is `text` now: the first item is highlighted again, and the owner told. */
+  private query(text: string): void {
+    this.state.query = text;
+    this.state.index = this.initial();
+    this.options.onQueryChange?.(text);
   }
 
   private finish(result: T | undefined): void {
@@ -539,9 +555,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       }).then((text) => {
         if (text === undefined) return;
         field.value = text;
-        state.query = text;
-        state.index = this.initial();
-        options.onQueryChange?.(text);
+        this.query(text);
       });
     };
     const input = (
@@ -554,9 +568,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
         aria-label={options.label}
         aria-controls="cerebro-popup-list"
         on:input={(event) => {
-          state.query = (event.currentTarget as HTMLInputElement).value;
-          state.index = this.initial();
-          options.onQueryChange?.(state.query);
+          this.query((event.currentTarget as HTMLInputElement).value);
         }}
         on:keydown={(event) => {
           if (history && showsHistory(event)) {
@@ -569,6 +581,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
         }}
       />
     ) as HTMLInputElement;
+    this.field = input;
     return [
       options.header ? <div class="cerebro-popup__header">{options.header()}</div> : null,
       options.options || history ? (
@@ -597,6 +610,9 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
       <div class="cerebro-popup__list" id="cerebro-popup-list" role="listbox">
         {() => {
           const items = this.items.get();
+          // An item gone from the end (Recent Locations' Delete): the last is highlighted, as
+          // IntelliJ's lists do (`removeItems`).
+          if (state.index >= items.length) state.index = Math.max(0, items.length - 1);
           if (items.length === 0) {
             return <div class="cerebro-popup__empty">{options.empty ?? 'Nothing found'}</div>;
           }
@@ -609,6 +625,11 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
             let unique = key;
             for (let n = 1; kept.has(unique); n++) unique = `${key}#${String(n)}`;
             let row = this.rows.get(unique);
+            // A body is drawn once: another one is another row (two places in files of one name).
+            if (row && row.item.body !== item.body) {
+              row.dispose();
+              row = undefined;
+            }
             if (row) {
               row.item = item;
               row.index.set(index);

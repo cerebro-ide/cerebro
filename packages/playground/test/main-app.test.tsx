@@ -8,7 +8,7 @@ import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets, history, recentTabs, reveals } from '../src/navigation.js';
+import { carets, changePlaces, history, recentTabs, reveals } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { RECENT_LANGUAGES } from '../src/scratches.js';
 import { loadProjects } from '../src/projects.js';
@@ -2705,6 +2705,85 @@ describe('the editor’s file', () => {
     expect(recentTabs()?.edited.map((t) => t.id)).not.toContain('/r/src/edited-then-deleted.ts');
     await userEvent.keyboard('{Escape}');
     await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
+  it('lists the places behind in Recent Locations, each with its lines, as IntelliJ’s', async () => {
+    const text = Array.from({ length: 12 }, (_, i) => `const v${String(i)} = ${String(i)};`);
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path.endsWith('loc-gone.ts')) throw new Error('ENOENT');
+      if (path.endsWith('loc-blank.ts')) return { text: 'a\n\n\n\n\n\n\n\nb' };
+      return { text: text.join('\n') };
+    });
+    const place = (name: string, line: number) => ({
+      tab: { id: `/r/src/${name}`, title: name },
+      at: { line, column: 0 },
+    });
+    const shown = env().editor.activeGroup.active as string;
+    const back = history()?.back ?? [];
+    const edited = changePlaces()?.places ?? [];
+    (history() as { back: unknown }).back = [
+      place('loc-a.ts', 6),
+      place('loc-gone.ts', 1),
+      // A diff's place has no caret: left out.
+      { tab: diffTab('/r/src/loc-a.ts') },
+      place('loc-b.ts', 0),
+    ];
+    (changePlaces() as { places: unknown }).places = [
+      place('loc-blank.ts', 4),
+      place('loc-edited.ts', 11),
+    ];
+    const labels = () =>
+      [...document.querySelectorAll('.cerebro-popup .cerebro-popup-item__label')].map(
+        (label) => label.textContent,
+      );
+    const lines = () =>
+      [
+        ...document.querySelectorAll('.cerebro-popup-item--highlighted .cerebro-snippet__number'),
+      ].map((n) => n.textContent);
+    await userEvent.keyboard('{Control>}{Shift>}e{/Shift}{/Control}');
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    expect(q('.playground-locations__header').textContent).toBe(
+      'Recent Locations(2)Show edited onlyCtrl+Shift+E',
+    );
+    // Near the start, the lines after it; then 2 before and after.
+    expect(lines()).toEqual(['1', '2', '3', '4', '5']);
+    expect(q('.cerebro-popup-item--highlighted .cerebro-snippet__code').textContent).toBe(
+      'const v0 = 0;',
+    );
+    await userEvent.keyboard('{ArrowDown}');
+    expect(lines()).toEqual(['5', '6', '7', '8', '9']);
+    // Recent Locations' key flips Show edited only.
+    await userEvent.keyboard('{Control>}{Shift>}e{/Shift}{/Control}');
+    await expect.poll(labels).toEqual(['loc-edited.ts', 'loc-blank.ts']);
+    expect(q('.playground-locations__header b').textContent).toBe('Recently Edited Locations');
+    expect(lines()).toEqual(['9', '10', '11', '12']);
+    // Lines all blank: “Empty lines”, greyed.
+    expect(
+      [...document.querySelectorAll('.playground-locations__empty')].map((e) => e.textContent),
+    ).toEqual(['Empty lines']);
+    // Delete forgets the place, the next highlighted; typed text it edits instead.
+    await userEvent.keyboard('{Delete}');
+    await expect.poll(labels).toEqual(['loc-blank.ts']);
+    await userEvent.keyboard('{Delete}');
+    await expect.poll(labels).toEqual([]);
+    expect(changePlaces()?.places).toEqual([]);
+    expect(q('.cerebro-popup').textContent).toContain('No recent locations found');
+    await userEvent.click(q('.playground-locations__header input'));
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    await userEvent.keyboard('v6');
+    await expect.poll(labels).toEqual(['loc-a.ts']);
+    await userEvent.keyboard('{Backspace}{Backspace}');
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    await userEvent.keyboard('{Backspace}');
+    await expect.poll(labels).toEqual(['loc-a.ts']);
+    // Enter goes to the place.
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/loc-a.ts');
+    await expect.poll(() => reveals.get('/r/src/loc-a.ts')).toMatchObject({ line: 6 });
+    env().editor.close(env().editor.activeGroup.id, '/r/src/loc-a.ts');
+    env().editor.open({ id: shown, title: shown.slice(shown.lastIndexOf('/') + 1) });
+    (history() as { back: unknown }).back = back;
+    (changePlaces() as { places: unknown }).places = edited;
   });
 
   it('lists diffs in Recent Files when they’re always in the navigation history', async () => {
