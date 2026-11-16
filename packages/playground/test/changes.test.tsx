@@ -26,7 +26,7 @@ import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-
 import { documentFor, unsavedFiles } from '../src/documents.js';
 import { projectOf, useProjects, workspace, type ProjectState } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
-import { projectFile, projectNode } from '../src/project.js';
+import { projectTarget } from '../src/project.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
 import {
@@ -678,6 +678,29 @@ describe('Git → Current File → Compare with Revision…', () => {
   });
 });
 
+describe('Git → Current File from a tab’s menu', () => {
+  it('acts on the tab’s file, not the active one’s, as IntelliJ’s tab menu', async () => {
+    // The worktree's changes read: notes.txt isn't committed.
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    const menu = { group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true as const };
+    await expect.poll(() => commands.isEnabled('git.file.showDiff')).toBe(false);
+    expect(commands.isEnabled('git.file.showDiff', menu)).toBe(true);
+    expect(commands.isEnabled('git.file.compareWithRevision', menu)).toBe(true);
+    expect(commands.isEnabled('git.file.showHistory', menu)).toBe(true);
+    // By a key, whose context names the active tab: the active editor's, as before.
+    expect(commands.isEnabled('git.file.showDiff', { group: 'g', tab: menu.tab })).toBe(false);
+    commands.execute('git.file.showDiff', menu);
+    expect(opened.at(-1)).toEqual(diffTab('src/main/app.ts'));
+    commands.execute('git.file.showHistory', menu);
+    expect(histories.at(-1)).toBe('src/main/app.ts');
+    // A tab of no file of the worktree: none.
+    expect(commands.get('git.file.showDiff')?.visible?.({ ...menu, tab: '/elsewhere/a.ts' })).toBe(
+      false,
+    );
+  });
+});
+
 describe('Git → Current File → Show History', () => {
   it('shows the file’s history in the Log; off when Show Diff is', async () => {
     const id = 'git.file.showHistory';
@@ -779,7 +802,7 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
       document.querySelector('.playground-compare__explanation')?.textContent;
     const shownRows = () =>
       [...box.querySelectorAll('.cerebro-tree-row')].map((r) => r.getAttribute('data-key'));
-    vi.mocked(projectNode).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
     expect(visible()).toBe(true);
     // Not Show Diff's, which IntelliJ's has for a file alone.
     expect(commands.get('git.file.showDiff')?.visible?.(undefined)).toBe(false);
@@ -797,7 +820,7 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
     expect(revealed).toBeGreaterThan(0);
     expect(opened).toEqual([]);
     // The worktree's own: all of them.
-    vi.mocked(projectNode).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
     commands.execute('git.file.compareWithBranch');
     await popupItems();
     await userEvent.keyboard('v1{Enter}');
@@ -810,14 +833,11 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
     await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
     expect(explanation()).toBe('Difference Between v1.0 and main (Local) Versions in r');
     // A file selected there is a file's, a group nothing.
-    vi.mocked(projectNode).mockReturnValue({ path: `${wt}/a.ts`, name: 'a.ts', kind: 'file' });
-    vi.mocked(projectFile).mockReturnValue(`${wt}/a.ts`);
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/a.ts`, name: 'a.ts', kind: 'file' });
     expect(visible()).toBe(true);
-    vi.mocked(projectNode).mockReturnValue(null);
-    vi.mocked(projectFile).mockReturnValue(null);
+    vi.mocked(projectTarget).mockReturnValue(null);
     expect(visible()).toBe(false);
-    vi.mocked(projectNode).mockReset();
-    vi.mocked(projectFile).mockReset();
+    vi.mocked(projectTarget).mockReset();
     worktrees.set(worktrees.peek().filter((w) => w.id !== wt));
   });
 

@@ -40,7 +40,8 @@ import { showFolderDiffWithRef } from './diff-with-working-tree.js';
 import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
-import { projectFile, projectNode } from './project.js';
+import type { TabContext } from './commands.js';
+import { projectTarget } from './project.js';
 import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
 import { compareRefs } from './compare-branches.js';
@@ -977,18 +978,23 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   });
   /**
    * The file Git → Current File acts on, and its worktree, if it's in the active worktree's
-   * repository: the Project view's selected file while it has the focus; none while another tool
-   * window has it; else the active editor's.
+   * repository: the Project view's selected file while it has the focus; the tab's, from its menu;
+   * none while another tool window has it; else the active editor's.
    */
-  const currentFile = () => {
+  const currentFile = (context?: unknown) => {
     const env = active();
-    const selected = projectFile();
+    const menu = context as TabContext | undefined;
+    const node = projectTarget(menu);
     const tab =
-      selected !== undefined
-        ? (selected ?? undefined)
-        : target()?.closest('.cerebro-tool-window')
-          ? undefined
-          : setup.activeTab();
+      node !== undefined
+        ? node?.kind === 'file'
+          ? node.path
+          : undefined
+        : menu?.tabMenu
+          ? menu.tab
+          : target()?.closest('.cerebro-tool-window')
+            ? undefined
+            : setup.activeTab();
     if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
     const path = tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
     return path === undefined ? undefined : { worktree: env.id, path };
@@ -1000,13 +1006,13 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.showDiff',
     label: 'Show Diff',
     icon: 'diff',
-    visible: () => currentFile() !== undefined,
-    enabled: () => {
-      const file = currentFile();
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => {
+      const file = currentFile(c);
       return file !== undefined && !notCommitted(file.worktree, file.path);
     },
-    run: () => {
-      const file = currentFile() as { worktree: string; path: string };
+    run: (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
       // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
       const caret = carets.get(`${file.worktree}/${file.path}`);
       setup.open(diffTab(file.path), undefined, caret?.line);
@@ -1019,10 +1025,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.compareWithRevision',
     label: 'Compare with Revision',
     dialog: true,
-    visible: () => currentFile() !== undefined,
-    enabled: () => commands.isEnabled('git.file.showDiff'),
-    run: () => {
-      const file = currentFile() as { worktree: string; path: string };
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
       pickRevision(hostFor(file.worktree) as Host, file.worktree, file.path).then(
         (hash) => {
           if (hash !== undefined) setup.open(diffTab(file.path, { from: hash }));
@@ -1037,9 +1043,9 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
    * The folder selected in the Project view, its path in the worktree ('' for the worktree's own),
    * as IntelliJ's Compare with Branch or Tag takes one (`DvcsCompareWithAction`).
    */
-  const currentFolder = () => {
+  const currentFolder = (context?: unknown) => {
     const env = active();
-    const node = projectNode();
+    const node = projectTarget(context as TabContext | undefined);
     if (!env || node?.kind !== 'directory' || !currentHost() || !gitRepository.get()) {
       return undefined;
     }
@@ -1054,10 +1060,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.compareWithBranch',
     label: 'Compare with Branch or Tag',
     dialog: true,
-    visible: () => currentFile() !== undefined || currentFolder() !== undefined,
-    run: () => {
-      const folder = currentFolder();
-      const file = folder ?? (currentFile() as { worktree: string; path: string });
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    run: (c) => {
+      const folder = currentFolder(c);
+      const file = folder ?? (currentFile(c) as { worktree: string; path: string });
       const host = hostFor(file.worktree) as Host;
       pickRef(host, file.worktree).then(
         async (ref) => {
@@ -1083,10 +1089,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   commands.register({
     id: 'git.file.showHistory',
     label: 'Show History',
-    visible: () => currentFile() !== undefined,
-    enabled: () => commands.isEnabled('git.file.showDiff'),
-    run: () => {
-      setup.showHistory((currentFile() as { worktree: string; path: string }).path);
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: (c) => {
+      setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */

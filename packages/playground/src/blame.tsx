@@ -494,12 +494,17 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
     const node = projectTarget(c as TabContext | undefined);
     return node === undefined ? undefined : node?.kind === 'file' ? node.path : null;
   };
-  /** The file a command is for: the gutter's, the Project view's, or the active editor's. */
+  /**
+   * The file a command is for: the gutter's, the Project view's, the tab's (from its menu), or the
+   * active editor's.
+   */
   const target = (c: unknown) => {
     const gutter = (c as { file?: string } | undefined)?.file;
     if (gutter !== undefined) return gutter;
     const node = inProject(c);
-    return node === undefined ? setup.activeTab() : (node ?? undefined);
+    if (node !== undefined) return node ?? undefined;
+    const menu = c as TabContext | undefined;
+    return menu?.tabMenu ? menu.tab : setup.activeTab();
   };
   commands.register({
     id: 'vcs.annotate',
