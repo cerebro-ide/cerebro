@@ -29,6 +29,11 @@ export interface PickerItem {
   /** Indices in the label of the characters that matched the query, shown bold. */
   highlight?: readonly number[];
   /**
+   * Drawn under the row's label, its full width, the row as tall as it needs: Recent Locations'
+   * lines of code, as IntelliJ's.
+   */
+  body?: () => Child;
+  /**
    * A close button at the item's end, shown while it's hovered or highlighted: IntelliJ's list of
    * hidden tabs has one per tab. The list follows what its items read, so a closed one goes.
    */
@@ -423,6 +428,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
               'cerebro-popup-item',
               item.more && 'cerebro-popup-item--more',
               item.disabled && 'cerebro-popup-item--disabled',
+              item.body && 'cerebro-popup-item--body',
               state.index === index.get() && 'cerebro-popup-item--highlighted',
             )
           }
@@ -492,6 +498,7 @@ class Picker<T extends PickerItem> implements PickerHandle<T> {
               </svg>
             </button>
           ) : null}
+          {item.body ? <div class="cerebro-popup-item__body">{item.body()}</div> : null}
         </div>
       ),
       fragment,

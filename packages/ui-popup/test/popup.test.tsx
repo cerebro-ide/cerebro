@@ -553,4 +553,27 @@ describe('openPicker', () => {
     expect(ad.textContent).toBe('Press Delete to clear the filter');
     expect(ad.previousElementSibling?.classList.contains('cerebro-popup__list')).toBe(true);
   });
+
+  it('draws an item’s body under its label, its full width, the row as tall as it is', () => {
+    const handle = openPicker({
+      label: 'Recent Locations',
+      position: 'top',
+      items: () => [
+        { label: 'a.ts', body: () => <pre class="lines">{'one\ntwo\nthree'}</pre> },
+        { label: 'b.ts' },
+      ],
+    });
+    const [first, second] = [...document.querySelectorAll('.cerebro-popup-item')] as HTMLElement[];
+    const body = first?.querySelector('.cerebro-popup-item__body') as HTMLElement;
+    expect(body.textContent).toBe('one\ntwo\nthree');
+    expect(body.getBoundingClientRect().top).toBeGreaterThan(
+      (first?.querySelector('.cerebro-popup-item__label') as HTMLElement).getBoundingClientRect()
+        .bottom - 1,
+    );
+    expect(first?.getBoundingClientRect().height).toBeGreaterThan(
+      (second?.getBoundingClientRect().height ?? 0) * 2,
+    );
+    expect(second?.querySelector('.cerebro-popup-item__body')).toBeNull();
+    handle.close();
+  });
 });

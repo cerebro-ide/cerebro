@@ -9,3 +9,31 @@
   height: 100%;
   user-select: text;
 }
+
+/* Lines of code outside an editor (Recent Locations'), in the editor's font and colours. */
+.cerebro-snippet {
+  font-family: var(--cerebro-font-mono);
+  line-height: 1.5;
+  background: var(--cerebro-background);
+  white-space: pre;
+  overflow: hidden;
+}
+
+.cerebro-snippet__line {
+  display: flex;
+}
+
+.cerebro-snippet__number {
+  flex: none;
+  min-width: 3ch;
+  padding: 0 12px 0 6px;
+  text-align: right;
+  color: var(--cerebro-editor-line-number);
+  border-right: 1px solid var(--cerebro-editor-gutter-line);
+  margin-right: 8px;
+}
+
+.cerebro-snippet__code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

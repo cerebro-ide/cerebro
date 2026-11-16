@@ -160,6 +160,19 @@
   background: var(--cerebro-menu-highlight);
 }
 
+/* A row with lines under its label (Recent Locations'): as tall as they are. */
+.cerebro-popup-item--body {
+  height: auto;
+  padding-top: 4px;
+  padding-bottom: 6px;
+  row-gap: 4px;
+}
+
+.cerebro-popup-item__body {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 /* An item that shows more of its group: small and muted, as IntelliJ's (and the group headers). */
 /* An option that can't go with those checked: greyed, as IntelliJ's. */
 .cerebro-popup-item--disabled .cerebro-popup-item__label {

@@ -78,6 +78,15 @@ const FENCES: Readonly<Record<string, string>> = {
 /** The language of a code block, by the name it's given (`typescript`, `py`); undefined if unknown. */
 export function codeLanguage(name: string): Language | undefined {
   const key = name.toLowerCase();
-  const support = LANGUAGES[FENCES[key] ?? key]?.support();
+  return parserOf(LANGUAGES[FENCES[key] ?? key]?.support());
+}
+
+/** A file's language, by its extension, to parse its text with; undefined for plain text. */
+export function fileLanguage(path: string): Language | undefined {
+  return parserOf(languageOf(path)?.support());
+}
+
+/** The language of a support: a LanguageSupport's, or the language itself (Bash's). */
+function parserOf(support: Extension | undefined): Language | undefined {
   return support instanceof LanguageSupport ? support.language : (support as Language | undefined);
 }
