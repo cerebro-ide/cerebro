@@ -36,9 +36,8 @@ function mount(
       <CodeEditor
         path="a.ts"
         document={doc}
-        onGoToDefinition={onGoToDefinition}
-        renaming={renaming}
-        onRename={renaming && (() => Promise.resolve(undefined))}
+        {...(onGoToDefinition ? { onGoToDefinition } : {})}
+        {...(renaming ? { renaming, onRename: () => Promise.resolve(undefined) } : {})}
       />
     ),
     container,
