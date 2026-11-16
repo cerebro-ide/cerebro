@@ -54,16 +54,20 @@ export function selectionIn(element: Element): boolean {
 /**
  * The lines the main selection is on, zero-based, in the editor `element` is in, as IntelliJ's
  * `HostedGitRepositoryReferenceUtil` takes them: a selection ending at a line's start leaves that
- * line out. The caret's line where nothing's selected.
+ * line out, unless `endLine`, as IntelliJ's `VcsSelection` keeps it. The caret's line where
+ * nothing's selected.
  */
-export function selectedLines(element: Element): { first: number; last: number } | undefined {
+export function selectedLines(
+  element: Element,
+  endLine = false,
+): { first: number; last: number } | undefined {
   const view = viewOf(element);
   if (!view) return undefined;
   const { doc, selection } = view.state;
   const { from, to } = selection.main;
   const first = doc.lineAt(from).number - 1;
   const end = doc.lineAt(to);
-  return { first, last: end.number - 1 - (to > from && end.from === to ? 1 : 0) };
+  return { first, last: end.number - 1 - (!endLine && to > from && end.from === to ? 1 : 0) };
 }
 
 /**

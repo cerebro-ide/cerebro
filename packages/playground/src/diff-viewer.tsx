@@ -387,6 +387,8 @@ export interface DiffViewerProps {
   navigation?: (button: (command: string) => Node) => Child;
   /** Makes the right side editable: called with its text as it's edited. */
   onEdit?: (text: string) => void;
+  /** Each side's first line's number in its file, where they're parts of files (`DiffEditorProps`). */
+  firstLines?: readonly [number, number];
 }
 
 /** A diff and its toolbar. */
@@ -474,7 +476,12 @@ export function DiffViewer(props: DiffViewerProps): Node {
           return viewer.get() === 'unified' ? (
             <UnifiedDiffEditor {...shared} />
           ) : (
-            <DiffEditor {...shared} syncScroll={() => syncScroll.get()} align={() => align.get()} />
+            <DiffEditor
+              {...shared}
+              syncScroll={() => syncScroll.get()}
+              align={() => align.get()}
+              {...(props.firstLines ? { firstLines: props.firstLines } : {})}
+            />
           );
         }}
         {() => {

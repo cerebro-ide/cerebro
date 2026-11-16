@@ -18,6 +18,7 @@ const GROUPS: readonly (readonly (string | { submenu: string; label: string })[]
     'git.file.compareWithRevision',
     'git.file.compareWithBranch',
     'git.file.showHistory',
+    'git.file.showHistoryForSelection',
     'git.file.showCurrentRevision',
     'git.file.rollback',
   ],

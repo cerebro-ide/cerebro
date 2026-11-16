@@ -672,6 +672,7 @@ describe('Git → Current File → Compare with Revision…', () => {
       'git.file.compareWithRevision',
       'git.file.compareWithBranch',
       'git.file.showHistory',
+      'git.file.showHistoryForSelection',
     ]);
   });
 
@@ -713,6 +714,53 @@ describe('Git → Current File from a tab’s menu', () => {
     expect(commands.get('git.file.showDiff')?.visible?.({ ...menu, tab: '/elsewhere/a.ts' })).toBe(
       false,
     );
+  });
+});
+
+describe('Git → Current File → Show History for Selection', () => {
+  const id = 'git.file.showHistoryForSelection';
+  const editor = async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(() => <CodeEditor path="src/main/app.ts" text={'a\nb\nc\n'} />, box);
+    dispose = () => {
+      handle.dispose();
+    };
+    const root = (box.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+  };
+
+  it('shows the history of the editor’s selected lines, as IntelliJ’s', async () => {
+    expect(commands.get(id)?.visible?.(undefined)).toBe(false);
+    await editor();
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    expect(commands.isEnabled(id)).toBe(true);
+    // Not from a tab's menu, which has no editor.
+    expect(
+      commands.get(id)?.visible?.({ group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true }),
+    ).toBe(false);
+    void commands.get(id)?.run(undefined);
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'History for Selection',
+    );
+    await expect
+      .poll(() => host.params('git.log').at(-1))
+      .toMatchObject({
+        worktree: wt,
+        filter: { paths: ['src/main/app.ts'] },
+      });
+  });
+
+  it('shows nothing where the file can’t be read', async () => {
+    await editor();
+    const request = host.request.bind(host);
+    vi.spyOn(host, 'request').mockImplementation((method, params) =>
+      method === 'fs.read' ? Promise.reject(new Error('unreadable')) : request(method, params),
+    );
+    await commands.get(id)?.run(undefined);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
   });
 });
 

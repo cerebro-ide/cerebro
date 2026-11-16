@@ -70,6 +70,8 @@ describe('the editor’s actions', () => {
     // A selection ending at a line's start leaves that line out; one ending in it, not.
     await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
     expect(selectedLines(content)).toEqual({ first: 1, last: 1 });
+    // Kept where asked, as IntelliJ's VcsSelection keeps it.
+    expect(selectedLines(content, true)).toEqual({ first: 1, last: 2 });
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
     expect(selectedLines(content)).toEqual({ first: 1, last: 2 });
   });

@@ -33,10 +33,11 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { diffSource, showHintIn } from '@cerebro-ide/ui-editor';
+import { diffSource, selectedLines, showHintIn } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
 import { showFolderDiffWithRef } from './diff-with-working-tree.js';
+import { showSelectionHistory } from './selection-history.js';
 import { documentFor, onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
@@ -1153,6 +1154,37 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
+  // Git → Current File's Show History for Selection: IntelliJ's `Vcs.ShowHistoryForBlock`
+  // (`SelectedBlockHistoryAction`, read from its source), for the editor that has the keyboard: its
+  // selection's lines, the last one too where the selection ends at its start (`VcsSelection`), as
+  // they are in the editor. There only with an editor, and on when Show Diff is, as IntelliJ's
+  // (`fileInVcsByFileStatus`).
+  const selectionOf = (c: unknown) => {
+    const at = (c as TabContext | undefined)?.tabMenu ? undefined : target();
+    const lines = at && currentFile(c) && selectedLines(at, true);
+    return lines || undefined;
+  };
+  commands.register({
+    id: 'git.file.showHistoryForSelection',
+    label: 'Show History for Selection',
+    dialog: true,
+    visible: (c) => selectionOf(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: async (c) => {
+      const { first, last } = selectionOf(c) as { first: number; last: number };
+      const { worktree, path } = currentFile(c) as { worktree: string; path: string };
+      const doc = await documentFor(`${worktree}/${path}`);
+      if ('error' in doc) return;
+      await showSelectionHistory(services, {
+        host: hostFor(worktree) as Host,
+        worktree,
+        path,
+        text: doc.text.peek().toString(),
+        first,
+        last,
+      });
+    },
+  });
   // The Git submenu's Commit File…: IntelliJ's `CheckinFiles` (`CommonCheckinFilesAction`, read
   // from its source), in its non-modal commit, its default. The documents saved, the Commit window
   // shows with the tracked changes of the file, or under the folder, going into the commit, and no
@@ -1509,6 +1541,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     menu: 'main/git/file',
     item: { command: 'git.file.showHistory' },
     order: 4,
+  });
+  menus.contribute({
+    menu: 'main/git/file',
+    item: { command: 'git.file.showHistoryForSelection' },
+    order: 5,
   });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });

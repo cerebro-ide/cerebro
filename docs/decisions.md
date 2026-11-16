@@ -78,6 +78,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
+- [Git → Current File → Show History for Selection (2026-11-16)](#git--current-file--show-history-for-selection-2026-11-16): the editor's selected lines followed back through the file's commits, in IntelliJ's dialog
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words; a Project view folder's files that differ, in the Changes tool window
 - [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git); Ctrl+D from the Project view
@@ -3112,8 +3113,9 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   - Revert Resolved (`Git.RevertResolved`) shows for files whose conflicts were resolved, which
     IntelliJ tracks only with its non-modal merge on (`GitResolvedMergeConflictsFilesHolder`). That's
     off by default: `vcs.non.modal.merge.enabled=false` in `registry.properties`.
-- **Not yet,** as Cerebro doesn't have them: Show History for Selection, the staging area's,
-  Clone….
+- **Show History for Selection** (added 2026-11-16), after Show History: decision "Git → Current
+  File → Show History for Selection".
+- **Not yet,** as Cerebro doesn't have them: the staging area's, Clone….
 
 ## A Markdown file's preview (2026-11-13)
 
@@ -4095,8 +4097,39 @@ The Current File submenu's item after Compare with Branch or Tag, toward Intelli
   (`FileHistoryUi`); here the one Log shows it (Claude's choice, open to change, as View Commits':
   a second Log is a tab beside it, not here yet).
 - **Not yet:** following renames, as IntelliJ's does (`FileHistory`); its own tab, with its toolbar
-  (Show All Branches, a revision's diff beside the list); its icon (IntelliJ's `Vcs.History`);
-  Show History for Selection.
+  (Show All Branches, a revision's diff beside the list); its icon (IntelliJ's `Vcs.History`).
+
+## Git → Current File → Show History for Selection (2026-11-16)
+
+After Show History, in Git → Current File and the editor's Git submenu, as IntelliJ's
+`Vcs.ShowHistoryForBlock` (`SelectedBlockHistoryAction` and `VcsSelectionHistoryDialog`, read from
+its source).
+
+- **What it's for:** the lines of the editor that has the keyboard, as it has them (unsaved edits
+  too): the selection's, the last one too where the selection ends at its start (IntelliJ's
+  `VcsSelection`), else the caret's. There only with an editor; on when Show Diff is
+  (`fileInVcsByFileStatus`).
+- **The lines followed back** (`BlockLoader`, `Block.createPreviousBlock`): each commit of the
+  file, the latest first, compared with the one after it by lines, white space ignored; the lines
+  moved by the changes before them and grown by those they overlap (`updateRangeOnModification`).
+  Where they're gone, the earlier commits aren't read. `previousBlock` in ui-editor's compare.
+- **The dialog,** "History for Selection" (IntelliJ's words, as each below): the selected row's
+  lines against the row's before it, each side numbered as in its version (`LINE_NUMBER_CONVERTOR`,
+  the diff's `firstLines`); "Changes only", on at first and kept while the app runs
+  (`SHOW_ONLY_CHANGED_IN_SELECTION_DIFF`); the status, "Loading revision {hash}… (n/total)"; the
+  rows, Version, Date, Author and Commit Message, the file as it is first ("Local Changes"); and
+  "Commit Message:" with the selected one's. "Cannot load revision contents: …" where something
+  can't be read.
+- **Claude's choices, open to change:**
+  - "Changes only" isn't kept across restarts; IntelliJ keeps it in the project's settings.
+  - The diff's sides aren't titled ("Revision {hash}" in IntelliJ's).
+  - The unified diff numbers the lines from 1.
+  - Up and Down move the selection; a row is selected alone (IntelliJ's table takes a range, and
+    compares its ends).
+- **Not yet:** following renames (the file's commits are its path's); the rows' menu (Compare,
+  Compare with Local, …) and the details beside the message (IntelliJ's git shows the commit's);
+  IntelliJ's selections of a method or class (`VcsSelectionProvider`, which WebStorm's JavaScript
+  doesn't give, a claim).
 
 ## Git → Current File → Compare with Revision (2026-11-12)
 

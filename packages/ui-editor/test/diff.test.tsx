@@ -46,6 +46,20 @@ describe('the diff editor', () => {
   ];
   const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
 
+  it('numbers each side’s lines from where they are in their files, where given', () => {
+    const root = mount({ path: 'a.ts', original: 'a\nb', text: 'a\nc', firstLines: [4, 9] });
+    const numbers = (side: Element) =>
+      [...side.querySelectorAll('.cm-lineNumbers .cm-gutterElement')]
+        // Not the spacer, which only sizes the gutter.
+        .filter((e) => (e as HTMLElement).style.visibility !== 'hidden')
+        .map((e) => e.textContent);
+    const [left, right] = sides(root) as [Element, Element];
+    expect([numbers(left), numbers(right)]).toEqual([
+      ['5', '6'],
+      ['10', '11'],
+    ]);
+  });
+
   it('shows the committed text on the left and the current on the right, changes marked by kind', () => {
     const root = mount({
       path: 'a.ts',

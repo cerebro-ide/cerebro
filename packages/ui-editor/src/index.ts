@@ -69,6 +69,8 @@ export {
   type HighlightPolicy,
   type IgnorePolicy,
   translateLine,
+  previousBlock,
+  type Block,
   type LineRange,
 } from './compare.js';
 export {
