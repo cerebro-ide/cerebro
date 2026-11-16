@@ -68,7 +68,11 @@ IntelliJ shows some choosers as popups with controls of their own, at the caret:
 Mnemonic's grid and description field (`BookmarkTypeChooser`), say, and Go to Mnemonic's tree,
 centred, with no search field. Cerebro's popups are lists (the picker, the Switcher), each drawing
 its own frame, so the mnemonic chooser is a dialog with OK and Cancel for now, and Go to Mnemonic
-the picker at the top (decision "Bookmarks"). A popup shell they'd share, with a title, a place and
+the picker at the top (decision "Bookmarks"). The Keymap page's Find Actions by Shortcut waits on it
+too (found 2026-11-16): IntelliJ's opens a Find Shortcut popup under the search field
+(`ShortcutFilteringPanel`, read from its source), a stroke field, Second stroke and its field, and
+a mouse pad, the list filtered as a shortcut is pressed, which a modal dialog would hide. A popup
+shell they'd share, with a title, a place and
 the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
 doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 
