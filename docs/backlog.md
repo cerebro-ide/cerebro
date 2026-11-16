@@ -120,6 +120,12 @@ elements of each row) in place of the lanes: a rewrite of the graph, so it's pro
 
 ## Known gaps
 
+- **Lezer's HTML reads a tag's name without its digits** (`@lezer/html` 1.3.13, `nameChar`,
+  measured 2026-11-16): `<h2>` is read as `h`, so its rules for closing an open `<p>` (`closeOnOpen`)
+  never match a heading. A heading after a `<p>` left open is the paragraph's child: indented in
+  it, folded with it, and moved inside it (IntelliJ's `htmlUnclosed` mover test, kept as expected
+  to fail). To report to Lezer, at Ido's word (it's outward-facing).
+
 - **Two fields still take the focus a frame after their dialog opens**: `branchField` (Merge,
   Rebase, Pull) and the Log's values field (`log-filters.tsx`). Keys typed before that frame go to
   the dialog's first control. Measured in the Shelve dialog, whose field did the same (#353's macOS

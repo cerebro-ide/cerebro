@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down (JSON's and YAML's too)
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down (JSON's, YAML's and HTML's too)
 - [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
@@ -1951,6 +1951,11 @@ editor, they give more. Claude's choices, open to change.
   "$1"`), and the CSS fixes as versioned edits, whatever the client says it takes. VS Code takes
   both. The server turns them into plain text, and into edits per file, when the client doesn't
   take them, as Cerebro's doesn't.
+- **HTML's indent** (added 2026-11-16) is CodeMirror's, except that the children of `html`,
+  `body`, `thead`, `tbody` and `tfoot` aren't indented, as IntelliJ's HTML code style has it by
+  default (`HTML_DO_NOT_INDENT_CHILDREN_OF`, read from its source). Found as Move Statement's tests
+  indented `<body>`'s children where IntelliJ's don't. It's the setting's default only: Settings
+  has no HTML code style yet.
 - **Not yet:**
   - CSS and JavaScript inside HTML (`<style>`, `<script>`), which VS Code's HTML server serves
     by handing them to the other services.
@@ -3373,8 +3378,29 @@ saving").
     IntelliJ's: a sequence item's `-` comes before its item, so the two are taken together. A
     comment at a line's end comes after its pair, so it moves with it. A comment's own line moves
     past the element beside it, as IntelliJ counts a comment as an element.
-  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, XML's,
-    CSS's) aren't ported. CSS's isn't in IntelliJ's open source.
+  - **HTML** (added 2026-11-16), as IntelliJ's `XmlMover`, read from its source and checked
+    against its tests (`XmlMoverTest`'s HTML ones, each a test here). An attribute on lines of its
+    own moves past the next, but not before the tag's name nor into its content. Else the tags,
+    comments and lines of text the lines start and end in move whole, past the one beside them, or
+    into a tag beside them whose content has lines of its own and could hold them, or out of their
+    tag past its first or last line. The file's only root tag doesn't move, nor anything when the
+    place it would go cuts another tag in two. Elsewhere (a doctype, a blank line), IntelliJ's
+    `LineMover` moves the lines. Lezer's tree is read as IntelliJ's: an element as a tag, its start
+    and closing tags' parts its own, text as words and the spaces between them. Claude's choices,
+    open to change:
+    - Whether a tag could hold another is IntelliJ's HTML schema's answer (`TagNameVariantCollector`);
+      here it's a table of the HTML standard's content models (a list's items, a table's parts, a
+      paragraph holding no blocks). A claim: written from the standard, not checked against
+      IntelliJ's schema.
+    - In a script's or a style's code, the lines move. IntelliJ's leaves that code to its
+      language's mover (a claim: not read through).
+    - One of IntelliJ's tests fails here, from a bug in Lezer's HTML (1.3.13, measured): it reads
+      a tag's name without its digits, so `<h2>` doesn't close a `<p>` left open, as its own
+      rules say it does, and the heading moves inside the paragraph's indent. The test is kept,
+      expected to fail, so it says when Lezer is fixed (backlog, "Known gaps").
+    - XML isn't a language in Cerebro yet, so `XmlMoverTest`'s XML cases aren't run.
+  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, CSS's)
+    aren't ported. CSS's isn't in IntelliJ's open source.
   - **Their keys,** from IntelliJ's keymap files: Ctrl+Shift+Up and Down (`$default`; Cmd+Shift
     on macOS, and in IntelliJ IDEA Classic), macOS System Shortcuts' Ctrl+Shift; Eclipse's Alt+Up
     and Down (on macOS too), NetBeans' Alt+Shift+Page Up and Down, Visual Studio's Ctrl+Alt+Shift

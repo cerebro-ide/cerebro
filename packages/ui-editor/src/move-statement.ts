@@ -17,8 +17,9 @@
 // - A `/** … */` comment just above a statement moves with it, as Java's doc comment is part of
 //   its member.
 // - Lines that aren't whole statements (an argument's in a call over several lines) move as lines.
-// JSON's is `JsonLineMover`'s port (`move-statement-json.ts`). Other languages' movers aren't
-// ported: their lines move, as Move Line moves them.
+// JSON's is `JsonLineMover`'s port (`move-statement-json.ts`), YAML's `YAMLStatementMover`'s
+// (`move-statement-yaml.ts`), HTML's `XmlMover`'s (`move-statement-html.ts`). Other languages'
+// movers aren't ported: their lines move, as Move Line moves them.
 
 import { language } from '@codemirror/language';
 import type { EditorState, TransactionSpec } from '@codemirror/state';
@@ -26,6 +27,7 @@ import type { SyntaxNode } from '@lezer/common';
 import { dispatching } from './command-change.js';
 import { LineMover, type Lines } from './line-mover.js';
 import { moveLine } from './move-line.js';
+import { moveHtmlStatement } from './move-statement-html.js';
 import { moveJsonStatement } from './move-statement-json.js';
 import { moveYamlStatement } from './move-statement-yaml.js';
 
@@ -256,9 +258,11 @@ export function moveStatement(state: EditorState, up: boolean): TransactionSpec 
       ? moveJsonStatement(state, up)
       : name === 'yaml'
         ? moveYamlStatement(state, up)
-        : SCRIPTS.has(name)
-          ? new Mover(state).move(up)
-          : moveLine(state, up);
+        : name === 'html'
+          ? moveHtmlStatement(state, up)
+          : SCRIPTS.has(name)
+            ? new Mover(state).move(up)
+            : moveLine(state, up);
   return made && { ...made, userEvent: up ? 'move.statement.up' : 'move.statement.down' };
 }
 
