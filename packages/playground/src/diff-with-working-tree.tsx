@@ -17,7 +17,13 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { replacing, type Change } from './changes.js';
 import { saveBeforeGit } from './documents.js';
 import type { Host } from './environments.js';
-import { CommitFiles, getRevision, type LogCommitContext } from './git-log.js';
+import {
+  CommitFiles,
+  getRevision,
+  REFRESH_KEY,
+  shortcutOf,
+  type LogCommitContext,
+} from './git-log.js';
 import { icon } from './icons.js';
 
 /** A branch or tag compared with the working tree of `worktree`, where `current` is checked out. */
@@ -40,6 +46,11 @@ interface WorkingTreeDiff {
   explanation: () => Child;
   /** Its Get's name, and what makes a file as `ref` has it. */
   get: { label: string; run: (change: Change) => Promise<void> };
+  /**
+   * Whether it has Refresh: a commit's, as IntelliJ's (`CompareWithLocalDialog.MyRefreshAction`);
+   * a branch's reads once (`GitShowDiffWithBranchPanel`).
+   */
+  refresh?: true;
 }
 
 /** What the window shows: a new object each time, read again even for the same ref. */
@@ -56,6 +67,7 @@ const selection = signal<() => Change | undefined>(() => undefined);
 const selected = () => selection.get()();
 
 const GET = 'vcsChanges.get';
+const REFRESH = 'vcsChanges.refresh';
 const FILE_MENU = 'vcsChanges/file';
 
 /** Shows what differs between the working tree and `diff.ref`, in the Changes tool window. */
@@ -99,6 +111,7 @@ export function showDiffWithCommit(
     worktree,
     ref: hash,
     ...(paths ? { paths } : {}),
+    refresh: true,
     explanation: () =>
       paths
         ? // A folder's without the Paths filter's closing slash, as IntelliJ's relative path.
@@ -145,6 +158,22 @@ export function setupDiffWithWorkingTree(services: MenuServices, show: () => voi
     },
   });
   services.menus.contribute({ menu: FILE_MENU, item: { command: GET }, group: 'a' });
+  // A commit's comparison's Refresh, as IntelliJ's: documents saved, then the list read again; its
+  // key IntelliJ's Refresh, the Log's too, while the window has the keyboard.
+  services.commands.register({
+    id: REFRESH,
+    label: 'Refresh',
+    icon: 'refresh',
+    enabled: (context) =>
+      shown.get()?.refresh === true &&
+      ((context as { source?: string } | undefined)?.source === 'compare' ||
+        document.activeElement?.closest('.playground-working-tree-diff') != null),
+    run: async () => {
+      await saveBeforeGit();
+      shown.set({ ...(shown.peek() as WorkingTreeDiff) });
+    },
+  });
+  services.keymap?.bindDefault(REFRESH_KEY[services.keymap.platform], REFRESH);
   // A commit's, in the Log, after Copy Revision Number as IntelliJ's (Vcs.ShowDiffWithLocal in
   // Vcs.Log.ContextMenu); documents saved first, as IntelliJ's.
   services.commands.register<LogCommitContext>({
@@ -190,6 +219,9 @@ async function getFromBranch(diff: WorkingTreeDiff, change: Change): Promise<voi
   shown.set({ ...diff });
 }
 
+/** Where the toolbar's commands come from. */
+const FROM_COMPARE = { source: 'compare' };
+
 /** The Changes tool window's content: IntelliJ's words over the files that differ. */
 export function DiffWithWorkingTree(props: {
   services: MenuServices;
@@ -203,6 +235,16 @@ export function DiffWithWorkingTree(props: {
       <div class="playground-working-tree-diff">
         <p class="playground-compare__explanation">{diff.explanation()}</p>
         <div class="playground-changes__toolbar" role="toolbar" aria-label="Changes">
+          {/* First, as IntelliJ's. */}
+          {diff.refresh ? (
+            <ToolbarButton
+              commands={services.commands}
+              command={REFRESH}
+              icon={icon('refresh')}
+              shortcut={shortcutOf(services, REFRESH)}
+              context={() => FROM_COMPARE}
+            />
+          ) : null}
           <ToolbarButton commands={services.commands} command={GET} icon={icon('download')} />
         </div>
         <CommitFiles

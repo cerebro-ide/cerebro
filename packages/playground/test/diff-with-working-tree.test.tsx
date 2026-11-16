@@ -325,6 +325,46 @@ describe('a commit’s Compare with Local', () => {
   });
 });
 
+describe('Refresh', () => {
+  const hash = 'c0ffee0123456789';
+  const refresh = () =>
+    document.querySelector('[data-command="vcsChanges.refresh"]') as HTMLButtonElement | null;
+  const reads = () =>
+    host.params('git.changes').filter((p) => (p as { from?: string }).from === hash).length;
+
+  it('reads a commit’s comparison again, first in its toolbar, on IntelliJ’s key', async () => {
+    differing[hash] = differing.feature;
+    mount();
+    services.commands.execute('log.compareWithLocal', { host, worktree: '/r', commit: { hash } });
+    await expect.poll(refresh).not.toBeNull();
+    const button = refresh() as HTMLButtonElement;
+    expect(button.parentElement?.firstElementChild).toBe(button);
+    expect(button.getAttribute('aria-label')).toBe('Refresh');
+    await expect.poll(reads).toBeGreaterThan(0);
+    const before = reads();
+    await userEvent.click(button);
+    await expect.poll(reads).toBe(before + 1);
+    // Its key, IntelliJ's Refresh, while the window has the keyboard: not elsewhere, where the
+    // Log's Refresh takes it.
+    expect(services.keymap?.commandsFor('Ctrl+F5')).toContain('vcsChanges.refresh');
+    // The window is drawn again as it's read: its button anew.
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(services.commands.isEnabled('vcsChanges.refresh')).toBe(false);
+    refresh()?.focus();
+    expect(services.commands.isEnabled('vcsChanges.refresh')).toBe(true);
+  });
+
+  it('isn’t in a branch’s comparison, which IntelliJ reads once', async () => {
+    mount();
+    show('feature');
+    await expect
+      .poll(() => document.querySelector('[aria-label="Get from Branch"]'))
+      .not.toBeNull();
+    expect(refresh()).toBeNull();
+    expect(services.commands.isEnabled('vcsChanges.refresh', { source: 'compare' })).toBe(false);
+  });
+});
+
 describe('shortened', () => {
   it('cuts a text over 100 characters to 97 and three dots, as IntelliJ’s', () => {
     expect(shortened('a'.repeat(100))).toBe('a'.repeat(100));

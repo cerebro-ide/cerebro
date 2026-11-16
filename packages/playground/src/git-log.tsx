@@ -1554,8 +1554,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
       void refresh(log, branches);
     },
   });
-  // IntelliJ's Refresh, in its macOS keymap and the others.
-  keymap?.bindDefault(keymap.platform === 'mac' ? 'Mod+R' : 'Ctrl+F5', 'log.refresh');
+  keymap?.bindDefault(REFRESH_KEY[keymap.platform], 'log.refresh');
   // Graph Options, as IntelliJ's (VcsLogGraphOptionsChooserGroup): how the graph is sorted, or its
   // first parents alone (one of them at a time, First Parent off back to by date), and No Merges.
   const showing = () => shown.peek()?.log as Log;
@@ -2141,8 +2140,11 @@ function pickBranch(button: HTMLElement, log: Log, branches: Branches, platform:
   return handle;
 }
 
+/** IntelliJ's Refresh key, in its macOS keymap and the others: the Log's, a comparison's. */
+export const REFRESH_KEY: Record<Platform, string> = { mac: 'Meta+R', other: 'Ctrl+F5' };
+
 /** A command's first shortcut, as menus show it. */
-const shortcutOf = (services: MenuServices, command: string) => () => {
+export const shortcutOf = (services: MenuServices, command: string) => () => {
   const keymap = services.keymap;
   const key = keymap?.shortcutsFor(command)[0];
   return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);

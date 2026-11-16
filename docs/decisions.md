@@ -2349,7 +2349,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   keeps its own. Under a Paths filter with Show Only Affected Changes on, only those paths, the
   title naming them ("… in src/a.ts, lib", cut to 100 characters with "..."), as IntelliJ's
   (`VcsLogUtil.getAffectedPaths`, `GitLogDiffHandler.getTitleForPaths`; added 2026-11-16).
-  **Not yet:** IntelliJ's Refresh in that tab.
+  Refresh, first in its toolbar (added 2026-11-16), as IntelliJ's (`MyRefreshAction`): documents
+  saved, the list read again; on IntelliJ's Refresh key (Ctrl+F5, Cmd+R on macOS), the Log's too,
+  while the window has the keyboard. A branch's comparison has none: IntelliJ's reads once
+  (`GitShowDiffWithBranchPanel`).
 - **Get from Revision in a commit's file's menu** (added 2026-11-13), after Cherry-Pick Selected
   Changes, as IntelliJ's (`Vcs.GetVersion`, named in the Log by
   `GetVersionFromRepositoryActionProvider`; `GetVersionAction`, read from their source): the file in
