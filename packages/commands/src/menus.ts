@@ -5,11 +5,13 @@
 import { makeObservable, ObservableArray, type Disposable } from '@cerebro-ide/reactive';
 
 /**
- * A command; a submenu; or a heading, a group's title that isn't an item (IntelliJ's "Group By" in a
- * view options menu), which can depend on what the menu acts on (read reactively).
+ * A command, named there as the menu says if it says (IntelliJ's text for a place, as its
+ * `action.GotoDeclaration.MainMenu.text`), else as the command; a submenu; or a heading, a group's
+ * title that isn't an item (IntelliJ's "Group By" in a view options menu), which can depend on what
+ * the menu acts on (read reactively).
  */
 export type MenuItemSpec =
-  | { command: string }
+  | { command: string; label?: string }
   | { submenu: string; label: string }
   | { heading: string | ((context: unknown) => string) };
 

@@ -75,7 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
-- [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action and the Keymap page; its keys still the editor's, stopping there once run
+- [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
 - [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
@@ -3743,8 +3743,25 @@ Keymap page didn't list them.
 - **Rejected:** taking their keys from CodeMirror and letting the app's keymap run them: the window
   hears a key after the editor's own keymaps (its popups', its find bar's), so the order they're
   tried in would change.
-- **Not yet:** the menus that hold them, IntelliJ's Code menu among them (next). A diff window
-  has few commands of its own (Jump to Source), so not these; its editors' keys work as before.
+- **In the menus where IntelliJ's are** (its LangActions.xml and PlatformActions.xml), with only
+  what Cerebro has of each group, among Cerebro's own items:
+  - **Code** (after Navigate): Code Completion → Basic; Folding → Expand, Expand All, Collapse,
+    Collapse All; Comment with Line and Block Comment, Reformat Code, Optimize Imports; Move Line
+    Down and Up.
+  - **Refactor** (after Code): Rename.
+  - **Navigate:** Next and Previous Highlighted Error; Next and Previous Method; after Select In,
+    Declaration or Usages, Implementation(s), Type Declaration and Super Method, IntelliJ's texts
+    for that menu (`action.{id}.MainMenu.text`), which a menu item can now give
+    (`MenuItemSpec`'s `label`).
+  - **Edit:** Find and Replace first in Find, Find in Files after a separator; Extend and Shrink
+    Selection; Toggle Case and Join Lines before Duplicate Line or Selection.
+  - **View:** Quick Definition and Quick Documentation, after Tool Windows.
+  - Each group is its own, between separators, where Cerebro's Navigate menu already parts from
+    IntelliJ's order (Claude's, open to change): IntelliJ has Next Highlighted Error with Last Edit
+    Location, and Line/Column before it.
+- **Not yet:** the editor's context menu's own (IntelliJ's `EditorPopupMenu`: Show Context
+  Actions, Go To, Folding). A diff window has few commands of its own (Jump to Source), so not
+  these; its editors' keys work as before.
 
 ## Git → Current File → Show History (2026-11-12)
 

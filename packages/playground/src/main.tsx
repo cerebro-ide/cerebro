@@ -440,6 +440,13 @@ setupPush(services);
 setupUpdate(services);
 setupFetchPull(services);
 setupFontSize(services.commands);
+// In the Code menu after Reformat Code, as IntelliJ's `CodeFormatGroup`.
+services.menus.contribute({
+  menu: 'main/code',
+  item: { command: 'code.optimizeImports' },
+  group: 'c',
+  order: 1,
+});
 setupOptimizeImports(services.commands, async (path) =>
   navigation.organizeImports({
     path,
@@ -624,7 +631,11 @@ services.menus.contribute({
   item: { submenu: 'main/edit/find', label: '&Find' },
   group: 'f',
 });
-services.menus.contribute({ menu: 'main/edit/find', item: { command: 'find.inFiles' } });
+services.menus.contribute({
+  menu: 'main/edit/find',
+  item: { command: 'find.inFiles' },
+  group: 'c',
+});
 services.commands.register({
   id: 'replace.inFiles',
   label: '&Replace in Files',
@@ -640,7 +651,11 @@ services.commands.register({
     }),
 });
 services.keymap.bindDefault('Mod+Shift+R', 'replace.inFiles');
-services.menus.contribute({ menu: 'main/edit/find', item: { command: 'replace.inFiles' } });
+services.menus.contribute({
+  menu: 'main/edit/find',
+  item: { command: 'replace.inFiles' },
+  group: 'c',
+});
 // In the Project view's menu after Copy Path, as IntelliJ's ProjectViewPopupMenu.
 for (const command of ['find.inFiles', 'replace.inFiles']) {
   services.menus.contribute({ menu: 'project/node', item: { command }, group: 'c-find' });

@@ -131,7 +131,7 @@ export function visibleEntries(services: MenuServices, menu: string, context?: u
     if (!command || command.visible?.(context) === false) return [];
     const item: Item = {
       command: command.id,
-      label: command.text?.(context) ?? command.label,
+      label: entry.label ?? command.text?.(context) ?? command.label,
       dialog: command.dialog ?? false,
     };
     if (command.icon !== undefined) item.icon = command.icon;

@@ -164,6 +164,16 @@ describe('contents', () => {
     letter('U');
     expect(ran).toEqual([['undo', 'a.ts']]);
   });
+
+  it('names a command as the menu says, where it says, with its mnemonic', () => {
+    const { services, menus, ran } = setup();
+    menus.contribute({ menu: 'navigate', item: { command: 'new', label: '&Declaration' } });
+    menus.contribute({ menu: 'navigate', item: { command: 'open' } });
+    open(services, 'navigate', { x: 10, y: 10 });
+    expect(labels()).toEqual(['Declaration', 'Open…']);
+    letter('D');
+    expect(ran).toEqual([['new', undefined]]);
+  });
 });
 
 describe('keyboard', () => {

@@ -542,6 +542,35 @@ describe('the main menu', () => {
     await userEvent.click(q('[aria-label="Main Menu"]'));
     expect(await menuItems()).toEqual(expect.arrayContaining(['Close Tab']));
   });
+
+  it('has the editor’s actions where IntelliJ’s are: Code, and Edit → Find before Find in Files', async () => {
+    await userEvent.click(q('[aria-label="Main Menu"]'));
+    await menuItems();
+    // File, Edit, View, Navigate, then Code.
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowRight}{ArrowRight}');
+    await expect.poll(menuItems).toContain('Folding');
+    expect(await menuItems()).toEqual([
+      'Code Completion',
+      'Folding',
+      'Comment with Line Comment',
+      'Comment with Block Comment',
+      'Reformat Code',
+      'Optimize Imports',
+      'Move Line Down',
+      'Move Line Up',
+    ]);
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}{ArrowLeft}');
+    await expect.poll(menuItems).toContain('Undo');
+    await userEvent.hover(menuItem('Find'));
+    const menus = () => document.querySelectorAll('.cerebro-menu');
+    await expect.poll(() => menus().length).toBe(2);
+    const find = menus()[1] as HTMLElement;
+    expect(
+      [...find.children].map(
+        (child) => child.querySelector('.cerebro-menu-item__label')?.textContent ?? '—',
+      ),
+    ).toEqual(['Find…', 'Replace…', '—', 'Find in Files…', 'Replace in Files…']);
+  });
 });
 
 describe('Save when idle', () => {

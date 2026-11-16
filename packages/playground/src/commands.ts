@@ -365,7 +365,7 @@ export function setupCommands(
     run: () => undefined,
   });
   setupEdit(commands);
-  setupEditorActions(commands);
+  setupEditorActions(commands, menus);
   for (const id of ['undo', 'redo', 'cut', 'copy', 'paste']) {
     menus.contribute({
       menu: 'main/edit',

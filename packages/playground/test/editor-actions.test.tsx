@@ -8,12 +8,10 @@ import { setupEditorActions } from '../src/editor-actions.js';
 import { setupRenameFile } from '../src/rename-file.js';
 
 const commands = new CommandRegistry();
+const menus = new MenuRegistry();
 setupEdit(commands);
-setupEditorActions(commands);
-setupRenameFile(
-  { commands, menus: new MenuRegistry(), keymap: new Keymap('other') },
-  { editor: () => undefined },
-);
+setupEditorActions(commands, menus);
+setupRenameFile({ commands, menus, keymap: new Keymap('other') }, { editor: () => undefined });
 
 let cleanup: (() => void) | undefined;
 
@@ -60,6 +58,64 @@ describe('the editor’s actions as commands', () => {
     expect(commands.get('editor.goToImplementation')?.label).toBe('Go to I&mplementation(s)');
     expect(commands.get('editor.find')).toMatchObject({ label: '&Find', dialog: true });
     expect(commands.get('editor.toggleCase')?.dialog).toBe(false);
+  });
+
+  it('are in the menus where IntelliJ’s are, the Navigate menu’s named as its', () => {
+    const shown = (menu: string) =>
+      menus
+        .entries(menu)
+        .map((entry) =>
+          'separator' in entry
+            ? '---'
+            : 'submenu' in entry
+              ? `${entry.label} >`
+              : 'command' in entry
+                ? (entry.label ?? commands.get(entry.command)?.label)
+                : '',
+        );
+    expect(shown('main/code')).toEqual([
+      'Code &Completion >',
+      '---',
+      'Folding >',
+      '---',
+      'Comment with &Line Comment',
+      'Comment with &Block Comment',
+      '&Reformat Code',
+      '---',
+      'Move Line Do&wn',
+      'Move Line &Up',
+    ]);
+    expect(shown('main/code/completion')).toEqual(['&Basic']);
+    expect(shown('main/code/folding')).toEqual([
+      'E&xpand',
+      '&Expand All',
+      '---',
+      '&Collapse',
+      'Collapse &All',
+    ]);
+    expect(shown('main/refactor')).toEqual(['&Rename']);
+    expect(shown('main/navigate')).toEqual([
+      '&Next Highlighted Error',
+      '&Previous Highlighted Error',
+      '---',
+      'N&ext Method',
+      'Prev&ious Method',
+      '---',
+      '&Declaration or Usages',
+      'I&mplementation(s)',
+      '&Type Declaration',
+      'S&uper Method',
+    ]);
+    expect(shown('main/edit/find')).toEqual(['&Find', '&Replace']);
+    expect(shown('main/edit')).toEqual([
+      'Extend Selection',
+      'Shrink Selection',
+      '---',
+      'Toggle Case',
+      'Join Lines',
+    ]);
+    expect(shown('main/view')).toEqual(['Quic&k Definition', 'Quick &Documentation']);
+    expect(shown('main').slice(-2)).toEqual(['&Code >', '&Refactor >']);
   });
 
   it('run on the editor with the keyboard, where it has them', async () => {
