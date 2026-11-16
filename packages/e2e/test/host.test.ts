@@ -260,9 +260,13 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
     }
     return { x: 0, y: 0 };
   });
-  await page.keyboard.down('Control');
-  await page.mouse.click(box.x, box.y);
-  await page.keyboard.up('Control');
+  // Cmd+click on macOS, as its keymap's.
+  await page.keyboard.down('ControlOrMeta');
+  try {
+    await page.mouse.click(box.x, box.y);
+  } finally {
+    await page.keyboard.up('ControlOrMeta');
+  }
   await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
   // Alt+F7 on the class's name: every place the name appears.
   const pressed = performance.now();
