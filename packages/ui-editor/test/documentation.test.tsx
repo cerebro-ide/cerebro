@@ -228,6 +228,33 @@ describe('documentation', () => {
     expect(doc.text.peek().toString()).toBe(`tax${TEXT.slice(2)}`);
   });
 
+  it('opens a link pressed in it, from its keys or the pointer, when it’s given how', async () => {
+    const ask = vi.fn<AskDocumentation>(() =>
+      Promise.resolve({ text: 'See [MDN](https://developer.mozilla.org).' }),
+    );
+    const onLink = vi.fn();
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      documentation: ask,
+      onLink,
+      keys: () => ({ quickDocumentation: ['F1'] }),
+    });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowRight}{F1}');
+    const quick = await vi.waitUntil(() => root.querySelector<HTMLElement>('.cerebro-quickDoc'), {
+      timeout: 2000,
+    });
+    (quick.querySelector('.cerebro-doc__link') as HTMLElement).click();
+    expect(onLink).toHaveBeenLastCalledWith('https://developer.mozilla.org');
+    await userEvent.keyboard('{Escape}');
+    await pointAt(root, 1);
+    const hovered = await vi.waitUntil(() => root.querySelector<HTMLElement>('.cm-tooltip-hover'), {
+      timeout: 2000,
+    });
+    (hovered.querySelector('.cerebro-doc__link') as HTMLElement).click();
+    expect(onLink).toHaveBeenCalledTimes(2);
+  });
+
   it('shows in place of the pointer’s, and the pointer’s not beside it', async () => {
     const root = mount({
       document: new EditorDocument(TEXT),

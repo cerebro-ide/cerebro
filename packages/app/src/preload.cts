@@ -25,6 +25,7 @@ const PASSWORD_SET = 'cerebro:passwords:set';
 // Kept in step with shell.ts.
 const REVEAL = 'cerebro:shell:reveal';
 const TRASH = 'cerebro:shell:trash';
+const BROWSE = 'cerebro:shell:browse';
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -85,6 +86,10 @@ electron.contextBridge.exposeInMainWorld('cerebro', {
     },
     /** Moves a file or folder to the system's trash. */
     trash: (path: string): Promise<unknown> => invoke(TRASH, path),
+    /** Opens a web page (`http:`, `https:`) in the system's browser. */
+    browse: (address: string) => {
+      electron.ipcRenderer.send(BROWSE, address);
+    },
   },
   window: {
     /**

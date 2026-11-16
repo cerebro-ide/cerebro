@@ -224,6 +224,7 @@ import { dark, menuVisible, setupCommands, type TabContext } from './commands.js
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import {
+  browse,
   isMarkdown,
   isMarkdownTab,
   MarkdownEditor,
@@ -2146,6 +2147,8 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
+                  // A web link's page, in the browser; a symbol's (JSDoc's `{@link}`) not yet.
+                  onLink: browse,
                   quickDefinition: (at: { line: number; column: number }) =>
                     navigation.quickDefinition(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>
