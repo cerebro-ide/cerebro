@@ -30,6 +30,7 @@ import {
   type LogCommit,
   type LogCommitContext,
   readFilesSettings,
+  selectedCommit,
 } from '../src/git-log.js';
 import { documentFor } from '../src/documents.js';
 import type { EditorDocument } from '@cerebro-ide/ui-editor';
@@ -895,9 +896,13 @@ describe('a commit’s pane', () => {
     expect(button.nextElementSibling?.getAttribute('aria-label')).toBe('Group By');
     expect(button.getAttribute('aria-label')).toBe('Show Only Affected Changes');
     expect(button.getAttribute('aria-pressed')).toBe('false');
+    // Off: Compare with Local compares every path.
+    expect(selectedCommit()?.affected).toBeUndefined();
     // On: the files in the folder, before or after a rename; kept.
     await userEvent.click(button);
     await expect.poll(files).toEqual(['a.tssrc', 'b.tslib ← src/b.ts']);
+    // And Compare with Local only the filter's (IntelliJ's `VcsLogUtil.getAffectedPaths`).
+    expect(selectedCommit()?.affected).toEqual(['src/']);
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(readFilesSettings().onlyAffected).toBe(true);
     // A file: only it. None the commit changed: IntelliJ's words, and its link shows them all.

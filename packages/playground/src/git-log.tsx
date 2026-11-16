@@ -989,6 +989,8 @@ export function CommitFiles(props: {
   onContextMenu?: (event: MouseEvent, change: Change) => void;
   /** The Log's Paths filter's paths, read reactively: Show Only Affected Changes keeps to them. */
   affected?: () => readonly string[] | undefined;
+  /** The only files listed, those these paths touch: a comparison made under that option. */
+  paths?: readonly string[] | undefined;
   /** The commit's message, a patch's header. */
   message?: string;
 }) {
@@ -999,7 +1001,8 @@ export function CommitFiles(props: {
   /** Those shown: under Show Only Affected Changes, those the Paths filter's paths touch. */
   const changes = computed(() => {
     const paths = affected();
-    const all = read.get();
+    const only = props.paths;
+    const all = only ? read.get().filter((change) => affects(change, only)) : read.get();
     return onlyAffected.get() && paths ? all.filter((change) => affects(change, paths)) : all;
   });
   const parents = props.parents ?? [];
@@ -1369,11 +1372,13 @@ export function commitContext(
   const head = log.commits
     .peek()
     .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
+  const paths = log.paths.peek();
   return {
     commit,
     worktree: log.worktree,
     host: log.host,
     ...(head ? { head: head.hash } : {}),
+    ...(onlyAffected.peek() && paths ? { affected: paths } : {}),
     refresh,
     select: (hash) => log.select(hash),
   };
@@ -1447,6 +1452,11 @@ export interface LogCommitContext {
   refresh: () => Promise<void>;
   /** Selects a commit in the Log, as IntelliJ focuses one an action made; whether it's there. */
   select: (hash: string) => Promise<boolean>;
+  /**
+   * The Paths filter's paths while Show Only Affected Changes is on (IntelliJ's
+   * `VcsLogUtil.getAffectedPaths`): Compare with Local keeps to them.
+   */
+  affected?: readonly string[];
 }
 
 /** Shows a commit in the Log (the Git tool window shown by the caller), its file selected. */

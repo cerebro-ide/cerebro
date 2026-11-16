@@ -8,6 +8,7 @@ import { diffTab } from '../src/changes.js';
 import {
   DiffWithWorkingTree,
   setupDiffWithWorkingTree,
+  shortened,
   showDiffWithWorkingTree,
 } from '../src/diff-with-working-tree.js';
 import { setupLog } from '../src/git-log.js';
@@ -298,5 +299,35 @@ describe('a commit’s Compare with Local', () => {
       { path: '/r', hash, file: 'b.ts' },
     ]);
     delete host.answers['git.getVersion'];
+  });
+
+  it('keeps to the Log’s affected paths, named after the title, as IntelliJ’s', async () => {
+    differing[hash] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'src/b.ts', status: 'modified' },
+      { path: 'lib/c.ts', status: 'modified' },
+      { path: 'docs/d.md', status: 'modified' },
+    ];
+    mount();
+    services.commands.execute('log.compareWithLocal', {
+      host,
+      worktree: '/r',
+      commit: { hash },
+      affected: ['src/a.ts', 'lib/'],
+    });
+    await expect
+      .poll(() => text('.playground-compare__explanation'))
+      .toBe('Changes Between c0ffee01 and local version in src/a.ts, lib');
+    await row('src/a.ts');
+    await row('lib/c.ts');
+    expect(document.querySelector('.cerebro-tree-row[data-key="src/b.ts"]')).toBeNull();
+    expect(document.querySelector('.cerebro-tree-row[data-key="docs/d.md"]')).toBeNull();
+  });
+});
+
+describe('shortened', () => {
+  it('cuts a text over 100 characters to 97 and three dots, as IntelliJ’s', () => {
+    expect(shortened('a'.repeat(100))).toBe('a'.repeat(100));
+    expect(shortened('a'.repeat(101))).toBe(`${'a'.repeat(97)}...`);
   });
 });

@@ -2346,8 +2346,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   where the commit hasn't it (`CompareWithLocalDialog.GetVersionActionProvider`), asking first over
   a local change as the Log's Get from Revision does; the list is read again after. The window
   takes what it shows from the caller (its words over the files, its Get), so a branch's comparison
-  keeps its own. **Not yet:** with a Paths filter, IntelliJ compares only those paths ("... in
-  paths"); IntelliJ's Refresh in that tab.
+  keeps its own. Under a Paths filter with Show Only Affected Changes on, only those paths, the
+  title naming them ("… in src/a.ts, lib", cut to 100 characters with "..."), as IntelliJ's
+  (`VcsLogUtil.getAffectedPaths`, `GitLogDiffHandler.getTitleForPaths`; added 2026-11-16).
+  **Not yet:** IntelliJ's Refresh in that tab.
 - **Get from Revision in a commit's file's menu** (added 2026-11-13), after Cherry-Pick Selected
   Changes, as IntelliJ's (`Vcs.GetVersion`, named in the Log by
   `GetVersionFromRepositoryActionProvider`; `GetVersionAction`, read from their source): the file in
