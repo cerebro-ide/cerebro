@@ -351,6 +351,23 @@ registry.register({
   default: false,
   scopes: ['global'],
 });
+// IntelliJ's (`DiffSettingsHolder`'s IS_INCLUDED_IN_NAVIGATION_HISTORY, OnlyIfOpen by default), its
+// words `DiffBundle`'s: whether Back and Forward go to a diff's places.
+registry.register({
+  id: 'diff.navigationHistory',
+  title: 'Include diffs in navigation history',
+  description:
+    'Whether Back and Forward go back to a diff: always, until its tab is closed, or never.',
+  page: 'tools/diff',
+  type: 'enum',
+  default: 'open',
+  options: [
+    { value: 'always', label: 'Always' },
+    { value: 'open', label: 'Until the diff is closed' },
+    { value: 'never', label: 'Never' },
+  ],
+  scopes: ['global'],
+});
 // On by default, as IntelliJ's (`DiffSettingsHolder`'s GO_TO_NEXT_FILE_ON_NEXT_DIFFERENCE); its
 // words, `DiffBundle`'s.
 registry.register({

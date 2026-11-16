@@ -91,6 +91,7 @@ import { setupFileClipboard } from './file-clipboard.js';
 import { StructureView } from './structure-view.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
+import { setupRecentLocations } from './recent-locations.js';
 import { setupSwitcher } from './switcher.js';
 import {
   AgentChangesView,
@@ -691,81 +692,8 @@ services.menus.contribute({
 for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
   services.menus.contribute({ menu: 'main/navigate', item: { command }, group: 'a' });
 }
-// Recent Files, as IntelliJ's: the files shown, the latest first, the one before the current
-// highlighted, so Enter goes back to it. "Show edited only" lists the files edited instead; Recent
-// Files' own key flips it while the popup is open, and Recently Changed Files opens with it on.
-async function recentFiles(editedOnly: boolean): Promise<void> {
-  const root = active()?.id;
-  const recent = recentTabs();
-  const edited = signal(editedOnly);
-  const itemsOf = (tabs: readonly Tab[]) =>
-    tabs
-      .filter((tab) => tabPath(tab.id) === tab.id)
-      .map((tab) => {
-        const path =
-          root !== undefined && tab.id.startsWith(`${root}/`)
-            ? tab.id.slice(root.length + 1)
-            : tab.id;
-        const slash = path.lastIndexOf('/');
-        return {
-          label: tab.title,
-          ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
-          icon: () => icon('file'),
-          tab,
-        };
-      });
-  // As the popup opens: the lists don't change under it.
-  const shown = itemsOf(recent?.tabs ?? []);
-  const changed = itemsOf(recent?.edited ?? []);
-  const flip = () => {
-    edited.set(!edited.peek());
-  };
-  const chosen = await openPicker({
-    label: 'Recent Files',
-    placeholder: 'Type a file name',
-    position: 'top',
-    empty: 'No recent files',
-    initial: 1,
-    header: () => [
-      <span class="playground-popup__title">Recent Files</span>,
-      <label
-        class="playground-recent__edited"
-        // Keeps the focus in the search field, as the options' toggles do.
-        on:mousedown={(event) => {
-          event.preventDefault();
-        }}
-      >
-        <input type="checkbox" checked={() => edited.get()} on:change={flip} />
-        Show edited only
-      </label>,
-    ],
-    items: (query) => fuzzyFilter(edited.get() ? changed : shown, query),
-    onKey: (event) => {
-      const chord = chordFromEvent(event);
-      if (chord === undefined || !services.keymap.commandsFor(chord).includes('view.recentFiles')) {
-        return false;
-      }
-      flip();
-      return true;
-    },
-  }).result;
-  if (chosen) navigation.open(chosen.tab);
-}
-services.commands.register({
-  id: 'view.recentFiles',
-  label: 'Recent &Files',
-  dialog: true,
-  run: () => recentFiles(false),
-});
-services.commands.register({
-  id: 'view.recentChangedFiles',
-  label: 'Recently Changed Files',
-  dialog: true,
-  run: () => recentFiles(true),
-});
-services.keymap.bindDefault('Mod+E', 'view.recentFiles');
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
-services.menus.contribute({ menu: 'main/view', item: { command: 'view.recentFiles' }, group: 'c' });
+setupRecentLocations(services);
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {
@@ -2019,6 +1947,7 @@ function Content(props: { id: string }) {
           const anchor = layout.toolWindows.windows.get('problems')?.anchor;
           return anchor === 'left' || anchor === 'right';
         }}
+        problems={(path, text) => askProblems(path, () => navigation.problems(path, text))}
       />
     );
   }

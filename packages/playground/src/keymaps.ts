@@ -94,6 +94,7 @@ export const INTELLIJ: KeymapPreset = {
     'navigate.fileStructure': ['Ctrl+F12'],
     'navigate.callHierarchy': ['Ctrl+Alt+H'],
     'view.recentFiles': ['Ctrl+E'],
+    'view.recentLocations': ['Ctrl+Shift+E'],
     'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.newScratch': ['Ctrl+Alt+Shift+Insert'],
     // IntelliJ has no untitled file: no key (VS Code's keymaps give theirs).
@@ -253,6 +254,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'navigate.fileStructure': ['Meta+F12'],
     'navigate.callHierarchy': ['Ctrl+Alt+H'],
     'view.recentFiles': ['Meta+E'],
+    'view.recentLocations': ['Meta+Shift+E'],
     'view.switcher': ['Ctrl+Tab', 'Ctrl+Shift+Tab'],
     'file.newScratch': ['Meta+Shift+N'],
     // IntelliJ has no untitled file: no key (VS Code's keymaps give theirs).
@@ -434,6 +436,8 @@ const VSCODE_WINDOWS: KeymapPreset = {
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Ctrl+Shift+O'],
     'view.recentFiles': ['Ctrl+Tab'],
+    // IntelliJ's VS Code keymaps give Recent Locations no key (Ctrl+Shift+E is the Explorer's).
+    'view.recentLocations': [],
     // Ctrl+Tab is Recent Files here, as before the Switcher.
     'view.switcher': [],
     'file.new': ['Ctrl+N'],
@@ -515,6 +519,8 @@ export const VSCODE_MAC: KeymapPreset = {
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Meta+Shift+O'],
     'view.recentFiles': ['Ctrl+Tab'],
+    // IntelliJ's VS Code keymaps give Recent Locations no key (Ctrl+Shift+E is the Explorer's).
+    'view.recentLocations': [],
     // Ctrl+Tab is Recent Files here, as before the Switcher.
     'view.switcher': [],
     'file.new': ['Meta+N'],

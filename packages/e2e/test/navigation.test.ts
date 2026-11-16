@@ -106,7 +106,9 @@ it('lists the recent files, the latest first, and goes to the one before with En
     await page().keyboard.press('ControlOrMeta+e');
     await page().locator('.cerebro-popup').waitFor();
   };
-  const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+  // The files: the tool windows are listed beside them.
+  const labels = () =>
+    page().locator('.cerebro-switcher__list--right .cerebro-popup-item__label').allTextContents();
   const highlighted = () =>
     page().locator('.cerebro-popup-item--highlighted .cerebro-popup-item__label').textContent();
   await recent();
@@ -129,7 +131,8 @@ it('shows only the files edited with Show edited only, flipped by Recent Filesâ€
   await page().keyboard.press('End');
   await page().keyboard.type(' ');
   await page().keyboard.press('ControlOrMeta+z');
-  const labels = () => page().locator('.cerebro-popup-item__label').allTextContents();
+  const labels = () =>
+    page().locator('.cerebro-switcher__list--right .cerebro-popup-item__label').allTextContents();
   const edited = page().getByRole('checkbox', { name: 'Show edited only' });
   await page().keyboard.press('ControlOrMeta+e');
   await page().locator('.cerebro-popup').waitFor();
@@ -141,9 +144,10 @@ it('shows only the files edited with Show edited only, flipped by Recent Filesâ€
   // Its checkbox flips it too.
   await edited.click();
   await expect.poll(labels).toEqual(['b.ts', 'a.ts']);
+  // The popup keeps the focus.
   expect(
     await page()
-      .locator('.cerebro-popup input[type="text"]')
+      .locator('.cerebro-switcher')
       .evaluate((e) => e === document.activeElement),
   ).toBe(true);
   await page().keyboard.press('Escape');

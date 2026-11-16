@@ -8,7 +8,7 @@ import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets, history, reveals } from '../src/navigation.js';
+import { carets, changePlaces, history, recentTabs, reveals } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { RECENT_LANGUAGES } from '../src/scratches.js';
 import { loadProjects } from '../src/projects.js';
@@ -313,6 +313,22 @@ describe('a diff tab', () => {
     env().editor.open(diffTab('art/new.png'));
     await expect.poll(() => active('.cerebro-image-diff__title')).toEqual(['Your version']);
     env().editor.close(env().editor.activeGroup.id, diffTab('art/new.png').id);
+    // The mode chosen in one is the next one's.
+    const mode = (label: string) =>
+      [
+        ...document.querySelectorAll<HTMLElement>(
+          '.cerebro-editor-group--active .cerebro-image-diff__mode',
+        ),
+      ].find((b) => b.textContent === label);
+    answers.set('git.diff', { binary: true, original: png, text: png });
+    env().editor.open(diffTab('art/a.png'));
+    await expect.poll(() => mode('Onion Skin')).toBeDefined();
+    mode('Onion Skin')?.click();
+    env().editor.close(env().editor.activeGroup.id, diffTab('art/a.png').id);
+    env().editor.open(diffTab('art/b.png'));
+    await expect.poll(() => mode('Onion Skin')?.getAttribute('aria-checked')).toBe('true');
+    mode('Side by Side')?.click();
+    env().editor.close(env().editor.activeGroup.id, diffTab('art/b.png').id);
     // Not an image: whether it differs, as IntelliJ's.
     answers.set('git.diff', { binary: true, original: png, text: png });
     env().editor.open(diffTab('lib/a.bin'));
@@ -1994,6 +2010,19 @@ describe('errors and warnings', () => {
     // Gone to, the editor focused.
     await expect.poll(() => editorRoot()?.activeElement).toBe(code());
     expect(env().editor.activeGroup.active).toBe('/r/src/e.ts');
+    // The preview underlines the file's problems, asked of its server as the tab asks.
+    const preview = window().querySelector('[aria-label="Open Editor Preview"]') as HTMLElement;
+    await userEvent.click(preview);
+    await userEvent.click(row("#error:1:2:Cannot find name 'z'."));
+    await expect
+      .poll(
+        () =>
+          window()
+            .querySelector('.playground-problems__preview .cerebro-editor-code')
+            ?.shadowRoot?.querySelectorAll('.cerebro-problem--error').length,
+      )
+      .toBe(1);
+    await userEvent.click(preview);
   });
 });
 
@@ -2616,6 +2645,166 @@ describe('the editor’s file', () => {
     await userEvent.keyboard('{Control>}e{/Control}');
     await popupItems();
     expect(q('.cerebro-popup').textContent).toContain('c.tssrc');
+    await userEvent.keyboard('{Escape}');
+  });
+
+  it('opens Recent Files as IntelliJ’s Switcher: speed search, and Go to File with what’s typed', async () => {
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    const left = [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')];
+    expect(left.length).toBeGreaterThan(0);
+    expect(
+      left.map((row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent),
+    ).toEqual(left.map(() => ''));
+    expect(q('.cerebro-switcher__header').textContent).toBe('Recent FilesShow edited onlyCtrl+E');
+    await userEvent.keyboard('zzqq');
+    expect(q('[data-side="right"] .cerebro-switcher__empty').textContent).toBe(
+      "Press 'Enter' to search in Project",
+    );
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .poll(() => document.querySelector<HTMLInputElement>('.cerebro-popup__search')?.value)
+      .toBe('zzqq');
+    expect(
+      document.querySelector('.playground-find__scope[aria-selected="true"]')?.textContent,
+    ).toBe('Files');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
+  it('closes a file with Delete in Recent Files, and takes it off the list shown', async () => {
+    env().editor.open({ id: '/r/src/closed-by-delete.ts', title: 'closed-by-delete.ts' });
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    const files = () =>
+      [...document.querySelectorAll('[data-side="right"] .cerebro-popup-item__label')].map(
+        (label) => label.textContent,
+      );
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    // The first not shown now is selected: closed-by-delete.ts.
+    expect(
+      q('.cerebro-switcher .cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        .textContent,
+    ).toBe('closed-by-delete.ts');
+    await userEvent.keyboard('{Delete}');
+    expect(files()).not.toContain('closed-by-delete.ts');
+    expect(env().editor.groups.flatMap((g) => g.tabs.map((t) => t.id))).not.toContain(
+      '/r/src/closed-by-delete.ts',
+    );
+    expect(recentTabs()?.tabs.map((t) => t.id)).not.toContain('/r/src/closed-by-delete.ts');
+    // Off the edited files when they're shown, and only those.
+    recentTabs()?.edit({ id: '/r/src/edited-then-deleted.ts', title: 'edited-then-deleted.ts' });
+    await userEvent.keyboard('{Control>}e{/Control}');
+    // The latest edited, first and selected.
+    await expect.poll(() => files()[0]).toBe('edited-then-deleted.ts');
+    expect(
+      q('.cerebro-switcher .cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        .textContent,
+    ).toBe('edited-then-deleted.ts');
+    await userEvent.keyboard('{Delete}');
+    expect(recentTabs()?.edited.map((t) => t.id)).not.toContain('/r/src/edited-then-deleted.ts');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
+  it('lists the places behind in Recent Locations, each with its lines, as IntelliJ’s', async () => {
+    const text = Array.from({ length: 12 }, (_, i) => `const v${String(i)} = ${String(i)};`);
+    answers.set('fs.read', ({ path }: { path: string }) => {
+      if (path.endsWith('loc-gone.ts')) throw new Error('ENOENT');
+      if (path.endsWith('loc-blank.ts')) return { text: 'a\n\n\n\n\n\n\n\nb' };
+      return { text: text.join('\n') };
+    });
+    const place = (name: string, line: number) => ({
+      tab: { id: `/r/src/${name}`, title: name },
+      at: { line, column: 0 },
+    });
+    const shown = env().editor.activeGroup.active as string;
+    const back = history()?.back ?? [];
+    const edited = changePlaces()?.places ?? [];
+    (history() as { back: unknown }).back = [
+      place('loc-a.ts', 6),
+      place('loc-gone.ts', 1),
+      // A diff's place has no caret: left out.
+      { tab: diffTab('/r/src/loc-a.ts') },
+      place('loc-b.ts', 0),
+    ];
+    (changePlaces() as { places: unknown }).places = [
+      place('loc-blank.ts', 4),
+      place('loc-edited.ts', 11),
+    ];
+    const labels = () =>
+      [...document.querySelectorAll('.cerebro-popup .cerebro-popup-item__label')].map(
+        (label) => label.textContent,
+      );
+    const lines = () =>
+      [
+        ...document.querySelectorAll('.cerebro-popup-item--highlighted .cerebro-snippet__number'),
+      ].map((n) => n.textContent);
+    await userEvent.keyboard('{Control>}{Shift>}e{/Shift}{/Control}');
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    expect(q('.playground-locations__header').textContent).toBe(
+      'Recent Locations(2)Show edited onlyCtrl+Shift+E',
+    );
+    // Near the start, the lines after it; then 2 before and after.
+    expect(lines()).toEqual(['1', '2', '3', '4', '5']);
+    expect(q('.cerebro-popup-item--highlighted .cerebro-snippet__code').textContent).toBe(
+      'const v0 = 0;',
+    );
+    await userEvent.keyboard('{ArrowDown}');
+    expect(lines()).toEqual(['5', '6', '7', '8', '9']);
+    // Recent Locations' key flips Show edited only.
+    await userEvent.keyboard('{Control>}{Shift>}e{/Shift}{/Control}');
+    await expect.poll(labels).toEqual(['loc-edited.ts', 'loc-blank.ts']);
+    expect(q('.playground-locations__header b').textContent).toBe('Recently Edited Locations');
+    expect(lines()).toEqual(['9', '10', '11', '12']);
+    // Lines all blank: “Empty lines”, greyed.
+    expect(
+      [...document.querySelectorAll('.playground-locations__empty')].map((e) => e.textContent),
+    ).toEqual(['Empty lines']);
+    // Delete forgets the place, the next highlighted; typed text it edits instead.
+    await userEvent.keyboard('{Delete}');
+    await expect.poll(labels).toEqual(['loc-blank.ts']);
+    await userEvent.keyboard('{Delete}');
+    await expect.poll(labels).toEqual([]);
+    expect(changePlaces()?.places).toEqual([]);
+    expect(q('.cerebro-popup').textContent).toContain('No recent locations found');
+    await userEvent.click(q('.playground-locations__header input'));
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    await userEvent.keyboard('v6');
+    await expect.poll(labels).toEqual(['loc-a.ts']);
+    await userEvent.keyboard('{Backspace}{Backspace}');
+    await expect.poll(labels).toEqual(['loc-b.ts', 'loc-a.ts']);
+    await userEvent.keyboard('{Backspace}');
+    await expect.poll(labels).toEqual(['loc-a.ts']);
+    // Enter goes to the place.
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(() => env().editor.activeGroup.active).toBe('/r/src/loc-a.ts');
+    await expect.poll(() => reveals.get('/r/src/loc-a.ts')).toMatchObject({ line: 6 });
+    env().editor.close(env().editor.activeGroup.id, '/r/src/loc-a.ts');
+    env().editor.open({ id: shown, title: shown.slice(shown.lastIndexOf('/') + 1) });
+    (history() as { back: unknown }).back = back;
+    (changePlaces() as { places: unknown }).places = edited;
+  });
+
+  it('lists diffs in Recent Files when they’re always in the navigation history', async () => {
+    answers.set('git.diff', { original: 'a\n', text: 'b\n' });
+    env().editor.open(diffTab('/r/src/diffed.ts'));
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    const items = async () => {
+      await userEvent.keyboard('{Control>}e{/Control}');
+      const listed = await popupItems();
+      await userEvent.keyboard('{Escape}');
+      await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+      return listed;
+    };
+    await vi.waitUntil(code);
+    expect(await items()).not.toContain('diffed.ts');
+    globalSettings.layers.global.set('diff.navigationHistory', 'always');
+    expect(await items()).toContain('diffed.ts');
+    globalSettings.layers.global.reset('diff.navigationHistory');
+    // c.ts stays open, as the test before left it, for the next.
+    env().editor.close(env().editor.activeGroupId, diffTab('/r/src/diffed.ts').id);
+    answers.delete('git.diff');
   });
 
   it('opens in the image viewer when it’s an image, its tab with a picture', async () => {
@@ -2692,27 +2881,28 @@ describe('the Switcher', () => {
     expect(labels('right')).toEqual(['|c.ts||', '|b.ts||', '|a.ts||']);
     expect(selected()).toBe('b.ts');
     expect(q('.cerebro-switcher__status').textContent).toBe('/r/src');
-    // The tool windows by name, each with its number, or a capital of its name, or the next free.
+    // The tool windows, each with its number, or a capital of its name, or the next free; in
+    // IntelliJ's order, by them: digits first.
     expect(labels('left')).toEqual([
-      '|Agent Changes||A',
-      '|Bookmarks||2',
-      // Show Diff with Working Tree's window, there since it ran: by name, before Claude.
-      '|Changes||C',
-      '|Claude||3',
       '|Commit||0',
+      '|Project||1',
+      '|Bookmarks||2',
+      '|Claude||3',
+      // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
+      '|Notifications||4',
+      '|Problems||6',
+      '|Structure||7',
+      '|Services||8',
+      '|Git||9',
+      '|Agent Changes||A',
+      // Show Diff with Working Tree's window, there since it ran.
+      '|Changes||C',
       '|Database||D',
       // Find in Files' window, there since it ran.
       '|Find||F',
-      '|Git||9',
       // Call Hierarchy's window, there since it ran.
       '|Hierarchy||H',
-      // A plugin's: its capital is free, so Notifications takes the next free of 0-9 and A-Z.
       '|Notes||N',
-      '|Notifications||4',
-      '|Problems||6',
-      '|Project||1',
-      '|Services||8',
-      '|Structure||7',
       '|Terminal||T',
     ]);
     await userEvent.keyboard('{/Control}');

@@ -28,6 +28,8 @@ const opened: { path: string; line: number; column: number }[] = [];
 const file = signal<string | undefined>(undefined);
 const vertical = signal(false);
 let dispose: (() => void) | undefined;
+/** What the preview asked its file's server: the path, and the text. */
+const asked: [string, string][] = [];
 /** The files the preview reads. */
 const TEXT = Array.from({ length: 12 }, (_, i) => `line ${String(i)}`).join('\n') + '\n';
 const host = new FakeHost({
@@ -54,6 +56,7 @@ afterEach(async () => {
   dispose = undefined;
   document.body.replaceChildren();
   opened.length = 0;
+  asked.length = 0;
   fileProblems.clear();
   file.set(undefined);
 });
@@ -69,6 +72,10 @@ function mount() {
         file={() => file.get()}
         openAt={(at) => void opened.push(at)}
         vertical={() => vertical.get()}
+        problems={(path, text) => {
+          asked.push([path, text]);
+          return Promise.resolve(PROBLEMS);
+        }}
       />
     ),
     box,
@@ -247,6 +254,11 @@ describe('Open Editor Preview', () => {
     expect(box.querySelector('.playground-problems__preview')?.childElementCount).toBe(0);
     await userEvent.click(row(box, 'Cannot find name'));
     await expect.poll(() => caretLine(box)).toBe('line 9');
+    // Its problems underlined, asked of the file's server as its tab asks.
+    await expect
+      .poll(() => preview(box)?.querySelectorAll('.cerebro-problem--error').length)
+      .toBe(2);
+    expect(asked).toEqual([['/r/a.ts', TEXT]]);
     // The focus stays in the tree, and the same editor shows the next problem chosen.
     expect(document.activeElement?.closest('.cerebro-tree')).not.toBeNull();
     const editor = box.querySelector('.playground-problems__preview .cerebro-editor-code');

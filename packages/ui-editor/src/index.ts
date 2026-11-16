@@ -42,6 +42,7 @@ export { extendSelection, selectionSteps, shrinkSelection } from './extend-selec
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';
 export { languageFor, languageName, languages } from './languages.js';
+export { codeSnippet } from './snippet.js';
 export {
   DiffEditor,
   diffSource,

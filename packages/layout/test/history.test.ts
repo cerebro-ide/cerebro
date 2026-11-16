@@ -1,3 +1,4 @@
+import { ObservableSet } from '@cerebro-ide/reactive';
 import { describe, expect, it, vi } from 'vitest';
 import { EditorArea, MAX_PLACES, NavigationHistory, type Position } from '../src/index.js';
 
@@ -116,6 +117,32 @@ describe('NavigationHistory', () => {
     expect(back()).toEqual([]);
   });
 
+  it('passes over the places it’s told aren’t kept, back and forward, as IntelliJ’s diffs', () => {
+    const area = new EditorArea();
+    // Observable, as what the app's places depend on (a setting, the tabs open).
+    const gone = new ObservableSet<string>();
+    const history = new NavigationHistory(
+      area,
+      () => undefined,
+      () => undefined,
+      undefined,
+      (place) => !gone.has(place.tab.id),
+    );
+    for (const id of ['a', 'diff', 'b', 'c']) area.open(tab(id));
+    gone.add('diff');
+    history.goBack();
+    history.goBack();
+    // Over the diff, to a.
+    expect(area.activeGroup.active).toBe('a');
+    expect(history.canGoBack).toBe(false);
+    history.goForward();
+    expect(area.activeGroup.active).toBe('b');
+    gone.add('c');
+    expect(history.canGoForward).toBe(false);
+    gone.delete('c');
+    expect(history.canGoForward).toBe(true);
+  });
+
   it('remembers a diff, which has no caret', () => {
     const { area, history, reveal } = setup();
     area.open(tab('diff'));
@@ -143,5 +170,19 @@ describe('NavigationHistory', () => {
       at: { line: 50, column: 0 },
       top: 40,
     });
+  });
+
+  it('forgets the places behind that are one place, within a few lines (Recent Locations’ Delete)', () => {
+    const { area, history, at, back } = setup();
+    area.open(tab('a'));
+    at('a', 3);
+    area.open(tab('b'));
+    at('b', 1);
+    area.open(tab('a'));
+    at('a', 20);
+    area.open(tab('c'));
+    expect(back()).toEqual(['a:3', 'b:1', 'a:20']);
+    history.forget({ tab: tab('a'), at: { line: 5, column: 0 } });
+    expect(back()).toEqual(['b:1', 'a:20']);
   });
 });

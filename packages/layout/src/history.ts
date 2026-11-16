@@ -34,6 +34,7 @@ export class NavigationHistory {
   readonly #caret: (tab: string) => Position | undefined;
   readonly #reveal: (place: Place) => void;
   readonly #top: (tab: string) => number | undefined;
+  readonly #kept: (place: Place) => boolean;
   readonly #watching: Disposable;
   /** The tab going back or forward is making active: reaching it isn't leaving a place. */
   #arriving: string | undefined;
@@ -41,17 +42,21 @@ export class NavigationHistory {
   /**
    * Follows `area`'s active tab. `caret` says where a tab's caret is, and `top` which line is at
    * the top of its view; `reveal` puts them back as a place has them, once its tab is active.
+   * `kept` says whether a place is still one to go back to, as IntelliJ asks a diff's
+   * (`IdeDocumentHistoryImpl.removeInvalidFilesFrom`): those that aren't are passed over.
    */
   constructor(
     area: EditorArea,
     caret: (tab: string) => Position | undefined,
     reveal: (place: Place) => void,
     top: (tab: string) => number | undefined = () => undefined,
+    kept: (place: Place) => boolean = () => true,
   ) {
     this.#area = area;
     this.#caret = caret;
     this.#reveal = reveal;
     this.#top = top;
+    this.#kept = kept;
     makeObservable(this);
     let current: Tab | undefined;
     this.#watching = effect(() => {
@@ -82,15 +87,16 @@ export class NavigationHistory {
   }
 
   get canGoBack(): boolean {
-    return this.back.length > 0;
+    return this.back.some(this.#kept);
   }
 
   get canGoForward(): boolean {
-    return this.forward.length > 0;
+    return this.forward.some(this.#kept);
   }
 
   /** Returns to the last place left; the current one goes ahead. */
   goBack(): void {
+    this.#prune();
     const place = this.back.at(-1);
     if (!place) return;
     this.back = this.back.slice(0, -1);
@@ -101,6 +107,7 @@ export class NavigationHistory {
 
   /** Undoes going back. */
   goForward(): void {
+    this.#prune();
     const place = this.forward.at(-1);
     if (!place) return;
     this.forward = this.forward.slice(0, -1);
@@ -111,6 +118,17 @@ export class NavigationHistory {
 
   dispose(): void {
     this.#watching.dispose();
+  }
+
+  /** Forgets the places behind that are `place` (Recent Locations' Delete). */
+  forget(place: Place): void {
+    this.back = this.back.filter((p) => !samePlace(p, place));
+  }
+
+  /** Forgets the places no longer to go back to. */
+  #prune(): void {
+    this.back = this.back.filter(this.#kept);
+    this.forward = this.forward.filter(this.#kept);
   }
 
   #placeOf(tab: Tab): Place {
@@ -142,7 +160,8 @@ export const MAX_CHANGE_PLACES = 150;
  */
 const NEAR = 4;
 
-const same = (a: Place, b: Place) =>
+/** Whether two places are one: a tab's, within a few lines (IntelliJ's `isSame`). */
+export const samePlace = (a: Place, b: Place): boolean =>
   a.tab.id === b.tab.id && Math.abs((a.at?.line ?? 0) - (b.at?.line ?? 0)) < NEAR;
 
 /**
@@ -166,7 +185,7 @@ export class ChangePlaces {
   /** A change made at `place`: it replaces the last one, if that's near it. */
   changed(place: Place): void {
     const last = this.places.at(-1);
-    const kept = last && same(last, place) ? this.places.slice(0, -1) : this.places;
+    const kept = last && samePlace(last, place) ? this.places.slice(0, -1) : this.places;
     this.places = [...kept, place].slice(-MAX_CHANGE_PLACES);
     this.index = this.places.length;
   }
@@ -179,11 +198,18 @@ export class ChangePlaces {
     return this.index < this.places.length;
   }
 
+  /** Forgets the places that are `place` (Recent Locations' Delete). */
+  forget(place: Place): void {
+    const before = this.places.slice(0, this.index).filter((p) => !samePlace(p, place));
+    this.places = this.places.filter((p) => !samePlace(p, place));
+    this.index = before.length;
+  }
+
   /** To the latest change before the last one gone to that isn't where the caret is (`here`). */
   goBack(here: Place | undefined): void {
     for (let i = this.index - 1; i >= 0; i--) {
       const place = this.places[i] as Place;
-      if (here && same(here, place)) continue;
+      if (here && samePlace(here, place)) continue;
       this.index = i;
       this.#go(place);
       return;
@@ -194,7 +220,7 @@ export class ChangePlaces {
   goForward(here: Place | undefined): void {
     for (let i = this.index; i < this.places.length; i++) {
       const place = this.places[i] as Place;
-      if (here && same(here, place)) continue;
+      if (here && samePlace(here, place)) continue;
       this.index = i + 1;
       this.#go(place);
       return;

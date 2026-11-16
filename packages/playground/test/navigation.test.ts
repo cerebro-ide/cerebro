@@ -17,6 +17,7 @@ import {
   tops,
   type Asked,
 } from '../src/navigation.js';
+import { globalSettings } from '../src/settings.js';
 import { closeAll, FakeHost, popupItems, project } from './fakes.js';
 
 const at = (path: string, line: number, extra: object = {}) => ({
@@ -50,8 +51,17 @@ const editor = (): EditorArea => (workspace.active as NonNullable<typeof workspa
 let nav: ReturnType<typeof setupNavigation>;
 
 beforeAll(() => {
-  // Recent Files and the edited ones as an earlier run kept them, one unreadable.
-  localStorage.setItem('cerebro.recent:/r', JSON.stringify([{ id: '/r/old.ts', title: 'old.ts' }]));
+  // Recent Files and the edited ones as an earlier run kept them, one unreadable, one not a list;
+  // a diff, as runs before kept them too, and what isn't a tab.
+  localStorage.setItem(
+    'cerebro.recent:/r',
+    JSON.stringify([
+      { id: 'diff:/r/d.ts', title: 'd.ts' },
+      null,
+      { id: '/r/old.ts', title: 'old.ts' },
+    ]),
+  );
+  localStorage.setItem('cerebro.recent:/s', '{}');
   localStorage.setItem('cerebro.recentEdited:/r', '{unreadable');
   useProjects([project('/r', host), project('/s', undefined)]);
   workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
@@ -81,11 +91,16 @@ describe('each environment’s Recent Files', () => {
     const recent = recentTabs();
     expect(recent?.tabs.map((t) => t.id)).toEqual(['/r/old.ts']);
     expect(recent?.edited).toEqual([]);
+    // A diff shown is listed, not kept between runs.
+    nav.open({ id: 'diff:/r/e.ts', title: 'e.ts' });
     nav.open({ id: '/r/new.ts', title: 'new.ts' });
-    expect(recent?.tabs.map((t) => t.id)).toEqual(['/r/new.ts', '/r/old.ts']);
+    expect(recent?.tabs.map((t) => t.id)).toEqual(['/r/new.ts', 'diff:/r/e.ts', '/r/old.ts']);
     await expect
       .poll(() => JSON.parse(localStorage.getItem('cerebro.recent:/r') as string) as unknown[])
-      .toHaveLength(2);
+      .toEqual([
+        { id: '/r/new.ts', title: 'new.ts' },
+        { id: '/r/old.ts', title: 'old.ts' },
+      ]);
     // Still followed when they can't be kept.
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('full');
@@ -192,6 +207,35 @@ describe('Back and Forward', () => {
     history()?.goBack();
     expect(editor().activeGroup.active).toBe('diff:x');
     expect(reveals.has('diff:x')).toBe(false);
+  });
+
+  it('go back to a diff until its tab closes, or always or never, as the setting says', () => {
+    const visit = () => {
+      nav.open({ id: '/r/one.ts', title: 'one.ts' });
+      nav.open({ id: 'diff:x', title: 'x' });
+      nav.open({ id: '/r/two.ts', title: 'two.ts' });
+    };
+    const group = () => editor().activeGroup.id;
+    // Until the diff is closed, to start with, as IntelliJ's.
+    visit();
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('diff:x');
+    history()?.goForward();
+    editor().close(group(), 'diff:x');
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('/r/one.ts');
+    // Always: back to it, open again.
+    globalSettings.layers.global.set('diff.navigationHistory', 'always');
+    visit();
+    editor().close(group(), 'diff:x');
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('diff:x');
+    // Never: passed over though open.
+    globalSettings.layers.global.set('diff.navigationHistory', 'never');
+    visit();
+    history()?.goBack();
+    expect(editor().activeGroup.active).toBe('/r/one.ts');
+    globalSettings.layers.global.reset('diff.navigationHistory');
   });
 
   it('are none without an environment', () => {

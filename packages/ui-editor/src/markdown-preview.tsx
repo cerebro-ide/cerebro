@@ -6,8 +6,7 @@
 
 import { onCleanup, render } from '@cerebro-ide/jsx';
 import { effect } from '@cerebro-ide/reactive';
-import { tagHighlighter, type Highlighter } from '@lezer/highlight';
-import { highlight } from './editor.js';
+import { codeColours } from './colours.js';
 import { drawMarkdown, gfmParser, type MarkdownStyle } from './markdown.js';
 
 export interface MarkdownPreviewProps {
@@ -106,24 +105,6 @@ const STYLES = `
 .cerebro-doc__link { color: var(--cerebro-link); }
 .cerebro-doc__link--opens { cursor: pointer; }
 `;
-
-/** The editor's highlight style, as classes of the preview's and the rules that colour them. */
-function codeColours(): { highlighter: Highlighter; rules: string } {
-  const rules: string[] = [];
-  const highlighter = tagHighlighter(
-    highlight.specs.map(({ tag, ...style }, index) => {
-      const name = `cerebro-markdown-code-${String(index)}`;
-      // Its rules are a colour and a weight: CSS properties, in camel case.
-      const declarations = Object.entries(style).map(
-        ([key, value]) =>
-          `${key.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}: ${String(value)};`,
-      );
-      rules.push(`.${name} { ${declarations.join(' ')} }`);
-      return { tag, class: name };
-    }),
-  );
-  return { highlighter, rules: rules.join('\n') };
-}
 
 /** A Markdown text drawn as a page, again as it changes. */
 export function MarkdownPreview(props: MarkdownPreviewProps): Node {

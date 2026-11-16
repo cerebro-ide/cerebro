@@ -9,6 +9,7 @@ import {
   RecentTabs,
   type EditorArea,
   type Environment,
+  type Place,
   type Position,
   type Tab,
 } from '@cerebro-ide/layout';
@@ -32,6 +33,8 @@ import type {
   Selected,
   Usage,
 } from '@cerebro-ide/ui-editor';
+import { diffPath } from './changes.js';
+import { settingsFor } from './settings.js';
 import {
   documentFor,
   editFiles,
@@ -127,10 +130,20 @@ const editedKey = (env: Environment) => `cerebro.recentEdited:${env.id}`;
 /** What was kept under `key` in an earlier run: nothing when it's unreadable. */
 function saved(key: string): unknown {
   try {
-    return JSON.parse(localStorage.getItem(key) ?? '[]');
+    return kept(JSON.parse(localStorage.getItem(key) ?? '[]'));
   } catch {
     return [];
   }
+}
+
+/**
+ * Tabs as Recent Files keeps them between runs: without diffs, as IntelliJ keeps none
+ * (`DiffVirtualFileBase.isPersistedInEditorHistory`); an earlier run's may have them.
+ */
+function kept(tabs: unknown): unknown {
+  return Array.isArray(tabs)
+    ? tabs.filter((tab) => diffPath((tab as Partial<Tab> | null)?.id ?? '') === undefined)
+    : tabs;
 }
 
 /** Each environment's Back and Forward, following its editor area from when it opens. */
@@ -151,7 +164,7 @@ effect(() => {
       [editedKey(env), () => recent.edited],
     ] as const) {
       effect(() => {
-        const json = JSON.stringify(list());
+        const json = JSON.stringify(kept(list()));
         try {
           localStorage.setItem(key, json);
         } catch {
@@ -164,11 +177,7 @@ effect(() => {
     changes.set(
       env,
       new ChangePlaces((place) => {
-        // A jump within the file is a place left, as Back's.
-        if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
-        env.editor.open(place.tab);
-        if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
-        focusing.set(place.tab.id, {});
+        goToPlace(place);
       }),
     );
     histories.set(
@@ -180,6 +189,15 @@ effect(() => {
           if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
         },
         (path) => tops.get(path),
+        // A diff's place, as IntelliJ's setting says (`DiffVirtualFileBase`): always, until its
+        // tab closes, or never.
+        (place) => {
+          if (diffPath(place.tab.id) === undefined) return true;
+          const how = settingsFor(env.id).get('diff.navigationHistory');
+          if (how === 'always') return true;
+          if (how === 'never') return false;
+          return env.editor.groups.some((group) => group.tabs.some((t) => t.id === place.tab.id));
+        },
       ),
     );
   }
@@ -198,6 +216,19 @@ onEdited((path) => {
     places?.changed({ tab, at: carets.get(path), top: tops.get(path) });
   });
 });
+
+/**
+ * Takes the caret to a place in the active environment, its editor focused: Last Edit Location's,
+ * Recent Locations'.
+ */
+export function goToPlace(place: Place): void {
+  const env = active() as Environment;
+  // A jump within the file is a place left, as Back's.
+  if (env.editor.activeGroup.active === place.tab.id) histories.get(env)?.record();
+  env.editor.open(place.tab);
+  if (place.at) reveals.set(place.tab.id, { ...place.at, top: place.top });
+  focusing.set(place.tab.id, {});
+}
 
 /** The active environment's places of changes. */
 export function changePlaces(): ChangePlaces | undefined {

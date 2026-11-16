@@ -240,15 +240,10 @@ describe('Recent Files', () => {
       .toContain('No recent files');
     await userEvent.click(q('.playground-recent__edited input'));
     expect(await popupItems()).not.toEqual([]);
-    // Other keys are the search field's.
-    await userEvent.keyboard('{Shift}x');
-    expect(
-      (
-        q(
-          '.cerebro-popup input[type="text"], .cerebro-popup input[type="search"]',
-        ) as HTMLInputElement
-      ).value,
-    ).toBe('x');
+    // Other keys are speed search's.
+    await userEvent.keyboard('x');
+    expect(q('.cerebro-switcher__search').textContent).toBe('x');
+    await userEvent.keyboard('{Escape}{Escape}');
   });
 
   it('lists the files edited at once, as Recently Changed Files', async () => {

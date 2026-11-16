@@ -14,6 +14,7 @@ import {
 import { keymapPlatform } from '../src/keymaps.js';
 import { projects, setupEnvironments, useProjects, workspace } from '../src/environments.js';
 import { userKeymaps } from '../src/keymap-page.js';
+import { carets } from '../src/navigation.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, FakeHost, popupItems, press, project } from './fakes.js';
 
@@ -170,9 +171,25 @@ describe('the tab commands', () => {
       return Promise.resolve();
     });
     editor()?.open(tabOf('src/a.ts'));
-    for (const id of ['editor.copyPath', 'editor.copyFileName', 'editor.copyContentRootPath'])
+    // With no caret yet, no line to copy.
+    expect(commands().isEnabled('editor.copyPathWithLineNumber', context())).toBe(false);
+    carets.set('src/a.ts', { line: 6, column: 2 });
+    expect(entries('editor/tab/copyPath')).toEqual([
+      'editor.copyPath',
+      'editor.copyFileName',
+      '—',
+      'editor.copyPathWithLineNumber',
+      'editor.copyContentRootPath',
+    ]);
+    for (const id of [
+      'editor.copyPath',
+      'editor.copyFileName',
+      'editor.copyPathWithLineNumber',
+      'editor.copyContentRootPath',
+    ])
       commands().execute(id, context());
-    await expect.poll(() => copied).toEqual(['cerebro/src/a.ts', 'a.ts', 'src/a.ts']);
+    await expect.poll(() => copied).toEqual(['cerebro/src/a.ts', 'a.ts', 'src/a.ts:7', 'src/a.ts']);
+    carets.delete('src/a.ts');
     expect(commands().isEnabled('editor.copyPath')).toBe(false);
     commands().execute('file.new');
     expect(commands().isEnabled('editor.copyPath', context())).toBe(false);

@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
@@ -1210,6 +1210,21 @@ change.
   called the function. Such files get the name matches instead.
 - **The file as the editor has it:** each request sends the file's text, so unsaved edits are
   answered as they are (the server's copy follows them).
+- **Files changed on disk** (added 2026-11-15, from that day's review; Ido chose the watcher):
+  while a worktree has a server, the host watches its files (Node's recursive `fs.watch`, `.git`
+  left out) and tells each of its servers what was created, changed or deleted, gathered over 50 ms
+  (Claude's choice, open to change), as `workspace/didChangeWatchedFiles`. A file a server has open
+  is closed in it first (`didClose`), so it reads the disk; the next question about it sends the
+  editor's text again, unsaved edits and all. Measured with the review's steps: TypeScript 7 and
+  basedpyright 1.40.2 then answer with the new text (a signature changed in one file shows as an
+  error in another; usages found in a file changed and in one made), each without the capability
+  declared, and neither does without the watcher. bash-language-server 5.8.1 doesn't: it reads the
+  folder once as it starts, then only files sent to it (it has no handler for the notification,
+  read from its code). The watcher's cost, measured (Node 24, Linux): ready in 130 ms over 2,906
+  folders, 0.9 s and about 117 MB over 52,051; it watches ignored folders too, as Node's has no
+  option to skip them. **Rejected:** what Cerebro already knows (an agent's turn, its own saves),
+  which misses edits made elsewhere; the index's passes, which miss what the index doesn't read
+  (`tsconfig.json`, say) and cost git processes per question.
 - **Name matches when no server answers:** a language without a server, a server that fails, or
   one that doesn't answer within 3 seconds (a claim) falls back to the index's "Name matches". A
   server's answer shows without that heading. Find usages leaves the declaration out, as
@@ -1282,6 +1297,56 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   place keeps the line at the top of its editor, and going back puts that line at the top again,
   rather than centring the caret. The editor reports the line as it scrolls (`onScroll`), read
   once CodeMirror has measured the lines: before, their heights are estimates.
+- **Recent Files is IntelliJ's Switcher** (changed 2026-11-16), as IntelliJ's Recent Files is
+  (`Switcher.kt` of `recentFiles/frontend`, the implementation it uses unless a registry key says
+  otherwise; read from its source). It was a list with a search field.
+  - **The tool windows on the left,** as the Switcher's, without their mnemonics
+    (`ide.recent.files.tool.window.mnemonics` is off). The files on the right, as before, the first
+    not shown now selected. It stays open until Enter or Escape, as when opened from a menu.
+  - **Typing narrows both lists,** IntelliJ's speed search (`SwitcherSpeedSearch`): each item by
+    its name, or its name and its folder from the project's, matched as the pickers match (seen in
+    the app: matching the absolute folder found every file for "pro", through `/tmp`). The best
+    match is selected, in the list that has the selection first, and a name's matched characters
+    are in bold, as the pickers show them (added 2026-11-16). What's typed shows above the lists,
+    and the popup keeps its size, as IntelliJ's. Backspace or Delete takes a character back
+    (`updateEnteredPrefix`), and Escape forgets what's typed before it closes the popup. With
+    nothing selected then, the first file is (`getElementAt(0)`).
+  - **With nothing matched,** the files' list says "Press 'Enter' to search in Project", and
+    Enter opens Go to File with what was typed (`tryToOpenFileSearch`). The lists' other words are
+    IntelliJ's too: "No recent files" and "No tool windows" (`IdeBundle`).
+  - **Show edited only** stays in the header, with Recent Files' key beside it, muted, as IntelliJ
+    shows its toggle's key. The list is read again as it flips (`replaceAll`).
+  - **Delete** (added 2026-11-16), as IntelliJ's (`closeTabOrToolWindow`, its key `$Delete`'s):
+    a tool window hides and stays listed, as in the Switcher; a file's tabs close, and it's off
+    the list shown, the files shown or those edited (`closeEditorForFile`, which leaves it when an
+    editor still shows it: Cerebro's close can't be refused).
+  - **Not yet:** IntelliJ's Recent Locations item under the tool windows; selecting several.
+  - Claude's choice, open to change: matching as the pickers match (the folder after the name),
+    rather than IntelliJ's `SpeedSearchComparator`.
+- **Recent Locations** (added 2026-11-16), as IntelliJ's (Ctrl+Shift+E, Cmd+Shift+E on macOS;
+  `RecentLocationsAction`, `RecentLocationsDataModel` and `RecentLocationsRenderer`, read from its
+  source), in the View menu after Recent Files:
+  - **The places behind,** Back's, the latest first; a place within 4 lines of one listed, or with
+    no caret (a diff's), is left out (`isSame`); up to 25 (`recentLocationsLimit`). A file that
+    can't be read is left out, as IntelliJ leaves out a place no longer valid.
+  - **Each row:** the file's name in bold (Cerebro has no breadcrumbs, and IntelliJ shows the name
+    alone without them), then its lines as code, highlighted as the editor highlights them, with
+    their numbers: 2 before and after the place's, more on the other side near either end of the
+    file, blank ones at either end left out ("Empty lines" when all are).
+  - **Show edited only** (Recent Locations' own key flips it, shown beside it) lists the places of
+    the changes instead, Last Edit Location's, titled "Recently Edited Locations". A flip selects
+    the first row and clears what's typed (`updateModel`).
+  - **Typing filters** by the name, matched as the pickers match, its matched characters in bold;
+    or by the lines, holding what's typed. Seen in the app: the pickers' matching over the lines
+    too found nearly every row, by letters scattered through the code; IntelliJ's matches
+    fragments (`NameUtil.buildMatcher`; a claim that it finds about the same). Enter goes to the
+    place; Delete or Backspace forgets it, the row at its index selected then, or the last
+    (`removeItems`). "No recent locations found" for none.
+  - The VS Code keymaps give it no key, as IntelliJ's VS Code keymaps.
+  - Claude's choices, open to change: the search field shows from the start (the pickers'), where
+    IntelliJ's appears as you type; with text typed, Delete and Backspace edit it; Delete with Show
+    edited only forgets the changes at that place, where IntelliJ's `removeItems` removes every
+    change place (read from its source; it reads as a slip).
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
 - **A file chosen from a list takes the focus** (changed 2026-11-01): after Go to File, Recent
@@ -1327,7 +1392,7 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
+  The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
@@ -1346,8 +1411,13 @@ save the absolute, relative, or simply the name alone", as IntelliJ's.
   (`VfsUtilCore.getRelativePath`). A diff's tab copies its file's.
 - **Keys:** Absolute Path keeps Copy Path's (Ctrl/Cmd+Shift+C), as IntelliJ's takes CopyPaths'
   (`use-shortcut-of`); the other two have none in IntelliJ's keymaps.
-- **Not yet:** IntelliJ's other items (Path with Line Number, Source Root, Toolbox URL, references
-  to symbols), and the value shown beside each item.
+- **Path with Line Number** (added 2026-11-16), between File Name and Path from Content Root, as
+  IntelliJ's group (`CopyFileReference`): the path from the worktree's root, a colon, and the
+  caret's line counted from 1 (`CopyFileWithLineNumberPathProvider`, read from its source). It
+  needs an editor's caret: off for the Project view's files and a diff's tab (IntelliJ hides it
+  there).
+- **Not yet:** IntelliJ's other items (Source Root, Toolbox URL, references to symbols), and the
+  value shown beside each item (Cerebro's menu rows show a label and keys only).
 
 ## Phase 1 is WebStorm's functionality (2026-11-03)
 
@@ -1645,9 +1715,10 @@ them.
   editor edits the file, as IntelliJ's preview is made `editable`, and stays while the selection
   moves within the file. Measured in the app: a problem selected showed its line, current, beside
   the tree. With the window on the left or right, the toolbar goes across its top, as IntelliJ's
-  (`orientationChangedTo`), its tooltips and menu under it. **Not yet:** the problems underlined in
-  the preview (IntelliJ's shows its document's highlighting: a claim). **Claude's, open to
-  change:** the icon's drawing.
+  (`orientationChangedTo`), its tooltips and menu under it. Its problems are underlined as the
+  file's tab underlines them (added 2026-11-15), asked of the file's server the same way: IntelliJ's
+  preview shows its document's highlighting (a claim). **Claude's, open to change:** the icon's
+  drawing.
 - **Not yet:** the Problems window's Project Errors tab and its Group by Inspection; shell scripts' problems, which bash-language-server gets from
   `shellcheck`, not bundled (a claim, from its documentation). Quick fixes have their own entry
   ("Quick fixes: Alt+Enter").
@@ -1893,7 +1964,9 @@ tabs". As IntelliJ's, from its source (`Switcher.kt`, `SwitcherActions.kt`,
 `SwitcherRendering.kt`).
 
 - **A popup in the window's centre** (`openSwitcher` in `ui-popup`), on Ctrl+Tab, Ctrl+Shift+Tab
-  starting from the end: the tool windows on the left, by name; the open tabs on the right, the
+  starting from the end: the tool windows on the left, by mnemonic (below), digits before letters,
+  then by name (changed 2026-11-16: by name alone before; IntelliJ's
+  `mnemonicAndMainTextComparator`, read from its source); the open tabs on the right, the
   latest shown first, up to 30; the selected file's folder below. With fewer than two tabs open,
   the recent files fill the list, as many as there are tool windows.
 - **Its keys are IntelliJ's:** opened with Ctrl held, letting Ctrl go opens what's selected, so a
@@ -3697,7 +3770,10 @@ side, swipe, onion, and even a pixel diff mode which shows which pixels have cha
   Claude's choices, open to change: the modes as buttons above the image, the Difference
   colours (not measured from anything: IntelliJ has no such mode), and the "Compare by" name.
 - **Another binary file** shows IntelliJ's status line alone, without its contents.
-- **Not yet:** zooming the stacked modes by hand, and keeping the mode chosen between diffs.
+- **The mode chosen is the next image diff's** (added 2026-11-16), while the app runs; not saved.
+  An image added or deleted still shows side by side, and leaves the mode chosen as it was.
+  Claude's choice, open to change: kept for the session rather than as a setting.
+- **Not yet:** zooming the stacked modes by hand.
 
 ## Cherry-Pick (2026-11-11)
 
@@ -4172,8 +4248,21 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
     its first change (Claude's choice, open to change: keeping it is a refinement).
   - A file that can't be read (deleted) shows git's text, and isn't edited; nor is a diff between
     commits.
-- **Not yet:** the rest of Settings → Tools → Diff & Merge (whether diffs go in the navigation
-  history; the merge's import statements and gutter markers: decision "Merge conflicts");
+- **Include diffs in navigation history** (added 2026-11-15), IntelliJ's setting under Settings →
+  Tools → Diff & Merge, its words (`DiffBundle`): Always, Until the diff is closed (the default,
+  as IntelliJ's `IS_INCLUDED_IN_NAVIGATION_HISTORY`), Never. Back and Forward pass over a diff's
+  places the setting leaves out, as IntelliJ's history drops them before it goes back or forward
+  (`IdeDocumentHistoryImpl.removeInvalidFilesFrom`, asking `DiffVirtualFileBase`; read from its
+  source).
+- **With Always, Recent Files lists diffs too** (added 2026-11-16), as IntelliJ's
+  (`DiffVirtualFileBase.isIncludedInEditorHistory`), by their file's name and folder. Diffs aren't
+  kept between runs (`isPersistedInEditorHistory`): Cerebro saved them before, and an earlier run's
+  are dropped as they're read. IntelliJ checks the setting as a diff is shown; Cerebro's list keeps
+  every tab shown (the Switcher orders the open tabs by it), so Recent Files checks it as it
+  opens. Diffs shown before the setting changed to Always are then listed too. Claude's choice,
+  open to change.
+- **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's import statements and
+  gutter markers: decision "Merge conflicts");
   several files
   selected as the list; a fold's description (IntelliJ's breadcrumbs of where it is); the gear's
   highlighting level and breadcrumbs; Ignore formatting and

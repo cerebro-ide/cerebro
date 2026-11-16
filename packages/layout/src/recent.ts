@@ -47,10 +47,10 @@ export class RecentTabs {
     this.edited = [tab, ...this.edited.filter((t) => t.id !== tab.id)].slice(0, MAX_RECENT);
   }
 
-  /** Forgets a tab: a file that's gone. */
-  forget(id: string): void {
-    this.tabs = this.tabs.filter((t) => t.id !== id);
-    this.edited = this.edited.filter((t) => t.id !== id);
+  /** Forgets a tab: from one list, as Recent Files' Delete from the one it shows; or from both. */
+  forget(id: string, from?: 'tabs' | 'edited'): void {
+    if (from !== 'edited') this.tabs = this.tabs.filter((t) => t.id !== id);
+    if (from !== 'tabs') this.edited = this.edited.filter((t) => t.id !== id);
   }
 
   dispose(): void {

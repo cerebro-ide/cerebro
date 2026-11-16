@@ -223,4 +223,114 @@ describe('the Switcher', () => {
     window.removeEventListener('keydown', listen);
     expect(reached).toEqual([]);
   });
+
+  it('narrows both lists as one types, the best match selected, as IntelliJ’s speed search', async () => {
+    const none: string[] = [];
+    const handle = switcher({
+      search: { nothing: 'Nothing here', none: (query) => none.push(query) },
+      empty: { left: 'No tool windows', right: 'No recent files' },
+    });
+    const typed = () => document.querySelector('.cerebro-switcher__search')?.textContent;
+    const empty = (side: string) =>
+      document.querySelector(`[data-side="${side}"] .cerebro-switcher__empty`)?.textContent;
+    expect(typed()).toBeUndefined();
+    const size = () => {
+      const { width, height } = (
+        document.querySelector('.cerebro-switcher') as HTMLElement
+      ).getBoundingClientRect();
+      return { width, height };
+    };
+    const before = size();
+    // By name: the files first, as they have the selection; the popup keeps its size.
+    await userEvent.keyboard('c');
+    expect(typed()).toBe('c');
+    await userEvent.keyboard('.');
+    expect(labels('right')).toEqual(['c.ts']);
+    // What matched, in bold, as the pickers show it.
+    expect(
+      [...document.querySelectorAll('[data-side="right"] .cerebro-popup-item__match')].map(
+        (b) => b.textContent,
+      ),
+    ).toEqual(['c.']);
+    expect(labels('left')).toEqual([]);
+    expect(size()).toEqual(before);
+    expect(selected()).toBe('right:c.ts');
+    // Or by name and the folder shown, not the status's; a list with none says so.
+    await userEvent.keyboard('{Backspace}{Backspace}lib');
+    expect(labels('right')).toEqual(['c.ts']);
+    expect(empty('left')).toBe('No tool windows');
+    // Into the other list when the selected one has none.
+    await userEvent.keyboard('{Escape}');
+    expect(typed()).toBeUndefined();
+    expect(selected()).toBe('right:c.ts');
+    expect(labels('right')).toEqual(['a.ts', 'b.ts', 'c.ts']);
+    await userEvent.keyboard('proj');
+    expect(selected()).toBe('left:Project');
+    // Nothing matched: the files' search's words, and Enter hands on what's typed.
+    await userEvent.keyboard('zz');
+    expect(empty('right')).toBe('Nothing here');
+    expect(empty('left')).toBe('');
+    await userEvent.keyboard('{Enter}');
+    expect(await handle.result).toBeUndefined();
+    expect(none).toEqual(['projzz']);
+  });
+
+  it('keeps the selected item as what’s typed is taken back, and Backspace closes without it', async () => {
+    const closed: string[] = [];
+    switcher({
+      search: { nothing: '', none: () => undefined },
+      close: (item) => {
+        closed.push(item.label);
+        return true;
+      },
+    });
+    await userEvent.keyboard('b');
+    expect(selected()).toBe('right:b.ts');
+    await userEvent.keyboard('{Backspace}');
+    expect(selected()).toBe('right:b.ts');
+    expect(labels('right')).toEqual(['a.ts', 'b.ts', 'c.ts']);
+    // Modified keys aren't typed.
+    await userEvent.keyboard('{Control>}c{/Control}');
+    expect(labels('right')).toEqual(['a.ts', 'b.ts', 'c.ts']);
+    // With something typed, Delete takes a character back, as IntelliJ's; with nothing, it closes.
+    await userEvent.keyboard('a.{Delete}');
+    expect(document.querySelector('.cerebro-switcher__search')?.textContent).toBe('a');
+    expect(closed).toEqual([]);
+    await userEvent.keyboard('{Delete}{Delete}');
+    expect(closed).toEqual(['a.ts']);
+    expect(labels('right')).toEqual(['b.ts', 'c.ts']);
+    // Nothing matched, then nothing typed: the first file is selected, as IntelliJ's.
+    await userEvent.keyboard('zz');
+    expect(document.querySelector('.cerebro-popup-item--highlighted')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    expect(selected()).toBe('right:b.ts');
+  });
+
+  it('has its own header, lets a key through first, and lists others on the right', async () => {
+    const keys: string[] = [];
+    const handle = switcher({
+      header: () => <label class="extra">Show edited only</label>,
+      onKey: (event) => {
+        keys.push(event.key);
+        return event.key === 'e';
+      },
+      empty: { left: 'No tool windows', right: 'No recent files' },
+      search: { nothing: '', none: () => undefined },
+    });
+    expect(document.querySelector('.cerebro-switcher__header')?.textContent).toBe(
+      'SwitcherShow edited only',
+    );
+    await userEvent.keyboard('e{ArrowDown}');
+    expect(keys).toEqual(['e', 'ArrowDown']);
+    expect(selected()).toBe('right:c.ts');
+    handle.replace([], 0);
+    expect(
+      document.querySelector('[data-side="right"] .cerebro-switcher__empty')?.textContent,
+    ).toBe('No recent files');
+    // No files: the first tool window, once nothing matched is forgotten.
+    await userEvent.keyboard('zz{Escape}');
+    expect(selected()).toBe('left:Commit');
+    handle.replace(FILES.slice(1), 1);
+    expect(selected()).toBe('right:c.ts');
+  });
 });

@@ -280,6 +280,8 @@ export function ProblemsView(props: {
   openAt: (at: { path: string; line: number; column: number }) => void;
   /** Whether the window is on the left or right: the preview goes under the tree, as IntelliJ's. */
   vertical: () => boolean;
+  /** Asks a file's server for its problems, as its tab does. */
+  problems: (path: string, text: string) => Promise<readonly Problem[] | null>;
 }): Node {
   // Down the window's left, or across its top when it's on the left or right, as IntelliJ's
   // (`orientationChangedTo`): its tooltips and menu beside it, or under it.
@@ -348,6 +350,8 @@ function FileView(props: {
   services: MenuServices;
   openAt: (at: { path: string; line: number; column: number }) => void;
   vertical: () => boolean;
+  /** Asks a file's server for its problems, as its tab does. */
+  problems: (path: string, text: string) => Promise<readonly Problem[] | null>;
 }): Node {
   const { path } = props;
   const state = computed(() => {
@@ -387,6 +391,8 @@ function FileProblems(props: {
   services: MenuServices;
   openAt: (at: { path: string; line: number; column: number }) => void;
   vertical: () => boolean;
+  /** Asks a file's server for its problems, as its tab does. */
+  problems: (path: string, text: string) => Promise<readonly Problem[] | null>;
 }): Node {
   const { path } = props;
   const source: TreeSource<Row> = {
@@ -509,7 +515,13 @@ function FileProblems(props: {
             <div class="playground-problems__preview">
               {() =>
                 any.get()
-                  ? untracked(() => <ProblemPreview path={path} row={() => chosen.get()} />)
+                  ? untracked(() => (
+                      <ProblemPreview
+                        path={path}
+                        row={() => chosen.get()}
+                        problems={props.problems}
+                      />
+                    ))
                   : null
               }
             </div>
@@ -523,9 +535,14 @@ function FileProblems(props: {
 /**
  * The preview: the file in an editor, editing it, as IntelliJ's (`DescriptorPreview`, made
  * `editable`); a problem selected shows it there, the focus left in the tree. The same editor
- * stays while the selection moves within the file, as IntelliJ's reuses it.
+ * stays while the selection moves within the file, as IntelliJ's reuses it. Its problems are
+ * underlined, as the file's tab underlines them, asked for the same way.
  */
-function ProblemPreview(props: { path: string; row: () => Row | undefined }): Node {
+function ProblemPreview(props: {
+  path: string;
+  row: () => Row | undefined;
+  problems: (path: string, text: string) => Promise<readonly Problem[] | null>;
+}): Node {
   const doc = signal<EditorDocument | undefined>(undefined);
   void documentFor(props.path).then((found) => {
     if (!('error' in found)) doc.set(found);
@@ -547,6 +564,7 @@ function ProblemPreview(props: { path: string; row: () => Row | undefined }): No
             document={document}
             reveal={() => place.get()}
             revealFocus={false}
+            problems={(text) => props.problems(props.path, text)}
           />
         ) : null;
       }}

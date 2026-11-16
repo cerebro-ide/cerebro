@@ -553,4 +553,72 @@ describe('openPicker', () => {
     expect(ad.textContent).toBe('Press Delete to clear the filter');
     expect(ad.previousElementSibling?.classList.contains('cerebro-popup__list')).toBe(true);
   });
+
+  it('draws an item’s body under its label, its full width, the row as tall as it is', () => {
+    const handle = openPicker({
+      label: 'Recent Locations',
+      position: 'top',
+      items: () => [
+        { label: 'a.ts', body: () => <pre class="lines">{'one\ntwo\nthree'}</pre> },
+        { label: 'b.ts' },
+      ],
+    });
+    const [first, second] = [...document.querySelectorAll('.cerebro-popup-item')] as HTMLElement[];
+    const body = first?.querySelector('.cerebro-popup-item__body') as HTMLElement;
+    expect(body.textContent).toBe('one\ntwo\nthree');
+    expect(body.getBoundingClientRect().top).toBeGreaterThan(
+      (first?.querySelector('.cerebro-popup-item__label') as HTMLElement).getBoundingClientRect()
+        .bottom - 1,
+    );
+    expect(first?.getBoundingClientRect().height).toBeGreaterThan(
+      (second?.getBoundingClientRect().height ?? 0) * 2,
+    );
+    expect(second?.querySelector('.cerebro-popup-item__body')).toBeNull();
+    handle.close();
+  });
+
+  it('keeps the highlight in a list that shrinks, and puts text in its field when asked', async () => {
+    const items = signal(['a.ts', 'b.ts', 'c.ts']);
+    const handle = openPicker({
+      label: 'Recent Locations',
+      position: 'top',
+      items: (query) =>
+        items
+          .get()
+          .filter((label) => label.includes(query))
+          .map((label) => ({ label })),
+    });
+    const highlightedRow = () =>
+      document.querySelector('.cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        ?.textContent;
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}');
+    await expect.poll(highlightedRow).toBe('c.ts');
+    // The last gone: the one before it, now the last.
+    items.set(['a.ts', 'b.ts']);
+    await expect.poll(highlightedRow).toBe('b.ts');
+    items.set([]);
+    items.set(['a.ts', 'b.ts']);
+    await expect.poll(highlightedRow).toBe('a.ts');
+    handle.setQuery('b');
+    expect((document.querySelector('.cerebro-popup__search') as HTMLInputElement).value).toBe('b');
+    expect(handle.highlighted()?.label).toBe('b.ts');
+    handle.close();
+  });
+
+  it('draws a row again when its body is another one, under the same label', () => {
+    const first = () => <pre>one</pre>;
+    const second = () => <pre>two</pre>;
+    const body = signal(first);
+    const handle = openPicker({
+      label: 'Recent Locations',
+      position: 'top',
+      items: () => [{ label: 'a.ts', body: body.get() }],
+    });
+    const text = () => document.querySelector('.cerebro-popup-item__body')?.textContent;
+    expect(text()).toBe('one');
+    body.set(second);
+    expect(text()).toBe('two');
+    expect(document.querySelectorAll('.cerebro-popup-item')).toHaveLength(1);
+    handle.close();
+  });
 });

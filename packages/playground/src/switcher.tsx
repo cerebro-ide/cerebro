@@ -12,15 +12,33 @@
 // - below the lists, the selected file's folder.
 // Claims: a file's folder after its name when another listed file has its name, as IntelliJ, but
 // from the project's folder; a tab open in two groups listed once.
+//
+// Recent Files is IntelliJ's Switcher too, opened as from a menu (it stays until Enter or Escape),
+// as its source has it (`Switcher.kt` of recentFiles/frontend, `recent`): the tool windows on the
+// left, without their mnemonics (`ide.recent.files.tool.window.mnemonics` is off); on the right
+// the files shown, the latest first, closed ones too, the first not shown now selected. Typing
+// narrows both lists (speed search); with nothing matched, Enter opens Go to File with what was
+// typed (`tryToOpenFileSearch`). "Show edited only" lists the files edited instead, and Recent
+// Files' own key flips it, shown beside it; Recently Changed Files opens with it on. Diffs are
+// listed too when Include diffs in navigation history is Always
+// (`DiffVirtualFileBase.isIncludedInEditorHistory`).
 
+import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
+import type { EditorArea, RecentTabs, Tab, ToolWindows } from '@cerebro-ide/layout';
+import { signal } from '@cerebro-ide/reactive';
 import { focusToolWindow } from '@cerebro-ide/ui-layout';
-import { openSwitcher, type Modifier, type SwitcherItem } from '@cerebro-ide/ui-popup';
-import { tabPath } from './changes.js';
+import {
+  openSwitcher,
+  type Modifier,
+  type SwitcherHandle,
+  type SwitcherItem,
+} from '@cerebro-ide/ui-popup';
+import { diffPath, tabPath } from './changes.js';
 import { active } from './environments.js';
 import { icon } from './icons.js';
 import { recentTabs } from './navigation.js';
+import { settingsFor } from './settings.js';
 
 /** The most files listed, as IntelliJ's. */
 const LIMIT = 30;
@@ -30,8 +48,12 @@ type Entry = SwitcherItem & ({ kind: 'tool'; id: string } | { kind: 'tab'; tab: 
 /** A tool window's number from the shortcut that opens it: Alt+1's 1. */
 const numberOf = (shortcut: string | undefined) => /^[A-Za-z]+\+(\d)$/.exec(shortcut ?? '')?.[1];
 
-/** The tool windows, by name, each with its mnemonic. */
-function toolEntries(services: MenuServices, tools: ToolWindows): Entry[] {
+/**
+ * The tool windows, each with its mnemonic if they're shown (`showMnemonics`), in IntelliJ's order
+ * (`mnemonicAndMainTextComparator`), shown or not: by mnemonic, digits before letters, those
+ * without last; then by name.
+ */
+function toolEntries(services: MenuServices, tools: ToolWindows, shown = true): Entry[] {
   const windows = [...tools.windows.values()].sort((a, b) => a.title.localeCompare(b.title));
   const taken = new Set<string>();
   const mnemonics = new Map<string, string>();
@@ -56,12 +78,17 @@ function toolEntries(services: MenuServices, tools: ToolWindows): Entry[] {
     taken.add(mnemonic);
     mnemonics.set(window.id, mnemonic);
   }
+  const key = (id: string) => mnemonics.get(id) ?? '\uffff';
+  windows.sort((a, b) => {
+    const [x, y] = [key(a.id), key(b.id)];
+    return x === y ? a.title.localeCompare(b.title) : x < y ? -1 : 1;
+  });
   return windows.map((window) => ({
     kind: 'tool',
     id: window.id,
     label: window.title,
     ...(window.icon === undefined ? {} : { icon: () => icon(window.icon as string) }),
-    ...(mnemonics.has(window.id) ? { mnemonic: mnemonics.get(window.id) as string } : {}),
+    ...(shown && mnemonics.has(window.id) ? { mnemonic: mnemonics.get(window.id) as string } : {}),
   }));
 }
 
@@ -105,6 +132,35 @@ function tabEntries(area: EditorArea | undefined, count: number): Entry[] {
   });
 }
 
+/** Recent Files' files: each by its name and its folder from the project's. */
+function recentEntries(tabs: readonly Tab[]): Entry[] {
+  const root = active()?.id;
+  const diffs = settingsFor(root).get('diff.navigationHistory') === 'always';
+  return tabs
+    .filter((tab) => tabPath(tab.id) === tab.id || (diffs && diffPath(tab.id) !== undefined))
+    .map((tab) => {
+      const file = tabPath(tab.id) as string;
+      const path =
+        root !== undefined && file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
+      const slash = path.lastIndexOf('/');
+      return {
+        kind: 'tab',
+        tab,
+        label: tab.title,
+        icon: () => icon('file'),
+        ...(slash < 0 ? {} : { detail: path.slice(0, slash) }),
+        status: file.slice(0, Math.max(0, file.lastIndexOf('/'))),
+      };
+    });
+}
+
+/** Closes a tab in every group that has it. */
+function closeEverywhere(area: EditorArea, id: string): void {
+  for (const group of area.groups) {
+    if (group.tabs.some((tab) => tab.id === id)) area.close(group.id, id);
+  }
+}
+
 /** The modifiers held in the key press being handled, if a key press is being handled. */
 let pressed: KeyboardEvent | undefined;
 
@@ -115,8 +171,16 @@ export interface SwitcherSetup {
   open: (tab: Tab) => void;
 }
 
-/** The Switcher's command and its keys. */
+/** The Switcher's and Recent Files' commands, and their keys. */
 export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): void {
+  /** Opens what was chosen: a tab, or a tool window, focused. */
+  const go = (entry: Entry | undefined) => {
+    if (entry?.kind === 'tab') setup.open(entry.tab);
+    else if (entry) {
+      setup.tools.show(entry.id);
+      void focusToolWindow(entry.id);
+    }
+  };
   // The press that runs the command, read as it does: which modifiers are held, and Shift.
   window.addEventListener(
     'keydown',
@@ -161,24 +225,107 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
             return false;
           }
           // Listed from the area: there's one.
-          const tabs = area as EditorArea;
-          for (const group of tabs.groups) {
-            if (group.tabs.some((tab) => tab.id === entry.tab.id))
-              tabs.close(group.id, entry.tab.id);
-          }
+          closeEverywhere(area as EditorArea, entry.tab.id);
           return true;
         },
       });
-      void switcher.result.then((entry) => {
-        if (entry?.kind === 'tab') setup.open(entry.tab);
-        else if (entry) {
-          setup.tools.show(entry.id);
-          void focusToolWindow(entry.id);
-        }
-      });
+      void switcher.result.then(go);
     },
   });
   // IntelliJ's, in all its keymaps: Shift starts from the end.
   services.keymap?.bindDefault('Ctrl+Tab', 'view.switcher');
   services.keymap?.bindDefault('Ctrl+Shift+Tab', 'view.switcher');
+
+  const recentFiles = (editedOnly: boolean) => {
+    const recent = recentTabs();
+    const current = setup.editor()?.activeGroup.active;
+    const first = (entries: readonly Entry[]) =>
+      Math.max(
+        0,
+        entries.findIndex((entry) => entry.kind === 'tab' && entry.tab.id !== current),
+      );
+    const edited = signal(editedOnly);
+    // Read as it opens and as Show edited only flips, as IntelliJ's (`replaceAll`).
+    const files = () => recentEntries((edited.peek() ? recent?.edited : recent?.tabs) ?? []);
+    const flip = () => {
+      edited.set(!edited.peek());
+      switcher.replace(files(), first(files()));
+    };
+    const { keymap } = services;
+    const key = keymap?.shortcutsFor('view.recentFiles')[0];
+    const switcher: SwitcherHandle<Entry> = openSwitcher<Entry>({
+      title: 'Recent Files',
+      // Without mnemonics, as IntelliJ's when speed search is on.
+      left: toolEntries(services, setup.tools, false),
+      right: files(),
+      initial: { side: 'right', index: first(files()) },
+      empty: { left: 'No tool windows', right: 'No recent files' },
+      // Delete, as IntelliJ's (`closeTabOrToolWindow`): a tool window hides, and stays listed; a
+      // file's tabs close, and it's off the list shown (`closeEditorForFile`, once no editor shows
+      // it: a close here can't be refused, so always).
+      close: (entry) => {
+        if (entry.kind === 'tool') {
+          setup.tools.hide(entry.id);
+          return false;
+        }
+        // A file listed is the active environment's: its editor and its list are there.
+        const area = setup.editor() as EditorArea;
+        closeEverywhere(area, entry.tab.id);
+        (recent as RecentTabs).forget(entry.tab.id, edited.peek() ? 'edited' : 'tabs');
+        return true;
+      },
+      search: {
+        nothing: "Press 'Enter' to search in Project",
+        none: (query) => {
+          void services.commands.execute('file.goTo', { text: query });
+        },
+      },
+      header: () => [
+        <label
+          class="playground-recent__edited"
+          // Keeps the focus in the popup.
+          on:mousedown={(event) => {
+            event.preventDefault();
+          }}
+        >
+          <input type="checkbox" tabIndex={-1} checked={() => edited.get()} on:change={flip} />
+          Show edited only
+        </label>,
+        key === undefined || !keymap ? null : (
+          <span class="playground-recent__key">{formatSequence(key, keymap.platform)}</span>
+        ),
+      ],
+      onKey: (event) => {
+        const chord = chordFromEvent(event);
+        if (chord === undefined || !keymap?.commandsFor(chord).includes('view.recentFiles')) {
+          return false;
+        }
+        flip();
+        return true;
+      },
+    });
+    void switcher.result.then(go);
+  };
+  services.commands.register({
+    id: 'view.recentFiles',
+    label: 'Recent &Files',
+    dialog: true,
+    run: () => {
+      recentFiles(false);
+    },
+  });
+  services.commands.register({
+    id: 'view.recentChangedFiles',
+    label: 'Recently Changed Files',
+    dialog: true,
+    run: () => {
+      recentFiles(true);
+    },
+  });
+  services.keymap?.bindDefault('Mod+E', 'view.recentFiles');
+  services.menus.contribute({
+    menu: 'main/view',
+    item: { command: 'view.recentFiles' },
+    group: 'c',
+  });
 }
