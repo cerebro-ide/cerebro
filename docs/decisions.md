@@ -2302,9 +2302,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   its name alone). It gives each remote's first fetch URL and its push URLs; IntelliJ's takes every
   fetch URL too, so a remote's second fetch URL is missed. **Not yet:** GitHub Enterprise and other
   servers, which IntelliJ adds from its GitHub accounts and by asking the server (Cerebro has no
-  GitHub accounts), and its `github.aliases` setting; the GitHub icon; Open on GitHub in the file
-  history's menus and for a repository version's tab, and in the editor tab's menu (Cerebro's has
-  no Open In); the editor's Open In's other items (IntelliJ's Reveal In, Open in Associated
+  GitHub accounts), and its `github.aliases` setting; the GitHub icon; Open on GitHub for a
+  repository version's tab, and in the editor tab's menu (Cerebro's has no Open In). A file's
+  history has it already: Cerebro's Show History is the Log, its commits' menu the Log's (IntelliJ's
+  `VcsHistoryActionsGroup` gives the commit's page there too); the editor's Open In's other items (IntelliJ's Reveal In, Open in Associated
   Application).
   - **A file's page** (added 2026-11-16), as IntelliJ's (`HostedGitRepositoryReferenceUtil`,
     `GHPathUtil`, read from its source), last in Open In (`RevealGroup`), as "View in Browser": the
