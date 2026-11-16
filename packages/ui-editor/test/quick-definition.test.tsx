@@ -131,9 +131,9 @@ describe('Quick Definition', () => {
     const lines = () => [...shown.querySelectorAll('.cm-line')].map((line) => line.textContent);
     // A list of them, each its name and file, in place of the name and file.
     expect([...list.options].map((o) => o.textContent)).toEqual([
-      'area  shape.ts',
-      'area  circle.ts',
-      'area  notes.txt',
+      'area\u00a0\u00a0shape.ts',
+      'area\u00a0\u00a0circle.ts',
+      'area\u00a0\u00a0notes.txt',
     ]);
     expect(count()).toBe('1/3');
     await userEvent.keyboard('{ArrowRight}');
