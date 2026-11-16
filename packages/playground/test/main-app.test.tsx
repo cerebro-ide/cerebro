@@ -2117,6 +2117,34 @@ describe('quick documentation', () => {
       expect.objectContaining({ worktree: '/r', path: '/r/src/h.ts', line: 0, column: 0 }),
     );
   });
+
+  it('opens a web link’s page, and shows a symbol’s documentation for its link, as IntelliJ’s', async () => {
+    answers.set('lsp.hover', {
+      text: 'See [MDN](https://developer.mozilla.org) and [total](file:///r/src/k.ts#1,10-1,15).',
+    });
+    answers.set('fs.read', { text: 'function total() {}\n' });
+    env().editor.open({ id: '/r/src/l.ts', title: 'l.ts' });
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}{Home}{/Control}{Control>}q{/Control}');
+    const shown = await vi.waitUntil(() =>
+      editorRoot()?.querySelector<HTMLElement>('.cerebro-quickDoc'),
+    );
+    const press = (label: string) => {
+      const link = [...shown.querySelectorAll<HTMLElement>('.cerebro-doc__link')].find(
+        (l) => l.textContent === label,
+      );
+      (link as HTMLElement).click();
+    };
+    press('MDN');
+    expect(calls).toContainEqual(['browse', 'https://developer.mozilla.org']);
+    answers.set('lsp.hover', { text: 'A total.' });
+    press('total');
+    await expect.poll(() => shown.textContent).toBe('A total.');
+    expect(host('/r').params('lsp.hover')).toContainEqual(
+      expect.objectContaining({ path: '/r/src/k.ts', line: 0, column: 9 }),
+    );
+    answers.delete('fs.read');
+  });
 });
 
 describe('parameter info', () => {
