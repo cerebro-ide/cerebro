@@ -1544,11 +1544,15 @@ export function viewCommits(range: HashRange): void {
 }
 
 /**
- * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD that
- * change the file (`path`, from the repository's top), as IntelliJ's file history.
+ * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD (or
+ * `revision`) that change the file (`path`, from the repository's top), as IntelliJ's file history;
+ * with `select`, that commit selected once they're read (Show in File History's).
  */
-export function showHistory(path: string, revision?: string): void {
-  wantedView.set((log) => log.showHistory(path, revision));
+export function showHistory(path: string, revision?: string, select?: string): void {
+  wantedView.set(async (log) => {
+    await log.showHistory(path, revision);
+    if (select !== undefined) await log.select(select);
+  });
   showLog();
 }
 

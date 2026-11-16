@@ -4746,8 +4746,13 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   with no annotation asked about, so Find Action, which asks with none, doesn't list them, as
   IntelliJ's, which take the annotation from the gutter's popup. Before, the first three were
   listed there, and running one threw (measured: a test asking with none).
-- **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
-  Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
+- **Show in File History** (added 2026-11-16), as the Log's `ShowInFileHistoryAnnotationAction`
+  (read from its source): the annotated file's history, as Git → Current File → Show History shows
+  it, from the revision annotated (HEAD for the file itself), the line's commit selected once it's
+  read. In the menu after Annotate Previous Revision, before Options, after a separator: IntelliJ
+  puts its extensions' actions there (`addActionsFromExtensions`), and that the Log's comes before
+  Git's Options (the platform's extensions before a plugin's) is a claim.
+- **Not yet:** Show Diff On Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

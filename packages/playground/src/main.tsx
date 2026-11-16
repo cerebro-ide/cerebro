@@ -484,6 +484,7 @@ setupBlame(services, {
     layout.toolWindows.show('git');
     showInLog(hash, path);
   },
+  showHistory,
 });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
 const jumpTo = (at: { path: string; line: number; column: number }) => {

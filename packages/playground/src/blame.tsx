@@ -323,6 +323,8 @@ export interface AnnotationContext {
   /** The line asked on, zero-based, in the file's text as annotated. */
   line: number;
   text: string;
+  /** The file annotated: its path in the worktree, and the commit it's at, if not the worktree's. */
+  annotated: { path: string; hash?: string };
 }
 
 let menuServices: MenuServices | undefined;
@@ -363,6 +365,7 @@ export function annotationFor(file: string): AskAnnotation | undefined {
           commit,
           line,
           text,
+          annotated: target,
         };
       };
       return present(blame, shown, {
@@ -394,6 +397,11 @@ export interface BlameSetup {
   open: (tab: Tab, line?: number) => void;
   /** Shows a commit in the Git tool window's Log, a file (in the worktree) selected in it. */
   showInLog: (hash: string, path: string) => void;
+  /**
+   * Shows a file's history in the Log, from a revision (HEAD if none), a commit in it selected:
+   * Show in File History's.
+   */
+  showHistory: (path: string, revision: string | undefined, select: string) => void;
 }
 
 /** IntelliJ's Options, in its order, toggled as it toggles them (`GitToggleAnnotationOptionsActionProvider`). */
@@ -535,6 +543,17 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
       setup.open(diffTab(path, { from: commit.previous?.hash ?? EMPTY_TREE, to: hash }));
     },
   });
+  // As IntelliJ's Log adds it (`ShowInFileHistoryAnnotationAction`): the annotated file's history,
+  // from the revision annotated, the line's commit selected.
+  commands.register<AnnotationContext | undefined>({
+    id: 'annotate.showInFileHistory',
+    label: 'Show in File History',
+    enabled: onAnnotation,
+    run: (c) => {
+      const { annotated: file, hash } = c as AnnotationContext;
+      setup.showHistory(file.path, file.hash, hash);
+    },
+  });
   for (const option of OPTIONS) {
     commands.register({
       id: `annotate.options.${option.id}`,
@@ -629,7 +648,7 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   });
   menus.contribute({ menu: 'main/git/file', item: { command: 'vcs.annotate' } });
   // On an annotation, as IntelliJ's: Close Annotations, Show Diff, View, Copy Revision Number;
-  // then Annotate Revision and Annotate Previous Revision; then Options.
+  // then Annotate Revision and Annotate Previous Revision; then Show in File History and Options.
   const first = ['annotate.close', 'annotate.showDiff', 'view', 'annotate.copyRevision'];
   first.forEach((id, order) => {
     menus.contribute({
@@ -642,6 +661,13 @@ export function setupBlame(services: MenuServices, setup: BlameSetup): void {
   for (const id of ['annotate.revision', 'annotate.previousRevision']) {
     menus.contribute({ menu: 'editor/annotation', item: { command: id }, group: 'b' });
   }
+  // Then the extensions' actions, after a separator (`addActionsFromExtensions`): the Log's Show in
+  // File History, then Git's Options (the platform's extensions before a plugin's, a claim).
+  menus.contribute({
+    menu: 'editor/annotation',
+    item: { command: 'annotate.showInFileHistory' },
+    group: 'c',
+  });
   menus.contribute({
     menu: 'editor/annotation',
     item: { submenu: 'editor/annotation/options', label: 'Options' },

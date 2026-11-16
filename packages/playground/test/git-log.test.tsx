@@ -1406,6 +1406,19 @@ describe('Show History, from Git → Current File', () => {
       filter: { paths: ['src/a.ts'] },
     });
   });
+
+  it('shows it from a revision, a commit in it selected: Show in File History’s', async () => {
+    git.log = history(3);
+    git.byPaths['old/a.ts'] = history(3, [], 'h');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    showHistory('old/a.ts', 'c1', 'h1');
+    await expect.poll(() => selectedCommit()?.commit.hash).toBe('h1');
+    expect(host.params('git.log').at(-1)).toMatchObject({
+      branches: ['c1'],
+      filter: { paths: ['old/a.ts'] },
+    });
+  });
 });
 
 describe('the branches', () => {
