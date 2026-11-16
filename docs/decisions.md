@@ -1895,8 +1895,7 @@ and Quick Documentation").
   (`http:`, `https:`) opens its page in the system's browser, as IntelliJ's (`BrowserUtil.browse`),
   added 2026-11-16. The app's main process opens it (Electron's `shell.openExternal`) and takes
   only those two, Claude's choice, open to change: a file's comments can hold any address. In a
-  browser nothing opens: following it in the page would replace the app. **Not yet:** a link to a
-  symbol (JSDoc's `{@link}`), to go to its declaration.
+  browser nothing opens: following it in the page would replace the app.
 - **Each keymap's keys,** from IntelliJ's files (`QuickJavaDoc`) and VS Code's sheets (Show
   Hover):
   - IntelliJ IDEA: Ctrl+Q. IntelliJ IDEA (macOS): F1 and Ctrl+J. IntelliJ IDEA Classic (macOS):
@@ -1908,7 +1907,7 @@ and Quick Documentation").
   - macOS System Shortcuts: Cmd+I and F1. Sublime Text, and Sublime Text (macOS): none (their files
     take it away).
   - Emacs and NetBeans: their files don't name it, so they keep IntelliJ IDEA's Ctrl+Q.
-- **Not yet:** opening links, and going to a symbol's definition from its documentation;
+- **Not yet:** going to a symbol's definition from its documentation (JSDoc's `{@link}`);
   IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
   documentation of the completion chosen in the completion list. (Signature help: see "Parameter
   Info".)
