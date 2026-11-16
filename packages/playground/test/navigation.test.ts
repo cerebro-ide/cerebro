@@ -422,13 +422,17 @@ describe('Call Hierarchy', () => {
     item: { n: 1 },
   };
 
-  it('is of the function at a place, and asks its file’s server what calls each', async () => {
-    answers = { 'lsp.prepareCalls': [area], 'lsp.incomingCalls': [] };
+  it('is of the function at a place, and asks its file’s server what calls each, and what each calls', async () => {
+    answers = { 'lsp.prepareCalls': [area], 'lsp.incomingCalls': [], 'lsp.outgoingCalls': [] };
     const hierarchy = await nav.callHierarchy(asked);
     expect(hierarchy).toMatchObject({ worktree: '/r', root: area });
     expect(host.params('lsp.prepareCalls')).toEqual([{ worktree: '/r', ...asked }]);
     expect(await hierarchy?.callers(area)).toEqual([]);
     expect(host.params('lsp.incomingCalls')).toEqual([
+      { worktree: '/r', path: '/r/a.ts', item: { n: 1 } },
+    ]);
+    expect(await hierarchy?.callees(area)).toEqual([]);
+    expect(host.params('lsp.outgoingCalls')).toEqual([
       { worktree: '/r', path: '/r/a.ts', item: { n: 1 } },
     ]);
   });
