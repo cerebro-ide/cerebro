@@ -7,10 +7,17 @@
 // Right between them, Delete or Backspace closes the selected item, and an item's mnemonic (with
 // the modifiers held, if any) chooses it.
 //
-// From IntelliJ's source (Switcher.kt, SwitcherActions.kt): all of the above.
+// With `search` (Recent Files'), typing narrows both lists, as IntelliJ's speed search
+// (`SwitcherSpeedSearch`): each item by its name, or its name and folder; the best match is
+// selected, in the list that has the selection first. What's typed shows above the lists;
+// Backspace takes a character back, and Escape forgets it before it closes the popup.
+//
+// From IntelliJ's source (Switcher.kt, SwitcherActions.kt, SwitcherSpeedSearch.kt): all of the
+// above.
 
 import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { makeObservable } from '@cerebro-ide/reactive';
+import { match } from './match.js';
 
 export interface SwitcherItem {
   label: string;
@@ -38,6 +45,19 @@ export interface SwitcherOptions<T extends SwitcherItem> {
   held?: readonly Modifier[];
   /** Closes an item, as Delete asks; returns whether it went from the list. */
   close?: (item: T) => boolean;
+  /** At the header's end, after the title: Recent Files' "Show edited only". */
+  header?: () => Child;
+  /** What each list says when it's empty. */
+  empty?: { left: string; right: string };
+  /** Typing narrows the lists (see above). */
+  search?: {
+    /** What the files list says when nothing matches. */
+    nothing: string;
+    /** Enter with nothing matched: given what was typed. */
+    none: (query: string) => void;
+  };
+  /** Sees each key first: true when it took it. */
+  onKey?: (event: KeyboardEvent) => boolean;
 }
 
 export interface SwitcherHandle<T> {
@@ -45,6 +65,8 @@ export interface SwitcherHandle<T> {
   readonly result: Promise<T | undefined>;
   readonly open: boolean;
   close(): void;
+  /** Lists other items on the right, `index` of them selected. */
+  replace(right: readonly T[], index: number): void;
 }
 
 /** Rows a Page Up or Page Down moves. */
@@ -67,6 +89,8 @@ class SwitcherState<T> {
   right: readonly T[];
   side: SwitcherSide;
   index: number;
+  /** What's typed, for speed search. */
+  query = '';
 
   constructor(options: SwitcherOptions<SwitcherItem & T>) {
     this.left = options.left;
@@ -77,9 +101,22 @@ class SwitcherState<T> {
   }
 }
 
-/** A side's items; the selected side's by default. */
-const listOf = <T,>(state: SwitcherState<T>, side: SwitcherSide = state.side): readonly T[] =>
-  side === 'left' ? state.left : state.right;
+/** How well an item matches what's typed: by its name, or its name and folder. */
+function score(item: SwitcherItem, query: string): number | undefined {
+  return (
+    match(query, item.label)?.score ??
+    (item.status === undefined ? undefined : match(query, `${item.label} ${item.status}`)?.score)
+  );
+}
+
+/** A side's items, those matching what's typed; the selected side's by default. */
+const listOf = <T extends SwitcherItem>(
+  state: SwitcherState<T>,
+  side: SwitcherSide = state.side,
+): readonly T[] => {
+  const all = side === 'left' ? state.left : state.right;
+  return state.query === '' ? all : all.filter((item) => score(item, state.query) !== undefined);
+};
 
 class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
   open = true;
@@ -120,6 +157,11 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
 
   close(): void {
     this.finish(undefined);
+  }
+
+  replace(right: readonly T[], index: number): void {
+    this.state.right = right;
+    this.select('right', index);
   }
 
   private finish(result: T | undefined): void {
@@ -185,10 +227,45 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     if (!item || !this.options.close?.(item)) return;
     const { state } = this;
     const list = listOf(state).filter((other) => other !== item);
-    if (state.side === 'left') state.left = list;
-    else state.right = list;
+    if (state.side === 'left') state.left = state.left.filter((other) => other !== item);
+    else state.right = state.right.filter((other) => other !== item);
     if (list.length > 0) this.select(state.side, Math.min(state.index, list.length - 1));
     else this.cross(state.side === 'left' ? 'right' : 'left');
+  }
+
+  /** What's typed changed: the best match selected, in the selected list first, as IntelliJ's. */
+  private search(query: string): void {
+    const { state } = this;
+    const item = this.selected();
+    state.query = query;
+    if (query === '') {
+      // The item selected stays so.
+      if (item) this.select(state.side, listOf(state).indexOf(item));
+      return;
+    }
+    const other = state.side === 'left' ? 'right' : 'left';
+    for (const side of [state.side, other] as const) {
+      const list = listOf(state, side);
+      if (list.length === 0) continue;
+      const scores = list.map((each) => score(each, query) as number);
+      this.select(side, scores.indexOf(Math.max(...scores)));
+      return;
+    }
+    state.index = -1;
+  }
+
+  /** A key for speed search: true when it took it. */
+  private searchKey(event: KeyboardEvent): boolean {
+    const { query } = this.state;
+    if (event.ctrlKey || event.metaKey || event.altKey) return false;
+    if (event.key.length === 1) this.search(query + event.key);
+    else if (query !== '' && (event.key === 'Backspace' || event.key === 'Escape')) {
+      this.search(event.key === 'Escape' ? '' : query.slice(0, -1));
+    } else if (query !== '' && event.key === 'Enter' && this.selected() === undefined) {
+      this.close();
+      this.options.search?.none(query);
+    } else return false;
+    return true;
   }
 
   /** Whether exactly the modifiers held as it opened are down (Shift aside). */
@@ -201,6 +278,10 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
   private readonly onKeyDown = (event: KeyboardEvent) => {
     // Keys stay in the Switcher: the app's shortcuts don't run while it's open.
     event.stopPropagation();
+    if (this.options.onKey?.(event) === true || (this.options.search && this.searchKey(event))) {
+      event.preventDefault();
+      return;
+    }
     const keys: Record<string, () => void> = {
       Tab: () => {
         this.go(!event.shiftKey);
@@ -268,48 +349,76 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
   };
 
   private list(side: SwitcherSide): Child {
-    const { state } = this;
+    const { state, options } = this;
+    /** What an empty list says: under a query that matches nothing, the files' search's words. */
+    const empty = () => {
+      const other = side === 'left' ? 'right' : 'left';
+      // Only speed search types a query.
+      if (state.query !== '' && listOf(state, other).length === 0) {
+        return side === 'right' ? (options.search as { nothing: string }).nothing : '';
+      }
+      return options.empty?.[side] ?? '';
+    };
     return (
       <div
         class={`cerebro-switcher__list cerebro-switcher__list--${side}`}
         role="listbox"
         data-side={side}
       >
-        {() =>
-          listOf(state, side).map((item, index) => (
-            <div
-              class={() =>
-                state.side === side && state.index === index
-                  ? 'cerebro-popup-item cerebro-popup-item--highlighted'
-                  : 'cerebro-popup-item'
-              }
-              role="option"
-              aria-selected={() => String(state.side === side && state.index === index)}
-              data-index={index}
-              on:mousedown={(event) => {
-                // Keeps the focus in the Switcher.
-                event.preventDefault();
-              }}
-              on:click={() => {
-                this.finish(item);
-              }}
-            >
-              <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
-              <span class="cerebro-popup-item__label">{item.label}</span>
-              <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
-              <span class="cerebro-popup-item__shortcut">{item.mnemonic ?? ''}</span>
-            </div>
-          ))
+        {() => {
+          const items = listOf(state, side);
+          return items.length > 0 ? (
+            items.map((item, index) => this.row(side, item, index))
+          ) : (
+            <div class="cerebro-switcher__empty">{empty()}</div>
+          );
+        }}
+      </div>
+    );
+  }
+
+  private row(side: SwitcherSide, item: T, index: number): Child {
+    const { state } = this;
+    const selected = () => state.side === side && state.index === index;
+    return (
+      <div
+        class={() =>
+          selected() ? 'cerebro-popup-item cerebro-popup-item--highlighted' : 'cerebro-popup-item'
         }
+        role="option"
+        aria-selected={() => String(selected())}
+        data-index={index}
+        on:mousedown={(event) => {
+          // Keeps the focus in the Switcher.
+          event.preventDefault();
+        }}
+        on:click={() => {
+          this.finish(item);
+        }}
+      >
+        <span class="cerebro-popup-item__icon">{item.icon?.()}</span>
+        <span class="cerebro-popup-item__label">{item.label}</span>
+        <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
+        <span class="cerebro-popup-item__shortcut">{item.mnemonic ?? ''}</span>
       </div>
     );
   }
 
   private view(): Child {
+    const { state } = this;
     return [
-      <div class="cerebro-switcher__title">{this.options.title}</div>,
+      <div class="cerebro-switcher__header">
+        <div class="cerebro-switcher__title">{this.options.title}</div>
+        {this.options.header?.()}
+      </div>,
+      () =>
+        state.query === '' ? null : (
+          <div class="cerebro-switcher__search" role="status">
+            {state.query}
+          </div>
+        ),
       <div class="cerebro-switcher__lists">
-        {this.state.left.length > 0 ? this.list('left') : null}
+        {state.left.length > 0 ? this.list('left') : null}
         {this.list('right')}
       </div>,
       <div class="cerebro-switcher__status">{() => this.selected()?.status ?? ''}</div>,

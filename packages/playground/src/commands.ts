@@ -426,7 +426,7 @@ export function setupCommands(
       (path) => `${prefix}${path}`,
     );
   };
-  const everywhere = (tab: SearchTab) => {
+  const everywhere = (tab: SearchTab, text?: string) => {
     refreshFiles();
     return searchEverywhere(
       {
@@ -436,6 +436,7 @@ export function setupCommands(
         open: navigation.openAt,
       },
       tab,
+      text,
     );
   };
   const entries: { id: string; label: string; tab: SearchTab; index?: boolean; icon?: string }[] = [
@@ -453,7 +454,8 @@ export function setupCommands(
       ...(entry.icon === undefined ? {} : { icon: entry.icon }),
       // Classes and Symbols are the host's index's: the app's only.
       ...(entry.index ? { enabled: navigation.available } : {}),
-      run: () => everywhere(entry.tab),
+      // Started with a text (Recent Files' typed, as IntelliJ's `PREDEFINED_TEXT`), or none.
+      run: (context?: { text?: string }) => everywhere(entry.tab, context?.text),
     });
   }
   commands.register({

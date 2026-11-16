@@ -2648,6 +2648,32 @@ describe('the editor’s file', () => {
     await userEvent.keyboard('{Escape}');
   });
 
+  it('opens Recent Files as IntelliJ’s Switcher: speed search, and Go to File with what’s typed', async () => {
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    const left = [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')];
+    expect(left.length).toBeGreaterThan(0);
+    expect(
+      left.map((row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent),
+    ).toEqual(left.map(() => ''));
+    expect(q('.cerebro-switcher__header').textContent).toBe('Recent FilesShow edited onlyCtrl+E');
+    await userEvent.keyboard('zzqq');
+    expect(q('[data-side="right"] .cerebro-switcher__empty').textContent).toBe(
+      "Press 'Enter' to search in Project",
+    );
+    await userEvent.keyboard('{Enter}');
+    await expect
+      .poll(
+        () => (document.querySelector('.cerebro-popup__search') as HTMLInputElement | null)?.value,
+      )
+      .toBe('zzqq');
+    expect(
+      document.querySelector('.playground-find__scope[aria-selected="true"]')?.textContent,
+    ).toBe('Files');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
   it('lists diffs in Recent Files when they’re always in the navigation history', async () => {
     answers.set('git.diff', { original: 'a\n', text: 'b\n' });
     env().editor.open(diffTab('/r/src/diffed.ts'));

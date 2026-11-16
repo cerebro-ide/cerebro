@@ -2316,3 +2316,9 @@ body,
 .playground-mnemonics__key--current::before {
   background: var(--cerebro-mnemonic-current);
 }
+
+/* Recent Files' key for Show edited only, beside it, muted as IntelliJ's context help. */
+.playground-recent__key {
+  color: var(--cerebro-text-muted);
+  white-space: nowrap;
+}

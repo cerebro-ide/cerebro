@@ -41,6 +41,27 @@ describe('the Switcher’s command', () => {
     expect(selected()).toBe('More');
   });
 
+  it('opens Recent Files with the tool windows, without their mnemonics, and no files with no environment', async () => {
+    commands.execute('view.recentFiles');
+    expect(labels('left')).toEqual(['|More||', '|plain||']);
+    expect(
+      document.querySelector('[data-side="right"] .cerebro-switcher__empty')?.textContent,
+    ).toBe('No recent files');
+    // No keymap: no key beside Show edited only, and none flips it.
+    expect(document.querySelector('.cerebro-switcher__header')?.textContent).toBe(
+      'Recent FilesShow edited only',
+    );
+    await userEvent.keyboard('{Control>}e{/Control}');
+    expect(
+      (document.querySelector('.playground-recent__edited input') as HTMLInputElement).checked,
+    ).toBe(false);
+    await userEvent.keyboard('{Escape}');
+    commands.execute('view.recentChangedFiles');
+    expect(
+      (document.querySelector('.playground-recent__edited input') as HTMLInputElement).checked,
+    ).toBe(true);
+  });
+
   it('shows a tool window chosen, its content focused', async () => {
     commands.execute('view.switcher');
     await userEvent.keyboard('{Enter}');

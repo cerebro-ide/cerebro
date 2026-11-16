@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files, Go to Line, Select Opened File, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
@@ -1297,6 +1297,25 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   place keeps the line at the top of its editor, and going back puts that line at the top again,
   rather than centring the caret. The editor reports the line as it scrolls (`onScroll`), read
   once CodeMirror has measured the lines: before, their heights are estimates.
+- **Recent Files is IntelliJ's Switcher** (changed 2026-11-16), as IntelliJ's Recent Files is
+  (`Switcher.kt` of `recentFiles/frontend`, the implementation it uses unless a registry key says
+  otherwise; read from its source). It was a list with a search field.
+  - **The tool windows on the left,** as the Switcher's, without their mnemonics
+    (`ide.recent.files.tool.window.mnemonics` is off). The files on the right, as before, the first
+    not shown now selected. It stays open until Enter or Escape, as when opened from a menu.
+  - **Typing narrows both lists,** IntelliJ's speed search (`SwitcherSpeedSearch`): each item by
+    its name, or its name and folder, matched as the pickers match. The best match is selected, in
+    the list that has the selection first. What's typed shows above the lists. Backspace takes a
+    character back, and Escape forgets what's typed before it closes the popup.
+  - **With nothing matched,** the files' list says "Press 'Enter' to search in Project", and
+    Enter opens Go to File with what was typed (`tryToOpenFileSearch`). The lists' other words are
+    IntelliJ's too: "No recent files" and "No tool windows" (`IdeBundle`).
+  - **Show edited only** stays in the header, with Recent Files' key beside it, muted, as IntelliJ
+    shows its toggle's key.
+  - **Not yet:** the matches highlighted; IntelliJ's Recent Locations item under the tool windows
+    (Cerebro has no Recent Locations); Delete taking a file from the list; selecting several.
+  - Claude's choice, open to change: matching as the pickers match (the folder after the name),
+    rather than IntelliJ's `SpeedSearchComparator`.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
 - **A file chosen from a list takes the focus** (changed 2026-11-01): after Go to File, Recent
@@ -1342,7 +1361,7 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
 - **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  Recent Files lacks IntelliJ's tool windows column. The Options menu's other choices (Open Files
+  The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 

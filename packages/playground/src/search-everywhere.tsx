@@ -66,9 +66,13 @@ function grouped(results: readonly Result[], group: string | undefined): Result[
 }
 
 /** Opens Search Everywhere on a tab. */
-export async function searchEverywhere(sources: SearchSources, start: SearchTab): Promise<void> {
+export async function searchEverywhere(
+  sources: SearchSources,
+  start: SearchTab,
+  typed = '',
+): Promise<void> {
   const tab = signal(start);
-  const query = signal('');
+  const query = signal(typed);
   const classes = signal<Result[]>([]);
   const symbols = signal<Result[]>([]);
   const text = signal<Result[]>([]);
@@ -189,8 +193,11 @@ export async function searchEverywhere(sources: SearchSources, start: SearchTab)
     mores.set({});
     search();
   };
+  // The picker reports a query as it changes: a text it starts with is asked for here.
+  if (typed !== '') search();
   const chosen = await openPicker<Result>({
     label: 'Search Everywhere',
+    query: typed,
     placeholder: 'Search everywhere',
     position: 'top',
     width: 800,
