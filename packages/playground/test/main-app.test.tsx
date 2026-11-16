@@ -2262,6 +2262,20 @@ describe('the Structure tool window', () => {
     expect(document.activeElement?.closest('.cerebro-tool-window')).toBe(window);
     await userEvent.keyboard('{Enter}');
     await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    // Its title's View Options and Options, as IntelliJ's new UI.
+    const buttons = [...window.querySelectorAll('[data-menu]')].map((b) => [
+      b.getAttribute('aria-label'),
+      b.getAttribute('data-menu'),
+    ]);
+    expect(buttons).toEqual([
+      ['View Options', 'structure/view'],
+      ['Options', 'structure/options'],
+    ]);
+    await userEvent.click(window.querySelector('[data-menu="structure/view"]') as HTMLElement);
+    await expect
+      .poll(() => q('.cerebro-menu .cerebro-menu-item__label').textContent)
+      .toBe('Alphabetically');
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(stripe('structure'));
   });
 });

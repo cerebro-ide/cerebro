@@ -3589,8 +3589,22 @@ to change.
 - **Its empty texts are IntelliJ's** (LangBundle): "No structure" with no file or no language
   server, "Structure is empty" for a file with no symbols. In the browser, "The structure shows in
   the desktop app.", as the Log's.
-- **Not yet:** its toolbar (sorting, Autoscroll toggles, Show Fields and Inherited, Expand and
-  Collapse All), and following the caret when Autoscroll from Source is turned on.
+- **Its title's buttons** (added 2026-11-16), as IntelliJ's new UI (`StructureViewWrapperImpl`:
+  `getViewActions` in View Options, `getDotsActions` in the gear's menu; words from its bundles):
+  - View Options (Group By's icon): a Sort heading over Alphabetically (`Sorter.ALPHA_SORTER`,
+    names compared ignoring case as Java's `compareToIgnoreCase`, by the characters' codes), off to
+    start with. Sorted, the tree is read again, what's expanded and selected kept.
+  - Options (the gear's menu, ⋮ as the Project window's): Expand All and Collapse All, then
+    Navigate with Single Click (Autoscroll to Source, on) and Always Select Opened Element
+    (Autoscroll from Source, off). With it on, a second after the caret moves (IntelliJ's alarm),
+    the innermost symbol holding the caret is selected, its parents opened, and not shown in the
+    editor again; outside every symbol, the selection stays. As IntelliJ's, turning it on waits for
+    the caret to move.
+  - Kept in the browser's storage, one for every project, where IntelliJ keeps them per project
+    (Claude's choice, open to change).
+- **Not yet:** the language's own filters and groupings in View Options (Show Fields, Inherited,
+  for JavaScript and TypeScript): WebStorm's are in its JavaScript plugin, which isn't open
+  source, so they can't be read.
 
 ## Scratch files (2026-11-14)
 
