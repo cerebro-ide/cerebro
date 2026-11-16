@@ -102,7 +102,7 @@ files, from the first; read from its source), in the decision "The diff viewer, 
 package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
 dialog's list, a table of its own, already takes several.
 
-### The editor's actions as commands (proposed: a reshaping, for Ido's word)
+### The editor's actions as commands (Ido: "Yes, commands first", 2026-11-16; in #414 and #415)
 
 The editor's own actions (Reformat Code, Comment with Line Comment, Go to Implementation, Next
 Method, Move Line and the rest in `EDITOR_ACTIONS`) are keys the keymap hands to CodeMirror, not
