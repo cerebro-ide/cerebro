@@ -146,6 +146,8 @@ export const INTELLIJ: KeymapPreset = {
     // Branches and New Branch: given where git's actions are declared (intellij.vcs.git.backend.xml)
     // and in `$default`.
     'git.branches': ['Ctrl+Shift+~'],
+    // New Branch's, which the Log's commit menu's takes while the commits have the keyboard.
+    'log.newBranch': ['Ctrl+Alt+N'],
     'git.newBranch': ['Ctrl+Alt+N'],
     'changes.amend': ['Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Ctrl+B'],
@@ -301,6 +303,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'vcs.update': ['Meta+T'],
     // Branches' key is removed on macOS where it's declared; New Branch's swapped from `$default`.
     'git.branches': [],
+    // New Branch's, which the Log's commit menu's takes while the commits have the keyboard.
+    'log.newBranch': ['Meta+Alt+N'],
     'git.newBranch': ['Meta+Alt+N'],
     'changes.amend': ['Ctrl+Alt+M'],
     [EDITOR_ACTIONS.goToDefinition]: ['Meta+B'],

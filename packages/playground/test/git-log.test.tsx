@@ -29,6 +29,7 @@ import {
   Log,
   type LogCommit,
   type LogCommitContext,
+  commitAt,
   readFilesSettings,
   selectedCommit,
 } from '../src/git-log.js';
@@ -2716,6 +2717,18 @@ describe('Go to Parent and Child Commit', () => {
     // Not with the keyboard elsewhere.
     tree().blur();
     expect(commands.isEnabled('log.goToChild')).toBe(false);
+  });
+
+  it('act on the commit right-clicked, or with the keys, the one selected', async () => {
+    git.log = merged();
+    mount();
+    await expect.poll(subjects).toHaveLength(4);
+    await userEvent.click(rows()[1] as HTMLElement);
+    expect(commitAt(undefined)?.commit.subject).toBe('Change 1');
+    const context = { commit: { hash: 'x' } };
+    expect(commitAt(context)).toBe(context);
+    tree().blur();
+    expect(commitAt(undefined)).toBeUndefined();
   });
 
   it('choose among several in a numbered popup at the row, as IntelliJ’s', async () => {

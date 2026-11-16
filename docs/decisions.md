@@ -2391,9 +2391,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
   against them once they're in: measured, a branch made since the popup last read them wasn't
   caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
-  Branch… went nowhere while they were read. **Not yet:** its shortcut,
-  New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
-  first enabled command bound, so Git → New Branch… would take it.
+  Branch… went nowhere while they were read. Its key (added 2026-11-16) is New Branch's (Ctrl+Alt+N,
+  Cmd+Option+N on macOS) while the commits have the keyboard, the selected commit's, as IntelliJ's
+  (`use-shortcut-of="Git.CreateNewBranch"`): IntelliJ's keymaps bind it before Git → New Branch…,
+  which takes the key elsewhere, as a chord runs the first enabled command bound.
 - **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
   `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
   the commits have the keyboard. The selection moves to the commit's parent or child, loading pages

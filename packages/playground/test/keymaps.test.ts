@@ -55,6 +55,18 @@ describe('the ready-made keymaps', () => {
     expect(keymap.shortcutsFor('diff.nextDifference')).toEqual(['Meta+]', 'F7']);
   });
 
+  it('give the Log’s New Branch New Branch’s key first, as IntelliJ’s use-shortcut-of', () => {
+    for (const [platform, preset] of [
+      ['other', INTELLIJ],
+      ['mac', INTELLIJ_MAC],
+    ] as const) {
+      const keymap = new Keymap(platform);
+      keymap.setPreset(preset);
+      const [key] = keymap.shortcutsFor('git.newBranch');
+      expect(keymap.commandsFor(key as string)).toEqual(['log.newBranch', 'git.newBranch']);
+    }
+  });
+
   it('swap Ctrl and Meta for a keymap made for macOS from another', () => {
     const mac = forMac({
       id: 'x',

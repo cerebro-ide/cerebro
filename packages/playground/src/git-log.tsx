@@ -1423,6 +1423,18 @@ export function selectedCommit(): LogCommitContext | undefined {
   return commit && commitContext(at.log, commit, () => refresh(at.log, at.branches));
 }
 
+/**
+ * What a commit's action acts on: the commit right-clicked (the menu's context), or with the keys,
+ * the one selected while the commits have the keyboard.
+ */
+export function commitAt(context: unknown): LogCommitContext | undefined {
+  if ((context as Partial<LogCommitContext> | undefined)?.commit)
+    return context as LogCommitContext;
+  return document.activeElement?.closest('.playground-log__list') == null
+    ? undefined
+    : selectedCommit();
+}
+
 /** From the Log's toolbar, or a shortcut while it has the keyboard. */
 const here = (context: unknown) =>
   (context as { source?: string } | undefined)?.source === 'log' ||
@@ -1984,14 +1996,9 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.goToChild', false],
     ['log.goToParent', true],
   ] as const) {
-    /** The commit right-clicked, or with the keys, the one selected. */
     const target = (context: unknown) => {
       const at = shown.peek();
-      const commit =
-        (context as Partial<LogCommitContext> | undefined)?.commit ??
-        (document.activeElement?.closest('.playground-log__list') == null
-          ? undefined
-          : selectedCommit()?.commit);
+      const commit = commitAt(context)?.commit;
       return at && commit && { log: at.log, commit };
     };
     commands.register({

@@ -1044,6 +1044,9 @@ describe('New Branch', () => {
     it('makes a branch from the commit, as IntelliJ’s, and reads the Log again', async () => {
       expect(menus.entries('log/commit')).toContainEqual({ command: 'log.newBranch' });
       expect(commands.get('log.newBranch')).toMatchObject({ label: 'New Branch', dialog: true });
+      // From the menu, or with the keys while the Log's commits have them: not elsewhere.
+      expect(commands.isEnabled('log.newBranch', at([]))).toBe(true);
+      expect(commands.isEnabled('log.newBranch')).toBe(false);
       const done = run(['tag: refs/tags/v1']);
       const box = await dialog();
       expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
