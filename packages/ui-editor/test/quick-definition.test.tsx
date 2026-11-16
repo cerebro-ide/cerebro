@@ -141,10 +141,14 @@ describe('Quick Definition', () => {
     // Round from either end.
     await userEvent.keyboard('{ArrowLeft}{ArrowLeft}');
     expect([count(), lines()]).toEqual(['3/3', ['area']]);
-    (shown.querySelector('[aria-label="Forward"]') as HTMLElement).click();
+    await userEvent.click(shown.querySelector('[aria-label="Forward"]') as HTMLElement);
     expect(count()).toBe('1/3');
-    (shown.querySelector('[aria-label="Back"]') as HTMLElement).click();
+    await userEvent.click(shown.querySelector('[aria-label="Back"]') as HTMLElement);
     expect(count()).toBe('3/3');
+    // A press on them leaves the keyboard in the editor, where Left and Right are the popup's.
+    await userEvent.keyboard('{ArrowRight}');
+    expect(count()).toBe('1/3');
+    await userEvent.keyboard('{ArrowLeft}');
     await userEvent.selectOptions(list, '1');
     expect(count()).toBe('2/3');
     // The keyboard back in the editor: Enter opens the one shown.
