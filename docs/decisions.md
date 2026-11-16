@@ -3055,9 +3055,23 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   window knows of no change (IntelliJ's `hasReversibleFiles`); else it reads them as it runs. A
   difference: IntelliJ's dialog has a checkbox for each file, so "all of them" can be cut down
   there; Cerebro's lists them, and rolls them all back (as its Commit window's Rollback does).
+- **Show Current Revision** (added 2026-11-16), after Show History, as IntelliJ's
+  `Show.Current.Revision` (`ShowBaseRevisionAction`, read from its source): the file's last commit
+  in IntelliJ's words (`current.version.text`): the file's name, "Current version is {hash}.",
+  "Modified by {author}", the date as the Log's, and the message. On when Show Diff is. Where the
+  file's editor has the keyboard, it's a hint at the caret, as IntelliJ's `showInBestPositionFor`;
+  from the Project view or a tab's menu, it's centred in the window
+  (`showCenteredInCurrentWindow`), until a click elsewhere or Escape. Claude's choices, open to
+  change:
+  - It looks like the editor's other hints (the app's tooltips); IntelliJ's has the notification
+    background (`NOTIFICATION_BACKGROUND`), not measured.
+  - The message keeps its lines. IntelliJ's formats it as HTML with links to issues
+    (`IssueLinkHtmlRenderer`), which Cerebro has no setting for.
+  - Its text can be selected and copied. IntelliJ's is an editor pane, so it can be too (a claim:
+    not tried).
 - **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
-  for Selection, Show Current Revision, Revert Selected Changes for the file, Revert Resolved, the
-  staging area's, Clone….
+  for Selection, Revert Selected Changes for the file, Revert Resolved, the staging area's,
+  Clone….
 
 ## A Markdown file's preview (2026-11-13)
 

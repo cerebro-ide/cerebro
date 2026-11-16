@@ -2,6 +2,7 @@ export {
   hasEditorAction,
   runEditorAction,
   selectedLines,
+  showHintIn,
   selectionIn,
   type EditorAction,
 } from './actions.js';

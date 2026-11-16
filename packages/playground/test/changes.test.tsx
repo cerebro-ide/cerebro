@@ -1,7 +1,7 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
-import { DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
+import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
@@ -23,6 +23,7 @@ import {
   type Turn,
 } from '../src/changes.js';
 import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
+import { formatCommitDate } from '../src/dates.js';
 import { documentFor, unsavedFiles } from '../src/documents.js';
 import { projectOf, useProjects, workspace, type ProjectState } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
@@ -698,6 +699,95 @@ describe('Git → Current File from a tab’s menu', () => {
     expect(commands.get('git.file.showDiff')?.visible?.({ ...menu, tab: '/elsewhere/a.ts' })).toBe(
       false,
     );
+  });
+});
+
+describe('the Git submenu’s Show Current Revision', () => {
+  const id = 'git.file.showCurrentRevision';
+  const words = [
+    'app.ts',
+    '',
+    `Current version is ${'b'.repeat(40)}.`,
+    'Modified by Ada',
+    formatCommitDate(0),
+    'Second\n\nWhy it changed',
+  ];
+  const centred = () => document.querySelector('.playground-centred-popup');
+  /** A popup's lines, as IntelliJ's `<br/>`s part them. */
+  const lines = (element: Element) => {
+    const all = [''];
+    for (const node of element.firstElementChild?.childNodes ?? []) {
+      if (node.nodeName === 'BR') all.push('');
+      else all.push(`${all.pop() as string}${node.textContent ?? ''}`);
+    }
+    return all;
+  };
+
+  it('shows the file’s last commit at the caret of its editor, in IntelliJ’s words', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(() => <CodeEditor path="src/main/app.ts" text={'a\nb\n'} />, box);
+    dispose = () => {
+      handle.dispose();
+    };
+    const root = (box.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    const hint = () => root.querySelector('.cerebro-hint');
+    await expect.poll(hint).not.toBeNull();
+    expect(lines(hint() as Element)).toEqual(words);
+    expect(centred()).toBeNull();
+    // The latest commit, asked of git for the file.
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: wt,
+      skip: 0,
+      max: 1,
+      filter: { paths: ['src/main/app.ts'] },
+    });
+  });
+
+  it('shows it centred from the Project view or a tab’s menu, until Escape or a click elsewhere', async () => {
+    vi.mocked(projectTarget).mockReturnValue({
+      path: `${wt}/src/main/app.ts`,
+      name: 'app.ts',
+      kind: 'file',
+    });
+    await commands.get(id)?.run(undefined);
+    expect(lines(centred() as Element)).toEqual(words);
+    // A click in it keeps it, one elsewhere closes it.
+    await userEvent.click(centred() as HTMLElement);
+    expect(centred()).not.toBeNull();
+    await userEvent.click(document.body, { position: { x: 5, y: 5 } });
+    expect(centred()).toBeNull();
+    vi.mocked(projectTarget).mockReset();
+    // A tab's, not the active one.
+    activeTab = `${wt}/notes.txt`;
+    const menu = { group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true as const };
+    await commands.get(id)?.run(menu);
+    expect(centred()).not.toBeNull();
+    await userEvent.keyboard('a');
+    expect(centred()).not.toBeNull();
+    await userEvent.keyboard('{Escape}');
+    expect(centred()).toBeNull();
+  });
+
+  it('is off when Show Diff is; shows nothing with no commit, and says on the console when git fails', async () => {
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    // Shown all the same, as IntelliJ's.
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    activeTab = `${wt}/unchanged.ts`;
+    await commands.get(id)?.run(undefined);
+    expect(centred()).toBeNull();
+    git.failing = 'git.log';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await commands.get(id)?.run(undefined);
+    expect(logged.mock.calls[0]?.[0]).toBe('Reading the file’s current revision failed');
+    expect(centred()).toBeNull();
   });
 });
 

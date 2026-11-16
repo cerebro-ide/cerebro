@@ -33,7 +33,7 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { diffSource } from '@cerebro-ide/ui-editor';
+import { diffSource, showHintIn } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
 import { showFolderDiffWithRef } from './diff-with-working-tree.js';
@@ -835,6 +835,61 @@ async function pickRef(host: Host, worktree: string): Promise<string | undefined
  * author, searchable by them; the highlighted one's commit message below. The first thousand, as
  * the Log's Paths filter finds them: renames aren't followed, as IntelliJ's file history's are.
  */
+/**
+ * A file's current revision in IntelliJ's words (`VcsBundle`'s `current.version.text`): its name,
+ * then the commit's hash, author, date (`formatPrettyDateTime`) and message.
+ */
+function currentRevision(path: string, commit: LogCommit): HTMLElement {
+  const message = (
+    <span>{[commit.subject, commit.body].filter(Boolean).join('\n\n')}</span>
+  ) as HTMLElement;
+  // Its lines kept: set here, as the editor's hint is in its shadow root, out of the page's CSS.
+  message.style.whiteSpace = 'pre-wrap';
+  return (
+    <div>
+      {path.slice(path.lastIndexOf('/') + 1)}
+      <br />
+      <br />
+      {`Current version is ${commit.hash}.`}
+      <br />
+      {`Modified by ${commit.author}`}
+      <br />
+      {formatCommitDate(commit.time)}
+      <br />
+      {message}
+    </div>
+  ) as HTMLElement;
+}
+
+/**
+ * Shows `content` centred in the window, as IntelliJ's `showCenteredInCurrentWindow`, until a click
+ * elsewhere or Escape (a popup's defaults, `cancelOnClickOutside` and the cancel key).
+ */
+function showCentred(content: Node): void {
+  const popup = (
+    <div class="playground-centred-popup cerebro-selectable" role="tooltip">
+      {content}
+    </div>
+  ) as HTMLElement;
+  const close = () => {
+    popup.remove();
+    document.removeEventListener('pointerdown', outside, true);
+    document.removeEventListener('keydown', escape, true);
+  };
+  const outside = (event: PointerEvent) => {
+    if (!popup.contains(event.target as Node)) close();
+  };
+  const escape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  };
+  document.addEventListener('pointerdown', outside, true);
+  document.addEventListener('keydown', escape, true);
+  document.body.append(popup);
+}
+
 async function pickRevision(host: Host, worktree: string, path: string) {
   const commits = (await host.request('git.log', {
     worktree,
@@ -1096,6 +1151,38 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     enabled: (c) => commands.isEnabled('git.file.showDiff', c),
     run: (c) => {
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
+    },
+  });
+  // The Git submenu's Show Current Revision: IntelliJ's `Show.Current.Revision`
+  // (`ShowBaseRevisionAction`, read from its source). The file's last commit, in IntelliJ's words,
+  // at the caret where its editor has the keyboard (`showInBestPositionFor`), else centred in the
+  // window. On when Show Diff is, as IntelliJ's (`AbstractShowDiffAction.isEnabled`).
+  commands.register({
+    id: 'git.file.showCurrentRevision',
+    label: 'Show Current Revision',
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: async (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
+      // The editor the menu or the key is from; not from a tab's menu.
+      const at = (c as TabContext | undefined)?.tabMenu ? undefined : target();
+      let commits: LogCommit[];
+      try {
+        commits = (await (hostFor(file.worktree) as Host).request('git.log', {
+          worktree: file.worktree,
+          skip: 0,
+          max: 1,
+          filter: { paths: [file.path] },
+        })) as LogCommit[];
+      } catch (error) {
+        console.error('Reading the file’s current revision failed', error);
+        return;
+      }
+      const commit = commits[0];
+      // None (IntelliJ's description null): nothing shown.
+      if (!commit) return;
+      const message = currentRevision(file.path, commit);
+      if (!(at && showHintIn(at, message))) showCentred(message);
     },
   });
   // The Git submenu's Rollback…: IntelliJ's `ChangesView.Revert` (`RollbackAction`, read from its

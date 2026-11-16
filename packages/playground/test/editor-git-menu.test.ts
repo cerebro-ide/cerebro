@@ -31,6 +31,7 @@ describe('the editor’s Git submenu', () => {
       'git.file.compareWithRevision',
       'git.file.compareWithBranch',
       'git.file.showHistory',
+      'git.file.showCurrentRevision',
       'git.file.rollback',
       '-',
       'vcs.resolveConflicts',
