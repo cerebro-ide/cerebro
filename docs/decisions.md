@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size
 - [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
@@ -1441,8 +1441,9 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     `showNavigationBar`, true, and `navigationBarLocation`, `BOTTOM`), all read from its source.
     Cerebro's file path stands where that bar is. The Bookmarks window's gives no numbers anyway
     (`BookmarksView.go` returns none).
-- **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
-  End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
+- Move Caret to Code Block Start and End are places too (added 2026-11-16), as IntelliJ's
+  (`includeCurrentCommandAsNavigation`; see "Move Line Up and Down").
+- **Not yet:** The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
@@ -3239,6 +3240,28 @@ saving").
   macOS), and no page keys; Visual Studio's Ctrl+M C and Ctrl+M Ctrl+C, and on macOS Cmd+Shift+Up
   and Down to select; NetBeans' Alt+Shift+Home and End; no page keys in Eclipse's.
   **Difference:** IntelliJ's go by visual lines (a wrapped line's rows); these by whole lines.
+- **Move Caret to Code Block Start and End** (added 2026-11-16), IntelliJ's `EditorCodeBlockStart`
+  and `EditorCodeBlockEnd` and their `WithSelection` forms (`CodeBlockUtil`, read from its source),
+  which CodeMirror hasn't. With the caret on an indent guide (its column the guide's,
+  `getCaretIndentGuide`), to where the guide comes down from or stops, at its column; Start from
+  the guide's own first line goes by the braces. Elsewhere by the structural braces: Start back to
+  just after the `{` the caret is in, or from just after a `}` to before its `{`; End on to just
+  before the `}` the caret is in, or from just before a `{` to after its `}`. The syntax tree's
+  tokens, so a brace in a string or a comment isn't one. The guides are computed as IntelliJ's
+  (`IndentGuides`, `IndentGuideCalculator`: a blank or commented line takes the indent around it),
+  as its editor does with guides shown, its default, though Cerebro's editor doesn't draw them. A
+  place for Back. With no block, the caret stays (End drops the selection, as IntelliJ's). Each
+  caret moves. They're in no menu, as IntelliJ's. In a read-only editor too.
+  - Which braces are structural: JSON's braces and brackets (`JsonBraceMatcher`, read); the other
+    languages' braces, a claim (JavaScript's and CSS's matchers aren't in IntelliJ's open source).
+    A language's own `CodeBlockProvider` or `CodeBlockSupportHandler` isn't followed (none read
+    for these languages).
+  - Keys, from IntelliJ's keymap files: Ctrl+[ and Ctrl+], with Shift to select (`$default`); on
+    macOS Cmd+Alt+[ and ], with Shift; Emacs adds Ctrl+Alt+[ and ]; Eclipse's End is Ctrl+] (on
+    macOS also Ctrl+Shift+P); Visual Studio's Start is Alt+Shift+[, its End none, and Ctrl+Alt+Shift+[
+    and ] to select; none in Sublime Text's (on macOS, only the Selection ones, its parent's).
+    VS Code's keymap leaves out the keys its Fold and Unfold have (Ctrl+Shift+[ and ], Cmd+Alt+[ and
+    ] on macOS), as it does Next Method's.
 - **Cyclic Expand Word** (added 2026-11-13), IntelliJ's `HippieCompletion` and
   `HippieBackwardCompletion` (`HippieWordCompletionHandler`, read from its source), which
   CodeMirror hasn't: the word before the caret completed with another of the text's that starts

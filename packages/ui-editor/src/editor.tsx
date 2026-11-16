@@ -63,6 +63,7 @@ import { moveLinesDown, moveLinesUp } from './move-line.js';
 import { splittingLine, startingNewLine, startingNewLineBefore } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
+import { movingToCodeBlock } from './code-block.js';
 import { movingToPage, scrollingBy, scrollingToCenter } from './scroll.js';
 import { expandingWord, expandingWordBackward, expansion } from './expand-word.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
@@ -324,6 +325,14 @@ export interface EditorKeys {
   expandWordBackward?: readonly string[];
   /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
   matchBrace?: readonly string[];
+  /**
+   * Move Caret to Code Block Start and End: to the start or end of the block the caret's in; or
+   * selecting to it.
+   */
+  codeBlockStart?: readonly string[];
+  codeBlockEnd?: readonly string[];
+  codeBlockStartWithSelection?: readonly string[];
+  codeBlockEndWithSelection?: readonly string[];
   /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
   extendSelection?: readonly string[];
   shrinkSelection?: readonly string[];
@@ -380,6 +389,10 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   expandWord: ['Alt-/'],
   expandWordBackward: ['Alt-Shift-/'],
   matchBrace: ['Mod-Shift-m'],
+  codeBlockStart: ['Mod-['],
+  codeBlockEnd: ['Mod-]'],
+  codeBlockStartWithSelection: ['Mod-Shift-['],
+  codeBlockEndWithSelection: ['Mod-Shift-]'],
   extendSelection: ['Mod-w'],
   shrinkSelection: ['Mod-Shift-w'],
   scrollUp: ['Ctrl-ArrowUp'],
@@ -1090,6 +1103,18 @@ export function CodeEditor(props: CodeEditorProps): Node {
       ...going('findUsages', props.onFindUsages),
       // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
       actionKeys('matchBrace', keys.matchBrace, cursorMatchingBracket),
+      actionKeys('codeBlockStart', keys.codeBlockStart, movingToCodeBlock(false, false)),
+      actionKeys('codeBlockEnd', keys.codeBlockEnd, movingToCodeBlock(true, false)),
+      actionKeys(
+        'codeBlockStartWithSelection',
+        keys.codeBlockStartWithSelection,
+        movingToCodeBlock(false, true),
+      ),
+      actionKeys(
+        'codeBlockEndWithSelection',
+        keys.codeBlockEndWithSelection,
+        movingToCodeBlock(true, true),
+      ),
       actionKeys('extendSelection', keys.extendSelection, extendingSelection),
       actionKeys('shrinkSelection', keys.shrinkSelection, shrinkingSelection),
       actionKeys('scrollUp', keys.scrollUp, scrollingBy(-1)),
