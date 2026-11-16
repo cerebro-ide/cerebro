@@ -4075,7 +4075,8 @@ items of the submenu").
   branch, before Local, which lists the others; in each group favorites first, then by name, a
   favorite with its star, which can't be clicked here (IntelliJ's `favoriteToggleOnClickSupported`
   is false for this popup).
-- **A folder** (added 2026-11-16), selected in the Project view, as IntelliJ's (`DvcsCompareWithAction`,
+- **A folder** (added 2026-11-16), selected in the Project view (its menu's Git submenu, or the
+  main menu's Git → Current File while the view has the keyboard), as IntelliJ's (`DvcsCompareWithAction`,
   `GitCompareWithRefAction.getDiffChanges`, read from their source): after the same popup, its
   files that differ from the branch or tag, in the Changes tool window that a commit's Compare with
   Local shows in (IntelliJ's `CompareWithLocalDialog`, with its Refresh and Get). Its title is
@@ -4088,9 +4089,7 @@ items of the submenu").
     found in IntelliJ's code for this action.
   - A folder that isn't in the branch, and has no differences, shows "No differences"; IntelliJ's
     says "Directory src doesn't exist in branch 'feature'".
-  - Only from the main menu's Git → Current File while the Project view has the keyboard: the
-    Project view has no Git submenu yet.
-- **Not yet:** the popup's settings; the Project view's Git submenu.
+- **Not yet:** the popup's settings.
 
 ## Git → Current File → Show Diff (2026-11-12)
 
