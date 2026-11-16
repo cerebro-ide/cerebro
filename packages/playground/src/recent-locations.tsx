@@ -56,6 +56,23 @@ export function locations(places: readonly Place[]): Place[] {
   return listed;
 }
 
+/**
+ * Whether a place's row is found by what's typed, and the name's characters matched: its name as
+ * the pickers match it, or its lines holding what's typed (IntelliJ's speed search matches
+ * fragments, `NameUtil.buildMatcher`: matching letters scattered through the lines found nearly
+ * every row, seen in the app).
+ */
+export function found(
+  typed: string,
+  name: string,
+  shown: string,
+): { highlight?: readonly number[] } | undefined {
+  if (typed === '') return {};
+  const named = match(typed, name);
+  if (named) return { highlight: named.indices };
+  return shown.toLowerCase().includes(typed.toLowerCase()) ? {} : undefined;
+}
+
 interface Location extends PickerItem {
   place: Place;
 }
@@ -137,12 +154,12 @@ async function recentLocations(services: MenuServices, edited: boolean): Promise
       listed().flatMap((place) => {
         const name = place.tab.title;
         const { shown, body } = rowOf(place);
-        const found = typed === '' ? undefined : match(typed, `${name} ${shown}`);
-        if (typed !== '' && !found) return [];
+        const matched = found(typed, name, shown);
+        if (!matched) return [];
         return [
           {
             label: name,
-            ...(found ? { highlight: found.indices.filter((i) => i < name.length) } : {}),
+            ...matched,
             place,
             body,
           },

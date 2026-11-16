@@ -1,7 +1,13 @@
 import { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { userEvent } from 'vitest/browser';
 import { describe, expect, it, vi } from 'vitest';
-import { LIMIT, linesAround, locations, setupRecentLocations } from '../src/recent-locations.js';
+import {
+  found,
+  LIMIT,
+  linesAround,
+  locations,
+  setupRecentLocations,
+} from '../src/recent-locations.js';
 
 const lines = (n: number) => Array.from({ length: n }, (_, i) => `line ${String(i)}`);
 const place = (id: string, line?: number) => ({
@@ -38,6 +44,16 @@ describe('locations', () => {
     expect(locations(many)).toHaveLength(LIMIT);
     expect(LIMIT).toBe(25);
     expect(locations(many)[0]?.tab.id).toBe('f39');
+  });
+});
+
+describe('found', () => {
+  it('finds a row by its name, as the pickers match, or by its lines holding what’s typed', () => {
+    expect(found('', 'a.ts', 'x')).toEqual({});
+    expect(found('lts', 'languages.ts', 'x')?.highlight).toEqual([0, 10, 11]);
+    expect(found('AREA', 'history.ts', 'if (this.#area.active)')).toEqual({});
+    // Letters scattered through the lines aren't found: “lang” in “list … area … ng”.
+    expect(found('lang', 'history.ts', 'list, area, ring')).toBeUndefined();
   });
 });
 

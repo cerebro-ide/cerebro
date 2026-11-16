@@ -2335,6 +2335,11 @@ body,
   color: var(--cerebro-text-muted);
 }
 
+/* Recent Locations' file names, bold as IntelliJ's (the rows with lines under them are its). */
+.cerebro-popup-item--body .cerebro-popup-item__label {
+  font-weight: 600;
+}
+
 /* "Empty lines", greyed as IntelliJ's. */
 .playground-locations__empty {
   padding-left: 8px;

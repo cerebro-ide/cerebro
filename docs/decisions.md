@@ -1336,8 +1336,11 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   - **Show edited only** (Recent Locations' own key flips it, shown beside it) lists the places of
     the changes instead, Last Edit Location's, titled "Recently Edited Locations". A flip selects
     the first row and clears what's typed (`updateModel`).
-  - **Typing filters** by the name and the lines, the name's matched characters in bold. Enter goes
-    to the place; Delete or Backspace forgets it, the row at its index selected then, or the last
+  - **Typing filters** by the name, matched as the pickers match, its matched characters in bold;
+    or by the lines, holding what's typed. Seen in the app: the pickers' matching over the lines
+    too found nearly every row, by letters scattered through the code; IntelliJ's matches
+    fragments (`NameUtil.buildMatcher`; a claim that it finds about the same). Enter goes to the
+    place; Delete or Backspace forgets it, the row at its index selected then, or the last
     (`removeItems`). "No recent locations found" for none.
   - The VS Code keymaps give it no key, as IntelliJ's VS Code keymaps.
   - Claude's choices, open to change: the search field shows from the start (the pickers'), where
