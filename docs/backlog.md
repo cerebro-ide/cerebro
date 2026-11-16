@@ -92,20 +92,6 @@ files, from the first; read from its source), in the decision "The diff viewer, 
 package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
 dialog's list, a table of its own, already takes several.
 
-### The editor's actions as commands (Ido: "Yes, commands first", 2026-11-16; in #414 and #415)
-
-The editor's own actions (Reformat Code, Comment with Line Comment, Go to Implementation, Next
-Method, Move Line and the rest in `EDITOR_ACTIONS`) are keys the keymap hands to CodeMirror, not
-commands, so no menu can hold them and Find Action doesn't find them. IntelliJ's are actions like
-any other: its Code menu holds Reformat Code, Optimize Imports and the comment actions, and its
-Navigate menu Go to Implementation and Next Method. What waits on it, found 2026-11-16: the
-"Not yet" of the decisions "Comment with Line Comment and Block Comment" and "Optimize Imports"
-(a Code menu), and of "Go to Implementation and Go to Type Declaration" and "Next Method and
-Previous Method" (in the Navigate menu). The shape it would take: each editor action registered as
-a command that runs on the focused editor (or the last one focused, as IntelliJ's editor actions
-find their editor), its keys still given to CodeMirror. It changes how `ui-editor` and the
-playground share the editor's actions, so it's proposed before it's done (CLAUDE.md).
-
 ### The Log's graph laid out as IntelliJ's (proposed: a reshaping, for Ido's word)
 
 Found 2026-11-16, for the Log decision's Not yet (Show Long Edges, Collapse and Expand Linear
