@@ -25,6 +25,30 @@
   min-width: 0;
 }
 
+/*
+ * Short of room, the right side's widgets keep their size and the left side's items give way,
+ * never drawn over the right's (decision "The status bar"). As a grid's columns, the short ones
+ * keep theirs while there's room for them, and the long one is cut short with an ellipsis.
+ */
+.cerebro-statusbar__side--right {
+  flex-shrink: 0;
+}
+
+.cerebro-statusbar__side--left {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, max-content);
+}
+
+.cerebro-statusbar__side--left > .cerebro-statusbar__item {
+  min-width: 0;
+}
+
+.cerebro-statusbar__side--left .cerebro-statusbar__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cerebro-statusbar__item {
   display: flex;
   align-items: center;

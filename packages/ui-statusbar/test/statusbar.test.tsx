@@ -69,6 +69,28 @@ describe('StatusBarView', () => {
     expect(item('encoding').tagName).toBe('SPAN');
   });
 
+  it('cuts the left side’s long item short where there’s no room, never over the right’s', () => {
+    const bar = new StatusBar();
+    bar.add({ id: 'path', side: 'left', text: () => `/repo/${'folder/'.repeat(40)}a.ts` });
+    bar.add({ id: 'claude', side: 'left', text: () => 'Claude' });
+    bar.add({ id: 'position', text: () => '1:1' });
+    bar.add({ id: 'type', text: () => 'TypeScript' });
+    const { container, item } = mount(bar);
+    container.style.width = '400px';
+    const box = (id: string) => item(id).getBoundingClientRect();
+    // The right's in full, inside the bar.
+    expect(box('type').right).toBeLessThanOrEqual(400);
+    expect(item('position').scrollWidth).toBeLessThanOrEqual(item('position').clientWidth);
+    // The left's end before it: the long one cut, with an ellipsis.
+    expect(box('claude').right).toBeLessThanOrEqual(box('position').left);
+    const path = item('path').querySelector('.cerebro-statusbar__text') as HTMLElement;
+    expect(path.scrollWidth).toBeGreaterThan(path.clientWidth);
+    expect(getComputedStyle(path).textOverflow).toBe('ellipsis');
+    // The short one keeps its size.
+    const claude = item('claude').querySelector('.cerebro-statusbar__text') as HTMLElement;
+    expect(claude.scrollWidth).toBeLessThanOrEqual(claude.clientWidth);
+  });
+
   it('updates text, and items as they come and go', () => {
     const bar = new StatusBar();
     const file = signal('a.ts');
