@@ -4752,7 +4752,8 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   read. In the menu after Annotate Previous Revision, before Options, after a separator: IntelliJ
   puts its extensions' actions there (`addActionsFromExtensions`), and that the Log's comes before
   Git's Options (the platform's extensions before a plugin's) is a claim.
-- **Not yet:** Show Diff On Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
+- **Not yet:** Show Diff On Hover. (The editor's context menu's Git submenu: decision "The
+  editor's Git submenu".)
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 
