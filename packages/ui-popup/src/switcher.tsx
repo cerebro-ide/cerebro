@@ -30,6 +30,10 @@ export interface SwitcherItem {
   mnemonic?: string;
   /** Shown below the lists while it's selected: a file's folder. */
   status?: string;
+  /** A command's key, shown at the row's end, muted: Recent Locations' item. */
+  shortcut?: string;
+  /** A line above it, as IntelliJ's Recent Locations item has (`separatorAbove`). */
+  separator?: boolean;
 }
 
 export type SwitcherSide = 'left' | 'right';
@@ -67,8 +71,11 @@ export interface SwitcherHandle<T> {
   readonly result: Promise<T | undefined>;
   readonly open: boolean;
   close(): void;
-  /** Lists other items on the right, `index` of them selected. */
-  replace(right: readonly T[], index: number): void;
+  /**
+   * Lists other items on the right, `index` of them selected; and on the left, `left` if given
+   * (Recent Files' Recent Locations item, which reads as Show edited only does).
+   */
+  replace(right: readonly T[], index: number, left?: readonly T[]): void;
 }
 
 /** Rows a Page Up or Page Down moves. */
@@ -161,7 +168,8 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     this.finish(undefined);
   }
 
-  replace(right: readonly T[], index: number): void {
+  replace(right: readonly T[], index: number, left = this.state.left): void {
+    this.state.left = left;
     this.state.right = right;
     this.select('right', index);
   }
@@ -390,7 +398,13 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     return (
       <div
         class={() =>
-          selected() ? 'cerebro-popup-item cerebro-popup-item--highlighted' : 'cerebro-popup-item'
+          [
+            'cerebro-popup-item',
+            item.separator ? 'cerebro-switcher__item--separated' : '',
+            selected() ? 'cerebro-popup-item--highlighted' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')
         }
         role="option"
         aria-selected={() => String(selected())}
@@ -411,7 +425,7 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
           )}
         </span>
         <span class="cerebro-popup-item__detail">{item.detail ?? ''}</span>
-        <span class="cerebro-popup-item__shortcut">{item.mnemonic ?? ''}</span>
+        <span class="cerebro-popup-item__shortcut">{item.mnemonic ?? item.shortcut ?? ''}</span>
       </div>
     );
   }

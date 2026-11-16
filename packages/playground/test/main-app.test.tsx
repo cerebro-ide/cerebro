@@ -2652,10 +2652,31 @@ describe('the editor’s file', () => {
     await userEvent.keyboard('{Control>}e{/Control}');
     await popupItems();
     const left = [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')];
-    expect(left.length).toBeGreaterThan(0);
-    expect(
-      left.map((row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent),
-    ).toEqual(left.map(() => ''));
+    expect(left.length).toBeGreaterThan(1);
+    // The tool windows without their mnemonics; Recent Locations last, with its key, as IntelliJ's.
+    const shortcuts = left.map(
+      (row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent,
+    );
+    expect(shortcuts).toEqual([...left.slice(1).map(() => ''), 'Ctrl+Shift+E']);
+    const item = (left.at(-1) as HTMLElement).querySelector('.cerebro-popup-item__label');
+    expect(item?.textContent).toBe('Recent Locations');
+    // Show edited only: the edited ones, without the key.
+    await userEvent.keyboard('{Control>}e{/Control}');
+    const last = () =>
+      [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')].at(-1);
+    expect(last()?.querySelector('.cerebro-popup-item__label')?.textContent).toBe(
+      'Recently Edited Locations',
+    );
+    expect(last()?.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('');
+    // Chosen, it opens Recent Locations as it reads.
+    await userEvent.click(last() as HTMLElement);
+    await expect
+      .poll(() => document.querySelector('.playground-locations__header b')?.textContent)
+      .toBe('Recently Edited Locations');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
     expect(q('.cerebro-switcher__header').textContent).toBe('Recent FilesShow edited onlyCtrl+E');
     await userEvent.keyboard('zzqq');
     expect(q('[data-side="right"] .cerebro-switcher__empty').textContent).toBe(

@@ -1320,7 +1320,11 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     a tool window hides and stays listed, as in the Switcher; a file's tabs close, and it's off
     the list shown, the files shown or those edited (`closeEditorForFile`, which leaves it when an
     editor still shows it: Cerebro's close can't be refused).
-  - **Not yet:** IntelliJ's Recent Locations item under the tool windows; selecting several.
+  - **Recent Locations** (added 2026-11-16) ends the tool windows' list, set apart by a line, as
+    IntelliJ's (`SwitcherRecentLocations`, when there are tool windows). It reads "Recent
+    Locations", with its key, or with Show edited only "Recently Edited Locations", without it;
+    chosen, it opens Recent Locations so. Delete leaves it.
+  - **Not yet:** selecting several.
   - Claude's choice, open to change: matching as the pickers match (the folder after the name),
     rather than IntelliJ's `SpeedSearchComparator`.
 - **Recent Locations** (added 2026-11-16), as IntelliJ's (Ctrl+Shift+E, Cmd+Shift+E on macOS;

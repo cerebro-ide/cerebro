@@ -333,4 +333,25 @@ describe('the Switcher', () => {
     handle.replace(FILES.slice(1), 1);
     expect(selected()).toBe('right:c.ts');
   });
+
+  it('sets an item apart with a line above, shows a key at its end, and lists others on the left', () => {
+    const handle = switcher({
+      left: [...TOOLS, { label: 'Recent Locations', shortcut: 'Ctrl+Shift+E', separator: true }],
+    });
+    const rows = [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')];
+    expect(rows.map((row) => row.classList.contains('cerebro-switcher__item--separated'))).toEqual([
+      false,
+      false,
+      true,
+    ]);
+    const last = rows[2] as HTMLElement;
+    expect(last.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('Ctrl+Shift+E');
+    // Below the row before it, by the line's room.
+    expect(last.getBoundingClientRect().top).toBeGreaterThan(
+      (rows[1] as HTMLElement).getBoundingClientRect().bottom + 4,
+    );
+    handle.replace(FILES, 0, [...TOOLS, { label: 'Recently Edited Locations', separator: true }]);
+    expect(labels('left')).toEqual(['Commit', 'Project', 'Recently Edited Locations']);
+    expect(selected()).toBe('right:a.ts');
+  });
 });
