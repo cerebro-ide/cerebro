@@ -5387,8 +5387,13 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
 - **A press held on a track goes on paging** (added 2026-11-01), as IntelliJ's `DefaultScrollBarUI`
   does (its source): after 300 ms, then every 60 ms, until the thumb reaches the pointer or the area
   its end. Moving the held pointer past the thumb again starts it again after the pause.
-- **Not yet:** the macOS widening; IntelliJ's middle-button press on a track, which moves the thumb
-  there and drags it.
+- **A middle-button press on a track** (added 2026-11-16) moves the thumb there, its middle at the
+  pointer, and drags it from there while held, as IntelliJ's (`DefaultScrollBarUI.mousePressed`,
+  `isAbsolutePositioning`, read from its source). On macOS IntelliJ does that for whichever press
+  the system's "Jump to the spot that's clicked" setting says (`MacScrollBarUI`); the page can't
+  read it, so there a middle press pages, as the main one. The right button does nothing on a bar,
+  as IntelliJ's. `installScrollbars` takes the platform for it.
+- **Not yet:** the macOS widening; the macOS setting for where a press on a track goes.
 
 ## Window buttons in full screen on macOS (2026-10-27)
 

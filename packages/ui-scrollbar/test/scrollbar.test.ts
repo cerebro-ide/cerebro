@@ -35,8 +35,8 @@ function area(width: number, height: number, overflow = 'auto', parent: Node = d
   return scroller;
 }
 
-function install(): void {
-  cleanup.push(installScrollbars(HIDE));
+function install(platform: 'mac' | 'other' = 'other'): void {
+  cleanup.push(installScrollbars({ hideAfter: HIDE, platform }));
 }
 
 const thumb = (axis: 'x' | 'y') =>
@@ -310,6 +310,54 @@ describe('installScrollbars', () => {
     expect(y.classList.contains('cerebro-scrollbar--dragging')).toBe(false);
   });
 
+  it('moves the thumb to a middle press on the track, as IntelliJ’s, and drags it from there', async () => {
+    install();
+    const scroller = area(100, 400);
+    await userEvent.hover(scroller);
+    const rail = track('y') as HTMLElement;
+    const press = (button: number, clientY: number) =>
+      rail.dispatchEvent(
+        new PointerEvent('pointerdown', { pointerId: 1, button, clientX: 295, clientY }),
+      );
+    // 80px down the track: the thumb's middle there, 25px of thumb on 75px for 300px.
+    press(1, 180);
+    expect(scroller.scrollTop).toBeCloseTo(((80 - 12.5) / 75) * 300);
+    const y = thumb('y') as HTMLElement;
+    expect(y.classList.contains('cerebro-scrollbar--dragging')).toBe(true);
+    y.dispatchEvent(new PointerEvent('pointermove', { pointerId: 1, clientX: 295, clientY: 170 }));
+    expect(scroller.scrollTop).toBeCloseTo(((70 - 12.5) / 75) * 300);
+    y.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    // The right button does nothing, on the track or the thumb.
+    scroller.scrollTop = 0;
+    press(2, 180);
+    expect(scroller.scrollTop).toBe(0);
+    y.dispatchEvent(
+      new PointerEvent('pointerdown', { pointerId: 1, button: 2, clientX: 295, clientY: 110 }),
+    );
+    expect(y.classList.contains('cerebro-scrollbar--dragging')).toBe(false);
+  });
+
+  it('moves the thumb across to a middle press too', async () => {
+    install();
+    const scroller = area(800, 400);
+    await userEvent.hover(scroller);
+    (track('x') as HTMLElement).dispatchEvent(
+      new PointerEvent('pointerdown', { pointerId: 1, button: 1, clientX: 200, clientY: 195 }),
+    );
+    // 100px along 186px of track, a 46.5px thumb: 139.5px for 600px.
+    expect(scroller.scrollLeft).toBeCloseTo(((100 - 23.25) / 139.5) * 600, 0);
+  });
+
+  it('pages at a middle press on macOS, whose own setting IntelliJ follows there', async () => {
+    install('mac');
+    const scroller = area(100, 400);
+    await userEvent.hover(scroller);
+    (track('y') as HTMLElement).dispatchEvent(
+      new PointerEvent('pointerdown', { pointerId: 1, button: 1, clientX: 295, clientY: 180 }),
+    );
+    expect(scroller.scrollTop).toBe(100);
+  });
+
   it('drags across too', async () => {
     install();
     const scroller = area(800, 400);
@@ -427,7 +475,7 @@ describe('installScrollbars', () => {
   });
 
   it('removes everything when uninstalled, its thumbs included', async () => {
-    const uninstall = installScrollbars(HIDE);
+    const uninstall = installScrollbars({ hideAfter: HIDE });
     const scroller = area(100, 400);
     const host = document.createElement('div');
     document.body.append(host);

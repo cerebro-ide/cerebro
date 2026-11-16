@@ -5,4 +5,5 @@ export {
   installScrollbars,
   REPEAT_AFTER,
   REPEAT_EVERY,
+  type ScrollbarOptions,
 } from './scrollbar.js';
