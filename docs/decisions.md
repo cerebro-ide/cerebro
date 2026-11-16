@@ -27,7 +27,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
 - [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
 - [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors; the branch selector opens IntelliJ's branches popup (changed 2026-11-10)
-- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them
+- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them; Settings' Line separator for a file without one
 - [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
 - [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
 - [Popups (2026-10-25)](#popups-2026-10-25): a search field over a list, not modal
@@ -632,8 +632,17 @@ new UI.
   - **File Encoding:** Remove BOM, or Add BOM, whichever applies, saved at once, as IntelliJ's
     RemoveBomAction and AddBomAction;
   - **the indent's:** see "Code Style: the indent".
-- **Not yet:** choosing another encoding (the host reads and writes UTF-8 only); Settings' line
-  separator for new files.
+- **Settings' Line separator (added 2026-11-16),** Code Style's first, as IntelliJ's General tab
+  (`GeneralCodeStyleGeneralTab`, its words from ApplicationBundle): System-Dependent (the
+  default), Unix and macOS (\n), Windows (\r\n) and Classic Mac OS (\r), "Applied to new files". As
+  IntelliJ's (`FileDocumentManagerImpl.getLineSeparator`, `CodeStyleSettings.getLineSeparator`,
+  read from its source), a file read without a line break of its own (a new one, a line alone)
+  joins its lines with it once they're added, System-Dependent being Windows' on Windows and
+  Unix's elsewhere; the status bar says it. The file's worktree's setting, as Code Style's
+  others. The file keeps it while it's open, as IntelliJ's document keeps it once taken; IntelliJ
+  takes it at the first save, Cerebro as the file is read (a claim that the difference shows only
+  when the setting changes while the file is open).
+- **Not yet:** choosing another encoding (the host reads and writes UTF-8 only).
 
 ## The Electron app (2026-10-25)
 

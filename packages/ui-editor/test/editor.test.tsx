@@ -999,6 +999,15 @@ describe('EditorDocument', () => {
     expect(new EditorDocument('a').lineSeparator).toBe('\n');
   });
 
+  it('takes the separator it’s given for a file without one, and keeps it on a read without one', () => {
+    const doc = new EditorDocument('a', '\r\n');
+    expect(doc.lineSeparator).toBe('\r\n');
+    expect(doc.modified.get()).toBe(false);
+    expect(doc.changedOnDisk('b')).toBe(true);
+    expect(doc.lineSeparator).toBe('\r\n');
+    expect(new EditorDocument('a\nb', '\r\n').lineSeparator).toBe('\n');
+  });
+
   it('changes its line separator and byte order mark, modified until saved', () => {
     const doc = new EditorDocument('a\nb');
     doc.format.set({ lineSeparator: '\r\n', bom: true });

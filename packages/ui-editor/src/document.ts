@@ -2,7 +2,9 @@
 // switching tabs keeps the edits, the selection and the undo history. It knows the text last read
 // from or saved to disk, and so whether it's modified. Lines are joined as the file joined them,
 // with the first line separator it has, as IntelliJ detects it: CodeMirror reads any, and writes
-// `\n` unless told otherwise. A byte order mark isn't shown, and is saved as it was read, as
+// `\n` unless told otherwise; one with none (a new file, a line alone) takes the one it's given, as
+// IntelliJ's takes Code Style's (`FileDocumentManagerImpl.getLineSeparator`), and keeps it while
+// it's open (its `LINE_SEPARATOR_KEY`). A byte order mark isn't shown, and is saved as it was read, as
 // IntelliJ keeps one. Both can be changed, as IntelliJ's status bar changes them: the file is then
 // modified until it's saved.
 
@@ -36,8 +38,9 @@ export class EditorDocument {
    */
   lastEdit: { before: Text; changes: ChangeSet; name?: string } | undefined;
 
-  constructor(content: string) {
-    const format = formatOf(content);
+  /** `separator`: the line separator for content that has none, `\n` unless given. */
+  constructor(content: string, separator: LineSeparator = '\n') {
+    const format = formatOf(content, separator);
     this.format = signal(format);
     this.diskFormat = signal(format);
     const text = textOf(content);
@@ -121,7 +124,7 @@ export class EditorDocument {
   changedOnDisk(content: string): boolean {
     if (this.modified.peek()) return false;
     const text = textOf(content);
-    const format = formatOf(content);
+    const format = formatOf(content, this.format.peek().lineSeparator);
     if (text.eq(this.disk.peek()) && sameFormat(format, this.diskFormat.peek())) return false;
     this.disk.set(text);
     this.diskFormat.set(format);
@@ -142,10 +145,10 @@ export interface FileFormat {
   bom: boolean;
 }
 
-/** A file's format, from its content: its first line separator (`\n` with none), and its BOM. */
-function formatOf(content: string): FileFormat {
+/** A file's format, from its content: its first line separator (`separator` with none), and its BOM. */
+function formatOf(content: string, separator: LineSeparator): FileFormat {
   return {
-    lineSeparator: (/\r\n|\r|\n/.exec(content)?.[0] ?? '\n') as LineSeparator,
+    lineSeparator: (/\r\n|\r|\n/.exec(content)?.[0] ?? separator) as LineSeparator,
     bom: content.startsWith(BOM),
   };
 }
