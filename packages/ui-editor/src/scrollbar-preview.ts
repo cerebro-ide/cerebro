@@ -27,14 +27,14 @@ const BESIDE_BAR = 14;
 
 /**
  * The line, 1-based, at a height on the scrollbar: as the stripe places marks, the whole text scaled
- * to the scroll area when it's taller, else where it's shown. Undefined when the line shows.
+ * to the scroll area (the bar is drawn only when the text is taller). Undefined when the line shows.
  */
 function hiddenLineAt(view: EditorView, clientY: number): number | undefined {
   const { scrollDOM } = view;
   const height = scrollDOM.clientHeight;
   const whole = view.contentHeight;
   const y = clientY - scrollDOM.getBoundingClientRect().top;
-  const at = (whole > height ? (y / height) * whole : y) - view.documentPadding.top;
+  const at = (y / height) * whole - view.documentPadding.top;
   const block = view.lineBlockAtHeight(Math.max(0, at));
   // Shown when its top is in the area, as IntelliJ asks (`area.contains(x, visualY)`).
   const top = block.top + view.documentPadding.top - scrollDOM.scrollTop;
