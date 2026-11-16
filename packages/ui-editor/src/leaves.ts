@@ -1,6 +1,8 @@
 // The caret leaving its line by a move IntelliJ counts as navigation, a place for Back
 // (`includeCurrentCommandAsNavigation`, read from its source): a click (EditorImpl's mouse press),
-// and going to the text's start or end (`EditorActionUtil.moveCaretToTextStart`, `…TextEnd`). A
+// going to the text's start or end (`EditorActionUtil.moveCaretToTextStart`, `…TextEnd`), and to
+// the next or previous problem (`GotoNextErrorHandler`), whose moves are marked `JUMP`, and Find's
+// next or previous occurrence (`SearchAgainAction`; CodeMirror's, marked `select.search`). A
 // move within the line isn't one (`caretPositionChanged`), nor typing, nor a drag after the press.
 
 import { Prec, type EditorState, type Extension } from '@codemirror/state';
@@ -13,8 +15,11 @@ function caretOf(state: EditorState): { line: number; column: number } {
   return { line: line.number - 1, column: head - line.from };
 }
 
-/** The user event of a jump to the text's start or end. */
-const JUMP = 'select.jump';
+/**
+ * The user event of a move IntelliJ counts as navigation, besides a click: the text's start or end,
+ * the next or previous problem (`GotoNextErrorHandler`).
+ */
+export const JUMP = 'select.jump';
 
 /** To the text's start or end, as CodeMirror's `cursorDocStart` and `…End`, marked a jump. */
 const jump =
@@ -51,7 +56,7 @@ export function leaves(onLeave: (from: { line: number; column: number }) => void
     EditorView.updateListener.of((update) => {
       for (const tr of update.transactions) {
         const press = pressed !== undefined && tr.isUserEvent('select.pointer');
-        if (!press && !tr.isUserEvent(JUMP)) continue;
+        if (!press && !tr.isUserEvent(JUMP) && !tr.isUserEvent('select.search')) continue;
         const from = press ? (pressed as { line: number; column: number }) : caretOf(tr.startState);
         if (press) pressed = undefined;
         if (caretOf(tr.state).line !== from.line) onLeave(from);

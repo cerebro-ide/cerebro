@@ -1267,13 +1267,16 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   navigation jumps within a file (go to definition, a Find in Files result). Back returns to the
   last place left; Forward undoes it; going somewhere new forgets the places ahead. 50 places kept
   (a claim: IntelliJ keeps a few dozen; not measured).
-  - **Clicks and the text's start or end** (added 2026-11-16) are places left too, as IntelliJ's
-    (read from its source: `includeCurrentCommandAsNavigation`, from EditorImpl's mouse press and
-    `EditorActionUtil.moveCaretToTextStart`/`…TextEnd`): a click that takes the caret to another
-    line, and Ctrl+Home or Ctrl+End (Cmd+Up or Cmd+Down on macOS, CodeMirror's keys for them).
+  - **Clicks, the text's start or end, problems and occurrences** (added 2026-11-16) are places
+    left too, when they take the caret to another line, as IntelliJ's (read from its source:
+    `includeCurrentCommandAsNavigation`'s callers): a click (EditorImpl's mouse press); Ctrl+Home
+    or Ctrl+End (`EditorActionUtil.moveCaretToTextStart`/`…TextEnd`; Cmd+Up or Cmd+Down on macOS,
+    CodeMirror's keys for them); the next or previous problem, F2 and Shift+F2
+    (`GotoNextErrorHandler`); Find's next or previous occurrence (`SearchAgainAction`, `FindUtil`).
     Typing, the arrows, a move within the line and a drag after the press aren't (IntelliJ's
     `caretPositionChanged` ignores a move within the line). The editor says where the caret was
-    (`onLeave`, `leaves.ts` in `ui-editor`).
+    (`onLeave`, `leaves.ts` in `ui-editor`). Claude's choice, open to change: the first match found
+    as it's typed in the find bar isn't one (IntelliJ's find as you type isn't read).
   - **A place within 4 lines of the last one takes its place** (changed 2026-11-16), as IntelliJ's
     `putLastOrMerge` (`isSame`: `TextEditorState.MIN_CHANGE_DISTANCE`). It was kept once for the
     same line only; with clicks as places, every click near the last would have been another.
@@ -1404,9 +1407,8 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
-- **Not yet:** IntelliJ's other navigation moves as places (Find's next occurrence, Next
-  Highlighted Error, Move Caret to Code Block Start, among `includeCurrentCommandAsNavigation`'s
-  callers). The Options menu's other choices (Open Files
+- **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
+  End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
