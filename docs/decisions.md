@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down (JSON's too)
 - [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
@@ -3312,8 +3312,17 @@ saving").
     goes with it, as Java's doc comment is part of its member; a plain one stays. Lines that are
     part of one statement (an argument's in a call over several lines) move as lines, as IntelliJ's
     `LineMover` does when no mover takes them.
-  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, JSON's,
-    YAML's, XML's, CSS's) aren't ported.
+  - **JSON** (added 2026-11-16): a port of IntelliJ's `JsonLineMover`, checked against its own
+    tests' files (`json/backend/tests/testData/mover`, each one a test here). Lines move as Move
+    Line's, grown to the whole properties or values they start and end in. The commas are then put
+    right: one added after what's now followed by something, one taken off what's now last in its
+    object or array. A property goes into an object or array from its `{` or `}` line, and out of
+    one past it, but never past the file's own braces. Unlike IntelliJ's code as read, no comma is
+    put on a blank line passed (Claude's choice, open to change; not measured in IntelliJ).
+    JSON's grammar here has no comments, so a comment's line moves as a line with its commas
+    untouched. Not yet: IntelliJ's moving a run of line comments together.
+  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, YAML's,
+    XML's, CSS's) aren't ported.
   - **Their keys,** from IntelliJ's keymap files: Ctrl+Shift+Up and Down (`$default`; Cmd+Shift
     on macOS, and in IntelliJ IDEA Classic), macOS System Shortcuts' Ctrl+Shift; Eclipse's Alt+Up
     and Down (on macOS too), NetBeans' Alt+Shift+Page Up and Down, Visual Studio's Ctrl+Alt+Shift
