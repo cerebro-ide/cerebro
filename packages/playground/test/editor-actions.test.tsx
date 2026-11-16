@@ -82,6 +82,8 @@ describe('the editor’s actions as commands', () => {
       'Comment with &Block Comment',
       '&Reformat Code',
       '---',
+      'Move Statement Do&wn',
+      'Move Statement &Up',
       'Move Line Do&wn',
       'Move Line &Up',
     ]);

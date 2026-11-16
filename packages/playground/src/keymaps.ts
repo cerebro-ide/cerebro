@@ -53,6 +53,8 @@ export const EDITOR_ACTIONS = {
   blockComment: 'editor.commentWithBlockComment',
   moveLineUp: 'editor.moveLineUp',
   moveLineDown: 'editor.moveLineDown',
+  moveStatementUp: 'editor.moveStatementUp',
+  moveStatementDown: 'editor.moveStatementDown',
   deleteLine: 'editor.deleteLine',
   startNewLine: 'editor.startNewLine',
   startNewLineBefore: 'editor.startNewLineBefore',
@@ -186,6 +188,8 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Shift+?'],
     [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Ctrl+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Y'],
     [EDITOR_ACTIONS.startNewLine]: ['Shift+Enter'],
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+M'],
@@ -348,6 +352,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.blockComment]: ['Meta+Alt+/', 'Ctrl+Shift+?'],
     [EDITOR_ACTIONS.moveLineUp]: ['Alt+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Alt+Shift+Down'],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Meta+Shift+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Meta+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Meta+Backspace'],
     [EDITOR_ACTIONS.startNewLine]: ['Shift+Enter'],
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+M'],
@@ -422,6 +428,9 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   [EDITOR_ACTIONS.format]: ['Ctrl+Shift+I', 'Ctrl+K Ctrl+F'],
   // Peek Definition, its nearest.
   [EDITOR_ACTIONS.quickDefinition]: ['Ctrl+Shift+F10'],
+  // Ctrl+Shift+Up and Down are its Scroll up and down; it has no Move Statement.
+  [EDITOR_ACTIONS.moveStatementUp]: [],
+  [EDITOR_ACTIONS.moveStatementDown]: [],
 };
 
 /** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
@@ -667,6 +676,8 @@ export const ECLIPSE: KeymapPreset = {
     [EDITOR_ACTIONS.previousProblem]: ['Shift+F1'],
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Alt+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Alt+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+D'],
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+Shift+P'],
     [EDITOR_ACTIONS.codeBlockEnd]: ['Ctrl+]'],
@@ -742,6 +753,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.blockComment]: ['Meta+Shift+?'],
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Alt+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Alt+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Meta+D'],
     [EDITOR_ACTIONS.extendSelection]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.shrinkSelection]: ['Ctrl+Shift+Down'],
@@ -809,6 +822,8 @@ export const EMACS: KeymapPreset = {
     [EDITOR_ACTIONS.methodDown]: ['Alt+Down', 'Ctrl+Alt+E'],
     [EDITOR_ACTIONS.methodUp]: ['Alt+Up', 'Ctrl+Alt+A'],
     'bookmarks.toggle.2': [],
+    [EDITOR_ACTIONS.moveStatementUp]: [],
+    [EDITOR_ACTIONS.moveStatementDown]: [],
   },
 };
 
@@ -904,6 +919,8 @@ export const MACOS_SYSTEM: KeymapPreset = {
     'bookmarks.show': ['Ctrl+Meta+K', 'Meta+F3'],
     'bookmarks.toggleMnemonic': ['Ctrl+Alt+Shift+K', 'Meta+F11'],
     'bookmarks.goToMnemonic': ['Meta+Alt+F3'],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Ctrl+Shift+Down'],
   },
 };
 
@@ -982,6 +999,8 @@ export const NETBEANS: KeymapPreset = {
     'bookmarks.goTo.8': [],
     'bookmarks.goTo.9': [],
     'bookmarks.goToMnemonic': [],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Alt+Shift+PageUp'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Alt+Shift+PageDown'],
   },
 };
 
@@ -1026,6 +1045,8 @@ export const SUBLIME: KeymapPreset = {
     [EDITOR_ACTIONS.unfoldAll]: ['Ctrl+K Ctrl+J', 'Ctrl+K Ctrl+0'],
     [EDITOR_ACTIONS.moveLineUp]: ['Ctrl+Shift+Up'],
     [EDITOR_ACTIONS.moveLineDown]: ['Ctrl+Shift+Down'],
+    [EDITOR_ACTIONS.moveStatementUp]: [],
+    [EDITOR_ACTIONS.moveStatementDown]: [],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+Shift+K'],
     [EDITOR_ACTIONS.startNewLine]: ['Ctrl+Enter'],
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+M'],
@@ -1178,6 +1199,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
     [EDITOR_ACTIONS.lineComment]: ['Ctrl+Alt+/', 'Ctrl+K C', 'Ctrl+K Ctrl+C'],
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Ctrl+Alt+Shift+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Ctrl+Alt+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Ctrl+L', 'Ctrl+Shift+L'],
     [EDITOR_ACTIONS.matchBrace]: ['Ctrl+]'],
     [EDITOR_ACTIONS.extendSelection]: ['Alt+Shift++', 'Ctrl+Alt+Right', 'Ctrl+W'],
@@ -1253,6 +1276,8 @@ export const VISUAL_STUDIO_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.blockComment]: ['Ctrl+Meta+/'],
     [EDITOR_ACTIONS.moveLineUp]: [],
     [EDITOR_ACTIONS.moveLineDown]: [],
+    [EDITOR_ACTIONS.moveStatementUp]: ['Ctrl+Alt+Shift+Up'],
+    [EDITOR_ACTIONS.moveStatementDown]: ['Ctrl+Alt+Shift+Down'],
     [EDITOR_ACTIONS.deleteLine]: ['Meta+Shift+L'],
     [EDITOR_ACTIONS.matchBrace]: ['Meta+]'],
     [EDITOR_ACTIONS.extendSelection]: ['Meta+Alt+Right'],

@@ -60,6 +60,7 @@ import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
+import { moveStatementsDown, moveStatementsUp } from './move-statement.js';
 import { splittingLine, startingNewLine, startingNewLineBefore } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
@@ -310,6 +311,9 @@ export interface EditorKeys {
   /** Move Line Up and Down: the caret's line, or the selection's, swapped with the next one. */
   moveLineUp?: readonly string[];
   moveLineDown?: readonly string[];
+  /** Move Statement Up and Down: the whole statements there swapped with what's beyond them. */
+  moveStatementUp?: readonly string[];
+  moveStatementDown?: readonly string[];
   /** Delete Line: the caret's line, or the selection's, gone; the caret at its column below. */
   deleteLine?: readonly string[];
   /** Start New Line: an indented line after the caret's, the caret on it. */
@@ -382,6 +386,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   blockComment: ['Mod-Shift-/'],
   moveLineUp: ['Alt-Shift-ArrowUp'],
   moveLineDown: ['Alt-Shift-ArrowDown'],
+  moveStatementUp: ['Mod-Shift-ArrowUp'],
+  moveStatementDown: ['Mod-Shift-ArrowDown'],
   deleteLine: ['Mod-y'],
   startNewLine: ['Shift-Enter'],
   startNewLineBefore: ['Mod-Alt-Enter'],
@@ -1165,6 +1171,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
             actionKeys('blockComment', keys.blockComment, commentByBlock),
             actionKeys('moveLineUp', keys.moveLineUp, moveLinesUp),
             actionKeys('moveLineDown', keys.moveLineDown, moveLinesDown),
+            actionKeys('moveStatementUp', keys.moveStatementUp, moveStatementsUp),
+            actionKeys('moveStatementDown', keys.moveStatementDown, moveStatementsDown),
             // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
             actionKeys('deleteLine', keys.deleteLine, deleteLine),
             actionKeys('startNewLine', keys.startNewLine, startingNewLine),

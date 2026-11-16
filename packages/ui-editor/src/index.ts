@@ -36,6 +36,7 @@ export {
 } from './format.js';
 export { blockComment, lineComment } from './comment.js';
 export { moveLine } from './move-line.js';
+export { moveStatement } from './move-statement.js';
 export { splitLine, startNewLine, startNewLineBefore } from './start-new-line.js';
 export { joinLines } from './join-lines.js';
 export { toggleCase } from './toggle-case.js';

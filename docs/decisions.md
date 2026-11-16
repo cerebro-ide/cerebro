@@ -65,7 +65,7 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down
 - [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
@@ -3294,6 +3294,36 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+- **Move Statement Up and Down** (added 2026-11-16), IntelliJ's `MoveStatementUp` and
+  `MoveStatementDown` (`MoveStatementHandler`, `MoverWrapper`, read from its source), which WebStorm
+  has: the whole statements the caret's line or a selection's lines touch, swapped with what's
+  beyond them, then indented again where they land, as IntelliJ's (`indentTarget`). Undo says
+  "Undo Move Statement Up" or "Down". In the Code menu before Move Line, as IntelliJ's `CodeMenu`.
+  - **JavaScript and TypeScript:** IntelliJ asks each language's mover, and JavaScript's isn't in
+    its open source, so theirs is a port of Java's (`JavaStatementMover`, `JavaDeclarationMover`,
+    read) over CodeMirror's syntax tree. That WebStorm's does the same is a claim. A statement goes
+    to the next line a statement or a block's `}` starts on: into a block from its `{` line, out of
+    it past its `}`, into an `else`; past a blank line at a time. It never leaves its function or
+    class, or enters another: then nothing moves. A neighbour that holds a function or a class (not
+    in a block of its own) is passed whole, as Java passes a statement holding an anonymous class.
+    A function, class or member moves whole from its first or last line, a blank line between it
+    and the next staying between, and past one of two or more at a time (Java's code style keeps
+    one; here one, Claude's choice, open to change). A `/** … */` comment just above a statement
+    goes with it, as Java's doc comment is part of its member; a plain one stays. Lines that are
+    part of one statement (an argument's in a call over several lines) move as lines, as IntelliJ's
+    `LineMover` does when no mover takes them.
+  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, JSON's,
+    YAML's, XML's, CSS's) aren't ported.
+  - **Their keys,** from IntelliJ's keymap files: Ctrl+Shift+Up and Down (`$default`; Cmd+Shift
+    on macOS, and in IntelliJ IDEA Classic), macOS System Shortcuts' Ctrl+Shift; Eclipse's Alt+Up
+    and Down (on macOS too), NetBeans' Alt+Shift+Page Up and Down, Visual Studio's Ctrl+Alt+Shift
+    (on macOS too); none in Emacs's and Sublime Text's, which take them away (Sublime Text on macOS
+    keeps macOS's). VS Code has no Move Statement: its Linux sheet's Ctrl+Shift+Up and Down are
+    Scroll up and down, so none there; its Windows sheet doesn't use them, so they're kept from
+    IntelliJ's; its macOS sheet's modifiers couldn't be read from the PDF, so they're kept there
+    too (a claim).
+  - **Not yet:** the other languages' movers; moving a lone `}` to take in the statement after it
+    (Java's); one move for each caret.
 
 ## Bookmarks (2026-11-14)
 
