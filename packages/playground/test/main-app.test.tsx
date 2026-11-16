@@ -1994,6 +1994,19 @@ describe('errors and warnings', () => {
     // Gone to, the editor focused.
     await expect.poll(() => editorRoot()?.activeElement).toBe(code());
     expect(env().editor.activeGroup.active).toBe('/r/src/e.ts');
+    // The preview underlines the file's problems, asked of its server as the tab asks.
+    const preview = window().querySelector('[aria-label="Open Editor Preview"]') as HTMLElement;
+    await userEvent.click(preview);
+    await userEvent.click(row("#error:1:2:Cannot find name 'z'."));
+    await expect
+      .poll(
+        () =>
+          window()
+            .querySelector('.playground-problems__preview .cerebro-editor-code')
+            ?.shadowRoot?.querySelectorAll('.cerebro-problem--error').length,
+      )
+      .toBe(1);
+    await userEvent.click(preview);
   });
 });
 
