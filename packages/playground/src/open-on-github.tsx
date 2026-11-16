@@ -3,12 +3,14 @@
 // `GitRemoteUrlUtil`, `GithubUrlUtil`, read from its source), for each of the repository's remotes
 // on github.com: a commit's page, in its menu in the Log, last (`Git.Hosting.Open.In.Browser.Group`);
 // a file's, at its last commit and the lines selected, in the editor's and the Project view's Open
-// In (`RevealGroup`). Shown only with one; with several, which one is asked.
+// In (`RevealGroup`). Shown only with one; with several, which one is asked. And a file's copied,
+// from Copy Path/Reference (`GHCopyLinkActionGroup`).
 
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { selectedLines } from '@cerebro-ide/ui-editor';
 import { openPicker } from '@cerebro-ide/ui-popup';
 import { notCommitted } from './changes.js';
+import type { TabContext } from './commands.js';
 import { target } from './edit.js';
 import { active, hostFor } from './environments.js';
 import { commitAt } from './git-log.js';
@@ -101,22 +103,24 @@ export function setupOpenOnGitHub(
   setup: OpenOnGitHubSetup,
 ): void {
   /**
-   * What the command's for (`findReferences`): the Log's commit; else the Project view's selected
-   * file or folder; else the active editor's file, with the lines selected while it has the
-   * keyboard. None for what git hasn't committed, as IntelliJ's leaves out an added or unknown file.
+   * What a command's for (`findReferences`): the Log's commit; else the Project view's selected file
+   * or folder; else the file of the tab its menu's opened on, or of the active editor, with the
+   * lines selected while the keyboard's in it. None for what git hasn't committed, as IntelliJ's
+   * leaves out an added or unknown file.
    */
   const reference = (context: unknown): Reference | undefined => {
     const at = commitAt(context);
     if (at) return { worktree: at.worktree, hash: at.commit.hash };
     const env = active();
     if (!env) return undefined;
-    const node = projectTarget(context as { tabMenu?: true } | undefined);
-    const file = node === undefined ? setup.activeTab() : node?.path;
+    const tab = context as TabContext | undefined;
+    const node = projectTarget(tab);
+    const file = node === undefined ? (tab?.tab ?? setup.activeTab()) : node?.path;
     const prefix = `${env.id}/`;
     if (!file?.startsWith(prefix)) return undefined;
     const path = file.slice(prefix.length);
     if (notCommitted(env.id, path)) return undefined;
-    const editor = node === undefined ? target() : undefined;
+    const editor = node === undefined && file === setup.activeTab() ? target() : undefined;
     const lines = editor && selectedLines(editor);
     return { worktree: env.id, path, ...(lines && { lines }) };
   };
@@ -137,35 +141,43 @@ export function setupOpenOnGitHub(
     });
     return undefined;
   };
-  commands.register({
-    id: 'github.openInBrowser',
-    // Its text in Find Action (GithubBundle's `group.Github.Open.In.Browser.GoToAction.text`).
-    label: 'Open on GitHub',
-    visible: (context) => repositories(reference(context)).length > 0,
-    run: async (context) => {
-      const at = reference(context) as Reference;
-      const all = repositories(at);
-      // Nothing to open (`actionPerformed` without a reference): none without what it's for.
-      if (all.length === 0) return;
-      // IntelliJ's lists several in a submenu, each by its name: a commit's page, or the repository
-      // for a file's (`HostedGitRepositoryReference.getName`). Claude's choice, open to change: a
-      // list to choose from, as Cerebro's menus have no items made as they open.
-      const name = (repository: string) =>
-        'hash' in at ? `${repository}/commit/${at.hash}` : repository;
-      const repository =
-        all.length === 1
-          ? all[0]
-          : (
-              await openPicker({
-                label: 'View in browser',
-                position: 'top',
-                items: () => all.map((repository) => ({ label: name(repository), repository })),
-              }).result
-            )?.repository;
-      const address = repository === undefined ? undefined : await page(at, repository);
-      if (address !== undefined) browse(address);
-    },
-  });
+  /** A command that `handle`s the page, asking which repository's with several. */
+  const hosted = (id: string, label: string, asking: string, handle: (page: string) => unknown) => {
+    commands.register({
+      id,
+      label,
+      visible: (context) => repositories(reference(context)).length > 0,
+      run: async (context) => {
+        const at = reference(context) as Reference;
+        const all = repositories(at);
+        // Nothing to do (`actionPerformed` without a reference): none without what it's for.
+        if (all.length === 0) return;
+        // IntelliJ's lists several in a submenu, each by its name: a commit's page, or the
+        // repository for a file's (`HostedGitRepositoryReference.getName`). Claude's choice, open
+        // to change: a list to choose from, as Cerebro's menus have no items made as they open.
+        const name = (repository: string) =>
+          'hash' in at ? `${repository}/commit/${at.hash}` : repository;
+        const repository =
+          all.length === 1
+            ? all[0]
+            : (
+                await openPicker({
+                  label: asking,
+                  position: 'top',
+                  items: () => all.map((repository) => ({ label: name(repository), repository })),
+                }).result
+              )?.repository;
+        const address = repository === undefined ? undefined : await page(at, repository);
+        if (address !== undefined) await handle(address);
+      },
+    });
+  };
+  // Their texts in Find Action (GithubBundle's `group.Github.Open.In.Browser.GoToAction.text` and
+  // `group.GitHub.Copy.Link.text`). Copying is `GHCopyLinkActionGroup`'s.
+  hosted('github.openInBrowser', 'Open on GitHub', 'View in browser', browse);
+  hosted('github.copyLink', 'Copy Link to GitHub Repository', 'GitHub Repository URL', (page) =>
+    navigator.clipboard.writeText(page),
+  );
   // In a commit's menu, its text there (GithubBundle's `open.on.github.action`), in a group of its
   // own, last.
   menus.contribute({
@@ -184,4 +196,11 @@ export function setupOpenOnGitHub(
     group: 'g-reveal',
   });
   menus.contribute({ menu: 'editor/content/openIn', item, group: 'z-hosting' });
+  // Last in Copy Path/Reference (`CopyFileReference`, after Path from Content Root), its text there
+  // (`CopyReferencePopup`'s).
+  menus.contribute({
+    menu: 'editor/tab/copyPath',
+    item: { command: 'github.copyLink', label: 'GitHub Repository URL' },
+    group: 'b',
+  });
 }

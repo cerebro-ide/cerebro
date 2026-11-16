@@ -245,4 +245,25 @@ describe('Open on GitHub, as IntelliJ’s GitHub plugin', () => {
     });
     notify.mockRestore();
   });
+
+  it('copies the link, last in Copy Path/Reference, for the tab its menu’s opened on', async () => {
+    await withRemotes(['git@github.com:o/r.git', 'https://github.com/fork/r.git']);
+    workspace.openOrActivate({ id: '/r', name: 'r', branch: 'main' });
+    const write = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    const copy = commands.get('github.copyLink') as NonNullable<ReturnType<typeof commands.get>>;
+    expect(copy.label).toBe('Copy Link to GitHub Repository');
+    expect(menus.entries('editor/tab/copyPath')).toEqual([
+      { command: 'github.copyLink', label: 'GitHub Repository URL' },
+    ]);
+    // The tab's, not the active editor's; its lines only where it's the active one.
+    activeTab = '/r/a.ts';
+    const context = { group: 'g', tab: '/r/b.ts', tabMenu: true };
+    expect(copy.visible?.(context)).toBe(true);
+    const run = copy.run(context);
+    expect(await popupItems()).toEqual(['https://github.com/o/r', 'https://github.com/fork/r']);
+    await userEvent.keyboard('{Enter}');
+    await run;
+    expect(write).toHaveBeenCalledWith('https://github.com/o/r/blob/f00d/b.ts');
+    write.mockRestore();
+  });
 });
