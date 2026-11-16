@@ -22,6 +22,7 @@ import {
 } from '@codemirror/view';
 import { hinted, showHint } from './hint.js';
 import { placeAt, type Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** The name at a place that Rename renames: where it is, and what it is. */
 export interface Renaming {
@@ -188,15 +189,15 @@ export function renaming(ask: AskRenaming, rename: Rename): Extension {
 
 /** The keys that start a rename at the caret. */
 export function renameKeys(keys: readonly string[]): Extension {
-  return keymap.of(
-    keys.map((key) => ({
-      key,
-      run: (view: EditorView) => {
-        if (view.state.field(session, false) !== null) return false;
-        view.dispatch({ effects: requested.of(null) });
-        return true;
-      },
-      preventDefault: true,
-    })),
+  const rename = actionKeys(
+    'rename',
+    keys,
+    (view) => {
+      if (view.state.field(session, false) !== null) return false;
+      view.dispatch({ effects: requested.of(null) });
+      return true;
+    },
+    { preventDefault: true },
   );
+  return [rename.action, keymap.of(rename.bindings)];
 }

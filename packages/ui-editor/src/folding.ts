@@ -39,6 +39,7 @@ import {
   type ViewUpdate,
 } from '@codemirror/view';
 import type { Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** A part of the text that folds; what it shows folded, if it says. */
 export interface Fold {
@@ -342,15 +343,11 @@ const peekClosing = EditorView.domEventHandlers({
 
 /** Folding's actions on `keys`. */
 export function foldKeys(keys: FoldKeys): Extension {
-  const run = (command: (view: EditorView) => boolean) => (key: string) => ({
-    key,
-    run: command,
-    preventDefault: true,
-  });
-  return keymap.of([
-    ...keys.fold.map(run(foldAround)),
-    ...keys.unfold.map(run(unfoldCode)),
-    ...keys.foldAll.map(run(foldAll)),
-    ...keys.unfoldAll.map(run(unfoldAll)),
-  ]);
+  const actions = [
+    actionKeys('fold', keys.fold, foldAround, { preventDefault: true }),
+    actionKeys('unfold', keys.unfold, unfoldCode, { preventDefault: true }),
+    actionKeys('foldAll', keys.foldAll, foldAll, { preventDefault: true }),
+    actionKeys('unfoldAll', keys.unfoldAll, unfoldAll, { preventDefault: true }),
+  ];
+  return [actions.map((each) => each.action), keymap.of(actions.flatMap((each) => each.bindings))];
 }

@@ -30,6 +30,7 @@ import {
 import { keymap, type EditorView } from '@codemirror/view';
 import { joinedToLast } from './history.js';
 import type { Place } from './usages.js';
+import { actionKeys } from './actions.js';
 
 /** An edit to the text: from one place to another (zero-based), replaced with `text`. */
 export interface CompletionEdit {
@@ -217,9 +218,11 @@ export function completions(
 
 /** The keys that open the list, and those that move in it and choose from it, as IntelliJ's. */
 export function completionKeys(keys: readonly string[]): Extension {
-  return Prec.highest(
+  const complete = actionKeys('complete', keys, startCompletion);
+  return Prec.highest([
+    complete.action,
     keymap.of([
-      ...keys.map((key) => ({ key, run: startCompletion })),
+      ...complete.bindings,
       {
         key: 'Escape',
         run: (view: EditorView) => {
@@ -237,5 +240,5 @@ export function completionKeys(keys: readonly string[]): Extension {
       { key: 'Enter', run: acceptCompletion },
       { key: 'Tab', run: acceptReplacing },
     ]),
-  );
+  ]);
 }

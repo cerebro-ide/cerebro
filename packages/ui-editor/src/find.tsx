@@ -32,6 +32,7 @@ import {
 } from '@codemirror/state';
 import { EditorView, keymap, runScopeHandlers, type Panel } from '@codemirror/view';
 import { applyCase } from './preserve-case.js';
+import { actionKeys } from './actions.js';
 
 /** The most matches counted; past it, the count says so. */
 export const COUNT_LIMIT = 9999;
@@ -398,23 +399,20 @@ export function findAndReplace(
   editable: boolean,
   keys: { find: readonly string[]; replace: readonly string[] },
 ): Extension {
+  const binding = { preventDefault: true, scope: `editor ${SCOPE}` };
+  const find = actionKeys('find', keys.find, (view) => open(view, false), binding);
+  const replace = editable
+    ? actionKeys('replace', keys.replace, (view) => open(view, true), binding)
+    : undefined;
   return [
     search({ top: true, createPanel: (view) => findBar(view, editable) }),
     preserveCase,
     casedReplacements,
+    find.action,
+    replace?.action ?? [],
     keymap.of([
-      ...keys.find.map((key) => ({
-        key,
-        run: (view: EditorView) => open(view, false),
-        preventDefault: true,
-        scope: `editor ${SCOPE}`,
-      })),
-      ...(editable ? keys.replace : []).map((key) => ({
-        key,
-        run: (view: EditorView) => open(view, true),
-        preventDefault: true,
-        scope: `editor ${SCOPE}`,
-      })),
+      ...find.bindings,
+      ...(replace?.bindings ?? []),
       {
         key: 'F3',
         run: findNext,
