@@ -1,9 +1,11 @@
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { workspace } from '../src/environments.js';
 import { FindView, occurrencesTree, showOccurrences } from '../src/find-window.js';
 import type { TextMatch } from '../src/find.js';
+import { setupOccurrences } from '../src/occurrences.js';
 
 const match = (path: string, line: number, text: string, ranges: [number, number][]) => ({
   path,
@@ -143,5 +145,31 @@ describe('the Find window', () => {
       { path: '/r/src/a.ts', line: 3, column: 8 },
       { path: '/r/src/a.ts', line: 9, column: 0 },
     ]);
+  });
+
+  it('goes to the next and previous line from Next and Previous Occurrence, past the files', async () => {
+    const services = {
+      commands: new CommandRegistry(),
+      menus: new MenuRegistry(),
+      keymap: new Keymap('other'),
+    };
+    setupOccurrences(services);
+    // The page as the Find tool window.
+    document.body.classList.add('cerebro-tool-window');
+    document.body.dataset.id = 'find';
+    showOccurrences({ worktree: '/r', title: 't', matches: MATCHES, limited: false });
+    mount();
+    await expect.poll(() => row('file:/r/README.md')).not.toBeNull();
+    await userEvent.click(row('file:/r/README.md'));
+    services.commands.execute('navigate.nextOccurrence');
+    services.commands.execute('navigate.nextOccurrence');
+    services.commands.execute('navigate.previousOccurrence');
+    expect(opened).toEqual([
+      { path: '/r/README.md', line: 0, column: 0 },
+      { path: '/r/src/a.ts', line: 3, column: 8 },
+      { path: '/r/README.md', line: 0, column: 0 },
+    ]);
+    document.body.classList.remove('cerebro-tool-window');
+    delete document.body.dataset.id;
   });
 });

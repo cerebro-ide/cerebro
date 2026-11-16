@@ -10,6 +10,7 @@ import {
   showHierarchy,
   type Call,
 } from '../src/call-hierarchy.js';
+import { setupOccurrences } from '../src/occurrences.js';
 import { workspace } from '../src/environments.js';
 
 const call = (name: string, kind: string | undefined, calls: number, detail?: string): Call => ({
@@ -31,6 +32,7 @@ const services: MenuServices = {
   keymap: new Keymap('other'),
 };
 setupCallHierarchy(services);
+setupOccurrences(services);
 const { commands } = services;
 let dispose: (() => void) | undefined;
 
@@ -206,6 +208,27 @@ describe('the Hierarchy tool window', () => {
       await expect.poll(() => opened).toEqual([{ path: '/r/main10.ts', line: 5, column: 2 }]);
       expect(focused).toEqual([false]);
       commands.execute('hierarchy.autoscrollToSource');
+    });
+
+    it('goes through every node from Next and Previous Occurrence', async () => {
+      // The page as the Hierarchy tool window.
+      document.body.classList.add('cerebro-tool-window');
+      document.body.dataset.id = 'hierarchy';
+      show();
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      await userEvent.click(row('0'));
+      commands.execute('navigate.nextOccurrence');
+      commands.execute('navigate.nextOccurrence');
+      commands.execute('navigate.previousOccurrence');
+      expect(opened).toEqual([
+        { path: '/r/twice.ts', line: 5, column: 2 },
+        { path: '/r/main10.ts', line: 5, column: 2 },
+        { path: '/r/twice.ts', line: 5, column: 2 },
+      ]);
+      expect(focused).toEqual([true, true, true]);
+      document.body.classList.remove('cerebro-tool-window');
+      delete document.body.dataset.id;
     });
 
     it('reads it again, and collapses all', async () => {

@@ -22,6 +22,7 @@ import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { natural } from './compare.js';
 import { active } from './environments.js';
+import { provideOccurrences, treeOccurrences } from './occurrences.js';
 import { icon, symbolIcon } from './icons.js';
 
 interface Position {
@@ -263,6 +264,19 @@ function Calls(props: {
     props.open(row.node.site, false);
     return undefined;
   });
+  // Every node, for Next and Previous Occurrence.
+  onCleanup(
+    provideOccurrences(
+      'hierarchy',
+      treeOccurrences(
+        model,
+        () => true,
+        (node) => {
+          props.open(node.site, true);
+        },
+      ),
+    ),
+  );
   onCleanup(() => {
     resorting.dispose();
     following.dispose();

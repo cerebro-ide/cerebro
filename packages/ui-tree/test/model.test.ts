@@ -115,6 +115,22 @@ describe('TreeModel', () => {
     expect(model.selected).toBe('src/ui/menu.tsx');
   });
 
+  it('lists every node loaded, collapsed or not, in order, with the keys down to each', async () => {
+    const model = new TreeModel(source(FILES, { async: true }));
+    await model.reveal(['src', 'src/ui', 'src/ui/menu.tsx']);
+    model.collapse(find('src'));
+    expect(model.loadedNodes.map((n) => n.keys)).toEqual([
+      ['src'],
+      ['src', 'src/ui'],
+      ['src', 'src/ui', 'src/ui/tree.tsx'],
+      ['src', 'src/ui', 'src/ui/menu.tsx'],
+      ['src', 'src/main.ts'],
+      ['docs'],
+      ['README.md'],
+    ]);
+    expect(model.loadedNodes[4]?.node).toBe(find('src/main.ts'));
+  });
+
   it('loads children lazily, once, marking a folder that’s loading', async () => {
     let calls = 0;
     const base = source(FILES, { async: true });

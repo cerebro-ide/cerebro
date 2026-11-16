@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, Next and Previous Occurrence (added 2026-11-16), as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
@@ -1407,6 +1407,23 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
+- **Next and Previous Occurrence** (added 2026-11-16), as IntelliJ's (`NextOccurenceAction`,
+  `OccurenceNavigatorActionBase`, `OccurenceNavigatorSupport`, read from its source): step through
+  a tool window's results from wherever the keyboard is, the Find window's lines and every node of
+  the Hierarchy window (the windows Cerebro has that IntelliJ gives a navigator). Which window's:
+  the focused one's, else the one active last that has results (`LAST_ACTIVE_TOOL_WINDOWS`). The
+  result is selected, its parents expanded, and opened, the editor taking the keyboard. A tree is
+  walked as IntelliJ's `getNextNode`: every node loaded, collapsed or not, from the one selected,
+  or from the start; none before the start or after the end.
+  - Keys from IntelliJ's keymap files: Ctrl+Alt+Down and Up (Cmd+Alt on macOS, its keymap taking
+    `$default`'s with Cmd); Visual Studio's add F8 and Shift+F8, after the diff's; none in
+    Eclipse's and Sublime Text's. NetBeans names Method Down on Ctrl+Alt+Down too: Next Occurrence
+    runs while there's one to go to, else Method Down (Cerebro's first enabled command; how
+    IntelliJ picks between them wasn't read, a claim).
+  - In the Navigate menu after Next Edit Location, Previous then Next, as IntelliJ's `GoToMenu`
+    orders them (it has a separator and Navigate in File between, which Cerebro hasn't).
+  - **Not yet:** the status bar's "Occurrence N of M" (`displayOccurrencesInfoInStatusBar`), and
+    the other windows IntelliJ gives one (Problems, Changes, the Log's).
 - **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
   End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
@@ -3464,9 +3481,9 @@ IntelliJ's Navigate → Call Hierarchy, which WebStorm has. Claude's choices, op
   - Its icons are Claude's drawings (not IntelliJ's), open to change.
 - **Not yet:** the scope (all, project, tests); Expand All (a function that calls itself would
   expand forever, and how IntelliJ stops at a recursive call for JavaScript isn't in its open
-  source); Pin, Export to Text File, Close, and its tabs, one per hierarchy; previous and next
-  occurrence; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
-  (IntelliJ's), and the call sites highlighted in the editor once opened.
+  source); Pin, Export to Text File, Close, and its tabs, one per hierarchy; Type Hierarchy and
+  Method Hierarchy; a hint when there's nothing to show (IntelliJ's), and the call sites
+  highlighted in the editor once opened.
 
 ## Quick Definition (2026-11-14)
 

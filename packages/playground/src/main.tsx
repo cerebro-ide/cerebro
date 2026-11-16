@@ -195,6 +195,7 @@ import {
   type LineBookmark,
 } from './bookmarks.js';
 import { HierarchyView, setupCallHierarchy, showHierarchy } from './call-hierarchy.js';
+import { setupOccurrences } from './occurrences.js';
 import {
   closeProject,
   openProject,
@@ -701,6 +702,7 @@ setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.op
 setupRecentLocations(services);
 setupStructureView(services);
 setupCallHierarchy(services);
+setupOccurrences(services);
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {

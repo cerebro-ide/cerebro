@@ -7,8 +7,11 @@ import {
   forMac,
   INTELLIJ,
   INTELLIJ_MAC,
+  ECLIPSE,
   MACOS_SYSTEM,
+  NETBEANS,
   PRESETS,
+  VISUAL_STUDIO,
   VSCODE_LINUX,
   VSCODE_MAC,
   vscode,
@@ -65,6 +68,30 @@ describe('the ready-made keymaps', () => {
       const [key] = keymap.shortcutsFor('git.newBranch');
       expect(keymap.commandsFor(key as string)).toEqual(['log.newBranch', 'git.newBranch']);
     }
+  });
+
+  it('give Next and Previous Occurrence their files’ keys, after a diff’s and an editor’s own', () => {
+    const keymap = new Keymap('other');
+    keymap.setPreset(INTELLIJ);
+    expect(keymap.shortcutsFor('navigate.nextOccurrence')).toEqual(['Ctrl+Alt+ArrowDown']);
+    keymap.setPreset(VISUAL_STUDIO);
+    expect(keymap.commandsFor('F8')).toEqual(['diff.nextDifference', 'navigate.nextOccurrence']);
+    expect(keymap.shortcutsFor('navigate.previousOccurrence')).toEqual([
+      'Ctrl+Alt+ArrowUp',
+      'Shift+F8',
+    ]);
+    keymap.setPreset(ECLIPSE);
+    expect(keymap.shortcutsFor('navigate.nextOccurrence')).toEqual([]);
+    // NetBeans names Method Down on its parent's key: Next Occurrence runs while there's one to go
+    // to (the first enabled), else Method Down.
+    keymap.setPreset(NETBEANS);
+    expect(keymap.commandsFor('Ctrl+Alt+ArrowDown')).toEqual([
+      'navigate.nextOccurrence',
+      EDITOR_ACTIONS.methodDown,
+    ]);
+    const mac = new Keymap('mac');
+    mac.setPreset(INTELLIJ_MAC);
+    expect(mac.shortcutsFor('navigate.previousOccurrence')).toEqual(['Alt+Meta+ArrowUp']);
   });
 
   it('swap Ctrl and Meta for a keymap made for macOS from another', () => {

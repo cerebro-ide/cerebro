@@ -1,12 +1,15 @@
 // The Find tool window, as IntelliJ's: what Find in Files found, opened there ("Open in Find
 // Window"), as a tree of folders, files and lines, each with how many matches it holds. A double
-// click or Enter on a line opens its file there. It shows the active worktree's last search; a new
+// click or Enter on a line opens its file there, as Next and Previous Occurrence do (occurrences.ts),
+// from anywhere. It shows the active worktree's last search; a new
 // one replaces it. The window is registered the first time it's used, as IntelliJ's appears.
 
+import { onCleanup } from '@cerebro-ide/jsx';
 import { signal, untracked } from '@cerebro-ide/reactive';
 import { TreeModel, TreeView } from '@cerebro-ide/ui-tree';
 import { active } from './environments.js';
 import type { TextMatch } from './find.js';
+import { provideOccurrences, treeOccurrences } from './occurrences.js';
 
 /** A search's lines, as the Find window shows them. */
 export interface Occurrences {
@@ -142,6 +145,17 @@ function Results(props: {
     }
   };
   expand(roots);
+  const openLine = (item: Item) => {
+    const { match } = item as Extract<Item, { kind: 'line' }>;
+    props.open({ path: match.path, line: match.line, column: match.ranges[0]?.[0] ?? 0 });
+  };
+  // Its lines, for Next and Previous Occurrence.
+  onCleanup(
+    provideOccurrences(
+      'find',
+      treeOccurrences(model, (item) => item.kind === 'line', openLine),
+    ),
+  );
   const files = new Set(occurrences.matches.map((m) => m.path)).size;
   const plus = occurrences.limited ? '+' : '';
   return [
@@ -164,10 +178,7 @@ function Results(props: {
           ]
         )
       }
-      onOpen={(item) => {
-        const { match } = item as Extract<Item, { kind: 'line' }>;
-        props.open({ path: match.path, line: match.line, column: match.ranges[0]?.[0] ?? 0 });
-      }}
+      onOpen={openLine}
     />,
   ];
 }

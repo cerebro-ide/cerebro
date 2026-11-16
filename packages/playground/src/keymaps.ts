@@ -89,6 +89,8 @@ export const INTELLIJ: KeymapPreset = {
     'find.inFiles': ['Ctrl+Shift+F'],
     'replace.inFiles': ['Ctrl+Shift+R'],
     'navigate.back': ['Ctrl+Alt+Left'],
+    'navigate.nextOccurrence': ['Ctrl+Alt+Down'],
+    'navigate.previousOccurrence': ['Ctrl+Alt+Up'],
     'navigate.forward': ['Ctrl+Alt+Right'],
     'navigate.goToLine': ['Ctrl+G'],
     'navigate.fileStructure': ['Ctrl+F12'],
@@ -251,6 +253,8 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'find.inFiles': ['Meta+Shift+F'],
     'replace.inFiles': ['Meta+Shift+R'],
     'navigate.back': ['Meta+[', 'Meta+Alt+Left'],
+    'navigate.nextOccurrence': ['Meta+Alt+Down'],
+    'navigate.previousOccurrence': ['Meta+Alt+Up'],
     'navigate.forward': ['Meta+]', 'Meta+Alt+Right'],
     'navigate.goToLine': ['Meta+L'],
     'navigate.fileStructure': ['Meta+F12'],
@@ -595,6 +599,8 @@ export const ECLIPSE: KeymapPreset = {
   name: 'Eclipse',
   parent: INTELLIJ,
   bindings: {
+    'navigate.nextOccurrence': [],
+    'navigate.previousOccurrence': [],
     'edit.duplicate': [],
     'diff.nextDifference': ['Ctrl+F7'],
     // Left for Next and Right for Previous, as its file has them.
@@ -664,6 +670,8 @@ export const ECLIPSE_MAC: KeymapPreset = {
   name: 'Eclipse (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'navigate.nextOccurrence': [],
+    'navigate.previousOccurrence': [],
     'edit.duplicate': [],
     'diff.nextDifference': ['Ctrl+F7'],
     'diff.nextFile': [],
@@ -953,6 +961,8 @@ export const SUBLIME: KeymapPreset = {
   name: 'Sublime Text',
   parent: INTELLIJ,
   bindings: {
+    'navigate.nextOccurrence': [],
+    'navigate.previousOccurrence': [],
     'diff.nextFile': [],
     'diff.previousFile': [],
     'vcs.update': [],
@@ -1015,6 +1025,8 @@ export const SUBLIME_MAC: KeymapPreset = {
   name: 'Sublime Text (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    'navigate.nextOccurrence': [],
+    'navigate.previousOccurrence': [],
     'vcs.update': [],
     'symbol.goTo': ['Meta+Shift+R'],
     'class.goTo': [],
@@ -1076,6 +1088,8 @@ export const VISUAL_STUDIO: KeymapPreset = {
   name: 'Visual Studio',
   parent: INTELLIJ,
   bindings: {
+    'navigate.nextOccurrence': ['Ctrl+Alt+Down', 'F8'],
+    'navigate.previousOccurrence': ['Ctrl+Alt+Up', 'Shift+F8'],
     'diff.nextDifference': ['F7', 'F8'],
     'diff.previousDifference': ['Shift+F7', 'Shift+F8'],
     'vcs.update': ['Ctrl+Alt+W'],
