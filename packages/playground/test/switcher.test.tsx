@@ -44,8 +44,8 @@ describe('the Switcher’s command', () => {
 
   it('opens Recent Files with the tool windows, without their mnemonics, and no files with no environment', async () => {
     commands.execute('view.recentFiles');
-    // In the Switcher's order, its mnemonics hidden.
-    expect(labels('left')).toEqual(['|plain||', '|More||']);
+    // In the Switcher's order, its mnemonics hidden; then Recent Locations, no keymap: no key.
+    expect(labels('left')).toEqual(['|plain||', '|More||', '|Recent Locations||']);
     expect(
       document.querySelector('[data-side="right"] .cerebro-switcher__empty')?.textContent,
     ).toBe('No recent files');
@@ -61,12 +61,26 @@ describe('the Switcher’s command', () => {
     tools.show('plain');
     await userEvent.keyboard('{ArrowLeft}{Delete}');
     expect(tools.isVisible('plain')).toBe(false);
-    expect(labels('left')).toEqual(['|plain||', '|More||']);
+    // Recent Locations' item stays too.
+    await userEvent.keyboard('{ArrowDown}{ArrowDown}{Delete}');
+    expect(selected()).toBe('Recent Locations');
+    expect(labels('left')).toEqual(['|plain||', '|More||', '|Recent Locations||']);
     await userEvent.keyboard('{Escape}');
     commands.execute('view.recentChangedFiles');
     expect(
       (document.querySelector('.playground-recent__edited input') as HTMLInputElement).checked,
     ).toBe(true);
+    expect(labels('left')).toEqual(['|plain||', '|More||', '|Recently Edited Locations||']);
+  });
+
+  it('lists no Recent Locations in Recent Files without tool windows, as IntelliJ’s', () => {
+    const alone = new CommandRegistry();
+    setupSwitcher(
+      { commands: alone, menus: new MenuRegistry() },
+      { editor: () => undefined, tools: new ToolWindows(), open: () => undefined },
+    );
+    alone.execute('view.recentFiles');
+    expect(labels('left')).toEqual([]);
   });
 
   it('shows a tool window chosen, its content focused', async () => {

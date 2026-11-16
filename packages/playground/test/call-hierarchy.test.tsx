@@ -1,7 +1,16 @@
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { HierarchyView, showHierarchy, type Call } from '../src/call-hierarchy.js';
+import {
+  HierarchyView,
+  readHierarchySettings,
+  setupCallHierarchy,
+  showHierarchy,
+  type Call,
+} from '../src/call-hierarchy.js';
+import { setupOccurrences } from '../src/occurrences.js';
 import { workspace } from '../src/environments.js';
 
 const call = (name: string, kind: string | undefined, calls: number, detail?: string): Call => ({
@@ -15,6 +24,16 @@ const call = (name: string, kind: string | undefined, calls: number, detail?: st
 });
 
 const opened: { path: string; line: number; column: number }[] = [];
+/** Whether each opening put the focus in the editor. */
+const focused: boolean[] = [];
+const services: MenuServices = {
+  commands: new CommandRegistry(),
+  menus: new MenuRegistry(),
+  keymap: new Keymap('other'),
+};
+setupCallHierarchy(services);
+setupOccurrences(services);
+const { commands } = services;
 let dispose: (() => void) | undefined;
 
 beforeAll(() => {
@@ -25,10 +44,22 @@ afterEach(() => {
   dispose?.();
   document.body.replaceChildren();
   opened.length = 0;
+  focused.length = 0;
 });
 
 function mount(): void {
-  const handle = render(() => <HierarchyView open={(at) => void opened.push(at)} />, document.body);
+  const handle = render(
+    () => (
+      <HierarchyView
+        services={services}
+        open={(at, focus) => {
+          opened.push(at);
+          focused.push(focus);
+        }}
+      />
+    ),
+    document.body,
+  );
   dispose = () => {
     handle.dispose();
   };
@@ -59,6 +90,7 @@ describe('the Hierarchy tool window', () => {
               : null,
         );
       },
+      callees: () => Promise.resolve(null),
     });
     mount();
     expect(document.querySelector('.playground-occurrences__title')?.textContent).toBe(
@@ -81,5 +113,146 @@ describe('the Hierarchy tool window', () => {
     await userEvent.click(row('0'));
     await userEvent.keyboard('{Enter}');
     expect(opened.at(-1)).toEqual({ path: '/r/area.ts', line: 1, column: 9 });
+  });
+
+  describe('its toolbar', () => {
+    /** `area`, which `twice` and `main10` and `main9` call, and which calls `helper` twice. */
+    const show = (asked: unknown[] = []) => {
+      showHierarchy({
+        worktree: '/r',
+        root: call('area', 'function', 0),
+        callers: (of) => {
+          asked.push(['callers', of.item]);
+          return Promise.resolve(
+            of.item === 'area'
+              ? [
+                  call('twice', 'method', 1),
+                  call('main10', undefined, 1),
+                  call('main9', undefined, 1),
+                ]
+              : [],
+          );
+        },
+        callees: (of) => {
+          asked.push(['callees', of.item]);
+          return Promise.resolve(
+            of.item === 'area'
+              ? [call('helper', 'function', 2), call('nowhere', 'function', 0)]
+              : [],
+          );
+        },
+      });
+    };
+    const buttons = () =>
+      [...document.querySelectorAll('[role="toolbar"][aria-label="Hierarchy"] button')].map((b) => [
+        b.getAttribute('aria-label'),
+        b.getAttribute('aria-pressed'),
+      ]);
+    const title = () => document.querySelector('.playground-occurrences__title')?.textContent;
+
+    it('has IntelliJ’s actions in its order, its callers to start with', async () => {
+      show();
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      expect(buttons()).toEqual([
+        ['Caller Methods Hierarchy', 'true'],
+        ['Callee Methods Hierarchy', 'false'],
+        ['Alphabetically', 'false'],
+        ['Refresh', null],
+        ['Navigate with Single Click', 'false'],
+        ['Collapse All', null],
+      ]);
+    });
+
+    it('shows what it calls, a callee opening where the one above calls it', async () => {
+      const asked: unknown[] = [];
+      show(asked);
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      commands.execute('hierarchy.callees');
+      await expect.poll(title).toBe('Callees of area()');
+      await expect.poll(rows).toEqual(['farea()', 'fhelper()(2 usages)', 'fnowhere()']);
+      expect(asked).toContainEqual(['callees', 'area']);
+      expect(buttons()[1]).toEqual(['Callee Methods Hierarchy', 'true']);
+      // Where `area` calls it: in area.ts, not helper.ts.
+      await userEvent.dblClick(row('0/0'));
+      expect(opened).toEqual([{ path: '/r/area.ts', line: 5, column: 2 }]);
+      // No place given: at its name, in its own file.
+      await userEvent.dblClick(row('0/1'));
+      expect(opened.at(-1)).toEqual({ path: '/r/nowhere.ts', line: 1, column: 9 });
+      commands.execute('hierarchy.callers');
+      await expect.poll(title).toBe('Callers of area()');
+    });
+
+    it('sorts by name, numbers by their value; kept', async () => {
+      show();
+      mount();
+      await expect.poll(rows).toEqual(['farea()', 'mtwice()', 'main10', 'main9']);
+      commands.execute('hierarchy.sortAlphabetically');
+      await expect.poll(rows).toEqual(['farea()', 'main9', 'main10', 'mtwice()']);
+      expect(readHierarchySettings().alphabetical).toBe(true);
+      commands.execute('hierarchy.sortAlphabetically');
+      await expect.poll(rows).toEqual(['farea()', 'mtwice()', 'main10', 'main9']);
+      expect(readHierarchySettings().alphabetical).toBe(false);
+    });
+
+    it('opens what’s selected with Navigate with Single Click, the focus left in the tree', async () => {
+      show();
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      await userEvent.click(row('0/0'));
+      expect(opened).toEqual([]);
+      commands.execute('hierarchy.autoscrollToSource');
+      expect(readHierarchySettings().toSource).toBe(true);
+      await userEvent.click(row('0/1'));
+      await expect.poll(() => opened).toEqual([{ path: '/r/main10.ts', line: 5, column: 2 }]);
+      expect(focused).toEqual([false]);
+      commands.execute('hierarchy.autoscrollToSource');
+    });
+
+    it('goes through every node from Next and Previous Occurrence', async () => {
+      // The page as the Hierarchy tool window.
+      document.body.classList.add('cerebro-tool-window');
+      document.body.dataset.id = 'hierarchy';
+      show();
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      await userEvent.click(row('0'));
+      commands.execute('navigate.nextOccurrence');
+      commands.execute('navigate.nextOccurrence');
+      commands.execute('navigate.previousOccurrence');
+      expect(opened).toEqual([
+        { path: '/r/twice.ts', line: 5, column: 2 },
+        { path: '/r/main10.ts', line: 5, column: 2 },
+        { path: '/r/twice.ts', line: 5, column: 2 },
+      ]);
+      expect(focused).toEqual([true, true, true]);
+      document.body.classList.remove('cerebro-tool-window');
+      delete document.body.dataset.id;
+    });
+
+    it('reads it again, and collapses all', async () => {
+      const asked: unknown[] = [];
+      show(asked);
+      mount();
+      await expect.poll(rows).toHaveLength(4);
+      commands.execute('hierarchy.refresh');
+      await expect
+        .poll(() => asked.filter((a) => JSON.stringify(a) === '["callers","area"]').length)
+        .toBe(2);
+      commands.execute('hierarchy.collapseAll');
+      await expect.poll(rows).toEqual(['farea()']);
+      dispose?.();
+      dispose = undefined;
+      expect(commands.isEnabled('hierarchy.refresh')).toBe(false);
+    });
+  });
+});
+
+describe('readHierarchySettings', () => {
+  it('starts with IntelliJ’s defaults, both off, when nothing readable is kept', () => {
+    localStorage.setItem('cerebro.hierarchy', '{');
+    expect(readHierarchySettings()).toEqual({ alphabetical: false, toSource: false });
+    localStorage.removeItem('cerebro.hierarchy');
   });
 });

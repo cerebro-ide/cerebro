@@ -286,6 +286,33 @@ describe('CodeEditor', () => {
     expect(root.querySelector('.cm-line')?.textContent).toBe('so changed');
   });
 
+  it('says where the caret was when a click or the text’s start or end takes it off its line', async () => {
+    const doc = new EditorDocument('zero\none\ntwo\nthree');
+    const onLeave = vi.fn();
+    const root = mount({ path: 'a.txt', document: doc, onLeave });
+    const line = (n: number) => root.querySelectorAll('.cm-line')[n] as HTMLElement;
+    await userEvent.click(line(1));
+    // From the start, where it was.
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 0, column: 0 });
+    await userEvent.keyboard('{End}');
+    // A click on its own line, typing and the arrows aren't such moves.
+    await userEvent.click(line(1), { position: { x: 2, y: 2 } });
+    await userEvent.keyboard('x{ArrowDown}');
+    expect(onLeave).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard('{Control>}{End}{/Control}');
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 2, column: 1 });
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 3, column: 5 });
+    expect(onLeave).toHaveBeenCalledTimes(3);
+    // At the start already: no move.
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    expect(onLeave).toHaveBeenCalledTimes(3);
+    // A drag after the press isn't one: the press is, from where the caret was.
+    await userEvent.dragAndDrop(line(2), line(3));
+    expect(onLeave).toHaveBeenCalledTimes(4);
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 0, column: 0 });
+  });
+
   it('keeps an edit made elsewhere apart from typing right after it, for undo', async () => {
     const doc = new EditorDocument('one');
     const root = mount({ path: 'a.txt', document: doc });

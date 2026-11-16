@@ -30,6 +30,7 @@ import { Splitter } from '@cerebro-ide/ui-layout';
 import { TreeModel, TreeView, type TreeSource } from '@cerebro-ide/ui-tree';
 import { documentFor } from './documents.js';
 import { icon } from './icons.js';
+import { natural } from './compare.js';
 
 /** Each file's errors and warnings, by path, as its language server last gave them. */
 export const fileProblems = new ObservableMap<string, readonly Problem[]>();
@@ -151,9 +152,6 @@ function saveViewOptions(): void {
     // Not kept: they still apply until the page is reloaded.
   }
 }
-
-/** Two texts in order, numbers by their value (IntelliJ's `naturalCompare`). */
-const natural = new Intl.Collator(undefined, { numeric: true }).compare;
 
 type Shown = Pick<ProblemRow, 'severity' | 'message' | 'line' | 'column'>;
 

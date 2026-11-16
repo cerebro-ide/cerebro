@@ -4,7 +4,19 @@ import { EditorDocument } from '@cerebro-ide/ui-editor';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import type { FileSymbol } from '../src/structure.js';
-import { StructureView, UPDATE_DELAY, type StructureViewProps } from '../src/structure-view.js';
+import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
+import type { MenuServices } from '@cerebro-ide/ui-menu';
+import {
+  compareIgnoringCase,
+  FOLLOW_DELAY,
+  OPTIONS_MENU,
+  readStructureSettings,
+  setupStructureView,
+  StructureView,
+  UPDATE_DELAY,
+  VIEW_MENU,
+  type StructureViewProps,
+} from '../src/structure-view.js';
 
 let cleanup: (() => void) | undefined;
 afterEach(() => {
@@ -21,10 +33,11 @@ const symbol = (name: string, kind: string, line: number, children: FileSymbol[]
   children,
 });
 
-function mount(props: StructureViewProps) {
+/** Mounts the window; with no caret, as with no editor. */
+function mount(props: Omit<StructureViewProps, 'caret'> & Partial<StructureViewProps>) {
   const container = document.createElement('div');
   document.body.append(container);
-  const handle = render(() => <StructureView {...props} />, container);
+  const handle = render(() => <StructureView caret={() => undefined} {...props} />, container);
   cleanup = () => {
     handle.dispose();
     container.remove();
@@ -143,5 +156,158 @@ describe('the Structure tool window', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(symbols).toHaveBeenCalledTimes(2);
     expect(container.textContent).toBe('No structure');
+  });
+});
+
+describe('the Structure tool window’s menus', () => {
+  const services: MenuServices = {
+    commands: new CommandRegistry(),
+    menus: new MenuRegistry(),
+    keymap: new Keymap('other'),
+  };
+  setupStructureView(services);
+  const { commands, menus } = services;
+  const checked = (id: string) => commands.isChecked(id) === true;
+  const found = [
+    symbol('b', 'function', 0),
+    {
+      ...symbol('C', 'class', 2, [symbol('y', 'method', 3), symbol('X', 'method', 4)]),
+      to: { line: 5, column: 1 },
+    },
+    symbol('a', 'function', 7),
+  ];
+  const mountFound = (props: Partial<StructureViewProps> = {}) =>
+    mount({
+      file: () => '/r/a.ts',
+      document: () => Promise.resolve(new EditorDocument('text')),
+      symbols: () => Promise.resolve(found),
+      show: () => undefined,
+      ...props,
+    });
+
+  it('hold IntelliJ’s items, in its words, with its defaults', () => {
+    expect(menus.entries(VIEW_MENU)).toEqual([
+      { heading: 'Sort' },
+      { command: 'structure.sortAlphabetically' },
+    ]);
+    expect(menus.entries(OPTIONS_MENU).map((e) => ('command' in e ? e.command : e))).toEqual([
+      'structure.expandAll',
+      'structure.collapseAll',
+      { separator: true },
+      'structure.autoscrollToSource',
+      'structure.autoscrollFromSource',
+    ]);
+    expect(
+      [
+        'structure.sortAlphabetically',
+        'structure.autoscrollToSource',
+        'structure.autoscrollFromSource',
+      ].map((id) => [commands.get(id)?.label, checked(id)]),
+    ).toEqual([
+      ['Alphabetically', false],
+      ['Navigate with Single Click', true],
+      ['Always Select Opened Element', false],
+    ]);
+    // Nothing to expand without a tree.
+    expect(commands.isEnabled('structure.expandAll')).toBe(false);
+  });
+
+  it('sorts the symbols by name, ignoring case, what’s expanded kept; kept in storage', async () => {
+    const container = mountFound();
+    await expect.poll(() => rows(container)).toEqual(['b', 'C', 'y', 'X', 'a']);
+    commands.execute('structure.sortAlphabetically');
+    await expect.poll(() => rows(container)).toEqual(['a', 'b', 'C', 'X', 'y']);
+    expect(readStructureSettings().alphabetical).toBe(true);
+    commands.execute('structure.sortAlphabetically');
+    await expect.poll(() => rows(container)).toEqual(['b', 'C', 'y', 'X', 'a']);
+    expect(readStructureSettings().alphabetical).toBe(false);
+  });
+
+  it('collapses and expands all', async () => {
+    const container = mountFound();
+    await expect.poll(() => rows(container)).toHaveLength(5);
+    expect(commands.isEnabled('structure.collapseAll')).toBe(true);
+    commands.execute('structure.collapseAll');
+    await expect.poll(() => rows(container)).toEqual(['b', 'C', 'a']);
+    commands.execute('structure.expandAll');
+    await expect.poll(() => rows(container)).toHaveLength(5);
+    cleanup?.();
+    cleanup = undefined;
+    expect(commands.isEnabled('structure.collapseAll')).toBe(false);
+  });
+
+  it('shows a selected symbol only with Navigate with Single Click', async () => {
+    const show = vi.fn();
+    const container = mountFound({ show });
+    await expect.poll(() => rows(container)).toHaveLength(5);
+    commands.execute('structure.autoscrollToSource');
+    expect(readStructureSettings().toSource).toBe(false);
+    const names = () => container.querySelectorAll<HTMLElement>('.playground-occurrences__name');
+    await userEvent.click(names()[0] as HTMLElement);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(show).not.toHaveBeenCalled();
+    commands.execute('structure.autoscrollToSource');
+    await userEvent.click(names()[4] as HTMLElement);
+    await expect.poll(() => show.mock.calls.length).toBe(1);
+  });
+
+  it('selects the innermost symbol at the caret a second after it moves, with Always Select Opened Element', async () => {
+    const show = vi.fn();
+    const caret = signal<{ line: number; column: number } | undefined>({ line: 3, column: 2 });
+    const container = mountFound({ show, caret: () => caret.get() });
+    await expect.poll(() => rows(container)).toHaveLength(5);
+    const selected = () =>
+      container.querySelector('.cerebro-tree-row--selected .playground-occurrences__name')
+        ?.textContent;
+    // Off: not followed.
+    await new Promise((resolve) => setTimeout(resolve, FOLLOW_DELAY + 100));
+    expect(selected()).toBeUndefined();
+    commands.execute('structure.autoscrollFromSource');
+    expect(readStructureSettings().fromSource).toBe(true);
+    commands.execute('structure.collapseAll');
+    caret.set({ line: 4, column: 3 });
+    // Not at once: a second after.
+    await new Promise((resolve) => setTimeout(resolve, FOLLOW_DELAY / 2));
+    expect(selected()).toBeUndefined();
+    // Its class opened to it; not shown in the editor, where the caret already is.
+    await expect.poll(selected, { timeout: FOLLOW_DELAY + 1000 }).toBe('X');
+    expect(rows(container)).toHaveLength(5);
+    // Within the class, not a member: the class. Outside every symbol: the selection stays.
+    caret.set({ line: 5, column: 0 });
+    await expect.poll(selected, { timeout: FOLLOW_DELAY + 1000 }).toBe('C');
+    caret.set({ line: 6, column: 0 });
+    await new Promise((resolve) => setTimeout(resolve, FOLLOW_DELAY + 100));
+    expect(selected()).toBe('C');
+    expect(show).not.toHaveBeenCalled();
+    // No editor: nothing to follow.
+    caret.set(undefined);
+    commands.execute('structure.autoscrollFromSource');
+  });
+});
+
+describe('compareIgnoringCase', () => {
+  it('compares as Java’s compareToIgnoreCase, not by the locale', () => {
+    expect(['b', 'C', 'a', 'Z'].sort(compareIgnoringCase)).toEqual(['a', 'b', 'C', 'Z']);
+    // By the characters' codes: é after f, where the locale puts it before.
+    expect(['f', 'é'].sort(compareIgnoringCase)).toEqual(['f', 'é']);
+    expect(['f', 'é'].sort((a, b) => a.localeCompare(b))).toEqual(['é', 'f']);
+    expect(compareIgnoringCase('A', 'a')).toBe(0);
+  });
+});
+
+describe('readStructureSettings', () => {
+  it('starts with IntelliJ’s defaults when nothing, or nothing readable, is kept', () => {
+    localStorage.setItem('cerebro.structure', '{');
+    expect(readStructureSettings()).toEqual({
+      alphabetical: false,
+      toSource: true,
+      fromSource: false,
+    });
+    localStorage.removeItem('cerebro.structure');
+    expect(readStructureSettings()).toEqual({
+      alphabetical: false,
+      toSource: true,
+      fromSource: false,
+    });
   });
 });

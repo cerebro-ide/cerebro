@@ -43,7 +43,12 @@ import { settingsFor } from './settings.js';
 /** The most files listed, as IntelliJ's. */
 const LIMIT = 30;
 
-type Entry = SwitcherItem & ({ kind: 'tool'; id: string } | { kind: 'tab'; tab: Tab });
+type Entry = SwitcherItem &
+  (
+    | { kind: 'tool'; id: string }
+    | { kind: 'tab'; tab: Tab }
+    | { kind: 'locations'; edited: boolean }
+  );
 
 /** A tool window's number from the shortcut that opens it: Alt+1's 1. */
 const numberOf = (shortcut: string | undefined) => /^[A-Za-z]+\+(\d)$/.exec(shortcut ?? '')?.[1];
@@ -176,7 +181,9 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
   /** Opens what was chosen: a tab, or a tool window, focused. */
   const go = (entry: Entry | undefined) => {
     if (entry?.kind === 'tab') setup.open(entry.tab);
-    else if (entry) {
+    else if (entry?.kind === 'locations') {
+      void services.commands.execute('view.recentLocations', { edited: entry.edited });
+    } else if (entry) {
       setup.tools.show(entry.id);
       void focusToolWindow(entry.id);
     }
@@ -224,8 +231,8 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
             setup.tools.hide(entry.id);
             return false;
           }
-          // Listed from the area: there's one.
-          closeEverywhere(area as EditorArea, entry.tab.id);
+          // Listed from the area: there's one. The Switcher lists no Recent Locations: a tab.
+          closeEverywhere(area as EditorArea, (entry as Entry & { kind: 'tab' }).tab.id);
           return true;
         },
       });
@@ -247,16 +254,40 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
     const edited = signal(editedOnly);
     // Read as it opens and as Show edited only flips, as IntelliJ's (`replaceAll`).
     const files = () => recentEntries((edited.peek() ? recent?.edited : recent?.tabs) ?? []);
+    const { keymap } = services;
+    const tools = toolEntries(services, setup.tools, false);
+    /**
+     * The tool windows, then Recent Locations, set apart, as IntelliJ's (`SwitcherRecentLocations`,
+     * when there are tool windows): the edited ones with Show edited only, then without its key.
+     */
+    const left = (): Entry[] => {
+      if (tools.length === 0) return tools;
+      const locationsKey = keymap?.shortcutsFor('view.recentLocations')[0];
+      const shortcut =
+        edited.peek() || locationsKey === undefined || !keymap
+          ? {}
+          : { shortcut: formatSequence(locationsKey, keymap.platform) };
+      return [
+        ...tools,
+        {
+          kind: 'locations',
+          edited: edited.peek(),
+          label: edited.peek() ? 'Recently Edited Locations' : 'Recent Locations',
+          status: edited.peek() ? 'Open recently edited locations' : 'Open recent locations',
+          separator: true,
+          ...shortcut,
+        },
+      ];
+    };
     const flip = () => {
       edited.set(!edited.peek());
-      switcher.replace(files(), first(files()));
+      switcher.replace(files(), first(files()), left());
     };
-    const { keymap } = services;
     const key = keymap?.shortcutsFor('view.recentFiles')[0];
     const switcher: SwitcherHandle<Entry> = openSwitcher<Entry>({
       title: 'Recent Files',
       // Without mnemonics, as IntelliJ's when speed search is on.
-      left: toolEntries(services, setup.tools, false),
+      left: left(),
       right: files(),
       initial: { side: 'right', index: first(files()) },
       empty: { left: 'No tool windows', right: 'No recent files' },
@@ -268,6 +299,8 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
           setup.tools.hide(entry.id);
           return false;
         }
+        // Recent Locations' item stays, as IntelliJ's (`closeTabOrToolWindow` closes no other).
+        if (entry.kind === 'locations') return false;
         // A file listed is the active environment's: its editor and its list are there.
         const area = setup.editor() as EditorArea;
         closeEverywhere(area, entry.tab.id);

@@ -154,6 +154,21 @@ describe('problems', () => {
     await expect.poll(() => root.querySelector('.cerebro-problemTooltip')).toBeNull();
   });
 
+  it('says where the caret was as F2 takes it to a problem: a place for Back, as IntelliJ’s', async () => {
+    const onLeave = vi.fn();
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      problems: () => Promise.resolve(PROBLEMS),
+      onLeave,
+    });
+    await expect
+      .poll(() => root.querySelector<HTMLElement>('.cerebro-problems')?.hidden)
+      .toBe(false);
+    (root.querySelector('.cm-content') as HTMLElement).focus();
+    await userEvent.keyboard('{Control>}{End}{/Control}{F2}');
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 3, column: 0 });
+  });
+
   it('counts errors and warnings in the corner, and goes to them: arrows, F2 and Shift+F2', async () => {
     const root = mount({
       document: new EditorDocument(TEXT),

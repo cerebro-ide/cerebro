@@ -119,6 +119,18 @@ describe('paths and locations', () => {
         item: from,
       },
     ]);
+    // Outgoing: the one called, and where the one asked about calls it.
+    const to = { ...item, name: 'g' };
+    expect(callsOf([{ to, fromRanges: [range] }], 'linux')).toEqual([
+      {
+        name: 'g',
+        kind: 'function',
+        path: '/a.ts',
+        at: { line: 3, column: 9 },
+        calls: [{ line: 3, column: 9 }],
+        item: to,
+      },
+    ]);
   });
 
   it('reads definitions with their declarations’ lines: a link’s target, a location’s range', () => {
@@ -840,7 +852,7 @@ describe('TypeScript 7’s server', () => {
     ]);
   }, 60_000);
 
-  it('finds a function’s callers, and theirs, with where they call it', async () => {
+  it('finds a function’s callers, and theirs, with where they call it, and what it calls', async () => {
     const project = `${root}/ts-calls`;
     rmSync(project, { recursive: true, force: true });
     const { mkdirSync } = await import('node:fs');
@@ -871,6 +883,22 @@ describe('TypeScript 7’s server', () => {
     ]);
     expect(await servers.incomingCalls(project, a.path, callers[0]?.item)).toMatchObject([
       { name: 'top', at: { line: 2, column: 16 }, calls: [{ line: 2, column: 31 }] },
+    ]);
+    // And what each calls, where: in the caller's own file.
+    const [top] = (await servers.prepareCalls(project, a, at(2, 17))) ?? [];
+    const callees = (await servers.outgoingCalls(project, a.path, top?.item)) ?? [];
+    expect(callees).toMatchObject([
+      { name: 'twice', at: { line: 1, column: 9 }, calls: [{ line: 2, column: 31 }] },
+    ]);
+    expect(await servers.outgoingCalls(project, a.path, callees[0]?.item)).toMatchObject([
+      {
+        name: 'area',
+        at: { line: 0, column: 16 },
+        calls: [
+          { line: 1, column: 26 },
+          { line: 1, column: 35 },
+        ],
+      },
     ]);
   }, 60_000);
 

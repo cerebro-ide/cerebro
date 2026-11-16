@@ -989,6 +989,8 @@ export function CommitFiles(props: {
   onContextMenu?: (event: MouseEvent, change: Change) => void;
   /** The Log's Paths filter's paths, read reactively: Show Only Affected Changes keeps to them. */
   affected?: () => readonly string[] | undefined;
+  /** The only files listed, those these paths touch: a comparison made under that option. */
+  paths?: readonly string[] | undefined;
   /** The commit's message, a patch's header. */
   message?: string;
 }) {
@@ -999,7 +1001,8 @@ export function CommitFiles(props: {
   /** Those shown: under Show Only Affected Changes, those the Paths filter's paths touch. */
   const changes = computed(() => {
     const paths = affected();
-    const all = read.get();
+    const only = props.paths;
+    const all = only ? read.get().filter((change) => affects(change, only)) : read.get();
     return onlyAffected.get() && paths ? all.filter((change) => affects(change, paths)) : all;
   });
   const parents = props.parents ?? [];
@@ -1369,11 +1372,13 @@ export function commitContext(
   const head = log.commits
     .peek()
     .find((c) => c.refs.some((r) => r === 'HEAD' || r.startsWith('HEAD -> ')));
+  const paths = log.paths.peek();
   return {
     commit,
     worktree: log.worktree,
     host: log.host,
     ...(head ? { head: head.hash } : {}),
+    ...(onlyAffected.peek() && paths ? { affected: paths } : {}),
     refresh,
     select: (hash) => log.select(hash),
   };
@@ -1418,6 +1423,18 @@ export function selectedCommit(): LogCommitContext | undefined {
   return commit && commitContext(at.log, commit, () => refresh(at.log, at.branches));
 }
 
+/**
+ * What a commit's action acts on: the commit right-clicked (the menu's context), or with the keys,
+ * the one selected while the commits have the keyboard.
+ */
+export function commitAt(context: unknown): LogCommitContext | undefined {
+  if ((context as Partial<LogCommitContext> | undefined)?.commit)
+    return context as LogCommitContext;
+  return document.activeElement?.closest('.playground-log__list') == null
+    ? undefined
+    : selectedCommit();
+}
+
 /** From the Log's toolbar, or a shortcut while it has the keyboard. */
 const here = (context: unknown) =>
   (context as { source?: string } | undefined)?.source === 'log' ||
@@ -1447,6 +1464,11 @@ export interface LogCommitContext {
   refresh: () => Promise<void>;
   /** Selects a commit in the Log, as IntelliJ focuses one an action made; whether it's there. */
   select: (hash: string) => Promise<boolean>;
+  /**
+   * The Paths filter's paths while Show Only Affected Changes is on (IntelliJ's
+   * `VcsLogUtil.getAffectedPaths`): Compare with Local keeps to them.
+   */
+  affected?: readonly string[];
 }
 
 /** Shows a commit in the Log (the Git tool window shown by the caller), its file selected. */
@@ -1522,11 +1544,15 @@ export function viewCommits(range: HashRange): void {
 }
 
 /**
- * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD that
- * change the file (`path`, from the repository's top), as IntelliJ's file history.
+ * Git → Current File → Show History: the Git tool window shown, its Log the commits of HEAD (or
+ * `revision`) that change the file (`path`, from the repository's top), as IntelliJ's file history;
+ * with `select`, that commit selected once they're read (Show in File History's).
  */
-export function showHistory(path: string, revision?: string): void {
-  wantedView.set((log) => log.showHistory(path, revision));
+export function showHistory(path: string, revision?: string, select?: string): void {
+  wantedView.set(async (log) => {
+    await log.showHistory(path, revision);
+    if (select !== undefined) await log.select(select);
+  });
   showLog();
 }
 
@@ -1544,8 +1570,7 @@ export function setupLog(services: MenuServices, show: () => void): void {
       void refresh(log, branches);
     },
   });
-  // IntelliJ's Refresh, in its macOS keymap and the others.
-  keymap?.bindDefault(keymap.platform === 'mac' ? 'Mod+R' : 'Ctrl+F5', 'log.refresh');
+  keymap?.bindDefault(REFRESH_KEY[keymap.platform], 'log.refresh');
   // Graph Options, as IntelliJ's (VcsLogGraphOptionsChooserGroup): how the graph is sorted, or its
   // first parents alone (one of them at a time, First Parent off back to by date), and No Merges.
   const showing = () => shown.peek()?.log as Log;
@@ -1975,14 +2000,9 @@ export function setupLog(services: MenuServices, show: () => void): void {
     ['log.goToChild', false],
     ['log.goToParent', true],
   ] as const) {
-    /** The commit right-clicked, or with the keys, the one selected. */
     const target = (context: unknown) => {
       const at = shown.peek();
-      const commit =
-        (context as Partial<LogCommitContext> | undefined)?.commit ??
-        (document.activeElement?.closest('.playground-log__list') == null
-          ? undefined
-          : selectedCommit()?.commit);
+      const commit = commitAt(context)?.commit;
       return at && commit && { log: at.log, commit };
     };
     commands.register({
@@ -2131,8 +2151,11 @@ function pickBranch(button: HTMLElement, log: Log, branches: Branches, platform:
   return handle;
 }
 
+/** IntelliJ's Refresh key, in its macOS keymap and the others: the Log's, a comparison's. */
+export const REFRESH_KEY: Record<Platform, string> = { mac: 'Meta+R', other: 'Ctrl+F5' };
+
 /** A command's first shortcut, as menus show it. */
-const shortcutOf = (services: MenuServices, command: string) => () => {
+export const shortcutOf = (services: MenuServices, command: string) => () => {
   const keymap = services.keymap;
   const key = keymap?.shortcutsFor(command)[0];
   return key === undefined || !keymap ? undefined : formatSequence(key, keymap.platform);

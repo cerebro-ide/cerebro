@@ -299,6 +299,21 @@
   border-right: 1px solid var(--cerebro-separator);
 }
 
+/* An item set apart by a line above it: Recent Files' Recent Locations, as IntelliJ's. */
+.cerebro-switcher__item--separated {
+  position: relative;
+  margin-top: 9px;
+}
+
+.cerebro-switcher__item--separated::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: 4px;
+  left: 4px;
+  border-top: 1px solid var(--cerebro-separator);
+}
+
 /* The files: at least 250px, as IntelliJ's. */
 .cerebro-switcher__list--right {
   flex: auto;

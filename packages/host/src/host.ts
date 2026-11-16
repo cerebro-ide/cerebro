@@ -415,6 +415,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
       (params as { item?: unknown }).item,
     ),
   );
+  connection.onRequest('lsp.outgoingCalls', (params) =>
+    servers.outgoingCalls(
+      text(params, 'worktree'),
+      text(params, 'path'),
+      (params as { item?: unknown }).item,
+    ),
+  );
   connection.onRequest('lsp.completionEdits', (params) =>
     servers.completionEdits(
       text(params, 'worktree'),

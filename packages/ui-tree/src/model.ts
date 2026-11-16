@@ -65,6 +65,24 @@ export class TreeModel<T> {
     return rows;
   }
 
+  /**
+   * Every node loaded, shown or under a collapsed parent, in order (a parent, then its children),
+   * each with the keys from its root down to it: what IntelliJ's next and previous occurrence walk
+   * (`DefaultMutableTreeNode.getNextNode`).
+   */
+  get loadedNodes(): { node: T; keys: string[] }[] {
+    const nodes: { node: T; keys: string[] }[] = [];
+    const walk = (parent: string, above: string[]) => {
+      for (const node of this.loaded.get(parent) ?? []) {
+        const keys = [...above, this.source.key(node)];
+        nodes.push({ node, keys });
+        walk(keys.at(-1) as string, keys);
+      }
+    };
+    walk(ROOT, []);
+    return nodes;
+  }
+
   /** The selected row's index among the rows, or -1. */
   get selectedIndex(): number {
     return this.rows.findIndex((r) => r.key === this.selected);

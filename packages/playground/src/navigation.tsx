@@ -358,23 +358,32 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
 
     /**
      * Quick Definition: where the symbol at a place is defined, from its file's language server,
-     * its declaration's lines as its document has them (unsaved too); the first of several.
+     * each declaration's lines as its document has them (unsaved too), in the server's order.
      */
-    async quickDefinition(asked: Asked): Promise<QuickDefinition | null> {
-      const [first] =
+    async quickDefinition(asked: Asked): Promise<QuickDefinition[] | null> {
+      const spans =
         (await ask<(Located & { first: number; last: number })[]>('lsp.definitionSpans', asked)) ??
         [];
-      if (!first) return null;
-      const doc = await documentFor(first.path);
-      if ('error' in doc) return null;
-      const text = doc.text.peek();
-      return {
-        path: first.path,
-        text: text.sliceString(text.line(first.first + 1).from, text.line(first.last + 1).to),
-        open: () => {
-          openAt(first);
-        },
-      };
+      // Each from its file's document, unsaved changes too; one whose file can't be read left out.
+      const found = await Promise.all(
+        spans.map(async (span): Promise<QuickDefinition | undefined> => {
+          const doc = await documentFor(span.path);
+          if ('error' in doc) return undefined;
+          const text = doc.text.peek();
+          const at = text.line(span.line + 1).text.slice(span.column);
+          return {
+            // The name where it's declared: the word at its place.
+            name: (/^[\p{L}\p{N}_$]*/u.exec(at) as RegExpExecArray)[0],
+            path: span.path,
+            text: text.sliceString(text.line(span.first + 1).from, text.line(span.last + 1).to),
+            open: () => {
+              openAt(span);
+            },
+          };
+        }),
+      );
+      const definitions = found.filter((each) => each !== undefined);
+      return definitions.length === 0 ? null : definitions;
     },
 
     /** What's called at a place, from its file's language server: Parameter Info; none without. */
@@ -418,7 +427,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
      */
     /**
      * Call Hierarchy: the function or method at a place, from its file's language server, and how
-     * to ask what calls it; none without a server, or with nothing there.
+     * to ask what calls it and what it calls; none without a server, or with nothing there.
      */
     async callHierarchy(asked: Asked): Promise<Hierarchy | null> {
       const env = active();
@@ -428,6 +437,7 @@ export function setupNavigation(editor: () => EditorArea | undefined) {
         worktree: env.id,
         root,
         callers: (call) => ask<Call[]>('lsp.incomingCalls', { path: call.path, item: call.item }),
+        callees: (call) => ask<Call[]>('lsp.outgoingCalls', { path: call.path, item: call.item }),
       };
     },
 

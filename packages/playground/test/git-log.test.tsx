@@ -29,7 +29,9 @@ import {
   Log,
   type LogCommit,
   type LogCommitContext,
+  commitAt,
   readFilesSettings,
+  selectedCommit,
 } from '../src/git-log.js';
 import { documentFor } from '../src/documents.js';
 import type { EditorDocument } from '@cerebro-ide/ui-editor';
@@ -895,9 +897,13 @@ describe('a commit’s pane', () => {
     expect(button.nextElementSibling?.getAttribute('aria-label')).toBe('Group By');
     expect(button.getAttribute('aria-label')).toBe('Show Only Affected Changes');
     expect(button.getAttribute('aria-pressed')).toBe('false');
+    // Off: Compare with Local compares every path.
+    expect(selectedCommit()?.affected).toBeUndefined();
     // On: the files in the folder, before or after a rename; kept.
     await userEvent.click(button);
     await expect.poll(files).toEqual(['a.tssrc', 'b.tslib ← src/b.ts']);
+    // And Compare with Local only the filter's (IntelliJ's `VcsLogUtil.getAffectedPaths`).
+    expect(selectedCommit()?.affected).toEqual(['src/']);
     expect(button.getAttribute('aria-pressed')).toBe('true');
     expect(readFilesSettings().onlyAffected).toBe(true);
     // A file: only it. None the commit changed: IntelliJ's words, and its link shows them all.
@@ -1398,6 +1404,19 @@ describe('Show History, from Git → Current File', () => {
     expect(host.params('git.log').at(-1)).toMatchObject({
       branches: ['a1..b2'],
       filter: { paths: ['src/a.ts'] },
+    });
+  });
+
+  it('shows it from a revision, a commit in it selected: Show in File History’s', async () => {
+    git.log = history(3);
+    git.byPaths['old/a.ts'] = history(3, [], 'h');
+    mount();
+    await expect.poll(subjects).toHaveLength(3);
+    showHistory('old/a.ts', 'c1', 'h1');
+    await expect.poll(() => selectedCommit()?.commit.hash).toBe('h1');
+    expect(host.params('git.log').at(-1)).toMatchObject({
+      branches: ['c1'],
+      filter: { paths: ['old/a.ts'] },
     });
   });
 });
@@ -2711,6 +2730,18 @@ describe('Go to Parent and Child Commit', () => {
     // Not with the keyboard elsewhere.
     tree().blur();
     expect(commands.isEnabled('log.goToChild')).toBe(false);
+  });
+
+  it('act on the commit right-clicked, or with the keys, the one selected', async () => {
+    git.log = merged();
+    mount();
+    await expect.poll(subjects).toHaveLength(4);
+    await userEvent.click(rows()[1] as HTMLElement);
+    expect(commitAt(undefined)?.commit.subject).toBe('Change 1');
+    const context = { commit: { hash: 'x' } };
+    expect(commitAt(context)).toBe(context);
+    tree().blur();
+    expect(commitAt(undefined)).toBeUndefined();
   });
 
   it('choose among several in a numbered popup at the row, as IntelliJ’s', async () => {

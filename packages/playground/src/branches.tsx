@@ -26,7 +26,7 @@ import { active, hostFor, projectOf, type Host } from './environments.js';
 import { isFavorite, repositoryOf, setFavorite } from './branch-favorites.js';
 import { branchField } from './git-options.js';
 import { favoriteIcon, icon } from './icons.js';
-import { paneContext, refsOf, type LogCommitContext } from './git-log.js';
+import { commitAt, paneContext, refsOf, type LogCommitContext } from './git-log.js';
 import {
   branchName,
   isTag,
@@ -614,12 +614,16 @@ export function setupBranches(
     },
   });
   // The Log's commit menu's, as IntelliJ's `GitCreateNewBranchFromCommitAction`: from the commit,
-  // the name of the one branch at it suggested (a remote one's without its remote).
-  commands.register<LogCommitContext>({
+  // the name of the one branch at it suggested (a remote one's without its remote). Its key is New
+  // Branch's while the commits have the keyboard (`use-shortcut-of="Git.CreateNewBranch"`): the
+  // keymaps bind it first, and it's off elsewhere.
+  commands.register({
     id: 'log.newBranch',
     label: 'New Branch',
     dialog: true,
-    run: async (at) => {
+    enabled: (context) => commitAt(context) !== undefined,
+    run: async (context) => {
+      const at = commitAt(context) as LogCommitContext;
       const names = refsOf(at.commit.refs).flatMap((ref) =>
         ref.kind === 'local' || (ref.kind === 'head' && ref.name !== 'HEAD')
           ? [ref.name]

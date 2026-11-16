@@ -2262,6 +2262,20 @@ describe('the Structure tool window', () => {
     expect(document.activeElement?.closest('.cerebro-tool-window')).toBe(window);
     await userEvent.keyboard('{Enter}');
     await expect.poll(() => editorRoot()?.activeElement).toBe(code());
+    // Its title's View Options and Options, as IntelliJ's new UI.
+    const buttons = [...window.querySelectorAll('[data-menu]')].map((b) => [
+      b.getAttribute('aria-label'),
+      b.getAttribute('data-menu'),
+    ]);
+    expect(buttons).toEqual([
+      ['View Options', 'structure/view'],
+      ['Options', 'structure/options'],
+    ]);
+    await userEvent.click(window.querySelector('[data-menu="structure/view"]') as HTMLElement);
+    await expect
+      .poll(() => q('.cerebro-menu .cerebro-menu-item__label').textContent)
+      .toBe('Alphabetically');
+    await userEvent.keyboard('{Escape}');
     await userEvent.click(stripe('structure'));
   });
 });
@@ -2429,6 +2443,7 @@ describe('Annotate with Git Blame', () => {
       'Copy Revision Number',
       'Annotate Revision',
       'Annotate Previous Revision',
+      'Show in File History',
       'Options',
     ]);
     // Annotate Previous Revision: none, where the commit added the file.
@@ -2652,10 +2667,31 @@ describe('the editor’s file', () => {
     await userEvent.keyboard('{Control>}e{/Control}');
     await popupItems();
     const left = [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')];
-    expect(left.length).toBeGreaterThan(0);
-    expect(
-      left.map((row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent),
-    ).toEqual(left.map(() => ''));
+    expect(left.length).toBeGreaterThan(1);
+    // The tool windows without their mnemonics; Recent Locations last, with its key, as IntelliJ's.
+    const shortcuts = left.map(
+      (row) => row.querySelector('.cerebro-popup-item__shortcut')?.textContent,
+    );
+    expect(shortcuts).toEqual([...left.slice(1).map(() => ''), 'Ctrl+Shift+E']);
+    const item = (left.at(-1) as HTMLElement).querySelector('.cerebro-popup-item__label');
+    expect(item?.textContent).toBe('Recent Locations');
+    // Show edited only: the edited ones, without the key.
+    await userEvent.keyboard('{Control>}e{/Control}');
+    const last = () =>
+      [...document.querySelectorAll('[data-side="left"] .cerebro-popup-item')].at(-1);
+    expect(last()?.querySelector('.cerebro-popup-item__label')?.textContent).toBe(
+      'Recently Edited Locations',
+    );
+    expect(last()?.querySelector('.cerebro-popup-item__shortcut')?.textContent).toBe('');
+    // Chosen, it opens Recent Locations as it reads.
+    await userEvent.click(last() as HTMLElement);
+    await expect
+      .poll(() => document.querySelector('.playground-locations__header b')?.textContent)
+      .toBe('Recently Edited Locations');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
     expect(q('.cerebro-switcher__header').textContent).toBe('Recent FilesShow edited onlyCtrl+E');
     await userEvent.keyboard('zzqq');
     expect(q('[data-side="right"] .cerebro-switcher__empty').textContent).toBe(
@@ -2707,12 +2743,40 @@ describe('the editor’s file', () => {
     await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
   });
 
+  it('keeps a place left by a click on another line, or Ctrl+Home and Ctrl+End, for Back', async () => {
+    // The open files are read again every two seconds: the others as they were.
+    answers.set('fs.read', ({ path }: { path: string }) => ({
+      text: path.endsWith('clicked.ts')
+        ? Array.from({ length: 20 }, (_, i) => `line ${String(i)}`).join('\n')
+        : `// ${path}\nconst a = 1;\n`,
+    }));
+    const shown = env().editor.activeGroup.active as string;
+    env().editor.open({ id: '/r/src/clicked.ts', title: 'clicked.ts' });
+    const line = async (n: number) =>
+      vi.waitUntil(() => editorRoot()?.querySelectorAll<HTMLElement>('.cm-line')[n]);
+    const last = () => {
+      const place = history()?.back.at(-1);
+      return `${String(place?.tab.id)}:${String(place?.at?.line)}`;
+    };
+    await userEvent.click(await line(1));
+    await userEvent.click(await line(12));
+    expect(last()).toBe('/r/src/clicked.ts:1');
+    await userEvent.keyboard('{Control>}{Home}{/Control}');
+    expect(last()).toBe('/r/src/clicked.ts:12');
+    // Back returns to it.
+    await userEvent.keyboard('{Control>}{Alt>}{ArrowLeft}{/Alt}{/Control}');
+    await expect.poll(() => carets.get('/r/src/clicked.ts')?.line).toBe(12);
+    env().editor.close(env().editor.activeGroup.id, '/r/src/clicked.ts');
+    env().editor.open({ id: shown, title: shown.slice(shown.lastIndexOf('/') + 1) });
+  });
+
   it('lists the places behind in Recent Locations, each with its lines, as IntelliJ’s', async () => {
     const text = Array.from({ length: 12 }, (_, i) => `const v${String(i)} = ${String(i)};`);
     answers.set('fs.read', ({ path }: { path: string }) => {
       if (path.endsWith('loc-gone.ts')) throw new Error('ENOENT');
       if (path.endsWith('loc-blank.ts')) return { text: 'a\n\n\n\n\n\n\n\nb' };
-      return { text: text.join('\n') };
+      // The open files are read again every two seconds: the others as they were.
+      return { text: path.includes('/loc-') ? text.join('\n') : `// ${path}\nconst a = 1;\n` };
     });
     const place = (name: string, line: number) => ({
       tab: { id: `/r/src/${name}`, title: name },

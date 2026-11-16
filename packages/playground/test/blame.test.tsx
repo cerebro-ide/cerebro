@@ -278,6 +278,7 @@ describe('Annotate with Git Blame', () => {
   const host = new FakeHost({ 'git.blame': () => BLAME });
   const open = vi.fn();
   const showInLog = vi.fn();
+  const showHistory = vi.fn();
   const commands = new CommandRegistry();
   const menus = new MenuRegistry();
   const services: MenuServices = { commands, menus, keymap: new Keymap('other') };
@@ -285,7 +286,7 @@ describe('Annotate with Git Blame', () => {
 
   beforeAll(() => {
     useProjects([project('/r', host), project('/s', undefined)]);
-    setupBlame(services, { activeTab: () => tab, open, showInLog });
+    setupBlame(services, { activeTab: () => tab, open, showInLog, showHistory });
   });
 
   beforeEach(() => {
@@ -350,7 +351,7 @@ describe('Annotate with Git Blame', () => {
     expect(annotationFor('/r/a.ts')).toBeUndefined();
   });
 
-  it('has IntelliJ’s menu on an annotation: Close Annotations, Show Diff, View, Copy Revision Number, Annotate Revision, Annotate Previous Revision, Options', async () => {
+  it('has IntelliJ’s menu on an annotation: Close Annotations, Show Diff, View, Copy Revision Number, Annotate Revision, Annotate Previous Revision, Show in File History, Options', async () => {
     annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
     const shown = await annotationFor('/r/a.ts')?.('text');
     shown?.menu(2, new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }));
@@ -361,6 +362,7 @@ describe('Annotate with Git Blame', () => {
       'Copy Revision Number',
       'Annotate Revision',
       'Annotate Previous Revision',
+      'Show in File History',
       'Options',
     ]);
     expect(labels('editor/annotation')).toEqual([
@@ -372,6 +374,7 @@ describe('Annotate with Git Blame', () => {
       'Annotate Revision',
       'Annotate Previous Revision',
       '-',
+      'Show in File History',
       'Options',
     ]);
     expect(labels('editor/annotation/options')).toEqual([
@@ -412,6 +415,22 @@ describe('Annotate with Git Blame', () => {
     // Renamed since: its path in that commit.
     shown?.click(3);
     expect(showInLog).toHaveBeenLastCalledWith(cy.hash, 'old/a.ts');
+  });
+
+  it('shows the file’s history from what’s annotated, the line’s commit selected', async () => {
+    annotate('vcs.annotate')?.run({ file: '/r/a.ts' });
+    const shown = await annotationFor('/r/a.ts')?.('text');
+    shown?.menu(3, new MouseEvent('contextmenu', { clientX: 10, clientY: 10 }));
+    await menuItems();
+    menuItem('Show in File History').click();
+    // The file as annotated, at HEAD; the line's commit, though the file had another name then.
+    expect(showHistory).toHaveBeenLastCalledWith('a.ts', undefined, cy.hash);
+    // A revision annotated: its history from that revision.
+    annotate('annotate.showInFileHistory')?.run({
+      hash: bob.hash,
+      annotated: { path: 'old/a.ts', hash: cy.hash },
+    });
+    expect(showHistory).toHaveBeenLastCalledWith('old/a.ts', cy.hash, bob.hash);
   });
 
   it('shows the diff of a line’s commit to the file: from the commit before, or from nothing', async () => {
@@ -481,6 +500,7 @@ describe('Annotate with Git Blame', () => {
       'annotate.close',
       'annotate.showDiff',
       'annotate.copyRevision',
+      'annotate.showInFileHistory',
     ]) {
       expect(commands.isEnabled(id)).toBe(false);
     }

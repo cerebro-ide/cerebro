@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, Next and Previous Occurrence (added 2026-11-16), as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
@@ -1265,9 +1265,21 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   `layout`), one history per environment. A place is a tab and its caret. A place is left when
   another tab becomes active (opened, chosen, or the one shown after a tab closes), and when a
   navigation jumps within a file (go to definition, a Find in Files result). Back returns to the
-  last place left; Forward undoes it; going somewhere new forgets the places ahead. A place once,
-  however often it's left from the same line. 50 places kept (a claim: IntelliJ keeps a few
-  dozen; not measured).
+  last place left; Forward undoes it; going somewhere new forgets the places ahead. 50 places kept
+  (a claim: IntelliJ keeps a few dozen; not measured).
+  - **Clicks, the text's start or end, problems and occurrences** (added 2026-11-16) are places
+    left too, when they take the caret to another line, as IntelliJ's (read from its source:
+    `includeCurrentCommandAsNavigation`'s callers): a click (EditorImpl's mouse press); Ctrl+Home
+    or Ctrl+End (`EditorActionUtil.moveCaretToTextStart`/`…TextEnd`; Cmd+Up or Cmd+Down on macOS,
+    CodeMirror's keys for them); the next or previous problem, F2 and Shift+F2
+    (`GotoNextErrorHandler`); Find's next or previous occurrence (`SearchAgainAction`, `FindUtil`).
+    Typing, the arrows, a move within the line and a drag after the press aren't (IntelliJ's
+    `caretPositionChanged` ignores a move within the line). The editor says where the caret was
+    (`onLeave`, `leaves.ts` in `ui-editor`). Claude's choice, open to change: the first match found
+    as it's typed in the find bar isn't one (IntelliJ's find as you type isn't read).
+  - **A place within 4 lines of the last one takes its place** (changed 2026-11-16), as IntelliJ's
+    `putLastOrMerge` (`isSame`: `TextEditorState.MIN_CHANGE_DISTANCE`). It was kept once for the
+    same line only; with clicks as places, every click near the last would have been another.
 - **Shortcuts as IntelliJ's default keymaps:** Ctrl+Alt+Left and Ctrl+Alt+Right on Windows and
   Linux, Cmd+[ and Cmd+] on macOS; and the mouse's back and forward buttons. A Navigate menu
   after View holds them, as IntelliJ's. The editor no longer takes Cmd+[ and Cmd+] for
@@ -1320,7 +1332,11 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     a tool window hides and stays listed, as in the Switcher; a file's tabs close, and it's off
     the list shown, the files shown or those edited (`closeEditorForFile`, which leaves it when an
     editor still shows it: Cerebro's close can't be refused).
-  - **Not yet:** IntelliJ's Recent Locations item under the tool windows; selecting several.
+  - **Recent Locations** (added 2026-11-16) ends the tool windows' list, set apart by a line, as
+    IntelliJ's (`SwitcherRecentLocations`, when there are tool windows). It reads "Recent
+    Locations", with its key, or with Show edited only "Recently Edited Locations", without it;
+    chosen, it opens Recent Locations so. Delete leaves it.
+  - **Not yet:** selecting several.
   - Claude's choice, open to change: matching as the pickers match (the folder after the name),
     rather than IntelliJ's `SpeedSearchComparator`.
 - **Recent Locations** (added 2026-11-16), as IntelliJ's (Ctrl+Shift+E, Cmd+Shift+E on macOS;
@@ -1391,8 +1407,25 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
   line's start, Chromium's own editing key (measured in the editor, as Ctrl+Shift+Delete to its
   end), which IntelliJ's editor hasn't; the editor now keeps both from the text, and leaves them to
   the app's keymap. A cause outside this item, there before it.
-- **Not yet:** caret moves by typing or clicking far away aren't places (IntelliJ counts some).
-  The Options menu's other choices (Open Files
+- **Next and Previous Occurrence** (added 2026-11-16), as IntelliJ's (`NextOccurenceAction`,
+  `OccurenceNavigatorActionBase`, `OccurenceNavigatorSupport`, read from its source): step through
+  a tool window's results from wherever the keyboard is, the Find window's lines and every node of
+  the Hierarchy window (the windows Cerebro has that IntelliJ gives a navigator). Which window's:
+  the focused one's, else the one active last that has results (`LAST_ACTIVE_TOOL_WINDOWS`). The
+  result is selected, its parents expanded, and opened, the editor taking the keyboard. A tree is
+  walked as IntelliJ's `getNextNode`: every node loaded, collapsed or not, from the one selected,
+  or from the start; none before the start or after the end.
+  - Keys from IntelliJ's keymap files: Ctrl+Alt+Down and Up (Cmd+Alt on macOS, its keymap taking
+    `$default`'s with Cmd); Visual Studio's add F8 and Shift+F8, after the diff's; none in
+    Eclipse's and Sublime Text's. NetBeans names Method Down on Ctrl+Alt+Down too: Next Occurrence
+    runs while there's one to go to, else Method Down (Cerebro's first enabled command; how
+    IntelliJ picks between them wasn't read, a claim).
+  - In the Navigate menu after Next Edit Location, Previous then Next, as IntelliJ's `GoToMenu`
+    orders them (it has a separator and Navigate in File between, which Cerebro hasn't).
+  - **Not yet:** the status bar's "Occurrence N of M" (`displayOccurrencesInfoInStatusBar`), and
+    the other windows IntelliJ gives one (Problems, Changes, the Log's).
+- **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
+  End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
@@ -2199,10 +2232,11 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   (`IconBadge.successBackground`, no theme overriding it), not measured. **Not yet:** Linearize
   Merges (off in IntelliJ unless its registry turns it on), and the branch actions after Options
   (Collapse and Expand Linear Branches, Long Edges).
-- **Not yet:** the branches pane's toolbar's other actions (below) and its own search; their menu's other items
-  (Show Diff in a New Tab or Window); a commit's right-click menu's other
-  items (the Checkout submenu with the commit's branches, and the rest of IntelliJ's);
-  IntelliJ's Log is a tab beside Console in the Git window, here it's all the window holds.
+- **Not yet:** a commit's files' menu's other items (Show Diff in a New Tab or Window); a commit's
+  right-click menu's other items (the Checkout submenu with the commit's branches, and the rest of
+  IntelliJ's); IntelliJ's Log is a tab beside Console in the Git window, here it's all the window
+  holds. (Corrected 2026-11-16: the branches pane's toolbar has all of IntelliJ's actions, its
+  `Git.Log.Branches.Toolbar.Actions` being an empty group for plugins, and its search.)
 - **Checkout Revision** (added 2026-11-14), in a commit's menu before Compare with Local, as
   IntelliJ's (`GitCheckoutActionGroup`, `Git.Log.ContextMenu.CheckoutBrowse`, GitBundle's
   "Checkout Revision '…'" with the short hash, read from its source): the commit checked out,
@@ -2333,8 +2367,13 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   where the commit hasn't it (`CompareWithLocalDialog.GetVersionActionProvider`), asking first over
   a local change as the Log's Get from Revision does; the list is read again after. The window
   takes what it shows from the caller (its words over the files, its Get), so a branch's comparison
-  keeps its own. **Not yet:** with a Paths filter, IntelliJ compares only those paths ("... in
-  paths"); IntelliJ's Refresh in that tab.
+  keeps its own. Under a Paths filter with Show Only Affected Changes on, only those paths, the
+  title naming them ("… in src/a.ts, lib", cut to 100 characters with "..."), as IntelliJ's
+  (`VcsLogUtil.getAffectedPaths`, `GitLogDiffHandler.getTitleForPaths`; added 2026-11-16).
+  Refresh, first in its toolbar (added 2026-11-16), as IntelliJ's (`MyRefreshAction`): documents
+  saved, the list read again; on IntelliJ's Refresh key (Ctrl+F5, Cmd+R on macOS), the Log's too,
+  while the window has the keyboard. A branch's comparison has none: IntelliJ's reads once
+  (`GitShowDiffWithBranchPanel`).
 - **Get from Revision in a commit's file's menu** (added 2026-11-13), after Cherry-Pick Selected
   Changes, as IntelliJ's (`Vcs.GetVersion`, named in the Log by
   `GetVersionFromRepositoryActionProvider`; `GetVersionAction`, read from their source): the file in
@@ -2373,9 +2412,10 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   branches are read again as the dialog opens, for Git → New Branch… too, and the name is checked
   against them once they're in: measured, a branch made since the popup last read them wasn't
   caught. Not before it opens: measured in CI's e2e, what was typed straight after choosing New
-  Branch… went nowhere while they were read. **Not yet:** its shortcut,
-  New Branch's while the Log has the keyboard, as IntelliJ's (`use-shortcut-of`): a chord runs the
-  first enabled command bound, so Git → New Branch… would take it.
+  Branch… went nowhere while they were read. Its key (added 2026-11-16) is New Branch's (Ctrl+Alt+N,
+  Cmd+Option+N on macOS) while the commits have the keyboard, the selected commit's, as IntelliJ's
+  (`use-shortcut-of="Git.CreateNewBranch"`): IntelliJ's keymaps bind it before Git → New Branch…,
+  which takes the key elsewhere, as a chord runs the first enabled command bound.
 - **Go to Parent Commit and Go to Child Commit** (added 2026-11-11), IntelliJ's
   `GoToParentOrChildAction`, with its keys, Right and Left (`$default`, so every keymap), while
   the commits have the keyboard. The selection moves to the commit's parent or child, loading pages
@@ -2613,13 +2653,29 @@ change.
   System Shortcuts' `Ctrl+Shift+<`, which never fired before.
 - **The gutter markers' column keeps its width** with no marker in view (the caret's line folded
   or scrolled away): it had dropped to nothing and moved the text (measured: 0px, now 36px).
+- **The imports folded as a file opens** (added 2026-11-16), as IntelliJ's, read from its source:
+  Settings' Fold by default → Imports is on (`CodeFoldingSettings.COLLAPSE_IMPORTS`), and for a
+  language server its `imports` folds are what folds (`LspFoldingBuilder`; TypeScript's server
+  marks them, measured). Only as the editor opens (`UpdateFoldRegionsOperation`: "only on initial
+  fold regions construction on editor opening"): here, the server's first answer for the editor, so
+  imports added later stay open; and not where the caret is, an editor opened at a line in them
+  (its `EXCEPT_CARET_REGION`). Folded, they show as other folds do, the first line then `...`.
+- **A folded part's lines under the pointer** (added 2026-11-16), as IntelliJ's
+  (`FoldingPopupManager`, `DocumentFragmentTooltipRenderer`, read from its source): resting on a
+  fold's box for 300 ms (its `TOOLTIP_DELAY_MS`) shows the part's whole lines, from its first line
+  to its last, under its first line, as many as fit above the window's bottom (IntelliJ's, the
+  screen's). They're the editor's, highlighted; here a read-only editor in the editor's look and
+  language, as Quick Definition's, without a gutter (a claim), framed as the tooltips are. Gone as
+  the pointer leaves, at a key or a scroll (its `hideByAnyKey`, `hideByScrolling`), at an edit, or
+  as the part unfolds.
 - **Not yet:**
   - IntelliJ's numpad + and -: CodeMirror can't tell the numpad's + from Ctrl+Shift+=, and Shift
     with a numpad key doesn't reach the editor's actions.
   - macOS System Shortcuts' Alt+Shift keys for all: CodeMirror's base fallback is skipped on macOS
     with Alt, so they can't match.
-  - Folding by default (IntelliJ folds imports as a file opens), end-of-fold markers in the gutter,
-    the folded text on hover, folds kept across reopening a file, and a menu for the actions.
+  - Settings' Fold by default page (Imports alone is on there), end-of-fold markers in the gutter,
+    folds kept across reopening a file (IntelliJ folds the imports the first time only), and a
+    menu for the actions.
 
 ## Logging in to remotes (2026-11-08)
 
@@ -3428,10 +3484,25 @@ IntelliJ's Navigate → Call Hierarchy, which WebStorm has. Claude's choices, op
   about the active file at its caret, as File Structure does (one function for both now).
 - **Its keys,** from IntelliJ's keymap files: Ctrl+Alt+H, on macOS too; macOS System Shortcuts'
   Ctrl+Shift+H. VS Code's sheets don't list it, so its keymaps keep IntelliJ's.
-- **Not yet:** Callees (IntelliJ's other view), sorting alphabetically, the scope (all, project,
-  tests), the window's toolbar (refresh, expand and collapse all, pin, previous and next), its
-  tabs, one per hierarchy; Type Hierarchy and Method Hierarchy; a hint when there's nothing to show
-  (IntelliJ's), and the call sites highlighted in the editor once opened.
+- **Its toolbar** (added 2026-11-16), over the tree, IntelliJ's in its order
+  (`CallHierarchyBrowserBase.prependActions`, then `HierarchyBrowserBaseEx`'s and
+  `HierarchyBrowserBase`'s `appendActions`, words from its bundles), with what Cerebro has of it:
+  - Caller Methods Hierarchy and Callee Methods Hierarchy: a hierarchy starts with its callers;
+    "Callees of {name}" lists what it calls (LSP's `outgoingCalls`), each opening where the one
+    above calls it, in that one's file (measured with TypeScript 7's server: `outgoingCalls`'
+    places are in the caller's file). A node given no place opens at its name.
+  - Alphabetically: by name, numbers by their value (`AlphaComparator`'s `FileNameComparator`;
+    the locale's collation stands for IntelliJ's `naturalCompare`, a claim), read again with
+    what's expanded kept. Refresh asks the server again. Navigate with Single Click opens the node
+    selected, the focus left in the tree; turned on, it waits for the next selection
+    (`setAutoScrollMode` alone). Collapse All. Both toggles off to start with
+    (`HierarchyBrowserManager`'s state), kept in the browser's storage.
+  - Its icons are Claude's drawings (not IntelliJ's), open to change.
+- **Not yet:** the scope (all, project, tests); Expand All (a function that calls itself would
+  expand forever, and how IntelliJ stops at a recursive call for JavaScript isn't in its open
+  source); Pin, Export to Text File, Close, and its tabs, one per hierarchy; Type Hierarchy and
+  Method Hierarchy; a hint when there's nothing to show (IntelliJ's), and the call sites
+  highlighted in the editor once opened.
 
 ## Quick Definition (2026-11-14)
 
@@ -3454,9 +3525,21 @@ IntelliJ's View → Quick Definition, which WebStorm has. Claude's choices, open
   its Redo there (Claude's choice). VS Code's is its Peek Definition, from its sheets: Alt+F12,
   Ctrl+Shift+F10 on Linux; on macOS Alt+F12, a claim: the macOS sheet's modifier keys are glyphs
   that don't come out as text.
-- **Not yet:** several definitions (IntelliJ's switcher, "1 of 2", and its list of files; the
-  first is shown); the popup's toolbar (Back and Forward, Edit Source's button, Show in Find
-  Window, pinning it as a tab); a definition the index finds when no server answers (Go to
+- **Several definitions** (added 2026-11-16), as IntelliJ's `DefinitionSwitcher` and
+  `ImplementationViewComponent` (read from its source): every one the server gives, in its order,
+  the first shown. A list of them takes the place of the name and the file, each its name (the
+  word at its place in its file) and its file's name; then Back, "1/3" and Forward
+  (CodeInsightBundle's words), shown for one too, as IntelliJ's. Back and Forward, and Left and
+  Right, go through them, round from either end; Edit Source opens the one shown. A file that
+  can't be read leaves its definition out.
+  - **Claude's, open to change:** the list is the page's own drop-down, its rows the name and the
+    file with two spaces between (IntelliJ's combo box puts the file at the right, and with one
+    name for all, the member each is in, which the server doesn't give); the arrows are drawn
+    here (IntelliJ's `Play_back` and `Play_forward`, a claim); the keyboard stays in the editor,
+    so Left and Right go through them while the popup shows, as in IntelliJ's popup, which takes
+    the keyboard.
+- **Not yet:** the toolbar's More menu (Edit Source's item, Show in Find Window), pinning it as
+  a tab; a definition the index finds when no server answers (Go to
   Definition's fallback); a binary file's view; the declaration's documentation comment, which
   IntelliJ's selectioner may take in (a claim, not read).
 
@@ -3569,8 +3652,22 @@ to change.
 - **Its empty texts are IntelliJ's** (LangBundle): "No structure" with no file or no language
   server, "Structure is empty" for a file with no symbols. In the browser, "The structure shows in
   the desktop app.", as the Log's.
-- **Not yet:** its toolbar (sorting, Autoscroll toggles, Show Fields and Inherited, Expand and
-  Collapse All), and following the caret when Autoscroll from Source is turned on.
+- **Its title's buttons** (added 2026-11-16), as IntelliJ's new UI (`StructureViewWrapperImpl`:
+  `getViewActions` in View Options, `getDotsActions` in the gear's menu; words from its bundles):
+  - View Options (Group By's icon): a Sort heading over Alphabetically (`Sorter.ALPHA_SORTER`,
+    names compared ignoring case as Java's `compareToIgnoreCase`, by the characters' codes), off to
+    start with. Sorted, the tree is read again, what's expanded and selected kept.
+  - Options (the gear's menu, ⋮ as the Project window's): Expand All and Collapse All, then
+    Navigate with Single Click (Autoscroll to Source, on) and Always Select Opened Element
+    (Autoscroll from Source, off). With it on, a second after the caret moves (IntelliJ's alarm),
+    the innermost symbol holding the caret is selected, its parents opened, and not shown in the
+    editor again; outside every symbol, the selection stays. As IntelliJ's, turning it on waits for
+    the caret to move.
+  - Kept in the browser's storage, one for every project, where IntelliJ keeps them per project
+    (Claude's choice, open to change).
+- **Not yet:** the language's own filters and groupings in View Options (Show Fields, Inherited,
+  for JavaScript and TypeScript): WebStorm's are in its JavaScript plugin, which isn't open
+  source, so they can't be read.
 
 ## Scratch files (2026-11-14)
 
@@ -4668,8 +4765,14 @@ operations): the second of the three. Words, layout and colours from IntelliJ's 
   with no annotation asked about, so Find Action, which asks with none, doesn't list them, as
   IntelliJ's, which take the annotation from the gutter's popup. Before, the first three were
   listed there, and running one threw (measured: a test asking with none).
-- **Not yet:** Show in File History (Git → Current File → Show History is there now); Show Diff On
-  Hover. (The editor's context menu's Git submenu: decision "The editor's Git submenu".)
+- **Show in File History** (added 2026-11-16), as the Log's `ShowInFileHistoryAnnotationAction`
+  (read from its source): the annotated file's history, as Git → Current File → Show History shows
+  it, from the revision annotated (HEAD for the file itself), the line's commit selected once it's
+  read. In the menu after Annotate Previous Revision, before Options, after a separator: IntelliJ
+  puts its extensions' actions there (`addActionsFromExtensions`), and that the Log's comes before
+  Git's Options (the platform's extensions before a plugin's) is a claim.
+- **Not yet:** Show Diff On Hover. (The editor's context menu's Git submenu: decision "The
+  editor's Git submenu".)
 
 ## Committing a merge, and the Git menu's merge and rebase actions (2026-11-09)
 

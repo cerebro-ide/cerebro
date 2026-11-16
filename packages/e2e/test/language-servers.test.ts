@@ -421,16 +421,32 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
   } catch (error) {
     // Two read marks on a macOS run (#192), the file having one read: what each mark and each
     // usage in the text was, to tell a wrong answer (the declaration as read) from marks elsewhere.
+    // In the editors' shadow roots too, which the document's own query doesn't reach (a run printed
+    // no marks and no editors while the locator found two).
     console.log(
-      await page().evaluate(() => ({
-        marks: [...document.querySelectorAll<HTMLElement>('.cerebro-stripeMark')].map(
-          (m) => `${m.className} top=${m.style.top} in ${String(m.closest('.cm-editor') !== null)}`,
-        ),
-        editors: document.querySelectorAll('.cm-editor').length,
-        usages: [...document.querySelectorAll<HTMLElement>('.cerebro-usage')].map(
-          (u) => `${u.className} top=${u.style.top}`,
-        ),
-      })),
+      await page().evaluate(() => {
+        const all = <E extends Element>(selector: string) => {
+          const found: E[] = [];
+          const walk = (root: Document | ShadowRoot) => {
+            found.push(...root.querySelectorAll<E>(selector));
+            for (const element of root.querySelectorAll('*')) {
+              if (element.shadowRoot) walk(element.shadowRoot);
+            }
+          };
+          walk(document);
+          return found;
+        };
+        return {
+          marks: all<HTMLElement>('.cerebro-stripeMark').map(
+            (m) =>
+              `${m.className} top=${m.style.top} in ${String(m.closest('.cm-editor') !== null)}`,
+          ),
+          editors: all('.cm-editor').length,
+          usages: all<HTMLElement>('.cerebro-usage').map(
+            (u) => `${u.className} top=${u.style.top} "${u.textContent}"`,
+          ),
+        };
+      }),
     );
     throw error;
   }

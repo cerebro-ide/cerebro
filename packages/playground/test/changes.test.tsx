@@ -593,6 +593,7 @@ describe('Git → Current File → Show Diff', () => {
       activeTab: () => activeTab,
       open: () => undefined,
       showInLog: () => undefined,
+      showHistory: () => undefined,
     });
     await changesView();
     for (const [path, on] of [

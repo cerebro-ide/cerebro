@@ -3,7 +3,7 @@ import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { EditorState } from '@codemirror/state';
 import { search, SearchQuery, setSearchQuery } from '@codemirror/search';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { CodeEditor, EditorDocument, type CodeEditorProps } from '../src/index.js';
 import { EditorView } from '@codemirror/view';
@@ -98,6 +98,18 @@ describe('find', () => {
     await userEvent.keyboard('{Escape}');
     expect(root.querySelector('.cerebro-find')).toBeNull();
     expect(root.activeElement?.classList.contains('cm-content')).toBe(true);
+  });
+
+  it('says where the caret was as the next occurrence takes it off its line: a place for Back', async () => {
+    const onLeave = vi.fn();
+    const root = mount({ path: 'a.txt', text: 'a\nfoo\nb\nfoo', onLeave });
+    await focusEditor(root);
+    await userEvent.keyboard('{Control>}f{/Control}');
+    // Found as it's typed: not one (Claude's choice: IntelliJ's find as you type isn't read).
+    await userEvent.keyboard('foo');
+    expect(onLeave).not.toHaveBeenCalled();
+    await userEvent.keyboard('{Enter}');
+    expect(onLeave).toHaveBeenLastCalledWith({ line: 1, column: 3 });
   });
 
   it('opens with the selected text, and goes on with F3 and Shift+F3 from the editor', async () => {

@@ -88,7 +88,12 @@ import { setupScratches } from './scratches.js';
 import { setupDelete } from './delete-file.js';
 import { setupRenameFile } from './rename-file.js';
 import { setupFileClipboard } from './file-clipboard.js';
-import { StructureView } from './structure-view.js';
+import {
+  OPTIONS_MENU as STRUCTURE_OPTIONS,
+  setupStructureView,
+  StructureView,
+  VIEW_MENU as STRUCTURE_VIEW,
+} from './structure-view.js';
 import { currentBranch } from './git-fields.js';
 import { GitLogView, setupLog, showHistory, showInLog } from './git-log.js';
 import { setupRecentLocations } from './recent-locations.js';
@@ -189,7 +194,8 @@ import {
   type BookmarkPlace,
   type LineBookmark,
 } from './bookmarks.js';
-import { HierarchyView, showHierarchy } from './call-hierarchy.js';
+import { HierarchyView, setupCallHierarchy, showHierarchy } from './call-hierarchy.js';
+import { setupOccurrences } from './occurrences.js';
 import {
   closeProject,
   openProject,
@@ -478,6 +484,7 @@ setupBlame(services, {
     layout.toolWindows.show('git');
     showInLog(hash, path);
   },
+  showHistory,
 });
 /** Opens a file at a place with its editor focused: from a list, as IntelliJ's Jump to Source. */
 const jumpTo = (at: { path: string; line: number; column: number }) => {
@@ -694,6 +701,9 @@ for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
 }
 setupSwitcher(services, { editor, tools: layout.toolWindows, open: navigation.open });
 setupRecentLocations(services);
+setupStructureView(services);
+setupCallHierarchy(services);
+setupOccurrences(services);
 // Go to Line, as IntelliJ's Navigate → Line/Column: the caret's line:column to start from.
 /** The active tab's file, if it's one (not a diff or a comparison). */
 const activeFile = () => {
@@ -1897,6 +1907,25 @@ function TerminalTabs() {
   };
 }
 
+/** A tool window's title button that opens a menu below it: Options, IntelliJ's gear, say. */
+function menuButton(label: string, menu: string, name: string) {
+  return (
+    <button
+      type="button"
+      class="cerebro-toolbar-button"
+      aria-label={label}
+      data-menu={menu}
+      ref={tooltip({ text: () => label, placement: 'below' })}
+      on:click={(event) => {
+        const anchor = event.currentTarget as HTMLElement;
+        openMenu(services, menu, { anchor, placement: 'below' }, { owner: anchor });
+      }}
+    >
+      {icon(name)}
+    </button>
+  );
+}
+
 /** A tool window's content for the active environment: switching environments switches it. */
 function Content(props: { id: string }) {
   if (props.id === 'project') return <Files />;
@@ -1905,7 +1934,9 @@ function Content(props: { id: string }) {
   if (props.id === 'git') return <GitLogView services={services} open={openTab} />;
   if (props.id === 'terminal') return <TerminalPane kind="shell" />;
   if (props.id === 'find') return <FindView open={navigation.openAt} />;
-  if (props.id === 'hierarchy') return <HierarchyView open={navigation.openAt} />;
+  if (props.id === 'hierarchy') {
+    return <HierarchyView services={services} open={navigation.openAt} />;
+  }
   if (props.id === 'structure') {
     const view = (
       <StructureView
@@ -1915,6 +1946,10 @@ function Content(props: { id: string }) {
         show={(at, focus) => {
           if (focus) jumpTo(at);
           else navigation.openAt(at, false);
+        }}
+        caret={() => {
+          const file = activeFile();
+          return file && carets.get(file.id);
         }}
       />
     );
@@ -2030,6 +2065,11 @@ function Code(props: { path: string; env: string }) {
               carets.set(props.path, at);
               if (selected) selections.set(props.path, selected);
               else selections.delete(props.path);
+            }}
+            // A click or the text's start or end, as IntelliJ's: a place left, for Back. The
+            // editor's tab is the active one: a click focuses it first.
+            onLeave={(from) => {
+              history()?.record(from);
             }}
             onScroll={(top) => {
               tops.set(props.path, top);
@@ -2330,26 +2370,14 @@ render(
                 command="project.selectOpenedFile"
                 icon={icon('locate')}
               />,
-              <button
-                type="button"
-                class="cerebro-toolbar-button"
-                aria-label="Options"
-                data-menu="project/options"
-                ref={tooltip({ text: () => 'Options', placement: 'below' })}
-                on:click={(event) => {
-                  const anchor = event.currentTarget as HTMLElement;
-                  openMenu(
-                    services,
-                    'project/options',
-                    { anchor, placement: 'below' },
-                    { owner: anchor },
-                  );
-                }}
-              >
-                {icon('more')}
-              </button>,
+              menuButton('Options', 'project/options', 'more'),
             ]
-          : null
+          : id === 'structure'
+            ? [
+                menuButton('View Options', STRUCTURE_VIEW, 'groupBy'),
+                menuButton('Options', STRUCTURE_OPTIONS, 'more'),
+              ]
+            : null
       }
       shortcut={(id) => shortcutOf(`view.tool.${id}`)}
     />

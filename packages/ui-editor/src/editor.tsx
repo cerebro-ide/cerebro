@@ -43,6 +43,7 @@ import {
 import { changesTo, EditorDocument, KEPT } from './document.js';
 import { detectIndent, indentUnitOf, type Indent } from './indent.js';
 import type { Selected } from './line.js';
+import { leaves } from './leaves.js';
 
 /** IntelliJ's: 4 spaces. */
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
@@ -233,6 +234,11 @@ export interface CodeEditorProps {
    * time either changes.
    */
   onCaret?: (at: { line: number; column: number }, selected: Selected | undefined) => void;
+  /**
+   * The caret left its line by a click, or by going to the text's start or end: where it was, a
+   * place for Back, as IntelliJ counts those moves (`leaves.ts`).
+   */
+  onLeave?: (from: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
   keys?: () => EditorKeys;
 }
@@ -475,6 +481,12 @@ export const theme = EditorView.theme({
     borderRadius: '3px',
     margin: '0 1px',
     cursor: 'pointer',
+  },
+  // A folded part's lines under the pointer: the editor's own, framed as the tooltips are.
+  '.cm-tooltip.cerebro-foldPeek': {
+    border: `1px solid ${variable('tooltip-border')}`,
+    boxShadow: variable('shadow'),
+    overflow: 'hidden',
   },
   // A bookmark's icon, as IntelliJ's (its colour a claim, not measured).
   '.cerebro-bookmarks .cm-gutterElement': { display: 'flex', alignItems: 'center' },
@@ -719,13 +731,35 @@ export const theme = EditorView.theme({
   '.cerebro-quickDef__title': { padding: '6px 10px', fontWeight: '600' },
   '.cerebro-quickDef__header': {
     display: 'flex',
-    justifyContent: 'space-between',
-    gap: '16px',
+    alignItems: 'center',
+    gap: '4px',
     padding: '4px 10px',
     borderTop: `1px solid ${variable('tooltip-border')}`,
     borderBottom: `1px solid ${variable('tooltip-border')}`,
   },
-  '.cerebro-quickDef__file': { color: variable('text-muted') },
+  '.cerebro-quickDef__entry': { display: 'flex', flex: '1', gap: '16px' },
+  '.cerebro-quickDef__file': { color: variable('text-muted'), marginLeft: 'auto' },
+  // Several definitions: the list to choose from, then Back, "1/2" and Forward, as IntelliJ's.
+  '.cerebro-quickDef__chooser': {
+    flex: '1',
+    height: '24px',
+    padding: '0 4px',
+    border: `1px solid ${variable('input-border')}`,
+    borderRadius: '4px',
+    background: variable('input'),
+    color: variable('text'),
+    font: 'inherit',
+  },
+  '.cerebro-quickDef__step': {
+    display: 'flex',
+    padding: '2px',
+    border: 'none',
+    borderRadius: '4px',
+    background: 'none',
+    color: variable('text-muted'),
+  },
+  '.cerebro-quickDef__step:hover': { background: variable('hover') },
+  '.cerebro-quickDef__count': { color: variable('text-muted'), fontVariantNumeric: 'tabular-nums' },
   '.cerebro-quickDef__code': { minHeight: '0', overflow: 'auto', padding: '4px 0' },
   // A hint at the caret: why there's nothing to rename, the lines Reformat Code changed.
   '.cerebro-hint': {
@@ -1103,7 +1137,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     lineNumbers(),
     highlightActiveLineGutter(),
     props.marks ? gutterMarkers(props.marks, (mark) => props.onMark?.(mark)) : [],
-    folding(props.folds),
+    folding(props.folds, [theme, syntaxHighlighting(highlight)]),
     gutterObstacle,
     fullWidth,
     selection,
@@ -1169,6 +1203,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
         return true;
       },
     }),
+    props.onLeave ? leaves(props.onLeave) : [],
     props.canGoToDefinition ? definitionLinks(props.canGoToDefinition) : [],
     theme,
     syntaxHighlighting(highlight),

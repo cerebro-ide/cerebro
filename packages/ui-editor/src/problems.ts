@@ -23,6 +23,7 @@ import {
   type DecorationSet,
   type ViewUpdate,
 } from '@codemirror/view';
+import { JUMP } from './leaves.js';
 import { errorStripe, stripeMarks, type StripeMark } from './stripe.js';
 import type { Place } from './usages.js';
 
@@ -194,7 +195,8 @@ function nextProblem(state: EditorState, forward: boolean): number | undefined {
 export function goToProblem(view: EditorView, forward: boolean): boolean {
   const at = nextProblem(view.state, forward);
   if (at === undefined) return false;
-  view.dispatch({ selection: { anchor: at }, scrollIntoView: true });
+  // A place left, for Back, as IntelliJ's.
+  view.dispatch({ selection: { anchor: at }, scrollIntoView: true, userEvent: JUMP });
   return true;
 }
 

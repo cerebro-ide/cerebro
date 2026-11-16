@@ -197,8 +197,9 @@ export function setupRecentLocations(services: MenuServices): void {
     id: 'view.recentLocations',
     label: 'Recent &Locations',
     dialog: true,
-    run: () => {
-      void recentLocations(services, false);
+    // Recent Files' Recent Locations item opens it with Show edited only as Recent Files has it.
+    run: (context?: { edited?: boolean }) => {
+      void recentLocations(services, context?.edited ?? false);
     },
   });
   services.keymap?.bindDefault('Mod+Shift+E', 'view.recentLocations');
