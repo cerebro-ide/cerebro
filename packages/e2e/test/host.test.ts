@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { Locator } from 'playwright';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { diffWindow, KEYS, launch, type Running } from './app.js';
 
@@ -238,6 +239,23 @@ it('finds symbols in Python too', async () => {
   await page.keyboard.press('Escape');
 });
 
+/** The middle of a word's first occurrence in a line of the editor, on the screen. */
+function wordCentre(line: Locator, word: string): Promise<{ x: number; y: number }> {
+  return line.evaluate((element, wanted) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.textContent ?? '').indexOf(wanted);
+      if (at < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, at);
+      range.setEnd(node, at + wanted.length);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return { x: 0, y: 0 };
+  }, word);
+}
+
 it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async () => {
   const page = running.page;
   await page.keyboard.press(KEYS.goToFile);
@@ -247,19 +265,7 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   const line = page.locator('.cm-line', { hasText: 'const first' });
   await line.waitFor();
   // Ctrl+click on "Shape" in `new Shape()`: the definition, in shape.ts.
-  const box = await line.evaluate((element) => {
-    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-      const at = (node.textContent ?? '').indexOf('Shape');
-      if (at < 0) continue;
-      const range = document.createRange();
-      range.setStart(node, at);
-      range.setEnd(node, at + 5);
-      const rect = range.getBoundingClientRect();
-      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    }
-    return { x: 0, y: 0 };
-  });
+  const box = await wordCentre(line, 'Shape');
   // Cmd+click on macOS, as its keymap's.
   await page.keyboard.down('ControlOrMeta');
   try {
@@ -304,6 +310,26 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
     'src/use.ts:4',
   ]);
   await page.keyboard.press('Escape');
+});
+
+it('goes to a definition from the editor’s menu, at the word right-clicked', async () => {
+  const page = running.page;
+  await page.keyboard.press(KEYS.goToFile);
+  await page.keyboard.type('use.ts');
+  await page.locator('.cerebro-popup-item__label', { hasText: 'use.ts' }).waitFor();
+  await page.keyboard.press('Enter');
+  const line = page.locator('.cm-line', { hasText: 'const first' });
+  await line.waitFor();
+  // The caret away from it: the right press puts it on "Shape", as IntelliJ's.
+  await page.keyboard.press('ControlOrMeta+Home');
+  const box = await wordCentre(line, 'Shape');
+  await page.mouse.click(box.x, box.y, { button: 'right' });
+  await page.locator('.cerebro-menu-item', { hasText: 'Go To' }).click();
+  await page.locator('.cerebro-menu-item', { hasText: 'Declaration or Usages' }).click();
+  // The language server's answer: another process's.
+  await page
+    .locator('.cm-activeLine', { hasText: 'export class Shape' })
+    .waitFor({ timeout: 15_000 });
 });
 
 it('says why a file can’t be opened', async () => {

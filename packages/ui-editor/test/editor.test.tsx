@@ -44,6 +44,7 @@ async function clickWord(
   root: ShadowRoot,
   word: string,
   modifiers: ('Control' | 'Alt' | 'Shift')[] = [],
+  button: 'left' | 'right' = 'left',
 ) {
   const line = root.querySelector('.cm-line') as HTMLElement;
   const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
@@ -61,6 +62,7 @@ async function clickWord(
         y: rect.top - box.top + rect.height / 2,
       },
       modifiers,
+      button,
     });
     return;
   }
@@ -738,6 +740,29 @@ describe('CodeEditor', () => {
     line.dispatchEvent(new MouseEvent('mousedown', { button: 3, bubbles: true }));
     expect(isShortcut).not.toHaveBeenCalled();
     expect(view.state.selection.main.head).toBe(head);
+  });
+
+  it('puts the caret where the right button is pressed, as IntelliJ’s, but not in the selection or the gutter', async () => {
+    const view = EditorView.findFromDOM(
+      mount({ path: 'a.ts', text: 'const answer = compute(1);' }).querySelector(
+        '.cm-content',
+      ) as HTMLElement,
+    ) as EditorView;
+    const root = view.root as ShadowRoot;
+    // "answer" selected: pressed in it, it stays.
+    view.dispatch({ selection: { anchor: 6, head: 12 } });
+    await clickWord(root, 'answer', [], 'right');
+    expect(view.state.selection.main).toMatchObject({ from: 6, to: 12 });
+    expect(view.hasFocus).toBe(true);
+    // In the gutter, the line's menu: the caret stays.
+    const number = root.querySelector('.cm-lineNumbers .cm-gutterElement:last-child') as Element;
+    await userEvent.click(number, { button: 'right' });
+    expect(view.state.selection.main).toMatchObject({ from: 6, to: 12 });
+    // Pressed outside it: the caret there.
+    await clickWord(root, 'compute', [], 'right');
+    const { empty, head } = view.state.selection.main;
+    expect(empty).toBe(true);
+    expect(head >= 15 && head <= 22).toBe(true);
   });
 
   it('leaves the text as it is on Ctrl+Shift+Backspace and Delete, as IntelliJ’s, the keys going on', async () => {

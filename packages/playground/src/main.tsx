@@ -3,7 +3,7 @@ import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
 import { notesPlugin } from './notes-plugin.js';
 import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
-import { target } from './edit.js';
+import { target, type EditorPopup } from './edit.js';
 import { PluginView } from './plugin-view.js';
 import {
   type ChangePlaces,
@@ -51,6 +51,7 @@ import {
   parseLineColumn,
   positionText,
   reindentIn,
+  selectionIn,
   type AskFormat,
   type CompletionItem,
   type EditorDocument,
@@ -361,8 +362,13 @@ function editorMenu(event: MouseEvent, file: string, content: string | undefined
   const inGutter = event
     .composedPath()
     .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
-  if (!inGutter && content !== undefined) openContextMenu(services, content, event);
-  else if (inGutter) openContextMenu(services, 'editor/gutter', event, { file, line });
+  if (!inGutter && content !== undefined) {
+    // The editor put the caret where it was pressed, unless that was in the selection.
+    const pressed = event.composedPath()[0];
+    const inSelection = pressed instanceof Element && selectionIn(pressed);
+    const popup: EditorPopup = { editorPopup: true, inSelection };
+    openContextMenu(services, content, event, popup);
+  } else if (inGutter) openContextMenu(services, 'editor/gutter', event, { file, line });
   else event.preventDefault();
 }
 
