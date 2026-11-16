@@ -41,7 +41,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The protocol and the host (2026-10-26)](#the-protocol-and-the-host-2026-10-26): JSON-RPC over stdio
 - [Plugins (2026-10-26)](#plugins-2026-10-26): the registry and its contribution points (changed 2026-11-04: settings, editors, saving, hosts)
 - [Language servers, first part (2026-10-27)](#language-servers-first-part-2026-10-27): TypeScript 7's own server, basedpyright, bash-language-server, yaml-language-server (changed 2026-11-03), a lazy pool in the host, name matches meanwhile; a declaration's Go to definition shows its usages (changed 2026-11-13)
-- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
+- [Navigation (2026-10-27)](#navigation-2026-10-27): Back and Forward, Recent Files (IntelliJ's Switcher, changed 2026-11-16), Recent Locations (added 2026-11-16), Go to Line, Select Opened File, as IntelliJ's
 - [Usages at the caret, and links with Ctrl held (2026-10-28)](#usages-at-the-caret-and-links-with-ctrl-held-2026-10-28): the language server's document highlights, IntelliJ's colours; a word with a definition as a link
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
@@ -1320,10 +1320,30 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     a tool window hides and stays listed, as in the Switcher; a file's tabs close, and it's off
     the list shown, the files shown or those edited (`closeEditorForFile`, which leaves it when an
     editor still shows it: Cerebro's close can't be refused).
-  - **Not yet:** IntelliJ's Recent Locations item under the tool windows (Cerebro has no Recent
-    Locations); selecting several.
+  - **Not yet:** IntelliJ's Recent Locations item under the tool windows; selecting several.
   - Claude's choice, open to change: matching as the pickers match (the folder after the name),
     rather than IntelliJ's `SpeedSearchComparator`.
+- **Recent Locations** (added 2026-11-16), as IntelliJ's (Ctrl+Shift+E, Cmd+Shift+E on macOS;
+  `RecentLocationsAction`, `RecentLocationsDataModel` and `RecentLocationsRenderer`, read from its
+  source), in the View menu after Recent Files:
+  - **The places behind,** Back's, the latest first; a place within 4 lines of one listed, or with
+    no caret (a diff's), is left out (`isSame`); up to 25 (`recentLocationsLimit`). A file that
+    can't be read is left out, as IntelliJ leaves out a place no longer valid.
+  - **Each row:** the file's name in bold (Cerebro has no breadcrumbs, and IntelliJ shows the name
+    alone without them), then its lines as code, highlighted as the editor highlights them, with
+    their numbers: 2 before and after the place's, more on the other side near either end of the
+    file, blank ones at either end left out ("Empty lines" when all are).
+  - **Show edited only** (Recent Locations' own key flips it, shown beside it) lists the places of
+    the changes instead, Last Edit Location's, titled "Recently Edited Locations". A flip selects
+    the first row and clears what's typed (`updateModel`).
+  - **Typing filters** by the name and the lines, the name's matched characters in bold. Enter goes
+    to the place; Delete or Backspace forgets it, the row at its index selected then, or the last
+    (`removeItems`). "No recent locations found" for none.
+  - The VS Code keymaps give it no key, as IntelliJ's VS Code keymaps.
+  - Claude's choices, open to change: the search field shows from the start (the pickers'), where
+    IntelliJ's appears as you type; with text typed, Delete and Backspace edit it; Delete with Show
+    edited only forgets the changes at that place, where IntelliJ's `removeItems` removes every
+    change place (read from its source; it reads as a slip).
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
   storage with the layout, as IntelliJ keeps it. A file deleted since is still listed.
 - **A file chosen from a list takes the focus** (changed 2026-11-01): after Go to File, Recent
