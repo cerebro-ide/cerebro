@@ -10,8 +10,8 @@
 // With `search` (Recent Files'), typing narrows both lists, as IntelliJ's speed search
 // (`SwitcherSpeedSearch`): each item by its name, or its name and the folder shown; the best
 // match is selected, in the list that has the selection first; a name's matched characters are in
-// bold. What's typed shows above the lists; Backspace takes a character back, and Escape forgets
-// it before it closes the popup. The popup keeps its size meanwhile.
+// bold. What's typed shows above the lists; Backspace or Delete takes a character back, and Escape
+// forgets it before it closes the popup. The popup keeps its size meanwhile.
 //
 // From IntelliJ's source (Switcher.kt, SwitcherActions.kt, SwitcherSpeedSearch.kt): all of the
 // above.
@@ -243,8 +243,10 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     const item = this.selected();
     state.query = query;
     if (query === '') {
-      // The item selected stays so.
+      // The item selected stays so; with none, the first file, or tool window, as IntelliJ's
+      // (`selectElement(element ?: getElementAt(0))`).
       if (item) this.select(state.side, listOf(state).indexOf(item));
+      else this.select(state.right.length > 0 ? 'right' : 'left', 0);
       return;
     }
     const other = state.side === 'left' ? 'right' : 'left';
@@ -263,7 +265,8 @@ class Switcher<T extends SwitcherItem> implements SwitcherHandle<T> {
     const { query } = this.state;
     if (event.ctrlKey || event.metaKey || event.altKey) return false;
     if (event.key.length === 1) this.search(query + event.key);
-    else if (query !== '' && (event.key === 'Backspace' || event.key === 'Escape')) {
+    // Delete too, as IntelliJ's (`updateEnteredPrefix`), rather than close what's selected.
+    else if (query !== '' && ['Backspace', 'Delete', 'Escape'].includes(event.key)) {
       this.search(event.key === 'Escape' ? '' : query.slice(0, -1));
     } else if (query !== '' && event.key === 'Enter' && this.selected() === undefined) {
       this.close();

@@ -8,7 +8,7 @@ import { compareTab } from '../src/compare-branches.js';
 import { icon } from '../src/icons.js';
 import { documentRead } from '../src/documents.js';
 import { workspace } from '../src/environments.js';
-import { carets, history, reveals } from '../src/navigation.js';
+import { carets, history, recentTabs, reveals } from '../src/navigation.js';
 import { notifications } from '../src/notifications.js';
 import { RECENT_LANGUAGES } from '../src/scratches.js';
 import { loadProjects } from '../src/projects.js';
@@ -2668,6 +2668,41 @@ describe('the editor’s file', () => {
     expect(
       document.querySelector('.playground-find__scope[aria-selected="true"]')?.textContent,
     ).toBe('Files');
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+  });
+
+  it('closes a file with Delete in Recent Files, and takes it off the list shown', async () => {
+    env().editor.open({ id: '/r/src/closed-by-delete.ts', title: 'closed-by-delete.ts' });
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    const files = () =>
+      [...document.querySelectorAll('[data-side="right"] .cerebro-popup-item__label')].map(
+        (label) => label.textContent,
+      );
+    await userEvent.keyboard('{Control>}e{/Control}');
+    await popupItems();
+    // The first not shown now is selected: closed-by-delete.ts.
+    expect(
+      q('.cerebro-switcher .cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        .textContent,
+    ).toBe('closed-by-delete.ts');
+    await userEvent.keyboard('{Delete}');
+    expect(files()).not.toContain('closed-by-delete.ts');
+    expect(env().editor.groups.flatMap((g) => g.tabs.map((t) => t.id))).not.toContain(
+      '/r/src/closed-by-delete.ts',
+    );
+    expect(recentTabs()?.tabs.map((t) => t.id)).not.toContain('/r/src/closed-by-delete.ts');
+    // Off the edited files when they're shown, and only those.
+    recentTabs()?.edit({ id: '/r/src/edited-then-deleted.ts', title: 'edited-then-deleted.ts' });
+    await userEvent.keyboard('{Control>}e{/Control}');
+    // The latest edited, first and selected.
+    await expect.poll(() => files()[0]).toBe('edited-then-deleted.ts');
+    expect(
+      q('.cerebro-switcher .cerebro-popup-item--highlighted .cerebro-popup-item__label')
+        .textContent,
+    ).toBe('edited-then-deleted.ts');
+    await userEvent.keyboard('{Delete}');
+    expect(recentTabs()?.edited.map((t) => t.id)).not.toContain('/r/src/edited-then-deleted.ts');
     await userEvent.keyboard('{Escape}');
     await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
   });

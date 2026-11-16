@@ -65,6 +65,12 @@ describe('RecentTabs', () => {
     expect(ids()).toEqual(['b', 'a', 'c']);
     recent.forget('b');
     expect(ids()).toEqual(['a', 'c']);
+    // From one list alone.
+    recent.forget('a', 'tabs');
+    expect(recent.tabs).toEqual([]);
+    expect(ids()).toEqual(['a', 'c']);
+    recent.forget('a', 'edited');
+    expect(ids()).toEqual(['c']);
     for (let i = 0; i < MAX_RECENT + 3; i++) recent.edit(tab(String(i)));
     expect(recent.edited).toHaveLength(MAX_RECENT);
   });

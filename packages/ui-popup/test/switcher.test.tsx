@@ -292,11 +292,18 @@ describe('the Switcher', () => {
     // Modified keys aren't typed.
     await userEvent.keyboard('{Control>}c{/Control}');
     expect(labels('right')).toEqual(['a.ts', 'b.ts', 'c.ts']);
-    // With nothing typed, Delete closes, even under a query that hides others.
-    await userEvent.keyboard('a{Delete}');
+    // With something typed, Delete takes a character back, as IntelliJ's; with nothing, it closes.
+    await userEvent.keyboard('a.{Delete}');
+    expect(document.querySelector('.cerebro-switcher__search')?.textContent).toBe('a');
+    expect(closed).toEqual([]);
+    await userEvent.keyboard('{Delete}{Delete}');
     expect(closed).toEqual(['a.ts']);
-    await userEvent.keyboard('{Escape}');
     expect(labels('right')).toEqual(['b.ts', 'c.ts']);
+    // Nothing matched, then nothing typed: the first file is selected, as IntelliJ's.
+    await userEvent.keyboard('zz');
+    expect(document.querySelector('.cerebro-popup-item--highlighted')).toBeNull();
+    await userEvent.keyboard('{Escape}');
+    expect(selected()).toBe('right:b.ts');
   });
 
   it('has its own header, lets a key through first, and lists others on the right', async () => {
@@ -308,6 +315,7 @@ describe('the Switcher', () => {
         return event.key === 'e';
       },
       empty: { left: 'No tool windows', right: 'No recent files' },
+      search: { nothing: '', none: () => undefined },
     });
     expect(document.querySelector('.cerebro-switcher__header')?.textContent).toBe(
       'SwitcherShow edited only',
@@ -319,6 +327,9 @@ describe('the Switcher', () => {
     expect(
       document.querySelector('[data-side="right"] .cerebro-switcher__empty')?.textContent,
     ).toBe('No recent files');
+    // No files: the first tool window, once nothing matched is forgotten.
+    await userEvent.keyboard('zz{Escape}');
+    expect(selected()).toBe('left:Commit');
     handle.replace(FILES.slice(1), 1);
     expect(selected()).toBe('right:c.ts');
   });

@@ -57,6 +57,11 @@ describe('the Switcher’s command', () => {
     expect(
       (document.querySelector('.playground-recent__edited input') as HTMLInputElement).checked,
     ).toBe(false);
+    // Delete hides a tool window, which stays listed.
+    tools.show('plain');
+    await userEvent.keyboard('{ArrowLeft}{Delete}');
+    expect(tools.isVisible('plain')).toBe(false);
+    expect(labels('left')).toEqual(['|plain||', '|More||']);
     await userEvent.keyboard('{Escape}');
     commands.execute('view.recentChangedFiles');
     expect(

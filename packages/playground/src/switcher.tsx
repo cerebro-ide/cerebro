@@ -25,7 +25,7 @@
 
 import { chordFromEvent, formatSequence } from '@cerebro-ide/commands';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
-import type { EditorArea, Tab, ToolWindows } from '@cerebro-ide/layout';
+import type { EditorArea, RecentTabs, Tab, ToolWindows } from '@cerebro-ide/layout';
 import { signal } from '@cerebro-ide/reactive';
 import { focusToolWindow } from '@cerebro-ide/ui-layout';
 import {
@@ -154,6 +154,13 @@ function recentEntries(tabs: readonly Tab[]): Entry[] {
     });
 }
 
+/** Closes a tab in every group that has it. */
+function closeEverywhere(area: EditorArea, id: string): void {
+  for (const group of area.groups) {
+    if (group.tabs.some((tab) => tab.id === id)) area.close(group.id, id);
+  }
+}
+
 /** The modifiers held in the key press being handled, if a key press is being handled. */
 let pressed: KeyboardEvent | undefined;
 
@@ -218,11 +225,7 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
             return false;
           }
           // Listed from the area: there's one.
-          const tabs = area as EditorArea;
-          for (const group of tabs.groups) {
-            if (group.tabs.some((tab) => tab.id === entry.tab.id))
-              tabs.close(group.id, entry.tab.id);
-          }
+          closeEverywhere(area as EditorArea, entry.tab.id);
           return true;
         },
       });
@@ -235,9 +238,6 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
 
   const recentFiles = (editedOnly: boolean) => {
     const recent = recentTabs();
-    // As the popup opens: the lists don't change under it.
-    const shown = recentEntries(recent?.tabs ?? []);
-    const changed = recentEntries(recent?.edited ?? []);
     const current = setup.editor()?.activeGroup.active;
     const first = (entries: readonly Entry[]) =>
       Math.max(
@@ -245,7 +245,8 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
         entries.findIndex((entry) => entry.kind === 'tab' && entry.tab.id !== current),
       );
     const edited = signal(editedOnly);
-    const files = () => (edited.peek() ? changed : shown);
+    // Read as it opens and as Show edited only flips, as IntelliJ's (`replaceAll`).
+    const files = () => recentEntries((edited.peek() ? recent?.edited : recent?.tabs) ?? []);
     const flip = () => {
       edited.set(!edited.peek());
       switcher.replace(files(), first(files()));
@@ -259,6 +260,20 @@ export function setupSwitcher(services: MenuServices, setup: SwitcherSetup): voi
       right: files(),
       initial: { side: 'right', index: first(files()) },
       empty: { left: 'No tool windows', right: 'No recent files' },
+      // Delete, as IntelliJ's (`closeTabOrToolWindow`): a tool window hides, and stays listed; a
+      // file's tabs close, and it's off the list shown (`closeEditorForFile`, once no editor shows
+      // it: a close here can't be refused, so always).
+      close: (entry) => {
+        if (entry.kind === 'tool') {
+          setup.tools.hide(entry.id);
+          return false;
+        }
+        // A file listed is the active environment's: its editor and its list are there.
+        const area = setup.editor() as EditorArea;
+        closeEverywhere(area, entry.tab.id);
+        (recent as RecentTabs).forget(entry.tab.id, edited.peek() ? 'edited' : 'tabs');
+        return true;
+      },
       search: {
         nothing: "Press 'Enter' to search in Project",
         none: (query) => {
