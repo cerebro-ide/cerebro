@@ -4198,8 +4198,14 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
   as IntelliJ's `IS_INCLUDED_IN_NAVIGATION_HISTORY`), Never. Back and Forward pass over a diff's
   places the setting leaves out, as IntelliJ's history drops them before it goes back or forward
   (`IdeDocumentHistoryImpl.removeInvalidFilesFrom`, asking `DiffVirtualFileBase`; read from its
-  source). **Not yet:** with Always, IntelliJ's Recent Files lists diffs too
-  (`isIncludedInEditorHistory`); Cerebro's lists files only.
+  source).
+- **With Always, Recent Files lists diffs too** (added 2026-11-16), as IntelliJ's
+  (`DiffVirtualFileBase.isIncludedInEditorHistory`), by their file's name and folder. Diffs aren't
+  kept between runs (`isPersistedInEditorHistory`): Cerebro saved them before, and an earlier run's
+  are dropped as they're read. IntelliJ checks the setting as a diff is shown; Cerebro's list keeps
+  every tab shown (the Switcher orders the open tabs by it), so Recent Files checks it as it
+  opens. Diffs shown before the setting changed to Always are then listed too. Claude's choice,
+  open to change.
 - **Not yet:** the rest of Settings → Tools → Diff & Merge (the merge's import statements and
   gutter markers: decision "Merge conflicts");
   several files

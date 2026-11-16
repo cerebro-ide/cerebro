@@ -2645,6 +2645,28 @@ describe('the editor’s file', () => {
     await userEvent.keyboard('{Control>}e{/Control}');
     await popupItems();
     expect(q('.cerebro-popup').textContent).toContain('c.tssrc');
+    await userEvent.keyboard('{Escape}');
+  });
+
+  it('lists diffs in Recent Files when they’re always in the navigation history', async () => {
+    answers.set('git.diff', { original: 'a\n', text: 'b\n' });
+    env().editor.open(diffTab('/r/src/diffed.ts'));
+    env().editor.open({ id: '/r/src/c.ts', title: 'c.ts' });
+    const items = async () => {
+      await userEvent.keyboard('{Control>}e{/Control}');
+      const listed = await popupItems();
+      await userEvent.keyboard('{Escape}');
+      await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+      return listed;
+    };
+    await vi.waitUntil(code);
+    expect(await items()).not.toContain('diffed.ts');
+    globalSettings.layers.global.set('diff.navigationHistory', 'always');
+    expect(await items()).toContain('diffed.ts');
+    globalSettings.layers.global.reset('diff.navigationHistory');
+    // c.ts stays open, as the test before left it, for the next.
+    env().editor.close(env().editor.activeGroupId, diffTab('/r/src/diffed.ts').id);
+    answers.delete('git.diff');
   });
 
   it('opens in the image viewer when it’s an image, its tab with a picture', async () => {

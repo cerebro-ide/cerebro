@@ -129,10 +129,20 @@ const editedKey = (env: Environment) => `cerebro.recentEdited:${env.id}`;
 /** What was kept under `key` in an earlier run: nothing when it's unreadable. */
 function saved(key: string): unknown {
   try {
-    return JSON.parse(localStorage.getItem(key) ?? '[]');
+    return kept(JSON.parse(localStorage.getItem(key) ?? '[]'));
   } catch {
     return [];
   }
+}
+
+/**
+ * Tabs as Recent Files keeps them between runs: without diffs, as IntelliJ keeps none
+ * (`DiffVirtualFileBase.isPersistedInEditorHistory`); an earlier run's may have them.
+ */
+function kept(tabs: unknown): unknown {
+  return Array.isArray(tabs)
+    ? tabs.filter((tab) => diffPath((tab as Partial<Tab> | null)?.id ?? '') === undefined)
+    : tabs;
 }
 
 /** Each environment's Back and Forward, following its editor area from when it opens. */
@@ -153,7 +163,7 @@ effect(() => {
       [editedKey(env), () => recent.edited],
     ] as const) {
       effect(() => {
-        const json = JSON.stringify(list());
+        const json = JSON.stringify(kept(list()));
         try {
           localStorage.setItem(key, json);
         } catch {

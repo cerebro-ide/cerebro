@@ -694,18 +694,20 @@ for (const command of ['navigate.lastEdit', 'navigate.nextEdit']) {
 // Recent Files, as IntelliJ's: the files shown, the latest first, the one before the current
 // highlighted, so Enter goes back to it. "Show edited only" lists the files edited instead; Recent
 // Files' own key flips it while the popup is open, and Recently Changed Files opens with it on.
+// Diffs too, by their file's name, when Include diffs in navigation history is Always
+// (`DiffVirtualFileBase.isIncludedInEditorHistory`).
 async function recentFiles(editedOnly: boolean): Promise<void> {
   const root = active()?.id;
   const recent = recentTabs();
   const edited = signal(editedOnly);
+  const diffs = settingsFor(root).get('diff.navigationHistory') === 'always';
   const itemsOf = (tabs: readonly Tab[]) =>
     tabs
-      .filter((tab) => tabPath(tab.id) === tab.id)
+      .filter((tab) => tabPath(tab.id) === tab.id || (diffs && diffPath(tab.id) !== undefined))
       .map((tab) => {
+        const file = tabPath(tab.id) as string;
         const path =
-          root !== undefined && tab.id.startsWith(`${root}/`)
-            ? tab.id.slice(root.length + 1)
-            : tab.id;
+          root !== undefined && file.startsWith(`${root}/`) ? file.slice(root.length + 1) : file;
         const slash = path.lastIndexOf('/');
         return {
           label: tab.title,
