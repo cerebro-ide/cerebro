@@ -1,8 +1,8 @@
 // The keymap editor, as IntelliJ's Keymap page: every command with its shortcuts, under the main
 // menu's menus as they're nested and Other for the rest, with a search field over them. A command
 // the user changed shows in the accent colour. Under the list, what can be done to the selected
-// command, as IntelliJ's popup on an action offers it: Add Keyboard Shortcut, Remove each of its
-// shortcuts, Reset Shortcuts. Enter or a double click adds a shortcut.
+// command, as IntelliJ's popup on an action offers it: Add Keyboard Shortcut, Add Mouse Shortcut,
+// Remove each of its shortcuts, Reset Shortcuts. Enter or a double click adds a keyboard shortcut.
 
 import {
   displayText,
@@ -13,7 +13,7 @@ import {
 } from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
 import type { KeymapDraft } from './draft.js';
-import { askConflict, askShortcut } from './shortcut-dialog.js';
+import { askConflict, askMouseShortcut, askShortcut } from './shortcut-dialog.js';
 
 export interface KeymapEditorProps {
   draft: KeymapDraft;
@@ -73,8 +73,8 @@ export function KeymapEditor(props: KeymapEditorProps): Node {
   const selected = signal<string | undefined>(undefined);
   const rows = () => keymapRows(props, query.get());
 
-  const addShortcut = async (command: string) => {
-    const sequence = await askShortcut({
+  const addShortcut = async (command: string, ask = askShortcut) => {
+    const sequence = await ask({
       platform,
       conflicts: (keys) => draft.conflicts(keys, command).map((id) => commandName(commands, id)),
     });
@@ -199,6 +199,15 @@ export function KeymapEditor(props: KeymapEditorProps): Node {
               }}
             >
               Add Keyboard Shortcut…
+            </button>,
+            <button
+              type="button"
+              class="cerebro-keymap__action"
+              on:click={() => {
+                void addShortcut(id, askMouseShortcut);
+              }}
+            >
+              Add Mouse Shortcut…
             </button>,
             ...draft.shortcutsFor(id).map((key) => (
               <button

@@ -150,3 +150,32 @@
   max-width: 380px;
   margin: 0;
 }
+
+/* The Mouse Shortcut dialog's pad, as IntelliJ's MouseShortcutDialog: the mouse icon over the
+   text, centred, lines above and below, 20px inside. */
+.cerebro-mouse-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 20px;
+  border-block: 1px solid var(--cerebro-separator);
+  background: var(--cerebro-mouse-pad);
+  text-align: center;
+  user-select: none;
+}
+
+.cerebro-mouse-pad__icon {
+  width: 16px;
+  height: 16px;
+  fill: var(--cerebro-icon);
+}
+
+.cerebro-mouse-pad__hint {
+  color: var(--cerebro-text-muted);
+}
+
+/* IntelliJ's text puts a blank line above and below the shortcut. */
+.cerebro-mouse-pad__chord {
+  padding-block: 1lh;
+}

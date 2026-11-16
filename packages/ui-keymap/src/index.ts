@@ -7,6 +7,7 @@ export {
 } from './keymap-editor.js';
 export {
   askConflict,
+  askMouseShortcut,
   askShortcut,
   type ConflictChoice,
   type ShortcutDialogOptions,

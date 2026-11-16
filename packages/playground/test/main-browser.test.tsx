@@ -13,6 +13,7 @@ import { viewCommits } from '../src/git-log.js';
 import { resetting } from '../src/reset.js';
 import { fetchingRemote, pushing } from '../src/push.js';
 import { updating } from '../src/update.js';
+import { userKeymaps } from '../src/keymap-page.js';
 import { globalSettings } from '../src/settings.js';
 import { closeAll, dialog, menuItem, menuItems, popupItems } from './fakes.js';
 
@@ -605,6 +606,27 @@ describe('Back and Forward', () => {
     await expect.poll(line).not.toBe(29);
     expect(button(4)).toBe(true);
     await expect.poll(line).toBe(29);
+  });
+
+  it('go by the wheel where the keymap says, with a modifier held, and leave a bare turn alone', async () => {
+    const keymap = globalSettings.get('keymap') as string;
+    userKeymaps.set({ [keymap]: [{ key: 'Ctrl+WheelUp', command: 'navigate.back' }] });
+    /** Turns the wheel up: whether the turn was taken (no scroll, no zoom). */
+    const turn = (ctrlKey: boolean) => {
+      const wheel = new WheelEvent('wheel', { deltaY: -100, ctrlKey, cancelable: true });
+      window.dispatchEvent(wheel);
+      return wheel.defaultPrevented;
+    };
+    const path = env().editor.activeGroup.active as string;
+    const line = () => carets.get(path)?.line;
+    await userEvent.click(await vi.waitUntil(code));
+    await userEvent.keyboard('{Control>}g{/Control}');
+    await userEvent.keyboard('{Control>}a{/Control}40{Enter}');
+    await expect.poll(line).toBe(39);
+    expect(turn(false)).toBe(false);
+    expect(turn(true)).toBe(true);
+    await expect.poll(line).not.toBe(39);
+    userKeymaps.set({});
   });
 
   it('Last Edit Location goes back to where the text was changed, and Next on again', async () => {

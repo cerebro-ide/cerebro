@@ -1,9 +1,16 @@
 // IntelliJ's Keyboard Shortcut dialog: a field that takes the first stroke as it's pressed, a second
 // stroke behind a checkbox, and the actions the shortcut is already assigned to. As IntelliJ's
 // ShortcutTextField, a field takes every key but Tab, and Escape and Enter on their own (Enter once
-// it has a stroke), which go to the dialog: cancel, and OK.
+// it has a stroke), which go to the dialog: cancel, and OK. Its Mouse Shortcut dialog, a pad that
+// takes a click or a turn of the wheel, lists them too.
 
-import { chordFromEvent, formatChord, type Platform } from '@cerebro-ide/commands';
+import {
+  chordFromEvent,
+  chordFromMouse,
+  chordFromWheel,
+  formatChord,
+  type Platform,
+} from '@cerebro-ide/commands';
 import { signal } from '@cerebro-ide/reactive';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 
@@ -77,20 +84,102 @@ export function askShortcut(options: ShortcutDialogOptions): Promise<string | un
           </label>
           <Stroke stroke={second} label="Second stroke" disabled={() => !withSecond.get()} />
         </div>
-        {() => {
-          const keys = sequence();
-          const names = keys === undefined ? [] : options.conflicts(keys);
-          return names.length === 0 ? null : (
-            <div class="cerebro-shortcut__conflicts" role="alert">
-              <div>Already assigned to:</div>
-              <ul class="cerebro-shortcut__list">
-                {names.map((name) => (
-                  <li>{name}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        }}
+        <Conflicts sequence={sequence} options={options} />
+      </div>
+    ),
+  }).result;
+}
+
+/** The commands the shortcut is already assigned to, as IntelliJ's dialogs list them. */
+function Conflicts(p: { sequence: () => string | undefined; options: ShortcutDialogOptions }) {
+  return () => {
+    const keys = p.sequence();
+    const names = keys === undefined ? [] : p.options.conflicts(keys);
+    return names.length === 0 ? null : (
+      <div class="cerebro-shortcut__conflicts" role="alert">
+        <div>Already assigned to:</div>
+        <ul class="cerebro-shortcut__list">
+          {names.map((name) => (
+            <li>{name}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+}
+
+/**
+ * IntelliJ's mouse icon (`platform/icons/src/general/mouse.svg`, Apache 2.0), in the theme's icon
+ * colour.
+ */
+const MOUSE_ICON =
+  'M8.5 1v5H13c0-2.6-2-4.69-4.5-5zM3 9.89C3 12.71 5.24 15 8 15s5-2.29 5-5.11V7H3zM7.5 1C5.03 1.31 3 3.4 3 6h4.5z';
+
+/**
+ * Asks for a mouse shortcut, as IntelliJ's Mouse Shortcut dialog (MouseShortcutPanel, read from
+ * its source): a pad that takes a click once it's let go, with the modifiers it was pressed with,
+ * a double click, or a turn of the wheel. A third click in a row keeps what the pad had. Resolves
+ * with the chord (`Ctrl+Click`), or undefined if cancelled.
+ */
+export function askMouseShortcut(options: ShortcutDialogOptions): Promise<string | undefined> {
+  const chord = signal<string | undefined>(undefined);
+  let pressed: string | undefined;
+  // The pad's own: no button or wheel does what it would elsewhere (Back, a menu, a scroll), and
+  // the window's mouse shortcuts don't see them.
+  const own = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
+
+  return openDialog<string>({
+    title: 'Mouse Shortcut',
+    width: 400,
+    platform: options.platform,
+    ok: {
+      enabled: () => chord.get() !== undefined,
+      accept: () => chord.get() as string,
+    },
+    content: () => (
+      <div class="cerebro-shortcut">
+        <div
+          class="cerebro-mouse-pad"
+          role="application"
+          aria-label="Mouse shortcut"
+          on:mousedown={(event) => {
+            own(event);
+            pressed = chordFromMouse(event);
+          }}
+          on:mouseup={(event) => {
+            own(event);
+            if (pressed !== undefined) chord.set(pressed);
+          }}
+          on:wheel={(event) => {
+            own(event);
+            const turned = chordFromWheel(event);
+            if (turned !== undefined) chord.set(turned);
+          }}
+          on:contextmenu={own}
+          on:auxclick={own}
+        >
+          <svg class="cerebro-mouse-pad__icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d={MOUSE_ICON} />
+          </svg>
+          {() => {
+            const shown = chord.get();
+            return shown === undefined ? (
+              <div class="cerebro-mouse-pad__hint">
+                Enter a shortcut here:
+                <br />
+                single or double-click, scroll the wheel,
+                <br />
+                modify with Ctrl, Alt and Shift
+              </div>
+            ) : (
+              <div class="cerebro-mouse-pad__chord">{formatChord(shown, options.platform)}</div>
+            );
+          }}
+        </div>
+        <Conflicts sequence={() => chord.get()} options={options} />
       </div>
     ),
   }).result;
