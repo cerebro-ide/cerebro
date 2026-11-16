@@ -75,4 +75,20 @@ describe('ChangePlaces', () => {
     expect(places()).toHaveLength(MAX_CHANGE_PLACES);
     expect(places()[0]).toBe('1:0');
   });
+
+  it('forgets the places that are one place, where going back starts kept (Recent Locations’ Delete)', () => {
+    const { changes, places, went } = setup();
+    changes.changed(place('a', 1));
+    changes.changed(place('b', 1));
+    changes.changed(place('a', 20));
+    changes.changed(place('c', 1));
+    changes.goBack(undefined);
+    changes.goBack(undefined);
+    expect(went).toEqual(['c:1', 'a:20']);
+    changes.forget(place('a', 2));
+    expect(places()).toEqual(['b:1', 'a:20', 'c:1']);
+    // Back from a:20 again: b:1, before it.
+    changes.goBack(undefined);
+    expect(went.at(-1)).toBe('b:1');
+  });
 });

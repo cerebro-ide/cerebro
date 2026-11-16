@@ -35,6 +35,7 @@ export {
   MAX_CHANGE_PLACES,
   MAX_PLACES,
   NavigationHistory,
+  samePlace,
   type Place,
   type Position,
 } from './history.js';

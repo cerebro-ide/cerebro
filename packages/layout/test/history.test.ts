@@ -171,4 +171,18 @@ describe('NavigationHistory', () => {
       top: 40,
     });
   });
+
+  it('forgets the places behind that are one place, within a few lines (Recent Locations’ Delete)', () => {
+    const { area, history, at, back } = setup();
+    area.open(tab('a'));
+    at('a', 3);
+    area.open(tab('b'));
+    at('b', 1);
+    area.open(tab('a'));
+    at('a', 20);
+    area.open(tab('c'));
+    expect(back()).toEqual(['a:3', 'b:1', 'a:20']);
+    history.forget({ tab: tab('a'), at: { line: 5, column: 0 } });
+    expect(back()).toEqual(['b:1', 'a:20']);
+  });
 });
