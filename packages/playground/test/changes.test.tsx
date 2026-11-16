@@ -128,6 +128,10 @@ const host = new FakeHost({
     fails('git.rollback');
     return null;
   },
+  'git.add': () => {
+    fails('git.add');
+    return null;
+  },
   // No patch file there yet.
   'fs.exists': ({ path }: { path: string }) => !/(gone\.ts|\.patch)$/.test(path),
   'git.createPatch': ({ file }: { file?: string }) => {
@@ -698,6 +702,65 @@ describe('Git → Current File from a tab’s menu', () => {
     // A tab of no file of the worktree: none.
     expect(commands.get('git.file.showDiff')?.visible?.({ ...menu, tab: '/elsewhere/a.ts' })).toBe(
       false,
+    );
+  });
+});
+
+describe('the Git submenu’s Add', () => {
+  const id = 'git.file.add';
+  const added = () => host.params('git.add');
+  const untracked: Change[] = [
+    ...CHANGES,
+    { path: 'src/main/loose.ts', status: 'untracked' },
+    { path: 'src/other.ts', status: 'untracked' },
+    { path: 'srcs.ts', status: 'untracked' },
+  ];
+
+  it('adds the editor’s untracked file to git, as IntelliJ’s Git.Add', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    // The Commit window hasn't read the changes: on, and read as it runs.
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([{ path: wt, files: ['notes.txt'] }]);
+  });
+
+  it('adds the untracked files under a Project view folder, or the whole worktree’s', async () => {
+    git.changes = untracked;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    // Not srcs.ts, nor the tracked changes.
+    expect(added()).toEqual([{ path: wt, files: ['src/main/loose.ts', 'src/other.ts'] }]);
+    host.asked.length = 0;
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([
+      { path: wt, files: ['notes.txt', 'src/main/loose.ts', 'src/other.ts', 'srcs.ts'] },
+    ]);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('is off for a file the Commit window knows isn’t untracked; adds nothing where none is', async () => {
+    await changesView(untracked);
+    activeTab = `${wt}/src/main/app.ts`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.isEnabled(id)).toBe(true);
+    activeTab = `${wt}/src/main/app.ts`;
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([]);
+  });
+
+  it('says why when adding fails', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    git.failing = 'git.add';
+    void commands.get(id)?.run(undefined);
+    expect(await dialogText()).toContain('git.add failed');
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Failed to Add Files',
     );
   });
 });

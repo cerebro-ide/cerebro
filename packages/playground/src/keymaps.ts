@@ -143,6 +143,8 @@ export const INTELLIJ: KeymapPreset = {
     'log.files.editSource': ['F4'],
     'problems.jumpToSource': ['F4'],
     'changes.rollback': ['Ctrl+Alt+Z'],
+    // IntelliJ's Git.Add takes Add to VCS's (`use-shortcut-of="ChangesView.AddUnversioned"`).
+    'git.file.add': ['Ctrl+Alt+A'],
     'changes.groupByDirectory': ['Ctrl+Alt+P'],
     'log.files.groupByDirectory': ['Ctrl+Alt+P'],
     'changes.expandAll': ['Ctrl+=', 'Ctrl++'],
@@ -311,6 +313,7 @@ export const INTELLIJ_MAC: KeymapPreset = {
     'log.files.editSource': ['Meta+Down', 'F4'],
     'problems.jumpToSource': ['Meta+Down', 'F4'],
     'changes.rollback': ['Meta+Alt+Z'],
+    'git.file.add': ['Meta+Alt+A'],
     'changes.groupByDirectory': ['Ctrl+P'],
     'log.files.groupByDirectory': ['Ctrl+P'],
     'changes.expandAll': ['Meta+=', 'Meta++'],

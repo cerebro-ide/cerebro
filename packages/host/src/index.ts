@@ -29,6 +29,7 @@ export {
   removeWorktree,
   rewriteParents,
   rollback,
+  addFiles,
   addRemote,
   changeRemote,
   checkRemote,

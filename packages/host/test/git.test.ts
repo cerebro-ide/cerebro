@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import {
+  addFiles,
   addWorktree,
   commit,
   bytesAt,
@@ -927,6 +928,22 @@ describe('with real git', () => {
     ]);
     // Nothing to roll back: git isn't run.
     await rollback(path, [], false);
+  });
+
+  it('adds the files named to git, each named literally', async () => {
+    const path = join(root, 'add');
+    await addWorktree(repo, { path, branch: 'add', create: true });
+    writeFileSync(join(path, 'a*.txt'), 'star');
+    writeFileSync(join(path, 'ab.txt'), 'other');
+    await addFiles(path, ['a*.txt']);
+    expect(await listChanges(path)).toEqual([
+      { path: 'a*.txt', status: 'added' },
+      { path: 'ab.txt', status: 'untracked' },
+    ]);
+    // None named: git isn't run.
+    const run = vi.fn<Git>();
+    await addFiles(path, [], run);
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('commits the files named, as they are, leaving what else was staged staged', async () => {

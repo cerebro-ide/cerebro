@@ -1153,6 +1153,44 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
     },
   });
+  // The Git submenu's Add: IntelliJ's `Git.Add` (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`,
+  // read from its source): the untracked files of the editor's file, or under the Project view's
+  // folder (`getUnversionedDescendantsRecursively`), added to git, the documents saved first. On
+  // for an untracked file and any folder, as git's folders aren't versioned (`isFileUnversioned`),
+  // where the Commit window has read the changes; they're read again as it runs.
+  commands.register({
+    id: 'git.file.add',
+    label: 'Add',
+    icon: 'add',
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => {
+      if (currentFolder(c)) return true;
+      const file = currentFile(c);
+      const known = file && lists.get(file.worktree);
+      return (
+        known === undefined ||
+        known.unversioned().some((change) => change.path === (file as { path: string }).path)
+      );
+    },
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      const host = hostFor(at.worktree) as Host;
+      try {
+        const all = (await host.request('git.changes', { path: at.worktree })) as Change[];
+        const files = all
+          .filter((change) => change.status === 'untracked')
+          .map((change) => change.path)
+          .filter((path) => at.path === '' || path === at.path || path.startsWith(`${at.path}/`));
+        if (files.length === 0) return;
+        await saveBeforeGit();
+        await host.request('git.add', { path: at.worktree, files });
+        await lists.get(at.worktree)?.refresh(true);
+      } catch (error) {
+        // IntelliJ's words (`error.adding.files.title`).
+        fail('Failed to Add Files')(error);
+      }
+    },
+  });
   // The Git submenu's Show Current Revision: IntelliJ's `Show.Current.Revision`
   // (`ShowBaseRevisionAction`, read from its source). The file's last commit, in IntelliJ's words,
   // at the caret where its editor has the keyboard (`showInBestPositionFor`), else centred in the

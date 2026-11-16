@@ -299,6 +299,19 @@ export async function rollback(
 }
 
 /**
+ * Adds untracked files to git, as IntelliJ's Add (`scheduleUnversionedFilesForAddition`): each
+ * named literally, so `a*.ts` is that file alone.
+ */
+export async function addFiles(
+  worktree: string,
+  paths: readonly string[],
+  run: Git = git,
+): Promise<void> {
+  if (paths.length === 0) return;
+  await run(worktree, ['add', '--', ...paths.map((path) => `:(literal)${path}`)]);
+}
+
+/**
  * Commits the changes named, as they are in the worktree, and nothing else staged: what else the
  * user staged stays staged. As IntelliJ's: it stages the files to commit, commits, and puts back
  * what was staged besides (GitCheckinEnvironment). `git commit --only` does that in one step, given

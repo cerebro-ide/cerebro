@@ -710,6 +710,26 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('adds the untracked files of those named, and nothing tracked', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(args[0] === 'status' ? ' M a.ts\0?? u.ts\0?? v.ts\0' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.add', { path: '/w', files: ['a.ts', 'u.ts', 'gone.ts'] })).toBe(
+      null,
+    );
+    expect(git).toHaveBeenCalledWith('/w', ['add', '--', ':(literal)u.ts']);
+    // None untracked: git add isn't run.
+    git.mockClear();
+    await ui.request('git.add', { path: '/w', files: ['a.ts'] });
+    expect(git.mock.calls.map(([, args]) => args[0])).not.toContain('add');
+    for (const files of [undefined, 'u.ts', [3]]) {
+      await expect(ui.request('git.add', { path: '/w', files })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('writes a file only over what the writer expects there, else says what’s there', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-expected-')));
     const { ui } = connect();

@@ -26,6 +26,8 @@ describe('the editor’s Git submenu', () => {
       .entries('editor/git')
       .map((e) => ('command' in e ? e.command : 'submenu' in e ? e.submenu : '-'));
     expect(names).toEqual([
+      'git.file.add',
+      '-',
       'vcs.annotate',
       'git.file.showDiff',
       'git.file.compareWithRevision',

@@ -3069,7 +3069,17 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
     (`IssueLinkHtmlRenderer`), which Cerebro has no setting for.
   - The centred one's text can be selected and copied (the hint's, as the editor's other hints,
     can't). IntelliJ's is an editor pane, so it can be too (a claim: not tried).
-- **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
+- **Add** (added 2026-11-16), first in the submenu, as IntelliJ's `Git.Add`
+  (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`, read from its source): the file, or the
+  untracked files under the Project view's folder (`getUnversionedDescendantsRecursively`), added
+  to git; what's tracked isn't staged. On for an untracked file and for any folder, as git's
+  folders aren't versioned (`isFileUnversioned`). Its key is Add to VCS's, Ctrl+Alt+A (Cmd+Alt+A on
+  macOS), as IntelliJ's `use-shortcut-of`; Emacs keeps it beside Method Up, as IntelliJ's Emacs
+  keymap does. A failure says so in a dialog titled "Failed to Add Files", IntelliJ's
+  `error.adding.files.title`. Claude's choice, open to change: an ignored file isn't offered, where
+  IntelliJ asks whether to add it ("Add Ignored File"), as the Commit window doesn't list ignored
+  files.
+- **Not yet,** as Cerebro doesn't have them: Commit File…, the ignore actions, Show History
   for Selection, Revert Selected Changes for the file, Revert Resolved, the staging area's,
   Clone….
 

@@ -143,6 +143,7 @@ import {
   listAuthors,
   log,
   rollback,
+  addFiles,
   listWorktrees,
   removeWorktree,
   type Git,
@@ -1373,6 +1374,21 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
   });
   connection.onRequest('git.ignored', (params) => listIgnored(text(params, 'path'), git));
   // Rolls back the files named, as they're changed now; gives the changes left.
+  // Of the files named, those git has as untracked: what's tracked isn't staged (IntelliJ's Add
+  // takes a folder's unversioned files alone, `getUnversionedDescendantsRecursively`).
+  connection.onRequest('git.add', async (params) => {
+    const worktree = text(params, 'path');
+    const p = params as { files?: unknown };
+    if (!Array.isArray(p.files) || !p.files.every((f) => typeof f === 'string')) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'files must be a list of paths');
+    }
+    const files = new Set(p.files);
+    const untracked = (await listChanges(worktree, git))
+      .filter((c) => c.status === 'untracked' && files.has(c.path))
+      .map((c) => c.path);
+    await addFiles(worktree, untracked, git);
+    return null;
+  });
   connection.onRequest('git.rollback', async (params) => {
     const worktree = text(params, 'path');
     const p = params as { files?: unknown; deleteAdded?: unknown };
