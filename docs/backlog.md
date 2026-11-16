@@ -106,6 +106,20 @@ a command that runs on the focused editor (or the last one focused, as IntelliJ'
 find their editor), its keys still given to CodeMirror. It changes how `ui-editor` and the
 playground share the editor's actions, so it's proposed before it's done (CLAUDE.md).
 
+### The Log's graph laid out as IntelliJ's (proposed: a reshaping, for Ido's word)
+
+Found 2026-11-16, for the Log decision's Not yet (Show Long Edges, Collapse and Expand Linear
+Branches). IntelliJ cuts an edge of 30 rows or more down to the row after its top and the row
+before its bottom, each ending in an arrow, unless Show Long Edges is on; then it's drawn whole,
+with arrows next to its ends, and only past 1000 rows is it cut, keeping 250 rows at each end
+(`PrintElementGeneratorImpl`: `LONG_EDGE_SIZE` 30, `LONG_EDGE_PART_SIZE` 1, `VERY_LONG_EDGE_SIZE`
+1000, `VERY_LONG_EDGE_PART_SIZE` 250, read from its source). A row's elements sit in their sorted
+order, so a cut edge frees its column and the lines beside it move in. Cerebro's graph gives each
+line a lane as a page of commits loads (`log-graph.ts`; the decision "The Git Log" marks it
+Claude's design, IntelliJ's layout not copied), and an edge's length is known only once its
+parent has loaded. Both actions need IntelliJ's layout (its `GraphLayoutBuilder` and the sorted
+elements of each row) in place of the lanes: a rewrite of the graph, so it's proposed first.
+
 ### Polish
 
 - **Icons per file type** in the Project tree (and wherever files are listed: tabs, Go to File,
