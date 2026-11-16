@@ -6,6 +6,16 @@ basic IDE before git and agent management").
 
 ## To fix soon
 
+### The Switcher's tool windows in IntelliJ's order
+
+Found 2026-11-16, reading IntelliJ's source for Recent Files: its Switcher sorts the tool windows
+by mnemonic, then by name (`mnemonicAndMainTextComparator` in `frontendSwitcherItemsCollector.kt`;
+the older `Switcher.kt` sorts likewise): those with a number first, in its order (Commit's 0,
+Project's 1, …), then those with a letter, by letter, then those with none, by name. Cerebro's
+sorts them by name alone, and the decision "The Switcher" says "by name". Recent
+Files sorts them the same way in IntelliJ, its mnemonics hidden
+(`ide.recent.files.tool.window.sort.by.mnemonics`).
+
 ### The project's files under a virtual root, with scratch and external files
 
 From Ido (2026-11-14): "the project files in intellij are under a product virtual "directory" -
