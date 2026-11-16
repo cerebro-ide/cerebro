@@ -557,6 +557,8 @@ describe('the main menu', () => {
       'Comment with Block Comment',
       'Reformat Code',
       'Optimize Imports',
+      'Move Statement Down',
+      'Move Statement Up',
       'Move Line Down',
       'Move Line Up',
     ]);
