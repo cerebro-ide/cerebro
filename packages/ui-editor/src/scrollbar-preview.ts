@@ -4,43 +4,56 @@
 // the scrollbar at the pointer's height. The lines are the editor's, highlighted, with their numbers:
 // from 5 above the line to 5 below it (`PREVIEW_LINES`), 10 at most, so near the text's start or end
 // fewer. It shows 300 ms after the pointer gets there, then follows it at once; gone as the pointer
-// leaves the bar or comes to a line that shows, at a key, an edit or a scroll.
+// leaves the bar or comes to a line that shows, at a key, an edit or a scroll. The problems in those
+// lines say their messages at their lines' ends, as IntelliJ's preview draws its marks' descriptions:
+// in the warning notification's colours, 9px after the line, side by side in the order they start.
 //
 // The scrollbar (`@cerebro-ide/ui-scrollbar`) is drawn over the page, and tells the scroll area where
-// the pointer is on it with a `scrollbar-hover` event (its `BAR_HOVER`).
+// the pointer is on it with a `scrollbar-hover` event (its `BAR_HOVER`). Over a line that shows, the
+// stripe's marks there give their tooltips instead (`stripe.ts`).
 
 import { language } from '@codemirror/language';
 import { EditorState, type Extension } from '@codemirror/state';
-import { EditorView, lineNumbers, ViewPlugin } from '@codemirror/view';
+import { Decoration, EditorView, lineNumbers, ViewPlugin, WidgetType } from '@codemirror/view';
+import { BAR_HOVER, BESIDE_BAR, hiddenLineAt, marksOf } from './stripe.js';
+
+/** A problem's message at its line's end in the preview. */
+class Description extends WidgetType {
+  constructor(readonly text: string) {
+    super();
+  }
+
+  toDOM(): HTMLElement {
+    const label = document.createElement('span');
+    label.className = 'cerebro-scrollbarPreview__description';
+    // On one line, as IntelliJ's.
+    label.textContent = this.text.replace(/\s+/g, ' ');
+    return label;
+  }
+}
+
+/**
+ * The marks' descriptions in the lines from `from` to `to` of the text, at their lines' ends in
+ * the preview's text, which starts at `from`: each line's in the order they start.
+ */
+function descriptions(state: EditorState, from: number, to: number): Extension {
+  const marks = marksOf(state)
+    .filter((m) => m.description !== undefined && m.from <= to && m.to >= from)
+    .sort((a, b) => a.from - b.from);
+  const widgets = marks.map((m) => {
+    const end = Math.min(state.doc.lineAt(Math.min(m.to, to)).to, to);
+    return Decoration.widget({ widget: new Description(m.description as string), side: 1 }).range(
+      end - from,
+    );
+  });
+  return EditorView.decorations.of(Decoration.set(widgets, true));
+}
 
 /** How long the pointer rests on the bar before the preview shows, in ms (IntelliJ's). */
 export const PREVIEW_AFTER = 300;
 
 /** Lines shown above and below the one under the pointer (IntelliJ's `PREVIEW_LINES`). */
 const AROUND = 5;
-
-/** What `ui-scrollbar` names the event (its `BAR_HOVER`), the pointer's `clientY` or `null`. */
-const BAR_HOVER = 'scrollbar-hover';
-
-/** How far the preview stays from the editor's right edge: the bar's 10px, 2px in, and 2px more. */
-const BESIDE_BAR = 14;
-
-/**
- * The line, 1-based, at a height on the scrollbar: as the stripe places marks, the whole text scaled
- * to the scroll area (the bar is drawn only when the text is taller). Undefined when the line shows.
- */
-function hiddenLineAt(view: EditorView, clientY: number): number | undefined {
-  const { scrollDOM } = view;
-  const height = scrollDOM.clientHeight;
-  const whole = view.contentHeight;
-  const y = clientY - scrollDOM.getBoundingClientRect().top;
-  const at = (y / height) * whole - view.documentPadding.top;
-  const block = view.lineBlockAtHeight(Math.max(0, at));
-  // Shown when its top is in the area, as IntelliJ asks (`area.contains(x, visualY)`).
-  const top = block.top + view.documentPadding.top - scrollDOM.scrollTop;
-  if (top >= 0 && top < height) return undefined;
-  return view.state.doc.lineAt(block.from).number;
-}
 
 /** The preview of the lines around the one under the pointer on the scrollbar, drawn with `look`. */
 export function scrollbarPreview(look: Extension): Extension {
@@ -75,6 +88,7 @@ export function scrollbarPreview(look: Extension): Extension {
           lineNumbers({ formatNumber: (n) => String(n + first - 1) }),
           EditorState.readOnly.of(true),
           EditorView.editable.of(false),
+          descriptions(view.state, doc.line(first).from, end.to),
         ],
       });
       if (shown) shown.preview.setState(state);

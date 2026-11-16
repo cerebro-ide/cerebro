@@ -512,6 +512,21 @@ export const theme = EditorView.theme({
     backgroundColor: variable('background'),
     pointerEvents: 'none',
   },
+  // A problem's message at its line's end in that preview, as IntelliJ's `EditorFragmentRenderer`
+  // draws it (read from its source): 9px after the line, 6px inside, 6px between two, rounded, in
+  // the warning notification's colours, its border IntelliJ's grey, the text 80% of the editor's.
+  '.cerebro-scrollbarPreview__description': {
+    marginLeft: '9px',
+    padding: '0 6px',
+    border: `1px solid ${variable('preview-description-border')}`,
+    borderRadius: '3px',
+    backgroundColor: variable('preview-description'),
+    color: variable('text'),
+    fontSize: '80%',
+  },
+  '.cerebro-scrollbarPreview__description + .cerebro-scrollbarPreview__description': {
+    marginLeft: '6px',
+  },
   // A folded part's lines under the pointer: the editor's own, framed as the tooltips are.
   '.cm-tooltip.cerebro-foldPeek': {
     border: `1px solid ${variable('tooltip-border')}`,
@@ -810,6 +825,29 @@ export const theme = EditorView.theme({
   // dimmed when the arguments rule them out).
   '.cerebro-parameterInfo:has(.cerebro-parameterInfo__signature--current) .cerebro-parameterInfo__signature:not(.cerebro-parameterInfo__signature--current)':
     { color: variable('text-muted') },
+  // The tooltips of the marks under the pointer on the scrollbar, left of it: as the app's.
+  '.cerebro-stripeTooltip': {
+    position: 'absolute',
+    zIndex: '200',
+    maxWidth: '600px',
+    padding: '4px 0',
+    backgroundColor: variable('tooltip'),
+    color: variable('text'),
+    border: `1px solid ${variable('tooltip-border')}`,
+    borderRadius: '4px',
+    boxShadow: variable('shadow'),
+    fontFamily: variable('font'),
+    fontSize: variable('font-size'),
+    pointerEvents: 'none',
+  },
+  // One a row, a line between them, as IntelliJ's composite tooltip.
+  '.cerebro-stripeTooltip__text': {
+    padding: '4px 12px',
+    whiteSpace: 'pre-wrap',
+  },
+  '.cerebro-stripeTooltip__text + .cerebro-stripeTooltip__text': {
+    borderTop: `1px solid ${variable('tooltip-border')}`,
+  },
   '.cerebro-problemTooltip': {
     padding: '8px 12px',
     maxWidth: '600px',

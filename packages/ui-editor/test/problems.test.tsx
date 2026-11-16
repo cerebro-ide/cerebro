@@ -134,6 +134,42 @@ describe('problems', () => {
     ]);
   });
 
+  it('says the problems near the pointer on the bar, the worst first, each once', async () => {
+    // Taller than the editor: the marks scaled to it, a line's 1px from the next.
+    const text = Array.from({ length: 400 }, (_, i) => `const line${String(i)} = 1;`).join('\n');
+    const root = mount({
+      document: new EditorDocument(text),
+      problems: () =>
+        Promise.resolve<Problem[]>([
+          { ...at(1, 0, 5), severity: 'warning', message: 'c' },
+          { ...at(0, 0, 5), severity: 'warning', message: 'a' },
+          { ...at(0, 6, 7), severity: 'error', message: 'b' },
+          { ...at(0, 8, 9), severity: 'error', message: 'a' },
+          { ...at(0, 10, 11), severity: 'error', message: 'b' },
+          // No mark, no message.
+          { ...at(0, 0, 1), severity: 'hint', message: 'h' },
+        ]),
+    });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const hover = (clientY: number) =>
+      scroller.dispatchEvent(new CustomEvent('scrollbar-hover', { detail: clientY }));
+    await expect.poll(() => root.querySelectorAll('.cerebro-problemMark').length).toBe(5);
+    const { top } = scroller.getBoundingClientRect();
+    hover(top + 1);
+    // Errors, then warnings, by text; each once.
+    expect(
+      [...root.querySelectorAll('.cerebro-stripeTooltip__text')].map((t) => t.textContent),
+    ).toEqual(['a', 'b', 'c']);
+    // Over a line that doesn't show: the preview of the lines there, not the marks' tooltip.
+    hover(top + 300);
+    expect(root.querySelector('.cerebro-stripeTooltip')).toBeNull();
+    hover(top + 1);
+    // An edit takes it away.
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await userEvent.keyboard('x');
+    expect(root.querySelector('.cerebro-stripeTooltip')).toBeNull();
+  });
+
   it('shows a problem’s message with the pointer over it', async () => {
     const root = mount({
       document: new EditorDocument(TEXT),
