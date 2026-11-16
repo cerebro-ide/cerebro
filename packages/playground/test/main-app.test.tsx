@@ -980,7 +980,9 @@ describe('navigation in the editor', () => {
     ]);
     await onA();
     await userEvent.keyboard('{Alt>}{ArrowDown}{/Alt}');
-    await expect.poll(() => reveals.get('/r/src/c.ts')).toEqual({ line: 2, column: 1 });
+    await expect
+      .poll(() => reveals.get('/r/src/c.ts'))
+      .toEqual({ line: 2, column: 1, scroll: 'centerDown' });
     // Call Hierarchy: the Hierarchy tool window, with what calls the function at the caret.
     await closeAll();
     answers.set('lsp.prepareCalls', [

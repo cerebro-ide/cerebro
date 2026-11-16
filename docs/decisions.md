@@ -71,7 +71,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
-- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
+- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure; scrolled as IntelliJ's `CENTER_DOWN` and `CENTER_UP` (changed 2026-11-16)
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
@@ -3722,8 +3722,14 @@ change.
   Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
   keymaps have none (Claude's choice).
 - **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
-- **Not yet:** IntelliJ scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
-  it as Go to Definition does.
+- **Scrolled as IntelliJ's** (changed 2026-11-16; it was revealed in the middle, as Go to
+  Definition reveals a place): `CENTER_DOWN` for Next Method and `CENTER_UP` for Previous
+  (`MethodDownHandler`, `MethodUpHandler`, and `ScrollPositionCalculatorImpl.getVerticalOffset`,
+  read from its source). The place goes a third of the way down the editor where it's out of view
+  with a line around it (IntelliJ's default scroll offset, 1), or below that third going down (above
+  it going up); elsewhere the editor doesn't scroll. In an editor three lines high or less, it goes
+  in the middle, as IntelliJ's. Its line's top is placed, as IntelliJ's: CodeMirror places the
+  caret's top, a few pixels lower (measured: 3 in a 22-pixel line), so that's taken off.
 
 ## Optimize Imports (2026-11-14)
 
