@@ -1308,15 +1308,20 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     the app: matching the absolute folder found every file for "pro", through `/tmp`). The best
     match is selected, in the list that has the selection first, and a name's matched characters
     are in bold, as the pickers show them (added 2026-11-16). What's typed shows above the lists,
-    and the popup keeps its size, as IntelliJ's. Backspace takes a character back, and
-    Escape forgets what's typed before it closes the popup.
+    and the popup keeps its size, as IntelliJ's. Backspace or Delete takes a character back
+    (`updateEnteredPrefix`), and Escape forgets what's typed before it closes the popup. With
+    nothing selected then, the first file is (`getElementAt(0)`).
   - **With nothing matched,** the files' list says "Press 'Enter' to search in Project", and
     Enter opens Go to File with what was typed (`tryToOpenFileSearch`). The lists' other words are
     IntelliJ's too: "No recent files" and "No tool windows" (`IdeBundle`).
   - **Show edited only** stays in the header, with Recent Files' key beside it, muted, as IntelliJ
-    shows its toggle's key.
-  - **Not yet:** IntelliJ's Recent Locations item under the tool windows
-    (Cerebro has no Recent Locations); Delete taking a file from the list; selecting several.
+    shows its toggle's key. The list is read again as it flips (`replaceAll`).
+  - **Delete** (added 2026-11-16), as IntelliJ's (`closeTabOrToolWindow`, its key `$Delete`'s):
+    a tool window hides and stays listed, as in the Switcher; a file's tabs close, and it's off
+    the list shown, the files shown or those edited (`closeEditorForFile`, which leaves it when an
+    editor still shows it: Cerebro's close can't be refused).
+  - **Not yet:** IntelliJ's Recent Locations item under the tool windows (Cerebro has no Recent
+    Locations); selecting several.
   - Claude's choice, open to change: matching as the pickers match (the folder after the name),
     rather than IntelliJ's `SpeedSearchComparator`.
 - **Recent Files is kept between runs** (changed 2026-10-27): per environment, in the browser's
