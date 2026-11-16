@@ -4,7 +4,7 @@ import { render } from '@cerebro-ide/jsx';
 import { Text } from '@codemirror/state';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { CodeEditor, EditorDocument } from '../src/index.js';
+import { CodeEditor, EditorDocument, type CodeEditorProps } from '../src/index.js';
 import { PREVIEW_AFTER } from '../src/scrollbar-preview.js';
 
 let cleanup: (() => void) | undefined;
@@ -18,7 +18,11 @@ afterEach(async () => {
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** A 300px-high editor on `lines` lines, `line {n}` each. */
-async function mount(lines: number, path = 'a.ts') {
+async function mount(
+  lines: number,
+  path = 'a.ts',
+  props: Omit<CodeEditorProps, 'path' | 'document'> = {},
+) {
   const container = document.createElement('div');
   container.style.cssText = 'position: fixed; left: 0; top: 0; width: 600px; height: 300px;';
   document.documentElement.dataset['cerebroTheme'] = 'dark';
@@ -27,7 +31,7 @@ async function mount(lines: number, path = 'a.ts') {
     '\n',
   );
   const doc = new EditorDocument(text);
-  const handle = render(() => <CodeEditor path={path} document={doc} />, container);
+  const handle = render(() => <CodeEditor path={path} document={doc} {...props} />, container);
   cleanup = () => {
     handle.dispose();
     container.remove();
@@ -94,6 +98,40 @@ describe('the scrollbar’s preview', () => {
     await expect.poll(() => preview(root)).not.toBeNull();
     hover(scroller, null);
     expect(preview(root)).toBeNull();
+  });
+
+  it('says the problems’ messages at their lines’ ends, as IntelliJ’s, not the usages’', async () => {
+    const at = (line: number, from: number, to: number) => ({
+      from: { line, column: from },
+      to: { line, column: to },
+    });
+    const { root, scroller } = await mount(200, 'a.ts', {
+      problems: () =>
+        Promise.resolve([
+          { ...at(190, 6, 12), severity: 'error' as const, message: 'Second\n  of two.' },
+          { ...at(190, 0, 5), severity: 'warning' as const, message: 'First.' },
+          // Hints have no mark: none.
+          { ...at(191, 0, 5), severity: 'hint' as const, message: 'Hint.' },
+        ]),
+      usages: () => Promise.resolve([{ ...at(192, 6, 12), write: false }]),
+    });
+    await expect.poll(() => root.querySelectorAll('.cerebro-problemMark').length).toBe(2);
+    const { top, height } = scroller.getBoundingClientRect();
+    hover(scroller, top + height * 0.95);
+    await expect.poll(() => previewed(root).length).toBe(10);
+    const line = [...(preview(root) as HTMLElement).querySelectorAll('.cm-line')].find((l) =>
+      l.textContent.startsWith('const line191 '),
+    ) as HTMLElement;
+    const labels = [
+      ...line.querySelectorAll<HTMLElement>('.cerebro-scrollbarPreview__description'),
+    ];
+    // In the order they start, on one line, after the line's text.
+    expect(labels.map((l) => l.textContent)).toEqual(['First.', 'Second of two.']);
+    expect(line.textContent).toBe('const line191 = 1;First.Second of two.');
+    expect(getComputedStyle(labels[0] as HTMLElement).backgroundColor).toBe('rgb(68, 50, 29)');
+    expect(
+      (preview(root) as HTMLElement).querySelectorAll('.cerebro-scrollbarPreview__description'),
+    ).toHaveLength(2);
   });
 
   it('shows fewer lines near the text’s start, in a file of no language too', async () => {

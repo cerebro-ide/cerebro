@@ -20,6 +20,11 @@ export interface StripeMark {
   rank?: number;
   /** What it says with the pointer near it on the bar: a problem's message, a usage's line. */
   tooltip: string;
+  /**
+   * What the scrollbar's preview says at the end of its line: a problem's message. A usage has
+   * none, as IntelliJ's (its tooltip has no description).
+   */
+  description?: string;
 }
 
 /** What gives marks: the state's, read whenever it changes (a field's value, kept while equal). */
@@ -76,7 +81,7 @@ interface Drawn {
 }
 
 /** The marks given, the lowest rank first, so the highest is drawn over it. */
-function marksOf(state: EditorState): StripeMark[] {
+export function marksOf(state: EditorState): StripeMark[] {
   return state
     .facet(stripeMarks)
     .flatMap((give) => give(state))

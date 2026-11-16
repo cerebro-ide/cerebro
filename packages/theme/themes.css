@@ -41,6 +41,10 @@
   /* The Mouse Shortcut dialog's pad: IntelliJ's Panel.mouseShortcutBackground default (its
      MouseShortcutPanel source), which Darcula and Islands Dark keep. */
   --cerebro-mouse-pad: #4b4f52;
+  /* A problem's message in the scrollbar's preview: Islands Dark's Notification.ToolWindow
+     warningBackground (yellow-40), and IntelliJ's border for it (Gray._200), from their sources. */
+  --cerebro-preview-description: #44321d;
+  --cerebro-preview-description-border: #c8c8c8;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.5);
@@ -263,6 +267,9 @@
   --cerebro-tooltip-border: #dfe1e5;
   /* IntelliJ's theme's (grey16), which Islands Light keeps (intellijlaf.theme.json). */
   --cerebro-mouse-pad: #f5f5f5;
+  /* Islands Light's (yellow-160), and IntelliJ's grey (JBColor.GRAY). */
+  --cerebro-preview-description: #fff6e9;
+  --cerebro-preview-description-border: #808080;
   --cerebro-accent: #3574f0;
   --cerebro-drop: #3574f0;
   --cerebro-shadow: 0 4px 16px rgb(0 0 0 / 0.15);

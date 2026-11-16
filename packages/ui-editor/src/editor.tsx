@@ -512,6 +512,21 @@ export const theme = EditorView.theme({
     backgroundColor: variable('background'),
     pointerEvents: 'none',
   },
+  // A problem's message at its line's end in that preview, as IntelliJ's `EditorFragmentRenderer`
+  // draws it (read from its source): 9px after the line, 6px inside, 6px between two, rounded, in
+  // the warning notification's colours, its border IntelliJ's grey, the text 80% of the editor's.
+  '.cerebro-scrollbarPreview__description': {
+    marginLeft: '9px',
+    padding: '0 6px',
+    border: `1px solid ${variable('preview-description-border')}`,
+    borderRadius: '3px',
+    backgroundColor: variable('preview-description'),
+    color: variable('text'),
+    fontSize: '80%',
+  },
+  '.cerebro-scrollbarPreview__description + .cerebro-scrollbarPreview__description': {
+    marginLeft: '6px',
+  },
   // A folded part's lines under the pointer: the editor's own, framed as the tooltips are.
   '.cm-tooltip.cerebro-foldPeek': {
     border: `1px solid ${variable('tooltip-border')}`,

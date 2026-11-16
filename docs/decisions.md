@@ -5331,7 +5331,14 @@ colour and underlined.
   gives each usage); a problem's, its message. Gone as the pointer leaves the marks or the bar, at
   a key, an edit or a scroll. It looks as the app's tooltips; the shadow and padding are Claude's
   (open to change).
-- **Not yet:** the problems' messages at their lines' ends in that preview, as IntelliJ's.
+- **The problems' messages in that preview** (added 2026-11-16), at their lines' ends, as
+  IntelliJ's `EditorFragmentRenderer` draws its marks' descriptions (read from its source): on one
+  line, 9px after the line's text, 6px inside, the next 6px after it, in the order they start;
+  rounded, the text 80% of the editor's, in the warning notification's background (Islands'
+  `Notification.ToolWindow.warningBackground`: `#44321d` dark, `#fff6e9` light) with IntelliJ's
+  grey border (`#c8c8c8` dark, `#808080` light). A usage says nothing there: its tooltip has no
+  description in IntelliJ. The label's height and corner are a claim (IntelliJ's is the line's
+  height less 2px, its arc 6px).
   (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)
