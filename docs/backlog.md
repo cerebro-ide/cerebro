@@ -156,6 +156,12 @@ dialog's list, a table of its own, already takes several.
   it took. On Linux under xvfb (#202, 2026-11-12), the first launch took 4.9 s and 2.5 s to its
   first window, and showed it (Electron's `ready-to-show`) 1.7 s and 4.6 s after its page loaded;
   later launches, 0.3 s and 50 ms. The tests now wait for the window to show (testing.md).
+- **Closing the app after host.test ran past the 60 s hook** (2026-11-16, a local full run under
+  xvfb on #406's branch, other tests running beside it): all 23 of its tests passed, then its
+  `afterAll` timed out. Which step (saving the trace, or the app's close) isn't known; each now
+  says if it's still running after 20 s. The next time, that line shows which. A ui-tree test failed
+  once beside it as well ("selects the row clicked when the click focuses it, scrolled": its row
+  not drawn 20 ms after the scroll), and passed 5 of 5 alone; that the load was why is a claim.
 - **The editor tabs' e2e test fails in a full local run under xvfb** (2026-11-12, and with main's
   harness too; passes in CI): "scrolls tabs that don't fit…" finds "Show Hidden Tabs" still shown
   after its 16 tabs are closed. The local window is 854×682, CI's 1280×900; that the size is why

@@ -46,11 +46,28 @@ export const KEYS = {
 
 let runs = 0;
 
+/**
+ * Runs a step of closing, saying which it was if it's still running after 20 s: closing once ran
+ * past the hook's 60 s, all of host.test's tests passed (a local run, 2026-11-16), and which step
+ * held it up isn't known (the backlog).
+ */
+async function closing(step: string, run: () => Promise<void>): Promise<void> {
+  const timer = setTimeout(() => {
+    report(`Slow: ${step} still running after 20 s`);
+  }, 20_000);
+  try {
+    await run();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Saves the app's trace, named for the test file, and closes the app. */
 async function stop(app: ElectronApplication): Promise<void> {
   const file = basename(expect.getState().testPath ?? 'e2e', '.ts');
-  await app.context().tracing.stop({ path: join(TRACES, `${file}-${String(++runs)}.zip`) });
-  await app.close();
+  const path = join(TRACES, `${file}-${String(++runs)}.zip`);
+  await closing(`saving the trace ${path}`, () => app.context().tracing.stop({ path }));
+  await closing('closing the app', () => app.close());
 }
 
 /** Runs an action by its name, from Find Action. */
