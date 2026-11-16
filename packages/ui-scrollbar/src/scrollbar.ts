@@ -11,6 +11,13 @@
 // the area marked `data-scrollbar-obstacle` that overlaps the bar (an editor's gutter, which the
 // horizontal bar starts after; a toolbar over the area's top, which the vertical one starts below).
 
+/**
+ * The event an area gets as the pointer moves over its vertical bar (its track or its thumb), its
+ * `detail` the pointer's `clientY`, and once it leaves the bar, `null`: an editor previews the
+ * lines there, as IntelliJ's error stripe does.
+ */
+export const BAR_HOVER = 'scrollbar-hover';
+
 /** How long an area's thumbs stay after it scrolled, the pointer elsewhere, in milliseconds. */
 export const HIDE_AFTER = 1000;
 /** How long thumbs take to fade out (styles.css), after which they're removed, in milliseconds. */
@@ -355,6 +362,19 @@ export function installScrollbars(hideAfter = HIDE_AFTER): () => void {
     const { overflowX, overflowY } = getComputedStyle(scroller);
     const x = bar('x');
     const y = bar('y');
+    // Where the pointer is on the vertical bar, told to the area; and that it left, for elsewhere
+    // than the bar's other part.
+    const tell = (detail: number | null) => {
+      scroller.dispatchEvent(new CustomEvent(BAR_HOVER, { detail }));
+    };
+    for (const part of [y.rail, y.thumb]) {
+      part.addEventListener('pointermove', (event) => {
+        tell(event.clientY);
+      });
+      part.addEventListener('pointerleave', (event) => {
+        if (event.relatedTarget !== y.rail && event.relatedTarget !== y.thumb) tell(null);
+      });
+    }
     const bars: Bars = {
       scroller,
       layer,

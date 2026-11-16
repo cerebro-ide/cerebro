@@ -2,7 +2,7 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { FADE, installScrollbars, REPEAT_AFTER, REPEAT_EVERY } from '../src/index.js';
+import { BAR_HOVER, FADE, installScrollbars, REPEAT_AFTER, REPEAT_EVERY } from '../src/index.js';
 
 const HIDE = 100;
 let cleanup: (() => void)[] = [];
@@ -192,6 +192,26 @@ describe('installScrollbars', () => {
     await userEvent.click(rail, { position: { x: 5, y: 60 }, modifiers: [] });
     expect(pressed).toHaveLength(1);
     expect(scroller.scrollTop).toBe(100);
+  });
+
+  it('tells an area where the pointer is on its vertical bar, and when it leaves the bar', async () => {
+    install();
+    const scroller = area(100, 400);
+    const told: (number | null)[] = [];
+    scroller.addEventListener(BAR_HOVER, (event) => {
+      told.push((event as CustomEvent<number | null>).detail);
+    });
+    await userEvent.hover(scroller);
+    const rail = track('y') as HTMLElement;
+    await userEvent.hover(rail, { position: { x: 5, y: 80 } });
+    expect(told.at(-1)).toBe(180);
+    // Onto the thumb, the bar's other part: still on it.
+    await userEvent.hover(thumb('y') as HTMLElement, { position: { x: 5, y: 10 } });
+    expect(told.at(-1)).toBe(110);
+    expect(told).not.toContain(null);
+    // Off the bar: gone.
+    await userEvent.hover(scroller, { position: { x: 20, y: 20 } });
+    expect(told.at(-1)).toBeNull();
   });
 
   it('goes on paging while a press on the track is held, until the thumb reaches the pointer', async () => {

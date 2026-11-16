@@ -5198,7 +5198,18 @@ colour and underlined.
   (a claim; IntelliJ's own reach wasn't measured). The scrollbar's track is drawn over the marks,
   so `ui-scrollbar` gives a press on a track to what's under it marked `data-scrollbar-through`;
   over the thumb, a press drags it.
-- **Not yet:** a mark's tooltip, as IntelliJ's.
+- **The lines under the pointer on the scrollbar** (added 2026-11-16), as IntelliJ's "Show code
+  lens on scrollbar hover", on by default. From its source (`EditorMarkupModelImpl`'s
+  `showToolTipByMouseMove` and `EditorFragmentRenderer`): over a line the editor doesn't show, the
+  lines from 5 above it to 5 below (`PREVIEW_LINES`), 10 at most, highlighted, with their numbers,
+  left of the bar at the pointer's height. It shows 300 ms after the pointer gets there, where the
+  pointer is then, and follows it at once after; gone as the pointer leaves the bar or comes over a
+  line that shows, at a key, an edit or a scroll. `ui-scrollbar` tells the scroll area where the
+  pointer is on its vertical bar (a `scrollbar-hover` event), since its bar is drawn over the page.
+  Its frame is the tooltips' border colour, not IntelliJ's `CODE_LENS_BORDER_COLOR` (a claim, not
+  measured; open to change).
+- **Not yet:** the problems' messages at their lines' ends in that preview, as IntelliJ's; and over
+  a line that shows, the tooltip of the problem marks there.
   (IntelliJ's gutter icons came next: "Gutter markers".)
 
 ## Scrollbars over the content (2026-10-27)
