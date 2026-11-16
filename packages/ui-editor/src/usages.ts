@@ -177,14 +177,16 @@ const linkField = StateField.define<DecorationSet>({
 
 const linkMark = Decoration.mark({ class: 'cerebro-link' });
 
-/** Whether Ctrl or Cmd is held, as Ctrl+click and Cmd+click go to a definition. */
-const modified = (event: MouseEvent | KeyboardEvent) => event.ctrlKey || event.metaKey;
+const MODIFIER_KEYS = ['Control', 'Alt', 'Shift', 'Meta'];
 
 /**
- * Shows the word under the pointer as a link while Ctrl or Cmd is held, when `can` says it has a
- * definition.
+ * Shows the word under the pointer as a link while the modifiers held are `linking`'s (Go to
+ * Declaration's click's), when `can` says it has a definition.
  */
-export function definitionLinks(can: AskDefinition): Extension {
+export function definitionLinks(
+  can: AskDefinition,
+  linking: (event: MouseEvent | KeyboardEvent) => boolean,
+): Extension {
   const linker = ViewPlugin.define((view) => {
     /** Where the pointer was last, over the editor. */
     let pointer: { x: number; y: number } | undefined;
@@ -224,17 +226,18 @@ export function definitionLinks(can: AskDefinition): Extension {
     };
     const onMove = (event: MouseEvent) => {
       pointer = { x: event.clientX, y: event.clientY };
-      if (modified(event)) check(pointer);
+      if (linking(event)) check(pointer);
       else clear();
     };
     const onLeave = () => {
       pointer = undefined;
       clear();
     };
+    // A modifier pressed or let go: the modifiers held then are the link's, or not.
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== 'Control' && event.key !== 'Meta') return;
-      if (event.type === 'keydown' && pointer) check(pointer);
-      if (event.type === 'keyup') clear();
+      if (!MODIFIER_KEYS.includes(event.key)) return;
+      if (pointer && linking(event)) check(pointer);
+      else clear();
     };
     view.dom.addEventListener('mousemove', onMove);
     view.dom.addEventListener('mouseleave', onLeave);

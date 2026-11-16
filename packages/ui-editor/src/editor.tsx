@@ -168,8 +168,8 @@ export interface CodeEditorProps {
    */
   usages?: AskUsages;
   /**
-   * Whether the word at a place has a definition: with Ctrl or Cmd held, the word under the pointer
-   * shows as a link when it has. None: no links.
+   * Whether the word at a place has a definition: with Go to Declaration's click's modifiers held
+   * (`mouse`), the word under the pointer shows as a link when it has. None: no links.
    */
   canGoToDefinition?: AskDefinition;
   /**
@@ -243,6 +243,22 @@ export interface CodeEditorProps {
   onLeave?: (from: { line: number; column: number }) => void;
   /** The keys of the editor's actions, from the keymap. Read reactively. Default: IntelliJ's. */
   keys?: () => EditorKeys;
+  /** The keymap's mouse shortcuts, as the editor needs them. Read as it's used. None: none. */
+  mouse?: () => EditorMouse;
+}
+
+/**
+ * The keymap's mouse shortcuts, for an editor. The app runs them (its mouse dispatcher), at the
+ * caret, as IntelliJ's IdeMouseEventDispatcher does once its EditorImpl has moved the caret.
+ */
+export interface EditorMouse {
+  /** Whether a press of one of the first three buttons is a shortcut's: the caret goes there. */
+  isShortcut: (event: MouseEvent) => boolean;
+  /**
+   * Whether the modifiers held are a click's of Go to Declaration: the word under the pointer
+   * shows as a link (IntelliJ's `matchActionMouseShortcutsModifiers`).
+   */
+  isLink: (event: MouseEvent | KeyboardEvent) => boolean;
 }
 
 /**
@@ -1221,19 +1237,25 @@ export function CodeEditor(props: CodeEditorProps): Node {
       ...standardKeymap,
     ]),
     EditorView.domEventHandlers({
+      // A mouse shortcut's press puts the caret there, and nothing else (not CodeMirror's Ctrl+click,
+      // another caret), for the shortcut to run at it as the button's let go. Back's and Forward's
+      // buttons move none.
       mousedown: (event, v) => {
-        if (!(event.ctrlKey || event.metaKey) || !props.onGoToDefinition) return false;
-        // Not precise: the nearest position, never none.
-        const pos = v.posAtCoords({ x: event.clientX, y: event.clientY }, false);
-        const word = wordAt(v, pos);
-        if (word === undefined) return false;
+        if (event.button > 2 || props.mouse?.().isShortcut(event) !== true) return false;
         event.preventDefault();
-        props.onGoToDefinition(word, placeOf(v.state, pos));
+        v.focus();
+        // Not precise: the nearest position, never none.
+        const anchor = v.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+        v.dispatch({ selection: { anchor }, userEvent: 'select.pointer' });
         return true;
       },
     }),
     props.onLeave ? leaves(props.onLeave) : [],
-    props.canGoToDefinition ? definitionLinks(props.canGoToDefinition) : [],
+    props.canGoToDefinition && props.mouse
+      ? definitionLinks(props.canGoToDefinition, (event) =>
+          (props.mouse as () => EditorMouse)().isLink(event),
+        )
+      : [],
     theme,
     syntaxHighlighting(highlight),
     ...(language ? [language] : []),

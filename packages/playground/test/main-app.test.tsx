@@ -934,6 +934,24 @@ describe('navigation in the editor', () => {
     );
     await userEvent.click(mark);
     await expect.poll(active).toBe('/r/src/b.ts');
+    // Ctrl+click and Ctrl+Alt+click on the name: the keymap's mouse shortcuts, Go to Declaration
+    // and Go to Implementation at the caret the click puts there.
+    for (const modifiers of [['Control'], ['Control', 'Alt']] as const) {
+      await closeAll();
+      await onA();
+      const content = editorRoot()?.querySelector<HTMLElement>('.cm-content') as HTMLElement;
+      const cursor = (
+        editorRoot()?.querySelector('.cm-cursor') as HTMLElement
+      ).getBoundingClientRect();
+      const box = content.getBoundingClientRect();
+      // Away from it first.
+      await userEvent.keyboard('{Control>}{Home}{/Control}');
+      await userEvent.click(content, {
+        position: { x: cursor.left - box.left + 2, y: cursor.top - box.top + cursor.height / 2 },
+        modifiers: [...modifiers],
+      });
+      await expect.poll(active).toBe('/r/src/b.ts');
+    }
     // Go to Super Method: where the up marker of the symbol around the caret goes.
     await closeAll();
     answers.set('lsp.structure', [

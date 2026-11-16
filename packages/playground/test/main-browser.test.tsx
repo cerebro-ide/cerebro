@@ -582,9 +582,13 @@ describe('Save when idle', () => {
 });
 
 describe('Back and Forward', () => {
-  it('go by the mouse’s own buttons, when there’s somewhere to go', async () => {
+  it('go by the mouse’s own buttons as they’re pressed, when there’s somewhere to go', async () => {
+    /** Presses and lets go of a button: whether its release was taken (Chromium's own Back). */
     const button = (which: number) => {
-      window.dispatchEvent(new MouseEvent('mouseup', { button: which }));
+      window.dispatchEvent(new MouseEvent('mousedown', { button: which, detail: 1 }));
+      const release = new MouseEvent('mouseup', { button: which, detail: 1, cancelable: true });
+      window.dispatchEvent(release);
+      return release.defaultPrevented;
     };
     const path = env().editor.activeGroup.active as string;
     const line = () => carets.get(path)?.line;
@@ -593,13 +597,13 @@ describe('Back and Forward', () => {
     await userEvent.keyboard('{Control>}a{/Control}30{Enter}');
     await expect.poll(line).toBe(29);
     // Not another button, nor Forward with nowhere to go.
-    button(0);
-    button(4);
+    expect(button(0)).toBe(false);
+    expect(button(4)).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(line()).toBe(29);
-    button(3);
+    expect(button(3)).toBe(true);
     await expect.poll(line).not.toBe(29);
-    button(4);
+    expect(button(4)).toBe(true);
     await expect.poll(line).toBe(29);
   });
 

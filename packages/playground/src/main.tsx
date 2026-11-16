@@ -212,7 +212,12 @@ import {
   save as saveSettings,
   settingsFor,
 } from './settings.js';
-import { chordFromEvent, formatSequence, type CommandSpec } from '@cerebro-ide/commands';
+import {
+  chordFromEvent,
+  formatSequence,
+  MouseDispatcher,
+  type CommandSpec,
+} from '@cerebro-ide/commands';
 import type { Settings } from '@cerebro-ide/settings';
 import { dark, menuVisible, setupCommands, type TabContext } from './commands.js';
 import '@cerebro-ide/ui-layout/styles.css';
@@ -224,7 +229,7 @@ import {
   markdownActions,
   setupMarkdown,
 } from './markdown.js';
-import { editorKeys } from './keymaps.js';
+import { editorKeys, editorMouse } from './keymaps.js';
 import { agentTerminal, setLastShellClosed, setTerminalKeys, shellsFor } from './terminals.js';
 import '@cerebro-ide/ui-terminal/styles.css';
 import './playground.css';
@@ -1191,11 +1196,16 @@ effect(() => {
   if (file) untracked(() => void selectInTree(file.id, FILES));
   return undefined;
 });
+// The keymap's mouse shortcuts, as IntelliJ's IdeMouseEventDispatcher runs them: Back and Forward
+// on the mouse's own buttons, Go to Declaration on Ctrl+click at the caret the editor put there.
+const mouseShortcuts = new MouseDispatcher(services.keymap, services.commands);
+/** The keymap's mouse shortcuts for the editors, made again as the keymap changes. */
+const editorMouseNow = computed(() => editorMouse(services.keymap));
+window.addEventListener('mousedown', (event) => {
+  if (mouseShortcuts.press(event)) event.preventDefault();
+});
 window.addEventListener('mouseup', (event) => {
-  const command = { 3: 'navigate.back', 4: 'navigate.forward' }[event.button];
-  if (command === undefined || !services.commands.isEnabled(command)) return;
-  event.preventDefault();
-  services.commands.execute(command);
+  if (mouseShortcuts.release(event)) event.preventDefault();
 });
 // Saving, on its own as IntelliJ's (documents.ts), and when the window closes (the app asks,
 // through cerebroSaveAll, before it closes or reloads the window); Save All saves at once.
@@ -2161,6 +2171,7 @@ function Code(props: { path: string; env: string }) {
             detectIndent={() => detecting(settings) && !declined.has(props.path)}
             onIndent={(used, detected) => indents.set(props.path, { indent: used, detected })}
             keys={() => editorKeys(services.keymap)}
+            mouse={() => editorMouseNow.get()}
           />
         );
         return isMarkdown(props.path) ? (

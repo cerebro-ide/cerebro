@@ -5,6 +5,7 @@ export {
   editorHistory,
   type CodeEditorProps,
   type EditorKeys,
+  type EditorMouse,
 } from './editor.js';
 export {
   type AskCompletions,

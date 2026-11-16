@@ -40,7 +40,11 @@ function mount(props: CodeEditorProps) {
 }
 
 /** Clicks the middle of a word in the editor, with the real mouse. */
-async function clickWord(root: ShadowRoot, word: string, modifiers: ('Control' | 'Alt')[] = []) {
+async function clickWord(
+  root: ShadowRoot,
+  word: string,
+  modifiers: ('Control' | 'Alt' | 'Shift')[] = [],
+) {
   const line = root.querySelector('.cm-line') as HTMLElement;
   const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -700,8 +704,40 @@ describe('CodeEditor', () => {
     expect(onGoToDefinition).toHaveBeenLastCalledWith('answer', within(6, 12));
     await userEvent.keyboard('{Alt>}{F7}{/Alt}');
     expect(onFindUsages).toHaveBeenLastCalledWith('answer', within(6, 12));
+    // Ctrl+click: the app's mouse shortcut, which runs Go to Declaration at the caret.
+    onGoToDefinition.mockClear();
     await clickWord(root, 'compute', ['Control']);
-    expect(onGoToDefinition).toHaveBeenLastCalledWith('compute', within(15, 22));
+    expect(onGoToDefinition).not.toHaveBeenCalled();
+  });
+
+  it('puts the caret where a mouse shortcut is pressed, a selection let go, for it to run at', async () => {
+    // Sublime Text's Go to Declaration: Ctrl+Shift+click.
+    const isShortcut = vi.fn((event: MouseEvent) => event.ctrlKey && event.shiftKey);
+    const text = 'const answer = compute(1);';
+    const viewOf = (root: ShadowRoot) =>
+      EditorView.findFromDOM(root.querySelector('.cm-content') as HTMLElement) as EditorView;
+    // Without the keymap's: CodeMirror's Shift+click, the selection extended.
+    let view = viewOf(mount({ path: 'a.ts', text }));
+    await clickWord(view.root as ShadowRoot, 'answer');
+    await clickWord(view.root as ShadowRoot, 'compute', ['Control', 'Shift']);
+    expect(view.state.selection.main.empty).toBe(false);
+    cleanup?.();
+    view = viewOf(
+      mount({ path: 'a.ts', text, mouse: () => ({ isShortcut, isLink: () => false }) }),
+    );
+    const root = view.root as ShadowRoot;
+    await clickWord(root, 'answer');
+    await clickWord(root, 'compute', ['Control', 'Shift']);
+    expect(view.state.selection.main.empty).toBe(true);
+    const head = view.state.selection.main.head;
+    expect(head >= 15 && head <= 22).toBe(true);
+    expect(view.hasFocus).toBe(true);
+    // The back button: no caret moved, nor asked about.
+    isShortcut.mockClear();
+    const line = root.querySelector('.cm-line') as HTMLElement;
+    line.dispatchEvent(new MouseEvent('mousedown', { button: 3, bubbles: true }));
+    expect(isShortcut).not.toHaveBeenCalled();
+    expect(view.state.selection.main.head).toBe(head);
   });
 
   it('leaves the text as it is on Ctrl+Shift+Backspace and Delete, as IntelliJ’s, the keys going on', async () => {
