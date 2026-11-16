@@ -195,6 +195,8 @@ export interface CodeEditorProps {
    * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
    */
   documentation?: AskDocumentation;
+  /** Opens a link pressed in the documentation; without it, its links don't open. */
+  onLink?: (address: string) => void;
   /**
    * The definition of the symbol at a place, shown in a popup on its keys (Ctrl+Shift+I), as
    * IntelliJ's Quick Definition. None: no Quick Definition.
@@ -1182,7 +1184,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return [
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
-      props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
+      props.documentation
+        ? documentationKeys(props.documentation, keys.quickDocumentation, props.onLink)
+        : [],
       props.quickDefinition
         ? quickDefinitionKeys(props.quickDefinition, keys.quickDefinition, [
             theme,
@@ -1254,7 +1258,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     props.problems ? problemHighlights(props.problems, props.onShowProblems) : [],
     doc && props.completions ? completions(props.completions, props.resolveCompletion) : [],
     // After the problems: below a problem's message, in the same tooltip, as IntelliJ's.
-    props.documentation ? documentation(props.documentation) : [],
+    props.documentation ? documentation(props.documentation, props.onLink) : [],
     props.parameterInfo ? parameterInfo(props.parameterInfo) : [],
     doc && props.renaming && props.onRename ? renaming(props.renaming, props.onRename) : [],
     activeLine,

@@ -1891,9 +1891,12 @@ and Quick Documentation").
   dependency, so marked (rejected) wasn't added. HTML in a comment shows as text, so a file's
   comments can't put markup in the page. Code blocks are highlighted by the editor's languages,
   when the block's name is one of them.
-- **Links show in the link colour, with their address on the pointer;** clicking one does nothing
-  yet. The app has no way to open a page in the browser, and following it in the page would
-  replace the app.
+- **Links show in the link colour, with their address on the pointer;** a press on a web one
+  (`http:`, `https:`) opens its page in the system's browser, as IntelliJ's (`BrowserUtil.browse`),
+  added 2026-11-16. The app's main process opens it (Electron's `shell.openExternal`) and takes
+  only those two, Claude's choice, open to change: a file's comments can hold any address. In a
+  browser nothing opens: following it in the page would replace the app. **Not yet:** a link to a
+  symbol (JSDoc's `{@link}`), to go to its declaration.
 - **Each keymap's keys,** from IntelliJ's files (`QuickJavaDoc`) and VS Code's sheets (Show
   Hover):
   - IntelliJ IDEA: Ctrl+Q. IntelliJ IDEA (macOS): F1 and Ctrl+J. IntelliJ IDEA Classic (macOS):
@@ -3039,9 +3042,10 @@ choose between the "code" the "view" or a side by side display of both". From In
 - **Links** (added 2026-11-13): a press on one opens the file it names, by a path relative to the
   Markdown file (its anchor dropped), in a tab; `#heading` goes to that heading of the page, by
   GitHub's anchor (lower case, punctuation dropped, spaces as hyphens). Claude's choice, open to
-  change: every link shows the pointer, web ones too, which do nothing yet. A link's definition
-  (`[x]: https://x.y`) draws nothing, as on GitHub. **Not yet:** web links (the app has no way to
-  a browser), another file's anchor, and paths from the repository's root.
+  change: every link shows the pointer. A web one (`http:`, `https:`) opens its page in the
+  system's browser (added 2026-11-16), as Quick Documentation's (decision "Quick Documentation").
+  A link's definition (`[x]: https://x.y`) draws nothing, as on GitHub. **Not yet:** another
+  file's anchor, and paths from the repository's root.
 - **Not yet:** IntelliJ's setting to turn the auto-scroll off; HTML drawn;
   IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
 
