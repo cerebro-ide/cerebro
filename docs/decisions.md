@@ -87,7 +87,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13); the Log's Fixup… and Squash Into…, through the Commit window (changed 2026-11-17); the Log's Drop Commit, as its in-memory drop (changed 2026-11-13); Undo and Edit again in their notifications (changed 2026-11-13)
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13); the Log's Fixup… and Squash Into…, through the Commit window (changed 2026-11-17); the Log's Drop Commit, as its in-memory drop (changed 2026-11-13); the Log's Interactively Rebase from Here…, IntelliJ's Rebasing Commits dialog (changed 2026-11-17); Undo and Edit again in their notifications (changed 2026-11-13)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -4390,7 +4390,8 @@ The last of the Git menu's actions the decision "Fetch and Pull" left. From Inte
   recorded in Local History. "Rebase successful" says "Rebased <branch> on <base>" (HEAD when
   detached); at conflicts, the Conflicts dialog, then on, as Continue Rebase. A failure is "Rebase
   failed", git's words under it.
-- **Not yet:** --interactive (IntelliJ's interactive rebase editor); IntelliJ's checks before
+- **Not yet:** --interactive (IntelliJ's interactive rebase dialog, which the Log's Interactively
+  Rebase from Here… opens: decision "Git → Reset HEAD…"); IntelliJ's checks before
   starting (Rebase is not possible during a merge or a cherry-pick: git's own words say so now);
   several repositories' Git Root field.
 
@@ -4531,8 +4532,8 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
   - **Claude's choice, open to change:** the Commit window, as Commit File… shows it, where
     IntelliJ opens its modal commit dialog (`CommitChangeListDialog`).
   - **Not yet:** IntelliJ's "Commit and Rebase…" in that dialog, which rebases with the commits
-    marked for fixup or squash put in place, in its interactive rebase dialog: Cerebro has no
-    interactive rebase yet.
+    marked for fixup or squash put in place, in its interactive rebase dialog (Interactively Rebase
+    from Here…, below).
 - **The Log's Drop Commit** (added 2026-11-13), in the commit menu after Squash Into…, as IntelliJ's
   (`GitDropLogAction`, `InMemoryRebaseOperations`, `GitInMemoryInteractiveRebaseProcess`,
   `GitObjectRepositoryExtensions`, read from its source). Off for a merge. Edit Commit Message…'s
@@ -4554,6 +4555,45 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
     page's storage (IntelliJ's in its application settings). After it, no commit is selected
     (the backlog's "The Log's details keep showing a commit that's gone").
   - **Not yet:** several commits at once (the Log selects one).
+- **The Log's Interactively Rebase from Here…** (added 2026-11-17), in the commit menu after Drop
+  Commit, as IntelliJ's (`GitInteractiveRebaseAction`, `GitInteractiveRebaseDialog`,
+  `GitRebaseTodoModel`, `ChangeEntryStateActions`, `GitRebaseCommitsTableView`,
+  `CommitMessageCellEditor`, `GitSquashedCommitsMessage`, GitBundle's words, read from its source).
+  For any commit of the branch, a merge too (IntelliJ's checks for none). Edit Commit Message…'s
+  checks first, under "Cannot Start Rebase" (a rebase allows none, IntelliJ's operation "rebase").
+  - **The dialog, "Rebasing Commits"** (1000 wide): the commits from the one chosen to HEAD, oldest
+    first, each picked, the first selected and the list focused. A toolbar over them: Move Up and
+    Move Down (Alt+Up and Down), Pick (Alt+P), Stop to Edit (Alt+E), then Reword (Alt+R), Squash
+    (Alt+S) with Fixup (Alt+F) on its arrow, as IntelliJ's option button, and Drop (Alt+D, and
+    Delete); Reset at its right once the list has changed. The rows' rules are IntelliJ's model's,
+    on a flat list (`rebase-todo.ts`): a kept row with the `fixup` rows after it is a "unite group",
+    as IntelliJ gives git; a child given its own action leaves its group, a root moves or drops
+    with it, a row moved in above a child joins its group. A drop is struck through, a reword blue
+    (JBColor.BLUE), a child indented; the graph's column draws IntelliJ's nodes (a circle, a double
+    one for a group's root, a pause for an edit, none for a drop or a child) in
+    VersionControl.GitCommits.graphColor.
+  - **Reword in its row,** as IntelliJ's: five lines, "Press Ctrl+Enter to apply changes" (⌘↩ on
+    macOS) under them; the commit's own message picks it again; Escape with text typed asks
+    "Cancel Reword": "Entered commit message will be lost" (Cancel Reword or Keep Editing). Start
+    Rebasing is off meanwhile. Squash unites the rows (one row with the nearest kept row above it)
+    and edits the root's message: the messages put together as IntelliJ's `prettySquash` (each
+    once, an autosquash subject taken off where its commit is among them); onto a group already,
+    its message and the new rows'. Fixup unites them only.
+  - **Cancel with the list changed** asks "Cancel Rebase": "Discard changes and cancel rebase?"
+    (Discard or Continue Rebasing).
+  - **Then git** (the host's `git.interactiveRebase`): documents saved, "Rebasing…" on the status
+    bar, `git -c rebase.updateRefs=false rebase --interactive --autostash --no-autosquash` from the
+    commit's parent (`--root` for the first), with Cerebro as git's sequence editor and message
+    editor (`rebase-editor` mode of the app, run as Node): it writes the list, refusing it in
+    IntelliJ's words if git's list isn't the commits the dialog showed, and gives each reword's
+    message where git asks for it. "Rebase successful" ("Rebased {branch}"); at conflicts, the
+    Conflicts dialog, then on, as Continue Rebase; stopped at an edit, "Rebase stopped for editing"
+    with Continue and Abort; a failure "Rebase failed", git's words under it. The commits are
+    listed as git's rebase takes them (`git log --reverse --no-merges --topo-order`).
+  - **Cerebro's, open to change:** Move Up and Move Down drawn as the diff's arrows; `update-ref`
+    rows turned off (IntelliJ shows them).
+  - **Not yet:** the commit's details at the dialog's right; its context menu, with View Git
+    Commands; speed search in the list; the Rebase dialog's --interactive, which opens this list.
 - **Undo in their notifications** (added 2026-11-13), as IntelliJ's (`GitCommitEditingNotifications`,
   `GitCommitEditingOperationResult.Complete`, GitBundle's words, read from its source): "Commit
   message changed" and "Dropped 1 commit" have Undo, which puts HEAD back where it was before the

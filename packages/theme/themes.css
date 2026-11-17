@@ -178,6 +178,10 @@
   --cerebro-log-ref-local: #3cb45c;
   --cerebro-log-ref-remote: #9f79b5;
   --cerebro-log-ref-tag: #999999;
+  /* The Interactive Rebase dialog's graph (VersionControl.GitCommits.graphColor) and a reworded
+     commit's subject (JBColor.BLUE), from IntelliJ's source; the Islands themes don't change them. */
+  --cerebro-rebase-graph: #87929a;
+  --cerebro-rebase-reworded: #589df6;
   /* An icon's badge, where something it opens isn't as it is by default: IntelliJ's IconBadge.SUCCESS
      (JBUI, IconBadge.successBackground), from its source, not measured. */
   --cerebro-icon-badge-success: #5fad65;
@@ -382,6 +386,10 @@
   /* The Git Log's refs, where IntelliJ's light colours differ (VcsLogStandardColors). */
   --cerebro-log-ref-head: #ffd100;
   --cerebro-log-ref-tag: #7a7a7a;
+  /* The Interactive Rebase dialog's graph (VersionControl.GitCommits.graphColor) and a reworded
+     commit's subject (JBColor.BLUE), from IntelliJ's source; the Islands themes don't change them. */
+  --cerebro-rebase-graph: #aeb9c0;
+  --cerebro-rebase-reworded: #0000ff;
   --cerebro-icon-badge-success: #55a76a;
   /* The image viewer's grid, JBColor.DARK_GRAY's light colour. */
   --cerebro-image-grid: #404040;

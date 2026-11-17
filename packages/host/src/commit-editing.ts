@@ -27,7 +27,7 @@ const DURING = {
  * The commit editing operations, by IntelliJ's names in its words ("Cannot reword during …"); a
  * fixup or squash commit is made for one (Fixup… and Squash Into…).
  */
-export type Editing = 'reword' | 'drop' | 'fixup' | 'squash';
+export type Editing = 'reword' | 'drop' | 'fixup' | 'squash' | 'rebase';
 
 /**
  * Whether `hash` can be edited, as IntelliJ checks before it asks anything: HEAD's commit then, to

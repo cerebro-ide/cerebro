@@ -17,6 +17,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { commitWithMessage, nothingToCommit } from './changes.js';
 import { saveBeforeGit } from './documents.js';
 import { currentBranch } from './git-fields.js';
+import { interactivelyRebase } from './interactive-rebase.js';
 import type { LogCommit, LogCommitContext } from './git-log.js';
 import { shortenText } from './log-paths.js';
 import { notifications } from './notifications.js';
@@ -24,8 +25,8 @@ import { PROTECTED } from './push.js';
 import { resetting } from './reset.js';
 import { refreshAll } from './shelf.js';
 
-/** What's done: a commit edited, or a fixup or squash commit made for it. */
-type Editing = 'reword' | 'drop' | 'fixup' | 'squash';
+/** What's done: a commit edited, a fixup or squash commit made for it, or a rebase from it. */
+type Editing = 'reword' | 'drop' | 'fixup' | 'squash' | 'rebase';
 
 /** IntelliJ's titles for why it can't be done. */
 const FAILURE: Record<Editing, string> = {
@@ -33,6 +34,7 @@ const FAILURE: Record<Editing, string> = {
   drop: 'Could not Drop Commits',
   fixup: 'Cannot Create Fixup Commit',
   squash: 'Cannot Create Squash Commit',
+  rebase: 'Cannot Start Rebase',
 };
 
 /** IntelliJ's words for an edit's Undo: while it's done, when it can't be, and when it fails. */
@@ -372,4 +374,24 @@ export function setupCommitEditing(services: MenuServices): void {
     run: dropCommit,
   });
   menus.contribute({ menu: 'log/commit', item: { command: 'log.drop' }, group: 'g', order: 6 });
+  // Then IntelliJ's Interactively Rebase from Here…; a merge too (it doesn't check for one).
+  commands.register<LogCommitContext>({
+    id: 'log.interactiveRebase',
+    label: 'Interactively Rebase from Here',
+    dialog: true,
+    enabled: (at?: LogCommitContext) => at !== undefined && resetting.get() === undefined,
+    run: (at: LogCommitContext) =>
+      interactivelyRebase(
+        at,
+        services.keymap?.platform ?? 'other',
+        () => checked(at, 'rebase'),
+        () => reread(at, 'Interactive Rebase'),
+      ),
+  });
+  menus.contribute({
+    menu: 'log/commit',
+    item: { command: 'log.interactiveRebase' },
+    group: 'g',
+    order: 7,
+  });
 }
