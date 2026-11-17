@@ -163,6 +163,8 @@ export function branchField(
   const suggesting = signal(false);
   /** The field, which the suggestions show under. */
   let field!: HTMLInputElement;
+  /** Whether its text was selected as it was first focused. */
+  let selected = false;
   return (
     <span class="playground-git-branch">
       <input
@@ -172,13 +174,16 @@ export function branchField(
         disabled={() => options.disabled?.() === true}
         spellcheck={false}
         value={() => branch.get()}
+        // The dialog focuses it as it opens, and it selects its text then: keys typed at once
+        // replace it.
+        autofocus={options.focus !== false}
         ref={(element) => {
           field = element;
-          if (options.focus === false) return;
-          requestAnimationFrame(() => {
-            element.focus();
-            element.select();
-          });
+        }}
+        on:focus={(event) => {
+          if (selected || options.focus === false) return;
+          selected = true;
+          (event.currentTarget as HTMLInputElement).select();
         }}
         on:input={(event) => {
           branch.set((event.currentTarget as HTMLInputElement).value.trim());

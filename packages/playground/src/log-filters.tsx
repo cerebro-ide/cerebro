@@ -127,6 +127,7 @@ export function selectValues(options: ValuesOptions): Promise<string[] | undefin
   element.setAttribute('aria-label', options.label);
   document.body.append(element);
   return new Promise((resolve) => {
+    let field!: HTMLTextAreaElement;
     const done = (values: string[] | undefined) => {
       window.removeEventListener('pointerdown', outside, true);
       handle.dispose();
@@ -153,10 +154,8 @@ export function selectValues(options: ValuesOptions): Promise<string[] | undefin
             aria-label={options.label}
             rows={4}
             value={options.value}
-            ref={(field) => {
-              requestAnimationFrame(() => {
-                field.focus();
-              });
+            ref={(element) => {
+              field = element;
             }}
             on:keydown={(event) => {
               if (event.key === 'Escape') {
@@ -175,6 +174,8 @@ export function selectValues(options: ValuesOptions): Promise<string[] | undefin
       ),
       element,
     );
+    // In the page now: focused at once, for keys typed as it opens.
+    field.focus();
     const at = options.below.getBoundingClientRect();
     element.style.left = `${String(Math.max(0, Math.min(at.left, window.innerWidth - element.offsetWidth)))}px`;
     element.style.top = `${String(at.bottom + 2)}px`;

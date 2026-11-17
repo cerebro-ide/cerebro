@@ -68,7 +68,11 @@ IntelliJ shows some choosers as popups with controls of their own, at the caret:
 Mnemonic's grid and description field (`BookmarkTypeChooser`), say, and Go to Mnemonic's tree,
 centred, with no search field. Cerebro's popups are lists (the picker, the Switcher), each drawing
 its own frame, so the mnemonic chooser is a dialog with OK and Cancel for now, and Go to Mnemonic
-the picker at the top (decision "Bookmarks"). A popup shell they'd share, with a title, a place and
+the picker at the top (decision "Bookmarks"). The Keymap page's Find Actions by Shortcut waits on it
+too (found 2026-11-16): IntelliJ's opens a Find Shortcut popup under the search field
+(`ShortcutFilteringPanel`, read from its source), a stroke field, Second stroke and its field, and
+a mouse pad, the list filtered as a shortcut is pressed, which a modal dialog would hide. A popup
+shell they'd share, with a title, a place and
 the focus handled once, taking any content, would let it be IntelliJ's popup. Proposed before
 doing it, as it reshapes the picker and the Switcher (CLAUDE.md).
 
@@ -133,6 +137,14 @@ elements of each row) in place of the lanes: a rewrite of the graph, so it's pro
   now focus a control marked `autofocus` as they open, and the Shelve, stash and Put Label dialogs
   use it. These two also select their text, which `autofocus` doesn't do, and a dialog's field may
   not be first; left for now.
+
+- **Browser test files that sometimes don't load in a full local run** (2026-11-16, #432's check
+  in a worktree, 240 files): four files (playground's `git-log`, `main-app`; ui-editor's `editor`,
+  `completions`) failed with "Vitest failed to find the runner" / "the current suite", or "The
+  iframe … did not become ready within 60000ms". Rerun alone, all four passed. No container was
+  running, and `ip monitor address` showed no change in 20 s, but only after the run, so the
+  testing rule's measured cause (Chrome's `ERR_NETWORK_CHANGED`) isn't ruled out. Next time: run
+  `ip monitor address` with timestamps through the run, and Chrome's `--log-net-log`.
 
 - **A popup stays open when the focus moves to the editor in code** (measured on macOS in CI,
   #233, run 43315646427, 2026-11-12): language-servers' Python test pressed Ctrl+B again while an
