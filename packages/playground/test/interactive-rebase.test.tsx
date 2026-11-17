@@ -435,6 +435,21 @@ describe('the Log’s Interactively Rebase from Here…, as IntelliJ’s', () =>
   });
 });
 
+describe('the Interactive Rebase dialog with no keymap', () => {
+  it('names Ctrl+Enter, as on Linux and Windows', async () => {
+    const bare: MenuServices = { commands: new CommandRegistry(), menus: new MenuRegistry() };
+    setupCommitEditing(bare);
+    const done = Promise.resolve(bare.commands.get('log.interactiveRebase')?.run(context()));
+    await dialog();
+    await expect.poll(() => rows().length).toBe(3);
+    await userEvent.keyboard('{Alt>}r{/Alt}');
+    await expect.poll(() => row('aaaa1111').textContent).toContain('Press Ctrl+Enter');
+    await userEvent.keyboard('{Control>}{Enter}{/Control}');
+    await cancel();
+    await done;
+  });
+});
+
 describe('the Interactive Rebase dialog on macOS', () => {
   it('names Cmd+Enter to apply a message', async () => {
     const result = rebaseDialog(commits, 'mac');

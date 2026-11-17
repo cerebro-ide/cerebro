@@ -56,6 +56,8 @@ it('rebases with the list: a commit reworded, another dropped', async () => {
   await rows.nth(0).click();
   await page().locator('.playground-rebase__toolbar button', { hasText: 'Reword' }).click();
   const field = page().locator('.playground-rebase__message');
+  // Five lines, as IntelliJ's, not a dialog field's one: the field's own rule loads after the dialog's.
+  expect((await field.boundingBox())?.height).toBeGreaterThan(80);
   await field.fill('Second, reworded\n\nWhy.');
   await field.press('Control+Enter');
   await page().locator('.cerebro-dialog__button', { hasText: 'Start Rebasing' }).click();

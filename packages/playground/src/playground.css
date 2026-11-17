@@ -2573,9 +2573,12 @@ body,
   padding: 2px 0;
 }
 
-.playground-rebase__message {
+/* Its five rows, not the field's one-line height: over the field's rule, which loads after. */
+.playground-rebase__editor .playground-rebase__message {
   box-sizing: border-box;
   width: 100%;
+  height: auto;
+  padding: 4px 8px;
   resize: none;
   font: inherit;
   white-space: pre;
