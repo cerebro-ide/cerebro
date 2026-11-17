@@ -19,6 +19,14 @@ can then be scoped to the whole project from it. Done: the worktree's folder at 
 External Libraries (for WebStorm, Node's own declarations and a project's `@types`), or files
 opened from outside the project.
 
+### The Log's subject column shrinks to nothing in a narrow window
+
+Measured 2026-11-17 in an e2e run under xvfb: in an 854×682 window, with the Git tool window open
+(its branches pane and commit details beside the list), the Log's `.playground-log__message` is 0
+wide, so a commit's subject isn't seen at all. IntelliJ keeps the subject column and lets the
+others go first (a claim, not checked). `log.test.ts` forces its clicks on rows, likely for this.
+Left: find what takes the width and give the subject a minimum.
+
 ### Several Claude sessions, as tabs (to design later)
 
 Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as tabs. Ido: "that's
