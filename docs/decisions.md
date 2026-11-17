@@ -599,6 +599,12 @@ new UI.
 - **It only lays items out.** What goes on it is still to be discussed; Ido expects it to show
   running background tasks, services, and basic information about the active environment, session
   and file.
+- **Short of room (added 2026-11-16),** the right side's items keep their size and the left side's
+  give way: the short ones keep theirs while there's room for them, and the long one (the file's
+  path) is cut short with an ellipsis. Before, both sides' items kept
+  their size and ran over each other: seen in the app at 1280 pixels wide, a long file path on the
+  left pushed the Claude item over the caret's position and the line separator. Claude's choice,
+  open to change; IntelliJ's own isn't read.
 - **Apps and plugins add items:**
   - left or right (right by default, where IntelliJ keeps most widgets), ordered;
   - reactive text and an optional icon;
