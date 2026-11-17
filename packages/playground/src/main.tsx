@@ -1,5 +1,6 @@
 import { render } from '@cerebro-ide/jsx';
 import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
+import { installAppScrollbars } from './scrollbars.js';
 import { notesPlugin } from './notes-plugin.js';
 import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
@@ -32,7 +33,6 @@ import '@cerebro-ide/ui-settings/styles.css';
 import '@cerebro-ide/ui-keymap/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';
 import { StatusBar, StatusBarView, type Progress } from '@cerebro-ide/ui-statusbar';
 import '@cerebro-ide/ui-statusbar/styles.css';
@@ -2069,7 +2069,7 @@ effect(() => {
   return undefined;
 });
 
-installScrollbars({ mac });
+installAppScrollbars(mac);
 
 /** A file's document in the editor, as the environment's settings say. */
 function Code(props: { path: string; env: string }) {

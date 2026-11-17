@@ -6,8 +6,8 @@
 // dragged. Pressing a bar's track scrolls a page towards the press, and holding it goes on, as
 // IntelliJ's. As IntelliJ's `DefaultScrollBarUI` (read from its source), a middle-button press on a
 // track moves the thumb there, its middle at the pointer, and drags it; on macOS IntelliJ does that
-// by the system's setting instead, which the page can't read, so there it pages. The right button
-// does nothing on a bar.
+// by the system's setting instead ("Jump to the spot that's clicked", `MacScrollBarUI`), for any
+// press, which the app reads for the page (`jumpToSpot`). The right button does nothing on a bar.
 //
 // Thumbs avoid what's in their way, as IntelliJ's (Ido, with its screenshots): a thumb moves along a
 // track that stops short of the other bar, so the two never meet in the corner, and of anything in
@@ -232,8 +232,13 @@ function passThrough(event: PointerEvent): boolean {
 export interface ScrollbarOptions {
   /** How long an area's thumbs stay after it scrolled, in ms. Default: `HIDE_AFTER`. */
   hideAfter?: number;
-  /** Whether it's macOS, where a middle press on a track pages, as the main one. Default: false. */
+  /**
+   * Whether it's macOS, where a press on a track jumps to the spot or pages, by `jumpToSpot`, with
+   * whichever button. Default: false.
+   */
   mac?: boolean;
+  /** On macOS, whether the system says a press on a track jumps to the spot. Default: never. */
+  jumpToSpot?: () => boolean;
 }
 
 /** The DOM's numbers for the middle and the right buttons. */
@@ -242,7 +247,7 @@ const RIGHT = 2;
 
 /** Shows Cerebro's scrollbars over the page, the browser's hidden; returns what removes them. */
 export function installScrollbars(options: ScrollbarOptions = {}): () => void {
-  const { hideAfter = HIDE_AFTER, mac = false } = options;
+  const { hideAfter = HIDE_AFTER, mac = false, jumpToSpot = () => false } = options;
   const shown = new Map<HTMLElement, Bars>();
   /** Shadow roots listened to for scrolling, which doesn't leave them. */
   const roots = new Set<ShadowRoot>();
@@ -300,7 +305,7 @@ export function installScrollbars(options: ScrollbarOptions = {}): () => void {
     );
   };
 
-  /** A middle press on a track: the thumb's middle moved to the pointer, then dragged from there. */
+  /** A press on a track that jumps: the thumb's middle moved to the pointer, then dragged from there. */
   const jump = (bars: Bars, axis: Axis, event: PointerEvent) => {
     const s = bars.scroller;
     const vertical = axis === 'y';
@@ -384,7 +389,7 @@ export function installScrollbars(options: ScrollbarOptions = {}): () => void {
     const bar = (axis: Axis) => ({
       rail: draw('cerebro-scrollbar-track', axis, (event) => {
         if (event.button === RIGHT || passThrough(event)) return;
-        if (event.button === MIDDLE && !mac) jump(bars, axis, event);
+        if (mac ? jumpToSpot() : event.button === MIDDLE) jump(bars, axis, event);
         else press(bars, axis, event);
       }),
       thumb: draw('cerebro-scrollbar', axis, (event) => {

@@ -5756,11 +5756,18 @@ if text/code is under the scrollbar it's visible. Can we do that too?"
   its end. Moving the held pointer past the thumb again starts it again after the pause.
 - **A middle-button press on a track** (added 2026-11-16) moves the thumb there, its middle at the
   pointer, and drags it from there while held, as IntelliJ's (`DefaultScrollBarUI.mousePressed`,
-  `isAbsolutePositioning`, read from its source). On macOS IntelliJ does that for whichever press
-  the system's "Jump to the spot that's clicked" setting says (`MacScrollBarUI`); the page can't
-  read it, so there a middle press pages, as the main one. The right button does nothing on a bar,
-  as IntelliJ's. `installScrollbars` is told whether it's macOS (`mac`).
-- **Not yet:** the macOS widening; the macOS setting for where a press on a track goes.
+  `isAbsolutePositioning`, read from its source). The right button does nothing on a bar, as
+  IntelliJ's. `installScrollbars` is told whether it's macOS (`mac`).
+- **On macOS, a press on a track jumps or pages as the system says** (changed 2026-11-17, Ido,
+  comparing IntelliJ on macOS): System Settings → Appearance, "Click in the scroll bar to": "Jump
+  to the spot that's clicked" moves the thumb there and drags it, with whichever button; else it
+  pages, the middle button too. As IntelliJ's `MacScrollBarUI`, which reads the system's
+  `AppleScrollerPagingBehavior` (read from its source). The app reads it for the page
+  (`systemPreferences.getUserDefault`), and the page asks at the start and each time the window
+  gets the focus, so a change made in System Settings shows once back (Claude's choice, open to
+  change: IntelliJ listens for the system's notice). Before, the page couldn't read it, and a press
+  on macOS always paged.
+- **Not yet:** the macOS widening.
 
 ## Window buttons in full screen on macOS (2026-10-27)
 

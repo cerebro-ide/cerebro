@@ -28,6 +28,7 @@ import {
 import { EDIT, MENU_COMMAND, SET_MENU } from '../src/menu.js';
 import { PROJECT_ADDED, PROJECT_SHOW } from '../src/projects.js';
 import { PASSWORD_GET, PASSWORD_SET } from '../src/passwords.js';
+import { SCROLLBARS_JUMP } from '../src/scrollbars.js';
 import { BROWSE, REVEAL, TRASH } from '../src/shell.js';
 
 // The preload, which a sandboxed window runs as CommonJS, can't import the modules whose channels
@@ -87,6 +88,7 @@ describe('the preload', () => {
     expect(call('display', 'setScale', '1.5')).toEqual(['send', SET_SCALE, '1.5']);
     expect(call('shell', 'reveal', '/r/a')).toEqual(['send', REVEAL, '/r/a']);
     expect(call('shell', 'trash', '/r/a')).toEqual(['invoke', TRASH, '/r/a']);
+    expect(call('scrollbars', 'jumpToSpot')).toEqual(['invoke', SCROLLBARS_JUMP]);
     expect(call('shell', 'browse', 'https://a.b')).toEqual(['send', BROWSE, 'https://a.b']);
     expect(call('window', 'setColours', 'f', 't', 'b')).toEqual([
       'send',

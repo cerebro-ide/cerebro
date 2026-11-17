@@ -26,6 +26,8 @@ const PASSWORD_SET = 'cerebro:passwords:set';
 const REVEAL = 'cerebro:shell:reveal';
 const TRASH = 'cerebro:shell:trash';
 const BROWSE = 'cerebro:shell:browse';
+// Kept in step with scrollbars.ts.
+const SCROLLBARS_JUMP = 'cerebro:scrollbars:jump';
 // Kept in step with main.ts.
 const PROJECT_CURRENT = 'cerebro:project:current';
 const PROJECT_RECENT = 'cerebro:project:recent';
@@ -73,6 +75,10 @@ function listen(channel: string, listener: (...args: unknown[]) => void): () => 
 electron.contextBridge.exposeInMainWorld('cerebro', {
   app: true,
   platform: process.platform,
+  scrollbars: {
+    /** Whether a press on a scrollbar's track jumps to the spot (macOS's setting). */
+    jumpToSpot: () => invoke(SCROLLBARS_JUMP),
+  },
   display: {
     /** Keeps the display scale chosen for the next start: 'auto', or a factor such as '1.5'. */
     setScale: (choice: string) => {
