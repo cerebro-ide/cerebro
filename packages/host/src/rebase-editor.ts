@@ -39,8 +39,12 @@ interface Kept {
   messages: Reworded[];
 }
 
-/** IntelliJ's words (`rebase.using.log.couldnt.start.error`). */
-export const COULDNT_START = 'Couldn’t start rebase: the list of commits doesn’t match';
+/**
+ * IntelliJ's words (`rebase.using.log.couldnt.start.error`), its first sentence: the retry with
+ * git's own list it offers after it isn't Cerebro's (Claude's choice, open to change).
+ */
+export const COULDNT_START =
+  "Cannot perform the rebase because the IDE generated an invalid 'git-rebase-todo' file.";
 
 /** The commit the rebase under way goes onto. */
 const ontoOf = (gitDir: string) =>

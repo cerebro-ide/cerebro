@@ -1268,8 +1268,11 @@ describe('ignored files and rolling back', () => {
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
     // A rebase carried on with the interactive rebase's editor for its messages.
-    const skipped = git.mock.calls.find(([, args]) => args.join(' ') === 'rebase --skip');
-    expect(skipped?.[2]?.['GIT_EDITOR']).toBe(`${defaultRebaseEditorCommand()} message`);
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['rebase', '--skip'],
+      expect.objectContaining({ GIT_EDITOR: `${defaultRebaseEditorCommand()} message` }),
+    );
     for (const operation of ['merge', 'rebase', 'cherry-pick', 'revert']) {
       expect(await ui.request('git.abort', { path: '/w', operation })).toBe(null);
       expect(git).toHaveBeenCalledWith('/w', [operation, '--abort']);

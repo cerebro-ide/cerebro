@@ -113,6 +113,26 @@ describe('Interactive Rebase, with real git', () => {
     run('checkout', '--', 'one.txt');
   });
 
+  it('squashes as IntelliJ writes it: the root reworded to the squashed message, the rest fixed up', async () => {
+    expect(
+      await interactiveRebase(
+        repo,
+        third,
+        [third, fourth],
+        [
+          { action: 'reword', hash: third, message: 'three\n\n\nfour' },
+          { action: 'fixup', hash: fourth },
+        ],
+        editor,
+        git,
+      ),
+    ).toBe('done');
+    // Git's cleanup of a message through its editor: blank lines run together.
+    expect(run('log', '-1', '--format=%B', 'HEAD')).toBe('three\n\nfour');
+    expect(run('show', '--format=', '--name-only', 'HEAD')).toBe('four.txt\nthree.txt');
+    expect(subjects()).toEqual(['three', 'two', 'one']);
+  });
+
   it('drops a commit, from the first one, with --root', async () => {
     expect(
       await interactiveRebase(
