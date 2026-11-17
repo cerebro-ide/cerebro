@@ -164,7 +164,7 @@ describe('Interactive Rebase, with real git', () => {
       editor,
       git,
     );
-    expect(result).toBe('stopped');
+    expect(result).toBe('editing');
     expect(run('log', '--format=%s', 'HEAD').split('\n')).toEqual(['three', 'two', 'one']);
     expect(await continueOperation(repo, git, editor)).toBe('done');
     expect(subjects()).toEqual(['four, later', 'three', 'two', 'one']);
@@ -192,7 +192,7 @@ describe('Interactive Rebase, with real git', () => {
         editor,
         git,
       ),
-    ).toBe('stopped');
+    ).toBe('conflicts');
     expect(run('ls-files', '-u')).toContain('x.txt');
   });
 

@@ -33,8 +33,8 @@ export interface RebaseEntry {
   message?: string;
 }
 
-/** How it went: done, or stopped under way (at conflicts, or to edit a commit). */
-export type InteractiveResult = 'done' | 'stopped';
+/** How it went: done, or stopped under way, at conflicts or to edit a commit. */
+export type InteractiveResult = 'done' | 'conflicts' | 'editing';
 
 /** The commit a rebase from `hash` goes onto: its first parent, or none for the first commit. */
 async function baseOf(worktree: string, hash: string, run: Git): Promise<string | undefined> {
@@ -126,11 +126,11 @@ export async function interactiveRebase(
     );
   } catch (error) {
     // Stopped at conflicts: under way. Anything else changed nothing, and says why in git's words.
-    if ((await operation(worktree, run)) !== undefined) return 'stopped';
+    if ((await operation(worktree, run)) !== undefined) return 'conflicts';
     throw error;
   } finally {
     rmSync(folder, { recursive: true, force: true });
   }
   // Stopped to edit a commit: git ends well, the rebase under way.
-  return (await operation(worktree, run)) === undefined ? 'done' : 'stopped';
+  return (await operation(worktree, run)) === undefined ? 'done' : 'editing';
 }
