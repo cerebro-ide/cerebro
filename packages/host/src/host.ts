@@ -103,7 +103,7 @@ import { applyChanges, applyCommit, continueApplying, getVersion } from './apply
 import { createPatch, writePatch } from './patch.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
-import { drop, editCheck, reword, undoEdit } from './commit-editing.js';
+import { drop, editCheck, reword, undoEdit, type Editing } from './commit-editing.js';
 import { interactiveRebase, rebaseCommits, type RebaseEntry } from './interactive-rebase.js';
 import {
   abortOperation,
@@ -987,17 +987,25 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
       undoCommit(worktree, hash, named, git),
     );
   });
-  // The Log's Edit Commit Message… and Drop Commit: first whether it can be done (HEAD's commit, or
+  // The Log's Edit Commit Message…, Drop Commit and the others (Fixup…, Squash Into…, Interactively
+  // Rebase from Here…): first whether it can be done (HEAD's commit, or
   // why not), then done, if HEAD is still there. Rewording touches no file, so nothing's recorded.
   connection.onRequest('git.editCheck', (params) => {
     const editing = (params as { editing?: unknown }).editing;
-    if (editing !== 'reword' && editing !== 'drop' && editing !== 'fixup' && editing !== 'squash') {
+    const kinds: readonly unknown[] = ['reword', 'drop', 'fixup', 'squash', 'rebase'];
+    if (!kinds.includes(editing)) {
       throw new ResponseError(
         ErrorCodes.InvalidParams,
-        'editing must be reword, drop, fixup or squash',
+        'editing must be reword, drop, fixup, squash or rebase',
       );
     }
-    return editCheck(text(params, 'path'), hashOf(params), editing, protectedOf(params), git);
+    return editCheck(
+      text(params, 'path'),
+      hashOf(params),
+      editing as Editing,
+      protectedOf(params),
+      git,
+    );
   });
   connection.onRequest('git.reword', (params) =>
     reword(

@@ -11,6 +11,7 @@
 
 import { type Child, focusedElement, render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
+import { optionButton } from './option-button.js';
 
 export interface DialogOk<T> {
   /** Default: OK. */
@@ -158,7 +159,6 @@ class Dialog<T> implements DialogHandle<T> {
   /** While an action's check runs. */
   private readonly checking = signal(false);
   /** Whether OK's options are listed. */
-  private readonly listing = signal(false);
 
   /** What the OK button does: the first action enabled, else OK. Read reactively. */
   private current(): DialogOption<T> | undefined {
@@ -389,107 +389,21 @@ class Dialog<T> implements DialogHandle<T> {
   /** The OK button, and the arrow beside it that lists its options, when it has some. */
   private withOptions(okButton: Child): Child {
     if (!this.options.ok?.options?.length) return okButton;
-    let arrow!: HTMLButtonElement;
     /** The options the arrow lists: the visible ones, but not what the button does. */
     const listed = () => {
       const current = this.current();
-      return this.actions.filter((a) => a !== current && (a.visible?.() ?? true));
+      return this.actions
+        .filter((a) => a !== current && (a.visible?.() ?? true))
+        .map((action) => ({
+          label: action.label,
+          enabled: () => this.enabled(action),
+          ...(action.description ? { description: action.description } : {}),
+          run: () => {
+            this.perform(action);
+          },
+        }));
     };
-    const highlighted = signal(-1);
-    const choose = (action: DialogOption<T>) => {
-      if (!this.enabled(action)) return;
-      this.listing.set(false);
-      arrow.focus();
-      this.perform(action);
-    };
-    return (
-      <span class="cerebro-dialog__option-button">
-        {okButton}
-        <button
-          type="button"
-          class="cerebro-dialog__button cerebro-dialog__button--primary cerebro-dialog__arrow"
-          aria-label="More actions"
-          aria-haspopup="menu"
-          aria-expanded={() => String(this.listing.get())}
-          disabled={() => this.checking.get() || listed().length === 0}
-          ref={(button) => {
-            arrow = button;
-          }}
-          on:click={() => {
-            highlighted.set(-1);
-            this.listing.set(!this.listing.peek());
-          }}
-        >
-          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
-            <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" />
-          </svg>
-        </button>
-        {() =>
-          this.listing.get() ? (
-            <ul
-              class="cerebro-dialog__options"
-              role="menu"
-              tabIndex={-1}
-              ref={(menu) => {
-                queueMicrotask(() => {
-                  menu.focus();
-                });
-              }}
-              on:focusout={() => {
-                this.listing.set(false);
-              }}
-              on:keydown={(event) => {
-                // Its keys: not the dialog's Enter and Escape.
-                event.stopPropagation();
-                event.preventDefault();
-                const list = listed();
-                const h = highlighted.peek();
-                if (event.key === 'ArrowDown') highlighted.set((h + 1) % list.length);
-                else if (event.key === 'ArrowUp') highlighted.set(h <= 0 ? list.length - 1 : h - 1);
-                else if (event.key === 'Enter') {
-                  const action = list[h];
-                  if (action) choose(action);
-                } else if (event.key === 'Escape' || event.key === 'Tab') {
-                  this.listing.set(false);
-                  arrow.focus();
-                }
-              }}
-            >
-              {() =>
-                listed().map((action, index) => (
-                  <li
-                    role="menuitem"
-                    class={() =>
-                      [
-                        'cerebro-dialog__option',
-                        highlighted.get() === index ? 'cerebro-dialog__option--highlighted' : '',
-                        this.enabled(action) ? '' : 'cerebro-dialog__option--disabled',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')
-                    }
-                    aria-disabled={() => String(!this.enabled(action))}
-                    title={() => action.description?.() ?? ''}
-                    on:pointerenter={() => {
-                      highlighted.set(index);
-                    }}
-                    on:pointerdown={(event) => {
-                      // Chosen without the list losing the focus first.
-                      event.preventDefault();
-                    }}
-                    on:click={() => {
-                      choose(action);
-                    }}
-                  >
-                    {action.label}
-                  </li>
-                ))
-              }
-            </ul>
-          ) : null
-        }
-      </span>
-    );
+    return optionButton(okButton, listed, () => this.checking.get(), true);
   }
 }
 

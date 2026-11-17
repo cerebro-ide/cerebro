@@ -115,6 +115,7 @@ describe('the Log’s Edit Commit Message…', () => {
       { command: 'log.fixup' },
       { command: 'log.squashInto' },
       { command: 'log.drop' },
+      { command: 'log.interactiveRebase' },
     ]);
     expect(commands.isEnabled('log.reword', context())).toBe(true);
     expect(commands.isEnabled('log.reword', context({}, 'other'))).toBe(true);

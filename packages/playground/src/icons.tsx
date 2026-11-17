@@ -107,6 +107,8 @@ const PATHS: Record<string, string> = {
   editSource: 'M3 13l.5-2.5 7-7 2 2-7 7zM9 5l2 2',
   previousFile: 'M13 8H3M6.5 4.5L3 8l3.5 3.5',
   nextFile: 'M3 8h10M9.5 4.5L13 8l-3.5 3.5',
+  // The Interactive Rebase dialog's Stop to Edit (IntelliJ's Pause icon; a claim: not its drawing).
+  pause: 'M5.5 3.5v9M10.5 3.5v9',
   // A list's Add and Remove, as IntelliJ's toolbar over a table (a claim: not IntelliJ's drawing).
   add: 'M8 3v10M3 8h10',
   remove: 'M3 8h10',
