@@ -35,8 +35,8 @@ function area(width: number, height: number, overflow = 'auto', parent: Node = d
   return scroller;
 }
 
-function install(mac = false): void {
-  cleanup.push(installScrollbars({ hideAfter: HIDE, mac }));
+function install(mac = false, jumpToSpot?: () => boolean): void {
+  cleanup.push(installScrollbars({ hideAfter: HIDE, mac, ...(jumpToSpot ? { jumpToSpot } : {}) }));
 }
 
 const thumb = (axis: 'x' | 'y') =>
@@ -379,6 +379,31 @@ describe('installScrollbars', () => {
     (track('y') as HTMLElement).dispatchEvent(
       new PointerEvent('pointerdown', { pointerId: 1, button: 1, clientX: 295, clientY: 180 }),
     );
+    expect(scroller.scrollTop).toBe(100);
+  });
+
+  it('jumps to a press on macOS where the system says, whichever button, as IntelliJ’s', async () => {
+    let jumps = true;
+    install(true, () => jumps);
+    const scroller = area(100, 400);
+    await userEvent.hover(scroller);
+    const press = (button: number) =>
+      (track('y') as HTMLElement).dispatchEvent(
+        new PointerEvent('pointerdown', { pointerId: 1, button, clientX: 295, clientY: 180 }),
+      );
+    press(0);
+    expect(scroller.scrollTop).toBeCloseTo(((80 - 12.5) / 75) * 300);
+    const y = thumb('y') as HTMLElement;
+    expect(y.classList.contains('cerebro-scrollbar--dragging')).toBe(true);
+    y.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    scroller.scrollTop = 0;
+    press(1);
+    expect(scroller.scrollTop).toBeCloseTo(((80 - 12.5) / 75) * 300);
+    y.dispatchEvent(new PointerEvent('lostpointercapture', { pointerId: 1 }));
+    // The setting changed since: it pages, read again at each press.
+    jumps = false;
+    scroller.scrollTop = 0;
+    press(0);
     expect(scroller.scrollTop).toBe(100);
   });
 

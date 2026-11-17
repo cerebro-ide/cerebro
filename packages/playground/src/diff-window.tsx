@@ -12,7 +12,6 @@ import '@cerebro-ide/ui-editor/styles.css';
 import '@cerebro-ide/ui-menu/styles.css';
 import '@cerebro-ide/ui-toolbar/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
-import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';
 import './bridge.js';
 import {
@@ -29,6 +28,7 @@ import { fuzzyFilter, openPicker } from '@cerebro-ide/ui-popup';
 import '@cerebro-ide/ui-popup/styles.css';
 import { MainToolbar } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
+import { installAppScrollbars } from './scrollbars.js';
 import type { DiffSpec } from './bridge.js';
 import {
   FileDiff,
@@ -85,7 +85,7 @@ effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;
 });
-installScrollbars({ mac: app.platform === 'darwin' });
+installAppScrollbars(app.platform === 'darwin');
 
 // The keymap chosen in Settings → Keymap, with the user's changes, as the project's window has it.
 const keymap = new Keymap(keymapPlatform(navigator.platform));

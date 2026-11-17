@@ -59,6 +59,8 @@ declare global {
       /** The menu, and the system's edit actions on the focused field. */
       menu: NativeMenuBridge & { edit(action: EditAction): void };
       display: { setScale(choice: string): void };
+      /** Whether a press on a scrollbar's track jumps to the spot: macOS's setting, else false. */
+      scrollbars: { jumpToSpot(): Promise<boolean> };
       shell: {
         /** Shows a file in the system's file manager (Finder, Explorer), its folder open. */
         reveal(path: string): void;
