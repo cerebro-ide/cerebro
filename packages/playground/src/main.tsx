@@ -3,7 +3,7 @@ import { PluginRegistry, ViewRegistry } from '@cerebro-ide/plugin-api';
 import { notesPlugin } from './notes-plugin.js';
 import { prettierPlugin } from './prettier-plugin.js';
 import { addPlugins } from './plugins-page.js';
-import { target } from './edit.js';
+import { target, type EditorPopup } from './edit.js';
 import { PluginView } from './plugin-view.js';
 import {
   type ChangePlaces,
@@ -51,6 +51,7 @@ import {
   parseLineColumn,
   positionText,
   reindentIn,
+  selectionIn,
   type AskFormat,
   type CompletionItem,
   type EditorDocument,
@@ -79,6 +80,7 @@ import { setupTag } from './tag.js';
 import { resetting, setupReset } from './reset.js';
 import { setupCommitEditing } from './commit-editing.js';
 import { setupApplyChanges } from './apply-changes.js';
+import { setupOpenOnGitHub } from './open-on-github.js';
 import { setupRemotes } from './remotes.js';
 import { watchState } from './repository-state.js';
 import { setupHistory } from './history.js';
@@ -208,6 +210,7 @@ import {
 import type { DiffSpec, RecentProject } from './bridge.js';
 import {
   globalSettings,
+  lineSeparatorFor,
   registry as settingsRegistry,
   save as saveSettings,
   settingsFor,
@@ -223,6 +226,7 @@ import { dark, menuVisible, setupCommands, type TabContext } from './commands.js
 import '@cerebro-ide/ui-layout/styles.css';
 import { icon } from './icons.js';
 import {
+  browse,
   isMarkdown,
   isMarkdownTab,
   MarkdownEditor,
@@ -359,8 +363,13 @@ function editorMenu(event: MouseEvent, file: string, content: string | undefined
   const inGutter = event
     .composedPath()
     .some((e) => e instanceof Element && e.classList.contains('cm-gutters'));
-  if (!inGutter && content !== undefined) openContextMenu(services, content, event);
-  else if (inGutter) openContextMenu(services, 'editor/gutter', event, { file, line });
+  if (!inGutter && content !== undefined) {
+    // The editor put the caret where it was pressed, unless that was in the selection.
+    const pressed = event.composedPath()[0];
+    const inSelection = pressed instanceof Element && selectionIn(pressed);
+    const popup: EditorPopup = { editorPopup: true, inSelection };
+    openContextMenu(services, content, event, popup);
+  } else if (inGutter) openContextMenu(services, 'editor/gutter', event, { file, line });
   else event.preventDefault();
 }
 
@@ -466,6 +475,7 @@ setupTag(services);
 setupReset(services);
 setupCommitEditing(services);
 setupApplyChanges(services);
+setupOpenOnGitHub(services, { activeTab: () => editor()?.activeGroup.active });
 setupRemotes(services);
 watchState();
 setupHistory(services, { activeTab: () => editor()?.activeGroup.active });
@@ -1256,6 +1266,13 @@ setupSaving(
     globalSettings.get('system.saveWhenIdle') === true
       ? Number(globalSettings.get('system.idleSeconds')) * 1000
       : undefined,
+  // The file's worktree's, as Code Style's other settings (`fileSettings`, set up by the time a file
+  // is read); only the app reads files.
+  (path) =>
+    lineSeparatorFor(
+      fileSettings(path).get('editor.lineSeparator'),
+      (window.cerebro as NonNullable<Window['cerebro']>).platform,
+    ),
 );
 // The samples open with sample files; a real project with none.
 const environments = setupEnvironments(services.commands, services.menus, (env) => {
@@ -2144,6 +2161,10 @@ function Code(props: { path: string; env: string }) {
                     navigation.usages(asked(state, at)),
                   documentation: (at: { line: number; column: number }) =>
                     navigation.documentation(asked(state, at)),
+                  // A web link's page, in the browser; a symbol's (JSDoc's `{@link}`), its
+                  // documentation in place, as IntelliJ's.
+                  onLink: (address: string) =>
+                    browse(address) ? undefined : navigation.linkedDocumentation(address),
                   quickDefinition: (at: { line: number; column: number }) =>
                     navigation.quickDefinition(asked(state, at)),
                   parameterInfo: (at: { line: number; column: number }) =>

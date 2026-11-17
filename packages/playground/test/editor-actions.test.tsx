@@ -82,6 +82,8 @@ describe('the editor’s actions as commands', () => {
       'Comment with &Block Comment',
       '&Reformat Code',
       '---',
+      'Move Statement Do&wn',
+      'Move Statement &Up',
       'Move Line Do&wn',
       'Move Line &Up',
     ]);
@@ -116,6 +118,28 @@ describe('the editor’s actions as commands', () => {
     ]);
     expect(shown('main/view')).toEqual(['Quic&k Definition', 'Quick &Documentation']);
     expect(shown('main').slice(-2)).toEqual(['&Code >', '&Refactor >']);
+    // The editor's context menu, IntelliJ's `EditorPopupMenu`; Go To's named as the main menu's.
+    expect(shown('editor/content')).toEqual([
+      'Show Context Actions',
+      '---',
+      'Cu&t',
+      '&Copy',
+      '&Paste',
+      '---',
+      'Find &Usages',
+      'Go To >',
+      '---',
+      'Folding >',
+      '---',
+      '&Rename',
+      '&Refactor >',
+    ]);
+    expect(shown('editor/content/goTo')).toEqual([
+      '&Declaration or Usages',
+      'I&mplementation(s)',
+      '&Type Declaration',
+      'S&uper Method',
+    ]);
   });
 
   it('run on the editor with the keyboard, where it has them', async () => {

@@ -228,6 +228,76 @@ describe('documentation', () => {
     expect(doc.text.peek().toString()).toBe(`tax${TEXT.slice(2)}`);
   });
 
+  it('opens a link pressed in it, from its keys or the pointer, when it’s given how', async () => {
+    const ask = vi.fn<AskDocumentation>(() =>
+      Promise.resolve({ text: 'See [MDN](https://developer.mozilla.org).' }),
+    );
+    const onLink = vi.fn();
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      documentation: ask,
+      onLink,
+      keys: () => ({ quickDocumentation: ['F1'] }),
+    });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowRight}{F1}');
+    const quick = await vi.waitUntil(() => root.querySelector<HTMLElement>('.cerebro-quickDoc'), {
+      timeout: 2000,
+    });
+    (quick.querySelector('.cerebro-doc__link') as HTMLElement).click();
+    expect(onLink).toHaveBeenLastCalledWith('https://developer.mozilla.org');
+    await userEvent.keyboard('{Escape}');
+    await pointAt(root, 1);
+    const hovered = await vi.waitUntil(() => root.querySelector<HTMLElement>('.cm-tooltip-hover'), {
+      timeout: 2000,
+    });
+    (hovered.querySelector('.cerebro-doc__link') as HTMLElement).click();
+    expect(onLink).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows a symbol’s documentation in its place when its link answers with it, as IntelliJ’s', async () => {
+    const pages: Record<string, string> = {
+      'file:///a.ts#1,1':
+        '```ts\nfunction total(): number\n```\nA total, see [count](file:///b.ts#1,1).',
+      'file:///b.ts#1,1': 'Counts, see [nothing](file:///c.ts#1,1).',
+    };
+    const onLink = vi.fn((address: string) =>
+      Promise.resolve(address in pages ? { text: pages[address] as string } : null),
+    );
+    const root = mount({
+      document: new EditorDocument(TEXT),
+      documentation: () => Promise.resolve({ text: 'Sums, see [total](file:///a.ts#1,1).' }),
+      onLink,
+      keys: () => ({ quickDocumentation: ['F1'] }),
+    });
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    await userEvent.keyboard('{Control>}{Home}{/Control}{ArrowRight}{F1}');
+    const quick = await vi.waitUntil(() => root.querySelector<HTMLElement>('.cerebro-quickDoc'), {
+      timeout: 2000,
+    });
+    const press = (label: string) => {
+      const found = [...quick.querySelectorAll<HTMLElement>('.cerebro-doc__link')].find(
+        (l) => l.textContent === label,
+      );
+      (found as HTMLElement).click();
+    };
+    press('total');
+    // Its definition set apart, as any documentation's; the same tooltip.
+    await expect
+      .poll(() => quick.querySelector('.cerebro-doc__definition')?.textContent)
+      .toBe('function total(): number');
+    expect(quick.querySelector('.cerebro-doc__content')?.textContent).toBe('A total, see count.');
+    expect(quick.isConnected).toBe(true);
+    // And on from there.
+    press('count');
+    await expect.poll(() => quick.textContent).toBe('Counts, see nothing.');
+    // A link with nothing to show leaves it as it is.
+    press('nothing');
+    await expect.poll(() => onLink.mock.calls.length).toBe(3);
+    await wait(50);
+    expect(quick.textContent).toBe('Counts, see nothing.');
+  });
+
   it('shows in place of the pointer’s, and the pointer’s not beside it', async () => {
     const root = mount({
       document: new EditorDocument(TEXT),

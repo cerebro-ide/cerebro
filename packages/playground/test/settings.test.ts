@@ -88,6 +88,22 @@ describe('settings', () => {
     );
   });
 
+  it('give a file without a line break the Line separator chosen: the system’s by default', () => {
+    const line = settings.registry.get('editor.lineSeparator');
+    expect(line?.default).toBe('system');
+    expect(line?.type === 'enum' && line.options.map((o) => o.label)).toEqual([
+      'System-Dependent',
+      'Unix and macOS (\\n)',
+      'Windows (\\r\\n)',
+      'Classic Mac OS (\\r)',
+    ]);
+    expect(settings.lineSeparatorFor('system', 'win32')).toBe('\r\n');
+    expect(settings.lineSeparatorFor('system', 'linux')).toBe('\n');
+    expect(settings.lineSeparatorFor('lf', 'win32')).toBe('\n');
+    expect(settings.lineSeparatorFor('crlf', 'darwin')).toBe('\r\n');
+    expect(settings.lineSeparatorFor('cr', 'linux')).toBe('\r');
+  });
+
   it('offer the display scales as percentages', () => {
     const scale = settings.registry.get('appearance.displayScale');
     expect(scale?.type === 'enum' && scale.options.map((o) => o.label)).toEqual([

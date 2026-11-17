@@ -64,6 +64,8 @@ declare global {
         reveal(path: string): void;
         /** Moves a file or folder to the system's trash. */
         trash(path: string): Promise<void>;
+        /** Opens a web page (`http:`, `https:`) in the system's browser; ignores any other address. */
+        browse(address: string): void;
       };
       window: {
         setColours(frame: string, text: string, fullScreenButtons: string): void;

@@ -11,6 +11,7 @@ import {
   changePlaces,
   focusing,
   history,
+  linkedPlace,
   recentTabs,
   reveals,
   setupNavigation,
@@ -477,6 +478,48 @@ describe('Quick Definition', () => {
   });
 });
 
+describe('A symbol’s link in documentation', () => {
+  it('names a place as TypeScript writes it for JSDoc’s {@link}', () => {
+    expect(linkedPlace('file:///r/a%20b.ts#2,17-2,22')).toEqual({
+      path: '/r/a b.ts',
+      line: 1,
+      column: 16,
+    });
+    // A Windows drive as git writes it.
+    expect(linkedPlace('file:///c%3A/r/a.ts#1,1-1,4')).toEqual({
+      path: 'C:/r/a.ts',
+      line: 0,
+      column: 0,
+    });
+    // Not a symbol's: a page, a file with no place, another host's, or what can't be read.
+    for (const address of [
+      'https://example.com/#1,1',
+      'file:///r/a.ts',
+      'file://server/r/a.ts#1,1',
+      'file:///r/%E0.ts#1,1',
+    ])
+      expect(linkedPlace(address)).toBeUndefined();
+  });
+
+  it('shows its symbol’s documentation, from its file’s server, as its document has it', async () => {
+    answers = { 'fs.read': { text: 'function total() {}\n' }, 'lsp.hover': { text: 'A total.' } };
+    expect(await nav.linkedDocumentation('file:///r/total.ts#1,10-1,15')).toEqual({
+      text: 'A total.',
+    });
+    expect(host.params('lsp.hover').at(-1)).toEqual({
+      worktree: '/r',
+      path: '/r/total.ts',
+      line: 0,
+      column: 9,
+      text: 'function total() {}\n',
+    });
+    // None for another link, or a file it can't read.
+    expect(await nav.linkedDocumentation('https://example.com')).toBeNull();
+    answers = { 'fs.read': new Error('gone') };
+    expect(await nav.linkedDocumentation('file:///r/gone.ts#1,1-1,2')).toBeNull();
+  });
+});
+
 describe('Next Method and Previous Method', () => {
   const symbol = (line: number, column: number, children: object[] = []) => ({
     name: 's',
@@ -491,13 +534,20 @@ describe('Next Method and Previous Method', () => {
     answers = {
       'lsp.structure': [symbol(2, 6, [symbol(8, 2), symbol(4, 2)]), symbol(12, 9), symbol(12, 2)],
     };
+    // Scrolled as IntelliJ's: CENTER_DOWN, and CENTER_UP for Previous Method.
     await nav.goToMethod({ ...asked, line: 4, column: 0 }, true);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 8, column: 2 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 8, column: 2, scroll: 'centerDown' });
     await nav.goToMethod({ ...asked, line: 4, column: 9 }, false);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 2, column: 6 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 2, column: 6, scroll: 'centerUp' });
     // The first on its line.
     await nav.goToMethod({ ...asked, line: 9, column: 0 }, true);
-    await expect.poll(() => reveals.get('/r/a.ts')).toEqual({ line: 12, column: 2 });
+    await expect
+      .poll(() => reveals.get('/r/a.ts'))
+      .toEqual({ line: 12, column: 2, scroll: 'centerDown' });
   });
 
   it('go nowhere past the first or the last, or with no server', async () => {

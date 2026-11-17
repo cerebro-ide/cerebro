@@ -1,4 +1,10 @@
-export { hasEditorAction, runEditorAction, type EditorAction } from './actions.js';
+export {
+  hasEditorAction,
+  runEditorAction,
+  selectedLines,
+  selectionIn,
+  type EditorAction,
+} from './actions.js';
 export {
   CodeEditor,
   DEFAULT_KEYS,
@@ -14,7 +20,7 @@ export {
   type CompletionList,
   type ResolveCompletion,
 } from './completions.js';
-export { type AskDocumentation, type Documentation } from './documentation.js';
+export { type AskDocumentation, type Documentation, type OpenLink } from './documentation.js';
 export { type AskQuickDefinition, type QuickDefinition } from './quick-definition.js';
 export {
   PARAMETERS_AFTER,
@@ -36,10 +42,12 @@ export {
 } from './format.js';
 export { blockComment, lineComment } from './comment.js';
 export { moveLine } from './move-line.js';
+export { moveStatement } from './move-statement.js';
 export { splitLine, startNewLine, startNewLineBefore } from './start-new-line.js';
 export { joinLines } from './join-lines.js';
 export { toggleCase } from './toggle-case.js';
 export { expandWord } from './expand-word.js';
+export { codeBlockMove, indentGuides, type IndentGuide } from './code-block.js';
 export { extendSelection, selectionSteps, shrinkSelection } from './extend-selection.js';
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';

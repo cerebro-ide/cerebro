@@ -27,7 +27,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Commands, menus and shortcuts (2026-10-25)](#commands-menus-and-shortcuts-2026-10-25): the command registry, keymaps, menus
 - [Environment tabs (2026-10-25)](#environment-tabs-2026-10-25): a tab per open worktree
 - [The main toolbar (2026-10-25)](#the-main-toolbar-2026-10-25): the menu, environment and branch selectors; the branch selector opens IntelliJ's branches popup (changed 2026-11-10)
-- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them
+- [The status bar (2026-10-25)](#the-status-bar-2026-10-25): its items' layout; the file's items are the active editor's, and their menus change them; Settings' Line separator for a file without one
 - [The Electron app (2026-10-25)](#the-electron-app-2026-10-25): the main process; the toolbar as the title bar
 - [Dialogs (2026-10-25)](#dialogs-2026-10-25): drawn in the page, not OS windows
 - [Popups (2026-10-25)](#popups-2026-10-25): a search field over a list, not modal
@@ -46,10 +46,10 @@ Read the index, then the entries that bear on the work at hand.
 - [Errors and warnings in the editor (2026-11-03)](#errors-and-warnings-in-the-editor-2026-11-03): from the language servers, pulled or pushed; IntelliJ's underlines, error stripe marks, the file's status, F2; the Problems tool window's File tab; files with errors marked in tabs and the Project tree
 - [Quick fixes: Alt+Enter (2026-11-03)](#quick-fixes-altenter-2026-11-03): the language server's fixes at the caret, listed as IntelliJ's Show Context Actions, made as one edit; each keymap's keys
 - [Code completion (2026-11-03)](#code-completion-2026-11-03): the language server's completions as one types and on Ctrl+Space, an import with them, undone as one; each keymap's keys
-- [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys
+- [Quick Documentation (2026-11-03)](#quick-documentation-2026-11-03): the language server's hover, on the pointer resting on a symbol and on Ctrl+Q; its Markdown drawn as DOM, the definition highlighted; each keymap's keys; a symbol's link shows its documentation in place (changed 2026-11-16)
 - [JSON, CSS and HTML: a language server of Cerebro's own (2026-11-04)](#json-css-and-html-a-language-server-of-cerebros-own-2026-11-04): Microsoft's libraries behind LSP; schemas from the file or SchemaStore; plain text and per-file edits for Cerebro's client
 - [Parameter Info (2026-11-04)](#parameter-info-2026-11-04): what's called at the caret, above it, on Ctrl+P and as arguments are typed; Escape passes a list not shown
-- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13)
+- [The Git Log (2026-11-04)](#the-git-log-2026-11-04): the Git tool window's commits of every branch and tag, with IntelliJ's graph and ref colours, a page at a time; the selected commit's files, diffs and details; the branches pane, the Branch filter and Refresh; the text, User, Date and Paths filters; a toolbar that keeps to its width (changed 2026-11-07); a commit's right-click menu (changed 2026-11-11); Go To Hash/Branch/Tag (2026-11-11); Go to Parent and Child Commit (2026-11-11); the branches pane's toolbar (2026-11-12); the Log follows the refs (2026-11-12); refs that don't fit as one mark (2026-11-13); a merge's files, those it changes against every parent, as IntelliJ's (changed 2026-11-13), and Show Changes to Parents (2026-11-13); Compare Before with Local for a rename (2026-11-13); Graph Options (2026-11-13); Create Patch… (2026-11-13), from the Commit window and the Shelf too (2026-11-13); Open on GitHub in a commit's menu (2026-11-16), and for a file, opened or its link copied (2026-11-16)
 - [The Switcher (2026-11-04)](#the-switcher-2026-11-04): Ctrl+Tab's popup of tool windows and open tabs, as IntelliJ's; letting Ctrl go opens the one selected; IntelliJ's mnemonics
 - [The image viewer (2026-11-04)](#the-image-viewer-2026-11-04): image files in a viewer of their own, as IntelliJ's: its zoom, chessboard, grid, toolbar, keys and image line
 - [Prettier, the first plugin, and Settings → Plugins (2026-11-04)](#prettier-the-first-plugin-and-settings--plugins-2026-11-04): Reformat with Prettier from the editor's menu, on Ctrl+Alt+Shift+P and on save, with the project's own package; its settings where IntelliJ has them; a Plugins page, each on until turned off
@@ -65,13 +65,13 @@ Read the index, then the entries that bear on the work at hand.
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
 - [Comment with Line Comment and Block Comment (2026-11-13)](#comment-with-line-comment-and-block-comment-2026-11-13): IntelliJ's `CommentByLineComment` and `CommentByBlockComment` on Ctrl+/ and Ctrl+Shift+/, in place of CodeMirror's own keys; each keymap's keys
-- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Increase and Decrease Font Size
+- [Move Line Up and Down (2026-11-13)](#move-line-up-and-down-2026-11-13): IntelliJ's `MoveLineUp` and `MoveLineDown` on Alt+Shift+Up and Down; each keymap's keys; Delete Line on Ctrl+Y; Start New Line, Move Caret to Matching Brace, Extend and Shrink Selection, Join Lines, Toggle Case, Scroll Up and Down, Cyclic Expand Word, Start New Line Before Current, Split Line, Scroll to Center, Page Top and Bottom, Move Caret to Code Block Start and End, Increase and Decrease Font Size, Move Statement Up and Down (JSON's, YAML's and HTML's too)
 - [Bookmarks (2026-11-14)](#bookmarks-2026-11-14): IntelliJ's line bookmarks, Toggle Bookmark on F11, in the gutter and the Bookmarks tool window, kept per worktree
 - [Call Hierarchy (2026-11-14)](#call-hierarchy-2026-11-14): IntelliJ's `CallHierarchy` on Ctrl+Alt+H, the callers of the function at the caret in the Hierarchy tool window
 - [Quick Definition (2026-11-14)](#quick-definition-2026-11-14): IntelliJ's `QuickImplementations` on Ctrl+Shift+I, a popup of the declaration's lines
 - [Go to Implementation and Go to Type Declaration (2026-11-14)](#go-to-implementation-and-go-to-type-declaration-2026-11-14): IntelliJ's `GotoImplementation` and `GotoTypeDeclaration` on Ctrl+Alt+B and Ctrl+Shift+B, from the language servers
 - [Go to Super Method (2026-11-14)](#go-to-super-method-2026-11-14): IntelliJ's `GotoSuperMethod` on Ctrl+U, where the gutter's up marker goes
-- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure
+- [Next Method and Previous Method (2026-11-14)](#next-method-and-previous-method-2026-11-14): IntelliJ's `MethodDown` and `MethodUp` on Alt+Down and Alt+Up, by the file's structure; scrolled as IntelliJ's `CENTER_DOWN` and `CENTER_UP` (changed 2026-11-16)
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
@@ -632,8 +632,17 @@ new UI.
   - **File Encoding:** Remove BOM, or Add BOM, whichever applies, saved at once, as IntelliJ's
     RemoveBomAction and AddBomAction;
   - **the indent's:** see "Code Style: the indent".
-- **Not yet:** choosing another encoding (the host reads and writes UTF-8 only); Settings' line
-  separator for new files.
+- **Settings' Line separator (added 2026-11-16),** Code Style's first, as IntelliJ's General tab
+  (`GeneralCodeStyleGeneralTab`, its words from ApplicationBundle): System-Dependent (the
+  default), Unix and macOS (\n), Windows (\r\n) and Classic Mac OS (\r), "Applied to new files". As
+  IntelliJ's (`FileDocumentManagerImpl.getLineSeparator`, `CodeStyleSettings.getLineSeparator`,
+  read from its source), a file read without a line break of its own (a new one, a line alone)
+  joins its lines with it once they're added, System-Dependent being Windows' on Windows and
+  Unix's elsewhere; the status bar says it. The file's worktree's setting, as Code Style's
+  others. The file keeps it while it's open, as IntelliJ's document keeps it once taken; IntelliJ
+  takes it at the first save, Cerebro as the file is read (a claim that the difference shows only
+  when the setting changes while the file is open).
+- **Not yet:** choosing another encoding (the host reads and writes UTF-8 only).
 
 ## The Electron app (2026-10-25)
 
@@ -1441,8 +1450,9 @@ IntelliJ's; choices of Claude's where IntelliJ doesn't decide, open to change.
     `showNavigationBar`, true, and `navigationBarLocation`, `BOTTOM`), all read from its source.
     Cerebro's file path stands where that bar is. The Bookmarks window's gives no numbers anyway
     (`BookmarksView.go` returns none).
-- **Not yet:** IntelliJ's other navigation moves as places (Move Caret to Code Block Start and
-  End, which Cerebro hasn't, among `includeCurrentCommandAsNavigation`'s callers). The Options menu's other choices (Open Files
+- Move Caret to Code Block Start and End are places too (added 2026-11-16), as IntelliJ's
+  (`includeCurrentCommandAsNavigation`; see "Move Line Up and Down").
+- **Not yet:** The Options menu's other choices (Open Files
   with Single Click and the rest) aren't there. Select In's Commit and Terminal targets (IntelliJ's
   `SelectInChangesViewTarget`, `SelectInTerminal`).
 
@@ -1881,9 +1891,11 @@ and Quick Documentation").
   dependency, so marked (rejected) wasn't added. HTML in a comment shows as text, so a file's
   comments can't put markup in the page. Code blocks are highlighted by the editor's languages,
   when the block's name is one of them.
-- **Links show in the link colour, with their address on the pointer;** clicking one does nothing
-  yet. The app has no way to open a page in the browser, and following it in the page would
-  replace the app.
+- **Links show in the link colour, with their address on the pointer;** a press on a web one
+  (`http:`, `https:`) opens its page in the system's browser, as IntelliJ's (`BrowserUtil.browse`),
+  added 2026-11-16. The app's main process opens it (Electron's `shell.openExternal`) and takes
+  only those two, Claude's choice, open to change: a file's comments can hold any address. In a
+  browser nothing opens: following it in the page would replace the app.
 - **Each keymap's keys,** from IntelliJ's files (`QuickJavaDoc`) and VS Code's sheets (Show
   Hover):
   - IntelliJ IDEA: Ctrl+Q. IntelliJ IDEA (macOS): F1 and Ctrl+J. IntelliJ IDEA Classic (macOS):
@@ -1895,7 +1907,14 @@ and Quick Documentation").
   - macOS System Shortcuts: Cmd+I and F1. Sublime Text, and Sublime Text (macOS): none (their files
     take it away).
   - Emacs and NetBeans: their files don't name it, so they keep IntelliJ IDEA's Ctrl+Q.
-- **Not yet:** opening links, and going to a symbol's definition from its documentation;
+- **A symbol's link shows its documentation in its place** (added 2026-11-16), as IntelliJ's
+  (`DocumentationBrowser.handleLinkRequest`, read from its source: a link to an element loads that
+  element's documentation as the popup's next page). Measured, TypeScript 7 writes JSDoc's
+  `{@link total}` (and `{@link total | text}`, `{@linkcode total}`) as a link to
+  `file:///…/a.ts#2,17-2,22`, the name's line and column from 1, and one it can't resolve as its
+  text alone. The documentation is that place's hover, from its file's document (unsaved changes
+  too) and server; nothing changes where there's none.
+- **Not yet:** going back to the documentation a link was pressed in (IntelliJ's popup history);
   IntelliJ's sections (parameters as a table); the Documentation tool window (Ctrl+Q again);
   documentation of the completion chosen in the completion list. (Signature help: see "Parameter
   Info".)
@@ -1932,6 +1951,11 @@ editor, they give more. Claude's choices, open to change.
   "$1"`), and the CSS fixes as versioned edits, whatever the client says it takes. VS Code takes
   both. The server turns them into plain text, and into edits per file, when the client doesn't
   take them, as Cerebro's doesn't.
+- **HTML's indent** (added 2026-11-16) is CodeMirror's, except that the children of `html`,
+  `body`, `thead`, `tbody` and `tfoot` aren't indented, as IntelliJ's HTML code style has it by
+  default (`HTML_DO_NOT_INDENT_CHILDREN_OF`, read from its source). Found as Move Statement's tests
+  indented `<body>`'s children where IntelliJ's don't. It's the setting's default only: Settings
+  has no HTML code style yet.
 - **Not yet:**
   - CSS and JavaScript inside HTML (`<style>`, `<script>`), which VS Code's HTML server serves
     by handing them to the other services.
@@ -2268,6 +2292,42 @@ branches pane, the Branch filter and Refresh; the other filters are left for lat
   read again. IntelliJ makes it a Checkout submenu, the commit's local branches first, when it has
   some besides the one checked out; Cerebro's menus can't make items from the commit yet (backlog,
   "The Log's Checkout submenu"), so it's this item alone (open to change).
+- **Open on GitHub** (added 2026-11-16), last in a commit's menu, in a group of its own, as
+  IntelliJ's GitHub plugin, which WebStorm bundles (`GHOpenInBrowserActionGroup` in
+  `Git.Hosting.Open.In.Browser.Group`, `HostedGitRepositoryReferenceActionGroup`, `GitRemoteUrlUtil`
+  and `GithubUrlUtil`, read from its source): the commit's page,
+  `https://github.com/<owner>/<repository>/commit/<hash>`, in the system's browser. Its text there is
+  GithubBundle's "View in browser"; Find Action's, "Open on GitHub". It shows only where a remote's
+  URL is on github.com, read as IntelliJ reads one (an scp-like `git@host:o/r` as `https://host/o/r`,
+  `.git` and trailing slashes taken off, the owner and repository its last two parts). With
+  several such repositories, IntelliJ's is a submenu of their addresses; Cerebro's menus have no
+  items made as they open, so a list asks which (Claude's choice, open to change). The URLs come
+  with the repository's state, read every 2 seconds (`git remote -v` in place of `git remote`: the
+  same one process, `insteadOf` applied, measured with git 2.43 to list a remote without a URL by
+  its name alone). It gives each remote's first fetch URL and its push URLs; IntelliJ's takes every
+  fetch URL too, so a remote's second fetch URL is missed. **Not yet:** GitHub Enterprise and other
+  servers, which IntelliJ adds from its GitHub accounts and by asking the server (Cerebro has no
+  GitHub accounts), and its `github.aliases` setting; the GitHub icon; Open on GitHub for a
+  repository version's tab, and in the editor tab's menu (Cerebro's has no Open In). A file's
+  history has it already: Cerebro's Show History is the Log, its commits' menu the Log's (IntelliJ's
+  `VcsHistoryActionsGroup` gives the commit's page there too); the editor's Open In's other items (IntelliJ's Reveal In, Open in Associated
+  Application).
+  - **A file's page** (added 2026-11-16), as IntelliJ's (`HostedGitRepositoryReferenceUtil`,
+    `GHPathUtil`, read from its source), last in Open In (`RevealGroup`), as "View in Browser": the
+    Project view's, and the editor's, a new submenu before its Local History and Git (IntelliJ's
+    `SplitRevealGroup`, before `VersionControlsGroup`). For the Project view's selected file or
+    folder, else the active editor's file: `…/blob/<hash>/<path>`, each part of the path encoded,
+    at the last commit that changed it (`git log -n1 HEAD -- <path>`, as IntelliJ's
+    `getCurrentRevision`). From the editor, with the keyboard in it, the lines selected follow
+    (`#L3`, or `#L2-L5`), a selection ending at a line's start leaving that line out. Not for a file
+    git hasn't committed (untracked or added, as IntelliJ leaves out an unknown or added one), nor
+    the worktree's root. Where the commit can't be read, IntelliJ's error says so ("Cannot open in
+    browser"). An ignored file isn't left out yet: the Commit window's lists don't know it.
+  - **Copy Link to GitHub Repository** (added 2026-11-16), IntelliJ's `GHCopyLinkActionGroup`:
+    the same page, copied. Last in Copy Path/Reference (`CopyFileReference`, after Path from
+    Content Root), as "GitHub Repository URL", in the editor tab's menu and the Project view's; for
+    the tab its menu's opened on, with the lines selected where it's the active editor's. Not yet
+    in the editor's Copy/Paste Special (Cerebro's menu hasn't it).
 - **Create Patch…** (added 2026-11-13), as IntelliJ's (`CreatePatchFromChangesAction`,
   `CreatePatchCommitExecutor`, `CreatePatchConfigurationPanel`, `PatchWriter`, their words in
   `VcsBundle` and `IdeBundle`, read from its source): in a commit's menu after Copy Revision
@@ -3029,9 +3089,10 @@ choose between the "code" the "view" or a side by side display of both". From In
 - **Links** (added 2026-11-13): a press on one opens the file it names, by a path relative to the
   Markdown file (its anchor dropped), in a tab; `#heading` goes to that heading of the page, by
   GitHub's anchor (lower case, punctuation dropped, spaces as hyphens). Claude's choice, open to
-  change: every link shows the pointer, web ones too, which do nothing yet. A link's definition
-  (`[x]: https://x.y`) draws nothing, as on GitHub. **Not yet:** web links (the app has no way to
-  a browser), another file's anchor, and paths from the repository's root.
+  change: every link shows the pointer. A web one (`http:`, `https:`) opens its page in the
+  system's browser (added 2026-11-16), as Quick Documentation's (decision "Quick Documentation").
+  A link's definition (`[x]: https://x.y`) draws nothing, as on GitHub. **Not yet:** another
+  file's anchor, and paths from the repository's root.
 - **Not yet:** IntelliJ's setting to turn the auto-scroll off; HTML drawn;
   IntelliJ's Find Action names ("View as Editor"…); its Split Layout menu.
 
@@ -3239,6 +3300,28 @@ saving").
   macOS), and no page keys; Visual Studio's Ctrl+M C and Ctrl+M Ctrl+C, and on macOS Cmd+Shift+Up
   and Down to select; NetBeans' Alt+Shift+Home and End; no page keys in Eclipse's.
   **Difference:** IntelliJ's go by visual lines (a wrapped line's rows); these by whole lines.
+- **Move Caret to Code Block Start and End** (added 2026-11-16), IntelliJ's `EditorCodeBlockStart`
+  and `EditorCodeBlockEnd` and their `WithSelection` forms (`CodeBlockUtil`, read from its source),
+  which CodeMirror hasn't. With the caret on an indent guide (its column the guide's,
+  `getCaretIndentGuide`), to where the guide comes down from or stops, at its column; Start from
+  the guide's own first line goes by the braces. Elsewhere by the structural braces: Start back to
+  just after the `{` the caret is in, or from just after a `}` to before its `{`; End on to just
+  before the `}` the caret is in, or from just before a `{` to after its `}`. The syntax tree's
+  tokens, so a brace in a string or a comment isn't one. The guides are computed as IntelliJ's
+  (`IndentGuides`, `IndentGuideCalculator`: a blank or commented line takes the indent around it),
+  as its editor does with guides shown, its default, though Cerebro's editor doesn't draw them. A
+  place for Back. With no block, the caret stays (End drops the selection, as IntelliJ's). Each
+  caret moves. They're in no menu, as IntelliJ's. In a read-only editor too.
+  - Which braces are structural: JSON's braces and brackets (`JsonBraceMatcher`, read); the other
+    languages' braces, a claim (JavaScript's and CSS's matchers aren't in IntelliJ's open source).
+    A language's own `CodeBlockProvider` or `CodeBlockSupportHandler` isn't followed (none read
+    for these languages).
+  - Keys, from IntelliJ's keymap files: Ctrl+[ and Ctrl+], with Shift to select (`$default`); on
+    macOS Cmd+Alt+[ and ], with Shift; Emacs adds Ctrl+Alt+[ and ]; Eclipse's End is Ctrl+] (on
+    macOS also Ctrl+Shift+P); Visual Studio's Start is Alt+Shift+[, its End none, and Ctrl+Alt+Shift+[
+    and ] to select; none in Sublime Text's (on macOS, only the Selection ones, its parent's).
+    VS Code's keymap leaves out the keys its Fold and Unfold have (Ctrl+Shift+[ and ], Cmd+Alt+[ and
+    ] on macOS), as it does Next Method's.
 - **Cyclic Expand Word** (added 2026-11-13), IntelliJ's `HippieCompletion` and
   `HippieBackwardCompletion` (`HippieWordCompletionHandler`, read from its source), which
   CodeMirror hasn't: the word before the caret completed with another of the text's that starts
@@ -3259,6 +3342,75 @@ saving").
 - **The editor's actions' changes are named through one piece** (`command-change.ts`): a
   CodeMirror command's transaction, made again with the app's user event, as Comment with Line
   Comment's.
+- **Move Statement Up and Down** (added 2026-11-16), IntelliJ's `MoveStatementUp` and
+  `MoveStatementDown` (`MoveStatementHandler`, `MoverWrapper`, read from its source), which WebStorm
+  has: the whole statements the caret's line or a selection's lines touch, swapped with what's
+  beyond them, then indented again where they land, as IntelliJ's (`indentTarget`). Undo says
+  "Undo Move Statement Up" or "Down". In the Code menu before Move Line, as IntelliJ's `CodeMenu`.
+  - **JavaScript and TypeScript:** IntelliJ asks each language's mover, and JavaScript's isn't in
+    its open source, so theirs is a port of Java's (`JavaStatementMover`, `JavaDeclarationMover`,
+    read) over CodeMirror's syntax tree. That WebStorm's does the same is a claim. A statement goes
+    to the next line a statement or a block's `}` starts on: into a block from its `{` line, out of
+    it past its `}`, into an `else`; past a blank line at a time. It never leaves its function or
+    class, or enters another: then nothing moves. A neighbour that holds a function or a class (not
+    in a block of its own) is passed whole, as Java passes a statement holding an anonymous class.
+    A function, class or member moves whole from its first or last line, a blank line between it
+    and the next staying between, and past one of two or more at a time (Java's code style keeps
+    one; here one, Claude's choice, open to change). A `/** … */` comment just above a statement
+    goes with it, as Java's doc comment is part of its member; a plain one stays. Lines that are
+    part of one statement (an argument's in a call over several lines) move as lines, as IntelliJ's
+    `LineMover` does when no mover takes them.
+  - **JSON** (added 2026-11-16): a port of IntelliJ's `JsonLineMover`, checked against its own
+    tests' files (`json/backend/tests/testData/mover`, each one a test here). Lines move as Move
+    Line's, grown to the whole properties or values they start and end in. The commas are then put
+    right: one added after what's now followed by something, one taken off what's now last in its
+    object or array. A property goes into an object or array from its `{` or `}` line, and out of
+    one past it, but never past the file's own braces. Unlike IntelliJ's code as read, no comma is
+    put on a blank line passed (Claude's choice, open to change; not measured in IntelliJ).
+    JSON's grammar here has no comments, so a comment's line moves as a line with its commas
+    untouched. Not yet: IntelliJ's moving a run of line comments together.
+  - **YAML** (added 2026-11-16), as IntelliJ's `YAMLStatementMover`, read from its source and
+    checked against its tests (`YAMLStatementMoverTest`, each one a test here). The pairs of a
+    block mapping, or the items of a block sequence, that the lines (or the selection) start and
+    end in move whole, past the element beside them. Their indent is left as it is
+    (`indentTarget` off). Where nothing's beside them, IntelliJ's `LineMover` takes over: the lines
+    past the next, indented again, and none past the first or last line. Lezer's tree isn't
+    IntelliJ's: a sequence item's `-` comes before its item, so the two are taken together. A
+    comment at a line's end comes after its pair, so it moves with it. A comment's own line moves
+    past the element beside it, as IntelliJ counts a comment as an element.
+  - **HTML** (added 2026-11-16), as IntelliJ's `XmlMover`, read from its source and checked
+    against its tests (`XmlMoverTest`'s HTML ones, each a test here). An attribute on lines of its
+    own moves past the next, but not before the tag's name nor into its content. Else the tags,
+    comments and lines of text the lines start and end in move whole, past the one beside them, or
+    into a tag beside them whose content has lines of its own and could hold them, or out of their
+    tag past its first or last line. The file's only root tag doesn't move, nor anything when the
+    place it would go cuts another tag in two. Elsewhere (a doctype, a blank line), IntelliJ's
+    `LineMover` moves the lines. Lezer's tree is read as IntelliJ's: an element as a tag, its start
+    and closing tags' parts its own, text as words and the spaces between them. Claude's choices,
+    open to change:
+    - Whether a tag could hold another is IntelliJ's HTML schema's answer (`TagNameVariantCollector`);
+      here it's a table of the HTML standard's content models (a list's items, a table's parts, a
+      paragraph holding no blocks). A claim: written from the standard, not checked against
+      IntelliJ's schema.
+    - In a script's or a style's code, the lines move. IntelliJ's leaves that code to its
+      language's mover (a claim: not read through).
+    - One of IntelliJ's tests fails here, from a bug in Lezer's HTML (1.3.13, measured): it reads
+      a tag's name without its digits, so `<h2>` doesn't close a `<p>` left open, as its own
+      rules say it does, and the heading moves inside the paragraph's indent. The test is kept,
+      expected to fail, so it says when Lezer is fixed (backlog, "Known gaps").
+    - XML isn't a language in Cerebro yet, so `XmlMoverTest`'s XML cases aren't run.
+  - **Other languages** move lines, as Move Line: IntelliJ's movers for them (Python's, CSS's)
+    aren't ported. CSS's isn't in IntelliJ's open source.
+  - **Their keys,** from IntelliJ's keymap files: Ctrl+Shift+Up and Down (`$default`; Cmd+Shift
+    on macOS, and in IntelliJ IDEA Classic), macOS System Shortcuts' Ctrl+Shift; Eclipse's Alt+Up
+    and Down (on macOS too), NetBeans' Alt+Shift+Page Up and Down, Visual Studio's Ctrl+Alt+Shift
+    (on macOS too); none in Emacs's and Sublime Text's, which take them away (Sublime Text on macOS
+    keeps macOS's). VS Code has no Move Statement: its Linux sheet's Ctrl+Shift+Up and Down are
+    Scroll up and down, so none there; its Windows sheet doesn't use them, so they're kept from
+    IntelliJ's; its macOS sheet's modifiers couldn't be read from the PDF, so they're kept there
+    too (a claim).
+  - **Not yet:** the other languages' movers; moving a lone `}` to take in the statement after it
+    (Java's); one move for each caret.
 
 ## Bookmarks (2026-11-14)
 
@@ -3631,8 +3783,14 @@ change.
   Code's sheets don't list them and give Alt+Up and Down to Move Line, so its Windows and Linux
   keymaps have none (Claude's choice).
 - **In the Navigate menu** since "The editor's actions as commands" (2026-11-16).
-- **Not yet:** IntelliJ scrolls the place up or down from the middle (`CENTER_UP`, `CENTER_DOWN`), where this reveals
-  it as Go to Definition does.
+- **Scrolled as IntelliJ's** (changed 2026-11-16; it was revealed in the middle, as Go to
+  Definition reveals a place): `CENTER_DOWN` for Next Method and `CENTER_UP` for Previous
+  (`MethodDownHandler`, `MethodUpHandler`, and `ScrollPositionCalculatorImpl.getVerticalOffset`,
+  read from its source). The place goes a third of the way down the editor where it's out of view
+  with a line around it (IntelliJ's default scroll offset, 1), or below that third going down (above
+  it going up); elsewhere the editor doesn't scroll. In an editor three lines high or less, it goes
+  in the middle, as IntelliJ's. Its line's top is placed, as IntelliJ's: CodeMirror places the
+  caret's top, a few pixels lower (measured: 3 in a 22-pixel line), so that's taken off.
 
 ## Optimize Imports (2026-11-14)
 
@@ -3833,9 +3991,25 @@ Keymap page didn't list them.
   - Each group is its own, between separators, where Cerebro's Navigate menu already parts from
     IntelliJ's order (Claude's, open to change): IntelliJ has Next Highlighted Error with Last Edit
     Location, and Line/Column before it.
-- **Not yet:** the editor's context menu's own (IntelliJ's `EditorPopupMenu`: Show Context
-  Actions, Go To, Folding). A diff window has few commands of its own (Jump to Source), so not
-  these; its editors' keys work as before.
+- **The editor's context menu** (added 2026-11-16) is IntelliJ's `EditorPopupMenu`
+  (PlatformActions.xml, LangActions.xml), with only the items Cerebro has, in IntelliJ's order:
+  - Show Context Actions; then Cut, Copy and Paste.
+  - Find Usages, a Go To submenu (Declaration or Usages, Implementation(s), Type Declaration,
+    Super Method, named as in the main menu, as IntelliJ's `override-text place="EditorPopup"`),
+    and Folding.
+  - Rename and the Refactor submenu; then Local History, Git and Reformat with Prettier, as
+    before.
+  - Cut and Copy show only when the menu is opened inside the selection, and Cut and Paste not in a
+    read-only editor, as IntelliJ's `EditorCopyPastProvider` (read from its source).
+  - Go to File, which had been in this menu since the playground's first menus, isn't in
+    IntelliJ's, so it's out (Claude's choice, open to change).
+  - **A right press in the text puts the caret there,** unless it's inside the selection, which
+    stays, as IntelliJ's EditorImpl (`myKeepSelectionOnMousePress`). So the menu acts on the word
+    clicked. The editor takes the press: Chromium's own let go of a selection pressed in
+    (measured).
+- **Not yet:** the editor's context menu's items Cerebro lacks (Copy/Paste Special, Column
+  Selection Mode, Generate, Run, Search the Web, Compare with Clipboard). A diff window has few
+  commands of its own (Jump to Source), so not these; its editors' keys work as before.
 
 ## Git → Current File → Show History (2026-11-12)
 

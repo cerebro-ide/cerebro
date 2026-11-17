@@ -19,7 +19,13 @@ import {
   undo,
 } from '@codemirror/commands';
 import { HighlightStyle, indentUnit, syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState, Transaction, type Extension } from '@codemirror/state';
+import {
+  Compartment,
+  EditorState,
+  Transaction,
+  type Extension,
+  type StateEffect,
+} from '@codemirror/state';
 import {
   drawSelection,
   highlightActiveLine,
@@ -47,7 +53,12 @@ import { leaves } from './leaves.js';
 
 /** IntelliJ's: 4 spaces. */
 const DEFAULT_INDENT: Indent = { tabs: false, size: 4 };
-import { documentation, documentationKeys, type AskDocumentation } from './documentation.js';
+import {
+  documentation,
+  documentationKeys,
+  type AskDocumentation,
+  type OpenLink,
+} from './documentation.js';
 import { quickDefinitionKeys, type AskQuickDefinition } from './quick-definition.js';
 import { scrollbarPreview } from './scrollbar-preview.js';
 import { bookmarks, showBookmarks, type BookmarkMark } from './bookmarks.js';
@@ -60,9 +71,11 @@ import { findAndReplace } from './find.js';
 import { historyName, namedHistory } from './history.js';
 import { commentByBlock, commentByLine } from './comment.js';
 import { moveLinesDown, moveLinesUp } from './move-line.js';
+import { moveStatementsDown, moveStatementsUp } from './move-statement.js';
 import { splittingLine, startingNewLine, startingNewLineBefore } from './start-new-line.js';
 import { joiningLines } from './join-lines.js';
 import { togglingCase } from './toggle-case.js';
+import { movingToCodeBlock } from './code-block.js';
 import { movingToPage, scrollingBy, scrollingToCenter } from './scroll.js';
 import { expandingWord, expandingWordBackward, expansion } from './expand-word.js';
 import { extendingSelection, selectionSteps, shrinkingSelection } from './extend-selection.js';
@@ -105,6 +118,11 @@ export interface CodeEditorProps {
         column: number;
         end?: number | undefined;
         top?: number | undefined;
+        /**
+         * IntelliJ's `CENTER_UP` or `CENTER_DOWN`, which Previous and Next Method scroll by: to a
+         * third of the way down only where the place is out of view, or above (below) that.
+         */
+        scroll?: 'centerUp' | 'centerDown' | undefined;
         /** False to leave the focus where it is, this once: a tree showing what's selected. */
         focus?: boolean | undefined;
       }
@@ -194,6 +212,11 @@ export interface CodeEditorProps {
    * caret's on its keys (Ctrl+Q), as IntelliJ's Quick Documentation. None: no documentation.
    */
   documentation?: AskDocumentation;
+  /**
+   * Opens a link pressed in the documentation; without it, its links don't open. A symbol's link
+   * can answer with that symbol's documentation, shown in its place.
+   */
+  onLink?: OpenLink;
   /**
    * The definition of the symbol at a place, shown in a popup on its keys (Ctrl+Shift+I), as
    * IntelliJ's Quick Definition. None: no Quick Definition.
@@ -307,6 +330,9 @@ export interface EditorKeys {
   /** Move Line Up and Down: the caret's line, or the selection's, swapped with the next one. */
   moveLineUp?: readonly string[];
   moveLineDown?: readonly string[];
+  /** Move Statement Up and Down: the whole statements there swapped with what's beyond them. */
+  moveStatementUp?: readonly string[];
+  moveStatementDown?: readonly string[];
   /** Delete Line: the caret's line, or the selection's, gone; the caret at its column below. */
   deleteLine?: readonly string[];
   /** Start New Line: an indented line after the caret's, the caret on it. */
@@ -324,6 +350,14 @@ export interface EditorKeys {
   expandWordBackward?: readonly string[];
   /** Move Caret to Matching Brace: from a bracket at the caret to the one it pairs with. */
   matchBrace?: readonly string[];
+  /**
+   * Move Caret to Code Block Start and End: to the start or end of the block the caret's in; or
+   * selecting to it.
+   */
+  codeBlockStart?: readonly string[];
+  codeBlockEnd?: readonly string[];
+  codeBlockStartWithSelection?: readonly string[];
+  codeBlockEndWithSelection?: readonly string[];
   /** Extend Selection and Shrink Selection: the word, then each larger piece of code, and back. */
   extendSelection?: readonly string[];
   shrinkSelection?: readonly string[];
@@ -371,6 +405,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   blockComment: ['Mod-Shift-/'],
   moveLineUp: ['Alt-Shift-ArrowUp'],
   moveLineDown: ['Alt-Shift-ArrowDown'],
+  moveStatementUp: ['Mod-Shift-ArrowUp'],
+  moveStatementDown: ['Mod-Shift-ArrowDown'],
   deleteLine: ['Mod-y'],
   startNewLine: ['Shift-Enter'],
   startNewLineBefore: ['Mod-Alt-Enter'],
@@ -380,6 +416,10 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   expandWord: ['Alt-/'],
   expandWordBackward: ['Alt-Shift-/'],
   matchBrace: ['Mod-Shift-m'],
+  codeBlockStart: ['Mod-['],
+  codeBlockEnd: ['Mod-]'],
+  codeBlockStartWithSelection: ['Mod-Shift-['],
+  codeBlockEndWithSelection: ['Mod-Shift-]'],
   extendSelection: ['Mod-w'],
   shrinkSelection: ['Mod-Shift-w'],
   scrollUp: ['Ctrl-ArrowUp'],
@@ -408,6 +448,38 @@ export function editorHistory(element: Element, action: 'undo' | 'redo'): boolea
 
 /** Focus requests already taken (`focus`): a later editor given one again leaves the focus. */
 const taken = new WeakSet<object>();
+/** IntelliJ's default vertical scroll offset, in lines: kept in view around the caret's. */
+const SCROLL_OFFSET = 1;
+
+/**
+ * IntelliJ's `CENTER_UP` and `CENTER_DOWN` (`ScrollPositionCalculatorImpl.getVerticalOffset`, read
+ * from its source): the place a third of the way down where it isn't in view with a line around
+ * it, or where it's above that (below, for down); else no scroll. Where a third would hide that
+ * line around it (an editor a few lines high), its middle.
+ */
+function centerScroll(view: EditorView, pos: number, down: boolean): StateEffect<unknown>[] {
+  const lineHeight = view.defaultLineHeight;
+  const height = view.scrollDOM.clientHeight;
+  const target = view.lineBlockAt(pos).top;
+  const viewTop = view.scrollDOM.getBoundingClientRect().top - view.documentTop;
+  const topBound = target - SCROLL_OFFSET * lineHeight;
+  const bottomBound = target + SCROLL_OFFSET * lineHeight + lineHeight;
+  const third = target - height / 3;
+  const center = third < topBound ? third : target - Math.max(0, height - lineHeight) / 2;
+  const scroll =
+    viewTop > topBound ||
+    viewTop + height < bottomBound ||
+    (down ? viewTop < center : viewTop > center);
+  if (!scroll) return [];
+  // CodeMirror places the caret's rectangle, which starts below its line's top where the line is
+  // taller than the text; IntelliJ, the line's top. The gap, as a line in view has it.
+  const shown = view.viewport.from;
+  // The viewport's start is always drawn: it has a place.
+  const caret = (view.coordsAtPos(shown, 1) as { top: number }).top;
+  const gap = caret - view.documentTop - view.lineBlockAt(shown).top;
+  return [EditorView.scrollIntoView(pos, { y: 'start', yMargin: target - center + gap })];
+}
+
 /** Positions already revealed (`reveal`), likewise: a later editor shows where the last was. */
 const revealed = new WeakSet<object>();
 
@@ -421,6 +493,23 @@ function selectedIn(state: EditorState): Selected | undefined {
     chars: Array.from(state.sliceDoc(from, to)).length,
     lineBreaks: state.doc.lineAt(to).number - state.doc.lineAt(from).number,
   };
+}
+
+/**
+ * A right press in the text puts the caret there, unless it's in the selection, which stays: as
+ * IntelliJ's EditorImpl (`myKeepSelectionOnMousePress`, read from its source), for the context
+ * menu to act there. The press is taken: Chromium's own would move the selection too (measured:
+ * one in a selection let it go). The gutter's presses don't come here; its menu is its line's.
+ */
+function rightPress(event: MouseEvent, view: EditorView): void {
+  event.preventDefault();
+  // Not precise: the nearest position, never none.
+  const pos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
+  view.focus();
+  const inside = view.state.selection.ranges.some(
+    (range) => !range.empty && range.from <= pos && pos <= range.to,
+  );
+  if (!inside) view.dispatch({ selection: { anchor: pos }, userEvent: 'select.pointer' });
 }
 
 function placeOf(state: EditorState, pos: number): { line: number; column: number } {
@@ -1090,6 +1179,18 @@ export function CodeEditor(props: CodeEditorProps): Node {
       ...going('findUsages', props.onFindUsages),
       // CodeMirror's, as IntelliJ's `EditorMatchBrace`; in a read-only editor too.
       actionKeys('matchBrace', keys.matchBrace, cursorMatchingBracket),
+      actionKeys('codeBlockStart', keys.codeBlockStart, movingToCodeBlock(false, false)),
+      actionKeys('codeBlockEnd', keys.codeBlockEnd, movingToCodeBlock(true, false)),
+      actionKeys(
+        'codeBlockStartWithSelection',
+        keys.codeBlockStartWithSelection,
+        movingToCodeBlock(false, true),
+      ),
+      actionKeys(
+        'codeBlockEndWithSelection',
+        keys.codeBlockEndWithSelection,
+        movingToCodeBlock(true, true),
+      ),
       actionKeys('extendSelection', keys.extendSelection, extendingSelection),
       actionKeys('shrinkSelection', keys.shrinkSelection, shrinkingSelection),
       actionKeys('scrollUp', keys.scrollUp, scrollingBy(-1)),
@@ -1138,6 +1239,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
             actionKeys('blockComment', keys.blockComment, commentByBlock),
             actionKeys('moveLineUp', keys.moveLineUp, moveLinesUp),
             actionKeys('moveLineDown', keys.moveLineDown, moveLinesDown),
+            actionKeys('moveStatementUp', keys.moveStatementUp, moveStatementsUp),
+            actionKeys('moveStatementDown', keys.moveStatementDown, moveStatementsDown),
             // CodeMirror's, as IntelliJ's `EditorDeleteLine`; Undo names its "delete.line".
             actionKeys('deleteLine', keys.deleteLine, deleteLine),
             actionKeys('startNewLine', keys.startNewLine, startingNewLine),
@@ -1157,7 +1260,9 @@ export function CodeEditor(props: CodeEditorProps): Node {
     return [
       findAndReplace(doc !== undefined, keys),
       doc && props.completions ? completionKeys(keys.complete) : [],
-      props.documentation ? documentationKeys(props.documentation, keys.quickDocumentation) : [],
+      props.documentation
+        ? documentationKeys(props.documentation, keys.quickDocumentation, props.onLink)
+        : [],
       props.quickDefinition
         ? quickDefinitionKeys(props.quickDefinition, keys.quickDefinition, [
             theme,
@@ -1229,7 +1334,7 @@ export function CodeEditor(props: CodeEditorProps): Node {
     props.problems ? problemHighlights(props.problems, props.onShowProblems) : [],
     doc && props.completions ? completions(props.completions, props.resolveCompletion) : [],
     // After the problems: below a problem's message, in the same tooltip, as IntelliJ's.
-    props.documentation ? documentation(props.documentation) : [],
+    props.documentation ? documentation(props.documentation, props.onLink) : [],
     props.parameterInfo ? parameterInfo(props.parameterInfo) : [],
     doc && props.renaming && props.onRename ? renaming(props.renaming, props.onRename) : [],
     activeLine,
@@ -1279,6 +1384,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       // another caret), for the shortcut to run at it as the button's let go. Back's and Forward's
       // buttons move none.
       mousedown: (event, v) => {
+        if (event.button === 2 && props.mouse?.().isShortcut(event) !== true) {
+          rightPress(event, v);
+          return true;
+        }
         if (event.button > 2 || props.mouse?.().isShortcut(event) !== true) return false;
         event.preventDefault();
         v.focus();
@@ -1373,9 +1482,11 @@ export function CodeEditor(props: CodeEditorProps): Node {
         // To `end`, on the same line: a match, say.
         selection: { anchor: pos, head: Math.min(line.from + (at.end ?? at.column), line.to) },
         effects:
-          at.top === undefined
-            ? EditorView.scrollIntoView(pos, { y: 'center' })
-            : EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 }),
+          at.top !== undefined
+            ? EditorView.scrollIntoView(lineOf(at.top).from, { y: 'start', yMargin: 0 })
+            : at.scroll === undefined
+              ? EditorView.scrollIntoView(pos, { y: 'center' })
+              : centerScroll(view, pos, at.scroll === 'centerDown'),
       });
       if (props.revealFocus !== false && at.focus !== false) view.focus();
     });

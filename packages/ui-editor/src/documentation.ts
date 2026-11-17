@@ -30,35 +30,57 @@ export interface Documentation {
 export type AskDocumentation = (at: Place) => Promise<Documentation | null | undefined>;
 
 /**
+ * Opens a link's address, as a press on it asks; without it, links don't open. A symbol's link
+ * (JSDoc's `{@link}`) can answer with that symbol's documentation instead, shown in its place, as
+ * IntelliJ's follows a link to an element (`DocumentationBrowser.handleLinkRequest`).
+ */
+export type OpenLink = (address: string) => Promise<Documentation | null | undefined> | undefined;
+
+/**
  * Documentation as IntelliJ shows it: a definition it starts with set apart above the rest, as
  * code; the rest as Markdown.
  */
-export function documentationView(markdown: string, state: EditorState): HTMLElement {
+export function documentationView(
+  markdown: string,
+  state: EditorState,
+  link?: OpenLink,
+): HTMLElement {
   const dom = document.createElement('div');
   dom.className = 'cerebro-doc';
+  const draw = (text: string) => {
+    dom.replaceChildren();
+    const tree = parser.parse(text);
+    const blocks: SyntaxNode[] = [];
+    for (let child = tree.topNode.firstChild; child; child = child.nextSibling) blocks.push(child);
+    const first = blocks[0];
+    if (first?.name === 'FencedCode') {
+      const definition = document.createElement('div');
+      definition.className = 'cerebro-doc__definition';
+      drawMarkdown(first, text, definition, style);
+      dom.append(definition);
+      blocks.shift();
+      // A rule after it (basedpyright's) would set it apart twice.
+      if (blocks[0]?.name === 'HorizontalRule') blocks.shift();
+    }
+    if (blocks.length > 0) {
+      const content = document.createElement('div');
+      content.className = 'cerebro-doc__content';
+      for (const block of blocks) drawMarkdown(block, text, content, style);
+      dom.append(content);
+    }
+  };
+  // A symbol's documentation in place of this one, as IntelliJ's next page.
+  const follow = (open: OpenLink) => (address: string) => {
+    void open(address)?.then((found) => {
+      if (found) draw(found.text);
+    });
+  };
   const style: MarkdownStyle = {
     highlighter: { style: (tags) => highlightingFor(state, tags) },
     headings: false,
+    ...(link ? { link: follow(link) } : {}),
   };
-  const tree = parser.parse(markdown);
-  const blocks: SyntaxNode[] = [];
-  for (let child = tree.topNode.firstChild; child; child = child.nextSibling) blocks.push(child);
-  const first = blocks[0];
-  if (first?.name === 'FencedCode') {
-    const definition = document.createElement('div');
-    definition.className = 'cerebro-doc__definition';
-    drawMarkdown(first, markdown, definition, style);
-    dom.append(definition);
-    blocks.shift();
-    // A rule after it (basedpyright's) would set it apart twice.
-    if (blocks[0]?.name === 'HorizontalRule') blocks.shift();
-  }
-  if (blocks.length > 0) {
-    const content = document.createElement('div');
-    content.className = 'cerebro-doc__content';
-    for (const block of blocks) drawMarkdown(block, markdown, content, style);
-    dom.append(content);
-  }
+  draw(markdown);
   return dom;
 }
 
@@ -80,7 +102,7 @@ const shown = StateField.define<Tooltip | null>({
 });
 
 /** Shows the documentation of the symbol at the caret, once it's had, if the caret's still there. */
-function quickDocumentation(ask: AskDocumentation): Command {
+function quickDocumentation(ask: AskDocumentation, link?: OpenLink): Command {
   return (view) => {
     const { state } = view;
     const head = state.selection.main.head;
@@ -96,7 +118,7 @@ function quickDocumentation(ask: AskDocumentation): Command {
           show.of({
             pos: word?.from ?? head,
             create: (v) => {
-              const dom = documentationView(found.text, v.state);
+              const dom = documentationView(found.text, v.state, link);
               dom.classList.add('cerebro-quickDoc');
               return { dom };
             },
@@ -109,7 +131,7 @@ function quickDocumentation(ask: AskDocumentation): Command {
 }
 
 /** Documentation from `ask`, on the pointer resting on a word (`documentationKeys` has the keys). */
-export function documentation(ask: AskDocumentation): Extension {
+export function documentation(ask: AskDocumentation, link?: OpenLink): Extension {
   return [
     hoverTooltip(
       async (view, pos) => {
@@ -121,7 +143,7 @@ export function documentation(ask: AskDocumentation): Extension {
         return {
           pos: word.from,
           end: word.to,
-          create: (v) => ({ dom: documentationView(found.text, v.state) }),
+          create: (v) => ({ dom: documentationView(found.text, v.state, link) }),
         };
       },
       { hideOnChange: true },
@@ -131,8 +153,12 @@ export function documentation(ask: AskDocumentation): Extension {
 }
 
 /** The keys that show the caret's symbol's documentation; Escape hides it. */
-export function documentationKeys(ask: AskDocumentation, keys: readonly string[]): Extension {
-  const quick = actionKeys('quickDocumentation', keys, quickDocumentation(ask));
+export function documentationKeys(
+  ask: AskDocumentation,
+  keys: readonly string[],
+  link?: OpenLink,
+): Extension {
+  const quick = actionKeys('quickDocumentation', keys, quickDocumentation(ask, link));
   return [
     quick.action,
     keymap.of([

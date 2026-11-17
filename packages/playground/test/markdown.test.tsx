@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { useProjects } from '../src/environments.js';
 import {
+  browse,
   chooseLayout,
   imageLoader,
   imagePath,
@@ -236,21 +237,34 @@ describe('a Markdown file’s links', () => {
     expect(localPath('/r/docs/a.md', '#part')).toBeUndefined();
   });
 
-  it('open the file a link names when it’s pressed in the preview; not one on the web', () => {
+  it('open the file a link names when it’s pressed in the preview, a web one’s page in the browser', () => {
     chooseLayout('/r/docs/f.md', 'preview');
     const open = vi.fn();
     const container = mount(() => (
       <MarkdownEditor
         path="/r/docs/f.md"
         editor={document.createElement('div')}
-        text={() => '[b](../b.md#top) [web](https://x.y)'}
+        text={() => '[b](../b.md#top) [web](https://x.y) [mail](mailto:a@b.c)'}
         line={() => 0}
         open={open}
       />
     ));
     const root = (container.querySelector('.cerebro-markdown-preview') as HTMLElement)
       .shadowRoot as ShadowRoot;
-    for (const link of root.querySelectorAll<HTMLElement>('.cerebro-doc__link')) link.click();
+    const browse = vi.fn();
+    window.cerebro = { shell: { browse } } as unknown as NonNullable<Window['cerebro']>;
+    try {
+      for (const link of root.querySelectorAll<HTMLElement>('.cerebro-doc__link')) link.click();
+    } finally {
+      delete window.cerebro;
+    }
     expect(open.mock.calls).toEqual([[{ id: '/r/b.md', title: 'b.md' }]]);
+    // A web one's page, in the browser, the app's.
+    expect(browse.mock.calls).toEqual([['https://x.y']]);
+  });
+
+  it('open a web link’s page only in the app: following it in a browser would replace the page', () => {
+    expect(browse('HTTPS://x.y')).toBe(true);
+    expect(browse('b.md')).toBe(false);
   });
 });

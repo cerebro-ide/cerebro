@@ -14,13 +14,17 @@ const electron = vi.hoisted(() => {
         ipc.set(channel, listener);
       },
     },
-    shell: { showItemInFolder: vi.fn(), trashItem: vi.fn(() => Promise.resolve()) },
+    shell: {
+      showItemInFolder: vi.fn(),
+      trashItem: vi.fn(() => Promise.resolve()),
+      openExternal: vi.fn(() => Promise.resolve()),
+    },
   };
 });
 
 vi.mock('electron', () => ({ ipcMain: electron.ipcMain, shell: electron.shell }));
 
-const { installShell, REVEAL, TRASH } = await import('../src/shell.js');
+const { BROWSE, installShell, REVEAL, TRASH } = await import('../src/shell.js');
 
 describe('installShell', () => {
   it('shows an absolute path in the file manager, and ignores anything else', () => {
@@ -46,5 +50,21 @@ describe('installShell', () => {
     expect(electron.shell.trashItem).toHaveBeenCalledWith(windows ? 'C:\\repo\\lib' : '/repo/lib');
     expect(await send('repo/lib')).toEqual({ error: 'Not a full path: repo/lib' });
     expect(await send(3)).toEqual({ error: 'Not a full path: 3' });
+  });
+
+  it('opens a web page in the browser, and ignores any other address', () => {
+    installShell();
+    const send = (address: unknown) => (electron.ipc.get(BROWSE) as Listener)({}, address);
+    send('https://example.com/a?b#c');
+    send('HTTP://example.com');
+    expect(electron.shell.openExternal.mock.calls).toEqual([
+      ['https://example.com/a?b#c'],
+      ['HTTP://example.com'],
+    ]);
+    vi.clearAllMocks();
+    for (const other of ['file:///etc/passwd', 'javascript:alert(1)', 'https://', 'a.md', 3]) {
+      send(other);
+    }
+    expect(electron.shell.openExternal).not.toHaveBeenCalled();
   });
 });

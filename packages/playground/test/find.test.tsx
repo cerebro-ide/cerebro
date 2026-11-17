@@ -111,6 +111,7 @@ beforeAll(() => {
     () => Promise.resolve(),
     () => undefined,
     () => undefined,
+    () => '\n',
   );
 });
 

@@ -117,6 +117,7 @@ export function installBridge(platform: string, menu: unknown = {}): void {
     display: { setScale: (scale: string) => void calls.push(['scale', scale]) },
     shell: {
       reveal: (path: string) => void calls.push(['reveal', path]),
+      browse: (address: string) => void calls.push(['browse', address]),
       // As `answers` says for 'shell.trash': an Error fails it.
       trash: (path: string) => {
         calls.push(['trash', path]);

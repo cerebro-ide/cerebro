@@ -2,7 +2,8 @@ import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
 import { signal } from '@cerebro-ide/reactive';
-import { Text } from '@codemirror/state';
+import { getIndentation, indentUnit } from '@codemirror/language';
+import { EditorState, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
@@ -44,6 +45,7 @@ async function clickWord(
   root: ShadowRoot,
   word: string,
   modifiers: ('Control' | 'Alt' | 'Shift')[] = [],
+  button: 'left' | 'right' = 'left',
 ) {
   const line = root.querySelector('.cm-line') as HTMLElement;
   const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
@@ -61,6 +63,7 @@ async function clickWord(
         y: rect.top - box.top + rect.height / 2,
       },
       modifiers,
+      button,
     });
     return;
   }
@@ -118,6 +121,20 @@ describe('languageFor', () => {
       'JSON',
       'Plain Text',
     ]);
+  });
+
+  it('indents HTML as IntelliJ: not the children of html, body, thead, tbody and tfoot', () => {
+    const doc =
+      '<html>\n<body>\n<div>\n<p>a</p>\n</div>\n<table><tbody>\n<tr></tr>\n</tbody></table>\n</body>\n</html>';
+    const state = EditorState.create({
+      doc,
+      extensions: [languageFor('a.html') ?? [], indentUnit.of('    ')],
+    });
+    const indents = Array.from({ length: state.doc.lines }, (_, i) =>
+      getIndentation(state, state.doc.line(i + 1).from),
+    );
+    // A closing tag at its tag's indent; a div's children in by a unit.
+    expect(indents).toEqual([0, 0, 0, 4, 0, 0, 0, 0, 0, 0]);
   });
 
   it('lists each language once, with its first extension, by name', () => {
@@ -497,6 +514,58 @@ describe('CodeEditor', () => {
     expect(shown()).toBe(110);
   });
 
+  it('scrolls as IntelliJ’s CENTER_UP and CENTER_DOWN: a third of the way down, only past it', async () => {
+    type Scroll = 'centerUp' | 'centerDown';
+    const reveal = signal<{ line: number; column: number; scroll: Scroll } | undefined>(undefined);
+    const text = Array.from({ length: 300 }, (_, i) => `line ${String(i)}`).join('\n');
+    const root = mount({ path: 'a.txt', text, reveal: () => reveal.get() });
+    const scroller = root.querySelector('.cm-scroller') as HTMLElement;
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const go = async (line: number, scroll: Scroll) => {
+      reveal.set({ line, column: 0, scroll });
+      await frame();
+      await frame();
+      expect(root.querySelector('.cm-activeLine')?.textContent).toBe(`line ${String(line)}`);
+    };
+    /** How far down the editor the caret's line is drawn, as a part of its height. */
+    const down = () => {
+      const line = root.querySelector('.cm-activeLine') as HTMLElement;
+      const box = scroller.getBoundingClientRect();
+      return (line.getBoundingClientRect().top - box.top) / scroller.clientHeight;
+    };
+    // Above a third of the way down, going down: not scrolled.
+    await go(3, 'centerDown');
+    expect(scroller.scrollTop).toBe(0);
+    // Past it: scrolled to it.
+    await go(15, 'centerDown');
+    expect(scroller.scrollTop).toBeGreaterThan(0);
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // Going up, below it: not scrolled; above it, scrolled to it.
+    const top = scroller.scrollTop;
+    await go(16, 'centerUp');
+    expect(scroller.scrollTop).toBe(top);
+    await go(12, 'centerUp');
+    expect(scroller.scrollTop).toBeLessThan(top);
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // Out of view, either way: a third of the way down.
+    await go(200, 'centerUp');
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    await go(100, 'centerDown');
+    expect(down()).toBeCloseTo(1 / 3, 1);
+    // An editor three lines high has no room for a line around it at a third: its middle.
+    let container = root.host as HTMLElement;
+    while (container.parentElement !== document.body)
+      container = container.parentElement as HTMLElement;
+    container.style.height = '50px';
+    await frame();
+    await go(150, 'centerDown');
+    const line = root.querySelector('.cm-activeLine') as HTMLElement;
+    const box = scroller.getBoundingClientRect();
+    const middle =
+      (line.getBoundingClientRect().top - box.top) / (scroller.clientHeight - line.offsetHeight);
+    expect(middle).toBeCloseTo(1 / 2, 1);
+  });
+
   it('leaves Mod+[ and Mod+] to the app: Back and Forward on macOS, not indenting', async () => {
     const document = new EditorDocument('    indented');
     const root = mount({ path: 'a.txt', document });
@@ -738,6 +807,29 @@ describe('CodeEditor', () => {
     line.dispatchEvent(new MouseEvent('mousedown', { button: 3, bubbles: true }));
     expect(isShortcut).not.toHaveBeenCalled();
     expect(view.state.selection.main.head).toBe(head);
+  });
+
+  it('puts the caret where the right button is pressed, as IntelliJ’s, but not in the selection or the gutter', async () => {
+    const view = EditorView.findFromDOM(
+      mount({ path: 'a.ts', text: 'const answer = compute(1);' }).querySelector(
+        '.cm-content',
+      ) as HTMLElement,
+    ) as EditorView;
+    const root = view.root as ShadowRoot;
+    // "answer" selected: pressed in it, it stays.
+    view.dispatch({ selection: { anchor: 6, head: 12 } });
+    await clickWord(root, 'answer', [], 'right');
+    expect(view.state.selection.main).toMatchObject({ from: 6, to: 12 });
+    expect(view.hasFocus).toBe(true);
+    // In the gutter, the line's menu: the caret stays.
+    const number = root.querySelector('.cm-lineNumbers .cm-gutterElement:last-child') as Element;
+    await userEvent.click(number, { button: 'right' });
+    expect(view.state.selection.main).toMatchObject({ from: 6, to: 12 });
+    // Pressed outside it: the caret there.
+    await clickWord(root, 'compute', [], 'right');
+    const { empty, head } = view.state.selection.main;
+    expect(empty).toBe(true);
+    expect(head >= 15 && head <= 22).toBe(true);
   });
 
   it('leaves the text as it is on Ctrl+Shift+Backspace and Delete, as IntelliJ’s, the keys going on', async () => {
@@ -997,6 +1089,15 @@ describe('EditorDocument', () => {
     expect(new EditorDocument('a\rb\r\nc').lineSeparator).toBe('\r');
     expect(new EditorDocument('a\rb').content()).toBe('a\rb');
     expect(new EditorDocument('a').lineSeparator).toBe('\n');
+  });
+
+  it('takes the separator it’s given for a file without one, and keeps it on a read without one', () => {
+    const doc = new EditorDocument('a', '\r\n');
+    expect(doc.lineSeparator).toBe('\r\n');
+    expect(doc.modified.get()).toBe(false);
+    expect(doc.changedOnDisk('b')).toBe(true);
+    expect(doc.lineSeparator).toBe('\r\n');
+    expect(new EditorDocument('a\nb', '\r\n').lineSeparator).toBe('\n');
   });
 
   it('changes its line separator and byte order mark, modified until saved', () => {

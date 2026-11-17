@@ -11,7 +11,7 @@
 
 import { effect, ObservableMap, untracked } from '@cerebro-ide/reactive';
 import type { Position } from '@cerebro-ide/layout';
-import { EditorDocument } from '@cerebro-ide/ui-editor';
+import { EditorDocument, type LineSeparator } from '@cerebro-ide/ui-editor';
 import { currentHost, hostFor, type Host } from './environments.js';
 
 /** How often open files are read again for changes on disk, while the window has the focus. */
@@ -31,6 +31,12 @@ let closeDeleted!: (path: string) => void;
 
 /** Says why saving failed. */
 let reportSaving!: (error: unknown) => void;
+
+/**
+ * The line separator for a file read without one: Settings' Line separator, read each time; Unix's
+ * until `setupSaving` (a test reading files without saving them).
+ */
+let separator: (path: string) => LineSeparator = () => '\n';
 
 /** The files whose conflict is being resolved, which aren't asked about, or saved, meanwhile. */
 const resolving = new Set<string>();
@@ -110,7 +116,7 @@ export function documentFor(path: string, sample?: () => string): Promise<Loaded
     const host = hostFor(path);
     loaded = host
       ? host.request('fs.read', { path }).then(
-          (result) => new EditorDocument((result as { text: string }).text),
+          (result) => new EditorDocument((result as { text: string }).text, separator(path)),
           (error: unknown) => ({ error: (error as Error).message }),
         )
       : Promise.resolve(new EditorDocument(sample?.() ?? ''));
@@ -392,14 +398,16 @@ export function reloadOpen(path: string): Promise<void> | undefined {
  * Saves on its own, as IntelliJ: when the window loses the focus, and after `idle()` ms without a
  * key or the mouse (none when it's undefined: the setting is off). Reads changed files when the
  * window has the focus. Conflicts are resolved through `resolver`; a deleted file's tabs are closed
- * through `close`.
+ * through `close`. A file read without a line break takes `newFiles(path)`'s separator.
  */
 export function setupSaving(
   report: (error: unknown) => void,
   resolver: ConflictResolver,
   close: (path: string) => void,
   idle: () => number | undefined,
+  newFiles: (path: string) => LineSeparator,
 ): void {
+  separator = newFiles;
   resolveConflict = resolver;
   closeDeleted = close;
   reportSaving = report;

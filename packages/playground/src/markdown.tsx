@@ -118,6 +118,17 @@ export function localPath(file: string, address: string): string | undefined {
   return parts.join('/');
 }
 
+/**
+ * Opens a web link's page (`http:`, `https:`) in the system's browser, as IntelliJ's `BrowserUtil`,
+ * in the app; returns whether `address` is one. In a browser, nothing opens: following it would
+ * replace the page.
+ */
+export function browse(address: string): boolean {
+  if (!/^https?:\/\//i.test(address)) return false;
+  window.cerebro?.shell.browse(address);
+  return true;
+}
+
 /** The image an image's address names, beside the Markdown file: none for one that isn't one. */
 export function imagePath(file: string, address: string): string | undefined {
   const path = localPath(file, address);
@@ -173,8 +184,9 @@ export function MarkdownEditor(props: {
   open: (tab: { id: string; title: string }) => void;
 }): Node {
   const image = imageLoader(props.path, readBytes);
-  // A link to a file beside it opens it; one to the web can't yet, with no way to a browser.
+  // A web link's page opens in the browser, a file beside it in a tab; any other link, nothing.
   const link = (address: string) => {
+    if (browse(address)) return;
     const path = localPath(props.path, address);
     if (path !== undefined) props.open({ id: path, title: path.split('/').at(-1) as string });
   };

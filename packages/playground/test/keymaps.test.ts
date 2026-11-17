@@ -117,6 +117,55 @@ describe('the editor’s keys', () => {
     });
   });
 
+  it('give Move Caret to Code Block Start and End their files’ keys, VS Code’s Fold keeping its', () => {
+    const keymap = new Keymap('other');
+    keymap.setPreset(VISUAL_STUDIO);
+    expect(editorKeys(keymap)).toMatchObject({
+      codeBlockStart: ['Alt-Shift-['],
+      codeBlockEnd: [],
+      codeBlockStartWithSelection: ['Ctrl-Alt-Shift-['],
+    });
+    keymap.setPreset(ECLIPSE);
+    expect(editorKeys(keymap)).toMatchObject({
+      codeBlockStart: ['Ctrl-['],
+      codeBlockEnd: ['Ctrl-]'],
+    });
+    keymap.setPreset(vscode('Win32'));
+    expect(editorKeys(keymap)).toMatchObject({
+      fold: ['Ctrl-Shift-['],
+      codeBlockStart: ['Ctrl-['],
+      codeBlockStartWithSelection: [],
+    });
+    const mac = new Keymap('mac');
+    mac.setPreset(VSCODE_MAC);
+    expect(editorKeys(mac)).toMatchObject({ fold: ['Alt-Meta-['], codeBlockStart: [] });
+    mac.setPreset(SUBLIME_MAC);
+    expect(editorKeys(mac)).toMatchObject({
+      codeBlockStart: [],
+      codeBlockStartWithSelection: ['Alt-Shift-Meta-['],
+    });
+  });
+
+  it('give Move Statement Up and Down their files’ keys, none where VS Code’s sheet takes them', () => {
+    const keymap = new Keymap('other');
+    const keys = (preset: KeymapPreset) => {
+      keymap.setPreset(preset);
+      const { moveStatementUp, moveStatementDown } = editorKeys(keymap);
+      return [moveStatementUp, moveStatementDown];
+    };
+    expect(keys(ECLIPSE)).toEqual([['Alt-ArrowUp'], ['Alt-ArrowDown']]);
+    expect(keys(NETBEANS)).toEqual([['Alt-Shift-PageUp'], ['Alt-Shift-PageDown']]);
+    expect(keys(VISUAL_STUDIO)).toEqual([['Ctrl-Alt-Shift-ArrowUp'], ['Ctrl-Alt-Shift-ArrowDown']]);
+    // VS Code on Linux scrolls with them; on Windows it leaves them to IntelliJ's.
+    expect(keys(vscode('Linux x86_64'))).toEqual([[], []]);
+    expect(keys(vscode('Win32'))).toEqual([['Ctrl-Shift-ArrowUp'], ['Ctrl-Shift-ArrowDown']]);
+    const mac = new Keymap('mac');
+    mac.setPreset(INTELLIJ_MAC);
+    expect(editorKeys(mac)).toMatchObject({ moveStatementUp: ['Shift-Meta-ArrowUp'] });
+    mac.setPreset(MACOS_SYSTEM);
+    expect(editorKeys(mac)).toMatchObject({ moveStatementUp: ['Ctrl-Shift-ArrowUp'] });
+  });
+
   it('are written as CodeMirror writes them', () => {
     expect(codeMirrorKey('Ctrl+B')).toBe('Ctrl-b');
     expect(codeMirrorKey('Ctrl+K Ctrl+T')).toBe('Ctrl-k Ctrl-t');
@@ -161,6 +210,8 @@ describe('the editor’s keys', () => {
       blockComment: ['Ctrl-Shift-/'],
       moveLineUp: ['Alt-Shift-ArrowUp'],
       moveLineDown: ['Alt-Shift-ArrowDown'],
+      moveStatementUp: ['Ctrl-Shift-ArrowUp'],
+      moveStatementDown: ['Ctrl-Shift-ArrowDown'],
       deleteLine: ['Ctrl-y'],
       startNewLine: ['Shift-Enter'],
       startNewLineBefore: ['Ctrl-Alt-Enter'],
@@ -170,6 +221,10 @@ describe('the editor’s keys', () => {
       expandWord: ['Alt-/'],
       expandWordBackward: ['Alt-Shift-/'],
       matchBrace: ['Ctrl-Shift-m'],
+      codeBlockStart: ['Ctrl-['],
+      codeBlockEnd: ['Ctrl-]'],
+      codeBlockStartWithSelection: ['Ctrl-Shift-['],
+      codeBlockEndWithSelection: ['Ctrl-Shift-]'],
       extendSelection: ['Ctrl-w'],
       shrinkSelection: ['Ctrl-Shift-w'],
       scrollUp: ['Ctrl-ArrowUp'],
@@ -207,6 +262,8 @@ describe('the editor’s keys', () => {
       'blockComment',
       'moveLineUp',
       'moveLineDown',
+      'moveStatementUp',
+      'moveStatementDown',
       'deleteLine',
       'startNewLine',
       'startNewLineBefore',
@@ -216,6 +273,10 @@ describe('the editor’s keys', () => {
       'expandWord',
       'expandWordBackward',
       'matchBrace',
+      'codeBlockStart',
+      'codeBlockEnd',
+      'codeBlockStartWithSelection',
+      'codeBlockEndWithSelection',
       'extendSelection',
       'shrinkSelection',
       'scrollUp',

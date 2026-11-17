@@ -541,7 +541,6 @@ export function setupCommands(
     item: { command: 'editor.copyContentRootPath' },
     group: 'b',
   });
-  menus.contribute({ menu: 'editor/content', item: { command: 'file.goTo' }, group: 'a' });
   menus.contribute({ menu: 'main/file', item: { command: 'symbol.goTo' }, group: 'a' });
 
   keymap.bindDefault('Ctrl+F4', 'editor.close');
