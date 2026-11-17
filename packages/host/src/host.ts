@@ -104,6 +104,7 @@ import { createPatch, writePatch } from './patch.js';
 import { protectedBranchHolding } from './protected-branches.js';
 import { resetHead, undoCommit } from './reset.js';
 import { drop, editCheck, reword, undoEdit } from './commit-editing.js';
+import { interactiveRebase, rebaseCommits, type RebaseEntry } from './interactive-rebase.js';
 import {
   abortOperation,
   acceptSide,
@@ -179,6 +180,11 @@ export interface HostOptions {
   pty?: SpawnPty;
   /** The command an agent's hooks run, the hook's name after it. Default: this host's entry. */
   hookCommand?: string;
+  /**
+   * The command git runs as its editors in an interactive rebase, `sequence` or `message` and a file
+   * after it. Default: this host's entry, as `rebase-editor`.
+   */
+  rebaseEditorCommand?: string;
   /** The program and arguments git's askpass scripts run, `askpass` and more after them. */
   askPassCommand?: readonly string[];
   /** The language servers. Default: Cerebro's own, started as needed. */
@@ -229,6 +235,14 @@ export function shellWord(word: string): string {
   return `'${word.replaceAll("'", "'\\''")}'`;
 }
 
+/** Git's editors in an interactive rebase: this host's own entry point, run as Node. */
+export function defaultRebaseEditorCommand(
+  execPath = process.execPath,
+  entry = process.argv[1] ?? '',
+): string {
+  return `ELECTRON_RUN_AS_NODE=1 ${shellWord(execPath)} ${shellWord(entry)} rebase-editor`;
+}
+
 /** The hooks' command: this host's own entry point, run as Node, as a hook client. */
 export function defaultHookCommand(
   execPath = process.execPath,
@@ -261,6 +275,7 @@ export const nodePty: SpawnPty = (file, args, options) => {
 /** Registers the host's methods on `connection`; the function returned ends what they started. */
 export function serveOn(connection: Connection, options: HostOptions): () => Promise<void> {
   const git = options.git ?? runGit;
+  const rebaseEditor = options.rebaseEditorCommand ?? defaultRebaseEditorCommand();
   const gitBytes = options.gitBytes ?? runGitBytes;
   connection.onRequest('host.ping', () => ({ version: PROTOCOL_VERSION }));
   /** The repository a request names, else the host's own. */
@@ -921,11 +936,13 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
   // Abort Merge and Abort Rebase.
   connection.onRequest('git.continue', (params) => {
     const worktree = text(params, 'path');
-    return recording(worktree, 'Continue', git, () => continueOperation(worktree, git));
+    return recording(worktree, 'Continue', git, () =>
+      continueOperation(worktree, git, rebaseEditor),
+    );
   });
   connection.onRequest('git.skipCommit', (params) => {
     const worktree = text(params, 'path');
-    return recording(worktree, 'Skip Commit', git, () => skipCommit(worktree, git));
+    return recording(worktree, 'Skip Commit', git, () => skipCommit(worktree, git, rebaseEditor));
   });
   connection.onRequest('git.abort', async (params) => {
     const worktree = text(params, 'path');
@@ -996,6 +1013,46 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
     const hash = hashOf(params);
     const head = hashOf(params, 'head');
     return recording(worktree, 'Drop Commit', git, () => drop(worktree, hash, head, git));
+  });
+  // The Log's Interactive Rebase from Here…: the commits for its dialog, then the rebase.
+  connection.onRequest('git.rebaseCommits', (params) =>
+    rebaseCommits(text(params, 'path'), hashOf(params), git),
+  );
+  connection.onRequest('git.interactiveRebase', (params) => {
+    const worktree = text(params, 'path');
+    const hash = hashOf(params);
+    const p = params as { expected?: unknown; entries?: unknown };
+    const hashes = (list: unknown) =>
+      Array.isArray(list) &&
+      list.every((h) => typeof h === 'string' && /^[0-9a-f]{4,64}$/i.test(h));
+    if (!hashes(p.expected)) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'expected must be a list of commit hashes');
+    }
+    const entries = p.entries;
+    const actions: readonly unknown[] = ['pick', 'edit', 'reword', 'fixup', 'drop'];
+    if (
+      !Array.isArray(entries) ||
+      !entries.every((e: Partial<Record<keyof RebaseEntry, unknown>> | null) => {
+        if (typeof e !== 'object' || e === null) return false;
+        return (
+          actions.includes(e.action) &&
+          hashes([e.hash]) &&
+          (e.message === undefined || typeof e.message === 'string')
+        );
+      })
+    ) {
+      throw new ResponseError(ErrorCodes.InvalidParams, 'entries must be rebase entries');
+    }
+    return recording(worktree, 'Interactive Rebase', git, () =>
+      interactiveRebase(
+        worktree,
+        hash,
+        p.expected as string[],
+        entries as RebaseEntry[],
+        rebaseEditor,
+        git,
+      ),
+    );
   });
   // Their notification's Undo: HEAD back where it was before, unless it has moved since.
   connection.onRequest('git.undoEdit', (params) => {

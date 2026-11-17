@@ -272,11 +272,24 @@ export async function repositoryState(worktree: string, run: Git): Promise<Repos
   return state;
 }
 
-/** A rebase carried on, `--continue` or `--skip`: whether conflicts stopped it again. */
-async function rebaseOn(worktree: string, how: string, run: Git): Promise<'done' | 'conflicts'> {
+/**
+ * A rebase carried on, `--continue` or `--skip`: whether conflicts stopped it again. Git's editor
+ * is `editor` with `message` (the interactive rebase's, `rebase-editor.ts`, giving the messages
+ * reworded in its dialog, as IntelliJ's editor handler does when it's continued); each other commit
+ * keeps its message as it was, as IntelliJ's continue edits none.
+ */
+async function rebaseOn(
+  worktree: string,
+  how: string,
+  run: Git,
+  editor: string,
+): Promise<'done' | 'conflicts'> {
   try {
-    // Each commit with its message as it was, as IntelliJ's continue, which edits none.
-    await run(worktree, ['rebase', how], { GIT_EDITOR: 'true' });
+    const gitDir = (await run(worktree, ['rev-parse', '--absolute-git-dir'])).trim();
+    await run(worktree, ['rebase', how], {
+      GIT_EDITOR: `${editor} message`,
+      CEREBRO_GIT_DIR: gitDir,
+    });
   } catch (error) {
     if ((await unmerged(worktree, 'rebase', run)).length > 0) return 'conflicts';
     throw error;
@@ -289,19 +302,27 @@ async function rebaseOn(worktree: string, how: string, run: Git): Promise<'done'
  * with git's message (`GitMerger.mergeCommit`), or the rebase continued, which may stop at the next
  * commit's conflicts. Says whether conflicts stopped it.
  */
-export async function continueOperation(worktree: string, run: Git): Promise<'done' | 'conflicts'> {
+export async function continueOperation(
+  worktree: string,
+  run: Git,
+  editor = 'true',
+): Promise<'done' | 'conflicts'> {
   const op = await operation(worktree, run);
   if (op === 'merge') {
     const message = (await gitFile(worktree, 'MERGE_MSG', run)) as string;
     await run(worktree, ['commit', '-F', message]);
     return 'done';
   }
-  return op === 'rebase' ? rebaseOn(worktree, '--continue', run) : 'done';
+  return op === 'rebase' ? rebaseOn(worktree, '--continue', run, editor) : 'done';
 }
 
 /** IntelliJ's Skip Commit: the rebase goes on without the commit it stopped at. */
-export function skipCommit(worktree: string, run: Git): Promise<'done' | 'conflicts'> {
-  return rebaseOn(worktree, '--skip', run);
+export function skipCommit(
+  worktree: string,
+  run: Git,
+  editor = 'true',
+): Promise<'done' | 'conflicts'> {
+  return rebaseOn(worktree, '--skip', run, editor);
 }
 
 /** IntelliJ's Abort Merge and Abort Rebase: back to where it started, by git's `--abort`. */
