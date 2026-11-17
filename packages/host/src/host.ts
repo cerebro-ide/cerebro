@@ -974,8 +974,11 @@ export function serveOn(connection: Connection, options: HostOptions): () => Pro
   // why not), then done, if HEAD is still there. Rewording touches no file, so nothing's recorded.
   connection.onRequest('git.editCheck', (params) => {
     const editing = (params as { editing?: unknown }).editing;
-    if (editing !== 'reword' && editing !== 'drop') {
-      throw new ResponseError(ErrorCodes.InvalidParams, 'editing must be reword or drop');
+    if (editing !== 'reword' && editing !== 'drop' && editing !== 'fixup' && editing !== 'squash') {
+      throw new ResponseError(
+        ErrorCodes.InvalidParams,
+        'editing must be reword, drop, fixup or squash',
+      );
     }
     return editCheck(text(params, 'path'), hashOf(params), editing, protectedOf(params), git);
   });

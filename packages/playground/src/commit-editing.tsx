@@ -14,6 +14,7 @@ import { signal } from '@cerebro-ide/reactive';
 import type { Notification } from '@cerebro-ide/ui-notifications';
 import { openDialog } from '@cerebro-ide/ui-dialog';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
+import { commitWithMessage, nothingToCommit } from './changes.js';
 import { saveBeforeGit } from './documents.js';
 import { currentBranch } from './git-fields.js';
 import type { LogCommit, LogCommitContext } from './git-log.js';
@@ -23,16 +24,19 @@ import { PROTECTED } from './push.js';
 import { resetting } from './reset.js';
 import { refreshAll } from './shelf.js';
 
-type Editing = 'reword' | 'drop';
+/** What's done: a commit edited, or a fixup or squash commit made for it. */
+type Editing = 'reword' | 'drop' | 'fixup' | 'squash';
 
 /** IntelliJ's titles for why it can't be done. */
 const FAILURE: Record<Editing, string> = {
   reword: 'Could not Edit Commit Message',
   drop: 'Could not Drop Commits',
+  fixup: 'Cannot Create Fixup Commit',
+  squash: 'Cannot Create Squash Commit',
 };
 
 /** IntelliJ's words for an edit's Undo: while it's done, when it can't be, and when it fails. */
-const UNDO: Record<Editing, { progress: string; impossible: string; failed: string }> = {
+const UNDO: Record<'reword' | 'drop', { progress: string; impossible: string; failed: string }> = {
   reword: {
     progress: 'Undoing reword…',
     impossible: 'Cannot undo commit message edit',
@@ -48,7 +52,7 @@ const UNDO: Record<Editing, { progress: string; impossible: string; failed: stri
  */
 function notifyEdited(
   at: LogCommitContext,
-  editing: Editing,
+  editing: keyof typeof UNDO,
   said: { title: string; content?: string },
   before: string,
   after: string,
@@ -242,6 +246,15 @@ async function rewordCommit(at: LogCommitContext): Promise<void> {
   await reread(at, 'Edit Commit Message', reworded);
 }
 
+/**
+ * Fixup… and Squash Into…: the checks, then the Commit window with every change going in and the
+ * message git's `rebase --autosquash` takes for the commit (IntelliJ's `GitAutoSquashCommitAction`).
+ */
+async function autoSquash(at: LogCommitContext, editing: 'fixup' | 'squash'): Promise<void> {
+  if ((await checked(at, editing)) === undefined) return;
+  await commitWithMessage(at.worktree, `${editing}! ${at.commit.subject}`);
+}
+
 /** Where "Don't ask again" before a drop is kept, as IntelliJ's `isShowDropCommitDialog`. */
 const DROP_ASKS = 'cerebro.drop.ask';
 
@@ -334,7 +347,23 @@ export function setupCommitEditing(services: MenuServices): void {
     run: rewordCommit,
   });
   menus.contribute({ menu: 'log/commit', item: { command: 'log.reword' }, group: 'g', order: 3 });
-  // After it, IntelliJ's Fixup and Squash Into between (Cerebro hasn't them); not for a merge.
+  // After it, IntelliJ's Fixup… and Squash Into…: not for a merge (`checkNotMergeCommit`), nor
+  // where there's nothing to commit (`GitAutoSquashCommitAction.update`).
+  for (const [id, label, editing, order] of [
+    ['log.fixup', 'Fixup', 'fixup', 4],
+    ['log.squashInto', 'Squash Into', 'squash', 5],
+  ] as const) {
+    commands.register<LogCommitContext>({
+      id,
+      label,
+      dialog: true,
+      enabled: (at?: LogCommitContext) =>
+        at !== undefined && at.commit.parents.length <= 1 && !nothingToCommit(at.worktree),
+      run: (at: LogCommitContext) => autoSquash(at, editing),
+    });
+    menus.contribute({ menu: 'log/commit', item: { command: id }, group: 'g', order });
+  }
+  // Then Drop Commit; not for a merge.
   commands.register<LogCommitContext>({
     id: 'log.drop',
     label: 'Drop Commit',
@@ -342,5 +371,5 @@ export function setupCommitEditing(services: MenuServices): void {
       at !== undefined && resetting.get() === undefined && at.commit.parents.length <= 1,
     run: dropCommit,
   });
-  menus.contribute({ menu: 'log/commit', item: { command: 'log.drop' }, group: 'g', order: 4 });
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.drop' }, group: 'g', order: 6 });
 }

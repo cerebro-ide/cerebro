@@ -281,6 +281,62 @@ function changesOf(worktree: string): Changes {
   return untracked(() => made(worktree));
 }
 
+/** A failure's dialog: its title, and the error's words. */
+const fail = (title: string) => (error: unknown) => {
+  openDialog({
+    title,
+    content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+  });
+};
+
+/** Shows the Commit window, its message field focused: `setupChanges` sets it. */
+let showCommit: () => void;
+
+/**
+ * The documents saved and a worktree's changes read again, then the Commit window shown, unless
+ * `prepare` (which sets what goes in) says not to.
+ */
+async function toCommit(worktree: string, prepare: (changes: Changes) => boolean): Promise<void> {
+  await saveBeforeGit();
+  const changes = changesOf(worktree);
+  try {
+    await changes.refresh();
+  } catch (error) {
+    fail('Couldn’t Read the Changes')(error);
+    return;
+  }
+  if (prepare(changes)) showCommit();
+}
+
+/** Whether a worktree's changes, read, have none to commit; not known before they're read. */
+export function nothingToCommit(worktree: string): boolean {
+  return lists.get(worktree)?.tracked().length === 0;
+}
+
+/**
+ * The Commit window shown with all of a worktree's changes going in and `message` as the commit's,
+ * as IntelliJ's Fixup… and Squash Into… show its commit dialog (`GitAutoSquashCommitAction`);
+ * IntelliJ's "Nothing to Commit" where there are none (`showNothingToCommitMessage`).
+ */
+export function commitWithMessage(worktree: string, message: string): Promise<void> {
+  return toCommit(worktree, (changes) => {
+    if (changes.tracked().length === 0) {
+      openDialog({
+        title: 'Nothing to Commit',
+        cancelLabel: 'OK',
+        content: () => <p>No changes detected</p>,
+      });
+      return false;
+    }
+    batch(() => {
+      changes.included.clear();
+      changes.excluded.clear();
+      changes.message.set(message);
+    });
+    return true;
+  });
+}
+
 /** Puts a message in a worktree's Commit window: Undo Commit's, as IntelliJ's, to commit again. */
 export function setCommitMessage(worktree: string, message: string): void {
   changesOf(worktree).message.set(message);
@@ -931,10 +987,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   /** From the window's toolbar or menus, or a shortcut while it has the keyboard. */
   /** Whether a command acts on the Commit window. */
   const here = (context: unknown) => viewOf(context) === 'changes';
-  const fail = (title: string) => (error: unknown) => {
-    openDialog({
-      title,
-      content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+  showCommit = () => {
+    setup.show();
+    requestAnimationFrame(() => {
+      messageField()?.focus();
     });
   };
   const openFile = (item: Extract<Item, { kind: 'change' }>) => {
@@ -1207,26 +1263,17 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     },
     run: async (c) => {
       const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
-      await saveBeforeGit();
-      const changes = changesOf(at.worktree);
-      try {
-        await changes.refresh();
-      } catch (error) {
-        fail('Couldn’t Read the Changes')(error);
-        return;
-      }
       const under = (path: string) =>
         at.path === '' || path === at.path || path.startsWith(`${at.path}/`);
-      batch(() => {
-        changes.included.clear();
-        changes.excluded.clear();
-        for (const change of changes.tracked()) {
-          if (!under(change.path)) changes.excluded.add(change.path);
-        }
-      });
-      setup.show();
-      requestAnimationFrame(() => {
-        messageField()?.focus();
+      await toCommit(at.worktree, (changes) => {
+        batch(() => {
+          changes.included.clear();
+          changes.excluded.clear();
+          for (const change of changes.tracked()) {
+            if (!under(change.path)) changes.excluded.add(change.path);
+          }
+        });
+        return true;
       });
     },
   });

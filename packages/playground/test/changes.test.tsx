@@ -6,6 +6,7 @@ import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { setupBlame } from '../src/blame.js';
+import { setupCommitEditing } from '../src/commit-editing.js';
 import {
   AgentChangesView,
   type Change,
@@ -71,6 +72,7 @@ const fails = (method: string) => {
   if (git.failing === method) throw new Error(`${method} failed`);
 };
 const host = new FakeHost({
+  'git.editCheck': () => ({ head: 'abc1234def5678' }),
   'git.changes': async ({ from, to }: { from?: string; to?: string }) => {
     fails('git.changes');
     if (from !== undefined) return git.turnFiles[`${from}..${String(to)}`] ?? [];
@@ -219,6 +221,7 @@ beforeAll(() => {
   setupDiffWithWorkingTree(services, () => {
     revealed++;
   });
+  setupCommitEditing(services);
 });
 
 /** Each test's own worktree, in the project: the window keeps each one's changes, as left. */
@@ -819,6 +822,67 @@ describe('the Git submenu’s Commit File…', () => {
     git.failing = 'git.changes';
     void commands.get(id)?.run(undefined);
     expect(await dialogText()).toContain('git.changes failed');
+  });
+});
+
+describe('the Log’s Fixup… and Squash Into…, through the Commit window', () => {
+  const ticked = () =>
+    CHANGES.filter((c) => c.status !== 'untracked')
+      .map((c) => c.path)
+      .filter((path) => include(`${GROUP}:${path}`).checked);
+  const message = () => document.querySelector<HTMLTextAreaElement>('.playground-commit__message');
+  const at = () => ({
+    commit: {
+      hash: 'abc1234def5678',
+      parents: ['0123456789abcd'],
+      author: 'Ada',
+      email: 'ada@x.org',
+      time: 0,
+      subject: 'Fix the thing',
+      body: 'Why.\n',
+      refs: [],
+    },
+    worktree: wt,
+    host,
+    head: 'abc1234def5678',
+    refresh: () => Promise.resolve(),
+    select: () => Promise.resolve(true),
+  });
+
+  it('put every change in, with git’s autosquash message, as IntelliJ’s', async () => {
+    await changesView();
+    await userEvent.click(include(`${GROUP}:README.md`));
+    const before = shown;
+    await commands.get('log.fixup')?.run(at());
+    await expect
+      .poll(ticked)
+      .toEqual(CHANGES.filter((c) => c.status !== 'untracked').map((c) => c.path));
+    expect(message()?.value).toBe('fixup! Fix the thing');
+    expect(shown).toBe(before + 1);
+    await expect.poll(() => document.activeElement).toBe(message());
+    message()?.blur();
+    await commands.get('log.squashInto')?.run(at());
+    await expect.poll(() => message()?.value).toBe('squash! Fix the thing');
+    // Its field focused a frame later: waited for, or it'd take the focus in the next test.
+    await expect.poll(() => document.activeElement).toBe(message());
+    expect(host.params('git.editCheck')).toMatchObject([
+      { path: wt, hash: 'abc1234def5678', editing: 'fixup' },
+      { path: wt, hash: 'abc1234def5678', editing: 'squash' },
+    ]);
+  });
+
+  it('are off with nothing to commit, and say so if it’s gone by then', async () => {
+    // Not read yet: on.
+    expect(commands.isEnabled('log.fixup', at())).toBe(true);
+    git.changes = CHANGES.filter((c) => c.status === 'untracked');
+    await changesView(git.changes);
+    await expect.poll(() => commands.isEnabled('log.fixup', at())).toBe(false);
+    const before = shown;
+    void commands.get('log.fixup')?.run(at());
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Nothing to Commit');
+    expect(await dialogText()).toBe('No changes detected');
+    expect(shown).toBe(before);
   });
 });
 

@@ -23,14 +23,19 @@ const DURING = {
   revert: 'revert',
 } as const;
 
-/** The commit editing operations, by IntelliJ's names in its words ("Cannot reword during …"). */
-export type Editing = 'reword' | 'drop';
+/**
+ * The commit editing operations, by IntelliJ's names in its words ("Cannot reword during …"); a
+ * fixup or squash commit is made for one (Fixup… and Squash Into…).
+ */
+export type Editing = 'reword' | 'drop' | 'fixup' | 'squash';
 
 /**
  * Whether `hash` can be edited, as IntelliJ checks before it asks anything: HEAD's commit then, to
  * check it hasn't moved when it's done (`{ head }`), or IntelliJ's words for why not
  * (`{ refused }`): not in the current branch, on a protected branch of a remote (`branches` names
- * them), or something under way, though a rebase allows rewording HEAD's commit.
+ * them), or something under way, though a rebase allows rewording HEAD's commit. A fixup or squash
+ * commit, only committed, can be made for one whatever's under way, as IntelliJ's
+ * (`GitSingleCommitEditingAction`'s checks).
  */
 export async function editCheck(
   worktree: string,
@@ -51,6 +56,7 @@ export async function editCheck(
   }
   const op = await operation(worktree, run);
   const isHead = (await run(worktree, ['rev-parse', hash])).trim() === head;
+  if (editing === 'fixup' || editing === 'squash') return { head };
   if (op !== undefined && !(op === 'rebase' && isHead && editing === 'reword')) {
     return { refused: `Cannot ${editing} during ${DURING[op]}` };
   }

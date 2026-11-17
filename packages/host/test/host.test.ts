@@ -1537,7 +1537,7 @@ describe('ignored files and rolling back', () => {
       ui.request('git.editCheck', {
         path: '/w',
         hash: 'abc1234',
-        editing: 'squash',
+        editing: 'edit',
         protected: [],
       }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
