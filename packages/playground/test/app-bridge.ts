@@ -115,6 +115,7 @@ export function installBridge(platform: string, menu: unknown = {}): void {
     app: true,
     platform,
     display: { setScale: (scale: string) => void calls.push(['scale', scale]) },
+    scrollbars: { jumpToSpot: () => Promise.resolve(false) },
     shell: {
       reveal: (path: string) => void calls.push(['reveal', path]),
       browse: (address: string) => void calls.push(['browse', address]),

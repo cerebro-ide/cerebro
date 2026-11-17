@@ -7,13 +7,13 @@ import '@cerebro-ide/theme/themes.css';
 import '@cerebro-ide/theme/base.css';
 import '@cerebro-ide/ui-dialog/styles.css';
 import '@cerebro-ide/ui-tooltip/styles.css';
-import { installScrollbars } from '@cerebro-ide/ui-scrollbar';
 import '@cerebro-ide/ui-scrollbar/styles.css';
 import './bridge.js';
 import { render } from '@cerebro-ide/jsx';
 import { computed, effect, signal } from '@cerebro-ide/reactive';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
 import { badgeColour, initials } from '@cerebro-ide/ui-toolbar';
+import { installAppScrollbars } from './scrollbars.js';
 import type { RecentProject } from './bridge.js';
 import { openFolder, openProject } from './projects.js';
 import { globalSettings } from './settings.js';
@@ -30,7 +30,7 @@ effect(() => {
   applyTheme(themeIsDark(globalSettings));
   return undefined;
 });
-installScrollbars({ mac: app.platform === 'darwin' });
+installAppScrollbars(app.platform === 'darwin');
 
 const recent = signal<RecentProject[]>(await bridge.recent());
 const query = signal('');
