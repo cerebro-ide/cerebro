@@ -29,6 +29,10 @@ const subjects = () => page().locator('.playground-log__message').allTextContent
 
 beforeAll(async () => {
   execFileSync('git', ['init', '-q', '-b', 'main', repo]);
+  // The rebase commits as whoever the repository says: CI's runner has no identity of its own, and
+  // git refuses to commit without one (measured: the reword failed, the list half done).
+  git('config', 'user.name', 'Ada');
+  git('config', 'user.email', 'ada@example.com');
   commit('First');
   commit('Second');
   commit('Third');
@@ -61,7 +65,16 @@ it('rebases with the list: a commit reworded, another dropped', async () => {
   await field.fill('Second, reworded\n\nWhy.');
   await field.press('Control+Enter');
   await page().locator('.cerebro-dialog__button', { hasText: 'Start Rebasing' }).click();
-  await expect.poll(subjects, HOST).toEqual(['Second, reworded', 'First']);
+  try {
+    await expect.poll(subjects, HOST).toEqual(['Second, reworded', 'First']);
+  } catch (error) {
+    // What was seen: the notifications, and what the app wrote.
+    console.log(
+      await page().locator('.cerebro-balloon').allTextContents(),
+      running.output.join(''),
+    );
+    throw error;
+  }
   expect(git('log', '--format=%B', '-1')).toBe('Second, reworded\n\nWhy.\n\n');
   expect(git('status', '--porcelain')).toBe('');
 });
