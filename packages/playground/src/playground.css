@@ -2350,3 +2350,83 @@ body,
 .cerebro-popup-item--highlighted .cerebro-snippet {
   background: transparent;
 }
+
+/* A popup centred in the window (IntelliJ's `showCenteredInCurrentWindow`): Show Current Revision's
+   from the Project view or a tab's menu, as the editor's hints look (the app's tooltips). */
+.playground-centred-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 900;
+  max-width: 500px;
+  padding: 6px 10px;
+  border: 1px solid var(--cerebro-tooltip-border);
+  border-radius: 4px;
+  background: var(--cerebro-tooltip);
+  box-shadow: var(--cerebro-shadow);
+  color: var(--cerebro-text);
+  transform: translate(-50%, -50%);
+}
+
+/* Show History for Selection, as IntelliJ's: the diff over the revisions, then the message. */
+.playground-selection-history {
+  display: flex;
+  flex-direction: column;
+  height: 640px;
+  gap: 6px;
+}
+
+.playground-selection-history__diff {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.playground-selection-history__bar {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.playground-selection-history__revisions {
+  flex: 0 0 160px;
+  overflow: auto;
+  border: 1px solid var(--cerebro-separator);
+  outline: none;
+}
+
+.playground-selection-history__row {
+  display: grid;
+  grid-template-columns: 110px 150px 140px 1fr;
+  gap: 8px;
+  padding: 2px 8px;
+  cursor: default;
+  white-space: nowrap;
+}
+
+.playground-selection-history__row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playground-selection-history__head {
+  color: var(--cerebro-text-muted);
+  border-bottom: 1px solid var(--cerebro-separator);
+}
+
+.playground-selection-history__row--selected {
+  background: var(--cerebro-selected);
+}
+
+.playground-selection-history__message {
+  flex: 0 0 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playground-selection-history__text {
+  flex: 1;
+  overflow: auto;
+  white-space: pre-wrap;
+}

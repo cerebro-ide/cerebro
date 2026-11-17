@@ -2,6 +2,7 @@ export {
   hasEditorAction,
   runEditorAction,
   selectedLines,
+  showHintIn,
   selectionIn,
   type EditorAction,
 } from './actions.js';
@@ -68,6 +69,8 @@ export {
   type HighlightPolicy,
   type IgnorePolicy,
   translateLine,
+  previousBlock,
+  type Block,
   type LineRange,
 } from './compare.js';
 export {

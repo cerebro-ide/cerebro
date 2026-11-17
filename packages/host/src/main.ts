@@ -5,11 +5,13 @@
 // in CEREBRO_SCRATCHES's, and exits when the UI closes its end (or on SIGTERM), once what's under
 // way is done. Run as `main.js hook <name>`, it's an agent's hook instead, telling the host that
 // started the agent (agents.ts); as `main.js askpass <kind> <prompt>`, git's or ssh's askpass,
-// asking the host that ran git (askpass.ts).
+// asking the host that ran git (askpass.ts); as `main.js rebase-editor sequence|message <file>`,
+// git's editors in an interactive rebase (rebase-editor.ts).
 
 import { servers } from '@cerebro-ide/servers';
 import { parseHookInput, sendHook } from './agents.js';
 import { askPassClient } from './askpass.js';
+import { rebaseEditor } from './rebase-editor.js';
 import { serve } from './host.js';
 import { LanguageServers } from './lsp.js';
 import { watchEventLoop } from './slow.js';
@@ -20,6 +22,8 @@ if (process.argv[2] === 'askpass') {
       process.exitCode = code;
     },
   );
+} else if (process.argv[2] === 'rebase-editor') {
+  process.exitCode = rebaseEditor(process.argv.slice(3), process.env, process.stderr);
 } else if (process.argv[2] === 'hook') {
   let text = '';
   process.stdin.setEncoding('utf8');

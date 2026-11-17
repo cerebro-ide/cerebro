@@ -823,7 +823,8 @@ const FILES_GROUP_BY = 'log/files/groupBy';
 const GRAPH_MENU = 'log/graphOptions';
 
 /**
- * Makes the file at `path` as commit `hash` has it at `source` (where it was, if renamed since),
+ * Makes the file at `path` as `revision` has it at `source` (where it was, if renamed since): a
+ * commit's hash, or a branch or a tag in full (`refs/heads/main`),
  * or deletes it where the commit hasn't it, as IntelliJ's Get (`GetVersionAction`): asked first
  * where the file has a change here, untracked or not saved yet too, then the edits saved; then read
  * again.
@@ -831,7 +832,7 @@ const GRAPH_MENU = 'log/graphOptions';
 export async function getRevision(
   host: Host,
   worktree: string,
-  hash: string,
+  revision: string,
   path: string,
   source = path,
 ): Promise<void> {
@@ -840,7 +841,7 @@ export async function getRevision(
   try {
     await host.request('git.getVersion', {
       path: worktree,
-      hash,
+      ...(revision.startsWith('refs/') ? { ref: revision } : { hash: revision }),
       file: path,
       ...(source === path ? {} : { source }),
     });

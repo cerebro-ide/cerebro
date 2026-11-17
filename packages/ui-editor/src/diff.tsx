@@ -86,6 +86,11 @@ export interface DiffEditorProps extends Appearance {
    * Show Diff.
    */
   scrollTo?: DiffScroll;
+  /**
+   * Each side's first line's number in its file, from 0, where the sides are parts of files: the
+   * lines are numbered as there, as IntelliJ's `LINE_NUMBER_CONVERTOR`. Default: 0 for both.
+   */
+  firstLines?: readonly [number, number];
 }
 
 /** Where a diff's caret starts: `DiffEditorProps.scrollTo`. */
@@ -357,11 +362,13 @@ export function DiffEditor(props: DiffEditorProps): Node {
 
   const language = languageFor(props.path);
   const settings = [new Compartment(), new Compartment()] as const;
-  const numbers = lineNumbers();
-  const configure = (): Extension => [
+  const [firstA, firstB] = props.firstLines ?? [0, 0];
+  const numbered = (first: number) => lineNumbers({ formatNumber: (n) => String(n + first) });
+  const numbers = { a: numbered(firstA), b: numbered(firstB) };
+  const configure = (side: Side): Extension => [
     EditorState.tabSize.of(props.tabSize?.() ?? 4),
     EditorView.theme({ '.cm-scroller': scroller(props.fontSize?.() ?? 13) }),
-    appearance(props, numbers),
+    appearance(props, numbers[side]),
   ];
   /** The side last focused, as IntelliJ's current one: the right one to start with. */
   const current = signal<Side>('b');
@@ -378,7 +385,7 @@ export function DiffEditor(props: DiffEditorProps): Node {
       parent: frame,
       extensions: [
         // First: the line numbers, which `gutterObstacle` marks.
-        compartment.of(configure()),
+        compartment.of(configure(side)),
         gutterObstacle,
         fullWidth,
         selection,
@@ -795,9 +802,8 @@ export function DiffEditor(props: DiffEditorProps): Node {
   }
 
   const watch = effect(() => {
-    const configured = configure();
-    views.a.dispatch({ effects: settings[0].reconfigure(configured) });
-    views.b.dispatch({ effects: settings[1].reconfigure(configured) });
+    views.a.dispatch({ effects: settings[0].reconfigure(configure('a')) });
+    views.b.dispatch({ effects: settings[1].reconfigure(configure('b')) });
     return undefined;
   });
   let folding: string | undefined;

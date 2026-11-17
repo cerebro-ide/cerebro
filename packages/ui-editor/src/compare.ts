@@ -220,3 +220,61 @@ export function translateLine(before: string, after: string, line: number): numb
   }
   return result;
 }
+
+/** Lines of a file, from 0, `end` excluded: IntelliJ's `Block`. */
+export interface Block {
+  start: number;
+  end: number;
+}
+
+/**
+ * Where a change in `current` moves a block's lines (`DiffUtil.updateRangeOnModification`): a change
+ * from `changeStart` to `changeEnd` that's `shift` lines longer before it. One overlapping the
+ * block widens it to the change's lines where `greedy` (a block of lines); an empty block in one
+ * goes after it.
+ */
+function updated(
+  block: Block,
+  changeStart: number,
+  changeEnd: number,
+  shift: number,
+  greedy: boolean,
+): Block {
+  const { start, end } = block;
+  if (end <= changeStart) return block;
+  if (start >= changeEnd) return { start: start + shift, end: end + shift };
+  if (start <= changeStart && end >= changeEnd) return { start, end: end + shift };
+  const newEnd = changeEnd + shift;
+  if (start >= changeStart && end <= changeEnd) {
+    return greedy ? { start: changeStart, end: newEnd } : { start: newEnd, end: newEnd };
+  }
+  // Only a block of lines (so `greedy`) can overlap one end of a change.
+  if (start < changeStart) return { start, end: newEnd };
+  return { start: changeStart, end: end + shift };
+}
+
+/**
+ * The lines of `previous`, an earlier version of `current`, that a block of `current`'s lines was,
+ * as IntelliJ's Show History for Selection follows the selection back (`Block.createPreviousBlock`):
+ * the versions compared by lines, white space ignored, the block moved by each change before it
+ * and grown by those in it. An empty block stays empty.
+ */
+export function previousBlock(current: string, previous: string, block: Block): Block {
+  const text = (lines: string) => Text.of(lines.split(/\r\n?|\n/));
+  const before = text(previous);
+  let found = block;
+  let shift = 0;
+  for (const change of compare(before, text(current), 'whitespaces', 'lines')) {
+    const changeShift = change.end1 - change.start1 - (change.end2 - change.start2);
+    found = updated(
+      found,
+      change.start2 + shift,
+      change.end2 + shift,
+      changeShift,
+      block.start !== block.end,
+    );
+    shift += changeShift;
+  }
+  const start = Math.min(Math.max(found.start, 0), before.lines);
+  return { start, end: Math.min(Math.max(found.end, start), before.lines) };
+}

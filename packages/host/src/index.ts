@@ -29,6 +29,8 @@ export {
   removeWorktree,
   rewriteParents,
   rollback,
+  addFiles,
+  excludeFile,
   addRemote,
   changeRemote,
   checkRemote,
@@ -70,6 +72,7 @@ export {
 } from './agents.js';
 export {
   defaultHookCommand,
+  defaultRebaseEditorCommand,
   makeSpawnHelperExecutable,
   nodePty,
   PROTOCOL_VERSION,
@@ -274,4 +277,20 @@ export {
 export { createPatch, messageHeader, writePatch, type PatchOptions } from './patch.js';
 export { protectedBranchHolding } from './protected-branches.js';
 export { drop, editCheck, reword, undoEdit, type Editing } from './commit-editing.js';
+export {
+  interactiveRebase,
+  rebaseCommits,
+  type InteractiveResult,
+  type RebaseAction,
+  type RebaseCommit,
+  type RebaseEntry,
+} from './interactive-rebase.js';
+export {
+  COULDNT_START,
+  editMessage,
+  editSequence,
+  rebaseEditor,
+  type RebasePlan,
+  type Reworded,
+} from './rebase-editor.js';
 export { resetHead, undoCommit, type ResetMode } from './reset.js';

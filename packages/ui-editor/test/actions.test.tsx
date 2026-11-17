@@ -10,6 +10,7 @@ import {
   runEditorAction,
   selectedLines,
   selectionIn,
+  showHintIn,
   type CodeEditorProps,
 } from '../src/index.js';
 
@@ -69,8 +70,31 @@ describe('the editor’s actions', () => {
     // A selection ending at a line's start leaves that line out; one ending in it, not.
     await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
     expect(selectedLines(content)).toEqual({ first: 1, last: 1 });
+    // Kept where asked, as IntelliJ's VcsSelection keeps it.
+    expect(selectedLines(content, true)).toEqual({ first: 1, last: 2 });
     await userEvent.keyboard('{Shift>}{ArrowRight}{/Shift}');
     expect(selectedLines(content)).toEqual({ first: 1, last: 2 });
+  });
+
+  it('show a hint at the caret, of several lines, until the caret moves; none outside one', async () => {
+    const { content, outside } = mount({ path: 'a.ts', text: 'a\nb\nc\n' });
+    const message = () => {
+      const lines = document.createElement('div');
+      lines.append('one', document.createElement('br'), 'two');
+      return lines;
+    };
+    expect(showHintIn(outside, message())).toBe(false);
+    await userEvent.click(content);
+    const root = content.getRootNode() as ShadowRoot;
+    const hint = () => root.querySelector('.cerebro-hint');
+    expect(showHintIn(content, message())).toBe(true);
+    await expect.poll(() => hint()?.innerHTML).toBe('<div>one<br>two</div>');
+    // The click left it on the last line.
+    await userEvent.keyboard('{ArrowUp}');
+    await expect.poll(hint).toBeNull();
+    // Again, the editor having what shows them now.
+    expect(showHintIn(content, message())).toBe(true);
+    await expect.poll(hint).not.toBeNull();
   });
 
   it('run from outside on the editor, the keyboard back in it', async () => {

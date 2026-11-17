@@ -1,5 +1,5 @@
 // A hint at the caret, as IntelliJ's: why there's nothing to rename, how many lines Reformat Code
-// changed. It goes when the text or the caret changes.
+// changed, a file's current revision. It goes when the text or the caret changes.
 
 import { StateEffect, StateField } from '@codemirror/state';
 import { EditorView, showTooltip, type Tooltip } from '@codemirror/view';
@@ -16,8 +16,8 @@ export const hinted = StateField.define<Tooltip | null>({
   provide: (field) => showTooltip.from(field),
 });
 
-/** Shows `message` at the caret. */
-export function showHint(view: EditorView, message: string): void {
+/** Shows `message` at the caret: a text, or what's made for it (several lines). */
+export function showHint(view: EditorView, message: string | Node): void {
   const pos = view.state.selection.main.head;
   view.dispatch({
     effects: hint.of({
@@ -26,7 +26,7 @@ export function showHint(view: EditorView, message: string): void {
       create: () => {
         const dom = document.createElement('div');
         dom.className = 'cerebro-hint';
-        dom.textContent = message;
+        dom.append(message);
         return { dom };
       },
     }),

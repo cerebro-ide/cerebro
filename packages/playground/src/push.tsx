@@ -1078,7 +1078,7 @@ export function setupPush(services: MenuServices): void {
     },
   });
   // After Reset, Revert and Undo Commit (and the rebase actions Cerebro hasn't), as IntelliJ's.
-  menus.contribute({ menu: 'log/commit', item: { command: 'log.pushUpTo' }, group: 'g', order: 5 });
+  menus.contribute({ menu: 'log/commit', item: { command: 'log.pushUpTo' }, group: 'g', order: 7 });
   keymap?.bindDefault('Mod+Shift+K', 'vcs.push');
   menus.contribute({ menu: 'main/git', item: { command: 'vcs.push' }, group: 'a', order: 1 });
 }

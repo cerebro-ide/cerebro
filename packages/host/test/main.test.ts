@@ -12,6 +12,8 @@ const agents = vi.hoisted(() => ({
 vi.mock('../src/agents.js', () => agents);
 const askpass = vi.hoisted(() => ({ askPassClient: vi.fn(() => Promise.resolve(3)) }));
 vi.mock('../src/askpass.js', () => askpass);
+const editor = vi.hoisted(() => ({ rebaseEditor: vi.fn(() => 1) }));
+vi.mock('../src/rebase-editor.js', () => editor);
 // The language servers it's given: their ids.
 const lsp = vi.hoisted(() => ({
   LanguageServers: vi.fn(function (this: { ids: string[] }, specs: { id: string }[]) {
@@ -145,4 +147,21 @@ it('is git’s askpass when asked: it asks the host, exiting as the client says'
   process.exitCode = undefined;
   process.argv = argv;
   expect(host.serve).not.toHaveBeenCalled();
+});
+
+it('is git’s editor in an interactive rebase when asked, its exit code the editor’s', async () => {
+  vi.resetModules();
+  host.serve.mockClear();
+  const argv = process.argv;
+  process.argv = [argv[0] as string, 'main.js', 'rebase-editor', 'sequence', '/todo'];
+  await import('../src/main.js');
+  expect(editor.rebaseEditor).toHaveBeenCalledWith(
+    ['sequence', '/todo'],
+    process.env,
+    process.stderr,
+  );
+  expect(process.exitCode).toBe(1);
+  expect(host.serve).not.toHaveBeenCalled();
+  process.exitCode = 0;
+  process.argv = argv;
 });

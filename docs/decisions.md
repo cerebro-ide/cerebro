@@ -60,7 +60,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Code Style: the indent (2026-11-08)](#code-style-the-indent-2026-11-08): IntelliJ's options and defaults, a file's indent detected as IntelliJ's, shown on the status bar, with its menu
 - [Updating the project (2026-11-09)](#updating-the-project-2026-11-09): IntelliJ's Update Project (Git → Update Project…, Ctrl+T, and the Push banner's Update project…): its dialog, Merge or Rebase; fetch, then merge or rebase, local changes in the way shelved or stashed; Updating… on the status bar; how it went in IntelliJ's words, with View Commits; at conflicts, the Conflicts dialog, then on (changed 2026-11-11)
 - [Merge conflicts (2026-11-09)](#merge-conflicts-2026-11-09): IntelliJ's Conflicts dialog (Accept Yours, Accept Theirs, Merge…) and its merge window, three panes kept level, in its colours; from Git → Resolve Conflicts…, the Commit window's Merge Conflicts group, and Update Project; Resolve Simple Conflicts, Group by directory and undo in the merge window (2026-11-13)
-- [The editor's Git submenu (2026-11-13)](#the-editors-git-submenu-2026-11-13): IntelliJ's `Git.ContextMenu` in the editor's context menu, after Local History: the file's actions, Resolve Conflicts, then the repository's, of the commands Cerebro has
+- [The editor's Git submenu (2026-11-13)](#the-editors-git-submenu-2026-11-13): IntelliJ's `Git.ContextMenu` in the editor's context menu, its tabs' and the Project view's, after Local History: the file's actions, Resolve Conflicts, then the repository's, of the commands Cerebro has
 - [A Markdown file's preview (2026-11-13)](#a-markdown-files-preview-2026-11-13): Editor, Editor and Preview, or Preview, from three buttons at the tab bar's end, as IntelliJ's Markdown editor; the split turned round, dragged and kept
 - [A tool window's shortcut activates it (2026-11-12)](#a-tool-windows-shortcut-activates-it-2026-11-12): Alt+1, Alt+9 and the rest show the window with its content focused, or hide it if it has the focus, as IntelliJ's
 - [Edit → Duplicate Line or Selection (2026-11-12)](#edit--duplicate-line-or-selection-2026-11-12): IntelliJ's `EditorDuplicate`, on Ctrl+D in a code editor, ahead of Show Diff's Ctrl+D; Duplicate Entire Lines in Find Action
@@ -78,15 +78,16 @@ Read the index, then the entries that bear on the work at hand.
 - [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
+- [Git → Current File → Show History for Selection (2026-11-16)](#git--current-file--show-history-for-selection-2026-11-16): the editor's selected lines followed back through the file's commits, in IntelliJ's dialog
 - [Git → Current File → Compare with Revision (2026-11-12)](#git--current-file--compare-with-revision-2026-11-12): the editor's file as it is against one of its commits, chosen in IntelliJ's File Revisions popup, its commit message below
-- [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words
+- [Git → Current File → Compare with Branch or Tag (2026-11-12)](#git--current-file--compare-with-branch-or-tag-2026-11-12): the editor's file as it is against a branch or a tag chosen in IntelliJ's Select Branch to Compare popup; the not-in-branch error in IntelliJ's words; a Project view folder's files that differ, in the Changes tool window
 - [Git → Current File → Show Diff (2026-11-12)](#git--current-file--show-diff-2026-11-12): the editor's file against its last commit, as IntelliJ's Compare with the Same Repository Version (named Show Diff for git); Ctrl+D from the Project view
 - [Documents saved before git actions (2026-11-12)](#documents-saved-before-git-actions-2026-11-12): every modified document saved first, before the git actions IntelliJ saves before (read from its source); a file that can't be saved doesn't stop the action
 - [Diffs of images and other binary files (2026-11-11)](#diffs-of-images-and-other-binary-files-2026-11-11): why an image's diff loaded forever; the host gives binary sides as bytes; IntelliJ's Side by Side, and Swipe, Onion Skin and Difference from GitHub; another binary file's status line
 - [Cherry-Pick (2026-11-11)](#cherry-pick-2026-11-11): the Log's commit picked onto HEAD, from its toolbar or commit menu, as IntelliJ's: an empty pick skipped, the Conflicts dialog at conflicts then the pick committed; Continue and Abort Cherry-Pick in the Git menu; Revert Commit, the same way (changed 2026-11-11)
 - [Git → Rebase… (2026-11-11)](#git--rebase-2026-11-11): IntelliJ's Rebase dialog: `git rebase`, the base, Modify options; --onto's new base and another branch as fields that move; then on through conflicts as Continue Rebase
 - [Git → Manage Remotes… (2026-11-11)](#git--manage-remotes-2026-11-11): IntelliJ's Git Remotes dialog: the remotes as Name and URL, origin first; Add, Remove and Edit through Define Remote
-- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13); the Log's Drop Commit, as its in-memory drop (changed 2026-11-13); Undo and Edit again in their notifications (changed 2026-11-13)
+- [Git → Reset HEAD… (2026-11-11)](#git--reset-head-2026-11-11): IntelliJ's Reset Head dialog: Reset Type (Mixed, Soft, Hard) and To Commit with Validate; `git reset`, recorded in Local History; and the Log's Reset Current Branch to Here…, with Keep (changed 2026-11-11); the Log's Undo Commit… (changed 2026-11-11); the Log's Edit Commit Message…, as IntelliJ's in-memory reword (changed 2026-11-13); the Log's Fixup… and Squash Into…, through the Commit window (changed 2026-11-17); the Log's Drop Commit, as its in-memory drop (changed 2026-11-13); Undo and Edit again in their notifications (changed 2026-11-13)
 - [Git → New Tag… (2026-11-11)](#git--new-tag-2026-11-11): IntelliJ's Tag dialog: Tag Name, Force (only over a tag that exists), Commit with Validate, and Message, which makes it annotated; and New Tag… on a commit in the Log (changed 2026-11-11)
 - [Windows keep their size and place (2026-11-11)](#windows-keep-their-size-and-place-2026-11-11): a project's window and its diff window open as they were left, for the screens there are, if on one
 - [The diff viewer, as IntelliJ's (2026-11-11)](#the-diff-viewer-as-intellijs-2026-11-11): two editors and a divider, in IntelliJ's colours by kind; Synchronize Scrolling, Align Changes Highlighting, Collapse Unchanged Fragments (4 lines of context), Previous and Next Difference (F7), the toolbar and its gear; the ignore and highlighting policies; the unified viewer; a window of its own, or a tab if chosen (Show Diff in Editor Tab), through the list it was opened from; Appearance (whitespace, line numbers, indent guides, soft wraps)
@@ -3039,12 +3040,82 @@ Cerebro has. They act on the active editor's file, as Git → Current File's do.
   Remotes…; Abort Revert, Abort Cherry-Pick, Continue Cherry-Pick (while under way).
 - **When:** while the active worktree is a git repository with a host, as IntelliJ's `GitMenu`
   shows only for files under Git (it asks of the files; here, of the worktree). Not in a browser.
-- **Where:** after Local History (Cerebro's choice, open to change: IntelliJ adds its VCS group to
-  the editor's menu by `VcsGroup`, whose place there wasn't read). Labelled "Git", without a
-  mnemonic (not read either).
-- **Not yet,** as Cerebro doesn't have them: Commit File…, Add, the ignore actions, Show History
-  for Selection, Show Current Revision, Rollback… and Revert Selected Changes for the file, Revert
-  Resolved, the staging area's, Clone…. The editor tab's menu's Git submenu.
+- **Where:** after Local History. IntelliJ's `VersionControlsGroup`, which holds its VCS's
+  submenu (`VcsFileGroupPopup`), comes right after Open In (`SplitRevealGroup`) in the editor's
+  menu (`EditorLangPopupMenu`), a tab's (`EditorTabPopupMenuEx`) and the Project view's
+  (`ProjectViewPopupMenu`), as Cerebro's does (read 2026-11-16; before, a choice). Labelled "Git",
+  without a mnemonic (not read).
+- **The editor tab's menu** (added 2026-11-16) has it too, after its Local History, as IntelliJ's
+  `EditorTabPopupMenuEx` has `VersionControlsGroup` (read from its source). From there, the file
+  actions act on that tab's file, which needn't be the active one; by a key, on the active
+  editor's, as before. Annotate does too.
+- **Rollback…** (added 2026-11-16), after Show History, as IntelliJ's `ChangesView.Revert`
+  (`RollbackAction`, read from its source): for the editor's file, a tab's, or the Project view's
+  file or folder, the changes under it (where a renamed file was, too), else, where it has none,
+  all the worktree's, in the Commit window's Rollback Changes dialog. It's off where the Commit
+  window knows of no change (IntelliJ's `hasReversibleFiles`); else it reads them as it runs. A
+  difference: IntelliJ's dialog has a checkbox for each file, so "all of them" can be cut down
+  there; Cerebro's lists them, and rolls them all back (as its Commit window's Rollback does).
+- **Show Current Revision** (added 2026-11-16), after Show History, as IntelliJ's
+  `Show.Current.Revision` (`ShowBaseRevisionAction`, read from its source): the file's last commit
+  in IntelliJ's words (`current.version.text`): the file's name, "Current version is {hash}.",
+  "Modified by {author}", the date as the Log's, and the message. On when Show Diff is. Where the
+  file's editor has the keyboard, it's a hint at the caret, as IntelliJ's `showInBestPositionFor`;
+  from the Project view or a tab's menu, it's centred in the window
+  (`showCenteredInCurrentWindow`), until a click elsewhere or Escape. Claude's choices, open to
+  change:
+  - It looks like the editor's other hints (the app's tooltips); IntelliJ's has the notification
+    background (`NOTIFICATION_BACKGROUND`), not measured.
+  - The message keeps its lines. IntelliJ's formats it as HTML with links to issues
+    (`IssueLinkHtmlRenderer`), which Cerebro has no setting for.
+  - The centred one's text can be selected and copied (the hint's, as the editor's other hints,
+    can't). IntelliJ's is an editor pane, so it can be too (a claim: not tried).
+- **Commit File…** (added 2026-11-16), first in the submenu, as IntelliJ's `CheckinFiles`
+  (`CommonCheckinFilesAction`, read from its source), in its non-modal commit (its default): the
+  documents saved, the Commit window shows with only the tracked changes of the file, or under the
+  folder, going into the commit (`getIncludedChanges`, `setCommitState` with `force`), the message
+  field taking the keyboard as Commit's does. For a folder it's "Commit Directory…"
+  (`action.name.checkin.directory`). It's on for a folder, and for a file that isn't unchanged or
+  ignored (`isActionEnabled`). That includes an untracked file, which it puts nothing in for, as
+  IntelliJ's (only the Commit window's own selection gives it untracked files).
+- **Add** (added 2026-11-16), after Commit File…, as IntelliJ's `Git.Add`
+  (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`, read from its source): the file, or the
+  untracked files under the Project view's folder (`getUnversionedDescendantsRecursively`), added
+  to git; what's tracked isn't staged. On for an untracked file and for any folder, as git's
+  folders aren't versioned (`isFileUnversioned`). Its key is Add to VCS's, Ctrl+Alt+A (Cmd+Alt+A on
+  macOS), as IntelliJ's `use-shortcut-of`; Emacs keeps it beside Method Up, as IntelliJ's Emacs
+  keymap does. A failure says so in a dialog titled "Failed to Add Files", IntelliJ's
+  `error.adding.files.title`. Claude's choice, open to change: an ignored file isn't offered, where
+  IntelliJ asks whether to add it ("Add Ignored File"), as the Commit window doesn't list ignored
+  files.
+- **Add to .gitignore** (added 2026-11-16), after Add, as IntelliJ's `Git.Ignore.File`
+  (`GitIgnoreFileActionGroup`, read from its source): a submenu, there while Add would add
+  something, but not for the worktree's root folder (`getCommonIgnoreFileRoot`). It has two items:
+  - ".gitignore", the worktree's, created once asked if there's none ("Create .gitignore file in
+    …?", IntelliJ's `CreateNewIgnoreFileAction`);
+  - ".git/info/exclude", the repository's, which a linked worktree shares with its main one
+    (`AddToGitExcludeAction`).
+
+  Each adds the file's path from the worktree's root, with a leading `/` (a folder's ends in `/`:
+  `buildIgnoreEntryContent`, `ignoreUnderDirectory`), on a line of its own at the end, saves it,
+  and opens the ignore file, as IntelliJ's `writeIgnoreFileEntries`. Claude's choices, open to
+  change:
+  - Only the worktree's own .gitignore is offered. IntelliJ lists every .gitignore in the file's
+    folder or above it, each named by its path, which needs menu items made from the context
+    (docs/backlog.md, as the Log's Checkout submenu does).
+  - Where there's no .gitignore, the item is still named ".gitignore", not "Add to .gitignore" as
+    IntelliJ's create action is.
+  - A failure says so in a dialog ("Couldn’t Add to .gitignore"); IntelliJ shows none.
+- **Not here, as in IntelliJ** (read from its source): two of `Git.ContextMenu`'s items never show
+  in this submenu.
+  - Rollback File… (`ChangesView.RevertFiles`, `RollbackFilesAction`) shows only in the Commit
+    window's tree (`ChangesListView.DATA_KEY`).
+  - Revert Resolved (`Git.RevertResolved`) shows for files whose conflicts were resolved, which
+    IntelliJ tracks only with its non-modal merge on (`GitResolvedMergeConflictsFilesHolder`). That's
+    off by default: `vcs.non.modal.merge.enabled=false` in `registry.properties`.
+- **Show History for Selection** (added 2026-11-16), after Show History: decision "Git → Current
+  File → Show History for Selection".
+- **Not yet,** as Cerebro doesn't have them: the staging area's, Clone….
 
 ## A Markdown file's preview (2026-11-13)
 
@@ -4026,8 +4097,39 @@ The Current File submenu's item after Compare with Branch or Tag, toward Intelli
   (`FileHistoryUi`); here the one Log shows it (Claude's choice, open to change, as View Commits':
   a second Log is a tab beside it, not here yet).
 - **Not yet:** following renames, as IntelliJ's does (`FileHistory`); its own tab, with its toolbar
-  (Show All Branches, a revision's diff beside the list); its icon (IntelliJ's `Vcs.History`);
-  Show History for Selection.
+  (Show All Branches, a revision's diff beside the list); its icon (IntelliJ's `Vcs.History`).
+
+## Git → Current File → Show History for Selection (2026-11-16)
+
+After Show History, in Git → Current File and the editor's Git submenu, as IntelliJ's
+`Vcs.ShowHistoryForBlock` (`SelectedBlockHistoryAction` and `VcsSelectionHistoryDialog`, read from
+its source).
+
+- **What it's for:** the lines of the editor that has the keyboard, as it has them (unsaved edits
+  too): the selection's, the last one too where the selection ends at its start (IntelliJ's
+  `VcsSelection`), else the caret's. There only with an editor; on when Show Diff is
+  (`fileInVcsByFileStatus`).
+- **The lines followed back** (`BlockLoader`, `Block.createPreviousBlock`): each commit of the
+  file, the latest first, compared with the one after it by lines, white space ignored; the lines
+  moved by the changes before them and grown by those they overlap (`updateRangeOnModification`).
+  Where they're gone, the earlier commits aren't read. `previousBlock` in ui-editor's compare.
+- **The dialog,** "History for Selection" (IntelliJ's words, as each below): the selected row's
+  lines against the row's before it, each side numbered as in its version (`LINE_NUMBER_CONVERTOR`,
+  the diff's `firstLines`); "Changes only", on at first and kept while the app runs
+  (`SHOW_ONLY_CHANGED_IN_SELECTION_DIFF`); the status, "Loading revision {hash}… (n/total)"; the
+  rows, Version, Date, Author and Commit Message, the file as it is first ("Local Changes"); and
+  "Commit Message:" with the selected one's. "Cannot load revision contents: …" where something
+  can't be read.
+- **Claude's choices, open to change:**
+  - "Changes only" isn't kept across restarts; IntelliJ keeps it in the project's settings.
+  - The diff's sides aren't titled ("Revision {hash}" in IntelliJ's).
+  - The unified diff numbers the lines from 1.
+  - Up and Down move the selection; a row is selected alone (IntelliJ's table takes a range, and
+    compares its ends).
+- **Not yet:** following renames (the file's commits are its path's); the rows' menu (Compare,
+  Compare with Local, …) and the details beside the message (IntelliJ's git shows the commit's);
+  IntelliJ's selections of a method or class (`VcsSelectionProvider`, which WebStorm's JavaScript
+  doesn't give, a claim).
 
 ## Git → Current File → Compare with Revision (2026-11-12)
 
@@ -4075,7 +4177,21 @@ items of the submenu").
   branch, before Local, which lists the others; in each group favorites first, then by name, a
   favorite with its star, which can't be clicked here (IntelliJ's `favoriteToggleOnClickSupported`
   is false for this popup).
-- **Not yet:** the popup's settings; comparing a folder.
+- **A folder** (added 2026-11-16), selected in the Project view (its menu's Git submenu, or the
+  main menu's Git → Current File while the view has the keyboard), as IntelliJ's (`DvcsCompareWithAction`,
+  `GitCompareWithRefAction.getDiffChanges`, read from their source): after the same popup, its
+  files that differ from the branch or tag, in the Changes tool window that a commit's Compare with
+  Local shows in (IntelliJ's `CompareWithLocalDialog`, with its Refresh and Get). Its title is
+  IntelliJ's ("Difference Between feature and main (Local) Versions in src", `VcsBundle`'s
+  `history.dialog.title.difference.between.versions.in`); the worktree's own folder compares all
+  its files. Get makes a file as the branch has it, after IntelliJ's "Get Revision" question
+  (`GetVersionAction`): the host's `git.getVersion` takes a branch or a tag in full now, as well as
+  a commit's hash. Claude's choices, open to change:
+  - The documents are saved first, so git sees the edits, as for Show Diff with Working Tree. Not
+    found in IntelliJ's code for this action.
+  - A folder that isn't in the branch, and has no differences, shows "No differences"; IntelliJ's
+    says "Directory src doesn't exist in branch 'feature'".
+- **Not yet:** the popup's settings.
 
 ## Git → Current File → Show Diff (2026-11-12)
 
@@ -4396,8 +4512,22 @@ The next of the Git menu's actions left by the decision "Fetch and Pull". From I
     its Commit Message History and its change lists' comments (`VcsConfiguration.replaceMessage`,
     `GitRewordService`, read from its source), which Cerebro keeps none of yet. (Corrected
     2026-11-13: this said the Commit window's message; the source replaces these three.)
-- **The Log's Drop Commit** (added 2026-11-13), in the commit menu after Edit Commit Message…
-  (IntelliJ's Fixup and Squash Into come between; Cerebro hasn't them), as IntelliJ's
+- **The Log's Fixup… and Squash Into…** (added 2026-11-17), in the commit menu after Edit Commit
+  Message…, as IntelliJ's (`GitCommitFixupBySubjectAction`, `GitCommitSquashBySubjectAction`,
+  `GitAutoSquashCommitAction`, `GitSingleCommitEditingAction`, read from its source): the Commit
+  window shown with every change going in and "fixup! {subject}" or "squash! {subject}" as the
+  message, which git's `rebase --autosquash` takes. Off for a merge, and where the Commit window
+  has read no changes to commit (IntelliJ's "Nothing to commit"); with none once they're read
+  again, IntelliJ's "Nothing to Commit": "No changes detected". First Edit Commit Message…'s
+  checks, under "Cannot Create Fixup Commit" or "Cannot Create Squash Commit", but not the one for
+  something under way, which IntelliJ's doesn't make (its `prohibitRebaseDuringRebasePolicy` is
+  left as `Allow`); the first commit asked about.
+  - **Claude's choice, open to change:** the Commit window, as Commit File… shows it, where
+    IntelliJ opens its modal commit dialog (`CommitChangeListDialog`).
+  - **Not yet:** IntelliJ's "Commit and Rebase…" in that dialog, which rebases with the commits
+    marked for fixup or squash put in place, in its interactive rebase dialog: Cerebro has no
+    interactive rebase yet.
+- **The Log's Drop Commit** (added 2026-11-13), in the commit menu after Squash Into…, as IntelliJ's
   (`GitDropLogAction`, `InMemoryRebaseOperations`, `GitInMemoryInteractiveRebaseProcess`,
   `GitObjectRepositoryExtensions`, read from its source). Off for a merge. Edit Commit Message…'s
   checks first, under "Could not Drop Commits" (a rebase allows none); the first commit asked about.

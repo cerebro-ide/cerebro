@@ -10,24 +10,38 @@ describe('the editor’s Git submenu', () => {
     setupEditorGitMenu(menus, () => git.get());
     expect(menus.entries('editor/content')).toEqual([{ submenu: 'editor/git', label: 'Git' }]);
     expect(menus.contributions.toArray()[0]).toMatchObject({ group: 'h-history', order: 1 });
-    // The Project view's too, after its Local History.
+    // A tab's and the Project view's too, after their Local History.
+    expect(menus.entries('editor/tab')).toEqual([{ submenu: 'editor/git', label: 'Git' }]);
+    expect(menus.contributions.toArray()[1]).toMatchObject({ group: 'h-history', order: 1 });
     expect(menus.entries('project/node')).toEqual([{ submenu: 'editor/git', label: 'Git' }]);
-    expect(menus.contributions.toArray()[1]).toMatchObject({ group: 'f-vcs', order: 1 });
+    expect(menus.contributions.toArray()[2]).toMatchObject({ group: 'f-vcs', order: 1 });
     // Not in a git repository: none.
     git.set(false);
     expect(menus.entries('editor/content')).toEqual([]);
+    expect(menus.entries('editor/tab')).toEqual([]);
     expect(menus.entries('project/node')).toEqual([]);
     git.set(true);
     expect(menus.entries('editor/content')).toHaveLength(1);
     const names = menus
       .entries('editor/git')
       .map((e) => ('command' in e ? e.command : 'submenu' in e ? e.submenu : '-'));
+    expect(menus.entries('editor/git/ignore')).toEqual([
+      { command: 'git.file.ignore' },
+      { command: 'git.file.exclude' },
+    ]);
     expect(names).toEqual([
+      'git.file.commit',
+      'git.file.add',
+      'editor/git/ignore',
+      '-',
       'vcs.annotate',
       'git.file.showDiff',
       'git.file.compareWithRevision',
       'git.file.compareWithBranch',
       'git.file.showHistory',
+      'git.file.showHistoryForSelection',
+      'git.file.showCurrentRevision',
+      'git.file.rollback',
       '-',
       'vcs.resolveConflicts',
       '-',

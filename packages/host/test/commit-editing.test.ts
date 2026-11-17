@@ -273,6 +273,9 @@ describe('Edit Commit Message and Drop Commit, with real git', () => {
       expect(await editCheck(repo, third, 'drop', nobody, git)).toEqual({
         refused: 'Cannot drop during rebase',
       });
+      // A fixup or squash commit for one, only committed: whatever's under way.
+      expect(await editCheck(repo, second, 'fixup', nobody, git)).toEqual({ head: third });
+      expect(await editCheck(repo, second, 'squash', nobody, git)).toEqual({ head: third });
     });
   });
 

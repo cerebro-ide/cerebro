@@ -1,21 +1,26 @@
 // The editor's context menu's Git submenu, as IntelliJ's `Git.ContextMenu` (git4idea's plugin.xml,
 // read from its source): the file's actions (`Git.FileActions`), Resolve Conflicts, then the
 // repository's (`GitRepositoryActions`), each group as IntelliJ's, of the commands Cerebro has.
-// They act on the active editor's file, or the Project view's selected one while it has the focus,
-// as from Git → Current File. Only while the active worktree
-// is a git repository, as IntelliJ's `GitMenu` shows only for files under Git.
+// They act on the active editor's file, the Project view's selected one while it has the focus, or
+// the tab's from its menu, as from Git → Current File. Only while the active worktree is a git
+// repository, as IntelliJ's `GitMenu` shows only for files under Git.
 
 import type { MenuRegistry } from '@cerebro-ide/commands';
 import { effect } from '@cerebro-ide/reactive';
 
 /** IntelliJ's groups, in its order: a command, or a submenu (the Rebase menu, as its own). */
 const GROUPS: readonly (readonly (string | { submenu: string; label: string })[])[] = [
+  // `Git.FileActions`' first: Commit File…, Add, then Add to .gitignore.
+  ['git.file.commit', 'git.file.add', { submenu: 'editor/git/ignore', label: 'Add to .gitignore' }],
   [
     'vcs.annotate',
     'git.file.showDiff',
     'git.file.compareWithRevision',
     'git.file.compareWithBranch',
     'git.file.showHistory',
+    'git.file.showHistoryForSelection',
+    'git.file.showCurrentRevision',
+    'git.file.rollback',
   ],
   ['vcs.resolveConflicts'],
   ['vcs.push', 'vcs.pull', 'vcs.fetch'],
@@ -33,8 +38,10 @@ const GROUPS: readonly (readonly (string | { submenu: string; label: string })[]
 ];
 
 /**
- * The Git submenu, after Local History in the editor's context menu and the Project view's (there
- * for the view's selected file, as IntelliJ's `VersionControlsGroup`), while `inGit` (reactive).
+ * The Git submenu, after Local History in the editor's context menu, its tabs' and the Project
+ * view's (there for the view's selected file), as IntelliJ's `VersionControlsGroup` (in
+ * `EditorLangPopupMenu`, `EditorTabPopupMenuEx` and `ProjectViewPopupMenu`), while `inGit`
+ * (reactive).
  */
 export function setupEditorGitMenu(menus: MenuRegistry, inGit: () => boolean): void {
   effect(() => {
@@ -42,6 +49,7 @@ export function setupEditorGitMenu(menus: MenuRegistry, inGit: () => boolean): v
     const shown = (
       [
         ['editor/content', 'h-history'],
+        ['editor/tab', 'h-history'],
         ['project/node', 'f-vcs'],
       ] as const
     ).map(([menu, group]) =>
@@ -51,6 +59,9 @@ export function setupEditorGitMenu(menus: MenuRegistry, inGit: () => boolean): v
       for (const item of shown) item.dispose();
     };
   });
+  for (const command of ['git.file.ignore', 'git.file.exclude']) {
+    menus.contribute({ menu: 'editor/git/ignore', item: { command } });
+  }
   GROUPS.forEach((items, group) => {
     for (const item of items) {
       menus.contribute({

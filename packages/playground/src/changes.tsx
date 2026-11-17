@@ -33,13 +33,16 @@ import { openContextMenu, openMenu, type MenuServices } from '@cerebro-ide/ui-me
 import { fuzzyFilter, openPicker, type PickerItem } from '@cerebro-ide/ui-popup';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { tooltip } from '@cerebro-ide/ui-tooltip';
-import { diffSource } from '@cerebro-ide/ui-editor';
+import { diffSource, selectedLines, showHintIn } from '@cerebro-ide/ui-editor';
 import { TreeModel, TreeView, type TreeRow } from '@cerebro-ide/ui-tree';
 import { copyPatch, createPatch, patchPaths, type PatchRequest } from './create-patch.js';
-import { onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
+import { showFolderDiffWithRef } from './diff-with-working-tree.js';
+import { showSelectionHistory } from './selection-history.js';
+import { documentFor, onEdited, saveBeforeGit, saveFiles, unsavedFiles } from './documents.js';
 import { active, currentHost, gitRepository, hostFor, type Host } from './environments.js';
 import { target } from './edit.js';
-import { projectFile } from './project.js';
+import type { TabContext } from './commands.js';
+import { projectTarget } from './project.js';
 import { formatCommitDate } from './dates.js';
 import type { LogCommit } from './git-log.js';
 import { compareRefs } from './compare-branches.js';
@@ -276,6 +279,62 @@ function changesOf(worktree: string): Changes {
   // Made where they're shown, which needn't run again when they are: making them writes what it
   // reads, and the view would run twice, reading them twice.
   return untracked(() => made(worktree));
+}
+
+/** A failure's dialog: its title, and the error's words. */
+const fail = (title: string) => (error: unknown) => {
+  openDialog({
+    title,
+    content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+  });
+};
+
+/** Shows the Commit window, its message field focused: `setupChanges` sets it. */
+let showCommit: () => void;
+
+/**
+ * The documents saved and a worktree's changes read again, then the Commit window shown, unless
+ * `prepare` (which sets what goes in) says not to.
+ */
+async function toCommit(worktree: string, prepare: (changes: Changes) => boolean): Promise<void> {
+  await saveBeforeGit();
+  const changes = changesOf(worktree);
+  try {
+    await changes.refresh();
+  } catch (error) {
+    fail('Couldn’t Read the Changes')(error);
+    return;
+  }
+  if (prepare(changes)) showCommit();
+}
+
+/** Whether a worktree's changes, read, have none to commit; not known before they're read. */
+export function nothingToCommit(worktree: string): boolean {
+  return lists.get(worktree)?.tracked().length === 0;
+}
+
+/**
+ * The Commit window shown with all of a worktree's changes going in and `message` as the commit's,
+ * as IntelliJ's Fixup… and Squash Into… show its commit dialog (`GitAutoSquashCommitAction`);
+ * IntelliJ's "Nothing to Commit" where there are none (`showNothingToCommitMessage`).
+ */
+export function commitWithMessage(worktree: string, message: string): Promise<void> {
+  return toCommit(worktree, (changes) => {
+    if (changes.tracked().length === 0) {
+      openDialog({
+        title: 'Nothing to Commit',
+        cancelLabel: 'OK',
+        content: () => <p>No changes detected</p>,
+      });
+      return false;
+    }
+    batch(() => {
+      changes.included.clear();
+      changes.excluded.clear();
+      changes.message.set(message);
+    });
+    return true;
+  });
 }
 
 /** Puts a message in a worktree's Commit window: Undo Commit's, as IntelliJ's, to commit again. */
@@ -833,6 +892,61 @@ async function pickRef(host: Host, worktree: string): Promise<string | undefined
  * author, searchable by them; the highlighted one's commit message below. The first thousand, as
  * the Log's Paths filter finds them: renames aren't followed, as IntelliJ's file history's are.
  */
+/**
+ * A file's current revision in IntelliJ's words (`VcsBundle`'s `current.version.text`): its name,
+ * then the commit's hash, author, date (`formatPrettyDateTime`) and message.
+ */
+function currentRevision(path: string, commit: LogCommit): HTMLElement {
+  const message = (
+    <span>{[commit.subject, commit.body].filter(Boolean).join('\n\n')}</span>
+  ) as HTMLElement;
+  // Its lines kept: set here, as the editor's hint is in its shadow root, out of the page's CSS.
+  message.style.whiteSpace = 'pre-wrap';
+  return (
+    <div>
+      {path.slice(path.lastIndexOf('/') + 1)}
+      <br />
+      <br />
+      {`Current version is ${commit.hash}.`}
+      <br />
+      {`Modified by ${commit.author}`}
+      <br />
+      {formatCommitDate(commit.time)}
+      <br />
+      {message}
+    </div>
+  ) as HTMLElement;
+}
+
+/**
+ * Shows `content` centred in the window, as IntelliJ's `showCenteredInCurrentWindow`, until a click
+ * elsewhere or Escape (a popup's defaults, `cancelOnClickOutside` and the cancel key).
+ */
+function showCentred(content: Node): void {
+  const popup = (
+    <div class="playground-centred-popup cerebro-selectable" role="tooltip">
+      {content}
+    </div>
+  ) as HTMLElement;
+  const close = () => {
+    popup.remove();
+    document.removeEventListener('pointerdown', outside, true);
+    document.removeEventListener('keydown', escape, true);
+  };
+  const outside = (event: PointerEvent) => {
+    if (!popup.contains(event.target as Node)) close();
+  };
+  const escape = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    event.preventDefault();
+    event.stopPropagation();
+    close();
+  };
+  document.addEventListener('pointerdown', outside, true);
+  document.addEventListener('keydown', escape, true);
+  document.body.append(popup);
+}
+
 async function pickRevision(host: Host, worktree: string, path: string) {
   const commits = (await host.request('git.log', {
     worktree,
@@ -873,10 +987,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   /** From the window's toolbar or menus, or a shortcut while it has the keyboard. */
   /** Whether a command acts on the Commit window. */
   const here = (context: unknown) => viewOf(context) === 'changes';
-  const fail = (title: string) => (error: unknown) => {
-    openDialog({
-      title,
-      content: () => <p class="cerebro-selectable">{(error as Error).message}</p>,
+  showCommit = () => {
+    setup.show();
+    requestAnimationFrame(() => {
+      messageField()?.focus();
     });
   };
   const openFile = (item: Extract<Item, { kind: 'change' }>) => {
@@ -917,7 +1031,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     icon: 'rollback',
     dialog: true,
     enabled: (c) => here(c) && rollbackable(current()).length > 0,
-    run: () => rollback(current() as Changes),
+    run: () => {
+      const changes = current() as Changes;
+      return rollback(changes.path, rollbackable(changes));
+    },
   });
   // Create Patch… and Copy as Patch to Clipboard, as IntelliJ's (ChangesViewPopupMenu's
   // ChangesView.CreatePatch and ChangesView.CreatePatchToClipboard): the changes selected, else
@@ -976,18 +1093,23 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   });
   /**
    * The file Git → Current File acts on, and its worktree, if it's in the active worktree's
-   * repository: the Project view's selected file while it has the focus; none while another tool
-   * window has it; else the active editor's.
+   * repository: the Project view's selected file while it has the focus; the tab's, from its menu;
+   * none while another tool window has it; else the active editor's.
    */
-  const currentFile = () => {
+  const currentFile = (context?: unknown) => {
     const env = active();
-    const selected = projectFile();
+    const menu = context as TabContext | undefined;
+    const node = projectTarget(menu);
     const tab =
-      selected !== undefined
-        ? (selected ?? undefined)
-        : target()?.closest('.cerebro-tool-window')
-          ? undefined
-          : setup.activeTab();
+      node !== undefined
+        ? node?.kind === 'file'
+          ? node.path
+          : undefined
+        : menu?.tabMenu
+          ? menu.tab
+          : target()?.closest('.cerebro-tool-window')
+            ? undefined
+            : setup.activeTab();
     if (!env || tab === undefined || !currentHost() || !gitRepository.get()) return undefined;
     const path = tab.startsWith(`${env.id}/`) ? tab.slice(env.id.length + 1) : undefined;
     return path === undefined ? undefined : { worktree: env.id, path };
@@ -999,13 +1121,13 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.showDiff',
     label: 'Show Diff',
     icon: 'diff',
-    visible: () => currentFile() !== undefined,
-    enabled: () => {
-      const file = currentFile();
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => {
+      const file = currentFile(c);
       return file !== undefined && !notCommitted(file.worktree, file.path);
     },
-    run: () => {
-      const file = currentFile() as { worktree: string; path: string };
+    run: (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
       // At the editor's caret line, as IntelliJ's (SCROLL_TO_LINE).
       const caret = carets.get(`${file.worktree}/${file.path}`);
       setup.open(diffTab(file.path), undefined, caret?.line);
@@ -1018,10 +1140,10 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'git.file.compareWithRevision',
     label: 'Compare with Revision',
     dialog: true,
-    visible: () => currentFile() !== undefined,
-    enabled: () => commands.isEnabled('git.file.showDiff'),
-    run: () => {
-      const file = currentFile() as { worktree: string; path: string };
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
       pickRevision(hostFor(file.worktree) as Host, file.worktree, file.path).then(
         (hash) => {
           if (hash !== undefined) setup.open(diffTab(file.path, { from: hash }));
@@ -1032,19 +1154,43 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
       );
     },
   });
+  /**
+   * The folder selected in the Project view, its path in the worktree ('' for the worktree's own),
+   * as IntelliJ's Compare with Branch or Tag takes one (`DvcsCompareWithAction`).
+   */
+  const currentFolder = (context?: unknown) => {
+    const env = active();
+    const node = projectTarget(context as TabContext | undefined);
+    if (!env || node?.kind !== 'directory' || !currentHost() || !gitRepository.get()) {
+      return undefined;
+    }
+    const path = node.path === env.id ? '' : node.path.slice(env.id.length + 1);
+    return { worktree: env.id, path, name: node.name };
+  };
   // Git → Current File's Compare with Branch or Tag…: IntelliJ's `GitCompareWithRefAction`. The
-  // file as it is against a branch or a tag, chosen in a popup of them. On for any file, as
-  // IntelliJ's: for one that isn't in the branch, the diff says so.
+  // file as it is against a branch or a tag, chosen in a popup of them; a folder's files that
+  // differ, in the Changes tool window. On for any file, as IntelliJ's: for one that isn't in the
+  // branch, the diff says so.
   commands.register({
     id: 'git.file.compareWithBranch',
     label: 'Compare with Branch or Tag',
     dialog: true,
-    visible: () => currentFile() !== undefined,
-    run: () => {
-      const file = currentFile() as { worktree: string; path: string };
-      pickRef(hostFor(file.worktree) as Host, file.worktree).then(
-        (ref) => {
-          if (ref !== undefined) setup.open(diffTab(file.path, { from: ref }));
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    run: (c) => {
+      const folder = currentFolder(c);
+      const file = folder ?? (currentFile(c) as { worktree: string; path: string });
+      const host = hostFor(file.worktree) as Host;
+      pickRef(host, file.worktree).then(
+        async (ref) => {
+          if (ref === undefined) return;
+          if (!folder) {
+            setup.open(diffTab(file.path, { from: ref }));
+            return;
+          }
+          // Documents saved first, as for Show Diff with Working Tree, so git sees the edits
+          // (Claude's choice: not found in IntelliJ's `DvcsCompareWithAction`).
+          await saveBeforeGit();
+          showFolderDiffWithRef(host, folder.worktree, ref, folder);
         },
         (error: unknown) => {
           console.error('Reading the branches failed', error);
@@ -1058,10 +1204,256 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   commands.register({
     id: 'git.file.showHistory',
     label: 'Show History',
-    visible: () => currentFile() !== undefined,
-    enabled: () => commands.isEnabled('git.file.showDiff'),
-    run: () => {
-      setup.showHistory((currentFile() as { worktree: string; path: string }).path);
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: (c) => {
+      setup.showHistory((currentFile(c) as { worktree: string; path: string }).path);
+    },
+  });
+  // Git → Current File's Show History for Selection: IntelliJ's `Vcs.ShowHistoryForBlock`
+  // (`SelectedBlockHistoryAction`, read from its source), for the editor that has the keyboard: its
+  // selection's lines, the last one too where the selection ends at its start (`VcsSelection`), as
+  // they are in the editor. There only with an editor, and on when Show Diff is, as IntelliJ's
+  // (`fileInVcsByFileStatus`).
+  const selectionOf = (c: unknown) => {
+    const at = (c as TabContext | undefined)?.tabMenu ? undefined : target();
+    const lines = at && currentFile(c) && selectedLines(at, true);
+    return lines || undefined;
+  };
+  commands.register({
+    id: 'git.file.showHistoryForSelection',
+    label: 'Show History for Selection',
+    dialog: true,
+    visible: (c) => selectionOf(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: async (c) => {
+      const { first, last } = selectionOf(c) as { first: number; last: number };
+      const { worktree, path } = currentFile(c) as { worktree: string; path: string };
+      const doc = await documentFor(`${worktree}/${path}`);
+      if ('error' in doc) return;
+      await showSelectionHistory(services, {
+        host: hostFor(worktree) as Host,
+        worktree,
+        path,
+        text: doc.text.peek().toString(),
+        first,
+        last,
+      });
+    },
+  });
+  // The Git submenu's Commit File…: IntelliJ's `CheckinFiles` (`CommonCheckinFilesAction`, read
+  // from its source), in its non-modal commit, its default. The documents saved, the Commit window
+  // shows with the tracked changes of the file, or under the folder, going into the commit, and no
+  // other (`getIncludedChanges`, `setCommitState` with `force`); named for a folder as IntelliJ's
+  // (`action.name.checkin.directory`). On for a folder, or a file that isn't unchanged or ignored
+  // (`isActionEnabled`): an untracked one too, though it puts nothing in, as IntelliJ's.
+  commands.register({
+    id: 'git.file.commit',
+    label: 'Comm&it File',
+    text: (c) => (currentFolder(c) ? 'Comm&it Directory' : 'Comm&it File'),
+    icon: 'commit',
+    dialog: true,
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => {
+      if (currentFolder(c)) return true;
+      const file = currentFile(c);
+      const known = file && lists.get(file.worktree);
+      if (!file || !known) return file !== undefined;
+      return [...known.tracked(), ...known.unversioned()].some((c) => c.path === file.path);
+    },
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      const under = (path: string) =>
+        at.path === '' || path === at.path || path.startsWith(`${at.path}/`);
+      await toCommit(at.worktree, (changes) => {
+        batch(() => {
+          changes.included.clear();
+          changes.excluded.clear();
+          for (const change of changes.tracked()) {
+            if (!under(change.path)) changes.excluded.add(change.path);
+          }
+        });
+        return true;
+      });
+    },
+  });
+  // Whether what the Git submenu acts on has untracked files (IntelliJ's `getUnversionedFiles`): a
+  // folder always, as git's folders aren't versioned (`isFileUnversioned`), a file once the Commit
+  // window has it as untracked, or hasn't read the changes.
+  const untrackedHere = (c: unknown) => {
+    if (currentFolder(c)) return true;
+    const file = currentFile(c);
+    if (!file) return false;
+    const known = lists.get(file.worktree);
+    return known === undefined || known.unversioned().some((change) => change.path === file.path);
+  };
+  // The Git submenu's Add: IntelliJ's `Git.Add` (`ScheduleForAdditionWithIgnoredFilesConfirmationAction`,
+  // read from its source): the untracked files of the editor's file, or under the Project view's
+  // folder (`getUnversionedDescendantsRecursively`), added to git, the documents saved first. On
+  // for an untracked file and any folder, as git's folders aren't versioned (`isFileUnversioned`),
+  // where the Commit window has read the changes; they're read again as it runs.
+  commands.register({
+    id: 'git.file.add',
+    label: 'Add',
+    icon: 'add',
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => untrackedHere(c),
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      const host = hostFor(at.worktree) as Host;
+      try {
+        const all = (await host.request('git.changes', { path: at.worktree })) as Change[];
+        const files = all
+          .filter((change) => change.status === 'untracked')
+          .map((change) => change.path)
+          .filter((path) => at.path === '' || path === at.path || path.startsWith(`${at.path}/`));
+        if (files.length === 0) return;
+        await saveBeforeGit();
+        await host.request('git.add', { path: at.worktree, files });
+        await lists.get(at.worktree)?.refresh(true);
+      } catch (error) {
+        // IntelliJ's words (`error.adding.files.title`).
+        fail('Failed to Add Files')(error);
+      }
+    },
+  });
+  // The Git submenu's Add to .gitignore: IntelliJ's `Git.Ignore.File` (`GitIgnoreFileActionGroup`,
+  // read from its source), there while Add would add something. Its items: the worktree's
+  // .gitignore (created, once asked, if there's none: `CreateNewIgnoreFileAction`) and the
+  // repository's .git/info/exclude (`AddToGitExcludeAction`). Each adds the file's path from the
+  // worktree's root, a folder's ending in `/` (`buildIgnoreEntryContent`, `ignoreUnderDirectory`),
+  // on a line of its own at the end, then opens the ignore file, as IntelliJ's
+  // `writeIgnoreFileEntries`. Not for the worktree's root, as IntelliJ's (`getCommonIgnoreFileRoot`).
+  const ignorable = (c: unknown) => {
+    const at = currentFolder(c) ?? currentFile(c);
+    if (!at || at.path === '' || !untrackedHere(c)) return undefined;
+    return { worktree: at.worktree, entry: `/${at.path}${currentFolder(c) ? '/' : ''}` };
+  };
+  const ignoreIn = async (file: string, entry: string, tab: Tab) => {
+    const doc = await documentFor(file);
+    if ('error' in doc) throw new Error(doc.error);
+    const text = doc.text.peek();
+    const end = text.length;
+    const apart = end > 0 && text.sliceString(end - 1) !== '\n' ? '\n' : '';
+    doc.edit([{ from: end, to: end, insert: `${apart}${entry}\n` }]);
+    await saveFiles([file], 'Add to .gitignore');
+    setup.open(tab);
+  };
+  commands.register({
+    id: 'git.file.ignore',
+    label: '.gitignore',
+    visible: (c) => ignorable(c) !== undefined,
+    run: async (c) => {
+      const { worktree, entry } = ignorable(c) as { worktree: string; entry: string };
+      const host = hostFor(worktree) as Host;
+      const file = `${worktree}/.gitignore`;
+      try {
+        if (!(await host.request('fs.exists', { path: file }))) {
+          // IntelliJ's question (`vcs.add.to.ignore.file.create.ignore.file.confirmation`).
+          const create = await openDialog<true>({
+            title: 'Create .gitignore',
+            ok: { label: 'Create', accept: () => true },
+            content: () => (
+              <div class="playground-question">
+                <p>{`Create .gitignore file in ${worktree}?`}</p>
+              </div>
+            ),
+          }).result;
+          if (!create) return;
+          await host.request('fs.create', { path: file });
+        }
+        await ignoreIn(file, entry, fileTab(worktree, '.gitignore'));
+        await lists.get(worktree)?.refresh(true);
+      } catch (error) {
+        fail('Couldn’t Add to .gitignore')(error);
+      }
+    },
+  });
+  commands.register({
+    id: 'git.file.exclude',
+    label: '.git/info/exclude',
+    visible: (c) => ignorable(c) !== undefined,
+    run: async (c) => {
+      const { worktree, entry } = ignorable(c) as { worktree: string; entry: string };
+      try {
+        const file = (await (hostFor(worktree) as Host).request('git.excludeFile', {
+          path: worktree,
+        })) as string;
+        await ignoreIn(file, entry, { id: file, title: 'exclude' });
+        await lists.get(worktree)?.refresh(true);
+      } catch (error) {
+        fail('Couldn’t Add to .git/info/exclude')(error);
+      }
+    },
+  });
+  // The Git submenu's Show Current Revision: IntelliJ's `Show.Current.Revision`
+  // (`ShowBaseRevisionAction`, read from its source). The file's last commit, in IntelliJ's words,
+  // at the caret where its editor has the keyboard (`showInBestPositionFor`), else centred in the
+  // window. On when Show Diff is, as IntelliJ's (`AbstractShowDiffAction.isEnabled`).
+  commands.register({
+    id: 'git.file.showCurrentRevision',
+    label: 'Show Current Revision',
+    visible: (c) => currentFile(c) !== undefined,
+    enabled: (c) => commands.isEnabled('git.file.showDiff', c),
+    run: async (c) => {
+      const file = currentFile(c) as { worktree: string; path: string };
+      // The editor the menu or the key is from; not from a tab's menu.
+      const at = (c as TabContext | undefined)?.tabMenu ? undefined : target();
+      let commits: LogCommit[];
+      try {
+        commits = (await (hostFor(file.worktree) as Host).request('git.log', {
+          worktree: file.worktree,
+          skip: 0,
+          max: 1,
+          filter: { paths: [file.path] },
+        })) as LogCommit[];
+      } catch (error) {
+        console.error('Reading the file’s current revision failed', error);
+        return;
+      }
+      const commit = commits[0];
+      // None (IntelliJ's description null): nothing shown.
+      if (!commit) return;
+      const message = currentRevision(file.path, commit);
+      if (!(at && showHintIn(at, message))) showCentred(message);
+    },
+  });
+  // The Git submenu's Rollback…: IntelliJ's `ChangesView.Revert` (`RollbackAction`, read from its
+  // source) for the editor's file or the Project view's selection: the changes under it, else (none
+  // there) all of them, in the Rollback Changes dialog. Off when the worktree has none, as IntelliJ's
+  // (`hasReversibleFiles`), where the Commit window has read them; they're read again as it runs.
+  commands.register({
+    id: 'git.file.rollback',
+    label: 'Roll&back',
+    icon: 'rollback',
+    dialog: true,
+    visible: (c) => currentFile(c) !== undefined || currentFolder(c) !== undefined,
+    enabled: (c) => {
+      const at = currentFolder(c) ?? currentFile(c);
+      const known = at && lists.get(at.worktree);
+      return known === undefined || known.tracked().length > 0;
+    },
+    run: async (c) => {
+      const at = currentFolder(c) ?? (currentFile(c) as { worktree: string; path: string });
+      let all: Change[];
+      try {
+        all = (await (hostFor(at.worktree) as Host).request('git.changes', {
+          path: at.worktree,
+        })) as Change[];
+      } catch (error) {
+        fail('Couldn’t Read the Changes')(error);
+        return;
+      }
+      const tracked = all.filter(
+        (change) => change.status !== 'untracked' && change.status !== 'ignored',
+      );
+      // As IntelliJ's `filterChangesUnderFiles`: a change's path, or where it was renamed from.
+      const under = (path: string | undefined) =>
+        path !== undefined &&
+        (at.path === '' || path === at.path || path.startsWith(`${at.path}/`));
+      const chosen = tracked.filter((change) => under(change.path) || under(change.from));
+      const files = chosen.length > 0 ? chosen : tracked;
+      if (files.length > 0) await rollback(at.worktree, files);
     },
   });
   /** The file and place Jump to Source goes to from the focused diff, if a diff has the focus. */
@@ -1197,6 +1589,11 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     item: { command: 'git.file.showHistory' },
     order: 4,
   });
+  menus.contribute({
+    menu: 'main/git/file',
+    item: { command: 'git.file.showHistoryForSelection' },
+    order: 5,
+  });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'changes/item', item: { command: 'changes.rollback' }, group: 'b' });
   // Before Shelve Changes, as IntelliJ's.
@@ -1208,9 +1605,8 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.jumpToSource' }, group: 'a' });
   menus.contribute({ menu: 'agent/item', item: { command: 'changes.refresh' }, group: 'b' });
 
-  /** Asks, as IntelliJ's Rollback Changes dialog, then rolls the selection's files back. */
-  async function rollback(changes: Changes): Promise<void> {
-    const files = rollbackable(changes);
+  /** Asks, as IntelliJ's Rollback Changes dialog, then rolls `files` of `worktree` back. */
+  async function rollback(worktree: string, files: readonly Change[]): Promise<void> {
     const added = files.some((change) => change.status === 'added');
     const deleteAdded = signal(false);
     const confirmed = await openDialog<true>({
@@ -1244,18 +1640,18 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
         </div>
       ),
     }).result;
-    if (!confirmed) return;
-    const env = active();
-    if (!env) return;
+    // Nor once its environment is closed, or another is active, meanwhile.
+    if (!confirmed || active()?.id !== worktree) return;
     try {
       // As IntelliJ's `RollbackDialogAction`: what's rolled back is what's on disk.
       await saveBeforeGit();
-      await hostFor(env.id)?.request('git.rollback', {
-        path: env.id,
+      await (hostFor(worktree) as Host).request('git.rollback', {
+        path: worktree,
         files: files.map((change) => change.path),
         deleteAdded: deleteAdded.peek(),
       });
-      await changes.refresh(true);
+      // The Commit window's lists, if it has read them.
+      await lists.get(worktree)?.refresh(true);
     } catch (error) {
       fail('Couldn’t Roll Back')(error);
     }

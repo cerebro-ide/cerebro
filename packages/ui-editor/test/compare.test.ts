@@ -1,6 +1,6 @@
 import { Text } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
-import { compare, kindOf, translateLine, type Change } from '../src/compare.js';
+import { compare, kindOf, previousBlock, translateLine, type Change } from '../src/compare.js';
 
 const text = (lines: readonly string[]) => Text.of([...lines]);
 const run = (
@@ -137,5 +137,55 @@ describe('carrying a line into another text, as IntelliJ’s Diff.translateLine'
     expect(translateLine(before, after, 2)).toBe(3);
     // Deleted: where it was.
     expect(translateLine('a\nx\nb', 'a\rb', 1)).toBe(1);
+  });
+});
+
+describe('a block followed back to an earlier version, as IntelliJ’s Block', () => {
+  it('moves with the lines added or removed before it', () => {
+    expect(previousBlock('new\na\nb\nc', 'a\nb\nc', { start: 1, end: 3 })).toEqual({
+      start: 0,
+      end: 2,
+    });
+    expect(previousBlock('a\nb\nc', 'old\na\nb\nc', { start: 1, end: 2 })).toEqual({
+      start: 2,
+      end: 3,
+    });
+    // After it: not moved.
+    expect(previousBlock('a\nb\nnew', 'a\nb', { start: 0, end: 1 })).toEqual({ start: 0, end: 1 });
+  });
+
+  it('keeps a change inside it, and white space isn’t one', () => {
+    expect(previousBlock('a\nB\nB2\nc', 'a\nb\nc', { start: 0, end: 4 })).toEqual({
+      start: 0,
+      end: 3,
+    });
+    expect(previousBlock('  a\nb', 'a\nb', { start: 0, end: 1 })).toEqual({ start: 0, end: 1 });
+  });
+
+  it('grows to a change it overlaps, at either end or around it', () => {
+    // Its top in a change.
+    expect(previousBlock('a\nX\nY\nc', 'a\nP\nc', { start: 2, end: 4 })).toEqual({
+      start: 1,
+      end: 3,
+    });
+    // Its bottom.
+    expect(previousBlock('a\nX\nY', 'a\nP', { start: 0, end: 2 })).toEqual({ start: 0, end: 2 });
+    // All of it.
+    expect(previousBlock('a\nX\nY\nd', 'a\nP\nd', { start: 1, end: 2 })).toEqual({
+      start: 1,
+      end: 2,
+    });
+  });
+
+  it('keeps an empty block empty: after a change it’s in, as IntelliJ’s', () => {
+    expect(previousBlock('a\nX\nd', 'a\nP\nQ\nd', { start: 2, end: 2 })).toEqual({
+      start: 3,
+      end: 3,
+    });
+    // Within one: after what the change was.
+    expect(previousBlock('a\nX\nY\nd', 'a\nP\nd', { start: 2, end: 2 })).toEqual({
+      start: 2,
+      end: 2,
+    });
   });
 });

@@ -6,7 +6,8 @@
 // toolbar and a file's menu, makes the selected file as the branch has it (IntelliJ's
 // `CompareBranchesDiffPanel.GetVersionActionProvider`, read from its source).
 // A commit's Compare with Local in the Log shows there too, as IntelliJ's (`GitLogDiffHandler`,
-// `CompareWithLocalDialog` as a tab): its words over the files, and its Get.
+// `CompareWithLocalDialog` as a tab): its words over the files, and its Get. So does a folder's
+// Compare with Branch or Tag (`DvcsCompareWithAction`).
 
 import type { Child } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
@@ -15,8 +16,10 @@ import { openDialog } from '@cerebro-ide/ui-dialog';
 import { openContextMenu, type MenuServices } from '@cerebro-ide/ui-menu';
 import { ToolbarButton } from '@cerebro-ide/ui-toolbar';
 import { replacing, type Change } from './changes.js';
+import { sideTitles } from './diff-viewer.js';
 import { saveBeforeGit } from './documents.js';
 import type { Host } from './environments.js';
+import { currentBranch } from './git-fields.js';
 import {
   CommitFiles,
   getRevision,
@@ -95,9 +98,7 @@ export function showDiffWithWorkingTree(branch: BranchDiff): void {
  * What differs between the working tree and a commit, as IntelliJ's Compare with Local on a commit
  * (`ShowDiffAfterWithLocalFromLogActionProvider`, `GitLogDiffHandler.showDiffForPaths`): its
  * title, "Changes Between abc12345 and local version", over the files; with `paths`, those alone,
- * named after it ("... in src/a.ts, lib", cut at 100 characters: `getTitleForPaths`). Get makes one
- * as the commit has it, from where it was if renamed since
- * (`CompareWithLocalDialog.GetVersionActionProvider`).
+ * named after it ("... in src/a.ts, lib", cut at 100 characters: `getTitleForPaths`).
  */
 export function showDiffWithCommit(
   host: Host,
@@ -106,21 +107,63 @@ export function showDiffWithCommit(
   paths?: readonly string[],
 ): void {
   const title = `Changes Between ${hash.slice(0, 8)} and local version`;
+  showDiffWithLocal(
+    host,
+    worktree,
+    hash,
+    paths
+      ? // A folder's without the Paths filter's closing slash, as IntelliJ's relative path.
+        `${title} in ${shortened(paths.map((path) => path.replace(/\/$/, '')).join(', '))}`
+      : title,
+    paths,
+  );
+}
+
+/**
+ * What differs in a folder between the working tree and a branch or a tag (`ref`, in full), as
+ * IntelliJ's Compare with Branch or Tag on one (`DvcsCompareWithAction.showDiffBetweenRevision`):
+ * its title, "Difference Between feature and main (Local) Versions in src", the sides' titles of a
+ * file's (`sideTitles`), over the files in `folder` (the worktree's own: all of them).
+ */
+export function showFolderDiffWithRef(
+  host: Host,
+  worktree: string,
+  ref: string,
+  folder: { path: string; name: string },
+): void {
+  const [theirs, local] = sideTitles({ from: ref }, currentBranch(worktree));
+  showDiffWithLocal(
+    host,
+    worktree,
+    ref,
+    `Difference Between ${theirs} and ${local} Versions in ${folder.name}`,
+    folder.path === '' ? undefined : [`${folder.path}/`],
+  );
+}
+
+/**
+ * IntelliJ's `CompareWithLocalDialog`, as a tab of the window: `title` over the files that differ
+ * from `ref` (those under `paths` alone, if given), with Refresh, and Get, which makes one as `ref`
+ * has it, from where it was if renamed since (`GetVersionActionProvider`).
+ */
+function showDiffWithLocal(
+  host: Host,
+  worktree: string,
+  ref: string,
+  title: string,
+  paths: readonly string[] | undefined,
+): void {
   const diff: WorkingTreeDiff = {
     host,
     worktree,
-    ref: hash,
+    ref,
     ...(paths ? { paths } : {}),
     refresh: true,
-    explanation: () =>
-      paths
-        ? // A folder's without the Paths filter's closing slash, as IntelliJ's relative path.
-          `${title} in ${shortened(paths.map((path) => path.replace(/\/$/, '')).join(', '))}`
-        : title,
+    explanation: () => title,
     get: {
       label: 'Get',
       run: async (change) => {
-        await getRevision(host, worktree, hash, change.path, change.from ?? change.path);
+        await getRevision(host, worktree, ref, change.path, change.from ?? change.path);
         shown.set({ ...diff });
       },
     },

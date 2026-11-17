@@ -19,6 +19,7 @@ import { Connection, ErrorCodes } from '@cerebro-ide/protocol';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import {
   defaultHookCommand,
+  defaultRebaseEditorCommand,
   git as runGit,
   gitBytes as realBytes,
   GitError,
@@ -710,6 +711,33 @@ describe('ignored files and rolling back', () => {
     }
   });
 
+  it('gives the repository’s exclude file, from git', async () => {
+    const git = vi.fn(() => Promise.resolve('.git/info/exclude\n'));
+    const { ui } = connect(git);
+    expect(await ui.request('git.excludeFile', { path: '/w' })).toBe('/w/.git/info/exclude');
+    expect(git).toHaveBeenCalledWith('/w', ['rev-parse', '--git-path', 'info/exclude']);
+  });
+
+  it('adds the untracked files of those named, and nothing tracked', async () => {
+    const git = vi.fn((_cwd: string, args: readonly string[]) =>
+      Promise.resolve(args[0] === 'status' ? ' M a.ts\0?? u.ts\0?? v.ts\0' : ''),
+    );
+    const { ui } = connect(git);
+    expect(await ui.request('git.add', { path: '/w', files: ['a.ts', 'u.ts', 'gone.ts'] })).toBe(
+      null,
+    );
+    expect(git).toHaveBeenCalledWith('/w', ['add', '--', ':(literal)u.ts']);
+    // None untracked: git add isn't run.
+    git.mockClear();
+    await ui.request('git.add', { path: '/w', files: ['a.ts'] });
+    expect(git.mock.calls.map(([, args]) => args[0])).not.toContain('add');
+    for (const files of [undefined, 'u.ts', [3]]) {
+      await expect(ui.request('git.add', { path: '/w', files })).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
   it('writes a file only over what the writer expects there, else says what’s there', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-host-expected-')));
     const { ui } = connect();
@@ -1239,6 +1267,12 @@ describe('ignored files and rolling back', () => {
     });
     expect(await ui.request('git.continue', { path: '/w' })).toBe('done');
     expect(await ui.request('git.skipCommit', { path: '/w' })).toBe('done');
+    // A rebase carried on with the interactive rebase's editor for its messages.
+    expect(git).toHaveBeenCalledWith(
+      '/w',
+      ['rebase', '--skip'],
+      expect.objectContaining({ GIT_EDITOR: `${defaultRebaseEditorCommand()} message` }),
+    );
     for (const operation of ['merge', 'rebase', 'cherry-pick', 'revert']) {
       expect(await ui.request('git.abort', { path: '/w', operation })).toBe(null);
       expect(git).toHaveBeenCalledWith('/w', [operation, '--abort']);
@@ -1296,7 +1330,7 @@ describe('ignored files and rolling back', () => {
     }
   });
 
-  it('gets a file as a commit has it, and not from what isn’t a commit hash', async () => {
+  it('gets a file as a commit, a branch or a tag has it, and not from what isn’t one', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'cerebro-get-'));
     const git = vi.fn((_cwd: string, args: readonly string[]) =>
       Promise.resolve(bare(args)[0] === 'ls-tree' ? 'a.ts\n' : 'then'),
@@ -1315,9 +1349,20 @@ describe('ignored files and rolling back', () => {
     });
     expect(git).toHaveBeenCalledWith(dir, ['ls-tree', '--name-only', 'abc1234', '--', 'a.ts']);
     expect(readFileSync(join(dir, 'b.ts'), 'utf8')).toBe('then');
-    await expect(
-      ui.request('git.getVersion', { path: dir, hash: '--all', file: 'a.ts' }),
-    ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    // Or a branch's or a tag's, named in full.
+    await ui.request('git.getVersion', { path: dir, ref: 'refs/heads/side', file: 'c.ts' });
+    expect(git).toHaveBeenCalledWith(dir, [
+      'ls-tree',
+      '--name-only',
+      'refs/heads/side',
+      '--',
+      'c.ts',
+    ]);
+    for (const params of [{ hash: '--all' }, { ref: '--all' }, { ref: 'side' }]) {
+      await expect(
+        ui.request('git.getVersion', { path: dir, file: 'a.ts', ...params }),
+      ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
+    }
     rmSync(dir, { recursive: true });
   });
 
@@ -1499,7 +1544,7 @@ describe('ignored files and rolling back', () => {
       ui.request('git.editCheck', {
         path: '/w',
         hash: 'abc1234',
-        editing: 'squash',
+        editing: 'edit',
         protected: [],
       }),
     ).rejects.toMatchObject({ code: ErrorCodes.InvalidParams });
@@ -2531,6 +2576,65 @@ describe('terminals', () => {
     await stop();
     expect(await listTurns(dir, runGit)).toHaveLength(1);
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('lists the commits for an interactive rebase, and rebases with the list it’s given', async () => {
+    const git = vi.fn<Git>((_cwd, args) => {
+      if (args[0] === 'rev-list') return Promise.resolve('abc1234 0123abc\n');
+      if (args[0] === 'log') return Promise.resolve('\0abc1234\0Subject\0Subject\n\n');
+      if (args.includes('--absolute-git-dir')) return Promise.resolve('/w/.git\n');
+      if (args.includes('--git-path')) return Promise.resolve('/nowhere\n');
+      return Promise.resolve('Subject\n');
+    });
+    const { ui } = connect(git);
+    expect(await ui.request('git.rebaseCommits', { path: '/w', hash: 'abc1234' })).toEqual([
+      { hash: 'abc1234', subject: 'Subject', message: 'Subject\n' },
+    ]);
+    const asked = {
+      path: '/w',
+      hash: 'abc1234',
+      expected: ['abc1234'],
+      entries: [{ action: 'reword', hash: 'abc1234', message: 'New' }],
+    };
+    expect(await ui.request('git.interactiveRebase', asked)).toBe('done');
+    const rebase = git.mock.calls.find(([, args]) => args.includes('--interactive'));
+    expect(rebase?.[1]).toEqual([
+      '-c',
+      'rebase.updateRefs=false',
+      'rebase',
+      '--interactive',
+      '--autostash',
+      '--no-autosquash',
+      '0123abc',
+    ]);
+    expect(rebase?.[2]?.['GIT_SEQUENCE_EDITOR']).toBe(`${defaultRebaseEditorCommand()} sequence`);
+    for (const wrong of [
+      { expected: 'abc1234' },
+      { expected: ['--all'] },
+      { entries: 'pick abc1234' },
+      { entries: [null] },
+      { entries: [{ action: 'exec', hash: 'abc1234' }] },
+      { entries: [{ action: 'pick', hash: '-x' }] },
+      { entries: [{ action: 'reword', hash: 'abc1234', message: 3 }] },
+    ]) {
+      await expect(
+        ui.request('git.interactiveRebase', { ...asked, ...wrong }),
+      ).rejects.toMatchObject({
+        code: ErrorCodes.InvalidParams,
+      });
+    }
+  });
+
+  it('runs git’s editors in a rebase with this host’s entry, as Node', () => {
+    expect(defaultRebaseEditorCommand('/opt/My App/electron', '/main.js')).toBe(
+      `ELECTRON_RUN_AS_NODE=1 '/opt/My App/electron' '/main.js' rebase-editor`,
+    );
+    const argv = process.argv;
+    process.argv = [argv[0] as string];
+    expect(defaultRebaseEditorCommand('/node')).toBe(
+      `ELECTRON_RUN_AS_NODE=1 '/node' '' rebase-editor`,
+    );
+    process.argv = argv;
   });
 
   it('runs hooks with this host’s entry, as Node, quoted for the shell', () => {

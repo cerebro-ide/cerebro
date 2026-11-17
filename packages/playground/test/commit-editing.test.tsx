@@ -112,6 +112,8 @@ describe('the Log’s Edit Commit Message…', () => {
       { command: 'log.reset' },
       { command: 'log.undoCommit' },
       { command: 'log.reword' },
+      { command: 'log.fixup' },
+      { command: 'log.squashInto' },
       { command: 'log.drop' },
     ]);
     expect(commands.isEnabled('log.reword', context())).toBe(true);
@@ -330,6 +332,40 @@ describe('the Log’s Drop Commit', () => {
       type: 'error',
     });
     expect(logged).toHaveBeenCalledWith('Reading again after Drop Commit', new Error('gone'));
+  });
+});
+
+describe('the Log’s Fixup… and Squash Into…', () => {
+  it('are after Edit Commit Message, not for a merge, as IntelliJ’s', () => {
+    expect(commands.get('log.fixup')).toMatchObject({ label: 'Fixup', dialog: true });
+    expect(commands.get('log.squashInto')).toMatchObject({ label: 'Squash Into', dialog: true });
+    for (const id of ['log.fixup', 'log.squashInto']) {
+      // The changes not read yet: on.
+      expect(commands.isEnabled(id, context())).toBe(true);
+      expect(commands.isEnabled(id, context({ parents: [] }))).toBe(true);
+      expect(commands.isEnabled(id, context({ parents: ['a', 'b'] }))).toBe(false);
+      expect(commands.isEnabled(id)).toBe(false);
+    }
+  });
+
+  it('say why they can’t first, in IntelliJ’s words, doing nothing', async () => {
+    git.check = { refused: 'The commit is not in the current branch' };
+    void commands.get('log.fixup')?.run(context());
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Cannot Create Fixup Commit',
+    );
+    expect(box.textContent).toContain('The commit is not in the current branch');
+    await press('OK');
+    void commands.get('log.squashInto')?.run(context());
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Cannot Create Squash Commit',
+    );
+    expect(host.params('git.editCheck').map((p) => (p as { editing: string }).editing)).toEqual([
+      'fixup',
+      'squash',
+    ]);
+    expect(host.params('git.changes')).toEqual([]);
   });
 });
 

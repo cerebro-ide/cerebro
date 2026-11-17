@@ -1,11 +1,12 @@
 import { CommandRegistry, Keymap, MenuRegistry } from '@cerebro-ide/commands';
 import { render } from '@cerebro-ide/jsx';
 import type { Tab } from '@cerebro-ide/layout';
-import { DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
+import { CodeEditor, DiffEditor, type EditorDocument } from '@cerebro-ide/ui-editor';
 import type { MenuServices } from '@cerebro-ide/ui-menu';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { setupBlame } from '../src/blame.js';
+import { setupCommitEditing } from '../src/commit-editing.js';
 import {
   AgentChangesView,
   type Change,
@@ -22,9 +23,12 @@ import {
   toShelve,
   type Turn,
 } from '../src/changes.js';
+import { DiffWithWorkingTree, setupDiffWithWorkingTree } from '../src/diff-with-working-tree.js';
+import { formatCommitDate } from '../src/dates.js';
 import { documentFor, unsavedFiles } from '../src/documents.js';
-import { useProjects, workspace } from '../src/environments.js';
+import { projectOf, useProjects, workspace, type ProjectState } from '../src/environments.js';
 import { carets } from '../src/navigation.js';
+import { projectTarget } from '../src/project.js';
 import { readState } from '../src/repository-state.js';
 import { notifications } from '../src/notifications.js';
 import {
@@ -42,6 +46,10 @@ import {
 import { repositoryOf, setFavorite } from '../src/branch-favorites.js';
 
 /** The worktree as git sees it, and what the host was asked to do to it. */
+
+// The Project view's selection, for a folder's Compare with Branch or Tag.
+vi.mock('../src/project.js', { spy: true });
+
 const git = {
   changes: [] as Change[],
   turns: [] as Turn[],
@@ -64,6 +72,7 @@ const fails = (method: string) => {
   if (git.failing === method) throw new Error(`${method} failed`);
 };
 const host = new FakeHost({
+  'git.editCheck': () => ({ head: 'abc1234def5678' }),
   'git.changes': async ({ from, to }: { from?: string; to?: string }) => {
     fails('git.changes');
     if (from !== undefined) return git.turnFiles[`${from}..${String(to)}`] ?? [];
@@ -121,8 +130,22 @@ const host = new FakeHost({
     fails('git.rollback');
     return null;
   },
+  'git.add': () => {
+    fails('git.add');
+    return null;
+  },
   // No patch file there yet.
-  'fs.exists': ({ path }: { path: string }) => !/(gone\.ts|\.patch)$/.test(path),
+  // A .gitignore is there once written.
+  'fs.exists': ({ path }: { path: string }) =>
+    !/(gone\.ts|\.patch)$/.test(path) && !(path.endsWith('.gitignore') && !(path in git.disk)),
+  'fs.create': ({ path }: { path: string }) => {
+    git.disk[path] = '';
+    return null;
+  },
+  'git.excludeFile': ({ path }: { path: string }) => {
+    fails('git.excludeFile');
+    return `${path}/.git/info/exclude`;
+  },
   'git.createPatch': ({ file }: { file?: string }) => {
     fails('git.createPatch');
     return file === undefined ? { text: 'the patch' } : null;
@@ -170,6 +193,8 @@ const histories: string[] = [];
 /** The line each diff opened starts at, if one. */
 const lines: (number | undefined)[] = [];
 let shown = 0;
+/** How often the Changes tool window was shown. */
+let revealed = 0;
 let activeTab: string | undefined;
 let dispose: (() => void) | undefined;
 
@@ -193,6 +218,10 @@ beforeAll(() => {
     openAt: (at) => void placed.push(at),
     showHistory: (path) => void histories.push(path),
   });
+  setupDiffWithWorkingTree(services, () => {
+    revealed++;
+  });
+  setupCommitEditing(services);
 });
 
 /** Each test's own worktree, in the project: the window keeps each one's changes, as left. */
@@ -646,6 +675,7 @@ describe('Git → Current File → Compare with Revision…', () => {
       'git.file.compareWithRevision',
       'git.file.compareWithBranch',
       'git.file.showHistory',
+      'git.file.showHistoryForSelection',
     ]);
   });
 
@@ -664,6 +694,492 @@ describe('Git → Current File → Compare with Revision…', () => {
       .poll(() => logged.mock.calls[0]?.[0] as unknown)
       .toBe('Reading the file’s revisions failed');
     logged.mockRestore();
+  });
+});
+
+describe('Git → Current File from a tab’s menu', () => {
+  it('acts on the tab’s file, not the active one’s, as IntelliJ’s tab menu', async () => {
+    // The worktree's changes read: notes.txt isn't committed.
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    const menu = { group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true as const };
+    await expect.poll(() => commands.isEnabled('git.file.showDiff')).toBe(false);
+    expect(commands.isEnabled('git.file.showDiff', menu)).toBe(true);
+    expect(commands.isEnabled('git.file.compareWithRevision', menu)).toBe(true);
+    expect(commands.isEnabled('git.file.showHistory', menu)).toBe(true);
+    // By a key, whose context names the active tab: the active editor's, as before.
+    expect(commands.isEnabled('git.file.showDiff', { group: 'g', tab: menu.tab })).toBe(false);
+    commands.execute('git.file.showDiff', menu);
+    expect(opened.at(-1)).toEqual(diffTab('src/main/app.ts'));
+    commands.execute('git.file.showHistory', menu);
+    expect(histories.at(-1)).toBe('src/main/app.ts');
+    // A tab of no file of the worktree: none.
+    expect(commands.get('git.file.showDiff')?.visible?.({ ...menu, tab: '/elsewhere/a.ts' })).toBe(
+      false,
+    );
+  });
+});
+
+describe('Git → Current File → Show History for Selection', () => {
+  const id = 'git.file.showHistoryForSelection';
+  const editor = async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(() => <CodeEditor path="src/main/app.ts" text={'a\nb\nc\n'} />, box);
+    dispose = () => {
+      handle.dispose();
+    };
+    const root = (box.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-line') as HTMLElement);
+  };
+
+  it('shows the history of the editor’s selected lines, as IntelliJ’s', async () => {
+    expect(commands.get(id)?.visible?.(undefined)).toBe(false);
+    await editor();
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    expect(commands.isEnabled(id)).toBe(true);
+    // Not from a tab's menu, which has no editor.
+    expect(
+      commands.get(id)?.visible?.({ group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true }),
+    ).toBe(false);
+    void commands.get(id)?.run(undefined);
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'History for Selection',
+    );
+    await expect
+      .poll(() => host.params('git.log').at(-1))
+      .toMatchObject({
+        worktree: wt,
+        filter: { paths: ['src/main/app.ts'] },
+      });
+  });
+
+  it('shows nothing where the file can’t be read', async () => {
+    await editor();
+    const request = host.request.bind(host);
+    vi.spyOn(host, 'request').mockImplementation((method, params) =>
+      method === 'fs.read' ? Promise.reject(new Error('unreadable')) : request(method, params),
+    );
+    await commands.get(id)?.run(undefined);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+  });
+});
+
+describe('the Git submenu’s Commit File…', () => {
+  const id = 'git.file.commit';
+  const ticked = () =>
+    CHANGES.filter((c) => c.status !== 'untracked')
+      .map((c) => c.path)
+      .filter((path) => include(`${GROUP}:${path}`).checked);
+
+  it('puts the editor’s file alone into the commit, and shows the Commit window', async () => {
+    await changesView();
+    activeTab = `${wt}/src/main/app.ts`;
+    // An untracked file was put in: taken out.
+    await userEvent.click(include(`${UNVERSIONED}:notes.txt`));
+    const before = shown;
+    expect(commands.isEnabled(id)).toBe(true);
+    expect(commands.get(id)?.text?.(undefined)).toBe('Comm&it File');
+    await commands.get(id)?.run(undefined);
+    await expect.poll(ticked).toEqual(['src/main/app.ts']);
+    expect(include(`${UNVERSIONED}:notes.txt`).checked).toBe(false);
+    expect(shown).toBe(before + 1);
+  });
+
+  it('puts a Project view folder’s changes in, or all of them for the root', async () => {
+    await changesView();
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get(id)?.text?.(undefined)).toBe('Comm&it Directory');
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    await expect.poll(ticked).toEqual(['src/main/app.ts', 'src/main/new.ts']);
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    await commands.get(id)?.run(undefined);
+    await expect
+      .poll(ticked)
+      .toEqual(['src/main/app.ts', 'src/main/new.ts', 'README.md', 'docs/guide.md']);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('is off for an unchanged file, on for an untracked one, as IntelliJ’s', async () => {
+    await changesView();
+    activeTab = `${wt}/unchanged.ts`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.isEnabled(id)).toBe(true);
+    // In the Git submenu.
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    activeTab = undefined;
+    expect(commands.isEnabled(id)).toBe(false);
+  });
+
+  it('says why when the changes can’t be read', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    // The Commit window hasn't read the changes: on.
+    expect(commands.isEnabled(id)).toBe(true);
+    git.failing = 'git.changes';
+    void commands.get(id)?.run(undefined);
+    expect(await dialogText()).toContain('git.changes failed');
+  });
+});
+
+describe('the Log’s Fixup… and Squash Into…, through the Commit window', () => {
+  const ticked = () =>
+    CHANGES.filter((c) => c.status !== 'untracked')
+      .map((c) => c.path)
+      .filter((path) => include(`${GROUP}:${path}`).checked);
+  const message = () => document.querySelector<HTMLTextAreaElement>('.playground-commit__message');
+  const at = () => ({
+    commit: {
+      hash: 'abc1234def5678',
+      parents: ['0123456789abcd'],
+      author: 'Ada',
+      email: 'ada@x.org',
+      time: 0,
+      subject: 'Fix the thing',
+      body: 'Why.\n',
+      refs: [],
+    },
+    worktree: wt,
+    host,
+    head: 'abc1234def5678',
+    refresh: () => Promise.resolve(),
+    select: () => Promise.resolve(true),
+  });
+
+  it('put every change in, with git’s autosquash message, as IntelliJ’s', async () => {
+    await changesView();
+    await userEvent.click(include(`${GROUP}:README.md`));
+    const before = shown;
+    await commands.get('log.fixup')?.run(at());
+    await expect
+      .poll(ticked)
+      .toEqual(CHANGES.filter((c) => c.status !== 'untracked').map((c) => c.path));
+    expect(message()?.value).toBe('fixup! Fix the thing');
+    expect(shown).toBe(before + 1);
+    await expect.poll(() => document.activeElement).toBe(message());
+    message()?.blur();
+    await commands.get('log.squashInto')?.run(at());
+    await expect.poll(() => message()?.value).toBe('squash! Fix the thing');
+    // Its field focused a frame later: waited for, or it'd take the focus in the next test.
+    await expect.poll(() => document.activeElement).toBe(message());
+    expect(host.params('git.editCheck')).toMatchObject([
+      { path: wt, hash: 'abc1234def5678', editing: 'fixup' },
+      { path: wt, hash: 'abc1234def5678', editing: 'squash' },
+    ]);
+  });
+
+  it('are off with nothing to commit, and say so if it’s gone by then', async () => {
+    // Not read yet: on.
+    expect(commands.isEnabled('log.fixup', at())).toBe(true);
+    git.changes = CHANGES.filter((c) => c.status === 'untracked');
+    await changesView(git.changes);
+    await expect.poll(() => commands.isEnabled('log.fixup', at())).toBe(false);
+    const before = shown;
+    void commands.get('log.fixup')?.run(at());
+    const box = await dialog();
+    expect(box.querySelector('.cerebro-dialog__title')?.textContent).toBe('Nothing to Commit');
+    expect(await dialogText()).toBe('No changes detected');
+    expect(shown).toBe(before);
+  });
+});
+
+describe('the Git submenu’s Add', () => {
+  const id = 'git.file.add';
+  const added = () => host.params('git.add');
+  const untracked: Change[] = [
+    ...CHANGES,
+    { path: 'src/main/loose.ts', status: 'untracked' },
+    { path: 'src/other.ts', status: 'untracked' },
+    { path: 'srcs.ts', status: 'untracked' },
+  ];
+
+  it('adds the editor’s untracked file to git, as IntelliJ’s Git.Add', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    // The Commit window hasn't read the changes: on, and read as it runs.
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([{ path: wt, files: ['notes.txt'] }]);
+  });
+
+  it('adds the untracked files under a Project view folder, or the whole worktree’s', async () => {
+    git.changes = untracked;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    // Not srcs.ts, nor the tracked changes.
+    expect(added()).toEqual([{ path: wt, files: ['src/main/loose.ts', 'src/other.ts'] }]);
+    host.asked.length = 0;
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([
+      { path: wt, files: ['notes.txt', 'src/main/loose.ts', 'src/other.ts', 'srcs.ts'] },
+    ]);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('is off for a file the Commit window knows isn’t untracked; adds nothing where none is', async () => {
+    await changesView(untracked);
+    activeTab = `${wt}/src/main/app.ts`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.isEnabled(id)).toBe(true);
+    activeTab = `${wt}/src/main/app.ts`;
+    await commands.get(id)?.run(undefined);
+    expect(added()).toEqual([]);
+  });
+
+  it('says why when adding fails', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    git.failing = 'git.add';
+    void commands.get(id)?.run(undefined);
+    expect(await dialogText()).toContain('git.add failed');
+    expect((await dialog()).querySelector('.cerebro-dialog__title')?.textContent).toBe(
+      'Failed to Add Files',
+    );
+  });
+});
+
+describe('the Git submenu’s Add to .gitignore', () => {
+  const untracked: Change[] = [...CHANGES, { path: 'src/main/loose.ts', status: 'untracked' }];
+  const tabs = () => opened.map((tab) => tab.id);
+
+  it('adds the file to the worktree’s .gitignore, on a line of its own, and opens it', async () => {
+    await changesView(untracked);
+    const reads = host.params('git.changes').length;
+    git.disk[`${wt}/.gitignore`] = 'dist';
+    activeTab = `${wt}/notes.txt`;
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(true);
+    await commands.get('git.file.ignore')?.run(undefined);
+    expect(git.disk[`${wt}/.gitignore`]).toBe('dist\n/notes.txt\n');
+    expect(tabs()).toContain(`${wt}/.gitignore`);
+    // Read again: the file is ignored now.
+    expect(host.params('git.changes').length).toBeGreaterThan(reads);
+  });
+
+  it('adds a Project view folder, with its slash, after asking to create the .gitignore', async () => {
+    git.changes = untracked;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    void commands.get('git.file.ignore')?.run(undefined);
+    expect(await dialogText()).toBe(`Create .gitignore file in ${wt}?`);
+    // Cancelled: nothing written.
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    expect(git.disk[`${wt}/.gitignore`]).toBeUndefined();
+    void commands.get('git.file.ignore')?.run(undefined);
+    await dialogText();
+    await press('Create');
+    await expect.poll(() => git.disk[`${wt}/.gitignore`]).toBe('/src/\n');
+    // Not for the worktree itself.
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('adds it to the repository’s .git/info/exclude instead', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/src/main/loose.ts`;
+    await commands.get('git.file.exclude')?.run(undefined);
+    expect(git.disk[`${wt}/.git/info/exclude`]).toBe('/src/main/loose.ts\n');
+    expect(tabs()).toContain(`${wt}/.git/info/exclude`);
+  });
+
+  it('isn’t there for a file the Commit window has as tracked', async () => {
+    await changesView(untracked);
+    activeTab = `${wt}/src/main/app.ts`;
+    await expect.poll(() => commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+    expect(commands.get('git.file.exclude')?.visible?.(undefined)).toBe(false);
+    activeTab = undefined;
+    expect(commands.get('git.file.ignore')?.visible?.(undefined)).toBe(false);
+  });
+
+  it('says why when the ignore file can’t be found or read', async () => {
+    git.changes = untracked;
+    activeTab = `${wt}/notes.txt`;
+    git.failing = 'git.excludeFile';
+    void commands.get('git.file.exclude')?.run(undefined);
+    expect(await dialogText()).toContain('git.excludeFile failed');
+    await closeAll();
+    git.failing = undefined;
+    vi.spyOn(host, 'request').mockImplementation((method) =>
+      method === 'fs.read' ? Promise.reject(new Error('unreadable')) : Promise.resolve(true),
+    );
+    void commands.get('git.file.ignore')?.run(undefined);
+    expect(await dialogText()).toContain('unreadable');
+  });
+});
+
+describe('the Git submenu’s Show Current Revision', () => {
+  const id = 'git.file.showCurrentRevision';
+  const words = [
+    'app.ts',
+    '',
+    `Current version is ${'b'.repeat(40)}.`,
+    'Modified by Ada',
+    formatCommitDate(0),
+    'Second\n\nWhy it changed',
+  ];
+  const centred = () => document.querySelector('.playground-centred-popup');
+  /** A popup's lines, as IntelliJ's `<br/>`s part them. */
+  const lines = (element: Element) => {
+    const all = [''];
+    for (const node of element.firstElementChild?.childNodes ?? []) {
+      if (node.nodeName === 'BR') all.push('');
+      else all.push(`${all.pop() as string}${node.textContent ?? ''}`);
+    }
+    return all;
+  };
+
+  it('shows the file’s last commit at the caret of its editor, in IntelliJ’s words', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(() => <CodeEditor path="src/main/app.ts" text={'a\nb\n'} />, box);
+    dispose = () => {
+      handle.dispose();
+    };
+    const root = (box.querySelector('.cerebro-editor-code') as HTMLElement)
+      .shadowRoot as ShadowRoot;
+    await userEvent.click(root.querySelector('.cm-content') as HTMLElement);
+    expect(commands.isEnabled(id)).toBe(true);
+    await commands.get(id)?.run(undefined);
+    const hint = () => root.querySelector('.cerebro-hint');
+    await expect.poll(hint).not.toBeNull();
+    expect(lines(hint() as Element)).toEqual(words);
+    expect(centred()).toBeNull();
+    // The latest commit, asked of git for the file.
+    expect(host.params('git.log').at(-1)).toEqual({
+      worktree: wt,
+      skip: 0,
+      max: 1,
+      filter: { paths: ['src/main/app.ts'] },
+    });
+  });
+
+  it('shows it centred from the Project view or a tab’s menu, until Escape or a click elsewhere', async () => {
+    vi.mocked(projectTarget).mockReturnValue({
+      path: `${wt}/src/main/app.ts`,
+      name: 'app.ts',
+      kind: 'file',
+    });
+    await commands.get(id)?.run(undefined);
+    expect(lines(centred() as Element)).toEqual(words);
+    // A click in it keeps it, one elsewhere closes it.
+    await userEvent.click(centred() as HTMLElement);
+    expect(centred()).not.toBeNull();
+    await userEvent.click(document.body, { position: { x: 5, y: 5 } });
+    expect(centred()).toBeNull();
+    vi.mocked(projectTarget).mockReset();
+    // A tab's, not the active one.
+    activeTab = `${wt}/notes.txt`;
+    const menu = { group: 'g', tab: `${wt}/src/main/app.ts`, tabMenu: true as const };
+    await commands.get(id)?.run(menu);
+    expect(centred()).not.toBeNull();
+    await userEvent.keyboard('a');
+    expect(centred()).not.toBeNull();
+    await userEvent.keyboard('{Escape}');
+    expect(centred()).toBeNull();
+  });
+
+  it('is off when Show Diff is; shows nothing with no commit, and says on the console when git fails', async () => {
+    await changesView();
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled(id)).toBe(false);
+    // Shown all the same, as IntelliJ's.
+    expect(commands.get(id)?.visible?.(undefined)).toBe(true);
+    activeTab = `${wt}/unchanged.ts`;
+    await commands.get(id)?.run(undefined);
+    expect(centred()).toBeNull();
+    git.failing = 'git.log';
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await commands.get(id)?.run(undefined);
+    expect(logged.mock.calls[0]?.[0]).toBe('Reading the file’s current revision failed');
+    expect(centred()).toBeNull();
+  });
+});
+
+describe('the Git submenu’s Rollback…', () => {
+  const rolledBack = () => host.params('git.rollback');
+  const confirm = async () => {
+    const text = await dialogText();
+    await press('Rollback');
+    await expect.poll(rolledBack).toHaveLength(1);
+    return text;
+  };
+
+  it('rolls back the editor’s file, after asking, as IntelliJ’s RollbackAction', async () => {
+    git.changes = CHANGES;
+    activeTab = `${wt}/src/main/app.ts`;
+    // The Commit window hasn't read the changes: on, and read as it runs.
+    expect(commands.isEnabled('git.file.rollback')).toBe(true);
+    commands.execute('git.file.rollback');
+    expect(await confirm()).toContain('This file will be rolled back:');
+    expect(rolledBack()).toEqual([{ path: wt, files: ['src/main/app.ts'], deleteAdded: false }]);
+  });
+
+  it('rolls back the changes under a Project view folder, from where it was renamed too', async () => {
+    git.changes = CHANGES;
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(commands.get('git.file.rollback')?.visible?.(undefined)).toBe(true);
+    commands.execute('git.file.rollback');
+    expect(await confirm()).toContain('These 2 files will be rolled back:');
+    expect(rolledBack()).toEqual([
+      { path: wt, files: ['src/main/app.ts', 'src/main/new.ts'], deleteAdded: false },
+    ]);
+    host.asked.length = 0;
+    // A renamed file's old place: guide.md was moved to docs/.
+    vi.mocked(projectTarget).mockReturnValue({
+      path: `${wt}/guide.md`,
+      name: 'guide.md',
+      kind: 'file',
+    });
+    commands.execute('git.file.rollback');
+    await confirm();
+    expect(rolledBack()).toEqual([{ path: wt, files: ['docs/guide.md'], deleteAdded: false }]);
+    vi.mocked(projectTarget).mockReset();
+  });
+
+  it('rolls back all the changes where the file has none, as IntelliJ’s', async () => {
+    git.changes = CHANGES;
+    activeTab = `${wt}/unchanged.ts`;
+    commands.execute('git.file.rollback');
+    // Not the untracked one.
+    expect(await confirm()).toContain('These 4 files will be rolled back:');
+    expect(rolledBack()).toEqual([
+      {
+        path: wt,
+        files: ['src/main/app.ts', 'src/main/new.ts', 'README.md', 'docs/guide.md'],
+        deleteAdded: false,
+      },
+    ]);
+  });
+
+  it('is off once the Commit window knows of no change; with none read, does nothing', async () => {
+    await changesView([{ path: 'notes.txt', status: 'untracked' }]);
+    activeTab = `${wt}/notes.txt`;
+    await expect.poll(() => commands.isEnabled('git.file.rollback')).toBe(false);
+    // In the Git submenu, after Show History.
+    expect(commands.get('git.file.rollback')?.visible?.(undefined)).toBe(true);
+    // Not known yet (another worktree's), and none there.
+    workspace.openOrActivate({ id: `${wt}-other`, name: 'o', branch: 'main' });
+    activeTab = `${wt}-other/a.ts`;
+    git.changes = [];
+    await commands.get('git.file.rollback')?.run(undefined);
+    expect(document.querySelector('.cerebro-dialog')).toBeNull();
+    workspace.close(`${wt}-other`);
+  });
+
+  it('says why when the changes can’t be read', async () => {
+    activeTab = `${wt}/src/main/app.ts`;
+    git.failing = 'git.changes';
+    commands.execute('git.file.rollback');
+    expect(await dialogText()).toContain('git.changes failed');
+    expect(rolledBack()).toEqual([]);
   });
 });
 
@@ -742,6 +1258,69 @@ describe('Git → Current File → Compare with Branch or Tag…', () => {
     commands.execute('git.file.compareWithBranch');
     expect(await popupItems()).toEqual(['feature-9', 'feature-10', 'origin/main', 'v1.0']);
     expect(logged.mock.calls[0]?.[0]).toBe('Reading the recent branches failed');
+  });
+
+  it('compares a folder of the Project view, or the worktree’s own, in the Changes tool window', async () => {
+    const visible = () => commands.get('git.file.compareWithBranch')?.visible?.(undefined);
+    // This test's worktree, on main: the current branch the title names.
+    const worktrees = (projectOf('/r') as ProjectState).worktrees;
+    worktrees.set([...worktrees.peek(), { id: wt, name: 't', branch: 'main' }]);
+    const box = document.createElement('div');
+    document.body.append(box);
+    const handle = render(
+      () => <DiffWithWorkingTree services={services} open={(tab) => opened.push(tab)} />,
+      box,
+    );
+    dispose = () => {
+      handle.dispose();
+    };
+    const differing: Change[] = [
+      { path: 'src/a.ts', status: 'modified' },
+      { path: 'b.ts', status: 'modified' },
+    ];
+    git.turnFiles['refs/heads/feature-9..undefined'] = differing;
+    git.turnFiles['refs/tags/v1.0..undefined'] = differing;
+    const explanation = () =>
+      document.querySelector('.playground-compare__explanation')?.textContent;
+    const shownRows = () =>
+      [...box.querySelectorAll('.cerebro-tree-row')].map((r) => r.getAttribute('data-key'));
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/src`, name: 'src', kind: 'directory' });
+    expect(visible()).toBe(true);
+    // Not Show Diff's, which IntelliJ's has for a file alone.
+    expect(commands.get('git.file.showDiff')?.visible?.(undefined)).toBe(false);
+    await unsavedEdit(host, `${wt}/src/main/app.ts`);
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('feature-9{Enter}');
+    await expect
+      .poll(explanation)
+      .toBe('Difference Between feature-9 and main (Local) Versions in src');
+    // The folder's files alone; what git compares saved first.
+    await expect.poll(shownRows).toContain('src/a.ts');
+    expect(shownRows()).not.toContain('b.ts');
+    expect(unsavedFiles()).toEqual([]);
+    expect(revealed).toBeGreaterThan(0);
+    expect(opened).toEqual([]);
+    // The worktree's own: all of them.
+    vi.mocked(projectTarget).mockReturnValue({ path: wt, name: 'r', kind: 'directory' });
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('v1{Enter}');
+    await expect.poll(explanation).toBe('Difference Between v1.0 and main (Local) Versions in r');
+    await expect.poll(shownRows).toContain('b.ts');
+    // Escape: nothing shown.
+    commands.execute('git.file.compareWithBranch');
+    await popupItems();
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-popup')).toBeNull();
+    expect(explanation()).toBe('Difference Between v1.0 and main (Local) Versions in r');
+    // A file selected there is a file's, a group nothing.
+    vi.mocked(projectTarget).mockReturnValue({ path: `${wt}/a.ts`, name: 'a.ts', kind: 'file' });
+    expect(visible()).toBe(true);
+    vi.mocked(projectTarget).mockReturnValue(null);
+    expect(visible()).toBe(false);
+    vi.mocked(projectTarget).mockReset();
+    worktrees.set(worktrees.peek().filter((w) => w.id !== wt));
   });
 
   it('says on the console when the branches can’t be read', async () => {

@@ -321,6 +321,17 @@ describe('Annotate with Git Blame', () => {
     expect(labels('editor/gutter', { file: '/s/a.ts' })).toEqual([]);
   });
 
+  it('annotates the file of the tab whose menu it’s from, not the active one’s', () => {
+    tab = '/elsewhere/a.ts';
+    const menu = { group: 'g', tab: '/r/a.ts', tabMenu: true as const };
+    expect(annotate('vcs.annotate')?.visible?.(undefined)).toBe(false);
+    expect(annotate('vcs.annotate')?.visible?.(menu)).toBe(true);
+    annotate('vcs.annotate')?.run(menu);
+    expect(annotate('vcs.annotate')?.checked?.({ file: '/r/a.ts' })).toBe(true);
+    // By a key, whose context names a tab too: the active editor's.
+    expect(annotate('vcs.annotate')?.visible?.({ group: 'g', tab: '/r/a.ts' })).toBe(false);
+  });
+
   it('annotates a repository version, blamed at its commit, as IntelliJ’s AnnotateVcsVirtualFileAction', async () => {
     const version = revisionTab('src/a.ts', cy.hash).id;
     expect(labels('editor/gutter', { file: version })).toEqual(['Annotate with Git Blame']);
