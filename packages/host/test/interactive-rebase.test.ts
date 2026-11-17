@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   continueOperation,
@@ -28,7 +28,7 @@ const folder = realpathSync(mkdtempSync(join(tmpdir(), 'cerebro-interactive-')))
 const shim = join(folder, 'editor.mjs');
 writeFileSync(
   shim,
-  `import { rebaseEditor } from ${JSON.stringify(resolve('src/rebase-editor.ts'))};\n` +
+  `import { rebaseEditor } from ${JSON.stringify(new URL('../src/rebase-editor.ts', import.meta.url).href)};\n` +
     'process.exitCode = rebaseEditor(process.argv.slice(2), process.env, process.stderr);\n',
 );
 const editor = `${shellWord(process.execPath)} ${shellWord(shim)}`;
