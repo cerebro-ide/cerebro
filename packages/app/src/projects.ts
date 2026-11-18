@@ -2,7 +2,9 @@
 // opened from a window joins it as more tabs (New Window), or takes the place of its active project
 // (This Window); one already open is brought to the front instead. The app keeps the projects opened recently and the ones open when
 // it quit, by window, in its data folder (projects.json), and reopens those at the next start; with
-// none, or once the last project is closed, it shows the Welcome window.
+// none, or once the last project is closed, it shows the Welcome window. On macOS, closing the last
+// project's window closes its project and shows the Welcome window too, as IntelliJ's
+// (CloseProjectWindowHelper): elsewhere it quits the app, and the project reopens next time.
 //
 // Electron stays out of this file: main.ts gives it windows as `ProjectWindow`s.
 
@@ -136,6 +138,8 @@ export interface ProjectDeps {
   create(welcome: boolean, project?: string): ProjectWindow;
   /** Whether a folder is there to open. */
   exists(path: string): boolean;
+  /** On macOS: closing the last project's window shows the Welcome window instead of quitting. */
+  mac: boolean;
 }
 
 /**
@@ -275,9 +279,14 @@ export class ProjectWindows {
     window.onClosed(() => {
       this.windows.delete(window.id);
       this.deps.hosts.detach(window);
-      // Closing the last project's window quits the app (or, on macOS, leaves it running): its
-      // projects reopen next time, as IntelliJ's do. Closing one of several forgets its projects.
-      if (!this.quitting && this.projectWindows() > 0) this.save();
+      if (this.quitting || entry.projects.length === 0) return;
+      // Closing one of several forgets its projects. The last: on macOS, its projects close and the
+      // Welcome window shows; elsewhere the app quits (main.ts), and they reopen next time.
+      if (this.projectWindows() > 0) this.save();
+      else if (this.deps.mac) {
+        this.save();
+        this.welcome();
+      }
     });
     return window;
   }

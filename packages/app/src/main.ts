@@ -220,12 +220,17 @@ export function projectWindow(welcome: boolean, project?: string): ProjectWindow
 const isFolder = (path: string) => existsSync(path) && statSync(path).isDirectory();
 
 /** Lets pages ask which projects they show, list and open projects, and close theirs. */
-export function installProjects(hosts: Hosts, store: ProjectStore): ProjectWindows {
+export function installProjects(
+  hosts: Hosts,
+  store: ProjectStore,
+  platform = process.platform,
+): ProjectWindows {
   const windows = new ProjectWindows({
     store,
     hosts,
     create: projectWindow,
     exists: isFolder,
+    mac: platform === 'darwin',
   });
   const text = (value: unknown, name: string): string => {
     if (typeof value !== 'string' || value === '') throw new Error(`${name} must be a path`);
@@ -299,8 +304,10 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
   // Empty is unset: a test or a shell can clear it without removing it.
   const repo = process.env['CEREBRO_REPO'] || undefined;
   let windows: ProjectWindows | undefined;
+  // With no window left, the app quits, on macOS too, as IntelliJ does: there, closing the last
+  // project's window shows the Welcome window instead (projects.ts), and closing that quits.
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit();
+    app.quit();
   });
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) windows?.start(repo);

@@ -82,7 +82,11 @@ interface FakeWindow extends ProjectWindow {
 }
 
 /** Fake windows, the hosts they get, and the folders that exist. */
-function setup(open: string[][] = [], exists = (path: string) => !path.includes('missing')) {
+function setup(
+  open: string[][] = [],
+  exists = (path: string) => !path.includes('missing'),
+  mac = false,
+) {
   const dir = folder();
   const store = new ProjectStore(join(dir, 'projects.json'));
   store.setOpen(open);
@@ -109,7 +113,7 @@ function setup(open: string[][] = [], exists = (path: string) => !path.includes(
     windows.push(window);
     return window;
   };
-  const projects = new ProjectWindows({ store, hosts, create, exists });
+  const projects = new ProjectWindows({ store, hosts, create, exists, mac });
   /** Each window's projects, or 'welcome'. */
   const shown = () => windows.map((w) => (w.welcome ? 'welcome' : [...projects.projectsOf(w.id)]));
   return { store, hosts, windows, projects, shown };
@@ -208,6 +212,29 @@ describe('ProjectWindows', () => {
     expect(store.open).toEqual([[b]]);
     windows[0]?.closeNow();
     expect(store.open).toEqual([[b]]);
+  });
+
+  it('on macOS, closes the last window’s projects and shows the Welcome window, as IntelliJ', () => {
+    const { projects, windows, store, shown, hosts } = setup([[a, c], [b]], undefined, true);
+    projects.start();
+    windows[0]?.closeNow();
+    expect(shown()).toEqual([[b]]);
+    windows[0]?.closeNow();
+    expect(shown()).toEqual(['welcome']);
+    expect(store.open).toEqual([]);
+    expect(hosts.detach).toHaveBeenCalledTimes(2);
+    // Closing the Welcome window shows no other: the app quits (main.ts).
+    windows[0]?.closeNow();
+    expect(windows).toEqual([]);
+  });
+
+  it('on macOS too, keeps every project open when the app quits, with no Welcome window', () => {
+    const { projects, windows, store } = setup([[a]], undefined, true);
+    projects.start();
+    projects.quit();
+    windows[0]?.closeNow();
+    expect(windows).toEqual([]);
+    expect(store.open).toEqual([[a]]);
   });
 
   it('keeps every project open when the app quits', () => {
