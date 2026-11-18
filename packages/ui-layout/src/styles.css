@@ -703,7 +703,7 @@
   overflow: auto;
 }
 
-.cerebro-editor-tab-content--hidden {
+.cerebro-editor-tab-content:not(.cerebro-editor-tab-content--active) {
   visibility: hidden;
 }
 

@@ -69,7 +69,7 @@ function mount(
   const shown = (group = area.groups[0]?.id) =>
     [
       ...container.querySelectorAll(
-        `[data-content="${String(group)}"] > .cerebro-editor-tab-content:not(.cerebro-editor-tab-content--hidden)`,
+        `[data-content="${String(group)}"] > .cerebro-editor-tab-content--active`,
       ),
     ]
       .map((element) => element.textContent)
@@ -135,8 +135,8 @@ describe('rendering', () => {
     expect(tabEl('c').getAttribute('aria-selected')).toBe('true');
     expect(tabEl('a').getAttribute('aria-selected')).toBe('false');
     expect(shown()).toBe('c content');
-    // Each tab's content, rendered once.
-    expect(content).toHaveBeenCalledTimes(3);
+    // The active tab's content alone: the others' are made as they're first shown.
+    expect(content).toHaveBeenCalledTimes(1);
     expect($('.cerebro-editor-group').classList.contains('cerebro-editor-group--active')).toBe(
       true,
     );
@@ -200,15 +200,17 @@ describe('rendering', () => {
 });
 
 describe('activating and closing', () => {
-  it('keeps each tab’s content while it’s open, where it was scrolled, and disposes it on close', () => {
+  it('makes a tab’s content as it’s first shown, keeps it where it was scrolled, and disposes it on close', () => {
     const { area, content, disposed, shown, container } = mount(['a', 'b']);
     const group = area.groups[0] as EditorGroup;
     const element = (id: string) =>
-      container.querySelector(`[data-tab-content="${id}"]`) as HTMLElement;
-    const a = element('a');
+      container.querySelector<HTMLElement>(`[data-tab-content="${id}"]`);
+    // Not shown yet: not made.
+    expect(element('a')).toBeNull();
+    area.activate(group.id, 'a');
+    const a = element('a') as HTMLElement;
     a.style.height = '50px';
     (a.firstElementChild as HTMLElement).style.height = '500px';
-    area.activate(group.id, 'a');
     a.scrollTop = 120;
     area.activate(group.id, 'b');
     expect(shown()).toBe('b content');
@@ -223,6 +225,22 @@ describe('activating and closing', () => {
     area.close(group.id, 'b');
     expect(disposed).toEqual(['b']);
     expect(element('b')).toBeNull();
+  });
+
+  it('takes the focus from a tab’s content as it’s hidden, and makes a tab put in its place again', () => {
+    const { area, content, disposed, container } = mount(['a', 'b']);
+    const group = area.groups[0] as EditorGroup;
+    area.activate(group.id, 'a');
+    const field = document.createElement('input');
+    (container.querySelector('[data-tab-content="a"]') as HTMLElement).append(field);
+    field.focus();
+    area.activate(group.id, 'b');
+    expect(document.activeElement).toBe(document.body);
+    // Kept while open, but made again in the place of the tab it replaces.
+    area.replaceTab('a', { id: 'a', title: 'a' });
+    expect(disposed).toEqual(['a']);
+    area.activate(group.id, 'a');
+    expect(content).toHaveBeenCalledTimes(3);
   });
 
   it('activates a tab on click, and its group', () => {

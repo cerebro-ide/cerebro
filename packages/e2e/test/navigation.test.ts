@@ -18,16 +18,18 @@ const mac = process.platform === 'darwin';
 /** The line the caret is on, and the active tab. */
 const where = async () => ({
   tab: await page().locator('.cerebro-editor-tab--active').first().textContent(),
-  line: await page().locator('.cm-activeLine').first().textContent(),
+  line: await page().locator('.cm-activeLine:visible').first().textContent(),
 });
 
 /** The line drawn at the top of the editor shown. */
 const top = () =>
   page().evaluate(() => {
-    // The shown editor: other environments' are kept, hidden.
-    const editor = [...document.querySelectorAll<HTMLElement>('.cerebro-editor-code')].find(
-      (e) => e.offsetParent !== null,
-    ) as HTMLElement;
+    // The shown editor: other environments' and tabs' are kept, hidden.
+    const editor = [
+      ...document.querySelectorAll<HTMLElement>(
+        '.cerebro-editor-tab-content--active .cerebro-editor-code',
+      ),
+    ].find((e) => e.offsetParent !== null) as HTMLElement;
     const root = editor.shadowRoot as ShadowRoot;
     const box = (root.querySelector('.cm-scroller') as HTMLElement).getBoundingClientRect();
     // The first line not wholly scrolled out of view.
@@ -47,7 +49,7 @@ async function open(name: string): Promise<void> {
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line').first().waitFor();
+  await page().locator('.cm-line:visible').first().waitFor();
 }
 
 beforeAll(async () => {
@@ -80,7 +82,7 @@ it('goes back and forward through the places the caret was, within a file and ac
   const back = mac ? 'Meta+BracketLeft' : 'Control+Alt+ArrowLeft';
   const forward = mac ? 'Meta+BracketRight' : 'Control+Alt+ArrowRight';
   await open('a.ts');
-  await page().locator('.cm-line').first().click();
+  await page().locator('.cm-line:visible').first().click();
   await page().keyboard.press('Home');
   // To the definition, in the same file.
   await page().keyboard.press('ControlOrMeta+b');
@@ -127,7 +129,7 @@ it('lists the recent files, the latest first, and goes to the one before with En
 
 it('shows only the files edited with Show edited only, flipped by Recent Files’ key again', async () => {
   // The last test left b.ts shown, after a.ts: an edit to b.ts, taken back so it isn't saved.
-  await page().locator('.cm-line').first().click();
+  await page().locator('.cm-line:visible').first().click();
   await page().keyboard.press('End');
   await page().keyboard.type(' ');
   await page().keyboard.press('ControlOrMeta+z');
@@ -162,6 +164,7 @@ it('focuses the editor of the file chosen in Go to File, Recent Files or the Pro
       return (
         host?.classList.contains('cerebro-editor-code') === true &&
         host.offsetParent !== null &&
+        getComputedStyle(host).visibility === 'visible' &&
         host.shadowRoot?.activeElement?.classList.contains('cm-content') === true
       );
     });
@@ -199,7 +202,7 @@ it('goes to a line and column, from the caret’s, and back', async () => {
   // Its caret is where it was left, at the definition: to the top.
   await page().keyboard.press('ControlOrMeta+Home');
   // a.ts's own line: the last file's may still show for a moment, and a click there is lost.
-  await page().locator('.cm-line', { hasText: 'target();' }).first().click();
+  await page().locator('.cm-line:visible', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
   await page().keyboard.press(mac ? 'Meta+l' : 'Control+g');
   const field = page().locator('.cerebro-dialog-field__input');
@@ -266,10 +269,10 @@ it('selects each file as its tab is chosen, with Always Select Opened File on', 
 it('goes back to a place as it was scrolled, not just to its caret', async () => {
   await open('a.ts');
   await page().keyboard.press('ControlOrMeta+Home');
-  await page().locator('.cm-line', { hasText: 'target();' }).first().click();
+  await page().locator('.cm-line:visible', { hasText: 'target();' }).first().click();
   await page().keyboard.press('Home');
   // Scrolled down by the wheel, the caret left where it was.
-  await page().locator('.cm-line', { hasText: 'target();' }).first().hover();
+  await page().locator('.cm-line:visible', { hasText: 'target();' }).first().hover();
   await page().mouse.wheel(0, 200);
   await expect.poll(top).not.toBe('target();');
   const scrolled = await top();
@@ -295,7 +298,7 @@ it('keeps where a file was scrolled when its tab is chosen again, after going to
     .poll(where, { timeout: 15_000 })
     .toEqual({ tab: 'a.ts', line: 'export function target() {}' });
   // Scrolled away from the definition: the tab chosen again shows this, not the definition again.
-  await page().locator('.cm-line', { hasText: 'export function target' }).hover();
+  await page().locator('.cm-line:visible', { hasText: 'export function target' }).hover();
   await page().mouse.wheel(0, -300);
   await expect.poll(top).not.toBe('target();');
   await settled();
@@ -319,7 +322,7 @@ it('keeps the recent files when the app restarts', async () => {
   const before = await labels();
   expect(before.length).toBeGreaterThan(1);
   await running.restart();
-  await page().locator('.cm-line').first().waitFor();
+  await page().locator('.cm-line:visible').first().waitFor();
   expect(await labels()).toEqual(before);
 });
 

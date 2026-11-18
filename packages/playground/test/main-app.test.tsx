@@ -71,8 +71,16 @@ const stripe = (id: string) => q(`.cerebro-stripe-button[data-id="${id}"]`);
 const tooltipText = () => document.querySelector('.cerebro-tooltip')?.textContent;
 const env = () => workspace.active as NonNullable<typeof workspace.active>;
 const editorRoot = () =>
-  document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
+  document.querySelector(
+    '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+  )?.shadowRoot;
 const code = () => editorRoot()?.querySelector<HTMLElement>('.cm-content');
+/** Closes every tab: a file opened by a test before is made again, as it would be by a new start. */
+const closeTabs = () => {
+  for (const group of env().editor.groups) {
+    for (const tab of group.tabs) env().editor.close(group.id, tab.id);
+  }
+};
 const row = (key: string) =>
   [...document.querySelectorAll('.cerebro-tree-row')].find((r) =>
     r.getAttribute('data-key')?.endsWith(key),
@@ -198,7 +206,9 @@ describe('a repository version’s tab', () => {
       .poll(
         () =>
           document
-            .querySelector('.cerebro-editor-group--active .cerebro-editor-code')
+            .querySelector(
+              '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+            )
             ?.shadowRoot?.querySelector('.cm-content')?.textContent,
       )
       .toBe('then');
@@ -211,7 +221,9 @@ describe('a repository version’s tab', () => {
     ).toContain('a.ts (c0ffee)');
     // Its gutter's menu: Annotate with Git Blame, blamed at its commit; none in its text.
     const root = () =>
-      document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
+      document.querySelector(
+        '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+      )?.shadowRoot;
     await userEvent.click(root()?.querySelector('.cm-content') as HTMLElement, { button: 'right' });
     expect(document.querySelector('.cerebro-menu')).toBeNull();
     const hash = 'a'.repeat(40);
@@ -246,7 +258,9 @@ describe('a diff tab', () => {
   it('shows the changes the host reads, or why it can’t', async () => {
     const sides = () => [
       ...(document
-        .querySelector('.cerebro-editor-group--active .cerebro-editor-diff')
+        .querySelector(
+          '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-diff',
+        )
         ?.shadowRoot?.querySelectorAll('.cm-content') ?? []),
     ];
     env().editor.open(diffTab('src/a.ts', { from: 'a1', to: 'b2' }));
@@ -287,17 +301,20 @@ describe('a diff tab', () => {
     await expect
       .poll(
         () =>
-          document.querySelector('.cerebro-editor-group--active .playground-code__note')
-            ?.textContent,
+          document.querySelector(
+            '.cerebro-editor-group--active .cerebro-editor-tab-content--active .playground-code__note',
+          )?.textContent,
       )
       .toBe('Can’t show the changes to src/b.ts: no such file');
   });
 
   it('shows an image’s two versions in the image diff, and says whether another binary differs', async () => {
     const active = (selector: string) =>
-      [...document.querySelectorAll(`.cerebro-editor-group--active ${selector}`)].map(
-        (e) => e.textContent,
-      );
+      [
+        ...document.querySelectorAll(
+          `.cerebro-editor-group--active .cerebro-editor-tab-content--active ${selector}`,
+        ),
+      ].map((e) => e.textContent);
     // A PNG's first bytes: enough for its sides, not to show.
     const png = btoa('\x89PNG\r\n\x1a\n\0');
     answers.set('git.diff', { binary: true, original: png, text: null });
@@ -317,7 +334,7 @@ describe('a diff tab', () => {
     const mode = (label: string) =>
       [
         ...document.querySelectorAll<HTMLElement>(
-          '.cerebro-editor-group--active .cerebro-image-diff__mode',
+          '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-image-diff__mode',
         ),
       ].find((b) => b.textContent === label);
     answers.set('git.diff', { binary: true, original: png, text: png });
@@ -400,7 +417,9 @@ describe('a diff moved between a window and a tab', () => {
     tabbed({ project: '/r', env: '/r', path: 'src/m.ts' });
     expect(env().editor.activeGroup.active).toBe(diffTab('src/m.ts').id);
     const gear = await vi.waitUntil(() =>
-      document.querySelector('.cerebro-editor-group--active [data-menu="diff/settings"]'),
+      document.querySelector(
+        '.cerebro-editor-group--active .cerebro-editor-tab-content--active [data-menu="diff/settings"]',
+      ),
     );
     await userEvent.click(gear);
     const item = [...document.querySelectorAll('.cerebro-menu [role^="menuitem"]')].find((i) =>
@@ -427,8 +446,9 @@ describe('a file that can’t be read', () => {
     await expect
       .poll(
         () =>
-          document.querySelector('.cerebro-editor-group--active .playground-code__note')
-            ?.textContent,
+          document.querySelector(
+            '.cerebro-editor-group--active .cerebro-editor-tab-content--active .playground-code__note',
+          )?.textContent,
       )
       .toBe('Can’t open /r/locked.ts: EACCES');
     // Nothing of its own on the status bar.
@@ -677,7 +697,9 @@ describe('the Git window', () => {
 describe('Git → Current File → Show Diff', () => {
   it('opens the editor’s file at its caret line, in a tab or a window of its own', async () => {
     const run = async () => {
-      await userEvent.click(await vi.waitUntil(code));
+      // Focused, not clicked: Vitest finds a clicked element again by its text, which the diff's
+      // tab, kept open behind, shows too.
+      (await vi.waitUntil(code)).focus();
       carets.set('/r/src/a.ts', { line: 1, column: 0 });
       await userEvent.keyboard('{Shift}{Shift}');
       await popupItems();
@@ -691,7 +713,9 @@ describe('Git → Current File → Show Diff', () => {
     env().editor.open({ id: '/r/src/a.ts', title: 'a.ts' });
     await run();
     const diff = () =>
-      document.querySelector('.cerebro-editor-group--active .cerebro-editor-diff') ?? undefined;
+      document.querySelector(
+        '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-diff',
+      ) ?? undefined;
     await expect.poll(diff).toBeDefined();
     expect(diffSource(diff() as Element)?.line).toBe(1);
     env().editor.close(env().editor.activeGroup.id, diffTab('src/a.ts').id);
@@ -900,6 +924,8 @@ describe('navigation in the editor', () => {
   };
 
   it('goes to a definition, finds usages, and goes where a gutter mark says', async () => {
+    // c.ts's editor asks for its gutter marks as it's made, after the answer's set.
+    closeTabs();
     answers.set('index.definitions', [b]);
     answers.set('lsp.markers', [{ line: 1, kind: 'implemented', name: 'a', targets: [b] }]);
     await onA();
@@ -1155,8 +1181,9 @@ describe('the gutter’s menu', () => {
     await userEvent.click(await vi.waitUntil(code));
     await userEvent.keyboard('{Control>}{Home}{/Control}');
     const root = () =>
-      document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')
-        ?.shadowRoot as ShadowRoot;
+      document.querySelector(
+        '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+      )?.shadowRoot as ShadowRoot;
     const number = (text: string) =>
       [...root().querySelectorAll<HTMLElement>('.cm-lineNumbers .cm-gutterElement')].find(
         (element) => element.textContent === text,
@@ -2980,12 +3007,6 @@ describe('the Switcher', () => {
   const open = (path: string) => {
     env().editor.open({ id: path, title: path.split('/').at(-1) as string });
   };
-  const closeTabs = () => {
-    for (const group of env().editor.groups) {
-      for (const tab of group.tabs) env().editor.close(group.id, tab.id);
-    }
-  };
-
   it('goes back to the tab shown before on a press and a release of Ctrl+Tab, or to the last with Shift', async () => {
     closeTabs();
     for (const path of ['/r/src/a.ts', '/r/src/b.ts', '/r/src/c.ts']) open(path);

@@ -25,7 +25,10 @@ import { Splitter } from './splitter.js';
 
 export interface EditorAreaViewProps {
   area: EditorArea;
-  /** The content of a tab, rendered once while the tab is open, and shown while it's active. */
+  /**
+   * The content of a tab, rendered the first time it's active and kept while the tab is open
+   * (made again for a tab put in its place), shown while it's active.
+   */
   content: (tab: Tab) => Child;
   /** Shown in a group without tabs; only the last group can be empty. */
   empty?: () => Child;
@@ -191,19 +194,23 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
   const overflow = new TabOverflow();
   // Each open tab's content, in its own element, all in the group's content area, the active one
   // shown. An element stays where it was put: moved, its scrolled parts would scroll back to the top.
-  const contents = new Map<string, { element: HTMLElement; dispose: () => void }>();
+  // By the tab itself: one put in another's place (`replaceTab`) is made again.
+  const contents = new Map<Tab, { element: HTMLElement; dispose: () => void }>();
   const placing = (area: HTMLElement) =>
     effect(() => {
       const tabs = group.tabs;
-      const live = new Set(tabs.map((tab) => tab.id));
-      for (const [id, content] of contents) {
-        if (!live.has(id)) {
+      const live = new Set(tabs);
+      for (const [tab, content] of contents) {
+        if (!live.has(tab)) {
           content.dispose();
-          contents.delete(id);
+          contents.delete(tab);
         }
       }
       for (const tab of tabs) {
-        let content = contents.get(tab.id);
+        let content = contents.get(tab);
+        // Made the first time it's shown, as IntelliJ makes a restored tab's editor: a window opens
+        // with its active tabs alone made, its others' files read as they're first chosen.
+        if (!content && group.active !== tab.id) continue;
         if (!content) {
           const element = document.createElement('div');
           element.className = 'cerebro-editor-tab-content';
@@ -217,12 +224,15 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
               element.remove();
             },
           };
-          contents.set(tab.id, content);
+          contents.set(tab, content);
         }
-        content.element.classList.toggle(
-          'cerebro-editor-tab-content--hidden',
-          group.active !== tab.id,
-        );
+        const shown = group.active === tab.id;
+        // Hidden with the focus, it would still take the keys: the focus goes, as it went with an
+        // editor made again for each showing.
+        if (!shown && content.element.contains(document.activeElement)) {
+          (document.activeElement as HTMLElement).blur();
+        }
+        content.element.classList.toggle('cerebro-editor-tab-content--active', shown);
       }
       return undefined;
     });

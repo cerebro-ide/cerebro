@@ -6145,7 +6145,12 @@ choices below are Claude's, after IntelliJ, open to change.
   chosen again painted line 1056 uncoloured, then jumped to line 983, where it had been left, its
   colours about 100 ms later; now its first frame is line 983, coloured. Rejected: parsing ahead
   before the first frame (it left the place wrong more often), and hiding a new editor until placed
-  (a blank frame or two each switch). The snapshot still serves a tab's file opened again.
+  (a blank frame or two each switch). The snapshot still serves a tab's file opened again. A tab's
+  content is made the first time it's active, as IntelliJ makes a restored tab's editor when it's
+  first chosen. Made for every open tab at once, a file changed on disk and opened from the Commit
+  window showed its old text until the next periodic re-read, its diff a second late (measured in
+  the host e2e test: about 1,050 ms, against 30 ms on main and 30 ms made on first show; why, not
+  found).
 - **Saving on its own** (changed 2026-10-27; Ido: "this IDE doesn't work in a way that a user need
   to manually trigger a save action, it auto-saves", in batches, after a while or when the focus
   leaves). IntelliJ's triggers, read in its source (`SaveAndSyncHandlerImpl.kt`,

@@ -40,7 +40,7 @@ const count = (selector: string) => page().locator(selector).count();
 const theme = () => page().evaluate(() => document.documentElement.dataset['cerebroTheme']);
 const fontSize = () =>
   page()
-    .locator('.cm-scroller')
+    .locator('.cm-scroller:visible')
     .first()
     .evaluate((code) => getComputedStyle(code).fontSize);
 /** Opens src/layout.ts with Go to File. */

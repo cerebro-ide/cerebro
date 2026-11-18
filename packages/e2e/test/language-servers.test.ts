@@ -28,7 +28,7 @@ const popup = () => page().locator('.cerebro-popup');
 /** The line the caret is on, and the active tab. */
 const where = async () => ({
   tab: await page().locator('.cerebro-editor-tab--active').first().textContent(),
-  line: await page().locator('.cm-activeLine').first().textContent(),
+  line: await page().locator('.cm-activeLine:visible').first().textContent(),
 });
 
 /** What has the focus, inside shadow roots too: its tag and classes. */
@@ -65,7 +65,7 @@ async function openAt(name: string, text: string): Promise<void> {
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line', { hasText: text }).click();
+  await page().locator('.cm-line:visible', { hasText: text }).click();
   await page().keyboard.press('Home');
 }
 
@@ -377,7 +377,9 @@ it('highlights the symbol at the caret where it is, not another of its name', as
   // The lines the usages are drawn on, by their middles.
   const usageLines = () =>
     page().evaluate(() => {
-      const root = document.querySelector('.cerebro-editor-code')?.shadowRoot;
+      const root = document.querySelector(
+        '.cerebro-editor-tab-content--active .cerebro-editor-code',
+      )?.shadowRoot;
       const lines = [...(root?.querySelectorAll('.cm-line') ?? [])].map((line) =>
         line.getBoundingClientRect(),
       );
@@ -415,7 +417,7 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
   await page().keyboard.press('End');
   for (let i = 0; i < 7; i++) await page().keyboard.press('ArrowLeft');
   // The read at the bottom, its mark low on the scrollbar, under the track while the pointer's there.
-  const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write)');
+  const mark = page().locator('.cerebro-usageMark:not(.cerebro-usageMark--write):visible');
   try {
     await mark.waitFor({ timeout: 30_000 });
   } catch (error) {
@@ -493,7 +495,7 @@ it('goes to a usage when its mark on the scrollbar is clicked, through the scrol
 
 it('shows a word with a definition as a link under the pointer with Ctrl held (Cmd on macOS)', async () => {
   await openAt('main.ts', 'run();');
-  const box = (await page().locator('.cm-line', { hasText: 'run();' }).boundingBox()) as {
+  const box = (await page().locator('.cm-line:visible', { hasText: 'run();' }).boundingBox()) as {
     x: number;
     y: number;
     height: number;
@@ -545,7 +547,9 @@ it('shows gutter markers between an interface and its implementations, and goes 
 /** What the editor shows of its problems: the underlined text, and the file's status. */
 const problems = () =>
   page().evaluate(() => {
-    const root = document.querySelector('.cerebro-editor-code')?.shadowRoot;
+    const root = document.querySelector(
+      '.cerebro-editor-tab-content--active .cerebro-editor-code',
+    )?.shadowRoot;
     const shown = (name: string) =>
       [...(root?.querySelectorAll(`.cerebro-problem--${name}`) ?? [])].map((e) => e.textContent);
     return {
@@ -595,7 +599,7 @@ it('fixes an error with Alt+Enter, with the fix chosen of those its server offer
   await page().keyboard.type('lib');
   await expect.poll(() => items.allTextContents()).toEqual(['Add import from "./lib"']);
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line', { hasText: 'import { run } from "./lib";' }).waitFor();
+  await page().locator('.cm-line:visible', { hasText: 'import { run } from "./lib";' }).waitFor();
   expect((await where()).tab).toBe('needs.ts');
 }, 60_000);
 
@@ -646,7 +650,7 @@ it('fixes a CSS property’s name with Alt+Enter', async () => {
   await items.first().waitFor();
   expect((await items.allTextContents())[0]).toBe("Rename to 'color'");
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line', { hasText: 'color: red;' }).waitFor();
+  await page().locator('.cm-line:visible', { hasText: 'color: red;' }).waitFor();
 }, 60_000);
 
 it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async () => {
@@ -664,7 +668,7 @@ it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async
   await page().keyboard.press('Escape');
   await quick.waitFor({ state: 'detached' });
   await page()
-    .locator('.cm-line', { hasText: 'run();' })
+    .locator('.cm-line:visible', { hasText: 'run();' })
     .hover({ position: { x: 8, y: 8 } });
   await expect
     .poll(() => page().locator('.cm-tooltip-hover .cerebro-doc__definition').textContent(), {
@@ -716,13 +720,13 @@ it('renames a function in place with Shift+F6, where it’s defined too, saved; 
   );
   await page().keyboard.press(KEYS.undo);
   await page()
-    .locator('.cm-line', { hasText: /^measure\(\);$/ })
+    .locator('.cm-line:visible', { hasText: /^measure\(\);$/ })
     .waitFor();
 }, 60_000);
 
 it('formats a file on Ctrl+Alt+L by its language server, and says how many lines changed', async () => {
   await openAt('unformatted.ts', 'const');
-  const formatted = page().locator('.cm-line', { hasText: /^const x = 1;$/ });
+  const formatted = page().locator('.cm-line:visible', { hasText: /^const x = 1;$/ });
   try {
     await untilAnswered(KEYS.reformat, async () => (await formatted.count()) > 0);
   } catch (error) {
@@ -734,7 +738,7 @@ it('formats a file on Ctrl+Alt+L by its language server, and says how many lines
   );
   await page().keyboard.press(KEYS.undo);
   await page()
-    .locator('.cm-line', { hasText: /^const {2}x=1;$/ })
+    .locator('.cm-line:visible', { hasText: /^const {2}x=1;$/ })
     .waitFor();
 }, 60_000);
 
@@ -742,12 +746,12 @@ it('formats a file with the project’s Prettier on Ctrl+Alt+Shift+P, and says h
   await openAt('pretty.js', 'const');
   await page().keyboard.press(KEYS.prettier);
   await page()
-    .locator('.cm-line', { hasText: /^const y = "a";$/ })
+    .locator('.cm-line:visible', { hasText: /^const y = "a";$/ })
     .waitFor();
   expect(await page().locator('.cerebro-hint').textContent()).toBe('Prettier: formatted 1 line');
   await page().keyboard.press(KEYS.undo);
   await page()
-    .locator('.cm-line', { hasText: /^const {2}y = 'a'$/ })
+    .locator('.cm-line:visible', { hasText: /^const {2}y = 'a'$/ })
     .waitFor();
 }, 60_000);
 
@@ -761,12 +765,12 @@ it('folds a file where its language server says on Ctrl+Shift+-, a region by its
   }
   expect(
     await page()
-      .locator('.cm-line', { hasText: /^export function f\(\) \{\.\.\.\}$/ })
+      .locator('.cm-line:visible', { hasText: /^export function f\(\) \{\.\.\.\}$/ })
       .count(),
   ).toBe(1);
   await page().keyboard.press(KEYS.expandAll);
   await page()
-    .locator('.cm-line', { hasText: /^const a = 1;$/ })
+    .locator('.cm-line:visible', { hasText: /^const a = 1;$/ })
     .waitFor();
 }, 60_000);
 
@@ -825,20 +829,20 @@ it('completes as one types, a member after a `.`, and a function from another fi
     await page().keyboard.press('Enter');
   };
   await choose('shape.wi', 'width');
-  await page().locator('.cm-line', { hasText: 'shape.width' }).waitFor();
+  await page().locator('.cm-line:visible', { hasText: 'shape.width' }).waitFor();
   await page().keyboard.press('End');
   await page().keyboard.press('Enter');
   await choose('tall', 'tally');
   await page()
-    .locator('.cm-line', { hasText: /^import \{ tally \} from ["']\.\/tally["'];$/ })
+    .locator('.cm-line:visible', { hasText: /^import \{ tally \} from ["']\.\/tally["'];$/ })
     .waitFor();
   await page()
-    .locator('.cm-line', { hasText: /^tally$/ })
+    .locator('.cm-line:visible', { hasText: /^tally$/ })
     .waitFor();
   // Undone as one: the import with the completion.
   await page().keyboard.press(KEYS.undo);
   await page()
-    .locator('.cm-line', { hasText: /^tall$/ })
+    .locator('.cm-line:visible', { hasText: /^tall$/ })
     .waitFor();
-  expect(await page().locator('.cm-line', { hasText: 'import' }).count()).toBe(0);
+  expect(await page().locator('.cm-line:visible', { hasText: 'import' }).count()).toBe(0);
 }, 60_000);

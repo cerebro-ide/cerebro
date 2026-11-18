@@ -46,7 +46,7 @@ it('finds a text in the files, with Match Case, and opens a line found', async (
     .poll(() => page().locator('.cerebro-statusbar').textContent())
     .toContain('src/use.ts');
   // Only `./shape` matches the case.
-  expect(await page().locator('.cm-activeLine').textContent()).toBe(
+  expect(await page().locator('.cm-activeLine:visible').textContent()).toBe(
     "import { Shape } from './shape';",
   );
 });
@@ -86,7 +86,7 @@ it('says what’s wrong with a bad regular expression', async () => {
 
 it('finds and replaces in the open file, with the find bar', async () => {
   // src/use.ts is open, from the first test.
-  await page().locator('.cm-content').click();
+  await page().locator('.cm-content:visible').click();
   await page().keyboard.press('ControlOrMeta+f');
   await page().keyboard.type('Shape');
   const count = () => page().locator('.cerebro-find__count').textContent();
@@ -184,6 +184,6 @@ it('opens what’s found in the Find window, as a tree, and a line from there', 
     .poll(() => page().locator('.cerebro-statusbar').textContent())
     .toContain('src/shape.ts');
   await expect
-    .poll(() => page().locator('.cm-activeLine').textContent())
+    .poll(() => page().locator('.cm-activeLine:visible').textContent())
     .toBe('export class Shape {}');
 });
