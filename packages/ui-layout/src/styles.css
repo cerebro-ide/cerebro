@@ -693,6 +693,20 @@
   overflow: auto;
 }
 
+/*
+ * A tab's content fills the area; the others' stay laid out beneath it, hidden, so they keep where
+ * they were scrolled (`display: none` would lose it) and take no clicks or focus.
+ */
+.cerebro-editor-tab-content {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+}
+
+.cerebro-editor-tab-content--hidden {
+  visibility: hidden;
+}
+
 /* Where a dragged tab would land in a group: all of it, or the half a new split would take. */
 .cerebro-editor-drop {
   position: absolute;

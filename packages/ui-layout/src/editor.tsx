@@ -3,7 +3,10 @@
 // moves it within its strip, into another group, or onto a group's edge to split it there.
 //
 // Each group's view is rendered once into its own element and moved when the tree changes, so a
-// group's content is not recreated by splits and moves elsewhere.
+// group's content is not recreated by splits and moves elsewhere. So is each tab's content, kept
+// while the tab is open and hidden while another is active, as IntelliJ keeps a tab's editor:
+// choosing a tab again shows it as it was, with no new editor drawn in steps (measured: a new one
+// painted its file at the wrong place, uncoloured, then jumped back).
 
 import { onCleanup, render, type Child } from '@cerebro-ide/jsx';
 import type {
@@ -22,7 +25,7 @@ import { Splitter } from './splitter.js';
 
 export interface EditorAreaViewProps {
   area: EditorArea;
-  /** The content of a tab, rendered while it's its group's active tab. */
+  /** The content of a tab, rendered once while the tab is open, and shown while it's active. */
   content: (tab: Tab) => Child;
   /** Shown in a group without tabs; only the last group can be empty. */
   empty?: () => Child;
@@ -186,6 +189,49 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
   const { ctx, group } = props;
   const { area, drag } = ctx;
   const overflow = new TabOverflow();
+  // Each open tab's content, in its own element, all in the group's content area, the active one
+  // shown. An element stays where it was put: moved, its scrolled parts would scroll back to the top.
+  const contents = new Map<string, { element: HTMLElement; dispose: () => void }>();
+  const placing = (area: HTMLElement) =>
+    effect(() => {
+      const tabs = group.tabs;
+      const live = new Set(tabs.map((tab) => tab.id));
+      for (const [id, content] of contents) {
+        if (!live.has(id)) {
+          content.dispose();
+          contents.delete(id);
+        }
+      }
+      for (const tab of tabs) {
+        let content = contents.get(tab.id);
+        if (!content) {
+          const element = document.createElement('div');
+          element.className = 'cerebro-editor-tab-content';
+          element.dataset['tabContent'] = tab.id;
+          const handle = render(() => ctx.props.content(tab), element);
+          area.prepend(element);
+          content = {
+            element,
+            dispose: () => {
+              handle.dispose();
+              element.remove();
+            },
+          };
+          contents.set(tab.id, content);
+        }
+        content.element.classList.toggle(
+          'cerebro-editor-tab-content--hidden',
+          group.active !== tab.id,
+        );
+      }
+      return undefined;
+    });
+  let placed: { dispose(): void } | undefined;
+  onCleanup(() => {
+    placed?.dispose();
+    for (const content of contents.values()) content.dispose();
+    contents.clear();
+  });
   const others = () => group.tabs.filter((t) => !(drag.from === group.id && t.id === drag.tab));
   const dropAtEnd = () => {
     const target = drag.target;
@@ -257,11 +303,11 @@ function GroupView(props: { ctx: Context; group: EditorGroup }): Node {
         on:pointerdown={() => {
           area.activeGroupId = group.id;
         }}
-      >
-        {() => {
-          const tab = group.activeTab;
-          return tab ? ctx.props.content(tab) : ctx.props.empty?.();
+        ref={(element: HTMLElement) => {
+          placed = placing(element);
         }}
+      >
+        {() => (group.tabs.length === 0 ? ctx.props.empty?.() : null)}
         <div
           class="cerebro-editor-drop"
           hidden={() => zone() === undefined}

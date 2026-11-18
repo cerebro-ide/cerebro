@@ -65,7 +65,17 @@ function mount(
     $(`[data-group="${String(group)}"] [data-tab="${id}"]`);
   const strip = (group: string) => $(`[data-strip="${group}"]`);
   const contentEl = (group: string) => $(`[data-content="${group}"]`);
+  /** The text of the content a group shows: its active tab's, the others hidden. */
+  const shown = (group = area.groups[0]?.id) =>
+    [
+      ...container.querySelectorAll(
+        `[data-content="${String(group)}"] > .cerebro-editor-tab-content:not(.cerebro-editor-tab-content--hidden)`,
+      ),
+    ]
+      .map((element) => element.textContent)
+      .join('|');
   return {
+    shown,
     area,
     container,
     content,
@@ -119,13 +129,14 @@ const tick = () => new Promise((resolve) => setTimeout(resolve));
 
 describe('rendering', () => {
   it('shows tabs and the active tab’s content', () => {
-    const { area, $, tabEl, content } = mount();
+    const { area, $, tabEl, content, shown } = mount();
     expect(shape(area.root)).toBe('[a,b,c]');
     expect(tabEl('c').classList.contains('cerebro-editor-tab--active')).toBe(true);
     expect(tabEl('c').getAttribute('aria-selected')).toBe('true');
     expect(tabEl('a').getAttribute('aria-selected')).toBe('false');
-    expect($('.test-content').textContent).toBe('c content');
-    expect(content).toHaveBeenCalledTimes(1);
+    expect(shown()).toBe('c content');
+    // Each tab's content, rendered once.
+    expect(content).toHaveBeenCalledTimes(3);
     expect($('.cerebro-editor-group').classList.contains('cerebro-editor-group--active')).toBe(
       true,
     );
@@ -189,8 +200,33 @@ describe('rendering', () => {
 });
 
 describe('activating and closing', () => {
+  it('keeps each tab’s content while it’s open, where it was scrolled, and disposes it on close', () => {
+    const { area, content, disposed, shown, container } = mount(['a', 'b']);
+    const group = area.groups[0] as EditorGroup;
+    const element = (id: string) =>
+      container.querySelector(`[data-tab-content="${id}"]`) as HTMLElement;
+    const a = element('a');
+    a.style.height = '50px';
+    (a.firstElementChild as HTMLElement).style.height = '500px';
+    area.activate(group.id, 'a');
+    a.scrollTop = 120;
+    area.activate(group.id, 'b');
+    expect(shown()).toBe('b content');
+    // Hidden, still laid out: where it was scrolled is kept (`display: none` would lose it).
+    expect(getComputedStyle(a).visibility).toBe('hidden');
+    area.activate(group.id, 'a');
+    area.move('b', group.id, group.id, 0);
+    expect(shown()).toBe('a content');
+    expect(element('a')).toBe(a);
+    expect(a.scrollTop).toBe(120);
+    expect(content).toHaveBeenCalledTimes(2);
+    area.close(group.id, 'b');
+    expect(disposed).toEqual(['b']);
+    expect(element('b')).toBeNull();
+  });
+
   it('activates a tab on click, and its group', () => {
-    const { area, tabEl, $ } = mount(['a']);
+    const { area, tabEl, shown } = mount(['a']);
     const first = area.activeGroupId;
     const right = area.split(first, 'right', 'a');
     area.open(tab('b'), right.id);
@@ -198,7 +234,7 @@ describe('activating and closing', () => {
     expect(area.activeGroupId).toBe(first);
     tabEl('a', right.id).click();
     expect(area.group(right.id).active).toBe('a');
-    expect($(`[data-group="${right.id}"] .test-content`).textContent).toBe('a content');
+    expect(shown(right.id)).toBe('a content');
   });
 
   it('activates a group when its content is pressed', () => {
