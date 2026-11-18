@@ -2744,13 +2744,15 @@ change.
   System Shortcuts' `Ctrl+Shift+<`, which never fired before.
 - **The gutter markers' column keeps its width** with no marker in view (the caret's line folded
   or scrolled away): it had dropped to nothing and moved the text (measured: 0px, now 36px).
-- **The imports folded as a file opens** (added 2026-11-16), as IntelliJ's, read from its source:
-  Settings' Fold by default → Imports is on (`CodeFoldingSettings.COLLAPSE_IMPORTS`), and for a
-  language server its `imports` folds are what folds (`LspFoldingBuilder`; TypeScript's server
-  marks them, measured). Only as the editor opens (`UpdateFoldRegionsOperation`: "only on initial
-  fold regions construction on editor opening"): here, the server's first answer for the editor, so
-  imports added later stay open; and not where the caret is, an editor opened at a line in them
-  (its `EXCEPT_CARET_REGION`). Folded, they show as other folds do, the first line then `...`.
+- **Nothing folds on its own as a file opens** (changed 2026-11-18, Ido). From 2026-11-16 the
+  imports folded on the server's first answer, after IntelliJ's source: Fold by default → Imports
+  on (`CodeFoldingSettings.COLLAPSE_IMPORTS`), which `LspFoldingBuilder` applies to a server's
+  `imports` folds, only as the editor opens (`UpdateFoldRegionsOperation`). But that's IntelliJ's
+  path for a language served through LSP; WebStorm's TypeScript and JavaScript go through its own
+  JavaScript plugin, whose folding isn't open source. Ido, who uses WebStorm with the setting on:
+  "it doesn't do it by default", and the fold, arriving after the file was drawn, moved its text
+  up as it opened (measured: lines 18–30 folded about 35 ms after the first frame). Imports fold
+  by hand, as any part does.
 - **A folded part's lines under the pointer** (added 2026-11-16), as IntelliJ's
   (`FoldingPopupManager`, `DocumentFragmentTooltipRenderer`, read from its source): resting on a
   fold's box for 300 ms (its `TOOLTIP_DELAY_MS`) shows the part's whole lines, from its first line
@@ -2765,8 +2767,7 @@ change.
   - macOS System Shortcuts' Alt+Shift keys for all: CodeMirror's base fallback is skipped on macOS
     with Alt, so they can't match.
   - Settings' Fold by default page (Imports alone is on there), end-of-fold markers in the gutter,
-    folds kept across reopening a file (IntelliJ folds the imports the first time only), and a
-    menu for the actions.
+    folds kept across reopening a file, and a menu for the actions.
 
 ## Logging in to remotes (2026-11-08)
 
