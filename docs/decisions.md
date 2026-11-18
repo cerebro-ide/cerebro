@@ -6256,7 +6256,11 @@ The first part of "A basic IDE before git and agent management": any folder, ope
   work from it), an Open button, and × to forget a project; one that's gone says "(not found)" and
   can't be opened. Opening a project from it replaces it. Closing the last project (File → Close
   Project) shows it again; closing a window with others open forgets that it was open, closing the
-  last one doesn't, so it reopens.
+  last one doesn't, so it reopens. With no window left the app quits, on macOS too (changed
+  2026-11-18, Ido: on macOS closing the app "just closes the GUI without closing the process"): as
+  IntelliJ's (`CloseProjectWindowHelper`, `WelcomeFrame`), closing the last project's window on
+  macOS closes its project and shows the Welcome window, and closing the Welcome window quits.
+  Before, macOS kept the app running with no window, as Mac apps commonly do.
 - **Opening while a project is open asks where** (Ido: "Ask, as IntelliJ"): This Window or New
   Window (what each does: above), with "Remember, don't ask again", which saves the global setting "Open project in" (ask,
   new window, this window) on the System Settings page. A project already open is brought to the

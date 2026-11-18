@@ -536,7 +536,7 @@ describe('start', () => {
     });
   });
 
-  it('quits when the last window closes, except on macOS', () => {
+  it('quits when the last window closes, on macOS too, as IntelliJ', () => {
     start();
     // With what a page that stops answering was running collected (log.ts).
     expect(electron.app.commandLine.appendSwitch).toHaveBeenCalledWith(
@@ -548,10 +548,10 @@ describe('start', () => {
     try {
       Object.defineProperty(process, 'platform', { value: 'darwin' });
       closed();
-      expect(electron.app.quit).not.toHaveBeenCalled();
+      expect(electron.app.quit).toHaveBeenCalledOnce();
       Object.defineProperty(process, 'platform', { value: 'linux' });
       closed();
-      expect(electron.app.quit).toHaveBeenCalledOnce();
+      expect(electron.app.quit).toHaveBeenCalledTimes(2);
     } finally {
       Object.defineProperty(process, 'platform', platform);
     }

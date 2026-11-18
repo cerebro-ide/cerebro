@@ -62,8 +62,10 @@ async function closing(step: string, run: () => Promise<void>): Promise<void> {
   }
 }
 
-/** Saves the app's trace, named for the test file, and closes the app. */
+/** Saves the app's trace, named for the test file, and closes the app, unless it has quit. */
 async function stop(app: ElectronApplication): Promise<void> {
+  // A test that quits it (quit.test): there's nothing left to trace or close.
+  if (app.process().exitCode !== null || app.process().signalCode !== null) return;
   const file = basename(expect.getState().testPath ?? 'e2e', '.ts');
   const path = join(TRACES, `${file}-${String(++runs)}.zip`);
   await closing(`saving the trace ${path}`, () => app.context().tracing.stop({ path }));
