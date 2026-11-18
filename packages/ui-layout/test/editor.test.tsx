@@ -65,7 +65,17 @@ function mount(
     $(`[data-group="${String(group)}"] [data-tab="${id}"]`);
   const strip = (group: string) => $(`[data-strip="${group}"]`);
   const contentEl = (group: string) => $(`[data-content="${group}"]`);
+  /** The text of the content a group shows: its active tab's, the others hidden. */
+  const shown = (group = area.groups[0]?.id) =>
+    [
+      ...container.querySelectorAll(
+        `[data-content="${String(group)}"] > .cerebro-editor-tab-content--active`,
+      ),
+    ]
+      .map((element) => element.textContent)
+      .join('|');
   return {
+    shown,
     area,
     container,
     content,
@@ -119,12 +129,13 @@ const tick = () => new Promise((resolve) => setTimeout(resolve));
 
 describe('rendering', () => {
   it('shows tabs and the active tab’s content', () => {
-    const { area, $, tabEl, content } = mount();
+    const { area, $, tabEl, content, shown } = mount();
     expect(shape(area.root)).toBe('[a,b,c]');
     expect(tabEl('c').classList.contains('cerebro-editor-tab--active')).toBe(true);
     expect(tabEl('c').getAttribute('aria-selected')).toBe('true');
     expect(tabEl('a').getAttribute('aria-selected')).toBe('false');
-    expect($('.test-content').textContent).toBe('c content');
+    expect(shown()).toBe('c content');
+    // The active tab's content alone: the others' are made as they're first shown.
     expect(content).toHaveBeenCalledTimes(1);
     expect($('.cerebro-editor-group').classList.contains('cerebro-editor-group--active')).toBe(
       true,
@@ -189,8 +200,51 @@ describe('rendering', () => {
 });
 
 describe('activating and closing', () => {
+  it('makes a tab’s content as it’s first shown, keeps it where it was scrolled, and disposes it on close', () => {
+    const { area, content, disposed, shown, container } = mount(['a', 'b']);
+    const group = area.groups[0] as EditorGroup;
+    const element = (id: string) =>
+      container.querySelector<HTMLElement>(`[data-tab-content="${id}"]`);
+    // Not shown yet: not made.
+    expect(element('a')).toBeNull();
+    area.activate(group.id, 'a');
+    const a = element('a') as HTMLElement;
+    a.style.height = '50px';
+    (a.firstElementChild as HTMLElement).style.height = '500px';
+    a.scrollTop = 120;
+    area.activate(group.id, 'b');
+    expect(shown()).toBe('b content');
+    // Hidden, still laid out: where it was scrolled is kept (`display: none` would lose it).
+    expect(getComputedStyle(a).visibility).toBe('hidden');
+    area.activate(group.id, 'a');
+    area.move('b', group.id, group.id, 0);
+    expect(shown()).toBe('a content');
+    expect(element('a')).toBe(a);
+    expect(a.scrollTop).toBe(120);
+    expect(content).toHaveBeenCalledTimes(2);
+    area.close(group.id, 'b');
+    expect(disposed).toEqual(['b']);
+    expect(element('b')).toBeNull();
+  });
+
+  it('takes the focus from a tab’s content as it’s hidden, and makes a tab put in its place again', () => {
+    const { area, content, disposed, container } = mount(['a', 'b']);
+    const group = area.groups[0] as EditorGroup;
+    area.activate(group.id, 'a');
+    const field = document.createElement('input');
+    (container.querySelector('[data-tab-content="a"]') as HTMLElement).append(field);
+    field.focus();
+    area.activate(group.id, 'b');
+    expect(document.activeElement).toBe(document.body);
+    // Kept while open, but made again in the place of the tab it replaces.
+    area.replaceTab('a', { id: 'a', title: 'a' });
+    expect(disposed).toEqual(['a']);
+    area.activate(group.id, 'a');
+    expect(content).toHaveBeenCalledTimes(3);
+  });
+
   it('activates a tab on click, and its group', () => {
-    const { area, tabEl, $ } = mount(['a']);
+    const { area, tabEl, shown } = mount(['a']);
     const first = area.activeGroupId;
     const right = area.split(first, 'right', 'a');
     area.open(tab('b'), right.id);
@@ -198,7 +252,7 @@ describe('activating and closing', () => {
     expect(area.activeGroupId).toBe(first);
     tabEl('a', right.id).click();
     expect(area.group(right.id).active).toBe('a');
-    expect($(`[data-group="${right.id}"] .test-content`).textContent).toBe('a content');
+    expect(shown(right.id)).toBe('a content');
   });
 
   it('activates a group when its content is pressed', () => {

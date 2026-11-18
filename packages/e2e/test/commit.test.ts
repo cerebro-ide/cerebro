@@ -162,7 +162,7 @@ it('goes from a diff to the file with F4, where the caret is, from either side',
   const side = (n: 0 | 1) => diff.locator('.cerebro-editor-diff .cm-editor').nth(n);
   const shown = () => page().locator('.cerebro-editor-code:visible .cm-activeLine').textContent();
   // From the left, the committed text: the line after the change, one further down in the file.
-  await side(0).locator('.cm-line', { hasText: 'export class Shape {}' }).click();
+  await side(0).locator('.cm-line:visible', { hasText: 'export class Shape {}' }).click();
   await diff.keyboard.press('F4');
   await expect
     .poll(() => page().locator('.cerebro-editor-tab--active').textContent())
@@ -170,7 +170,7 @@ it('goes from a diff to the file with F4, where the caret is, from either side',
   await expect.poll(shown).toBe('export class Shape {}');
   // From the right: the line itself, back in the diff's window.
   await diff.bringToFront();
-  await side(1).locator('.cm-line', { hasText: '// and more.' }).click();
+  await side(1).locator('.cm-line:visible', { hasText: '// and more.' }).click();
   await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// and more.');
 });
@@ -188,15 +188,15 @@ it('goes to the next change with F7 and back with Shift+F7, from the first to st
   await diff.evaluate(() => window.dispatchEvent(new Event('focus')));
   const right = diff.locator('.cerebro-editor-diff .cm-diff-b');
   await expect
-    .poll(() => right.locator('.cm-line').allTextContents(), { timeout: 15_000 })
+    .poll(() => right.locator('.cm-line:visible').allTextContents(), { timeout: 15_000 })
     .toContain('// added');
-  await right.locator('.cm-content').focus();
+  await right.locator('.cm-content:visible').focus();
   await diff.keyboard.press('F7');
   await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// added');
   // From the last, Shift+F7 goes back to the first.
   await diff.bringToFront();
-  await right.locator('.cm-line', { hasText: '// added' }).click();
+  await right.locator('.cm-line:visible', { hasText: '// added' }).click();
   await diff.keyboard.press('Shift+F7');
   await diff.keyboard.press('F4');
   await expect.poll(shown).toBe('// Shapes, longer');
@@ -212,7 +212,7 @@ it('compares the previous file of its list, as IntelliJ’s diff window', async 
   expect(await count.textContent()).toBe('1/2');
   const right = diff.locator('.cerebro-editor-diff .cm-diff-b');
   await expect
-    .poll(() => right.locator('.cm-line').allTextContents(), { timeout: 15_000 })
+    .poll(() => right.locator('.cm-line:visible').allTextContents(), { timeout: 15_000 })
     .toContain('b changed');
   await diff.close();
 });
@@ -228,7 +228,9 @@ it('moves a diff from its window to a tab and back, from its Settings, as Intell
   await choose(window, 'Show Diff in Editor Tab');
   await closed;
   // In the project's window, as a tab, in front.
-  const tab = page().locator('.cerebro-editor-group--active .cerebro-editor-diff');
+  const tab = page().locator(
+    '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-diff',
+  );
   await tab.waitFor({ timeout: 15_000 });
   expect(await page().locator('.cerebro-editor-tab--active').textContent()).toBe('shape.ts');
   // Back: the tab goes, a window shows it.
@@ -242,7 +244,7 @@ it('edits the file from its diff window, as its document, as IntelliJ’s', asyn
   await row('changes:shape.ts').click();
   const window = await diffWindow(running, () => page().keyboard.press('ControlOrMeta+d'));
   const right = window.locator('.cerebro-editor-diff .cm-diff-b');
-  await right.locator('.cm-line', { hasText: '// added' }).click();
+  await right.locator('.cm-line:visible', { hasText: '// added' }).click();
   await window.keyboard.press('End');
   await window.keyboard.type(' typed');
   // The file's tab, in the project's window, has it: one document.

@@ -28,7 +28,7 @@ const labels = () =>
 
 /** Runs a Local History command from the editor's context menu. */
 async function fromEditor(command: string): Promise<void> {
-  await page().locator('.cm-content').first().click({ button: 'right' });
+  await page().locator('.cm-content:visible').first().click({ button: 'right' });
   await page().locator('.cerebro-menu-item', { hasText: 'Local History' }).hover();
   await page().locator('.cerebro-menu-item', { hasText: command }).click();
 }
@@ -43,7 +43,7 @@ beforeAll(async () => {
   await page().keyboard.type('a.ts');
   await page().locator('.cerebro-popup-item', { hasText: 'a.ts' }).waitFor();
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line').first().click();
+  await page().locator('.cm-line:visible').first().click();
   await page().keyboard.press('End');
 });
 
@@ -59,7 +59,9 @@ it('lists a file’s versions with what changed them, and reverts to one', async
   await expect.poll(disk, HOST).toBe('firstx\n');
   // Changed outside the app: recorded when Show History opens.
   writeFileSync(file, 'outside\n');
-  await expect.poll(() => page().locator('.cm-line').first().textContent(), HOST).toBe('outside');
+  await expect
+    .poll(() => page().locator('.cm-line:visible').first().textContent(), HOST)
+    .toBe('outside');
   await fromEditor('Show History');
   await expect.poll(labels, HOST).toEqual(expect.arrayContaining(['External change']));
   const all = await labels();
@@ -69,7 +71,9 @@ it('lists a file’s versions with what changed them, and reverts to one', async
   await page().locator('.playground-history__diff .cerebro-editor-diff').waitFor();
   await button('Revert').click();
   await expect.poll(disk, HOST).toBe('first\n');
-  await expect.poll(() => page().locator('.cm-line').first().textContent(), HOST).toBe('first');
+  await expect
+    .poll(() => page().locator('.cm-line:visible').first().textContent(), HOST)
+    .toBe('first');
   // Reverting is recorded too.
   await fromEditor('Show History');
   await expect.poll(async () => (await labels())[0], HOST).toBe('Revert');

@@ -112,11 +112,13 @@ it('shows the worktree’s files in the project tree, and opens one', async () =
     gitPath(repo, 'src', 'app.ts'),
   );
   // The file's own text, in the editor, highlighted, with no Content-Security-Policy broken.
-  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
-  expect(await page.locator('.cm-content').textContent()).toBe('export {};');
-  const keyword = page.locator('.cm-line span', { hasText: 'export' });
+  await page.locator('.cm-line:visible', { hasText: 'export' }).waitFor();
+  expect(await page.locator('.cm-content:visible').textContent()).toBe('export {};');
+  const keyword = page.locator('.cm-line:visible span', { hasText: 'export' });
   expect(await keyword.evaluate((span) => getComputedStyle(span).color)).not.toBe(
-    await page.locator('.cm-content').evaluate((content) => getComputedStyle(content).color),
+    await page
+      .locator('.cm-content:visible')
+      .evaluate((content) => getComputedStyle(content).color),
   );
   expect(await page.evaluate(() => (window as { violations?: string[] }).violations)).toEqual([]);
 });
@@ -162,8 +164,8 @@ it('keeps the file open after a reload, read again from disk', async () => {
   const page = running.page;
   await page.reload();
   await page.locator('.cerebro-editor-tab--active', { hasText: 'app.ts' }).waitFor();
-  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
-  expect(await page.locator('.cm-content').textContent()).toBe('export {};');
+  await page.locator('.cm-line:visible', { hasText: 'export' }).waitFor();
+  expect(await page.locator('.cm-content:visible').textContent()).toBe('export {};');
 });
 
 it('goes to a file of the worktree, and finds new ones next time', async () => {
@@ -175,7 +177,7 @@ it('goes to a file of the worktree, and finds new ones next time', async () => {
   expect(await labels()).toEqual(['app.ts']);
   expect(await page.locator('.cerebro-popup-item__detail').first().textContent()).toBe('src');
   await page.keyboard.press('Enter');
-  await page.locator('.cm-line', { hasText: 'export' }).waitFor();
+  await page.locator('.cm-line:visible', { hasText: 'export' }).waitFor();
   writeFileSync(join(repo, 'fresh.md'), '# new');
   await page.keyboard.press(KEYS.goToFile);
   await page.keyboard.type('fresh');
@@ -196,7 +198,7 @@ it('goes to a symbol by name, opening its file there', async () => {
     'src/shape.ts:2',
   );
   await page.keyboard.press('Enter');
-  await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+  await page.locator('.cm-activeLine:visible', { hasText: 'export class Shape' }).waitFor();
 });
 
 it('searches everywhere with double Shift: a tab per kind, the result’s file below', async () => {
@@ -262,7 +264,7 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   await page.keyboard.type('use.ts');
   await page.locator('.cerebro-popup-item__label', { hasText: 'use.ts' }).waitFor();
   await page.keyboard.press('Enter');
-  const line = page.locator('.cm-line', { hasText: 'const first' });
+  const line = page.locator('.cm-line:visible', { hasText: 'const first' });
   await line.waitFor();
   // Ctrl+click on "Shape" in `new Shape()`: the definition, in shape.ts.
   const box = await wordCentre(line, 'Shape');
@@ -273,7 +275,7 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
   } finally {
     await page.keyboard.up('ControlOrMeta');
   }
-  await page.locator('.cm-activeLine', { hasText: 'export class Shape' }).waitFor();
+  await page.locator('.cm-activeLine:visible', { hasText: 'export class Shape' }).waitFor();
   // Alt+F7 on the class's name: every place the name appears.
   const pressed = performance.now();
   await page.keyboard.press('Alt+F7');
@@ -286,7 +288,7 @@ it('goes to a definition with Ctrl+click, and finds usages with Alt+F7', async (
         focused: document.activeElement?.className,
         hasFocus: document.hasFocus(),
         line: document
-          .querySelector('.cerebro-editor-code')
+          .querySelector('.cerebro-editor-tab-content--active .cerebro-editor-code')
           ?.shadowRoot?.querySelector('.cm-activeLine')?.textContent,
         popups: [...document.querySelectorAll('.cerebro-popup')].map((p) => p.textContent),
         balloons: [...document.querySelectorAll('.cerebro-balloon')].map((b) => b.textContent),
@@ -318,7 +320,7 @@ it('goes to a definition from the editor’s menu, at the word right-clicked', a
   await page.keyboard.type('use.ts');
   await page.locator('.cerebro-popup-item__label', { hasText: 'use.ts' }).waitFor();
   await page.keyboard.press('Enter');
-  const line = page.locator('.cm-line', { hasText: 'const first' });
+  const line = page.locator('.cm-line:visible', { hasText: 'const first' });
   await line.waitFor();
   // The caret away from it: the right press puts it on "Shape", as IntelliJ's.
   await page.keyboard.press('ControlOrMeta+Home');
@@ -328,7 +330,7 @@ it('goes to a definition from the editor’s menu, at the word right-clicked', a
   await page.locator('.cerebro-menu-item', { hasText: 'Declaration or Usages' }).click();
   // The language server's answer: another process's.
   await page
-    .locator('.cm-activeLine', { hasText: 'export class Shape' })
+    .locator('.cm-activeLine:visible', { hasText: 'export class Shape' })
     .waitFor({ timeout: 15_000 });
 });
 
@@ -595,7 +597,7 @@ it('lists the worktree’s changes in the Commit tool window: a file opens, Ctrl
     .toEqual(expect.arrayContaining(['src', 'circle.ts', 'shape.ts']));
   // A double click opens the file, as IntelliJ's does, not its diff.
   await shape.dblclick();
-  await page.locator('.cm-content', { hasText: 'export class Shape {}' }).waitFor();
+  await page.locator('.cm-content:visible', { hasText: 'export class Shape {}' }).waitFor();
   expect(await page.locator('.cerebro-editor-diff').count()).toBe(0);
   await shape.click();
   // The diff, in a window of its own: the committed text on the left, the line added on the right.

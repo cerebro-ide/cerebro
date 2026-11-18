@@ -330,8 +330,14 @@ function openTab(tab: Tab, chain?: readonly string[], line?: number): void {
   const env = active()?.id;
   if (path === undefined || !window.cerebro || env === undefined || diffsInTabs()) {
     // Taken as the tab's diff or file is made: Show Diff runs from the file's tab, so the diff's
-    // isn't the one showing, and is made as it's opened, or activated if it's open already.
-    if (line !== undefined) tabLines.set(tab.id, line);
+    // isn't the one showing, and is made as it's opened, or made again in its place if it's open
+    // already (a tab keeps what it shows while it's open).
+    if (line !== undefined) {
+      tabLines.set(tab.id, line);
+      if (editor()?.groups.some((group) => group.tabs.some((t) => t.id === tab.id))) {
+        editor()?.replaceTab(tab.id, { ...tab });
+      }
+    }
     editor()?.open(tab);
     return;
   }

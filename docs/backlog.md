@@ -132,6 +132,17 @@ elements of each row) in place of the lanes: a rewrite of the graph, so it's pro
 
 ## Known gaps
 
+- **A kept tab's editor not shown yet missed a change on disk** (measured 2026-11-18, on
+  fix/tab-switch-flicker): with every open tab's editor made at once, the host e2e test's
+  `shape.ts`, changed on disk and opened from the Commit window, showed its old text until the next
+  periodic re-read (its diff about 1,050 ms late, 30 ms on main). Avoided by making a tab's editor
+  the first time it's shown, as IntelliJ does; why a made but hidden editor missed it, not found.
+  A tab shown once, then hidden, could miss a change the same way: untested.
+- **Two hover tooltips at once, in one full e2e run** (2026-11-18, fix/tab-switch-flicker): the
+  Ctrl+Q test found `module "./lib"` beside its own; not seen in two more runs, nor in the app
+  switching tabs by mouse or Ctrl+Tab with a hover showing (each closed it). The test now looks at
+  the shown editor's and, failing, prints each editor's tooltips and whether it's shown.
+
 - **Lezer's HTML reads a tag's name without its digits** (`@lezer/html` 1.3.13, `nameChar`,
   measured 2026-11-16): `<h2>` is read as `h`, so its rules for closing an open `<p>` (`closeOnOpen`)
   never match a heading. A heading after a `<p>` left open is the paragraph's child: indented in

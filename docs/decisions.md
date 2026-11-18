@@ -6137,7 +6137,20 @@ choices below are Claude's, after IntelliJ, open to change.
   it's chosen, and only the state had been kept; now CodeMirror's scroll snapshot is too, given to
   the next editor. A position to reveal is revealed once, as a focus request is taken once: the
   tab of a definition gone to, chosen again, had gone back to the definition (both measured in the
-  app: line 0 and line 85, where it had been left at 40 and 74).
+  app: line 0 and line 85, where it had been left at 40 and 74). A tab's editor is no longer made again
+  each time it's chosen (changed 2026-11-18, Ido: switching tabs showed "some intermediate state of
+  the editor ... a flicker/jump of content"): each open tab keeps its content, hidden (`visibility`,
+  so its scroll stays) while another is active, as IntelliJ keeps a tab's editor. A new editor had
+  to parse its file again and guess its lines' heights: measured frame by frame in the app, the tab
+  chosen again painted line 1056 uncoloured, then jumped to line 983, where it had been left, its
+  colours about 100 ms later; now its first frame is line 983, coloured. Rejected: parsing ahead
+  before the first frame (it left the place wrong more often), and hiding a new editor until placed
+  (a blank frame or two each switch). The snapshot still serves a tab's file opened again. A tab's
+  content is made the first time it's active, as IntelliJ makes a restored tab's editor when it's
+  first chosen. Made for every open tab at once, a file changed on disk and opened from the Commit
+  window showed its old text until the next periodic re-read, its diff a second late (measured in
+  the host e2e test: about 1,050 ms, against 30 ms on main and 30 ms made on first show; why, not
+  found).
 - **Saving on its own** (changed 2026-10-27; Ido: "this IDE doesn't work in a way that a user need
   to manually trigger a save action, it auto-saves", in batches, after a while or when the focus
   leaves). IntelliJ's triggers, read in its source (`SaveAndSyncHandlerImpl.kt`,

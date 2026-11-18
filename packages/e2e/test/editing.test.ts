@@ -27,7 +27,7 @@ const DOT = Buffer.from(
 /** The active editor's text, its lines joined. */
 const shown = () =>
   page()
-    .locator('.cm-line')
+    .locator('.cm-line:visible')
     .allTextContents()
     .then((lines) => lines.join('\n'));
 
@@ -37,7 +37,7 @@ async function open(name: string): Promise<void> {
   await page().keyboard.type(name);
   await page().locator('.cerebro-popup-item', { hasText: name }).waitFor();
   await page().keyboard.press('Enter');
-  await page().locator('.cm-line').first().click();
+  await page().locator('.cm-line:visible').first().click();
   await page().keyboard.press('End');
 }
 
@@ -88,7 +88,7 @@ it('keeps a file’s edits when another tab is shown, and saves before closing',
   await open('first.ts');
   await page().locator('.cerebro-editor-tab', { hasText: 'second.ts' }).click();
   expect(await shown()).toContain('const second = 2; // kept');
-  await page().locator('.cm-line').first().click();
+  await page().locator('.cm-line:visible').first().click();
   await page().keyboard.press('End');
   await page().keyboard.type(' // unsaved');
   expect(disk(second)).toBe('const second = 2; // kept\n');
@@ -120,7 +120,7 @@ it('closes a file’s tab when the file is deleted on disk', async () => {
 
 it('shows a file changed on disk', async () => {
   await page().locator('.cerebro-editor-tab', { hasText: 'second.ts' }).click();
-  await page().locator('.cm-line').first().waitFor();
+  await page().locator('.cm-line:visible').first().waitFor();
   writeFileSync(second, 'const second = 3;\n');
   await expect.poll(shown, { timeout: 15_000 }).toBe('const second = 3;\n');
 });
@@ -418,7 +418,9 @@ it('draws scrollbars over the content, taking no room: the Project tool window, 
   const room = await page().evaluate(() =>
     [
       document.querySelector('.cerebro-tree'),
-      document.querySelector('.cerebro-editor-code')?.shadowRoot?.querySelector('.cm-scroller'),
+      document
+        .querySelector('.cerebro-editor-tab-content--active .cerebro-editor-code')
+        ?.shadowRoot?.querySelector('.cm-scroller'),
     ].map((e) =>
       e instanceof HTMLElement && e.scrollHeight > e.clientHeight
         ? e.offsetWidth - e.clientWidth
@@ -427,7 +429,7 @@ it('draws scrollbars over the content, taking no room: the Project tool window, 
   );
   expect(room).toEqual([0, 0]);
   // A thumb shows over the editor while it's hovered.
-  await page().locator('.cm-line').first().hover();
+  await page().locator('.cm-line:visible').first().hover();
   await page().locator('.cerebro-scrollbar--y.cerebro-scrollbar--shown').first().waitFor();
 });
 

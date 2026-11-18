@@ -53,7 +53,9 @@ const env = () => workspace.active as NonNullable<typeof workspace.active>;
 /** The active editor's text, in its shadow root. */
 const code = () => editorRoot()?.querySelector<HTMLElement>('.cm-content');
 const editorRoot = () =>
-  document.querySelector('.cerebro-editor-group--active .cerebro-editor-code')?.shadowRoot;
+  document.querySelector(
+    '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+  )?.shadowRoot;
 
 describe('the page in a browser', () => {
   it('starts with the samples: a worktree’s files, and the windows shown by default', async () => {
@@ -188,7 +190,9 @@ describe('the page in a browser', () => {
 describe('the editor', () => {
   it('shows a sample file’s pretend contents, and its menus', async () => {
     await expect.poll(() => code()?.textContent).toContain('// src/styles.css');
-    const editor = q('.cerebro-editor-group--active .playground-code');
+    const editor = q(
+      '.cerebro-editor-group--active .cerebro-editor-tab-content--active .playground-code',
+    );
     await userEvent.click(editor, { button: 'right' });
     // IntelliJ's `EditorPopupMenu`, of what Cerebro has: no Cut or Copy outside a selection.
     const popup = [
@@ -212,7 +216,9 @@ describe('the editor', () => {
     await closeAll();
     // The gutter's menu: the bookmarks', without git's Annotate.
     const gutter = document
-      .querySelector('.cerebro-editor-group--active .cerebro-editor-code')
+      .querySelector(
+        '.cerebro-editor-group--active .cerebro-editor-tab-content--active .cerebro-editor-code',
+      )
       ?.shadowRoot?.querySelector('.cm-gutters') as HTMLElement;
     await userEvent.click(gutter, { button: 'right' });
     expect(await menuItems()).toEqual(['Toggle Bookmark', 'Add Mnemonic Bookmark…']);
