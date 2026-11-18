@@ -670,11 +670,28 @@ it('shows what a symbol is on Ctrl+Q, and with the pointer resting on it', async
   await page()
     .locator('.cm-line:visible', { hasText: 'run();' })
     .hover({ position: { x: 8, y: 8 } });
-  await expect
-    .poll(() => page().locator('.cm-tooltip-hover .cerebro-doc__definition').textContent(), {
-      timeout: 10_000,
-    })
-    .toBe('(alias) function run(): void');
+  try {
+    await expect
+      .poll(
+        () => page().locator('.cm-tooltip-hover:visible .cerebro-doc__definition').textContent(),
+        { timeout: 10_000 },
+      )
+      .toBe('(alias) function run(): void');
+  } catch (error) {
+    // Two hover tooltips in one full run (2026-11-18), not seen again: each editor's, shown or not.
+    const tips = await page().evaluate(() =>
+      [...document.querySelectorAll('.cerebro-editor-code')].map((code) => ({
+        tab: code.closest<HTMLElement>('.cerebro-editor-tab-content')?.dataset['tabContent'],
+        visibility: getComputedStyle(code).visibility,
+        tooltips: [...(code.shadowRoot?.querySelectorAll('.cm-tooltip-hover') ?? [])].map(
+          (tip) => tip.textContent,
+        ),
+      })),
+    );
+    throw new Error(`${(error as Error).message}\nHover tooltips: ${JSON.stringify(tips)}`, {
+      cause: error,
+    });
+  }
 }, 60_000);
 
 it('shows what’s called as its arguments are typed, the parameter the caret is at in bold, and on Ctrl+P', async () => {
