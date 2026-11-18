@@ -1,11 +1,10 @@
 // Code folding, as IntelliJ's: a chevron in the gutter by each part that folds, and its keys
 // (Collapse, Expand, Collapse All, Expand All). A folded part shows as a box, `{...}` for a block;
 // a click on it unfolds it. Where it folds is what's given says (the file's language server, in the
-// app), and the language's grammar says where that has nothing on a line. The imports fold as the
-// editor opens, as IntelliJ's (`COLLAPSE_IMPORTS`, on by default; `LspFoldingBuilder` takes a
-// server's `imports` folds for them), but where the caret is: the first answer's only
-// (`UpdateFoldRegionsOperation`'s default state, "only on initial fold regions construction on
-// editor opening"), so imports that appear later stay open.
+// app), and the language's grammar says where that has nothing on a line. Nothing folds on its own
+// as a file opens: WebStorm, as Ido uses it, leaves a file's imports open (its JavaScript plugin's
+// folding isn't open source), and a fold on the server's first answer moved the text under the
+// eye.
 //
 // A folded part's lines show while the pointer rests on its box, as IntelliJ's
 // (`FoldingPopupManager` and `DocumentFragmentTooltipRenderer`, read from its source): after 300
@@ -194,26 +193,12 @@ export function folding(ask?: AskFolds, look: Extension = [], after = FOLDS_AFTE
   const asker = ask
     ? ViewPlugin.define((view) => {
         let timer: ReturnType<typeof setTimeout> | undefined;
-        let first = true;
         const request = () => {
           const { doc } = view.state;
           void ask(doc.toString()).then((found) => {
             // Edited since: a later question answers.
             if (view.state.doc !== doc) return;
-            const head = view.state.selection.main.head;
-            const imports = first
-              ? (found ?? []).flatMap((f) => {
-                  const folded = f.kind === 'imports' ? foldedOf(view.state, f) : null;
-                  // Not one that would hide nothing (a fold within a line), nor where the caret is.
-                  return folded &&
-                    folded.from < folded.to &&
-                    !(folded.from < head && head < folded.to)
-                    ? [foldEffect.of({ from: folded.from, to: folded.to })]
-                    : [];
-                })
-              : [];
-            first = false;
-            view.dispatch({ effects: [setFolds.of(found ?? null), ...imports] });
+            view.dispatch({ effects: setFolds.of(found ?? null) });
           });
         };
         request();
