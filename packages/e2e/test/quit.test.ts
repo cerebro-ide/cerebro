@@ -44,6 +44,9 @@ it('quits when its last window closes', { timeout: 30_000 }, async () => {
     await shown(running.app, page);
     await page.locator('.playground-welcome').waitFor();
   }
+  // Playwright told of it too, as on Windows in CI, where the app's process can't be asked after.
+  const closed = running.app.waitForEvent('close');
   await closeWindow();
   await exited;
+  await closed;
 });
