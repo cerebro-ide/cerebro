@@ -140,6 +140,13 @@ elements of each row) in place of the lanes: a rewrite of the graph, so it's pro
 
 ## Known gaps
 
+- **The Log's commit menu item "not visible" as it was clicked, once on macOS in CI** (#455, run
+  45271665375, 2026-11-23): log.test's "resets the branch to the commit right-clicked" found
+  "Reset Current Branch to Here…" but Playwright's forced click said "Element is not visible". The
+  trace's DOM snapshot as the click began holds no menu; the one after it, the menu open at the
+  row's right-click with the item in it, as the screenshot shows. So the menu was opened, or opened
+  again, during the click; why, not found. The same code passed on #456 and #457, and none of the
+  60 failed runs before it had this error.
 - **A kept tab's editor not shown yet missed a change on disk** (measured 2026-11-18, on
   fix/tab-switch-flicker): with every open tab's editor made at once, the host e2e test's
   `shape.ts`, changed on disk and opened from the Commit window, showed its old text until the next
