@@ -33,6 +33,15 @@ Raised by Ido (2026-10-26): IntelliJ lets several Claude Code sessions open as t
 something we can get to designing a bit later on". It needs a design before it's built; the
 Terminal tool window's tabs (decision "Several terminals") are the pieces to reuse.
 
+Ido (2026-11-23): WebStorm 2026.3 brought big changes to its AI features: sessions now run as
+tabs, not in a terminal, and a new panel manages the sessions. "That's a good idea." To look at
+when this is designed.
+
+### Features from Orca (to look into)
+
+Ido (2026-11-23): "I like some of the features in https://orca.dev/ - we should look into
+integrating some of them into our IDE". Which ones isn't chosen yet: to look into, with Ido.
+
 ### Agent Changes, aware of several sessions
 
 From Ido (2026-11-03), on the Agent Changes tool window: "we could have multiple sessions per
