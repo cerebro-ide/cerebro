@@ -4,7 +4,7 @@
 // packages/e2e/traces/, which CI keeps when the tests fail: open one with
 // `npx playwright show-trace <file>`.
 
-import type { ChildProcess } from 'node:child_process';
+import { execFileSync, type ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -69,15 +69,77 @@ async function closing(step: string, run: () => Promise<void>): Promise<void> {
  */
 const processes = new WeakMap<ElectronApplication, ChildProcess>();
 
+/**
+ * The processes under `pid`, its children and theirs: from Windows' process table (CIM), else
+ * `ps`'s. Its hosts among them, which outlive the app's own process as they finish (measured on
+ * Linux: the host and its terminal's process ran on 500 ms after the app had exited).
+ */
+export function processesUnder(pid: number): number[] {
+  const table =
+    process.platform === 'win32'
+      ? execFileSync('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId)" }',
+        ])
+      : execFileSync('ps', ['-A', '-o', 'pid=,ppid=']);
+  const rows = table
+    .toString()
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => line.trim().split(/\s+/).map(Number) as [number, number]);
+  const under = new Set([pid]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const [child, parent] of rows) {
+      if (under.has(parent) && !under.has(child)) {
+        under.add(child);
+        grew = true;
+      }
+    }
+  }
+  under.delete(pid);
+  return [...under];
+}
+
+/** Whether a process runs: signal 0 only asks (Node's `process.kill`, on Windows too). */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Resolves once none of `pids` runs. Until then a folder one runs in can't be removed on Windows
+ * (EPERM, quit.test in CI, 2026-11-23). Fails after `within`, naming those left.
+ */
+export async function ended(pids: readonly number[], within = 15_000): Promise<void> {
+  const start = performance.now();
+  for (;;) {
+    const left = pids.filter(running);
+    if (left.length === 0) return;
+    if (performance.now() - start > within) {
+      throw new Error(`The app's processes ${left.join(', ')} still run after it quit`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 /** Saves the app's trace, named for the test file, and closes the app, unless it has quit. */
 async function stop(app: ElectronApplication): Promise<void> {
   // A test that quits it (quit.test): there's nothing left to trace or close.
   const child = processes.get(app);
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const under = processesUnder(child.pid as number);
   const file = basename(expect.getState().testPath ?? 'e2e', '.ts');
   const path = join(TRACES, `${file}-${String(++runs)}.zip`);
   await closing(`saving the trace ${path}`, () => app.context().tracing.stop({ path }));
   await closing('closing the app', () => app.close());
+  // Its hosts finish after it: what they run in is removed once they have.
+  await closing("the app's processes ending", () => ended(under));
 }
 
 /** Runs an action by its name, from Find Action. */
