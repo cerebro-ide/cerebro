@@ -1,6 +1,7 @@
 import '@cerebro-ide/theme/themes.css';
 import '../src/styles.css';
 import { render } from '@cerebro-ide/jsx';
+import { EditorView } from '@codemirror/view';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
@@ -95,6 +96,13 @@ describe('the editor’s actions', () => {
     // Again, the editor having what shows them now.
     expect(showHintIn(content, message())).toBe(true);
     await expect.poll(hint).not.toBeNull();
+  });
+
+  it('show a hint in an editor made without what shows one (a diff’s side), given it first', async () => {
+    const view = new EditorView({ parent: document.body, doc: 'a' });
+    expect(showHintIn(view.contentDOM, document.createTextNode('hint'))).toBe(true);
+    await expect.poll(() => view.dom.querySelector('.cerebro-hint')?.textContent).toBe('hint');
+    view.destroy();
   });
 
   it('run from outside on the editor, the keyboard back in it', async () => {

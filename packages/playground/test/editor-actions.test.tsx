@@ -108,8 +108,15 @@ describe('the editor’s actions as commands', () => {
       '&Type Declaration',
       'S&uper Method',
     ]);
-    expect(shown('main/edit/find')).toEqual(['&Find', '&Replace']);
+    expect(shown('main/edit/find')).toEqual([
+      '&Find',
+      '&Replace',
+      'Select All Occurrences',
+      'Add Selection for Next Occurrence',
+      'Unselect Occurrence',
+    ]);
     expect(shown('main/edit')).toEqual([
+      'Add Carets to Ends of Selected Lines',
       'Extend Selection',
       'Shrink Selection',
       '---',

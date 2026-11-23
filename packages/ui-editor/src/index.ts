@@ -49,6 +49,17 @@ export { joinLines } from './join-lines.js';
 export { toggleCase } from './toggle-case.js';
 export { expandWord } from './expand-word.js';
 export { codeBlockMove, indentGuides, type IndentGuide } from './code-block.js';
+export {
+  addCaretsToLineEnds,
+  findFrom,
+  NOT_FOUND,
+  occurrences,
+  selectAllOccurrences,
+  selectNextOccurrence,
+  unselectOccurrence,
+  wordAt,
+  type CaretMouse,
+} from './carets.js';
 export { extendSelection, selectionSteps, shrinkSelection } from './extend-selection.js';
 export { duplicate, duplicateLines, editorDuplicate, inChangeableEditor } from './duplicate.js';
 export { historyNamesIn } from './history.js';
