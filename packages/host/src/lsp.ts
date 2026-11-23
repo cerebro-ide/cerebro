@@ -1538,9 +1538,7 @@ export class LanguageServers {
    * references to what's in it. None where no server's told of any.
    */
   async willRename(worktree: string, from: string, to: string): Promise<FileEdits[] | null> {
-    // One not on disk, as a test's, is a file's name: asked as one.
-    const folder = (await stat(from).catch(() => undefined))?.isDirectory() === true;
-    const files = folder ? await filesUnder(from) : [from];
+    const files = (await stat(from)).isDirectory() ? await filesUnder(from) : [from];
     const asked = new Map<LanguageServer, Renamed[]>();
     for (const file of files) {
       const found = this.serverFor(worktree, file);

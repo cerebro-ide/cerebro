@@ -627,10 +627,12 @@ describe('rename', () => {
   });
 
   it('asks a server nothing before a file’s renamed when it names no files', async () => {
+    writeFileSync(file.path, file.text);
     expect(await pool([fake('links')]).willRename(root, file.path, `${root}/b.fake`)).toBeNull();
   });
 
   it('changes nothing before a file’s renamed when its server fails to answer', async () => {
+    writeFileSync(file.path, file.text);
     expect(await pool([fake('fails')]).willRename(root, file.path, `${root}/b.fake`)).toBeNull();
   });
 
