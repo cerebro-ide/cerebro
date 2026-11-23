@@ -630,6 +630,10 @@ describe('rename', () => {
     expect(await pool([fake('links')]).willRename(root, file.path, `${root}/b.fake`)).toBeNull();
   });
 
+  it('changes nothing before a file’s renamed when its server fails to answer', async () => {
+    expect(await pool([fake('fails')]).willRename(root, file.path, `${root}/b.fake`)).toBeNull();
+  });
+
   it('says why a server won’t rename, and nothing when it’s gone', async () => {
     const fails = pool([fake('fails')]);
     expect(await fails.renaming(root, file, at(0, 0))).toEqual({ refused: 'Not here.' });
@@ -1096,7 +1100,8 @@ describe('TypeScript 7’s server', () => {
     writeFileSync(`${project}/lib/notes.txt`, 'notes\n');
     const user = {
       path: `${project}/report.ts`,
-      text: "import { sum } from './lib/sums';\nimport { product } from './lib/deep/products';\n",
+      // On one line: the edits, one from each file's answer, in order along it.
+      text: "import { product } from './lib/deep/products'; import { sum } from './lib/sums';\n",
     };
     writeFileSync(user.path, user.text);
     const servers = pool(undefined, { patience: 60_000 });
@@ -1107,12 +1112,12 @@ describe('TypeScript 7’s server', () => {
         path: user.path,
         // One list for the file, in order, though the server gives one per file renamed.
         edits: [
-          { from: { line: 0, column: 21 }, to: { line: 0, column: 31 }, text: './util/sums' },
           {
-            from: { line: 1, column: 25 },
-            to: { line: 1, column: 44 },
+            from: { line: 0, column: 25 },
+            to: { line: 0, column: 44 },
             text: './util/deep/products',
           },
+          { from: { line: 0, column: 68 }, to: { line: 0, column: 78 }, text: './util/sums' },
         ],
       },
     ]);
