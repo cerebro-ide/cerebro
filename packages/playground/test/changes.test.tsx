@@ -1529,6 +1529,74 @@ describe('a file edited, not saved yet', () => {
   });
 });
 
+describe('several rows selected', () => {
+  it('Show Diff goes through their files, from the first; Rollback, Shelve and Space take them all', async () => {
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    await userEvent.click(row(`${GROUP}:src/main/`));
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(row(`${UNVERSIONED}:notes.txt`));
+    await userEvent.click(row(`${GROUP}:README.md`));
+    await userEvent.keyboard('{/Control}');
+    // As IntelliJ's ChangesListViewDiffableSelectionUtil: the selection, a folder's files with it.
+    expect(commands.isEnabled('changes.showDiff', FROM_VIEW)).toBe(true);
+    commands.execute('changes.showDiff', FROM_VIEW);
+    expect(opened.at(-1)).toEqual({ id: 'diff:src/main/app.ts', title: 'app.ts' });
+    expect(chains.at(-1)).toEqual(['src/main/app.ts', 'src/main/new.ts', 'README.md', 'notes.txt']);
+    // Shelve starts from them; Space puts them all in, then takes them out.
+    expect(toShelve(FROM_VIEW)?.chosen.map((c) => c.path)).toEqual([
+      'src/main/app.ts',
+      'src/main/new.ts',
+      'README.md',
+      'notes.txt',
+    ]);
+    (document.querySelector('.playground-changes .cerebro-tree') as HTMLElement).focus();
+    await userEvent.keyboard(' ');
+    expect(include(`${UNVERSIONED}:notes.txt`).checked).toBe(true);
+    expect(include(`${GROUP}:README.md`).checked).toBe(true);
+    await userEvent.keyboard(' ');
+    expect(include(`${UNVERSIONED}:notes.txt`).checked).toBe(false);
+    expect(include(`${GROUP}:src/main/app.ts`).checked).toBe(false);
+    expect(include(`${GROUP}:docs/guide.md`).checked).toBe(true);
+    // Rollback: the tracked ones.
+    commands.execute('changes.rollback', FROM_VIEW);
+    expect(await dialogText()).toContain('These 3 files will be rolled back:');
+    await press('Rollback');
+    await expect
+      .poll(() => host.params('git.rollback'))
+      .toEqual([
+        {
+          path: wt,
+          files: ['src/main/app.ts', 'src/main/new.ts', 'README.md'],
+          deleteAdded: false,
+        },
+      ]);
+  });
+
+  it('Show Diff takes a folder and its file once, and is off with only ignored files', async () => {
+    git.ignored = ['debug.log', 'trace.log'];
+    await changesView();
+    await expect.poll(rows).toHaveLength(9);
+    await userEvent.click(row(`${GROUP}:src/main/`));
+    await userEvent.keyboard('{Shift>}');
+    await userEvent.click(row(`${GROUP}:src/main/new.ts`));
+    await userEvent.keyboard('{/Shift}');
+    commands.execute('changes.showDiff', FROM_VIEW);
+    expect(chains.at(-1)).toEqual(['src/main/app.ts', 'src/main/new.ts']);
+    commands.execute('changes.showIgnored', FROM_VIEW);
+    await expect.poll(rows).toContain('Ignored Files2 files');
+    await userEvent.dblClick(row(IGNORED));
+    await expect.poll(rows).toContain('debug.log');
+    await userEvent.click(row(`${IGNORED}:debug.log`));
+    await userEvent.keyboard('{Shift>}');
+    await userEvent.click(row(`${IGNORED}:trace.log`));
+    await userEvent.keyboard('{/Shift}');
+    expect(commands.isEnabled('changes.showDiff', FROM_VIEW)).toBe(false);
+    commands.execute('changes.showIgnored', FROM_VIEW);
+    git.ignored = [];
+  });
+});
+
 describe('what goes into the commit', () => {
   it('is every tracked file, untracked ones once put in, flipped by a checkbox or Space', async () => {
     await changesView();

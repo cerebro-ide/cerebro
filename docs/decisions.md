@@ -3668,7 +3668,8 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   read again, and the tabs of what's gone close as files deleted outside Cerebro do. It's the
   desktop app's (Electron's `shell.trashItem`): a remote host's files can't go to this machine's
   trash, which is for remote mode to settle. Not yet: IntelliJ's Safe Delete for code files (its
-  usage search), several rows at once, and the worktree itself. So is Rename (added 2026-11-14),
+  usage search), and the worktree itself. Several rows at once since 2026-11-23 (decision "Several
+  rows selected in a tree"). So is Rename (added 2026-11-14),
   before Bookmarks, as IntelliJ's `RenameElement`, and on Rename's key while the view has the focus:
   it's the editor's Rename command, so each keymap's keys and a change to them serve both (measured
   in the app: Shift+F6 in the editor still renames the symbol). It asks in IntelliJ's words (`Rename
@@ -3991,8 +3992,18 @@ trees take several rows, and `ui-tree` took one.
   lead among them moves to the folder. Collapse All keeps the roots that were selected.
 - **The last row can't be taken out** with Ctrl+click (Claude's choice, open to change: Swing's can
   leave none), and taking out the lead leaves it to the first row still selected (Claude's choice).
-- **Not yet:** the trees' actions on several rows: Show Diff, Rollback, Shelve and Commit in the
-  Commit window and Agent Changes, Delete, Copy and Move in the Project view, and the others.
+- **The Commit window's actions take them all:** Show Diff goes through the files they stand for (a
+  folder's or a group's with it, each once, ignored ones left out), from the first, as IntelliJ's
+  `ChangesListViewDiffableSelectionUtil`; Rollback rolls back their tracked files; Shelve Changes
+  starts from them; Space puts them all in the commit unless they all are, then takes them out. A
+  row's checkbox stays its own.
+- **The Project view's Delete takes them all,** without what's inside another of them (IntelliJ's
+  `PsiTreeUtil.filterAncestors`), asked in DeleteUtil's words: "Delete 2 files and 1 directory?",
+  with the warning for directories ("in the selected directory(s)"), files counted first (Claude's
+  choice: IntelliJ's order is a hash map's). Each goes to the trash in turn; one the trash won't
+  take stops the rest, said so, and the view is read again all the same.
+- **Not yet:** the rest of the trees' actions on several rows: Copy, Cut, Paste and Move in the
+  Project view, Rollback in Agent Changes, the Log's and the shelf's trees, and the others.
 
 ## Multiple carets (2026-11-23)
 
@@ -4907,7 +4918,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **The diff window goes through the list it was opened from,** as IntelliJ's diff chain
   (`ChangesListViewDiffableSelectionUtil`, `DiffRequestProcessor.getNavigationActions`):
   - The list: a Commit window file's group (its changelist, or the unversioned files) or an agent
-    turn's, in the tree's order; a shelved list's or a stash's files; a Log commit's files. Show
+    turn's, in the tree's order; with several rows selected, the files they stand for, from the
+    first (added 2026-11-23, as `ChangesListViewDiffableSelectionUtil`); a shelved list's or a
+    stash's files; a Log commit's files. Show
     Diff on an annotation opens one file. One file alone shows none of what follows.
   - After Next Difference, in IntelliJ's order: Jump to Source (its OpenInEditorAction, which is
     EditSource's), Compare Previous File, the file's place in the list ("2/5"), and Compare Next

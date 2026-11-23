@@ -97,14 +97,12 @@ seen until it's restarted, so usages miss them. Opening each changed script in i
 again would give it the text (its `onDidClose` keeps what it analysed: read from its code, not
 measured). It's a special case for one server, so it's proposed before it's done.
 
-### Several rows selected in a tree: the actions
+### Several rows selected in a tree: the rest of the actions
 
-Ido approved it (2026-11-23); `ui-tree` takes several rows now (decision "Several rows selected in
-a tree"). Left: the trees' actions on them. Show Diff with several files selected goes through those
-alone, as IntelliJ's (`ChangesListViewDiffableSelectionUtil`: the selected changes, then the
-selected unversioned files, from the first; read from its source), in the decision "The diff
-viewer, as IntelliJ's"'s "Not yet"; Rollback, Shelve or Commit on several files; Delete, Copy and
-Move in the Project view.
+Ido approved it (2026-11-23); `ui-tree` takes several rows, and the Commit window's Show Diff,
+Rollback, Shelve and Space and the Project view's Delete take them all (decision "Several rows
+selected in a tree"). Left: Copy, Cut, Paste and Move in the Project view; Show Diff and Rollback
+in Agent Changes; the Log's, the shelf's and the other trees' actions.
 
 ### The Log's graph laid out as IntelliJ's (proposed: a reshaping, for Ido's word)
 
