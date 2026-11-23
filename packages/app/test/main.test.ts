@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Answer } from '../src/ipc.js';
+import { DOCK_ICON } from '../src/window.js';
 
 type Listener = (...args: unknown[]) => unknown;
 
@@ -490,6 +491,21 @@ describe('start', () => {
       expect.stringMatching(/passwords\.json$/),
     );
     expect(passwords.installPasswords).toHaveBeenCalled();
+  });
+
+  it('sets the Dock’s icon where there’s a Dock, macOS', async () => {
+    const dock = { setIcon: vi.fn() };
+    const app = electron.app as typeof electron.app & { dock?: typeof dock };
+    app.dock = dock;
+    try {
+      electron.app.getPath.mockReturnValueOnce(folder());
+      start();
+      await vi.waitFor(() => {
+        expect(dock.setIcon).toHaveBeenCalledWith(DOCK_ICON);
+      });
+    } finally {
+      delete app.dock;
+    }
   });
 
   it('does nothing on activation before it’s ready', () => {

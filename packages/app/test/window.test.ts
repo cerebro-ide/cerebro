@@ -1,5 +1,6 @@
+import { existsSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { sizeFrom, TOOLBAR_HEIGHT, windowOptions } from '../src/window.js';
+import { DOCK_ICON, sizeFrom, TOOLBAR_HEIGHT, windowIcon, windowOptions } from '../src/window.js';
 
 describe('windowOptions', () => {
   it('hides the title bar, drawing the window controls over the toolbar', () => {
@@ -22,6 +23,16 @@ describe('windowOptions', () => {
       sandbox: true,
       nodeIntegration: false,
     });
+  });
+
+  it('gives a window its icon: an ICO on Windows, a PNG on Linux, none on macOS (the Dock’s)', () => {
+    expect(windowOptions('win32', '/preload.cjs').icon).toMatch(/icons\/cerebro\.ico$/);
+    expect(windowOptions('linux', '/preload.cjs').icon).toMatch(/icons\/cerebro\.png$/);
+    expect(windowOptions('darwin', '/preload.cjs')).not.toHaveProperty('icon');
+    // Where the built app finds them: dist's sibling, as src's.
+    for (const icon of [windowIcon('win32'), windowIcon('linux'), DOCK_ICON]) {
+      expect(existsSync(icon as string)).toBe(true);
+    }
   });
 
   it('zooms the page when told to', () => {

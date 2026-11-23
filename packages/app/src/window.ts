@@ -3,6 +3,7 @@
 // the toolbar's right end, and macOS keeps its traffic lights at the left.
 
 import type { BrowserWindowConstructorOptions } from 'electron';
+import { fileURLToPath } from 'node:url';
 
 /** The main toolbar's height: the window controls are drawn at this height over it. */
 export const TOOLBAR_HEIGHT = 43;
@@ -10,6 +11,21 @@ export const TOOLBAR_HEIGHT = 43;
 /** The dark theme's frame and text colours, so the window doesn't flash white while loading. */
 const FRAME = '#25282c';
 const TEXT = '#d1d3d9';
+
+/** The app's icons, made from the page's SVGs by scripts/icons.mjs. */
+const ICONS = fileURLToPath(new URL('../icons/', import.meta.url));
+
+/**
+ * A window's icon: an ICO on Windows, whose small sizes are the C alone; a PNG on Linux. None on
+ * macOS, where windows have none and the Dock's is the app's (`DOCK_ICON`).
+ */
+export function windowIcon(platform: NodeJS.Platform): string | undefined {
+  if (platform === 'darwin') return undefined;
+  return `${ICONS}cerebro.${platform === 'win32' ? 'ico' : 'png'}`;
+}
+
+/** The Dock's icon on macOS: the full icon on macOS's grid, as the app runs before it's packaged. */
+export const DOCK_ICON = `${ICONS}cerebro-macos.png`;
 
 /** The Welcome window's size: smaller than a project's, as IntelliJ's. */
 export const WELCOME_SIZE = { width: 800, height: 650 };
@@ -31,8 +47,10 @@ export function windowOptions(
   zoomFactor?: number,
   size: { width: number; height: number; x?: number; y?: number } = { width: 1440, height: 900 },
 ): BrowserWindowConstructorOptions {
+  const icon = windowIcon(platform);
   return {
     ...size,
+    ...(icon === undefined ? {} : { icon }),
     minWidth: 800,
     minHeight: 500,
     backgroundColor: FRAME,
