@@ -587,8 +587,8 @@ function chainOf(changes: Changes, view: View = 'changes'): string[] {
 }
 
 /** The files a selected row stands for: itself, or all of its folder's or group's. */
-function filesUnder(item: Item | undefined, changes: Changes): Extract<Item, { kind: 'change' }>[] {
-  if (!item || item.kind === 'turn') return [];
+function filesUnder(item: Item, changes: Changes): Extract<Item, { kind: 'change' }>[] {
+  if (item.kind === 'turn') return [];
   if (item.kind === 'change') return [item];
   const children =
     item.kind === 'folder'
@@ -1979,8 +1979,8 @@ export function ChangesView(props: {
           return;
         }
         const changes = current();
-        const items = changes ? selectedItems(changes) : [];
-        if (!changes || items.length === 0) return;
+        const items = changes && selectedItems(changes);
+        if (!items || items.length === 0) return;
         event.preventDefault();
         flipIncluded(changes, items);
       }}

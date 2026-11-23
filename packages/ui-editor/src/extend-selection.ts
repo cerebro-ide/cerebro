@@ -41,6 +41,11 @@ function trimmed(state: EditorState, from: number, to: number) {
   return { from: start, to: Math.max(start, to - (text.length - text.trimEnd().length)) };
 }
 
+interface Range {
+  from: number;
+  to: number;
+}
+
 /** Whether `outer` holds the selection and more. */
 function larger(outer: { from: number; to: number }, range: SelectionRange): boolean {
   return (
@@ -78,14 +83,12 @@ function grow(state: EditorState, range: SelectionRange) {
 
 /** The change Extend Selection makes; undefined where the selection is the whole text. */
 export function extendSelection(state: EditorState): TransactionSpec | undefined {
-  // Each caret's, as IntelliJ's; one at the whole text stays.
+  // Each caret's, as IntelliJ's. Only a selection of the whole text can't grow, and it's the only
+  // one: CodeMirror merges any other into it.
   const grew = state.selection.ranges.map((range) => grow(state, range));
-  if (grew.every((next) => next === undefined)) return undefined;
+  if (grew.includes(undefined)) return undefined;
   const selection = EditorSelection.create(
-    state.selection.ranges.map((range, i) => {
-      const next = grew[i];
-      return next ? EditorSelection.range(next.from, next.to) : range;
-    }),
+    grew.map((next) => EditorSelection.range((next as Range).from, (next as Range).to)),
     state.selection.mainIndex,
   );
   return { selection, effects: grown.of(state.selection), scrollIntoView: true };
