@@ -40,6 +40,14 @@ project/worktree and so the changes window needs to be aware of this". Not to wo
 are listed per worktree, whichever session they came from; with several Claude sessions as tabs
 (above), the window needs to tell them apart.
 
+### The name "Cerebro IDE", with a release (later)
+
+Ido (2026-11-23): "please rename the app to Cerebro IDE - it currently says Electron", and not to
+patch much for development alone. The Dock's "Electron" is Electron's own bundle's name, which the
+app can't change at runtime; a release's bundle is named as the app is. With it: `productName`, the
+window and menu names, and the data folder, which moves with the name (projects, windows and
+passwords kept there): moved once, or kept where it is.
+
 ### Binaries with the installer (later)
 
 From Ido (2026-11-04): "regarding binary installs, remember that eventually we'll build an

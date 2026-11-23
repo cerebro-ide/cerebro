@@ -2,8 +2,8 @@
   <title>Cerebro</title>
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1c2470"/>
-      <stop offset="1" stop-color="#0a0e3a"/>
+      <stop offset="0" stop-color="#6d4cff"/>
+      <stop offset="1" stop-color="#3a1fb8"/>
     </linearGradient>
   </defs>
   <rect x="8" y="8" width="349" height="349" rx="78" fill="url(#tile)"/>
