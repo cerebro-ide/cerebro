@@ -266,6 +266,9 @@ describe('TreeView', () => {
     model.expand({ path: 'big', folder: true });
     await settle();
     tree.scrollTop = 1200;
+    // Its scroll event, which draws the rows there, comes at the browser's next frame: maybe after
+    // the wait (CI, 2026-11-23: the row wasn't drawn).
+    tree.dispatchEvent(new Event('scroll'));
     await settle();
     await userEvent.click(row('big/file-00060.ts'));
     expect(model.selected).toBe('big/file-00060.ts');
