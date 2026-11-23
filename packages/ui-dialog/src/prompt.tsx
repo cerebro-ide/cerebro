@@ -10,6 +10,8 @@ export interface PromptOptions {
   label: string;
   /** The text it starts with, selected. */
   value?: string;
+  /** The part of `value` selected, from and to; default: all of it. */
+  selected?: readonly [number, number];
   /** Default: OK. */
   ok?: string;
   /** Why the text can't be accepted, or undefined when it can. Blank text never can. */
@@ -51,7 +53,8 @@ export function prompt(options: PromptOptions): Promise<string | undefined> {
           aria-invalid={() => String(error() !== undefined)}
           ref={(input) => {
             queueMicrotask(() => {
-              input.select();
+              if (options.selected) input.setSelectionRange(...options.selected);
+              else input.select();
             });
           }}
           on:input={(event) => {

@@ -13,7 +13,8 @@
 // given only when it's asked about (as TypeScript's server); the others offer none. A rename is
 // refused by "fails", and "dies" exits as it's asked; the others answer none. "formats" formats
 // whole files, an edit that indents the first line; "fails" says it formats parts of them too, and
-// refuses a whole file, and answers a part with none; the others don't format.
+// refuses a whole file, and answers a part with none; the others don't format. "fails" is told of
+// .fake files' renames, and answers them with an error.
 // Every message it gets is appended to the file named by its second argument.
 
 import { Buffer } from 'node:buffer';
@@ -40,7 +41,15 @@ const handle = (message) => {
         : mode === 'fails'
           ? { documentFormattingProvider: true, documentRangeFormattingProvider: {} }
           : {};
-    send({ id, result: { capabilities: { ...pulls, ...completes, ...formats } } });
+    const renames =
+      mode === 'fails'
+        ? {
+            workspace: {
+              fileOperations: { willRename: { filters: [{ pattern: { glob: '**/*.fake' } }] } },
+            },
+          }
+        : {};
+    send({ id, result: { capabilities: { ...pulls, ...completes, ...formats, ...renames } } });
     // Asks what a server may ask of its client.
     send({
       id: 'c1',
@@ -122,6 +131,8 @@ const handle = (message) => {
     if (mode === 'dies') process.exit(1);
     if (mode === 'fails') send({ id, error: { code: -32803, message: 'Not here.' } });
     else send({ id, result: null });
+  } else if (method === 'workspace/willRenameFiles') {
+    send({ id, error: { code: -32603, message: 'no' } });
   } else if (method === 'textDocument/formatting') {
     if (mode === 'fails') {
       send({ id, error: { code: -32603, message: 'Not formatted.' } });

@@ -1728,10 +1728,14 @@ describe('the Project view’s menu', () => {
     await userEvent.click(await vi.waitUntil(() => row('/r/one.ts')), { button: 'right' });
     await userEvent.click(menuItem('Rename…'));
     await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    // A file's name selected without its extension, as IntelliJ's.
+    await expect.poll(() => [field().selectionStart, field().selectionEnd]).toEqual([0, 3]);
     await userEvent.clear(field());
     await userEvent.keyboard('uno.ts{Enter}');
     await expect.poll(renamed).toContainEqual({ path: '/r/one.ts', to: '/r/uno.ts' });
+    // The folder's first: its files' references change with it, as IntelliJ's.
     expect(host('/r').params('lsp.willRename')).toEqual([
+      { worktree: '/r', path: '/r/pre', to: '/r/post' },
       { worktree: '/r', path: '/r/one.ts', to: '/r/uno.ts' },
     ]);
     expect(host('/r').params('fs.write')).toContainEqual(

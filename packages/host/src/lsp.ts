@@ -10,12 +10,13 @@
 
 import { spawn, type ChildProcess } from 'node:child_process';
 import { existsSync, watch, type FSWatcher } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import { posix } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection, ErrorCodes, ResponseError } from '@cerebro-ide/protocol';
 import { frame, FrameReader } from './framing.js';
 import { serverFor, servers, type ServerSpec } from '@cerebro-ide/servers';
+import { filesUnder } from './files.js';
 import { markersOf, type DocumentSymbol, type Marker } from './markers.js';
 
 /** A place in a file, zero-based, its path with `/` on every OS. */
@@ -663,6 +664,12 @@ export function filtered(filters: readonly FileFilter[], path: string, folder: b
   });
 }
 
+/** A file renamed: where it was, and where it goes. */
+export interface Renamed {
+  from: string;
+  to: string;
+}
+
 /**
  * A server's edits to files, as a map of files to edits or as edits per version of a file
  * (basedpyright sends these unasked, measured). Null for one that also makes, moves or deletes
@@ -1110,15 +1117,16 @@ export class LanguageServer {
   }
 
   /**
-   * The edits that change what refers to a file as it's renamed from `from` to `to` (its imports,
-   * from TypeScript's server); none from a server not told of such a file.
+   * The edits that change what refers to files as they're renamed, each `from` to its `to` (their
+   * imports, from TypeScript's server), in one question; none from a server told of none of them.
    */
-  async willRename(from: string, to: string): Promise<FileEdits[] | null> {
+  async willRename(files: readonly Renamed[]): Promise<FileEdits[] | null> {
     await this.ready;
-    if (!filtered(this.#renames, from, false)) return null;
+    const told = files.filter((file) => filtered(this.#renames, file.from, false));
+    if (told.length === 0) return null;
     return fileEditsOf(
       await this.#connection.request('workspace/willRenameFiles', {
-        files: [{ oldUri: uriOf(from), newUri: uriOf(to) }],
+        files: told.map((file) => ({ oldUri: uriOf(file.from), newUri: uriOf(file.to) })),
       }),
     );
   }
@@ -1524,8 +1532,38 @@ export class LanguageServers {
   }
 
   /** The edits that change what refers to a file as it's renamed; null without an answer. */
-  willRename(worktree: string, from: string, to: string): Promise<FileEdits[] | null> {
-    return this.#ask(worktree, from, (server) => server.willRename(from, to));
+  /**
+   * The edits that change what refers to a file or a folder's files as it's renamed: each file's
+   * server asked once, with all of its files, as IntelliJ's rename of a folder changes the
+   * references to what's in it. None where no server's told of any.
+   */
+  async willRename(worktree: string, from: string, to: string): Promise<FileEdits[] | null> {
+    const files = (await stat(from)).isDirectory() ? await filesUnder(from) : [from];
+    const asked = new Map<LanguageServer, Renamed[]>();
+    for (const file of files) {
+      const found = this.serverFor(worktree, file);
+      if (!found) continue;
+      const renamed = asked.get(found.server) ?? [];
+      renamed.push({ from: file, to: to + file.slice(from.length) });
+      asked.set(found.server, renamed);
+    }
+    const patience = this.options.patience ?? PATIENCE;
+    const answers = await Promise.all(
+      [...asked].map(([server, renamed]) =>
+        within(server.willRename(renamed), patience).catch(() => undefined),
+      ),
+    );
+    const answered = answers.filter((answer) => answer != null);
+    if (answered.length === 0) return null;
+    // One file's edits in one list, in order: TypeScript's server gives one list per file renamed
+    // (an importing file's for each), all counting from its text as it is (measured).
+    const byPath = new Map<string, FileEdits['edits'][number][]>();
+    for (const file of answered.flat())
+      byPath.set(file.path, [...(byPath.get(file.path) ?? []), ...file.edits]);
+    return [...byPath].map(([path, edits]) => ({
+      path,
+      edits: edits.sort((a, b) => a.from.line - b.from.line || a.from.column - b.from.column),
+    }));
   }
 
   /** A file's symbols, for File Structure; null when no server answers in time. */

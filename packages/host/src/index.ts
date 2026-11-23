@@ -103,6 +103,7 @@ export {
   readFileBytes,
   readTextFile,
   copyEntry,
+  filesUnder,
   renameEntry,
   isBinary,
   decodeText,
