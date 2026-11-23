@@ -28,7 +28,7 @@ import { installPasswords, PasswordStore } from './passwords.js';
 import { installScrollbars } from './scrollbars.js';
 import { installShell } from './shell.js';
 import { ProjectStore, ProjectWindows, projectName, type ProjectWindow } from './projects.js';
-import { sizeFrom, WELCOME_SIZE, windowOptions } from './window.js';
+import { DOCK_ICON, sizeFrom, WELCOME_SIZE, windowOptions } from './window.js';
 
 /** The built UI, relative to this file once compiled to dist/. */
 const PAGE = fileURLToPath(new URL('../../playground/dist/index.html', import.meta.url));
@@ -313,6 +313,8 @@ export function start(userData = process.env['CEREBRO_USER_DATA']): void {
     if (BrowserWindow.getAllWindows().length === 0) windows?.start(repo);
   });
   void app.whenReady().then(() => {
+    // macOS's alone: elsewhere there's no Dock, and each window has its icon (window.ts).
+    app.dock?.setIcon(DOCK_ICON);
     allowCallStacks(session.defaultSession);
     windows = installProjects(
       hosts,

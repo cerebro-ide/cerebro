@@ -10,7 +10,8 @@
     "build": "tsc -b tsconfig.build.json && node scripts/native.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "dev": "node scripts/dev.mjs",
-    "start": "electron ."
+    "start": "electron .",
+    "icons": "node scripts/icons.mjs"
   },
   "devDependencies": {
     "electron": "44.9.3"

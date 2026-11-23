@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 365 365">
+  <title>Cerebro</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1c2470"/>
+      <stop offset="1" stop-color="#0a0e3a"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="349" height="349" rx="78" fill="url(#tile)"/>
+  <rect x="9.5" y="9.5" width="346" height="346" rx="76.5" fill="none" stroke="#fff" stroke-opacity="0.14" stroke-width="3"/>
+  <!-- Network: straight, mirrored branches; the centre link sits behind the C. -->
+  <g fill="none" stroke="#fff" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 91.5 157.5 L 120.5 184.5 L 91.5 210.5"/>
+    <path d="M 273.5 157.5 L 244.5 184.5 L 273.5 210.5"/>
+    <path d="M 120.5 184.5 H 244.5"/>
+  </g>
+
+  <!-- Brackets: the upper contour is balanced to match the lower contour. -->
+  <g fill="#fff">
+    <path d="
+      M 82.5 115
+      C 65.5 115 54 125.5 54 142.5
+      L 54 152
+      C 54 160.5 50.5 166 43.5 171
+      L 38.5 174.5
+      C 36.5 178 36.5 187 38.5 190.5
+      L 43.5 194
+      C 50.5 199 54 204.5 54 213
+      L 54 222.5
+      C 54 239.5 65.5 250 82.5 250
+      L 85 250 L 85 234
+      L 82.5 234
+      C 73 234 69.5 230 69.5 220.5
+      L 69.5 210.5
+      C 69.5 198.5 65.5 192.5 57 186
+      C 55.5 185 55.5 180 57 179
+      C 65.5 172.5 69.5 166.5 69.5 154.5
+      L 69.5 144.5
+      C 69.5 135 73 131 82.5 131
+      L 85 131 L 85 115 Z"/>
+  </g>
+  <g transform="translate(365 0) scale(-1 1)" fill="#fff">
+    <path d="
+      M 82.5 115
+      C 65.5 115 54 125.5 54 142.5
+      L 54 152
+      C 54 160.5 50.5 166 43.5 171
+      L 38.5 174.5
+      C 36.5 178 36.5 187 38.5 190.5
+      L 43.5 194
+      C 50.5 199 54 204.5 54 213
+      L 54 222.5
+      C 54 239.5 65.5 250 82.5 250
+      L 85 250 L 85 234
+      L 82.5 234
+      C 73 234 69.5 230 69.5 220.5
+      L 69.5 210.5
+      C 69.5 198.5 65.5 192.5 57 186
+      C 55.5 185 55.5 180 57 179
+      C 65.5 172.5 69.5 166.5 69.5 154.5
+      L 69.5 144.5
+      C 69.5 135 73 131 82.5 131
+      L 85 131 L 85 115 Z"/>
+  </g>
+
+  <!-- C: original path moved left 8.5 units; path geometry is unchanged. -->
+  <g transform="translate(-8.5 0)">
+  <path fill="#fff" fill-rule="evenodd" d="
+    M 192.5 98
+    C 189 98 185.5 100 181.5 102.5
+    L 128.5 136
+    C 122.5 139.8 120 144 120 151
+    L 120 215
+    C 120 222 122.5 226.2 128.5 230
+    L 181.5 263.5
+    C 185.5 266 189 268 192.5 268
+    C 196 268 199.5 266 203.5 263.5
+    L 255.5 230.5
+    C 260 227.5 262 224.5 262 221
+    C 262 217.5 260 214.5 256.5 212
+    L 246.5 205.5
+    C 243.5 203.5 240.5 203.5 237.5 205.5
+    L 195 232
+    C 193.5 233 191.5 233 190 232
+    L 153.5 209
+    C 150.5 207 149 204.5 149 200.5
+    L 149 165.5
+    C 149 161.5 150.5 159 153.5 157
+    L 190 134
+    C 191.5 133 193.5 133 195 134
+    L 237.5 160.5
+    C 240.5 162.5 243.5 162.5 246.5 160.5
+    L 256.5 154
+    C 260 151.5 262 148.5 262 145
+    C 262 141.5 260 138.5 255.5 135.5
+    L 203.5 102.5
+    C 199.5 100 196 98 192.5 98 Z"/>
+  </g>
+
+  <!-- Nodes sit on exact mirrored branch endpoints and the C centreline. -->
+  <g fill="#fff">
+    <circle cx="91.5" cy="157.5" r="9.4"/>
+    <circle cx="91.5" cy="210.5" r="9.4"/>
+    <circle cx="273.5" cy="157.5" r="9.4"/>
+    <circle cx="273.5" cy="210.5" r="9.4"/>
+    <circle cx="184" cy="184" r="14.1"/>
+  </g>
+</svg>
