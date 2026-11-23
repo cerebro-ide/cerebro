@@ -2033,6 +2033,14 @@ describe('the Agent Changes window', () => {
     expect(opened.at(-1)).toEqual({ id: 'diff@b..c:gone.ts', title: 'gone.ts' });
     // Through its turn's files.
     expect(chains.at(-1)).toEqual(['src/a.ts', 'gone.ts']);
+    // With the turn's row selected too, through the files selected: a turn stands for none.
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(row('turn:t2'));
+    await userEvent.keyboard('{/Control}');
+    commands.execute('changes.showDiff', FROM_AGENT);
+    expect(opened.at(-1)).toEqual({ id: 'diff@b..c:gone.ts', title: 'gone.ts' });
+    expect(chains.at(-1)).toEqual(['gone.ts']);
+    await userEvent.click(row('turn:t2:gone.ts'));
     expect(commands.isEnabled('changes.rollback', FROM_AGENT)).toBe(false);
     commands.execute('changes.collapseAll', FROM_AGENT);
     commands.execute('changes.expandAll', FROM_AGENT);
