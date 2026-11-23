@@ -169,6 +169,28 @@ export async function createScratch(folder: string, extension: string): Promise<
 }
 
 /**
+ * The files under a folder, at any depth: not git's folder's, nor installed packages'
+ * (`node_modules`), which nothing refers to by a relative path.
+ */
+export async function filesUnder(folder: string): Promise<string[]> {
+  const entries = await readdir(folder, { recursive: true, withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => toSlashes(`${entry.parentPath}/${entry.name}`))
+    .filter(
+      (path) =>
+        !path
+          .slice(folder.length)
+          .split('/')
+          .some((part) => SKIPPED.has(part)),
+    )
+    .sort();
+}
+
+/** Never looked in by `filesUnder`. */
+const SKIPPED = new Set(['.git', 'node_modules']);
+
+/**
  * Renames or moves a file or folder, as IntelliJ's Rename and Move in the Project view: an error
  * (EEXIST) when `to` is there already, unless asked to go `over` a file there (a rename on Linux
  * and macOS would replace one unasked).

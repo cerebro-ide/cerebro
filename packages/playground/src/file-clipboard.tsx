@@ -19,7 +19,7 @@ import { provideClipboard } from './edit.js';
 import { active, hostFor, type Host } from './environments.js';
 import { notifications } from './notifications.js';
 import { kept, projectNode, selectNew, type FileNode } from './project.js';
-import { moveEntry } from './rename-file.js';
+import { moveEntry, nameEnd } from './rename-file.js';
 
 export interface FileClipboardSetup {
   /** Opens a file with its editor focused. */
@@ -74,9 +74,7 @@ export function askCopy(node: FileNode, folder: string): Promise<CopyAnswer | un
           autofocus
           ref={(input) => {
             queueMicrotask(() => {
-              // A file's name without its extension, as IntelliJ's `selectNameWithoutExtension`.
-              const dot = node.kind === 'file' ? node.name.lastIndexOf('.') : -1;
-              input.setSelectionRange(0, dot > 0 ? dot : node.name.length);
+              input.setSelectionRange(0, nameEnd(node));
             });
           }}
           on:input={(event) => {

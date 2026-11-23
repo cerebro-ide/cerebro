@@ -17,6 +17,7 @@ import {
   createScratch,
   empty,
   exists,
+  filesUnder,
   listFolder,
   MAPPED_WAIT,
   MAX_FILE_SIZE,
@@ -185,6 +186,34 @@ describe('createScratch', () => {
     mkdirSync(join(folder, 'scratch_2'));
     expect(await createScratch(folder, 'txt')).toBe(`${folder}/scratch_2.txt`);
     expect(await createScratch(folder, 'txt')).toBe(`${folder}/scratch_5.txt`);
+  });
+});
+
+describe('filesUnder', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cerebro-under-'));
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('lists a folder’s files at any depth, not git’s or installed packages’', async () => {
+    for (const folder of ['lib/deep', 'lib/.git', 'lib/node_modules/pkg', 'lib/empty']) {
+      mkdirSync(join(root, folder), { recursive: true });
+    }
+    for (const file of [
+      'lib/b.ts',
+      'lib/a.ts',
+      'lib/deep/c.ts',
+      'lib/.git/HEAD',
+      'lib/node_modules/pkg/i.js',
+    ]) {
+      writeFileSync(join(root, file), '');
+    }
+    const base = toSlashes(root);
+    expect(await filesUnder(`${base}/lib`)).toEqual([
+      `${base}/lib/a.ts`,
+      `${base}/lib/b.ts`,
+      `${base}/lib/deep/c.ts`,
+    ]);
   });
 });
 

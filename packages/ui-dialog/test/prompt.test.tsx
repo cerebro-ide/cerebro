@@ -47,6 +47,14 @@ describe('prompt', () => {
     expect(await result).toBe('main.ts');
   });
 
+  it('selects the part of the value asked for', async () => {
+    const result = prompt({ title: 'Rename', label: 'Name:', value: 'main.ts', selected: [0, 4] });
+    await tick();
+    expect([input().selectionStart, input().selectionEnd]).toEqual([0, 4]);
+    ok().click();
+    expect(await result).toBe('main.ts');
+  });
+
   it('says why the text can’t be accepted, while it can’t', async () => {
     const result = prompt({
       title: 'New Branch',

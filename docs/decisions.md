@@ -3677,11 +3677,17 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   `workspace/willRenameFiles`, for the files the server names), as IntelliJ's "Search for
   references", on by default: TypeScript's server changes the imports (measured in the app, with
   the importing file open and with none). TypeScript 7's server names only files
-  (`**/*.{ts,tsx,js,jsx,cts,cjs,mts,mjs,json}`, measured), so a folder's rename changes no imports
-  yet. The edits are made and saved as the editor's Rename makes them; a file that can't be read is
-  said so. Not yet: a folder's references, IntelliJ's preview and its "Search in comments and
-  strings" and "Rename tests" options, its selection of a file's name without its extension, and
-  moving the file's bookmarks with it.
+  (`**/*.{ts,tsx,js,jsx,cts,cjs,mts,mjs,json}`, measured), so a folder's rename or move (added
+  2026-11-23, Ido's ask) asks it about the folder's files, at any depth, all in one
+  `workspace/willRenameFiles` per server (the host's `filesUnder`: not `.git` or `node_modules`,
+  Claude's choice, open to change), as IntelliJ's changes the references to what's in a folder
+  (a claim). The server gives one list of edits per file renamed, each counting from the importing
+  file's text as it is (measured), so the host joins a file's edits into one list, in order. The
+  edits are made and saved as the editor's Rename makes them; a file that can't be read is said
+  so. The field selects a file's name without its extension (added 2026-11-23), as IntelliJ's
+  `selectNameWithoutExtension`, as Copy's does (one function, `nameEnd`). Not yet: IntelliJ's
+  preview and its "Search in comments and strings" and "Rename tests" options, and moving the
+  file's bookmarks with it.
   So are Copy and Paste (added 2026-11-14), around Copy Path as in IntelliJ's CutCopyPasteGroup,
   and on their keys while the view has the focus: they're the Edit commands, which act on the
   view's files then (edit.ts's `provideClipboard`, as IntelliJ's CopyProvider and PasteProvider).

@@ -34,6 +34,15 @@ export function renameError(name: string, entries: readonly FileNode[]): string 
   return entries.some((entry) => entry.name === name) ? `File ${name} already exists` : undefined;
 }
 
+/**
+ * Where a file's name ends without its extension, as IntelliJ's `selectNameWithoutExtension`: what
+ * Rename and Copy select. A folder's, or one with no extension, is the whole name.
+ */
+export function nameEnd(node: Pick<FileNode, 'name' | 'kind'>): number {
+  const dot = node.kind === 'file' ? node.name.lastIndexOf('.') : -1;
+  return dot > 0 ? dot : node.name.length;
+}
+
 /** `path` with `from`, or a folder holding it, as `to`; else undefined. */
 export function movedPath(path: string, from: string, to: string): string | undefined {
   if (path === from) return to;
@@ -65,7 +74,7 @@ export async function moveEntry(moving: Moving): Promise<boolean> {
   const { worktree, host, node, to, editor, title } = moving;
   try {
     await saveAll();
-    if (node.kind === 'file' && moving.references) {
+    if (moving.references) {
       const edits = (await host.request('lsp.willRename', {
         worktree,
         path: node.path,
@@ -130,6 +139,7 @@ export function setupRenameFile(services: MenuServices, setup: RenameFileSetup):
         title: 'Rename',
         label: `Rename ${node.kind === 'file' ? 'file' : 'directory'} '${node.name}' to:`,
         value: node.name,
+        selected: [0, nameEnd(node)],
         validate: (typed) => (typed === node.name ? undefined : renameError(typed, entries)),
         valid: (typed) => typed !== node.name,
       });
