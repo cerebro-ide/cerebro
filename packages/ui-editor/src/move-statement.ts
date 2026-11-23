@@ -24,7 +24,7 @@
 import { language } from '@codemirror/language';
 import type { EditorState, TransactionSpec } from '@codemirror/state';
 import type { SyntaxNode } from '@lezer/common';
-import { dispatching } from './command-change.js';
+import { atEachCaret, dispatching } from './command-change.js';
 import { LineMover, type Lines } from './line-mover.js';
 import { moveLine } from './move-line.js';
 import { moveHtmlStatement } from './move-statement-html.js';
@@ -253,17 +253,25 @@ class Mover extends LineMover {
 export function moveStatement(state: EditorState, up: boolean): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
   const name = state.facet(language)?.name ?? '';
-  const made =
+  // At each caret, as IntelliJ's; down from the last, so one caret's lines don't take another's.
+  const one = (alone: EditorState) =>
     name === 'json'
-      ? moveJsonStatement(state, up)
+      ? moveJsonStatement(alone, up)
       : name === 'yaml'
-        ? moveYamlStatement(state, up)
+        ? moveYamlStatement(alone, up)
         : name === 'html'
-          ? moveHtmlStatement(state, up)
+          ? moveHtmlStatement(alone, up)
           : SCRIPTS.has(name)
-            ? new Mover(state).move(up)
-            : moveLine(state, up);
-  return made && { ...made, userEvent: up ? 'move.statement.up' : 'move.statement.down' };
+            ? new Mover(alone).move(up)
+            : moveLine(alone, up);
+  const made = atEachCaret(state, one, !up);
+  return (
+    made && {
+      ...made,
+      scrollIntoView: true,
+      userEvent: up ? 'move.statement.up' : 'move.statement.down',
+    }
+  );
 }
 
 /** IntelliJ's `MoveStatementUp` and `MoveStatementDown`, as CodeMirror commands. */

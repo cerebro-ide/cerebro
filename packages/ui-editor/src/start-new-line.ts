@@ -12,7 +12,7 @@ import {
   type Line,
   type TransactionSpec,
 } from '@codemirror/state';
-import { changeOf, dispatching } from './command-change.js';
+import { atEachCaret, changeOf, dispatching } from './command-change.js';
 
 /** The change Start New Line makes; undefined in a read-only editor. */
 export function startNewLine(state: EditorState): TransactionSpec | undefined {
@@ -43,7 +43,7 @@ function indentOf(state: EditorState, pos: number, like: Line): string {
  * caret to the blank line's end, which is its indent (IntelliJ's smart End). The indent is the
  * language's for that line, else the caret's line's own. Undefined in a read-only editor.
  */
-export function startNewLineBefore(state: EditorState): TransactionSpec | undefined {
+function startNewLineBeforeAlone(state: EditorState): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
   const line = state.doc.lineAt(state.selection.main.head);
   const blank = state.update({ changes: { from: line.from, insert: state.lineBreak } }).state;
@@ -56,6 +56,12 @@ export function startNewLineBefore(state: EditorState): TransactionSpec | undefi
   };
 }
 
+/** Start New Line Before Current at every caret; undefined in a read-only editor. */
+export function startNewLineBefore(state: EditorState): TransactionSpec | undefined {
+  const made = atEachCaret(state, startNewLineBeforeAlone);
+  return made && { ...made, scrollIntoView: true, userEvent: 'input.startNewLineBefore' };
+}
+
 /** IntelliJ's `EditorStartNewLineBefore`, as a CodeMirror command. */
 export const startingNewLineBefore = dispatching(startNewLineBefore);
 
@@ -65,7 +71,7 @@ export const startingNewLineBefore = dispatching(startNewLineBefore);
  * without its leading white space, on a new line at the language's indent), the caret where it was.
  * Undefined in a read-only editor.
  */
-export function splitLine(state: EditorState): TransactionSpec | undefined {
+function splitLineAlone(state: EditorState): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
   const { head } = state.selection.main;
   const line = state.doc.lineAt(head);
@@ -84,6 +90,12 @@ export function splitLine(state: EditorState): TransactionSpec | undefined {
     scrollIntoView: true,
     userEvent: 'input.splitLine',
   };
+}
+
+/** Split Line at every caret; undefined in a read-only editor. */
+export function splitLine(state: EditorState): TransactionSpec | undefined {
+  const made = atEachCaret(state, splitLineAlone);
+  return made && { ...made, scrollIntoView: true, userEvent: 'input.splitLine' };
 }
 
 /** IntelliJ's `EditorSplitLine`, as a CodeMirror command. */

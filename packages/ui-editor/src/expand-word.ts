@@ -56,7 +56,7 @@ function wordsFor(state: EditorState, prefix: string, head: number) {
  */
 export function expandWord(state: EditorState, forward: boolean): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
-  // Cerebro's editor has one caret, so the main selection is all there is.
+  // At the main caret alone: what IntelliJ's does with several isn't read yet.
   const { head } = state.selection.main;
   const going = state.field(expansion, false);
   let next: Expansion;

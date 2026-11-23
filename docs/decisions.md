@@ -4010,9 +4010,17 @@ each command acting at the main selection. Now it has several (CodeMirror's
   removed (IntelliJ's is the one added last, which Cerebro doesn't track); after Add Carets to Ends
   of Selected Lines and Select All Occurrences, the main caret is on the main one's line or match.
 - **Typing, Backspace, Delete, the caret's moves and Escape** are CodeMirror's, which act on every
-  caret; Escape leaves the main one alone, as IntelliJ's.
-- **Not yet:** the editor's own commands act at the main selection (Duplicate Line, Comment, Move
-  Line and the others), next; Clone Caret Above and Below, Column Selection Mode and VS Code's
+  caret; Escape leaves the main one alone, as IntelliJ's. So are Move Line, Delete Line, Start New
+  Line, Duplicate Line or Selection, Comment with Line Comment and the Code Block moves.
+- **The editor's own commands act at every caret** (added 2026-11-23, the second part), as
+  IntelliJ's editor actions run for each caret (`EditorActionHandler`'s `runForAllCarets`): each
+  caret in turn, alone, in the text as the carets before it left it, their changes one undo step
+  (`atEachCaret`). Join Lines, Toggle Case, Comment with Block Comment, Start New Line Before
+  Current, Split Line and Move Statement; Move Statement Down from the last caret back, so one
+  caret's lines aren't moved into by the one above's (Claude's choice, open to change). Extend
+  Selection grows each selection, and Shrink Selection takes them all back a step.
+  Cyclic Expand Word stays at the main caret: what IntelliJ's does with several isn't read yet.
+- **Not yet:** Cyclic Expand Word at every caret; Clone Caret Above and Below, Column Selection Mode and VS Code's
   Insert Cursor Above and Below, after; IntelliJ's limit on carets, and its Create Rectangular
   Selection (Alt+Shift+middle click).
 

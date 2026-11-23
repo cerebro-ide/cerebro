@@ -71,11 +71,9 @@ diff's model for one link (CLAUDE.md).
 
 ### Multiple carets: the rest
 
-Ido approved them (2026-11-23); the first part is done (decision "Multiple carets"). Left: the
-editor's own commands at every caret, not the main selection alone (Duplicate Line or Selection,
-Comment, Move Line and Statement, Delete Line, Join Lines, Toggle Case, Start New Line and the
-others, about 25 files); then Clone Caret Above and Below, Column Selection Mode, and VS Code's
-Insert Cursor Above and Below.
+Ido approved them (2026-11-23); the first two parts are done (decision "Multiple carets"). Left:
+Clone Caret Above and Below, Column Selection Mode, and VS Code's Insert Cursor Above and Below;
+Cyclic Expand Word at every caret.
 
 ### A popup that holds controls (proposed: a reshaping, for Ido's word)
 
