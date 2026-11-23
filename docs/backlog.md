@@ -97,17 +97,14 @@ seen until it's restarted, so usages miss them. Opening each changed script in i
 again would give it the text (its `onDidClose` keeps what it analysed: read from its code, not
 measured). It's a special case for one server, so it's proposed before it's done.
 
-### Several rows selected in a tree (proposed: a reshaping, for Ido's word)
+### Several rows selected in a tree: the actions
 
-IntelliJ's trees take several rows: Ctrl+click adds one, Shift+click and Shift+arrows a range.
-`ui-tree` selects one row (`TreeModel.selected`), so the Commit window, Agent Changes, the Project
-view and the others act on one row (or a folder's files) at a time. What waits on it, found
-2026-11-15: Show Diff with several files selected goes through those alone, as IntelliJ's
-(`ChangesListViewDiffableSelectionUtil`: the selected changes, then the selected unversioned
-files, from the first; read from its source), in the decision "The diff viewer, as IntelliJ's"'s
-"Not yet"; and Rollback, Shelve or Commit on several files picked one by one. It changes a shared
-package and every tree's selection, so it's proposed before it's done (CLAUDE.md). The Conflicts
-dialog's list, a table of its own, already takes several.
+Ido approved it (2026-11-23); `ui-tree` takes several rows now (decision "Several rows selected in
+a tree"). Left: the trees' actions on them. Show Diff with several files selected goes through those
+alone, as IntelliJ's (`ChangesListViewDiffableSelectionUtil`: the selected changes, then the
+selected unversioned files, from the first; read from its source), in the decision "The diff
+viewer, as IntelliJ's"'s "Not yet"; Rollback, Shelve or Commit on several files; Delete, Copy and
+Move in the Project view.
 
 ### The Log's graph laid out as IntelliJ's (proposed: a reshaping, for Ido's word)
 

@@ -1,6 +1,7 @@
 // A tree's state, apart from how it's drawn: which nodes are expanded, the children loaded so far
 // (lazily, the first time a node is expanded), the rows that show, and the selection. The rows are a
-// flat list (each node with its depth), which a virtualised view draws a window of.
+// flat list (each node with its depth), which a virtualised view draws a window of. Several rows
+// may be selected, as in IntelliJ's trees: `selected` is the lead, the one the keys move from.
 //
 // Children come from a source, synchronously or not, so a file tree can ask a host for a folder's
 // entries only when the folder is opened.
@@ -35,7 +36,12 @@ export class TreeModel<T> {
   readonly loaded = new ObservableMap<string, readonly T[]>();
   /** Parents whose children are loading. */
   readonly loading = new ObservableSet<string>();
+  /** The lead selected row: the one the keys move from, and the last clicked. */
   selected: string | undefined = undefined;
+  /** Every row selected, the lead among them. */
+  readonly selection = new ObservableSet<string>();
+  /** Where a range taken with Shift starts: the row last selected without it. */
+  #anchor: string | undefined = undefined;
   /** Why loading failed, by parent's key. */
   readonly errors = new ObservableMap<string, string>();
   /** Loads under way, by parent's key. */
@@ -81,6 +87,16 @@ export class TreeModel<T> {
     };
     walk(ROOT, []);
     return nodes;
+  }
+
+  /** The selected rows' keys, in the order they show; hidden ones left out. */
+  get selectedKeys(): string[] {
+    return this.rows.filter((row) => this.selection.has(row.key)).map((row) => row.key);
+  }
+
+  /** The selected rows' nodes, in the order they show. */
+  get selectedNodes(): T[] {
+    return this.rows.filter((row) => this.selection.has(row.key)).map((row) => row.node);
   }
 
   /** The selected row's index among the rows, or -1. */
@@ -176,16 +192,21 @@ export class TreeModel<T> {
     }
   }
 
-  /** Collapses every node; a selection inside one moves to its root, as in IntelliJ. */
+  /**
+   * Collapses every node; the lead inside one moves to its root, as in IntelliJ, and only roots stay
+   * selected.
+   */
   collapseAll(): void {
     const rows = this.rows;
+    const roots = rows.filter((row) => row.depth === 0 && this.selection.has(row.key));
     for (let i = this.selectedIndex; i >= 0; i--) {
       const row = rows[i] as TreeRow<T>;
       if (row.depth === 0) {
-        this.selected = row.key;
+        this.select(row.key);
         break;
       }
     }
+    for (const row of roots) this.selection.add(row.key);
     this.expanded.clear();
   }
 
@@ -196,15 +217,25 @@ export class TreeModel<T> {
     void this.load(node);
   }
 
-  /** Collapses a node; a selection inside it moves to it, as in IntelliJ. */
+  /**
+   * Collapses a node; rows selected inside it are no longer, and the lead among them moves to it,
+   * as in IntelliJ (Swing's `JTree.removeDescendantSelectedPaths`).
+   */
   collapse(node: T): void {
     const key = this.source.key(node);
     const rows = this.rows;
     const index = rows.findIndex((r) => r.key === key);
     const row = rows[index];
     if (row) {
+      let lead = false;
       for (let i = index + 1; i < rows.length && (rows[i] as TreeRow<T>).depth > row.depth; i++) {
-        if ((rows[i] as TreeRow<T>).key === this.selected) this.selected = key;
+        const inside = (rows[i] as TreeRow<T>).key;
+        if (inside === this.selected) lead = true;
+        this.selection.delete(inside);
+      }
+      if (lead) {
+        this.selection.add(key);
+        this.selected = key;
       }
     }
     this.expanded.delete(key);
@@ -215,8 +246,50 @@ export class TreeModel<T> {
     else this.expand(node);
   }
 
+  /** Selects one row alone (none for `undefined`), where a range taken with Shift starts. */
   select(key: string | undefined): void {
     this.selected = key;
+    this.#anchor = key;
+    this.selection.clear();
+    if (key !== undefined) this.selection.add(key);
+  }
+
+  /**
+   * Ctrl+click's: adds a row to the selection, or takes it out. The last one stays (Claude's choice,
+   * open to change: IntelliJ's trees can be left with none); one taken out leaves the lead to the
+   * first still selected.
+   */
+  toggleSelected(key: string): void {
+    this.#anchor = key;
+    if (!this.selection.has(key)) {
+      this.selection.add(key);
+      this.selected = key;
+      return;
+    }
+    if (this.selection.size === 1) return;
+    this.selection.delete(key);
+    if (this.selected === key) this.selected = this.selectedKeys[0];
+  }
+
+  /** Shift's: the rows from where the range starts to `key`, `key` the lead. */
+  extendTo(key: string): void {
+    const keys = this.rows.map((row) => row.key);
+    const to = keys.indexOf(key);
+    if (to < 0) return;
+    const at = this.#anchor === undefined ? -1 : keys.indexOf(this.#anchor);
+    const from = at < 0 ? to : at;
+    if (at < 0) this.#anchor = key;
+    this.selection.clear();
+    for (const k of keys.slice(Math.min(from, to), Math.max(from, to) + 1)) this.selection.add(k);
+    this.selected = key;
+  }
+
+  /** Every row that shows selected, as IntelliJ's Select All in a tree; the lead stays. */
+  selectAll(): void {
+    const rows = this.rows;
+    if (rows.length === 0) return;
+    if (this.selectedIndex < 0) this.select((rows[0] as TreeRow<T>).key);
+    for (const row of rows) this.selection.add(row.key);
   }
 
   /**
@@ -230,7 +303,7 @@ export class TreeModel<T> {
       const node = this.loaded.get(parent)?.find((n) => this.source.key(n) === key);
       if (node === undefined) return false;
       if (index === keys.length - 1) {
-        this.selected = key;
+        this.select(key);
         return true;
       }
       this.expanded.add(key);
@@ -240,20 +313,28 @@ export class TreeModel<T> {
     return false;
   }
 
-  /** Moves the selection by `delta` rows, stopping at the ends; with none, starts at the first. */
-  move(delta: number): void {
+  /**
+   * Moves the selection by `delta` rows, stopping at the ends; with none, starts at the first. With
+   * `extend` (Shift), the rows from where the range starts to there are selected.
+   */
+  move(delta: number, extend = false): void {
     const rows = this.rows;
     if (rows.length === 0) return;
     const from = this.selectedIndex;
     const to = from < 0 ? 0 : Math.min(Math.max(from + delta, 0), rows.length - 1);
-    this.selected = (rows[to] as TreeRow<T>).key;
+    this.#go((rows[to] as TreeRow<T>).key, extend);
   }
 
-  /** Selects the first row or the last. */
-  edge(last: boolean): void {
+  /** Selects the first row or the last, or, with `extend`, the rows up to it. */
+  edge(last: boolean, extend = false): void {
     const rows = this.rows;
     const row = last ? rows.at(-1) : rows[0];
-    if (row) this.selected = row.key;
+    if (row) this.#go(row.key, extend);
+  }
+
+  #go(key: string, extend: boolean) {
+    if (extend) this.extendTo(key);
+    else this.select(key);
   }
 
   /** Right: expands the selected folder, or moves into it when it's open. */
@@ -265,7 +346,7 @@ export class TreeModel<T> {
     if (!row.expanded) this.expand(row.node);
     else {
       const child = rows[index + 1];
-      if (child && child.depth > row.depth) this.selected = child.key;
+      if (child && child.depth > row.depth) this.select(child.key);
     }
   }
 
@@ -282,7 +363,7 @@ export class TreeModel<T> {
     for (let i = index - 1; i >= 0; i--) {
       const above = rows[i] as TreeRow<T>;
       if (above.depth < row.depth) {
-        this.selected = above.key;
+        this.select(above.key);
         return;
       }
     }

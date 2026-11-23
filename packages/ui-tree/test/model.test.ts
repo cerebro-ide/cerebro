@@ -267,6 +267,108 @@ describe('TreeModel', () => {
   });
 });
 
+describe('TreeModel, several rows selected', () => {
+  async function opened() {
+    const model = new TreeModel(source(FILES));
+    await settle();
+    model.expand(find('src'));
+    await settle();
+    // src, ui, main.ts, docs, README.md
+    return model;
+  }
+
+  it('adds a row and takes one out, the lead the last added or the first left', async () => {
+    const model = await opened();
+    model.select('src/main.ts');
+    model.toggleSelected('README.md');
+    model.toggleSelected('src');
+    expect(model.selectedKeys).toEqual(['src', 'src/main.ts', 'README.md']);
+    expect(model.selected).toBe('src');
+    model.toggleSelected('src');
+    expect(model.selectedKeys).toEqual(['src/main.ts', 'README.md']);
+    expect(model.selected).toBe('src/main.ts');
+    model.toggleSelected('README.md');
+    // The last one stays.
+    model.toggleSelected('src/main.ts');
+    expect(model.selectedKeys).toEqual(['src/main.ts']);
+    expect(model.selectedNodes).toEqual([find('src/main.ts')]);
+  });
+
+  it('takes a range from the row last selected alone or added, up or down', async () => {
+    const model = await opened();
+    model.select('src/ui');
+    model.extendTo('docs');
+    expect(model.selectedKeys).toEqual(['src/ui', 'src/main.ts', 'docs']);
+    expect(model.selected).toBe('docs');
+    model.extendTo('src');
+    expect(model.selectedKeys).toEqual(['src', 'src/ui']);
+    model.toggleSelected('README.md');
+    model.extendTo('docs');
+    expect(model.selectedKeys).toEqual(['docs', 'README.md']);
+    // A key that doesn't show changes nothing.
+    model.extendTo('src/ui/menu.tsx');
+    expect(model.selectedKeys).toEqual(['docs', 'README.md']);
+  });
+
+  it('starts a range at the row given, with nothing selected before', async () => {
+    const model = await opened();
+    model.extendTo('docs');
+    expect(model.selectedKeys).toEqual(['docs']);
+    model.extendTo('README.md');
+    expect(model.selectedKeys).toEqual(['docs', 'README.md']);
+  });
+
+  it('extends with the keys that move, and selects every row', async () => {
+    const model = await opened();
+    model.select('src/ui');
+    model.move(2, true);
+    expect(model.selectedKeys).toEqual(['src/ui', 'src/main.ts', 'docs']);
+    model.edge(false, true);
+    expect(model.selectedKeys).toEqual(['src', 'src/ui']);
+    model.edge(true);
+    expect(model.selectedKeys).toEqual(['README.md']);
+    model.selectAll();
+    expect(model.selectedKeys).toEqual(['src', 'src/ui', 'src/main.ts', 'docs', 'README.md']);
+    expect(model.selected).toBe('README.md');
+    model.select(undefined);
+    model.selectAll();
+    expect(model.selected).toBe('src');
+    expect(model.selectedKeys).toHaveLength(5);
+  });
+
+  it('selects nothing in a tree with no rows', async () => {
+    const model = new TreeModel(source([]));
+    await settle();
+    model.selectAll();
+    expect(model.selectedKeys).toEqual([]);
+  });
+
+  it('forgets rows hidden by a collapse, the lead among them moved to the folder', async () => {
+    const model = await opened();
+    model.select('src/main.ts');
+    model.toggleSelected('src/ui');
+    model.toggleSelected('docs');
+    model.collapse(find('src'));
+    expect(model.selectedKeys).toEqual(['docs']);
+    model.expand(find('src'));
+    model.select('src/main.ts');
+    model.toggleSelected('docs');
+    model.toggleSelected('src/ui');
+    model.collapse(find('src'));
+    expect(model.selectedKeys).toEqual(['src', 'docs']);
+    expect(model.selected).toBe('src');
+  });
+
+  it('keeps the selected roots when everything collapses', async () => {
+    const model = await opened();
+    model.select('docs');
+    model.toggleSelected('src/ui');
+    model.collapseAll();
+    expect(model.selectedKeys).toEqual(['src', 'docs']);
+    expect(model.selected).toBe('src');
+  });
+});
+
 describe('TreeModel, all at once', () => {
   it('refreshes the roots and every folder loaded before, keeping them expanded', async () => {
     let roots = tree({ src: { 'a.ts': null, lib: { 'b.ts': null } }, docs: { 'plan.md': null } });
@@ -499,13 +601,35 @@ describe('TreeModel, randomly', () => {
             model.left();
           },
           () => {
-            model.edge(next() < 0.5);
+            model.edge(next() < 0.5, next() < 0.5);
+          },
+          () => {
+            model.move(Math.floor(next() * 7) - 3, true);
+          },
+          () => {
+            const row = model.rows[Math.floor(next() * model.rows.length)];
+            if (row) model.toggleSelected(row.key);
+          },
+          () => {
+            const row = model.rows[Math.floor(next() * model.rows.length)];
+            if (row) model.extendTo(row.key);
+          },
+          () => {
+            model.selectAll();
           },
         ];
         (ops[Math.floor(next() * ops.length)] as () => void)();
         const rows = model.rows;
         if (model.selected !== undefined && !rows.some((r) => r.key === model.selected)) {
           throw new Error(`seed ${String(seed)}: selection ${model.selected} is hidden`);
+        }
+        if (model.selected !== undefined && !model.selection.has(model.selected)) {
+          throw new Error(`seed ${String(seed)}: the lead ${model.selected} isn't selected`);
+        }
+        for (const key of model.selection) {
+          if (!rows.some((r) => r.key === key)) {
+            throw new Error(`seed ${String(seed)}: ${key}, selected, is hidden`);
+          }
         }
         for (const row of rows) {
           const parent = row.key.slice(0, row.key.lastIndexOf('/'));

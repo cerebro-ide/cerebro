@@ -6,6 +6,10 @@
 // and Page Down move by a screen, Right expands or steps in, Left collapses or steps out, Enter
 // opens a file or toggles a folder. A click selects; a double click opens or toggles; the arrow
 // toggles. A selection made from outside (a "select opened file") is scrolled into view.
+//
+// Several rows, as in IntelliJ's trees (Swing's): Ctrl+click (Cmd+click on macOS) adds a row or
+// takes it out, Shift+click and Shift with the moving keys select a range, Ctrl+A (Cmd+A) selects
+// every row that shows, and a context menu on a selected row keeps the others.
 
 import { onCleanup, type Child } from '@cerebro-ide/jsx';
 import { effect, makeObservable, untracked } from '@cerebro-ide/reactive';
@@ -26,7 +30,7 @@ export interface TreeViewProps<T> {
   openParents?: boolean;
   /** A class for a node's row, to style kinds of rows: groups, say. */
   rowClass?: (node: T) => string | undefined;
-  /** A context menu asked for on a row, which is selected first. */
+  /** A context menu asked for on a row, which is selected first unless it is already. */
   onContextMenu?: (event: MouseEvent, node: T) => void;
   /** Default: 24. */
   rowHeight?: number;
@@ -76,26 +80,39 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
     else model.toggle(row.node);
   };
 
+  /** A click's selection: the row alone, or with Ctrl (Cmd) added or taken out, or with Shift a range. */
+  const click = (key: string, event: MouseEvent) => {
+    if (event.ctrlKey || event.metaKey) model.toggleSelected(key);
+    else if (event.shiftKey) model.extendTo(key);
+    else model.select(key);
+  };
+
   const onKey = (event: KeyboardEvent) => {
     const page = Math.max(1, Math.floor(viewport.height / rowHeight) - 1);
+    const extend = event.shiftKey;
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      model.selectAll();
+      return;
+    }
     const keys: Record<string, () => void> = {
       ArrowDown: () => {
-        model.move(1);
+        model.move(1, extend);
       },
       ArrowUp: () => {
-        model.move(-1);
+        model.move(-1, extend);
       },
       PageDown: () => {
-        model.move(page);
+        model.move(page, extend);
       },
       PageUp: () => {
-        model.move(-page);
+        model.move(-page, extend);
       },
       Home: () => {
-        model.edge(false);
+        model.edge(false, extend);
       },
       End: () => {
-        model.edge(true);
+        model.edge(true, extend);
       },
       ArrowRight: () => {
         model.right();
@@ -156,29 +173,29 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
         class={() =>
           cls(
             'cerebro-tree-row',
-            model.selected === row.key && 'cerebro-tree-row--selected',
+            model.selection.has(row.key) && 'cerebro-tree-row--selected',
             props.rowClass?.(row.node),
           )
         }
         role="treeitem"
         aria-level={row.depth + 1}
         aria-expanded={row.leaf ? null : String(row.expanded)}
-        aria-selected={() => String(model.selected === row.key)}
+        aria-selected={() => String(model.selection.has(row.key))}
         data-key={row.key}
         style={{
           top: `${String(index * rowHeight)}px`,
           height: `${String(rowHeight)}px`,
           paddingLeft: `${String(row.depth * INDENT)}px`,
         }}
-        on:click={() => {
-          model.select(row.key);
+        on:click={(event) => {
+          click(row.key, event);
         }}
         on:dblclick={() => {
           open(row);
         }}
         on:contextmenu={(event) => {
           if (!props.onContextMenu) return;
-          model.select(row.key);
+          if (!model.selection.has(row.key)) model.select(row.key);
           props.onContextMenu(event, row.node);
         }}
       >
@@ -226,6 +243,7 @@ export function TreeView<T>(props: TreeViewProps<T>): Node {
     <div
       class="cerebro-tree"
       role="tree"
+      aria-multiselectable="true"
       aria-label={props.label}
       tabIndex={0}
       ref={(tree) => {

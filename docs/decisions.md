@@ -76,6 +76,7 @@ Read the index, then the entries that bear on the work at hand.
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
 - [Multiple carets (2026-11-23)](#multiple-carets-2026-11-23): several carets, as IntelliJ's: Add or Remove Caret (Alt+Shift+click) and rectangular selection (Alt or middle drag), read from the keymap; Add Selection for Next Occurrence, Unselect Occurrence, Select All Occurrences, Add Carets to Ends of Selected Lines
+- [Several rows selected in a tree (2026-11-23)](#several-rows-selected-in-a-tree-2026-11-23): Ctrl or Cmd+click, Shift+click and Shift with the keys, Ctrl or Cmd+A, as Swing's trees in IntelliJ; `ui-tree`'s model keeps a lead and a set
 - [The app's icon (2026-11-23)](#the-apps-icon-2026-11-23): Ido's, as SVGs on a blue tile (a small one for 32 px and under, one for the Dock); PNG and ICO made from them for the window and Dock
 - [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
@@ -3971,6 +3972,27 @@ Claude's choices, open to change.
 - **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
   New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
   types; a scratch file's language changed without renaming it.
+
+## Several rows selected in a tree (2026-11-23)
+
+Ido's word, 2026-11-23 ("do multiple carets and multi-select"), on the backlog's proposal: IntelliJ's
+trees take several rows, and `ui-tree` took one.
+
+- **`ui-tree`'s model keeps a lead and a set:** `selected` stays the lead (the row the keys move
+  from, the last clicked), and `selection` holds every selected row, the lead among them;
+  `selectedKeys` and `selectedNodes` give them in the order they show. What read `selected` before
+  reads the lead, so every tree goes on as it was until its actions take the rest.
+- **The input is Swing's, which IntelliJ's trees are:** Ctrl+click (Cmd+click on macOS; either is
+  taken, as the Conflicts dialog's list) adds a row or takes it out, and that row is where a range
+  starts; Shift+click and Shift with Up, Down, Page Up, Page Down, Home and End select from there;
+  Ctrl+A (Cmd+A) selects every row that shows. A context menu on a selected row keeps the others,
+  one on another row selects it alone.
+- **Collapsing forgets the rows it hides**, as Swing's `JTree.removeDescendantSelectedPaths`: the
+  lead among them moves to the folder. Collapse All keeps the roots that were selected.
+- **The last row can't be taken out** with Ctrl+click (Claude's choice, open to change: Swing's can
+  leave none), and taking out the lead leaves it to the first row still selected (Claude's choice).
+- **Not yet:** the trees' actions on several rows: Show Diff, Rollback, Shelve and Commit in the
+  Commit window and Agent Changes, Delete, Copy and Move in the Project view, and the others.
 
 ## Multiple carets (2026-11-23)
 
