@@ -50,6 +50,11 @@ describe('the ready-made keymaps', () => {
     expect(windows.bindings['editor.close']).toEqual(['Ctrl+F4', 'Ctrl+W']);
     expect(linux.bindings[EDITOR_ACTIONS.format]).toEqual(['Ctrl+Shift+I', 'Ctrl+K Ctrl+F']);
     expect(windows.bindings[EDITOR_ACTIONS.format]).toEqual(['Shift+Alt+F', 'Ctrl+K Ctrl+F']);
+    // Add Cursor Below's key on Linux, which takes Copy Line Down's on Windows.
+    expect(linux.bindings[EDITOR_ACTIONS.cloneCaretBelow]).toEqual(['Alt+Shift+Down']);
+    expect(linux.bindings['edit.duplicate']).toEqual(['Ctrl+Alt+Shift+Down']);
+    expect(windows.bindings[EDITOR_ACTIONS.cloneCaretBelow]).toEqual(['Ctrl+Alt+Down']);
+    expect(windows.bindings['edit.duplicate']).toEqual(['Alt+Shift+Down']);
     expect([linux.id, windows.id]).toEqual(['vscode', 'vscode']);
   });
 
@@ -234,6 +239,12 @@ describe('the editor’s keys', () => {
       pageBottom: ['Ctrl-PageDown'],
       pageTopWithSelection: ['Ctrl-Shift-PageUp'],
       pageBottomWithSelection: ['Ctrl-Shift-PageDown'],
+      selectNextOccurrence: ['Alt-j'],
+      unselectOccurrence: ['Alt-Shift-j'],
+      selectAllOccurrences: ['Ctrl-Alt-Shift-j'],
+      addCaretsToLineEnds: ['Alt-Shift-g'],
+      cloneCaretAbove: [],
+      cloneCaretBelow: [],
       undo: [],
       redo: [],
     });
@@ -288,6 +299,12 @@ describe('the editor’s keys', () => {
       'pageBottomWithSelection',
       'find',
       'replace',
+      'selectNextOccurrence',
+      'unselectOccurrence',
+      'selectAllOccurrences',
+      'addCaretsToLineEnds',
+      'cloneCaretAbove',
+      'cloneCaretBelow',
     ]);
   });
 });
@@ -380,6 +397,25 @@ describe('the editor’s mouse shortcuts', () => {
     );
     // Go to Implementation's: no link.
     expect(mouse.isLink(press({ ctrlKey: true, altKey: true }))).toBe(false);
+  });
+
+  it('add carets and drag rectangles on IntelliJ’s presses, or another keymap’s', () => {
+    const keymap = new Keymap('other');
+    keymap.setPreset(INTELLIJ);
+    const mouse = editorMouse(keymap);
+    // Add or Remove Caret's; Add Rectangular Selection on Mouse Drag's is both.
+    expect(mouse.addsCaret(press({ altKey: true, shiftKey: true }))).toBe(true);
+    expect(mouse.dragsColumn(press({ altKey: true, shiftKey: true }))).toBe(false);
+    const both = press({ ctrlKey: true, altKey: true, shiftKey: true });
+    expect([mouse.addsCaret(both), mouse.dragsColumn(both)]).toEqual([true, true]);
+    // Create Rectangular Selection on Mouse Drag's: Alt, and the middle button.
+    expect(mouse.dragsColumn(press({ altKey: true }))).toBe(true);
+    expect(mouse.dragsColumn(press({ button: 1 }))).toBe(true);
+    expect([mouse.addsCaret(press({})), mouse.dragsColumn(press({}))]).toEqual([false, false]);
+    expect(mouse.addsCaret(press({ button: 7 }))).toBe(false);
+    keymap.setPreset(VSCODE_MAC);
+    expect(mouse.addsCaret(press({ altKey: true }))).toBe(true);
+    expect(mouse.dragsColumn(press({ altKey: true, shiftKey: true }))).toBe(true);
   });
 
   it('show no link with nothing held, for a Middle-Click', () => {

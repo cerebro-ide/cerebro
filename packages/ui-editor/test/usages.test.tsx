@@ -25,6 +25,8 @@ afterEach(async () => {
 
 /** IntelliJ's default: Go to Declaration on Ctrl+click, its link with Ctrl alone held. */
 const CTRL_CLICK: EditorMouse = {
+  addsCaret: () => false,
+  dragsColumn: () => false,
   isShortcut: (event: MouseEvent) => event.ctrlKey,
   isLink: (event: MouseEvent | KeyboardEvent) =>
     event.ctrlKey && !event.altKey && !event.shiftKey && !event.metaKey,

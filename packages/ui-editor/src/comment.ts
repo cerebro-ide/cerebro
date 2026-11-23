@@ -10,7 +10,7 @@ import {
   type SelectionRange,
   type TransactionSpec,
 } from '@codemirror/state';
-import { changeOf, dispatching } from './command-change.js';
+import { atEachCaret, changeOf, dispatching } from './command-change.js';
 
 interface Tokens {
   open: string;
@@ -151,8 +151,7 @@ function commented(range: SelectionRange, length: number) {
  * the caret; inside a comment, or with a selection holding an end of one, that comment taken away.
  * Undefined where the language has no block comment, or the editor's read-only.
  */
-export function blockComment(state: EditorState): TransactionSpec | undefined {
-  // Cerebro's editor has one caret, so the main selection is all there is.
+function blockCommentAlone(state: EditorState): TransactionSpec | undefined {
   const range = state.selection.main;
   const tokens = blockTokens(state, range.from);
   const made = !state.readOnly && tokens ? blockCommentOf(state, range, tokens) : undefined;
@@ -163,6 +162,12 @@ export function blockComment(state: EditorState): TransactionSpec | undefined {
     scrollIntoView: true,
     userEvent: 'comment.block',
   };
+}
+
+/** Comment with Block Comment at every caret; undefined where it changes none. */
+export function blockComment(state: EditorState): TransactionSpec | undefined {
+  const made = atEachCaret(state, blockCommentAlone);
+  return made && { ...made, scrollIntoView: true, userEvent: 'comment.block' };
 }
 
 /** IntelliJ's `CommentByLineComment`, as a CodeMirror command. */

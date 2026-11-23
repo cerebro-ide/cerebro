@@ -266,6 +266,9 @@ describe('TreeView', () => {
     model.expand({ path: 'big', folder: true });
     await settle();
     tree.scrollTop = 1200;
+    // Its scroll event, which draws the rows there, comes at the browser's next frame: maybe after
+    // the wait (CI, 2026-11-23: the row wasn't drawn).
+    tree.dispatchEvent(new Event('scroll'));
     await settle();
     await userEvent.click(row('big/file-00060.ts'));
     expect(model.selected).toBe('big/file-00060.ts');
@@ -320,6 +323,48 @@ describe('TreeView', () => {
     expect(model.expanded.has('small')).toBe(true);
     (row('top.md').querySelector('.cerebro-tree-row__arrow') as HTMLElement).click();
     expect(model.selected).toBe('top.md');
+  });
+
+  it('takes several rows with the real mouse and keys: Ctrl or Cmd, Shift, Select All', async () => {
+    const { model, row, tree } = await mount(3);
+    await userEvent.click(row('big'));
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(row('top.md'));
+    await userEvent.keyboard('{/Control}');
+    expect(model.selectedKeys).toEqual(['big', 'top.md']);
+    expect(row('top.md').getAttribute('aria-selected')).toBe('true');
+    expect(row('small').classList).not.toContain('cerebro-tree-row--selected');
+    await userEvent.keyboard('{Meta>}');
+    await userEvent.click(row('big'));
+    await userEvent.keyboard('{/Meta}');
+    expect(model.selectedKeys).toEqual(['top.md']);
+    // The row taken out is where a range starts, as Swing's.
+    await userEvent.keyboard('{Shift>}');
+    await userEvent.click(row('top.md'));
+    await userEvent.keyboard('{/Shift}');
+    expect(model.selectedKeys).toEqual(['big', 'small', 'top.md']);
+    expect(row('small').classList).toContain('cerebro-tree-row--selected');
+    await userEvent.click(row('small'));
+    await userEvent.keyboard('{Shift>}{ArrowDown}{/Shift}');
+    expect(model.selectedKeys).toEqual(['small', 'top.md']);
+    await userEvent.keyboard('{ArrowUp}');
+    expect(model.selectedKeys).toEqual(['small']);
+    await userEvent.keyboard('{Control>}a{/Control}');
+    expect(model.selectedKeys).toEqual(['big', 'small', 'top.md']);
+    expect(tree.getAttribute('aria-multiselectable')).toBe('true');
+  });
+
+  it('keeps the rows selected when a context menu is asked for on one of them', async () => {
+    const menu = vi.fn((event: MouseEvent) => {
+      event.preventDefault();
+    });
+    const { row, model } = await mount(3, { menu });
+    model.select('big');
+    model.toggleSelected('top.md');
+    row('big').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(model.selectedKeys).toEqual(['big', 'top.md']);
+    row('small').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+    expect(model.selectedKeys).toEqual(['small']);
   });
 
   it('says a folder is loading', async () => {

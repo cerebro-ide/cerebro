@@ -9,7 +9,7 @@
 import type { CommandRegistry, MenuRegistry } from '@cerebro-ide/commands';
 import { hasEditorAction, runEditorAction, type EditorAction } from '@cerebro-ide/ui-editor';
 import { target } from './edit.js';
-import { EDITOR_ACTIONS } from './keymaps.js';
+import { CARET_MOUSE, EDITOR_ACTIONS } from './keymaps.js';
 
 /**
  * IntelliJ's names for them (`action.{id}.text`), its mnemonics as `&`; Find's and Replace's
@@ -65,6 +65,19 @@ const LABELS: Readonly<Record<Exclude<EditorAction, 'rename'>, string>> = {
   pageBottomWithSelection: 'Move Caret to Page Bottom with Selection',
   find: '&Find',
   replace: '&Replace',
+  selectNextOccurrence: 'Add Selection for Next Occurrence',
+  unselectOccurrence: 'Unselect Occurrence',
+  selectAllOccurrences: 'Select All Occurrences',
+  addCaretsToLineEnds: 'Add Carets to Ends of Selected Lines',
+  cloneCaretAbove: 'Clone Caret Above',
+  cloneCaretBelow: 'Clone Caret Below',
+};
+
+/** The mouse's carets' names, IntelliJ's. */
+const MOUSE_LABELS: Readonly<Record<keyof typeof CARET_MOUSE, string>> = {
+  addOrRemoveCaret: 'Add or Remove Caret',
+  createRectangularSelection: 'Create Rectangular Selection on Mouse Drag',
+  addRectangularSelection: 'Add Rectangular Selection on Mouse Drag',
 };
 
 /**
@@ -110,6 +123,19 @@ export function setupEditorActions(commands: CommandRegistry, menus: MenuRegistr
       run: (context) => {
         runInEditor(action, context);
       },
+    });
+  }
+  // Never run: the editor reads their mouse shortcuts (`editorMouse`), which the Keymap page
+  // changes, as IntelliJ's `EmptyAction`s.
+  for (const [action, label] of Object.entries(MOUSE_LABELS) as [
+    keyof typeof CARET_MOUSE,
+    string,
+  ][]) {
+    commands.register({
+      id: CARET_MOUSE[action],
+      label,
+      enabled: () => false,
+      run: () => undefined,
     });
   }
   contributeMenus(menus);
@@ -165,6 +191,12 @@ function contributeMenus(menus: MenuRegistry): void {
   // `EditSelectGroup`'s end; `EditSmartGroup`'s first, before Duplicate Line or Selection.
   add('main/edit/find', 'find', 'a');
   add('main/edit/find', 'replace', 'a');
+  // `FindMenuGroup`'s, after Find Previous, which Cerebro hasn't.
+  add('main/edit/find', 'selectAllOccurrences', 'a');
+  add('main/edit/find', 'selectNextOccurrence', 'a');
+  add('main/edit/find', 'unselectOccurrence', 'a');
+  // `EditSelectGroup`'s, after Select All, which Cerebro hasn't.
+  add('main/edit', 'addCaretsToLineEnds', 'r');
   add('main/edit', 'extendSelection', 'r');
   add('main/edit', 'shrinkSelection', 'r');
   for (const [order, action] of [

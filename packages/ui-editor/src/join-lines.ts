@@ -4,12 +4,11 @@
 // line is blank. The caret goes where the first join was; a selection stays, its caret at its end.
 
 import { EditorSelection, type EditorState, type TransactionSpec } from '@codemirror/state';
-import { dispatching } from './command-change.js';
+import { atEachCaret, dispatching } from './command-change.js';
 
 /** The change Join Lines makes; undefined with no line after, or in a read-only editor. */
-export function joinLines(state: EditorState): TransactionSpec | undefined {
+function joinLinesAlone(state: EditorState): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
-  // Cerebro's editor has one caret, so the main selection is all there is.
   const range = state.selection.main;
   const { doc } = state;
   const first = doc.lineAt(range.from).number;
@@ -36,6 +35,12 @@ export function joinLines(state: EditorState): TransactionSpec | undefined {
     ? EditorSelection.cursor((joins[0] as { from: number }).from)
     : EditorSelection.range(changes.mapPos(range.from), changes.mapPos(range.to));
   return { changes, selection, scrollIntoView: true, userEvent: 'input.joinLines' };
+}
+
+/** Join Lines at every caret; undefined where it joins none. */
+export function joinLines(state: EditorState): TransactionSpec | undefined {
+  const made = atEachCaret(state, joinLinesAlone);
+  return made && { ...made, scrollIntoView: true, userEvent: 'input.joinLines' };
 }
 
 /** IntelliJ's `EditorJoinLines`, as a CodeMirror command. */

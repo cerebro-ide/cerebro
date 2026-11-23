@@ -60,6 +60,22 @@ describe('the editor’s actions as commands', () => {
     expect(commands.get('editor.toggleCase')?.dialog).toBe(false);
   });
 
+  it('have the mouse’s caret actions, for the keymap only: the editor reads their shortcuts itself', () => {
+    for (const [id, label] of [
+      ['editor.addOrRemoveCaret', 'Add or Remove Caret'],
+      [
+        'editor.createRectangularSelectionOnMouseDrag',
+        'Create Rectangular Selection on Mouse Drag',
+      ],
+      ['editor.addRectangularSelectionOnMouseDrag', 'Add Rectangular Selection on Mouse Drag'],
+    ] as const) {
+      const command = commands.get(id);
+      expect(command?.label).toBe(label);
+      expect(commands.isEnabled(id)).toBe(false);
+      expect(command?.run(undefined)).toBeUndefined();
+    }
+  });
+
   it('are in the menus where IntelliJ’s are, the Navigate menu’s named as its', () => {
     const shown = (menu: string) =>
       menus
@@ -108,8 +124,15 @@ describe('the editor’s actions as commands', () => {
       '&Type Declaration',
       'S&uper Method',
     ]);
-    expect(shown('main/edit/find')).toEqual(['&Find', '&Replace']);
+    expect(shown('main/edit/find')).toEqual([
+      '&Find',
+      '&Replace',
+      'Select All Occurrences',
+      'Add Selection for Next Occurrence',
+      'Unselect Occurrence',
+    ]);
     expect(shown('main/edit')).toEqual([
+      'Add Carets to Ends of Selected Lines',
       'Extend Selection',
       'Shrink Selection',
       '---',

@@ -14,14 +14,14 @@ import {
 } from '@codemirror/state';
 import { dispatching } from './command-change.js';
 
-const grown = StateEffect.define<SelectionRange>();
+const grown = StateEffect.define<EditorSelection>();
 const shrunk = StateEffect.define();
 
 /**
  * The selections Extend Selection grew from, the last one last; any other change of the selection
  * or the text forgets them.
  */
-export const selectionSteps = StateField.define<readonly SelectionRange[]>({
+export const selectionSteps = StateField.define<readonly EditorSelection[]>({
   create: () => [],
   update(steps, tr) {
     for (const effect of tr.effects) {
@@ -39,6 +39,11 @@ function trimmed(state: EditorState, from: number, to: number) {
   const text = state.sliceDoc(from, to);
   const start = from + text.length - text.trimStart().length;
   return { from: start, to: Math.max(start, to - (text.length - text.trimEnd().length)) };
+}
+
+interface Range {
+  from: number;
+  to: number;
 }
 
 /** Whether `outer` holds the selection and more. */
@@ -78,23 +83,22 @@ function grow(state: EditorState, range: SelectionRange) {
 
 /** The change Extend Selection makes; undefined where the selection is the whole text. */
 export function extendSelection(state: EditorState): TransactionSpec | undefined {
-  // Cerebro's editor has one caret, so the main selection is all there is.
-  const range = state.selection.main;
-  const next = grow(state, range);
-  return (
-    next && {
-      selection: EditorSelection.range(next.from, next.to),
-      effects: grown.of(range),
-      scrollIntoView: true,
-    }
+  // Each caret's, as IntelliJ's. Only a selection of the whole text can't grow, and it's the only
+  // one: CodeMirror merges any other into it.
+  const grew = state.selection.ranges.map((range) => grow(state, range));
+  if (grew.includes(undefined)) return undefined;
+  const selection = EditorSelection.create(
+    grew.map((next) => EditorSelection.range((next as Range).from, (next as Range).to)),
+    state.selection.mainIndex,
   );
+  return { selection, effects: grown.of(state.selection), scrollIntoView: true };
 }
 
 /** The change Shrink Selection makes: back to what Extend grew from; undefined with nothing to. */
 export function shrinkSelection(state: EditorState): TransactionSpec | undefined {
   const steps = state.field(selectionSteps, false) ?? [];
   const last = steps.at(-1);
-  return last && { selection: EditorSelection.create([last]), effects: shrunk.of(null) };
+  return last && { selection: last, effects: shrunk.of(null) };
 }
 
 /** IntelliJ's `EditorSelectWord` and `EditorUnSelectWord`, as CodeMirror commands. */

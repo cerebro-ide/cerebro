@@ -79,6 +79,22 @@ export const EDITOR_ACTIONS = {
   pageBottomWithSelection: 'editor.moveToPageBottomWithSelection',
   find: 'editor.find',
   replace: 'editor.replace',
+  selectNextOccurrence: 'editor.selectNextOccurrence',
+  unselectOccurrence: 'editor.unselectOccurrence',
+  selectAllOccurrences: 'editor.selectAllOccurrences',
+  addCaretsToLineEnds: 'editor.addCaretsToLineEnds',
+  cloneCaretAbove: 'editor.cloneCaretAbove',
+  cloneCaretBelow: 'editor.cloneCaretBelow',
+} as const;
+
+/**
+ * The mouse's carets, as IntelliJ's: placeholders whose mouse shortcuts the editor reads
+ * (`EmptyAction`s; EditorImpl's `isMouseActionEvent`), never run themselves.
+ */
+export const CARET_MOUSE = {
+  addOrRemoveCaret: 'editor.addOrRemoveCaret',
+  createRectangularSelection: 'editor.createRectangularSelectionOnMouseDrag',
+  addRectangularSelection: 'editor.addRectangularSelectionOnMouseDrag',
 } as const;
 
 export const INTELLIJ: KeymapPreset = {
@@ -214,6 +230,17 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: ['Ctrl+PageDown'],
     [EDITOR_ACTIONS.pageTopWithSelection]: ['Ctrl+Shift+PageUp'],
     [EDITOR_ACTIONS.pageBottomWithSelection]: ['Ctrl+Shift+PageDown'],
+    // The occurrences' carets and the mouse's, `$default`'s.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Alt+J'],
+    [EDITOR_ACTIONS.unselectOccurrence]: ['Alt+Shift+J'],
+    [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Alt+Shift+J'],
+    [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+G'],
+    // None: a double Ctrl held with Up or Down runs them (ModifierKeyDoubleClickHandler).
+    [EDITOR_ACTIONS.cloneCaretAbove]: [],
+    [EDITOR_ACTIONS.cloneCaretBelow]: [],
+    [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Shift+Click'],
+    [CARET_MOUSE.createRectangularSelection]: ['Alt+Click', 'MiddleClick'],
+    [CARET_MOUSE.addRectangularSelection]: ['Ctrl+Alt+Shift+Click'],
     'editor.increaseFontSize': ['Alt+Shift+>'],
     'editor.decreaseFontSize': ['Alt+Shift+<'],
     [EDITOR_ACTIONS.goToImplementation]: ['Ctrl+Alt+B', 'Ctrl+Alt+Click'],
@@ -379,6 +406,17 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.pageBottom]: ['Meta+PageDown'],
     [EDITOR_ACTIONS.pageTopWithSelection]: ['Meta+Shift+PageUp'],
     [EDITOR_ACTIONS.pageBottomWithSelection]: ['Meta+Shift+PageDown'],
+    // Its own for the occurrences; `$default`'s for the rest, Ctrl as Meta.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Ctrl+G'],
+    [EDITOR_ACTIONS.unselectOccurrence]: ['Ctrl+Shift+G'],
+    [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Meta+G'],
+    [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+G'],
+    // None: a double Alt held with Up or Down runs them (ModifierKeyDoubleClickHandler).
+    [EDITOR_ACTIONS.cloneCaretAbove]: [],
+    [EDITOR_ACTIONS.cloneCaretBelow]: [],
+    [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Shift+Click'],
+    [CARET_MOUSE.createRectangularSelection]: ['Alt+Click', 'MiddleClick'],
+    [CARET_MOUSE.addRectangularSelection]: ['Alt+Shift+Meta+Click'],
     'editor.increaseFontSize': ['Ctrl+Shift+>'],
     'editor.decreaseFontSize': ['Ctrl+Shift+<'],
     [EDITOR_ACTIONS.goToImplementation]: ['Meta+Alt+B', 'Meta+Alt+Click'],
@@ -434,6 +472,12 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   // Ctrl+Shift+Up and Down are its Scroll up and down; it has no Move Statement.
   [EDITOR_ACTIONS.moveStatementUp]: [],
   [EDITOR_ACTIONS.moveStatementDown]: [],
+  // Add Cursor Above and Below are Shift+Alt+Up and Down, which Copy Line Down leaves for
+  // Ctrl+Shift+Alt+Down (its source's `linux` keys; their Ctrl+Shift+Up and Down, scrolling here,
+  // left out).
+  'edit.duplicate': ['Ctrl+Alt+Shift+Down'],
+  [EDITOR_ACTIONS.cloneCaretAbove]: ['Alt+Shift+Up'],
+  [EDITOR_ACTIONS.cloneCaretBelow]: ['Alt+Shift+Down'],
 };
 
 /** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
@@ -531,6 +575,18 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.methodUp]: [],
     // Peek Definition, its nearest.
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
+    // Add Selection to Next Find Match, Select All Occurrences of Find Match and Insert Cursor at
+    // End of Each Line Selected (its sheets, and its source's defaults); Unselect keeps IntelliJ's.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Ctrl+D'],
+    [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Shift+L'],
+    [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+I'],
+    // Add Cursor Above and Below (its source's `insertCursorAbove`, Windows' keys).
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Alt+Down'],
+    // Alt+Click inserts a cursor, Shift+Alt+drag selects a column (its sheets).
+    [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Click'],
+    [CARET_MOUSE.createRectangularSelection]: ['Alt+Shift+Click'],
+    [CARET_MOUSE.addRectangularSelection]: [],
   },
 };
 
@@ -613,6 +669,17 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.scrollDown]: ['Ctrl+PageDown'],
     // Peek Definition, its nearest.
     [EDITOR_ACTIONS.quickDefinition]: ['Alt+F12'],
+    // Add Selection to Next Find Match, Select All Occurrences of Find Match and Insert Cursor at
+    // End of Each Line Selected (its sheets, and its source's defaults); Unselect keeps IntelliJ's.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Meta+D'],
+    [EDITOR_ACTIONS.selectAllOccurrences]: ['Meta+Shift+L'],
+    [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+I'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Meta+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Meta+Alt+Down'],
+    // Alt+Click inserts a cursor, Shift+Alt+drag selects a column (its sheets).
+    [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Click'],
+    [CARET_MOUSE.createRectangularSelection]: ['Alt+Shift+Click'],
+    [CARET_MOUSE.addRectangularSelection]: [],
   },
 };
 
@@ -784,6 +851,8 @@ export const EMACS: KeymapPreset = {
   name: 'Emacs',
   parent: INTELLIJ,
   bindings: {
+    // Its file leaves Add Carets to Ends of Selected Lines without keys.
+    [EDITOR_ACTIONS.addCaretsToLineEnds]: [],
     [EDITOR_ACTIONS.codeBlockStart]: ['Ctrl+[', 'Ctrl+Alt+['],
     [EDITOR_ACTIONS.codeBlockEnd]: ['Ctrl+]', 'Ctrl+Alt+]'],
     'class.goTo': ['Alt+Shift+G'],
@@ -1012,6 +1081,13 @@ export const SUBLIME: KeymapPreset = {
   name: 'Sublime Text',
   parent: INTELLIJ,
   bindings: {
+    // Its file's carets: Ctrl+D, Alt+F3, Ctrl+click adds one, Ctrl+middle drag a rectangle.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Ctrl+D'],
+    [EDITOR_ACTIONS.selectAllOccurrences]: ['Alt+F3'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Alt+Down'],
+    [CARET_MOUSE.addOrRemoveCaret]: ['Ctrl+Click'],
+    [CARET_MOUSE.addRectangularSelection]: ['Ctrl+MiddleClick'],
     [EDITOR_ACTIONS.codeBlockStart]: [],
     [EDITOR_ACTIONS.codeBlockEnd]: [],
     [EDITOR_ACTIONS.codeBlockStartWithSelection]: [],
@@ -1082,6 +1158,12 @@ export const SUBLIME_MAC: KeymapPreset = {
   name: 'Sublime Text (macOS)',
   parent: INTELLIJ_MAC,
   bindings: {
+    // Its file's carets: Cmd+D, Cmd+click adds one, Cmd+Alt or Cmd+middle drag a rectangle.
+    [EDITOR_ACTIONS.selectNextOccurrence]: ['Meta+D'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Shift+Down'],
+    [CARET_MOUSE.addOrRemoveCaret]: ['Meta+Click'],
+    [CARET_MOUSE.addRectangularSelection]: ['Alt+Meta+Click', 'Meta+MiddleClick'],
     [EDITOR_ACTIONS.codeBlockStart]: [],
     [EDITOR_ACTIONS.codeBlockEnd]: [],
     'navigate.nextOccurrence': [],
@@ -1403,6 +1485,11 @@ const heldModifiers = (event: MouseEvent | KeyboardEvent) =>
  * Click's would show a link wherever the pointer went (Claude's choice, open to change).
  */
 export function editorMouse(keymap: Keymap): EditorMouse {
+  /** Whether a press is one of the commands' mouse shortcuts. */
+  const pressed = (event: MouseEvent, ...commands: string[]) => {
+    const chord = chordFromMouse(event);
+    return commands.some((command) => keymap.mouseShortcutsFor(command).includes(chord as string));
+  };
   const links = keymap
     .mouseShortcutsFor(EDITOR_ACTIONS.goToDefinition)
     .map((chord) => chord.split('+').slice(0, -1).join('+'))
@@ -1413,6 +1500,12 @@ export function editorMouse(keymap: Keymap): EditorMouse {
       return chord !== undefined && keymap.commandsFor(chord).length > 0;
     },
     isLink: (event) => links.includes(heldModifiers(event)),
+    // As IntelliJ's `isToggleCaretEvent` and `isCreateRectangularSelectionEvent`: Add Rectangular
+    // Selection on Mouse Drag's press does both.
+    addsCaret: (event) =>
+      pressed(event, CARET_MOUSE.addOrRemoveCaret, CARET_MOUSE.addRectangularSelection),
+    dragsColumn: (event) =>
+      pressed(event, CARET_MOUSE.createRectangularSelection, CARET_MOUSE.addRectangularSelection),
   };
 }
 

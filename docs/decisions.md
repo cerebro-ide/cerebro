@@ -75,6 +75,8 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
+- [Multiple carets (2026-11-23)](#multiple-carets-2026-11-23): several carets, as IntelliJ's: Add or Remove Caret (Alt+Shift+click) and rectangular selection (Alt or middle drag), read from the keymap; Add Selection for Next Occurrence, Unselect Occurrence, Select All Occurrences, Add Carets to Ends of Selected Lines
+- [Several rows selected in a tree (2026-11-23)](#several-rows-selected-in-a-tree-2026-11-23): Ctrl or Cmd+click, Shift+click and Shift with the keys, Ctrl or Cmd+A, as Swing's trees in IntelliJ; `ui-tree`'s model keeps a lead and a set
 - [The app's icon (2026-11-23)](#the-apps-icon-2026-11-23): Ido's, as SVGs on a blue tile (a small one for 32 px and under, one for the Dock); PNG and ICO made from them for the window and Dock
 - [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
@@ -3666,7 +3668,8 @@ IntelliJ's line bookmarks, which WebStorm has. Claude's choices, open to change.
   read again, and the tabs of what's gone close as files deleted outside Cerebro do. It's the
   desktop app's (Electron's `shell.trashItem`): a remote host's files can't go to this machine's
   trash, which is for remote mode to settle. Not yet: IntelliJ's Safe Delete for code files (its
-  usage search), several rows at once, and the worktree itself. So is Rename (added 2026-11-14),
+  usage search), and the worktree itself. Several rows at once since 2026-11-23 (decision "Several
+  rows selected in a tree"). So is Rename (added 2026-11-14),
   before Bookmarks, as IntelliJ's `RenameElement`, and on Rename's key while the view has the focus:
   it's the editor's Rename command, so each keymap's keys and a change to them serve both (measured
   in the app: Shift+F6 in the editor still renames the symbol). It asks in IntelliJ's words (`Rename
@@ -3970,6 +3973,104 @@ Claude's choices, open to change.
 - **Not yet:** a scratch file has no language server (they're asked for the worktree's files);
   New Scratch File from the editor's selection; Consoles, Extensions and the rest of IntelliJ's root
   types; a scratch file's language changed without renaming it.
+
+## Several rows selected in a tree (2026-11-23)
+
+Ido's word, 2026-11-23 ("do multiple carets and multi-select"), on the backlog's proposal: IntelliJ's
+trees take several rows, and `ui-tree` took one.
+
+- **`ui-tree`'s model keeps a lead and a set:** `selected` stays the lead (the row the keys move
+  from, the last clicked), and `selection` holds every selected row, the lead among them;
+  `selectedKeys` and `selectedNodes` give them in the order they show. What read `selected` before
+  reads the lead, so every tree goes on as it was until its actions take the rest.
+- **The input is Swing's, which IntelliJ's trees are:** Ctrl+click (Cmd+click on macOS; either is
+  taken, as the Conflicts dialog's list) adds a row or takes it out, and that row is where a range
+  starts; Shift+click and Shift with Up, Down, Page Up, Page Down, Home and End select from there;
+  Ctrl+A (Cmd+A) selects every row that shows. A context menu on a selected row keeps the others,
+  one on another row selects it alone.
+- **Collapsing forgets the rows it hides**, as Swing's `JTree.removeDescendantSelectedPaths`: the
+  lead among them moves to the folder. Collapse All keeps the roots that were selected.
+- **The last row can't be taken out** with Ctrl+click (Claude's choice, open to change: Swing's can
+  leave none), and taking out the lead leaves it to the first row still selected (Claude's choice).
+- **The Commit window's actions take them all:** Show Diff goes through the files they stand for (a
+  folder's or a group's with it, each once, ignored ones left out), from the first, as IntelliJ's
+  `ChangesListViewDiffableSelectionUtil`; Rollback rolls back their tracked files; Shelve Changes
+  starts from them; Space puts them all in the commit unless they all are, then takes them out. A
+  row's checkbox stays its own.
+- **The Project view's Delete takes them all,** without what's inside another of them (IntelliJ's
+  `PsiTreeUtil.filterAncestors`), asked in DeleteUtil's words: "Delete 2 files and 1 directory?",
+  with the warning for directories ("in the selected directory(s)"), files counted first (Claude's
+  choice: IntelliJ's order is a hash map's). Each goes to the trash in turn; one the trash won't
+  take stops the rest, said so, and the view is read again all the same.
+- **Not yet:** the rest of the trees' actions on several rows: Copy, Cut, Paste and Move in the
+  Project view, Rollback in Agent Changes, the Log's and the shelf's trees, and the others.
+
+## Multiple carets (2026-11-23)
+
+Ido (2026-11-23, approving the backlog's proposal): "do multiple carets". The editor had one caret,
+each command acting at the main selection. Now it has several (CodeMirror's
+`allowMultipleSelections`), as IntelliJ's, in three parts; this is the first.
+
+- **The mouse's carets are read from the keymap**, as IntelliJ's editor reads them
+  (EditorImpl's `isToggleCaretEvent` and `isCreateRectangularSelectionEvent`, read from its
+  source): Add or Remove Caret, Create Rectangular Selection on Mouse Drag and Add Rectangular
+  Selection on Mouse Drag are placeholders there (`EmptyAction`), and here commands never on
+  (`CARET_MOUSE`), so the Keymap page lists them and changes their shortcuts. IntelliJ's
+  (`$default`): Alt+Shift+click adds a caret, or removes the one clicked; Alt+drag or the middle
+  button's drag selects a rectangle, a range per line; Ctrl+Alt+Shift+drag adds one (it counts as
+  both, as IntelliJ's). macOS's file takes them with Ctrl as Meta. VS Code's: Alt+click and
+  Shift+Alt+drag (its sheets). Sublime Text's: its files' (Ctrl+click, Ctrl+middle drag; Cmd on
+  macOS). A press that's both a drag's and a click's shortcut (macOS's middle button, Go to
+  Declaration) starts the drag, and the click runs at the caret if it's let go unmoved.
+- **The press that adds a caret is Cerebro's own**, not CodeMirror's: CodeMirror reads Shift,
+  held in Alt+Shift+click, as extending the main selection, and the new caret was lost in it
+  (measured in the test). A click let go where it was pressed, on another caret, removes it.
+- **Add Selection for Next Occurrence** (Alt+J; Ctrl+G on macOS), **Unselect Occurrence**
+  (Alt+Shift+J; Ctrl+Shift+G) and **Select All Occurrences** (Ctrl+Alt+Shift+J; Ctrl+Cmd+G), as
+  IntelliJ's (`SelectNextOccurrenceAction` and the others, read from their source): with nothing
+  selected, the word at the caret (`SelectWordUtil.getWordSelectionRange`, Java's identifier
+  characters), and the search then matches whole words; else the selection's text, matching case.
+  Next adds a caret on the next match after the main selection, made the main one; none after it
+  says IntelliJ's "Not found, try again to search from top" (FindBundle), and the next press
+  searches from the top. The search is kept only while the occurrence actions follow each other
+  (IntelliJ's `isRepeatedActionInvocation`). Unselect removes the main caret, else the selection.
+  In the Edit menu's Find, after Replace (`FindMenuGroup`). VS Code's: Ctrl+D and Ctrl+Shift+L
+  (Cmd on macOS, its source's defaults); Sublime Text's, its files'.
+- **Add Carets to Ends of Selected Lines** (Alt+Shift+G; VS Code's Shift+Alt+I), as IntelliJ's
+  `AddCaretPerSelectedLineAction`: a caret at the end of each line a selection's on, not a line it
+  ends at the start of. In the Edit menu before Extend Selection (`EditSelectGroup`).
+- **Claude's choices, open to change:** after Unselect, the main caret is the one before the one
+  removed (IntelliJ's is the one added last, which Cerebro doesn't track); after Add Carets to Ends
+  of Selected Lines and Select All Occurrences, the main caret is on the main one's line or match.
+- **Typing, Backspace, Delete, the caret's moves and Escape** are CodeMirror's, which act on every
+  caret; Escape leaves the main one alone, as IntelliJ's. So are Move Line, Delete Line, Start New
+  Line, Duplicate Line or Selection, Comment with Line Comment and the Code Block moves.
+- **The editor's own commands act at every caret** (added 2026-11-23, the second part), as
+  IntelliJ's editor actions run for each caret (`EditorActionHandler`'s `runForAllCarets`): each
+  caret in turn, alone, in the text as the carets before it left it, their changes one undo step
+  (`atEachCaret`). Join Lines, Toggle Case, Comment with Block Comment, Start New Line Before
+  Current, Split Line and Move Statement; Move Statement Down from the last caret back, so one
+  caret's lines aren't moved into by the one above's (Claude's choice, open to change). Extend
+  Selection grows each selection, and Shrink Selection takes them all back a step.
+  Cyclic Expand Word stays at the main caret: what IntelliJ's does with several isn't read yet.
+- **Clone Caret Above and Below** (added 2026-11-23, the third part), as IntelliJ's
+  CloneCaretActionHandler and CaretImpl's `clone`, read from their source:
+  - Each caret furthest from where the run started gets a clone a line on, at the column it started
+    from (a tab counted to its stop), at a short line's end. The newest clone is the main caret.
+  - A run turned back takes the furthest clones away again.
+  - A selection's clone has its ends at their columns, and goes on past lines too short to hold it.
+  - There's no clone past the first or last line, nor onto a caret already there.
+  - The run is kept through moves with Shift, as IntelliJ's `isRepeatedActionInvocation`, and
+    forgotten as anything else is done.
+  - IntelliJ's keymaps give them no keys: a double Ctrl (Alt on macOS) held with Up or Down runs
+    them where a keymap gives them none, as ModifierKeyDoubleClickHandler does (each step within
+    300 ms). Its double Ctrl with Left, Right, Home and End isn't taken: those actions have keys in
+    every keymap, which leaves them the keymap's there too.
+  - VS Code's Add Cursor Above and Below are these, on its keys: Ctrl+Alt+Up and Down, Cmd+Alt on
+    macOS, and Shift+Alt on Linux, where Copy Line Down takes Ctrl+Shift+Alt+Down (its source's
+    `linux` keys; Cerebro's VS Code keymap had Windows' there). Sublime Text's are its file's.
+- **Not yet:** Cyclic Expand Word at every caret; Column Selection Mode; IntelliJ's limit on
+  carets, and its Create Rectangular Selection (Alt+Shift+middle click).
 
 ## The app's icon (2026-11-23)
 
@@ -4832,7 +4933,9 @@ offers on webstorm". This is the first part: the viewer itself. Measured from In
 - **The diff window goes through the list it was opened from,** as IntelliJ's diff chain
   (`ChangesListViewDiffableSelectionUtil`, `DiffRequestProcessor.getNavigationActions`):
   - The list: a Commit window file's group (its changelist, or the unversioned files) or an agent
-    turn's, in the tree's order; a shelved list's or a stash's files; a Log commit's files. Show
+    turn's, in the tree's order; with several rows selected, the files they stand for, from the
+    first (added 2026-11-23, as `ChangesListViewDiffableSelectionUtil`); a shelved list's or a
+    stash's files; a Log commit's files. Show
     Diff on an annotation opens one file. One file alone shows none of what follows.
   - After Next Difference, in IntelliJ's order: Jump to Source (its OpenInEditorAction, which is
     EditSource's), Compare Previous File, the file's place in the list ("2/5"), and Compare Next

@@ -4,7 +4,7 @@
 // packages/e2e/traces/, which CI keeps when the tests fail: open one with
 // `npx playwright show-trace <file>`.
 
-import type { ChildProcess } from 'node:child_process';
+import { execFileSync, type ChildProcess } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
@@ -69,15 +69,101 @@ async function closing(step: string, run: () => Promise<void>): Promise<void> {
  */
 const processes = new WeakMap<ElectronApplication, ChildProcess>();
 
+/** A process the app started, by its id and its program's name. */
+export interface Child {
+  pid: number;
+  name: string;
+}
+
+/**
+ * The processes under `pid`, its children and theirs: from Windows' process table (CIM), else
+ * `ps`'s. Its hosts among them, which outlive the app's own process as they finish (measured on
+ * Linux: the host and its terminal's process ran on 500 ms after the app had exited).
+ */
+export function processesUnder(pid: number): Child[] {
+  // On Windows a process keeps its parent's id after that parent ends, and the id may then be
+  // another's (Microsoft's Win32_Process docs): a child is one started after its parent.
+  const rows =
+    process.platform === 'win32'
+      ? execFileSync('powershell', [
+          '-NoProfile',
+          '-Command',
+          'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CreationDate.Ticks) $($_.Name)" }',
+        ])
+      : execFileSync('ps', ['-A', '-o', 'pid=,ppid=,comm=']);
+  const table = rows
+    .toString()
+    .trim()
+    .split(/\r?\n/)
+    .map((line) => {
+      const [id, parent, ...rest] = line.trim().split(/\s+/);
+      const windows = process.platform === 'win32';
+      return {
+        pid: Number(id),
+        parent: Number(parent),
+        born: windows ? Number(rest[0]) : 0,
+        name: (windows ? rest.slice(1) : rest).join(' '),
+      };
+    });
+  const born = new Map(table.map((row) => [row.pid, row.born]));
+  const under = new Map<number, Child>();
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const row of table) {
+      const parentBorn = born.get(row.parent) ?? 0;
+      if (
+        (row.parent === pid || under.has(row.parent)) &&
+        !under.has(row.pid) &&
+        row.pid !== pid &&
+        row.born >= parentBorn
+      ) {
+        under.set(row.pid, { pid: row.pid, name: row.name });
+        grew = true;
+      }
+    }
+  }
+  return [...under.values()];
+}
+
+/** Whether a process runs: signal 0 only asks (Node's `process.kill`, on Windows too). */
+function running(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+/**
+ * Resolves once none of `pids` runs. Until then a folder one runs in can't be removed on Windows
+ * (EPERM, quit.test in CI, 2026-11-23). Fails after `within`, naming those left.
+ */
+export async function ended(children: readonly Child[], within = 15_000): Promise<void> {
+  const start = performance.now();
+  for (;;) {
+    const left = children.filter((child) => running(child.pid));
+    if (left.length === 0) return;
+    if (performance.now() - start > within) {
+      const named = left.map((child) => `${child.name} (${String(child.pid)})`).join(', ');
+      throw new Error(`The app's processes still run after it quit: ${named}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 /** Saves the app's trace, named for the test file, and closes the app, unless it has quit. */
 async function stop(app: ElectronApplication): Promise<void> {
   // A test that quits it (quit.test): there's nothing left to trace or close.
   const child = processes.get(app);
   if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  const under = processesUnder(child.pid as number);
   const file = basename(expect.getState().testPath ?? 'e2e', '.ts');
   const path = join(TRACES, `${file}-${String(++runs)}.zip`);
   await closing(`saving the trace ${path}`, () => app.context().tracing.stop({ path }));
   await closing('closing the app', () => app.close());
+  // Its hosts finish after it: what they run in is removed once they have.
+  await closing("the app's processes ending", () => ended(under));
 }
 
 /** Runs an action by its name, from Find Action. */

@@ -538,6 +538,23 @@ function selectedItem(changes: Changes, view: View = 'changes'): Item | undefine
   return model.rows.find((row) => row.key === model.selected)?.node;
 }
 
+/** The selected rows' items, in the order they show. */
+function selectedItems(changes: Changes, view: View = 'changes'): Item[] {
+  return modelOf(changes, view).selectedNodes;
+}
+
+/**
+ * The files the selected rows stand for, each once, in the order they show: a folder's or a
+ * group's files with it.
+ */
+function selectedFiles(
+  changes: Changes,
+  view: View = 'changes',
+): Extract<Item, { kind: 'change' }>[] {
+  const files = selectedItems(changes, view).flatMap((item) => filesUnder(item, changes));
+  return files.filter((file, i) => files.findIndex((f) => f.key === file.key) === i);
+}
+
 /** The selected file, if a file is selected. */
 function selectedChange(
   changes: Changes | undefined,
@@ -549,11 +566,13 @@ function selectedChange(
 
 /**
  * The files Compare Previous and Next File go through from the selected file, as IntelliJ's diff
- * chain: its group's (its changelist's, or the unversioned files) or its turn's, in the tree's
- * order.
+ * chain: with several rows selected, the files they stand for (`ChangesListViewDiffableSelectionUtil`
+ * takes the selection); else the file's group's (its changelist's, or the unversioned files) or its
+ * turn's, in the tree's order.
  */
 function chainOf(changes: Changes, view: View = 'changes'): string[] {
   const model = modelOf(changes, view);
+  if (model.selection.size > 1) return diffable(changes, view).map((item) => item.change.path);
   const rows = model.rows;
   const at = rows.findIndex((row) => row.key === model.selected);
   const top = rows.slice(0, at + 1).findLast((row) => row.depth === 0) as TreeRow<Item>;
@@ -568,8 +587,8 @@ function chainOf(changes: Changes, view: View = 'changes'): string[] {
 }
 
 /** The files a selected row stands for: itself, or all of its folder's or group's. */
-function filesUnder(item: Item | undefined, changes: Changes): Extract<Item, { kind: 'change' }>[] {
-  if (!item || item.kind === 'turn') return [];
+function filesUnder(item: Item, changes: Changes): Extract<Item, { kind: 'change' }>[] {
+  if (item.kind === 'turn') return [];
   if (item.kind === 'change') return [item];
   const children =
     item.kind === 'folder'
@@ -580,10 +599,15 @@ function filesUnder(item: Item | undefined, changes: Changes): Extract<Item, { k
   return children.flatMap((child) => filesUnder(child, changes));
 }
 
+/** The selected files Show Diff goes through: all but ignored ones. */
+function diffable(changes: Changes, view: View): Extract<Item, { kind: 'change' }>[] {
+  return selectedFiles(changes, view).filter((item) => item.change.status !== 'ignored');
+}
+
 /** What rollback acts on: the uncommitted, tracked files the selection stands for. */
 function rollbackable(changes: Changes | undefined): Change[] {
   if (!changes) return [];
-  return filesUnder(selectedItem(changes), changes)
+  return selectedFiles(changes)
     .filter(
       (item) =>
         !item.turn && item.change.status !== 'untracked' && item.change.status !== 'ignored',
@@ -617,8 +641,8 @@ function isIncluded(changes: Changes, change: Change): boolean {
 }
 
 /** Puts a row's files into the next commit, or takes them out if they're all in, as IntelliJ's. */
-function flipIncluded(changes: Changes, item: Item): void {
-  const files = committable(item, changes);
+function flipIncluded(changes: Changes, items: readonly Item[]): void {
+  const files = items.flatMap((item) => committable(item, changes));
   const include = !files.every((change) => isIncluded(changes, change));
   batch(() => {
     for (const { path, status } of files) {
@@ -640,10 +664,11 @@ export function toShelve(context: unknown): { files: Change[]; chosen: Change[] 
   const changes = current();
   if (!changes) return undefined;
   const files = [...changes.tracked(), ...changes.unversioned()];
-  const item = viewOf(context) === 'changes' ? selectedItem(changes) : undefined;
-  const chosen = item
-    ? committable(item, changes)
-    : files.filter((change) => isIncluded(changes, change));
+  const items = viewOf(context) === 'changes' ? selectedItems(changes) : [];
+  const chosen =
+    items.length > 0
+      ? [...new Set(items.flatMap((item) => committable(item, changes)))]
+      : files.filter((change) => isIncluded(changes, change));
   return { files, chosen };
 }
 
@@ -1075,16 +1100,22 @@ export function setupChanges(services: MenuServices, setup: ChangesSetup): void 
     id: 'changes.showDiff',
     label: 'Show &Diff',
     icon: 'diff',
+    // A file selected, or with several rows, the files they stand for, from the first.
     enabled: (c) => {
       const view = viewOf(c);
-      const item = view && selectedChange(current(), view);
+      const changes = current();
+      if (!view || !changes) return false;
+      if (modelOf(changes, view).selection.size > 1) return diffable(changes, view).length > 0;
+      const item = selectedChange(changes, view);
       return item !== undefined && item.change.status !== 'ignored';
     },
     run: (c) => {
-      const { change, turn } = selectedChange(current(), viewOf(c)) as Extract<
-        Item,
-        { kind: 'change' }
-      >;
+      const changes = current() as Changes;
+      const view = viewOf(c) as View;
+      const several = modelOf(changes, view).selection.size > 1;
+      const { change, turn } = (
+        several ? diffable(changes, view)[0] : selectedChange(changes, view)
+      ) as Extract<Item, { kind: 'change' }>;
       setup.open(
         diffTab(change.path, turn && { from: turn.start, to: turn.end }),
         chainOf(current() as Changes, viewOf(c)),
@@ -1716,7 +1747,7 @@ function Include(props: { changes: Changes; item: Item }): Node {
         event.stopPropagation();
       }}
       on:change={() => {
-        flipIncluded(changes, item);
+        flipIncluded(changes, [item]);
       }}
     />
   );
@@ -1942,15 +1973,16 @@ export function ChangesView(props: {
         if (!next || !(event.currentTarget as HTMLElement).contains(next)) focused.set(undefined);
       }}
       on:keydown={(event) => {
-        // Space puts the selected row's files in the commit, or takes them out, as IntelliJ's.
+        // Space puts the selected rows' files in the commit, or takes them out, as IntelliJ's: in
+        // unless they're all in.
         if (event.key !== ' ' || !(event.target as Element).classList.contains('cerebro-tree')) {
           return;
         }
         const changes = current();
-        const item = changes && selectedItem(changes);
-        if (!changes || !item) return;
+        const items = changes && selectedItems(changes);
+        if (!items || items.length === 0) return;
         event.preventDefault();
-        flipIncluded(changes, item);
+        flipIncluded(changes, items);
       }}
     >
       {() => {

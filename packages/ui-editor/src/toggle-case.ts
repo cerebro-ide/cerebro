@@ -4,7 +4,7 @@
 
 import { syntaxTree } from '@codemirror/language';
 import { EditorSelection, type EditorState, type TransactionSpec } from '@codemirror/state';
-import { dispatching } from './command-change.js';
+import { atEachCaret, dispatching } from './command-change.js';
 
 /** `from` to `to` in `lower` or upper case, but for the escapes in it. */
 function cased(state: EditorState, from: number, to: number, lower: boolean): string {
@@ -32,9 +32,8 @@ function cased(state: EditorState, from: number, to: number, lower: boolean): st
  * The change Toggle Case makes; undefined with no selection and no word at the caret, or in a
  * read-only editor.
  */
-export function toggleCase(state: EditorState): TransactionSpec | undefined {
+function toggleCaseAlone(state: EditorState): TransactionSpec | undefined {
   if (state.readOnly) return undefined;
-  // Cerebro's editor has one caret, so the main selection is all there is.
   const range = state.selection.main;
   const { from, to } = range.empty ? (state.wordAt(range.head) ?? range) : range;
   if (from === to) return undefined;
@@ -48,6 +47,12 @@ export function toggleCase(state: EditorState): TransactionSpec | undefined {
       ? EditorSelection.range(end, from)
       : EditorSelection.range(from, end);
   return { changes: { from, to, insert }, selection, userEvent: 'input.toggleCase' };
+}
+
+/** Toggle Case at every caret; undefined where it changes none. */
+export function toggleCase(state: EditorState): TransactionSpec | undefined {
+  const made = atEachCaret(state, toggleCaseAlone);
+  return made && { ...made, scrollIntoView: true, userEvent: 'input.toggleCase' };
 }
 
 /** IntelliJ's `EditorToggleCase`, as a CodeMirror command. */

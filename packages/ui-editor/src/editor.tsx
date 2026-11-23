@@ -8,6 +8,18 @@
 // custom properties are inherited into shadow roots.
 
 import {
+  addCaretsToLineEnds,
+  caretMouse,
+  cloneCaretAbove,
+  cloneCaretBelow,
+  cloneGesture,
+  occurrences,
+  selectAllOccurrences,
+  selectNextOccurrence,
+  unselectOccurrence,
+  type CaretMouse,
+} from './carets.js';
+import {
   cursorMatchingBracket,
   deleteLine,
   historyField,
@@ -274,7 +286,7 @@ export interface CodeEditorProps {
  * The keymap's mouse shortcuts, for an editor. The app runs them (its mouse dispatcher), at the
  * caret, as IntelliJ's IdeMouseEventDispatcher does once its EditorImpl has moved the caret.
  */
-export interface EditorMouse {
+export interface EditorMouse extends CaretMouse {
   /** Whether a press of one of the first three buttons is a shortcut's: the caret goes there. */
   isShortcut: (event: MouseEvent) => boolean;
   /**
@@ -371,6 +383,21 @@ export interface EditorKeys {
   pageBottom?: readonly string[];
   pageTopWithSelection?: readonly string[];
   pageBottomWithSelection?: readonly string[];
+  /**
+   * Add Selection for Next Occurrence, Unselect Occurrence and Select All Occurrences: carets on
+   * the selection's matches, or the word's at the caret.
+   */
+  selectNextOccurrence?: readonly string[];
+  unselectOccurrence?: readonly string[];
+  selectAllOccurrences?: readonly string[];
+  /** Add Carets to Ends of Selected Lines: a caret at the end of each line selected. */
+  addCaretsToLineEnds?: readonly string[];
+  /**
+   * Clone Caret Above and Below. With none, IntelliJ's double Ctrl (Alt on macOS) held with Up or
+   * Down runs them (`cloneGesture`).
+   */
+  cloneCaretAbove?: readonly string[];
+  cloneCaretBelow?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -429,6 +456,12 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   pageBottom: ['Mod-PageDown'],
   pageTopWithSelection: ['Mod-Shift-PageUp'],
   pageBottomWithSelection: ['Mod-Shift-PageDown'],
+  selectNextOccurrence: ['Alt-j'],
+  unselectOccurrence: ['Alt-Shift-j'],
+  selectAllOccurrences: ['Mod-Alt-Shift-j'],
+  addCaretsToLineEnds: ['Alt-Shift-g'],
+  cloneCaretAbove: [],
+  cloneCaretBelow: [],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -1191,6 +1224,12 @@ export function CodeEditor(props: CodeEditorProps): Node {
         keys.codeBlockEndWithSelection,
         movingToCodeBlock(true, true),
       ),
+      actionKeys('selectNextOccurrence', keys.selectNextOccurrence, selectNextOccurrence),
+      actionKeys('unselectOccurrence', keys.unselectOccurrence, unselectOccurrence),
+      actionKeys('selectAllOccurrences', keys.selectAllOccurrences, selectAllOccurrences),
+      actionKeys('addCaretsToLineEnds', keys.addCaretsToLineEnds, addCaretsToLineEnds),
+      actionKeys('cloneCaretAbove', keys.cloneCaretAbove, cloneCaretAbove),
+      actionKeys('cloneCaretBelow', keys.cloneCaretBelow, cloneCaretBelow),
       actionKeys('extendSelection', keys.extendSelection, extendingSelection),
       actionKeys('shrinkSelection', keys.shrinkSelection, shrinkingSelection),
       actionKeys('scrollUp', keys.scrollUp, scrollingBy(-1)),
@@ -1362,6 +1401,18 @@ export function CodeEditor(props: CodeEditorProps): Node {
       : [],
     selectionSteps,
     expansion,
+    // Several carets, as IntelliJ's: added by the mouse and the occurrence actions.
+    EditorState.allowMultipleSelections.of(true),
+    caretMouse(props.mouse),
+    cloneGesture(() => {
+      const keys = { ...DEFAULT_KEYS, ...props.keys?.() };
+      return {
+        modifier: navigator.platform.includes('Mac') ? 'Alt' : 'Control',
+        above: keys.cloneCaretAbove.length === 0,
+        below: keys.cloneCaretBelow.length === 0,
+      };
+    }),
+    occurrences,
     keyed.of(actions()),
     keymap.of([
       // CodeMirror's basic editing (the caret's moves, Enter, Backspace, Select All), and Escape
@@ -1384,6 +1435,10 @@ export function CodeEditor(props: CodeEditorProps): Node {
       // another caret), for the shortcut to run at it as the button's let go. Back's and Forward's
       // buttons move none.
       mousedown: (event, v) => {
+        // A caret added or removed, or a rectangle dragged, is the editor's (`caretMouse`): a
+        // click's shortcut on the same press (macOS's middle button) runs at its caret after.
+        const carets = props.mouse?.();
+        if (carets && (carets.addsCaret(event) || carets.dragsColumn(event))) return false;
         if (event.button === 2 && props.mouse?.().isShortcut(event) !== true) {
           rightPress(event, v);
           return true;

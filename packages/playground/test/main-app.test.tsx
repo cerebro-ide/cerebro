@@ -1645,6 +1645,54 @@ describe('the Project view’s menu', () => {
     await expect
       .poll(() => env().editor.activeGroup.tabs.map((t) => t.id))
       .not.toContain('/r/gone.ts');
+    // Several, with Ctrl+click: counted by kind, each to the trash.
+    folders['/r'] = [
+      { path: '/r/old', name: 'old', kind: 'directory' },
+      { path: '/r/a.ts', name: 'a.ts', kind: 'file' },
+      { path: '/r/b.ts', name: 'b.ts', kind: 'file' },
+    ];
+    window.dispatchEvent(new Event('focus'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/a.ts')));
+    await userEvent.keyboard('{Shift>}');
+    await userEvent.click(row('/r/b.ts'));
+    await userEvent.keyboard('{/Shift}{Control>}');
+    await userEvent.click(row('/r/old'));
+    await userEvent.keyboard('{/Control}{Delete}');
+    const several = await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect([...several.querySelectorAll('p')].map((p) => p.textContent)).toEqual([
+      'Delete 2 files and 1 directory?',
+      'All files and subdirectories in the selected directory(s) will be deleted.',
+      'You might not be able to fully undo this operation!',
+    ]);
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    // A folder with a file in it: the folder's question, as IntelliJ's leaves out what's inside.
+    folders['/r/old'] = [{ path: '/r/old/in.ts', name: 'in.ts', kind: 'file' }];
+    await userEvent.dblClick(row('/r/old'));
+    await userEvent.click(await vi.waitUntil(() => row('/r/old/in.ts')));
+    await userEvent.keyboard('{Control>}');
+    await userEvent.click(row('/r/old'));
+    await userEvent.keyboard('{/Control}{Delete}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe(
+      'Delete directory "old"?',
+    );
+    await userEvent.keyboard('{Escape}');
+    await expect.poll(() => document.querySelector('.cerebro-dialog')).toBeNull();
+    await userEvent.click(row('/r/a.ts'));
+    await userEvent.keyboard('{Shift>}');
+    await userEvent.click(row('/r/b.ts'));
+    await userEvent.keyboard('{/Shift}{Delete}');
+    await vi.waitUntil(() => document.querySelector('.cerebro-dialog'));
+    expect(document.querySelector('.cerebro-dialog p')?.textContent).toBe('Delete 2 files?');
+    folders['/r'] = [{ path: '/r/old', name: 'old', kind: 'directory' }];
+    await userEvent.keyboard('{Enter}');
+    await expect.poll(trashed).toEqual([
+      ['trash', '/r/gone.ts'],
+      ['trash', '/r/a.ts'],
+      ['trash', '/r/b.ts'],
+    ]);
+    await expect.poll(() => row('/r/a.ts')).toBeUndefined();
     // One the trash won't take: said so.
     answers.set('shell.trash', new Error('Permission denied'));
     await userEvent.click(await vi.waitUntil(() => row('/r/old')), { button: 'right' });

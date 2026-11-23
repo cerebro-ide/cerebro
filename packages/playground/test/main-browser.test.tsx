@@ -596,7 +596,16 @@ describe('the main menu', () => {
       [...find.children].map(
         (child) => child.querySelector('.cerebro-menu-item__label')?.textContent ?? '—',
       ),
-    ).toEqual(['Find…', 'Replace…', '—', 'Find in Files…', 'Replace in Files…']);
+    ).toEqual([
+      'Find…',
+      'Replace…',
+      'Select All Occurrences',
+      'Add Selection for Next Occurrence',
+      'Unselect Occurrence',
+      '—',
+      'Find in Files…',
+      'Replace in Files…',
+    ]);
   });
 });
 

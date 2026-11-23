@@ -163,6 +163,21 @@ export function projectTarget(context?: { tabMenu?: true }): FileNode | null | u
 }
 
 /**
+ * Every file and folder selected in the Project view, as `projectTarget` for one: in the order they
+ * show, without what's inside another of them (IntelliJ's `PsiTreeUtil.filterAncestors`, as its
+ * Delete takes them). Undefined where `projectTarget` is.
+ */
+export function projectTargets(context?: { tabMenu?: true }): FileNode[] | undefined {
+  if (projectTarget(context) === undefined) return undefined;
+  const model = models.get((active() as { id: string }).id) as TreeModel<FileNode>;
+  const nodes = model.selectedNodes.filter((node) => node.kind !== 'group');
+  return nodes.filter(
+    (node) =>
+      !nodes.some((other) => other.kind === 'directory' && node.path.startsWith(`${other.path}/`)),
+  );
+}
+
+/**
  * What's selected in the Project tool window, a file or a folder, while it has the focus: null when
  * nothing is; undefined when it hasn't the focus.
  */

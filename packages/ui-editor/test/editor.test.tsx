@@ -18,6 +18,9 @@ import {
   type EditorKeys,
 } from '../src/index.js';
 
+/** A mouse that adds no carets and drags no rectangles. */
+const NO_CARETS = { addsCaret: () => false, dragsColumn: () => false };
+
 let cleanup: (() => void) | undefined;
 
 afterEach(async () => {
@@ -792,7 +795,11 @@ describe('CodeEditor', () => {
     expect(view.state.selection.main.empty).toBe(false);
     cleanup?.();
     view = viewOf(
-      mount({ path: 'a.ts', text, mouse: () => ({ isShortcut, isLink: () => false }) }),
+      mount({
+        path: 'a.ts',
+        text,
+        mouse: () => ({ ...NO_CARETS, isShortcut, isLink: () => false }),
+      }),
     );
     const root = view.root as ShadowRoot;
     await clickWord(root, 'answer');
