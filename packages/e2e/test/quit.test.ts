@@ -6,7 +6,7 @@ import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, it } from 'vitest';
-import { launch, shown, type Running } from './app.js';
+import { ended, launch, processesUnder, shown, type Running } from './app.js';
 
 let running: Running;
 // The real path: on Windows, the temporary folder can come with an 8.3 short name.
@@ -30,8 +30,9 @@ const closeWindow = () =>
     BrowserWindow.getAllWindows()[0]?.close();
   });
 
-it('quits when its last window closes', { timeout: 30_000 }, async () => {
+it('quits when its last window closes, and its hosts end', { timeout: 30_000 }, async () => {
   const process = running.app.process();
+  const under = processesUnder(process.pid as number);
   const exited = new Promise<void>((resolve) => {
     process.once('exit', () => {
       resolve();
@@ -49,4 +50,6 @@ it('quits when its last window closes', { timeout: 30_000 }, async () => {
   await closeWindow();
   await exited;
   await closed;
+  // Its hosts too, which finish after it: until then the project's folder can't go on Windows.
+  await ended(under);
 });

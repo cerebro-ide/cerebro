@@ -228,6 +228,7 @@ describe('the main menu', () => {
       'edit.copy',
       'edit.paste',
       '—',
+      'editor.addCaretsToLineEnds',
       'editor.extendSelection',
       'editor.shrinkSelection',
       '—',
