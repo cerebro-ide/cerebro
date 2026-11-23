@@ -574,6 +574,9 @@ describe('the layout', () => {
     await page().locator('[aria-label^="Worktree:"]').click();
     await page().locator('.cerebro-popup-item', { hasText: 'project-agent' }).click();
     await openLayout();
+    // Taken once the file's caret shows on the status bar, as after the reload below (measured on
+    // macOS in CI: the snapshot was taken before it showed, and the one after the reload had it).
+    await expect.poll(async () => (await snapshot()).file, { timeout: 15_000 }).toMatch(/\d+:\d+/);
     const before = await snapshot();
     expect(before.tools).not.toContain('project');
     expect(before.tools).toContain('git');
