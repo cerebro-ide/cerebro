@@ -75,7 +75,7 @@ Read the index, then the entries that bear on the work at hand.
 - [Optimize Imports (2026-11-14)](#optimize-imports-2026-11-14): IntelliJ's `OptimizeImports` on Ctrl+Alt+O, the language server's Organize Imports
 - [The Structure tool window (2026-11-14)](#the-structure-tool-window-2026-11-14): the active file's symbols as a tree (Alt+7), from its language server, read again as it changes; a selected symbol shown in the editor, Enter or double click going to it, as IntelliJ's defaults
 - [Scratch files (2026-11-14)](#scratch-files-2026-11-14): IntelliJ's New Scratch File (Ctrl+Alt+Shift+Insert), a language from a popup, the last chosen first; kept in the app's folder, listed under Scratches and Consoles in the Project view
-- [The app's icon (2026-11-23)](#the-apps-icon-2026-11-23): Ido's, as SVGs on a violet tile (a small one for 32 px and under, one for the Dock); PNG and ICO made from them for the window and Dock
+- [The app's icon (2026-11-23)](#the-apps-icon-2026-11-23): Ido's, as SVGs on a blue tile (a small one for 32 px and under, one for the Dock); PNG and ICO made from them for the window and Dock
 - [Mouse shortcuts in the keymaps (2026-11-16)](#mouse-shortcuts-in-the-keymaps-2026-11-16): IntelliJ's in each ready-made keymap (Ctrl+click, Ctrl+Alt+click, Back on the mouse's button), run as its dispatcher runs them; Add Mouse Shortcut on the Keymap page; the editor's caret put where they're pressed
 - [The editor's actions as commands (2026-11-16)](#the-editors-actions-as-commands-2026-11-16): each a command named as IntelliJ's, on where the focused editor has it, for Find Action, the Keymap page and IntelliJ's menus (Code, Refactor); its keys still the editor's, stopping there once run
 - [Git → Current File → Show History (2026-11-12)](#git--current-file--show-history-2026-11-12): the editor's file's commits on HEAD in the Log, as IntelliJ's file history; the Log's other filters cleared
@@ -3976,12 +3976,12 @@ use needs them. Claude's choices below are open to change.
   `cerebro-small.svg` (the C and its dot, larger, for 32 px and under: at 16 px the full icon's
   brackets, dots and thin lines ran together, seen rendered) and `cerebro-macos.svg` (the full icon
   for macOS's Dock: the tile 840 of 1,024 px, the rest margin). The C, brackets, dots and lines are
-  Ido's, unchanged; the tile is a violet gradient (`#6d4cff` to `#3a1fb8`) with a faint light edge.
+  Ido's, unchanged; the tile is a blue gradient (`#5b6cff` to `#2b37c9`) with a faint light edge.
   Changed 2026-11-23 (Ido: "the icon really does look smaller" in the Dock): measured in his
   screenshot, the navy tile at 824 was 100 px wide, its neighbours 101–103, but it read smaller as
-  dark on the dark Dock, where the others are bright. The tile grew to 840 and went violet, still
-  the indigo family, apart from the App Store's blue beside it (blue ones looked like its sibling);
-  checked pasted into his screenshot at the measured size.
+  dark on the dark Dock, where the others are bright. The tile grew to 840 and went a brighter
+  blue, Ido's pick of three (two blues and a violet) pasted into his screenshot at the measured
+  size: "I prefer a blue tone over the violet one".
 - **The web page's favicon** is the small SVG.
 - **A window's icon is a PNG or an ICO**: Electron takes a JPEG or PNG for one (its `BrowserWindow`
   typings), and an ICO on Windows. Linux gets `cerebro.png` (256 px, shown at 64); Windows
