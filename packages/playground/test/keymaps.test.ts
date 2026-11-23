@@ -50,6 +50,11 @@ describe('the ready-made keymaps', () => {
     expect(windows.bindings['editor.close']).toEqual(['Ctrl+F4', 'Ctrl+W']);
     expect(linux.bindings[EDITOR_ACTIONS.format]).toEqual(['Ctrl+Shift+I', 'Ctrl+K Ctrl+F']);
     expect(windows.bindings[EDITOR_ACTIONS.format]).toEqual(['Shift+Alt+F', 'Ctrl+K Ctrl+F']);
+    // Add Cursor Below's key on Linux, which takes Copy Line Down's on Windows.
+    expect(linux.bindings[EDITOR_ACTIONS.cloneCaretBelow]).toEqual(['Alt+Shift+Down']);
+    expect(linux.bindings['edit.duplicate']).toEqual(['Ctrl+Alt+Shift+Down']);
+    expect(windows.bindings[EDITOR_ACTIONS.cloneCaretBelow]).toEqual(['Ctrl+Alt+Down']);
+    expect(windows.bindings['edit.duplicate']).toEqual(['Alt+Shift+Down']);
     expect([linux.id, windows.id]).toEqual(['vscode', 'vscode']);
   });
 
@@ -238,6 +243,8 @@ describe('the editor’s keys', () => {
       unselectOccurrence: ['Alt-Shift-j'],
       selectAllOccurrences: ['Ctrl-Alt-Shift-j'],
       addCaretsToLineEnds: ['Alt-Shift-g'],
+      cloneCaretAbove: [],
+      cloneCaretBelow: [],
       undo: [],
       redo: [],
     });
@@ -296,6 +303,8 @@ describe('the editor’s keys', () => {
       'unselectOccurrence',
       'selectAllOccurrences',
       'addCaretsToLineEnds',
+      'cloneCaretAbove',
+      'cloneCaretBelow',
     ]);
   });
 });

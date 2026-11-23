@@ -4053,9 +4053,24 @@ each command acting at the main selection. Now it has several (CodeMirror's
   caret's lines aren't moved into by the one above's (Claude's choice, open to change). Extend
   Selection grows each selection, and Shrink Selection takes them all back a step.
   Cyclic Expand Word stays at the main caret: what IntelliJ's does with several isn't read yet.
-- **Not yet:** Cyclic Expand Word at every caret; Clone Caret Above and Below, Column Selection Mode and VS Code's
-  Insert Cursor Above and Below, after; IntelliJ's limit on carets, and its Create Rectangular
-  Selection (Alt+Shift+middle click).
+- **Clone Caret Above and Below** (added 2026-11-23, the third part), as IntelliJ's
+  CloneCaretActionHandler and CaretImpl's `clone`, read from their source:
+  - Each caret furthest from where the run started gets a clone a line on, at the column it started
+    from (a tab counted to its stop), at a short line's end. The newest clone is the main caret.
+  - A run turned back takes the furthest clones away again.
+  - A selection's clone has its ends at their columns, and goes on past lines too short to hold it.
+  - There's no clone past the first or last line, nor onto a caret already there.
+  - The run is kept through moves with Shift, as IntelliJ's `isRepeatedActionInvocation`, and
+    forgotten as anything else is done.
+  - IntelliJ's keymaps give them no keys: a double Ctrl (Alt on macOS) held with Up or Down runs
+    them where a keymap gives them none, as ModifierKeyDoubleClickHandler does (each step within
+    300 ms). Its double Ctrl with Left, Right, Home and End isn't taken: those actions have keys in
+    every keymap, which leaves them the keymap's there too.
+  - VS Code's Add Cursor Above and Below are these, on its keys: Ctrl+Alt+Up and Down, Cmd+Alt on
+    macOS, and Shift+Alt on Linux, where Copy Line Down takes Ctrl+Shift+Alt+Down (its source's
+    `linux` keys; Cerebro's VS Code keymap had Windows' there). Sublime Text's are its file's.
+- **Not yet:** Cyclic Expand Word at every caret; Column Selection Mode; IntelliJ's limit on
+  carets, and its Create Rectangular Selection (Alt+Shift+middle click).
 
 ## The app's icon (2026-11-23)
 

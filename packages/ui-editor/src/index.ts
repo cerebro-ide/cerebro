@@ -51,6 +51,11 @@ export { expandWord } from './expand-word.js';
 export { codeBlockMove, indentGuides, type IndentGuide } from './code-block.js';
 export {
   addCaretsToLineEnds,
+  cloneCaret,
+  cloneCaretAbove,
+  cloneCaretBelow,
+  cloneGesture,
+  DOUBLE_MODIFIER,
   findFrom,
   NOT_FOUND,
   occurrences,

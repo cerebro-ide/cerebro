@@ -1,11 +1,15 @@
-import { EditorSelection, EditorState, Text } from '@codemirror/state';
+import { EditorSelection, EditorState, StateEffect, Text } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import { render } from '@cerebro-ide/jsx';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import {
   addCaretsToLineEnds,
+  cloneCaretAbove,
+  cloneCaretBelow,
+  cloneGesture,
   CodeEditor,
+  DOUBLE_MODIFIER,
   EditorDocument,
   findFrom,
   NOT_FOUND,
@@ -15,6 +19,7 @@ import {
   unselectOccurrence,
   wordAt,
   type CaretMouse,
+  type EditorKeys,
 } from '../src/index.js';
 
 const views: EditorView[] = [];
@@ -244,6 +249,159 @@ describe('Add Carets to Ends of Selected Lines', () => {
   });
 });
 
+describe('Clone Caret Above and Below', () => {
+  const heads = (view: EditorView) => view.state.selection.ranges.map((r) => r.head);
+
+  it('clones a line on at the column it started from, and a run turned back takes them away', () => {
+    // abcd, ab, abcdef, abc
+    const view = viewOf('abcd\nab\nabcdef\nabc', [[3, 3]]);
+    cloneCaretBelow(view);
+    // At the short line's end, the column kept for the next.
+    expect(selected(view)).toEqual({
+      ranges: [
+        [3, 3],
+        [7, 7],
+      ],
+      main: 1,
+    });
+    cloneCaretBelow(view);
+    expect(selected(view)).toEqual({
+      ranges: [
+        [3, 3],
+        [7, 7],
+        [11, 11],
+      ],
+      main: 2,
+    });
+    cloneCaretAbove(view);
+    expect(heads(view)).toEqual([3, 7]);
+    cloneCaretAbove(view);
+    expect(heads(view)).toEqual([3]);
+    // None above the first line.
+    cloneCaretAbove(view);
+    expect(heads(view)).toEqual([3]);
+  });
+
+  it('clones above from every caret furthest out, and below past the last line clones none', () => {
+    const view = viewOf('ab\ncd\nef\ngh', [
+      [4, 4],
+      [10, 10],
+    ]);
+    cloneCaretAbove(view);
+    expect(selected(view)).toEqual({
+      ranges: [
+        [1, 1],
+        [4, 4],
+        [7, 7],
+        [10, 10],
+      ],
+      main: 2,
+    });
+    cloneCaretAbove(view);
+    // The clone on the first line has none above; the other's clone is on a caret.
+    expect(heads(view)).toEqual([1, 4, 7, 10]);
+    cloneCaretBelow(view);
+    expect(heads(view)).toEqual([4, 10]);
+    view.dispatch({ selection: EditorSelection.cursor(10) });
+    cloneCaretBelow(view);
+    expect(heads(view)).toEqual([10]);
+  });
+
+  it('clones a selection past lines too short for it, as CaretImpl’s', () => {
+    // abcdef, ab, abcdef
+    const view = viewOf('abcdef\nab\nabcdef', [[2, 5]]);
+    cloneCaretBelow(view);
+    expect(selected(view)).toEqual({
+      ranges: [
+        [2, 5],
+        [12, 15],
+      ],
+      main: 1,
+    });
+    // Nowhere it fits: none.
+    const short = viewOf('abcdef\nab', [[2, 5]]);
+    cloneCaretBelow(short);
+    expect(heads(short)).toEqual([5]);
+  });
+
+  it('counts a tab to its stop', () => {
+    const view = viewOf('\tx\n    y', [[1, 1]]);
+    cloneCaretBelow(view);
+    expect(heads(view)).toEqual([1, 7]);
+  });
+
+  it('keeps the run through moves with Shift, and forgets it as the text changes', () => {
+    const view = viewOf('ab\ncd\nef', [[0, 0]]);
+    cloneCaretBelow(view);
+    view.dispatch({
+      selection: EditorSelection.create(
+        [EditorSelection.range(0, 1), EditorSelection.range(3, 4)],
+        1,
+      ),
+      userEvent: 'select',
+    });
+    cloneCaretAbove(view);
+    expect(selected(view)).toEqual({ ranges: [[0, 1]], main: 0 });
+    cloneCaretBelow(view);
+    view.dispatch({ changes: { from: 0, insert: 'x' } });
+    // From every caret now, not the run's last clone alone: the second line's gets one above.
+    cloneCaretAbove(view);
+    expect(selected(view).ranges).toEqual([
+      [0, 1],
+      [1, 2],
+      [4, 5],
+    ]);
+  });
+
+  it('starts over where a clone met its caret’s selection and they merged', () => {
+    // abc, abc: from the first line's second column to the second's third.
+    const view = viewOf('abc\nabc', [[1, 6]]);
+    cloneCaretAbove(view);
+    // The clone's other end, above the first line, is the text's start (CaretImpl's `truncate`).
+    expect(view.state.selection.ranges.map((r) => [r.from, r.to])).toEqual([[0, 6]]);
+    // A run started over: Below clones, not takes the clone away. Its other end, below the last
+    // line, is the text's end.
+    const back = viewOf('abc\nabc', [[6, 1]]);
+    cloneCaretBelow(back);
+    expect(back.state.selection.ranges.map((r) => [r.from, r.to])).toEqual([[1, 7]]);
+  });
+
+  it('lets a held modifier’s key repeat be, as the second press it follows', () => {
+    const view = viewOf('ab\ncd', [[0, 0]]);
+    const gesture = new EditorView({
+      parent: document.body,
+      state: view.state.update({
+        effects: StateEffect.appendConfig.of(
+          cloneGesture(() => ({ modifier: 'Control', above: true, below: true })),
+        ),
+      }).state,
+    });
+    views.push(gesture);
+    const key = (type: string, key: string, init: KeyboardEventInit = {}) => {
+      gesture.contentDOM.dispatchEvent(new KeyboardEvent(type, { key, ...init }));
+    };
+    key('keydown', 'Control', { ctrlKey: true });
+    key('keyup', 'Control');
+    key('keydown', 'Control', { ctrlKey: true });
+    key('keydown', 'Control', { ctrlKey: true, repeat: true });
+    key('keydown', 'ArrowDown', { ctrlKey: true });
+    expect(gesture.state.selection.ranges.map((r) => r.head)).toEqual([0, 3]);
+  });
+
+  it('takes no keys without a gesture to look for', () => {
+    const view = new EditorView({
+      parent: document.body,
+      state: EditorState.create({ extensions: [occurrences, cloneGesture(undefined)] }),
+    });
+    views.push(view);
+    for (const type of ['keydown', 'keyup'] as const) {
+      const event = new KeyboardEvent(type, { key: 'Control', cancelable: true });
+      view.contentDOM.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(false);
+    }
+  });
+});
+
 describe('in the editor', () => {
   const mounted: (() => void)[] = [];
   afterEach(() => {
@@ -256,7 +414,7 @@ describe('in the editor', () => {
     dragsColumn: (e) => (e.altKey && !e.shiftKey && e.button === 0) || e.button === 1,
   };
 
-  function mount(text: string) {
+  function mount(text: string, keys?: EditorKeys) {
     const container = document.createElement('div');
     document.body.append(container);
     const handle = render(
@@ -264,6 +422,7 @@ describe('in the editor', () => {
         <CodeEditor
           path="a.txt"
           document={new EditorDocument(text)}
+          {...(keys ? { keys: () => keys } : {})}
           mouse={() => ({ ...INTELLIJ, isShortcut: () => false, isLink: () => false })}
         />
       ),
@@ -283,6 +442,46 @@ describe('in the editor', () => {
     const at = view.coordsAtPos(pos) as { left: number; top: number; bottom: number };
     return { clientX: at.left + 1, clientY: (at.top + at.bottom) / 2 };
   };
+
+  it('clones carets with a double Ctrl held with Up or Down, as IntelliJ’s', async () => {
+    const view = mount('ab\ncd\nef');
+    view.focus();
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    await userEvent.keyboard('{Control>}{/Control}{Control>}{ArrowDown}{ArrowDown}{/Control}');
+    expect(view.state.selection.ranges.map((r) => r.head)).toEqual([0, 3, 6]);
+    await userEvent.keyboard('{Control>}{/Control}{Control>}{ArrowUp}{/Control}');
+    expect(view.state.selection.ranges.map((r) => r.head)).toEqual([0, 3]);
+    // Another key between, or Ctrl held with another modifier, or a single Ctrl: no clone.
+    view.dispatch({ selection: EditorSelection.cursor(3) });
+    await userEvent.keyboard('{Control>}{/Control}x{Control>}{ArrowDown}{/Control}');
+    await userEvent.keyboard('{Control>}{/Control}{Control>}{Shift>}{ArrowDown}{/Shift}{/Control}');
+    await userEvent.keyboard('{Control>}{ArrowDown}{/Control}');
+    expect(view.state.selection.ranges).toHaveLength(1);
+  });
+
+  it('takes a double Ctrl only quickly, and not for an action the keymap gives keys', async () => {
+    const view = mount('ab\ncd\nef', { cloneCaretAbove: ['Ctrl-Alt-ArrowUp'] });
+    view.focus();
+    view.dispatch({ selection: EditorSelection.cursor(3) });
+    await userEvent.keyboard('{Control>}{/Control}');
+    await new Promise((resolve) => setTimeout(resolve, DOUBLE_MODIFIER + 100));
+    await userEvent.keyboard('{Control>}{ArrowDown}{/Control}');
+    expect(view.state.selection.ranges).toHaveLength(1);
+    await userEvent.keyboard('{Control>}{/Control}{Control>}{ArrowUp}{/Control}');
+    expect(view.state.selection.ranges).toHaveLength(1);
+    await userEvent.keyboard('{Control>}{Alt>}{ArrowUp}{/Alt}{/Control}');
+    expect(view.state.selection.ranges.map((r) => r.head)).toEqual([0, 3]);
+  });
+
+  it('takes a double Alt on macOS', async () => {
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue('MacIntel');
+    const view = mount('ab\ncd');
+    view.focus();
+    view.dispatch({ selection: EditorSelection.cursor(0) });
+    await userEvent.keyboard('{Alt>}{/Alt}{Alt>}{ArrowDown}{/Alt}');
+    expect(view.state.selection.ranges.map((r) => r.head)).toEqual([0, 3]);
+    vi.restoreAllMocks();
+  });
 
   it('has IntelliJ’s keys for the occurrence actions and the lines’ ends', async () => {
     const view = mount('ab ab\nab');

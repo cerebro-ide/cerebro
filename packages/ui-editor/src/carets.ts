@@ -3,16 +3,22 @@
 // `isToggleCaretEvent` and `isCreateRectangularSelectionEvent`; the actions themselves are
 // `EmptyAction`s), and the actions that add carets: Add Selection for Next Occurrence, Unselect
 // Occurrence and Select All Occurrences (SelectNextOccurrenceAction and the others, read from their
-// source), and Add Carets to Ends of Selected Lines (AddCaretPerSelectedLineAction).
+// source), Add Carets to Ends of Selected Lines (AddCaretPerSelectedLineAction), and Clone Caret
+// Above and Below (CloneCaretActionHandler and CaretImpl's `clone`), with the double Ctrl that runs
+// them where the keymap gives them no keys (ModifierKeyDoubleClickHandler).
 
 import {
+  countColumn,
   EditorSelection,
+  findColumn,
+  Prec,
   StateEffect,
   StateField,
   type EditorState,
   type Extension,
   type SelectionRange,
   type Text,
+  type TransactionSpec,
 } from '@codemirror/state';
 import {
   EditorView,
@@ -289,5 +295,228 @@ export const addCaretsToLineEnds: Command = (view) => {
   return true;
 };
 
+/**
+ * A caret's part in a run of Clone Caret: how far from where the run started (negative above), and
+ * the columns a clone keeps, as CaretImpl's desired columns: its caret's, and its selection's lead
+ * and other end's, so a clone through a short line takes them up again past it.
+ */
+interface Cloned {
+  level: number;
+  column?: number;
+  lead?: number;
+  other?: number;
+}
+
+const cloned = StateEffect.define<readonly Cloned[]>();
+
+/**
+ * The carets' parts while the last thing done was Clone Caret, or a move with Shift (IntelliJ's
+ * `isRepeatedActionInvocation`: its `..._WITH_SELECTION` actions; their columns are then where they
+ * are); forgotten as anything else changes the text or the carets.
+ */
+const cloning = StateField.define<readonly Cloned[] | null>({
+  create: () => null,
+  update: (value, tr) => {
+    for (const effect of tr.effects) if (effect.is(cloned)) return effect.value;
+    if (!value || tr.docChanged || !tr.selection) return tr.docChanged ? null : value;
+    const moved =
+      tr.isUserEvent('select') &&
+      !tr.isUserEvent('select.pointer') &&
+      tr.selection.ranges.length === value.length;
+    return moved ? value.map(({ level }) => ({ level })) : null;
+  },
+});
+
+/** A position's column, a tab counted to its stop, as IntelliJ's logical columns. */
+function columnOf(state: EditorState, pos: number): number {
+  const line = state.doc.lineAt(pos);
+  return countColumn(line.text.slice(0, pos - line.from), state.tabSize);
+}
+
+/**
+ * Where a column falls on a line, at its end past it (IntelliJ's without virtual space); before the
+ * first line the text's start, past the last its end (CaretImpl's `truncate`).
+ */
+function placeOf(state: EditorState, number: number, column: number): number {
+  if (number < 1) return 0;
+  if (number > state.doc.lines) return state.doc.length;
+  const line = state.doc.line(number);
+  return line.from + findColumn(line.text, column, state.tabSize);
+}
+
+/**
+ * A caret's clone a line above or below, as CaretImpl's `clone`: at its column, its selection's
+ * ends at theirs a line on; none past the first or last line, or onto a caret already there.
+ */
+function cloneOf(
+  state: EditorState,
+  range: SelectionRange,
+  part: Cloned,
+  above: boolean,
+  taken: readonly SelectionRange[],
+): { range: SelectionRange; part: Cloned } | undefined {
+  const shift = above ? -1 : 1;
+  const number = state.doc.lineAt(range.head).number + shift;
+  if (number < 1 || number > state.doc.lines) return undefined;
+  const column = part.column ?? columnOf(state, range.head);
+  let made = EditorSelection.cursor(placeOf(state, number, column));
+  let ends: Pick<Cloned, 'lead' | 'other'> = {};
+  if (!range.empty || part.lead !== undefined) {
+    ends = {
+      lead: part.lead ?? columnOf(state, range.head),
+      other: part.other ?? columnOf(state, range.anchor),
+    };
+    const head = placeOf(state, number, ends.lead as number);
+    const anchor = placeOf(
+      state,
+      state.doc.lineAt(range.anchor).number + shift,
+      ends.other as number,
+    );
+    if (anchor !== head) made = EditorSelection.range(anchor, head);
+  }
+  if (taken.some((r) => r.head === made.head)) return undefined;
+  return { range: made, part: { level: part.level, column, ...ends } };
+}
+
+/**
+ * Clone Caret Above (or Below), as IntelliJ's CloneCaretActionHandler: each caret furthest from
+ * where the run started gets a clone a line on, and a run turned back takes them away again. A
+ * selection's clone goes on past lines too short to hold it. The newest clone is the main caret.
+ */
+export function cloneCaret(state: EditorState, above: boolean): TransactionSpec {
+  const { ranges, mainIndex } = state.selection;
+  const was = state.field(cloning, false) ?? null;
+  const parts = ranges.map((_, i) => was?.[i] ?? { level: 0 });
+  const furthest = Math.max(...parts.map((part) => Math.abs(part.level)));
+  const current = parts.flatMap((part, i) => (Math.abs(part.level) === furthest ? [i] : []));
+  const level = (parts[current[0] as number] as Cloned).level;
+  let made = ranges.map((range, i) => ({ range, part: parts[i] as Cloned }));
+  let main = ranges[mainIndex] as SelectionRange;
+  if ((level > 0 && above) || (level < 0 && !above)) {
+    made = made.filter((_, i) => !current.includes(i));
+  } else {
+    for (const i of current) {
+      const original = made[i] as (typeof made)[number];
+      let clone: (typeof made)[number] | undefined = original;
+      do {
+        clone = cloneOf(
+          state,
+          clone.range,
+          clone.part,
+          above,
+          made.map((m) => m.range),
+        );
+      } while (clone && !original.range.empty && clone.range.empty);
+      if (clone) {
+        made.push({
+          range: clone.range,
+          part: { ...clone.part, level: above ? level - 1 : level + 1 },
+        });
+        main = clone.range;
+      }
+    }
+  }
+  made.sort((a, b) => a.range.from - b.range.from);
+  const index = made.findIndex((m) => m.range === main);
+  const selection = EditorSelection.create(
+    made.map((m) => m.range),
+    index < 0 ? made.length - 1 : index,
+  );
+  // Ranges merged where clones met: the run starts again.
+  const kept = selection.ranges.length === made.length ? made.map((m) => m.part) : [];
+  return {
+    selection,
+    effects: cloned.of(kept.length > 0 ? kept : made.map(() => ({ level: 0 }))),
+    scrollIntoView: true,
+    userEvent: 'select.clone',
+  };
+}
+
+export const cloneCaretAbove: Command = (view) => {
+  view.dispatch(cloneCaret(view.state, true));
+  return true;
+};
+
+export const cloneCaretBelow: Command = (view) => {
+  view.dispatch(cloneCaret(view.state, false));
+  return true;
+};
+
+/** How long each step of a double Ctrl may take, as ModifierKeyDoubleClickHandler's. */
+export const DOUBLE_MODIFIER = 300;
+
+/**
+ * IntelliJ's double Ctrl (Alt on macOS) held with Up or Down, which clones a caret where the keymap
+ * gives Clone Caret no keys (ModifierKeyDoubleClickHandler, `addCaretsOnDoubleCtrl`): the modifier
+ * pressed, let go and pressed again, each within `DOUBLE_MODIFIER` of the last, then held. `which`
+ * says the modifier, and whether each action has the gesture; anything else pressed between starts
+ * over. Its moves with Shift (Left, Right, Home, End) aren't taken: those actions have keys in every
+ * keymap, which leaves them the keymap's.
+ */
+export function cloneGesture(
+  which:
+    (() => { modifier: 'Control' | 'Alt'; above: boolean; below: boolean } | undefined) | undefined,
+  now: () => number = () => performance.now(),
+): Extension {
+  let first = false;
+  let released = false;
+  let second = false;
+  let at = 0;
+  const reset = () => {
+    first = released = second = false;
+  };
+  const modifier = (down: boolean) => {
+    const time = now();
+    if (first && time - at > DOUBLE_MODIFIER) {
+      reset();
+      return;
+    }
+    if (down && !first) {
+      first = true;
+      at = time;
+    } else if (down && released) {
+      second = true;
+      at = time;
+    } else if (!down && first && !released) {
+      released = true;
+      at = time;
+    } else reset();
+  };
+  return Prec.highest(
+    EditorView.domEventHandlers({
+      keydown: (event, view) => {
+        const gesture = which?.();
+        if (!gesture) return false;
+        if (event.key === gesture.modifier) {
+          if (!event.repeat) modifier(true);
+          return false;
+        }
+        const others =
+          event.shiftKey ||
+          event.metaKey ||
+          (gesture.modifier === 'Control' ? event.altKey : event.ctrlKey);
+        const up = event.key === 'ArrowUp';
+        if (first && released && second && (up || event.key === 'ArrowDown') && !others) {
+          if (!(up ? gesture.above : gesture.below)) return false;
+          event.preventDefault();
+          view.dispatch(cloneCaret(view.state, up));
+          return true;
+        }
+        reset();
+        return false;
+      },
+      keyup: (event) => {
+        const gesture = which?.();
+        if (gesture && event.key === gesture.modifier) modifier(false);
+        return false;
+      },
+      blur: () => {
+        reset();
+        return false;
+      },
+    }),
+  );
+}
+
 /** What the occurrence actions need in an editor: their search, and the hint for none found. */
-export const occurrences: Extension = [search, hinted];
+export const occurrences: Extension = [search, hinted, cloning];

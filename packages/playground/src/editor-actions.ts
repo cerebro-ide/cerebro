@@ -69,6 +69,8 @@ const LABELS: Readonly<Record<Exclude<EditorAction, 'rename'>, string>> = {
   unselectOccurrence: 'Unselect Occurrence',
   selectAllOccurrences: 'Select All Occurrences',
   addCaretsToLineEnds: 'Add Carets to Ends of Selected Lines',
+  cloneCaretAbove: 'Clone Caret Above',
+  cloneCaretBelow: 'Clone Caret Below',
 };
 
 /** The mouse's carets' names, IntelliJ's. */

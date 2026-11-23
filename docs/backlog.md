@@ -71,9 +71,8 @@ diff's model for one link (CLAUDE.md).
 
 ### Multiple carets: the rest
 
-Ido approved them (2026-11-23); the first two parts are done (decision "Multiple carets"). Left:
-Clone Caret Above and Below, Column Selection Mode, and VS Code's Insert Cursor Above and Below;
-Cyclic Expand Word at every caret.
+Ido approved them (2026-11-23); the first three parts are done (decision "Multiple carets"). Left:
+Column Selection Mode; Cyclic Expand Word at every caret.
 
 ### A popup that holds controls (proposed: a reshaping, for Ido's word)
 

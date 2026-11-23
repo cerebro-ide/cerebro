@@ -83,6 +83,8 @@ export const EDITOR_ACTIONS = {
   unselectOccurrence: 'editor.unselectOccurrence',
   selectAllOccurrences: 'editor.selectAllOccurrences',
   addCaretsToLineEnds: 'editor.addCaretsToLineEnds',
+  cloneCaretAbove: 'editor.cloneCaretAbove',
+  cloneCaretBelow: 'editor.cloneCaretBelow',
 } as const;
 
 /**
@@ -233,6 +235,9 @@ export const INTELLIJ: KeymapPreset = {
     [EDITOR_ACTIONS.unselectOccurrence]: ['Alt+Shift+J'],
     [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Alt+Shift+J'],
     [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+G'],
+    // None: a double Ctrl held with Up or Down runs them (ModifierKeyDoubleClickHandler).
+    [EDITOR_ACTIONS.cloneCaretAbove]: [],
+    [EDITOR_ACTIONS.cloneCaretBelow]: [],
     [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Shift+Click'],
     [CARET_MOUSE.createRectangularSelection]: ['Alt+Click', 'MiddleClick'],
     [CARET_MOUSE.addRectangularSelection]: ['Ctrl+Alt+Shift+Click'],
@@ -406,6 +411,9 @@ export const INTELLIJ_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.unselectOccurrence]: ['Ctrl+Shift+G'],
     [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Meta+G'],
     [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+G'],
+    // None: a double Alt held with Up or Down runs them (ModifierKeyDoubleClickHandler).
+    [EDITOR_ACTIONS.cloneCaretAbove]: [],
+    [EDITOR_ACTIONS.cloneCaretBelow]: [],
     [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Shift+Click'],
     [CARET_MOUSE.createRectangularSelection]: ['Alt+Click', 'MiddleClick'],
     [CARET_MOUSE.addRectangularSelection]: ['Alt+Shift+Meta+Click'],
@@ -464,6 +472,12 @@ export const VSCODE_LINUX: KeymapPreset['bindings'] = {
   // Ctrl+Shift+Up and Down are its Scroll up and down; it has no Move Statement.
   [EDITOR_ACTIONS.moveStatementUp]: [],
   [EDITOR_ACTIONS.moveStatementDown]: [],
+  // Add Cursor Above and Below are Shift+Alt+Up and Down, which Copy Line Down leaves for
+  // Ctrl+Shift+Alt+Down (its source's `linux` keys; their Ctrl+Shift+Up and Down, scrolling here,
+  // left out).
+  'edit.duplicate': ['Ctrl+Alt+Shift+Down'],
+  [EDITOR_ACTIONS.cloneCaretAbove]: ['Alt+Shift+Up'],
+  [EDITOR_ACTIONS.cloneCaretBelow]: ['Alt+Shift+Down'],
 };
 
 /** VS Code's keymap for Windows and Linux, with its Linux sheet's keys on Linux (`navigator.platform`). */
@@ -566,6 +580,9 @@ const VSCODE_WINDOWS: KeymapPreset = {
     [EDITOR_ACTIONS.selectNextOccurrence]: ['Ctrl+D'],
     [EDITOR_ACTIONS.selectAllOccurrences]: ['Ctrl+Shift+L'],
     [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+I'],
+    // Add Cursor Above and Below (its source's `insertCursorAbove`, Windows' keys).
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Alt+Down'],
     // Alt+Click inserts a cursor, Shift+Alt+drag selects a column (its sheets).
     [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Click'],
     [CARET_MOUSE.createRectangularSelection]: ['Alt+Shift+Click'],
@@ -657,6 +674,8 @@ export const VSCODE_MAC: KeymapPreset = {
     [EDITOR_ACTIONS.selectNextOccurrence]: ['Meta+D'],
     [EDITOR_ACTIONS.selectAllOccurrences]: ['Meta+Shift+L'],
     [EDITOR_ACTIONS.addCaretsToLineEnds]: ['Alt+Shift+I'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Meta+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Meta+Alt+Down'],
     // Alt+Click inserts a cursor, Shift+Alt+drag selects a column (its sheets).
     [CARET_MOUSE.addOrRemoveCaret]: ['Alt+Click'],
     [CARET_MOUSE.createRectangularSelection]: ['Alt+Shift+Click'],
@@ -1065,6 +1084,8 @@ export const SUBLIME: KeymapPreset = {
     // Its file's carets: Ctrl+D, Alt+F3, Ctrl+click adds one, Ctrl+middle drag a rectangle.
     [EDITOR_ACTIONS.selectNextOccurrence]: ['Ctrl+D'],
     [EDITOR_ACTIONS.selectAllOccurrences]: ['Alt+F3'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Alt+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Alt+Down'],
     [CARET_MOUSE.addOrRemoveCaret]: ['Ctrl+Click'],
     [CARET_MOUSE.addRectangularSelection]: ['Ctrl+MiddleClick'],
     [EDITOR_ACTIONS.codeBlockStart]: [],
@@ -1139,6 +1160,8 @@ export const SUBLIME_MAC: KeymapPreset = {
   bindings: {
     // Its file's carets: Cmd+D, Cmd+click adds one, Cmd+Alt or Cmd+middle drag a rectangle.
     [EDITOR_ACTIONS.selectNextOccurrence]: ['Meta+D'],
+    [EDITOR_ACTIONS.cloneCaretAbove]: ['Ctrl+Shift+Up'],
+    [EDITOR_ACTIONS.cloneCaretBelow]: ['Ctrl+Shift+Down'],
     [CARET_MOUSE.addOrRemoveCaret]: ['Meta+Click'],
     [CARET_MOUSE.addRectangularSelection]: ['Alt+Meta+Click', 'Meta+MiddleClick'],
     [EDITOR_ACTIONS.codeBlockStart]: [],

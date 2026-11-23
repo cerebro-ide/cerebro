@@ -10,6 +10,9 @@
 import {
   addCaretsToLineEnds,
   caretMouse,
+  cloneCaretAbove,
+  cloneCaretBelow,
+  cloneGesture,
   occurrences,
   selectAllOccurrences,
   selectNextOccurrence,
@@ -389,6 +392,12 @@ export interface EditorKeys {
   selectAllOccurrences?: readonly string[];
   /** Add Carets to Ends of Selected Lines: a caret at the end of each line selected. */
   addCaretsToLineEnds?: readonly string[];
+  /**
+   * Clone Caret Above and Below. With none, IntelliJ's double Ctrl (Alt on macOS) held with Up or
+   * Down runs them (`cloneGesture`).
+   */
+  cloneCaretAbove?: readonly string[];
+  cloneCaretBelow?: readonly string[];
   /** None when the app's own Edit → Undo and Redo run them, through `editorHistory`. */
   undo?: readonly string[];
   redo?: readonly string[];
@@ -451,6 +460,8 @@ export const DEFAULT_KEYS: Required<EditorKeys> = {
   unselectOccurrence: ['Alt-Shift-j'],
   selectAllOccurrences: ['Mod-Alt-Shift-j'],
   addCaretsToLineEnds: ['Alt-Shift-g'],
+  cloneCaretAbove: [],
+  cloneCaretBelow: [],
   undo: ['Mod-z'],
   redo: ['Mod-Shift-z'],
 };
@@ -1217,6 +1228,8 @@ export function CodeEditor(props: CodeEditorProps): Node {
       actionKeys('unselectOccurrence', keys.unselectOccurrence, unselectOccurrence),
       actionKeys('selectAllOccurrences', keys.selectAllOccurrences, selectAllOccurrences),
       actionKeys('addCaretsToLineEnds', keys.addCaretsToLineEnds, addCaretsToLineEnds),
+      actionKeys('cloneCaretAbove', keys.cloneCaretAbove, cloneCaretAbove),
+      actionKeys('cloneCaretBelow', keys.cloneCaretBelow, cloneCaretBelow),
       actionKeys('extendSelection', keys.extendSelection, extendingSelection),
       actionKeys('shrinkSelection', keys.shrinkSelection, shrinkingSelection),
       actionKeys('scrollUp', keys.scrollUp, scrollingBy(-1)),
@@ -1391,6 +1404,14 @@ export function CodeEditor(props: CodeEditorProps): Node {
     // Several carets, as IntelliJ's: added by the mouse and the occurrence actions.
     EditorState.allowMultipleSelections.of(true),
     caretMouse(props.mouse),
+    cloneGesture(() => {
+      const keys = { ...DEFAULT_KEYS, ...props.keys?.() };
+      return {
+        modifier: navigator.platform.includes('Mac') ? 'Alt' : 'Control',
+        above: keys.cloneCaretAbove.length === 0,
+        below: keys.cloneCaretBelow.length === 0,
+      };
+    }),
     occurrences,
     keyed.of(actions()),
     keymap.of([
